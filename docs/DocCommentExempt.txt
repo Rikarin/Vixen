@@ -11,7 +11,6 @@
 # what misleads a reader.
 #
 # Sixty-four blocks in fifty-one files were already wrong the day the rule was written. ⚠ They are not
-# all cosmetic: `Editor/Vixen.Editor.Ui/Commands/KeyChord.cs` carries `MacFormat`' entire block above
 # `MacWords`, so one public formatter is undocumented and the other is described twice — the #866
 # defect, live, in shipped code, found by the rule's first run. #879 is the task to empty this list.
 #
@@ -61,7 +60,6 @@ Editor/Vixen.Editor.SceneView/ScenePicker.cs
 Editor/Vixen.Editor.SceneView/SceneProbe.cs
 Editor/Vixen.Editor.SceneView/SceneSerializer.cs
 Editor/Vixen.Editor.SceneView/SceneViewport.cs
-Editor/Vixen.Editor.Ui/Commands/KeyChord.cs
 Platform/Vixen.Graphics.Golden.Tests/SharedUiShaderTests.cs
 Platform/Vixen.Graphics.Golden.Tests/StandardFrameTierImageTests.cs
 Platform/Vixen.Graphics.Golden.Tests/WaterSurfaceSeamDeviceTests.cs
