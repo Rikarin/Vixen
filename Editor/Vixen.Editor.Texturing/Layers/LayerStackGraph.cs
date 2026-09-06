@@ -161,17 +161,47 @@ static class LayerStackGraph {
     /// <param name="stack">The document.</param>
     /// <param name="set">Which of its sets.</param>
     /// <param name="registry">
-    ///     The node types a generator or a mask effect is looked up in, or <see langword="null" />
-    ///     for this build's own library with the shipped compounds published into it.
+    ///     The node types a generator or a mask effect is looked up in. ⚠ <see langword="null" />
+    ///     means <b>the four compounds this build ships and nothing else</b> — for a caller that has
+    ///     no project — and not "the library".
     /// </param>
     /// <returns>The graph and what building it had to say.</returns>
     /// <exception cref="ArgumentNullException">The stack or the set is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>The registry is an input to <em>building</em> and not only to compiling, which it was
-    ///     not before M8.</b> A generator and a mask effect are named by node-type path, and which
-    ///     port of one carries the image is a fact only the registry has — so a builder without one
-    ///     would have to hard-code a port name per effect, which is exactly the second list
-    ///     <c>LayerFilterKind</c>'s hand-written ports already are.
+    ///     <para>
+    ///         ⚠ <b>The registry is an input to <em>building</em> and not only to compiling, which it
+    ///         was not before M8.</b> A generator and a mask effect are named by node-type path, and
+    ///         which port of one carries the image is a fact only the registry has — so a builder
+    ///         without one would have to hard-code a port name per effect, which is exactly the
+    ///         second list <c>LayerFilterKind</c>'s hand-written ports already are.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The default is the quiet one <a href="https://github.com/Rikarin/Vixen/issues/858">#858</a>
+    ///         was about, one call deeper, and it is left in place deliberately</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/946">#946</a>. This is a static method
+    ///         with no document, so there is no folder it could find on its own; a caller that has a
+    ///         project passes the registry <c>LayerStackCompiler.Library(out _, assets)</c> built from
+    ///         it, which is what <c>LayerStackCompiler.Compile</c> does since
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/924">#924</a>. Growing an
+    ///         <c>assets</c> parameter here instead would be a second way to say the same thing and a
+    ///         second default for a caller to leave alone. <b>So: null is for a caller with no
+    ///         project, and it is not the library.</b>
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the default costs is a <em>refusal</em>, not silence and not <c>TG0001</c>.</b>
+    ///         A fill or a mask effect naming a compound out of the project's <c>Assets/Compounds</c>
+    ///         is caught here, before a node is emitted, and comes back as a
+    ///         <c>LayerStackProblem.Refusal</c> whose sentence names the path — the issue predicted
+    ///         <c>TG0001</c>, which is what the <em>compiler</em> says about a type it has and cannot
+    ///         inline. <c>ProjectCompoundDeviceTests</c> holds both halves.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The one non-test caller of the default is <see cref="LayerStackExplode.Explode" />,
+    ///         and nothing in the editor calls that either.</b> So the fallback is unreachable in a
+    ///         running editor today — which is a statement with a shelf life: an Explode command,
+    ///         when one is wired, has to hand this a registry built from the project or an exploded
+    ///         stack loses every project compound the author used.
+    ///     </para>
     /// </remarks>
     public static LayerStackBuild Build(
         LayerStackAsset stack,

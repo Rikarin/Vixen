@@ -97,6 +97,14 @@ sealed partial class TileSamplerNode : TextureNode {
     public Int PatternCount = 1;
 
     /// <summary>Whether the pattern's alpha carries its coverage rather than its luminance.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It also decides how a minified instance is filtered</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/950">#950</a>. With an alpha the colour
+    ///     and the coverage are two numbers, so a partly covered texel keeps the pattern's colour and
+    ///     says so in its alpha; without one the luminance <em>is</em> the coverage, so a partly
+    ///     covered texel is a darker one. Ticking this on a pattern whose alpha is opaque everywhere
+    ///     hardens every edge the bake minifies.
+    /// </remarks>
     [Input(Name = "Alpha Coverage")]
     public Bool AlphaCoverage = false;
 
@@ -244,6 +252,14 @@ sealed partial class SplatterNode : TextureNode {
     public Int PatternCount = 1;
 
     /// <summary>Whether the pattern's alpha carries its coverage rather than its luminance.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It also decides how a minified instance is filtered</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/950">#950</a>. With an alpha the colour
+    ///     and the coverage are two numbers, so a partly covered texel keeps the pattern's colour and
+    ///     says so in its alpha; without one the luminance <em>is</em> the coverage, so a partly
+    ///     covered texel is a darker one. Ticking this on a pattern whose alpha is opaque everywhere
+    ///     hardens every edge the bake minifies.
+    /// </remarks>
     [Input(Name = "Alpha Coverage")]
     public Bool AlphaCoverage = false;
 

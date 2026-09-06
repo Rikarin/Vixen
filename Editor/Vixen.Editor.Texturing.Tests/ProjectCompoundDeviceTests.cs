@@ -136,6 +136,56 @@ public class ProjectCompoundDeviceTests {
         Assert.DoesNotContain(Published, picture.Status, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     ⚠ <c>LayerStackGraph.Build</c>'s null registry means the shipped compounds, and the
+    ///     sentence it produces names the compound it could not find.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/946">#946</a>, which asked for the
+    ///         default to be <em>said</em> rather than changed.</b> A remark is a claim like any
+    ///         other, and this is the one that holds it: with no registry the same stack that works
+    ///         through the panel is refused, and with the registry
+    ///         <c>LayerStackCompiler.Library(out _, assets)</c> builds from the project's folder it is
+    ///         not. Both halves, because "it is refused" alone is also what a stack with a typo in it
+    ///         produces.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the refusal is a <c>LayerStackProblem</c> naming the path, not <c>TG0001</c>
+    ///         and not a dropped layer.</b> The issue predicted the compiler's diagnostic; what the
+    ///         builder actually does is refuse before it emits a node, which is a better answer and a
+    ///         different one. The assertion reads the sentence, so a change that made the build fail
+    ///         silently would be red here rather than quietly satisfying "there was a problem".
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Building_a_stack_without_a_registry_refuses_the_projects_own_compound_by_name() {
+        using var fixture = new TexturingFixture();
+
+        Publish(fixture);
+
+        var stack = Filled(64);
+
+        var alone = LayerStackGraph.Build(stack, stack.Sets[0]);
+        var refusal = Assert.Single(alone.Problems);
+
+        Assert.Contains(Published, refusal.Message, StringComparison.Ordinal);
+
+        // And with the project's own folder published into the registry, the same stack builds.
+        var registry = LayerStackCompiler.Library(out _, fixture.Paths.Assets);
+        var withProject = LayerStackGraph.Build(stack, stack.Sets[0], registry);
+
+        Assert.Empty(withProject.Problems);
+
+        // ⚠ The instrument: "no problems" is also what a build that emitted nothing would say, and
+        // the refused build above emitted the channel's default on its own.
+        Assert.True(
+            withProject.Graph.Nodes.Count > alone.Graph.Nodes.Count,
+            $"the build with the project's compounds has {withProject.Graph.Nodes.Count} nodes and the one "
+            + $"without has {alone.Graph.Nodes.Count}, so the fill reached neither graph."
+        );
+    }
+
     /// <summary>Writes a compound into the project's own <c>Assets/Compounds</c>.</summary>
     /// <param name="fixture">The project.</param>
     /// <remarks>

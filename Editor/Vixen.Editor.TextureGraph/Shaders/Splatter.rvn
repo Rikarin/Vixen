@@ -212,6 +212,24 @@ shader Splatter {
     }
 
     /// How much of a texel one instance covers, from whichever channel carries it.
+    ///
+    /// ⚠ **Under `alphaCoverage == 0` the coverage is a *function of the colour* and not a second
+    /// number beside it** — [#950](https://github.com/Rikarin/Vixen/issues/950). That is the coverage
+    /// model this whole kernel is built on, and it is deliberate: a greyscale stamp has no alpha to
+    /// carry an edge in, so its brightness is the only thing an edge can be written in, and the mask
+    /// threshold, `max`'s running alpha and `blend`'s compositing all read it that way.
+    ///
+    /// The consequence is the one the supersample resolve in `Main` turns on, so it is stated here
+    /// rather than there. **With a declared alpha the pair is straight** — a colour that means the
+    /// same thing at every coverage — and a box filter over it has to divide the coverage back out
+    /// (`Σ(c·α) / Σα`), which is #888. **Without one the pair is not independent**: the image is
+    /// already an energy, a half-covered texel of a grey stamp *is* a darker texel, and the plain box
+    /// mean is the anti-aliased answer. Dividing by a weight derived from the colour would divide the
+    /// colour by a function of itself and hand back the stamp's full brightness at every non-zero
+    /// coverage — a one-texel dilation with a hard bright rim, which is #888's own defect with the
+    /// sign flipped. `A_minified_stamp_with_no_alpha_darkens_with_its_coverage` is the pair to
+    /// `A_minified_stamp_keeps_its_colour_where_it_only_partly_covers_a_texel`, and the two differ
+    /// only in this flag.
     func Coverage(texel: float4): float {
         if (alphaCoverage != 0) {
             return texel.w
@@ -369,13 +387,15 @@ shader Splatter {
         // The premultiplied resolve below is what a straight pair means — `Σ(cᵢ·αᵢ) / Σαᵢ` for the
         // colour, the plain mean for the coverage — and at `samples == 1` it is the identity.
         //
-        // ⚠ **Under `alphaCoverage == 0` that `α` is the colour's own luminance**, because that is
-        // what `Coverage` returns there — so this is a luminance-weighted mean rather than a box
-        // mean, and a minified greyscale pattern resolves brighter than the pattern. Whether that is
-        // right is the kernel's coverage model rather than this filter's arithmetic: under
-        // luminance-as-coverage a dark texel *is* less covered and should weigh less. It is
-        // unasserted either way — the test that pins this fix passes `alphaCoverage: true` — and is
-        // recorded at <https://github.com/Rikarin/Vixen/issues/950> rather than settled here.
+        // ⚠ **And only where the coverage is a channel of its own, which is what `alphaCoverage`
+        // says** — [#950](https://github.com/Rikarin/Vixen/issues/950). Under `alphaCoverage == 0`
+        // that `α` is `Coverage`'s luminance, so `weighted / sum.w` divides the colour by a function
+        // of itself and returns the stamp's full brightness at *every* non-zero coverage: a hard
+        // bright rim one texel wide, which is the defect above with the sign flipped. There the image
+        // is already an energy and the plain box mean is the anti-aliased answer — `Coverage`'s
+        // remarks carry the decision, because it is that function's model and not this filter's
+        // arithmetic. ⚠ The condition was `accumulation != 1` alone from #888 until #950, so the path
+        // every graph that leaves `Alpha Coverage` alone takes was the one with no test.
         //
         // ⚠ **`add` keeps the unweighted mean and that is not an oversight.** Its running colour is a
         // *sum* of light rather than a colour over a backdrop, so an empty sub-sample contributes a
@@ -383,7 +403,7 @@ shader Splatter {
         // pattern's own mean — is a statement about that unweighted mean and a coverage-weighted
         // filter would break it. The three modes differ here for the same reason they differ in
         // `Accumulate`: only one of them composites.
-        if (accumulation != 1 && sum.w > 0.000001f) {
+        if (accumulation != 1 && alphaCoverage != 0 && sum.w > 0.000001f) {
             val resolved = weighted / sum.w
 
             target.Store(coord, float4(resolved.x, resolved.y, resolved.z, mean.w))

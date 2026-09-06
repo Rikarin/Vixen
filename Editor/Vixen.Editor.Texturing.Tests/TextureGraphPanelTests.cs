@@ -467,6 +467,99 @@ public class TextureGraphPanelTests {
         Assert.Equal(2, view.Trail.Count);
     }
 
+    /// <summary>⚠ A refresh keeps the author's zoom, and a different graph is framed afresh.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/957">#957</a>.</b>
+    ///         <c>Show</c> runs on every wire an author drags — that is what <c>Edited</c> is for —
+    ///         and it called <c>ImageView.Fit</c> unconditionally, which overwrites <c>Zoom</c> and
+    ///         <c>Pan</c> outright. So an author who had zoomed into a corner of the result to see
+    ///         what an edit did lost it on the edit, which is the one moment they were looking.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because "never fit" passes the first one on its own</b> — and never
+    ///         fitting is the worse defect: <c>Fit</c> answers false before the first layout, so a
+    ///         panel that framed once and gave up would open every graph at whatever zoom nothing set.
+    ///         The second half is a different document, which is a different picture and has to be
+    ///         framed. The zoom the author is given is deliberately not the fitted one, so "it was
+    ///         left alone" is a statement about a number rather than a coincidence.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Refreshing_the_panel_keeps_the_zoom_and_showing_another_graph_refits() {
+        using var fixture = new TexturingFixture();
+        var (view, _) = Opened(fixture);
+
+        // ⚠ The instrument, and it is the failure mode this fix could have introduced. `Opened`'s own
+        // `Show` runs before the panel has been laid out, so `Fit` answered false and framed nothing;
+        // the refresh below is the retry. A view that framed once and gave up leaves these equal.
+        var unframed = view.Preview.Zoom;
+
+        view.Show(view.Document, TexturePreviewBlocker.NoDevice);
+
+        var fittedZoom = view.Preview.Zoom;
+
+        Assert.True(
+            fittedZoom > 0f && fittedZoom != unframed,
+            $"the preview was never framed — it is still at {unframed}, which is the zoom nothing set"
+        );
+
+        view.Preview.Zoom = fittedZoom * 4f;
+        view.Preview.Pan = new(11f, 13f);
+
+        // What an edit does: the document is unchanged and the picture was recomputed.
+        view.Show(view.Document, TexturePreviewBlocker.NoDevice);
+
+        Assert.Equal(fittedZoom * 4f, view.Preview.Zoom);
+        Assert.Equal(new(11f, 13f), view.Preview.Pan);
+
+        view.Show(Document(fixture, "Tiles"), TexturePreviewBlocker.NoDevice);
+
+        Assert.Equal(fittedZoom, view.Preview.Zoom);
+    }
+
+    /// <summary>⚠ A refresh does not rebuild the canvas, because the edit that caused it already did.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The other half of <a href="https://github.com/Rikarin/Vixen/issues/957">#957</a>.</b>
+    ///         <c>NodeGraphView.OnGraphChanged</c> projects and <em>then</em> raises
+    ///         <c>GraphChanged</c>, so by the time <c>Edited</c> has run the round trip and
+    ///         <c>Show</c> is called the canvas is already current. <c>Show</c> assigned
+    ///         <c>Canvas.Registry</c> unconditionally and that setter projects with no guard — so
+    ///         every edit paid for two projections of the whole graph. ⚠ It is not
+    ///         <c>Canvas.Graph</c>, which does guard on reference equality; the line that looked
+    ///         harmless was the one two below it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The assertion is the identity of the <c>CanvasGraph</c> and not of a
+    ///         <c>NodeItem</c>, and the difference is a sabotage this test failed to notice
+    ///         first.</b> <c>Project</c> starts <c>new CanvasGraph()</c> and hands it to the canvas
+    ///         control, which <em>reuses</em> its item elements across the swap — so an assertion on
+    ///         item identity stayed green with the fix reverted. What is rebuilt is the graph, so
+    ///         that is what is read.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Refreshing_the_panel_does_not_reproject_the_canvas() {
+        using var fixture = new TexturingFixture();
+        var (view, canvas) = Opened(fixture);
+        var compound = TextureGraph.TextureCompoundLibrary.Shipped[0];
+
+        canvas.Graph.Add(compound, new(120f, 120f));
+
+        Settle(fixture);
+
+        // The instrument: the edit above went through OnGraphChanged, which projected — so there is a
+        // projection here to be identical to, rather than a canvas nothing has ever drawn.
+        var before = canvas.Canvas.Graph;
+
+        Assert.NotNull(Item(canvas, compound).Node);
+
+        view.Show(view.Document, TexturePreviewBlocker.NoDevice);
+
+        Assert.Same(before, canvas.Canvas.Graph);
+    }
+
     /// <summary>The first crumb is the way back, and it restores the document's own undo stack.</summary>
     [Fact]
     public void The_trail_goes_back_to_the_document_and_gives_the_stack_back() {

@@ -192,7 +192,9 @@ public sealed class TextureGraphDocument : EditorDocument {
         } catch (Exception exception) when (exception is YamlBindingException
             or YamlParseException or NotSupportedException) {
             Graph = new() { Name = Path.GetFileNameWithoutExtension(path) };
-            LoadDiagnostics = [new("TX0000", exception.Message, NodeId.None)];
+            LoadDiagnostics = [
+                new(TexturingDiagnostics.GraphFileDoesNotParse, exception.Message, NodeId.None)
+            ];
         }
     }
 
