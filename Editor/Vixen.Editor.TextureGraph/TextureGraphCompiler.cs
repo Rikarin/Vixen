@@ -332,6 +332,12 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         promotions.Clear();
         rescales.Clear();
         folded.Clear();
+
+        // ⚠ `emitted` with the others, and it was missed. It counts how many ops each node has
+        // already emitted, and that ordinal goes into the op's `Identity` — so an instance reused
+        // for a second graph would name the same op differently from a fresh instance compiling the
+        // same file, which is exactly the reproducibility `TexturePlan.SeedFor` promises.
+        emitted.Clear();
         nodeImages.Clear();
         kernels.Clear();
         Outputs = [];
@@ -819,11 +825,21 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///         not move: the sub-graph node it stands for, and its own id inside that compound.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The compound's <em>path</em> is mixed in as well, and the collision it prevents is
-    ///         real rather than theoretical.</b> <c>NodeOrigin.Source</c> is the outermost sub-graph
-    ///         node however deep the nesting goes, and <c>Inner</c> is an identity in the innermost
-    ///         file — so a compound containing a compound, each with a node numbered 3, would give
-    ///         two different ops the same name without it.
+    ///         ⚠ <b>The compound's type is mixed in as well, and it narrows the collisions rather
+    ///         than removing them.</b> <c>NodeOrigin.Source</c> is the outermost sub-graph node
+    ///         however deep the nesting goes, and <c>Inner</c> is an identity in the innermost file,
+    ///         so a compound containing a compound — each with a node numbered 3 — would collide on
+    ///         those two alone; the type separates them when the two compounds differ.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it does <em>not</em> separate is two sibling instances of the SAME compound
+    ///         nested inside one outer compound</b>, which share an outermost source, a type and
+    ///         their inner ids, and therefore share a name — two noise ops drawing one picture. The
+    ///         missing component is the middle of the path: which node <em>inside the outer file</em>
+    ///         each instance came from. <c>NodeOrigin.Expansion</c> distinguishes them and is not
+    ///         usable here, because it is a walk-ordered counter and an insertion moves it — which is
+    ///         the whole defect this method exists to fix, in miniature. Recorded rather than
+    ///         papered over: <a href="https://github.com/Rikarin/Vixen/issues/925">#925</a>.
     ///     </para>
     ///     <para>
     ///         <b>The ordinal is what lets one node emit several.</b> <c>AutoLevels</c> is a reduction

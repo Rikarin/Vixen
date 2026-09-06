@@ -304,12 +304,16 @@ sealed class TextureGraphView {
     void Enter(int step) {
         opened.RemoveRange(step + 1, opened.Count - step - 1);
 
+        // ⚠ The document before the graph, in BOTH directions, and the rule is one rule rather than
+        // two. Setting `Graph` rebuilds the canvas's port editors, and each asks the canvas whether
+        // it has a document to record an edit against — so whichever value is stale at that instant
+        // is the one they are built for. Going in, a stale document would put the library's model on
+        // a canvas that records edits to it; coming back out, a stale null left the author's own
+        // graph read-only until something else rebuilt it. The return leg had it backwards.
         if (step == 0 && Document is { } document) {
-            Canvas.Graph = document.Graph;
             Canvas.EditedDocument = document;
+            Canvas.Graph = document.Graph;
         } else {
-            // Before the graph rather than after it, so there is no instant in which the library's
-            // model is on a canvas that would record an edit to it.
             Canvas.EditedDocument = null;
             Canvas.Graph = opened[step].Graph;
         }

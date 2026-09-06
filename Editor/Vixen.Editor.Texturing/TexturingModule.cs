@@ -293,6 +293,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
                 paintView = new PaintUvView(panel, tool) {
                     Target = BeginStroke,
                     Painted = Redraw,
+                    Reverted = Persist,
                     Finished = Recorded
                 };
 
@@ -400,6 +401,25 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         }
 
         Show(composite.Result, "Painting: " + tool.Describe());
+    }
+
+    /// <summary>An undo or a redo moved texels, so the canvas goes back to disk and the map redraws.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Without this an undo is invisible where it matters most.</b> Undoing a stroke mends
+    ///     the <c>PaintImage</c> in memory and nothing else, and <c>LayerStackPreview</c> resolves a
+    ///     paint layer by opening the <c>.vxpaint</c> off the disk — so the layers pane went on
+    ///     showing the stroke the artist had just taken back, until the next pointer-up happened to
+    ///     write the file for its own reasons.
+    ///     <para>
+    ///         The save is the same one <see cref="Recorded" /> does and is idempotent, so an undo
+    ///         immediately after a stroke writes the same bytes twice rather than doing something
+    ///         different the second time.
+    ///     </para>
+    /// </remarks>
+    void Persist() {
+        surface?.Save();
+
+        RefreshStack();
     }
 
     /// <summary>Pointer-up: the canvas goes to disk, the drag goes on the undo stack, the map redraws.</summary>

@@ -198,6 +198,18 @@ sealed class PaintUvView {
     /// <summary>Told what a move, an undo or a redo dirtied, so a caller can re-upload it.</summary>
     public Action<PaintRect>? Painted { get; set; }
 
+    /// <summary>Told when an undo or a redo has moved texels, so a caller can persist them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Separate from <see cref="Painted" /> because the two have different costs and
+    ///     different audiences.</b> <see cref="Painted" /> fires per dirtied region, including once
+    ///     per pointer move during a drag, and re-uploads a rectangle. This fires once per undo or
+    ///     redo of a whole stroke, and its caller writes a 64 MB canvas to disk — which is affordable
+    ///     at that rate and ruinous at the other. Without it an undone stroke stays in the
+    ///     <c>.vxpaint</c>, and the layers pane, which resolves a paint layer by opening that file,
+    ///     goes on showing the stroke the artist just took back.
+    /// </remarks>
+    public Action? Reverted { get; set; }
+
     /// <summary>Told at pointer-up what the drag was, for a caller to put on the undo stack.</summary>
     /// <remarks>
     ///     Not raised for a drag that painted nothing — <see cref="PaintSession.End" /> answers null
@@ -229,7 +241,12 @@ sealed class PaintUvView {
             fitted = false;
         }
 
-        if (!fitted) {
+        // ⚠ Never while a stroke is in flight. `Fit` writes both `Zoom` and `Pan`, which are the
+        // whole of `ToImage` — so a fit that lands between two stamps puts every later stamp of that
+        // drag somewhere other than under the pointer. It is reachable because the first fit is
+        // attempted while the panel's box is still zero-sized and answers false, leaving `fitted`
+        // false for whatever `Show` comes next — and during a drag that is `Painted`'s redraw.
+        if (!fitted && session is null) {
             fitted = Image.Fit();
         }
 
@@ -356,7 +373,11 @@ sealed class PaintUvView {
 
                 break;
 
-            case PointerAction.Released:
+            // ⚠ `when session is not null`, or a refused press strands the pan. A press with nothing
+            // to paint into is deliberately left unhandled so the pane still pans — which means
+            // `ImageView` has taken the pointer and is dragging. Handling the release here anyway
+            // stopped it ever seeing the release, so the pane panned for the rest of the session.
+            case PointerAction.Released when session is not null:
                 Image.Document.ReleasePointer();
                 End();
 
@@ -407,7 +428,16 @@ sealed class PaintUvView {
 
         session = null;
 
-        if (finished.End("Paint stroke", rect => Painted?.Invoke(rect)) is not { } command) {
+        // ⚠ Both, and the second is what reaches the disk. This lambda is the command's own
+        // callback, so it runs on the execute and on every later undo and redo — the three moments
+        // the canvas in memory stops agreeing with the canvas in the file.
+        if (finished.End(
+                "Paint stroke",
+                rect => {
+                    Painted?.Invoke(rect);
+                    Reverted?.Invoke();
+                }
+            ) is not { } command) {
             return;
         }
 

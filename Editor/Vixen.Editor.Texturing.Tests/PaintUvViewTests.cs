@@ -93,11 +93,28 @@ public class PaintUvViewTests {
 
         var before = document.Stack.Depth.Value;
 
+        // ⚠ The half this test is named for, and it was missing. Every assertion here was about the
+        // stack's own bookkeeping, which `CommandStack`'s tests already cover; nothing looked at a
+        // texel, so an undo that mended the image in memory and left the `.vxpaint` alone passed —
+        // and the layers pane resolves a paint layer by opening that file.
+        var layer = Assert.Single(document.Document.Sets[0].Layers, one => one.Kind == LayerKind.Paint);
+        var file = Path.Combine(Path.GetDirectoryName(document.AssetPath)!, layer.Paint);
+
         Assert.True(document.Stack.Undo());
         Assert.Equal(before - 1, document.Stack.Depth.Value);
 
-        // The second drag is one entry on its own — a stroke never merges with the one before it.
+        using (var undone = File.OpenRead(file)) {
+            Assert.Equal(0u, PaintCanvas.Read(undone).Channel("baseColor").At(16, 16));
+        }
+
+        // And back again, on disk, so the redo is as real as the undo was.
         Assert.True(document.Stack.Redo());
+
+        using (var redone = File.OpenRead(file)) {
+            Assert.NotEqual(0u, PaintCanvas.Read(redone).Channel("baseColor").At(16, 16));
+        }
+
+        // The second drag is one entry on its own — a stroke never merges with the one before it.
         Drag(fixture, image, new Vector2(48f, 16f), new Vector2(56f, 24f));
 
         Assert.Equal(before + 1, document.Stack.Depth.Value);
