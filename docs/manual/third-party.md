@@ -186,6 +186,7 @@ Rows marked **build/test only** do not reach a shipped game or editor; the reaso
 | `xunit.v3` | 3.2.2 | Apache-2.0 | `nuspec` | **test only** |
 | `xunit.runner.visualstudio` | 3.1.5 | Apache-2.0 | `nuspec` | **test only** |
 | `Microsoft.NET.Test.Sdk` | 18.8.1 | MIT | `nuspec` | **test only** |
+| `Microsoft.Testing.Extensions.TrxReport` | 1.9.1 | MIT | `nuspec` | **test only** — the TRX writer for the Microsoft.Testing.Platform runner. Pinned to 1.x: xunit.v3 binds the 1.x platform |
 | `CsCheck` | 4.7.0 | Apache-2.0 | `nuspec` | **test only** |
 | `Npgsql` | 9.0.4 | PostgreSQL | `nuspec` | **test only** — one test project. The PostgreSQL licence is a permissive BSD-style text, distinct from MIT |
 
