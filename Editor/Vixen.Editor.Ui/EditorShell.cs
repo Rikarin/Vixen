@@ -559,6 +559,27 @@ public sealed class EditorShell : IDisposable {
     ///         predicate rather than a layout pass — which is what makes it safe to set from a
     ///         pointer handler.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is not <c>UiElement.CommandScope</c>, and #642 asks five times over for it
+    ///         to be deleted in favour of one. It carries a fact the focus does not have.</b>
+    ///         <c>CommandRoute.ScopeOf</c> answers "which scope is the focused element in"; most
+    ///         writers here agree with that — every <c>panel.WhenPressedIn(() =&gt; Shell.Context =
+    ///         …)</c> in <c>EditorApplication</c>, <c>EditorWorlds</c>, <c>DiagnosticsModule</c> and
+    ///         <c>BlockoutModulePanels</c> is a press inside a panel. Two writers do not.
+    ///         <c>EditorApplication.cs:2207</c> reads <c>Shell.Modes.Context ?? SceneContext</c>, and
+    ///         <c>RegisterModes</c> claims the context on entering a mode <i>without waiting for a
+    ///         press</i> — its own comment says why: somebody who has just pressed the Blockout
+    ///         button has aimed at the viewport and should not have to click it as well. The focus at
+    ///         that instant is on the toolbar button, so a scope derived from it would report the
+    ///         toolbar and the mode's own bindings would silently stop resolving.
+    ///     </para>
+    ///     <para>
+    ///         So the honest shape is <c>Modes.Context</c> outranking a focus-derived scope rather
+    ///         than a deletion — a behaviour change across <c>Vixen.Editor.App</c>,
+    ///         <c>.Blockout</c>, <c>.Terrain</c>, <c>.Water</c> and <c>.Diagnostics</c> that wants a
+    ///         running editor to judge, because a press that does not move the focus stops changing
+    ///         the scope the day it lands.
+    ///     </para>
     /// </remarks>
     public string? Context {
         get;

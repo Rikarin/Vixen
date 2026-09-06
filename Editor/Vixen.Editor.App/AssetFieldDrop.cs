@@ -26,6 +26,28 @@ namespace Vixen.Editor.App;
 ///         the same reason.
 ///     </para>
 ///     <para>
+///         ⚠ <b>That reason has expired, and this is the note for whoever ports it (#654).</b> The
+///         paragraph above is a claim about the framework as it was, and <c>Core/Vixen.Ui/Drop.cs</c>
+///         now answers it directly: <c>TrackDrag</c> "hit-tests past <c>Captured</c>, which nothing
+///         else positional does", precisely because "asking the capture where the pointer is would
+///         answer 'on the source', forever, which is exactly the drag that can never be dropped
+///         anywhere". So a field <i>can</i> hear its own drop today — <c>UiElement.AllowDrop</c>,
+///         <c>DragOverEvent</c> with Entered/Moved/Left in place of <see cref="Over" />'s manual
+///         class bookkeeping, and <c>on:drop</c> in place of <see cref="Drop" />'s point-to-field
+///         search — and <c>DropEffect</c> is the framework's own name for the accept/refuse split
+///         drawn here by hand.
+///     </para>
+///     <para>
+///         It is not ported, and the port is more than this file: <c>ProjectBrowser</c> would call
+///         <c>UiDocument.BeginDrag</c> with a <c>DataObject</c> instead of raising
+///         <c>DroppedOutside</c>, and the ordering policy <c>EditorApplication.Dropped</c> writes
+///         down — a field that <i>refused</i> a drop still consumes it rather than falling through to
+///         the scene — has to become a refusal the route can express, because a drop the nearest
+///         target declines is otherwise offered to the one behind it. That is a behaviour change
+///         across three consumers with no test that photographs it, which is why it is written here
+///         rather than attempted.
+///     </para>
+///     <para>
 ///         ⚠ <b>Only ever one asset, where a drop into the scene takes the whole selection.</b> A
 ///         member names one thing. Dragging four assets onto a mesh field and having it take the
 ///         first is a coin toss over what "first" means — selection order is not what the user sees —

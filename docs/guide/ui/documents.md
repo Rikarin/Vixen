@@ -191,7 +191,19 @@ opens windows and does not name the main one. So the binding is the application 
 `Samples/02-HelloUi` does not make it.
 
 **External-modification detection.** `EditorDocument` has it against an asset database; the
-framework has no file watcher and does not want one in `Core/`.
+framework has no file watcher and does not want one in `Core/`. ⚠ What is missing is not the
+mechanism but somewhere to put its answer: `EditorDocument.IsStale` is *the opposite question to
+`IsDirty`* — disk ahead of memory rather than memory ahead of disk — and `IEditableDocument` has no
+signal for it, so a host cannot ask.
+
+**Nothing in the editor implements `IEditableDocument`**, and the port is two decisions rather than
+glue. `Name` is `EditorDocument.Title` renamed and `Revert` is `Reload` exactly, promise for promise.
+But ⚠ `EditorDocument.Save` returns nothing and *throws through* on a failed write, on purpose, so
+mapping it onto this `bool` either swallows the failure or makes `false` unreachable; and ⚠ an editor
+document's identity is an immutable `AssetId`, not a path — `EditorApplication` opens the main scene
+with `AssetId.Empty` and the real path on its writer — so a straight mapping reports `Location` null
+for a document that has a file, which here means "never saved". Both are recorded in
+`EditorDocument`'s own remarks.
 
 **Undo is not owned by the document.** An element finds a manager with `FindUndoManager`, and a
 document that wants to be where one lives sets `UndoManager` on the element that hosts it. Marking
