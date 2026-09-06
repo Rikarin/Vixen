@@ -38,6 +38,8 @@ public class ThumbnailTests {
             return next++;
         }
 
+        public bool Update(ulong image, int x, int y, int width, int height, ReadOnlySpan<byte> rgba) => false;
+
         public void Release(ulong image) => released.Add(image);
     }
 

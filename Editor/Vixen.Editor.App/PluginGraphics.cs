@@ -59,6 +59,22 @@ sealed class PluginGraphics : IEditorGraphics {
         return image == 0 ? null : new Handle(surface, image, width, height);
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The handle is checked against the surface that made it, not merely against the
+    ///     interface.</b> An image number is a number: one belonging to a previous surface — the
+    ///     window went and came back — names a live image of the current one, so a plugin holding a
+    ///     stale handle would write its pixels into somebody else's picture rather than be told no.
+    /// </remarks>
+    public bool Update(IEditorImage image, int x, int y, int width, int height, ReadOnlySpan<byte> rgba) {
+        ArgumentNullException.ThrowIfNull(image);
+
+        return application.ThumbnailSurface is { } surface
+            && image is Handle handle
+            && handle.Surface == surface
+            && surface.Update(handle.Image, x, y, width, height, rgba);
+    }
+
     /// <summary>One uploaded picture, released once whatever happens to it.</summary>
     /// <remarks>
     ///     ⚠ <b>Idempotent, because a plugin that both releases its image and hands it to
@@ -67,17 +83,18 @@ sealed class PluginGraphics : IEditorGraphics {
     ///     handed out to two owners.
     /// </remarks>
     sealed class Handle : IEditorImage {
-        readonly IThumbnailSurface surface;
-
         bool released;
 
         public Handle(IThumbnailSurface surface, ulong image, int width, int height) {
-            this.surface = surface;
+            Surface = surface;
 
             Image = image;
             Width = width;
             Height = height;
         }
+
+        /// <summary>Which surface made it, so a partial update can refuse a stale one.</summary>
+        public IThumbnailSurface Surface { get; }
 
         /// <inheritdoc />
         public ulong Image { get; }
@@ -95,7 +112,7 @@ sealed class PluginGraphics : IEditorGraphics {
             }
 
             released = true;
-            surface.Release(Image);
+            Surface.Release(Image);
         }
     }
 }

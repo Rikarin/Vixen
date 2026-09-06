@@ -12,6 +12,7 @@ Vixen.Editor.Plugin.IContributionScanner -> interface
 Vixen.Editor.Plugin.IContributionScanner.Scan(Vixen.Editor.Plugin.PluginContext context, System.Reflection.Assembly assembly) -> void
 Vixen.Editor.Plugin.IEditorGraphics -> interface
 Vixen.Editor.Plugin.IEditorGraphics.Device.get -> Vixen.Graphics.IGraphicsDevice?
+Vixen.Editor.Plugin.IEditorGraphics.Update(Vixen.Editor.Plugin.IEditorImage image, int x, int y, int width, int height, System.ReadOnlySpan<byte> rgba) -> bool
 Vixen.Editor.Plugin.IEditorGraphics.Upload(int width, int height, System.ReadOnlySpan<byte> rgba) -> Vixen.Editor.Plugin.IEditorImage?
 Vixen.Editor.Plugin.IEditorImage -> interface
 Vixen.Editor.Plugin.IEditorImage : System.IDisposable

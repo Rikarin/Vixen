@@ -102,4 +102,49 @@ public interface IEditorGraphics {
     ///     for the rest of the session.
     /// </remarks>
     IEditorImage? Upload(int width, int height, ReadOnlySpan<byte> rgba);
+
+    /// <summary>Rewrites one rectangle of a picture that is already on the screen.</summary>
+    /// <param name="image">What <see cref="Upload" /> returned, and this host made.</param>
+    /// <param name="x">The rectangle's low column, in texels of the image.</param>
+    /// <param name="y">Its low row.</param>
+    /// <param name="width">How many columns.</param>
+    /// <param name="height">How many rows.</param>
+    /// <param name="rgba">
+    ///     The rectangle's pixels, four bytes each, its own rows tightly packed — <c>width × height ×
+    ///     4</c> bytes and not a window onto the whole picture.
+    /// </param>
+    /// <returns>
+    ///     Whether it happened. <c>false</c> for an image this host did not make, a rectangle outside
+    ///     it, too few bytes, or a host with nothing to draw on — and a caller that gets it must fall
+    ///     back to <see cref="Upload" /> rather than leave the screen showing the old pixels.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Without this an editing tool pays the whole picture per pointer event</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/912">#912</a>. A plugin that changed a
+    ///         96-texel disc of a 4096² atlas had to hand back 67 MB, take a <i>new</i>
+    ///         <see cref="IEditorImage" /> and drop the old one, which is a texture creation and a
+    ///         descriptor-set write per frame of a drag. The rectangle is what a paint stroke already
+    ///         knows.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The image is not replaced and its number does not change</b>, which is the whole
+    ///         difference from <see cref="Upload" />: the pane goes on drawing the same handle and the
+    ///         plugin goes on owning it. Nothing is returned to <see cref="PluginContext.Owns{T}" />
+    ///         here because nothing new was made.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The write is deferred to the host's own frame, and that — rather than a second
+    ///         copy of the texture — is what makes it safe.</b> <see cref="IEditorImage" />'s remarks
+    ///         say a disposed image is retired between frames because the frame that drew it may be in
+    ///         flight, and a partial write has the same hazard with none of the deferral: the texels
+    ///         are going into a texture the last frame may still be sampling. So the host copies the
+    ///         pixels into a staging buffer now and records the copy on the frame that draws next,
+    ///         behind a barrier out of <c>ShaderRead</c> — which orders against everything already
+    ///         submitted to that queue, the frame in flight included. A caller may therefore call this
+    ///         as often as the pointer moves, and what it must not do is expect the picture to have
+    ///         changed before the next frame.
+    ///     </para>
+    /// </remarks>
+    bool Update(IEditorImage image, int x, int y, int width, int height, ReadOnlySpan<byte> rgba);
 }

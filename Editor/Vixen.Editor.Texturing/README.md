@@ -137,9 +137,12 @@ a pointer position into a texel. `TexturingModule` registers it as `texturing.pa
    asked for carries the pan, the zoom and the inverse.
 2. ⚠ **Screen radius to texels is the identity, which is not the obvious reading.**
    `PaintBrush.Radius` is authored in *texels of the atlas*, so a 2D view has nothing to convert on
-   the way in. What it owes is the inverse — `ScreenRadius`, the cursor ring — so the artist can see
-   the stamp that would land. The hit triangle's texel density belongs to the 3D path, where a screen
-   radius really is what the artist is holding.
+   the way in — and, it turns out, nothing on the way out: `ShowCursor` draws the ring in texels and
+   `ImageView`'s pan and zoom put it on the screen at the size of the stamp that would land. The hit
+   triangle's texel density belongs to the 3D path, where a screen radius really is what the artist
+   is holding. ⚠ A `ScreenRadius` property said this in arithmetic and nothing ever called it
+   ([#928](https://github.com/Rikarin/Vixen/issues/928)); it is gone, and the claim now lives beside
+   the ring.
 3. ⚠ **There are no mirrors here, and that is a refusal.** Planar symmetry mirrors a point in
    *object* space and the mirrored point lands on a different triangle in a different island. Only a
    surface holding the mesh can supply one.
@@ -168,8 +171,8 @@ past its footprint; over real islands all four rounds run and it scans 49 564 �
 `PaintCostTests`' bound always allowed and had never measured. `PaintIslandCostTests` derives both
 from the same run rather than writing either down.
 
-Two seams are stated rather than papered over, and the line under the pane says which one you are
-looking at:
+One seam is stated rather than papered over, and the line under the pane is what says you are looking
+at it:
 
 * **The pane shows the layer, not the stack.** `PaintComposite`'s two halves come from an
   `IPaintStack`, and the module supplies `PaintStackImages.Empty` — so the composite of the layer
@@ -177,14 +180,26 @@ looking at:
   [#849](https://github.com/Rikarin/Vixen/issues/849); ⚠ what that needs is **not** the read-back
   that issue names (`TextureBake.Read` already exists and `LayerStackPreview` already calls it) but
   a seam that evaluates an arbitrary sliced `TextureSetAsset`.
-* **Every pointer move re-uploads the whole atlas.** `IEditorGraphics.Upload` has no sub-rectangle
-  form, so the rectangles `PaintComposite.Resolve` was given to keep a stamp's cost independent of
-  the atlas are paid back one level up —
-  [#912](https://github.com/Rikarin/Vixen/issues/912).
+
+⚠ **A pointer move uploads its own rectangle** ([#912](https://github.com/Rikarin/Vixen/issues/912),
+closed). `IEditorGraphics.Update` takes a rectangle and the host defers the copy to the frame that
+draws next, behind a barrier out of `ShaderRead` — which orders it behind the frame that may still be
+sampling the texture, so no second texture and no wait. `PaintUvView` raises `Painted` once per
+*stamp* rather than once for their union, so what is uploaded is exactly what `PaintComposite.Resolve`
+recomputed. ⚠ That is not uniformly fewer bytes and the union is smaller for a slow drag; what the
+union cannot bound is a diagonal jump between two frames or a mirrored pair on opposite sides of the
+atlas. The caller keeps a whole-picture fallback, because `Update` refuses an image made before the
+atlas changed size and refuses everything in a host with no surface.
 
 And the canvas is written to disk at pointer-up, which is forced rather than chosen: a painted layer
 reaches the plan as a *path*, which `LayerStackPreview` opens off the disk on every evaluation, so a
-stroke held in memory is a stroke the map cannot show.
+stroke held in memory is a stroke the map cannot show. Since format version 2 the file is Deflated per
+channel at `Fastest` — a stroked 4K channel is 4.09 MB rather than 64 MiB, for the same wall clock,
+because the raw write it replaces is I/O-bound ([#850](https://github.com/Rikarin/Vixen/issues/850)).
+⚠ What is still read whole, on every stroke and every evaluation, is the *decoded* canvas:
+[#885](https://github.com/Rikarin/Vixen/issues/885) and
+[#948](https://github.com/Rikarin/Vixen/issues/948) are the one store both halves want, and neither is
+worth doing alone.
 
 ## What is not here
 

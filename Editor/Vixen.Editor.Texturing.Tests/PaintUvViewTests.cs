@@ -201,6 +201,154 @@ public class PaintUvViewTests {
         }
     }
 
+    /// <summary>⚠ A pointer move uploads its own rectangle, not the atlas it landed in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/912">#912</a>, and it is the last
+    ///         step of an argument the three layers below it had already won.</b> The stroke hands
+    ///         back one rectangle per stamp, the composite resolves per rectangle — and the pane then
+    ///         handed the whole picture to <c>IEditorGraphics.Upload</c> on every pointer move,
+    ///         because that was the only shape there was. At 4K a 96-texel disc cost 67 MB, a texture
+    ///         and a descriptor-set write, per frame of the drag.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The assertion is bytes and not calls, because a call count cannot see the
+    ///         defect.</b> One <c>Update</c> per move handing over the whole atlas would satisfy any
+    ///         count of them; what #912 is about is that a drag now moves less than a single
+    ///         re-upload used to, so the sum of what was patched is compared against one picture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured with the pointer still down.</b> Pointer-up saves the canvas and
+    ///         refreshes the pane, which is one honest whole-picture upload per stroke and not per
+    ///         move — folding it in would make the count a claim about the release instead.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_pointer_move_uploads_its_own_rectangle_rather_than_the_atlas() {
+        const int Side = 512;
+
+        using var fixture = new TexturingFixture(graphics: true);
+
+        OpenPaintable(fixture, "Hull", side: Side);
+
+        var image = ImageIn(OpenPaintPane(fixture));
+        var graphics = fixture.Graphics!;
+        var start = image.ToScreen(new Vector2(64f, 64f));
+        var end = image.ToScreen(new Vector2(96f, 96f));
+        var uploads = graphics.Uploads.Count;
+
+        fixture.Shell.Document.Dispatch(
+            new PointerEvent {
+                X = start.X,
+                Y = start.Y,
+                Action = PointerAction.Pressed,
+                Button = PointerButton.Primary
+            }
+        );
+
+        for (var step = 1; step <= 4; step++) {
+            var at = Vector2.Lerp(start, end, step / 4f);
+
+            Move(fixture, at.X, at.Y);
+        }
+
+        Assert.Equal(uploads, graphics.Uploads.Count);
+        Assert.NotEmpty(graphics.Updates);
+
+        var atlas = (long)Side * Side * 4;
+        var patched = graphics.Updates.Sum(one => (long)one.Pixels.Length);
+
+        Assert.True(
+            patched < atlas,
+            $"{patched} bytes patched over the whole drag against {atlas} for one upload of the atlas. "
+            + "The move is paying for the picture rather than for the stamp."
+        );
+
+        // ⚠ And the bytes are the rectangle's own rows. A caller that handed over a window onto the
+        // atlas would be refused by the host — a length check is all it can do — and the pane would
+        // silently stop redrawing, so this is asserted here rather than left to the refusal.
+        foreach (var patch in graphics.Updates) {
+            Assert.Equal(patch.Width * patch.Height * 4, patch.Pixels.Length);
+            Assert.True(patch.Width < Side && patch.Height < Side, "a stamp's rectangle is the whole atlas");
+        }
+
+        // The paint really is in what was sent: the texel the press landed on, read out of the
+        // rectangle that covers it, at that rectangle's own coordinates.
+        var covering = graphics.Updates.First(
+            one => one.X <= 64 && 64 < one.X + one.Width && one.Y <= 64 && 64 < one.Y + one.Height
+        );
+
+        Assert.NotEqual(0, covering.Pixels[((((64 - covering.Y) * covering.Width) + (64 - covering.X)) * 4) + 3]);
+
+        fixture.Shell.Document.Dispatch(
+            new PointerEvent { X = end.X, Y = end.Y, Action = PointerAction.Released, Button = PointerButton.Primary }
+        );
+    }
+
+    /// <summary>⚠ A host that refuses the rectangle gets the whole picture, not a stale pane.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The instrument check for the test above.</b> <c>IEditorGraphics.Update</c> answers
+    ///         false for a host with no surface, for an image it did not make, and for a rectangle
+    ///         outside one — and a caller that read the refusal as "done" would leave the pane showing
+    ///         the picture from before the stroke, which reads exactly like a brush that does not
+    ///         paint. Without this the fallback is a branch no test enters.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asserted with the pointer still down, and the first version of this test was not
+    ///         — it passed against a <c>Redraw</c> with the fallback deleted.</b> Pointer-up saves the
+    ///         canvas and refreshes the pane, which uploads the layer's own pixels with the stroke in
+    ///         them; a test that looked at the last upload of a finished drag was therefore reading
+    ///         the refresh and would have been green whatever happened during the moves.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_refused_rectangle_falls_back_to_uploading_the_picture() {
+        using var fixture = new TexturingFixture(graphics: true);
+
+        OpenPaintable(fixture, "Hull");
+
+        var image = ImageIn(OpenPaintPane(fixture));
+        var graphics = fixture.Graphics!;
+
+        graphics.Patches = false;
+
+        var start = image.ToScreen(new Vector2(16f, 16f));
+        var uploads = graphics.Uploads.Count;
+
+        fixture.Shell.Document.Dispatch(
+            new PointerEvent {
+                X = start.X,
+                Y = start.Y,
+                Action = PointerAction.Pressed,
+                Button = PointerButton.Primary
+            }
+        );
+
+        Move(fixture, start.X + 4f, start.Y + 4f);
+
+        Assert.Empty(graphics.Updates);
+
+        Assert.True(
+            graphics.Uploads.Count > uploads,
+            "the host refused every rectangle and the pane uploaded nothing, so it is showing the picture "
+            + "from before the press."
+        );
+
+        var last = graphics.Uploads[^1];
+
+        Assert.NotEqual(0, last.Pixels[(((16 * last.Width) + 16) * 4) + 3]);
+
+        fixture.Shell.Document.Dispatch(
+            new PointerEvent {
+                X = start.X + 4f,
+                Y = start.Y + 4f,
+                Action = PointerAction.Released,
+                Button = PointerButton.Primary
+            }
+        );
+    }
+
     /// <summary>⚠ The seed is what the untouched atlas is, and it is not what a resolve would write.</summary>
     /// <remarks>
     ///     <para>
@@ -369,15 +517,25 @@ public class PaintUvViewTests {
     ///     ⚠ <b>64 square rather than the 1024 a starter stack declares.</b> A paint canvas is four
     ///     bytes a texel per channel and every upload here copies one, so the default would move four
     ///     megabytes per pointer event for no assertion's benefit.
+    ///     <para>
+    ///         ⚠ <b>Except where the atlas is the subject.</b> A brush is 32 texels across, so at 64
+    ///         square a stamp's footprint <em>is</em> the whole picture and "the move uploads its own
+    ///         rectangle" would be true of a pane that uploaded everything. That test asks for 512.
+    ///     </para>
     /// </remarks>
-    static LayerStackDocument OpenPaintable(TexturingFixture fixture, string name, bool paintable = true) {
+    static LayerStackDocument OpenPaintable(
+        TexturingFixture fixture,
+        string name,
+        bool paintable = true,
+        int side = 64
+    ) {
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
         fixture.Project.Selection.Set(LayerStackPanelTests.AddStack(fixture, name));
 
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
 
         var document = Assert.IsType<LayerStackDocument>(fixture.Project.Documents.Single());
-        var stack = LayerStackDocument.Starter(name) with { BaseWidth = 64, BaseHeight = 64 };
+        var stack = LayerStackDocument.Starter(name) with { BaseWidth = side, BaseHeight = side };
 
         if (paintable) {
             stack.Sets[0].Layers.Add(new() { Id = "rust", Name = "Rust", Kind = LayerKind.Paint });

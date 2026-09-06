@@ -31,11 +31,15 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         <item>
 ///             ⚠ <b>Screen radius to texels is the <em>identity</em> here, and finding that out
 ///             refutes the obvious reading.</b> <see cref="PaintBrush.Radius" /> is authored in
-///             texels of the atlas — its own remarks say why — so a 2D view has nothing to convert:
-///             what it owes is the conversion the other way, <see cref="ScreenRadius" />, so the ring
-///             under the pointer is the size of the stamp that would land. A 3D view is where the
-///             hit triangle's texel density comes in, because there a screen radius is what the
-///             artist is actually holding.
+///             texels of the atlas — its own remarks say why — so a 2D view has nothing to convert
+///             on the way in, and nothing on the way out either: <see cref="ShowCursor" /> draws the
+///             ring in texels, and <c>ImageView</c>'s own pan and zoom are what put it on the screen
+///             at the size of the stamp that would land. A 3D view is where the hit triangle's texel
+///             density comes in, because there a screen radius is what the artist is actually
+///             holding. ⚠ There <em>was</em> a <c>ScreenRadius</c> here saying that in arithmetic and
+///             nothing called it — <a href="https://github.com/Rikarin/Vixen/issues/928">#928</a> —
+///             so the claim is stated where the ring is drawn instead of in a member that could stop
+///             being true with nothing to notice.
 ///         </item>
 ///         <item>
 ///             ⚠ <b>There are no mirrors, and that is a refusal rather than an omission.</b> Planar
@@ -75,7 +79,6 @@ sealed class PaintUvView {
     const int CursorSegments = 24;
 
     readonly PaintTool tool;
-    readonly UiElement root;
     readonly UiElement status;
 
     /// <summary>Each stamp's own rectangle, for the move being processed — #894's overload.</summary>
@@ -116,7 +119,7 @@ sealed class PaintUvView {
 
         DockPanel.Fills(host);
 
-        root = host.Add("paint-uv");
+        var root = host.Add("paint-uv");
 
         root.SetStyle("display", "flex");
         root.SetStyle("flex-direction", "column");
@@ -140,17 +143,11 @@ sealed class PaintUvView {
         Status = "";
     }
 
-    /// <summary>Everything this built, for a caller that has to hide or show the pane.</summary>
-    public UiElement Root => root;
-
     /// <summary>The atlas at zoom, with the islands over it.</summary>
     public ImageView Image { get; }
 
     /// <summary>What the line under the pane says.</summary>
     public string Status { get; private set; }
-
-    /// <summary>The drag in flight, or <see langword="null" />.</summary>
-    public PaintSession? Session => session;
 
     /// <summary>The composite the last drag built, kept after pointer-up.</summary>
     /// <remarks>
@@ -160,31 +157,6 @@ sealed class PaintUvView {
     ///     the first undo after a stroke redrawing nothing.
     /// </remarks>
     public PaintComposite? Live { get; private set; }
-
-    /// <summary>How many drags have painted something since this pane was built.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Incremented where the command is made rather than where a drag begins.</b> A click
-    ///     that missed every covered texel is not a stroke, and counting the presses would make a
-    ///     test of "a drag paints" green against a surface that painted nothing.
-    /// </remarks>
-    public int Strokes { get; private set; }
-
-    /// <summary>The rectangles the last pointer move dirtied, one per stamp.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The regions rather than their union, which is what
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a> put the overload there
-    ///     for.</b> A caller that re-uploads the union re-uploads the bounding box of everything a
-    ///     move earned; a fast drag across the atlas is one such box.
-    /// </remarks>
-    public IReadOnlyList<PaintRect> Dirtied => dirtied;
-
-    /// <summary>What one stamp would cover on screen, in pixels.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The conversion a 2D view actually owes, and it runs the other way from the one
-    ///     <see cref="PaintSession" /> names.</b> The brush is in texels, so nothing has to be
-    ///     converted to paint; what has to be converted is the ring the artist is aiming with.
-    /// </remarks>
-    public float ScreenRadius => tool.Brush.Radius * Image.Zoom;
 
     /// <summary>Asked at pointer-down for what to paint into, or null when nothing can be.</summary>
     /// <remarks>
@@ -196,6 +168,13 @@ sealed class PaintUvView {
     public Func<PaintTarget?>? Target { get; set; }
 
     /// <summary>Told what a move, an undo or a redo dirtied, so a caller can re-upload it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Once per stamp during a drag, and once for the whole stroke on an undo or a redo.</b>
+    ///     The two are different shapes for a reason a caller has to know: a move's rectangles are
+    ///     each a stamp's own footprint — <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a>
+    ///     — so a fast drag reports several small ones rather than the box spanning them, while an
+    ///     undo genuinely moves every texel the stroke ever touched and has nothing smaller to say.
+    /// </remarks>
     public Action<PaintRect>? Painted { get; set; }
 
     /// <summary>Told when an undo or a redo has moved texels, so a caller can persist them.</summary>
@@ -412,10 +391,22 @@ sealed class PaintUvView {
         // ⚠ The overload that hands back the rectangles, not the one that hands back their union —
         // #871 and #894. It has had no caller since it was written, so this is the first thing that
         // can show whether it works.
-        var dirty = session.MoveAll(one, dirtied);
+        session.MoveAll(one, dirtied);
 
-        if (!dirty.IsEmpty) {
-            Painted?.Invoke(dirty);
+        // ⚠ One call per stamp and not one for their union, so that what is uploaded is exactly what
+        // `PaintComposite.Resolve` recomputed — these are the same rectangles it was just given.
+        // Outside them `Result` still holds the seed, so the union would hand the host texels that
+        // did not change.
+        //
+        // ⚠ It is not uniformly *fewer bytes*, and saying so is the honest form of #871's argument.
+        // At the default spacing consecutive stamps overlap by most of their footprint, so their
+        // union is the smaller number; what the union cannot bound is the case the rectangles were
+        // bought for — a diagonal jump between two frames, or a mirrored pair on opposite sides of
+        // the atlas, whose bounding box is a square spanning everything between the ends. Matching
+        // the composite makes the upload the composite's own cost, which is a counter
+        // `PaintCostTests` already gates; the union makes it a function of how far the pointer moved.
+        foreach (var rect in dirtied) {
+            Painted?.Invoke(rect);
         }
     }
 
@@ -441,7 +432,6 @@ sealed class PaintUvView {
             return;
         }
 
-        Strokes++;
         Finished?.Invoke(command);
     }
 }

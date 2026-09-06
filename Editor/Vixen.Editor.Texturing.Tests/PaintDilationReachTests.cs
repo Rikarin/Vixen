@@ -163,6 +163,79 @@ public class PaintDilationReachTests {
         );
     }
 
+    /// <summary>⚠ A round that only shortens a distance still runs, and the round after it paints.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half <a href="https://github.com/Rikarin/Vixen/issues/896">#896</a>'s fix could
+    ///         not reach, because the loop it wrote into ends before the round that uses the number —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/926">#926</a>.</b> <c>Dilate</c>
+    ///         ended the whole dilation on the first round that queued nothing to paint. A round can
+    ///         queue nothing and still have *proved* something: every candidate it found was already
+    ///         at the reach this round offered, so none was repainted, while their distances fell to
+    ///         the short path the new stamp opened. That is a round of pure bookkeeping, and it is
+    ///         exactly the round whose numbers the *next* round needs.
+    ///     </para>
+    ///     <para>
+    ///         <b>The geometry is what makes the frontier saturated rather than new.</b> The stamp
+    ///         above the hole dilates four rows down into it; the second stamp, to the left, is small
+    ///         enough that every uncovered texel it newly touches is one of those four rows — so its
+    ///         round zero finds nothing to paint, and the whole chain down the hole's left wall was
+    ///         abandoned there. A stamp that reached fresh texels would have queued them and hidden
+    ///         this entirely, which is why the two stamps are placed and not dragged.
+    ///     </para>
+    ///     <para>
+    ///         <b>The oracle is the sibling test's</b> — a breadth-first distance from the painted
+    ///         covered texels through uncovered ones only — and the owed count is asserted first, for
+    ///         the same reason: "every texel in an empty set is painted" is a predicate that cannot
+    ///         be false.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_round_that_only_shortens_a_distance_does_not_end_the_dilation() {
+        const int Gutter = 4;
+
+        PaintImage image = new(Side, Side);
+        var coverage = Hole();
+
+        // Radius × Spacing is the stamp distance: 6 × 7/6 puts the second stamp exactly seven texels
+        // to the left of the first, and nowhere in between.
+        var brush = PaintStrokeTests.Hard(6f) with { Spacing = 7f / 6f };
+        PaintStroke stroke = new(image, coverage, brush, Opaque, Gutter);
+
+        // Above the hole, then beside its top-left corner.
+        stroke.MoveTo(new(24f, 17f));
+        stroke.MoveTo(new(17f, 17f));
+
+        Assert.Equal(2, stroke.StampCount);
+
+        var distance = FromPainted(coverage, image);
+        var owed = 0;
+        var missed = new List<(int X, int Y, int Distance)>();
+
+        for (var index = 0; index < Side * Side; index++) {
+            if (coverage.IsCovered(index) || distance[index] > Gutter) {
+                continue;
+            }
+
+            owed++;
+
+            if (image[index] >> 24 == 0u) {
+                missed.Add((index % Side, index / Side, distance[index]));
+            }
+        }
+
+        Assert.True(owed > Gutter, $"Only {owed} texels are within the gutter of painted coverage.");
+
+        Assert.True(
+            missed.Count == 0,
+            $"{missed.Count} of {owed} texels within {Gutter} of a painted covered texel are unpainted, "
+            + $"the nearest at {missed.FirstOrDefault()}. The second stamp's first round repainted "
+            + "nothing — every texel it reached was already at that reach — so the dilation stopped "
+            + "there, and the shorter distances that round had just recorded were never used by the "
+            + "rounds that would have walked the rest of the gutter."
+        );
+    }
+
     /// <summary>The reach is the same whatever the brush was, which is the property under the number.</summary>
     /// <remarks>
     ///     ⚠ <b>A differential, and the brush radius rather than the spacing is what moved it.</b>
@@ -282,6 +355,26 @@ public class PaintDilationReachTests {
         }
 
         return distance;
+    }
+
+    /// <summary>One island with a twenty-four-texel square hole punched out of the middle of it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A hole rather than <see cref="Wall" />, because the defect needs two seams that meet.</b>
+    ///     A straight edge gives a stamp beside another one a frontier of its own fresh texels, which
+    ///     is queued paint and hides the barren round. A corner is where one stamp's halo already
+    ///     occupies the whole of the next stamp's frontier.
+    /// </remarks>
+    static PaintCoverage Hole() {
+        var raster = new bool[Side * Side];
+
+        for (var index = 0; index < raster.Length; index++) {
+            var x = index % Side;
+            var y = index / Side;
+
+            raster[index] = x is < 20 or >= 44 || y is < 20 or >= 44;
+        }
+
+        return PaintCoverage.FromRaster(Side, Side, raster);
     }
 
     /// <summary>Two islands with a twenty-four-texel channel between them.</summary>

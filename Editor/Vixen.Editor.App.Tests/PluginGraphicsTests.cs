@@ -122,10 +122,18 @@ public class PluginGraphicsTests {
 
         public List<ulong> Released { get; } = [];
 
+        public List<(ulong Image, int X, int Y, int Width, int Height, byte[] Pixels)> Updates { get; } = [];
+
         public ulong Upload(int width, int height, ReadOnlySpan<byte> rgba) {
             Uploads.Add(rgba.ToArray());
 
             return next++;
+        }
+
+        public bool Update(ulong image, int x, int y, int width, int height, ReadOnlySpan<byte> rgba) {
+            Updates.Add((image, x, y, width, height, rgba.ToArray()));
+
+            return true;
         }
 
         public void Release(ulong image) => Released.Add(image);

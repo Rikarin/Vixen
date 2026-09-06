@@ -113,5 +113,7 @@ public class TexturePreviewTests {
         public IGraphicsDevice? Device => device;
 
         public IEditorImage? Upload(int width, int height, ReadOnlySpan<byte> rgba) => null;
+
+        public bool Update(IEditorImage image, int x, int y, int width, int height, ReadOnlySpan<byte> rgba) => false;
     }
 }

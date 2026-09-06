@@ -27,6 +27,22 @@ interface IThumbnailSurface {
     /// <returns>The image number, or zero if it could not be made.</returns>
     ulong Upload(int width, int height, ReadOnlySpan<byte> rgba);
 
+    /// <summary>Rewrites a rectangle of an image that is already on the screen.</summary>
+    /// <param name="image">What <see cref="Upload" /> returned.</param>
+    /// <param name="x">The rectangle's low column.</param>
+    /// <param name="y">Its low row.</param>
+    /// <param name="width">How many columns.</param>
+    /// <param name="height">How many rows.</param>
+    /// <param name="rgba">Its own pixels, four bytes each, rows tightly packed.</param>
+    /// <returns>Whether the surface took it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Here rather than only on <c>IEditorGraphics</c>, because the staging buffer and the
+    ///     two barriers are the host's</b> — <c>PluginGraphics</c> has an image number and nothing to
+    ///     write it with. This is the same seam <see cref="Upload" /> is, one operation along, and a
+    ///     cache that has no device answers both the same way.
+    /// </remarks>
+    bool Update(ulong image, int x, int y, int width, int height, ReadOnlySpan<byte> rgba);
+
     /// <summary>Gives up an image, so its texture can go.</summary>
     /// <param name="image">What <see cref="Upload" /> returned.</param>
     void Release(ulong image);
