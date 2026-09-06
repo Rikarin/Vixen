@@ -4,6 +4,7 @@
 using System.Globalization;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.Editor.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 
@@ -62,8 +63,12 @@ sealed class LayerStackView {
 
     /// <summary>Builds the view into a host element.</summary>
     /// <param name="host">Where it goes. A <c>DockPanel</c>, or anything inside one.</param>
+    /// <param name="tool">
+    ///     The brush to give a column to, or <see langword="null" /> for no brush inspector — which
+    ///     is what a host that never paints wants.
+    /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="host" /> is null.</exception>
-    public LayerStackView(UiElement host) {
+    public LayerStackView(UiElement host, PaintTool? tool = null) {
         ArgumentNullException.ThrowIfNull(host);
 
         DockPanel.Fills(host);
@@ -110,6 +115,11 @@ sealed class LayerStackView {
 
         status = right.Add("layer-stack-status");
 
+        // ⚠ A third column and not a section of the preview one, and it is last so that the picture
+        // keeps its width when the brush is not there. `PaintBrushInspector` builds its own root
+        // into this element, which is why this file gains three lines rather than a panel.
+        Brush = tool is null ? null : new PaintBrushInspector(root, tool);
+
         // A sibling of the layout rather than a child of it, because the empty state is shown by
         // hiding that layout — a message inside the thing being hidden is a message nobody sees.
         Empty = host.Add("layer-stack-empty");
@@ -125,6 +135,9 @@ sealed class LayerStackView {
 
     /// <summary>What is shown when no stack is open.</summary>
     public UiElement Empty { get; }
+
+    /// <summary>The brush's column, or <see langword="null" /> when this host paints nothing.</summary>
+    public PaintBrushInspector? Brush { get; }
 
     /// <summary>The stack currently shown.</summary>
     public LayerStackDocument? Document { get; private set; }

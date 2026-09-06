@@ -5,6 +5,7 @@ using Vixen.Editor.AssetEditors;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.Editor.Texturing.Painting;
 using Vixen.Editor.Ui;
 using Vixen.Ui;
 
@@ -100,6 +101,16 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     public const string StackPanel = "texturing.layers";
 
+    /// <summary>The verb that swaps the pointer between selecting and painting.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A verb and not only a control, because a tool mode is a thing an artist wants on a
+    ///     key.</b> Registering it through <c>PluginContext.AddCommand</c> is what puts it in the
+    ///     palette and the keymap as well as on the Tools menu; the segmented control in the brush
+    ///     inspector is a second writer of the same state, which is why
+    ///     <see cref="PaintBrushInspector.Refresh" /> exists and is called from here.
+    /// </remarks>
+    public const string PaintCommand = "texturing.toggle-paint";
+
     EditorProject project = null!;
     EditorShell shell = null!;
 
@@ -143,6 +154,16 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
     /// <summary>The stack in the panel, on the same terms.</summary>
     LayerStackDocument? stack;
+
+    /// <summary>The brush, and whether the pointer is holding it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The module's and not the view's, for the reason the document is the module's.</b> A
+    ///     dock panel's factory runs again every time the panel is reopened, so a brush that lived
+    ///     in <see cref="LayerStackView" /> would go back to a 32-texel default every time an artist
+    ///     closed the panel — which is the state they are in exactly when they have just dialled a
+    ///     brush in and gone looking for something else.
+    /// </remarks>
+    readonly PaintTool tool = new();
 
     /// <inheritdoc />
     public void Activate(PluginContext context) {
@@ -229,7 +250,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             StackPanel,
             new StringId("editor.panel.layer-stack", "Layer Stack"),
             panel => {
-                stackView = new LayerStackView(panel);
+                stackView = new LayerStackView(panel, tool);
                 RefreshStack();
             }
         );
@@ -241,13 +262,48 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             OpenStack
         );
 
+        context.AddCommand(
+            PaintCommand,
+            new StringId("editor.command." + PaintCommand, "Paint on Layer"),
+            TogglePaint
+        );
+
         // Where the verb belongs rather than a menu of its own — doc 36, and `PluginContext.FindMenu`
         // says why. A host with no Tools menu gets the command in the palette and the keymap, which
         // is the whole of what a menu entry adds.
         if (context.FindMenu(EditorStrings.MenuTools.Id) is { } tools) {
             context.AddMenuItem(tools, OpenCommand);
             context.AddMenuItem(tools, OpenStackCommand);
+            context.AddMenuItem(tools, PaintCommand);
         }
+    }
+
+    /// <summary>Swaps the pointer between selecting and painting.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The notification is the whole of what this verb can honestly do today, and saying so
+    ///     is the point.</b> Doc 48 § D13's two front ends — the 3D projection path and the 2D UV
+    ///     view — are what a paint mode would be <em>for</em>, and neither exists: nothing in this
+    ///     tree turns a pointer position into a texel. So the mode is held, the brush is dialled in
+    ///     against it, and the artist is told which of the two states the tool is in rather than
+    ///     being left to discover that a drag does nothing.
+    /// </remarks>
+    void TogglePaint() {
+        var mode = tool.Toggle();
+
+        // ⚠ Pulled rather than pushed. The segmented control and this verb are two writers of one
+        // model; without this the control keeps showing what was last clicked, which is the state
+        // the panel is in exactly when somebody used the shortcut instead.
+        stackView?.Brush?.Refresh();
+
+        shell.Notifications.Show(
+            mode == PaintToolMode.Paint ? "Painting" : "Not painting",
+            NotificationSeverity.Info,
+            mode == PaintToolMode.Paint
+                ? "The brush is " + tool.Describe()
+                + ". ⚠ No viewport drives it yet — the 3D projection path and the 2D UV view are doc 48 § D13 "
+                + "(#574), so a drag paints nothing until one of them lands."
+                : "A drag selects rows and pans the preview."
+        );
     }
 
     /// <inheritdoc />
