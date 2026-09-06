@@ -8,7 +8,7 @@ api: [L:7008, T:Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax, T:Vixen.Ui.Styli
 tags: [ui, markup, vxml, controls, components, reactivity]
 since: 0.2
 status: preview
-related: [editor/inspectors-in-markup, ui/key-value-list, ui/reactive-collections, ui/markup-project-setup]
+related: [editor/inspectors-in-markup, ui/key-value-list, ui/reactive-collections, ui/markup-project-setup, ui/async-loading]
 ---
 
 ## What it is
