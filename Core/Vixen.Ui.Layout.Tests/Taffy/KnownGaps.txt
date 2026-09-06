@@ -766,3 +766,15 @@ align_baseline_multiline_column2
 #     Chrome's answer for the markup an author thinks they wrote. The measurement is no longer the
 #     blocker; the decision is, and it belongs to whoever owns that divergence. Still do not remove
 #     the second term on this note alone.
+#
+#     ⚠ AND THE DECISION NOW HAS A WITNESS IN THIS PROJECT, WHICH IT DID NOT BEFORE. Measured by
+#     deleting the whole cap: `Vixen.Ui.Layout.Tests` comes back 6 431 of 6 433 with 0 skipped, and
+#     the only two red are the new theory's own rows. Every fixture in all eight corpora agrees with
+#     the deletion, and the three tests that disagree are `TextWrappingPixelTests` in
+#     `Vixen.Ui.Controls.Tests` — another assembly two layers out, which nobody reads while working
+#     here. `AutomaticMinimumSizeTests.
+#     An_item_whose_content_refuses_to_shrink_is_still_floored_at_what_it_was_measured_at` is the pin:
+#     an unbreakable-word measurer whose min-content size IS its max-content size, so the item can
+#     only be inside its container because of the cap. It asserts the DIVERGENCE rather than the
+#     specification, and its remark says so — the point is that removing the term has to be the
+#     framework call above and cannot be a cleanup that passes on the way past.

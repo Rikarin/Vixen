@@ -693,6 +693,15 @@ public sealed partial class LayoutTree {
         // table and gets the last row's picture. Dropping the term would be right about Chrome and
         // wrong about the markup an author believes they wrote, which is a framework call and not a
         // measurement.
+        //
+        // ⚠ <b>AND UNTIL NOW NOTHING IN THIS PROJECT SAID SO.</b> With this term deleted the whole
+        // layout suite is green — eight corpora and 6 431 tests — and the only red is three
+        // `TextWrappingPixelTests` in `Vixen.Ui.Controls.Tests`, a different assembly two layers
+        // out. A decision whose only witness lives in another project is one the next reader deletes
+        // in good faith while every fixture in front of them agrees. `AutomaticMinimumSizeTests.
+        // An_item_whose_content_refuses_to_shrink_is_still_floored_at_what_it_was_measured_at` is the
+        // pin: it is not evidence that the cap is right, it is the record that removing it is the
+        // framework call above rather than a cleanup.
         if (results[index].FlexBasisFromContent) {
             var cap = results[index].ComputedFlexBasis;
             var offered = results[index].UnclampedMeasuredDimensions[(int) mainDimension];

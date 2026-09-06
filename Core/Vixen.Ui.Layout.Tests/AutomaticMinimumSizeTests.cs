@@ -667,8 +667,103 @@ public class AutomaticMinimumSizeTests {
         Assert.Equal(tree.GetHeight(text), tree.GetHeight(row), Tolerance);
     }
 
+    /// <summary>
+    ///     The one rule in <c>ComputeAutoMinMainSize</c> that is a decision rather than a
+    ///     specification sentence: §4.5's floor is held down to what the item was measured at when
+    ///     its content cannot shrink.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Chrome does not do this, and the divergence is deliberate.</b> One unbreakable
+    ///         word under <c>overflow-wrap: break-word</c> has an intrinsic minimum that CSS Sizing
+    ///         §5.2 specifies NOT to shrink, so a browser's <c>flex-direction: row</c> item keeps the
+    ///         whole word and overflows its container — measured, and the table is in
+    ///         <c>Taffy/KnownGaps.txt</c>. The wrapping picture a browser draws for the same markup
+    ///         comes from the CROSS axis, where there is no §4.5 floor at all. This engine's initial
+    ///         <c>Display</c> is <c>Flex</c> and its initial <c>FlexDirection</c> is <c>Row</c> where
+    ///         a browser's initial display is <c>block</c>, so every plain element here is the row
+    ///         case and would get the overflowing picture for markup whose author wrote no flex
+    ///         container at all. The cap is what keeps the block-ish answer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing in this project asserted that until now, which is why it is here.</b>
+    ///         Deleting the cap leaves the whole layout suite green — all eight corpora included —
+    ///         and costs three <c>TextWrappingPixelTests</c> in <i>Vixen.Ui.Controls.Tests</i>, a
+    ///         different assembly two layers out. A rule whose only witness is a pixel test in
+    ///         another project is one an agent deletes in good faith while every layout fixture
+    ///         agrees with them. So this test is not evidence that the cap is right; it is the
+    ///         record that removing it is a framework call about the initial display, to be made
+    ///         deliberately and by whoever owns that divergence. <c>Rikarin/Vixen#265</c>.
+    ///     </para>
+    ///     <para>
+    ///         The oracle is a contradiction rather than a recorded number. The measurer is an
+    ///         unbreakable word: it answers the whole word's width at every available width, EXCEPT
+    ///         that a definite offer breaks it across lines at line layout — which is what a browser
+    ///         does with an overflowing <c>break-word</c> run. So the item's min-content size and its
+    ///         max-content size are the same number, the floor is the whole word, and the only thing
+    ///         that can put the item inside its container is the cap. The height moves with it: an
+    ///         item held to a third of the word is three lines tall, and one that keeps the word is
+    ///         one line tall. Both halves are arithmetic in the container's width.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(240f, 10f)]
+    [InlineData(120f, 20f)]
+    [InlineData(80f, 30f)]
+    public void An_item_whose_content_refuses_to_shrink_is_still_floored_at_what_it_was_measured_at(
+        float containerWidth,
+        float expectedHeight
+    ) {
+        using var tree = new LayoutTree();
+
+        var root = tree.CreateNode();
+        tree.SetFlexDirection(root, FlexDirection.Row);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(containerWidth));
+        tree.SetDimension(root, Dimension.Height, StyleLength.Points(100f));
+
+        // Not stretched, so the item keeps the height its own content takes and the second half of
+        // the oracle is about the word rather than about the container.
+        tree.SetAlignItems(root, Align.FlexStart);
+
+        // No declared basis: the basis is MEASURED, which is the only case the cap applies to.
+        var word = tree.CreateNode();
+        tree.SetFlexShrink(word, 1f);
+        tree.SetMeasureFunction(word, MeasureUnbreakableWord);
+        tree.AddChild(root, word);
+
+        tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
+
+        // The decision: the item is inside its container at every width, where §4.5 read literally
+        // would leave it 240 wide in all three columns.
+        Assert.Equal(containerWidth, tree.GetWidth(word), Tolerance);
+        Assert.Equal(expectedHeight, tree.GetHeight(word), Tolerance);
+    }
+
     static LayoutSize MeasureFixedContent(in MeasureRequest request) =>
         new((float) (request.Context ?? 0f), 20f);
+
+    /// <summary>
+    ///     Two hundred and forty points of one unbreakable word, ten points to the line.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The intrinsic sizes are equal on purpose: this run's min-content size IS its
+    ///     max-content size.</b> That is <c>overflow-wrap: break-word</c>'s own rule — the breaking
+    ///     keyword changes where line layout may break a run that already overflows, and CSS Sizing
+    ///     §5.2 says it does not change the intrinsic minimum. A definite offer is the one thing that
+    ///     wraps it, so the height is the ink over the width the item is finally given.
+    /// </remarks>
+    static LayoutSize MeasureUnbreakableWord(in MeasureRequest request) {
+        const float word = 240f;
+        const float line = 10f;
+
+        if (request.WidthMode == MeasureMode.Undefined || float.IsNaN(request.AvailableWidth) || request.AvailableWidth <= 0f) {
+            return new LayoutSize(word, line);
+        }
+
+        var available = MathF.Min(request.AvailableWidth, word);
+
+        return new LayoutSize(available, MathF.Ceiling(word / available) * line);
+    }
 
     /// <summary>Six hundred points of run that breaks anywhere, ten points to the line.</summary>
     /// <remarks>
