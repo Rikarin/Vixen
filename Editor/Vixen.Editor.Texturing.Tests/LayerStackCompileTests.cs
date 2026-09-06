@@ -188,14 +188,26 @@ public class LayerStackCompileTests {
         Assert.Equal(0, Count(compilation.Plan, "Blend"));
     }
 
-    /// <summary>A constant mask is a real image and real shuffles, not a folded number.</summary>
+    /// <summary>A mask is a real image and real shuffles, not a folded number.</summary>
     /// <remarks>
-    ///     ⚠ <b>The mask reaches the blend as the foreground's alpha <em>times</em> what it already
-    ///     was</b> — <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a> · 1. Two coverages
-    ///     compose by multiplication, and the product has to be computed in a colour lane because
-    ///     <c>Blend</c>'s alpha rule only ever raises alpha. So a masked layer is a shuffle that lifts
-    ///     the content's alpha into grey, a shuffle that lifts the mask's red into grey, a
-    ///     <c>Multiply</c> between them, and the shuffle that puts the answer back into alpha.
+    ///     <para>
+    ///         ⚠ <b>The mask reaches the blend as the foreground's alpha <em>times</em> what it
+    ///         already was</b> — <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a> · 1.
+    ///         Two coverages compose by multiplication, and the product has to be computed in a
+    ///         colour lane because <c>Blend</c>'s alpha rule only ever raises alpha. So a masked
+    ///         layer is a shuffle that lifts the content's alpha into grey, a shuffle that lifts the
+    ///         mask's red into grey, a <c>Multiply</c> between them, and the shuffle that puts the
+    ///         answer back into alpha.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A bake mask and not a constant one, and the swap is the whole of what
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a> cost.</b> A bare
+    ///         constant now folds into the layer's opacity and compiles to none of these nodes, so a
+    ///         test written on one would assert the fold rather than the shape. #789's own reason for
+    ///         waiting was that folding leaves the mask path with no case a device-free test can
+    ///         build — a mesh map is that case: it names no file this suite has to supply, and it is
+    ///         the source an artist reaches for before reaching for a compound.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_mask_multiplies_into_the_foregrounds_alpha() {
@@ -203,7 +215,7 @@ public class LayerStackCompileTests {
             Id = "l",
             Kind = LayerKind.Fill,
             Values = { ["baseColor"] = Opaque },
-            Mask = new() { Source = LayerMaskSource.Constant, Value = 0.25f }
+            Mask = new() { Source = LayerMaskSource.Bake, Map = "curvature" }
         });
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
@@ -240,6 +252,12 @@ public class LayerStackCompileTests {
     }
 
     /// <summary>A constant fill's own alpha survives a mask, because it folds into the opacity.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The *last* blend, because a masked layer's first one is the Multiply that composes
+    ///     the two coverages and its opacity is 1 by construction.</b> That is still the reason to
+    ///     write <c>Last</c> even though this particular stack now has exactly one blend: the mask is
+    ///     a bare constant and folds.
+    /// </remarks>
     [Fact]
     public void A_constant_fills_alpha_folds_into_the_opacity() {
         var stack = One(new() {
@@ -253,13 +271,108 @@ public class LayerStackCompileTests {
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
         Assert.NotNull(compilation.Plan);
-
-        // ⚠ The *last* blend, because a masked layer's first one is the Multiply that composes the
-        // two coverages and its opacity is 1 by construction.
         Assert.Equal(0.2f, Last(compilation.Plan, "Blend").Find("opacity")!.Value.Value, 6);
     }
 
-    /// <summary>An anchor onto a layer beneath is an edge, and it compiles.</summary>
+    /// <summary>⚠ A mask that is one constant compiles to no ops at all, and to the same picture.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>, and it is measured
+    ///         as a plan-op count rather than as a time.</b> The two stacks differ only in a mask of
+    ///         <c>1</c> against no mask at all, so every op the first one has and the second does not
+    ///         is an op the mask cost: the mask's own <c>Source/Uniform</c>, the two shuffles that
+    ///         make the operands opaque, the <c>Multiply</c> between them, and the shuffle that puts
+    ///         the product back into alpha. Five, and #789's title says two — which was true of the
+    ///         mask that <em>replaced</em> the alpha, before
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a> made it multiply.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the fold is <em>exact</em> rather than close, which is the claim the counting
+    ///         cannot make.</b> <c>Blend.rvn</c> computes
+    ///         <c>amount = saturate(opacity) · saturate(b.w)</c> and reads <c>b.w</c> nowhere else, so
+    ///         a constant mask inside the unit interval is a reassociation of one product.
+    ///         <c>LayerCoverageDeviceTests</c> is where that is read off the texels — it bakes
+    ///         constant-masked layers at 0, ½ and 1 and asserts the coverage arithmetic, on a device,
+    ///         and none of its numbers moved when this landed.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_constant_mask_costs_five_ops_and_folds_to_none_of_them() {
+        var masked = One(new() {
+            Id = "l",
+            Kind = LayerKind.Fill,
+            Values = { ["baseColor"] = Opaque },
+            Mask = new() { Source = LayerMaskSource.Constant, Value = 0.25f }
+        });
+
+        var bare = One(new() { Id = "l", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } });
+
+        var one = LayerStackCompiler.Compile(masked, masked.Sets[0]);
+        var none = LayerStackCompiler.Compile(bare, bare.Sets[0]);
+
+        Assert.NotNull(one.Plan);
+        Assert.NotNull(none.Plan);
+
+        // The whole of the mask is now the opacity, so the two plans are the same length and the
+        // masked one's single blend carries the number.
+        Assert.Equal(none.Plan.Ops.Length, one.Plan.Ops.Length);
+        Assert.Equal(0, Count(one.Plan, "ChannelShuffle"));
+        Assert.Equal(0.25f, Last(one.Plan, "Blend").Find("opacity")!.Value.Value, 6);
+
+        // ⚠ The five it would otherwise have cost, read off the mask that does not fold. A bake mask
+        // is the same one source plus the same four nodes, so the difference against the bare stack
+        // is exactly what a constant mask used to cost.
+        var kept = One(new() {
+            Id = "l",
+            Kind = LayerKind.Fill,
+            Values = { ["baseColor"] = Opaque },
+            Mask = new() { Source = LayerMaskSource.Bake, Map = "curvature" }
+        });
+
+        var full = LayerStackCompiler.Compile(kept, kept.Sets[0]);
+
+        Assert.NotNull(full.Plan);
+        Assert.Equal(none.Plan.Ops.Length + 5, full.Plan.Ops.Length);
+    }
+
+    /// <summary>⚠ And a mask outside the unit interval is compiled, because saturate is not identity there.</summary>
+    /// <remarks>
+    ///     <b>The predicate that stops the fold being an approximation that is usually right.</b>
+    ///     <c>amount = saturate(opacity) · saturate(b.w)</c>: with an opacity of 2 and a mask of a
+    ///     half, the unfolded answer is <c>1 · ½</c> and the folded one is <c>saturate(1) = 1</c>.
+    ///     Both numbers come out of a YAML file a person can hand-edit, so the guard is reachable
+    ///     rather than theoretical, and refusing to fold there is what makes the fold an identity.
+    /// </remarks>
+    [Fact]
+    public void A_mask_or_an_opacity_outside_the_unit_interval_is_not_folded() {
+        foreach (var (opacity, mask) in new[] { (2f, 0.5f), (0.5f, 2f), (-1f, 0.5f) }) {
+            var stack = One(new() {
+                Id = "l",
+                Kind = LayerKind.Fill,
+                Opacity = opacity,
+                Values = { ["baseColor"] = Opaque },
+                Mask = new() { Source = LayerMaskSource.Constant, Value = mask }
+            });
+
+            var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+            Assert.NotNull(compilation.Plan);
+            Assert.Equal(3, Count(compilation.Plan, "ChannelShuffle"));
+        }
+    }
+
+    /// <summary>An anchor onto a layer beneath is an edge, and it reads that layer's coverage too.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two shuffles rather than one, and the second one is
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/874">#874</a>.</b> An anchor resolves to
+    ///     another layer's evaluated result, whose alpha is that layer's <em>coverage</em>; a mask is
+    ///     a number, so what the entry contributes is <c>red · coverage</c> and this library has no
+    ///     arithmetic node — hence a shuffle lifting the red, a shuffle lifting the alpha, and the
+    ///     <c>Multiply</c> between them.
+    ///     <c>LayerCoverageDeviceTests.An_anchor_onto_a_partly_covered_layer_masks_by_its_coverage</c>
+    ///     is what says the product is the right one; this is what says both halves are wired to the
+    ///     anchored layer and not to something else in the plan.
+    /// </remarks>
     [Fact]
     public void An_anchor_reads_a_layer_beneath_it() {
         var stack = Stack(
@@ -277,18 +390,27 @@ public class LayerStackCompileTests {
         Assert.Empty(compilation.Problems);
         Assert.NotNull(compilation.Plan);
 
-        // The anchor reads the lower layer's *composite*, which is the first blend, and it arrives at
-        // the shuffle that lifts a mask's red into an opaque grey — selector 0 into red, 9 into
-        // alpha. ⚠ Found by what it does rather than by its position: a masked layer emits three
-        // shuffles and only this one reads the mask.
+        // The anchor reads the lower layer's *composite*, which is the first blend. ⚠ Found by what
+        // it reads rather than by what it does: `Mask` emits shuffles with both of these selector
+        // pairs itself — 0 into red and 9 into alpha lifts a mask's value, 3 and 9 lifts a
+        // foreground's coverage — so a predicate over the selectors alone matches four ops in this
+        // plan and only two of them are the anchor's.
         var under = Find(compilation.Plan, "Blend");
-        var opaque = Only(
-            compilation.Plan,
-            "ChannelShuffle",
-            op => op.Find("sourceR")!.Value.Value == 0f && op.Find("sourceA")!.Value.Value == 9f
-        );
+        var read = compilation
+            .Plan.Ops.Where(op =>
+                string.Equals(op.Kernel, "ChannelShuffle", StringComparison.Ordinal)
+                && op.Inputs[0] == under.Output
+            )
+            .ToArray();
 
-        Assert.Equal(under.Output, opaque.Inputs[0]);
+        Assert.Equal(2, read.Length);
+
+        // One lifts the anchored layer's red, the other its alpha, and both splat it across the
+        // colour lanes with an alpha of 1 so the Multiply between them reads two numbers.
+        Assert.Contains(read, op => op.Find("sourceR")!.Value.Value == 0f);
+        Assert.Contains(read, op => op.Find("sourceR")!.Value.Value == 3f);
+        Assert.All(read, op => Assert.Equal(9f, op.Find("sourceA")!.Value.Value));
+        Assert.All(read, op => Assert.Equal(op.Find("sourceR")!.Value.Value, op.Find("sourceB")!.Value.Value));
     }
 
     /// <summary>An anchor onto a layer above it is refused, by the graph model.</summary>
@@ -336,14 +458,16 @@ public class LayerStackCompileTests {
         Assert.Contains(compilation.Problems, problem => problem.Layer == "self");
     }
 
-    /// <summary>A paint layer is held, and refused, and the message names M9.</summary>
+    /// <summary>A paint layer compiles, and its canvas crosses as an external.</summary>
     /// <remarks>
-    ///     ⚠ <b>A tripwire whose message names the issue that removes it</b> — #574. When the brush
-    ///     lands, this test is what says so, and the layer it is written against keeps its blend
-    ///     mode, its opacity and its channel enables through the refusal.
+    ///     ⚠ <b>This test was the tripwire that said a paint layer was refused, and it fired.</b> It
+    ///     asserted a null plan and a message naming #574, and #852 is the change that made both
+    ///     false: a paint layer is a <c>Source/Bitmap</c> over a <c>vxpaint:</c> reference and its
+    ///     blend, opacity and channel enables now reach the picture rather than being kept for a
+    ///     build that could not draw them.
     /// </remarks>
     [Fact]
-    public void A_paint_layer_is_refused_and_says_which_issue_builds_it() {
+    public void A_paint_layer_compiles_into_an_external_naming_its_canvas_and_its_channel() {
         var stack = One(new() {
             Id = "paint",
             Kind = LayerKind.Paint,
@@ -354,13 +478,15 @@ public class LayerStackCompileTests {
 
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
-        Assert.Null(compilation.Plan);
+        Assert.Empty(compilation.Problems);
+        Assert.NotNull(compilation.Plan);
 
-        var problem = Assert.Single(compilation.Problems);
+        var external = Assert.Single(compilation.Externals);
 
-        Assert.Contains("#574", problem.Message, StringComparison.Ordinal);
+        // The channel first and the path last, so the split is unambiguous — `PaintReference` says why.
+        Assert.Equal("vxpaint:baseColor|Body.paint.vxpaint", external.Asset);
 
-        // The refusal is a compile-time one and the document keeps everything it was given.
+        // The document keeps everything it was given, which was the old test's other half.
         var layer = stack.Sets[0].Layers[0];
 
         Assert.Equal(LayerBlendMode.Overlay, layer.Blend);

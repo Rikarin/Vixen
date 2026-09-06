@@ -290,8 +290,230 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
         );
     }
 
+    /// <summary>
+    ///     #845 — a filter layer inside an isolated group is applied in <em>full</em>, at every
+    ///     coverage.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The oracle is again the operator's own neutral, and the filter is what produces
+    ///         it.</b> The group's child is <em>black</em> and the filter inverts it, so a fully
+    ///         applied filter hands the group white — Multiply's neutral — and the canvas of ½ comes
+    ///         back at ½ whatever the group covers. Nothing is recomputed per row.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A filter's content is the backdrop, so compositing it <em>over</em> that backdrop
+    ///         under-applies it by exactly the coverage.</b> With the adjusted picture and the picture
+    ///         it adjusts both covering K, the over rule bakes <c>1 / (2 − K)</c> of the way to white
+    ///         at a coverage of <c>K(2 − K)</c> — 0.667 at a half, not 1 — and the multiply then
+    ///         darkens the canvas to 96. The whole sweep reads 128 · 104 · 96 · 104 · 128, so the two
+    ///         endpoints are again the two that prove nothing: at K = 0 the group blends by nothing
+    ///         and at K = 1 over and atop are the same rule.
+    ///     </para>
+    ///     <para>
+    ///         <b>Invert's alpha flag is off, deliberately.</b> Inverting the coverage would make the
+    ///         group cover <c>1 − K</c>, which is a second defect this assertion would then be unable
+    ///         to separate from the first.
+    ///     </para>
+    /// </remarks>
+    /// <param name="coverage">How much of the texel the group's one child covers.</param>
+    [Theory]
+    [MemberData(nameof(Coverages))]
+    public void A_filter_inside_a_group_is_applied_in_full_at_every_coverage(float coverage) {
+        using var device = Open();
+
+        var stack = Grey(
+            new LayerAsset {
+                Id = "g",
+                Kind = LayerKind.Group,
+                Blend = LayerBlendMode.Multiply,
+                Children = [
+                    new() {
+                        Id = "child",
+                        Kind = LayerKind.Fill,
+                        Values = { ["baseColor"] = [0f, 0f, 0f, 1f] },
+                        Mask = new() { Source = LayerMaskSource.Constant, Value = coverage }
+                    },
+                    new() {
+                        Id = "flip",
+                        Kind = LayerKind.Filter,
+                        Filter = LayerFilterKind.Invert,
+                        Settings = {
+                            ["Red"] = [1f],
+                            ["Green"] = [1f],
+                            ["Blue"] = [1f],
+                            ["Alpha"] = [0f]
+                        }
+                    }
+                ]
+            }
+        );
+
+        var red = BakeRed(device, stack, "baseColor");
+
+        output.WriteLine($"{Adapter(device)}: an inverting filter in a group at coverage {coverage} baked {red}");
+
+        Assert.True(
+            red is >= 126 and <= 130,
+            $"{Adapter(device)}: the group's child is black and the filter over it inverts, so a filter "
+            + $"applied in full hands the group white — Multiply's own neutral — and the canvas of ½ "
+            + $"survives at 128 whatever the coverage. At {coverage} it baked {red}. A filter "
+            + "composited *over* the picture it adjusts is applied 1/(2 − K) of the way, which is 96 at "
+            + "a half and 104 at a quarter and at three quarters. #845."
+        );
+    }
+
+    /// <summary>
+    ///     #845 — and an <em>identity</em> filter inside a group changes nothing at all, which is the
+    ///     coverage half of the same claim.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The oracle is a second bake rather than a number, because the number would have to
+    ///         be recomputed per row and re-blessed with it.</b> Two stacks that differ by one layer
+    ///         which does nothing must bake the same texel; the assertion never has to know what that
+    ///         texel is. A grey child rather than a white one, so that a group whose colour was
+    ///         ignored entirely would not pass — under Multiply, white is the identity however wrong
+    ///         the composite.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Over the filter raises the group's coverage from <c>K</c> to <c>K(2 − K)</c></b>,
+    ///         and a group that covers more multiplies more of the canvas: 96 against 80 at a half,
+    ///         112 against 100 at a quarter. Equal at both endpoints, for the reason
+    ///         <see cref="Coverages" /> gives.
+    ///     </para>
+    /// </remarks>
+    /// <param name="coverage">How much of the texel the group's one child covers.</param>
+    [Theory]
+    [MemberData(nameof(Coverages))]
+    public void An_identity_filter_inside_a_group_leaves_the_bake_where_it_was(float coverage) {
+        using var device = Open();
+
+        var red = BakeRed(device, Filtered(coverage, false), "baseColor");
+        var filtered = BakeRed(device, Filtered(coverage, true), "baseColor");
+
+        output.WriteLine($"{Adapter(device)}: coverage {coverage} baked {red} plain and {filtered} filtered");
+
+        Assert.True(
+            Math.Abs(red - filtered) <= 2,
+            $"{Adapter(device)}: adding a zero-radius blur — an adjustment that is the identity on "
+            + $"every texel — inside the group moved the bake from {red} to {filtered}. A filter's "
+            + "content is the layers beneath it, so compositing it *over* them accumulates the "
+            + "coverage it was handed with itself: K becomes K(2 − K), and a group that covers more "
+            + "multiplies more of the canvas. #845."
+        );
+    }
+
+    /// <summary>
+    ///     #874 — an anchor onto a layer inside an isolated group masks by that layer's
+    ///     <em>coverage</em> as well as by its value.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one mask source whose alpha means something.</b> Every other entry is a picture
+    ///         read for its red; an anchor is another layer's <em>evaluated result</em>, and inside an
+    ///         isolated group that result's alpha is what the layer covered. So the number the entry
+    ///         contributes is <c>red · coverage</c> — which for an ordinary opaque layer is the red it
+    ///         always was, and which fades to nothing exactly where the anchored layer is not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>#832 stopped this working by fixing something else, and that is the finding.</b>
+    ///         The old kernel handed a group back a colour already multiplied by its coverage, so an
+    ///         anchor read for its red alone <em>was</em> the product, by accident. Correcting the
+    ///         compositor made the result straight — right everywhere it composites and wrong here,
+    ///         where a mask reads a colour as a number.
+    ///     </para>
+    ///     <para>
+    ///         <b>The value is arithmetic and not a measurement.</b> The anchored layer is white
+    ///         inside a white Multiply group, which leaves the canvas at ½ whatever it covers
+    ///         (<see cref="A_white_group_multiplied_into_the_canvas_is_the_identity_at_every_coverage" />);
+    ///         the layer above it is black at a mask of <c>1 · c</c>, so the canvas comes back at
+    ///         <c>½(1 − c)</c> — 128 · 96 · 64 · 32 · 0. ⚠ Read for its red alone the mask is 1 at
+    ///         every non-zero coverage and the whole sweep is black.
+    ///     </para>
+    /// </remarks>
+    /// <param name="coverage">How much of the texel the anchored layer covers.</param>
+    [Theory]
+    [MemberData(nameof(Coverages))]
+    public void An_anchor_onto_a_partly_covered_layer_masks_by_its_coverage(float coverage) {
+        using var device = Open();
+
+        var stack = Grey(
+            new LayerAsset {
+                Id = "g",
+                Kind = LayerKind.Group,
+                Blend = LayerBlendMode.Multiply,
+                Children = [
+                    new() {
+                        Id = "inner",
+                        Kind = LayerKind.Fill,
+                        Values = { ["baseColor"] = [1f, 1f, 1f, 1f] },
+                        Mask = new() { Source = LayerMaskSource.Constant, Value = coverage }
+                    }
+                ]
+            },
+            new LayerAsset {
+                Id = "ink",
+                Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = [0f, 0f, 0f, 1f] },
+                Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "inner" }
+            }
+        );
+
+        var red = BakeRed(device, stack, "baseColor");
+        var expected = (int)Math.Round(255f * 0.5f * (1f - coverage));
+
+        output.WriteLine($"{Adapter(device)}: an anchor onto a layer covering {coverage} baked {red}");
+
+        Assert.True(
+            Math.Abs(red - expected) <= 2,
+            $"{Adapter(device)}: the anchored layer is white and covers {coverage}, so a mask that is "
+            + $"its value times its coverage reveals the black layer by that much and the canvas of ½ "
+            + $"comes back at ½(1 − {coverage}) — {expected}. It baked {red}. An anchor read for its "
+            + "red alone is a mask of 1 wherever the anchored layer has any colour at all, which is a "
+            + "black canvas at every coverage but zero. #874."
+        );
+    }
+
+    /// <summary>The half-covered grey group of #845's two cases, with and without an identity filter.</summary>
+    static LayerStackAsset Filtered(float coverage, bool filter) {
+        List<LayerAsset> children = [
+            new() {
+                Id = "child",
+                Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = [0.5f, 0.5f, 0.5f, 1f] },
+                Mask = new() { Source = LayerMaskSource.Constant, Value = coverage }
+            }
+        ];
+
+        if (filter) {
+            // ⚠ A radius of *zero*, written out rather than left to the node's default of eight: a
+            // box blur of one tap is the identity by arithmetic, on this image and on any other, so
+            // the comparison below is about the compositing and not about what a blur does to a flat
+            // fill. A default-radius blur of a constant is also the identity, which would make this
+            // pass while asserting nothing about the port having reached the node.
+            children.Add(new() {
+                Id = "still",
+                Kind = LayerKind.Filter,
+                Filter = LayerFilterKind.Blur,
+                Settings = { ["Radius"] = [0f] }
+            });
+        }
+
+        return Grey(
+            new LayerAsset {
+                Id = "g",
+                Kind = LayerKind.Group,
+                Blend = LayerBlendMode.Multiply,
+                Children = children
+            }
+        );
+    }
+
     /// <summary>A stack of one set whose single channel starts at ½.</summary>
-    static LayerStackAsset Grey(LayerAsset layer) =>
+    /// <param name="layers">The set's layers, bottom first.</param>
+    /// <returns>The stack.</returns>
+    static LayerStackAsset Grey(params LayerAsset[] layers) =>
         new() {
             Name = "Coverage",
             BaseWidth = 16,
@@ -301,7 +523,7 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
                 new() {
                     Name = "S",
                     Channels = [new() { Usage = "baseColor", Default = [0.5f, 0.5f, 0.5f, 1f] }],
-                    Layers = [layer]
+                    Layers = [.. layers]
                 }
             ]
         };

@@ -9,9 +9,9 @@ enum LayerKind {
     Fill = 0,
 
     /// <summary>
-    ///     Painted pixels, held in a <c>.vxpaint</c> beside the stack. ⚠ A placeholder in this
-    ///     build — <see cref="LayerStackGraph" /> refuses one and names
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/574">#574</a>, which is M9.
+    ///     Painted pixels, held in a <c>.vxpaint</c> beside the stack. <see cref="LayerStackGraph" />
+    ///     compiles one to a bitmap source per channel, over a <c>vxpaint:</c> reference the host
+    ///     resolves — <a href="https://github.com/Rikarin/Vixen/issues/852">#852</a>.
     /// </summary>
     Paint = 1,
 
@@ -89,11 +89,22 @@ enum LayerMaskSource {
 
     /// <summary>One number over the whole surface.</summary>
     /// <remarks>
-    ///     ⚠ <b>Compiled as a real <c>Source/Uniform</c> and a real shuffle rather than folded into
-    ///     the opacity.</b> The two are arithmetically the same and folding would make the mask path
-    ///     unreachable for exactly the case a test can check without a texture — which is how a mask
-    ///     that never worked ships green. The fold is worth having and is
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>.
+    ///     <para>
+    ///         ⚠ <b>Folded into the layer's opacity and compiled to nothing at all, when it is the
+    ///         whole mask</b> — <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>. A
+    ///         mask multiplies into the foreground's coverage
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/832">#832</a>) and
+    ///         <c>Blend.rvn</c>'s <c>amount</c> is <c>opacity · mask · alpha</c>, so the fold is a
+    ///         reassociation rather than an approximation. It saves five ops per masked layer per
+    ///         channel. <c>LayerStackGraph.Folds</c> carries the two conditions.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This member used to say the opposite, and half of the reason was real.</b>
+    ///         Folding was refused partly because it would make the mask path unreachable for the
+    ///         one case a device-free test can build "which is how a mask that never worked ships
+    ///         green". A bake mask, an anchor mask and any mask with two entries all reach the full
+    ///         path with no imported image, and the suite is built on those instead.
+    ///     </para>
     /// </remarks>
     Constant = 1,
 
@@ -128,9 +139,10 @@ enum LayerMaskSource {
     Bake = 5,
 
     /// <summary>
-    ///     Painted pixels, from the <c>.vxpaint</c> named beside it. ⚠ A placeholder in this build —
-    ///     the brush is M9, <a href="https://github.com/Rikarin/Vixen/issues/574">#574</a>, and
-    ///     <see cref="LayerStackGraph" /> refuses one and names it.
+    ///     Painted pixels, from the <c>.vxpaint</c> named beside it. ⚠ Read for its <b>red</b>, like
+    ///     every other mask source — so a mask canvas is painted in white and its coverage is the
+    ///     channel's value rather than an alpha.
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/852">#852</a>.
     /// </summary>
     Paint = 6
 }

@@ -223,17 +223,35 @@ public class TextureNormalToHeightTests {
 
     /// <summary>The same budget twice is the same answer, bit for bit.</summary>
     /// <remarks>
-    ///     ⚠ <b>The property a fixed budget exists to buy.</b> Nothing here reads a clock, a thread
-    ///     count or a residual, so the two runs cannot differ — and if they ever do, the cause is a
-    ///     reduction that was allowed to sum out of order, which is the defect doc 41 § D14 rules out
-    ///     and which no assertion about accuracy would notice.
+    ///     <para>
+    ///         <b>The property a fixed budget exists to buy.</b> Nothing here reads a clock, a thread
+    ///         count or a residual — and if the two runs ever differ, the cause is a reduction that
+    ///         was allowed to sum out of order, which is the defect doc 41 § D14 rules out and which
+    ///         no assertion about accuracy would notice.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Said plainly, because it is the kind of assertion this workstream is auditing:
+    ///         this cannot fail against the implementation that exists.</b>
+    ///         <c>NormalToHeightOperation</c> is scalar and sequential — no <c>Parallel</c>, no
+    ///         <c>Vector&lt;T&gt;</c>, no task — so a pure function called twice on one input agrees
+    ///         by construction, and a predicate with no false case is worse than the flake it
+    ///         replaced. It is kept as a <em>tripwire</em> against the change that would introduce
+    ///         one, which is precisely the change somebody makes to speed a Poisson solve up; what it
+    ///         is not is evidence about today's solver. The two lines below are: a run that produced
+    ///         nothing would satisfy an equality between two empty arrays, so the length is asserted
+    ///         first.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void The_same_plan_solved_twice_is_the_same_bytes() {
         var height = Bumps(32, 32);
         var normals = Encode(height, 32, 32, intensity: 1f, discrete: true);
 
-        Assert.Equal(Bytes(normals, 32, 32, 37), Bytes(normals, 32, 32, 37));
+        var first = Bytes(normals, 32, 32, 37);
+        var second = Bytes(normals, 32, 32, 37);
+
+        Assert.Equal(32 * 32 * 2, first.Length);
+        Assert.Equal(first, second);
     }
 
     /// <summary>

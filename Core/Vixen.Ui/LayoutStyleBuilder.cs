@@ -708,23 +708,6 @@ public sealed class LayoutStyleBuilder {
         SetLength(style, names.ColumnGap, in context, ref result.Gap[(int) Gutter.Column]);
     }
 
-    /// <summary>Writes the scrollbar gutter.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>A length here, where CSS has a three-valued keyword, and the difference is
-    ///         deliberate.</b> The web's <c>scrollbar-width</c> is <c>auto | thin | none</c> because
-    ///         the browser owns the widget and only the page's preference is negotiable. Nothing here
-    ///         owns one — <c>ScrollView</c> builds its own bar and knows how thick it is — so the
-    ///         useful value is the thickness itself. <c>none</c> is spelled <c>0</c> and the keyword
-    ///         is accepted for it, because a stylesheet turning a gutter off should not have to know
-    ///         that.
-    ///     </para>
-    ///     <para>
-    ///         Inert unless an axis is a scroll container, which is what makes this safe to put in a
-    ///         utility layer: <c>scrollbar-15</c> on a box that clips or spills moves nothing. See
-    ///         <see cref="LayoutStyle.ScrollbarWidth" />.
-    ///     </para>
-    /// </remarks>
     /// <summary>Reads <c>vertical-align</c>, which is seven keywords or a distance.</summary>
     /// <remarks>
     ///     <para>
@@ -766,6 +749,23 @@ public sealed class LayoutStyleBuilder {
             : length.Value;
     }
 
+    /// <summary>Writes the scrollbar gutter.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A length here, where CSS has a three-valued keyword, and the difference is
+    ///         deliberate.</b> The web's <c>scrollbar-width</c> is <c>auto | thin | none</c> because
+    ///         the browser owns the widget and only the page's preference is negotiable. Nothing here
+    ///         owns one — <c>ScrollView</c> builds its own bar and knows how thick it is — so the
+    ///         useful value is the thickness itself. <c>none</c> is spelled <c>0</c> and the keyword
+    ///         is accepted for it, because a stylesheet turning a gutter off should not have to know
+    ///         that.
+    ///     </para>
+    ///     <para>
+    ///         Inert unless an axis is a scroll container, which is what makes this safe to put in a
+    ///         utility layer: <c>scrollbar-15</c> on a box that clips or spills moves nothing. See
+    ///         <see cref="LayoutStyle.ScrollbarWidth" />.
+    ///     </para>
+    /// </remarks>
     void ApplyScrollbar(ComputedStyle style, in LengthContext context, ref LayoutStyle result) {
         if (!TryValue(style, names.ScrollbarWidth, out var value)) {
             return;

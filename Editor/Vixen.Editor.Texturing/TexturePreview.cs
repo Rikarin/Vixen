@@ -104,13 +104,27 @@ static class TexturePreview {
     ///     "preview unavailable" serves neither. The <see cref="TexturePreviewBlocker.None" />
     ///     sentence says what is on screen <i>and</i> what it is not, because a base layer that
     ///     claimed to be the wired graph would hide the one gap left.
+    ///     <para>
+    ///         ⚠ <b>And that sentence named the wrong gap for a whole batch, which is the failure
+    ///         this remark's own first line describes —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>.</b> It said
+    ///         <c>TextureGraphCompiler</c> was <c>internal</c> and that the plugin therefore could
+    ///         not compile a wired graph. It has been public since
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>, and
+    ///         <c>TextureGraphDocument.Compile</c> in this assembly compiles the document through it
+    ///         — so the sentence sent the one reader who could act on it to reopen a closed issue.
+    ///         What is actually missing is a caller: <c>TextureGraphPreview.Evaluate</c> evaluates
+    ///         <c>Base(width, height)</c>, a fixed checkerboard, and never asks the document for its
+    ///         plan (<a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>).
+    ///     </para>
     /// </remarks>
     public static string Describe(TexturePreviewBlocker blocker) =>
         blocker switch {
             TexturePreviewBlocker.None =>
                 "Preview: the graph's base layer, evaluated on this editor's device. ⚠ Not the wired "
-                + "graph — TextureGraphCompiler is internal to Vixen.Editor.TextureGraph, so this "
-                + "plugin can offer every node and cannot compile what you wire (#738).",
+                + "graph — TextureGraphPreview still evaluates a fixed checkerboard, and wiring it to "
+                + "TextureGraphDocument.Compile, which already produces a plan for this document, is "
+                + "#792.",
             TexturePreviewBlocker.NoGraphics =>
                 "No preview: this host publishes no IEditorGraphics to plugins, so nothing here can "
                 + "dispatch a kernel. The editor publishes one from EditorApplication.PluginPoints.",

@@ -116,6 +116,7 @@ enum TextureFilter {
 ///         different stretch in every tile — see this assembly's README.
 ///     </para>
 /// </remarks>
+[TextureKernelSurface]
 static class TextureColourKernels {
     /// <summary>A spline per channel, through a table baked by <see cref="TextureRamp" />.</summary>
     public const string Curve = "Curve";

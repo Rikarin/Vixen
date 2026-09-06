@@ -94,34 +94,28 @@ public class TextureColourKernelTests {
     ///     leaving an exemption behind. The empty case is fine here: it makes the
     ///     <c>Except</c> above a no-op and the equality exactly what it was before this existed.
     /// </remarks>
-    static IReadOnlyCollection<string> CpuOperations() {
-        HashSet<string> names = new(StringComparer.Ordinal);
-
-        foreach (var type in typeof(TextureKernels).Assembly.GetTypes()) {
-            if (type.GetProperty("All", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static) is not
-                { } all) {
-                continue;
-            }
-
-            if (all.GetValue(null) is not IEnumerable<TextureOp> ops) {
-                continue;
-            }
-
-            foreach (var op in ops.Where(op => op.Cpu is not null)) {
-                names.Add(op.Kernel);
-            }
-        }
-
-        return names;
-    }
+    static IReadOnlyCollection<string> CpuOperations() =>
+        TextureKernelSurfaces.Ops(TextureKernelSurfaces.Assembly)
+            .Where(op => op.Cpu is not null)
+            .Select(op => op.Kernel)
+            .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Every kernel name any slice of this assembly declares, found rather than listed.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The convention this reads is one line long: a slice declares its kernels in a static
-    ///         <c>All</c> on a type of its own.</b> <c>TextureColourKernels.All</c> is a list of names,
-    ///         <c>TextureSources.All</c> is a list of ops that carry one — both are answered here, and
-    ///         a slice that adds a third surface needs no edit to this file.
+    ///         <b>The convention this reads is one line long: a slice declares its kernels on a type
+    ///         marked <see cref="TextureKernelSurfaceAttribute" />.</b> <c>TextureColourKernels.All</c>
+    ///         is a list of names, <c>TextureSources.All</c> is a list of ops that carry one — both are
+    ///         answered by <see cref="TextureKernelSurfaces" />, and a slice that adds a third surface
+    ///         needs no edit to this file.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The detector used to be the member name alone, and a member name is not a
+    ///         predicate</b> (<a href="https://github.com/Rikarin/Vixen/issues/814">#814</a>). Any
+    ///         static <c>All</c> of strings in the assembly joined the kernel inventory — measured,
+    ///         when a diagnostics registry called its id list <c>All</c> and this roll call went red
+    ///         naming <c>Tile</c>. The marker is read now, and
+    ///         <c>TextureKernelSurfaceTests</c> is where a decoy proves it has a false case.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Written by hand first, and that version was wrong in a way only a merge could
@@ -132,36 +126,7 @@ public class TextureColourKernelTests {
     ///         keep a second list of it.
     ///     </para>
     /// </remarks>
-    static IEnumerable<string> Declared() {
-        // ⚠ The detector is a *member name*, so any static `All` of strings anywhere in this
-        // assembly joins the kernel inventory — measured: a diagnostics registry called its id list
-        // `All` and this roll call went red naming `Tile`. There is no honest discriminator to add
-        // here, because "these strings are kernel names" is the very thing the case below asserts.
-        // #814 is where a marked surface belongs; until then a new non-kernel surface is named
-        // something else.
-        foreach (var type in typeof(TextureKernels).Assembly.GetTypes()) {
-            if (type.GetProperty("All", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static) is not
-                { } all) {
-                continue;
-            }
-
-            switch (all.GetValue(null)) {
-                case IEnumerable<string> names:
-                    foreach (var name in names) {
-                        yield return name;
-                    }
-
-                    break;
-
-                case IEnumerable<TextureOp> ops:
-                    foreach (var op in ops) {
-                        yield return op.Kernel;
-                    }
-
-                    break;
-            }
-        }
-    }
+    static IEnumerable<string> Declared() => TextureKernelSurfaces.Names(TextureKernelSurfaces.Assembly);
 
     /// <summary>
     ///     Each kernel declares its inputs in the order the evaluator binds an op's images over them.

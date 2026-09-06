@@ -297,6 +297,21 @@ shader TileSampler {
     /// composites each instance over the last, in cell raster order — an order that is the same for
     /// every texel, because the neighbourhood is walked in absolute cell coordinates and not in
     /// offsets from the texel's own cell.
+    ///
+    /// ⚠ **Only `blend` is a compositing operator, and only `blend` is bound by `Blend.rvn`'s
+    /// model** — [#864](https://github.com/Rikarin/Vixen/issues/864). `max` and `add` fold two
+    /// straight colours by a rule of their own that never divides by a coverage and never consults
+    /// the backdrop's: a first stamp of colour `C` at coverage `k` leaves `C` under both, which is
+    /// straight already, and `add`'s running colour is a *sum* whose mean is the closed form the
+    /// suite reads. Neither is source-over and neither is meant to be.
+    ///
+    /// ⚠ **`blend` was the opaque-backdrop specialisation of source-over**, exactly the defect #832
+    /// corrected in `Blend.rvn` — `lerp(carried, colour, weight)` beside `α + (1−α)·weight` mixes a
+    /// straight colour towards a backdrop that is not there and stores the product as though it
+    /// were straight. In `Blend.rvn` that needed a group to reach it, because every chain in a
+    /// graph starts from an opaque source. Here the accumulator **starts at zero by construction**,
+    /// so the very first stamp was premultiplied by its own coverage and one instance at coverage
+    /// ½ came out half its colour. It is the general form below and nothing else.
     func Accumulate(carried: float4, colour: float3, cover: float): float4 {
         val weight = saturate(cover * saturate(opacity))
 
@@ -310,9 +325,16 @@ shader TileSampler {
         }
 
         if (accumulation == 2) {
-            val mixed = lerp(carried.xyz, colour, float3(weight, weight, weight))
+            // `Blend.rvn`'s `Main`, with the operator fixed at copy and the opacity already in
+            // `weight`. ⚠ At `backdrop == 1` it reduces bit for bit to the `lerp` it replaced, so
+            // the whole of the change is confined to a partially covered accumulator — which is
+            // every stamp that is not the last one over an opaque pile.
+            val backdrop = saturate(carried.w)
+            val alpha = backdrop + (1f - backdrop) * weight
+            val over = carried.xyz * backdrop * (1f - weight) + colour * weight
+            val mixed = over / max(alpha, 0.000001f)
 
-            return float4(mixed.x, mixed.y, mixed.z, carried.w + (1f - carried.w) * weight)
+            return float4(mixed.x, mixed.y, mixed.z, alpha)
         }
 
         val kept = max(carried.xyz, colour * saturate(opacity))

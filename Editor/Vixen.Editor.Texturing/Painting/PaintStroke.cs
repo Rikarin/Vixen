@@ -53,6 +53,18 @@ sealed class PaintStroke {
     readonly List<(int Texel, float Reach)> pending = [];
     readonly Dictionary<int, uint> before = [];
     readonly Dictionary<int, float> reached = [];
+
+    /// <summary>How many four-neighbour steps from coverage each dilated texel is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The field that makes the reach a property of the atlas rather than of the stroke —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/868">#868</a>.</b> A distance from the
+    ///     coverage map is the same number whichever stamp measured it, which is what lets
+    ///     <see cref="Dilate" /> run round <c>r</c> from the texels at distance <c>r</c> and stop at
+    ///     <see cref="gutter" /> however many stamps have crossed the seam. Kept beside
+    ///     <see cref="reached" /> and not folded into it because the two answer different questions:
+    ///     a reach may rise as later stamps paint the island harder, and a distance may only fall.
+    /// </remarks>
+    readonly Dictionary<int, int> distance = [];
     readonly float smoothing;
     Vector2 smoothed;
     bool started;
@@ -129,6 +141,34 @@ sealed class PaintStroke {
     /// <summary>How many texels the dilation has written outside an island.</summary>
     public int DilatedTexels { get; private set; }
 
+    /// <summary>How many texels either loop has <em>looked at</em>, over the whole stroke.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The counter <see cref="WeightsEvaluated" /> is not, and the difference is what
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a> found.</b> A weight is
+    ///         evaluated only for a texel an island covers, and only inside the stamp's footprint —
+    ///         so a counter of weights measures the cheaper of a stamp's two loops. The dilation
+    ///         scans the footprint grown by the gutter on every side, up to <see cref="gutter" />
+    ///         times. Exit criterion 8 was gated on the smaller number.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>How much larger depends on the coverage, and #871's own "roughly 45 000" is the
+    ///         ceiling rather than the usual case.</b> <see cref="Dilate" /> stops as soon as a round
+    ///         finds nothing to fill, so over an atlas an island covers entirely it runs <em>once</em>
+    ///         — measured at radius 48 and gutter 4, 10 810 scanned texels a stamp against 9 216
+    ///         weights. The 45 000 is what an atlas with real seams in it costs, where each of the
+    ///         four rounds reaches new gutter texels. Either way it is the bigger of the two, and
+    ///         either way it was in no counter.
+    ///     </para>
+    ///     <para>
+    ///         <b>So this counts every texel visited, in both loops, covered or not.</b> It is still
+    ///         a property expressed as work rather than as elapsed time, and its closed form —
+    ///         footprint plus <c>gutter × (footprint + 2·gutter)²</c> — mentions the atlas and the
+    ///         stack in neither term, which is the claim the criterion is about.
+    ///     </para>
+    /// </remarks>
+    public long TexelsScanned { get; private set; }
+
     /// <summary>Whether anything has been painted.</summary>
     public bool IsEmpty => before.Count == 0;
 
@@ -137,12 +177,26 @@ sealed class PaintStroke {
 
     /// <summary>Moves the pointer, painting whatever stamps that earned.</summary>
     /// <param name="texel">Where the pointer is now, in texels of the atlas.</param>
+    /// <param name="regions">
+    ///     Appended one rectangle <em>per stamp</em>, or <see langword="null" /> to collect none.
+    /// </param>
     /// <returns>The rectangle this move dirtied, for a view to re-upload.</returns>
     /// <remarks>
-    ///     The first call always stamps, for <c>BrushStroke</c>'s reason: an artist who clicks
-    ///     without dragging expects one stamp rather than none.
+    ///     <para>
+    ///         The first call always stamps, for <c>BrushStroke</c>'s reason: an artist who clicks
+    ///         without dragging expects one stamp rather than none.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The return is the union and <paramref name="regions" /> is not, and the second is
+    ///         the one a recomposite must use</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a>. One pointer move can
+    ///         earn many stamps: a pointer that jumps half the atlas between two frames lays a line
+    ///         of them, and the union of that line is a rectangle covering everything between the
+    ///         two ends. Recompositing the union makes a stamp's cost a function of how fast the
+    ///         artist moved, which is the opposite of what "independent of atlas size" claims.
+    ///     </para>
     /// </remarks>
-    public PaintRect MoveTo(Vector2 texel) {
+    public PaintRect MoveTo(Vector2 texel, List<PaintRect>? regions = null) {
         smoothed = started ? Vector2.Lerp(smoothed, texel, 1f - smoothing) : texel;
         started = true;
 
@@ -152,7 +206,13 @@ sealed class PaintStroke {
         var dirty = PaintRect.Empty;
 
         foreach (var stamp in spaced) {
-            dirty = dirty.Union(Apply(Jittered(stamp, StampCount)));
+            var painted = Apply(Jittered(stamp, StampCount));
+
+            if (!painted.IsEmpty) {
+                regions?.Add(painted);
+            }
+
+            dirty = dirty.Union(painted);
             StampCount++;
         }
 
@@ -221,6 +281,10 @@ sealed class PaintStroke {
             for (var x = footprint.X; x < footprint.EndX; x++) {
                 var index = (y * image.Width) + x;
 
+                // Counted before the coverage test, because this loop visited the texel whether or
+                // not an island covers it — see `TexelsScanned`.
+                TexelsScanned++;
+
                 // ⚠ Only where the surface is. A stamp that painted the gutter directly would put
                 // colour where no triangle samples it and would then be *overwritten* by the
                 // dilation below, so the two would disagree about the same texels.
@@ -277,6 +341,21 @@ sealed class PaintStroke {
     ///         cannot overwrite the island beside it in the atlas.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>The first of those three was false for a stroke of more than one stamp, and the
+    ///         third is not what made it matter —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/868">#868</a>.</b> Coverage is what
+    ///         stops a gutter reaching the island beside it, so an over-reach could never overwrite a
+    ///         neighbour whatever its length; what it could do is make the halo a function of the
+    ///         brush and the stamp spacing. <see cref="reached" /> is stroke-wide, so stamp N seeded
+    ///         its rounds from texels stamp N−1 had already dilated and advanced a further
+    ///         <see cref="gutter" />, up to the stamp footprint's own bound of
+    ///         <c>radius + gutter</c>. That is a wider halo, more recorded texels, a larger dirty
+    ///         rectangle for the view to re-upload — and a number an author set that did not decide
+    ///         any of them. <see cref="distance" /> is what makes a round measure from coverage
+    ///         instead, and <c>PaintDilationReachTests</c> asserts the reach against a
+    ///         breadth-first distance rather than against a column number.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>The coverage is dilated, not the colour.</b> A dilated texel takes its
     ///         neighbour's <em>reach</em> and derives its colour through the same
     ///         <see cref="PaintImage.Mix" /> from its own before-value, so a second stamp crossing
@@ -299,14 +378,20 @@ sealed class PaintStroke {
                 for (var x = grown.X; x < grown.EndX; x++) {
                     var index = (y * image.Width) + x;
 
+                    // ⚠ The loop exit criterion 8's counter used not to see at all, and the larger
+                    // of a stamp's two: one round over the grown footprint already exceeds the whole
+                    // footprint scan, and an atlas with real islands in it runs up to `gutter` of
+                    // them. #871.
+                    TexelsScanned++;
+
                     if (coverage.IsCovered(index)) {
                         continue;
                     }
 
-                    var best = Neighbour(x - 1, y, x >= 1);
-                    best = MathF.Max(best, Neighbour(x + 1, y, x + 1 < image.Width));
-                    best = MathF.Max(best, Neighbour(x, y - 1, y >= 1));
-                    best = MathF.Max(best, Neighbour(x, y + 1, y + 1 < image.Height));
+                    var best = Neighbour(x - 1, y, x >= 1, round);
+                    best = MathF.Max(best, Neighbour(x + 1, y, x + 1 < image.Width, round));
+                    best = MathF.Max(best, Neighbour(x, y - 1, y >= 1, round));
+                    best = MathF.Max(best, Neighbour(x, y + 1, y + 1 < image.Height, round));
 
                     if (!(best > 0f)) {
                         continue;
@@ -333,6 +418,13 @@ sealed class PaintStroke {
                 reached[index] = reach;
                 image[index] = PaintImage.Mix(before[index], colour, reach);
 
+                // The lower of the two, because a round's window is the stamp's own grown rectangle:
+                // a texel whose shortest path to coverage left that window was reached the long way
+                // round by an earlier stamp, and a later stamp that can see the short one corrects it.
+                distance[index] = distance.TryGetValue(index, out var known)
+                    ? Math.Min(known, round + 1)
+                    : round + 1;
+
                 var x = index % image.Width;
                 var y = index / image.Width;
 
@@ -343,8 +435,34 @@ sealed class PaintStroke {
         return written;
     }
 
-    float Neighbour(int x, int y, bool inside) =>
-        inside && reached.TryGetValue((y * image.Width) + x, out var reach) ? reach : 0f;
+    /// <summary>What one neighbour contributes to a texel being filled in <paramref name="round" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Gated on the neighbour's distance, which is the whole of
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/868">#868</a>.</b> Round <c>r</c> fills
+    ///     the texels at distance <c>r + 1</c>, so its sources are the covered texels when
+    ///     <c>r</c> is zero and the texels at distance <c>r</c> after that. Ungated — reading
+    ///     <see cref="reached" /> alone, which is stroke-wide and already holds what the previous
+    ///     stamp dilated — round zero of stamp N started from the far edge of stamp N−1's halo, and
+    ///     the reach grew by a further <see cref="gutter" /> per stamp until the footprint stopped
+    ///     it. By induction over this gate, a texel filled in round <c>r</c> is at most
+    ///     <c>r + 1</c> steps from coverage, so nothing is ever written further than
+    ///     <see cref="gutter" />.
+    /// </remarks>
+    float Neighbour(int x, int y, bool inside, int round) {
+        if (!inside) {
+            return 0f;
+        }
+
+        var index = (y * image.Width) + x;
+
+        if (!reached.TryGetValue(index, out var reach)) {
+            return 0f;
+        }
+
+        return coverage.IsCovered(index)
+            ? round == 0 ? reach : 0f
+            : distance.TryGetValue(index, out var steps) && steps == round ? reach : 0f;
+    }
 
     /// <summary>
     ///     Remembers what a texel held before the stroke, once.

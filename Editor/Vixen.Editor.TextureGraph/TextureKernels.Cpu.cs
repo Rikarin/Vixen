@@ -24,6 +24,7 @@ namespace Vixen.Editor.TextureGraph;
 ///         <c>TextureNodeLibraryTests</c> refuses the name collision outright.
 ///     </para>
 /// </remarks>
+[TextureKernelSurface]
 internal static class TextureCpuKernels {
     /// <summary>Doc 48 § 4.6's <c>Normal → Height</c>. A Poisson solve, and the only entry.</summary>
     public const string NormalToHeight = NormalToHeightOperation.OpKernel;
@@ -40,6 +41,7 @@ internal static class TextureCpuKernels {
 ///     about an embedded resource, which says nothing about the mistake. There is one place that
 ///     instance is attached.
 /// </remarks>
+[TextureKernelSurface]
 internal static class TextureCpuOperations {
     /// <summary>Doc 48 § 4.6's <c>Normal → Height</c>.</summary>
     /// <param name="output">The height field to write. Grey, and signed — see the operation.</param>

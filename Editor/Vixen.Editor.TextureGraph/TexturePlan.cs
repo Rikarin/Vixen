@@ -161,6 +161,29 @@ public sealed record TextureOp {
     ///         where a hand-kept list forgotten in the other direction is silence. Setting it where it
     ///         is not true costs only this one op's guard.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is per-<em>op</em> and not per-<em>input</em>, and #801's own argument for that
+    ///         does not survive being read twice.</b> <see cref="TexturePlan.Check" /> tests it inside
+    ///         the loop over the op's inputs, so declaring it silences the guard for <em>every</em>
+    ///         input — including <c>AutoLevels</c>' full-size pointwise source, which is the precise
+    ///         thing a kernel-level flag was rejected for silencing. Per-op narrows the silence from
+    ///         "this kernel, in every plan" to "this op", and on the one op where the distinction
+    ///         could be seen it narrows it to nothing at all.
+    ///     </para>
+    ///     <para>
+    ///         <b>Kept anyway, and the reason is which ops exist rather than which are imaginable.</b>
+    ///         Seven of the ten sites that declare it have a single input, where per-op and per-input
+    ///         are the same statement; <c>TileSampler</c> and <c>Splatter</c> read
+    ///         <em>all</em> of their four and five inputs through the source's own extent, so a list
+    ///         of indices there would be every index. That leaves <c>AutoLevels</c>, whose source is
+    ///         the one input a per-input flag would still guard — and the compiler cannot hand it a
+    ///         mismatched one: <c>TextureGraphCompiler.Rescale</c> resamples every image arriving at a
+    ///         node to that node's level before the op is built, so the source and the output are the
+    ///         same extent by construction. The hole is real, it is one input wide, and it is only
+    ///         reachable from a hand-built plan —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a> is where it goes if a
+    ///         second multi-input op ever reads one of its inputs pointwise.
+    ///     </para>
     /// </remarks>
     public bool ReadsOtherExtents { get; init; }
 
@@ -315,10 +338,31 @@ public sealed class TexturePlan {
 
     /// <summary>The plan's seed, from which every op's is derived.</summary>
     /// <remarks>
-    ///     ⚠ <b>Per op, not per plan, and that is what makes a bake reproducible under editing.</b> A
-    ///     single seed shared by every noise in a graph means inserting an op upstream changes the
-    ///     numbers every op downstream draws — so the artist moves a node and the whole material
-    ///     shimmers. <see cref="SeedFor" /> mixes the plan's seed with the op's own identity instead.
+    ///     <para>
+    ///         <b>Per op, not per plan.</b> A single seed shared by every noise in a graph makes two
+    ///         noises drawn side by side the same picture, which is the thing an author notices
+    ///         first. <see cref="SeedFor" /> mixes the plan's seed with the op's position instead.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This used to say the mix was with "the op's own identity" and that it made a bake
+    ///         reproducible under editing. Both halves are false —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>.</b> The mix is with the
+    ///         op's <em>index in <see cref="Ops" /></em>, which is precisely the number an insertion
+    ///         moves: add a layer beneath a noise and every op after it shifts, so the artist moves a
+    ///         node and the material shimmers — the failure the remark named as the reason for the
+    ///         design it was describing. <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a>
+    ///         did exactly that at scale, adding three ops per masked layer per channel, and nothing
+    ///         reported the pixel change.
+    ///     </para>
+    ///     <para>
+    ///         <b>What is stable is a re-bake</b>: the same plan at another
+    ///         <see cref="BakeLevelOffset" /> has the same op list, so a 1K material and its 4K bake
+    ///         draw the same noise. What is not stable is the plan across an edit. A fix needs an
+    ///         identity a front end records — a graph node's id and a layer stack's generated node
+    ///         ids both move under the same edits this index does — so it is a change to what a
+    ///         builder writes down rather than to this mix. <c>TexturePlanSeedTests</c> pins the
+    ///         number so the drift is reported rather than silent.
+    ///     </para>
     /// </remarks>
     public uint Seed { get; init; }
 
@@ -450,6 +494,8 @@ public sealed class TexturePlan {
     ///     MurmurHash3, chosen because it is four lines, has no table behind it, and gives every bit
     ///     of the index an equal effect on every bit of the result. That last property is the one
     ///     that matters: op 6 and op 7 must not draw neighbouring noise.
+    ///     ⚠ And it is the reason an insertion is not a small change — see <see cref="Seed" />, which
+    ///     says what this is and is not stable under.
     /// </remarks>
     public uint SeedFor(int op) {
         var value = unchecked(Seed + (0x9E3779B9u * (uint)(op + 1)));

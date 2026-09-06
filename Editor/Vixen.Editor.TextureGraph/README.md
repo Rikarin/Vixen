@@ -283,6 +283,14 @@ of an output texel and boxes over it, which is the mip level a sampler would hav
 form is a one-texel column checkerboard: its mean is exactly one half, so a correct minification of
 it is 128 everywhere and a point-sampled one is 0 or 255 everywhere.
 
+⚠ **The other direction is where a box filter is a point sample under another name.**
+`Resample.rvn` takes `clamp(ceil(extent / size), 1, MaxSamples)` sub-samples per axis, which is
+exactly one whenever the target is the *larger* image — so `Box` going up reads a single texel at the
+output texel's centre. `Rescale` derives the filter from the two level offsets
+([#829](https://github.com/Rikarin/Vixen/issues/829)) and the node derives it from `Size`
+([#865](https://github.com/Rikarin/Vixen/issues/865)); the setting's default is `Auto` rather than a
+filter name, because no one name is right in both directions.
+
 **⚠ `Auto Levels` is more than the two dispatches § 4.2 names, and nothing in the plan records what
 makes it different.** It is the first op whose output depends on *every texel of its input*, so it is
 one `MinMaxReduce` dispatch per level down to a 1×1 image and then the map — three at 64², five at
@@ -546,8 +554,14 @@ visible only as six kernels with no node.
 by `TextureRamp`, out of the editor's own gradient and Hermite evaluators, so the compiler carries the
 bytes; an imported image is a *reference*, because a compilation runs on every edit and must not open
 an asset database. `TextureGraphExternals.Upload` puts the first kind on a device and hands the second
-kind back for a host to resolve. ⚠ That last list has no in-tree consumer yet, so a graph containing a
-`Source/Bitmap` compiles and does not bake.
+kind back for a host to resolve. ⚠ That last sentence used to end *"has no in-tree consumer yet, so a
+graph containing a `Source/Bitmap` compiles and does not bake"*, and
+[#818](https://github.com/Rikarin/Vixen/issues/818) made it one:
+`LayerStackPreview.Evaluate` walks the owed list, reads each named asset out of the project and
+uploads it, and turns every one it cannot read into a sentence naming all of them at once. A stack's
+texture-fill layers bake. ⚠ The *graph* panel still does not, and that is a different gap — it
+evaluates a fixed checkerboard and never asks the document for its plan
+([#792](https://github.com/Rikarin/Vixen/issues/792)).
 
 **⚠ An image at a resolution of its own** ([#733](https://github.com/Rikarin/Vixen/issues/733)).
 `Write` and `Scratch` take a level offset. Before that every image any node allocated was at the

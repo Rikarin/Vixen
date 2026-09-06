@@ -92,13 +92,14 @@ public class LayerStackPanelDeviceTests {
     /// <summary>The status line says what was baked rather than what cannot be.</summary>
     /// <remarks>
     ///     ⚠ <b>This is the assertion that separates the stack's pane from the graph's.</b>
-    ///     <c>TextureGraphPreview</c> still evaluates a fixed checkerboard and
-    ///     <c>TexturePreview.Describe</c> still says "⚠ Not the wired graph — TextureGraphCompiler is
-    ///     internal … (#738)". #738 is closed and that compiler is <c>public</c>; the stack's pane
-    ///     compiles the real document, so its sentence must not be the graph's. Filed as
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>, and this test is the
-    ///     tripwire: when the graph's pane is fixed, the two sentences converge and the second
-    ///     assertion here is what says so.
+    ///     <c>TextureGraphPreview</c> still evaluates a fixed checkerboard, and until
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>
+    ///     <c>TexturePreview.Describe</c> said "⚠ Not the wired graph — TextureGraphCompiler is
+    ///     internal … (#738)". #738 is closed and that compiler is <c>public</c>; the graph's line
+    ///     now names <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>, the missing
+    ///     caller. The stack's pane compiles the real document, so its sentence must not be the
+    ///     graph's — and this test is the tripwire: when the graph's pane is fixed, the two sentences
+    ///     converge and the second assertion here is what says so.
     /// </remarks>
     [Fact]
     public void The_pane_says_it_compiled_the_stack_rather_than_a_base_layer() {
@@ -121,7 +122,11 @@ public class LayerStackPanelDeviceTests {
         Assert.Equal(1, preview.Evaluations);
         Assert.Contains("baseColor", picture.Status, StringComparison.Ordinal);
         Assert.DoesNotContain("base layer", picture.Status, StringComparison.Ordinal);
-        Assert.DoesNotContain("#738", picture.Status, StringComparison.Ordinal);
+        // ⚠ #792, not #738. The tripwire guards against the stack's pane falling back to the graph
+        // pane's sentence, so it has to name a string that sentence actually contains — and the
+        // sweep that corrected every stale "#738" out of the tree left this assertion looking for a
+        // number no runtime string holds any more, which is a tripwire nothing can trip.
+        Assert.DoesNotContain("#792", picture.Status, StringComparison.Ordinal);
     }
 
     /// <summary>⚠ Re-evaluating releases the picture it replaces: one live upload, however many runs.</summary>

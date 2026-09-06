@@ -1085,6 +1085,39 @@ plugin host and the asset write already exist, and every one of them would other
     `StandardFrame` — because "tests pass" is not evidence for a visual defect, and three wrong-frame
     bugs have shipped past clean counters in this repository already.
 
+### Which of the twelve somebody has measured, and which are inferred
+
+⚠ **This is not the scoreboard the section below refuses.** Whether a criterion *holds* is state and
+lives in [#577](https://github.com/Rikarin/Vixen/issues/577); what kind of evidence exists for it is a
+fact about the criterion as written, which is what this document is for. The distinction is the whole
+point: **a criterion nobody has measured and a criterion that passes look identical in a status
+table**, and six audits in a row scored criterion 1 without noticing that half of its sentence had
+never been evaluated at all. Re-measured 2026-09-06; the mechanism column names the file, so a row
+that has rotted is a `git grep` away from being caught.
+
+| # | The criterion, short | Evidence | Mechanism | ⚠ What is not measured |
+|---|---|---|---|---|
+| 1 | Forty-node graph at 2048², recorded | **half measured** | `TextureEvaluationCostTests` — milliseconds recorded with the adapter named, three deterministic counters asserted (two pooled textures, one frame, one compiled variant) | **The second clause has never been evaluated.** "A parameter change re-evaluates only the affected sub-graph" is unimplemented — `TexturePlanEvaluator` caches compiled variants and no evaluated image, and `TextureGraphPreviews` marks whole graphs dirty ([#846](https://github.com/Rikarin/Vixen/issues/846)) |
+| 2 | Scale invariance at 1K and 4K | **measured, unenumerated** | `TextureSourceDeviceTests.A_source_kernel_bakes_the_same_picture_at_both_resolutions`, 64 against a downsampled 256 | "Every atomic node" is inferred: nothing enumerates the atomic nodes and requires the next one to have a case. ⚠ And the criterion is false as written for a hard-edged source ([#640](https://github.com/Rikarin/Vixen/issues/640)) |
+| 3 | An assertion per node that would notice its picture changing | **measured** | `TextureNodeLibraryTests`' roll calls over the shipped surface, plus 4's per-implementation sabotage and 5's closed forms | A node whose parameters are right and whose picture is merely ugly — said plainly below, and a golden would have recorded it rather than caught it |
+| 4 | A sabotage per shipped op implementation | **measured** | `TextureKernelSabotageTests` — one case per implementation, the perturbation generated from the kernel's own source | The subject set was one assembly's types and a CPU operation in `Vixen.Editor.Texturing` would have been outside it; cross-checked against the tree's sources since ([#872](https://github.com/Rikarin/Vixen/issues/872)) |
+| 5 | Five closed forms | **three of five** | Gaussian impulse response (`TextureFilterDeviceTests`), distance transform from one lit texel (`TextureAnalysisDeviceTests`), levels curve at three points (`TexturePlanDeviceTests`) | ⚠ **AO on a sphere and curvature of a sphere reading 1/*r* do not exist.** `git grep -i sphere` over both test projects returns nothing, and the criterion has been scored Met since batch 6 ([#847](https://github.com/Rikarin/Vixen/issues/847)). They are the two that calibrate a *scale*; the surviving oracles for those kernels are a direction and a constant |
+| 6 | A stack and its explosion are byte-identical | **measured, weaker than its wording** | `LayerStackBakeDeviceTests` on a device, `LayerStackExplodeTests` without one | ⚠ `LayerStackDifferential` compares a stack against **its own explosion** — one pipeline twice, so it proves the round trip and the decoration agree and nothing about whether either is right. Two compositing defects lived under it green for a whole batch |
+| 7 | A re-bake on the same machine is byte-identical | **measured** | `MaterialBakeAssetTests.A_re_bake_is_byte_identical`; the cross-adapter half is recorded, not asserted, by `A_re_bake_on_another_adapter_is_not_refused` | — |
+| 8 | Paint latency under 16 ms per stamp | **measured as work, recorded as time** | `PaintCostTests` at 4096² with twelve layers: the stamp's work is asserted equal to its own footprint, the milliseconds are printed, and the one time assertion is an absurd ceiling whose message says it is a hang check | The wall-clock number itself is deliberately not gated |
+| 9 | A painted-over output is detected | **measured** | `MaterialBakeAssetTests` — refused, overwritten when forced, and an untouched set not called painted | — |
+| 10 | The plugin loads, activates, unloads, and links the app in no build | **measured, both halves** | `Vixen.Editor.Plugin.Tests/LoadingTests` via `PluginHost.WaitForCollection`; `PluginReferenceRule` called by `CheckArchitecture` and by `PluginReferenceRuleTests` | — |
+| 11 | A device confirmed by name in every GPU test in this area | **measured for one of the two projects** | `TextureAdapterRollCallTests` walks `Vixen.Editor.TextureGraph.Tests`' own sources | ⚠ **The area is two test projects.** `Vixen.Editor.Texturing.Tests` has five device files and the same convention through `TexturingDevice.Adapter`, and nothing enumerates them — so the twentieth file there is exactly the case the roll call was built for, one project along ([#883](https://github.com/Rikarin/Vixen/issues/883)) |
+| 12 | A frame is photographed | **measured** | `BakedMaterialImageTests` — maps from `TexturePlanEvaluator`, packed by `MaterialBake`, drawn through `StandardFrameAsset`, differenced against `MetalRoughnessFeature` | It is a golden-suite file, so it skips without a device; ⚠ eighteen files in that suite *passed* rather than skipped until 2026-08-21 |
+
+⚠ **Two of the twelve are cited in the tests by the wrong number, and one by wording the criterion no
+longer has.** `TextureSourceDeviceTests` calls scale invariance "exit criterion 3" three times, and it
+is criterion 2; `TextureEvaluationCostTests` quotes criterion 1 as "under 250 ms", which is the
+sentence this document amended precisely because asserting it would have been a flake. A criterion
+cited by number in a file that outlives the numbering is a small instance of the same thing this
+section is about — a claim that reads as measured and is a copy of something older
+([#884](https://github.com/Rikarin/Vixen/issues/884)).
+
 ### What measuring them for the first time said about the criteria themselves
 
 ⚠ **Where the answers live: [#577](https://github.com/Rikarin/Vixen/issues/577), not here.** The
