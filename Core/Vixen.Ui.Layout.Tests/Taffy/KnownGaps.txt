@@ -231,6 +231,16 @@
 # ⚠ Do not read "the layout corpus is green without the cap" as permission: the corpus has no text
 # leaf that cannot break, so it cannot see the case that holds it up.
 #
+# ⚠ RE-MEASURED A FOURTH TIME, ON THE ONE EVENT THAT COULD HAVE MOVED IT, AND IT DID NOT MOVE. The
+# §5.2.2 scroll-container clause came out of ComputeMinContentSizeUncached again (see
+# GridKnownGaps.txt, `Rikarin/Vixen#932`), which turned 24 grid conformance fixtures from red to
+# green and therefore changed what a great many min-content answers are. The cap's bill is unchanged
+# by it: with the cap deleted on top of that, Vixen.Ui.Layout.Tests is 6 439 of 6 441 — the two red
+# are two rows of the pin below, which is the cap asserting itself and not a fixture — and
+# Vixen.Ui.Controls.Tests is 862 of 865, the same three TextWrappingPixelTests named above with the
+# same numbers. So "the cap costs nothing in this project and three tests two assemblies out" is a
+# statement about the rule and not about the state of the probe on any particular day.
+#
 # ⚠ AND THE `width: 50%` HALF IS REFUTED AS AN OWED ITEM. `ProbeContentWidth` returning zero for a
 # percentage width is CSS Sizing §5.2.1 being obeyed and its own remark says so; the number a text
 # below such a box is MEASURED at is `ProbeInlineSize`, a separate quantity threaded beside it since

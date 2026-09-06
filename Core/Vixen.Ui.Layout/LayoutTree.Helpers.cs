@@ -768,6 +768,14 @@ public sealed partial class LayoutTree {
         // An_item_whose_content_refuses_to_shrink_is_still_floored_at_what_it_was_measured_at` is the
         // pin: it is not evidence that the cap is right, it is the record that removing it is the
         // framework call above rather than a cleanup.
+        //
+        // ⚠ <b>RE-MEASURED AFTER §5.2.2's CLAUSE CAME BACK OUT, WHICH IS THE ONE EVENT THAT COULD
+        // HAVE MOVED THIS, AND IT DID NOT.</b> That removal (`Rikarin/Vixen#932`) turns 24 grid
+        // conformance fixtures green and so changes a great many min-content answers; with this term
+        // deleted on top of it, Vixen.Ui.Layout.Tests is 6 439 of 6 441 — the two red being two rows
+        // of the pin itself — and Vixen.Ui.Controls.Tests is 862 of 865 with the same three
+        // `TextWrappingPixelTests` and the same numbers. The bill is a property of the rule rather
+        // than of the probe's state on a given day.
         if (results[index].FlexBasisFromContent) {
             var cap = results[index].ComputedFlexBasis;
             var offered = results[index].UnclampedMeasuredDimensions[(int) mainDimension];
