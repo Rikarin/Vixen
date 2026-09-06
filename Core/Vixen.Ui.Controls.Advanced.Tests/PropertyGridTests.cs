@@ -64,7 +64,17 @@ public sealed class PropertyGridTests : IDisposable {
                     (light, value) => light.Range = (float) value!,
                     new MemberPresentation(Minimum: 0, Maximum: 1, Step: 0.1, IsEditorVisible: true)
                 ),
-                Member("Samples", typeof(int), light => light.Samples, (light, value) => light.Samples = (int) value!),
+                // ⚠ A floor and no ceiling, which is the only shape that reaches a bounded
+                // `NumericInput` through this grid: a member with *both* ends declared takes the
+                // slider branch above, and a slider clamps. A count cannot be negative and has no
+                // largest value, so this is also what the case looks like in real code.
+                Member(
+                    "Samples",
+                    typeof(int),
+                    light => light.Samples,
+                    (light, value) => light.Samples = (int) value!,
+                    new MemberPresentation(Minimum: 0, IsEditorVisible: true)
+                ),
                 Member("Quality", typeof(Quality), light => light.Quality, (light, value) => light.Quality = (Quality) value!),
                 Member("Payload", typeof(object), light => light.Payload, null),
                 Member(
@@ -295,6 +305,47 @@ public sealed class PropertyGridTests : IDisposable {
 
         select.Value = "Low";
         Assert.Equal(Quality.Low, light.Quality);
+    }
+
+    /// <summary>A number the member's own bounds forbid is shown as refused and never written.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The decision this records is the grid's, and it only had to be made once
+    ///     <c>NumericInput</c> stopped clamping.</b> While the bounds lived in that control's coerce,
+    ///     every number that reached the drawer already satisfied them, so an ungated write was safe
+    ///     by accident; now that a typed number is held and reported instead, the same ungated write
+    ///     would put a value into the object that the member declares impossible. The inspector is a
+    ///     form: the field keeps the rejected number where it can be read and corrected, and the
+    ///     object keeps the last value that was allowed.
+    /// </remarks>
+    [Fact]
+    public void A_number_outside_the_members_bounds_is_refused_rather_than_written() {
+        using var fixture = new AdvancedFixture();
+
+        var light = new Light();
+        var grid = Grid(fixture, light);
+
+        var changes = 0;
+        grid.ValueChanged += (_, _) => changes++;
+
+        var samples = (NumericInput) grid.Rows[4].Editor.Children[0];
+        samples.Number = -3d;
+
+        // The object keeps what it had, and nothing was announced as a change.
+        Assert.Equal(4, light.Samples);
+        Assert.Equal(0, changes);
+
+        // ⚠ And the refusal is visible rather than silent — which is the half that makes this
+        // different from the clamp it replaced. The field still holds what was typed.
+        Assert.False(samples.IsValid);
+        Assert.False(samples.IsInRange);
+        Assert.Equal(-3d, samples.Number);
+
+        // Back inside the bounds and the write happens as it always did.
+        samples.Number = 9d;
+
+        Assert.Equal(9, light.Samples);
+        Assert.Equal(1, changes);
+        Assert.True(samples.IsValid);
     }
 
     [Fact]

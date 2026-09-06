@@ -402,6 +402,14 @@ status-bar {
 }
 
 status-message { flex-grow: 1; overflow: hidden; color: var(--text); }
+
+/* ⚠ The cells are one level down now that the strip is a `StatusBar` — the
+   control keeps its message and everything else in separate parts, so the
+   `gap` above no longer sits between the four of them. Restated here rather
+   than accepted, because the control theme's own trailing gap is 12px and
+   this strip is eight: four cells and a button at twelve is a bar that runs
+   out of room for the message on a narrow window. */
+status-bar > status-trailing { gap: 8px; }
 status-bar progress-bar { width: 110px; }
 status-bar button { padding: 2px 8px; font-size: 1em; }
 

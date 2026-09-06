@@ -61,6 +61,41 @@ public class EditableDocumentTests {
         public void Dispose() { }
     }
 
+    /// <summary>A host that opens nothing and knows which window one surface is in.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="IUiWindowHost.CanOpen" /> is <c>false</c> on purpose.</b> The single-window
+    ///     case is the one the accessor exists for — an application that has never torn a panel off
+    ///     still has a window, and it is the window everything in it is drawn in.
+    /// </remarks>
+    sealed class OneWindow(UiSurface surface, IUiWindow window) : IUiWindowHost {
+        public bool CanOpen => false;
+
+        public IUiWindow? Open(UiDocument document, in UiWindowRequest request) => null;
+
+        public bool TryLocate(UiSurface surface, out float x, out float y) {
+            x = 0f;
+            y = 0f;
+
+            return false;
+        }
+
+        public IUiWindow? WindowOf(UiSurface asked) => ReferenceEquals(asked, surface) ? window : null;
+    }
+
+    /// <summary>A host written before the accessor existed, which is every host that is not updated.</summary>
+    sealed class NoWindows : IUiWindowHost {
+        public bool CanOpen => false;
+
+        public IUiWindow? Open(UiDocument document, in UiWindowRequest request) => null;
+
+        public bool TryLocate(UiSurface surface, out float x, out float y) {
+            x = 0f;
+            y = 0f;
+
+            return false;
+        }
+    }
+
     static UiDocument Laid() {
         var document = new UiDocument(400f, 300f);
 
@@ -290,6 +325,67 @@ public class EditableDocumentTests {
         note.Rename("Chapter 4.md");
         document.Update();
         Assert.Equal("Chapter 4.md", window.Title);
+    }
+
+    /// <summary>A control deep in the tree can name the window it is drawn in and bind its title.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The gate on <c>UiWindowTitle.Bind</c> having a caller at all, and it is the missing
+    ///     <i>direction</i> that kept it from having one.</b> Everything that held an
+    ///     <c>IUiWindow</c> held it because it had opened one, so only the application head ever had
+    ///     a window to hand anybody — and a component has its own element and its document and
+    ///     nothing else. The two lines below are the whole of what a panel now needs to put the dirty
+    ///     marker in its own title bar, with no reference to the head anywhere in this test.
+    /// </remarks>
+    [Fact]
+    public void A_component_can_name_the_window_it_is_drawn_in_and_bind_its_title() {
+        using var document = Laid();
+        var note = new Note("Chapter 3.md");
+        using var window = new FakeWindow { Title = "opened with this" };
+
+        var panel = document.Root.Add("div", classNames: "panel");
+        var field = panel.Add("div", classNames: "field");
+
+        document.Windows = new OneWindow(document.Primary, window);
+
+        // Everything a control has: itself, and the document it can already reach.
+        var found = field.Document.WindowOf(field);
+        Assert.Same(window, found);
+
+        using var bound = UiWindowTitle.Bind(found!, note, document.Effects);
+
+        note.MarkDirty();
+        document.Update();
+
+        Assert.Equal("• Chapter 3.md", window.Title);
+    }
+
+    /// <summary>Not knowing is an answer, and it is the answer three ordinary arrangements give.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The default implementation is the load-bearing one here.</b> A host written before
+    ///     the accessor existed compiles unchanged and answers <c>null</c> — which is what it would
+    ///     have written — so the addition cannot break a host it never heard of, and a caller that
+    ///     forgets to check gets a null reference at the binding rather than a wrong window.
+    /// </remarks>
+    [Fact]
+    public void A_surface_nothing_placed_has_no_window_and_says_so() {
+        using var document = Laid();
+        var field = document.Root.Add("div", classNames: "panel").Add("div", classNames: "field");
+
+        // No windowing installed at all — the ordinary case for a document in a test or on a
+        // platform with one canvas.
+        Assert.Null(document.WindowOf(field));
+        Assert.Null(document.WindowOf(document.Primary));
+        Assert.Null(document.WindowOf((UiSurface?) null));
+
+        // Installed, and older than the question.
+        document.Windows = new NoWindows();
+        Assert.Null(document.WindowOf(field));
+
+        // Installed and asked about a surface it did not place.
+        using var window = new FakeWindow();
+        document.Windows = new OneWindow(document.CreateSurface(10f, 10f), window);
+
+        Assert.Null(document.WindowOf(field));
     }
 
     /// <summary>A disposed binding stops following, so a closed window is not written to.</summary>

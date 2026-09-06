@@ -79,6 +79,14 @@ and `IEditableDocument.IsDirty` greys them — the same mechanism as Copy above,
 model, `HostedDocument` and `DocumentCommands.Install` all existed with no production caller at all,
 which is the defect this repository meets most often and the one a sample is the cheapest cure for.
 
+⚠ **And the title bar says so, which is the only part of any of this the user sees.** `Shell.vxml`
+asks `Root.Document.WindowOf(Root)` for the window it is drawn in and hands it to
+`UiWindowTitle.Bind`, so an edit puts `• Standard Material` in the title bar and a save takes the dot
+away. That accessor is new: everything that held an `IUiWindow` held it because it had *opened* one,
+so only `Program.cs` had a window and a component could not name its own — which left
+`UiWindowTitle.Bind` with zero callers anywhere. This shell has no reference to the application head
+and deliberately keeps none.
+
 ⚠ **Dirty is derived, not announced.** The document holds the snapshot Save took and an effect
 compares the live signals against it, so editing a field and editing it back leaves Save grey again.
 A `MarkDirty()` called from each panel would leave it live for the rest of the session.

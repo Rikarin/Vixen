@@ -517,35 +517,99 @@ public class ElementStateBitTests {
         using var ui = ControlHarness.Open(
             200f,
             160f,
-            "select:invalid { opacity: 0.4 } checkbox:invalid { opacity: 0.4 } radio-group:invalid { opacity: 0.4 }");
+            "select:invalid { opacity: 0.4 } checkbox:invalid { opacity: 0.4 } radio-group:invalid { opacity: 0.4 }"
+            + " multi-select:invalid { opacity: 0.4 } combo-box:invalid { opacity: 0.4 }"
+            + " switch:invalid { opacity: 0.4 }");
 
         var opacity = ui.Document.PropertyId("opacity");
 
         var select = ui.Add<Select>();
         var box = ui.Add<CheckBox>();
         var group = ui.Add<RadioGroup>();
+        var many = ui.Add<MultiSelect>();
+        var combo = ui.Add<ComboBox>();
+
+        // ⚠ The control that must never match, in the same sheet as the ones that must. A switch
+        // deliberately does not take part in constraint validation — see the type's remarks — and a
+        // refusal nothing asserts is a refusal the next person deletes by accident.
+        var toggle = ui.Add<Switch>();
 
         Assert.Null(ui.Document.NumberOf(select.Style, opacity));
         Assert.Null(ui.Document.NumberOf(box.Style, opacity));
         Assert.Null(ui.Document.NumberOf(group.Style, opacity));
+        Assert.Null(ui.Document.NumberOf(many.Style, opacity));
+        Assert.Null(ui.Document.NumberOf(combo.Style, opacity));
 
         select.Required = true;
         box.Required = true;
         group.Required = true;
+        many.Required = true;
+        combo.Required = true;
         ui.Frame();
 
         Assert.Equal(0.4f, ui.Document.NumberOf(select.Style, opacity) ?? 0f, 3);
         Assert.Equal(0.4f, ui.Document.NumberOf(box.Style, opacity) ?? 0f, 3);
         Assert.Equal(0.4f, ui.Document.NumberOf(group.Style, opacity) ?? 0f, 3);
 
+        // ⚠ The two this issue is about. `combo-box:invalid` reached nothing at all before —
+        // `combo-box textbox:invalid` reached the editor inside it and the box drawn round the
+        // editor and its chevron, which is the thing anybody writes a rule against, matched no
+        // selector in any state.
+        Assert.Equal(0.4f, ui.Document.NumberOf(many.Style, opacity) ?? 0f, 3);
+        Assert.Equal(0.4f, ui.Document.NumberOf(combo.Style, opacity) ?? 0f, 3);
+
+        // Unchanged and unchangeable: there is no property on it that could make the rule apply.
+        Assert.Null(ui.Document.NumberOf(toggle.Style, opacity));
+
         select.Value = "green";
         box.IsChecked = true;
         group.Value = "green";
+        many.Select("green", true);
+        combo.Value = "green";
         ui.Frame();
 
         Assert.Null(ui.Document.NumberOf(select.Style, opacity));
         Assert.Null(ui.Document.NumberOf(box.Style, opacity));
         Assert.Null(ui.Document.NumberOf(group.Style, opacity));
+        Assert.Null(ui.Document.NumberOf(many.Style, opacity));
+        Assert.Null(ui.Document.NumberOf(combo.Style, opacity));
+    }
+
+    /// <summary>A switch carries neither verdict bit, in any state, on purpose.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Selectors 4 § 10.6's "neither" case, and the reason <c>Valid</c> is a bit rather than
+    ///     the absence of <c>Invalid</c>.</b> A switch takes effect the moment it is flipped, so
+    ///     "this must be on before the form is acceptable" is a sentence about something a switch is
+    ///     not — a required switch is a setting the application will not let you turn off, which is a
+    ///     disabled control or a confirmation. Asserted rather than left implicit because the whole
+    ///     point of the two-bit arrangement is that "does not validate" is expressible, and a
+    ///     <c>Required</c> added here later out of symmetry would pass every other test in this file.
+    /// </remarks>
+    [Fact]
+    public void A_switch_does_not_take_part_in_validation_at_all() {
+        using var ui = Opened();
+
+        var toggle = ui.Add<Switch>();
+
+        Assert.False(toggle.State.HasFlag(ElementState.Valid));
+        Assert.False(toggle.State.HasFlag(ElementState.Invalid));
+        Assert.False(toggle.State.HasFlag(ElementState.Required));
+
+        toggle.IsChecked = true;
+
+        Assert.False(toggle.State.HasFlag(ElementState.Valid));
+        Assert.False(toggle.State.HasFlag(ElementState.Invalid));
+
+        toggle.IsChecked = false;
+
+        Assert.False(toggle.State.HasFlag(ElementState.Valid));
+        Assert.False(toggle.State.HasFlag(ElementState.Invalid));
+
+        // And the checkbox beside it does, so the assertion above is about this control rather than
+        // about the harness never writing the bits.
+        var box = ui.Add<CheckBox>();
+
+        Assert.True(box.State.HasFlag(ElementState.Valid));
     }
 
     /// <summary>A field is not <c>:user-invalid</c> until somebody has actually been in it.</summary>

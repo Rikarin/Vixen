@@ -134,6 +134,7 @@
     MenuItem saveItem = null!;
 
     MaterialDocument? document;
+    IDisposable? title;
 
     /// <remarks>
     ///     <para>
@@ -206,6 +207,20 @@
         Root.HostedDocument = document;
         DocumentCommands.Install(Root);
 
+        // ⚠ **The dot in the title bar, which is the only thing about all of the above the user
+        // sees.** Answering `document.save` and greying the menu item are invisible until something
+        // says there is anything to save, and on every desktop that something is the title bar.
+        //
+        // ⚠ **And it is the line that could not be written until this component could name its own
+        // window.** `UiWindowTitle.Bind` takes an `IUiWindow`; everything that held one held it
+        // because it had *opened* one, so only `Program.cs` ever had a window and this shell has no
+        // reference to it — deliberately, since a panel that reached for the application head would
+        // be a panel that only works in this application. `UiDocument.WindowOf` is the direction
+        // that was missing, and `null` stays the honest answer on a platform with one canvas.
+        if (Root.Document.WindowOf(Root) is { } window) {
+            title = UiWindowTitle.Bind(window, document, Root.Document.Effects);
+        }
+
         // ⚠ Shown rather than bound, for New and Open. `ShowShortcut` draws the chord on the right of
         // the row and registers nothing — there is no keymap in this sample, so an item claiming ⌘N
         // opened something would be lying about it. Save is the one that is now bound, and its chord
@@ -248,6 +263,12 @@
         // reason and on the same line as the tick above.
         document?.Dispose();
         document = null;
+
+        // The title effect is made against the document's scheduler for the same reason, so a hot
+        // reload that rebuilt this component would otherwise leave one behind writing the window's
+        // title from a `MaterialDocument` nothing else holds.
+        title?.Dispose();
+        title = null;
 
         base.OnUnmounted();
     }

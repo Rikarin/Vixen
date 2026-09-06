@@ -601,17 +601,64 @@ public sealed partial class MultiSelect : SelectBase {
     protected override AccessibleStates NativeAccessibleState =>
         AccessibleStates.Expandable
         | AccessibleStates.MultiSelectable
-        | (IsOpen ? AccessibleStates.Expanded : AccessibleStates.None);
+        | (IsOpen ? AccessibleStates.Expanded : AccessibleStates.None)
+        | (Required ? AccessibleStates.Required : AccessibleStates.None)
+        | (IsValid ? AccessibleStates.None : AccessibleStates.Invalid);
 
     /// <summary>What the field says when nothing is chosen.</summary>
     [UiProperty(Changed = nameof(OnPlaceholderChanged))]
     public partial string? Placeholder { get; set; }
 
+    /// <summary>Whether at least one choice has to be made.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>At least one, and a count range is deliberately not here.</b> "Pick between two
+    ///         and four" is a real constraint and it is a different feature: <c>required</c> on a
+    ///         multiple select means <i>one or more</i> everywhere it exists, so a
+    ///         <c>MinimumSelected</c> beside this would be a second spelling of the same thing at 1
+    ///         and two writers arguing over one verdict everywhere else. If the range is wanted it
+    ///         should arrive as a pair that <i>subsumes</i> this rather than sits beside it, and with
+    ///         an answer to which of <c>:invalid</c> and <c>:out-of-range</c> a count outside it is —
+    ///         which is a decision and not a property.
+    ///     </para>
+    ///     <para>
+    ///         Declared here rather than on <see cref="SelectBase" /> for the reason the two types
+    ///         are separate: what makes a choice acceptable is <c>Value is not null</c> for a
+    ///         <see cref="Select" /> and a non-empty set here, so a flag on the base would need an
+    ///         abstract verdict under it to mean anything — which is the whole of what it would
+    ///         share.
+    ///     </para>
+    /// </remarks>
+    [UiProperty(Changed = nameof(OnRequiredChanged))]
+    public partial bool Required { get; set; }
+
     /// <summary>The values currently chosen.</summary>
     public IReadOnlyCollection<string> Values => selected;
 
+    /// <summary>Whether what is chosen is acceptable.</summary>
+    public bool IsValid => !Required || selected.Count > 0;
+
     /// <summary>Raised when the set of chosen values changes.</summary>
     public event Action<MultiSelect>? SelectionChanged;
+
+    /// <inheritdoc />
+    protected override void OnCreated() {
+        base.OnCreated();
+
+        // ⚠ Here rather than only on a change, which is the trap this seam has now been written
+        // wrong three times: a field that is valid and stays valid never goes through a change, so
+        // without this it carries neither `:valid` nor `:invalid` for its whole life — which a
+        // selector cannot tell apart from an element that does not validate at all.
+        Revalidate();
+    }
+
+    /// <summary>Republishes the verdict.</summary>
+    /// <remarks>Public on <see cref="Select.Revalidate" />'s terms and for its reason.</remarks>
+    public void Revalidate() {
+        if (FieldValidity.Publish(this, Required, IsValid)) {
+            InvalidateAccessibility();
+        }
+    }
 
     /// <summary>Chooses or unchooses a value.</summary>
     /// <param name="value">The value.</param>
@@ -626,6 +673,11 @@ public sealed partial class MultiSelect : SelectBase {
         }
 
         Restate();
+
+        // Before the notification, so a handler that reads `IsValid` sees the verdict on the set it
+        // was just told about — `Select.OnValueChanged` says the same thing one type over.
+        Revalidate();
+
         SelectionChanged?.Invoke(this);
 
         return true;
@@ -652,6 +704,15 @@ public sealed partial class MultiSelect : SelectBase {
     }
 
     void OnPlaceholderChanged(string? previous, string? current) => Restate();
+
+    void OnRequiredChanged(bool previous, bool current) {
+        Revalidate();
+
+        // Unconditionally, because `Required` is reported in its own right: a field that goes from
+        // optional to required with something already chosen moves nothing about the verdict and
+        // still has something new to announce.
+        InvalidateAccessibility();
+    }
 
     void Restate() {
         var shown = 0;
@@ -723,6 +784,31 @@ public sealed partial class ComboBox : Control {
         set => Editor.Value = value;
     }
 
+    /// <summary>Whether something has to be typed or chosen.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The editor's flag, forwarded rather than copied.</b> ARIA puts the combo box on the
+    ///     <i>input</i> — see <see cref="NativeRole" /> — so <c>aria-required</c> and
+    ///     <c>aria-invalid</c> belong on <see cref="Editor" /> and are already produced there. A
+    ///     second flag here would be a second copy of a fact, and the two would part company the
+    ///     first time anybody set the editor's directly.
+    /// </remarks>
+    public bool Required {
+        get => Editor.Required;
+        set {
+            Editor.Required = value;
+            Revalidate();
+        }
+    }
+
+    /// <summary>Whether what the field holds is acceptable.</summary>
+    /// <remarks>
+    ///     The editor's verdict, which is where the rules are: <see cref="TextField.Validator" />
+    ///     and <see cref="TextField.MaxLength" /> are reachable through <see cref="Editor" /> and a
+    ///     combo box adds no rule of its own — the value not having to be one of the options is the
+    ///     whole difference from a <see cref="Select" />.
+    /// </remarks>
+    public bool IsValid => Editor.IsValid;
+
     /// <inheritdoc />
     /// <remarks>The popover, on <c>SelectBase.ContentHost</c>'s terms and for its reasons.</remarks>
     protected override UiElement ContentHost => List is null ? this : List.Content;
@@ -775,10 +861,41 @@ public sealed partial class ComboBox : Control {
         Editor.AddAccessibleRelation(AccessibleRelation.Owns, List);
         List.AddAccessibleRelation(AccessibleRelation.LabelledBy, Editor);
 
-        Editor.ValueChanged += (_, value) => ValueChanged?.Invoke(this, value);
+        Editor.ValueChanged += (_, value) => {
+            // Before the notification, so a handler that reads `IsValid` sees the verdict on the
+            // text it was just handed.
+            Revalidate();
+            ValueChanged?.Invoke(this, value);
+        };
 
         AddHandler<ClickEvent>(static (element, args) => ((ComboBox) element).Chosen(args));
         List.AddHandler<ClickEvent>((_, args) => Picked(args));
+
+        // ⚠ The birth call, and here it is doing something the editor's own cannot: the *box* is
+        // what a stylesheet selects — `combo-box:invalid` is what somebody writes to put a ring
+        // round the whole field, chevron and all — and before this it matched nothing at all while
+        // `combo-box textbox:invalid` matched the input inside it. That split is the one thing this
+        // control had to decide, and the answer is that the tree stays on the editor because ARIA
+        // says so, and the *state bits* are mirrored out because the cascade says so.
+        Revalidate();
+    }
+
+    /// <summary>Republishes the verdict from the editor onto the box.</summary>
+    /// <remarks>
+    ///     Public on <see cref="TextField.Revalidate" />'s terms: an application that changes what
+    ///     the editor accepts — a <see cref="TextField.Validator" /> that closes over something else
+    ///     — has to be able to say that the answer may have moved. Calling
+    ///     <c>Editor.Revalidate()</c> alone updates the input and leaves the box behind it stale.
+    /// </remarks>
+    public void Revalidate() {
+        // ⚠ First, and the tree is finished by the time it returns. `TextField.Revalidate` publishes
+        // the editor's own bits and tells the accessibility tree when the verdict moved — which is
+        // the *only* place that can be told, because this element reports `AccessibleRole.None` and
+        // has no node of its own for a bridge to re-read. What is left for this method is the half
+        // ARIA has no opinion about: the cascade.
+        Editor.Revalidate();
+
+        FieldValidity.Publish(this, Editor.Required, Editor.IsValid);
     }
 
     /// <inheritdoc />

@@ -97,7 +97,10 @@ public class AccessibilityCoverageTests {
         ["VirtualizingGrid"] = "ditto, in two dimensions",
         ["ComboBox"] =
             "ARIA 1.2 puts `combobox` on the text input, which is what takes focus and what "
-            + "`aria-expanded` is read from; the private `ComboEditor : TextBox` carries it (doc 46 § A2)"
+            + "`aria-expanded` is read from; the private `ComboEditor : TextBox` carries it (doc 46 § A2)",
+        ["LabeledContent"] =
+            "a caption and a field that are each already in the tree, joined by `LabelledBy` and "
+            + "`DescribedBy`; a role here would be a third node named by the words the relation carries"
     };
 
     /// <summary>How many public element types this assembly is expected to offer, at least.</summary>

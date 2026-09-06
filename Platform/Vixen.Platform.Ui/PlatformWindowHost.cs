@@ -32,6 +32,7 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
     readonly IPlatform platform;
     readonly UiDocument owner;
     readonly List<PlatformUiWindow> windows = [];
+    readonly PlatformUiWindow primary;
 
     /// <summary>Registers a document's primary surface as living in an existing window.</summary>
     /// <param name="platform">The platform.</param>
@@ -53,6 +54,13 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
         Main = main;
         owner.Windows = this;
 
+        // ⚠ An `IUiWindow` over the window this host did *not* open, and without it the main window
+        // was the one window in the application that nothing above `Vixen.Platform` could name.
+        // `Open` hands its caller a wrapper; the primary surface had none, so `WindowOf` — and
+        // therefore `UiWindowTitle.Bind` from inside a component — had nothing to return for the
+        // window a single-window application entirely consists of.
+        primary = new PlatformUiWindow(this, main, document.Primary, owned: false);
+
         // ⚠ One subscription for every window this host will ever open, rather than one per window.
         // `KeySurfaceChanged` is the ground truth — the window manager's answer, arriving through
         // `PlatformInput`'s `WindowFocusGained` arm — and a window that raised its own event from
@@ -67,6 +75,16 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
 
     /// <summary>The window the primary surface is shown in.</summary>
     public IWindow Main { get; }
+
+    /// <summary>The same window, as the framework's own kind of window.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Disposing it does nothing, and that is the difference between this and every window
+    ///     in <see cref="Windows" />.</b> The head made the main window, gave it a swapchain and is
+    ///     presenting to it; closing the last window is the application quitting, which is the head's
+    ///     decision — the same reason <see cref="Handle" /> deliberately leaves a close request on it
+    ///     alone. Everything else an <see cref="IUiWindow" /> promises is honest here.
+    /// </remarks>
+    public IUiWindow MainWindow => primary;
 
     /// <summary>The windows this host opened, in the order it opened them.</summary>
     /// <remarks>
@@ -246,6 +264,28 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
         return false;
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The primary surface answers <see cref="MainWindow" />, which is the case the whole
+    ///     accessor exists for.</b> A single-window application has exactly one surface and it is the
+    ///     one this host did not open — so a version that only searched <see cref="Windows" /> would
+    ///     answer <c>null</c> in every application that has never torn a panel off, which is all of
+    ///     them until somebody does.
+    /// </remarks>
+    public IUiWindow? WindowOf(UiSurface surface) {
+        if (ReferenceEquals(surface, owner.Primary)) {
+            return primary;
+        }
+
+        foreach (var opened in windows) {
+            if (ReferenceEquals(opened.Surface, surface)) {
+                return opened;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Which window a surface is shown in.</summary>
     /// <param name="surface">The surface.</param>
     /// <param name="window">The window.</param>
@@ -330,13 +370,23 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
         }
     }
 
-    /// <summary>Tells the window whose key status changed, if this host opened it.</summary>
+    /// <summary>Tells the window whose key status changed.</summary>
     /// <remarks>
-    ///     The primary surface is not one of ours — it is <see cref="Main" />, which the head owns —
-    ///     so nothing is raised for it and a caller that cares about the main window listens to
-    ///     <see cref="UiDocument.KeySurfaceChanged" /> directly.
+    ///     ⚠ <b>Including the main one, which it could not while there was no wrapper over it.</b>
+    ///     The remark this replaces sent a caller who cared about the main window to
+    ///     <see cref="UiDocument.KeySurfaceChanged" /> — correct advice, and only because the thing
+    ///     to raise the event <i>on</i> did not exist. It does now, this host is already subscribed
+    ///     to the ground truth, and an <see cref="IUiWindow" /> that silently never raises
+    ///     <see cref="IUiWindow.DidBecomeKey" /> is the half-wired kind of object that gets built
+    ///     against and then found not to work.
     /// </remarks>
     void OnKeySurfaceChanged(UiDocument document, UiSurface surface) {
+        if (ReferenceEquals(surface, owner.Primary)) {
+            primary.AnnounceKey();
+
+            return;
+        }
+
         foreach (var window in windows) {
             if (ReferenceEquals(window.Surface, surface)) {
                 window.AnnounceKey();
@@ -381,8 +431,20 @@ public sealed class PlatformWindowHost : IUiWindowHost, IDisposable {
 public sealed class PlatformUiWindow : IUiWindow {
     readonly PlatformWindowHost host;
 
-    internal PlatformUiWindow(PlatformWindowHost host, IWindow window, UiSurface surface) {
+    /// <summary>Whether this host made the window, and so whether it may destroy it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>False for exactly one of these: the main window, which the application head made and
+    ///     is presenting to.</b> A wrapper over it has to exist — without one the window the whole
+    ///     application is in is the one thing <c>WindowOf</c> cannot name — and it has to be inert on
+    ///     <see cref="Dispose" />, because the ordinary meaning of disposing one of these is "take
+    ///     this surface out of the document and destroy the window", which done to the main window is
+    ///     the application vanishing at whatever moment something reached for a <c>using</c>.
+    /// </remarks>
+    readonly bool owned;
+
+    internal PlatformUiWindow(PlatformWindowHost host, IWindow window, UiSurface surface, bool owned = true) {
         this.host = host;
+        this.owned = owned;
 
         Window = window;
         Surface = surface;
@@ -443,7 +505,7 @@ public sealed class PlatformUiWindow : IUiWindow {
     ///     it lets a window be disposed.
     /// </remarks>
     public void Dispose() {
-        if (IsClosed) {
+        if (IsClosed || !owned) {
             return;
         }
 
