@@ -15,8 +15,8 @@ using Xunit;
 namespace Tests;
 
 /// <summary>
-///     Doc 48's exit criterion 4 — "a sabotage per node" — as a roll call over the kernels this
-///     assembly ships, with the sabotage generated rather than written.
+///     Doc 48's sabotage criterion — "a sabotage per shipped op implementation" — as a roll call over
+///     the kernels this assembly ships, with the sabotage generated rather than written.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -46,9 +46,11 @@ namespace Tests;
 ///         ⚠ <b>What this proves and what it does not.</b> It proves that for every shipped kernel
 ///         there is an evaluation whose picture is <em>sensitive to that kernel's source</em> — the
 ///         kernel is reached, it is the thing that wrote the output, and a change inside it comes out
-///         in the texels. That is the half of criterion 4 that was missing entirely. It is not a
-///         golden per node: criterion 3's other half is still owed, and when a golden per node exists
-///         this file is what says every one of them is perturbed.
+///         in the texels. That is the half of the sabotage criterion that was missing entirely. It is
+///         not a golden per node — and the node-coverage criterion no longer asks for one, which is
+///         the correction this batch's own measurement caused: "a golden per node" is the wrong
+///         instrument here, and what that criterion asks for now is an assertion per node that would
+///         notice its picture changing, which this file is one of three mechanisms for.
 ///     </para>
 ///     <para>
 ///         <b>The perturbation is bounded on purpose.</b> <c>1 - saturate(v * 0.5 + c)</c>, with a

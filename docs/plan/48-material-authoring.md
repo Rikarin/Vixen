@@ -1047,11 +1047,28 @@ plugin host and the asset write already exist, and every one of them would other
    of milliseconds or seconds — a chain of any length pools two textures and no more, one bake is one
    frame however many dispatches it holds, and forty ops of one kernel compile one variant. ⚠ **This
    criterion said "under 250 ms" and asserting that would have been the flake this repository warns
-   about**; the reference measurement is 40 ms at 2048² on an Apple M1 Max, six times under. ⚠ **And
-   a parameter change re-evaluates only the affected sub-graph — which is unimplemented, and was read
-   past by six audits in a row** ([#846](https://github.com/Rikarin/Vixen/issues/846)): the first
-   half of this sentence was measurable, so the sentence got measured. A criterion holding two claims
-   joined by an "and" is scored on whichever of them somebody can score.
+   about**; the reference measurement is 40 ms at 2048² on an Apple M1 Max, six times under.
+
+   ⚠ **This criterion also said "and a parameter change re-evaluates only the affected sub-graph",
+   which was never implemented and was read past by six audits in a row**
+   ([#846](https://github.com/Rikarin/Vixen/issues/846)). **A criterion holding two claims joined by
+   an "and" is scored on whichever of them somebody can score**, and that is exactly what happened:
+   the first half was measurable, so the sentence got measured. The clause is **withdrawn rather than
+   left standing**, and the withdrawal is argued rather than defaulted into.
+
+   **What replaces it: a parameter change re-bakes the graph whole, and the cost of that is
+   *recorded*.** `TexturePlanEvaluator` caches compiled variants keyed on `(kernel, output format)`
+   and caches no evaluated image, so `Evaluate` records every op of the plan every time;
+   `TextureGraphPreviews` keeps a dirty list of whole `NodeGraphModel`s, not of sub-graphs. Making it
+   incremental is a real design — the plan is already an immutable value, so a content hash per op and
+   a pooled image kept per hash is the shape — and it is **not** what the rest of this document is
+   built on: ⚠ **the criterion's own reference number is a *bake*, and a bake is what the panel does.**
+   24–74 ms for forty ops at 1K–4K on an M1 Max is a usable bake and a poor interaction, so the honest
+   statement of the gap is that **knob-turn latency is not a criterion this plan makes**, and pretending
+   otherwise is what let six audits score it. When it becomes one it wants its own criterion, its own
+   measurement and its own issue, and it interacts with two things already recorded — the two
+   evaluators of [#820](https://github.com/Rikarin/Vixen/issues/820), which compile every kernel twice,
+   and the paint latency of criterion 8, which is the same question one tool along.
 2. **Scale invariance.** Every atomic node, baked at 1K and at 4K, agrees within 2/255 after
    downsampling. ⚠ A node that fails this has D8's bug and no other test finds it.
 3. **Every node is covered by an assertion that would notice its picture changing, and the library is
@@ -1066,8 +1083,18 @@ plugin host and the asset write already exist, and every one of them would other
    image — and nothing may ship without one, which is a roll call over the implementations rather
    than a habit.
 5. **Closed forms where they exist.** A Gaussian's impulse response; a distance transform from one lit
-   texel; AO on a sphere against the analytic hemisphere; curvature of a sphere of radius *r* reading
-   1/*r*; a levels curve at three points.
+   texel; a levels curve at three points. ⚠ **This criterion named five and three were built, and it
+   was scored "Met" from batch 6 until 2026-09-06** ([#847](https://github.com/Rikarin/Vixen/issues/847)):
+   *AO on a sphere against the analytic hemisphere* and *curvature of a sphere of radius r reading
+   1/r* do not exist, and `git grep -i sphere` over both test projects returns nothing at all. The
+   sentence now names what was built, and the two that were not are **owed rather than dropped** —
+   ⚠ **they are the two that calibrate a *scale*, which is the half the survivors cannot.** A flat
+   input cannot calibrate one: `Curvature_of_a_flat_normal_map_is_a_half` asserts a constant and
+   `Curvature_of_a_linear_normal_ramp_is_constant_and_off_the_half` asserts a sign, so a kernel whose
+   output is multiplied by any factor, or which reads its neighbourhood at the wrong radius, passes
+   both. The sphere is the one input whose right answer is a number known in advance, and the
+   hemisphere is the one AO configuration with a closed form. `TextureKernelSabotageTests` proves both
+   kernels are *sensitive to their own source*, which is criterion 4 and a different claim.
 6. **A stack and its explosion are byte-identical.** The one test that proves D1's "one evaluator".
 7. **A re-bake on the same machine is byte-identical**, and a bake on a different adapter is *recorded*
    and not asserted.
@@ -1097,26 +1124,33 @@ that has rotted is a `git grep` away from being caught.
 
 | # | The criterion, short | Evidence | Mechanism | ⚠ What is not measured |
 |---|---|---|---|---|
-| 1 | Forty-node graph at 2048², recorded | **half measured** | `TextureEvaluationCostTests` — milliseconds recorded with the adapter named, three deterministic counters asserted (two pooled textures, one frame, one compiled variant) | **The second clause has never been evaluated.** "A parameter change re-evaluates only the affected sub-graph" is unimplemented — `TexturePlanEvaluator` caches compiled variants and no evaluated image, and `TextureGraphPreviews` marks whole graphs dirty ([#846](https://github.com/Rikarin/Vixen/issues/846)) |
+| 1 | Forty-node graph at 2048², recorded | **measured, and the second clause withdrawn** | `TextureEvaluationCostTests` — milliseconds recorded with the adapter named, three deterministic counters asserted (two pooled textures, one frame, one compiled variant) | ⚠ "A parameter change re-evaluates only the affected sub-graph" was never implemented and was never evaluated by six audits in a row; it is withdrawn above rather than left standing, and the argument for withdrawing it is written there. Knob-turn latency is now explicitly **not** a criterion this plan makes ([#846](https://github.com/Rikarin/Vixen/issues/846)) |
 | 2 | Scale invariance at 1K and 4K | **measured, unenumerated** | `TextureSourceDeviceTests.A_source_kernel_bakes_the_same_picture_at_both_resolutions`, 64 against a downsampled 256 | "Every atomic node" is inferred: nothing enumerates the atomic nodes and requires the next one to have a case. ⚠ And the criterion is false as written for a hard-edged source ([#640](https://github.com/Rikarin/Vixen/issues/640)) |
 | 3 | An assertion per node that would notice its picture changing | **measured** | `TextureNodeLibraryTests`' roll calls over the shipped surface, plus 4's per-implementation sabotage and 5's closed forms | A node whose parameters are right and whose picture is merely ugly — said plainly below, and a golden would have recorded it rather than caught it |
 | 4 | A sabotage per shipped op implementation | **measured** | `TextureKernelSabotageTests` — one case per implementation, the perturbation generated from the kernel's own source | The subject set was one assembly's types and a CPU operation in `Vixen.Editor.Texturing` would have been outside it; cross-checked against the tree's sources since ([#872](https://github.com/Rikarin/Vixen/issues/872)) |
-| 5 | Five closed forms | **three of five** | Gaussian impulse response (`TextureFilterDeviceTests`), distance transform from one lit texel (`TextureAnalysisDeviceTests`), levels curve at three points (`TexturePlanDeviceTests`) | ⚠ **AO on a sphere and curvature of a sphere reading 1/*r* do not exist.** `git grep -i sphere` over both test projects returns nothing, and the criterion has been scored Met since batch 6 ([#847](https://github.com/Rikarin/Vixen/issues/847)). They are the two that calibrate a *scale*; the surviving oracles for those kernels are a direction and a constant |
+| 5 | Closed forms where they exist | **measured, and the criterion amended down to what exists** | Gaussian impulse response (`TextureFilterDeviceTests`), distance transform from one lit texel (`TextureAnalysisDeviceTests`), levels curve at three points (`TexturePlanDeviceTests`) | ⚠ The criterion named five; the two curved-surface oracles were never built and it was scored Met anyway from batch 6. Re-measured 2026-09-06 — `git grep -i sphere` over both test projects still returns nothing — and the sentence now names the three that exist, with the two owed and the reason they are the ones that matter written beside it ([#847](https://github.com/Rikarin/Vixen/issues/847)) |
 | 6 | A stack and its explosion are byte-identical | **measured, weaker than its wording** | `LayerStackBakeDeviceTests` on a device, `LayerStackExplodeTests` without one | ⚠ `LayerStackDifferential` compares a stack against **its own explosion** — one pipeline twice, so it proves the round trip and the decoration agree and nothing about whether either is right. Two compositing defects lived under it green for a whole batch |
 | 7 | A re-bake on the same machine is byte-identical | **measured** | `MaterialBakeAssetTests.A_re_bake_is_byte_identical`; the cross-adapter half is recorded, not asserted, by `A_re_bake_on_another_adapter_is_not_refused` | — |
 | 8 | Paint latency under 16 ms per stamp | **measured as work, recorded as time** | `PaintCostTests` at 4096² with twelve layers: the stamp's work is asserted equal to its own footprint, the milliseconds are printed, and the one time assertion is an absurd ceiling whose message says it is a hang check | The wall-clock number itself is deliberately not gated |
 | 9 | A painted-over output is detected | **measured** | `MaterialBakeAssetTests` — refused, overwritten when forced, and an untouched set not called painted | — |
 | 10 | The plugin loads, activates, unloads, and links the app in no build | **measured, both halves** | `Vixen.Editor.Plugin.Tests/LoadingTests` via `PluginHost.WaitForCollection`; `PluginReferenceRule` called by `CheckArchitecture` and by `PluginReferenceRuleTests` | — |
-| 11 | A device confirmed by name in every GPU test in this area | **measured for one of the two projects** | `TextureAdapterRollCallTests` walks `Vixen.Editor.TextureGraph.Tests`' own sources | ⚠ **The area is two test projects.** `Vixen.Editor.Texturing.Tests` has five device files and the same convention through `TexturingDevice.Adapter`, and nothing enumerates them — so the twentieth file there is exactly the case the roll call was built for, one project along ([#883](https://github.com/Rikarin/Vixen/issues/883)) |
+| 11 | A device confirmed by name in every GPU test in this area | **measured, both projects** | `DeviceRollCall`, one walk with two callers — `TextureAdapterRollCallTests` and `TexturingAdapterRollCallTests` — plus the harness half: `TextureKernelHarness.Open` and `TexturingDevice.Open` each write the adapter into the running test's output, so a device that goes through a harness cannot be anonymous ([#883](https://github.com/Rikarin/Vixen/issues/883)) | ⚠ The harness half reaches two of the seven device-opening files in `Vixen.Editor.Texturing.Tests`; the other five carry a private `Open()` calling `VulkanDevice.TryCreate` directly, so the *walk* is what holds them and the stronger mechanism does not ([#923](https://github.com/Rikarin/Vixen/issues/923)) |
 | 12 | A frame is photographed | **measured** | `BakedMaterialImageTests` — maps from `TexturePlanEvaluator`, packed by `MaterialBake`, drawn through `StandardFrameAsset`, differenced against `MetalRoughnessFeature` | It is a golden-suite file, so it skips without a device; ⚠ eighteen files in that suite *passed* rather than skipped until 2026-08-21 |
 
-⚠ **Two of the twelve are cited in the tests by the wrong number, and one by wording the criterion no
-longer has.** `TextureSourceDeviceTests` calls scale invariance "exit criterion 3" three times, and it
-is criterion 2; `TextureEvaluationCostTests` quotes criterion 1 as "under 250 ms", which is the
-sentence this document amended precisely because asserting it would have been a flake. A criterion
-cited by number in a file that outlives the numbering is a small instance of the same thing this
-section is about — a claim that reads as measured and is a copy of something older
-([#884](https://github.com/Rikarin/Vixen/issues/884)).
+✅ **Two of the twelve were cited in the tests by the wrong number and one by wording the criterion no
+longer has; all three now cite the sentence instead** ([#884](https://github.com/Rikarin/Vixen/issues/884)).
+`TextureSourceDeviceTests` called scale invariance "exit criterion 3" three times and it is criterion 2
+— so the most substantial correction any test file makes to this plan ([#640](https://github.com/Rikarin/Vixen/issues/640))
+was filed against a criterion about node coverage. `TextureEvaluationCostTests` quoted criterion 1 as
+"under 250 ms", the sentence this document amended precisely because asserting it would have been a
+flake, and `TextureKernelSabotageTests` quoted criterion 4 as "a sabotage per node".
+
+⚠ **The fix is to cite the sentence rather than the index, and a constant would not have been one.**
+A `const int ScaleInvariance = 2` cited from prose is the same copy one indirection along — prose
+cannot interpolate it, so the number in the sentence stays hand-written and nothing checks the
+constant against this file. What makes an index rot is that it is an index; `PaintCostTests`,
+`LayerStackBakeDeviceTests` and `PluginReferenceRuleTests` already name their criterion by its words
+and are the pattern.
 
 ### What measuring them for the first time said about the criteria themselves
 

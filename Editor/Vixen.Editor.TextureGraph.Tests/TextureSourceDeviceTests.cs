@@ -28,9 +28,9 @@ namespace Tests;
 ///         as a ratio and is immune to any constant factor.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Doc 48's exit criterion 3 — a 1K bake and a downsampled 4K bake agreeing within
-///         2/255 — is false as written for a hard-edged source, and that is a property of the picture
-///         rather than a defect in the kernel.</b> The 4K bake is anti-aliased by the downsample and
+///         ⚠ <b>Doc 48's scale-invariance criterion — a 1K bake and a downsampled 4K bake agreeing
+///         within 2/255 — is false as written for a hard-edged source, and that is a property of the
+///         picture rather than a defect in the kernel.</b> The 4K bake is anti-aliased by the downsample and
 ///         the 1K one is not, so a falloff-zero disc and a checkerboard disagree by a full step all
 ///         the way round every boundary while agreeing exactly everywhere else. The comparison is
 ///         meaningful for a field that is band-limited at the *lower* resolution, and that is where
@@ -45,7 +45,15 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
     /// <summary>The fine bake. Four times the coarse one, which is the 1K-to-4K ratio.</summary>
     const int Fine = 256;
 
-    /// <summary>Doc 48's exit criterion 3, in eight-bit steps.</summary>
+    /// <summary>Doc 48's scale-invariance criterion — "within 2/255" — in eight-bit steps.</summary>
+    /// <remarks>
+    ///     ⚠ Cited by its sentence rather than by its index, which is
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/884">#884</a>: this file called scale
+    ///     invariance "exit criterion 3" in three places and it is criterion 2, so the most
+    ///     substantial correction any test here makes to the plan
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/640">#640</a>) was filed against a
+    ///     criterion about node coverage. An index outlives its numbering; a sentence does not.
+    /// </remarks>
     const int Tolerance = 2;
 
     public static TheoryData<int, double> ShapeAreas =>
@@ -728,8 +736,8 @@ public class TextureSourceDeviceTests(ITestOutputHelper output) {
     }
 
     /// <summary>
-    ///     Doc 48 § D8's exit criterion 3: a coarse bake and a downsampled fine one are the same
-    ///     picture, for every source whose field is continuous.
+    ///     Doc 48 § D8's scale-invariance criterion: a coarse bake and a downsampled fine one are the
+    ///     same picture, for every source whose field is continuous.
     /// </summary>
     /// <remarks>
     ///     ⚠ <b>The hard-edged kinds are deliberately not in this list, and their absence is a finding

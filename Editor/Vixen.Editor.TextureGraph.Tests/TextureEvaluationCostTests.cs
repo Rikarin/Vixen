@@ -10,15 +10,17 @@ using Xunit;
 namespace Tests;
 
 /// <summary>
-///     Doc 48's exit criterion 1 — "a forty-node graph at 2048² evaluates in under 250 ms" — as the
-///     properties that make the milliseconds what they are, rather than as the milliseconds.
+///     Doc 48's forty-node-graph criterion — "a forty-node graph at 2048² is <i>recorded</i>, and what
+///     is gated is the work rather than the clock" — as the properties that make the milliseconds what
+///     they are, rather than as the milliseconds.
 /// </summary>
 /// <remarks>
 ///     <para>
 ///         <b>Why the number is not asserted anywhere, and this file is.</b>
 ///         <c>TexturePlanDeviceTests.A_forty_op_evaluation_is_measured_at_one_two_and_four_K</c>
-///         prints 13 / 27 / 54 ms on the machine this was written on — nine times under the
-///         criterion at 2K — and asserts only a two-minute hang check. That is deliberate and it is
+///         prints 13 / 27 / 54 ms on the machine this was written on — nine times under the 250 ms
+///         the criterion used to name, before the document amended that clause away for this very
+///         reason — and asserts only a two-minute hang check. That is deliberate and it is
 ///         this repository's own rule: a wall-clock budget calibrated on an idle machine is its
 ///         largest flake source, and the established replacements are a deterministic counter first,
 ///         a differential measured on the same machine at the same moment second, and an absurd
