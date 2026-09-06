@@ -162,30 +162,53 @@ public sealed record TextureOp {
     ///         is not true costs only this one op's guard.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is per-<em>op</em> and not per-<em>input</em>, and #801's own argument for that
-    ///         does not survive being read twice.</b> <see cref="TexturePlan.Check" /> tests it inside
-    ///         the loop over the op's inputs, so declaring it silences the guard for <em>every</em>
-    ///         input — including <c>AutoLevels</c>' full-size pointwise source, which is the precise
-    ///         thing a kernel-level flag was rejected for silencing. Per-op narrows the silence from
-    ///         "this kernel, in every plan" to "this op", and on the one op where the distinction
-    ///         could be seen it narrows it to nothing at all.
-    ///     </para>
-    ///     <para>
-    ///         <b>Kept anyway, and the reason is which ops exist rather than which are imaginable.</b>
-    ///         Seven of the ten sites that declare it have a single input, where per-op and per-input
-    ///         are the same statement; <c>TileSampler</c> and <c>Splatter</c> read
-    ///         <em>all</em> of their four and five inputs through the source's own extent, so a list
-    ///         of indices there would be every index. That leaves <c>AutoLevels</c>, whose source is
-    ///         the one input a per-input flag would still guard — and the compiler cannot hand it a
-    ///         mismatched one: <c>TextureGraphCompiler.Rescale</c> resamples every image arriving at a
-    ///         node to that node's level before the op is built, so the source and the output are the
-    ///         same extent by construction. The hole is real, it is one input wide, and it is only
-    ///         reachable from a hand-built plan —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a> is where it goes if a
-    ///         second multi-input op ever reads one of its inputs pointwise.
+    ///         ⚠ <b>On its own it says nothing about <em>which</em> input, and that used to be the
+    ///         whole of it</b> — <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>.
+    ///         <see cref="TexturePlan.Check" /> tests it inside the loop over the op's inputs, so a
+    ///         bare declaration silences the guard for <em>every</em> one of them — including
+    ///         <c>AutoLevels</c>' full-size pointwise source, which is the precise thing a
+    ///         kernel-level flag was rejected for silencing. <see cref="OtherExtentInputs" /> is where
+    ///         an op that knows better says so.
     ///     </para>
     /// </remarks>
     public bool ReadsOtherExtents { get; init; }
+
+    /// <summary>
+    ///     Which inputs <see cref="ReadsOtherExtents" /> speaks for, as indices into
+    ///     <see cref="TexturePlan.Images" />. Empty is every input.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A narrowing and not a second declaration.</b> It means nothing unless
+    ///         <see cref="ReadsOtherExtents" /> is set, and leaving it empty is exactly the behaviour
+    ///         an op had before it existed — so a caller that never heard of it is where it was, and
+    ///         the only thing that can change by adding it is a caution arriving that did not
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>AutoLevels</c> is why this is not hypothetical, and it is the one op in the
+    ///         library where the distinction can be seen.</b> Its final dispatch is <em>pointwise</em>
+    ///         over its source and reads the 1×1 image the reduction ended on beside it; the flag it
+    ///         has to set for the second input silenced the guard on the first, which is the input the
+    ///         guard exists for. Every other declaring site is either single-input — where per-op and
+    ///         per-input are the same statement — or <c>TileSampler</c> and <c>Splatter</c>, which
+    ///         read all four and all five of theirs through the source's own extent, so the list there
+    ///         would be every index and empty says it better.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Image indices, not positions in <see cref="Inputs" />.</b> That is what
+    ///         <c>Check</c> is holding when it asks, and it is what the builders already have in hand
+    ///         — a position would have to be kept in step with the order the kernel declares its
+    ///         textures in, which is a second thing to get wrong for no gain.
+    ///     </para>
+    ///     <para>
+    ///         <b>Loud in the direction that costs.</b> An op that adds an input reading another
+    ///         extent and forgets to name it here gets the caution rather than silence, which is the
+    ///         same failure mode <see cref="ReadsOtherExtents" /> itself has. Naming one that does not
+    ///         need it costs only that input's guard.
+    ///     </para>
+    /// </remarks>
+    public ImmutableArray<int> OtherExtentInputs { get; init; } = [];
 
     /// <summary>The image it writes, as an index into <see cref="TexturePlan.Images" />.</summary>
     public required int Output { get; init; }
@@ -797,7 +820,14 @@ public sealed class TexturePlan {
                 // — the same reason the ceiling check above skips one — so a mismatch there is a
                 // claim this method cannot check and `TexturePlanEvaluator` is where the supplied
                 // texture is finally seen. Everything else is measurable here.
-                if (op.ReadsOtherExtents || Images[input].External || input == op.Output) {
+                //
+                // ⚠ **Per input, and it used to be per op** — #878. The flag is read *inside* this
+                // loop, so a bare declaration silenced the guard for every input of the op; the one
+                // op in the library where that is visible is `AutoLevels`, which has to declare it
+                // for the 1×1 statistics image and thereby stopped being checked against its own
+                // full-size pointwise source. An op that knows which of its inputs it meant names
+                // them, and the rest stay measured.
+                if (Declared(op, input) || Images[input].External || input == op.Output) {
                     continue;
                 }
 
@@ -833,6 +863,20 @@ public sealed class TexturePlan {
             );
         }
     }
+
+    /// <summary>Whether an op has declared that it reads <em>this</em> input at another extent.</summary>
+    /// <param name="op">The op.</param>
+    /// <param name="input">One of its inputs, as an index into <see cref="Images" />.</param>
+    /// <returns>Whether the extent guard has been answered for that input.</returns>
+    /// <remarks>
+    ///     ⚠ <b>An empty <see cref="TextureOp.OtherExtentInputs" /> means every input and not none</b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>. That is what makes the
+    ///     narrowing additive: an op written before the list existed, or one whose every input really
+    ///     is read at its own extent (<c>TileSampler</c>, <c>Splatter</c>), says nothing and is where
+    ///     it was. The list only ever puts a guard <em>back</em>.
+    /// </remarks>
+    static bool Declared(TextureOp op, int input) =>
+        op.ReadsOtherExtents && (op.OtherExtentInputs.IsDefaultOrEmpty || op.OtherExtentInputs.Contains(input));
 
     /// <summary>The messages of one severity, in the order they were found.</summary>
     static ImmutableArray<string> Messages(ImmutableArray<TextureProblem> problems, TextureProblemSeverity severity) {

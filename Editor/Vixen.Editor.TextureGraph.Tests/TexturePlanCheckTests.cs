@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using Vixen.Editor.TextureGraph;
 using Xunit;
 
@@ -349,31 +350,33 @@ public class TexturePlanCheckTests {
     }
 
     /// <summary>
-    ///     ⚠ The declaration covers the op and therefore every input of it, including one the kernel
-    ///     reads pointwise at the coordinate it is writing.
+    ///     ⚠ A bare declaration still covers every input, so an op written before the narrowing
+    ///     existed is where it was.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>A limit written down rather than a property asserted</b>, and it is here because the
-    ///         sentence one method up used to say the opposite. The plan below is the same
-    ///         <c>AutoLevels</c> shape with its <em>source</em> deliberately at level 1 — 128² read by
-    ///         an op writing 256², which is precisely what
+    ///         <b>The back-compatibility half of
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>, and it is the half that
+    ///         makes the narrowing safe to add.</b> The plan below is the <c>AutoLevels</c> shape with
+    ///         its <em>source</em> deliberately at level 1 — 128² read by an op writing 256², which is
+    ///         precisely what
     ///         <see cref="A_pointwise_op_reading_a_smaller_image_than_it_writes_is_reported" />
-    ///         cautions about — and the caution does not come, because the op said
-    ///         <see cref="TextureOp.ReadsOtherExtents" /> for the sake of its 1×1 second input.
+    ///         cautions about — and no caution comes, because the op declared
+    ///         <see cref="TextureOp.ReadsOtherExtents" /> and named no inputs. An empty
+    ///         <see cref="TextureOp.OtherExtentInputs" /> means every input and not none; the list can
+    ///         only ever put a guard back.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Only a hand-built plan can be in this state.</b>
+    ///         ⚠ <b>Only a hand-built plan can be in this state</b> —
     ///         <c>TextureGraphCompiler.Rescale</c> resamples every image arriving at a node into that
     ///         node's level before the op is built, so a compiled <c>AutoLevels</c> reads a source of
-    ///         its own extent by construction. That is why
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a> is a note rather than a
-    ///         fix — and why this case is an assertion rather than a comment: making the flag
-    ///         per-input turns it red, which is the point.
+    ///         its own extent by construction. That is the whole population this method serves, and
+    ///         <see cref="A_declared_op_is_still_measured_against_an_input_it_did_not_name" /> is what
+    ///         the same plan does once the op says which input it meant.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_declared_op_is_silent_about_an_input_it_reads_pointwise() {
+    public void A_declaration_that_names_no_inputs_covers_all_of_them() {
         TexturePlan plan = new() {
             BaseWidth = 256,
             BaseHeight = 256,
@@ -396,6 +399,118 @@ public class TexturePlanCheckTests {
         Assert.Equal(256, plan.SizeOf(2).X);
 
         Assert.Empty(plan.Check());
+    }
+
+    /// <summary>
+    ///     ⚠ And an op that names the input it meant is measured against the one it did not — which is
+    ///     <c>AutoLevels</c>' pointwise source.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>, and it is the same
+    ///         plan as the method above with one line added to the last op.</b> The declaration is
+    ///         needed for the 1×1 statistics image and used to buy the 128² source its silence with
+    ///         it; naming image 1 puts image 0 back under the guard that exists for exactly it.
+    ///     </para>
+    ///     <para>
+    ///         <b>The pair is the assertion.</b> Either test alone is satisfiable by a <c>Check</c>
+    ///         that reports everything or one that reports nothing; only the two together say that the
+    ///         list is read and that it narrows rather than replaces.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_declared_op_is_still_measured_against_an_input_it_did_not_name() {
+        TexturePlan plan = new() {
+            BaseWidth = 256,
+            BaseHeight = 256,
+            Images = [
+                new(TextureFormat.Rgba16Float, LevelOffset: 1),
+                new(TextureFormat.Rgba16Float, LevelOffset: 8),
+                new(TextureFormat.Rgba16Float)
+            ],
+            Ops = [
+                new() { Kernel = "Uniform", Output = 0 },
+                new() { Kernel = "MinMaxReduce", Output = 1, Inputs = [0], ReadsOtherExtents = true },
+                new() {
+                    Kernel = "AutoLevels",
+                    Output = 2,
+                    Inputs = [0, 1],
+                    ReadsOtherExtents = true,
+                    OtherExtentInputs = [1]
+                }
+            ],
+            Outputs = [2]
+        };
+
+        var problem = Assert.Single(plan.Check());
+
+        Assert.Equal(TextureProblemSeverity.Warning, problem.Severity);
+        Assert.Contains("Op 2", problem.Message, StringComparison.Ordinal);
+        Assert.Contains("AutoLevels", problem.Message, StringComparison.Ordinal);
+
+        // ⚠ Image 0 and not image 1. The 1×1 is still silent — the narrowing is a narrowing and not
+        // a switch that turns the whole guard back on for the op.
+        Assert.Contains("image 0", problem.Message, StringComparison.Ordinal);
+        Assert.Contains("128×128", problem.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ And the library's own <c>AutoLevels</c> builder is the caller, so the narrowing is not a
+    ///     mechanism nothing uses.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Built by <c>TextureAdjust.AutoLevels</c> rather than by hand</b>, which is the
+    ///         difference between "the plan type can express this" and "the one op in the library
+    ///         where it matters says it". The source is dropped to level 1 underneath the real
+    ///         builder's ops; the reduction chain reads its own rungs and stays silent, and the final
+    ///         pointwise dispatch is cautioned about its source.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A compiled graph cannot reach this, and that is not a reason for the guard to be
+    ///         absent.</b> <c>TextureGraphCompiler.Rescale</c> makes every input of a compiled op the
+    ///         output's own extent, so this is a report to whoever hand-builds a plan — M7,
+    ///         <c>TextureGraphPreview.Base</c> and most of this project.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_auto_levels_builder_leaves_its_pointwise_source_under_the_guard() {
+        // The ladder is the *source's*, which is 128² at level 1 of a 256² bake — so every rung's
+        // level offset is one below the level the reduction was computed for.
+        var levels = TextureAdjust.ReductionLevels(128, 128);
+        var images = ImmutableArray.CreateBuilder<TextureImage>();
+        var scratch = ImmutableArray.CreateBuilder<int>(levels.Length);
+
+        images.Add(new(TextureFormat.Rgba16Float, LevelOffset: 1));
+
+        foreach (var offset in levels) {
+            scratch.Add(images.Count);
+            images.Add(new(TextureFormat.Rgba16Float, LevelOffset: 1 + offset));
+        }
+
+        // And the map writes at the bake's own level, which is what makes it a 256² op over a 128²
+        // source: the mismatch the guard is for.
+        var written = images.Count;
+
+        images.Add(new(TextureFormat.Rgba16Float));
+
+        var plan = new TexturePlan {
+            BaseWidth = 256,
+            BaseHeight = 256,
+            Images = images.ToImmutable(),
+            Ops = [
+                new() { Kernel = "Uniform", Output = 0 },
+                .. TextureAdjust.AutoLevels(written, 0, scratch.ToImmutable(), 128, 128)
+            ],
+            Outputs = [written]
+        };
+
+        // The instrument: the builder's own reduction rungs are read at their own extents and none of
+        // them is cautioned about, so the single problem below is the source and not the ladder.
+        var problem = Assert.Single(plan.Check());
+
+        Assert.Contains("AutoLevels", problem.Message, StringComparison.Ordinal);
+        Assert.Contains("image 0", problem.Message, StringComparison.Ordinal);
     }
 }
 

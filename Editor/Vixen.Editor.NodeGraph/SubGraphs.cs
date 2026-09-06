@@ -96,18 +96,43 @@ public readonly record struct NodeOrigin(NodeId Node, NodeId Source, string Type
 ///     and it holds whatever else that table held, because the flattener does not know which keys a
 ///     given kind of graph calls parameters.
 /// </param>
+/// <param name="Path">
+///     Every sub-graph node walked through to reach this expansion, outermost first and this
+///     expansion's own node last. One element for a sub-graph node in the author's graph, two for one
+///     nested inside it, and so on.
+/// </param>
 /// <remarks>
-///     ⚠ <b>The flattener throws the sub-graph node away, and this is what survives it.</b> Inlining
-///     replaces the node with the graph's contents, so the numbers an author typed on it reached
-///     nothing at all — a knob that accepted a value, saved it, and changed no picture
-///     (<a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>). What is recorded is the
-///     table rather than an interpretation of it: which keys are parameters is a question only the
-///     graph's own compiler can answer.
+///     <para>
+///         ⚠ <b>The flattener throws the sub-graph node away, and this is what survives it.</b>
+///         Inlining replaces the node with the graph's contents, so the numbers an author typed on it
+///         reached nothing at all — a knob that accepted a value, saved it, and changed no picture
+///         (<a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>). What is recorded is the
+///         table rather than an interpretation of it: which keys are parameters is a question only
+///         the graph's own compiler can answer.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="Path" /> is the middle of the walk, and only its two ends used to be
+///         recorded</b> — <a href="https://github.com/Rikarin/Vixen/issues/925">#925</a>.
+///         <see cref="Source" /> is the outermost node and <see cref="NodeOrigin.Inner" /> is an
+///         identity in the innermost file, so two sibling instances of one compound nested inside
+///         another share both, share <see cref="Type" />, and are indistinguishable to anything
+///         downstream — two noise generators drawing one picture. <see cref="NodeOrigin.Expansion" />
+///         does distinguish them and cannot be used for it: it is a walk-ordered counter, so an
+///         insertion moves it, which is
+///         <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a> one level in.
+///     </para>
+///     <para>
+///         <b>Every element is stable within its own file</b>, which is the property that makes this
+///         usable where the counter is not: each is a <see cref="NodeId"/> read out of the
+///         <em>containing</em> graph's document, and a document never renumbers or reuses one. So the
+///         chain moves only when an author moves the compound node it names.
+///     </para>
 /// </remarks>
 public readonly record struct SubGraphExpansion(
     string Type,
     NodeId Source,
-    IReadOnlyDictionary<string, string> Settings
+    IReadOnlyDictionary<string, string> Settings,
+    ImmutableArray<NodeId> Path
 );
 
 /// <summary>Which inlined node came out of which sub-graph node.</summary>
@@ -633,7 +658,7 @@ public static class SubGraphs {
                 next = Math.Max(next, node.Id.Value);
             }
 
-            Expand(graph, default, [], [], preserve: true, depth: 0, NodeId.None, "", expansion: 0);
+            Expand(graph, default, [], [], preserve: true, depth: 0, NodeId.None, "", expansion: 0, path: []);
 
             // Everything the author's own graph is besides its nodes and edges — its furniture, its
             // interface, its settings and its parameters. A group inside a sub-graph describes that
@@ -667,6 +692,12 @@ public static class SubGraphs {
         ///     every node copied here is stamped with, and what a compiler looks the sub-graph node's
         ///     settings up by.
         /// </param>
+        /// <param name="path">
+        ///     The sub-graph nodes walked through to get here, outermost first — empty for the
+        ///     author's own graph. ⚠ Carried down rather than reconstructed afterwards, because this
+        ///     recursion <em>is</em> the chain and nothing that reads the result can see it.
+        ///     <see cref="SubGraphExpansion.Path" /> is what it is for.
+        /// </param>
         Dictionary<string, PortRef> Expand(
             NodeGraphModel graph,
             Vector2 offset,
@@ -676,7 +707,8 @@ public static class SubGraphs {
             int depth,
             NodeId origin,
             string type,
-            int expansion
+            int expansion,
+            ImmutableArray<NodeId> path
         ) {
             Dictionary<NodeId, NodeId> local = [];
             Dictionary<NodeId, Dictionary<string, PortRef>> nested = [];
@@ -709,7 +741,7 @@ public static class SubGraphs {
                 }
 
                 if (source.TryGet(node.Type, out var child)) {
-                    nested[node.Id] = Descend(graph, node, child, offset, depth, origin, Trace, Held);
+                    nested[node.Id] = Descend(graph, node, child, offset, depth, origin, path, Trace, Held);
 
                     continue;
                 }
@@ -777,6 +809,16 @@ public static class SubGraphs {
         }
 
         /// <summary>Expands one sub-graph node, having worked out what arrives at it.</summary>
+        /// <param name="owner">The graph the sub-graph node is written in.</param>
+        /// <param name="node">The sub-graph node itself.</param>
+        /// <param name="child">The graph it stands for.</param>
+        /// <param name="offset">How far to move the nodes copied out of it.</param>
+        /// <param name="depth">How far in the enclosing walk already is.</param>
+        /// <param name="origin">The outermost sub-graph node, or <see cref="NodeId.None" />.</param>
+        /// <param name="path">The chain of sub-graph nodes above this one, outermost first.</param>
+        /// <param name="trace">Where a wire arriving at this node comes from, in the result.</param>
+        /// <param name="held">The constant behind a wire running back to an entry port nobody fed.</param>
+        /// <returns>What each of the child graph's outputs became.</returns>
         Dictionary<string, PortRef> Descend(
             NodeGraphModel owner,
             GraphNode node,
@@ -784,6 +826,7 @@ public static class SubGraphs {
             Vector2 offset,
             int depth,
             NodeId origin,
+            ImmutableArray<NodeId> path,
             Func<PortRef, PortRef?> trace,
             Func<PortRef, float[]?> held
         ) {
@@ -852,10 +895,17 @@ public static class SubGraphs {
                 // here would make a finished compilation answer with what they typed afterwards.
                 var expansion = ++expanded;
 
+                // ⚠ And the chain of sub-graph nodes walked through to get here, which is the middle
+                // of the walk that used to be thrown away — #925. `node.Id` is an identity in
+                // `owner`'s own document, so every element of it is stable under an insertion
+                // anywhere else, which is exactly what `expansion` above is not.
+                var descended = path.Add(node.Id);
+
                 expansions[expansion] = new(
                     node.Type,
                     blamed,
-                    new Dictionary<string, string>(node.Texts, StringComparer.Ordinal)
+                    new Dictionary<string, string>(node.Texts, StringComparer.Ordinal),
+                    descended
                 );
 
                 return Expand(
@@ -867,7 +917,8 @@ public static class SubGraphs {
                     depth + 1,
                     blamed,
                     node.Type,
-                    expansion
+                    expansion,
+                    descended
                 );
             } finally {
                 open.Remove(node.Type);

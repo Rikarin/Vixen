@@ -175,7 +175,15 @@ internal static class TextureAdjust {
                 // size, because the second input is the 1×1 the reduction ended on. #801's own list
                 // of six rescaling kernels would not have held this op, which is why the property is
                 // on the op rather than on the kernel.
-                ReadsOtherExtents = true
+                ReadsOtherExtents = true,
+
+                // ⚠ And the flag is narrowed to that second input, because it is the *first* one the
+                // guard exists for — #878. This is the one op in the library where a per-op
+                // declaration silences something worth checking: `source` is read pointwise at the
+                // coordinate being written, so a plan handing this dispatch a source of another size
+                // draws its top-left corner smeared, and until the list existed the 1×1 statistics
+                // image bought that mismatch its silence too.
+                OtherExtentInputs = [scratch[^1]]
             }
         );
 

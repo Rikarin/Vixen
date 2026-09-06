@@ -56,7 +56,13 @@ perfectly plausible picture. ⚠ `Blend` also carries `atop`, which is a **diffe
 mode**: whether the foreground *arrives on top of* the backdrop or *reinterprets* it. Over's alpha
 rule is monotonic, so a filter layer composited over the picture it adjusts raises the coverage it was
 handed and under-applies itself; no operator and no opacity can express "the coverage that leaves is
-the coverage that arrived" ([#845](https://github.com/Rikarin/Vixen/issues/845)). ⚠ And `Blend` is
+the coverage that arrived" ([#845](https://github.com/Rikarin/Vixen/issues/845)). ⚠ Atop's other
+half is that it leaves a texel the backdrop does not cover **entirely** alone, colour included: its
+guard divided by `max(backdrop, 1e-6)`, which at zero is 1, so the branch that covers exactly what
+the backdrop covered wrote the blended colour everywhere it covered nothing
+([#899](https://github.com/Rikarin/Vixen/issues/899)). The alpha was right the whole time, which is
+why it survived — a straight colour at zero coverage is invisible to a compositor and read by every
+other kernel here. ⚠ And `Blend` is
 **not** the only kernel that reads `w` as coverage, however long this repository said so:
 `TileSampler` and `Splatter` fold overlapping instances under the same rule and carried the same
 premultiply defect because of that sentence ([#864](https://github.com/Rikarin/Vixen/issues/864)).
@@ -99,6 +105,17 @@ instance writing into the image, because a storage image has no blend hardware a
 between invocations. The loop bounds are the trade FX-Map's recursion was refused for, and the CPU
 side **refuses** a parameter that would exceed them rather than clamping it —
 [#678](https://github.com/Rikarin/Vixen/issues/678)'s lesson, applied one node over.
+
+⚠ **These two are also the only kernels whose sub-sampling can land on nothing, and their box filter
+is therefore a compositing operator too** ([#888](https://github.com/Rikarin/Vixen/issues/888)). §
+4.3's three supersamplers address every tap into the source under a tiling mode, so no sub-sample of
+theirs is ever empty; a placement gather that reaches no instance returns `float4(0, 0, 0, 0)`, which
+under `max` and `blend` is a *straight* colour beside zero coverage and not a black texel. Averaged
+straight it composited every minified stamp against transparent black and rimmed it in a darker copy
+of itself, at exactly the coverage of the rim. The colour is resolved premultiplied —
+`Σ(cᵢ·αᵢ) / Σαᵢ` — and the coverage is the plain mean. ⚠ **`add` keeps the unweighted mean**: its
+running colour is a sum of light rather than a colour over a backdrop, and the closed form the whole
+suite reads these two off is a statement about that mean.
 
 ## No `.spv` is committed here, and that is the one real departure
 

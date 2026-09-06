@@ -832,14 +832,21 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///         those two alone; the type separates them when the two compounds differ.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What it does <em>not</em> separate is two sibling instances of the SAME compound
-    ///         nested inside one outer compound</b>, which share an outermost source, a type and
-    ///         their inner ids, and therefore share a name — two noise ops drawing one picture. The
-    ///         missing component is the middle of the path: which node <em>inside the outer file</em>
-    ///         each instance came from. <c>NodeOrigin.Expansion</c> distinguishes them and is not
-    ///         usable here, because it is a walk-ordered counter and an insertion moves it — which is
-    ///         the whole defect this method exists to fix, in miniature. Recorded rather than
-    ///         papered over: <a href="https://github.com/Rikarin/Vixen/issues/925">#925</a>.
+    ///         ⚠ <b>What the two ends alone did <em>not</em> separate is two sibling instances of the
+    ///         SAME compound nested inside one outer compound</b> — they share an outermost source, a
+    ///         type and their inner ids, so they shared a name and two noise ops drew one picture
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/925">#925</a>). What was missing is
+    ///         the middle of the walk: which node <em>inside the outer file</em> each instance came
+    ///         out of. <c>SubGraphExpansion.Path</c> is that chain, outermost node first, and every
+    ///         element of it is a <c>NodeId</c> in its own document — so it is stable under an
+    ///         insertion in a way <c>NodeOrigin.Expansion</c>, a walk-ordered counter, is not. Mixing
+    ///         the counter in would have been this method's own defect one level in.
+    ///     </para>
+    ///     <para>
+    ///         <b>The chain subsumes <c>Source</c>, which is its first element</b>, so it replaces
+    ///         that term rather than joining it — and it is folded in order, because a chain that
+    ///         hashed order-independently would put a compound inside another back where it started
+    ///         when the two swapped.
     ///     </para>
     ///     <para>
     ///         <b>The ordinal is what lets one node emit several.</b> <c>AutoLevels</c> is a reduction
@@ -859,11 +866,22 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         var identity = (uint)node.Id.Value;
 
         if (Inlining.TryGet(node.Id, out var origin)) {
-            identity = unchecked(
-                (0x9E3779B9u * (uint)origin.Source.Value)
-                ^ (0x85EBCA6Bu * (uint)origin.Inner.Value)
-                ^ Hashed(origin.Type)
-            );
+            identity = unchecked((0x85EBCA6Bu * (uint)origin.Inner.Value) ^ Hashed(origin.Type));
+
+            // The chain of sub-graph nodes this one came out of, outermost first — #925. Folded in
+            // order and not summed: two compounds that swapped places are two different pictures.
+            //
+            // ⚠ The fallback is `Source` and it should be unreachable: every recorded origin is
+            // stamped with the expansion that produced it and every expansion carries its path. It is
+            // here because the alternative to a wrong-but-stable name is a name that changes with the
+            // walk, and this method exists to rule the second out.
+            if (Inlining.TryGetExpansion(node.Id, out var expansion) && !expansion.Path.IsDefaultOrEmpty) {
+                foreach (var step in expansion.Path) {
+                    identity = unchecked((identity * 0x9E3779B9u) ^ (uint)step.Value);
+                }
+            } else {
+                identity = unchecked(identity ^ (0x9E3779B9u * (uint)origin.Source.Value));
+            }
         }
 
         // MurmurHash3's finalizer, which is `TexturePlan.SeedFor`'s own mix — used here so that the

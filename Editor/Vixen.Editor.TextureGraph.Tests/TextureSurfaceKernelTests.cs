@@ -187,6 +187,7 @@ public class TextureSurfaceKernelTests {
                 "Identity",
                 "Inputs",
                 "Kernel",
+                "OtherExtentInputs",
                 "Output",
                 "Parameters",
                 "ReadsOtherExtents"
@@ -198,6 +199,12 @@ public class TextureSurfaceKernelTests {
         // the op, mixed into `TexturePlan.SeedFor` and read nowhere else — #875. A `uint?` cannot
         // carry code and the evaluator never branches on it.
         Assert.Equal(typeof(uint?), typeof(TextureOp).GetProperty("Identity")!.PropertyType);
+
+        // ⚠ And `OtherExtentInputs` is the seventh, arriving with #878. It is not a seventh thing an
+        // op does either: it is a *qualifier on `ReadsOtherExtents`* — the subset of `Inputs` that
+        // declaration speaks for — read by `TexturePlan.Check` and by nothing that runs an op. A list
+        // of image indices cannot carry code, and the evaluator never reads it at all.
+        Assert.Equal(typeof(ImmutableArray<int>), typeof(TextureOp).GetProperty("OtherExtentInputs")!.PropertyType);
 
         // Every one of them but Cpu is inert data — a string, an image index, indices, scalars. Cpu is
         // the single exception doc 48 § 4.6 argues for and #688 built, and it is nullable: an op that
