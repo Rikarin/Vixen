@@ -98,6 +98,52 @@ public class DropMarkupTests {
         Assert.Null(fixture.Document.CurrentDrag);
     }
 
+    /// <summary>A drag begun from <c>on:dragstart</c> lands on a control tag that declared AllowDrop.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both halves of this had never been written in markup.</b> The two tests above
+    ///         call <c>BeginDrag</c> from the assertion, so the source they exercise is a line of
+    ///         C# in a test rather than the gesture an application writes — and
+    ///         <c>UiDocument.BeginDrag</c> had no production caller anywhere in the repository.
+    ///         Nothing is called here but the pointer: the recogniser decides the press has wandered
+    ///         far enough to be a drag, raises <c>dragstart</c>, and the markup's own handler is
+    ///         what starts the session.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the target is a control tag with <c>AllowDrop="true"</c> as an
+    ///         attribute</b>, which is a different mechanism from the <c>Zone.AllowDrop = true</c>
+    ///         the lowercase zone needs: on a lowercase tag the attribute is inert data a selector
+    ///         can match. A sample that wrote it on the wrong one has a target that never matches
+    ///         and a page that compiles.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_drag_started_from_markup_lands_on_a_control_tag_that_allows_it() {
+        using var fixture = new ControlFixture();
+
+        var sheet = Mount(fixture);
+
+        Assert.True(sheet.Typed.AllowDrop);
+
+        var (handleX, handleY) = Middle(sheet.Handle);
+        var (targetX, targetY) = Middle(sheet.Typed);
+
+        fixture.Press(handleX, handleY);
+
+        // Far enough to be a drag rather than a wobble, which is the recogniser's decision and the
+        // whole reason `BeginDrag` belongs on `dragstart` instead of on the press.
+        fixture.MovePointer(handleX + 40f, handleY + 40f);
+
+        Assert.NotNull(fixture.Document.CurrentDrag);
+        Assert.Same(sheet.Handle, fixture.Document.CurrentDrag?.Source);
+
+        fixture.MovePointer(targetX, targetY);
+        fixture.Release(targetX, targetY);
+
+        Assert.Equal("picked in markup", sheet.TypedPayload);
+        Assert.Null(fixture.Document.CurrentDrag);
+    }
+
     /// <summary>Leaving the zone again is reported once, not on every move outside it.</summary>
     [Fact]
     public void A_drag_that_crosses_back_out_reports_one_leave() {

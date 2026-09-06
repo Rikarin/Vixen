@@ -14,6 +14,30 @@
 @component DropSheet
 @namespace Vixen.Ui.Controls.Tests
 @using Vixen.Ui
+@using Vixen.Ui.Controls
+
+<!--
+    ⚠ **The source half, and it was the half no markup had ever written.** `on:dragstart` was in the
+    binder's table from the beginning and `UiDocument.BeginDrag` had no caller outside a test — so
+    every in-app drag ever exercised was begun by a line of C# in the assertion itself, and the
+    gesture an application actually writes had never run. The recogniser is what decides a press has
+    wandered far enough to be a drag; a source that began a session on `pointerdown` would begin one
+    for every click.
+-->
+<drag-source ref="@Handle"
+             style="width: 40px; height: 40px"
+             on:dragstart="@((DragEvent args) => Pick(args))" />
+
+<!--
+    ⚠ **A control tag, because `AllowDrop` as an attribute means two different things.** On the
+    lowercase `<drop-zone>` below it would be inert data a selector can match; on a control tag it is
+    the `[UiProperty]` itself, and markup that wrote it on one believing the other would have a
+    target that silently never matched.
+-->
+<Panel ref="@Typed"
+       style="width: 80px; height: 60px"
+       AllowDrop="true"
+       on:drop="@((DropEvent args) => TookTyped(args))" />
 
 <drop-zone ref="@Zone"
            style="width: 200px; height: 100px"
@@ -48,6 +72,29 @@
     ///     <c>[AllowDrop]</c> and done nothing. <c>on:</c> is a directive and is not affected.
     /// </remarks>
     partial void OnComposed() => Zone.AllowDrop = true;
+
+    /// <summary>The element a drag is begun from, so a test can press on it.</summary>
+    public UiElement Handle { get; private set; } = null!;
+
+    /// <summary>A control tag carrying <c>AllowDrop</c> as a real property rather than as data.</summary>
+    public Panel Typed { get; private set; } = null!;
+
+    /// <summary>What was put down on the control-tag target, if anything.</summary>
+    public string? TypedPayload { get; private set; }
+
+    /// <summary>Starts a drag the way an application writes one: out of the recognised gesture.</summary>
+    void Pick(DragEvent args) {
+        var data = new DataObject();
+        data.SetText("picked in markup");
+
+        Handle.Document.BeginDrag(Handle, data);
+    }
+
+    /// <summary>Takes a drop on the control-tag target.</summary>
+    void TookTyped(DropEvent args) {
+        TypedPayload = args.Data.Text;
+        args.Handled = true;
+    }
 
     /// <summary>Takes the drop.</summary>
     void Dropped(DropEvent args) {

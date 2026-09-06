@@ -147,6 +147,25 @@ public class ResponderReachTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>The in-app drag had a model, a router, a keyboard leg and no producer.</b>
+    ///     <c>UiDocument.BeginDrag</c> is what fills a <c>DataObject</c> and starts a session, and
+    ///     outside its own tests the only thing that named it was a comment in
+    ///     <c>Editor/Vixen.Editor.App/AssetFieldDrop.cs</c> saying what a port would do — so
+    ///     <c>AllowDrop</c>, the <c>DropEffect</c> negotiation and every <c>dragenter</c> in the
+    ///     framework had only ever been driven by a line of C# inside an assertion.
+    ///     <c>Samples/02-HelloUi</c>'s Hierarchy is the first source.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The call with its open bracket, because <c>BeginDrag</c> as a bare word is what that
+    ///     comment contains — a sweep for the name would have been satisfied by the note explaining
+    ///     why nothing called it, which is the exact failure this file was rewritten once to avoid.
+    /// </remarks>
+    [Fact]
+    public void Something_outside_a_test_project_begins_an_in_app_drag() {
+        Assert.NotEmpty(ProductionCallers("BeginDrag("));
+    }
+
+    /// <summary>
     ///     The instrument, checked before the thing it measures: the sweep must be able to tell a
     ///     production file from a test one, or the theory above is green on the test projects alone.
     /// </summary>
