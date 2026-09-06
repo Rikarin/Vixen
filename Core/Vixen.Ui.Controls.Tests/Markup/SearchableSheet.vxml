@@ -1,0 +1,45 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    A filtered list, written with nothing a `.searchable` modifier would have had to add.
+
+    ⚠ **The point of this file is what it does not need.** #767 calls `.searchable` a feature rather
+    than a spelling, on the grounds that `SearchBox` does the field's half and nothing makes it a
+    property of a *list*. Filtering is not the missing part: a `SearchBox` bound to a signal and an
+    `@for` whose sequence reads that signal is a list that narrows as you type, in seven lines, and
+    the predicate stays the author's — which is the half a framework could never have supplied.
+-->
+@component SearchableSheet
+@namespace Vixen.Ui.Controls.Tests
+@using System.Linq
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<search-sheet>
+    <!--
+        The field is written where it goes, which is the first of the two things `.searchable` would
+        decide for the author rather than a thing it would make possible.
+    -->
+    <SearchBox ref="@Field" Placeholder="Filter" bind:Value="@Filter.Value" />
+
+    <!--
+        ⚠ The sequence expression reads `Filter.Value`, so the loop's own effect subscribes to the
+        field: typing re-runs the reconciliation and the surviving keys keep their elements. Nothing
+        here is a search feature — it is `@for` reading a signal, which is what every `@for` does.
+    -->
+    @for (var row in Rows.Value.Where(name => name.Contains(Filter.Value ?? "", System.StringComparison.OrdinalIgnoreCase))) {
+        <search-row key="@row">@row</search-row>
+    }
+</search-sheet>
+
+@code {
+    /// <summary>What is being filtered.</summary>
+    public Signal<string[]> Rows { get; } = new([]);
+
+    /// <summary>What the field holds. A signal, because the loop has to be able to read it.</summary>
+    public Signal<string?> Filter { get; } = new(string.Empty);
+
+    /// <summary>The field, so a test can drive it the way a person would.</summary>
+    public SearchBox Field { get; private set; } = null!;
+}
