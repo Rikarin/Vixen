@@ -185,6 +185,41 @@ sealed class LayerStackDocument : EditorDocument {
             ]
         };
 
+    /// <summary>Whether a model has appeared, moved or gone since the picker was last filled.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A flag set by a notification and cleared by whoever acts on it</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/954">#954</a>. <c>LayerStackView</c>
+    ///         refilled the mesh picker only when the document reference or the bound path changed,
+    ///         and the module hands the same reference to every refresh — so importing a model while
+    ///         a stack was open never added it to the list, which is exactly the failure the remark
+    ///         above <c>Rebind</c> claimed the design prevented.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A flag rather than the refill itself, which is <c>OnProjectFileChanged</c>'s own
+    ///         instruction.</b> That runs on the frame, once per drained change per open document,
+    ///         and the refill walks every asset in the project — so doing it there would make an
+    ///         external program's Ctrl+S cost a project walk per open stack, several times over for
+    ///         a checkout that touched a hundred files.
+    ///     </para>
+    /// </remarks>
+    public bool ModelsChanged { get; set; } = true;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Null means "events were lost" and has to count as a change.</b> <c>ExternalEdits</c>
+    ///     passes it when the watcher overflowed, at which point the only honest answer is that
+    ///     anything may have happened — and a picker that ignored it would be stale for the rest of
+    ///     the session with nothing saying so.
+    /// </remarks>
+    protected override void OnProjectFileChanged(string? path) {
+        base.OnProjectFileChanged(path);
+
+        if (path is null || LayerStackMesh.Extensions.Contains(Path.GetExtension(path).ToLowerInvariant())) {
+            ModelsChanged = true;
+        }
+    }
+
     /// <summary>The stack as it would be written.</summary>
     /// <returns>The YAML.</returns>
     internal string ToYaml() => LayerStackYaml.Write(Document);

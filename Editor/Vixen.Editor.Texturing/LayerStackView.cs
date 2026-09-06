@@ -392,11 +392,18 @@ sealed class LayerStackView {
         // `ClearOptions` under an open dropdown is the same defect the shape comparison above exists
         // to prevent one level up.
         if (!ReferenceEquals(bound, document)
+            || document.ModelsChanged
             || !string.Equals(boundModel, document.Document.Model, StringComparison.Ordinal)) {
             Rebind(document);
 
             bound = document;
             boundModel = document.Document.Model;
+
+            // ⚠ Cleared here and not where it is set — #954. The document is told a model file moved
+            // by `ExternalEdits`, on the frame, once per drained change; this is the one place that
+            // has done something about it, and clearing it at the notification would mean a stack
+            // whose panel is closed forgets what happened before it is opened.
+            document.ModelsChanged = false;
         }
 
         Restate();
@@ -1082,10 +1089,15 @@ sealed class LayerStackView {
     /// <summary>Puts the project's models in the picker and the stack's own binding on it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The options are re-read per stack rather than once, because the project's models
-    ///         are not fixed.</b> Importing a model is an ordinary thing to do while a stack is open,
-    ///         and a picker filled when the panel was built would not have the mesh the artist just
-    ///         added — which reads as the import having failed.
+    ///         ⚠ <b>Re-read when the project's models change, which is what
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/954">#954</a> found this did not
+    ///         do.</b> Importing a model is an ordinary thing to do while a stack is open, and the
+    ///         gate above this used to be the document reference and the bound path alone — while
+    ///         the module hands the same reference to every refresh. So the mesh an artist had just
+    ///         added was the one mesh the picker did not offer, which reads as the import having
+    ///         failed. <c>LayerStackDocument.ModelsChanged</c> is the third term, and it is a flag
+    ///         rather than a walk because this walks every asset in the project and a show runs on
+    ///         every edit.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A binding this build cannot offer is kept as an option rather than dropped.</b> A

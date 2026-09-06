@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.IO.Watch;
 using Vixen.Core.Mathematics;
+using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Ui;
@@ -71,6 +73,66 @@ public class LayerStackBindingTests {
         Refresh(fixture);
 
         Assert.Equal(LayerStackView.NoMesh, Find<Select>(Panel(fixture), "layer-stack-model").Value);
+    }
+
+    /// <summary>A model imported while a stack is open reaches the picker.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/954">#954</a>, and the remark it
+    ///         refuted is above <c>LayerStackView.Rebind</c>.</b> That remark said the options are
+    ///         re-read per stack "because the project's models are not fixed" — and the gate that
+    ///         decided when to re-read them was the document reference and the bound path, while the
+    ///         module hands the same reference to every refresh. So the one moment a picker had to be
+    ///         refilled was the one moment it never was.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The refresh <em>before</em> the notification is the half that makes this a test
+    ///         rather than a tautology.</b> Without it, a picker refilled unconditionally on every
+    ///         show would pass — and refilling on every show is the trap the issue names, because the
+    ///         fill walks every asset in the project and a show runs on every keystroke of a slider.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Driven through <c>ExternalEdits.Apply</c> and not by setting the flag.</b> The
+    ///         notification is the mechanism under test: a document that never heard about the file
+    ///         is the state this was in, and a test that set <c>ModelsChanged</c> itself would be
+    ///         green against a document with no override at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_model_that_appears_while_a_stack_is_open_reaches_the_picker() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, "Hull");
+
+        Assert.DoesNotContain(
+            Find<Select>(Panel(fixture), "layer-stack-model").Options,
+            option => option.Value == "Assets/Late.obj"
+        );
+
+        Model(fixture, "Late.obj", Quad(0f, 0.5f));
+        Refresh(fixture);
+
+        // Nothing has told the document anything, so the picker is entitled to be as it was — and a
+        // panel that refilled here would be paying a project walk per show.
+        Assert.DoesNotContain(
+            Find<Select>(Panel(fixture), "layer-stack-model").Options,
+            option => option.Value == "Assets/Late.obj"
+        );
+
+        using var edits = new ExternalEdits(fixture.Project);
+
+        Assert.Equal(0, edits.Apply([new FileChange(new("/Late.obj"), FileChangeKind.Created)]));
+        Assert.True(document.ModelsChanged, "the document was not told a model appeared.");
+
+        Refresh(fixture);
+
+        Assert.Contains(
+            Find<Select>(Panel(fixture), "layer-stack-model").Options,
+            option => option.Value == "Assets/Late.obj"
+        );
+
+        // ⚠ And the flag is down again, or every subsequent show refills — which is the cost the
+        // gate exists to avoid, arriving by the door that was opened to fix the staleness.
+        Assert.False(document.ModelsChanged, "the refill did not clear the flag.");
     }
 
     /// <summary>A bound stack puts the mesh's UV islands under the brush.</summary>
