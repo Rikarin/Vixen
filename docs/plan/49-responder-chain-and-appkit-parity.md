@@ -419,6 +419,26 @@ reading the element's provided table — the same walk § 3.2 adds for responder
 implementation with it. Markup spelling: `<provide value="@theme" />` and a typed `@inject` in
 `@code`.
 
+**Built, and the sample is ported.** `UiElement.Provide`/`Inject`/`TryInject`/`Unprovide`,
+`Component.OnProvide`, the `<provide type="…" value="@…" />` tag and the `@inject` header all landed;
+`Shell.vxml` now writes one `<provide type="ShellModel" value="@Model" />` on its frame and its three
+panels read `Inject<ShellModel>()` without naming the shell.
+
+⚠ **The port turned on a question two tests had not asked: the value has to be there while the panel
+is being built, not after the next flush.** `Inspector.vxml`'s `OnComposed` calls
+`grid.Inspect(Model.Material)` synchronously, and a `DockPanel` is registered with the host and then
+*placed* by the arrangement — so a panel parked somewhere detached during its own construction would
+have injected null and thrown, invisibly to any test that flushed first.
+`AmbientAcrossDockingTests.A_child_added_inside_a_panel_sees_the_frame_before_any_flush` asks with no
+update between; the parking happens in `OnChildAdded`, into the host's own parts, so the walk is
+already connected.
+
+⚠ **And what the port gives up, which is the honest half: a statement is not an effect.**
+`Model="@Model"` on a tag was a binding, so a later assignment reached all three panels; a
+`<provide>` runs once where it stands. Nothing reassigns the sample's model — `Program.cs` uses an
+object initialiser, which runs before the mount — and a model that had to be swapped at runtime would
+be provided as a `Signal<T>` and read through `.Value`.
+
 ### 6.2 ⚠ Component props are assigned *after* `Build` runs
 
 `BuildContext.Child<T>` constructs, mounts (runs `Build`), and *then* assigns parameters

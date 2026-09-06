@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui.Composition;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Advanced.Tests;
@@ -125,6 +126,49 @@ public class AmbientAcrossDockingTests {
         Assert.Equal("shell", leaf.Inject<Selection>()?.Name);
         Assert.Contains("shell-frame", Ancestry(leaf), StringComparison.Ordinal);
         Assert.Contains("ui-surface", Ancestry(leaf), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The half the two tests above do not cover, and the one the sample port actually
+    ///     needs: the value has to be there <i>while the panel is being built</i>, not after the
+    ///     next flush.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Both tests above call <c>fixture.Update()</c> before they ask, so either would stay
+    ///         green if a panel were parked somewhere detached during its own construction and
+    ///         reparented on the flush. That is not a hypothetical shape: a <c>DockPanel</c> is
+    ///         registered with the host and <i>then</i> placed by the arrangement, and a panel whose
+    ///         <c>OnComposed</c> reads an ambient value — which is exactly what
+    ///         <c>Samples/02-HelloUi/Panels/Inspector.vxml</c> does, <c>grid.Inspect(Model.Material)</c>
+    ///         — would get null and throw before any flush happened.
+    ///     </para>
+    ///     <para>
+    ///         So this asks with no update between: nested the way a `.vxml` nests, through
+    ///         <c>BuildContext.Inner</c>, which is the call the emitter writes for a child inside a
+    ///         tag. ⚠ It answers "yes", and the reason is that the parking happens in
+    ///         <c>OnChildAdded</c> — synchronously, into the host's own parts — rather than being
+    ///         deferred to the arrangement pass.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_child_added_inside_a_panel_sees_the_frame_before_any_flush() {
+        using var fixture = new AdvancedFixture();
+
+        var (frame, host) = Shell(fixture);
+
+        frame.Provide(new Selection("shell"));
+
+        var panel = BuildContext.Inner(host).Add<DockPanel>();
+
+        panel.Id = "hierarchy";
+        panel.Title = "Hierarchy";
+
+        var leaf = BuildContext.Inner(panel).Add("row");
+
+        // ⚠ No `fixture.Update()`. This is the moment a markup panel's own `Build` and `OnComposed`
+        // run, and the whole question is whether the walk is connected by then.
+        Assert.Equal("shell", leaf.Inject<Selection>()?.Name);
     }
 
     /// <summary>Every tag from an element up to the root, so a chain can be asserted as one string.</summary>

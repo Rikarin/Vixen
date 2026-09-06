@@ -342,22 +342,29 @@
         ControlVariant.Subtle
     ];
 
-    readonly Signal<ShellModel> model = new(new());
+    ShellModel? standalone;
 
     GradientEditor gradient = null!;
     Drawer filters = null!;
 
-    /// <summary>What it is showing.</summary>
+    /// <summary>What it is showing: the shell's model, or its own when nothing provides one.</summary>
     /// <remarks>
-    ///     ⚠ <b>Signal-backed, and it has to be.</b> <c>BuildContext.Child&lt;T&gt;</c> constructs a
-    ///     component, mounts it — which runs <c>Build</c> — and assigns its parameters
-    ///     <em>afterwards</em>. So every effect this component made has already read the property
-    ///     once, with whatever the default was, and a plain property assigned later notifies nobody.
+    ///     <para>
+    ///         ⚠ <b>Ambient rather than a parameter, and the reason the old remark gave for the
+    ///         signal is gone with it.</b> That remark said the property had to be signal-backed
+    ///         because <c>Child&lt;T&gt;</c> assigned parameters after <c>Build</c> — which stopped
+    ///         being true when the emitter learnt to write <c>Create</c> … assignments …
+    ///         <c>Compose</c>, and is moot now that there is no parameter: an ambient value is read
+    ///         at the moment it is asked for, and it is already there when this panel is built.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why nothing here needed rewriting.</b> Every readout below is
+    ///         <c>@Model.Something.Value</c> over a signal on the model, so the reactivity was never
+    ///         this property's — it is each field's, and an ambient value having none of its own
+    ///         costs this panel nothing.
+    ///     </para>
     /// </remarks>
-    public ShellModel Model {
-        get => model.Value;
-        set => model.Value = value;
-    }
+    ShellModel Model => Inject<ShellModel>() ?? (standalone ??= new());
 
     /// <summary>The slider's value, rounded, for the readout beside it.</summary>
     /// <remarks>
