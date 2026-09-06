@@ -615,7 +615,6 @@ public static class SoftwareUiRasterizer {
     static float Median(float a, float b, float c) =>
         MathF.Max(MathF.Min(a, b), MathF.Min(MathF.Max(a, b), c));
 
-    /// <summary>Premultiplied source over destination — the blend state the UI pipeline uses.</summary>
     /// <summary>Source-over, with a blend mode's change of source colour applied first.</summary>
     /// <param name="target">The destination buffer, premultiplied.</param>
     /// <param name="offset">Where this pixel starts in it.</param>

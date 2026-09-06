@@ -112,6 +112,13 @@ sealed class ViewportChrome {
     /// <summary>Puts the chrome over one pane.</summary>
     /// <param name="pane">The pane.</param>
     /// <param name="editor">The application, for what the buttons ask about.</param>
+    /// <remarks>
+    ///     ⚠ <b>The transform modes are a segmented control and the rest are not.</b> Doc 20's
+    ///     objection to the old flat strip is precise: Translate, Rotate and Scale drawn as three
+    ///     adjacent buttons say nothing about being one choice. They are the only group here because
+    ///     they are the only set on the bar that is genuinely exclusive — space, snap and grid are
+    ///     three independent toggles and drawing them boxed together would claim otherwise.
+    /// </remarks>
     public void Attach(SceneViewport pane, EditorApplication editor) {
         ArgumentNullException.ThrowIfNull(pane);
         ArgumentNullException.ThrowIfNull(editor);

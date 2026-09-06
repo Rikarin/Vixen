@@ -770,14 +770,6 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         }
     }
 
-    /// <summary>Allocates the set from the layout the pipeline was built with, once per effect.</summary>
-    /// <remarks>
-    ///     From <see cref="Effect.SetLayouts" /> rather than from a layout of this group's own: a set
-    ///     is only bindable to a pipeline whose layout it was allocated from, so building one here
-    ///     would produce something the validation layers reject and a release driver mis-binds in
-    ///     silence.
-    /// </remarks>
-    /// <summary>What fills the occluder binding: the pyramid, or the texture that stands in for it.</summary>
     /// <summary>
     ///     Points every binding of the set at something: the four this dispatch reads, and the seven it
     ///     declares and does not.
@@ -819,6 +811,7 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         writes[10] = DescriptorWrite.Storage(CullingKeys.ResidencyBinding, unusedBindings);
     }
 
+    /// <summary>What fills the occluder binding: the pyramid, or the texture that stands in for it.</summary>
     TextureViewHandle Occluding() =>
         Occluders is { IsBuilt: true } pyramid && pyramid.View.IsValid ? pyramid.View : placeholderView;
 
@@ -870,6 +863,13 @@ public sealed class GpuVisibilityGroup : IVisibilityGroup {
         return placeholderView.IsValid;
     }
 
+    /// <summary>Allocates the set from the layout the pipeline was built with, once per effect.</summary>
+    /// <remarks>
+    ///     From <see cref="Effect.SetLayouts" /> rather than from a layout of this group's own: a set
+    ///     is only bindable to a pipeline whose layout it was allocated from, so building one here
+    ///     would produce something the validation layers reject and a release driver mis-binds in
+    ///     silence.
+    /// </remarks>
     bool TryAllocateSet(Effect effect) {
         var slots = Math.Max(1, device.FramesInFlight);
 

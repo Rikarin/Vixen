@@ -299,26 +299,6 @@ public sealed class AssetMaterialSourceTests {
         Assert.NotNull(material);
     }
 
-    /// <summary>Asks until the load lands, or until nothing is left that could make it land.</summary>
-    /// <param name="source">The source being asked, whose outstanding load decides when to give up.</param>
-    /// <param name="material">The material it compiled.</param>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>No deadline, for the reason <c>AssetWaterSourceTests.Settles</c> now gives at
-    ///         length.</b> The load is off the frame's thread, <c>build.sh Test</c> runs every test
-    ///         project at once, and a work item queued into a saturated pool waits on .NET's thread
-    ///         injection — about two threads a second — so the delay is a property of how many
-    ///         workers the whole host has blocked. Thirty seconds was a guess about somebody else's
-    ///         scheduler, and raising the number is the remedy that already failed once.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The predicate is the handle's status, not "is there a material yet".</b>
-    ///         <see cref="AssetMaterialSource.Reading" /> falls to zero when the document has
-    ///         arrived, which is before <c>Compile</c> has run — so a document that arrives and
-    ///         will not compile is given up on and reported, where waiting on "no material yet"
-    ///         would wait on it for ever and turn a defect into a hang.
-    ///     </para>
-    /// </remarks>
     /// <summary>
     ///     A graph-authored material's textures reach the host's pairing, which nothing did before.
     /// </summary>
@@ -400,6 +380,26 @@ public sealed class AssetMaterialSourceTests {
         Assert.Equal("ForwardPlus", material.ShaderName);
     }
 
+    /// <summary>Asks until the load lands, or until nothing is left that could make it land.</summary>
+    /// <param name="source">The source being asked, whose outstanding load decides when to give up.</param>
+    /// <param name="material">The material it compiled.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>No deadline, for the reason <c>AssetWaterSourceTests.Settles</c> now gives at
+    ///         length.</b> The load is off the frame's thread, <c>build.sh Test</c> runs every test
+    ///         project at once, and a work item queued into a saturated pool waits on .NET's thread
+    ///         injection — about two threads a second — so the delay is a property of how many
+    ///         workers the whole host has blocked. Thirty seconds was a guess about somebody else's
+    ///         scheduler, and raising the number is the remedy that already failed once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The predicate is the handle's status, not "is there a material yet".</b>
+    ///         <see cref="AssetMaterialSource.Reading" /> falls to zero when the document has
+    ///         arrived, which is before <c>Compile</c> has run — so a document that arrives and
+    ///         will not compile is given up on and reported, where waiting on "no material yet"
+    ///         would wait on it for ever and turn a defect into a hang.
+    ///     </para>
+    /// </remarks>
     static void Settles(AssetMaterialSource source, out Material material) {
         Material found = null!;
 

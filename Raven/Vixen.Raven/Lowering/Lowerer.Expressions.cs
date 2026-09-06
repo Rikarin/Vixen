@@ -300,16 +300,13 @@ public sealed partial class Lowerer {
         return null;
     }
 
-    /// <summary>
-    ///     The IR struct a field belongs to, whether it was declared on a struct or synthesized for
-    ///     a tuple element.
-    /// </summary>
-    /// <remarks>
-    ///     Read off <c>ContainingSymbol</c> rather than <c>ContainingType</c>: the latter is a
-    ///     <c>NamedTypeSymbol</c>, and a tuple is not one, so it answers null for a tuple's element.
-    /// </remarks>
     /// <summary>The struct a field lives in, or null when it lives in none.</summary>
     /// <remarks>
+    ///     <para>
+    ///         Read off <c>ContainingSymbol</c> rather than <c>ContainingType</c>: the latter is a
+    ///         <c>NamedTypeSymbol</c>, and a tuple is not one, so it answers null for a tuple's
+    ///         element — which is why a field synthesized for a tuple element is found here too.
+    ///     </para>
     ///     <para>
     ///         While a body is being emitted <em>for</em> another type, a field of the type that
     ///         declared it belongs to that other one's struct. Both features that need this need it
@@ -923,10 +920,6 @@ public sealed partial class Lowerer {
         };
 
     /// <summary>
-    ///     Builds a call's argument list, prepending the receiver for a member of a
-    ///     struct. A shader's members take no receiver: their state is global.
-    /// </summary>
-    /// <summary>
     ///     The method on <paramref name="implementer" /> that satisfies
     ///     <paramref name="declaration" />: same name, same parameter types.
     /// </summary>
@@ -987,6 +980,10 @@ public sealed partial class Lowerer {
     ///     <para>
     ///         It also puts copy-in/copy-out in the IR where it can be read, rather than leaving each
     ///         backend to lean on its own language's rules and hoping the two agree.
+    ///     </para>
+    ///     <para>
+    ///         The receiver is prepended for a member of a struct and for nothing else: a shader's
+    ///         members take no receiver, because their state is global.
     ///     </para>
     /// </remarks>
     LoweredArguments BuildArguments(

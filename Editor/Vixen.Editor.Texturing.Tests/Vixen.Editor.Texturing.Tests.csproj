@@ -40,6 +40,17 @@
             themselves, without running a Nuke target.
         -->
         <Compile Include="..\..\build\DocCommentRule.cs" Link="DocCommentRule.cs" />
+
+        <!--
+            ⚠ And doc 48's exit criterion 11, which is the same shape a third time. The criterion's
+            area is two test projects and the roll call that made it mechanical read one of them
+            (#883). The walk now takes its directory as a parameter and this project is its second
+            caller — two callers of one function, not two transcriptions of one idea, which is what
+            #872 says a second roll call must not be without. It lives beside its first caller rather
+            than in `build/`, because nothing in `build/` runs it and a rule in there with no target
+            is the defect this workstream keeps finding.
+        -->
+        <Compile Include="..\Vixen.Editor.TextureGraph.Tests\DeviceRollCall.cs" Link="DeviceRollCall.cs" />
     </ItemGroup>
 
     <ItemGroup>

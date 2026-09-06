@@ -20,27 +20,6 @@ sealed class TaffyUnsupportedException(string feature) : Exception($"unsupported
     public string Feature { get; } = feature;
 }
 
-/// <summary>
-///     Applies one fixture node's attributes to a <see cref="LayoutTree" /> node.
-/// </summary>
-/// <remarks>
-///     <para>
-///         ⚠ <b>Every attribute is either applied or refused; none is ignored.</b> Silently dropping an
-///         attribute is the one failure this whole corpus is supposed to be immune to — it produces a
-///         green test that proves nothing, and at 5 524 fixtures nobody would find it. So the switch
-///         below is exhaustive over the 56 attributes the corpus uses and its default arm throws.
-///     </para>
-///     <para>
-///         ⚠ <b>Three initial values differ between Yoga and CSS, and the corpus is CSS's.</b> Yoga
-///         deviates deliberately on all three, <see cref="LayoutStyle.Default" /> follows Yoga, and
-///         Chrome — which produced every number in the corpus — follows CSS. So
-///         <see cref="ApplyCssInitialValues" /> resets them per node before the fixture's own
-///         attributes are read: <c>flex-direction</c> is <c>row</c> and not <c>column</c>,
-///         <c>flex-shrink</c> is <c>1</c> and not <c>0</c>, and <c>align-content</c> is <c>stretch</c>
-///         and not <c>flex-start</c>. Skipping this does not produce a few wrong fixtures, it produces
-///         thousands, and every one of them would look like a flexbox bug.
-///     </para>
-/// </remarks>
 /// <summary>The facts about a box that its own attributes decide, and that its neighbours' mapping needs.</summary>
 /// <remarks>
 ///     ⚠ <b><see cref="IsLeaf" /> is not about <c>start</c> and <c>end</c> like the other four, and
@@ -92,12 +71,33 @@ static class TaffyStyleMap {
         }
     }
 
+    /// <summary>
+    ///     Applies one fixture node's attributes to a <see cref="LayoutTree" /> node.
+    /// </summary>
     /// <param name="tree">The tree being built.</param>
     /// <param name="node">The node the attribute belongs to.</param>
     /// <param name="name">The attribute name.</param>
     /// <param name="value">Its value, verbatim.</param>
     /// <param name="self">The node's own axis facts, which decide its <c>justify-content</c>.</param>
     /// <param name="parent">Its container's, which decide its <c>align-self</c>.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every attribute is either applied or refused; none is ignored.</b> Silently dropping an
+    ///         attribute is the one failure this whole corpus is supposed to be immune to — it produces a
+    ///         green test that proves nothing, and at 5 524 fixtures nobody would find it. So the switch
+    ///         below is exhaustive over the 56 attributes the corpus uses and its default arm throws.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Three initial values differ between Yoga and CSS, and the corpus is CSS's.</b> Yoga
+    ///         deviates deliberately on all three, <see cref="LayoutStyle.Default" /> follows Yoga, and
+    ///         Chrome — which produced every number in the corpus — follows CSS. So
+    ///         <see cref="ApplyCssInitialValues" /> resets them per node before the fixture's own
+    ///         attributes are read: <c>flex-direction</c> is <c>row</c> and not <c>column</c>,
+    ///         <c>flex-shrink</c> is <c>1</c> and not <c>0</c>, and <c>align-content</c> is <c>stretch</c>
+    ///         and not <c>flex-start</c>. Skipping this does not produce a few wrong fixtures, it produces
+    ///         thousands, and every one of them would look like a flexbox bug.
+    ///     </para>
+    /// </remarks>
     public static void Apply(LayoutTree tree, LayoutNodeId node, string name, string value, TaffyBox self, TaffyBox parent) {
         switch (name) {
             // ── Box and flow ────────────────────────────────────────────────────────────────────

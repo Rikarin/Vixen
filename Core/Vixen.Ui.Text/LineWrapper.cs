@@ -795,21 +795,6 @@ public static class LineWrapper {
         return x - origin;
     }
 
-    /// <summary>
-    ///     How much of an over-long word fits, cut at a grapheme boundary rather than anywhere.
-    /// </summary>
-    /// <returns>Where to break, or <paramref name="start" /> if not even one cluster fits.</returns>
-    /// <remarks>
-    ///     ⚠ <b>Asking <see cref="GraphemeBreaker" /> is insurance rather than a covered claim, and it
-    ///     took a sabotage to find that out.</b> Replacing the boundaries with every UTF-16 index
-    ///     changes nothing, and the reason is two files away: <see cref="Advances" /> records a
-    ///     cluster's whole advance at its first character and zero at the rest, and the shaper's
-    ///     clusters are already reconciled with grapheme clusters. So every cut inside a cluster
-    ///     measures exactly the same as the cut at its end, and a rule that takes the <i>largest</i>
-    ///     index that fits therefore lands on the end every time. What this insures against is that
-    ///     reconciliation going away — the moment one grapheme cluster carries two advances, the
-    ///     largest fitting UTF-16 index is a broken character.
-    /// </remarks>
     /// <summary>The end of the first grapheme of a run.</summary>
     /// <param name="text">The source.</param>
     /// <param name="start">Where the run begins.</param>
@@ -834,6 +819,21 @@ public static class LineWrapper {
         return start;
     }
 
+    /// <summary>
+    ///     How much of an over-long word fits, cut at a grapheme boundary rather than anywhere.
+    /// </summary>
+    /// <returns>Where to break, or <paramref name="start" /> if not even one cluster fits.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Asking <see cref="GraphemeBreaker" /> is insurance rather than a covered claim, and it
+    ///     took a sabotage to find that out.</b> Replacing the boundaries with every UTF-16 index
+    ///     changes nothing, and the reason is two files away: <see cref="Advances" /> records a
+    ///     cluster's whole advance at its first character and zero at the rest, and the shaper's
+    ///     clusters are already reconciled with grapheme clusters. So every cut inside a cluster
+    ///     measures exactly the same as the cut at its end, and a rule that takes the <i>largest</i>
+    ///     index that fits therefore lands on the end every time. What this insures against is that
+    ///     reconciliation going away — the moment one grapheme cluster carries two advances, the
+    ///     largest fitting UTF-16 index is a broken character.
+    /// </remarks>
     static int Squeeze(
         string text,
         ReadOnlySpan<float> advances,

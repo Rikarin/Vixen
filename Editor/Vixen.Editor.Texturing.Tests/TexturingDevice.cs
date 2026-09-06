@@ -16,8 +16,23 @@ namespace Vixen.Editor.Texturing.Tests;
 static class TexturingDevice {
     /// <summary>A device, or a loud skip — or, when one was required, a failure.</summary>
     /// <returns>The device.</returns>
+    /// <remarks>
+    ///     ⚠ <b>It names the adapter into the running test's output itself, which is doc 48's exit
+    ///     criterion 11 made mechanical on this side too</b>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/883">#883</a>). The five device files
+    ///     here named it because each of them remembered to; nothing required the sixth to, and the
+    ///     failure this repository has actually suffered is the one where an instrument stops running
+    ///     and reports success. <c>TextureKernelHarness.Open</c> is the same line one assembly along,
+    ///     and <see cref="TexturingAdapterRollCallTests" /> is what holds this line to it — the two
+    ///     cover different holes, because a file calling <c>VulkanDevice.TryCreate</c> directly goes
+    ///     round this method and only the walk notices.
+    /// </remarks>
     public static VulkanDevice Open() {
         if (VulkanDevice.TryCreate(new(), out var device, out var reason)) {
+            // `?.`, because a helper called from a fixture's constructor or a class fixture has no
+            // test in scope. A device opened there is still named by whichever test uses it.
+            TestContext.Current.TestOutputHelper?.WriteLine($"adapter: {Adapter(device!)}");
+
             return device!;
         }
 

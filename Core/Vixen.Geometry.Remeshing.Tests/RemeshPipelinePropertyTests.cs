@@ -361,57 +361,6 @@ public class RemeshPipelinePropertyTests {
         (new(ShapeKind.Cone, 3, 3, [MeshDefect.DuplicateFaces], 6, 2.0379999E-14f, 1f), false, false, 1)
     ];
 
-    /// <summary>The same criterion through § D11's mirror, which is a second entry point into all seven.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b><see cref="SymmetryPass" /> is a wrapper around <see cref="Remesher.Remesh" />
-    ///         rather than a stage inside it, so nothing above reaches it.</b> It cuts the source with
-    ///         <see cref="MeshBoolean.PlaneCut" />, calls back in with the setting cleared, reflects
-    ///         what comes out and recounts the faces — which is four opportunities to produce a mesh
-    ///         the criterion forbids, on top of the seven stages, and one of them is a boolean handed a
-    ///         deliberately non-manifold input.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The plane is swept over three axes and an off-axis one, because the pass branches
-    ///         on exactly that.</b> An axis plane through the origin makes the mirror a sign flip and
-    ///         § D11's fourth exit criterion holds bit-for-bit; anything else is a rounded reflection,
-    ///         which the pass warns about and which is the branch where a mirrored vertex can land off
-    ///         the seam.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>This property found an allocation runaway on its first run at the build's own
-    ///         counts. It is closed, by <see cref="Remesher.RunawayMultiple" />, and
-    ///         <see cref="The_runaway_recipe_stays_within_a_bounded_multiple_of_its_budget" /> holds the
-    ///         line so it cannot come back unnoticed.</b> The numbers below are what it did before that
-    ///         brake existed; the same recipe now plans 1,526 quads per half and ships 3,052, with the
-    ///         extract stage down from 1.3 s to 48 ms. Seed <c>9hqwA86TjVk1</c>,
-    ///         and it reproduces from one line:
-    ///         <c>new(ShapeKind.Sphere, 4, 4, [MeshDefect.LargeComponent, MeshDefect.TinyComponent,
-    ///         MeshDefect.ZeroLengthEdge], 4, 0.12195122f, 1f)</c> about <c>(1, 0, 0)</c> at
-    ///         <see cref="Budget" /> quads. <b>602 faces in; 3,999,656 quads out — 41,663× the budget,
-    ///         6,644× the input — allocating 8.7 GB on the calling thread over 42 s.</b>
-    ///         <see cref="RunawayGuard" /> stops it at 1.40 GB <i>retained</i>, sixteen samples in a
-    ///         row, eight seconds in.
-    ///     </para>
-    ///     <para>
-    ///         <b>It is neither a hang nor an all-quad failure, which is exactly why nothing caught it
-    ///         before.</b> The call returns, every face has four sides and the ledger is well formed —
-    ///         the criterion's stated half is satisfied. What is unbounded is <i>growth</i>, and the
-    ///         allocation ceiling is the only reading that sees it. ⚠ <b>It is also a different runaway
-    ///         from the one <see cref="RunawayGuard.RetentionCeiling" /> was measured against</b>: that
-    ///         one is an isotropic pre-remesh handed a <see cref="RemeshSettings.TargetEdgeLength" />
-    ///         far below the mesh's mean, and nothing here passes that setting at all. This one comes
-    ///         off <see cref="RemeshSettings.TargetQuads" />, which is the path the class remarks call
-    ///         "what keeps the ordinary path safe".
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The three defects in the recipe are not separable and the shrinker is right not to
-    ///         drop them.</b> Measured on the same plane and budget: the full recipe gives 3,999,656
-    ///         quads, but <c>[LargeComponent]</c> alone at the same multiplicity and degeneracy gives
-    ///         706, at multiplicity 1 gives 1,680, and the bare sphere gives 1,680. The amplification
-    ///         needs the whole combination, so the one line above is the smallest thing to paste.
-    ///     </para>
-    /// </remarks>
     /// <summary>The allocation runaway's own line, held under the brake rather than under a clock.</summary>
     /// <remarks>
     ///     <para>
@@ -472,6 +421,57 @@ public class RemeshPipelinePropertyTests {
         );
     }
 
+    /// <summary>The same criterion through § D11's mirror, which is a second entry point into all seven.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="SymmetryPass" /> is a wrapper around <see cref="Remesher.Remesh" />
+    ///         rather than a stage inside it, so nothing above reaches it.</b> It cuts the source with
+    ///         <see cref="MeshBoolean.PlaneCut" />, calls back in with the setting cleared, reflects
+    ///         what comes out and recounts the faces — which is four opportunities to produce a mesh
+    ///         the criterion forbids, on top of the seven stages, and one of them is a boolean handed a
+    ///         deliberately non-manifold input.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The plane is swept over three axes and an off-axis one, because the pass branches
+    ///         on exactly that.</b> An axis plane through the origin makes the mirror a sign flip and
+    ///         § D11's fourth exit criterion holds bit-for-bit; anything else is a rounded reflection,
+    ///         which the pass warns about and which is the branch where a mirrored vertex can land off
+    ///         the seam.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This property found an allocation runaway on its first run at the build's own
+    ///         counts. It is closed, by <see cref="Remesher.RunawayMultiple" />, and
+    ///         <see cref="The_runaway_recipe_stays_within_a_bounded_multiple_of_its_budget" /> holds the
+    ///         line so it cannot come back unnoticed.</b> The numbers below are what it did before that
+    ///         brake existed; the same recipe now plans 1,526 quads per half and ships 3,052, with the
+    ///         extract stage down from 1.3 s to 48 ms. Seed <c>9hqwA86TjVk1</c>,
+    ///         and it reproduces from one line:
+    ///         <c>new(ShapeKind.Sphere, 4, 4, [MeshDefect.LargeComponent, MeshDefect.TinyComponent,
+    ///         MeshDefect.ZeroLengthEdge], 4, 0.12195122f, 1f)</c> about <c>(1, 0, 0)</c> at
+    ///         <see cref="Budget" /> quads. <b>602 faces in; 3,999,656 quads out — 41,663× the budget,
+    ///         6,644× the input — allocating 8.7 GB on the calling thread over 42 s.</b>
+    ///         <see cref="RunawayGuard" /> stops it at 1.40 GB <i>retained</i>, sixteen samples in a
+    ///         row, eight seconds in.
+    ///     </para>
+    ///     <para>
+    ///         <b>It is neither a hang nor an all-quad failure, which is exactly why nothing caught it
+    ///         before.</b> The call returns, every face has four sides and the ledger is well formed —
+    ///         the criterion's stated half is satisfied. What is unbounded is <i>growth</i>, and the
+    ///         allocation ceiling is the only reading that sees it. ⚠ <b>It is also a different runaway
+    ///         from the one <see cref="RunawayGuard.RetentionCeiling" /> was measured against</b>: that
+    ///         one is an isotropic pre-remesh handed a <see cref="RemeshSettings.TargetEdgeLength" />
+    ///         far below the mesh's mean, and nothing here passes that setting at all. This one comes
+    ///         off <see cref="RemeshSettings.TargetQuads" />, which is the path the class remarks call
+    ///         "what keeps the ordinary path safe".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The three defects in the recipe are not separable and the shrinker is right not to
+    ///         drop them.</b> Measured on the same plane and budget: the full recipe gives 3,999,656
+    ///         quads, but <c>[LargeComponent]</c> alone at the same multiplicity and degeneracy gives
+    ///         706, at multiplicity 1 gives 1,680, and the bare sphere gives 1,680. The amplification
+    ///         needs the whole combination, so the one line above is the smallest thing to paste.
+    ///     </para>
+    /// </remarks>
     [Fact]
     public void Every_broken_mesh_remeshed_about_a_plane_obeys_the_same_criterion() {
         Gen.Select(

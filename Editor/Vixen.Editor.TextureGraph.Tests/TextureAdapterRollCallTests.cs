@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.CompilerServices;
+using Vixen.Editor.Testing;
 using Xunit;
 
 namespace Tests;
@@ -75,60 +76,27 @@ public class TextureAdapterRollCallTests {
     ///         this was written, so anything under ten means the pattern has drifted.
     ///     </para>
     ///     <para>
-    ///         <b>What it cannot see, said plainly.</b> Only this project. The twentieth device file
-    ///         in doc 48's area is <c>Vixen.Editor.Texturing.Tests/TexturePreviewDeviceTests.cs</c>,
-    ///         which has a private copy of <c>Open</c> and <c>Adapter</c> and does name its adapter —
-    ///         but nothing holds it to that, and a roll call in this assembly structurally cannot.
-    ///         The rule that would cover both belongs in <c>build/</c>, and scoping it is not
-    ///         obvious: every test project that reaches this one transitively pulls in
-    ///         <c>Vixen.Graphics.Golden.Tests</c>, whose nineteen device files name no adapter and
-    ///         are not doc 48's. See <see href="https://github.com/Rikarin/Vixen/issues/795" />.
+    ///         ✅ <b>It used to see only this project, and that was
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/883">#883</a>.</b> The walk is
+    ///         <see cref="DeviceRollCall" /> now, taking its directory as a parameter, and
+    ///         <c>Vixen.Editor.Texturing.Tests</c> — the other half of doc 48's area, five device
+    ///         files — is its second caller. Scoping it through a project graph instead was the
+    ///         wrong shape and is worth recording: every test project that reaches this one
+    ///         transitively pulls in <c>Vixen.Graphics.Golden.Tests</c>, whose nineteen device files
+    ///         name no adapter and are not doc 48's. See
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/795" />.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void Every_file_here_that_opens_a_device_names_the_adapter() {
-        var directory = Path.GetDirectoryName(Here())!;
-
-        Assert.True(
-            Directory.Exists(directory),
-            $"'{directory}' does not exist, so this roll call read no files at all. It is anchored at this "
-            + "file's compiled path; a run whose sources are not on the machine cannot take it."
+    public void Every_file_here_that_opens_a_device_names_the_adapter() =>
+        DeviceRollCall.Take(
+            DeviceRollCall.Read(Path.GetDirectoryName(Here())!, "TextureAdapterRollCallTests.cs"),
+            Opens,
+            Names,
+            harness: "TextureKernelHarness.cs",
+            least: 10,
+            Anonymous
         );
-
-        var sources = Directory.GetFiles(directory, "*.cs", SearchOption.TopDirectoryOnly)
-            .Select(path => (Name: Path.GetFileName(path), Text: File.ReadAllText(path)))
-            .ToArray();
-
-        Assert.Contains(sources, source => source.Name == "TextureAdapterRollCallTests.cs");
-
-        var opens = sources
-            .Where(source => source.Text.Contains(Opens, StringComparison.Ordinal))
-            .ToArray();
-
-        Assert.Contains(opens, source => source.Name == "TextureKernelHarness.cs");
-
-        Assert.True(
-            opens.Length >= 10,
-            $"Only {opens.Length} files here contain '{Opens}', and there were twenty when this was written. "
-            + "The way a device is opened in this project has changed and this roll call is now reading an "
-            + "almost empty set — which is the failure it exists to prevent, not a pass."
-        );
-
-        var unnamed = opens
-            .Where(source => !source.Text.Contains(Names, StringComparison.Ordinal))
-            .Select(source => source.Name)
-            .Order(StringComparer.Ordinal)
-            .ToArray();
-
-        var excused = Anonymous.Select(entry => entry.File).Order(StringComparer.Ordinal).ToArray();
-
-        Assert.Equal(excused, unnamed);
-
-        // Both ends, and a reason that says something: a name here whose file names the adapter now
-        // is an allowance that has outlived what it excused.
-        Assert.All(excused, name => Assert.Contains(opens, source => source.Name == name));
-        Assert.All(Anonymous, entry => Assert.True(entry.Reason.Length > 40, entry.File));
-    }
 
     /// <summary>
     ///     ⚠ Opening a device names the adapter even when the test does not ask.

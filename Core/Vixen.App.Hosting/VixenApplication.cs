@@ -392,21 +392,6 @@ public sealed class VixenApplication : IDisposable {
     /// </remarks>
     public SceneHandle StartupScene { get; private set; }
 
-    /// <summary>Opens the scene the configuration named, if it named one.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         <b>The boot end of the editor's Build Settings scene list.</b> What the game asks for
-    ///         is an address; a content build wrote the addresses its project listed, in order, and
-    ///         the host took the first of them unless the game named its own — see
-    ///         <see cref="AppConfig.StartupScene" />.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Every failure is reported and survived</b>, which is the same trade the catalog,
-    ///         the shader bundle and the compositor each make: the thing that would show a player the
-    ///         message is the thing that did not start. A game with no engine, no content or a broken
-    ///         scene runs on with an empty world and one line saying which of those it was.
-    ///     </para>
-    /// </remarks>
     /// <summary>Adds the systems this project declared, and says what it could not add.</summary>
     /// <remarks>
     ///     <para>
@@ -452,6 +437,21 @@ public sealed class VixenApplication : IDisposable {
         }
     }
 
+    /// <summary>Opens the scene the configuration named, if it named one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The boot end of the editor's Build Settings scene list.</b> What the game asks for
+    ///         is an address; a content build wrote the addresses its project listed, in order, and
+    ///         the host took the first of them unless the game named its own — see
+    ///         <see cref="AppConfig.StartupScene" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every failure is reported and survived</b>, which is the same trade the catalog,
+    ///         the shader bundle and the compositor each make: the thing that would show a player the
+    ///         message is the thing that did not start. A game with no engine, no content or a broken
+    ///         scene runs on with an empty world and one line saying which of those it was.
+    ///     </para>
+    /// </remarks>
     void LoadStartupScene() {
         if (Services.Config.StartupScene is not { Length: > 0 } address) {
             // Not even information. A sample, a batch tool and a test each open no scene, and a line

@@ -39,12 +39,6 @@ public sealed class CodecTests {
         return [.. collected];
     }
 
-    /// <summary>The frequency with the most energy in a mono signal, found by correlation.</summary>
-    /// <remarks>
-    ///     A correlation rather than a transform, because the answer is known to within a few hertz
-    ///     and testing it against a candidate is a dozen lines where a transform would be a
-    ///     dependency this assembly does not otherwise have.
-    /// </remarks>
     /// <summary>What a correlation reads for the fixture's own tone: half its amplitude.</summary>
     /// <remarks>
     ///     A sine of peak <c>A</c> correlated against its own frequency comes out at <c>A/2</c>, which
@@ -53,6 +47,15 @@ public sealed class CodecTests {
     /// </remarks>
     const float Expected = 0.35f;
 
+    /// <summary>The frequency with the most energy in a mono signal, found by correlation.</summary>
+    /// <param name="mono">The signal, one channel of it.</param>
+    /// <param name="hertz">The candidate frequency to correlate against.</param>
+    /// <returns>The correlation's magnitude, which for the signal's own tone is half its amplitude.</returns>
+    /// <remarks>
+    ///     A correlation rather than a transform, because the answer is known to within a few hertz
+    ///     and testing it against a candidate is a dozen lines where a transform would be a
+    ///     dependency this assembly does not otherwise have.
+    /// </remarks>
     static float Correlation(ReadOnlySpan<float> mono, float hertz) {
         var real = 0.0;
         var imaginary = 0.0;

@@ -1204,21 +1204,6 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     public Func<IReadOnlyList<IGizmoTarget>>? TargetsFactory { get; set; }
 
-    /// <summary>Turns a move into a highlight, a press into a grab and a release into a recorded drag.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Only the primary button grabs, and only when it did not start a camera move.</b>
-    ///         Alt+left orbits, and a press that also grabbed a handle would move the object the
-    ///         camera was supposed to be swinging around.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>A move with nothing held carries <see cref="PointerButton.None" />, which is why
-    ///         the hover test is before the primary-button check rather than inside it.</b> Nothing
-    ///         else in the editor asks what is under the pointer, so without this the handle the
-    ///         cursor is over never lights up and the only way to find out whether a press will grab
-    ///         an arm is to press and see what moves.
-    ///     </para>
-    /// </remarks>
     /// <summary>Tells the mode and the tool that the pointer came onto this pane or left it.</summary>
     /// <remarks>
     ///     <para>
@@ -1258,6 +1243,21 @@ public sealed class SceneViewport : IDisposable {
         Input?.Pointer(this, args);
     }
 
+    /// <summary>Turns a move into a highlight, a press into a grab and a release into a recorded drag.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only the primary button grabs, and only when it did not start a camera move.</b>
+    ///         Alt+left orbits, and a press that also grabbed a handle would move the object the
+    ///         camera was supposed to be swinging around.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A move with nothing held carries <see cref="PointerButton.None" />, which is why
+    ///         the hover test is before the primary-button check rather than inside it.</b> Nothing
+    ///         else in the editor asks what is under the pointer, so without this the handle the
+    ///         cursor is over never lights up and the only way to find out whether a press will grab
+    ///         an arm is to press and see what moves.
+    ///     </para>
+    /// </remarks>
     void OnPointer(UiElement element, PointerEvent args) {
         // ⚠ The chrome drawn over the pane is not the pane, and this handler hears its events
         // because it is registered with `handledEventsToo` — see the constructor. Without the guard,

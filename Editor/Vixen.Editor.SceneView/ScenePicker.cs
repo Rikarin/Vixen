@@ -448,17 +448,6 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
         edits.Clear();
     }
 
-    /// <summary>How far along a ray it first meets a shape, in world units, or null.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The nearest hit is brought back out of local space rather than measured along the
-    ///     world ray.</b> <c>Ray</c>'s constructor normalises, so the local ray's direction is a unit
-    ///     vector in <i>local</i> units and the parameter it hands back is in local units too — a
-    ///     shape scaled fourfold answers with a quarter of the distance, and a shape scaled to a
-    ///     tenth answers with ten times it. That made <see cref="Under" />'s comparison meaningless
-    ///     between two entities of different scale, and meaningless between a shape and a marker,
-    ///     whose distance is already the world one. Taking the point through the matrix costs one
-    ///     transform per entity and is exact.
-    /// </remarks>
     /// <summary>How far along a ray it meets an edited mesh, or null.</summary>
     /// <remarks>
     ///     ⚠ <b>Over the element table rather than over a second copy of the geometry.</b> The table is
@@ -494,6 +483,17 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
             : null;
     }
 
+    /// <summary>How far along a ray it first meets a shape, in world units, or null.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The nearest hit is brought back out of local space rather than measured along the
+    ///     world ray.</b> <c>Ray</c>'s constructor normalises, so the local ray's direction is a unit
+    ///     vector in <i>local</i> units and the parameter it hands back is in local units too — a
+    ///     shape scaled fourfold answers with a quarter of the distance, and a shape scaled to a
+    ///     tenth answers with ten times it. That made <see cref="Under" />'s comparison meaningless
+    ///     between two entities of different scale, and meaningless between a shape and a marker,
+    ///     whose distance is already the world one. Taking the point through the matrix costs one
+    ///     transform per entity and is exact.
+    /// </remarks>
     static float? Shaped(Ray ray, MeshData mesh, in Matrix4x4 transform) {
         if (!Matrix4x4.Invert(transform, out var inverse)) {
             // A zero scale, which has no surface to hit. Not an error: an entity can be scaled to

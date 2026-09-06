@@ -61,17 +61,19 @@ public class DocCommentRuleTests {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Fifty-one files were already wrong the day the rule was written, and one of them
-    ///         is a live production staple</b>: <c>KeyChord.cs</c> carries <c>MacFormat</c>' whole
-    ///         block above <c>MacWords</c>, so one public formatter is undocumented and the other is
-    ///         described twice. None is in doc 48's own files — batch 9's two were the only ones there
-    ///         and the merge fixed them — so the list is other people's work to shrink (#879) rather
-    ///         than a reason to hold the rule back.
+    ///         was a live production staple</b>: <c>KeyChord.cs</c> carried <c>MacFormat</c>' whole
+    ///         block above <c>MacWords</c>, so one public formatter was undocumented and the other was
+    ///         described twice. All sixty-four blocks have since been moved onto the member they
+    ///         describe and <c>docs/DocCommentExempt.txt</c> is empty (#879).
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which makes the exemption list itself the strongest instrument here.</b> Every
-    ///         file on it is a file this run has to have flagged, so a clean sweep with a non-empty
-    ///         list is proof that the checks stopped firing rather than proof that the tree is clean.
-    ///         That is the assertion four green instruments could not make in #866.
+    ///         ⚠ <b>Emptying it took an instrument with it, which is why the fixture check above is
+    ///         no longer a belt-and-braces line.</b> The exemption list used to be the strongest
+    ///         evidence here — every file on it is one this run has to have flagged, so a clean sweep
+    ///         with a non-empty list proved the checks had stopped firing rather than that the tree
+    ///         was clean. An empty list cannot say that, and <c>Assert.NotEmpty(findings)</c> now
+    ///         asserts the tree is <em>dirty</em>. What is left is the rule firing on a stapled
+    ///         fixture in this process, which is the claim that was always the load-bearing one.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -86,8 +88,8 @@ public class DocCommentRuleTests {
             + "report a clean tree."
         );
 
-        // The instrument: the rule fires on a file that is wrong, right now, in this process. A clean
-        // sweep below is a measurement only while this is true.
+        // The instrument, and since #879 it is the only one: the rule fires on a file that is wrong,
+        // right now, in this process. A clean sweep below is a measurement only while this is true.
         Assert.NotEmpty(DocCommentRule.Check("fixture.cs", StapledOntoResolve));
 
         var findings = sources
@@ -95,10 +97,6 @@ public class DocCommentRuleTests {
             .ToList();
 
         var exempt = DocCommentRule.Exemptions(root);
-
-        Assert.NotEmpty(exempt);
-        Assert.NotEmpty(findings);
-
         var (unexpected, stale) = DocCommentRule.Review(findings, exempt);
 
         // Reported as one message rather than as a collection diff on purpose: a doc comment is fixed

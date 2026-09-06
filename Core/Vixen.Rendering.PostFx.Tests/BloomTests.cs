@@ -87,13 +87,6 @@ public class BloomTests : IDisposable {
     }
 
     /// <summary>
-    ///     A chain of <c>n</c> levels is one prefilter, <c>n−1</c> downsamples and <c>n−1</c> upsamples.
-    /// </summary>
-    /// <remarks>
-    ///     The up-chain is one shorter than the down-chain, and that is not an off-by-one: the
-    ///     smallest level is already its own upsample source, so there is nothing to add into it.
-    /// </remarks>
-    /// <summary>
     ///     ⚠ A chain that declines publishes an <c>Output</c> nobody wrote, and says so.
     /// </summary>
     /// <remarks>
@@ -168,6 +161,13 @@ public class BloomTests : IDisposable {
         return found;
     }
 
+    /// <summary>
+    ///     A chain of <c>n</c> levels is one prefilter, <c>n−1</c> downsamples and <c>n−1</c> upsamples.
+    /// </summary>
+    /// <remarks>
+    ///     The up-chain is one shorter than the down-chain, and that is not an off-by-one: the
+    ///     smallest level is already its own upsample source, so there is nothing to add into it.
+    /// </remarks>
     [Fact]
     public void The_chain_is_one_prefilter_and_two_passes_per_level_after_it() {
         using var h = Build();

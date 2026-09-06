@@ -352,7 +352,6 @@ public sealed class ModelReaderTests {
         return Encoding.UTF8.GetBytes(json);
     }
 
-    /// <summary>Two meshes, both called <c>Tri</c>, which is what an exporter does all the time.</summary>
     /// <summary>
     ///     A glTF triangle with two morph targets, one moving each of two vertices.
     /// </summary>
@@ -536,6 +535,7 @@ public sealed class ModelReaderTests {
         return Encoding.UTF8.GetBytes(json);
     }
 
+    /// <summary>Two meshes, both called <c>Tri</c>, which is what an exporter does all the time.</summary>
     static byte[] GltfTwins() {
         var text = Encoding.UTF8.GetString(Gltf(0f, 0f, 0f))
             .Replace(

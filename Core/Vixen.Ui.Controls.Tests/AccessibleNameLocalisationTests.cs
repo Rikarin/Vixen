@@ -6,6 +6,20 @@ using Xunit;
 
 namespace Vixen.Ui.Controls.Tests;
 
+/// <summary>The test classes that change the language, which is a process-wide static.</summary>
+/// <remarks>
+///     ⚠ <b><c>Strings.Use</c> is static, so two test classes that both call it cannot run at the
+///     same time.</b> xunit runs different classes in parallel, and this cost a green run: a
+///     reference window built under a pseudo-locale had its catalogue swapped out from under it by
+///     the class next door, and the symptom was one test failing in a full run and passing on its
+///     own. <c>SharedTypeRegistry</c> is the same arrangement one assembly over, for the same kind
+///     of reason.
+/// </remarks>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class SharedCatalogue {
+    public const string Name = "StringCatalogue";
+}
+
 /// <summary>
 ///     What a control <i>announces</i> and what it <i>displays</i> are the same words, in every
 ///     language.
@@ -46,20 +60,6 @@ namespace Vixen.Ui.Controls.Tests;
 ///         reader says.
 ///     </para>
 /// </remarks>
-/// <summary>The test classes that change the language, which is a process-wide static.</summary>
-/// <remarks>
-///     ⚠ <b><c>Strings.Use</c> is static, so two test classes that both call it cannot run at the
-///     same time.</b> xunit runs different classes in parallel, and this cost a green run: a
-///     reference window built under a pseudo-locale had its catalogue swapped out from under it by
-///     the class next door, and the symptom was one test failing in a full run and passing on its
-///     own. <c>SharedTypeRegistry</c> is the same arrangement one assembly over, for the same kind
-///     of reason.
-/// </remarks>
-[CollectionDefinition(Name, DisableParallelization = true)]
-public sealed class SharedCatalogue {
-    public const string Name = "StringCatalogue";
-}
-
 [Collection(SharedCatalogue.Name)]
 public class AccessibleNameLocalisationTests {
     /// <summary>Every string the control set declares, in a language that is not the source one.</summary>

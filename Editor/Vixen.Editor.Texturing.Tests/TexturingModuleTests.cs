@@ -21,6 +21,14 @@ public class TexturingModuleTests {
 
         Assert.NotNull(fixture.Shell.Commands[TexturingModule.OpenCommand]);
         Assert.NotNull(fixture.Shell.Commands[TexturingModule.OpenStackCommand]);
+
+        // ⚠ The third verb, on the same list rather than in a roll call of its own —
+        // <a href="https://github.com/Rikarin/Vixen/issues/887">#887</a>. It was gated separately
+        // while two agents were in this file at once, which was the right call then and the wrong
+        // shape to leave: the point of a roll call is that it is *one* list, and a second one is a
+        // second place to forget the fourth.
+        Assert.NotNull(fixture.Shell.Commands[TexturingModule.PaintCommand]);
+
         Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.GraphPanel);
         Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.StackPanel);
 
@@ -67,6 +75,7 @@ public class TexturingModuleTests {
 
         Assert.Null(fixture.Shell.Commands[TexturingModule.OpenCommand]);
         Assert.Null(fixture.Shell.Commands[TexturingModule.OpenStackCommand]);
+        Assert.Null(fixture.Shell.Commands[TexturingModule.PaintCommand]);
         Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.GraphPanel);
         Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.StackPanel);
         Assert.Empty(fixture.Extensions.All<NewAssetKind>());

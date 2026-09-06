@@ -998,7 +998,6 @@ public sealed class VixenCommandTests : IDisposable {
 
     string Build() => Path.Combine(root, "Build", Project.HostTarget.Replace('/', '-'));
 
-    /// <summary>Builds a project of its own, under its own name, and returns what it wrote.</summary>
     /// <summary>The same asset name gives the same id, so two projects can hold the same content.</summary>
     /// <remarks>
     ///     Derived rather than a table of literals: the point is that both projects agree, and a
@@ -1007,6 +1006,7 @@ public sealed class VixenCommandTests : IDisposable {
     static AssetId IdentityOf(string asset) =>
         new(new Guid(SHA256.HashData(Encoding.UTF8.GetBytes(asset)).AsSpan(0, 16)));
 
+    /// <summary>Builds a project of its own, under its own name, and returns what it wrote.</summary>
     async Task<Dictionary<string, byte[]>> BuildElsewhere(string name, string[] assets) {
         var elsewhere = Path.Combine(root, name);
         Directory.CreateDirectory(Path.Combine(elsewhere, "Assets"));

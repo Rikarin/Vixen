@@ -75,10 +75,6 @@ static class BaselineAgreement {
     }
 
     /// <summary>
-    ///     The type names a baseline declares. A type's own line is the one with an arrow and a type
-    ///     keyword after it — <c>Vixen.Core.DisposeBag -&gt; sealed class</c>.
-    /// </summary>
-    /// <summary>
     ///     Whether a baseline found by the walk is the project's own, rather than a copy of it.
     /// </summary>
     /// <remarks>
@@ -100,6 +96,10 @@ static class BaselineAgreement {
             || string.Equals(segment, "artifacts", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    ///     The type names a baseline declares. A type's own line is the one with an arrow and a type
+    ///     keyword after it — <c>Vixen.Core.DisposeBag -&gt; sealed class</c>.
+    /// </summary>
     internal static HashSet<string> ReadTypes(string projectDirectory) {
         var types = new HashSet<string>(StringComparer.Ordinal);
 

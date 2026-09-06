@@ -1180,9 +1180,19 @@ public sealed class WorldRenderer : IDisposable {
     internal static void Permuted(MaterialRenderFeature materials, string shader) =>
         materials.PermutationKeys.Register(shader, MaterialKeys.LayerCount(shader));
 
+    /// <summary>What the table's filter is called in a shading pass's set 0.</summary>
+    /// <remarks>
+    ///     ⚠ Unqualified by any composition path, unlike the index <see cref="Paired" /> writes.
+    ///     <c>materialSampler</c> is <c>[Shared]</c>, so every feature that samples names the same
+    ///     one and it is hoisted to the pass rather than living under the feature that declared it.
+    ///     Spelling it the other way is a binding nothing writes, which is a set written short.
+    /// </remarks>
+    const string MaterialTexturesSampler = "materialSampler";
+
     /// <summary>
     ///     Fills the one per-frame binding the material table's shader half declares.
     /// </summary>
+    /// <param name="shader">The shading pass's shader, which the sampler's key is qualified by.</param>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The table's other half, and nothing wrote it.</b>
@@ -1207,15 +1217,6 @@ public sealed class WorldRenderer : IDisposable {
     ///         the sixteen taps are paid once in state and not once per material.
     ///     </para>
     /// </remarks>
-    /// <summary>What the table's filter is called in a shading pass's set 0.</summary>
-    /// <remarks>
-    ///     ⚠ Unqualified by any composition path, unlike the index <see cref="Paired" /> writes.
-    ///     <c>materialSampler</c> is <c>[Shared]</c>, so every feature that samples names the same
-    ///     one and it is hoisted to the pass rather than living under the feature that declared it.
-    ///     Spelling it the other way is a binding nothing writes, which is a set written short.
-    /// </remarks>
-    const string MaterialTexturesSampler = "materialSampler";
-
     void FilterTextures(string shader) {
         SceneBlock.Parameters.Set(
             ParameterKeys.New<SamplerHandle>($"{shader}.{MaterialTexturesSampler}"),
