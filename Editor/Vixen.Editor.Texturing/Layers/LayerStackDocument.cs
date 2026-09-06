@@ -75,6 +75,12 @@ static class LayerPaint {
 ///     </para>
 /// </remarks>
 sealed class LayerStackDocument : EditorDocument {
+    /// <summary>Where this document's compounds are read from, or null when it has no project path.</summary>
+    readonly string? compounds;
+
+    /// <summary>Whether a compound has been written since the library was built.</summary>
+    bool stale;
+
     /// <summary>What a layer stack is written as.</summary>
     public const string Extension = ".vxlayers";
 
@@ -99,6 +105,26 @@ sealed class LayerStackDocument : EditorDocument {
     /// </remarks>
     public IReadOnlyList<string> LoadDiagnostics { get; } = [];
 
+    /// <summary>The node types this stack compiles against, and what inlines the compounds in them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Held by the document, because the alternative is a directory walk per frame.</b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/924">#924</a> passed the project's
+    ///         assets folder down <c>LayerStackCompiler.Compile</c> on every evaluation, and
+    ///         <c>TextureCompoundLibrary.Publish</c> at the bottom of that is
+    ///         <c>EnumerateFiles(AllDirectories)</c> plus a <c>File.ReadAllText</c> and a YAML parse
+    ///         per project compound. <c>LayerStackPreview.Evaluate</c> runs from
+    ///         <c>LayerStackView.Edited</c>, which an opacity slider raises once per frame of a drag
+    ///         — so the fix for a correctness gap put the filesystem on the interactive path
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/956">#956</a>).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Replaced rather than mutated when a compound changes</b> — see
+    ///         <see cref="Republish" /> — so a caller that cached it holds an old menu.
+    ///     </para>
+    /// </remarks>
+    internal TextureLibrary Library { get; private set; }
+
     /// <summary>Opens a layer stack.</summary>
     /// <param name="project">The project it belongs to.</param>
     /// <param name="asset">Its identity.</param>
@@ -109,6 +135,17 @@ sealed class LayerStackDocument : EditorDocument {
         ArgumentException.ThrowIfNullOrEmpty(path);
 
         AssetPath = path;
+
+        // ⚠ Once, here, and then only when something says a compound moved. `TextureNodeLibrary`'s
+        // own `FolderOf` is asked for the folder rather than a second `Path.Combine`, because a
+        // second spelling of "which folder" is a second answer to "did that file change".
+        compounds = TextureNodeLibrary.FolderOf(project.Paths.Assets);
+        Library = TextureNodeLibrary.Publish(project.Paths.Assets);
+
+        // ⚠ Before the write rather than after it, which is why marking is all this does: the
+        // project raises this so a watcher can be told to ignore a path it is about to see change,
+        // so the bytes are not on disk yet. `TextureGraphDocument`'s constructor says the same.
+        project.DocumentSaving += Saving;
 
         var name = Path.GetFileNameWithoutExtension(path);
         var text = File.Exists(path) ? File.ReadAllText(path) : string.Empty;
@@ -127,6 +164,88 @@ sealed class LayerStackDocument : EditorDocument {
             LoadDiagnostics = [exception.Message];
         }
     }
+
+    /// <summary>Rebuilds the node library if a compound has been written since it was built.</summary>
+    /// <returns><see langword="true" /> if it was rebuilt, so a caller can re-read what it cached.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>TextureGraphDocument.Republish</c>'s shape, on the tool that needed it more.</b>
+    ///         A graph panel compiles when the canvas changes; a layer stack's preview compiles on
+    ///         every edit, and an opacity drag is an edit per frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A flag set by a write and read here, rather than a check that walks the
+    ///         folder.</b> The obvious mistake is asking the disk whether the library is stale, which
+    ///         is the directory walk this exists to remove wearing a hat. A save is the rare,
+    ///         deliberate act that can change a compound, so a save is what sets the flag — and so is
+    ///         a change from outside the editor, because a <c>git checkout</c> raises no
+    ///         <c>DocumentSaving</c> at all.
+    ///     </para>
+    /// </remarks>
+    internal bool Republish() {
+        if (!stale) {
+            return false;
+        }
+
+        stale = false;
+        Library = TextureNodeLibrary.Publish(Project.Paths.Assets);
+
+        return true;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>A flag and no work, because this runs on the frame, once per drained change per open
+    ///     document.</b> Reading the folder here would make somebody else's Ctrl+S cost the editor a
+    ///     frame — <see cref="Republish" />'s own trap, moved one caller along. Null is "the watcher
+    ///     lost events" and marks stale, because the cost of being wrong is one republish and the
+    ///     cost of assuming the best is a picture baked from a compound nobody can see is old.
+    /// </remarks>
+    protected override void OnProjectFileChanged(string? path) {
+        base.OnProjectFileChanged(path);
+
+        if (compounds is null) {
+            return;
+        }
+
+        if (path is null) {
+            stale = true;
+
+            return;
+        }
+
+        stale = stale || Under(Path.GetFullPath(Project.Paths.Absolute(path)));
+    }
+
+    /// <inheritdoc />
+    protected override void OnClosed() {
+        base.OnClosed();
+
+        Project.DocumentSaving -= Saving;
+    }
+
+    /// <summary>Notices that a graph in this project's compound folder is about to be written.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not this document's own save.</b> A <c>.vxlayers</c> is not a compound, so saving the
+    ///     stack being edited changes no node type — and republishing the library for it would
+    ///     rebuild every one of them because a layer's opacity moved.
+    /// </remarks>
+    void Saving(EditorDocument document) {
+        if (compounds is null || document is not TextureGraphDocument graph) {
+            return;
+        }
+
+        stale = stale || Under(Path.GetFullPath(graph.AssetPath));
+    }
+
+    /// <summary>Whether an absolute path is inside this project's compound folder.</summary>
+    /// <param name="absolute">The path.</param>
+    /// <returns>Whether it is.</returns>
+    bool Under(string absolute) =>
+        absolute.StartsWith(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(compounds!)) + Path.DirectorySeparatorChar,
+            StringComparison.OrdinalIgnoreCase
+        );
 
     /// <summary>The seven channels doc 48 § D11 names, and what each starts from.</summary>
     /// <remarks>
