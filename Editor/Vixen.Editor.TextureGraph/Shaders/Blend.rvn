@@ -247,9 +247,28 @@ shader Blend {
             //
             // No divide by `alpha` afterwards and no `(1 − backdrop)` term: both belong to the over
             // rule, where the foreground can reach a texel the backdrop does not cover. Atop cannot,
-            // so where `backdrop` is 0 the guard leaves `within` at 0 and this stores the transparent
-            // texel it was handed.
-            val within = saturate(amount / max(backdrop, 0.000001f))
+            // so where `backdrop` is 0 there is nothing to reinterpret and this stores the texel it
+            // was handed, colour and coverage both.
+            //
+            // ⚠ **The guard tests the backdrop; it does not divide by a floored copy of it** —
+            // [#899](https://github.com/Rikarin/Vixen/issues/899). `amount / max(backdrop, 1e-6)` at
+            // `backdrop == 0` is `amount · 10⁶`, which saturates to **1** for every foreground that
+            // covers anything at all — so the branch whose whole contract is "atop covers exactly
+            // what the backdrop covered" wrote the *blended* colour into every texel the backdrop
+            // does not reach. The stored alpha is 0 either way and that is what hid it: a colour at
+            // zero alpha is invisible to a compositor and perfectly visible to this library, where
+            // every image carries a straight colour and an adjustment downstream reads the channel
+            // rather than the coverage. A filter layer under an empty region turned it into the
+            // filter's own output instead of leaving it alone.
+            //
+            // Below `1e-6` and above zero the quotient still saturates and this is the same answer as
+            // before; the whole of the change is the one value where the division has no meaning.
+            var within = 0f
+
+            if (backdrop > 0f) {
+                within = saturate(amount / backdrop)
+            }
+
             val kept = lerp(a.xyz, blended.xyz, float3(within, within, within))
 
             target.Store(coord, float4(kept.x, kept.y, kept.z, backdrop))
