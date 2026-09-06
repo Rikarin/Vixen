@@ -100,7 +100,12 @@ public sealed class EditorShell : IDisposable {
         chrome = Document.Root.Add<UiElement>("editor-shell");
 
         Commands = new CommandRegistry();
-        Keys = new KeyMap();
+
+        // ⚠ The preset lookup is pointed at the editor's three here and nowhere else. `KeyMap` came
+        // down into `Vixen.Ui.Controls` with the layering and without the names (#650), so a keymap
+        // built without this line resolves `preset: "Unreal"` to nothing — which is exactly what a
+        // game that ships its own presets wants, and exactly what the editor must not be.
+        Keys = new KeyMap { PresetSource = KeyMapPresets.Find };
 
         // ⚠ Before the menu bar is built, because a menu item's shortcut text is written when the
         // item is made. Doing it later would leave the bar reading "Ctrl+S" on a machine whose every

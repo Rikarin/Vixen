@@ -1602,9 +1602,6 @@ T:Vixen.Editor.Testing.EditorSession sweep-pending
 T:Vixen.Editor.Testing.EditorSessionException sweep-pending
 T:Vixen.Editor.Testing.EditorSessionOptions sweep-pending
 T:Vixen.Editor.TextureGraph.NodeTypes generated — the assembly's [Node] registration list, emitted by Vixen.Editor.NodeGraph.Generator; the same line Vixen.Editor.ShaderGraph.NodeTypes has
-T:Vixen.Editor.Ui.BindResult sweep-pending
-T:Vixen.Editor.Ui.BindingSource sweep-pending
-T:Vixen.Editor.Ui.CommandDispatcher sweep-pending
 T:Vixen.Editor.Ui.CommandPalette sweep-pending
 T:Vixen.Editor.Ui.CommandPaletteSource sweep-pending
 T:Vixen.Editor.Ui.ConsoleLevels sweep-pending
@@ -1621,8 +1618,8 @@ T:Vixen.Editor.Ui.FuzzyMatcher sweep-pending
 T:Vixen.Editor.Ui.IPaletteSource sweep-pending
 T:Vixen.Editor.Ui.KeyBindingRow sweep-pending
 T:Vixen.Editor.Ui.KeyBindingsView sweep-pending
-T:Vixen.Editor.Ui.KeyMapPreset sweep-pending
 T:Vixen.Editor.Ui.KeyMapPresets sweep-pending
+T:Vixen.Editor.Ui.KeyMapYaml sweep-pending
 T:Vixen.Editor.Ui.LayoutPresets sweep-pending
 T:Vixen.Editor.Ui.MenuCommand sweep-pending
 T:Vixen.Editor.Ui.MenuDynamic sweep-pending
@@ -3309,6 +3306,8 @@ T:Vixen.Ui.Controls.Advanced.ViewportGizmo sweep-pending
 T:Vixen.Ui.Controls.Alert sweep-pending
 T:Vixen.Ui.Controls.Avatar sweep-pending
 T:Vixen.Ui.Controls.Badge sweep-pending
+T:Vixen.Ui.Controls.BindResult sweep-pending
+T:Vixen.Ui.Controls.BindingSource sweep-pending
 T:Vixen.Ui.Controls.Breadcrumb sweep-pending
 T:Vixen.Ui.Controls.BreadcrumbItem sweep-pending
 T:Vixen.Ui.Controls.Button sweep-pending
@@ -3318,6 +3317,7 @@ T:Vixen.Ui.Controls.CheckBox sweep-pending
 T:Vixen.Ui.Controls.ClickEvent sweep-pending
 T:Vixen.Ui.Controls.CloseReason sweep-pending
 T:Vixen.Ui.Controls.ComboBox sweep-pending
+T:Vixen.Ui.Controls.CommandDispatcher sweep-pending
 T:Vixen.Ui.Controls.ContextMenu sweep-pending
 T:Vixen.Ui.Controls.Control sweep-pending
 T:Vixen.Ui.Controls.ControlIcons sweep-pending
@@ -3336,6 +3336,7 @@ T:Vixen.Ui.Controls.IconPaint sweep-pending
 T:Vixen.Ui.Controls.IconPaintKind sweep-pending
 T:Vixen.Ui.Controls.IconPath sweep-pending
 T:Vixen.Ui.Controls.Image sweep-pending
+T:Vixen.Ui.Controls.KeyMapPreset sweep-pending
 T:Vixen.Ui.Controls.KeyboardShortcut sweep-pending
 T:Vixen.Ui.Controls.Link sweep-pending
 T:Vixen.Ui.Controls.Menu sweep-pending

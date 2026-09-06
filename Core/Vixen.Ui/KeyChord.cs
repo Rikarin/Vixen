@@ -22,11 +22,15 @@ namespace Vixen.Ui;
 // `<see cref="Add" />` that is CS0419 against two overloads, invisible under `Editor/` because
 // `GenerateDocumentationFile` is false there.
 //
-// `KeyMap` and `CommandDispatcher` are what is left. `KeyMap` reads `Vixen.Core.Yaml`, which neither
-// `Vixen.Ui` nor `Vixen.Ui.Controls` references, and `KeyMapPreset` — the mechanism it saves and
-// loads through — reads it too; `CommandDispatcher` names `KeyMap` and so cannot go first. Splitting
-// the YAML round-trip away from the layering is the decision that unblocks the last two, and it is a
-// design question rather than a compile one.
+// `KeyMap`, `KeyMapPreset` and `CommandDispatcher` followed them into `Vixen.Ui.Controls`, and the
+// YAML that was supposed to be their blocker went the other way instead. ⚠ **Persisting a keymap was
+// never part of the layering.** The three layers, the conflict rule, the contexts and the
+// reservation are what any application with an accelerator has; *where the bindings are kept between
+// runs* is a choice about preferences, and making it here would have put YamlDotNet in the
+// dependency closure of every application that has a button. `KeyMap.Overrides` and `KeyMap.Restore`
+// are the two halves of the round trip and neither names a format; `Vixen.Editor.Ui.KeyMapYaml` is
+// the editor's answer to it, beside the presets it ships. Nothing is left in
+// `Editor/Vixen.Editor.Ui/Commands/` but the editor's own data.
 
 /// <summary>A key and what is held with it.</summary>
 /// <param name="Key">The physical key, by its US-QWERTY legend.</param>

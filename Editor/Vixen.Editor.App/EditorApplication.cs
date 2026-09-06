@@ -885,7 +885,7 @@ sealed partial class EditorApplication : IDisposable {
         // rewrites itself with the whole map in it. The layout has to be applied after the panels
         // are registered, or a saved arrangement names panels the workspace cannot build.
         if (store.Read(EditorUserStore.KeyMapFile) is { } keymap) {
-            Shell.Keys.Load(keymap);
+            KeyMapYaml.Read(Shell.Keys, keymap);
         }
 
         Shell.Theme.LoadTokens(store.Read(ThemeFile));
@@ -1406,7 +1406,7 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     public void Persist() {
         store.SaveLayout(EditorUserStore.CurrentLayout, Shell.Workspace.Save());
-        store.Write(EditorUserStore.KeyMapFile, Shell.Keys.Save());
+        store.Write(EditorUserStore.KeyMapFile, KeyMapYaml.Write(Shell.Keys));
     }
 
     /// <inheritdoc />
