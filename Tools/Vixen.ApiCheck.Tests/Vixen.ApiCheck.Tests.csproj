@@ -35,5 +35,13 @@
     -->
     <ItemGroup>
         <Compile Include="..\..\build\AotProbeProjectFile.cs" Link="AotProbeProjectFile.cs" />
+
+        <!--
+            ⚠ And the build's baseline reader, for the same reason and after the same kind of
+            failure: it dropped every `X -> sealed class` line as "a member, not a type", which is
+            how this repository spells a type declaration, so CheckDocsCoverage read 2 398 of 4 711
+            types and printed a plausible number. Nothing could have caught that without a fixture.
+        -->
+        <Compile Include="..\..\build\PublicApiTypeNames.cs" Link="PublicApiTypeNames.cs" />
     </ItemGroup>
 </Project>
