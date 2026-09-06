@@ -79,6 +79,33 @@ sealed record LayerStackBuild(
     ImmutableArray<LayerStackProblem> Problems,
     ImmutableArray<LayerNote> Notes
 ) {
+    /// <summary>Which layer emitted each node, for the nodes a layer emitted.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What a <c>NodeDiagnostic</c> has no room for, and without which a panel can
+    ///         neither name a layer nor dedupe by one</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/880">#880</a>. A diagnostic names a
+    ///         node in the exploded graph, and for a stack nobody has exploded that is a node nobody
+    ///         can see; the thing an artist can act on is the layer, and every node this builder
+    ///         emits inside a layer's walk belongs to exactly one.
+    ///     </para>
+    ///     <para>
+    ///         <b>A node is missing from this rather than mapped to an empty string</b>: the base
+    ///         constant and the <c>Output</c> of each channel are the set's rather than any layer's,
+    ///         and "no layer" is a different answer from "a layer whose id is empty". A layer with no
+    ///         id is not recorded either, for the same reason — an anchor names a layer by id, so a
+    ///         layer without one is not a thing a sentence can name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An <em>inlined</em> node's diagnostic is already re-addressed before it gets
+    ///         here.</b> <c>NodeGraphCompiler.Report</c> rewrites a complaint about a node inside a
+    ///         compound onto the sub-graph node it came out of — which is a node this builder added
+    ///         — so a generator's own diagnostics land on a key this map has.
+    ///     </para>
+    /// </remarks>
+    public ImmutableDictionary<NodeId, string> Layers { get; init; } =
+        ImmutableDictionary<NodeId, string>.Empty;
+
     /// <summary>Whether anything stops this graph being compiled.</summary>
     public bool HasErrors {
         get {
@@ -190,6 +217,9 @@ static class LayerStackGraph {
         readonly List<LayerStackProblem> problems = [];
         readonly List<LayerNote> notes = [];
 
+        /// <summary>Which layer emitted each node — <see cref="LayerStackBuild.Layers" />.</summary>
+        readonly Dictionary<NodeId, string> owners = [];
+
         /// <summary>Anchor edges, held until every layer's result node exists.</summary>
         /// <remarks>
         ///     ⚠ <b>Deferred so that the graph model does the cycle check.</b> Connected as each
@@ -210,6 +240,18 @@ static class LayerStackGraph {
 
         float column;
         float row;
+
+        /// <summary>The layer whose walk is running, or empty outside every layer.</summary>
+        /// <remarks>
+        ///     ⚠ <b>A scope rather than an argument threaded through nine methods, and the difference
+        ///     is what a new emitter does.</b> Every node this builder makes goes through
+        ///     <see cref="Add" />; a parameter would have to be passed correctly by each of
+        ///     <c>Fill</c>, <c>Paint</c>, <c>Adjustment</c>, <c>Mask</c>, <c>MaskImage</c>,
+        ///     <c>MaskSource</c>, <c>Opaque</c>, <c>Anchored</c> and <c>Effect</c>, and a tenth added
+        ///     later would silently emit unowned nodes. Set once, by <see cref="Layer" />, it is
+        ///     right for everything reached from there including a method nobody has written yet.
+        /// </remarks>
+        string owner = "";
 
         public LayerStackBuild Run() {
             if (set.Channels.Count == 0) {
@@ -244,7 +286,7 @@ static class LayerStackGraph {
 
             Anchors();
 
-            return new(graph, [.. problems], [.. notes]);
+            return new(graph, [.. problems], [.. notes]) { Layers = owners.ToImmutableDictionary() };
         }
 
         /// <summary>Refuses two layers sharing an identity, because an anchor names one of them.</summary>
@@ -306,8 +348,29 @@ static class LayerStackGraph {
             return cursor;
         }
 
-        /// <summary>One layer composited over the cursor, or the cursor unchanged.</summary>
+        /// <summary>One layer composited over the cursor, with everything it emits attributed to it.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Saved and restored rather than assigned, because a group's children are layers
+        ///     too.</b> <see cref="Group" /> re-enters <see cref="Stack" />, so a child sets
+        ///     <see cref="owner" /> to its own id and has to hand the group's back — the group's own
+        ///     blend node is emitted <em>after</em> its children have run. Assigning without
+        ///     restoring would file every group's composite under whichever child happened to be
+        ///     last.
+        /// </remarks>
         PortRef Layer(LayerAsset layer, ChannelAsset channel, PortRef cursor, int depth) {
+            var outer = owner;
+
+            owner = layer.Id;
+
+            try {
+                return Composite(layer, channel, cursor, depth);
+            } finally {
+                owner = outer;
+            }
+        }
+
+        /// <summary>One layer composited over the cursor, or the cursor unchanged.</summary>
+        PortRef Composite(LayerAsset layer, ChannelAsset channel, PortRef cursor, int depth) {
             if (!layer.Enabled || !layer.Writes(channel.Usage)) {
                 return cursor;
             }
@@ -798,7 +861,7 @@ static class LayerStackGraph {
                 problems.Add(LayerStackProblem.Warning(
                     layer.Id,
                     $"This layer's mask names a paint file ('{mask.Paint}') and its source is None, so the "
-                    + "painted pixels are not read. A painted mask is M9 (#574)."
+                    + "painted pixels are not read. Set the mask's source to Paint to read them."
                 ));
             }
 
@@ -1372,10 +1435,18 @@ static class LayerStackGraph {
         }
 
         /// <summary>A node, laid out so that the exploded graph reads left to right.</summary>
+        /// <remarks>
+        ///     The one funnel every node in a built stack comes through, which is why
+        ///     <see cref="LayerStackBuild.Layers" /> is filled here rather than at each emitter.
+        /// </remarks>
         GraphNode Add(string type) {
             var node = graph.Add(type, new Vector2(column * 220f, row * 260f));
 
             column++;
+
+            if (owner.Length > 0) {
+                owners[node.Id] = owner;
+            }
 
             return node;
         }

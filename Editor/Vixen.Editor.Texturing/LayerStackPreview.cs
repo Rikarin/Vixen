@@ -44,6 +44,19 @@ sealed record LayerStackPicture(IEditorImage? Image, string Usage, int Width, in
 
     /// <summary>What compiling it had to say, about nodes.</summary>
     public ImmutableArray<NodeDiagnostic> Diagnostics { get; init; } = [];
+
+    /// <summary>Which layer emitted each node, for the panel that renders those diagnostics.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Carried beside <see cref="Diagnostics" /> and not folded into them</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/880">#880</a>. Without it the only thing
+    ///     a line could name is the node, and one mistyped mask setting on one layer raises a
+    ///     character-identical diagnostic from every node the layer's per-channel walk emitted — so
+    ///     naming the node turns two mistakes into fourteen lines, which is
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/842">#842</a> made worse rather than
+    ///     fixed. Naming the <em>layer</em> collapses the fourteen to two.
+    /// </remarks>
+    public ImmutableDictionary<NodeId, string> Layers { get; init; } =
+        ImmutableDictionary<NodeId, string>.Empty;
 }
 
 /// <summary>Turns a layer stack into pixels on the editor's device.</summary>
@@ -163,7 +176,8 @@ sealed class LayerStackPreview : IDisposable {
         LayerStackPicture Said(IEditorImage? drawn, int drawnWidth, int drawnHeight, string status) =>
             new(drawn, usage, drawnWidth, drawnHeight, status) {
                 Problems = compilation.Problems,
-                Diagnostics = compilation.Diagnostics
+                Diagnostics = compilation.Diagnostics,
+                Layers = compilation.Layers
             };
 
         // ⚠ Before the device, because a stack that does not compile does not compile on any host.

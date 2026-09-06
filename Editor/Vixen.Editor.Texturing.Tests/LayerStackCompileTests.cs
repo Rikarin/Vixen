@@ -173,6 +173,51 @@ public class LayerStackCompileTests {
         Assert.Equal(0.5f, group.Find("opacity")!.Value.Value);
     }
 
+    /// <summary>⚠ A group's own nodes are filed under the group and not under its last child.</summary>
+    /// <remarks>
+    ///     <b>The nesting half of <a href="https://github.com/Rikarin/Vixen/issues/880">#880</a>, and
+    ///     the reason the attribution is a saved-and-restored scope rather than an assignment.</b> A
+    ///     group's isolating constant and its composite are emitted <em>after</em> its children have
+    ///     run, so a builder that set the current layer on the way in and did not put the outer one
+    ///     back would file both under whichever child came last — and a diagnostic about the group
+    ///     would name a row two levels down from the one an artist would have to edit.
+    /// </remarks>
+    [Fact]
+    public void A_groups_own_nodes_are_filed_under_the_group() {
+        var stack = One(new() {
+            Id = "g",
+            Kind = LayerKind.Group,
+            Blend = LayerBlendMode.Screen,
+            Children = [
+                new() { Id = "a", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } },
+                new() { Id = "b", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } }
+            ]
+        });
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.NotNull(compilation.Plan);
+
+        // Two apiece and one channel: a constant and a blend for each child, and for the group its
+        // transparent backdrop and the blend that puts the isolated result over the cursor.
+        Assert.Equal(["a", "b", "g"], compilation.Layers.Values.Order(StringComparer.Ordinal).Distinct());
+        Assert.Equal(2, Owned(compilation, "g"));
+        Assert.Equal(2, Owned(compilation, "a"));
+        Assert.Equal(2, Owned(compilation, "b"));
+
+        static int Owned(LayerStackCompilation compilation, string layer) {
+            var count = 0;
+
+            foreach (var (_, owner) in compilation.Layers) {
+                if (string.Equals(owner, layer, StringComparison.Ordinal)) {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
     /// <summary>An empty group is not a dispatch that changes nothing.</summary>
     /// <remarks>
     ///     ⚠ <b>A blend of the cursor over itself would be harmless arithmetic and is not harmless
