@@ -217,9 +217,11 @@ every ordinary node.
 
 ### Limits
 
-Fragmentation is one level deep: a `span` **inside** another `span` is still laid out atomically,
-and so is one with an out-of-flow child. Both are limits of the walk rather than of the
-representation, and both are written up in `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt`.
+⚠ Fragmentation used to be one level deep and now recurses: a `span` inside a `span` inside a `span`
+splits at every depth, and each one draws its own two edges at the two ends of its own content while a
+continuation line carries neither. What is still laid out atomically is a span with an **out-of-flow
+child**, which is a limit of the walk rather than of the representation and is written up in
+`Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt`.
 
 Also absent, each with its reason in the same file: generated `::before`/`::after` boxes, the strut,
 `white-space`, `text-overflow: ellipsis`, `line-clamp` and bidirectional reordering.

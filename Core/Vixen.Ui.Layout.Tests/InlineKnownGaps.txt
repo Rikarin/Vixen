@@ -123,11 +123,23 @@ anonymous block boxes (§9.2.1.1)  a block container holding both kinds of child
 # Covered by `InlineFragmentationTests`. What remains is SCOPE — a limit of the producer, not of the
 # representation, which holds any number of fragments for any node:
 
-nested non-atomic inline boxes    a `display: inline` box INSIDE another one is still laid out
-                                  atomically. One level of flattening, not a recursion. What is
-                                  missing is the rebasing of a union inside a union, not somewhere
-                                  to put it. Pinned by `A_span_inside_a_span_is_still_atomic`,
-                                  which should FAIL and be inverted when nesting lands.
+nested non-atomic inline boxes    ⚠ CLOSED, and this row is kept because what it named as the
+                                  blocker was not one. It said the missing piece was "the rebasing
+                                  of a union inside a union"; that was already free — an inner box
+                                  commits first, writing its position in the container's
+                                  coordinates, and the outer's commit rebases it like any other
+                                  child. What actually held was the FRAGMENT SCRATCH: one box's
+                                  fragments were the contiguous slice `[base, top)`, and two boxes
+                                  open when a line ends both want a continuation fragment, so
+                                  whichever appends second lands inside the other's slice.
+                                  `fragmentScratchNext` chains each owner's fragments instead and
+                                  the append order stops mattering; `OpenInlineBox` becomes a stack
+                                  and every box on it reopens at the SAME x on a continuation line,
+                                  because a continuation carries no start edge. Flattening now
+                                  recurses to any depth. `A_span_inside_a_span_is_still_atomic` did
+                                  exactly what its own remark promised — went red and was inverted
+                                  — and is `A_span_inside_a_span_fragments_with_it`, beside a
+                                  padded-edge case and a three-deep one.
 a span with an out-of-flow child  refused, and the child is the reason rather than the span. The
                                   absolute walk recurses only through `PositionType.Static`
                                   children and this store's default is `Relative` — Yoga's, not
@@ -424,7 +436,10 @@ vertical-align: <length> / <%>    `VerticalAlign.Offset`; the percentage is reso
 # here and carries no metrics of its own. So a `vertical-align: middle` on a box inside such a span
 # is measured against the container's x-height rather than the span's — right whenever the span does
 # not change the font, and wrong by the difference when it does. Refusing the value inside a span
-# instead would be worse. It needs the same thing nested non-atomic inline boxes need.
+# instead would be worse. ⚠ This sentence used to end "it needs the same thing nested non-atomic
+# inline boxes need", and that is no longer a pointer to anything: nesting landed and did not bring
+# a per-span strut with it. What this needs is a font on a span, which is `Vixen.Ui`'s to supply —
+# `UiDocument.StrutOf` already resolves one from an element's own face — and not a producer change.
 
 a span's own strut                a flattened span has no font of its own; the container's is used
 
