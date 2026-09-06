@@ -3,6 +3,8 @@ Vixen.Ui.Desktop.SystemFonts -> static class
 Vixen.Ui.Desktop.UiApplication -> sealed class
 Vixen.Ui.Desktop.UiApplication : System.IDisposable
 Vixen.Ui.Desktop.UiApplication.Content.get -> Vixen.Ui.Composition.Component?
+Vixen.Ui.Desktop.UiApplication.Diagnostics.get -> Vixen.Ui.Controls.DiagnosticsPanel?
+Vixen.Ui.Desktop.UiApplication.Diagnostics.set -> Vixen.Ui.Controls.DiagnosticsPanel?
 Vixen.Ui.Desktop.UiApplication.Dispose() -> void
 Vixen.Ui.Desktop.UiApplication.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.Desktop.UiApplication.Frame -> System.Action<Vixen.Ui.Desktop.UiApplication, Vixen.Ui.Desktop.UiFrame>?

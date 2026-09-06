@@ -659,6 +659,20 @@ alert.variant-danger alert-title { color: var(--danger); }
    a caller in a column parent is stretched past it and never sees this. */
 key-value-list { flex-direction: column; min-width: 160px; }
 
+/* A debug panel has a ground of its own, which is not decoration: it is read over whatever the
+   application it is describing happens to be drawing, and a transparent one is unreadable over
+   half of them. Sunken rather than raised, because it sits *in* the interface it reports on. */
+diagnostics-panel {
+    flex-direction: column;
+    min-width: 200px;
+    padding: 4px;
+    background-color: var(--surface-sunken);
+    border-width: 1px;
+    border-color: var(--border);
+    border-radius: 4px;
+    color: var(--text);
+}
+
 key-value-row {
     flex-direction: row;
     align-items: center;

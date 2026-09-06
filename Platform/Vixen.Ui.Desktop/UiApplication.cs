@@ -349,6 +349,22 @@ public sealed class UiApplication : IDisposable {
     /// </remarks>
     public UiDocument Document { get; }
 
+    /// <summary>A debug panel this loop refreshes at the right moment, if the application made one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half an application cannot get right on its own, and the only half this
+    ///         holds.</b> <see cref="DiagnosticsPanel.Refresh" /> has to run at the top of the frame,
+    ///         before the document restyles — a panel refreshed anywhere else reports a document part
+    ///         way through changing, including its own churn — and "the top of the frame" is a place
+    ///         only the loop knows. Where the panel goes, what it describes and whether it is shown
+    ///         at all stay the application's: assign one built and placed wherever it wants.
+    ///     </para>
+    ///     <para>
+    ///         Null is the ordinary case and costs one null check a frame.
+    ///     </para>
+    /// </remarks>
+    public DiagnosticsPanel? Diagnostics { get; set; }
+
     /// <summary>The window the application was opened on.</summary>
     public IWindow Window => window;
 
@@ -617,6 +633,14 @@ public sealed class UiApplication : IDisposable {
             Tasks.Pump();
 
             Frame?.Invoke(this, new UiFrame(now, delta));
+
+            // ⚠ Here and not after `Update`, and the difference is whether the panel describes a
+            // document or describes itself. A diagnostics panel drawn into the document it reports on
+            // is part of that document — writing its rows adds elements, which moves the very
+            // counters the rows carry — so it reads what the previous pass finished with, which is a
+            // frame old and self-consistent. Refreshed after the update it would report a document
+            // half way through the pass its own rows are changing.
+            Diagnostics?.Refresh();
 
             // ⚠ `Document.Tick`, and not `Document.Gestures.Tick`. The recogniser is only one of the
             // four things that needs the clock; the others are `UiDocument.Ticked`, which is what an
