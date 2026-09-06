@@ -262,6 +262,11 @@ public sealed partial class LayoutTree {
             currentLead += lineIndex != 0 ? crossAxisGap : 0f;
             lineHeight += extraSpacePerLine;
 
+            // The group a degraded `baseline` forms in a column container, which is as wide as its
+            // widest item and NOT as wide as the line — see DegradedBaselineShift. The two coincide
+            // whenever `align-content` is not handing the line extra room.
+            var baselineGroupExtent = BaselineGroupExtent(index, start, end, crossAxis, availableInnerWidth);
+
             for (var i = start; i < end; i++) {
                 var child = children[i];
                 if (styles[child].Display == Display.None || styles[child].PositionType == PositionType.Absolute) {
@@ -289,7 +294,8 @@ public sealed partial class LayoutTree {
                         // at y=80, and every one of them came out exactly 10 high.
                         results[child].Position[crossStartEdge] = currentLead
                             + StyleResolution.FlexStartMargin(in styles[child], crossAxis, direction, availableInnerWidth)
-                            + StyleResolution.FlexStartPosition(in styles[child], crossAxis, direction, availableInnerWidth);
+                            + StyleResolution.FlexStartPosition(in styles[child], crossAxis, direction, availableInnerWidth)
+                            + DegradedBaselineShift(index, child, crossAxis, baselineGroupExtent, availableInnerWidth);
                         break;
 
                     case Align.FlexEnd:

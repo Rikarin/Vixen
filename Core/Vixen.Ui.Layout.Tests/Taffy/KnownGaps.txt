@@ -11,22 +11,17 @@
 # be Vixen's.
 #
 # Names are given without the __{border,content}_box_{ltr,rtl} suffix, so one line covers up to four
-# fixtures — and not always all four. Both lines left here cover two apiece, and ⚠ THIS SENTENCE USED
-# TO NAME THE WRONG AXIS FOR THEM, which is worth a line because it is the kind of claim nobody
-# re-measures. It read: "align_baseline_multiline_column, align_baseline_multiline_column2 and
-# padding_border_overrides_size_flex_basis_0_growable each fail in their two border-box variants and
-# pass in their two content-box ones, because box-sizing decides whether the bug is reachable."
-# That is true of padding_border_overrides_size_flex_basis_0_growable and of neither of the others:
-# the two align_baseline_multiline_column families fail in their two RTL variants and pass both LTR
-# ones. DIRECTION decides whether that bug is reachable, not box-sizing — and saying so out loud is
-# most of the diagnosis, because a wrapped column's line positions mirror correctly and only the
-# items' alignment WITHIN a line does not. See their heading below.
+# fixtures — and not always all four. ⚠ THERE ARE NO LINES LEFT: this corpus disagrees with Chrome
+# about nothing and refuses nothing, 2 408 of 2 408. The last two entries were the
+# align_baseline_multiline_column families, and the sentence that used to stand here named the wrong
+# axis for them — it said box-sizing decided whether their bug was reachable where DIRECTION did.
+# Their heading below carries the rule that closed them.
 #
 # TaffyFlexConformanceTests asserts both that every failure is listed here AND that the totals are
 # exactly the committed counts — so a line cannot quietly widen to cover a new failure, and fixing
 # any one of these turns the suite red until the count and the line are both updated.
 #
-# 206 at the corpus's first run; 4 now — and the four that arrived latest of all arrived by being
+# 206 at the corpus's first run; none now — and the four that arrived latest of all arrived by being
 # LOOKED AT rather than by breaking. They were refused on `scrollbar-width` and had never run, and
 # they are closed now. A number in this file going up is not automatically bad news, and a number
 # going up because a skip turned into a measurement is the only kind of bad news worth having.
@@ -454,7 +449,7 @@
 # drops the end inset rather than the ratio. All three corpora answered 360x270 for it; Chrome says
 # 360x120.
 
-# ── Baseline alignment past the simple case ── the wrap-reverse half is CLOSED ──
+# ── Baseline alignment past the simple case ── CLOSED, in two halves that were one heading ──
 #
 # ⚠ <b>The one line this heading carried — "a wrapped column's per-line baselines, and baseline under
 # wrap-reverse" — named two things and they have nothing to do with each other.</b> The wrap-reverse
@@ -483,39 +478,43 @@
 # LayoutTree.Absolute folded `baseline` into the same arm as `flex-start` and `stretch`, which are
 # flow-relative and do belong there. One keyword excluded; four fixtures.
 #
-# ⚠ <b>WHAT IS LEFT IS NOT A BASELINE BUG AND IS NOT ABOUT LINES.</b> The two
-# `align_baseline_multiline_column` families fail in their RTL variants only — see the preamble,
-# which used to say border-box and was wrong. `IsBaselineLayout` returns false for a COLUMN
-# container, correctly: the cross axis is then the inline axis, baselines are not parallel to it, and
-# §9.3's fallback applies. Both fixtures' LINE positions mirror correctly (line one on the right,
-# line two on the left) and both containers' sizes are right; the only disagreement is where an item
-# sits WITHIN its line. This store puts it at the RTL flex-start — the line's right edge, 70 and 10 —
-# and Chrome puts it at the line's left edge, 50 and 0, while mirroring the same items' own children
-# correctly one level down. Neither `start` nor `flex-start` is left in RTL, so the fallback story
-# does not explain Chrome and something else is deciding it.
+# ⚠ <b>AND THE COLUMN HALF IS CLOSED, BY THE MEASUREMENT THAT TELLS BASELINE APART FROM EVERY OTHER
+# KEYWORD.</b> The two `align_baseline_multiline_column` families failed in their RTL variants only.
+# `IsBaselineLayout` returns false for a COLUMN container, correctly: the cross axis is then the
+# inline axis, baselines are not parallel to it, and the request degrades. Both fixtures' LINE
+# positions mirrored correctly and both containers' sizes were right; the only disagreement was where
+# an item sat WITHIN its line — this store at the RTL flex-start, 70 and 10, Chrome at 50 and 0.
 #
-# ⚠ <b>WHAT CHROME'S EIGHT NUMBERS ARE, IN CLOSED FORM: every item in a line shares its line's
-# PHYSICAL LEFT EDGE, in both directions.</b> That is worth writing down because it is a measurement
-# rather than a theory, and it survives being stated without naming a rule. LTR line one is 0..50 and
-# holds items 50 and 30 wide, both at x=0; line two is 50..100 and holds 40 and 50, both at x=50. RTL
-# mirrors the LINES — line one 50..100, line two 0..50 — and then puts 50 and 30 both at x=50, and 40
-# and 50 both at x=0. Same fixture, same edge, either direction. Equivalently: the line rectangle is
-# mirrored and the item's offset inside it is not, which is what an implementation that mirrors at
-# line granularity does, and is the shape of an artefact rather than of a keyword. Three alignments
-# were checked against those numbers and all three are refuted: a synthesised baseline at the item's
-# inline-START edge gives offset 0 from the cross-start, which is Chrome in LTR and this store in RTL;
-# one at the inline-END edge gives B an offset of 20 in LTR where Chrome gives 0; and mirroring the
-# whole content box at the end gives B x=70 where Chrome gives 50. So no ascent, participating or
-# synthesised, produces this — only "do not mirror the offset" does.
+# ⚠ <b>THE READING THAT STOOD HERE WAS "NO RULE PRODUCES THIS", AND IT WAS WRONG BECAUSE THE CONTROL
+# HAD NOT BEEN RUN.</b> Chrome's eight numbers were written down in closed form — every item in a
+# line shares its line's PHYSICAL LEFT EDGE, in both directions — three alignments were checked
+# against them and refuted, and the conclusion drawn was that Chrome mirrors at line granularity and
+# leaves the offset inside the line alone: "the shape of an artefact rather than of a keyword", four
+# fixtures and no rule, do not guess. The control that settles it is the SAME container under a
+# different keyword. Measured:
 #
-# Four fixtures, no rule, and it should still not be guessed at: baseline alignment in a column
-# container is under-specified and Chrome and Firefox are known to disagree about it, so a
-# fixture-level guess here is likely to be a fifth entry in this file's list of headings that were
-# believed because they were plausible. ⚠ And the closed form above makes that MORE true rather than
-# less: an engine change that reproduced it would be a decision to stop mirroring one offset in one
-# alignment, justified by two fixtures and nothing else in four corpora.
-align_baseline_multiline_column
-align_baseline_multiline_column2
+#     RTL wrapped column, items 50/30/40/50 wide in 100 points
+#       align-items: flex-start   x = 50, 70, 10, 0     (mirrored, and this store agreed)
+#       align-items: start        x = 50, 70, 10, 0     (identical)
+#       align-items: baseline     x = 50, 50,  0, 0     (every item on its line's left edge)
+#
+# An implementation that failed to mirror an offset would fail to mirror it for `flex-start` too, in
+# the same container, in the same pass. So the difference is baseline's own, and it is line-relative:
+# CSS Writing Modes §6.3 makes line-left and line-right depend on the writing mode ALONE — direction
+# does not enter — and a baseline is anchored at the line-left edge of the box it describes. The
+# items of a baseline-sharing group put their line-left edges together; the GROUP is then aligned by
+# the flow-relative fallback, which is flex-start.
+#
+# ⚠ <b>THE GROUP IS AS WIDE AS ITS WIDEST ITEM AND NOT AS WIDE AS THE LINE, and `align_baseline_column`
+# is the fixture that tells them apart.</b> That distinction is invisible in the wrapped fixtures,
+# where a line's cross size IS the widest item — it took an engine change that used the line and a
+# corpus family that went red to surface it. A SINGLE-line column has a line as wide as the container
+# (CSS Flexbox §9.4 step 8), and Chrome still puts two 50-wide items at x=50 in a 100-point RTL
+# container rather than at 0; measured with a 30-wide second item, which the corpus does not have,
+# Chrome puts that one at 50 as well. `DegradedBaselineShift` is the half of the rule that
+# `ResolveChildAlignment` cannot say: flex-start for the group, and the group's own line-left edge for
+# each item in it. `BaselineAlignmentTests` is the hand-written half, with the LTR row as the control
+# that keeps the fix from being "mirror nothing". `Rikarin/Vixen#264`.
 
 # ── CSS Sizing §5: when the min is larger than the max, the MIN wins ── CLOSED ──
 #

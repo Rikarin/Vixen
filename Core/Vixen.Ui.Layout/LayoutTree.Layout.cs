@@ -848,6 +848,11 @@ public sealed partial class LayoutTree {
             // STEP 7: CROSS-AXIS ALIGNMENT
             if (performLayout) {
                 var children = ChildIds(index);
+
+                // The group a degraded `baseline` forms, which is as wide as its widest item and NOT
+                // as wide as the line — see DegradedBaselineShift.
+                var baselineGroupExtent = BaselineGroupExtent(index, line.StartChild, line.EndChild, crossAxis, availableInnerWidth);
+
                 for (var i = line.StartChild; i < line.EndChild; i++) {
                     var child = children[i];
                     if (!IsInFlow(child)) {
@@ -936,6 +941,8 @@ public sealed partial class LayoutTree {
                         } else {
                             leadingCrossDim += remainingCrossDim;
                         }
+
+                        leadingCrossDim += DegradedBaselineShift(index, child, crossAxis, baselineGroupExtent, availableInnerWidth);
                     }
 
                     results[child].Position[(int) FlexAxis.FlexStartEdge(crossAxis)] += totalLineCrossDim + leadingCrossDim;

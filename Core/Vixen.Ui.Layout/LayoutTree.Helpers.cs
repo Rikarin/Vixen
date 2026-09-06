@@ -110,12 +110,78 @@ public sealed partial class LayoutTree {
     }
 
     /// <summary>How a child should be aligned on the cross axis, once <c>auto</c> is resolved.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A column container's <c>baseline</c> degrades to <c>flex-start</c> and that is only
+    ///     half of the rule</b> — see <see cref="DegradedBaselineShift" />, which supplies the other
+    ///     half in RTL. The items of such a group share their LINE-LEFT edge, which
+    ///     <c>direction</c> does not mirror, and the group as a whole is then aligned flow-start.
+    ///     Flow-start is all this method can say; the shift is a function of the group.
+    /// </remarks>
     Align ResolveChildAlignment(int index, int child) {
         var align = styles[child].AlignSelf == Align.Auto ? styles[index].AlignItems : styles[child].AlignSelf;
 
         // A baseline is a property of a line of text, and a column container has no line to align
         // to, so the request degrades rather than being ignored.
         return align == Align.Baseline && FlexAxis.IsColumn(styles[index].FlexDirection) ? Align.FlexStart : align;
+    }
+
+    /// <summary>Whether this child asked for a baseline its container's cross axis cannot give.</summary>
+    bool IsDegradedBaseline(int index, int child) =>
+        FlexAxis.IsColumn(styles[index].FlexDirection)
+        && (styles[child].AlignSelf == Align.Auto ? styles[index].AlignItems : styles[child].AlignSelf) == Align.Baseline;
+
+    /// <summary>
+    ///     How far a degraded-baseline item moves off its line's cross-start edge, which is nothing
+    ///     at all except in RTL.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The items of a baseline-sharing group share their LINE-LEFT edge, and
+    ///         <c>direction</c> does not mirror that edge.</b> CSS Writing Modes §6.3 makes line-left
+    ///         and line-right depend on the writing mode alone, and a baseline is line-relative by
+    ///         construction. So in a column container — where the cross axis is the inline axis and
+    ///         there is no real baseline to share — every item in the group is placed with its
+    ///         line-left edge on the group's, and the GROUP is what the flow-relative
+    ///         <c>flex-start</c> fallback then aligns. In LTR the two statements coincide and the
+    ///         shift is zero; in RTL the group's flow-start edge is its line-right one, so an item
+    ///         narrower than the group hangs back by the difference.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The group's extent is the widest item in the LINE, and it is emphatically not the
+    ///         line's cross size.</b> `align_baseline_column__border_box_rtl` is the fixture that
+    ///         tells them apart: a single-line column has a line as wide as the container by CSS
+    ///         Flexbox §9.4 step 8, and Chrome still puts two 50-wide items at x=50 in a 100-wide
+    ///         container rather than at 0. Measured with a 30-wide second item, which the corpus does
+    ///         not have: Chrome puts it at 50 too — the group is 50 wide, sits against the flow-start
+    ///         edge, and every item's left edge is on the group's left edge.
+    ///     </para>
+    /// </remarks>
+    float DegradedBaselineShift(int index, int child, FlexDirection crossAxis, float groupExtent, float availableInnerWidth) {
+        if (results[index].Direction != Direction.Rtl || !IsDegradedBaseline(index, child)) {
+            return 0f;
+        }
+
+        return MathF.Max(0f, groupExtent - DimensionWithMargin(child, crossAxis, availableInnerWidth));
+    }
+
+    /// <summary>The cross-axis extent of the degraded baseline group formed by one line's items.</summary>
+    float BaselineGroupExtent(int index, int startChild, int endChild, FlexDirection crossAxis, float availableInnerWidth) {
+        if (results[index].Direction != Direction.Rtl || !FlexAxis.IsColumn(styles[index].FlexDirection)) {
+            return 0f;
+        }
+
+        var children = ChildIds(index);
+        var extent = 0f;
+
+        for (var i = startChild; i < endChild && i < children.Length; i++) {
+            var child = children[i];
+
+            if (IsInFlow(child) && IsDegradedBaseline(index, child)) {
+                extent = MathF.Max(extent, DimensionWithMargin(child, crossAxis, availableInnerWidth));
+            }
+        }
+
+        return extent;
     }
 
     /// <summary>Whether that alignment was written <c>safe</c>.</summary>
