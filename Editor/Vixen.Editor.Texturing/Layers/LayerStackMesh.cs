@@ -1,11 +1,15 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Yaml.Meta;
+using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 
 namespace Vixen.Editor.Texturing.Layers;
 
@@ -19,13 +23,23 @@ namespace Vixen.Editor.Texturing.Layers;
 ///         the outlines an artist aims with and the texels the brush will accept cannot disagree.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The source file is read, not the imported artefacts, and that is a limit worth
-///         stating rather than a shortcut.</b> <c>ModelReader.Read</c> is the same call the importer
-///         makes and it returns the atlas the file already carries — so a model imported with
-///         <c>ModelImportSettings.Unwrap</c> set, whose coordinates were <em>generated</em> during
-///         the import, resolves here to the coordinates it had before that ran, which for a mesh with
-///         no UVs at all is none. That case is reported as "no texture coordinates" rather than
-///         silently painted over.
+///         ⚠ <b>The imported artefacts are read where there are any, and the source file only where
+///         there are not</b> — <a href="https://github.com/Rikarin/Vixen/issues/934">#934</a>. The
+///         source file's atlas is the one the <em>file</em> carries, and that is not what the project
+///         has: <c>ModelImportSettings.Unwrap</c> generates coordinates inside
+///         <c>ModelRetopology.Run</c>, which the <em>importer</em> calls and <c>ModelReader</c> does
+///         not — so a model imported with <c>UnwrapMode.Always</c> resolved here to "no texture
+///         coordinates", a refusal about a state the artist had already fixed. Reading the mesh chunk
+///         that import wrote gets the post-unwrap coordinates, and reading the sidecar's declared
+///         sub-assets gets the post-<c>SubAssetNames</c> name, which is the one
+///         <see cref="TextureSetAsset.Mesh" /> is matched against.
+///     </para>
+///     <para>
+///         ⚠ <b>The fallback is the honest half and it is not the same answer.</b> A model dropped
+///         into <c>Assets/</c> a minute ago has no import record at all, and that is the commonest
+///         moment to bind one — so it is read through <c>ModelReader</c> exactly as before, and a
+///         mesh with no atlas is told that its import has not run rather than that it needs
+///         unwrapping. The two sentences point at different actions.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Every failure is a returned sentence and none is an exception.</b> This is asked from
@@ -141,10 +155,44 @@ sealed class LayerStackMesh {
         return made;
     }
 
+    /// <summary>What the project calls the meshes of the model a stack names, or an empty list.</summary>
+    /// <param name="project">The project the path is resolved against.</param>
+    /// <param name="stack">The stack, whose <see cref="LayerStackAsset.Model" /> says which model.</param>
+    /// <returns>The names, in the order the import declared them.</returns>
+    /// <exception cref="ArgumentNullException">The project or the stack is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Cheap enough for a panel build, which is what
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/941">#941</a> said it could not be.</b>
+    ///     That issue declined a picker for <see cref="TextureSetAsset.Mesh" /> because offering the
+    ///     names means knowing them and knowing them means an Assimp parse — seconds on a hero asset.
+    ///     It is not: an import writes the names it declared back into the <c>.meta</c>, so this is
+    ///     one small YAML file and no geometry at all. The objection was true of the source file and
+    ///     false of the project.
+    ///     ⚠ <b>Empty is "not imported yet" and it is the one case that still has no answer</b> — a
+    ///     model whose import has never run declares no sub-assets, and there is nowhere but the file
+    ///     to read a name from. A caller offering a picker shows the field as it is and says so.
+    /// </remarks>
+    public static IReadOnlyList<string> Names(EditorProject project, LayerStackAsset stack) {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(stack);
+
+        var reference = stack.Model.Trim();
+
+        if (reference.Length == 0 || !project.Assets.TryGetByPath(reference, out var asset)) {
+            return [];
+        }
+
+        return [.. ProjectMeshSource.Declared(project.Paths.Absolute(asset.Path)).Select(entry => entry.Name)];
+    }
+
     /// <summary>Resolves the model a stack names, narrowed to one set's mesh.</summary>
     /// <param name="project">The project the path is resolved against.</param>
     /// <param name="stack">The stack, whose <see cref="LayerStackAsset.Model" /> says which model.</param>
     /// <param name="set">The set, whose <see cref="TextureSetAsset.Mesh" /> narrows it, or null.</param>
+    /// <param name="geometry">
+    ///     Where the imported mesh chunks are read from — the host's <see cref="IMeshSource" />, or
+    ///     null in a host that publishes none, which takes the source-file path below.
+    /// </param>
     /// <param name="refusal">Why there is none, or empty.</param>
     /// <returns>The mesh, or <see langword="null" />.</returns>
     /// <exception cref="ArgumentNullException">The project or the stack is null.</exception>
@@ -152,6 +200,7 @@ sealed class LayerStackMesh {
         EditorProject project,
         LayerStackAsset stack,
         TextureSetAsset? set,
+        IMeshSource? geometry,
         out string refusal
     ) {
         ArgumentNullException.ThrowIfNull(project);
@@ -186,6 +235,108 @@ sealed class LayerStackMesh {
             return null;
         }
 
+        var wanted = (set?.Mesh ?? "").Trim();
+        IReadOnlyList<SubAssetEntry> declared = geometry is null ? [] : ProjectMeshSource.Declared(file);
+
+        return declared.Count > 0
+            ? Imported(reference, asset.Guid, declared, wanted, geometry!, out refusal)
+            : FromSource(reference, file, extension, wanted, out refusal);
+    }
+
+    /// <summary>Reads the mesh chunks the last import wrote, which is what the project has.</summary>
+    /// <param name="reference">The stack's own path to the model, for the sentences.</param>
+    /// <param name="model">The model asset.</param>
+    /// <param name="declared">Its declared mesh sub-assets, which is what the names are matched on.</param>
+    /// <param name="wanted">The set's mesh name, or empty for every mesh.</param>
+    /// <param name="geometry">Where a chunk is read from.</param>
+    /// <param name="refusal">Why there is none, or empty.</param>
+    /// <returns>The mesh, or <see langword="null" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A declared mesh whose chunk will not read is skipped rather than refused</b>, and the
+    ///     two are told apart at the end: no name matched is "there is no mesh called that", and names
+    ///     that matched with nothing behind them is a <c>Library/</c> the sidecar disagrees with —
+    ///     which is a re-import and not something an artist can fix by renaming anything.
+    /// </remarks>
+    static LayerStackMesh? Imported(
+        string reference,
+        AssetId model,
+        IReadOnlyList<SubAssetEntry> declared,
+        string wanted,
+        IMeshSource geometry,
+        out string refusal
+    ) {
+        refusal = "";
+
+        List<Vector2> coordinates = [];
+        List<string> named = [];
+        var triangles = 0;
+        var matched = 0;
+        var read = 0;
+
+        foreach (var entry in declared) {
+            if (wanted.Length > 0 && !string.Equals(entry.Name, wanted, StringComparison.Ordinal)) {
+                continue;
+            }
+
+            matched++;
+
+            if (!geometry.TryGet(new(model, entry.Id), out var mesh)) {
+                continue;
+            }
+
+            read++;
+            named.Add(entry.Name);
+            triangles += Triangulate(mesh, coordinates);
+        }
+
+        if (matched == 0) {
+            refusal = $"'{reference}' has no mesh called '{wanted}'. This project's import of it produced "
+                + $"{string.Join(", ", declared.Select(entry => $"'{entry.Name}'"))}.";
+
+            return null;
+        }
+
+        if (read == 0) {
+            refusal = $"'{reference}' declares {matched} mesh(es) that this project has no imported geometry "
+                + "for. Import the project again — the sidecar and the artefact store disagree.";
+
+            return null;
+        }
+
+        if (triangles == 0) {
+            refusal = $"'{reference}' has no texture coordinates on "
+                + $"{(wanted.Length > 0 ? $"'{wanted}'" : "any mesh")}, so it has no UV islands. Unwrap it "
+                + "before painting on it — the model importer's Unwrap setting will.";
+
+            return null;
+        }
+
+        return new(reference, wanted, string.Join(", ", named), triangles, [.. coordinates]);
+    }
+
+    /// <summary>Reads the model file itself, for a model this project has never imported.</summary>
+    /// <param name="reference">The stack's own path to the model, for the sentences.</param>
+    /// <param name="file">Where it is.</param>
+    /// <param name="extension">Its extension, lowercased, which is what tells Assimp the format.</param>
+    /// <param name="wanted">The set's mesh name, or empty for every mesh.</param>
+    /// <param name="refusal">Why there is none, or empty.</param>
+    /// <returns>The mesh, or <see langword="null" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The atlas here is the one the file carries, and the "no coordinates" sentence says
+    ///     which action is owed.</b> An unwrap is an <em>import</em> step — <c>ModelRetopology.Run</c>
+    ///     is called by <c>ModelImporter</c> and not by <c>ModelReader</c> — so a model whose settings
+    ///     ask for one and whose import has not run has no atlas here and a perfectly good one waiting.
+    ///     Telling that artist to unwrap the model would be advice about something already done.
+    /// </remarks>
+    static LayerStackMesh? FromSource(
+        string reference,
+        string file,
+        string extension,
+        string wanted,
+        out string refusal
+    ) {
+        refusal = "";
+
         byte[] bytes;
 
         try {
@@ -206,7 +357,6 @@ sealed class LayerStackMesh {
             return null;
         }
 
-        var wanted = (set?.Mesh ?? "").Trim();
         List<Vector2> coordinates = [];
         List<string> named = [];
         var triangles = 0;
@@ -235,8 +385,9 @@ sealed class LayerStackMesh {
         // look exactly like a brush that is broken.
         if (triangles == 0) {
             refusal = $"'{reference}' has no texture coordinates on "
-                + $"{(wanted.Length > 0 ? $"'{wanted}'" : "any mesh")}, so it has no UV islands. Unwrap it "
-                + "before painting on it.";
+                + $"{(wanted.Length > 0 ? $"'{wanted}'" : "any mesh")}, so it has no UV islands, and this "
+                + "project has never imported it. Import it — its Unwrap setting generates the atlas — or "
+                + "unwrap it before painting on it.";
 
             return null;
         }

@@ -3,6 +3,9 @@
 
 using Vixen.Core;
 using Vixen.Core.Serialization;
+using Vixen.Core.Yaml;
+using Vixen.Core.Yaml.Meta;
+using Vixen.Editor.Assets.Models;
 using Vixen.Rendering;
 using Vixen.Rendering.Ecs;
 
@@ -103,6 +106,71 @@ public sealed class ProjectMeshSource : IMeshSource {
 
         mesh = found;
         return true;
+    }
+
+    /// <summary>What a model asset's last import declared its meshes to be, in declaration order.</summary>
+    /// <param name="assetFile">The model's own file, absolute or project-relative. Not its sidecar.</param>
+    /// <returns>
+    ///     One entry per mesh, whose <see cref="SubAssetEntry.Name" /> is what the project calls it and
+    ///     whose <see cref="SubAssetEntry.Id" /> completes an <see cref="AssetReference" /> for
+    ///     <see cref="TryGet" />. Empty where the asset has never been imported.
+    /// </returns>
+    /// <exception cref="ArgumentException"><paramref name="assetFile" /> is null or empty.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half of <see cref="TryGet" /> that answers "which meshes are there", which
+    ///         nothing could answer at all.</b> A reference names one sub-asset and every editor
+    ///         surface that wants a model's geometry — a mesh-map bake, a layer stack's binding, a
+    ///         mesh picker — starts from the asset and not from the sub-asset. The sidecar is where
+    ///         that list already is: <c>ImportPipeline</c> writes what an import declared back into
+    ///         it, so this needs no model parse, no Assimp and no artefact store.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The name here is the <em>project's</em> name for the mesh and not the file's</b> —
+    ///         <c>ImportContext.DeclareSubAsset</c> applies <c>SubAssetNames</c> before deriving the
+    ///         id, and suffixes a second <c>Cube</c>. So a caller matching on <c>MeshData.Name</c>
+    ///         read out of the source file is matching on the one name a renamed mesh does not have,
+    ///         which is <a href="https://github.com/Rikarin/Vixen/issues/934">#934</a>'s second bullet.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Empty is "not imported yet" and never an exception.</b> A model dropped into
+    ///         <c>Assets/</c> a moment ago has a sidecar with a GUID and no sub-assets, which is the
+    ///         commonest moment to want a bake; a sidecar that will not parse is the same answer,
+    ///         because every caller of this has a fallback that reads the source file and none of
+    ///         them can usefully be stopped by a YAML error in a file they did not write.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<SubAssetEntry> Declared(string assetFile) {
+        ArgumentException.ThrowIfNullOrEmpty(assetFile);
+
+        var sidecar = AssetMetaFile.PathFor(assetFile);
+
+        if (!File.Exists(sidecar)) {
+            return [];
+        }
+
+        AssetMeta meta;
+
+        try {
+            meta = AssetMetaFile.ReadFile(sidecar);
+        } catch (Exception failure) when (failure
+            is IOException
+            or UnauthorizedAccessException
+            or YamlParseException
+            or YamlBindingException
+            or MetaVersionException) {
+            return [];
+        }
+
+        var meshes = new List<SubAssetEntry>();
+
+        foreach (var entry in meta.SubAssets) {
+            if (string.Equals(entry.Type, ModelImporter.MeshKind, StringComparison.Ordinal)) {
+                meshes.Add(entry);
+            }
+        }
+
+        return meshes;
     }
 
     /// <summary>Reads one mesh's chunk, or null if this project has none for it.</summary>

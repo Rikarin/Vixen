@@ -95,6 +95,15 @@ sealed class LayerStackView {
     /// </remarks>
     public const string NoMesh = "(none)";
 
+    /// <summary>What the part picker calls "every mesh in the model".</summary>
+    /// <remarks>
+    ///     ⚠ <b>An option and not an empty entry, for <see cref="NoMesh" />'s reason and one more.</b>
+    ///     Every mesh is the <em>default</em> state of a set rather than an absence — a stack with one
+    ///     texture set wants the whole model, and a picker whose first entry was the model's first
+    ///     mesh would narrow every stack the moment its model was imported.
+    /// </remarks>
+    public const string EveryMesh = "(all)";
+
     readonly UiElement messages;
     readonly UiElement meshStatus;
     readonly UiElement root;
@@ -104,6 +113,18 @@ sealed class LayerStackView {
 
     /// <summary>The mesh picker. Its options are the project's models, and they are re-read per stack.</summary>
     readonly Select model;
+
+    /// <summary>Which of the model's meshes the shown set is narrowed to.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The set is <c>Sets[0]</c>, which is the same pin every other control on this panel
+    ///     has</b> — <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>. That is why #941
+    ///     called this control gated: a per-set picker on a panel that shows one set is a control for
+    ///     a set nobody chose. It is here anyway because the alternative is worse and is what was
+    ///     shipping — the only way to narrow a set was to edit the <c>.vxlayers</c> by hand, and a
+    ///     two-set stack that has not been narrowed lets <c>Body</c> be painted anywhere <c>Head</c>
+    ///     has surface. When #927 gives the panel a set to choose, this reads it like the rows do.
+    /// </remarks>
+    readonly Select part;
 
     /// <summary>The brush this panel drives, or null in a host that never paints.</summary>
     /// <remarks>
@@ -133,7 +154,14 @@ sealed class LayerStackView {
     /// <summary>Which document the mesh picker's options were filled for.</summary>
     LayerStackDocument? bound;
 
-    /// <summary>What the picker was last told the binding is, so a rebind is not per keystroke.</summary>
+    /// <summary>What the pickers were last told the binding is, so a rebind is not per keystroke.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The model <em>and</em> the shown set's mesh, because there are two pickers.</b> An
+    ///     undo of a narrowing changes neither the document reference nor the model path, and a gate
+    ///     that watched only the model would leave the part picker showing the value the artist had
+    ///     just taken back — the state <c>LayerStackBindingTests</c> describes for every other
+    ///     control on this panel, which is a separate finding and not one to add to.
+    /// </remarks>
     string boundModel = "";
 
     /// <summary>The last picture, so an edit this view made can redraw without one being handed back.</summary>
@@ -186,9 +214,17 @@ sealed class LayerStackView {
         binding.Add("layer-stack-binding-label").Text = "Mesh";
 
         model = binding.Add<Select>("layer-stack-model");
+
+        // ⚠ Beside the model and not on the set's own row, because the two are one decision read
+        // left to right: which file, and which of the meshes in it. #941's own summary is that a set
+        // narrowed to a mesh is what stops one coverage map covering every island in the model.
+        binding.Add("layer-stack-binding-label").Text = "Part";
+
+        part = binding.Add<Select>("layer-stack-set-mesh");
         meshStatus = binding.Add("layer-stack-binding-status");
 
         model.SelectionChanged += (_, value) => Bind(value ?? "");
+        part.SelectionChanged += (_, value) => Narrow(value ?? "");
 
         rows = left.Add("layer-stack-list");
 
@@ -392,11 +428,18 @@ sealed class LayerStackView {
         // `ClearOptions` under an open dropdown is the same defect the shape comparison above exists
         // to prevent one level up.
         if (!ReferenceEquals(bound, document)
-            || !string.Equals(boundModel, document.Document.Model, StringComparison.Ordinal)) {
+            || document.ModelsChanged
+            || !string.Equals(boundModel, Binding(document), StringComparison.Ordinal)) {
             Rebind(document);
 
             bound = document;
-            boundModel = document.Document.Model;
+            boundModel = Binding(document);
+
+            // ⚠ Cleared here and not where it is set — #954. The document is told a model file moved
+            // by `ExternalEdits`, on the frame, once per drained change; this is the one place that
+            // has done something about it, and clearing it at the notification would mean a stack
+            // whose panel is closed forgets what happened before it is opened.
+            document.ModelsChanged = false;
         }
 
         Restate();
@@ -1079,13 +1122,27 @@ sealed class LayerStackView {
         return chosen.Count == set.Channels.Count ? [] : chosen;
     }
 
+    /// <summary>What the two pickers are showing, as one string, so a change to either is one test.</summary>
+    /// <remarks>
+    ///     The newline is a separator no path and no mesh name can contain, which is
+    ///     <c>TexturingModule</c>'s own key one assembly along and the same argument: a sentinel a
+    ///     value can produce turns a comparison into a coincidence.
+    /// </remarks>
+    static string Binding(LayerStackDocument document) =>
+        document.Document.Model + "\n" + (document.Document.Sets.Count > 0 ? document.Document.Sets[0].Mesh : "");
+
     /// <summary>Puts the project's models in the picker and the stack's own binding on it.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The options are re-read per stack rather than once, because the project's models
-    ///         are not fixed.</b> Importing a model is an ordinary thing to do while a stack is open,
-    ///         and a picker filled when the panel was built would not have the mesh the artist just
-    ///         added — which reads as the import having failed.
+    ///         ⚠ <b>Re-read when the project's models change, which is what
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/954">#954</a> found this did not
+    ///         do.</b> Importing a model is an ordinary thing to do while a stack is open, and the
+    ///         gate above this used to be the document reference and the bound path alone — while
+    ///         the module hands the same reference to every refresh. So the mesh an artist had just
+    ///         added was the one mesh the picker did not offer, which reads as the import having
+    ///         failed. <c>LayerStackDocument.ModelsChanged</c> is the third term, and it is a flag
+    ///         rather than a walk because this walks every asset in the project and a show runs on
+    ///         every edit.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A binding this build cannot offer is kept as an option rather than dropped.</b> A
@@ -1124,6 +1181,8 @@ sealed class LayerStackView {
 
             model.Value = bound.Length > 0 ? bound : NoMesh;
 
+            Parts(document);
+
             // ⚠ Three states rather than two, and `offered` is what separates the middle one. A
             // stack whose model was renamed, moved or deleted still names it, so the picker shows
             // the path and reads as bound — while every stroke is refused and no island is drawn.
@@ -1160,6 +1219,73 @@ sealed class LayerStackView {
 
         document.Stack.Execute(
             new SetModelCommand(document, wanted, wanted.Length == 0 ? "Unbind Mesh" : "Bind Mesh")
+        );
+
+        Refresh();
+    }
+
+    /// <summary>Puts the model's meshes in the part picker and the set's own narrowing on it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The names come from the sidecar and never from the model file, which is what
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/941">#941</a> assumed was impossible.</b>
+    ///         That issue declined this control because offering the names means knowing them and
+    ///         knowing them means an Assimp parse — <c>ModelReader.Read</c> on a hero asset is
+    ///         seconds, and this runs from a panel build. It is not: an import writes the sub-asset
+    ///         names it declared back into the <c>.meta</c>, so <c>LayerStackMesh.Names</c> is one
+    ///         small YAML file and no geometry at all. The objection was true of the file and false
+    ///         of the project.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A model whose import has not run offers nothing, and says so rather than
+    ///         emptying the field.</b> There is nowhere but the file to read a name from before an
+    ///         import, so the picker keeps whatever the set already names as its own option — a
+    ///         control that silently showed <see cref="EveryMesh" /> would tell an artist the set is
+    ///         un-narrowed and then un-narrow it on the next click, which is exactly the failure the
+    ///         model picker's third state exists to prevent.
+    ///     </para>
+    /// </remarks>
+    void Parts(LayerStackDocument document) {
+        var set = document.Document.Sets.Count > 0 ? document.Document.Sets[0] : null;
+        var narrowed = (set?.Mesh ?? "").Trim();
+
+        part.ClearOptions();
+        part.AddOption(EveryMesh);
+
+        var offered = false;
+
+        foreach (var name in LayerStackMesh.Names(document.Project, document.Document)) {
+            part.AddOption(name);
+            offered |= string.Equals(name, narrowed, StringComparison.Ordinal);
+        }
+
+        if (narrowed.Length > 0 && !offered) {
+            part.AddOption(narrowed);
+        }
+
+        part.Value = narrowed.Length > 0 ? narrowed : EveryMesh;
+        part.Disabled = set is null;
+    }
+
+    /// <summary>Narrows the shown set to one mesh, as one undo entry.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Through the document's command stack, like the binding above it.</b> Narrowing
+    ///     changes which islands are drawn and which texels a stroke is allowed to reach, so it is
+    ///     the same kind of change <see cref="Bind" /> is and takes the same answer.
+    /// </remarks>
+    void Narrow(string value) {
+        if (writing || Document is not { } document || document.Document.Sets.Count == 0) {
+            return;
+        }
+
+        var wanted = string.Equals(value, EveryMesh, StringComparison.Ordinal) ? "" : value;
+
+        if (string.Equals(wanted, document.Document.Sets[0].Mesh, StringComparison.Ordinal)) {
+            return;
+        }
+
+        document.Stack.Execute(
+            new SetMeshCommand(document, 0, wanted, wanted.Length == 0 ? "Widen to Every Mesh" : "Narrow to Mesh")
         );
 
         Refresh();

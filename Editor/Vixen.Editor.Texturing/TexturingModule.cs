@@ -9,6 +9,7 @@ using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Editor.Ui;
 using Vixen.Graphics;
+using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 
 namespace Vixen.Editor.Texturing;
@@ -211,6 +212,15 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     LayerStackMesh? mesh;
 
+    /// <summary>Where an imported mesh chunk is read from, or null in a host that publishes none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Null is a real state and not a missing dependency</b>, exactly as the graphics beside
+    ///     it is: a headless test host publishes no <see cref="IMeshSource" />, and a module that
+    ///     <c>Require</c>d one would refuse to start there. What it costs is the fallback —
+    ///     <c>LayerStackMesh.Open</c> reads the model file itself and says so.
+    /// </remarks>
+    IMeshSource? geometry;
+
     /// <summary>What <see cref="mesh" /> was resolved for: the stack, its model and the set's mesh.</summary>
     /// <remarks>
     ///     ⚠ <b>Null is "not asked yet" and it is not a spare value.</b> A key is a real string for
@@ -259,6 +269,15 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         // present. What is stored is the service; whether it has a device is a question with a
         // different answer at different moments and is asked each time.
         graphics = context.Services.TryGet<IEditorGraphics>(out var published) ? published : null;
+
+        // ⚠ The host's mesh source, and it is what makes a stack's binding read what the *project*
+        // has rather than what the file carries — #934. `EditorApplication` publishes its
+        // `ProjectMeshSource` under this contract, which reads the chunks the last import wrote; a
+        // host that publishes none leaves `LayerStackMesh.Open` on its source-file path, which is
+        // where every one of these resolves used to be. Optional for that reason and asked for once,
+        // unlike the graphics above: the answer is a store on disk and does not acquire itself
+        // halfway through a session.
+        geometry = context.Services.TryGet<IMeshSource>(out var meshes) ? meshes : null;
 
         if (graphics is not null) {
             preview = new TextureGraphPreview(graphics, Evaluator);
@@ -516,7 +535,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         if (!string.Equals(key, meshKey, StringComparison.Ordinal)) {
             meshKey = key;
-            mesh = LayerStackMesh.Open(project, asset, set, out meshRefusal);
+            mesh = LayerStackMesh.Open(project, asset, set, geometry, out meshRefusal);
         }
 
         return mesh;
