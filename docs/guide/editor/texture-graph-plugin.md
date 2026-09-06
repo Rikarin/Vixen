@@ -102,8 +102,8 @@ here, because it is this repository's commonest defect wearing the clothes of a 
 compile a canvas through the public compiler in two places — `TextureGraphDocument.Compile` and the
 layer stack's `LayerStackCompiler`, which bakes a real map — and the graph pane is simply the one
 caller nobody wired.
-[#792](https://github.com/Rikarin/Vixen/issues/792) is that, and until it lands the sentence under
-the preview is telling a user something untrue about why.
+[#792](https://github.com/Rikarin/Vixen/issues/792) is that, and the sentence under the preview now
+names it rather than the visibility that was closed.
 
 **An asset-editor registration could not be undone — closed.** `AssetEditorRegistry.Add` hands back
 an `IDisposable` now, the way `IEditorRegistry.Add` already did, and it gives up the editor's name
