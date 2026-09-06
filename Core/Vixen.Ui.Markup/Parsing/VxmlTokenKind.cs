@@ -112,6 +112,9 @@ enum VxmlTokenKind {
     /// <summary><c>in</c>.</summary>
     InKeyword,
 
+    /// <summary><c>@empty</c>, the arm an <c>@for</c> draws when it drew no rows.</summary>
+    EmptyKeyword,
+
     /// <summary><c>@switch</c>.</summary>
     SwitchKeyword,
 

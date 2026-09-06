@@ -2172,6 +2172,138 @@ public class EmitterTests {
         Assert.False(component.Root.Children[1].HasClass("leaving"));
     }
 
+    // ================================================================== The @for empty arm
+
+    /// <summary>A list that says so when it has nothing in it.</summary>
+    const string Fallback = """
+                            @component Greeter
+                            @using System.Collections.Generic
+                            @using Vixen.Ui.Reactive
+
+                            @code {
+                                public Signal<IReadOnlyList<string>> Rows { get; } = new([]);
+                            }
+
+                            @for (var row in Rows.Value) {
+                                <row-line key="@row">@row</row-line>
+                            } @empty {
+                                <no-rows>Nothing here.</no-rows>
+                            }
+                            """;
+
+    /// <summary>
+    ///     ⚠ <b>The assertion the arm exists for, and it is about what the document holds rather
+    ///     than about the emitted text.</b> An empty sequence draws the arm; a sequence with rows in
+    ///     it draws the rows and <i>not</i> the arm; emptying it again brings the arm back. The
+    ///     third leg is the one that matters — an arm built once and never taken down is what an
+    ///     `@if (!Rows.Any())` beside the loop gets right by accident and a region does not.
+    /// </summary>
+    [Fact]
+    public void An_empty_arm_stands_in_for_the_rows_and_goes_when_they_arrive() {
+        var (component, instance, document) = Run(Fallback);
+
+        using var owned = document;
+        var rows = (Signal<IReadOnlyList<string>>)Property(instance, "Rows");
+
+        document.Effects.Flush();
+        Assert.Equal(["no-rows"], component.Root.Children.Select(child => child.Tag));
+
+        rows.Value = ["a", "b"];
+        document.Effects.Flush();
+        Assert.Equal(["row-line", "row-line"], component.Root.Children.Select(child => child.Tag));
+
+        rows.Value = [];
+        document.Effects.Flush();
+        Assert.Equal(["no-rows"], component.Root.Children.Select(child => child.Tag));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The instrument, checked before the claim.</b> The same markup with the arm deleted
+    ///     draws nothing at all when the list is empty — which is the behaviour <c>#908</c> was
+    ///     filed about, and what makes the test above measure the arm rather than the reconciler.
+    /// </summary>
+    [Fact]
+    public void The_same_list_without_an_arm_draws_nothing_when_it_is_empty() {
+        const string Arm = " @empty {\n    <no-rows>Nothing here.</no-rows>\n}";
+
+        var (component, _, document) = Run(Fallback.Replace(Arm, string.Empty, StringComparison.Ordinal));
+
+        using var owned = document;
+        document.Effects.Flush();
+
+        Assert.Empty(component.Root.Children);
+    }
+
+    /// <summary>The arm sits after the rows, so a list that drains puts it where they were.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its region is opened with the loop's and not on first use.</b> <c>Open</c> places a
+    ///     region after whatever is currently last, so one opened the first time the list ran dry
+    ///     would be pinned behind whichever row happened to be last at that moment — and would draw
+    ///     <i>below</i> a row that arrived afterwards and left again.
+    /// </remarks>
+    [Fact]
+    public void The_arm_keeps_the_loop_s_place_among_its_siblings() {
+        var (component, instance, document) = Run(
+            Fallback.Replace("@for (var row", "<header />\n@for (var row", StringComparison.Ordinal) + "\n<footer />"
+        );
+
+        using var owned = document;
+        var rows = (Signal<IReadOnlyList<string>>)Property(instance, "Rows");
+
+        rows.Value = ["a"];
+        document.Effects.Flush();
+        Assert.Equal(["header", "row-line", "footer"], component.Root.Children.Select(child => child.Tag));
+
+        rows.Value = [];
+        document.Effects.Flush();
+        Assert.Equal(["header", "no-rows", "footer"], component.Root.Children.Select(child => child.Tag));
+    }
+
+    /// <summary>A list that both holds its removed rows and says when it has none.</summary>
+    const string FallbackLeaving = """
+                                   @component Greeter
+                                   @using System.Collections.Generic
+                                   @using Vixen.Ui.Reactive
+
+                                   @code {
+                                       public Signal<IReadOnlyList<string>> Rows { get; } = new([]);
+                                   }
+
+                                   @for (var row in Rows.Value) {
+                                       <row-line key="@row" exit="200ms">@row</row-line>
+                                   } @empty {
+                                       <no-rows>Nothing here.</no-rows>
+                                   }
+                                   """;
+
+    /// <summary>
+    ///     ⚠ <b>The interaction the two features have, and the answer is "what is on screen".</b> A
+    ///     list whose last row is still leaving is empty by the sequence and not empty to look at,
+    ///     and putting the arm up beside a row that is still fading shows the reader both answers at
+    ///     once. So the arm waits for the exit to run out — which is also why it is settled where a
+    ///     removal completes rather than only on the reconciliation pass.
+    /// </summary>
+    [Fact]
+    public void An_arm_waits_for_the_last_leaving_row_rather_than_for_the_sequence() {
+        var (component, instance, document) = Run(FallbackLeaving);
+
+        using var owned = document;
+        var rows = (Signal<IReadOnlyList<string>>)Property(instance, "Rows");
+
+        rows.Value = ["a"];
+        document.Effects.Flush();
+        Assert.Equal(["row-line"], component.Root.Children.Select(child => child.Tag));
+
+        rows.Value = [];
+        document.Effects.Flush();
+
+        // The sequence is empty and the row is not gone, so the arm is not up yet.
+        Assert.Equal(["row-line"], component.Root.Children.Select(child => child.Tag));
+
+        document.Tick(TimeSpan.FromMilliseconds(200));
+        Assert.Equal(["no-rows"], component.Root.Children.Select(child => child.Tag));
+    }
+
     // ================================================================== The @for index
 
     /// <summary>Three keyed rows, each showing where it is.</summary>

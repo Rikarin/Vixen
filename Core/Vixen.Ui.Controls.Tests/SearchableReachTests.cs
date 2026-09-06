@@ -25,6 +25,12 @@ namespace Vixen.Ui.Controls.Tests;
 ///         nothing else could improve on.
 ///     </para>
 ///     <para>
+///         ⚠ <b>And the third part has since closed too: <c>@empty</c> (#908) is the loop's own
+///         fallback arm</b>, so the empty state is a spelling this file uses rather than a gap it
+///         records. What is left of `.searchable` is placement — a decision about where the field
+///         goes, which is the one part a modifier would take away from the author.
+///     </para>
+///     <para>
 ///         ⚠ <b>Asserted about the rows, per the issue's own "done looks like".</b> The field is
 ///         driven the way a person drives it, and what is checked is which `search-row` elements the
 ///         document holds afterwards — not the field's `Value`, which would be a claim about
@@ -59,16 +65,19 @@ public class SearchableReachTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>And the part that genuinely is absent: nothing says so when nothing matches.</b>
+    ///     ⚠ <b>And the third part, which was the one that genuinely was absent.</b> A filter that
+    ///     matches nothing now leaves something that says so.
     /// </summary>
     /// <remarks>
-    ///     The list simply empties. That is correct and it is not an empty state — there is no
-    ///     "No results for 'zz'" and no way to write one over a loop, because an `@for` has no
-    ///     fallback arm — filed as #908. This is asserted rather than left as prose so that the day
-    ///     one exists, this test is what has to change.
+    ///     ⚠ <b>This test's premise moved, and it moved because the language did.</b> It used to
+    ///     assert the opposite — that the list simply empties, that nothing takes the rows' place,
+    ///     and that there was no way to write one over a loop — and said in its own remark that the
+    ///     day a fallback arm existed, this is what would have to change. <c>@empty</c> is that arm
+    ///     (#908), so the sheet writes one and this asserts it. Nothing about the control changed:
+    ///     what was missing was a spelling, which is what #767's third part always was.
     /// </remarks>
     [Fact]
-    public void A_filter_that_matches_nothing_leaves_an_empty_list_and_says_nothing() {
+    public void A_filter_that_matches_nothing_leaves_the_loop_s_empty_arm() {
         using var fixture = new ControlFixture();
 
         var sheet = new SearchableSheet();
@@ -78,15 +87,26 @@ public class SearchableReachTests {
         BuildContext.BuildInto(sheet, fixture.Document, fixture.Document.Root);
         fixture.Update();
 
+        // The instrument: while rows match, the arm is not up.
+        Assert.Equal(["Albedo", "Normal"], Rows(sheet));
+        Assert.DoesNotContain(sheet.Root.Children[0].Children, child => child.Tag == "no-matches");
+
         sheet.Field.Value = "zz";
         fixture.Update();
 
         Assert.Empty(Rows(sheet));
 
-        // Nothing took the rows' place: the sheet holds the field and no other content.
+        // The rows' place is taken, and by the loop's own arm rather than by a second walk.
         var host = sheet.Root.Children[0];
 
-        Assert.Equal("search-box", Assert.Single(host.Children).Tag);
+        Assert.Equal(["search-box", "no-matches"], host.Children.Select(child => child.Tag));
+
+        // And it goes again when the filter matches something.
+        sheet.Field.Value = "al";
+        fixture.Update();
+
+        Assert.Equal(["Albedo", "Normal"], Rows(sheet));
+        Assert.DoesNotContain(host.Children, child => child.Tag == "no-matches");
     }
 
     /// <summary>What each <c>search-row</c> is showing.</summary>

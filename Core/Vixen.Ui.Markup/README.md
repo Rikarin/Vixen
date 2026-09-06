@@ -1146,6 +1146,34 @@ which looks exactly like the attribute not working.
 own default is the only place the word `leaving` is written down. See
 `docs/guide/ui/exit-animations.md`.
 
+## `@empty`, the arm a loop draws when it drew no rows
+
+`@for (…) { … } @empty { … }` reads like the `@else` the language already has, and it becomes
+`BuildContext.For`'s sixth argument — named at the call site, because a loop may have an arm without
+an exit and the exit is the argument before it.
+
+⚠ **Two fields on `ForSyntax` rather than a clause node.** `else` is a node because it chains: its
+body is an `IfSyntax` for `else if`. An `@empty` cannot chain, so a node of its own would buy a
+public type, a `SyntaxVisitor` method, a rewriter override and no structure. The keyword and the
+block hang off the loop directly.
+
+⚠ **The lexer takes an `@empty` after *any* closing brace, and the parser is what refuses the wrong
+ones.** `LexBlockClose` is where `else` is taken for the reason that keeps `} else {`'s space out of
+the text nodes, and `@empty` is taken in the same place — including after an `@if`, whose parse
+leaves it to the content loop and `VXML1007`. Lexing it only behind a loop would leave that one an
+interpolation of a variable called `empty`: a Roslyn error, on generated code, about a name the
+author never wrote. ⚠ And the word is a keyword **only when a brace follows**, because unlike `if`,
+`for` and `switch` it is a legal C# identifier that a file may well interpolate.
+
+⚠ **The arm binds outside the loop's scope**, which is what it means for it to be what is drawn when
+there is no row: `inLoop` and `item` are already restored when `BindFor` reaches it, so it cannot
+read the row variable and a `refs` in it is `VXML2013` the way one anywhere else outside a loop is.
+
+⚠ **And the runtime decides on what is on screen rather than on the sequence.** With an `exit`, a
+list whose last row is still leaving is empty by the sequence and not empty to look at — so the arm
+is read off the region's draw order, live rows and leaving ones together, and is settled where a
+removal completes as well as on the reconciliation pass.
+
 ## `OnComposed` is the build-time hook, and it was owed a paragraph rather than a feature
 
 It is easy to read `Component`'s surface — `Build`, and a virtual `OnUnmounted` — and conclude that

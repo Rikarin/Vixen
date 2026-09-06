@@ -76,6 +76,23 @@ public static class MarkupDiagnostics {
         DiagnosticSeverity.Error
     );
 
+    /// <summary>An <c>@empty</c> arm that no <c>@for</c> body ended just before.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Syntax and not binding, because the loop it would belong to is decided by position
+    ///     alone.</b> Nothing about the sequence, the key or the row type is consulted — the parser
+    ///     takes an <c>@empty</c> that follows the loop's closing brace and no other, so an
+    ///     <c>@empty</c> anywhere else is a shape the grammar does not have rather than a name that
+    ///     failed to resolve.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor EmptyOutsideLoop = new(
+        "VXML1007",
+        "'@empty' without an @for",
+        "'@empty' is the arm an @for draws when it drew no rows, and it has to follow that loop's "
+        + "closing brace. An '@if' takes 'else' instead.",
+        SyntaxCategory,
+        DiagnosticSeverity.Error
+    );
+
     // ---------------------------------------------------------------- Binding
 
     /// <summary>The file has no <c>@component</c> header, so there is nothing to name the class.</summary>

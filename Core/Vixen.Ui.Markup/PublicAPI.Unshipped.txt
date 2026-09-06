@@ -261,17 +261,21 @@ Vixen.Ui.Markup.Syntax.ForSyntax : Vixen.Ui.Markup.Syntax.MarkupSyntax
 Vixen.Ui.Markup.Syntax.ForSyntax.Body.get -> Vixen.Ui.Markup.Syntax.MarkupBlockSyntax
 Vixen.Ui.Markup.Syntax.ForSyntax.CloseParenToken.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.ForSyntax.CommaToken.get -> Vixen.Core.Syntax.SyntaxToken?
+Vixen.Ui.Markup.Syntax.ForSyntax.EmptyBody.get -> Vixen.Ui.Markup.Syntax.MarkupBlockSyntax?
+Vixen.Ui.Markup.Syntax.ForSyntax.EmptyKeyword.get -> Vixen.Core.Syntax.SyntaxToken?
 Vixen.Ui.Markup.Syntax.ForSyntax.ForKeyword.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.ForSyntax.Identifier.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.ForSyntax.InKeyword.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.ForSyntax.Index.get -> Vixen.Core.Syntax.SyntaxToken?
 Vixen.Ui.Markup.Syntax.ForSyntax.OpenParenToken.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.ForSyntax.Sequence.get -> Vixen.Core.Syntax.SyntaxToken
-Vixen.Ui.Markup.Syntax.ForSyntax.Update(Vixen.Core.Syntax.SyntaxToken forKeyword, Vixen.Core.Syntax.SyntaxToken openParenToken, Vixen.Core.Syntax.SyntaxToken varKeyword, Vixen.Core.Syntax.SyntaxToken identifier, Vixen.Core.Syntax.SyntaxToken? commaToken, Vixen.Core.Syntax.SyntaxToken? index, Vixen.Core.Syntax.SyntaxToken inKeyword, Vixen.Core.Syntax.SyntaxToken sequence, Vixen.Core.Syntax.SyntaxToken closeParenToken, Vixen.Ui.Markup.Syntax.MarkupBlockSyntax body) -> Vixen.Ui.Markup.Syntax.ForSyntax
+Vixen.Ui.Markup.Syntax.ForSyntax.Update(Vixen.Core.Syntax.SyntaxToken forKeyword, Vixen.Core.Syntax.SyntaxToken openParenToken, Vixen.Core.Syntax.SyntaxToken varKeyword, Vixen.Core.Syntax.SyntaxToken identifier, Vixen.Core.Syntax.SyntaxToken? commaToken, Vixen.Core.Syntax.SyntaxToken? index, Vixen.Core.Syntax.SyntaxToken inKeyword, Vixen.Core.Syntax.SyntaxToken sequence, Vixen.Core.Syntax.SyntaxToken closeParenToken, Vixen.Ui.Markup.Syntax.MarkupBlockSyntax body, Vixen.Core.Syntax.SyntaxToken? emptyKeyword, Vixen.Ui.Markup.Syntax.MarkupBlockSyntax? emptyBody) -> Vixen.Ui.Markup.Syntax.ForSyntax
 Vixen.Ui.Markup.Syntax.ForSyntax.VarKeyword.get -> Vixen.Core.Syntax.SyntaxToken
 Vixen.Ui.Markup.Syntax.ForSyntax.WithBody(Vixen.Ui.Markup.Syntax.MarkupBlockSyntax body) -> Vixen.Ui.Markup.Syntax.ForSyntax
 Vixen.Ui.Markup.Syntax.ForSyntax.WithCloseParenToken(Vixen.Core.Syntax.SyntaxToken closeParenToken) -> Vixen.Ui.Markup.Syntax.ForSyntax
 Vixen.Ui.Markup.Syntax.ForSyntax.WithCommaToken(Vixen.Core.Syntax.SyntaxToken commaToken) -> Vixen.Ui.Markup.Syntax.ForSyntax
+Vixen.Ui.Markup.Syntax.ForSyntax.WithEmptyBody(Vixen.Ui.Markup.Syntax.MarkupBlockSyntax? emptyBody) -> Vixen.Ui.Markup.Syntax.ForSyntax
+Vixen.Ui.Markup.Syntax.ForSyntax.WithEmptyKeyword(Vixen.Core.Syntax.SyntaxToken emptyKeyword) -> Vixen.Ui.Markup.Syntax.ForSyntax
 Vixen.Ui.Markup.Syntax.ForSyntax.WithForKeyword(Vixen.Core.Syntax.SyntaxToken forKeyword) -> Vixen.Ui.Markup.Syntax.ForSyntax
 Vixen.Ui.Markup.Syntax.ForSyntax.WithIdentifier(Vixen.Core.Syntax.SyntaxToken identifier) -> Vixen.Ui.Markup.Syntax.ForSyntax
 Vixen.Ui.Markup.Syntax.ForSyntax.WithInKeyword(Vixen.Core.Syntax.SyntaxToken inKeyword) -> Vixen.Ui.Markup.Syntax.ForSyntax
@@ -414,6 +418,7 @@ Vixen.Ui.Markup.Syntax.SyntaxKind.Document = 2 -> Vixen.Ui.Markup.Syntax.SyntaxK
 Vixen.Ui.Markup.Syntax.SyntaxKind.Element = 12 -> Vixen.Ui.Markup.Syntax.SyntaxKind
 Vixen.Ui.Markup.Syntax.SyntaxKind.ElseClause = 20 -> Vixen.Ui.Markup.Syntax.SyntaxKind
 Vixen.Ui.Markup.Syntax.SyntaxKind.ElseKeyword = 32 -> Vixen.Ui.Markup.Syntax.SyntaxKind
+Vixen.Ui.Markup.Syntax.SyntaxKind.EmptyKeyword = 64 -> Vixen.Ui.Markup.Syntax.SyntaxKind
 Vixen.Ui.Markup.Syntax.SyntaxKind.EndOfFileToken = 57 -> Vixen.Ui.Markup.Syntax.SyntaxKind
 Vixen.Ui.Markup.Syntax.SyntaxKind.EndTag = 11 -> Vixen.Ui.Markup.Syntax.SyntaxKind
 Vixen.Ui.Markup.Syntax.SyntaxKind.EqualsToken = 43 -> Vixen.Ui.Markup.Syntax.SyntaxKind
@@ -616,7 +621,7 @@ static Vixen.Ui.Markup.Syntax.SyntaxFactory.Element(Vixen.Ui.Markup.Syntax.Start
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.ElseClause(Vixen.Core.Syntax.SyntaxToken elseKeyword, Vixen.Ui.Markup.Syntax.MarkupSyntax body) -> Vixen.Ui.Markup.Syntax.ElseClauseSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.EndTag(Vixen.Core.Syntax.SyntaxToken lessThanSlashToken, Vixen.Core.Syntax.SyntaxToken name, Vixen.Core.Syntax.SyntaxToken greaterThanToken) -> Vixen.Ui.Markup.Syntax.EndTagSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.ExpressionAttributeValue(Vixen.Ui.Markup.Syntax.InterpolationSyntax expression) -> Vixen.Ui.Markup.Syntax.ExpressionAttributeValueSyntax
-static Vixen.Ui.Markup.Syntax.SyntaxFactory.For(Vixen.Core.Syntax.SyntaxToken forKeyword, Vixen.Core.Syntax.SyntaxToken openParenToken, Vixen.Core.Syntax.SyntaxToken varKeyword, Vixen.Core.Syntax.SyntaxToken identifier, Vixen.Core.Syntax.SyntaxToken? commaToken, Vixen.Core.Syntax.SyntaxToken? index, Vixen.Core.Syntax.SyntaxToken inKeyword, Vixen.Core.Syntax.SyntaxToken sequence, Vixen.Core.Syntax.SyntaxToken closeParenToken, Vixen.Ui.Markup.Syntax.MarkupBlockSyntax body) -> Vixen.Ui.Markup.Syntax.ForSyntax
+static Vixen.Ui.Markup.Syntax.SyntaxFactory.For(Vixen.Core.Syntax.SyntaxToken forKeyword, Vixen.Core.Syntax.SyntaxToken openParenToken, Vixen.Core.Syntax.SyntaxToken varKeyword, Vixen.Core.Syntax.SyntaxToken identifier, Vixen.Core.Syntax.SyntaxToken? commaToken, Vixen.Core.Syntax.SyntaxToken? index, Vixen.Core.Syntax.SyntaxToken inKeyword, Vixen.Core.Syntax.SyntaxToken sequence, Vixen.Core.Syntax.SyntaxToken closeParenToken, Vixen.Ui.Markup.Syntax.MarkupBlockSyntax body, Vixen.Core.Syntax.SyntaxToken? emptyKeyword, Vixen.Ui.Markup.Syntax.MarkupBlockSyntax? emptyBody) -> Vixen.Ui.Markup.Syntax.ForSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.If(Vixen.Core.Syntax.SyntaxToken ifKeyword, Vixen.Core.Syntax.SyntaxToken openParenToken, Vixen.Core.Syntax.SyntaxToken condition, Vixen.Core.Syntax.SyntaxToken closeParenToken, Vixen.Ui.Markup.Syntax.MarkupBlockSyntax body, Vixen.Ui.Markup.Syntax.ElseClauseSyntax? else) -> Vixen.Ui.Markup.Syntax.IfSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.InheritsDirective(Vixen.Core.Syntax.SyntaxToken inheritsKeyword, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.InheritsDirectiveSyntax
 static Vixen.Ui.Markup.Syntax.SyntaxFactory.InjectDirective(Vixen.Core.Syntax.SyntaxToken injectKeyword, Vixen.Core.Syntax.SyntaxToken type, Vixen.Core.Syntax.SyntaxToken name) -> Vixen.Ui.Markup.Syntax.InjectDirectiveSyntax
@@ -640,6 +645,7 @@ static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.DuplicateAttribute
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.DuplicateSlot -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.DynamicSlotName -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.EmptyComponent -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.EmptyOutsideLoop -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExitOutsideLoop -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExpectedExpression -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExpectedExpressionValue -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor

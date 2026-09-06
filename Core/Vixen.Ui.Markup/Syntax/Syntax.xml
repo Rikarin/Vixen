@@ -549,6 +549,25 @@
             <Kind Name="CloseParenToken"/>
         </Field>
         <Field Name="Body" Type="MarkupBlockSyntax"/>
+        <Field Name="EmptyKeyword" Type="SyntaxToken" Optional="true">
+            <Kind Name="EmptyKeyword"/>
+            <PropertyComment>
+                <summary>
+                    The <c>@empty</c> of <c>@for (…) { … } @empty { … }</c>, absent when the loop
+                    declares no fallback arm.
+                </summary>
+            </PropertyComment>
+        </Field>
+        <Field Name="EmptyBody" Type="MarkupBlockSyntax" Optional="true">
+            <PropertyComment>
+                <summary>
+                    What the loop draws instead of rows. ⚠ Two fields rather than the clause node
+                    <c>else</c> has: an <c>else</c> chains — its body is an <c>IfSyntax</c> for
+                    <c>else if</c> — and an <c>@empty</c> cannot, so a node of its own would buy a
+                    public type and no structure.
+                </summary>
+            </PropertyComment>
+        </Field>
         <TypeComment>
             <summary><c>@for (var i in sequence) { … }</c> — the keyed reconciler's input.</summary>
         </TypeComment>

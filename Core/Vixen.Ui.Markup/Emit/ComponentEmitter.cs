@@ -978,11 +978,32 @@ public sealed class ComponentEmitter {
         if (@for.ExitAfter is { } after) {
             var milliseconds = after.ToString(CultureInfo.InvariantCulture);
             var named = @for.ExitClass is { } wanted ? $", \"{wanted}\"" : string.Empty;
+            var spec = "new global::Vixen.Ui.Composition.ExitSpec("
+                + $"global::System.TimeSpan.FromMilliseconds({milliseconds}){named})";
 
             Line(
-                $"}}, new global::Vixen.Ui.Composition.ExitSpec(global::System.TimeSpan.FromMilliseconds({milliseconds}){named}));"
+                @for.Empty.IsDefaultOrEmpty
+                    ? $"}}, {spec});"
+                    : $"}}, {spec}, ({innerContext}, {innerParent}) => {{"
             );
         } else {
+            // ⚠ `empty:` by name, because the argument before it is the exit and a loop may have a
+            // fallback arm without one. Nothing else in this emitter names an argument; the
+            // alternative is writing a `null` ExitSpec, which would say "this loop has an exit and
+            // it is nothing" in the one argument the reconciler reads to decide whether to defer.
+            Line(
+                @for.Empty.IsDefaultOrEmpty
+                    ? "});"
+                    : $"}}, empty: ({innerContext}, {innerParent}) => {{"
+            );
+        }
+
+        // The same two names the row lambda took. They are sibling scopes, so nothing shadows —
+        // and a nested `@for` inside the arm numbers its own the way one inside the body does.
+        if (!@for.Empty.IsDefaultOrEmpty) {
+            depth++;
+            EmitNodes(@for.Empty, innerContext, innerParent);
+            depth--;
             Line("});");
         }
 

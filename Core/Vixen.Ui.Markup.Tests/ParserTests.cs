@@ -384,6 +384,8 @@ public class ParserTests {
     [InlineData("@component A\n@if (x) { <a /> } else { <b /> }")]
     [InlineData("@component A\n@if (x) { <a /> } else if (y) { <b /> } else { <c /> }")]
     [InlineData("@component A\n@for (var i in xs) { <a key=\"@i\" /> }")]
+    [InlineData("@component A\n@for (var i in xs) { <a key=\"@i\" /> } @empty { <b /> }")]
+    [InlineData("@component A\n@if (x) { <a /> } @empty { <b /> }")]
     [InlineData("@component A\n@switch (x) { case 1: <a /> default: <b /> }")]
     [InlineData("@component A\n@code { var x = \"}\"; }")]
     [InlineData("@component A\n<style>.a { color: red; }</style>")]
@@ -510,6 +512,51 @@ public class ParserTests {
 
         Assert.Equal("item", @for.Identifier.Text);
         Assert.Equal("Model.Items", @for.Sequence.Text);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The arm hangs off the loop rather than following it.</b> An <c>@empty</c> parsed as
+    ///     a sibling would be content that always draws, and the tree is where that decision is
+    ///     visible: the block is <i>inside</i> the <see cref="ForSyntax" />, so nothing downstream
+    ///     can mistake it for content.
+    /// </summary>
+    [Fact]
+    public void A_for_takes_an_empty_arm_into_the_loop_node() {
+        var @for = First<ForSyntax>("@component A\n@for (var item in Items) { <x /> } @empty { <y /> }");
+
+        Assert.Equal("@empty", @for.EmptyKeyword!.Text);
+        Assert.Single(@for.EmptyBody!.Content.Items().OfType<ElementSyntax>());
+    }
+
+    [Fact]
+    public void A_for_without_one_has_neither_half_of_it() {
+        var @for = First<ForSyntax>("@component A\n@for (var item in Items) { <x /> }");
+
+        Assert.Null(@for.EmptyKeyword);
+        Assert.Null(@for.EmptyBody);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The lexer takes an <c>@empty</c> after <i>any</i> block, and the refusal is the
+    ///     parser's.</b> Lexing it only behind a loop would leave this one an interpolation of a
+    ///     variable called <c>empty</c> — a Roslyn error, on generated code, about a name the author
+    ///     never wrote.
+    /// </summary>
+    [Fact]
+    public void An_empty_arm_that_no_loop_precedes_is_refused() =>
+        Assert.Contains("VXML1007", Vxml.Ids(Vxml.Parse("@component A\n@if (x) { <a /> } @empty { <b /> }")));
+
+    /// <summary>
+    ///     ⚠ <b>The instrument: <c>empty</c> is a legal C# identifier, so the keyword is one only
+    ///     when a brace follows.</b> Without that guard this file would stop compiling the day
+    ///     somebody interpolated a variable of that name.
+    /// </summary>
+    [Fact]
+    public void A_word_empty_that_no_brace_follows_stays_an_interpolation() {
+        var document = Vxml.ParseClean("@component A\n<div>@empty</div>");
+        var div = Assert.IsType<ElementSyntax>(Assert.Single(document.Content.Items()));
+
+        Assert.IsType<InterpolationSyntax>(Assert.Single(div.Content.Items()));
     }
 
     [Fact]

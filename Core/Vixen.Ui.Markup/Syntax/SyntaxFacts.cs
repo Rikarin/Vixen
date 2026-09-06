@@ -25,6 +25,7 @@ public static class SyntaxFacts {
             SyntaxKind.ForKeyword => "@for",
             SyntaxKind.VarKeyword => "var",
             SyntaxKind.InKeyword => "in",
+            SyntaxKind.EmptyKeyword => "@empty",
             SyntaxKind.SwitchKeyword => "@switch",
             SyntaxKind.CaseKeyword => "case",
             SyntaxKind.DefaultKeyword => "default",
