@@ -130,6 +130,23 @@ public class ResponderReachTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>The one modal every desktop application has, and it had never been installed.</b>
+    ///     <c>DocumentClosePrompt</c> was written, tested and documented with no caller outside its
+    ///     own suite — so a close request reaching a dirty document was refused by nothing, anywhere,
+    ///     and the Save / Don't Save / Cancel flow this issue exists to provide had never run in a
+    ///     real application. <c>Samples/02-HelloUi</c>'s File ▸ Close is the first.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The call and not the type: the name <c>DocumentClosePrompt</c> alone appears in remarks
+    ///     all over <c>Core/Vixen.Ui</c> — a sweep for it would be satisfied by the prose explaining
+    ///     why nothing calls it.
+    /// </remarks>
+    [Fact]
+    public void Something_outside_a_test_project_installs_the_close_prompt() {
+        Assert.NotEmpty(ProductionCallers("DocumentClosePrompt.Install("));
+    }
+
+    /// <summary>
     ///     The instrument, checked before the thing it measures: the sweep must be able to tell a
     ///     production file from a test one, or the theory above is green on the test projects alone.
     /// </summary>

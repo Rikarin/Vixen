@@ -83,6 +83,15 @@
             -->
             <MenuItem Label="Save" Command="document.save" ref="@saveItem" />
             <MenuItem Label="Revert" Command="document.revert" />
+
+            <!--
+                ⚠ **The first caller `DocumentClosePrompt` has ever had, and it is a document close
+                rather than a quit.** `Root.RequestClose()` raises the request on the element that
+                holds the document instead of on the whole `UiDocument`, so the application's own
+                listener is never asked and Save / Don't Save / Cancel is about this material and
+                nothing else. A shell with tabs would call it on the tab.
+            -->
+            <MenuItem Label="Close" on:click="@CloseDocument" />
         </Menu>
 
         <!--
@@ -161,6 +170,8 @@
 
     MaterialDocument? document;
     IDisposable? title;
+    DialogService? dialogs;
+    IDisposable? closePrompt;
 
     /// <summary>The verbs that belong to the window rather than to anything inside it.</summary>
     /// <remarks>
@@ -272,6 +283,21 @@
             title = UiWindowTitle.Bind(window, document, Root.Document.Effects);
         }
 
+        // ⚠ **Save / Don't Save / Cancel, and until this line `DocumentClosePrompt` had no caller
+        // anywhere in the repository** — the one modal every desktop application has, written,
+        // tested, documented and never installed. It asks about the document `HostedDocument` names
+        // above and hands the close back here.
+        //
+        // ⚠ **And it is a *document* close rather than a quit, which is the case the framework could
+        // not express before.** `UiDocument.RequestClose` starts at the focus and ends at the head's
+        // own listener, because the subject of that question is the application; File ▸ Close is a
+        // different question about a different subject, so `UiElement.RequestClose` raises it from
+        // the element that holds the document and the head is never asked. That is exactly what a
+        // tab shutting while its neighbours stay open needs, and this sample is the smallest thing
+        // that has the shape.
+        dialogs = new DialogService(Root.Document);
+        closePrompt = DocumentClosePrompt.Install(Root, dialogs, Reopen);
+
         // ⚠ Shown rather than bound, for New and Open. `ShowShortcut` draws the chord on the right of
         // the row and registers nothing — there is no keymap in this sample, so an item claiming ⌘N
         // opened something would be lying about it. Save is the one that is now bound, and its chord
@@ -321,8 +347,51 @@
         title?.Dispose();
         title = null;
 
+        // The prompt is a handler on `Root`, which is this component's element and goes with the
+        // build region — but the handle is what `RemoveHandler` needs to be given the same delegate
+        // instance, and the service owns an overlay on the document. Both are this component's.
+        closePrompt?.Dispose();
+        closePrompt = null;
+
+        dialogs?.Dispose();
+        dialogs = null;
+
         base.OnUnmounted();
     }
+
+    /// <summary>Shuts the document the shell is holding and opens an empty one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What <c>DocumentClosePrompt</c> calls once the answer allows it, and it is not a
+    ///     quit.</b> The prompt takes the close action from its caller precisely so that the same
+    ///     modal can serve a window closing, an application quitting and — this — one document being
+    ///     put down while the window stays. A sample with a second document would pass its own
+    ///     removal instead, and nothing about the prompt would change.
+    ///     <para>
+    ///         The old document is disposed because it holds an effect watching the model; the new
+    ///         one takes the model as it now stands, so <c>IsDirty</c> starts false against a fresh
+    ///         snapshot rather than against the one the closed document had saved.
+    ///     </para>
+    /// </remarks>
+    void Reopen() {
+        document?.Dispose();
+
+        document = new MaterialDocument(Model, Root.Document.Effects);
+        Root.HostedDocument = document;
+
+        // ⚠ Rebound rather than left alone. The title's effect reads the *document's* signals, so a
+        // shell that swapped the document and kept the binding would go on writing the name and the
+        // dirty dot of the one it had just disposed — a window titled after a document that is no
+        // longer open, which is the kind of wrong nothing throws about.
+        title?.Dispose();
+        title = Root.Document.WindowOf(Root) is { } window
+            ? UiWindowTitle.Bind(window, document, Root.Document.Effects)
+            : null;
+
+        toasts.Show("Closed the material");
+    }
+
+    /// <summary>Asks the document whether it may go, from the element that holds it.</summary>
+    void CloseDocument() => Root.RequestClose();
 
     /// <summary>Lets the toasts count down.</summary>
     void Expire(UiDocument document, TimeSpan now) => toasts.Tick(now);
