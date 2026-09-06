@@ -507,3 +507,65 @@ jobs:
           name: kubernetes-results
           path: Live/Vixen.Live.Placement.Kubernetes.Tests/TestResults/
           if-no-files-found: ignore
+
+  # ── The gate that reports nothing when it does not run ──────────────────────────────────────────
+  #
+  # ⚠ A cancelled workflow run is neither red nor green. It raises no notification, it leaves no
+  # failing check, and `gh run list` is the only place it is visible at all — so between 2026-09-01
+  # and 2026-09-06 master accumulated twelve consecutive cancellations and read as fine the whole
+  # time. ci.yml's concurrency policy is fixed (a push to master no longer cancels its predecessor,
+  # and CiConcurrencyTests holds that), but the fix and the symptom are separate things: the reason
+  # nobody noticed for five days is that nothing was watching, and a policy can be reverted.
+  #
+  # This is the watcher. It asks the one question the colour of any single run cannot answer — when
+  # did CI last reach a verdict about master at all — and it is red when the answer is "not lately",
+  # whatever that verdict was. ⚠ A *failure* is a completed run and satisfies this deliberately: red
+  # master is a different problem with its own visible signal, and folding the two together gives one
+  # alarm that cannot say which is wrong.
+  #
+  # The threshold is wall clock because staleness is wall clock; there is no work-shaped restatement
+  # of "nothing has finished". Forty-eight hours is two nightlies, so one skipped scheduled run does
+  # not cry wolf.
+  ci-freshness:
+    name: ci-freshness
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    # Read-only, and named rather than inherited: the default token's scope is a repository setting,
+    # and a check that silently loses its API access would report nothing, which is the exact failure
+    # it exists to catch.
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: When did CI last reach a verdict about master
+        run: |
+          set -euo pipefail
+          hours=48
+
+          # `status=completed` includes `cancelled`, which is the value being detected — so the
+          # conclusions are filtered here rather than by the query. `event=push` because a
+          # workflow_dispatch run answers about whatever ref somebody typed.
+          run=$(gh api \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=master&event=push&per_page=100" \
+            --jq '[.workflow_runs[] | select(.conclusion == "success" or .conclusion == "failure")][0]')
+
+          if [ -z "$run" ] || [ "$run" = "null" ]; then
+            echo "::error::No push to master has ever produced a completed CI run in the last 100 attempts."
+            exit 1
+          fi
+
+          finished=$(printf '%s' "$run" | jq -r '.updated_at')
+          echo "Last completed master run: $(printf '%s' "$run" | jq -r '.id, .conclusion, .head_sha, .updated_at' | tr '\n' ' ')"
+
+          age=$(( ( $(date -u +%s) - $(date -u -d "$finished" +%s) ) / 3600 ))
+          echo "That is ${age}h ago; the threshold is ${hours}h."
+
+          if [ "$age" -gt "$hours" ]; then
+            echo "::error::CI has not reached a verdict about master for ${age}h. Runs are being cancelled or never start — check ci.yml's concurrency policy and the run queue."
+            exit 1
+          fi
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}

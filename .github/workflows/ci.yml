@@ -10,9 +10,27 @@ on:
   pull_request:
   workflow_dispatch:
 
+# ⚠ `cancel-in-progress: true` is right for a branch and catastrophic for the default one, and the
+# difference is what the group keys on. Every push to `master` shares one group, so each merge killed
+# the run that was verifying the merge before it: twelve consecutive `cancelled` conclusions between
+# 2026-09-01 and 2026-09-06, and the last run master was allowed to finish was 2026-09-04. A
+# cancelled run is neither red nor green and raises no notification, so five days of unverified
+# master read as fine. That is the failure mode this repository's own rule names — ask what a gate
+# prints on the day it does not run, and here the answer was nothing at all.
+#
+# On a pull request only the tip matters, so cancelling stays right there. On `master` the question is
+# "what did this merge land", and no later merge answers it. So master runs QUEUE instead.
+#
+# ⚠ Queueing does not mean one completed run per merge. GitHub collapses the *pending* side of a group
+# to one, so a burst of merges is verified at its tip while the run already in progress is protected —
+# which is the whole ask. Buying a run per merge means a group keyed on `github.sha`, and that spends
+# a full three-OS matrix per merge; this is the cheaper half of the trade, chosen deliberately.
+#
+# Held by CiConcurrencyTests in Tools/Vixen.ApiCheck.Tests, which evaluates this expression for a
+# master push and for a pull request rather than matching its text.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 env:
   DOTNET_NOLOGO: true
