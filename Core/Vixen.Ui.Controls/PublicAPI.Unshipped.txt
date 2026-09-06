@@ -97,8 +97,12 @@ Vixen.Ui.Controls.ComboBox : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.ComboBox.AddOption(string value, string? label = null) -> Vixen.Ui.Controls.Option
 Vixen.Ui.Controls.ComboBox.ComboBox() -> void
 Vixen.Ui.Controls.ComboBox.Editor.get -> Vixen.Ui.Controls.TextBox
+Vixen.Ui.Controls.ComboBox.IsValid.get -> bool
 Vixen.Ui.Controls.ComboBox.List.get -> Vixen.Ui.Controls.Popover
 Vixen.Ui.Controls.ComboBox.Options.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.Option>
+Vixen.Ui.Controls.ComboBox.Required.get -> bool
+Vixen.Ui.Controls.ComboBox.Required.set -> bool
+Vixen.Ui.Controls.ComboBox.Revalidate() -> void
 Vixen.Ui.Controls.ComboBox.Toggle.get -> Vixen.Ui.Controls.IconButton
 Vixen.Ui.Controls.ComboBox.Value.get -> string?
 Vixen.Ui.Controls.ComboBox.Value.set -> string?
@@ -367,9 +371,14 @@ Vixen.Ui.Controls.MenuItem.Submenu.get -> Vixen.Ui.Controls.Menu?
 Vixen.Ui.Controls.MultiSelect -> sealed class
 Vixen.Ui.Controls.MultiSelect : Vixen.Ui.Controls.SelectBase
 Vixen.Ui.Controls.MultiSelect.ClearPlaceholder() -> void
+Vixen.Ui.Controls.MultiSelect.ClearRequired() -> void
+Vixen.Ui.Controls.MultiSelect.IsValid.get -> bool
 Vixen.Ui.Controls.MultiSelect.MultiSelect() -> void
 Vixen.Ui.Controls.MultiSelect.Placeholder.get -> string?
 Vixen.Ui.Controls.MultiSelect.Placeholder.set -> string?
+Vixen.Ui.Controls.MultiSelect.Required.get -> bool
+Vixen.Ui.Controls.MultiSelect.Required.set -> bool
+Vixen.Ui.Controls.MultiSelect.Revalidate() -> void
 Vixen.Ui.Controls.MultiSelect.Select(string value, bool isSelected) -> bool
 Vixen.Ui.Controls.MultiSelect.SelectionChanged -> System.Action<Vixen.Ui.Controls.MultiSelect>?
 Vixen.Ui.Controls.MultiSelect.Values.get -> System.Collections.Generic.IReadOnlyCollection<string>
@@ -1063,6 +1072,7 @@ override Vixen.Ui.Controls.MenuItem.ShowCheck(bool checkable, bool isChecked) ->
 override Vixen.Ui.Controls.MenuItem.TagName.get -> string
 override Vixen.Ui.Controls.MultiSelect.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 override Vixen.Ui.Controls.MultiSelect.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.MultiSelect.OnCreated() -> void
 override Vixen.Ui.Controls.MultiSelect.OnOptionAdded(Vixen.Ui.Controls.Option option) -> void
 override Vixen.Ui.Controls.MultiSelect.OnOptionChosen(Vixen.Ui.Controls.Option option) -> void
 override Vixen.Ui.Controls.MultiSelect.TagName.get -> string
@@ -1330,6 +1340,7 @@ static readonly Vixen.Ui.Controls.KeyboardShortcut.KeyProperty -> Vixen.Ui.UiPro
 static readonly Vixen.Ui.Controls.KeyboardShortcut.ModifiersProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.Link.HrefProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.MultiSelect.PlaceholderProperty -> Vixen.Ui.UiPropertyKey
+static readonly Vixen.Ui.Controls.MultiSelect.RequiredProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.NumericInput.DecimalsProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.NumericInput.MaximumProperty -> Vixen.Ui.UiPropertyKey
 static readonly Vixen.Ui.Controls.NumericInput.MinimumProperty -> Vixen.Ui.UiPropertyKey

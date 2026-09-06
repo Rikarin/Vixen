@@ -245,6 +245,18 @@ public sealed partial class CheckBox : ToggleBase {
 ///     how it looks.</b> A checkbox is a value in a form that is applied when the form is; a switch
 ///     takes effect the moment it is flipped. A control set that makes them interchangeable produces
 ///     dialogs with a switch beside an OK button, where nobody can tell whether Cancel undoes it.
+///     <para>
+///         ⚠ <b>Which is also why it does not validate, and the absence is the answer rather than
+///         the next thing to add.</b> <see cref="CheckBox" /> and <see cref="RadioGroup" /> have a
+///         <c>Required</c> and a verdict; a switch deliberately has neither, because "this must be
+///         on before the form is acceptable" is a sentence about a form being submitted and a switch
+///         is not submitted — it has already happened. A required switch is a setting the
+///         application refuses to let the user turn off, which is a disabled switch or a
+///         confirmation, not a validity. So a <c>&lt;Switch&gt;</c> carries <i>neither</i>
+///         <c>:valid</c> nor <c>:invalid</c>, which is Selectors 4 § 10.6's own answer for an
+///         element that does not take part in constraint validation — see
+///         <c>FieldValidity</c> for why that is two bits and not one.
+///     </para>
 /// </remarks>
 public sealed partial class Switch : ToggleBase {
     /// <inheritdoc />

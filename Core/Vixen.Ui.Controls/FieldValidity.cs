@@ -15,8 +15,8 @@ namespace Vixen.Ui.Controls;
 ///         precisely so that a plain container is neither (Selectors 4 § 10.6). A control that wrote
 ///         <c>Invalid</c> on the way in and forgot <c>Valid</c> on the way back would leave the
 ///         element matching neither pseudo-class, which a stylesheet cannot tell apart from a
-///         <c>div</c>. Four controls writing that by hand is four chances to get it wrong; this is
-///         one.
+///         <c>div</c>. Six controls writing that by hand is six chances to get it wrong; this is
+///         one — and the count keeps moving, which is the argument.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Internal, and deliberately not a virtual on <c>Control</c>.</b> Putting the verdict

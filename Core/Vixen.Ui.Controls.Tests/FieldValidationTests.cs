@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui.Styling;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Tests;
@@ -159,6 +160,119 @@ public class FieldValidationTests {
         field.Value = " ";
 
         Assert.True(field.IsValid);
+    }
+
+    /// <summary>A required multi-select wants one, and one is what "required" means on a set.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The verdict is over the <i>set</i>, which is why this could not be a flag on
+    ///     <c>SelectBase</c>.</b> A <see cref="Select" /> asks whether <c>Value</c> is null; this
+    ///     asks whether anything is in the chosen set, and the two questions have no shared shape to
+    ///     put on a base class beyond the word. Unchoosing the last one has to take the verdict back,
+    ///     which is the half a writer hooked only to "something was added" gets wrong.
+    /// </remarks>
+    [Fact]
+    public void A_required_multi_select_is_invalid_until_something_is_chosen() {
+        using var fixture = new ControlFixture();
+        var field = fixture.Add<MultiSelect>();
+
+        field.AddOption("red", "Red");
+        field.AddOption("green", "Green");
+
+        Assert.True(field.IsValid);
+        Assert.Equal(AccessibleStates.None, field.AccessibleState & Reported);
+
+        field.Required = true;
+
+        Assert.False(field.IsValid);
+        Assert.Equal(AccessibleStates.Required | AccessibleStates.Invalid, field.AccessibleState & Reported);
+
+        field.Select("red", true);
+
+        Assert.True(field.IsValid);
+        Assert.Equal(AccessibleStates.Required, field.AccessibleState & Reported);
+
+        // ⚠ Two chosen and then both taken away. One is enough and the second changes nothing, but
+        // removing the last one has to put the verdict back — which is the direction a writer that
+        // only listened for an addition never runs.
+        field.Select("green", true);
+        Assert.True(field.IsValid);
+
+        field.Select("red", false);
+        Assert.True(field.IsValid);
+
+        field.Select("green", false);
+        Assert.False(field.IsValid);
+        Assert.Equal(AccessibleStates.Required | AccessibleStates.Invalid, field.AccessibleState & Reported);
+    }
+
+    /// <summary>A combo box's verdict is its editor's, and both halves are told the right thing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The split is the decision, and it is not the same answer on both sides.</b> ARIA
+    ///     puts <c>role="combobox"</c> on the <i>input</i>, so <c>aria-required</c> and
+    ///     <c>aria-invalid</c> belong to the editor and the box itself reports
+    ///     <see cref="AccessibleRole.None" /> — a second set of states here would be a second node
+    ///     standing for the same field. The <i>cascade</i> is the other way round: what somebody
+    ///     writes a rule against is <c>combo-box:invalid</c>, because the border, the chevron and the
+    ///     field are one box on screen. So the tree stays on the editor and the state bits are
+    ///     mirrored out.
+    /// </remarks>
+    [Fact]
+    public void A_combo_boxs_verdict_is_its_editors_and_reaches_both() {
+        using var fixture = new ControlFixture();
+        var field = fixture.Add<ComboBox>();
+
+        Assert.True(field.IsValid);
+        Assert.True(field.State.HasFlag(ElementState.Valid));
+        Assert.False(field.State.HasFlag(ElementState.Invalid));
+
+        field.Required = true;
+
+        Assert.True(field.Editor.Required);
+        Assert.False(field.IsValid);
+
+        // The box, for the stylesheet.
+        Assert.True(field.State.HasFlag(ElementState.Required));
+        Assert.True(field.State.HasFlag(ElementState.Invalid));
+        Assert.False(field.State.HasFlag(ElementState.Valid));
+
+        // The editor, for the tree — and nothing on the box, which has no node.
+        Assert.Equal(
+            AccessibleStates.Required | AccessibleStates.Invalid,
+            field.Editor.AccessibleState & Reported
+        );
+
+        field.Value = "ada";
+
+        Assert.True(field.IsValid);
+        Assert.True(field.State.HasFlag(ElementState.Valid));
+        Assert.False(field.State.HasFlag(ElementState.Invalid));
+        Assert.Equal(AccessibleStates.Required, field.Editor.AccessibleState & Reported);
+    }
+
+    /// <summary>A rule that is not the value moves the box as well as the editor.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The trap this method exists for: <c>Editor.Revalidate()</c> alone leaves the box
+    ///     stale.</b> The editor is where the rules live, so it is the object an application reaches
+    ///     for — and a mirror that is only refreshed by a value change is a mirror that is right
+    ///     until the first time the answer moves for any other reason.
+    /// </remarks>
+    [Fact]
+    public void Revalidating_a_combo_box_moves_the_box_and_not_only_the_editor() {
+        using var fixture = new ControlFixture();
+        var field = fixture.Add<ComboBox>();
+        var taken = false;
+
+        field.Editor.Validator = _ => taken ? "Already taken" : null;
+        field.Value = "ada";
+
+        Assert.True(field.State.HasFlag(ElementState.Valid));
+
+        taken = true;
+        field.Revalidate();
+
+        Assert.False(field.IsValid);
+        Assert.True(field.State.HasFlag(ElementState.Invalid));
+        Assert.False(field.State.HasFlag(ElementState.Valid));
     }
 
     /// <summary>Every state this file is about, so an unrelated flag cannot make an assertion pass.</summary>
