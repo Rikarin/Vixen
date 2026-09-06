@@ -31,6 +31,15 @@ namespace Vixen.Editor.Texturing;
 ///         picture is the module's — a view built here has no graphics service to evaluate with, and
 ///         a factory that took one would be a second route to the device beside the panel's.
 ///     </para>
+///     <para>
+///         ⚠ <b>And what it says about that used to be false</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/841">#841</a>. It passed
+///         <c>NoGraphics</c>, whose sentence is "this host publishes no IEditorGraphics" — and a
+///         double-click happens in the editor, which publishes one. The sibling
+///         <see cref="LayerStackEditorFactory" /> was corrected by
+///         <a href="https://github.com/Rikarin/Vixen/issues/831">#831</a> and this one was not,
+///         because this file was not that slice's.
+///     </para>
 /// </remarks>
 sealed class TextureGraphEditorFactory : IAssetEditorFactory {
     /// <inheritdoc />
@@ -64,10 +73,16 @@ sealed class TextureGraphEditorFactory : IAssetEditorFactory {
 
         var view = new TextureGraphView(panel);
 
-        // ⚠ No picture and no device here, and the pane says which. A tab opened by a double-click
-        // shows the canvas; the preview is the module's panel, which is the thing holding the
-        // evaluator. Two evaluators over one device would be two pipeline caches.
-        view.Show(graph, TexturePreviewBlocker.NoGraphics);
+        // ⚠ No picture here, and the pane says why in the one sentence that is true of it. A tab
+        // opened by a double-click shows the canvas; the preview is the module's panel, which is the
+        // thing holding the evaluator.
+        //
+        // ⚠ `NoGraphics` was a lie in this exact position and it took a batch to notice — #841. A
+        // double-click happens in the editor and the editor publishes `IEditorGraphics`, so "this
+        // host publishes no IEditorGraphics" sent the one reader who could act on it to look for a
+        // plugin point that is already there. `AnotherPane` is a fact about this view rather than
+        // about the host, which is why no `TexturePreview.Blocking` overload can return it.
+        view.Show(graph, TexturePreviewBlocker.AnotherPane);
 
         return view.Root;
     }

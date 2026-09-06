@@ -302,17 +302,33 @@ static class LayerStackGraph {
         }
 
         /// <summary>Refuses two layers sharing an identity, because an anchor names one of them.</summary>
+        /// <remarks>
+        ///     ⚠ <b>The empty id counts, and it used to be exempt</b>
+        ///     (<a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>).
+        ///     <see cref="LayerAsset.Id" /> defaults to empty, so a hand-written file that names no
+        ///     ids gave every one of its layers the same one — and the exemption meant the check
+        ///     that was supposed to make that impossible was the one thing that let it through.
+        ///     It is not only an anchor that reads the id: <c>LayerPath</c> addresses every editing
+        ///     command by it, so two layers sharing one means every row of the second drives the
+        ///     first, and an artist reordering row four watches row two move.
+        /// </remarks>
         void Duplicates() {
             HashSet<string> ids = new(StringComparer.Ordinal);
 
             void Walk(List<LayerAsset> layers) {
                 foreach (var layer in layers) {
-                    if (layer.Id.Length > 0 && !ids.Add(layer.Id)) {
+                    if (!ids.Add(layer.Id)) {
                         problems.Add(LayerStackProblem.Refusal(
                             layer.Id,
-                            $"Two layers share the id '{layer.Id}'. An anchor names a layer by id, so a duplicate "
-                            + "makes the mask read whichever of the two the walk reached first — a picture that "
-                            + "changes when the artist reorders layers that are not the anchored one."
+                            layer.Id.Length == 0
+                                ? "Two layers have no id. A layer is addressed by id — by an anchor reading its "
+                                + "result, and by every editing command in the panel — so two that share one are "
+                                + "one layer as far as both are concerned: the second's row moves the first. Give "
+                                + "each layer in the file an 'id'."
+                                : $"Two layers share the id '{layer.Id}'. An anchor names a layer by id, so a "
+                                + "duplicate makes the mask read whichever of the two the walk reached first — a "
+                                + "picture that changes when the artist reorders layers that are not the anchored "
+                                + "one."
                         ));
                     }
 

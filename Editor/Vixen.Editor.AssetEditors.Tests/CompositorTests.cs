@@ -360,10 +360,12 @@ public class CompositorSettingsTests {
     ///     <para>
     ///         ⚠ <b>And nothing else was going to give the graph a width either.</b>
     ///         <c>NodeGraphTheme</c> declares <c>node-graph { flex-grow: 1 }</c>, but
-    ///         <c>NodeGraphTheme.Install</c> is called by one test fixture in
-    ///         <c>Vixen.Editor.NodeGraph.Tests</c> and by nothing in the editor application — so in
-    ///         the shipping editor the tag is styled only by whichever
-    ///         <c>&lt;x&gt;-editor &gt; node-graph</c> rule names it. That is what makes
+    ///         <c>NodeGraphTheme.Install</c> was called by one test fixture in
+    ///         <c>Vixen.Editor.NodeGraph.Tests</c> and by nothing in the editor application when this
+    ///         was written, so the tag was styled only by whichever
+    ///         <c>&lt;x&gt;-editor &gt; node-graph</c> rule named it. ⚠ The editor installs the theme
+    ///         as of <a href="https://github.com/Rikarin/Vixen/issues/917">#917</a>, so that sentence
+    ///         is history — but it is what made
     ///         <c>shadergraph-editor &gt; node-graph</c> load-bearing rather than redundant, and what
     ///         made the compositor's misspelling total: the graph's only in-flow child is a
     ///         <c>node-canvas</c> whose own children are all absolutely positioned, so it contributes

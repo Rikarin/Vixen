@@ -77,6 +77,16 @@
         <ProjectReference Include="..\Vixen.Editor.AssetEditors\Vixen.Editor.AssetEditors.csproj" />
 
         <!--
+            ⚠ Named rather than taken through the line above, for one call: `NodeGraphTheme.Install`,
+            the user-agent sheet the four graph panels here are drawn with (#917). It arrives
+            transitively through the asset editors and compiles either way, which is exactly why it
+            is written down — a sheet this assembly loads by name is a dependency this assembly has,
+            and a day when the asset editors stop referencing the node graph should be a missing
+            reference rather than a missing look.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
+
+        <!--
             The six diagnostics panels of doc 20's B4. Two assemblies rather than one because they
             depend on different halves of the engine — the profiler on the sample rings and the RHI's
             query pools, the debugger on a command stream and a network transport — and because doc

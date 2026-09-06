@@ -447,6 +447,7 @@ shader TileSampler {
         val step = 1f / float(samples)
 
         var sum = float4(0f, 0f, 0f, 0f)
+        var weighted = float3(0f, 0f, 0f)
 
         for (jy in 0 .. MaxSamples) {
             if (jy >= samples) {
@@ -460,11 +461,38 @@ shader TileSampler {
 
                 val u = (float(coord.x) + (float(jx) + 0.5f) * step) / float(size.x)
                 val v = (float(coord.y) + (float(jy) + 0.5f) * step) / float(size.y)
+                val gathered = Gather(float2(u * float(max(gridX, 1)), v * float(max(gridY, 1))), radius)
 
-                sum = sum + Gather(float2(u * float(max(gridX, 1)), v * float(max(gridY, 1))), radius)
+                sum = sum + gathered
+                weighted = weighted + gathered.xyz * gathered.w
             }
         }
 
-        target.Store(coord, sum / float(samples * samples))
+        val mean = sum / float(samples * samples)
+
+        // ⚠ **The box filter is a compositing operator too, and under two of the three modes it has
+        // to weight by coverage** — [#888](https://github.com/Rikarin/Vixen/issues/888), and
+        // `Splatter.rvn` carries the same eight lines for the same reason. A sub-sample no instance
+        // reached is `float4(0, 0, 0, 0)`, which under `max` and `blend` is a *straight* colour
+        // beside a coverage of zero and not a black texel; averaging it into the colour composites
+        // the stamp against transparent black and rims every minified instance in a darker version of
+        // itself. `Σ(cᵢ·αᵢ) / Σαᵢ` for the colour and the plain mean for the coverage is what a
+        // straight pair means, and at `samples == 1` it is the identity.
+        //
+        // ⚠ **`add` keeps the unweighted mean and that is not an oversight.** Its running colour is a
+        // *sum* of light and not a colour over a backdrop, so an empty sub-sample contributes a true
+        // zero — and the closed form this whole node is read off, that the mean of an accumulated
+        // field is `scale²` times the pattern's own mean whatever the grid, is a statement about that
+        // unweighted mean. `Accumulate`'s three modes differ here for the reason they differ there:
+        // only one of them composites.
+        if (accumulation != 1 && sum.w > 0.000001f) {
+            val resolved = weighted / sum.w
+
+            target.Store(coord, float4(resolved.x, resolved.y, resolved.z, mean.w))
+
+            return
+        }
+
+        target.Store(coord, mean)
     }
 }

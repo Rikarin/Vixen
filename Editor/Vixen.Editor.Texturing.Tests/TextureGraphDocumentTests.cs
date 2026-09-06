@@ -139,8 +139,8 @@ public class TextureGraphDocumentTests {
         var compilation = document.Compile();
 
         Assert.Empty(compilation.Diagnostics);
-        Assert.NotNull(compilation.Artefact);
-        Assert.NotEmpty(compilation.Artefact!.Ops);
+        Assert.NotNull(compilation.Plan);
+        Assert.NotEmpty(compilation.Plan!.Ops);
     }
 
     /// <summary>

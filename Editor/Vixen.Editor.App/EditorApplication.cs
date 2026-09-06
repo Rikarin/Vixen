@@ -18,6 +18,7 @@ using Vixen.Editor.Core.Scenes;
 using Vixen.Editor.Debugger;
 using Vixen.Editor.Inspector;
 using Vixen.Editor.Inspector.Drawers;
+using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
@@ -523,16 +524,34 @@ sealed partial class EditorApplication : IDisposable {
         // the console to read: the ones from start-up.
         log.Mirror(Shell.Notifications);
 
-        // ⚠ The fourth user-agent sheet, and it is the application that loads it. `EditorShell` has
-        // the three that draw the chrome and cannot have this one: it is deliberately a shell that
-        // knows nothing about inspectors, and the panel it hosts is this assembly's choice. Loaded
-        // after those three, so a rule of the same specificity here wins — which is what lets it
-        // narrow `expander-content`'s indent and a field's background without out-specifying them.
+        // ⚠ The fourth user-agent sheet, and until now it was installed by one test fixture and by
+        // no editor at all (#917). Four panels here host a `NodeGraphView` — the compositor, the
+        // shader graph, the VFX graph and a plugin's texture graph — and every one of them was
+        // running on whichever `<x>-editor > node-graph` rule `AssetEditorTheme` happens to carry.
+        // Those give `flex-grow` and nothing else, so `node-graph` was not the containing block its
+        // absolutely positioned children are pinned to, `node-canvas` had no size of its own in a
+        // column, the preview layer was in flow and taking the clicks its own comment says it must
+        // never take, and a sticky note was laid out between the nodes rather than over them. The
+        // texture graph had no such rule anywhere, which is why its canvas measured zero high.
+        //
+        // ⚠ Here rather than in `EditorShell`, which is where the issue proposed it: the shell
+        // deliberately references neither the inspector nor the node graph, and putting a sheet
+        // there would mean the chrome taking a dependency on a panel assembly to load some CSS.
+        // This is the same place, and the same argument, as the four below.
+        NodeGraphTheme.Install(Shell.Document);
+
+        // ⚠ The fifth, and it is the application that loads it. `EditorShell` has the three that
+        // draw the chrome and cannot have this one: it is deliberately a shell that knows nothing
+        // about inspectors, and the panel it hosts is this assembly's choice. Loaded after those
+        // three, so a rule of the same specificity here wins — which is what lets it narrow
+        // `expander-content`'s indent and a field's background without out-specifying them.
         InspectorTheme.Install(Shell.Document);
 
-        // ⚠ And the fifth, after it, for the same reason: the asset editors' own elements are styled
+        // ⚠ And the sixth, after it, for the same reason: the asset editors' own elements are styled
         // against the tokens the four below declare, and a rule of equal specificity here has to win
-        // — an override matrix's cell is a row inside an inspector-shaped panel.
+        // — an override matrix's cell is a row inside an inspector-shaped panel. Its three
+        // `<x>-editor > node-graph` rules stay: they carry `min-width: 0`, which the sheet above
+        // does not, and they out-specify it rather than repeat it.
         AssetEditorTheme.Install(Shell.Document);
 
         // And the browser's two rules, which are this assembly's panel and nobody else's business.

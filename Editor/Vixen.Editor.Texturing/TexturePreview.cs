@@ -101,30 +101,32 @@ static class TexturePreview {
     /// <remarks>
     ///     ⚠ <b>Each sentence names the change rather than apologising.</b> A reader of this panel is
     ///     either the person who would make that change or the person who has to report it, and
-    ///     "preview unavailable" serves neither. The <see cref="TexturePreviewBlocker.None" />
-    ///     sentence says what is on screen <i>and</i> what it is not, because a base layer that
-    ///     claimed to be the wired graph would hide the one gap left.
+    ///     "preview unavailable" serves neither.
     ///     <para>
-    ///         ⚠ <b>And that sentence named the wrong gap for a whole batch, which is the failure
-    ///         this remark's own first line describes —
+    ///         ⚠ <b>The <see cref="TexturePreviewBlocker.None" /> sentence named the wrong gap for
+    ///         two batches, which is the failure this remark's own first line describes —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>.</b> It said
     ///         <c>TextureGraphCompiler</c> was <c>internal</c> and that the plugin therefore could
-    ///         not compile a wired graph. It has been public since
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>, and
-    ///         <c>TextureGraphDocument.Compile</c> in this assembly compiles the document through it
-    ///         — so the sentence sent the one reader who could act on it to reopen a closed issue.
-    ///         What is actually missing is a caller: <c>TextureGraphPreview.Evaluate</c> evaluates
-    ///         <c>Base(width, height)</c>, a fixed checkerboard, and never asks the document for its
-    ///         plan (<a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>).
+    ///         not compile a wired graph; the compiler had been public since
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>, so the sentence sent
+    ///         the one reader who could act on it to reopen a closed issue. Rewritten, it then said
+    ///         truthfully that the pane showed a fixed checkerboard and named
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>. That is closed too:
+    ///         <c>TextureGraphPreview.Evaluate</c> compiles the document.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is <em>not</em> here is "this graph does not compile", and that is
+    ///         deliberate.</b> A blocker answers "what can this host do", so a fifth member for it
+    ///         would be a fact about the document wearing a host's hat — and the useful half of that
+    ///         answer is which node failed, which no enum can carry.
+    ///         <see cref="TextureGraphPicture.Status" /> is where a graph's own refusal goes, built
+    ///         out of the diagnostics.
     ///     </para>
     /// </remarks>
     public static string Describe(TexturePreviewBlocker blocker) =>
         blocker switch {
             TexturePreviewBlocker.None =>
-                "Preview: the graph's base layer, evaluated on this editor's device. ⚠ Not the wired "
-                + "graph — TextureGraphPreview still evaluates a fixed checkerboard, and wiring it to "
-                + "TextureGraphDocument.Compile, which already produces a plan for this document, is "
-                + "#792.",
+                "Preview: this graph, compiled and evaluated on this editor's device.",
             TexturePreviewBlocker.NoGraphics =>
                 "No preview: this host publishes no IEditorGraphics to plugins, so nothing here can "
                 + "dispatch a kernel. The editor publishes one from EditorApplication.PluginPoints.",

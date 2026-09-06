@@ -37,8 +37,8 @@ public class LayerStackBakeDeviceTests(ITestOutputHelper output) {
     /// <summary>Criterion 6.</summary>
     [Fact]
     public void A_stack_and_its_explosion_bake_byte_identical_outputs() {
-        using var device = Open();
-        var adapter = Adapter(device);
+        using var device = TexturingDevice.Open();
+        var adapter = TexturingDevice.Adapter(device);
 
         var stack = LayerStackDifferential.Stack();
         var (direct, exploded) = LayerStackDifferential.Both(stack);
@@ -79,8 +79,8 @@ public class LayerStackBakeDeviceTests(ITestOutputHelper output) {
     /// </remarks>
     [Fact]
     public void The_baked_base_colour_is_not_flat() {
-        using var device = Open();
-        var adapter = Adapter(device);
+        using var device = TexturingDevice.Open();
+        var adapter = TexturingDevice.Adapter(device);
 
         var stack = LayerStackDifferential.Stack();
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
@@ -192,22 +192,4 @@ public class LayerStackBakeDeviceTests(ITestOutputHelper output) {
 
         return "nowhere — the two differ only in length";
     }
-
-    /// <summary>A device, or a loud skip — or, when one was required, a failure.</summary>
-    static VulkanDevice Open() {
-        if (VulkanDevice.TryCreate(new(), out var device, out var reason)) {
-            return device!;
-        }
-
-        if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
-            Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
-        }
-
-        Assert.Skip(reason ?? "no Vulkan device, so nothing here can be proved");
-
-        throw new InvalidOperationException("unreachable");
-    }
-
-    static string Adapter(VulkanDevice device) =>
-        $"{device.Adapter.Name} ({device.Adapter.Kind}, {device.Adapter.DriverVersion})";
 }

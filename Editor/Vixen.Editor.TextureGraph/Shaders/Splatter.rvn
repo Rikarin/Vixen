@@ -337,6 +337,7 @@ shader Splatter {
         val step = 1f / float(samples)
 
         var sum = float4(0f, 0f, 0f, 0f)
+        var weighted = float3(0f, 0f, 0f)
 
         for (jy in 0 .. MaxSamples) {
             if (jy >= samples) {
@@ -350,11 +351,46 @@ shader Splatter {
 
                 val u = (float(coord.x) + (float(jx) + 0.5f) * step) / float(size.x)
                 val v = (float(coord.y) + (float(jy) + 0.5f) * step) / float(size.y)
+                val gathered = Gather(float2(u, v))
 
-                sum = sum + Gather(float2(u, v))
+                sum = sum + gathered
+                weighted = weighted + gathered.xyz * gathered.w
             }
         }
 
-        target.Store(coord, sum / float(samples * samples))
+        val mean = sum / float(samples * samples)
+
+        // ⚠ **The box filter is a compositing operator too, and under two of the three modes it has
+        // to weight by coverage** — [#888](https://github.com/Rikarin/Vixen/issues/888). A sub-sample
+        // that no instance reached is `float4(0, 0, 0, 0)`, which under `max` and `blend` is a
+        // *straight* colour beside a coverage of zero and not a black texel: averaging it into the
+        // colour is compositing the stamp against transparent black, and the result is a stamp with a
+        // dark rim exactly one texel wide wherever it is minified enough for `samples` to exceed 1.
+        // The premultiplied resolve below is what a straight pair means — `Σ(cᵢ·αᵢ) / Σαᵢ` for the
+        // colour, the plain mean for the coverage — and at `samples == 1` it is the identity.
+        //
+        // ⚠ **Under `alphaCoverage == 0` that `α` is the colour's own luminance**, because that is
+        // what `Coverage` returns there — so this is a luminance-weighted mean rather than a box
+        // mean, and a minified greyscale pattern resolves brighter than the pattern. Whether that is
+        // right is the kernel's coverage model rather than this filter's arithmetic: under
+        // luminance-as-coverage a dark texel *is* less covered and should weigh less. It is
+        // unasserted either way — the test that pins this fix passes `alphaCoverage: true` — and is
+        // recorded at <https://github.com/Rikarin/Vixen/issues/950> rather than settled here.
+        //
+        // ⚠ **`add` keeps the unweighted mean and that is not an oversight.** Its running colour is a
+        // *sum* of light rather than a colour over a backdrop, so an empty sub-sample contributes a
+        // true zero; the header's closed form — the mean of the result is `count · scale²` times the
+        // pattern's own mean — is a statement about that unweighted mean and a coverage-weighted
+        // filter would break it. The three modes differ here for the same reason they differ in
+        // `Accumulate`: only one of them composites.
+        if (accumulation != 1 && sum.w > 0.000001f) {
+            val resolved = weighted / sum.w
+
+            target.Store(coord, float4(resolved.x, resolved.y, resolved.z, mean.w))
+
+            return
+        }
+
+        target.Store(coord, mean)
     }
 }

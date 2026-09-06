@@ -21,14 +21,16 @@ namespace Vixen.Editor.Texturing;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The preview pane draws what the device produced, and the line under it says what
-///         that is.</b> Two things used to stand between this panel and a picture; one of them —
-///         no device published to plugins — is closed, so the pane now shows a real dispatch at the
-///         document's own resolution (<see cref="TextureGraphPreview" />). The other is not, so the
-///         line says the picture is the graph's <i>base layer</i> rather than the wired graph. A
-///         pane that claimed otherwise would hide the remaining gap in the one place a person would
-///         notice it; a pane left empty would hide whether the first half works at all. On a host
-///         with no device, the pane stays empty and the same line says which of the two reasons it
-///         is — see <see cref="TexturePreviewBlocker" />.
+///         that is.</b> Two things used to stand between this panel and a picture and both are
+///         closed: a device published to plugins
+///         (<a href="https://github.com/Rikarin/Vixen/issues/737">#737</a>), and a caller for the
+///         public compiler (<a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>). So the
+///         pane shows <em>this graph</em>, compiled and evaluated at the document's own resolution,
+///         and for three batches it showed a fixed checkerboard while the line under it named a
+///         closed issue as the reason. On a host with no device the pane stays empty and the line
+///         says which of the two host states it is in — see <see cref="TexturePreviewBlocker" />;
+///         on a graph that does not compile it says which node refused, which is a fact about the
+///         document and not about the host.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Built in C# rather than in <c>.vxml</c>, and that is a debt rather than a
@@ -81,9 +83,10 @@ sealed class TextureGraphView {
 
         Canvas = left.Add<NodeGraphView>();
 
-        // ⚠ Inline, because `node-graph { flex-grow: 1 }` is in `NodeGraphTheme.vcss` and
-        // `NodeGraphTheme.Install` is called by one test fixture and by no editor host —
-        // <a href="https://github.com/Rikarin/Vixen/issues/917">#917</a>. The other three graph
+        // ⚠ Inline, and it is belt and braces rather than the only thing holding the graph open.
+        // `node-graph { flex-grow: 1 }` is in `NodeGraphTheme.vcss`, which the editor host installs
+        // as of #917 — but this line predates that and stays, because a plugin's panel should not
+        // depend on a host stylesheet it does not own. The other three graph
         // panels get it from `AssetEditorTheme.vcss`'s `<x>-editor > node-graph` rules, and no rule
         // anywhere names this one: the canvas measured 990×0 in a shell with the panel open, which
         // is a graph an author can neither see nor click, let alone double-click a compound in.
@@ -94,6 +97,13 @@ sealed class TextureGraphView {
         // compound reached the framework, raised this, and stopped: an author could place
         // `Generators/Dirt`, compile it, bake it, and never see what it was.
         Canvas.SubGraphOpened += (_, type, child) => Descend(type, child);
+
+        // ⚠ The line that makes an edit on the canvas reach the picture, and it is worth nothing
+        // until the picture is the graph. While the pane drew a fixed checkerboard there was no
+        // difference between redrawing on every edit and redrawing never; now that it compiles the
+        // document (#792), a wire an author drags changes the map and this is what says so — which is
+        // `LayerStackView.Edited` one panel over, for #819's reason.
+        Canvas.GraphChanged += _ => Edited?.Invoke();
 
         var right = root.Add("texture-graph-preview");
 
@@ -131,10 +141,49 @@ sealed class TextureGraphView {
     /// <summary>The document currently on the canvas.</summary>
     public TextureGraphDocument? Document { get; private set; }
 
-    /// <summary>Puts a graph on the canvas, or takes the last one off.</summary>
+    /// <summary>Called when the graph on the canvas changed, for whoever owns the evaluator.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The view cannot redraw its own picture and must not try.</b> Evaluating needs the
+    ///         module's <c>TexturePlanEvaluator</c> — there is one of those per session, not per view
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>) — so what this view
+    ///         can do about an edit is say that there was one. A tab built by the asset-editor
+    ///         factory leaves this null and simply does not redraw, which is what
+    ///         <see cref="TexturePreviewBlocker.AnotherPane" /> tells the reader.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It fires on every change to the model, including a node being dragged to a new
+    ///         position.</b> That is a compile and a dispatch for a move that cannot change a texel,
+    ///         and it is the layers panel's cost profile unchanged — the alternative is a pane that
+    ///         is right about some edits and stale about others, which is worse than slow.
+    ///     </para>
+    /// </remarks>
+    public Action? Edited { get; set; }
+
+    /// <summary>Puts a graph on the canvas for a caller that has drawn nothing, and says why.</summary>
     /// <param name="document">The graph, or <see langword="null" /> for none.</param>
-    /// <param name="blocker">What stands between this host and a picture, if anything.</param>
-    /// <param name="result">The evaluated picture, or <see langword="null" /> for none.</param>
+    /// <param name="blocker">What stands between this host — or this view — and a picture.</param>
+    /// <remarks>
+    ///     What an <c>IAssetEditorFactory</c>'s tab uses: it holds no evaluator, so the only thing it
+    ///     has to say is which pane does. See the other overload for why that is a separate question
+    ///     from what a compile said.
+    /// </remarks>
+    public void Show(TextureGraphDocument? document, TexturePreviewBlocker blocker) =>
+        Show(document, new TextureGraphPicture(null, TexturePreview.Describe(blocker)));
+
+    /// <summary>Set by a caller that compiled before showing, to say the compile republished.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Cleared by the next <see cref="Show" />, so it cannot answer twice.</b>
+    ///     <c>TextureGraphDocument.Republish</c> is a one-shot: it returns true once per change and
+    ///     false afterwards. Anything that compiles — which is what producing a picture means —
+    ///     consumes it, so a caller that produces the picture first has to carry the answer across
+    ///     rather than let this view ask a question already answered.
+    /// </remarks>
+    public bool Republished { get; set; }
+
+    /// <summary>Puts a graph on the canvas, with whatever evaluating it produced.</summary>
+    /// <param name="document">The graph, or <see langword="null" /> for none.</param>
+    /// <param name="picture">What the evaluation produced, or <see langword="null" /> for nothing.</param>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Null is an ordinary state and not a failure.</b> A panel's factory runs when the
@@ -148,12 +197,16 @@ sealed class TextureGraphView {
     ///         host, so a pane built that way said "no device" for the whole session on a host that
     ///         had one by the time anybody looked.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A sentence rather than a blocker, because a graph has a third kind of answer.</b>
+    ///         A blocker says what the <em>host</em> cannot do; a graph that does not compile, or one
+    ///         whose bitmap names a missing file, is a fact about the document and needs the
+    ///         diagnostic in it. That is the difference <c>LayerStackView</c> already had, and the
+    ///         overload above is the host-side half kept for a caller that never evaluated —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>.
+    ///     </para>
     /// </remarks>
-    public void Show(
-        TextureGraphDocument? document,
-        TexturePreviewBlocker blocker,
-        IEditorImage? result = null
-    ) {
+    public void Show(TextureGraphDocument? document, TextureGraphPicture? picture) {
         // ⚠ Whether this is a *different* graph, not whether there is one. `Show` runs on every
         // refresh — every edit, every evaluation — and a trail rebuilt each time would throw an
         // author out of the compound they were looking inside the moment the preview redrew.
@@ -173,7 +226,7 @@ sealed class TextureGraphView {
 
         Empty.SetStyle("display", document is null ? "flex" : "none");
         root.SetStyle("display", document is null ? "none" : "flex");
-        status.Text = TexturePreview.Describe(blocker);
+        status.Text = picture?.Status ?? "";
 
         if (document is null) {
             title.Text = "Result";
@@ -190,7 +243,15 @@ sealed class TextureGraphView {
         // ⚠ Before the registry is read, because a republish replaces it rather than adding to it —
         // #803. A panel that read the old one would offer an author the menu a compound had before
         // they edited it, and go on doing so until the graph was reopened.
-        var republished = document.Republish();
+        //
+        // ⚠ **And `Republished` is what a caller who compiled first must tell us**, because
+        // `TextureGraphDocument.Compile` republishes too. A caller that writes
+        // `Show(document, preview.Evaluate(document))` has already consumed the stale flag by the
+        // time this line runs — C# evaluates the argument first — so asking here answered false on
+        // the one path that matters and `Resettle` was unreachable in the real editor.
+        var republished = Republished || document.Republish();
+
+        Republished = false;
 
         // ⚠ The compounds that would not read, and this is the only place the loss is visible —
         // #803. `TextureCompoundLibrary.Publish` reports and skips rather than throwing, so that one
@@ -204,6 +265,22 @@ sealed class TextureGraphView {
                     .Select(problem => $"'{problem.Path}' is not in the menu: {problem.Problem}")
                     .Prepend(status.Text)
             );
+        }
+
+        // ⚠ The warnings, and only the warnings, and this is the first production reader a texture
+        // diagnostic has had on the graph side — #816. An error is already in the sentence above:
+        // `TextureGraphPreview.Refused` builds it out of exactly those, so listing them again would
+        // say every failure twice. A warning is the one that did not stop the map and therefore has
+        // nowhere else to appear — #830's finding, one panel over.
+        if (picture is not null) {
+            var cautions = picture.Diagnostics
+                .Where(one => one.Severity != NodeSeverity.Error)
+                .Select(one => one.Id + ": " + one.Message)
+                .ToArray();
+
+            if (cautions.Length > 0) {
+                status.Text = string.Join(" · ", cautions.Prepend(status.Text));
+            }
         }
 
         Canvas.Registry = document.Registry;
@@ -240,7 +317,7 @@ sealed class TextureGraphView {
         // renderer resolves; zero draws the chequerboard and nothing else, which is the honest picture
         // of a graph this host cannot evaluate. The extent is what makes the zoom, the fit and the
         // pointer readout mean the texels an author is authoring, so it is set either way.
-        Preview.Image = result?.Image ?? 0;
+        Preview.Image = picture?.Image?.Image ?? 0;
         Preview.ImageWidth = document.BaseWidth;
         Preview.ImageHeight = document.BaseHeight;
         Preview.Fit();

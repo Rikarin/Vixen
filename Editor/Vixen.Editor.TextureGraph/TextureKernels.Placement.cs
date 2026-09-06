@@ -171,9 +171,18 @@ internal static class TexturePlacement {
             // ⚠ #867. Every one of the four is read through **its own** extent — `Stamp` divides by
             // `pattern.GetDimensions(0)` and `At` by the map's — so stamping a 64² pattern over a
             // 1024² output is this node's ordinary use and not the smeared corner
-            // `TexturePlan.Check` cautions about. #801 landed the flag and the reader that puts a
-            // caution under the layer stack's pane, and missed these two, so the node an artist
-            // reaches for first was the one that complained.
+            // `TexturePlan.Check` cautions about. `OtherExtentInputs` is left empty for the same
+            // reason: the list would be every index, and empty already says every index.
+            //
+            // ⚠ **The caution it silences is one no compiled graph can raise, and #867's own
+            // justification claimed otherwise** — [#900](https://github.com/Rikarin/Vixen/issues/900).
+            // "the node an artist reaches for first was the one that complained" is false:
+            // `TileSamplerNode.Compile` reads every input through `TextureEmitter.Read`, which does
+            // `Rescale(arrived, level)` before the op is built, so an op this compiler emits has its
+            // inputs at the output's own extent by construction and the two sizes `Check` compares
+            // are equal whatever this flag says. What the flag is worth is what
+            // `TextureOp.ReadsOtherExtents` says of `AutoLevels`: a **hand-built** plan is the
+            // reachable case, and M7, `TextureGraphPreview.Base` and most of this project build one.
             ReadsOtherExtents = true,
             Parameters = [
                 new("gridX", gridX),
@@ -322,9 +331,15 @@ internal static class TexturePlacement {
             Inputs = [pattern, mask, sizeMap, rotationMap, placement],
 
             // ⚠ #867, `TileSampler`'s reason and one more input. All five are read through their own
-            // extent, so **every** input of this op is extent-agnostic and the per-op flag says
-            // exactly what is true here — see `TextureOp.ReadsOtherExtents` for why the granularity
-            // is the op and where that costs something.
+            // extent, so **every** input of this op is extent-agnostic — which is why
+            // `OtherExtentInputs` stays empty here rather than listing 0 through 4: empty means every
+            // input, and a list that has to be kept in step with `Inputs` is a second thing to get
+            // wrong. See `TextureOp.OtherExtentInputs` for the op where the distinction is real.
+            //
+            // ⚠ And #900 applies here word for word: the caution this silences is one no compiled
+            // graph can raise, because `SplatterNode.Compile` reads through `TextureEmitter.Read` and
+            // that rescales to the node's level before the op is built. A hand-built plan is the
+            // reachable case, exactly as it is for `AutoLevels`.
             ReadsOtherExtents = true,
             Parameters = [
                 new("count", count),

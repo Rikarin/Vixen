@@ -108,6 +108,109 @@ public class PaintCanvasTests {
         Assert.Equal(canvas.Channel("height").Texels, read.Channel("height").Texels);
     }
 
+    /// <summary>⚠ The file is a fraction of the texels it holds, which is the whole of version 2.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/850">#850</a>, and the round trip
+    ///         above cannot see it.</b> A writer that reverted to raw texels round-trips perfectly, so
+    ///         the only assertion that can tell the two apart is the size of what was written.
+    ///     </para>
+    ///     <para>
+    ///         <b>The content is a stroke over transparency</b> — the case the type's remarks describe
+    ///         as "mostly one flat colour under a coverage ramp", and the least compressible of the
+    ///         three that were measured. An empty or flat canvas reaches 1%, which would make the
+    ///         bound below true of a format that only happened to store zeroes well.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A quarter, not the 6.4% that was measured.</b> The measurement is a fact about one
+    ///         stroke at 4K; the assertion is the property — a paint canvas is <em>compressible and is
+    ///         compressed</em> — and a bound tuned to the sample would go red on a brush change that
+    ///         is nobody's defect.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_written_canvas_is_a_fraction_of_the_texels_it_holds() {
+        const int Side = 256;
+
+        PaintCanvas canvas = new(Side, Side);
+        var colour = canvas.Channel("baseColor");
+
+        PaintStroke stroke = new(
+            colour,
+            PaintCoverage.Everywhere(Side, Side),
+            PaintStrokeTests.Hard(Side / 24f) with { Spacing = 0.5f },
+            0xFF3366CCu
+        );
+
+        for (var step = 0; step <= 40; step++) {
+            var t = step / 40f;
+
+            stroke.MoveTo(new((t * (Side - 32)) + 16f, (MathF.Sin(t * MathF.Tau) * (Side / 4f)) + (Side / 2f)));
+        }
+
+        Assert.True(stroke.StampCount > 20, $"only {stroke.StampCount} stamps, so the canvas is nearly empty");
+
+        using MemoryStream stream = new();
+
+        canvas.Write(stream);
+
+        var raw = (long)colour.Texels.Length;
+
+        Assert.True(
+            stream.Length < raw / 4,
+            $"a {Side}² stroked channel wrote {stream.Length} bytes against {raw} of texels. A .vxpaint "
+            + "is storing raw texels again, which at 4K is 64 MiB a channel and 192 for a layer that "
+            + "paints three."
+        );
+
+        // And it is still the picture: a size assertion on its own is satisfied by a writer that
+        // dropped the channel.
+        stream.Position = 0;
+
+        Assert.Equal(colour.Texels, PaintCanvas.Read(stream).Channel("baseColor").Texels);
+    }
+
+    /// <summary>⚠ A version-1 file — raw texels — still opens, one byte at a time.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>An artist's existing paintings are the reason version 1 is read rather than
+    ///         refused.</b> The bytes are laid out here by hand rather than by an old build, which is
+    ///         the only way this can be a test at all once the writer has moved on: a fixture written
+    ///         by <see cref="PaintCanvas.Write" /> would be version 2 and would prove nothing about
+    ///         the branch.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Through <see cref="Trickle" />, and that is not decoration — it is the raw path's
+    ///         short-read loop, which version 2 quietly took the last caller away from.</b> The
+    ///         drip-feed test above used to be what proved that loop, and it now writes a compressed
+    ///         file: with the loop replaced by a single <c>Read</c> every test in this file stayed
+    ///         green, which was checked. This is the one that goes red.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_version_one_canvas_of_raw_texels_still_opens() {
+        PaintImage expected = new(8, 4, 0xFF3366CCu);
+
+        using MemoryStream stream = new();
+
+        using (BinaryWriter writer = new(stream, System.Text.Encoding.UTF8, leaveOpen: true)) {
+            writer.Write(PaintCanvas.Magic);
+            writer.Write(PaintCanvas.OldestVersion);
+            writer.Write(8);
+            writer.Write(4);
+            writer.Write(1);
+            writer.Write("baseColor");
+            writer.Write(expected.Texels);
+        }
+
+        using Trickle trickle = new(stream.ToArray());
+
+        var read = PaintCanvas.Read(trickle);
+
+        Assert.Equal(["baseColor"], read.Channels);
+        Assert.Equal(expected.Texels, read.Channel("baseColor").Texels);
+    }
+
     /// <summary>A channel is created on first use and kept in the order it was asked for.</summary>
     [Fact]
     public void A_canvas_holds_only_the_channels_the_layer_writes() {

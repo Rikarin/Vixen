@@ -51,19 +51,21 @@ public class TexturePreviewTests {
     /// <summary>And with a device nothing is in the way — which is the half #737 closed.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The sentence says the picture is the graph's base layer rather than the wired
-    ///         graph</b>, which is the gap doc 48 § D14 named the device and did not name.
+    ///         <b>The sentence has now had two false halves in it and this assertion held each one in
+    ///         place</b>, which is the reason it asserts an absence rather than a wording. It said
+    ///         <c>TextureGraphCompiler</c> was <c>internal</c> long after
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a> made it public
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>), and then said the
+    ///         pane showed a fixed checkerboard long enough to outlive
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>. Both cited a closed
+    ///         issue at an author, on screen.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It used to name the wrong reason, and the assertion held it there —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>.</b> It said
-    ///         <c>TextureGraphCompiler</c> was <c>internal</c>, and this test asserted the type's
-    ///         name appeared in it. <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>
-    ///         made it public and <c>TextureGraphDocument.Compile</c> in the assembly under test
-    ///         compiles through it, so for a whole batch a user-visible line sent its one actionable
-    ///         reader to reopen a closed issue — and the test would have gone red on the fix. What is
-    ///         asserted now is the number of the gap that is still open, and that the closed one is
-    ///         not cited.
+    ///         ⚠ <b>So what is asserted is that the sentence names no obstacle at all.</b> A number
+    ///         in it is a gap, and this member is the state where there is none: the graph compiles
+    ///         and is drawn. A refusal that belongs to the <em>document</em> — a graph that does not
+    ///         compile, a bitmap naming a missing file — is <c>TextureGraphPicture.Status</c> and
+    ///         never this enum, because no enum can carry the node it happened at.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -76,9 +78,8 @@ public class TexturePreviewTests {
 
         var sentence = TexturePreview.Describe(TexturePreviewBlocker.None);
 
-        Assert.Contains("base layer", sentence, StringComparison.Ordinal);
-        Assert.Contains("#792", sentence, StringComparison.Ordinal);
-        Assert.DoesNotContain("#738", sentence, StringComparison.Ordinal);
+        Assert.Contains("compiled", sentence, StringComparison.Ordinal);
+        Assert.DoesNotContain("#", sentence, StringComparison.Ordinal);
     }
 
     /// <summary>The contract refuses a service the host did not publish, by name.</summary>
@@ -112,5 +113,7 @@ public class TexturePreviewTests {
         public IGraphicsDevice? Device => device;
 
         public IEditorImage? Upload(int width, int height, ReadOnlySpan<byte> rgba) => null;
+
+        public bool Update(IEditorImage image, int x, int y, int width, int height, ReadOnlySpan<byte> rgba) => false;
     }
 }

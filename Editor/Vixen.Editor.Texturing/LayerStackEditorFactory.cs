@@ -37,11 +37,12 @@ namespace Vixen.Editor.Texturing;
 ///         picture it is handed now says exactly that.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="TexturePreviewBlocker.AnotherPane" /> and not <c>NoGraphics</c>, which is
-///         the sibling factory's remaining bug.</b> A double-click happens in the editor and the
-///         editor publishes graphics, so "this host publishes no IEditorGraphics" is false in the one
-///         place this sentence is ever read. <c>TextureGraphEditorFactory.CreateView</c> still passes
-///         <c>NoGraphics</c> — <a href="https://github.com/Rikarin/Vixen/issues/841">#841</a>.
+///         ⚠ <b><see cref="TexturePreviewBlocker.AnotherPane" /> and not <c>NoGraphics</c>.</b> A
+///         double-click happens in the editor and the editor publishes graphics, so "this host
+///         publishes no IEditorGraphics" is false in the one place this sentence is ever read.
+///         <c>TextureGraphEditorFactory</c> passed <c>NoGraphics</c> for a batch after this one was
+///         corrected, because it was another slice's file —
+///         <a href="https://github.com/Rikarin/Vixen/issues/841">#841</a>, closed.
 ///     </para>
 /// </remarks>
 sealed class LayerStackEditorFactory : IAssetEditorFactory {

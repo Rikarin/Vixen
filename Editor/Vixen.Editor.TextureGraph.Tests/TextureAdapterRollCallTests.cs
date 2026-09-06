@@ -129,4 +129,33 @@ public class TextureAdapterRollCallTests {
         Assert.Contains("adapter:", output.Output, StringComparison.Ordinal);
         Assert.Contains(TextureKernelHarness.Adapter(device), output.Output, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    ///     ⚠ Nothing here but the harness can get a device at all, so the twentieth device file
+    ///     cannot have an anonymous one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The strong half of criterion 11</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/923">#923</a>). The roll call above
+    ///         asks whether a file that <em>looks like</em> it opens a device names the adapter, and
+    ///         its detector is the word <c>Open()</c> — a naming convention the author of the next
+    ///         device file chooses. This asks whether any file but the harness <em>can</em> open one,
+    ///         and its detector is the backend call that produces a device, which nobody here can
+    ///         rename.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It was already true of this project and is asserted anyway.</b> The nineteen
+    ///         device files here all go through the harness; that was a habit until this line, and a
+    ///         habit is what the sister project had too, right up until five files did not.
+    ///         <c>Vixen.Editor.Texturing.Tests</c> is the second caller, where the same check is what
+    ///         made the consolidation worth doing rather than merely tidy.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Only_the_harness_here_creates_a_device() =>
+        DeviceRollCall.Sole(
+            DeviceRollCall.Read(Path.GetDirectoryName(Here())!, "TextureAdapterRollCallTests.cs"),
+            harness: "TextureKernelHarness.cs"
+        );
 }

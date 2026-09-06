@@ -407,12 +407,26 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
 
     /// <summary>Resolves the graph's parameters, and every expression written over them.</summary>
     /// <remarks>
-    ///     ⚠ <b>Before the walk and not during it, because one compilation folds every expression at
-    ///     once.</b> Raven is asked once per <em>graph</em> — one source holding one <c>const val</c>
-    ///     per parameter and one per expression — so a graph of forty expression fields costs one
-    ///     parse and one bind rather than forty, and every expression is bound against the same
-    ///     parameter declarations in the same order. Folding them node by node during the walk would
-    ///     be forty compilations of forty nearly identical files.
+    ///     <para>
+    ///         ⚠ <b>Before the walk and not during it, because one compilation folds a whole scope's
+    ///         expressions at once.</b> Raven is asked once per <em>expansion that holds an
+    ///         expression</em> — one source holding one <c>const val</c> per parameter of that scope
+    ///         and one per expression written in it — so forty expression fields in the author's own
+    ///         graph cost one parse and one bind rather than forty, and every expression in a scope
+    ///         is bound against the same parameter declarations in the same order. Folding them node
+    ///         by node during the walk would be forty compilations of forty nearly identical files.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Once per graph is what this used to say, and re-keying <see cref="Collect" /> on
+    ///         the expansion made it false</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/931">#931</a>). The change is right —
+    ///         an expansion is what makes two instances of one compound two sets of numbers — but the
+    ///         cost it buys is different and this is the sentence somebody quotes when deciding
+    ///         whether expressions are affordable. The bound is the number of compound instances
+    ///         holding an expression, plus one for the author's own graph, and it does not grow with
+    ///         the number of fields: ten instances of a compound with four expression fields each are
+    ///         ten compilations, not forty.
+    ///     </para>
     /// </remarks>
     void Bind(NodeGraphModel graph) {
         foreach (var problem in TextureGraphParameters.Check(declared)) {
@@ -832,14 +846,21 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///         those two alone; the type separates them when the two compounds differ.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What it does <em>not</em> separate is two sibling instances of the SAME compound
-    ///         nested inside one outer compound</b>, which share an outermost source, a type and
-    ///         their inner ids, and therefore share a name — two noise ops drawing one picture. The
-    ///         missing component is the middle of the path: which node <em>inside the outer file</em>
-    ///         each instance came from. <c>NodeOrigin.Expansion</c> distinguishes them and is not
-    ///         usable here, because it is a walk-ordered counter and an insertion moves it — which is
-    ///         the whole defect this method exists to fix, in miniature. Recorded rather than
-    ///         papered over: <a href="https://github.com/Rikarin/Vixen/issues/925">#925</a>.
+    ///         ⚠ <b>What the two ends alone did <em>not</em> separate is two sibling instances of the
+    ///         SAME compound nested inside one outer compound</b> — they share an outermost source, a
+    ///         type and their inner ids, so they shared a name and two noise ops drew one picture
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/925">#925</a>). What was missing is
+    ///         the middle of the walk: which node <em>inside the outer file</em> each instance came
+    ///         out of. <c>SubGraphExpansion.Path</c> is that chain, outermost node first, and every
+    ///         element of it is a <c>NodeId</c> in its own document — so it is stable under an
+    ///         insertion in a way <c>NodeOrigin.Expansion</c>, a walk-ordered counter, is not. Mixing
+    ///         the counter in would have been this method's own defect one level in.
+    ///     </para>
+    ///     <para>
+    ///         <b>The chain subsumes <c>Source</c>, which is its first element</b>, so it replaces
+    ///         that term rather than joining it — and it is folded in order, because a chain that
+    ///         hashed order-independently would put a compound inside another back where it started
+    ///         when the two swapped.
     ///     </para>
     ///     <para>
     ///         <b>The ordinal is what lets one node emit several.</b> <c>AutoLevels</c> is a reduction
@@ -859,11 +880,22 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         var identity = (uint)node.Id.Value;
 
         if (Inlining.TryGet(node.Id, out var origin)) {
-            identity = unchecked(
-                (0x9E3779B9u * (uint)origin.Source.Value)
-                ^ (0x85EBCA6Bu * (uint)origin.Inner.Value)
-                ^ Hashed(origin.Type)
-            );
+            identity = unchecked((0x85EBCA6Bu * (uint)origin.Inner.Value) ^ Hashed(origin.Type));
+
+            // The chain of sub-graph nodes this one came out of, outermost first — #925. Folded in
+            // order and not summed: two compounds that swapped places are two different pictures.
+            //
+            // ⚠ The fallback is `Source` and it should be unreachable: every recorded origin is
+            // stamped with the expansion that produced it and every expansion carries its path. It is
+            // here because the alternative to a wrong-but-stable name is a name that changes with the
+            // walk, and this method exists to rule the second out.
+            if (Inlining.TryGetExpansion(node.Id, out var expansion) && !expansion.Path.IsDefaultOrEmpty) {
+                foreach (var step in expansion.Path) {
+                    identity = unchecked((identity * 0x9E3779B9u) ^ (uint)step.Value);
+                }
+            } else {
+                identity = unchecked(identity ^ (0x9E3779B9u * (uint)origin.Source.Value));
+            }
         }
 
         // MurmurHash3's finalizer, which is `TexturePlan.SeedFor`'s own mix — used here so that the

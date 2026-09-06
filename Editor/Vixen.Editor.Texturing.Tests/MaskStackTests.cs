@@ -55,10 +55,13 @@ public class MaskStackTests(ITestOutputHelper output) {
     ///         contract rather than an accident.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The <em>caller</em> that has a project still passes nothing.</b>
-    ///         <c>LayerStackPreview</c> is the one production caller and it is another slice's file
-    ///         this batch, so the wire is filed rather than made — see the issue. Until then this
-    ///         proves the mechanism and not the panel.
+    ///         ⚠ <b>This proves the mechanism and deliberately not the panel.</b> It passes
+    ///         <c>assets</c> itself, so it would stay green on the build where no production caller
+    ///         did — which is the build it was written on
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/924">#924</a>).
+    ///         <c>ProjectCompoundDeviceTests</c> is the half that goes through
+    ///         <c>Open Layer Stack</c> and reads the texels, and it is the one that can fail on a
+    ///         missing argument.
     ///     </para>
     /// </remarks>
     [Fact]

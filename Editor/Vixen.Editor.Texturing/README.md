@@ -70,13 +70,14 @@ The compiler is public, and two things in this assembly compile a canvas through
 `TextureGraphDocument.Compile` and `LayerStackCompiler`. `ModuleReferenceTests` holds the visibility
 so it cannot quietly go back.
 
-⚠ **Closing a visibility is not the same as closing a gap.** The graph panel still evaluates
-`TextureGraphPreview.Base` — a fixed checkerboard at the document's own resolution — because nothing
-ever wired `Evaluate` to the document's plan. That is one call plus the external upload-and-resolve
-loop `LayerStackPreview` already has, and it is
-[#792](https://github.com/Rikarin/Vixen/issues/792). The **layer stack** pane does compile and bake
-through the public compiler, which is what makes the gap a missing caller rather than a missing
-capability.
+⚠ **Closing a visibility is not the same as closing a gap, and this one stayed open for three more
+batches.** The graph panel went on evaluating `TextureGraphPreview.Base` — a fixed checkerboard at the
+document's own resolution — because nothing ever wired `Evaluate` to the document's plan, while the
+**layer stack** pane beside it compiled and baked through the same public compiler. That was
+[#792](https://github.com/Rikarin/Vixen/issues/792), and it is closed: `Evaluate` compiles the
+document, resolves its external images through `TextureExternalImages` — the loop
+`LayerStackPreview` had, now shared rather than copied — and says which node refused when the graph
+does not compile.
 
 ### 3. An asset-editor registration could not be undone ✅ *not predicted* — [#739](https://github.com/Rikarin/Vixen/issues/739)
 
@@ -136,9 +137,12 @@ a pointer position into a texel. `TexturingModule` registers it as `texturing.pa
    asked for carries the pan, the zoom and the inverse.
 2. ⚠ **Screen radius to texels is the identity, which is not the obvious reading.**
    `PaintBrush.Radius` is authored in *texels of the atlas*, so a 2D view has nothing to convert on
-   the way in. What it owes is the inverse — `ScreenRadius`, the cursor ring — so the artist can see
-   the stamp that would land. The hit triangle's texel density belongs to the 3D path, where a screen
-   radius really is what the artist is holding.
+   the way in — and, it turns out, nothing on the way out: `ShowCursor` draws the ring in texels and
+   `ImageView`'s pan and zoom put it on the screen at the size of the stamp that would land. The hit
+   triangle's texel density belongs to the 3D path, where a screen radius really is what the artist
+   is holding. ⚠ A `ScreenRadius` property said this in arithmetic and nothing ever called it
+   ([#928](https://github.com/Rikarin/Vixen/issues/928)); it is gone, and the claim now lives beside
+   the ring.
 3. ⚠ **There are no mirrors here, and that is a refusal.** Planar symmetry mirrors a point in
    *object* space and the mirrored point lands on a different triangle in a different island. Only a
    surface holding the mesh can supply one.
@@ -149,8 +153,26 @@ event handled on its way to panning — so a `Bubble` handler is registered, rea
 and never once runs. Capture is also the only leg on which a paint drag can win a gesture the pan
 wants: in Select mode nothing is swallowed and the pane pans as it always did.
 
-Two seams are stated rather than papered over, and the line under the pane says which one you are
-looking at:
+**What the brush is aimed at is chosen in the layers panel.** A row's *Select* button writes
+`LayerStackView.Selected` and mirrors it into `PaintTool.LayerId`, which the paint pane reads at every
+refresh — [#910](https://github.com/Rikarin/Vixen/issues/910). ⚠ Selecting a layer that is not a
+`Paint` layer is allowed and the brush then refuses it **by name**; silently painting into some other
+layer is the defect the issue is about. Clicking the selected row again clears the selection, which
+puts the brush back on "the first paint layer in composite order" — a state with its own meaning that
+has to stay reachable.
+
+**And what the atlas is *of* is chosen there too.** The mesh picker binds
+`LayerStackAsset.Model` — [#920](https://github.com/Rikarin/Vixen/issues/920) — and that one binding
+is what makes three things possible at once: `PaintUvView.ShowIslands` has a caller, a stroke is
+refused outside an island instead of being allowed everywhere, and the seam dilation has a seam.
+⚠ **The measured cost moved with it**: over `PaintCoverage.Everywhere` the dilation breaks out of its
+round loop immediately and runs *once*, so at radius 48 and gutter 4 a stamp scanned 10 816 texels
+past its footprint; over real islands all four rounds run and it scans 49 564 — 4.6× — which is what
+`PaintCostTests`' bound always allowed and had never measured. `PaintIslandCostTests` derives both
+from the same run rather than writing either down.
+
+One seam is stated rather than papered over, and the line under the pane is what says you are looking
+at it:
 
 * **The pane shows the layer, not the stack.** `PaintComposite`'s two halves come from an
   `IPaintStack`, and the module supplies `PaintStackImages.Empty` — so the composite of the layer
@@ -158,14 +180,26 @@ looking at:
   [#849](https://github.com/Rikarin/Vixen/issues/849); ⚠ what that needs is **not** the read-back
   that issue names (`TextureBake.Read` already exists and `LayerStackPreview` already calls it) but
   a seam that evaluates an arbitrary sliced `TextureSetAsset`.
-* **Every pointer move re-uploads the whole atlas.** `IEditorGraphics.Upload` has no sub-rectangle
-  form, so the rectangles `PaintComposite.Resolve` was given to keep a stamp's cost independent of
-  the atlas are paid back one level up —
-  [#912](https://github.com/Rikarin/Vixen/issues/912).
+
+⚠ **A pointer move uploads its own rectangle** ([#912](https://github.com/Rikarin/Vixen/issues/912),
+closed). `IEditorGraphics.Update` takes a rectangle and the host defers the copy to the frame that
+draws next, behind a barrier out of `ShaderRead` — which orders it behind the frame that may still be
+sampling the texture, so no second texture and no wait. `PaintUvView` raises `Painted` once per
+*stamp* rather than once for their union, so what is uploaded is exactly what `PaintComposite.Resolve`
+recomputed. ⚠ That is not uniformly fewer bytes and the union is smaller for a slow drag; what the
+union cannot bound is a diagonal jump between two frames or a mirrored pair on opposite sides of the
+atlas. The caller keeps a whole-picture fallback, because `Update` refuses an image made before the
+atlas changed size and refuses everything in a host with no surface.
 
 And the canvas is written to disk at pointer-up, which is forced rather than chosen: a painted layer
 reaches the plan as a *path*, which `LayerStackPreview` opens off the disk on every evaluation, so a
-stroke held in memory is a stroke the map cannot show.
+stroke held in memory is a stroke the map cannot show. Since format version 2 the file is Deflated per
+channel at `Fastest` — a stroked 4K channel is 4.09 MB rather than 64 MiB, for the same wall clock,
+because the raw write it replaces is I/O-bound ([#850](https://github.com/Rikarin/Vixen/issues/850)).
+⚠ What is still read whole, on every stroke and every evaluation, is the *decoded* canvas:
+[#885](https://github.com/Rikarin/Vixen/issues/885) and
+[#948](https://github.com/Rikarin/Vixen/issues/948) are the one store both halves want, and neither is
+worth doing alone.
 
 ## What is not here
 
@@ -175,10 +209,20 @@ stroke held in memory is a stroke the map cannot show.
   M7.
 * **No 3D projection painting.** Doc 48 § D13's *first* front end — a ray to the surface, the hit's
   UV, a stamp in the atlas footprint the screen brush covers — is the half of M9 that is still owed
-  ([#574](https://github.com/Rikarin/Vixen/issues/574)). It is also where the coverage map stops
-  being `PaintCoverage.Everywhere` and becomes a mesh's, and where the mirrors come from.
-* **No layer selection.** Nothing in this plugin has one, so the brush aims at the first `Paint`
-  layer in composite order — [#910](https://github.com/Rikarin/Vixen/issues/910).
+  ([#574](https://github.com/Rikarin/Vixen/issues/574)). ⚠ **What it needed and did not have is now
+  here**: a `.vxlayers` names a model (`LayerStackAsset.Model`), `LayerStackMesh` resolves it to UV
+  triangles, and the coverage map a stroke dilates across is that mesh's rather than
+  `PaintCoverage.Everywhere` — [#920](https://github.com/Rikarin/Vixen/issues/920). What #574 still
+  owes on its own is the raycast, the screen-radius-to-texels conversion through the hit triangle's
+  density, and the mirrors, none of which an atlas can supply.
+* **No per-set mesh picker.** `TextureSetAsset.Mesh` narrows a set to one mesh of the model — a model
+  file splits into one mesh per material slot, which is what a texture set *is* — and the panel binds
+  the model only. Offering the mesh names would mean parsing the model during a panel build, which
+  for a hero asset is seconds.
+* **⚠ No refresh on an undo taken elsewhere.** Nothing here subscribes to `EditorDocument.Stack`, so
+  an undo made through the editor's own verb leaves every control in the layers panel showing the
+  value it had — the blend mode and the opacity as much as the mesh picker. An edit made *in* a row
+  refreshes, which is why this is invisible from inside the panel.
 * **No `.vxml`.** Doc 36 § P4 makes markup the authoring path and this panel is three elements; it is
   worth porting when it grows a form, not before.
 * **No base resolution in the file.** `NodeGraphModel` has nowhere to put one —

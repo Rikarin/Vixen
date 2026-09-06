@@ -60,6 +60,20 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
     /// <summary>What has been made and not yet copied into.</summary>
     readonly List<Pending> waiting = [];
 
+    /// <summary>Rectangles handed to <see cref="Update" /> and not yet copied in.</summary>
+    readonly List<Patch> patching = [];
+
+    /// <summary>Staging buffers whose copy has been submitted, for the next <see cref="Retire" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An update's staging buffer cannot be freed where it is recorded, unlike an upload's.</b>
+    ///     An upload's belongs to the <see cref="Uploaded" /> the image owns and goes when the image
+    ///     does; a patch's is used once and has no owner, so it would leak per pointer move. It is
+    ///     held until the next between-frames pass rather than destroyed inside <see cref="Flush" />
+    ///     — the same batching, and the same deferral by <c>IGraphicsDevice.Destroy</c>, that
+    ///     <see cref="Retire" /> already rests on.
+    /// </remarks>
+    readonly List<BufferHandle> spent = [];
+
     ulong next = ThumbnailCache.FirstImage;
 
     /// <summary>How many copies have been submitted, over the life of this surface.</summary>
@@ -114,10 +128,62 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
         var image = next++;
 
         renderer.RegisterImage(image, view);
-        live[image] = new Uploaded(image, texture, view, staging);
+        live[image] = new Uploaded(image, texture, view, staging, width, height);
         waiting.Add(new Pending(image, texture, staging, width, height));
 
         return image;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Queued for <see cref="Flush" /> rather than copied here, for the reason
+    ///         <see cref="Upload" /> is</b> — this runs from the application's update, outside the
+    ///         frame, and a command list recorded there is allocated from the pool the coming
+    ///         <c>BeginFrame</c> is about to reset.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the deferral is what makes writing into a live texture safe.</b> Unlike an
+    ///         upload, this texture has already been drawn from and the last frame may still be
+    ///         sampling it. What orders the copy behind that frame is the barrier out of
+    ///         <c>ShaderRead</c> in <see cref="Flush" />: a barrier's source scope covers everything
+    ///         earlier in submission order on the same queue, previously submitted lists included, so
+    ///         no second texture and no wait is needed. ⚠ It is therefore <em>this</em> class's
+    ///         ordering that carries it, and not <c>IGraphicsDevice.Destroy</c>'s deferral, which is
+    ///         what carries every other lifetime here.
+    ///     </para>
+    ///     <para>
+    ///         Several updates to the same image in one frame are all recorded, in order, which is
+    ///         what a drag produces: the last one wins where they overlap, and each is a copy of its
+    ///         own rectangle rather than of the picture.
+    ///     </para>
+    /// </remarks>
+    public bool Update(ulong image, int x, int y, int width, int height, ReadOnlySpan<byte> rgba) {
+        if (!live.TryGetValue(image, out var uploaded)) {
+            return false;
+        }
+
+        // ⚠ Bounded against the texture and not against the caller's arithmetic. A copy that runs
+        // off the edge is undefined behaviour in the backend rather than an error, and the caller
+        // here is a plugin.
+        if (width <= 0
+            || height <= 0
+            || x < 0
+            || y < 0
+            || x + width > uploaded.Width
+            || y + height > uploaded.Height
+            || rgba.Length < width * height * 4) {
+            return false;
+        }
+
+        var staging = device.CreateBuffer(
+            new(width * height * 4, BufferUsage.CopySource, MemoryAccess.HostUpload, "thumbnail patch staging")
+        );
+
+        device.Write(staging, 0, rgba[..(width * height * 4)]);
+        patching.Add(new Patch(image, uploaded.Texture, staging, x, y, width, height));
+
+        return true;
     }
 
     /// <summary>Submits the copies <see cref="Upload" /> has queued, on the frame that owns them.</summary>
@@ -137,7 +203,7 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
     ///     </para>
     /// </remarks>
     public int Flush() {
-        if (waiting.Count == 0) {
+        if (waiting.Count == 0 && patching.Count == 0) {
             return 0;
         }
 
@@ -159,14 +225,40 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
                 );
             }
 
+            // ⚠ After the uploads and in the same list, which is what lets a picture be made and
+            // patched before it has ever been drawn: the loop above has already taken this texture
+            // Undefined → CopyDestination → ShaderRead, so the barrier below has a state to leave.
+            foreach (var patch in patching) {
+                commands.Barrier(
+                    new([], [new(patch.Texture, ResourceState.ShaderRead, ResourceState.CopyDestination)])
+                );
+
+                commands.CopyBufferToTexture(
+                    patch.Staging,
+                    0,
+                    // ⚠ The origin is the whole of the saving. The staging buffer holds the
+                    // rectangle's own rows tightly packed, so the copy moves `width × height × 4`
+                    // bytes whatever the texture is — which is the cost #912 was filed about.
+                    new(patch.Texture, Origin: new(patch.X, patch.Y, 0)),
+                    new(patch.Width, patch.Height, 1)
+                );
+
+                commands.Barrier(
+                    new([], [new(patch.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+                );
+
+                spent.Add(patch.Staging);
+            }
+
             commands.Finish();
             device.GraphicsQueue.Submit([commands]);
         }
 
-        var copied = waiting.Count;
+        var copied = waiting.Count + patching.Count;
 
         Submitted += copied;
         waiting.Clear();
+        patching.Clear();
 
         return copied;
     }
@@ -184,6 +276,17 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
         }
 
         waiting.RemoveAll(pending => pending.Image == image);
+
+        // ⚠ And the queued patches, for the same reason and with one more step: a patch owns its
+        // staging buffer outright, so dropping the record without destroying it is a leak of exactly
+        // as many buffers as the drag had pointer moves.
+        foreach (var patch in patching) {
+            if (patch.Image == image) {
+                device.Destroy(patch.Staging);
+            }
+        }
+
+        patching.RemoveAll(patch => patch.Image == image);
     }
 
     /// <summary>Hands back what has been released, for the device to free once no frame holds it.</summary>
@@ -210,6 +313,12 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
         }
 
         retiring.Clear();
+
+        foreach (var staging in spent) {
+            device.Destroy(staging);
+        }
+
+        spent.Clear();
     }
 
     /// <summary>The texture behind an image number, for a caller that wants to read it back.</summary>
@@ -228,6 +337,14 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
         // Nothing was submitted for these, so there is no work to wait on — the textures are
         // destroyed by the loop below like any other.
         waiting.Clear();
+
+        // ⚠ A patch's staging buffer has no other owner, so it has to be named here. The textures
+        // below are the images'; these are not.
+        foreach (var patch in patching) {
+            device.Destroy(patch.Staging);
+        }
+
+        patching.Clear();
 
         foreach (var uploaded in live.Values) {
             Destroy(uploaded);
@@ -271,8 +388,20 @@ sealed class ThumbnailSurface : IThumbnailSurface, IDisposable {
         ulong Image,
         TextureHandle Texture,
         TextureViewHandle View,
-        BufferHandle Staging
+        BufferHandle Staging,
+        int Width,
+        int Height
     );
 
     readonly record struct Pending(ulong Image, TextureHandle Texture, BufferHandle Staging, int Width, int Height);
+
+    readonly record struct Patch(
+        ulong Image,
+        TextureHandle Texture,
+        BufferHandle Staging,
+        int X,
+        int Y,
+        int Width,
+        int Height
+    );
 }
