@@ -1047,36 +1047,32 @@ public sealed partial class LayoutTree {
     ) {
         var wantRow = FlexAxis.IsRow(requestedAxis);
 
-        // ⚠ A box that clips or scrolls an axis contributes nothing along it but its own edges. Its
-        // contents are *scrollable overflow*, which CSS Sizing §5.2.2 excludes from an intrinsic
-        // size: being allowed to be smaller than what is inside it is the whole meaning of a scroll
-        // container. §4.5 already says this one level out — ComputeAutoMinMainSize returns 0 for any
-        // overflow other than visible — and this is that same sentence where the recursion reads it.
+        // ⚠ <b>A BOX THAT CLIPS OR SCROLLS STILL CONTRIBUTES WHAT IS INSIDE IT, and a clause here
+        // used to say otherwise.</b> It returned a scroll container's own padding and border and
+        // nothing else, reading CSS Sizing §5.2.2's exclusion of scrollable overflow as a rule about
+        // intrinsic sizes in general. It is not: it is §4.5's rule about a box's OWN automatic
+        // minimum, which `ComputeAutoMinMainSize` and `LayoutTree.Grid`'s `AutomaticMinimumIsZero`
+        // each say for themselves — and since the former returns 0 before it ever calls this method,
+        // every firing of the clause was already somebody else's contribution.
         //
-        // ⚠ Nothing in either corpus asks for this, and the editor is what found it. Every box in
-        // the docking chain declares `overflow: hidden`, so once descendants began contributing
-        // their real sizes the hierarchy tree's rows propagated all the way to the shell and the
-        // window came out 2 385 points wide inside a 1 100-point root, with the inspector pushed off
-        // the side. That is not a control compensating for a bug — it is this rule being missing.
+        // ⚠ Measured in Chrome rather than argued: a `width: min-content` box around an
+        // `overflow: scroll` container holding a 500-point box is 500 wide, not zero, and `hidden`,
+        // `scroll` and no scroll container at all give identical numbers. It cost 24 grid fixtures
+        // and its only witness was a hand-written test whose expectation had never been put in front
+        // of a browser and turned out to be the defect.
         //
-        // ⚠ <b>BOTH SENTENCES ABOVE HAVE EXPIRED, AND THE SECOND MAY BE BACKWARDS.</b> Twenty-four
-        // grid fixtures ask for it now — they were refused on `scrollbar-width` when this was
-        // written — and deleting this clause turns exactly those from red to green and moves nothing
-        // else in 6 420 layout tests except `AutomaticMinimumSizeTests.
-        // A_clipping_descendant_contributes_nothing_but_its_own_edges`, which is the editor's chain
-        // in six boxes and whose 50/50 expectation has never been put in front of a browser. A
-        // scroll container's `width: min-content` is not zero in any browser, so this clause is very
-        // likely §5.2.2 applied a second time where §4.5 had already applied it — and there is no
-        // seam to split it on, because `ComputeAutoMinMainSize` returns 0 for an item's own overflow
-        // before it ever reaches here, which makes every firing of this clause a CONTRIBUTION
-        // already. ⚠ The next move is a browser measurement of those six boxes, not a code change:
-        // see `Rikarin/Vixen#259` and the §5.2.2 heading in GridKnownGaps.txt.
-        if (OverflowOn(index, FlexAxis.DimensionOf(requestedAxis)) != Overflow.Visible) {
-            var clipDirection = StyleResolution.ResolveDirection(in styles[index], ownerDirection);
-            return StyleResolution.FlexStartContentInset(in styles[index], requestedAxis, clipDirection, ownerWidth)
-                + StyleResolution.FlexEndContentInset(in styles[index], requestedAxis, clipDirection, ownerWidth);
-        }
-
+        // ⚠ <b>"THE EDITOR'S DOCKING CHAIN NEVER NEEDED IT BECAUSE EVERY BOX IN IT CLIPS" IS THE ONE
+        // SENTENCE OF THAT ANALYSIS THAT WAS FALSE, and deleting this on the strength of it put the
+        // inspector off the right of the window.</b> Every box in the chain from `docking-host` down
+        // does clip and does declare both zero minimums; `editor-shell` and `editor-workspace`, the
+        // two boxes between it and the root and the two written in the editor's own stylesheet
+        // rather than the control set's, declared neither. So §4.5's opt-out reached every pane and
+        // not the frame, this clause had been standing in for it, and removing the two at once is
+        // what makes the removal safe: shell 1 049 wide inside 900 and a docking area 40 138 tall
+        // inside 700, now `Vixen.Editor.Ui.Tests.ShellFitsItsWindowTests`. A layout store is not
+        // where "an application's flex item forgot `min-width: 0`" is fixed.
+        // `Rikarin/Vixen#932` and `#259`, and the whole write-up is under §5.2.2 in
+        // `Taffy/GridKnownGaps.txt`.
         if ((flags[index] & LayoutNodeState.HasMeasureFunction) != 0) {
             // ⚠ <b>A leaf's min-content size in the BLOCK axis is the height its content takes at the
             // inline size it has, not at an unbounded one.</b> There is no such thing as the

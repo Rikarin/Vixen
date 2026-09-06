@@ -505,7 +505,7 @@ chrome_issue_325928327
 
 
 # ── §5.2.2's SCROLLABLE-OVERFLOW EXCLUSION IS APPLIED TO THE MIN-CONTENT CONTRIBUTION, NOT ONLY TO
-#    THE AUTOMATIC MINIMUM ── six families, 24 fixtures ──
+#    THE AUTOMATIC MINIMUM ── six families, 24 fixtures ── CLOSED, BY THE BROWSER THIS FILE ASKED FOR ──
 #
 # ⚠ <b>NEWLY VISIBLE, NOT NEWLY BROKEN, AND THE MECHANISM BY WHICH IT WAS INVISIBLE IS THE POINT OF
 # THE WHOLE HEADING.</b> Every fixture here writes `scrollbar-width="15"` beside `overflow: hidden`.
@@ -568,12 +568,36 @@ chrome_issue_325928327
 # and the editor's 2 385-point shell was a real bug somewhere else that this clause was hiding.
 # Do not land either half on the unit tests alone: they are green both ways bar that one fixture,
 # which is exactly the shape of a test that is the defect.
-grid_span_2_min_content_auto_indefinite_hidden
-grid_span_2_min_content_fit_content_10px_indefinite_hidden
-grid_span_2_min_content_fit_content_30px_indefinite_hidden
-grid_span_2_min_content_fit_content_80px_indefinite_hidden
-grid_span_6_all_non_flex_indefinite_hidden
-grid_span_13_most_non_flex_with_minmax_indefinite_hidden
+#
+# ⚠ <b>THE MEASUREMENT WAS TAKEN, IN CHROME, ON THOSE SIX BOXES, AND CHROME FREEZES THE SECOND AT 60
+# AND GIVES THE FIRST 40.</b> So the clause is gone and the test's expectation was the defect. The
+# direct question was put to the same browser and answers the same way: a `width: min-content` box
+# wrapped around an `overflow: scroll` container holding a 500-point box is 500 wide (515 with a
+# classic scrollbar), not zero — and `overflow: hidden`, `overflow: scroll` and no scroll container
+# at all give identical numbers in both experiments, which is the whole claim. §5.2.2's exclusion is
+# about a box's OWN automatic minimum; `ComputeAutoMinMainSize` and `AutomaticMinimumIsZero` each say
+# it for themselves, and the probe was saying it a second time about somebody else's box.
+#
+# ⚠ <b>AND THE EDITOR'S DOCKING CHAIN NEVER NEEDED IT, which is a claim about §4.5 rather than about
+# the editor.</b> Every box in that chain declares `overflow: hidden`, so every one of them has no
+# automatic minimum at all — `ComputeAutoMinMainSize` returns zero for its own non-visible overflow
+# before it ever asks what is inside it. A chain of clipping boxes therefore shrinks to its window
+# however wide its contents are, with this clause or without it, and that property is asserted at
+# three depths in `AutomaticMinimumSizeTests.A_chain_of_clipping_boxes_shrinks_to_its_window` — the
+# test the screenshots should have left behind.
+#
+# ⚠ <b>THAT LAST PARAGRAPH WAS FALSE ABOUT TWO BOXES AND THE FIRST ATTEMPT WAS REVERTED FOR IT.</b>
+# "Every box in that chain" is true from `docking-host` down and false above it: `editor-shell` and
+# `editor-workspace` — the two written in `EditorTheme.vcss` rather than in `AdvancedTheme.vcss` —
+# declared no overflow AND no zero minimums, so §4.5's opt-out reached every pane and not the frame,
+# and this clause had been standing in for the two declarations they were missing. Measured
+# 2026-09-06 with a panel scrolling 40 000 points: shell 1 049 wide inside a 900-point root, docking
+# area 40 138 tall inside 700. Adding `min-width: 0px` and `min-height: 0px` to those two is the
+# whole editor-side fix, `Vixen.Editor.Ui.Tests.ShellFitsItsWindowTests` holds them to it at two
+# window sizes, and both halves have been sabotage-tested one declaration at a time. ⚠ So if the
+# shell blows out again the cause is a box between the root and `docking-host` whose overflow is
+# visible and whose minimums are `auto` — still not this clause. Grid: 2 080/40 to 2 104/16.
+# `Rikarin/Vixen#932`.
 
 # ── A TURNED WRITING MODE IS THE CONTAINER'S BUSINESS TOO ── one family ──
 #
