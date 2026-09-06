@@ -1322,6 +1322,22 @@ public sealed class BuildContext {
             );
         }
 
+        // ⚠ The other silent half, and the one the type check cannot see. A correctly typed binding
+        // over a plain property composes, writes the control once, and then stops — the forward leg
+        // is an effect, and an effect that read no signal has nothing to be woken by. Running the
+        // expression here under a `Computed` is what turns "it has no dependencies" into a question
+        // that can be asked at compose rather than never. See `CompositionLog.InertBinding`.
+        //
+        // ⚠ The expression is therefore read once more than it used to be, and an expression that
+        // throws now throws out of `Build` rather than being caught by the effect — the same bargain
+        // `ComponentEmitter` already records for a dynamic parameter, which is evaluated twice.
+        var source = new Computed<T>(get);
+        _ = source.Value;
+
+        if (source.DependencyCount == 0) {
+            CompositionLog.InertBinding(Document.Logger, target.Tag, name);
+        }
+
         var writing = false;
 
         Bind(() => {

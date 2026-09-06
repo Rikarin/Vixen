@@ -141,6 +141,7 @@ that makes ten thousand identically styled cells one entry.
 | 7005 | Warning | `An @apply could not be expanded: {Reason}.` — a utility name that is not one, or one carrying a variant. The declarations it stood for are simply absent from the block | 0.1.0 |
 | 7006 | Warning | `{Source} refused '{Text}' in '{Rule}': {Reason}.` — the same refusal, where the fragment is part of a larger rule and `{Rule}` is the selector or block to go and change | 0.1.0 |
 | 7007 | Warning | `The query container '{Container}' never settled: it measured {Width}×{Height} on the last of {Passes} layout passes and its box was still moving.` — a `container-type` on a box whose inline size is decided by its contents, which closes a loop the settle budget cuts rather than resolves | 0.1.0 |
+| 7008 | Warning | `The two-way binding on '{Tag}.{Property}' reads nothing reactive, so its forward leg runs once and never again.` — a `bind:` over a plain property. It is not a refusal and not a mismatch: the binding composes, writes the control once, and its write-back leg keeps working, so the control follows the model until anything other than the control writes it | 0.1.0 |
 
 ⚠ **7007 is not a refusal and is the only event in this range that is not.** Nothing was dropped: the
 stylesheet is understood, the query is answered, and the frame is drawn. What it reports is that the

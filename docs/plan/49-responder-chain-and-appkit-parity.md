@@ -534,6 +534,13 @@ Four corrections to the paragraph above, from #663 and `BindReachTests`:
   `Something.Value` on a `Signal<T>` — so the forward effect has a dependency. Over a plain property
   it has none, the write-back still works, and the result is a half-live binding that fails in the
   direction an author tests second.
+- ⚠ **That half-live binding now reports itself, and the mechanism was already in the graph with
+  `internal` on it.** `ReactiveNode.DependencyCount` existed "for tests and diagnostics" and nothing
+  outside the assembly could ask the question it answers. `TwoWay` runs the bound expression once
+  under a `Computed` before it makes the effect, and a count of zero is a forward leg nothing can
+  ever wake — logged as `7008` with the element and property named, rather than refused, because
+  unlike a type mismatch this half-works and is sometimes what its author meant. The remaining two
+  items below stay design calls; this one was not one.
 
 ### 6.7 Smaller, but each is a real edge
 

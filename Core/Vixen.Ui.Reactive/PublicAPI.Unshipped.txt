@@ -99,6 +99,7 @@ Vixen.Ui.Reactive.LinkedSignal<TSource, T>.Value.get -> T
 Vixen.Ui.Reactive.LinkedSignal<TSource, T>.Value.set -> T
 Vixen.Ui.Reactive.ReactiveGraph -> static class
 Vixen.Ui.Reactive.ReactiveNode -> abstract class
+Vixen.Ui.Reactive.ReactiveNode.DependencyCount.get -> int
 Vixen.Ui.Reactive.ReactiveNode.ReactiveNode() -> void
 Vixen.Ui.Reactive.Signal<T> -> sealed class
 Vixen.Ui.Reactive.Signal<T> : Vixen.Ui.Reactive.IReadOnlySignal<T>

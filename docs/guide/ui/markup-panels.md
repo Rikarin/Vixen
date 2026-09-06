@@ -467,6 +467,15 @@ control publishes for this is a *snapshot*: `<TreeView change:SelectedNodes="@(n
 is the whole of the subscription a panel used to write by hand, and it is quieter than the
 `SelectionChanged` event, which fires again for a click on the row that was already selected.
 
+⚠ **A `bind:` whose expression reads nothing reactive is only half a binding, and it now says so.**
+`bind:Value="@model.Gain.Value"` over a `Signal<float>` follows the model; `bind:Value="@model.Gain"`
+over a plain property does not. The forward leg is an effect and an effect follows what it *read*, so
+over a property it runs once and is finished — while the write-back leg keeps working perfectly. The
+result is a control that tracks the model until anything other than the control writes it and then
+stops, which is the direction an author tests second. Nothing throws, because nothing went wrong;
+what arrives instead is a warning naming the element and the property, on log event `7008`. Bind a
+signal's `Value`, or use `change:` if a one-way write-back was what was meant.
+
 ### `bind:X.submit`, for the event that commits the write
 
 ```vxml

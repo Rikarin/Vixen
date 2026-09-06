@@ -60,8 +60,28 @@ public abstract class ReactiveNode {
     /// <summary>Whether anything is watching, directly or through a chain of live consumers.</summary>
     internal bool IsLive => IsAlwaysLive || liveConsumerCount > 0;
 
-    /// <summary>How many dependencies this node currently has. For tests and diagnostics.</summary>
-    internal int DependencyCount => producerCount;
+    /// <summary>How many producers this node read on its last completed run.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Zero on a node that tracks is a node nothing can ever wake, and that is a
+    ///         silent failure rather than an idle one.</b> A <c>Computed</c> or an <c>Effect</c>
+    ///         whose computation read no signal is finished, permanently, having produced one value
+    ///         that will never be revised. Nothing throws and nothing is logged, because nothing
+    ///         went wrong — the graph is simply not the shape its author thought they wrote.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Internal until <c>BuildContext.TwoWay</c> needed it, which is the whole reason
+    ///         it is public now.</b> A <c>bind:</c> over a plain property has exactly this shape and
+    ///         was indistinguishable from a working one; the question "did that expression subscribe
+    ///         to anything" is the runtime's to answer and nothing outside this assembly could ask
+    ///         it.
+    ///     </para>
+    ///     <para>
+    ///         Always zero for a plain <see cref="Signal{T}" />, which reads nothing, and zero for a
+    ///         node that has not run yet.
+    ///     </para>
+    /// </remarks>
+    public int DependencyCount => producerCount;
 
     /// <summary>How many live consumers are registered on this node. For tests and diagnostics.</summary>
     internal int LiveConsumerCount => liveConsumerCount;
