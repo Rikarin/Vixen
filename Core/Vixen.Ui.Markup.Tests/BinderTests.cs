@@ -746,18 +746,23 @@ public class BinderTests {
     public void An_exit_outside_a_loop_is_refused(string source) => Assert.Contains("VXML2024", Ids(source));
 
     /// <summary>
-    ///     ⚠ <b>The gap the runtime states, refused rather than dropped.</b>
-    ///     <c>BuildContext.For</c>'s indexed overload takes no <c>ExitSpec</c> — a leaving row is no
-    ///     longer in the sequence, so what its index signal should read while it animates out was
-    ///     never decided — and an <c>exit</c> that compiled and did nothing is a row that vanishes,
-    ///     which is indistinguishable from not having written it.
+    ///     ⚠ An <c>exit</c> in a loop that declares an index binds, and the refusal that used to
+    ///     stand here was a gap rather than a rule.
     /// </summary>
+    /// <remarks>
+    ///     <c>VXML2026</c> said the indexed reconciler had no exit. There is one reconciler:
+    ///     <c>Rows</c> takes both, and what a leaving row's index reads was answered where it is
+    ///     written — a row on its way out is not in the new sequence, so the write pass skips it and
+    ///     it shows the last position the model gave it.
+    /// </remarks>
     [Fact]
-    public void An_exit_in_a_loop_that_declares_an_index_is_refused() =>
-        Assert.Contains(
-            "VXML2026",
-            Ids("@component A\n@for (var i, n in xs) { <p key=\"@i\" exit=\"200ms\" /> }")
-        );
+    public void An_exit_in_a_loop_that_declares_an_index_is_bound() {
+        var component = BindClean("@component A\n@for (var i, n in xs) { <p key=\"@i\" exit=\"200ms\" /> }");
+        var loop = Assert.IsType<BoundFor>(Assert.Single(component.Content));
+
+        Assert.Equal("n", loop.Index);
+        Assert.Equal(200, loop.ExitAfter);
+    }
 
     static BoundComponent BindClean(string source) {
         var component = Binder.Bind(Vxml.Parse(source), out var diagnostics);

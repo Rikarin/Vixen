@@ -72,10 +72,18 @@ public partial class UiElement {
     /// <returns>Whether anything on the way up provides one.</returns>
     /// <remarks>
     ///     ⚠ <b>Walked on every ask rather than cached</b>, for <see cref="FindUndoManager" />'s
-    ///     reason and <see cref="FindHostedDocument" />'s: an element is reparented, a panel is torn
-    ///     off into its own window, and a cached answer is the one that was nearest when the control
-    ///     was built. It is the same walk those two make and is deliberately the same shape — the
-    ///     nearest declaration wins, and the document is the last word.
+    ///     reason and <see cref="FindHostedDocument" />'s: an element is reparented, and a cached
+    ///     answer is the one that was nearest when the control was built. It is the same walk those
+    ///     two make and is deliberately the same shape — the nearest declaration wins, and the
+    ///     document is the last word.
+    ///
+    ///     ⚠ <b>Tearing a panel into its own window does <i>not</i> change the answer, which this
+    ///     remark used to imply it did.</b> A secondary <c>UiSurface</c>'s root is parented under the
+    ///     element that asked for the window, so the chain out of a floated panel still runs through
+    ///     the docking host and everything above it: the element tree spans surfaces even though the
+    ///     windows do not. <c>Vixen.Ui.Controls.Advanced.Tests.AmbientAcrossDockingTests</c> asserts
+    ///     the chain rather than leaving it as prose. Uncaching is still right — the walk crosses a
+    ///     different set of elements before and after — it is just not this case that proves it.
     /// </remarks>
     public bool TryInject<T>([NotNullWhen(true)] out T? value) {
         for (var element = this; element is not null; element = element.Parent) {

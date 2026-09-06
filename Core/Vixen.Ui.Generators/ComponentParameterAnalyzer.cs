@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Operations;
 
 namespace Vixen.Ui.Generators;
 
@@ -57,27 +59,30 @@ namespace Vixen.Ui.Generators;
 ///         missed — and put the severity back afterwards.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Two further reasons a sweep reads zero, and together they say the promotion should
-///         not happen at all.</b> First, <b>a parameter declared in a <c>.vxml</c>'s <c>@code</c>
-///         block is invisible here</b>: the block is copied into a file whose first line is
-///         <c>// &lt;auto-generated /&gt;</c>, and <see cref="GeneratedCodeAnalysisFlags.None" />
-///         means such a declaration is neither analyzed nor reported — whether the class is wholly
-///         generated or is a partial with a code-behind half.
-///         <c>ComponentParameterTests.A_parameter_declared_in_generated_code_is_not_reported</c>
-///         pins it. That is where this repository's markup components put their parameters:
-///         <c>Samples/02-HelloUi/Panels/Inspector.vxml</c>'s <c>Model</c> is one, and it is the
-///         property the issue behind this rule was filed about.
+///         ⚠ <b>A parameter declared in a <c>.vxml</c>'s <c>@code</c> block is reached through the
+///         <c>#line</c>, and that is the only reason generated code is analyzed at all.</b> The
+///         block is copied into a file whose first line is <c>// &lt;auto-generated /&gt;</c>, so
+///         under <see cref="GeneratedCodeAnalysisFlags.None" /> the declaration was neither analyzed
+///         nor reported — and that is where every markup component in this repository puts its
+///         parameters, <c>Samples/02-HelloUi/Panels/Inspector.vxml</c>'s <c>Model</c> included. The
+///         objection to reporting in generated code is that it points at code the author cannot
+///         edit; <c>ComponentEmitter</c> writes each block under a <c>#line</c> span, which answers
+///         exactly that objection, so <see cref="Reported" /> reports against the <c>.vxml</c> when
+///         a mapping exists. Where none does, the location stays inside the generated tree and
+///         Roslyn drops it, because
+///         <see cref="GeneratedCodeAnalysisFlags.ReportDiagnostics" /> is deliberately not set.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Second, the rule fires on the shape its own message asks for.</b>
-///         <see cref="IsReactive" /> tests the <i>property's type</i>, so
+///         ⚠ <b>Reactive is a question about the accessors and not only about the type, and asking
+///         only the narrow half made the rule fire on the shape its own message asks for.</b>
 ///         <c>public ShellModel Model { get =&gt; model.Value; set =&gt; model.Value = value; }</c>
-///         over a <c>readonly Signal&lt;ShellModel&gt;</c> is reported — and that is exactly "back
-///         it with a <c>Signal&lt;T&gt;</c>", the remedy the message names. Such a property
-///         <i>does</i> track: an effect reading it reads <c>model.Value</c> and subscribes. Under
-///         <c>TreatWarningsAsErrors</c>, promoting this to a warning would therefore make the
-///         recommended pattern a build error. The rule as written answers "is this property
-///         obviously reactive from its type", which is a useful suggestion and is not a gate.
+///         over a <c>readonly Signal&lt;ShellModel&gt;</c> is precisely "back it with a
+///         <c>Signal&lt;T&gt;</c>", and it <i>does</i> track — an effect reading it reads
+///         <c>model.Value</c> and subscribes — yet <see cref="IsReactive" /> tests the property's
+///         type, which is <c>ShellModel</c>. The operation-block half of <see cref="Inspect" /> is
+///         the other: a getter that reads anything reactive is subscribable whatever the property's
+///         own type says, and an auto-property — the case the rule exists for — has no operation
+///         block to look at.
 ///     </para>
 ///     <para>
 ///         <b>What is deliberately not reported.</b> A read-only or computed property is not a
@@ -116,11 +121,14 @@ public sealed class ComponentParameterAnalyzer : DiagnosticAnalyzer {
 
     /// <inheritdoc />
     public override void Initialize(AnalysisContext context) {
-        // ⚠ Generated code is neither analyzed nor reported against, which for this rule is the
-        // difference between pointing at a `.vxml`'s `@code` block — where an author can act — and
-        // pointing at the C# that block was compiled into, where they cannot. The generator copies
-        // the block through, so the declaration is reported at its real location either way.
-        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
+        // ⚠ Analyzed but not reported against, and the asymmetry is the whole point. `Analyze` is
+        // what lets a `.vxml`'s `@code` block be seen at all — it is compiled into a file marked
+        // `// <auto-generated />`, and that is where every markup component in this repository
+        // declares its parameters. Withholding `ReportDiagnostics` is what keeps the old promise:
+        // a location still inside the generated tree is dropped by Roslyn, so the only diagnostic
+        // that survives is one `Reported` moved onto the `.vxml` through the emitter's `#line`,
+        // which is a place the author can act.
+        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.Analyze);
         context.EnableConcurrentExecution();
 
         context.RegisterCompilationStartAction(
@@ -133,7 +141,7 @@ public sealed class ComponentParameterAnalyzer : DiagnosticAnalyzer {
 
                 var readOnlySignal = start.Compilation.GetTypeByMetadataName(ReadOnlySignalMetadataName);
 
-                start.RegisterSymbolAction(
+                start.RegisterSymbolStartAction(
                     symbol => Inspect(symbol, component, readOnlySignal),
                     SymbolKind.NamedType
                 );
@@ -141,36 +149,98 @@ public sealed class ComponentParameterAnalyzer : DiagnosticAnalyzer {
         );
     }
 
-    static void Inspect(SymbolAnalysisContext context, INamedTypeSymbol component, INamedTypeSymbol? readOnlySignal) {
+    /// <summary>Collects a type's plain parameters, then lets its getters argue them away.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two passes rather than one, because "what does the getter read" is a question about
+    ///     an operation block and a symbol action cannot ask it.</b> Reaching for a semantic model
+    ///     from a symbol action is <c>RS1030</c>; the supported spelling is to open the symbol, let
+    ///     the block actions run over its members, and report at the end.
+    /// </remarks>
+    static void Inspect(
+        SymbolStartAnalysisContext context,
+        INamedTypeSymbol component,
+        INamedTypeSymbol? readOnlySignal
+    ) {
         if (context.Symbol is not INamedTypeSymbol type || type.TypeKind != TypeKind.Class || !Derives(type, component)) {
             return;
         }
 
+        var plain = new List<IPropertySymbol>();
+
         foreach (var member in type.GetMembers()) {
-            if (member is not IPropertySymbol property || !IsParameter(property)) {
-                continue;
-            }
-
-            if (IsReactive(property.Type, readOnlySignal) || IsCallback(property.Type)) {
-                continue;
-            }
-
-            foreach (var location in property.Locations) {
-                if (!location.IsInSource) {
-                    continue;
-                }
-
-                context.ReportDiagnostic(
-                    Diagnostic.Create(
-                        PlainParameter,
-                        location,
-                        type.Name,
-                        property.Name,
-                        property.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
-                    )
-                );
+            if (member is IPropertySymbol property
+                && IsParameter(property)
+                && !IsReactive(property.Type, readOnlySignal)
+                && !IsCallback(property.Type)) {
+                plain.Add(property);
             }
         }
+
+        if (plain.Count == 0) {
+            return;
+        }
+
+        var subscribable = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
+
+        context.RegisterOperationBlockAction(
+            block => {
+                if (block.OwningSymbol is not IMethodSymbol { MethodKind: MethodKind.PropertyGet } getter
+                    || getter.AssociatedSymbol is not IPropertySymbol read) {
+                    return;
+                }
+
+                foreach (var body in block.OperationBlocks) {
+                    foreach (var operation in body.DescendantsAndSelf()) {
+                        if (operation.Type is { } value && IsReactive(value, readOnlySignal)) {
+                            subscribable[read.Name] = 0;
+
+                            return;
+                        }
+                    }
+                }
+            }
+        );
+
+        context.RegisterSymbolEndAction(
+            end => {
+                foreach (var property in plain) {
+                    if (subscribable.ContainsKey(property.Name)) {
+                        continue;
+                    }
+
+                    foreach (var location in property.Locations) {
+                        if (!location.IsInSource) {
+                            continue;
+                        }
+
+                        end.ReportDiagnostic(
+                            Diagnostic.Create(
+                                PlainParameter,
+                                Reported(location),
+                                type.Name,
+                                property.Name,
+                                property.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
+                            )
+                        );
+                    }
+                }
+            }
+        );
+    }
+
+    /// <summary>Where the author can act on the declaration.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An external location is what carries a diagnostic out of generated code, and it is
+    ///     also what stops one escaping that should not.</b> A <c>#line</c> in the emitted C# means
+    ///     the characters belong to a <c>.vxml</c>, so the diagnostic is re-created against that
+    ///     file and no longer sits in any syntax tree — which is why Roslyn's generated-code filter,
+    ///     which asks a location for its <c>SourceTree</c>, lets it through. Generated code with no
+    ///     mapping keeps its original location and is dropped by that same filter.
+    /// </remarks>
+    static Location Reported(Location location) {
+        var mapped = location.GetMappedLineSpan();
+
+        return mapped.HasMappedPath ? Location.Create(mapped.Path, location.SourceSpan, mapped.Span) : location;
     }
 
     /// <summary>Whether the type is a <c>Component</c>, however far down.</summary>

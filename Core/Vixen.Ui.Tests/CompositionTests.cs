@@ -495,6 +495,87 @@ public class CompositionTests {
         Assert.Equal(["a!", "b"], Texts(component.Root, "item"));
     }
 
+    /// <summary>
+    ///     ⚠ A loop can declare an index and an exit at once, and the survivors re-index while a
+    ///     removed row is still on screen.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>VXML2026</c> refused this combination because "what does a leaving row's index
+    ///         read" was called undecided. It is undecidable rather than undecided</b>, and that
+    ///         refutes the premise rather than answering it: <c>Region.Leave</c> stops the region's
+    ///         bindings before it defers the removal, so the row's body has already stopped reading
+    ///         anything. Writing a sentinel into that signal changes no pixel. <c>b</c> shows the
+    ///         last frame the model produced for it, which is where it stood when it was dropped.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the exit must not do is freeze the <i>live</i> rows.</b> <c>c</c> takes the
+    ///         position <c>b</c> vacated on the same pass that let <c>b</c> go — a leaving row is
+    ///         not in the new sequence, so the write pass walks past it. The cautious-looking
+    ///         mistake, holding the indices still until the interval ends, leaves every row below a
+    ///         deletion numbered one too high for a fifth of a second.
+    ///     </para>
+    ///     <para>
+    ///         Frames rather than elapsed time, on the document's own clock — the rule the rest of
+    ///         this section follows.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_indexed_loop_re_indexes_its_survivors_while_a_row_is_leaving() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<FadingRanked>(document, document.Root);
+
+        component.Items.Value = ["a", "b", "c"];
+        document.Effects.Flush();
+        Assert.Equal(["a0", "b1", "c2"], Texts(component.Root, "item"));
+
+        component.Items.Value = ["a", "c"];
+        document.Effects.Flush();
+
+        // `c` moved into the position `b` vacated, on the pass that let `b` go; `b` is still drawn,
+        // still between the rows it was between, showing the last frame it was ever given.
+        Assert.Equal(["a0", "b1", "c1"], Texts(component.Root, "item"));
+        Assert.True(component.Root.Children[1].HasClass("leaving"));
+
+        document.Tick(TimeSpan.FromMilliseconds(120));
+        Assert.Equal(["a0", "b1", "c1"], Texts(component.Root, "item"));
+
+        document.Tick(TimeSpan.FromMilliseconds(200));
+        Assert.Equal(["a0", "c1"], Texts(component.Root, "item"));
+    }
+
+    /// <summary>
+    ///     ⚠ And the index minted for a returning key survives, because the row it came back to is
+    ///     ended first.
+    /// </summary>
+    /// <remarks>
+    ///     <b>The ordering this asserts.</b> A key that returns mid-exit has its old row finished
+    ///     before the new one is built, and finishing it drops that key's position — so a reconciler
+    ///     that minted the new signal first would have it deleted out from under the live row, and
+    ///     no later pass would notice: a position that is not in the table is never written again.
+    /// </remarks>
+    [Fact]
+    public void An_index_minted_for_a_returning_key_survives_the_row_it_replaced() {
+        using var document = new UiDocument(200f, 200f);
+        var component = BuildContext.Build<FadingRanked>(document, document.Root);
+
+        component.Items.Value = ["a", "b"];
+        document.Effects.Flush();
+
+        component.Items.Value = ["a"];
+        document.Effects.Flush();
+
+        component.Items.Value = ["b", "a"];
+        document.Effects.Flush();
+
+        Assert.Equal(["b0", "a1"], Texts(component.Root, "item"));
+
+        // And it still follows the reconciler: a reorder rewrites it.
+        component.Items.Value = ["a", "b"];
+        document.Effects.Flush();
+        Assert.Equal(["a0", "b1"], Texts(component.Root, "item"));
+    }
+
     /// <summary>An exit that is still running when the list itself goes takes no elements with it.</summary>
     [Fact]
     public void A_document_that_is_disposed_mid_exit_does_not_finish_it() {
@@ -983,6 +1064,27 @@ public class CompositionTests {
                 (inner, parent, item) => {
                     var element = inner.Element(parent, "item");
                     inner.Bind(() => element.Text = item + Suffix.Value);
+                },
+                new ExitSpec(TimeSpan.FromMilliseconds(200))
+            );
+    }
+
+    /// <summary>The same, with each row told where it is — the two features in one loop.</summary>
+    sealed class FadingRanked : Component {
+        public Signal<string[]> Items { get; } = new([]);
+
+        protected override void Build(BuildContext ctx) =>
+            ctx.For(
+                null,
+                () => Items.Value,
+                static item => item,
+                static (inner, parent, item, index) => {
+                    var element = inner.Element(parent, "item");
+
+                    inner.Bind(
+                        () => element.Text =
+                            item + index.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    );
                 },
                 new ExitSpec(TimeSpan.FromMilliseconds(200))
             );

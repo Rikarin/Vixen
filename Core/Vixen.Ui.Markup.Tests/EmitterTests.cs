@@ -2071,6 +2071,61 @@ public class EmitterTests {
         Assert.Equal(["a", "c"], component.Root.Children.Select(Text));
     }
 
+    /// <summary>A ranked list whose removed rows are held, so the two clauses meet in one loop.</summary>
+    const string LeavingRanked = """
+                                 @component Greeter
+                                 @using System.Collections.Generic
+                                 @using Vixen.Ui.Reactive
+
+                                 @code {
+                                     public Signal<IReadOnlyList<string>> Rows { get; } = new([]);
+                                 }
+
+                                 @for (var row, at in Rows.Value) {
+                                     <row-line key="@row" exit="200ms">@(row + at.Value)</row-line>
+                                 }
+                                 """;
+
+    /// <summary>
+    ///     ⚠ An <c>exit</c> and an index in one <c>@for</c>, which <c>VXML2026</c> used to refuse.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The end-to-end half of the lift, and the only place the overload resolution is
+    ///         proved.</b> The emitter writes a four-parameter row lambda and appends the
+    ///         <c>ExitSpec</c> as a fifth argument; before <c>BuildContext.For</c>'s indexed overload
+    ///         took one, that call named no method and the generated file would not compile. This
+    ///         runs it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is asserted is the survivor, not the corpse.</b> <c>c</c> is written the
+    ///         position <c>b</c> vacated on the pass that let <c>b</c> go. What <c>b</c>'s own index
+    ///         reads meanwhile is unobservable — <c>Region.Leave</c> stops its bindings before it
+    ///         defers the removal — which is why the refusal's premise was wrong rather than merely
+    ///         awkward.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_exit_on_an_indexed_for_re_indexes_the_rows_that_stay() {
+        var (component, instance, document) = Run(LeavingRanked);
+
+        using var owned = document;
+        var rows = (Signal<IReadOnlyList<string>>)Property(instance, "Rows");
+
+        rows.Value = ["a", "b", "c"];
+        document.Effects.Flush();
+        Assert.Equal(["a0", "b1", "c2"], component.Root.Children.Select(Text));
+
+        rows.Value = ["a", "c"];
+        document.Effects.Flush();
+
+        Assert.Equal(["a0", "b1", "c1"], component.Root.Children.Select(Text));
+        Assert.True(component.Root.Children[1].HasClass("leaving"));
+
+        document.Tick(TimeSpan.FromMilliseconds(200));
+        Assert.Equal(["a0", "c1"], component.Root.Children.Select(Text));
+    }
+
     /// <summary>
     ///     ⚠ <b>The instrument, checked before the claim.</b> The same markup without the attribute
     ///     removes on the flush, which is what every loop in the tree has always done — so the test

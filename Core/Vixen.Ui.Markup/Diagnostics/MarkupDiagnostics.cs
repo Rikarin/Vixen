@@ -543,23 +543,4 @@ public static class MarkupDiagnostics {
         BindingCategory,
         DiagnosticSeverity.Error
     );
-
-    /// <summary>An <c>exit</c> in a loop that also declares an index.</summary>
-    /// <remarks>
-    ///     ⚠ <b>A gap the runtime states rather than a rule this invents.</b>
-    ///     <c>BuildContext.For</c>'s indexed overload takes no <c>ExitSpec</c>, because a row on its
-    ///     way out is no longer in the sequence and what its index signal should read while it fades
-    ///     was never decided. Refused here rather than dropped: an <c>exit</c> that compiled and did
-    ///     nothing is a row that vanishes, which is the exact symptom the feature exists to remove
-    ///     and is indistinguishable from not having written it.
-    /// </remarks>
-    public static readonly DiagnosticDescriptor ExitWithIndex = new(
-        "VXML2026",
-        "'exit' with an index",
-        "'@for (var {0}, {1} in …)' declares an index, and the indexed reconciler has no exit: a "
-        + "leaving row is no longer in the sequence, so what '{1}' reads while it animates out is "
-        + "undecided. Drop the index or drop the exit.",
-        BindingCategory,
-        DiagnosticSeverity.Error
-    );
 }

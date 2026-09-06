@@ -455,6 +455,17 @@ does nothing. No diagnostic. This is the same defect class the language already 
 | `.help` (tooltip) | `Tooltip.Attach` is a C# call | ❌ |
 | `.alert` / `.confirmationDialog` / `.sheet` / `.popover` | `DialogService`/`Overlay` exist; nothing binds a presentation to state | ❌ markup |
 | `.searchable`, `.refreshable` | ❌ nothing | ❌ |
+
+⚠ **`.searchable`'s middle third is not missing, which narrows [#767](https://github.com/Rikarin/Vixen/issues/767).**
+Two audits called "what does it filter" the sharpest open question, on the grounds that a framework
+cannot know what matching means for an arbitrary `@for` sequence. It does not have to: a `SearchBox`
+bound to a signal and an `@for` whose sequence expression reads that signal narrows as it is typed
+into, with the predicate staying the author's `Where(...)`.
+`Core/Vixen.Ui.Controls.Tests/Markup/SearchableSheet.vxml` is seven lines of that and
+`SearchableReachTests` asserts it on the *rows*. What `.searchable` would add is the other two
+thirds — where the field goes, and an empty state, which is genuinely absent: an `@for` has no
+fallback arm, so a filter that matches nothing leaves a list that is empty and silent. Filed as
+[#908](https://github.com/Rikarin/Vixen/issues/908).
 | `.draggable` / `.dropDestination` | `on:dragstart/drag/dragend` exist; **no drop target, no payload type, no `AllowDrop`** | ⚠ half |
 
 For a project whose thesis is *markup is the authoring path*, that ❌ column is the parity claim's
@@ -534,6 +545,13 @@ Four corrections to the paragraph above, from #663 and `BindReachTests`:
   `Something.Value` on a `Signal<T>` — so the forward effect has a dependency. Over a plain property
   it has none, the write-back still works, and the result is a half-live binding that fails in the
   direction an author tests second.
+- ⚠ **That half-live binding now reports itself, and the mechanism was already in the graph with
+  `internal` on it.** `ReactiveNode.DependencyCount` existed "for tests and diagnostics" and nothing
+  outside the assembly could ask the question it answers. `TwoWay` runs the bound expression once
+  under a `Computed` before it makes the effect, and a count of zero is a forward leg nothing can
+  ever wake — logged as `7008` with the element and property named, rather than refused, because
+  unlike a type mismatch this half-works and is sometimes what its author meant. The remaining two
+  items below stay design calls; this one was not one.
 
 ### 6.7 Smaller, but each is a real edge
 

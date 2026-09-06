@@ -37,6 +37,13 @@ namespace Vixen.Ui.Controls.Tests;
 ///         <see cref="A_plain_model_gets_one_forward_write_and_the_control_stops_following_it" /> is
 ///         that stated rather than discovered.
 ///     </para>
+///     <para>
+///         ⚠ <b>Which is why every binding in this sheet now writes a warning to the document's
+///         log.</b> <c>TwoWay</c> asks the expression whether it subscribed to anything and says so
+///         when it did not — <c>Vixen.Ui.Tests.InertBindingTests</c> is that, and this fixture is
+///         the shape it reports. Nothing here asserts on the log, deliberately: what these tests
+///         are about is the <i>reach</i>, and a half-live binding still reaches.
+///     </para>
 /// </remarks>
 public class BindReachTests {
     /// <summary>A two-hop path is an lvalue, so it binds.</summary>

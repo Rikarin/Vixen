@@ -59,6 +59,14 @@ public sealed partial class UiDocument {
     /// <summary>Where a refusal goes. <c>NullLogger</c> when the host wired none.</summary>
     readonly ILogger logger;
 
+    /// <summary>The same channel, for the parts of the runtime that are not the cascade.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The document's logger and not a second one.</b> A host wires one channel when it
+    ///     builds the document, and "the styling is wrong" and "this binding is inert" are the same
+    ///     filter in the same Console panel — <c>BuildContext</c> has no other way to reach it.
+    /// </remarks>
+    internal ILogger Logger => logger;
+
     object? drainedLoader;
     int drainedLoaderCount;
 

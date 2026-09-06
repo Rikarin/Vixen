@@ -641,7 +641,6 @@ static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.DuplicateSlot -> V
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.DynamicSlotName -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.EmptyComponent -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExitOutsideLoop -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
-static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExitWithIndex -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExpectedExpression -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.ExpectedExpressionValue -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Ui.Markup.Diagnostics.MarkupDiagnostics.IncompleteProvide -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
