@@ -173,6 +173,119 @@ public class LayerStackCompileTests {
         Assert.Equal(0.5f, group.Find("opacity")!.Value.Value);
     }
 
+    /// <summary>⚠ A layer keeps the numbers it draws when another layer is inserted beneath it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>, on the front end it
+    ///         was actually filed about.</b> <c>TexturePlan.SeedFor</c> mixed the op's index in
+    ///         <c>Ops</c>, and a layer inserted beneath another moves every op after it — so
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a>, which added three ops
+    ///         per masked layer per channel, silently redrew every noise, splatter and dither in every
+    ///         existing material.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The op index still moves and that is asserted, because it is what makes the
+    ///         equality mean something.</b> A test where the insertion happened to leave the index
+    ///         alone would be green against the old arithmetic too — which is exactly what the first
+    ///         draft of this measured on a hand-authored graph, where <c>NodeGraphModel.Ordered</c>
+    ///         seeds its queue in insertion order and a node added later therefore never precedes an
+    ///         existing one. A stack is the case where the index really does move: the whole model is
+    ///         rebuilt from the <c>.vxlayers</c> on every compile.
+    ///     </para>
+    ///     <para>
+    ///         <b>A <c>Levels</c> layer because it dithers</b>, which is the one seeded op a stack can
+    ///         express with no compound and no imported image — <c>Levels.rvn</c> takes the op's own
+    ///         seed so that two of them in one graph do not dither identically.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_layers_seed_survives_a_layer_inserted_beneath_it() {
+        var stack = One(new() {
+            Id = "grade",
+            Kind = LayerKind.Filter,
+            Filter = LayerFilterKind.Levels,
+            Blend = LayerBlendMode.Copy,
+            Settings = { ["Gamma"] = [1.4f] }
+        });
+
+        var before = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        // Underneath, which is where `TextureSetAsset.Layers` starts: the file is in composite order.
+        stack.Sets[0]
+            .Layers.Insert(
+                0,
+                new() { Id = "under", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } }
+            );
+
+        var after = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.NotNull(before.Plan);
+        Assert.NotNull(after.Plan);
+
+        var first = IndexOf(before.Plan, "Levels");
+        var second = IndexOf(after.Plan, "Levels");
+
+        Assert.NotEqual(first, second);
+        Assert.Equal(before.Plan.SeedFor(first), after.Plan.SeedFor(second));
+
+        static int IndexOf(TexturePlan plan, string kernel) {
+            for (var op = 0; op < plan.Ops.Length; op++) {
+                if (string.Equals(plan.Ops[op].Kernel, kernel, StringComparison.Ordinal)) {
+                    return op;
+                }
+            }
+
+            Assert.Fail($"No '{kernel}' op in the plan, so there is no seed to read.");
+
+            return -1;
+        }
+    }
+
+    /// <summary>⚠ A group's own nodes are filed under the group and not under its last child.</summary>
+    /// <remarks>
+    ///     <b>The nesting half of <a href="https://github.com/Rikarin/Vixen/issues/880">#880</a>, and
+    ///     the reason the attribution is a saved-and-restored scope rather than an assignment.</b> A
+    ///     group's isolating constant and its composite are emitted <em>after</em> its children have
+    ///     run, so a builder that set the current layer on the way in and did not put the outer one
+    ///     back would file both under whichever child came last — and a diagnostic about the group
+    ///     would name a row two levels down from the one an artist would have to edit.
+    /// </remarks>
+    [Fact]
+    public void A_groups_own_nodes_are_filed_under_the_group() {
+        var stack = One(new() {
+            Id = "g",
+            Kind = LayerKind.Group,
+            Blend = LayerBlendMode.Screen,
+            Children = [
+                new() { Id = "a", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } },
+                new() { Id = "b", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } }
+            ]
+        });
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.NotNull(compilation.Plan);
+
+        // Two apiece and one channel: a constant and a blend for each child, and for the group its
+        // transparent backdrop and the blend that puts the isolated result over the cursor.
+        Assert.Equal(["a", "b", "g"], compilation.Layers.Values.Order(StringComparer.Ordinal).Distinct());
+        Assert.Equal(2, Owned(compilation, "g"));
+        Assert.Equal(2, Owned(compilation, "a"));
+        Assert.Equal(2, Owned(compilation, "b"));
+
+        static int Owned(LayerStackCompilation compilation, string layer) {
+            var count = 0;
+
+            foreach (var (_, owner) in compilation.Layers) {
+                if (string.Equals(owner, layer, StringComparison.Ordinal)) {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
     /// <summary>An empty group is not a dispatch that changes nothing.</summary>
     /// <remarks>
     ///     ⚠ <b>A blend of the cursor over itself would be harmless arithmetic and is not harmless
@@ -291,9 +404,17 @@ public class LayerStackCompileTests {
     ///         cannot make.</b> <c>Blend.rvn</c> computes
     ///         <c>amount = saturate(opacity) · saturate(b.w)</c> and reads <c>b.w</c> nowhere else, so
     ///         a constant mask inside the unit interval is a reassociation of one product.
-    ///         <c>LayerCoverageDeviceTests</c> is where that is read off the texels — it bakes
-    ///         constant-masked layers at 0, ½ and 1 and asserts the coverage arithmetic, on a device,
-    ///         and none of its numbers moved when this landed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That claim was cited to the wrong test until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/895">#895</a>.</b> The citation was
+    ///         <c>LayerCoverageDeviceTests</c> "baking constant-masked layers at 0, ½ and 1 with none
+    ///         of its numbers moving" — and none of them could have moved, because after the fold
+    ///         every one of those masks compiles to nothing at all. Agreeing with itself is not a
+    ///         differential. <c>LayerCoverageDeviceTests.A_folded_constant_mask_bakes_what_the_unfolded_one_bakes</c>
+    ///         is the one that reads it off the texels: the same mask twice, once folded and once
+    ///         with an entry that changes no texel and stops the fold, swept over five coverages
+    ///         against the closed form.
     ///     </para>
     /// </remarks>
     [Fact]

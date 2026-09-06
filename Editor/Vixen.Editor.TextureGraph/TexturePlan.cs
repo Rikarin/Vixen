@@ -196,6 +196,33 @@ public sealed record TextureOp {
     /// <summary>The numbers it hands the kernel.</summary>
     public ImmutableArray<TextureParameter> Parameters { get; init; } = [];
 
+    /// <summary>What the front end that emitted this op calls it, for a seed an insertion cannot move.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>, and it is the
+    ///         field <see cref="TexturePlan.Seed" />'s remarks said a fix would need.</b>
+    ///         <see cref="TexturePlan.SeedFor" /> mixed the op's index in <see cref="TexturePlan.Ops" />
+    ///         — precisely the number an insertion moves. Adding a layer beneath a noise renumbered
+    ///         every op after it, so the artist moved a node and the material shimmered;
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a> did that at scale,
+    ///         adding three ops per masked layer per channel, and nothing reported the pixel change.
+    ///     </para>
+    ///     <para>
+    ///         <b>Null rather than zero for "the emitter gave none".</b> Zero is a number a hash can
+    ///         legitimately produce, so a sentinel of zero would silently give one op the index
+    ///         fallback and its neighbours the identity — the shape of defect this file already warns
+    ///         about elsewhere. A hand-built plan leaves it null and gets exactly the seeds it always
+    ///         got.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is an identity and not a seed.</b> <see cref="TexturePlan.SeedFor" /> still
+    ///         mixes it with the plan's own <see cref="TexturePlan.Seed" />, so two plans that differ
+    ///         only in their seed still draw different noise from the same node — which is what a
+    ///         "reseed this material" gesture means.
+    ///     </para>
+    /// </remarks>
+    public uint? Identity { get; init; }
+
     /// <summary>The value of one parameter, or <see langword="null" /> when the op does not carry it.</summary>
     /// <param name="name">The uniform's name.</param>
     /// <returns>The authored parameter.</returns>
@@ -341,27 +368,41 @@ public sealed class TexturePlan {
     ///     <para>
     ///         <b>Per op, not per plan.</b> A single seed shared by every noise in a graph makes two
     ///         noises drawn side by side the same picture, which is the thing an author notices
-    ///         first. <see cref="SeedFor" /> mixes the plan's seed with the op's position instead.
+    ///         first. <see cref="SeedFor" /> mixes the plan's seed with the op's identity instead.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>This used to say the mix was with "the op's own identity" and that it made a bake
-    ///         reproducible under editing. Both halves are false —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>.</b> The mix is with the
-    ///         op's <em>index in <see cref="Ops" /></em>, which is precisely the number an insertion
-    ///         moves: add a layer beneath a noise and every op after it shifts, so the artist moves a
-    ///         node and the material shimmers — the failure the remark named as the reason for the
-    ///         design it was describing. <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a>
-    ///         did exactly that at scale, adding three ops per masked layer per channel, and nothing
-    ///         reported the pixel change.
+    ///         ⚠ <b>That identity is <see cref="TextureOp.Identity" /> now, and it was the op's
+    ///         <em>index in <see cref="Ops" /></em> until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>.</b> An index is
+    ///         precisely the number an insertion moves: add a layer beneath a noise and every op
+    ///         after it shifts, so the artist moved a node and the material shimmered.
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a> did that at scale —
+    ///         three ops per masked layer per channel — and nothing reported the pixel change.
     ///     </para>
     ///     <para>
-    ///         <b>What is stable is a re-bake</b>: the same plan at another
-    ///         <see cref="BakeLevelOffset" /> has the same op list, so a 1K material and its 4K bake
-    ///         draw the same noise. What is not stable is the plan across an edit. A fix needs an
-    ///         identity a front end records — a graph node's id and a layer stack's generated node
-    ///         ids both move under the same edits this index does — so it is a change to what a
-    ///         builder writes down rather than to this mix. <c>TexturePlanSeedTests</c> pins the
-    ///         number so the drift is reported rather than silent.
+    ///         <b>So what is stable depends on which front end wrote the plan, and only one of the
+    ///         three is finished.</b> <c>TextureGraphCompiler</c> derives an op's identity from the
+    ///         <em>node</em> that emitted it, and a node's id is persisted in the <c>.vxtexgraph</c>
+    ///         and never reused — so adding a node to an author's graph leaves every existing node's
+    ///         noise exactly as it was. ⚠ A node <em>inlined out of a compound</em> is identified by
+    ///         the pair (the sub-graph node it stands for, its own id inside that compound), which is
+    ///         stable for the same reason even though the flattened identity it is given is not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A layer stack needed a second half, because it has no file of node ids to be
+    ///         stable about.</b> <c>LayerStackGraph</c> builds a fresh <c>NodeGraphModel</c> out of
+    ///         the <c>.vxlayers</c> on every compile, so taking whatever <c>NodeGraphModel.Add</c>
+    ///         hands out would have renumbered every node after an inserted layer exactly as it used
+    ///         to renumber every op after it — #832's own case, with one counter swapped for another.
+    ///         It therefore names its own nodes, from the channel, the layer and how many nodes that
+    ///         layer has already emitted; the id goes into the exploded YAML, which is what carries
+    ///         the identity across exit criterion 6's round trip.
+    ///     </para>
+    ///     <para>
+    ///         <b>A re-bake was always stable and still is</b>: the same plan at another
+    ///         <see cref="BakeLevelOffset" /> has the same ops, so a 1K material and its 4K bake draw
+    ///         the same noise. <c>TexturePlanSeedTests</c> pins the number so that a change to either
+    ///         half is reported rather than silent.
     ///     </para>
     /// </remarks>
     public uint Seed { get; init; }
@@ -490,15 +531,32 @@ public sealed class TexturePlan {
     /// <param name="op">Its index in <see cref="Ops" />.</param>
     /// <returns>A number that is the same on every machine and every run.</returns>
     /// <remarks>
-    ///     A 32-bit avalanche mix of the plan's seed and the op's index — the finalizer from
-    ///     MurmurHash3, chosen because it is four lines, has no table behind it, and gives every bit
-    ///     of the index an equal effect on every bit of the result. That last property is the one
-    ///     that matters: op 6 and op 7 must not draw neighbouring noise.
-    ///     ⚠ And it is the reason an insertion is not a small change — see <see cref="Seed" />, which
-    ///     says what this is and is not stable under.
+    ///     <para>
+    ///         A 32-bit avalanche mix of the plan's seed and the op's identity — the finalizer from
+    ///         MurmurHash3, chosen because it is four lines, has no table behind it, and gives every
+    ///         bit of the identity an equal effect on every bit of the result. That last property is
+    ///         the one that matters: two ops one apart must not draw neighbouring noise.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The identity is <see cref="TextureOp.Identity" /> when the emitter supplied one
+    ///         and the op's <em>index</em> when it did not</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>. The index is what this
+    ///         used to mix unconditionally, and it is exactly the number an insertion moves; the
+    ///         fallback is kept because a hand-built plan has no front end to supply an identity and
+    ///         must keep drawing what it drew. See <see cref="Seed" /> for what each half is stable
+    ///         under.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An index outside <see cref="Ops" /> is answered rather than refused</b>, with the
+    ///         index as the identity. This was a pure function of its argument before #875 and two
+    ///         tests use it as one — asking a plan with no ops for eight seeds is how "moving the
+    ///         plan's seed moves every op's" is stated. Throwing there would make the mix untestable
+    ///         except through a plan, and an evaluator only ever asks about an op it is running.
+    ///     </para>
     /// </remarks>
     public uint SeedFor(int op) {
-        var value = unchecked(Seed + (0x9E3779B9u * (uint)(op + 1)));
+        var named = (uint)op < (uint)Ops.Length ? Ops[op].Identity : null;
+        var value = unchecked(Seed + (0x9E3779B9u * (named ?? (uint)(op + 1))));
 
         value ^= value >> 16;
         value = unchecked(value * 0x85EBCA6Bu);

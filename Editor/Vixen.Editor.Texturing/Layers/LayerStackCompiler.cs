@@ -29,6 +29,17 @@ sealed record LayerStackCompilation(
     ImmutableArray<TextureGraphOutput> Outputs,
     ImmutableArray<TextureGraphExternal> Externals
 ) {
+    /// <summary>Which layer emitted each node — <see cref="LayerStackBuild.Layers" />, carried on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The bridge between the two lists above, and the reason they can stay two</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/880">#880</a>. A reader that has this can
+    ///     say which layer a node's diagnostic is about without the diagnostic having had to carry a
+    ///     layer, which is a field <c>NodeDiagnostic</c> has no business growing: it is the node
+    ///     graph's type and a node graph has no layers.
+    /// </remarks>
+    public ImmutableDictionary<NodeId, string> Layers { get; init; } =
+        ImmutableDictionary<NodeId, string>.Empty;
+
     /// <summary>Whether there is a plan to bake.</summary>
     public bool Succeeded => Plan is not null;
 }
@@ -140,7 +151,7 @@ static class LayerStackCompiler {
             // compile still produces a graph — the layers under it are all there — and compiling it
             // would hand back a plan that bakes a picture missing one layer, with the refusal filed
             // under "problems" where a caller looking at `Plan is not null` never reads it.
-            return new(null, build.Graph, build.Problems, [], [], []);
+            return new(null, build.Graph, build.Problems, [], [], []) { Layers = build.Layers };
         }
 
         if (registry is null) {
@@ -166,6 +177,8 @@ static class LayerStackCompiler {
             compilation.Diagnostics,
             compiler.Outputs,
             compiler.Externals
-        );
+        ) {
+            Layers = build.Layers
+        };
     }
 }

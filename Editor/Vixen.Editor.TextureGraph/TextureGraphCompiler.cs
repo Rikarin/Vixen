@@ -139,6 +139,13 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     /// <summary>Which image an output port's variable names.</summary>
     readonly Dictionary<string, int> imageOf = new(StringComparer.Ordinal);
 
+    /// <summary>How many ops each node has dispatched, which is the ordinal in its op's identity.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Per node rather than one running counter, which would be the op index again.</b> See
+    ///     <see cref="Identify" /> — <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>.
+    /// </remarks>
+    readonly Dictionary<NodeId, int> emitted = [];
+
     /// <summary>The splat inserted for one grey image, so two colour ports fed by it share one op.</summary>
     readonly Dictionary<int, int> promotions = [];
 
@@ -737,7 +744,8 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///     <see cref="TexturePlan.Validate" />'s hands, which would then say the compiler is broken
     ///     on top of the message the author can actually act on.
     /// </remarks>
-    internal void Dispatch(TextureOp op) {
+    internal void Dispatch(GraphNode node, TextureOp op) {
+        ArgumentNullException.ThrowIfNull(node);
         ArgumentNullException.ThrowIfNull(op);
 
         if (op.Output < 0) {
@@ -750,7 +758,96 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             }
         }
 
-        ops.Add(op);
+        // ⚠ Counted before the drops above would have skipped it, or a node whose first op was
+        // dropped would hand its second op the first one's identity — and the identity would then
+        // depend on whether an unrelated input was missing.
+        emitted.TryGetValue(node.Id, out var ordinal);
+        emitted[node.Id] = ordinal + 1;
+
+        ops.Add(op with { Identity = Identify(node, ordinal) });
+    }
+
+    /// <summary>The stable name of one op: which node emitted it, and its ordinal within that node.</summary>
+    /// <param name="node">The node, in the <em>flattened</em> graph.</param>
+    /// <param name="ordinal">How many ops that node has already emitted.</param>
+    /// <returns>A number to mix into the op's seed.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>: the op's index was
+    ///         the seed, and an index is what an insertion moves.</b> A <c>NodeId</c> is not: it is
+    ///         written in the <c>.vxtexgraph</c>, <c>NodeGraphModel</c> never reuses one, and adding
+    ///         a node hands out a fresh number rather than renumbering the existing ones. So a noise
+    ///         keeps its picture when an author wires something in beneath it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An inlined node is named by where it came from and not by the identity it was
+    ///         given</b>, because <c>SubGraphs.Flatten</c> numbers inlined nodes from above the outer
+    ///         graph's highest id — so adding any node to the author's graph renumbers every node
+    ///         inside every compound in it. <see cref="NodeGraphInlining" /> keeps the pair that does
+    ///         not move: the sub-graph node it stands for, and its own id inside that compound.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The compound's <em>path</em> is mixed in as well, and the collision it prevents is
+    ///         real rather than theoretical.</b> <c>NodeOrigin.Source</c> is the outermost sub-graph
+    ///         node however deep the nesting goes, and <c>Inner</c> is an identity in the innermost
+    ///         file — so a compound containing a compound, each with a node numbered 3, would give
+    ///         two different ops the same name without it.
+    ///     </para>
+    ///     <para>
+    ///         <b>The ordinal is what lets one node emit several.</b> <c>AutoLevels</c> is a reduction
+    ///         chain and <c>Distance</c> is a jump flood; every one of their dispatches needs a name
+    ///         of its own, and the order a node emits them in is a property of the node rather than
+    ///         of the graph around it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Hashed" /> and not <c>string.GetHashCode</c>, and the difference is
+    ///         the whole promise.</b> .NET randomises a string's hash per process, so a compound path
+    ///         hashed that way would give one material a different picture on every launch — the
+    ///         failure <see cref="TexturePlan.SeedFor" />'s "the same on every machine and every run"
+    ///         exists to rule out, arriving through the one input that is a string.
+    ///     </para>
+    /// </remarks>
+    uint Identify(GraphNode node, int ordinal) {
+        var identity = (uint)node.Id.Value;
+
+        if (Inlining.TryGet(node.Id, out var origin)) {
+            identity = unchecked(
+                (0x9E3779B9u * (uint)origin.Source.Value)
+                ^ (0x85EBCA6Bu * (uint)origin.Inner.Value)
+                ^ Hashed(origin.Type)
+            );
+        }
+
+        // MurmurHash3's finalizer, which is `TexturePlan.SeedFor`'s own mix — used here so that the
+        // ordinal and the node are folded together rather than living in separate bit ranges a
+        // second hash would then have to separate again.
+        var value = unchecked((0xC2B2AE35u * identity) + (uint)ordinal + 1u);
+
+        value ^= value >> 16;
+        value = unchecked(value * 0x85EBCA6Bu);
+        value ^= value >> 13;
+        value = unchecked(value * 0xC2B2AE35u);
+        value ^= value >> 16;
+
+        return value;
+    }
+
+    /// <summary>A string's hash, the same in every process — FNV-1a over its UTF-16 code units.</summary>
+    /// <param name="text">The text.</param>
+    /// <returns>The hash.</returns>
+    /// <remarks>
+    ///     Four lines rather than a dependency, and the property that matters is the one
+    ///     <c>string.GetHashCode</c> deliberately does not have: it is seeded per process, so the
+    ///     same graph would seed its noise differently on every launch.
+    /// </remarks>
+    static uint Hashed(string text) {
+        var hash = 2166136261u;
+
+        foreach (var character in text) {
+            hash = unchecked((hash ^ character) * 16777619u);
+        }
+
+        return hash;
     }
 
     /// <summary>Keeps an image past the evaluation, under a usage.</summary>

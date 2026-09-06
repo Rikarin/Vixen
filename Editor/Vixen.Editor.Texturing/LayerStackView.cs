@@ -206,17 +206,27 @@ sealed class LayerStackView {
     /// <summary>What the status line under the preview says.</summary>
     public string Status => status.Text ?? string.Empty;
 
-    /// <summary>The rows, topmost first — what a test reads instead of walking the tree.</summary>
-    public IReadOnlyList<string> Rows { get; private set; } = [];
-
     /// <summary>Everything the compile had to say, in the order it said it.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the surface <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a>
-    ///     found missing, and the argument it was missing from is <c>TG0022</c>'s.</b> The terminus
-    ///     rescale was chosen over a silent one because "it is said" — and nothing said it: no
-    ///     production type rendered a <c>NodeDiagnostic</c>, and the one consumer that read a list of
-    ///     them kept the errors. So a warning reached an author only in the sense that a value
-    ///     existed in a record. A diagnostic an author cannot see is not a diagnostic.
+    ///     <para>
+    ///         ⚠ <b>This one <em>is</em> the derivation the panel draws from, which is why it stayed
+    ///         when <c>Rows</c> went</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/898">#898</a> reported the two as the
+    ///         same shape and they are not: <see cref="Show" /> assigns this and then adds one
+    ///         element per entry of it, so there is exactly one thing that decides what a message
+    ///         says. <c>Rows</c> was assigned from a second walk that nothing read and that had
+    ///         already drifted — it listed layers only, while the tree the panel builds also has a
+    ///         row per mask entry and per mask effect.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is the surface <a href="https://github.com/Rikarin/Vixen/issues/830">#830</a>
+    ///         found missing, and the argument it was missing from is <c>TG0022</c>'s.</b> The
+    ///         terminus rescale was chosen over a silent one because "it is said" — and nothing said
+    ///         it: no production type rendered a <c>NodeDiagnostic</c>, and the one consumer that
+    ///         read a list of them kept the errors. So a warning reached an author only in the sense
+    ///         that a value existed in a record. A diagnostic an author cannot see is not a
+    ///         diagnostic.
+    ///     </para>
     /// </remarks>
     public IReadOnlyList<string> Messages { get; private set; } = [];
 
@@ -275,7 +285,6 @@ sealed class LayerStackView {
         if (document is null) {
             Clear();
 
-            Rows = [];
             title.Text = "Result";
             status.Text = "";
 
@@ -285,8 +294,6 @@ sealed class LayerStackView {
 
             return;
         }
-
-        Rows = Describe(document);
 
         var wanted = Shape(document);
 
@@ -387,9 +394,18 @@ sealed class LayerStackView {
     ///         to say whether one mistake or two were behind it. ⚠ <b>Naming
     ///         <c>NodeDiagnostic.Node</c> on the line — which is what #870 proposed — would undo
     ///         #842 rather than fix this</b>: the seven copies of one mistake are seven different
-    ///         nodes, so it turns one mistyped setting into seven lines. What a reader can act on is
-    ///         the <em>layer</em>, and nothing on a diagnostic carries one; see
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/880">#880</a> for the map that would.
+    ///         nodes, so it turns one mistyped setting into seven lines.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the line names the <em>layer</em>, out of
+    ///         <see cref="LayerStackPicture.Layers" /> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/880">#880</a>, which is what actually
+    ///         closes #870 and the readable half of #842.</b> The dedupe key is the rendered line, so
+    ///         adding the layer to it collapses one layer's seven per-channel copies into one
+    ///         sentence <em>and</em> keeps two layers' identical mistakes two sentences — the two
+    ///         things naming the node could not do at once. A diagnostic whose node is in no layer —
+    ///         a channel's base constant, its <c>Output</c> — keeps the unnamed form, because "no
+    ///         layer" is a true answer and inventing one would be a row nobody can select.
     ///     </para>
     /// </remarks>
     public static IReadOnlyList<string> Describe(LayerStackPicture picture) {
@@ -408,7 +424,9 @@ sealed class LayerStackView {
         List<string> ordered = [];
 
         foreach (var diagnostic in picture.Diagnostics) {
-            var line = $"{Severity(diagnostic.Severity)} — {diagnostic.Id}: {diagnostic.Message}";
+            var line = picture.Layers.TryGetValue(diagnostic.Node, out var layer)
+                ? $"{Severity(diagnostic.Severity)} — layer '{layer}' {diagnostic.Id}: {diagnostic.Message}"
+                : $"{Severity(diagnostic.Severity)} — {diagnostic.Id}: {diagnostic.Message}";
 
             if (!raisers.TryGetValue(line, out var nodes)) {
                 raisers[line] = nodes = [];

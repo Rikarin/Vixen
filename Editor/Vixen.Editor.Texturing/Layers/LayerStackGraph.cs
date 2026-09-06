@@ -79,6 +79,33 @@ sealed record LayerStackBuild(
     ImmutableArray<LayerStackProblem> Problems,
     ImmutableArray<LayerNote> Notes
 ) {
+    /// <summary>Which layer emitted each node, for the nodes a layer emitted.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What a <c>NodeDiagnostic</c> has no room for, and without which a panel can
+    ///         neither name a layer nor dedupe by one</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/880">#880</a>. A diagnostic names a
+    ///         node in the exploded graph, and for a stack nobody has exploded that is a node nobody
+    ///         can see; the thing an artist can act on is the layer, and every node this builder
+    ///         emits inside a layer's walk belongs to exactly one.
+    ///     </para>
+    ///     <para>
+    ///         <b>A node is missing from this rather than mapped to an empty string</b>: the base
+    ///         constant and the <c>Output</c> of each channel are the set's rather than any layer's,
+    ///         and "no layer" is a different answer from "a layer whose id is empty". A layer with no
+    ///         id is not recorded either, for the same reason — an anchor names a layer by id, so a
+    ///         layer without one is not a thing a sentence can name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An <em>inlined</em> node's diagnostic is already re-addressed before it gets
+    ///         here.</b> <c>NodeGraphCompiler.Report</c> rewrites a complaint about a node inside a
+    ///         compound onto the sub-graph node it came out of — which is a node this builder added
+    ///         — so a generator's own diagnostics land on a key this map has.
+    ///     </para>
+    /// </remarks>
+    public ImmutableDictionary<NodeId, string> Layers { get; init; } =
+        ImmutableDictionary<NodeId, string>.Empty;
+
     /// <summary>Whether anything stops this graph being compiled.</summary>
     public bool HasErrors {
         get {
@@ -190,6 +217,12 @@ static class LayerStackGraph {
         readonly List<LayerStackProblem> problems = [];
         readonly List<LayerNote> notes = [];
 
+        /// <summary>Which layer emitted each node — <see cref="LayerStackBuild.Layers" />.</summary>
+        readonly Dictionary<NodeId, string> owners = [];
+
+        /// <summary>How many nodes each (channel, layer) has emitted — see <see cref="Named" />.</summary>
+        readonly Dictionary<(string Usage, string Layer), int> ordinals = [];
+
         /// <summary>Anchor edges, held until every layer's result node exists.</summary>
         /// <remarks>
         ///     ⚠ <b>Deferred so that the graph model does the cycle check.</b> Connected as each
@@ -210,6 +243,27 @@ static class LayerStackGraph {
 
         float column;
         float row;
+
+        /// <summary>The layer whose walk is running, or empty outside every layer.</summary>
+        /// <remarks>
+        ///     ⚠ <b>A scope rather than an argument threaded through nine methods, and the difference
+        ///     is what a new emitter does.</b> Every node this builder makes goes through
+        ///     <see cref="Add" />; a parameter would have to be passed correctly by each of
+        ///     <c>Fill</c>, <c>Paint</c>, <c>Adjustment</c>, <c>Mask</c>, <c>MaskImage</c>,
+        ///     <c>MaskSource</c>, <c>Opaque</c>, <c>Anchored</c> and <c>Effect</c>, and a tenth added
+        ///     later would silently emit unowned nodes. Set once, by <see cref="Layer" />, it is
+        ///     right for everything reached from there including a method nobody has written yet.
+        /// </remarks>
+        string owner = "";
+
+        /// <summary>The channel whose chain is being built, which is the other half of a node's name.</summary>
+        /// <remarks>
+        ///     ⚠ <b>In the identity because <see cref="Content" /> is called once per channel</b>, so
+        ///     one layer emits one set of nodes per map the set writes. Without it every channel's
+        ///     copy of a layer would want the same id and <see cref="Named" /> would spend the whole
+        ///     stack in its collision probe.
+        /// </remarks>
+        string usage = "";
 
         public LayerStackBuild Run() {
             if (set.Channels.Count == 0) {
@@ -244,7 +298,7 @@ static class LayerStackGraph {
 
             Anchors();
 
-            return new(graph, [.. problems], [.. notes]);
+            return new(graph, [.. problems], [.. notes]) { Layers = owners.ToImmutableDictionary() };
         }
 
         /// <summary>Refuses two layers sharing an identity, because an anchor names one of them.</summary>
@@ -271,6 +325,8 @@ static class LayerStackGraph {
 
         /// <summary>One channel's chain: a base colour, every layer over it, and an output.</summary>
         void Channel(ChannelAsset channel) {
+            usage = channel.Usage;
+
             var start = Add("Source/Uniform");
 
             start.SetValue("Colour", Colour(channel.Default, channel.Usage, ""));
@@ -306,8 +362,29 @@ static class LayerStackGraph {
             return cursor;
         }
 
-        /// <summary>One layer composited over the cursor, or the cursor unchanged.</summary>
+        /// <summary>One layer composited over the cursor, with everything it emits attributed to it.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Saved and restored rather than assigned, because a group's children are layers
+        ///     too.</b> <see cref="Group" /> re-enters <see cref="Stack" />, so a child sets
+        ///     <see cref="owner" /> to its own id and has to hand the group's back — the group's own
+        ///     blend node is emitted <em>after</em> its children have run. Assigning without
+        ///     restoring would file every group's composite under whichever child happened to be
+        ///     last.
+        /// </remarks>
         PortRef Layer(LayerAsset layer, ChannelAsset channel, PortRef cursor, int depth) {
+            var outer = owner;
+
+            owner = layer.Id;
+
+            try {
+                return Composite(layer, channel, cursor, depth);
+            } finally {
+                owner = outer;
+            }
+        }
+
+        /// <summary>One layer composited over the cursor, or the cursor unchanged.</summary>
+        PortRef Composite(LayerAsset layer, ChannelAsset channel, PortRef cursor, int depth) {
             if (!layer.Enabled || !layer.Writes(channel.Usage)) {
                 return cursor;
             }
@@ -798,7 +875,7 @@ static class LayerStackGraph {
                 problems.Add(LayerStackProblem.Warning(
                     layer.Id,
                     $"This layer's mask names a paint file ('{mask.Paint}') and its source is None, so the "
-                    + "painted pixels are not read. A painted mask is M9 (#574)."
+                    + "painted pixels are not read. Set the mask's source to Paint to read them."
                 ));
             }
 
@@ -1372,12 +1449,93 @@ static class LayerStackGraph {
         }
 
         /// <summary>A node, laid out so that the exploded graph reads left to right.</summary>
+        /// <remarks>
+        ///     The one funnel every node in a built stack comes through, which is why
+        ///     <see cref="LayerStackBuild.Layers" /> is filled here rather than at each emitter — and
+        ///     why <see cref="Named" /> can give every node an identity that does not depend on the
+        ///     order the walk reached it in.
+        /// </remarks>
         GraphNode Add(string type) {
-            var node = graph.Add(type, new Vector2(column * 220f, row * 260f));
+            var node = graph.Add(Named(), type, new Vector2(column * 220f, row * 260f));
 
             column++;
 
+            if (owner.Length > 0) {
+                owners[node.Id] = owner;
+            }
+
             return node;
+        }
+
+        /// <summary>An identity for the next node, from what it is rather than from when it was made.</summary>
+        /// <returns>The id, which is free in this graph.</returns>
+        /// <remarks>
+        ///     <para>
+        ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>, and the reason
+        ///         it had to land <em>here</em> rather than only in the plan.</b>
+        ///         <c>TexturePlan.SeedFor</c> now mixes <c>TextureOp.Identity</c>, which
+        ///         <c>TextureGraphCompiler</c> derives from the <c>NodeId</c> that emitted the op —
+        ///         and for a hand-authored <c>.vxtexgraph</c> that is the end of it, because a node id
+        ///         is written in the file and <c>NodeGraphModel</c> never reuses one. A stack has no
+        ///         such file: this class builds a fresh model on every compile, so
+        ///         <c>NodeGraphModel.Add(string, …)</c>'s counter would hand every node after an
+        ///         inserted layer a new number and every noise under it a new picture. Substituting
+        ///         one counter for another is what #875 refutes, not what it asks for.
+        ///     </para>
+        ///     <para>
+        ///         <b>So the identity is the answer to "which node is this?" asked of the document.</b>
+        ///         The channel, the layer, and how many nodes that layer has already emitted for that
+        ///         channel — a triple that does not move when a layer is inserted beneath, above or
+        ///         beside it, and which changes only when the layer itself is rewritten. ⚠ It has to
+        ///         be the <em>id</em> and not a side table, because the identity must survive
+        ///         <c>LayerStackExplode</c>'s YAML round trip: exit criterion 6 compiles a graph that
+        ///         came off a file, and what is in the file is the node ids.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>A layer with no id shares one scope with every other layer that has none</b>,
+        ///         so those nodes are numbered by walk order within the channel and move exactly as
+        ///         they did before. That is honest rather than ideal: an id is what an anchor names,
+        ///         so a layer without one is already not a thing this file can refer to.
+        ///     </para>
+        ///     <para>
+        ///         <b>A collision walks forward, and that is the one place order leaks back in.</b>
+        ///         Two scopes hashing to one number would otherwise make
+        ///         <c>NodeGraphModel.Add(NodeId, …)</c> throw out of a panel build. The probe is
+        ///         deterministic for a given document and the ids it lands on are stable for it; what
+        ///         it cannot promise is that inserting a layer leaves a <em>collided</em> node's id
+        ///         alone. Over a 2³⁰ space and a stack's worth of nodes that is not a case anybody
+        ///         will meet, and the alternative — a wider id — is a change to <c>NodeId</c>.
+        ///     </para>
+        /// </remarks>
+        NodeId Named() {
+            var scope = (usage, owner);
+
+            ordinals.TryGetValue(scope, out var ordinal);
+            ordinals[scope] = ordinal + 1;
+
+            var hash = 2166136261u;
+
+            foreach (var character in usage) {
+                hash = unchecked((hash ^ character) * 16777619u);
+            }
+
+            hash = unchecked((hash ^ '\n') * 16777619u);
+
+            foreach (var character in owner) {
+                hash = unchecked((hash ^ character) * 16777619u);
+            }
+
+            hash = unchecked(((hash ^ '\n') * 16777619u) + (uint)ordinal);
+
+            // Kept well inside `int`, because `NodeGraphModel.Add(NodeId, …)` raises its own counter
+            // to the largest id it has seen and a sub-graph inlining then allocates above that.
+            var id = new NodeId((int)(hash % 0x3FFFFFFFu) + 1);
+
+            while (graph.TryGet(id, out _)) {
+                id = new NodeId(id.Value % 0x3FFFFFFF + 1);
+            }
+
+            return id;
         }
     }
 }

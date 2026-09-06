@@ -207,8 +207,11 @@ refusal on the plan would be better still and is not this kernel's to make; ther
 A levels curve that lifts a narrow input range fills an 8-bit output with visible bands, and a bake is a
 **file** — so the banding is permanent and nothing downstream removes it. One step of ordered noise
 costs nothing and is invisible. That is what `dither` and `seed` are, and it is why the plan carries a
-seed at all in M1: `TexturePlan.SeedFor` mixes the plan's seed with the op's index on the CPU, so two
-levels nodes in one graph do not dither identically and a re-bake on the same machine is byte-identical.
+seed at all in M1: `TexturePlan.SeedFor` mixes the plan's seed with the op's identity on the CPU, so
+two levels nodes in one graph do not dither identically and a re-bake on the same machine is
+byte-identical. ⚠ **That identity was the op's *index* until [#875](https://github.com/Rikarin/Vixen/issues/875)** — so inserting anything ahead of a levels node changed
+its dither, and #832 did exactly that across every material at once. It is now `TextureOp.Identity`,
+which the compiler derives from the node that emitted the op.
 
 ⚠ **`seed` is declared as a `float`, and the hashing has already happened.** What a kernel needs of a
 seed is that two ops disagree; carrying it as a float keeps these sources free of the integer-literal

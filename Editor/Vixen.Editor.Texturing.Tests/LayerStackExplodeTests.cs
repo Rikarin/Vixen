@@ -65,6 +65,33 @@ public class LayerStackExplodeTests {
         Assert.Equal(3, direct.Plan.Outputs.Length);
     }
 
+    /// <summary>⚠ The differential's mask reaches the compiler rather than folding into an opacity.</summary>
+    /// <remarks>
+    ///     <b><a href="https://github.com/Rikarin/Vixen/issues/895">#895</a>, and it is an instrument
+    ///     check rather than a feature.</b> The fixture's summary said it contained a mask and so did
+    ///     <c>docs/overview.md</c>; <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>'s
+    ///     fold had quietly made both false, because a bare constant mask inside the unit interval
+    ///     compiles to no ops at all. The mask now has two entries, and this is what says so — read
+    ///     off the builder's own notes, which are where the fold announces itself, rather than off a
+    ///     node count that a change anywhere else in the stack would move.
+    /// </remarks>
+    [Fact]
+    public void The_differentials_mask_is_compiled_and_not_folded() {
+        var stack = LayerStackDifferential.Stack();
+        var build = LayerStackGraph.Build(stack, stack.Sets[0]);
+        var masked = 0;
+
+        foreach (var note in build.Notes) {
+            Assert.DoesNotContain("folded into the opacity", note.Text, StringComparison.Ordinal);
+
+            if (note.Text.Contains("mask", StringComparison.Ordinal)) {
+                masked++;
+            }
+        }
+
+        Assert.True(masked > 0, "No layer in the differential stack carries a mask at all.");
+    }
+
     /// <summary>An exploded graph carries the header and a comment per composite.</summary>
     [Fact]
     public void An_exploded_graph_says_it_is_one_way_and_names_its_layers() {
@@ -81,10 +108,12 @@ public class LayerStackExplodeTests {
     /// <summary>The decoration is comments, and comments only.</summary>
     /// <remarks>
     ///     ⚠ <b>The property the differential rests on, asserted rather than assumed.</b> An
-    ///     explosion that inserted a node would move every op index, and <c>TexturePlan.SeedFor</c>
-    ///     mixes the op's index into its seed — so a noise several layers up would draw a different
-    ///     picture. This says the decoration touched no node and no wire; the differential says the
-    ///     compilation agrees. Either one alone leaves a hole.
+    ///     explosion that inserted a node would emit an op nothing on the other side emits, and an
+    ///     op's seed is mixed from the node that emitted it —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>. ⚠ Before it the seed came from
+    ///     the op's <em>index</em>, so one inserted node redrew every noise above it. This says the
+    ///     decoration touched no node and no wire; the differential says the compilation agrees, and
+    ///     it now compares each op's seed as well. Either one alone leaves a hole.
     /// </remarks>
     [Fact]
     public void Exploding_adds_no_node_and_no_wire() {
