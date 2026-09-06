@@ -213,6 +213,19 @@ the answer is real is inside the archive.
   packable projects under warnings-as-errors turns `Pack` red is at least not universal. The day it
   starts mattering is the day a package multi-targets or ships a RID-specific assembly, which is
   exactly when nobody will remember this paragraph.
+
+  ⚠️ **So both halves of the refusal now expire loudly instead of being re-derived by hand.**
+  [#337](https://github.com/Rikarin/Vixen/issues/337) recorded the same two facts through six separate
+  rounds — no release to be a baseline, no multi-target to be an input — and each round established
+  them by grepping and left nothing behind, which is the shape of a refusal that quietly becomes an
+  oversight. `Tools/Vixen.ApiCheck.Tests/PackageValidationTests` asserts the two premises rather than
+  the property: it fails naming the first project to declare `TargetFrameworks`, and it fails when
+  `docs/api-history/index.json` archives any release other than the `VersionPrefix` this tree builds
+  — the ritual's own committed record being the one statement about "has this repository released"
+  that is readable without a network. ⚠️ Its third test is the guard the other two need, and it
+  earned its place immediately: the first version of the walk excluded any path containing `.claude`,
+  which excludes *the entire tree* when the tree is an agent worktree under `.claude/worktrees`, so
+  both premises were being asserted over nothing and both were green.
 - **The third-party attribution manifest is in no package.** `docs/manual/third-party.md` is packed by
   nothing, so "fails if any of the three is missing" could never have held for it. Whether it belongs
   inside every package, or whether the `NOTICE` discharges §4(d) on its own, is a licence question and
