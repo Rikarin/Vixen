@@ -9,6 +9,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Ecs.Systems;
+using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Assets.Models;
 using Vixen.Editor.Core;
 using Vixen.Editor.SceneView;
@@ -16,6 +17,7 @@ using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Platform;
+using Vixen.Rendering;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 
@@ -1706,38 +1708,18 @@ sealed partial class EditorApplication {
         }
 
         var absolute = project.Paths.Absolute(entry.Path);
-        var extension = Path.GetExtension(absolute);
 
         try {
-            var settings = ModelSettingsOf(absolute);
-            var read = ModelReader.Read(
-                File.ReadAllBytes(absolute),
-                extension,
-                Path.GetFileNameWithoutExtension(absolute),
-                settings
-            );
-
-            var mesh = Array.Find(read.Meshes, candidate => candidate.TexCoords.Length == candidate.Positions.Length
-                && candidate.TexCoords.Length > 0);
-
-            if (mesh is null) {
-                Shell.Notifications.Show(
-                    "Nothing to bake into",
-                    NotificationSeverity.Warning,
-                    read.Meshes.Length == 0
-                        ? "That file has no meshes."
-                        : "None of its meshes carries texture coordinates, and a mesh map is a picture of "
-                        + "the atlas. Unwrap it first — the model importer's Unwrap setting will."
-                );
+            if (BakeableMesh(entry, absolute, out var name, out var refusal) is not { } mesh) {
+                Shell.Notifications.Show("Nothing to bake into", NotificationSeverity.Warning, refusal);
 
                 return;
             }
 
             var kernel = ModelGeometry.ToEditMesh(mesh);
-            var name = mesh.Name.Length > 0 ? mesh.Name : Path.GetFileNameWithoutExtension(absolute);
 
             // ⚠ The model's own asset id goes with the name, and it is what keys the set rather
-            // than decorating it. `mesh.Name` is whatever the artist called the object in Blender,
+            // than decorating it. The name is whatever the artist called the object in Blender,
             // which is `Cube` in every file nobody renamed — see `MeshMapNaming.ModelKey`.
             content.BakeMeshMaps(meshMaps, entry.Guid, name, kernel, kernel, meshMapBake.ToBake());
         } catch (Exception failure) when (failure
@@ -1748,6 +1730,87 @@ sealed partial class EditorApplication {
             Shell.Notifications.Show("Could not bake mesh maps", NotificationSeverity.Error, failure.Message);
         }
     }
+
+    /// <summary>The first mesh of a model that has an atlas to bake into, and what to call the set.</summary>
+    /// <param name="entry">The selected asset.</param>
+    /// <param name="absolute">Where its file is.</param>
+    /// <param name="name">What the set is named after, or empty when there is nothing to bake.</param>
+    /// <param name="refusal">Why there is nothing, or empty.</param>
+    /// <returns>The mesh, or <see langword="null" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The imported chunks first, and the file only for a model this project has never
+    ///         imported</b> — the same seam <c>LayerStackMesh.Open</c> takes, and for the reason
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/934">#934</a> gives about painting:
+    ///         <c>ModelImportSettings.Unwrap</c> generates its coordinates inside
+    ///         <c>ModelRetopology.Run</c>, which the <em>importer</em> calls and <c>ModelReader</c>
+    ///         does not. Reading the file meant that a model unwrapped at import — the one thing
+    ///         somebody does before asking for maps of its atlas — was refused here with "none of its
+    ///         meshes carries texture coordinates", about a state they had already created.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the set takes the name the project gave the mesh</b>, which is what
+    ///         <c>SubAssetNames</c> may have changed and what <c>TextureSetAsset.Mesh</c> is matched
+    ///         against. A bake filed under the file's name beside a stack narrowed by the project's
+    ///         would be two names for one mesh, and a generator reading a map by usage would bind
+    ///         nothing with both of them present.
+    ///     </para>
+    /// </remarks>
+    MeshData? BakeableMesh(AssetEntry entry, string absolute, out string name, out string refusal) {
+        name = "";
+        refusal = "";
+
+        var declared = ProjectMeshSource.Declared(absolute);
+
+        if (declared.Count > 0) {
+            foreach (var mesh in declared) {
+                if (SceneGeometry.TryGet(new(entry.Guid, mesh.Id), out var imported) && HasAtlas(imported)) {
+                    name = mesh.Name.Length > 0 ? mesh.Name : Path.GetFileNameWithoutExtension(absolute);
+
+                    return imported;
+                }
+            }
+
+            refusal = "None of this model's imported meshes carries texture coordinates, and a mesh map is "
+                + "a picture of the atlas. Unwrap it — the model importer's Unwrap setting will — and "
+                + "import again.";
+
+            return null;
+        }
+
+        var read = ModelReader.Read(
+            File.ReadAllBytes(absolute),
+            Path.GetExtension(absolute),
+            Path.GetFileNameWithoutExtension(absolute),
+            ModelSettingsOf(absolute)
+        );
+
+        if (Array.Find(read.Meshes, HasAtlas) is { } found) {
+            name = found.Name.Length > 0 ? found.Name : Path.GetFileNameWithoutExtension(absolute);
+
+            return found;
+        }
+
+        refusal = read.Meshes.Length == 0
+            ? "That file has no meshes."
+            : "None of its meshes carries texture coordinates, and a mesh map is a picture of the atlas. "
+            + "This project has never imported it — import it, because the model importer's Unwrap "
+            + "setting generates the atlas — or unwrap it in the tool that made it.";
+
+        return null;
+    }
+
+    /// <summary>Whether a mesh has one texture coordinate per vertex, which is what a bake lands in.</summary>
+    /// <param name="mesh">The mesh.</param>
+    /// <returns>Whether it does.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The lengths have to <em>match</em> and not merely both be non-zero.</b> A file that
+    ///     lied about its vertex count gives a short array, and <c>ModelGeometry.ToEditMesh</c> reads
+    ///     one coordinate per vertex — so a bake over one would land on coordinates belonging to other
+    ///     vertices rather than fail.
+    /// </remarks>
+    static bool HasAtlas(MeshData mesh) =>
+        mesh.TexCoords.Length == mesh.Positions.Length && mesh.TexCoords.Length > 0;
 
     /// <summary>What the Bake Mesh Maps panel is called in an arrangement.</summary>
     internal const string MeshMapBakePanel = "mesh-map-bake";
