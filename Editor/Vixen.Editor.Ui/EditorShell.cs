@@ -135,24 +135,37 @@ public sealed class EditorShell : IDisposable {
         Modes = new EditorModes(this);
         Modes.Changed += _ => RefreshModeBar();
 
-        StatusBar = chrome.Add<UiElement>("status-bar");
-        statusMessage = StatusBar.Add<UiElement>("status-message");
+        // ⚠ **The control, not a bare element with a class on it, and what changes is not the
+        // picture.** `AccessibleRole.Status` is a live region: a screen reader announces a change to
+        // it *without* moving the focus, which is the entire behaviour a status bar exists to have
+        // and which the hand-drawn strip had none of. It also puts the message and the cells in
+        // separate parts — see below.
+        StatusBar = chrome.Add<StatusBar>();
+        statusMessage = StatusBar.Label;
 
         // ⚠ Four cells, left to right, and doc 20 names all four: the transient message, the
         // selection count, the editor's own frame time, and the task centre. The frame time is the
         // one that is not obvious and is the one that matters — doc 00's editor-shell performance
         // bar is a claim about the editor, and a claim nobody can see is one that gets worse a panel
         // at a time until a benchmark notices six months later.
-        statusSelection = StatusBar.Add<UiElement>("status-cell");
+        //
+        // ⚠ **Into `Trailing`, and it has to be explicit.** `ContentHost` routes a *nested tag* in
+        // markup; `Add<T>` is `Document.Create` and puts the child exactly where it was told. So a
+        // port that only swapped the type would leave the four cells beside the message with an
+        // empty `status-trailing` after them — and an empty flex item still takes a gap, which is
+        // eight pixels of dead chrome at the right-hand end that nothing in the tree explains.
+        var trailing = StatusBar.Trailing;
+
+        statusSelection = trailing.Add<UiElement>("status-cell");
         statusSelection.SetStyle("display", "none");
 
-        statusFrame = StatusBar.Add<UiElement>("status-cell");
+        statusFrame = trailing.Add<UiElement>("status-cell");
         statusFrame.AddClass("status-frame");
 
-        statusProgress = StatusBar.Add<ProgressBar>();
+        statusProgress = trailing.Add<ProgressBar>();
         statusProgress.SetStyle("display", "none");
 
-        statusTasks = StatusBar.Add<Button>();
+        statusTasks = trailing.Add<Button>();
         statusTasks.Variant = ControlVariant.Subtle;
         statusTasks.Size = ControlSize.Small;
         statusTasks.Label = EditorStrings.TasksTitle.Text;
@@ -421,7 +434,12 @@ public sealed class EditorShell : IDisposable {
     public ToolbarPresenter Toolbar { get; }
 
     /// <summary>The strip along the bottom.</summary>
-    public UiElement StatusBar { get; }
+    /// <remarks>
+    ///     ⚠ <b>Its cells are in <see cref="Vixen.Ui.Controls.StatusBar.Trailing" />, not directly
+    ///     under it.</b> The message is a part of its own, so a walk of <c>Children</c> here finds
+    ///     two elements rather than five.
+    /// </remarks>
+    public StatusBar StatusBar { get; }
 
     /// <summary>Where messages appear.</summary>
     public ToastHost Toasts { get; }

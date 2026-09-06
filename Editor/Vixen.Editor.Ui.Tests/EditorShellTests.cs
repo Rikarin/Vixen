@@ -161,6 +161,42 @@ public class EditorShellTests {
         Assert.Equal(shell.StatusBar.IndexInParent, chrome.Children.Count - 1);
     }
 
+    /// <summary>The two strips are the controls that were extracted from them, not lookalikes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What the editor was missing here is behaviour, and none of it is visible.</b> The
+    ///     hand-drawn strip was a row of buttons that were each a tab stop — fifteen presses between
+    ///     a keyboard user and the document — and reported no role at all, so the toolbar a screen
+    ///     reader was told about was an anonymous group; the status bar was a <c>UiElement</c> with a
+    ///     class, which is to say a live region that is not live. Both of those are assertions a
+    ///     screenshot cannot make and a green suite did not make either, which is why they are made
+    ///     here.
+    /// </remarks>
+    [Fact]
+    public void The_toolbar_is_one_tab_stop_and_both_strips_report_what_they_are() {
+        using var shell = Built();
+
+        shell.Commands.Add("file.new", Title("New"), () => { });
+        shell.Commands.Add("file.open", Title("Open"), () => { });
+        shell.Commands.Add("file.save", Title("Save"), () => { });
+        shell.Toolbar.Show("file.new", "file.open", null, "file.save");
+
+        Assert.Equal(AccessibleRole.Toolbar, shell.Toolbar.Strip.Role);
+        Assert.Equal(AccessibleRole.Status, shell.StatusBar.Role);
+
+        var items = shell.Toolbar.Strip.Items;
+        Assert.Equal(3, items.Count);
+
+        // ⚠ One zero and the rest at −1. This is the assertion the old strip could not have passed
+        // and the only one that distinguishes a toolbar from a row of buttons.
+        Assert.Equal(1, items.Count(item => item.TabIndex == 0));
+        Assert.Same(items[0], shell.Toolbar.Strip.Active);
+        Assert.All(items.Skip(1), item => Assert.Equal(-1, item.TabIndex));
+
+        // ⚠ The separator is not one of them: `Items` is the focusables, so Right on the second
+        // button reaches the third rather than stopping on a hairline.
+        Assert.DoesNotContain(items, item => item is Separator);
+    }
+
     [Fact]
     public void The_status_bar_says_what_is_running_and_goes_quiet_when_nothing_is() {
         using var shell = Built();
@@ -259,8 +295,12 @@ public class EditorShellTests {
         }
     }
 
+    /// <remarks>
+    ///     ⚠ <c>Trailing</c> rather than <c>Children</c>: the strip is a <c>StatusBar</c>, whose
+    ///     message is a part of its own and whose cells are in the trailing part beside it.
+    /// </remarks>
     static string? Label(EditorShell shell) {
-        foreach (var child in shell.StatusBar.Children) {
+        foreach (var child in shell.StatusBar.Trailing.Children) {
             if (child is Button button) {
                 return button.Label;
             }

@@ -58,7 +58,7 @@ public sealed class ToolbarPresenter {
     /// <summary>Which of the host's children the strip is, whatever else has been added since.</summary>
     readonly int slot;
 
-    UiElement? strip;
+    Toolbar? strip;
 
     /// <summary>Builds a toolbar into an element.</summary>
     /// <param name="host">Where the strip goes.</param>
@@ -106,7 +106,13 @@ public sealed class ToolbarPresenter {
         [.. Entries.Select(entry => entry is ToolbarButton button ? button.CommandId : null)];
 
     /// <summary>The strip element, which is replaced by every rebuild.</summary>
-    public UiElement Strip => strip!;
+    /// <remarks>
+    ///     ⚠ <b>A <see cref="Toolbar" /> rather than an element with a class, and the difference is
+    ///     fifteen tab stops.</b> A strip of bare buttons puts one Tab press between the keyboard and
+    ///     every verb on it; the control is one stop with the arrows moving inside it, which is
+    ///     ARIA's toolbar pattern and what <see cref="AccessibleRole.Toolbar" /> announces.
+    /// </remarks>
+    public Toolbar Strip => strip!;
 
     /// <summary>Puts a set of commands on the toolbar.</summary>
     /// <param name="commandIds">Their ids, with <c>null</c> for a separator.</param>
@@ -144,7 +150,7 @@ public sealed class ToolbarPresenter {
         popovers.Clear();
         strip?.Remove();
 
-        strip = host.Add<UiElement>("toolbar");
+        strip = host.Add<Toolbar>();
 
         // ⚠ Into the place the constructor reserved. See its remarks: `Add` appends, and the strip
         // is built after the rest of the chrome is already in the host.
@@ -174,6 +180,18 @@ public sealed class ToolbarPresenter {
                     break;
             }
         }
+
+        // ⚠ After the items, and it is not what `OnChildAdded` already did. A button added to a
+        // group is added to the *group*, so the strip never heard about it and its roving index
+        // still names whatever was first at the time. One call once the strip is whole is cheaper
+        // than a notification per descendant, and it is what `Rove` is public for.
+        //
+        // ⚠ The tab stop goes back to the first button, which is the honest answer to a rebuild
+        // rather than a bug in it. A rebuild happens when the registered commands change — a plugin
+        // loading, a mode being entered — and the strip's buttons are then different objects; the
+        // per-frame `Refresh` below does not rebuild, so nothing resets a stop the user is standing
+        // on.
+        strip.Rove();
 
         Refresh();
     }

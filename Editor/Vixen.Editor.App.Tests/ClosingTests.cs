@@ -162,5 +162,10 @@ public class ClosingTests {
         button.Activate();
     }
 
-    static List<string> Cells(UiElement bar) => [.. bar.Children.Select(child => child.Text ?? string.Empty)];
+    /// <remarks>
+    ///     ⚠ The message and the cells are two parts of a <c>StatusBar</c>, so this is both of them
+    ///     rather than a walk of the strip's children — which since the port are two elements.
+    /// </remarks>
+    static List<string> Cells(StatusBar bar) =>
+        [bar.Message ?? string.Empty, .. bar.Trailing.Children.Select(child => child.Text ?? string.Empty)];
 }
