@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
@@ -84,11 +85,46 @@ public class ShellFitsItsWindowTests {
         Assert.True(host.Width <= width + Tolerance, $"the docking host is {host.Width} wide in a {width}-point window");
         Assert.True(host.Height <= height + Tolerance, $"the docking host is {host.Height} tall in a {height}-point window");
 
+        // ⚠ And every other box too, by walking rather than by naming — the three above are the ones
+        // that were wrong, and a chain has no reason to break at the same link twice. The walk stops
+        // descending at the first box that is too big, because a scroll container's content is
+        // *meant* to be larger than its container and a walk that kept going would report that as
+        // the defect.
+        var over = new StringBuilder();
+        Walk(shell.Document.Root, width, height, string.Empty, over);
+        Assert.True(over.Length == 0, $"boxes larger than the {width} × {height} window:\n{over}");
+
         // And the content really is still that big — a chain that had lost it would pass everything
         // above.
         foreach (var content in scrolled) {
             Assert.Equal(ContentHeight, content.Height, Tolerance);
             Assert.Equal(ContentWidth, content.Width, Tolerance);
+        }
+    }
+
+    static void Walk(UiElement element, float width, float height, string path, StringBuilder over) {
+        var here = path + "/" + element.Tag;
+
+        // ⚠ What a scroll view holds is the one thing in the document that is *supposed* to be
+        // larger than the window — that is what scrolling is. Everything above it is not.
+        if (element.Tag == "scroll-content") {
+            return;
+        }
+
+        if (element.Width > width + Tolerance || element.Height > height + Tolerance) {
+            over.Append("  ")
+                .Append(here)
+                .Append(" is ")
+                .Append(element.Width.ToString("0.#"))
+                .Append(" × ")
+                .Append(element.Height.ToString("0.#"))
+                .AppendLine();
+
+            return;
+        }
+
+        foreach (var child in element.Children) {
+            Walk(child, width, height, here, over);
         }
     }
 
@@ -100,6 +136,15 @@ public class ShellFitsItsWindowTests {
         // browser has, and a box with `overflow: visible` is the one link in the chain that carries
         // its content's minimum upwards. The defect is not visible without it.
         var body = panel.Add<UiElement>("scrolled-body");
+
+        // ⚠ The three declarations every real panel body in this tree carries — the samples' shell
+        // sheet spends a paragraph on why. Without them this box would itself be 40 000 tall, which
+        // would make the fixture a test of the fixture.
+        body.SetStyle("flex-grow", "1");
+        body.SetStyle("flex-basis", "0px");
+        body.SetStyle("min-width", "0px");
+        body.SetStyle("min-height", "0px");
+
         var scroller = body.Add<ScrollView>();
 
         scroller.Content.SetStyle("height", "40000px");
