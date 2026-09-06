@@ -283,6 +283,14 @@ of an output texel and boxes over it, which is the mip level a sampler would hav
 form is a one-texel column checkerboard: its mean is exactly one half, so a correct minification of
 it is 128 everywhere and a point-sampled one is 0 or 255 everywhere.
 
+⚠ **The other direction is where a box filter is a point sample under another name.**
+`Resample.rvn` takes `clamp(ceil(extent / size), 1, MaxSamples)` sub-samples per axis, which is
+exactly one whenever the target is the *larger* image — so `Box` going up reads a single texel at the
+output texel's centre. `Rescale` derives the filter from the two level offsets
+([#829](https://github.com/Rikarin/Vixen/issues/829)) and the node derives it from `Size`
+([#865](https://github.com/Rikarin/Vixen/issues/865)); the setting's default is `Auto` rather than a
+filter name, because no one name is right in both directions.
+
 **⚠ `Auto Levels` is more than the two dispatches § 4.2 names, and nothing in the plan records what
 makes it different.** It is the first op whose output depends on *every texel of its input*, so it is
 one `MinMaxReduce` dispatch per level down to a 1×1 image and then the map — three at 64², five at
