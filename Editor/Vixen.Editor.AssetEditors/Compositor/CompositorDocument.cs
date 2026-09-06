@@ -95,7 +95,9 @@ public sealed class CompositorDocument : EditorDocument {
         } catch (Exception exception) when (exception is YamlBindingException
             or YamlParseException or NotSupportedException) {
             Graph = new() { Name = Path.GetFileNameWithoutExtension(path) };
-            LoadDiagnostics = [new("CO0000", exception.Message, NodeId.None)];
+            LoadDiagnostics = [
+                new(AssetEditorDiagnostics.CompositorFileDoesNotParse, exception.Message, NodeId.None)
+            ];
         }
     }
 

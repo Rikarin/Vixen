@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Core;
+using Vixen.Editor.NodeGraph;
 
 namespace Vixen.Editor.Texturing.Layers;
 
@@ -105,10 +106,22 @@ sealed class LayerStackDocument : EditorDocument {
 
     /// <summary>What reading the file had to say.</summary>
     /// <remarks>
-    ///     Reported rather than thrown, for <c>TextureGraphDocument</c>'s reason: a stack this build
-    ///     cannot read has to open, or the panel that could show the problem is unreachable.
+    ///     <para>
+    ///         Reported rather than thrown, for <c>TextureGraphDocument</c>'s reason: a stack this
+    ///         build cannot read has to open, or the panel that could show the problem is
+    ///         unreachable.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A <c>NodeDiagnostic</c> and not a sentence —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/963">#963</a>.</b> This was a list of
+    ///         strings, alone among the five document kinds that report a load failure, so a host had
+    ///         nothing to filter on, suppress or link help from: an id is the part of a diagnostic a
+    ///         program can act on and prose is the part only a person can. The node is
+    ///         <c>NodeId.None</c> because a stack is not a graph and there is nothing to select — the
+    ///         four siblings say the same about a file whose bytes are not a graph.
+    ///     </para>
     /// </remarks>
-    public IReadOnlyList<string> LoadDiagnostics { get; } = [];
+    public IReadOnlyList<NodeDiagnostic> LoadDiagnostics { get; } = [];
 
     /// <summary>The node types this stack compiles against, and what inlines the compounds in them.</summary>
     /// <remarks>
@@ -166,7 +179,9 @@ sealed class LayerStackDocument : EditorDocument {
         } catch (Exception exception) when (exception is YamlBindingException
             or YamlParseException or NotSupportedException) {
             Document = new() { Name = name };
-            LoadDiagnostics = [exception.Message];
+            LoadDiagnostics = [
+                new(TexturingDiagnostics.StackFileDoesNotParse, exception.Message, NodeId.None)
+            ];
         }
     }
 
