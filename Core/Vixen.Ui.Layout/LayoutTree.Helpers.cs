@@ -688,6 +688,49 @@ public sealed partial class LayoutTree {
             floor = max;
         }
 
+        // ⚠ <b>Named rather than inlined, and the name is the point.</b> It is a CEILING WITH A
+        // RULE BEHIND IT — a box's min-content size cannot exceed the size its own contents were
+        // measured at — and not a workaround for a number that comes out wrong. It read as the
+        // second for as long as it was four unnamed lines under sixty of archaeology, which is how
+        // a reader arrives at "delete it and see". See <see cref="MeasuredContentCeiling" />.
+        var ceiling = MeasuredContentCeiling(index, mainDimension);
+
+        if (!float.IsNaN(ceiling) && floor > ceiling) {
+            floor = ceiling;
+        }
+
+        return float.IsNaN(floor) || floor < 0f ? 0f : floor;
+    }
+
+    /// <summary>
+    ///     The size this item's own contents were measured at, which <see cref="ComputeAutoMinMainSize" />'s
+    ///     floor is held under — or NaN when the item's basis did not come from a measurement.
+    /// </summary>
+    /// <param name="index">The node.</param>
+    /// <param name="mainDimension">The main axis's dimension.</param>
+    /// <returns>The ceiling, or NaN.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A ceiling with a rule behind it rather than a workaround, and the difference is
+    ///         what this method exists to say.</b> §4.5's automatic minimum is an intrinsic minimum,
+    ///         and an intrinsic minimum that exceeds the size the contents were actually measured at
+    ///         is a probe reporting more room than the contents ever asked for. That sentence is the
+    ///         rule; every paragraph in the body is the evidence for what it is standing in front of
+    ///         at each point in this file's history, and the last of them is the one that matters —
+    ///         it stands in front of no over-report at all now, and it still cannot go.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The reason it cannot go is a framework decision and not a measurement</b>, which
+    ///         is why nothing here should be read as a defect waiting to be fixed. Chrome does not
+    ///         cap this floor — measured, and the table is in <c>Taffy/KnownGaps.txt</c> — but this
+    ///         engine's initial <c>Display</c> is <c>Flex</c> and its initial <c>FlexDirection</c> is
+    ///         <c>Row</c> where a browser's initial display is <c>block</c>, so every plain element
+    ///         here is the first row of that table and is given the last row's picture. Removing the
+    ///         term would be right about Chrome and wrong about the markup an author believes they
+    ///         wrote. <c>Rikarin/Vixen#682</c> is where that call is owed.
+    ///     </para>
+    /// </remarks>
+    float MeasuredContentCeiling(int index, Dimension mainDimension) {
         // ⚠ A FLOOR ABOVE A CONTENT-MEASURED BASIS IS THE PROBE BEING WRONG. A box's min-content size
         // cannot exceed the size its own contents were measured at, so when ComputedFlexBasis came
         // from that measurement rather than from a declaration, it caps the floor. Live defects in
@@ -768,20 +811,14 @@ public sealed partial class LayoutTree {
         // An_item_whose_content_refuses_to_shrink_is_still_floored_at_what_it_was_measured_at` is the
         // pin: it is not evidence that the cap is right, it is the record that removing it is the
         // framework call above rather than a cleanup.
-        if (results[index].FlexBasisFromContent) {
-            var cap = results[index].ComputedFlexBasis;
-            var offered = results[index].UnclampedMeasuredDimensions[(int) mainDimension];
-
-            if (!float.IsNaN(offered) && (float.IsNaN(cap) || offered < cap)) {
-                cap = offered;
-            }
-
-            if (!float.IsNaN(cap) && floor > cap) {
-                floor = cap;
-            }
+        if (!results[index].FlexBasisFromContent) {
+            return float.NaN;
         }
 
-        return float.IsNaN(floor) || floor < 0f ? 0f : floor;
+        var ceiling = results[index].ComputedFlexBasis;
+        var offered = results[index].UnclampedMeasuredDimensions[(int) mainDimension];
+
+        return !float.IsNaN(offered) && (float.IsNaN(ceiling) || offered < ceiling) ? offered : ceiling;
     }
 
     /// <summary>What a child <i>adds</i> to its parent's min-content size.</summary>
