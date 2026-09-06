@@ -1,0 +1,30 @@
+# The `A > B` pairings a committed stylesheet declares AND a control builds out of its own parts.
+#
+#     <parent> > <child>
+#
+# Held against the observed set by
+# `LiveCombinatorPairTests.Every_pairing_the_controls_build_is_in_the_committed_census`, EXACTLY and
+# in both directions. Derived: re-run that test with VIXEN_REGENERATE=1 to write this back, and read
+# the diff.
+#
+# ⚠ These are PROOFS, and this file says nothing whatever about the rest of the domain. Every
+# pairing here was observed in a real element tree: the control was constructed, added to a document
+# with both themes installed and laid out, and one of its own elements was found holding another.
+# `Core/Vixen.Ui.Styling.Tests/CombinatorPairs.txt` is the domain — 88 pairings — and a pairing
+# missing from this file is UNJUDGED, never dead. The controls are built bare, so a part that
+# arrives with the first item is not here; nor is any pairing whose parent belongs to an assembly
+# `Vixen.Ui.Controls.Advanced.Tests` cannot see, which is every editor tag.
+#
+# ⚠ A row LEAVING this file is the loud direction. It means the control stopped building that part,
+# and the sheet's rule went dead in the same moment — which is what `compositor-editor > node-canvas`
+# was, drawn at zero width with both of its tags real and every reach test green. See
+# `Rikarin/Vixen#531`.
+color-input > color-swatch
+dock-guide > dock-hint
+dock-tabstrip > icon-button
+expander > expander-header
+expander-header > label
+scroll-view > scroll-content
+split-view > split-bar
+status-bar > status-trailing
+tabs > tab-panels

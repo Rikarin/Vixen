@@ -52,6 +52,15 @@ namespace Vixen.Ui.Styling.Tests;
 ///         suggests is the only proposal left that does not need one.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Nine of the 88 have since been decided, and not by a scan.</b>
+///         <c>Vixen.Ui.Controls.Advanced.Tests.LiveCombinatorPairTests</c> builds every public element
+///         type in the two control assemblies, lays each one out, and reads the parent→child tags off
+///         the tree it grew — so <c>scroll-view &gt; scroll-content</c> and eight others are live by
+///         construction rather than by inference, and a control that stopped building one of those
+///         parts would take a row out of that census loudly. It cannot see an editor tag, and its file
+///         says at length that a pairing missing from it is unjudged rather than dead.
+///     </para>
+///     <para>
 ///         <b>Child combinators only.</b> A descendant pairing is a much weaker claim — an ancestor at
 ///         any depth — and every one of the four measurements this file is reconciling was of
 ///         <c>A &gt; B</c>, so widening the domain here would break the comparison it exists to make.
