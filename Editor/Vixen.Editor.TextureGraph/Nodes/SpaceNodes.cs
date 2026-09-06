@@ -255,6 +255,45 @@ enum TextureResampleSize {
     Quarter = 2
 }
 
+/// <summary>What a <c>Resample</c>'s <c>Filter</c> setting takes.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A separate enum from <see cref="TextureFilter" /> because of the member
+///         <see cref="Auto" />, which is not a filter and never reaches a kernel.</b> The three
+///         others are that enum's, spelled the same, and <c>ResampleNode.FilterFor</c> is the one
+///         place they meet — the same bargain <c>TextureSettings</c> makes everywhere else, a name on
+///         one side and a number on the other.
+///     </para>
+///     <para>
+///         ⚠ <b>And it has to be the <em>default</em> rather than a fallback
+///         <c>TextureSettings.Enum</c> returns.</b> A <c>[Setting]</c>'s declared default is written
+///         into <c>NodeBinding</c>'s texts by <c>NodeGraphCompiler.Bind</c> before a node is asked
+///         anything, so a field initialized to <c>"Box"</c> makes the fallback argument beside it
+///         unreachable in every graph — which is why
+///         <a href="https://github.com/Rikarin/Vixen/issues/865">#865</a> could not have been fixed
+///         by changing that argument alone.
+///     </para>
+/// </remarks>
+enum TextureResampleFilter {
+    /// <summary>
+    ///     <c>Box</c> when the target is smaller and <c>Bilinear</c> when it is larger, which is what
+    ///     <c>Resample.rvn</c>'s header says to reach for in each direction.
+    /// </summary>
+    Auto,
+
+    /// <summary>The nearest texel.</summary>
+    Point,
+
+    /// <summary>The four around the position, weighted.</summary>
+    Bilinear,
+
+    /// <summary>
+    ///     The average of everything one output texel covers. ⚠ One sample when magnifying, so it is
+    ///     <c>Point</c> under another name in that direction.
+    /// </summary>
+    Box
+}
+
 /// <summary>The same picture at another resolution.</summary>
 /// <remarks>
 ///     <para>
@@ -273,10 +312,24 @@ enum TextureResampleSize {
 ///         that copy, so it says so.
 ///     </para>
 ///     <para>
-///         <b><c>Box</c> going down and <c>Bilinear</c> going up.</b> Halving with <c>Point</c> keeps
-///         one texel in four and drops the rest; the closed form is worth stating because it is as
-///         far apart as two pictures get — a column checkerboard boxed down by any integer factor is
-///         0.5 everywhere and point-sampled down is 0 or 1 everywhere.
+///         <b><c>Box</c> going down and <c>Bilinear</c> going up, which is what
+///         <see cref="TextureResampleFilter.Auto" /> is for.</b> Halving with <c>Point</c> keeps one
+///         texel in four and drops the rest; the closed form is worth stating because it is as far
+///         apart as two pictures get — a column checkerboard boxed down by any integer factor is 0.5
+///         everywhere and point-sampled down is 0 or 1 everywhere.
+///     </para>
+///     <para>
+///         ⚠ <b>Which is why the default cannot be a filter name —
+///         <a href="https://github.com/Rikarin/Vixen/issues/865">#865</a>.</b> A declared default of
+///         <c>Box</c> was <c>Box</c> for <see cref="TextureResampleSize.Double" /> too, and
+///         <c>Resample.rvn</c>'s box branch takes <c>ceil(extent / size)</c> sub-samples per axis
+///         clamped to at least one — which is <em>exactly</em> one whenever the target is the larger
+///         image. So the node magnified by point-sampling, under the name of the one filter the
+///         header calls the correct choice, and drew the blocky picture a <c>Bilinear</c> would not.
+///         <c>TextureGraphCompiler.Rescale</c> had the same defect and
+///         <a href="https://github.com/Rikarin/Vixen/issues/829">#829</a> fixed it there by deriving
+///         the filter from the two level offsets; <see cref="Size" /> <em>is</em> that difference, so
+///         this derives it from the same fact.
 ///     </para>
 /// </remarks>
 [Node("Space/Resample", Preview = true, Summary = "The same picture at half, a quarter, twice or four times the size.")]
@@ -288,9 +341,13 @@ sealed partial class ResampleNode : TextureNode {
     [Setting]
     public string Size = "Half";
 
-    /// <summary>How a sample reads: <c>Point</c>, <c>Bilinear</c> or <c>Box</c>.</summary>
+    /// <summary>
+    ///     How a sample reads: <c>Auto</c>, <c>Point</c>, <c>Bilinear</c> or <c>Box</c>. ⚠ The default
+    ///     is <c>Auto</c> and not a filter, because the right filter is a function of
+    ///     <see cref="Size" /> — see <see cref="TextureResampleFilter" />.
+    /// </summary>
     [Setting]
-    public string Filter = "Box";
+    public string Filter = "Auto";
 
     /// <summary>What to resample.</summary>
     [Input(Name = "Input")]
@@ -305,7 +362,7 @@ sealed partial class ResampleNode : TextureNode {
         ArgumentNullException.ThrowIfNull(emitter);
 
         var size = TextureSettings.Enum(emitter, nameof(Size), TextureResampleSize.Half);
-        var filter = TextureSettings.Enum(emitter, nameof(Filter), TextureFilter.Box);
+        var filter = FilterFor(TextureSettings.Enum(emitter, nameof(Filter), TextureResampleFilter.Auto), size);
         var source = emitter.Read("Input");
 
         if (source < 0) {
@@ -339,4 +396,24 @@ sealed partial class ResampleNode : TextureNode {
             }
         );
     }
+
+    /// <summary>The kernel's filter, once <c>Auto</c> has been read against the size.</summary>
+    /// <param name="chosen">What the setting says.</param>
+    /// <param name="size">How far the resample moves, whose sign is the direction.</param>
+    /// <returns>The number the kernel compares against.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The comparison is against <see cref="TextureResampleSize.Same" /> rather than against
+    ///     zero</b>, because the member's value <em>is</em> the level offset and a positive level is a
+    ///     halving — so "greater than <c>Same</c>" is "smaller picture", which reads the wrong way
+    ///     round and is exactly the sign this enum's own remarks say a second spelling would get
+    ///     wrong. <c>Same</c> takes the magnifying branch and it does not matter which it takes: at
+    ///     equal extents every one of the three is a texel-for-texel copy.
+    /// </remarks>
+    static TextureFilter FilterFor(TextureResampleFilter chosen, TextureResampleSize size) =>
+        chosen switch {
+            TextureResampleFilter.Point => TextureFilter.Point,
+            TextureResampleFilter.Bilinear => TextureFilter.Bilinear,
+            TextureResampleFilter.Box => TextureFilter.Box,
+            _ => size > TextureResampleSize.Same ? TextureFilter.Box : TextureFilter.Bilinear
+        };
 }

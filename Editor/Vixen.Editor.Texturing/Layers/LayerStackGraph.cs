@@ -539,8 +539,15 @@ static class LayerStackGraph {
 
                     // ⚠ Alpha 1 here and the authored alpha folded into the opacity by `Opacity`.
                     // `Blend.rvn` computes `amount = saturate(opacity) * saturate(b.w)`, so for values
-                    // in range the two are the same number — and doing it this way means a mask, which
-                    // *replaces* the foreground's alpha, cannot throw the constant's alpha away. #790.
+                    // in range the two are the same number. #790.
+                    //
+                    // ⚠ The reason written here was "a mask *replaces* the foreground's alpha, so
+                    // this is what stops it throwing the constant's alpha away" — and #832, whose own
+                    // commit is the one that made it false, changed `Mask` to *multiply*. Under a
+                    // multiply the two arrangements are equal on both sides of the mask, so the fold
+                    // is no longer load-bearing; it is kept because `amount` is the same number either
+                    // way and the alternative is a diff nothing needs. See `Mask`, which is where the
+                    // rule is stated.
                     node.SetValue("Colour", colour[0], colour[1], colour[2], 1f);
 
                     return new(node.Id, "Out");

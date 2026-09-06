@@ -58,13 +58,14 @@ sealed record LayerStackPicture(IEditorImage? Image, string Usage, int Width, in
 ///     </para>
 ///     <para>
 ///         ⚠ <b>This is what <c>TextureGraphPreview</c> was written before it could do.</b> That
-///         type still evaluates a fixed checkerboard and its status line still cites
+///         type still evaluates a fixed checkerboard, and until
+///         <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a> its status line cited
 ///         <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a> — "the compiler is
 ///         internal, so this plugin can offer every node and compile none of them". #738 is closed
 ///         and <c>TextureGraphCompiler</c> is public: <see cref="LayerStackCompiler" /> in this very
-///         assembly compiles through it. The graph pane is showing a checkerboard and a message
-///         naming a closed issue, which is filed rather than fixed here because the file is not this
-///         slice's.
+///         assembly compiles through it, and so does <c>TextureGraphDocument.Compile</c>. The line
+///         now names <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>, which is the
+///         gap that is actually open — a missing caller rather than a missing visibility.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>An imported image is read here, on the panel's thread, and a picture that will not

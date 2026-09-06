@@ -58,17 +58,25 @@ the wrong layout, which MoltenVK forgives and a discrete card does not.
 does not start publishing a device halfway through a session". The editor does exactly that. The
 question is now asked on every show.
 
-### 2. `TextureGraphCompiler` is `internal` ⛔ *not predicted* — [#738](https://github.com/Rikarin/Vixen/issues/738)
+### 2. `TextureGraphCompiler` was `internal` ✅ *not predicted* — [#738](https://github.com/Rikarin/Vixen/issues/738)
 
-`TextureGraphCompiler`, `TextureNode` and all eight `[Node]` classes are `internal`, and
-`Vixen.Editor.TextureGraph`'s `InternalsVisibleTo` names only `Vixen.Editor.TextureGraph.Tests`. The
+`TextureGraphCompiler`, `TextureNode` and all eight `[Node]` classes were `internal`, and
+`Vixen.Editor.TextureGraph`'s `InternalsVisibleTo` named only `Vixen.Editor.TextureGraph.Tests`. The
 generated `NodeTypes.Register` is `public` — the generator emits it that way — so the node *library*
-crosses the boundary and the thing that turns a graph into a `TexturePlan` does not.
+crossed the boundary and the thing that turns a graph into a `TexturePlan` did not.
 
-⚠ **This is the more interesting of the two, because it survived the first fix.** The device is
-published and this panel still cannot compile what an author wires, so what it evaluates is the
-graph's **base layer** — one real dispatch at the document's own resolution — and the line under the
-pane says so. Making `TextureGraphCompiler` public is the change; this slice does not own that file.
+⚠ **#738 closed and this section did not, which is [#816](https://github.com/Rikarin/Vixen/issues/816).**
+The compiler is public, and two things in this assembly compile a canvas through it:
+`TextureGraphDocument.Compile` and `LayerStackCompiler`. `ModuleReferenceTests` holds the visibility
+so it cannot quietly go back.
+
+⚠ **Closing a visibility is not the same as closing a gap.** The graph panel still evaluates
+`TextureGraphPreview.Base` — a fixed checkerboard at the document's own resolution — because nothing
+ever wired `Evaluate` to the document's plan. That is one call plus the external upload-and-resolve
+loop `LayerStackPreview` already has, and it is
+[#792](https://github.com/Rikarin/Vixen/issues/792). The **layer stack** pane does compile and bake
+through the public compiler, which is what makes the gap a missing caller rather than a missing
+capability.
 
 ### 3. An asset-editor registration could not be undone ✅ *not predicted* — [#739](https://github.com/Rikarin/Vixen/issues/739)
 

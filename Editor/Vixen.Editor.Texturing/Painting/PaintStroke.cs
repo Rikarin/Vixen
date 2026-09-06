@@ -53,6 +53,18 @@ sealed class PaintStroke {
     readonly List<(int Texel, float Reach)> pending = [];
     readonly Dictionary<int, uint> before = [];
     readonly Dictionary<int, float> reached = [];
+
+    /// <summary>How many four-neighbour steps from coverage each dilated texel is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The field that makes the reach a property of the atlas rather than of the stroke —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/868">#868</a>.</b> A distance from the
+    ///     coverage map is the same number whichever stamp measured it, which is what lets
+    ///     <see cref="Dilate" /> run round <c>r</c> from the texels at distance <c>r</c> and stop at
+    ///     <see cref="gutter" /> however many stamps have crossed the seam. Kept beside
+    ///     <see cref="reached" /> and not folded into it because the two answer different questions:
+    ///     a reach may rise as later stamps paint the island harder, and a distance may only fall.
+    /// </remarks>
+    readonly Dictionary<int, int> distance = [];
     readonly float smoothing;
     Vector2 smoothed;
     bool started;
@@ -329,6 +341,21 @@ sealed class PaintStroke {
     ///         cannot overwrite the island beside it in the atlas.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>The first of those three was false for a stroke of more than one stamp, and the
+    ///         third is not what made it matter —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/868">#868</a>.</b> Coverage is what
+    ///         stops a gutter reaching the island beside it, so an over-reach could never overwrite a
+    ///         neighbour whatever its length; what it could do is make the halo a function of the
+    ///         brush and the stamp spacing. <see cref="reached" /> is stroke-wide, so stamp N seeded
+    ///         its rounds from texels stamp N−1 had already dilated and advanced a further
+    ///         <see cref="gutter" />, up to the stamp footprint's own bound of
+    ///         <c>radius + gutter</c>. That is a wider halo, more recorded texels, a larger dirty
+    ///         rectangle for the view to re-upload — and a number an author set that did not decide
+    ///         any of them. <see cref="distance" /> is what makes a round measure from coverage
+    ///         instead, and <c>PaintDilationReachTests</c> asserts the reach against a
+    ///         breadth-first distance rather than against a column number.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>The coverage is dilated, not the colour.</b> A dilated texel takes its
     ///         neighbour's <em>reach</em> and derives its colour through the same
     ///         <see cref="PaintImage.Mix" /> from its own before-value, so a second stamp crossing
@@ -361,10 +388,10 @@ sealed class PaintStroke {
                         continue;
                     }
 
-                    var best = Neighbour(x - 1, y, x >= 1);
-                    best = MathF.Max(best, Neighbour(x + 1, y, x + 1 < image.Width));
-                    best = MathF.Max(best, Neighbour(x, y - 1, y >= 1));
-                    best = MathF.Max(best, Neighbour(x, y + 1, y + 1 < image.Height));
+                    var best = Neighbour(x - 1, y, x >= 1, round);
+                    best = MathF.Max(best, Neighbour(x + 1, y, x + 1 < image.Width, round));
+                    best = MathF.Max(best, Neighbour(x, y - 1, y >= 1, round));
+                    best = MathF.Max(best, Neighbour(x, y + 1, y + 1 < image.Height, round));
 
                     if (!(best > 0f)) {
                         continue;
@@ -391,6 +418,13 @@ sealed class PaintStroke {
                 reached[index] = reach;
                 image[index] = PaintImage.Mix(before[index], colour, reach);
 
+                // The lower of the two, because a round's window is the stamp's own grown rectangle:
+                // a texel whose shortest path to coverage left that window was reached the long way
+                // round by an earlier stamp, and a later stamp that can see the short one corrects it.
+                distance[index] = distance.TryGetValue(index, out var known)
+                    ? Math.Min(known, round + 1)
+                    : round + 1;
+
                 var x = index % image.Width;
                 var y = index / image.Width;
 
@@ -401,8 +435,34 @@ sealed class PaintStroke {
         return written;
     }
 
-    float Neighbour(int x, int y, bool inside) =>
-        inside && reached.TryGetValue((y * image.Width) + x, out var reach) ? reach : 0f;
+    /// <summary>What one neighbour contributes to a texel being filled in <paramref name="round" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Gated on the neighbour's distance, which is the whole of
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/868">#868</a>.</b> Round <c>r</c> fills
+    ///     the texels at distance <c>r + 1</c>, so its sources are the covered texels when
+    ///     <c>r</c> is zero and the texels at distance <c>r</c> after that. Ungated — reading
+    ///     <see cref="reached" /> alone, which is stroke-wide and already holds what the previous
+    ///     stamp dilated — round zero of stamp N started from the far edge of stamp N−1's halo, and
+    ///     the reach grew by a further <see cref="gutter" /> per stamp until the footprint stopped
+    ///     it. By induction over this gate, a texel filled in round <c>r</c> is at most
+    ///     <c>r + 1</c> steps from coverage, so nothing is ever written further than
+    ///     <see cref="gutter" />.
+    /// </remarks>
+    float Neighbour(int x, int y, bool inside, int round) {
+        if (!inside) {
+            return 0f;
+        }
+
+        var index = (y * image.Width) + x;
+
+        if (!reached.TryGetValue(index, out var reach)) {
+            return 0f;
+        }
+
+        return coverage.IsCovered(index)
+            ? round == 0 ? reach : 0f
+            : distance.TryGetValue(index, out var steps) && steps == round ? reach : 0f;
+    }
 
     /// <summary>
     ///     Remembers what a texel held before the stroke, once.

@@ -379,6 +379,18 @@ sealed class LayerStackView {
     ///         character-for-character identical. Two identical sentences tell a reader nothing the
     ///         first did not. The multiplicity is real and the builder is where it should be said.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>But the count is said here, because a collapsed line was silently one of N —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/870">#870</a>.</b> Two layers each
+    ///         carrying the same mistyped mask effect raise fourteen diagnostics from fourteen
+    ///         distinct nodes, all character-identical, and the reader saw one sentence with nothing
+    ///         to say whether one mistake or two were behind it. ⚠ <b>Naming
+    ///         <c>NodeDiagnostic.Node</c> on the line — which is what #870 proposed — would undo
+    ///         #842 rather than fix this</b>: the seven copies of one mistake are seven different
+    ///         nodes, so it turns one mistyped setting into seven lines. What a reader can act on is
+    ///         the <em>layer</em>, and nothing on a diagnostic carries one; see
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/880">#880</a> for the map that would.
+    ///     </para>
     /// </remarks>
     public static IReadOnlyList<string> Describe(LayerStackPicture picture) {
         ArgumentNullException.ThrowIfNull(picture);
@@ -390,8 +402,26 @@ sealed class LayerStackView {
             Add($"{Severity(problem.Severity)} — layer '{problem.Layer}': {problem.Message}");
         }
 
+        // Two passes, because the count belongs on the first occurrence rather than after the last:
+        // a reader scanning the list top to bottom has to see the multiplicity on the line they read.
+        Dictionary<string, HashSet<NodeId>> raisers = new(StringComparer.Ordinal);
+        List<string> ordered = [];
+
         foreach (var diagnostic in picture.Diagnostics) {
-            Add($"{Severity(diagnostic.Severity)} — {diagnostic.Id}: {diagnostic.Message}");
+            var line = $"{Severity(diagnostic.Severity)} — {diagnostic.Id}: {diagnostic.Message}";
+
+            if (!raisers.TryGetValue(line, out var nodes)) {
+                raisers[line] = nodes = [];
+                ordered.Add(line);
+            }
+
+            nodes.Add(diagnostic.Node);
+        }
+
+        foreach (var line in ordered) {
+            var nodes = raisers[line].Count;
+
+            Add(nodes > 1 ? $"{line} · {nodes} nodes in the exploded graph" : line);
         }
 
         return lines;
