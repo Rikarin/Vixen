@@ -198,27 +198,29 @@ public class ComponentParameterTests {
         Assert.Equal(["Title"], reported);
     }
 
-    /// <summary>⚠ A parameter written in a <c>.vxml</c>'s <c>@code</c> block is never reported.</summary>
+    /// <summary>
+    ///     ⚠ Generated code with no <c>#line</c> is still never reported, and that is the promise
+    ///     the <c>@code</c> change had to keep.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Which is where this repository's markup components put theirs</b>, so the answer to
-    ///         "sweep the tree and count the hits" is zero for a reason that has nothing to do with
-    ///         how much code is at fault. <c>ComponentEmitter</c> writes
-    ///         <c>// &lt;auto-generated /&gt;</c> as the first line of the file it copies the block
-    ///         into, and <c>ConfigureGeneratedCodeAnalysis(None)</c> means a declaration there is
-    ///         neither analyzed nor reported.
+    ///         <b>The objection to a diagnostic in generated C# is that the author cannot edit
+    ///         it</b>, and for a file no directive maps that is still true. The analyzer now sets
+    ///         <c>GeneratedCodeAnalysisFlags.Analyze</c> — so such a declaration <i>is</i> looked at
+    ///         — and withholds <c>ReportDiagnostics</c>, so a diagnostic whose location is still
+    ///         inside the generated tree is dropped by Roslyn rather than by the rule.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The partial arrangement is the one worth testing, and it is a third answer.</b>
-    ///         A wholly generated class is skipped as a symbol; a class that is half hand-written —
-    ///         which is every <c>.vxml</c> with a code-behind — <i>is</i> analyzed, and the
-    ///         diagnostic on the generated half is dropped afterwards. Both halves are asserted here
-    ///         at once: <c>Rank</c> is hand-written and reported, <c>Title</c> is emitted and is
-    ///         not, in one type.
+    ///         ⚠ <b>The partial arrangement is the one worth testing, and it is a third answer
+    ///         again.</b> A class that is half hand-written — which is every <c>.vxml</c> with a
+    ///         code-behind — was analyzed even before the change, with the diagnostic on the
+    ///         generated half dropped afterwards. Both halves are asserted here at once:
+    ///         <c>Rank</c> is hand-written and reported, <c>Title</c> is emitted under no mapping
+    ///         and is not, in one type.
     ///     </para>
     /// </remarks>
     [Fact]
-    public async Task A_parameter_declared_in_generated_code_is_not_reported() {
+    public async Task A_parameter_in_unmapped_generated_code_is_not_reported() {
         var reported = await AnalyzerHarness.RunAsync(
             """
             using Vixen.Ui.Composition;
@@ -242,26 +244,73 @@ public class ComponentParameterTests {
         Assert.Equal(["Rank"], reported.Select(AnalyzerHarness.Underlined));
     }
 
-    /// <summary>⚠ The rule fires on the shape its own message asks for, and that is a known limit.</summary>
+    /// <summary>
+    ///     ⚠ A parameter declared in a <c>.vxml</c>'s <c>@code</c> block is reported, against the
+    ///     <c>.vxml</c>.
+    /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>"Back it with a <c>Signal&lt;T&gt;</c>" describes exactly this property</b>, and
-    ///         this property is reported. <c>IsReactive</c> asks about the property's <i>type</i>,
-    ///         which is <c>string</c> here; what makes the parameter track is the field behind the
-    ///         accessors, and an analyzer that read accessor bodies would be asking a different and
-    ///         much larger question.
+    ///         <b>This is the case the rule exists for and the case it could not see.</b> Every
+    ///         markup component in this repository declares its parameters in <c>@code</c>, so
+    ///         "sweep the tree and count the hits" used to read zero for a reason that had nothing
+    ///         to do with how much code was at fault.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the diagnostic is a suggestion and cannot become a gate as written.</b> Under
-    ///         <c>TreatWarningsAsErrors</c>, promoting it to a warning would make the recommended
-    ///         pattern a build error — <c>Samples/02-HelloUi/Panels/Inspector.vxml</c>'s <c>Model</c>
-    ///         is written this way. Pinned rather than filed as a defect of the rule, because the
-    ///         narrower question it does answer is worth asking; what is not safe is treating the
-    ///         answer as a verdict.
+    ///         ⚠ <b>What makes it safe is the directive, not a decision to tolerate a diagnostic on
+    ///         generated code.</b> <c>ComponentEmitter</c> copies each block under a <c>#line</c>
+    ///         span, so the location resolves to characters in the <c>.vxml</c> that the author
+    ///         wrote — which is what this asserts, rather than merely that something was reported.
+    ///         Nothing had tested that a <c>#line</c> survives as far as a diagnostic's location;
+    ///         it does.
     ///     </para>
     /// </remarks>
     [Fact]
-    public async Task A_property_backed_by_a_signal_field_is_still_reported() {
+    public async Task A_parameter_mapped_back_to_a_vxml_is_reported_there() {
+        var reported = await AnalyzerHarness.RunAsync(
+            "// A .vxml with no code-behind hand-writes nothing at all.",
+            new ComponentParameterAnalyzer(),
+            Framework,
+            """
+            // <auto-generated />
+            sealed class Panel : global::Vixen.Ui.Composition.Component {
+            #line (9,5)-(9,43) 4 "Panels/Inspector.vxml"
+                public string Title { get; set; } = "";
+            #line default
+
+                protected override void Build(global::Vixen.Ui.Composition.BuildContext ctx) { }
+            }
+            """
+        );
+
+        var one = Assert.Single(reported);
+        var where = one.Location.GetLineSpan();
+
+        Assert.Equal(ComponentParameterAnalyzer.PlainParameterId, one.Id);
+        Assert.Contains("'Panel.Title'", one.GetMessage(null), StringComparison.Ordinal);
+        Assert.Equal("Panels/Inspector.vxml", where.Path);
+        Assert.Equal(8, where.StartLinePosition.Line);
+    }
+
+    /// <summary>
+    ///     ⚠ A property backed by a signal field is not reported, and the premise that said
+    ///     otherwise was the rule's rather than the code's.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>"Back it with a <c>Signal&lt;T&gt;</c>" describes exactly this property.</b>
+    ///         Reporting it made the rule complain about the shape it recommends, which under
+    ///         <c>TreatWarningsAsErrors</c> would have made that shape a build error —
+    ///         <c>Samples/02-HelloUi/Panels/Inspector.vxml</c>'s <c>Model</c> is written this way.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What decides it is the getter, and this test is the reason the analyzer reads
+    ///         accessor bodies at all.</b> An effect subscribes to what it reads; reading this
+    ///         property reads <c>title.Value</c>, so it takes the dependency however plain
+    ///         <c>string</c> looks.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task A_property_backed_by_a_signal_field_is_not_reported() {
         var reported = await Reported(
             """
             using Vixen.Ui.Composition;
@@ -273,6 +322,38 @@ public class ComponentParameterTests {
                 public string Title {
                     get => title.Value;
                     set => title.Value = value;
+                }
+
+                protected override void Build(BuildContext ctx) { }
+            }
+            """
+        );
+
+        Assert.Empty(reported);
+    }
+
+    /// <summary>
+    ///     ⚠ A getter with a body that reads nothing reactive is still reported, which is what
+    ///     stops the accessor rule from being a way to opt out.
+    /// </summary>
+    /// <remarks>
+    ///     <b>The instrument check for the accessor half of the rule.</b> A rule that read "the getter
+    ///     has a body" as evidence of tracking would silence every hand-written accessor in the
+    ///     tree, which is a far larger set than the signal-backed one. The question is what the
+    ///     getter reads.
+    /// </remarks>
+    [Fact]
+    public async Task A_property_over_a_plain_field_is_reported() {
+        var reported = await Reported(
+            """
+            using Vixen.Ui.Composition;
+
+            public sealed class Panel : Component {
+                string title = "";
+
+                public string Title {
+                    get => title;
+                    set => title = value;
                 }
 
                 protected override void Build(BuildContext ctx) { }
