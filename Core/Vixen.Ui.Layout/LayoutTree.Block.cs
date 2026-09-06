@@ -723,6 +723,8 @@ public sealed partial class LayoutTree {
                 floatOriginX = containerOriginX + insetLeft;
                 floatOriginY = containerOriginY + committed
                     + (escapesTopEdge ? 0f : active.With(marginTop).Resolve());
+                floatOriginNode = child;
+                floatOriginDirection = direction;
 
                 CalculateLayoutInternal(
                     child,
@@ -737,6 +739,7 @@ public sealed partial class LayoutTree {
                     currentDepth
                 );
 
+                floatOriginNode = -1;
                 floatExclusions.RemoveRange(mark, floatExclusions.Count - mark);
 
                 // ⚠ Back to the CONTAINER's origin before anything is measured against the exclusion
@@ -830,6 +833,14 @@ public sealed partial class LayoutTree {
                         : floatLeft);
 
                 floatOriginY = containerOriginY + committed + advance;
+
+                // ⚠ Set for the real layout as well as for the probe above, and this is the call
+                // whose answer survives: a leaf that asks `ContentBands` from its measure function
+                // is asked twice under floats — once at the probe's guessed origin and once here,
+                // where the origin is the box's own — and the second answer is the one the block it
+                // builds is kept for.
+                floatOriginNode = child;
+                floatOriginDirection = direction;
             }
 
             CalculateLayoutInternal(
@@ -848,6 +859,7 @@ public sealed partial class LayoutTree {
             if (floatsActive) {
                 floatOriginX = containerOriginX;
                 floatOriginY = containerOriginY;
+                floatOriginNode = -1;
             }
 
             var childOuterHeight = results[child].MeasuredDimensions[(int) Dimension.Height];

@@ -773,7 +773,34 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>Its text wrapped to a given width.</summary>
     /// <param name="width">How wide a line may be, in pixels, or infinity not to wrap.</param>
     /// <returns>The block, or null if it has no text or no font.</returns>
-    public TextLayout? Block(float width) {
+    public TextLayout? Block(float width) => Block(width, bandSource: null);
+
+    /// <summary>The same, asking the layout store what each line's own width is.</summary>
+    /// <param name="width">How wide a line may be, in pixels, or infinity not to wrap.</param>
+    /// <param name="bandSource">
+    ///     The tree laying this element out, or <see langword="null" /> anywhere else.
+    /// </param>
+    /// <returns>The block, or null if it has no text or no font.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>CSS 2.1 §9.5's staircase, and the argument is a moment rather than a value.</b> A
+    ///         float shortens the LINE BOXES beside it and leaves the block box full width, so a
+    ///         paragraph beside one needs a width per line — short while it crosses the float, full
+    ///         below it. <c>LayoutTree.ContentBands</c> can only answer while the store is laying
+    ///         this element out, which is exactly when its measure function runs, so the measure path
+    ///         hands the tree in and every other caller passes nothing and reuses what that pass
+    ///         decided. A draw list that re-asked would be told nothing and would rewrap the
+    ///         paragraph to the width the float is not taking, one frame after measuring it against
+    ///         the width it is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The bands are part of the cache key even though nothing in the style moved.</b>
+    ///         A paragraph whose preceding sibling grew is the same text at the same width beside a
+    ///         float it now clears — same key, different lines. That is why they are probed before
+    ///         the fast path and compared with the ones the standing block was built from.
+    ///     </para>
+    /// </remarks>
+    internal TextLayout? Block(float width, LayoutTree? bandSource) {
         if (string.IsNullOrEmpty(Text)) {
             block = null;
             lineText = null;
@@ -809,6 +836,18 @@ public partial class UiElement : Composition.IComposable {
         // percentage of a width that has since changed. The used value is the thing the block was
         // built with, so the used value is what the key has to hold.
         var indent = UsedTextIndent(width);
+
+        // ⚠ Probed against the standing block's own line height, because the real one is not known
+        // until the paragraph has been laid out again — and it cannot have moved without moving the
+        // font, the size or the leading, every one of which is already in the key below. With no
+        // block yet the key fails anyway and the bands are asked for properly during the rebuild.
+        var probed = false;
+
+        if (bandSource is not null && block is { Lines.Length: > 0 }) {
+            bandScratch ??= [];
+            bandSource.ContentBands(LayoutNode, block.Lines[0].Height, width, bandScratch);
+            probed = true;
+        }
 
         // Floats compared with Equals rather than ==, because `LineHeight` is NaN for "the font's own
         // recommendation" and NaN is not equal to itself — a line height nobody set would rebuild the
@@ -872,6 +911,10 @@ public partial class UiElement : Composition.IComposable {
             && ReferenceEquals(lineFeatures, FontFeatures)
             && lineDirection == ParagraphDirection
             && string.Equals(lineLanguage, language, StringComparison.Ordinal)
+
+            // ⚠ The one entry here that is not a property of this element at all: where it sits
+            // among the floats, which its own style cannot tell it and its neighbours decide.
+            && (!probed || SameBands(bandScratch, lineBands))
             && lineLeading.Equals(LineHeight)) {
             return block;
         }
@@ -898,11 +941,30 @@ public partial class UiElement : Composition.IComposable {
         var tabStop = TabStop(text, tabSize, chain);
         var whole = Runs(text, 0, chain, drawn, offset: indent, tabStop: tabStop);
 
+        // ⚠ Asked again, now against a line height that came out of this paragraph rather than out
+        // of the last one — and it is this answer the block is kept for. Under floats the store
+        // measures every child twice, at a guessed origin and then at its own, so the reading taken
+        // above belongs to a position the box may not have ended up in.
+        var bands = lineBands;
+
+        if (bandSource is not null) {
+            bandScratch ??= [];
+            bandSource.ContentBands(LayoutNode, whole.Height, width, bandScratch);
+            bands = bandScratch;
+        }
+
         // ⚠ The indent narrows the fast path's test as well as the wrapper's, and leaving it out is
         // the shape of bug that only shows on the one paragraph where it matters: a line that fits
         // in the box but not in the box *minus the indent* would take the unwrapped path, be shifted
         // right by the indent, and hang over the edge.
-        if ((float.IsPositiveInfinity(width) || whole.Width <= width - indent) && !HasHardBreak(text)) {
+        //
+        // ⚠ And a paragraph beside a float takes it in neither case: what it fits into is the band
+        // its first line is in, which is narrower than `width` by however much of the float crosses
+        // it — so the test that decides "this needs no wrapping at all" cannot be asked against the
+        // container's width while a band list says otherwise.
+        if (bands is not { Count: > 0 }
+            && (float.IsPositiveInfinity(width) || whole.Width <= width - indent)
+            && !HasHardBreak(text)) {
             // ⚠ The unwrapped path is not an optimisation, it is the answer. A paragraph that fits
             // needs no break opportunities computed and no line re-shaped, and this is every label in
             // an interface.
@@ -927,6 +989,7 @@ public partial class UiElement : Composition.IComposable {
                 hyphens,
                 wrapStyle,
                 language,
+                bands,
                 lines
             );
         }
@@ -948,6 +1011,18 @@ public partial class UiElement : Composition.IComposable {
         }
 
         block = new TextLayout(lines.ToImmutable());
+
+        // ⚠ Copied rather than aliased: `bandScratch` is refilled by the next probe, and a key that
+        // compared a list with itself would find every paragraph unchanged for ever.
+        if (!ReferenceEquals(bands, lineBands)) {
+            lineBands ??= [];
+            lineBands.Clear();
+
+            if (bands is not null) {
+                lineBands.AddRange(bands);
+            }
+        }
+
         lineText = Text;
         lineTransform = transform;
         lineClamp = clamp;
@@ -1504,6 +1579,7 @@ public partial class UiElement : Composition.IComposable {
         HyphenMode hyphens,
         TextWrapStyle wrapStyle,
         string language,
+        List<(float Start, float Available)>? bands,
         ImmutableArray<TextLine>.Builder into
     ) {
         var advances = new float[text.Length + 1];
@@ -1525,29 +1601,54 @@ public partial class UiElement : Composition.IComposable {
         // letters before it are in.
         var hyphen = hyphens == HyphenMode.Manual && text.Contains('­') ? HyphenWidth(chain) : 0f;
 
-        LineWrapper.Wrap(
-            text,
-            advances,
-            width,
-            wrapped,
-            mode,
-            breaking,
-            indent,
-            tabStop,
-            hyphens,
-            hyphen,
-            wrapStyle,
-            strictness,
+        // Where each wrapped line begins on its own line box. Empty unless a float put the lines at
+        // different places, which is the only thing that makes them differ from the indent rule.
+        var offsets = new List<float>();
 
-            // ⚠ Handed down rather than re-read from `ResolvedLanguage` here, and it is the same
-            // value: the caller has already resolved it for the shaper and put it in the block's
-            // cache key, so a second walk up the tree could only disagree with the key. What it
-            // buys is ICU's `_cj` rule files — a Japanese paragraph breaks before U+301C and around
-            // the wide currency signs, and an undetermined one must not.
-            language
-        );
+        if (bands is { Count: > 0 }) {
+            WrapInBands(
+                text,
+                advances,
+                width,
+                wrapped,
+                offsets,
+                bands,
+                mode,
+                breaking,
+                indent,
+                tabStop,
+                hyphens,
+                hyphen,
+                wrapStyle,
+                strictness,
+                language
+            );
+        } else {
+            LineWrapper.Wrap(
+                text,
+                advances,
+                width,
+                wrapped,
+                mode,
+                breaking,
+                indent,
+                tabStop,
+                hyphens,
+                hyphen,
+                wrapStyle,
+                strictness,
 
-        foreach (var line in wrapped) {
+                // ⚠ Handed down rather than re-read from `ResolvedLanguage` here, and it is the same
+                // value: the caller has already resolved it for the shaper and put it in the block's
+                // cache key, so a second walk up the tree could only disagree with the key. What it
+                // buys is ICU's `_cj` rule files — a Japanese paragraph breaks before U+301C and
+                // around the wide currency signs, and an undetermined one must not.
+                language
+            );
+        }
+
+        for (var i = 0; i < wrapped.Count; i++) {
+            var line = wrapped[i];
             // ⚠ Each line is shaped as its own string rather than sliced out of the paragraph's
             // shaping. That is what a line break *is* — a ligature does not cross one and an Arabic
             // word unjoins at one — and slicing would also need a run split in the middle of a
@@ -1573,7 +1674,7 @@ public partial class UiElement : Composition.IComposable {
                     chain,
                     transformed,
                     line.Advance,
-                    line.Start == 0 ? indent : 0f,
+                    offsets.Count > 0 ? offsets[i] : line.Start == 0 ? indent : 0f,
                     tabStop
                 )
             );
@@ -1584,7 +1685,143 @@ public partial class UiElement : Composition.IComposable {
         }
     }
 
+    /// <summary>Breaks the text one line at a time while the room it has keeps changing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One call per band and then one for the rest, rather than a wrapper that takes a
+    ///         list of widths.</b> A greedy wrapper's state at a line boundary is one integer — where
+    ///         the next line starts — so asking it for the first line of what is left, at this line's
+    ///         own width, is the same answer a per-line width would have produced, and it needs
+    ///         nothing new below <c>Vixen.Ui</c>. The bands run out at the lowest float's bottom edge,
+    ///         which is where the last call wraps everything that remains at the full width in one
+    ///         pass — so a paragraph of any length pays for the lines that are actually beside a
+    ///         float and no more.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The band's start edge goes in as the indent, not as a shift afterwards.</b> It
+    ///         has to narrow the line as well as move it — that is the same fact <c>text-indent</c>
+    ///         rests on — and it is also what keeps the tab stops where CSS Text 3 § 6.1 puts them,
+    ///         measured from the line box's own start edge rather than from the text's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Each segment is broken from the line's own start, which is what a browser does
+    ///         and is not free.</b> UAX #14 reads context around an opportunity, so a break decided
+    ///         with the paragraph in hand can in principle differ from one decided from the line
+    ///         start. Blink re-breaks from the line start too, and the alternative — a wrapper that
+    ///         carries the whole paragraph and a per-line width — is the shape this deliberately did
+    ///         not add to <c>Vixen.Ui.Text</c> for one caller.
+    ///     </para>
+    /// </remarks>
+    static void WrapInBands(
+        string text,
+        float[] advances,
+        float width,
+        List<WrappedLine> into,
+        List<float> offsets,
+        List<(float Start, float Available)> bands,
+        TextWrapMode mode,
+        WordBreakMode breaking,
+        float indent,
+        float tabStop,
+        HyphenMode hyphens,
+        float hyphen,
+        TextWrapStyle wrapStyle,
+        LineBreakStrictness strictness,
+        string language
+    ) {
+        var segment = new List<WrappedLine>();
+        var start = 0;
+
+        for (var i = 0; i < bands.Count && start < text.Length; i++) {
+            // The indent is the first line's and the band's start edge is every line's, so the first
+            // line of a paragraph beside a float is pushed in by both.
+            var offset = bands[i].Start + (i == 0 ? indent : 0f);
+
+            LineWrapper.Wrap(
+                text[start..],
+                advances.AsSpan(start),
+                MathF.Max(0f, bands[i].Start + bands[i].Available),
+                segment,
+                mode,
+                breaking,
+                offset,
+                tabStop,
+                hyphens,
+                hyphen,
+                wrapStyle,
+                strictness,
+                language
+            );
+
+            if (segment.Count == 0 || segment[0].Length <= 0) {
+                break;
+            }
+
+            into.Add(segment[0] with { Start = segment[0].Start + start });
+            offsets.Add(offset);
+            start += segment[0].Length;
+        }
+
+        if (start >= text.Length) {
+            return;
+        }
+
+        LineWrapper.Wrap(
+            text[start..],
+            advances.AsSpan(start),
+            width,
+            segment,
+            mode,
+            breaking,
+
+            // ⚠ No indent on the step-out, whatever the paragraph declared. `text-indent` is the
+            // FIRST line's, and by the time the bands have run out that line is above this one — it
+            // was indented in the loop above.
+            start == 0 ? indent : 0f,
+            tabStop,
+            hyphens,
+            hyphen,
+            wrapStyle,
+            strictness,
+            language
+        );
+
+        foreach (var line in segment) {
+            into.Add(line with { Start = line.Start + start });
+            offsets.Add(start == 0 && line.Start == 0 ? indent : 0f);
+        }
+    }
+
+    /// <summary>Whether two band lists say the same thing about where a paragraph's lines go.</summary>
+    static bool SameBands(List<(float Start, float Available)>? left, List<(float Start, float Available)>? right) {
+        var leftCount = left?.Count ?? 0;
+        var rightCount = right?.Count ?? 0;
+
+        if (leftCount != rightCount) {
+            return false;
+        }
+
+        for (var i = 0; i < leftCount; i++) {
+            if (!left![i].Start.Equals(right![i].Start) || !left[i].Available.Equals(right[i].Available)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     TextLayout? block;
+
+    /// <summary>What the store last said about the room this paragraph's lines have.</summary>
+    /// <remarks>
+    ///     Refilled by every probe, so it is never the list a block is remembered by — see
+    ///     <see cref="lineBands" />. Allocated on the first paragraph that is measured while a tree
+    ///     has floats in it, and never for the rest of an interface.
+    /// </remarks>
+    List<(float Start, float Available)>? bandScratch;
+
+    /// <summary>The bands <see cref="block" /> was wrapped to, which is what the key compares.</summary>
+    List<(float Start, float Available)>? lineBands;
 
     // The truncated picture, and what it was truncated from. Keyed on the block's identity rather
     // than on the ten fields `Block` compares: a new block is a new object, so one reference test

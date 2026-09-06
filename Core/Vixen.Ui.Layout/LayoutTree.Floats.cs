@@ -68,6 +68,25 @@ public sealed partial class LayoutTree {
     /// <summary>The context root's content-box width, which is the right edge floats stop at.</summary>
     float floatContextWidth;
 
+    /// <summary>Whose box <see cref="floatOriginX" /> and <see cref="floatOriginY" /> describe.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The whole of what makes <see cref="ContentBands" /> answerable, and it is a guard
+    ///     rather than a convenience.</b> The origin is a walk cursor: it names the child the block
+    ///     walk is laying out at this instant and means nothing before or after that call. A query
+    ///     that trusted it without checking whose it is would hand a node the band belonging to
+    ///     whichever sibling happened to be measured last — right on the paragraph beside the float
+    ///     and wrong everywhere else, which is the shape of bug that reads as "it works".
+    /// </remarks>
+    int floatOriginNode = -1;
+
+    /// <summary>Which way that node's own content runs.</summary>
+    /// <remarks>
+    ///     Carried beside the origin because a band is physical and the answer is inline-relative,
+    ///     and the direction a child is laid out in is a parameter of the walk rather than a property
+    ///     of the node — there is nowhere else to read it from once the walk has moved on.
+    /// </remarks>
+    Direction floatOriginDirection = Direction.Ltr;
+
     /// <summary>Whether the tree holds a float or a <c>clear</c> anywhere, deciding it once per pass.</summary>
     /// <remarks>
     ///     ⚠ <b>Scanning is the point.</b> Asking each container whether its own children float would
@@ -199,6 +218,99 @@ public sealed partial class LayoutTree {
 
         return (left, right);
     }
+
+    /// <summary>
+    ///     The room each of a node's own lines has, in order, for as long as a float takes any of it
+    ///     away.
+    /// </summary>
+    /// <param name="node">The node being measured. Anything else answers nothing.</param>
+    /// <param name="lineHeight">How tall one of its lines is, which is what turns a band into a slot.</param>
+    /// <param name="width">The content width it is measuring into.</param>
+    /// <param name="bands">
+    ///     Receives one entry per line slot from the node's own content top downwards: how far in
+    ///     from its start edge that line begins, and how wide it may be. Cleared first, and left
+    ///     empty when there is nothing to say.
+    /// </param>
+    /// <returns>How many slots were written.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only from inside the node's own measure function, and the guard is what says
+    ///         so.</b> A block-level box's position among the floats is known at exactly one moment —
+    ///         while <c>WalkBlockChildren</c> is laying it out, with the exclusion list's origin set
+    ///         to its own box — and that is the moment its measure function runs. Called at any other
+    ///         time, on any other node, or on a tree with no float in it, this answers zero and the
+    ///         caller keeps whatever it had.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is CSS 2.1 §9.5 for a leaf that does its own line breaking, and the reason
+    ///         the leaf could not do it on its own.</b> A float shortens the LINE BOXES beside it and
+    ///         leaves the block box full width — Chrome 148.0.7778.280, a 300-wide flow-root with a
+    ///         100×60 left float: the paragraph's own rectangle is 300 wide at x = 0, its first three
+    ///         lines start at x = 100 with 200 to run in, and the line whose top is the float's bottom
+    ///         steps back out to x = 0. So the leaf's measured size is one rectangle either way and
+    ///         the staircase is inside it; what the leaf lacked was the QUESTION, which is this.
+    ///     </para>
+    ///     <para>
+    ///         The list ends where the floats do. Every line below the lowest float bottom gets the
+    ///         whole width, which is the answer a caller already has, so saying it once is cheaper
+    ///         than saying it per line for a paragraph of any length.
+    ///     </para>
+    /// </remarks>
+    public int ContentBands(LayoutNodeId node, float lineHeight, float width, List<(float Start, float Available)> bands) {
+        ArgumentNullException.ThrowIfNull(bands);
+        bands.Clear();
+
+        if (!treeHasFloats
+            || node.Index != floatOriginNode
+            || !float.IsFinite(width)
+            || width <= 0f
+            || !(lineHeight > 0f)) {
+            return 0;
+        }
+
+        var insetLeft = results[node.Index].Padding[(int) Edge.Left] + results[node.Index].Border[(int) Edge.Left]
+            + ScrollbarGutterAt(node.Index, Edge.Left, floatOriginDirection);
+        var insetTop = results[node.Index].Padding[(int) Edge.Top] + results[node.Index].Border[(int) Edge.Top]
+            + ScrollbarGutterAt(node.Index, Edge.Top, floatOriginDirection);
+
+        var contentTop = floatOriginY + insetTop;
+        var reach = LowestFloatBottom() - insetTop;
+
+        if (!(reach > 0f)) {
+            return 0;
+        }
+
+        // ⚠ A cap, and it is a guard against a caller rather than against the floats: a line height
+        // of a fraction of a point and a float a thousand points tall is a list nobody wants and no
+        // paragraph has. Past it the caller's own full width is the answer, which is what it would
+        // have used anyway.
+        var slots = (int) MathF.Min(MathF.Ceiling(reach / lineHeight), MaxBandSlots);
+        var contentLeft = floatOriginX + insetLeft;
+        var narrowed = false;
+
+        for (var i = 0; i < slots; i++) {
+            var (bandLeft, bandRight) = FloatBandAt(contentTop + (i * lineHeight), lineHeight);
+
+            var left = MathF.Max(0f, bandLeft - contentLeft);
+            var right = MathF.Min(width, bandRight - contentLeft);
+            var available = MathF.Max(0f, right - left);
+
+            narrowed |= left > 0f || available < width;
+            bands.Add((floatOriginDirection == Direction.Ltr ? left : MathF.Max(0f, width - right), available));
+        }
+
+        // ⚠ Nothing rather than a list of full-width slots, so that "is this paragraph beside a
+        // float" is one test on the count. A float below the paragraph, or beside a sibling, reaches
+        // `LowestFloatBottom` and takes nothing from any line here.
+        if (!narrowed) {
+            bands.Clear();
+        }
+
+        return bands.Count;
+    }
+
+    /// <summary>How many line slots a band list may describe before the caller is on its own.</summary>
+    const int MaxBandSlots = 4096;
 
     /// <summary>The next slice boundary below <paramref name="top" />, or NaN if there is none.</summary>
     float NextFloatBottomBelow(float top, float height) {
