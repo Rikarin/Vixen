@@ -159,6 +159,15 @@ sealed class LayerStackView : IDisposable {
     /// </remarks>
     readonly Select part;
 
+    /// <summary>Which of the four kinds the <em>Add layer</em> button makes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A picker beside the button rather than four buttons, because the kinds are not four
+    ///     gestures.</b> Doc 48 § D10's four are one decision an artist makes once per layer, and a
+    ///     row of four buttons would spend the width the binding row above it already spends. It is
+    ///     also the shape that survives a fifth kind.
+    /// </remarks>
+    readonly Select addKind;
+
     /// <summary>The brush this panel drives, or null in a host that never paints.</summary>
     /// <remarks>
     ///     ⚠ <b>Held, which it was not before.</b> The constructor used to hand it straight to
@@ -292,6 +301,27 @@ sealed class LayerStackView : IDisposable {
 
         model.SelectionChanged += (_, value) => Bind(value ?? "");
         part.SelectionChanged += (_, value) => Narrow(value ?? "");
+
+        // ⚠ Above the rows and not on one, because what it does is put a row where there is none —
+        // an empty set has no row to hang it off, and that is the state a stack whose last layer was
+        // deleted is in. Delete is per row, for the opposite reason: it names the layer it is on.
+        var actions = left.Add("layer-stack-actions");
+
+        actions.SetStyle("display", "flex");
+        actions.SetStyle("flex-direction", "row");
+
+        addKind = actions.Add<Select>("layer-stack-add-kind");
+
+        foreach (var value in Enum.GetValues<LayerKind>()) {
+            addKind.AddOption(value.ToString());
+        }
+
+        addKind.Value = LayerKind.Fill.ToString();
+
+        var add = actions.Add<Button>("layer-stack-add");
+
+        add.Label = "Add layer";
+        add.Clicked += _ => AddLayer();
 
         rows = left.Add("layer-stack-list");
 
@@ -1017,6 +1047,14 @@ sealed class LayerStackView : IDisposable {
         up.Clicked += _ => Move(document, path, +1, "Move Layer Up");
         down.Clicked += _ => Move(document, path, -1, "Move Layer Down");
 
+        // ⚠ On the row and never disabled, the last layer included. A stack with no layers compiles
+        // — every channel is its own default — so "you may not delete this one" would be a rule with
+        // nothing behind it, and the undo entry is what makes the gesture safe.
+        var delete = row.Add<Button>("layer-stack-delete");
+
+        delete.Label = "Delete";
+        delete.Clicked += _ => RemoveLayer(document, path);
+
         var enabled = row.Add<CheckBox>("layer-stack-enabled");
 
         enabled.Label = "Enabled";
@@ -1173,7 +1211,7 @@ sealed class LayerStackView : IDisposable {
         for (var index = mask.Effects.Count - 1; index >= 0; index--) {
             var position = index;
 
-            MaskRow(
+            var effect = MaskRow(
                 depth,
                 () => Describe(document, path, effect: position),
                 () => LayerStackEdit.Find(document.Document, path)?.Mask.Effects is { } effects
@@ -1185,6 +1223,41 @@ sealed class LayerStackView : IDisposable {
                     value ? "Show Mask Effect" : "Hide Mask Effect"
                 )
             );
+
+            // ⚠ A node path field, and it is what stops the *add* button being a mechanism whose
+            // caller passes the default. `MaskEffectAsset.Node` is the whole of what an effect is —
+            // "any single-input graph", named by its path in the node menu — so an add with no field
+            // to type into offers a row an artist can create and cannot make mean anything.
+            var node = effect.Add<TextBox>("layer-stack-effect-node");
+
+            node.Placeholder = "Colour/Levels";
+
+            node.ValueChanged += (_, typed) => Set(
+                document,
+                path,
+                current => current with { Mask = WithEffect(current.Mask, position, typed ?? "") },
+                "Set Mask Effect Node",
+                "mask-effect:" + position.ToString(CultureInfo.InvariantCulture)
+            );
+
+            node.Submitted += _ => document.Stack.Seal();
+
+            var remove = effect.Add<Button>("layer-stack-effect-delete");
+
+            remove.Label = "Delete";
+            remove.Clicked += _ => Set(
+                document,
+                path,
+                current => current with { Mask = WithoutEffect(current.Mask, position) },
+                "Delete Mask Effect"
+            );
+
+            bindings.Add(() => {
+                if (LayerStackEdit.Find(document.Document, path)?.Mask.Effects is { } effects
+                    && position < effects.Count) {
+                    node.Value = effects[position].Node;
+                }
+            });
         }
 
         for (var index = mask.Layers.Count - 1; index >= 0; index--) {
@@ -1221,6 +1294,16 @@ sealed class LayerStackView : IDisposable {
                     key
                 )
             );
+
+            var remove = entry.Add<Button>("layer-stack-entry-delete");
+
+            remove.Label = "Delete";
+            remove.Clicked += _ => Set(
+                document,
+                path,
+                current => current with { Mask = WithoutEntry(current.Mask, position) },
+                "Delete Mask Entry"
+            );
         }
 
         // ⚠ The base row is drawn whatever the source is, and that is the change #882 asked for
@@ -1239,6 +1322,30 @@ sealed class LayerStackView : IDisposable {
         var name = row.Add("layer-stack-mask-name");
 
         bindings.Add(() => name.Text = Describe(document, path));
+
+        // ⚠ The two adds live on the base row, which is the one row of a mask that always exists —
+        // an entry row is a thing there may be none of, and hanging "add another" off it would make
+        // the first one unreachable. They are here rather than on the layer row because what they
+        // add belongs to the mask.
+        var addEntry = row.Add<Button>("layer-stack-mask-add-entry");
+
+        addEntry.Label = "Add mask entry";
+        addEntry.Clicked += _ => Set(
+            document,
+            path,
+            current => current with { Mask = WithEntryAdded(current.Mask) },
+            "Add Mask Entry"
+        );
+
+        var addEffect = row.Add<Button>("layer-stack-mask-add-effect");
+
+        addEffect.Label = "Add effect";
+        addEffect.Clicked += _ => Set(
+            document,
+            path,
+            current => current with { Mask = WithEffectAdded(current.Mask) },
+            "Add Mask Effect"
+        );
 
         SourceEditor(
             row,
@@ -1299,6 +1406,92 @@ sealed class LayerStackView : IDisposable {
         };
 
         return mask with { Layers = entries };
+    }
+
+    /// <summary>A mask with one more entry over the top of its stack.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Appended, which is the <em>top</em> of the mask's stack and the row the panel
+    ///         draws first.</b> <c>MaskAsset.Layers</c> composite bottom first, so the last of them is
+    ///         the outermost — the same reversal every list in this panel spends once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Multiply and not <c>MaskLayerAsset</c>'s own default, and the exception is the
+    ///         first entry over no base.</b> A mask entry's default operator is <c>Copy</c>, which at
+    ///         a value of 1 <em>replaces</em> whatever is under it with white — so an artist who
+    ///         pressed this on a bake mask would watch the mask they were building disappear. Multiply
+    ///         at 1 changes nothing, which is what adding an unconfigured row should do. The one case
+    ///         that wants <c>Copy</c> is an entry with nothing beneath it at all, because
+    ///         <c>MaskAsset.Layers</c>' own remarks say the bottom entry's operator does nothing and
+    ///         is <em>warned about</em> — so the neutral choice there would be a warning on a row the
+    ///         artist has not touched yet.
+    ///     </para>
+    /// </remarks>
+    static MaskAsset WithEntryAdded(MaskAsset mask) {
+        var bottom = mask.Layers.Count == 0 && mask.Source == LayerMaskSource.None;
+
+        return mask with {
+            Layers = [
+                .. mask.Layers,
+                new MaskLayerAsset { Blend = bottom ? LayerBlendMode.Copy : LayerBlendMode.Multiply }
+            ]
+        };
+    }
+
+    /// <summary>A mask with one fewer entry.</summary>
+    static MaskAsset WithoutEntry(MaskAsset mask, int index) {
+        if (index < 0 || index >= mask.Layers.Count) {
+            return mask;
+        }
+
+        List<MaskLayerAsset> entries = [.. mask.Layers];
+
+        entries.RemoveAt(index);
+
+        return mask with { Layers = entries };
+    }
+
+    /// <summary>A mask with one more effect over its result.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Switched off, and that is the difference between adding a row and breaking the
+    ///     picture.</b> <c>LayerStackGraph</c> <em>refuses</em> an effect that names no node type —
+    ///     an error, which stops the map — and an effect with no node is exactly what pressing this
+    ///     makes. So it is added disabled: the row appears with a field to type a node path into, and
+    ///     the tick beside it is the second half of the gesture. An effect added enabled would blank
+    ///     the preview the artist was looking at, on a click that was meant to be additive.
+    /// </remarks>
+    static MaskAsset WithEffectAdded(MaskAsset mask) =>
+        mask with { Effects = [.. mask.Effects, new MaskEffectAsset { Enabled = false }] };
+
+    /// <summary>A mask with one fewer effect.</summary>
+    static MaskAsset WithoutEffect(MaskAsset mask, int index) {
+        if (index < 0 || index >= mask.Effects.Count) {
+            return mask;
+        }
+
+        List<MaskEffectAsset> effects = [.. mask.Effects];
+
+        effects.RemoveAt(index);
+
+        return mask with { Effects = effects };
+    }
+
+    /// <summary>A mask one of whose effects names a different node type.</summary>
+    /// <remarks>
+    ///     ⚠ A new list, for <see cref="WithEntry" />'s reason: <c>with</c> shares every collection
+    ///     member, so writing into the one this mask holds would change the layer the undo entry is
+    ///     holding as its before-image.
+    /// </remarks>
+    static MaskAsset WithEffect(MaskAsset mask, int index, string node) {
+        if (index < 0 || index >= mask.Effects.Count) {
+            return mask;
+        }
+
+        List<MaskEffectAsset> effects = [.. mask.Effects];
+
+        effects[index] = effects[index] with { Node = node };
+
+        return mask with { Effects = effects };
     }
 
     /// <summary>What no anchor reads, as the picker's first option.</summary>
@@ -1941,6 +2134,106 @@ sealed class LayerStackView : IDisposable {
         }
 
         document.Stack.Execute(new SetLayerCommand(document, path, before, after, name, mergeKey));
+        Refresh();
+    }
+
+    /// <summary>What a layer this panel just made starts as.</summary>
+    /// <param name="set">The set it goes into — its first channel is what a fill writes.</param>
+    /// <param name="kind">Which of the four.</param>
+    /// <returns>The layer.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A <see cref="LayerKind.Fill" /> is given a value on the set's first channel, and
+    ///         an empty <see cref="LayerAsset.Values" /> would have been the defect this workstream
+    ///         names.</b> "A channel with no entry is a channel this layer does not write"
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/807">#807</a> · 2), so a fill added
+    ///         with no values writes nothing at all — an artist presses <em>Add layer</em>, a row
+    ///         appears, the picture does not change, and nothing on this panel says why. Mid-grey on
+    ///         the first channel is <c>LayerStackDocument.Starter</c>'s own answer to the same
+    ///         question.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is also the honest statement of what this panel still cannot do:</b> there
+    ///         is no editor for a fill's colour, so the value it is born with is the value it keeps
+    ///         until somebody edits the file. That is a gap in #882 rather than a decision, and it is
+    ///         filed.
+    ///     </para>
+    ///     <para>
+    ///         The id is <see cref="LayerStackEdit.FreeId" />'s, so it is unique in the set from the
+    ///         moment the row exists — a layer added with the default empty id would be the second
+    ///         id-less layer the instant somebody pressed the button twice, and both rows would go
+    ///         to <see cref="AmbiguousRow" />.
+    ///     </para>
+    /// </remarks>
+    static LayerAsset Blank(TextureSetAsset set, LayerKind kind) {
+        LayerAsset layer = new() {
+            Id = LayerStackEdit.FreeId(set, "layer"),
+            Name = kind.ToString(),
+            Kind = kind
+        };
+
+        if (kind != LayerKind.Fill || set.Channels.Count == 0) {
+            return layer;
+        }
+
+        layer.Values[set.Channels[0].Usage] = [0.5f, 0.5f, 0.5f, 1f];
+
+        return layer;
+    }
+
+    /// <summary>Puts a new layer over the selected one, or on top of the stack.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Over the selected row and in <em>its</em> list, which is the only placement that can
+    ///     reach the inside of a group.</b> A button that always appended to the set's own list would
+    ///     make a group something an artist can open and never add to; the selection is already the
+    ///     panel's word for "the layer I am working on", and it is what the brush reads. With nothing
+    ///     selected the new layer goes on top, which is where a layers panel puts one.
+    /// </remarks>
+    void AddLayer() {
+        if (writing || Document is not { } document || document.Document.Sets.Count == 0) {
+            return;
+        }
+
+        var set = document.Document.Sets[0];
+
+        var kind = Enum.TryParse<LayerKind>(addKind.Value, out var chosen) ? chosen : LayerKind.Fill;
+
+        // ⚠ `Index + 1` is *over* the selected layer, because the file is bottom first and this panel
+        // is not — the same reversal the `up` button spends, and getting it backwards puts every new
+        // layer under the one an artist was pointing at.
+        var slot = Selected is { } path && LayerStackEdit.SlotOf(document.Document, path) is { } at
+            ? at with { Index = at.Index + 1 }
+            : new LayerSlot(set.Name, null, set.Layers.Count);
+
+        document.Stack.Execute(new AddLayerCommand(document, slot, Blank(set, kind), "Add " + kind + " Layer"));
+        Refresh();
+    }
+
+    /// <summary>Takes a layer out.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The selection goes with it when it was the selected layer, and the brush with the
+    ///     selection.</b> <see cref="Build" /> recovers a selection from <c>PaintTool.LayerId</c> and
+    ///     drops one no layer answers to, so leaving it would be harmless — but the drop happens on
+    ///     the rebuild, and the refresh in between is a frame in which the brush is aimed at a layer
+    ///     that is gone. An empty <c>LayerId</c> is the brush's "the first paint layer", which is
+    ///     where a deleted selection honestly leaves it.
+    /// </remarks>
+    void RemoveLayer(LayerStackDocument document, LayerPath path) {
+        if (writing || LayerStackEdit.Find(document.Document, path) is null) {
+            return;
+        }
+
+        if (Selected == path) {
+            Selected = null;
+
+            if (tool is not null) {
+                tool.LayerId = "";
+            }
+
+            SelectionChanged?.Invoke();
+        }
+
+        document.Stack.Execute(new RemoveLayerCommand(document, path, "Delete Layer"));
         Refresh();
     }
 

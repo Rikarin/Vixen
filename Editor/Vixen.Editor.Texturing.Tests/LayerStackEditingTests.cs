@@ -808,6 +808,201 @@ public class LayerStackEditingTests {
         Assert.Equal(framed, view.Preview.Zoom);
     }
 
+    /// <summary>⚠ Adding a layer changes the compiled composite, and undo takes it back out.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/882">#882</a>'s remaining half.</b>
+    ///         The panel could edit every property of a layer and could not make one — no add, no
+    ///         delete, for layers or for mask rows.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read off the plan and not off the list, because a list assertion is a restatement
+    ///         of the command's own arithmetic</b> — the rule the reorder tests in this file already
+    ///         keep to. It is also the only assertion that can see the second half of the fix: a fill
+    ///         added with an empty <c>Values</c> is a layer that writes <em>nothing</em>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/807">#807</a> · 2), so the row would
+    ///         appear, the picture would not move, and a list assertion would call that a pass.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Adding_a_layer_puts_it_on_top_and_undo_takes_it_out() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Two());
+        var panel = Panel(fixture);
+
+        Assert.Equal(0.75f, TopColour(document));
+
+        Find<Button>(panel, "layer-stack-add").Activate();
+
+        Assert.Equal(3, document.Document.Sets[0].Layers.Count);
+
+        // The new layer is the one the last blend now reads, which is what "on top" means.
+        Assert.Equal(0.5f, TopColour(document));
+
+        Assert.True(document.Stack.Undo());
+        Assert.Equal(2, document.Document.Sets[0].Layers.Count);
+        Assert.Equal(0.75f, TopColour(document));
+    }
+
+    /// <summary>⚠ A layer added while a child of a group is selected goes into that group.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What <see cref="LayerSlot" /> exists for.</b> A layer's parent list is not always
+    ///         the set's — <c>LayerStackEdit</c>'s own opening remark — so a button that appended to
+    ///         <c>TextureSetAsset.Layers</c> would make a group something an artist can open, reorder
+    ///         inside and never add to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The selected child is the <em>lower</em> one, so "over the selected layer" and
+    ///         "at the end of the list" are different places.</b> Selecting the upper child makes the
+    ///         two the same index and the fixture stops being able to tell them apart — which is the
+    ///         shape of a test that cannot see its own subject.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_layer_added_under_a_selected_child_goes_into_that_childs_group() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Grouped());
+        var panel = Panel(fixture);
+
+        // Rows are topmost first: the group, then its children topmost first, so [2] is 'lower'.
+        Buttons(panel, "layer-stack-select")[2].Activate();
+        Find<Button>(panel, "layer-stack-add").Activate();
+
+        var group = Assert.Single(document.Document.Sets[0].Layers);
+        var children = group.Children.Select(child => child.Id).ToArray();
+
+        Assert.Equal(3, children.Length);
+        Assert.Equal("lower", children[0]);
+        Assert.Equal("upper", children[2]);
+
+        // Over the selected layer and under the one that was above it — not at either end.
+        Assert.Equal("layer-1", children[1]);
+    }
+
+    /// <summary>⚠ Deleting a group takes its children, and undo gives the whole subtree back.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The children are what the assertion is about.</b> A removal that recorded only the
+    ///     layer's own members would put back a group with nothing in it, and the set's own list would
+    ///     look identical — one layer called <c>'g'</c>, in the same place.
+    /// </remarks>
+    [Fact]
+    public void Deleting_a_group_takes_its_children_and_undo_gives_them_back() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Grouped());
+        var panel = Panel(fixture);
+
+        // The group's own row is the topmost, so its Delete is the first.
+        Buttons(panel, "layer-stack-delete")[0].Activate();
+
+        Assert.Empty(document.Document.Sets[0].Layers);
+        Assert.True(document.Stack.Undo());
+
+        var group = Assert.Single(document.Document.Sets[0].Layers);
+
+        Assert.Equal("g", group.Id);
+        Assert.Equal(["lower", "upper"], group.Children.Select(child => child.Id).ToArray());
+    }
+
+    /// <summary>⚠ Two layers added in a row get two ids, and neither row is disarmed.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>LayerAsset.Id</c> defaults to empty and two empties are ambiguous</b>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>), so an add that left the
+    ///     id alone would work once and turn both new rows into refusals on the second press — and
+    ///     refuse the stack at compile. The refusal count is read off the tree rather than the ids
+    ///     compared, because that is the state an artist would be looking at.
+    /// </remarks>
+    [Fact]
+    public void Two_added_layers_get_two_ids() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Two());
+        var panel = Panel(fixture);
+
+        Find<Button>(panel, "layer-stack-add").Activate();
+        Find<Button>(panel, "layer-stack-add").Activate();
+
+        var ids = document.Document.Sets[0].Layers.Select(layer => layer.Id).ToArray();
+
+        Assert.Equal(4, ids.Length);
+        Assert.Equal(4, ids.Distinct(StringComparer.Ordinal).Count());
+        Assert.Empty(Texts(panel, "layer-stack-row-refusal"));
+    }
+
+    /// <summary>⚠ An added mask entry multiplies, so the mask it joined does not change.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>MaskLayerAsset.Blend</c> defaults to <c>Copy</c>, and <c>Copy</c> at a value of
+    ///         1 replaces the whole mask with white.</b> So an add that took the record's default
+    ///         would make an artist's bake mask vanish on a click that was meant to be additive. What
+    ///         is asserted is the operator rather than the picture because the picture is the operator
+    ///         — <c>Multiply</c> at 1 is the identity, which is what an unconfigured row should be.
+    ///     </para>
+    ///     <para>
+    ///         And the delete beside it takes the same row out again, which is the half that makes the
+    ///         add safe to press.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_added_mask_entry_is_neutral_and_the_delete_takes_it_back_out() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Masked());
+        var panel = Panel(fixture);
+
+        Assert.Single(Mask(document).Layers);
+
+        Find<Button>(panel, "layer-stack-mask-add-entry").Activate();
+
+        var added = Mask(document).Layers[^1];
+
+        Assert.Equal(2, Mask(document).Layers.Count);
+        Assert.Equal(LayerBlendMode.Multiply, added.Blend);
+        Assert.Equal(1f, added.Value);
+
+        // The rows are outermost first, so the first Delete is the entry that was just added.
+        Buttons(Panel(fixture), "layer-stack-entry-delete")[0].Activate();
+
+        Assert.Single(Mask(document).Layers);
+    }
+
+    /// <summary>⚠ An added mask effect is switched off, so the map an artist was looking at survives.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An effect that names no node type is a <em>refusal</em> in
+    ///         <c>LayerStackGraph</c></b> — an error, which stops the map — and an effect with no node
+    ///         is exactly what pressing the button makes. Added enabled, the click would blank the
+    ///         preview. The compile is what says so: the plan is still there afterwards.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the field is the other half, without which the button is a mechanism whose
+    ///         caller can only pass the default.</b> An effect row with no way to name a node is a row
+    ///         an artist can create and can never make mean anything, which is this workstream's
+    ///         commonest defect wearing a hat.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_added_mask_effect_is_off_until_it_names_a_node() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Masked());
+
+        Find<Button>(Panel(fixture), "layer-stack-mask-add-effect").Activate();
+
+        var added = Assert.Single(Mask(document).Effects);
+
+        Assert.False(added.Enabled);
+        Assert.Equal("", added.Node);
+
+        // The instrument: a stack whose effect was added enabled compiles to nothing at all.
+        Assert.NotNull(LayerStackCompiler.Compile(document.Document, document.Document.Sets[0]).Plan);
+
+        Find<TextBox>(Panel(fixture), "layer-stack-effect-node").Value = "Colour/Levels";
+
+        Assert.Equal("Colour/Levels", Assert.Single(Mask(document).Effects).Node);
+
+        Buttons(Panel(fixture), "layer-stack-effect-delete")[0].Activate();
+
+        Assert.Empty(Mask(document).Effects);
+    }
+
     /// <summary>⚠ An id-less layer's row refuses to be selected, and says why.</summary>
     /// <remarks>
     ///     <para>

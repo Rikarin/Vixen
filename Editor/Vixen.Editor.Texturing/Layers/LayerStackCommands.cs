@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using Vixen.Editor.Core;
 
 namespace Vixen.Editor.Texturing.Layers;
@@ -37,6 +38,40 @@ namespace Vixen.Editor.Texturing.Layers;
 ///     </para>
 /// </remarks>
 readonly record struct LayerPath(string Set, string Id);
+
+/// <summary>Where a layer <em>goes</em>: the set, the list it is in, and the place in that list.</summary>
+/// <param name="Set">The <see cref="TextureSetAsset.Name" />.</param>
+/// <param name="Parent">
+///     The <see cref="LayerAsset.Id" /> of the group whose children the list is, or
+///     <see langword="null" /> for the set's own list.
+/// </param>
+/// <param name="Index">Where in it, counting from the bottom of the composite.</param>
+/// <remarks>
+///     <para>
+///         <b>A different question from <see cref="LayerPath" />, and an insert is what makes the
+///         difference matter.</b> A path names a layer that exists and resolves to whichever list
+///         holds it; a slot names a place, which has to be said even when nothing is there — the
+///         empty set's own list, or the gap a removed layer left. Every command that changes what a
+///         list <em>contains</em> takes one of these, and every command that changes a layer takes a
+///         path.
+///     </para>
+///     <para>
+///         ⚠ <b><paramref name="Parent" /> is nullable rather than empty-for-none, and that is not a
+///         style choice.</b> <see cref="LayerAsset.Id" /> defaults to <c>""</c> and a single id-less
+///         layer addresses perfectly well — <a href="https://github.com/Rikarin/Vixen/issues/966">
+///         #966</a> — so <c>""</c> here would mean both "the set's own list" and "the children of
+///         the layer with no id", and a group nobody named would swallow every top-level insert.
+///     </para>
+///     <para>
+///         ⚠ <b>An index and not a neighbour's id, which is the opposite of every other address in
+///         this file.</b> An index is exactly what a reorder invalidates — which is why
+///         <see cref="LayerPath" /> refuses one — but an insert has no layer to name yet, and the
+///         two callers that hold a slot across time both re-resolve it: <see cref="AddLayerCommand" />
+///         undoes by the id it inserted, and <see cref="RemoveLayerCommand" /> resolves the slot when
+///         it removes rather than when it is built.
+///     </para>
+/// </remarks>
+readonly record struct LayerSlot(string Set, string? Parent, int Index);
 
 /// <summary>Finding and moving a layer inside a stack, by <see cref="LayerPath" />.</summary>
 /// <remarks>
@@ -140,6 +175,173 @@ static class LayerStackEdit {
         parent[index] = value;
 
         return true;
+    }
+
+    /// <summary>The list a slot names, whether or not anything is in it.</summary>
+    /// <param name="stack">The stack.</param>
+    /// <param name="slot">Which list.</param>
+    /// <param name="list">The list itself, live.</param>
+    /// <returns>Whether the set — and the group, when the slot names one — was found.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="stack" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The live list and not a copy, which is what makes an insert an insert.</b> Every
+    ///     record here shares its collection members with the value <c>with</c> copied it from, so
+    ///     the <see cref="List{T}" /> a group's <see cref="LayerAsset.Children" /> hands back is the
+    ///     one the stack is holding — the same property <see cref="Replace" /> and <see cref="Move" />
+    ///     already rely on.
+    /// </remarks>
+    public static bool TryList(
+        LayerStackAsset stack,
+        LayerSlot slot,
+        [NotNullWhen(true)] out List<LayerAsset>? list
+    ) {
+        ArgumentNullException.ThrowIfNull(stack);
+
+        list = null;
+
+        if (stack.SetNamed(slot.Set) is not { } set) {
+            return false;
+        }
+
+        if (slot.Parent is null) {
+            list = set.Layers;
+
+            return true;
+        }
+
+        if (Find(stack, new(slot.Set, slot.Parent)) is not { } parent) {
+            return false;
+        }
+
+        list = parent.Children;
+
+        return true;
+    }
+
+    /// <summary>The slot a layer currently occupies.</summary>
+    /// <param name="stack">The stack.</param>
+    /// <param name="path">Which layer.</param>
+    /// <returns>Where it is, or <see langword="null" /> when nothing answers to that path.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="stack" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Its own walk rather than <see cref="TryFind" />'s, because the parent's <em>id</em> is
+    ///     the one thing that walk cannot report.</b> <see cref="TryFind" /> hands back the list and
+    ///     the index, which is everything a reorder needs and one short of what an insert needs: a
+    ///     list is an object, and a command that held one across an undo would be holding a
+    ///     collection the document may have replaced.
+    /// </remarks>
+    public static LayerSlot? SlotOf(LayerStackAsset stack, LayerPath path) {
+        ArgumentNullException.ThrowIfNull(stack);
+
+        if (stack.SetNamed(path.Set) is not { } set) {
+            return null;
+        }
+
+        return Locate(set.Layers, null);
+
+        LayerSlot? Locate(List<LayerAsset> layers, string? parent) {
+            for (var index = 0; index < layers.Count; index++) {
+                if (string.Equals(layers[index].Id, path.Id, StringComparison.Ordinal)) {
+                    return new LayerSlot(path.Set, parent, index);
+                }
+
+                if (Locate(layers[index].Children, layers[index].Id) is { } found) {
+                    return found;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    /// <summary>Puts a layer into a list at a place.</summary>
+    /// <param name="stack">The stack.</param>
+    /// <param name="slot">Where it goes. An index equal to the list's length appends.</param>
+    /// <param name="layer">What goes there.</param>
+    /// <returns>Whether it went in.</returns>
+    /// <exception cref="ArgumentNullException">The stack or the layer is null.</exception>
+    public static bool Insert(LayerStackAsset stack, LayerSlot slot, LayerAsset layer) {
+        ArgumentNullException.ThrowIfNull(layer);
+
+        if (!TryList(stack, slot, out var list) || slot.Index < 0 || slot.Index > list.Count) {
+            return false;
+        }
+
+        list.Insert(slot.Index, layer);
+
+        return true;
+    }
+
+    /// <summary>Takes a layer out, and says where it was.</summary>
+    /// <param name="stack">The stack.</param>
+    /// <param name="path">Which layer.</param>
+    /// <param name="slot">Where it was, so that putting it back is one call.</param>
+    /// <returns>Whether there was a layer to take out.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="stack" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>A group goes with its children, and that is what makes the removal reversible.</b>
+    ///     <see cref="LayerAsset.Children" /> is a member of the record that comes out, so the whole
+    ///     subtree is held by whoever is holding the layer — an undo puts back the tree rather than a
+    ///     stump, and nothing has to walk it.
+    /// </remarks>
+    public static bool Remove(LayerStackAsset stack, LayerPath path, out LayerSlot slot) {
+        slot = default;
+
+        if (SlotOf(stack, path) is not { } found || !TryFind(stack, path, out var parent, out var index)) {
+            return false;
+        }
+
+        slot = found;
+        parent.RemoveAt(index);
+
+        return true;
+    }
+
+    /// <summary>An id no layer of a set carries, built from a stem.</summary>
+    /// <param name="set">The texture set.</param>
+    /// <param name="stem">What the id reads as, before the number.</param>
+    /// <returns>The first of <c>stem-1</c>, <c>stem-2</c>, … that nothing already answers to.</returns>
+    /// <exception cref="ArgumentNullException">The set or the stem is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Readable and counted rather than a GUID, and the trade is deliberate.</b> A
+    ///         <c>.vxlayers</c> is a file people read and merge, and an anchor names a layer by this
+    ///         string — <c>Anchor: layer-2</c> is a line somebody can resolve a conflict in and
+    ///         <c>Anchor: 3f2a…</c> is not. What a counted id costs is that two branches each adding
+    ///         a layer both reach <c>layer-2</c>; what makes that affordable is that the collision is
+    ///         <em>loud</em> — <c>Ambiguous</c> reports it, the compiler refuses the stack and the
+    ///         panel draws both rows with no controls
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/893">#893</a>).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every layer in the set counts, groups walked into, and not only the list being
+    ///         inserted into.</b> An id is unique in the <em>set</em> — that is what an anchor and a
+    ///         <see cref="LayerPath" /> both assume — so a per-list counter would hand the second
+    ///         group's first child the id the first group's first child already has.
+    ///     </para>
+    /// </remarks>
+    public static string FreeId(TextureSetAsset set, string stem) {
+        ArgumentNullException.ThrowIfNull(set);
+        ArgumentNullException.ThrowIfNull(stem);
+
+        HashSet<string> taken = new(StringComparer.Ordinal);
+
+        Walk(set.Layers);
+
+        for (var number = 1; ; number++) {
+            var wanted = stem + "-" + number.ToString(CultureInfo.InvariantCulture);
+
+            if (taken.Add(wanted)) {
+                return wanted;
+            }
+        }
+
+        void Walk(List<LayerAsset> layers) {
+            foreach (var layer in layers) {
+                taken.Add(layer.Id);
+                Walk(layer.Children);
+            }
+        }
     }
 
     /// <summary>Moves a layer within the list it is already in.</summary>
@@ -528,6 +730,148 @@ sealed class MoveLayerCommand : IEditorCommand {
 
     /// <inheritdoc />
     /// <remarks>Never. See the type's remarks.</remarks>
+    public bool TryMergeWith(IEditorCommand previous, [NotNullWhen(true)] out IEditorCommand? merged) {
+        merged = null;
+
+        return false;
+    }
+}
+
+/// <summary>A layer put into a stack, as one undo entry.</summary>
+/// <remarks>
+///     <para>
+///         <b><a href="https://github.com/Rikarin/Vixen/issues/882">#882</a>'s other half.</b> The
+///         source editor landed and add and delete did not, and the issue says why they are one
+///         change: <see cref="LayerStackEdit" /> already finds a layer's parent list by id, so an
+///         insert is the same shape as <see cref="MoveLayerCommand" /> — what it needed was a way to
+///         name a <em>place</em>, which is <see cref="LayerSlot" />.
+///     </para>
+///     <para>
+///         ⚠ <b>The undo removes by the id it inserted rather than by the slot it inserted at.</b>
+///         Those differ the moment anything else moves: a layer added at index 2 and then dragged to
+///         the top is still the layer this command put there, and an undo that emptied index 2 would
+///         delete somebody else's. It is the same argument <see cref="LayerPath" /> makes about
+///         indices, applied to the one command that has to hold one.
+///     </para>
+///     <para>
+///         ⚠ <b>Nothing here makes the id unique — <see cref="LayerStackEdit.FreeId" /> does, at the
+///         call site.</b> A command that generated one would generate it again on every redo, and a
+///         redo that produced a different id would orphan every anchor an artist had pointed at the
+///         layer in between.
+///     </para>
+/// </remarks>
+sealed class AddLayerCommand : IEditorCommand {
+    readonly LayerStackDocument document;
+    readonly LayerSlot slot;
+    readonly LayerAsset layer;
+
+    /// <summary>Records an insertion.</summary>
+    /// <param name="document">The stack it happens in.</param>
+    /// <param name="slot">Where the layer goes.</param>
+    /// <param name="layer">The layer, id and all.</param>
+    /// <param name="name">What the undo entry says.</param>
+    /// <exception cref="ArgumentNullException">The document or the layer is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name" /> is empty.</exception>
+    public AddLayerCommand(LayerStackDocument document, LayerSlot slot, LayerAsset layer, string name) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(layer);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        this.document = document;
+        this.slot = slot;
+        this.layer = layer;
+
+        Name = name;
+    }
+
+    /// <inheritdoc />
+    public string Name { get; }
+
+    /// <inheritdoc />
+    public void Do(EditorContext context) => LayerStackEdit.Insert(document.Document, slot, layer);
+
+    /// <inheritdoc />
+    public void Undo(EditorContext context) =>
+        LayerStackEdit.Remove(document.Document, new(slot.Set, layer.Id), out _);
+
+    /// <inheritdoc />
+    /// <inheritdoc cref="SetModelCommand.TryMergeWith" path="/remarks" />
+    public bool TryMergeWith(IEditorCommand previous, [NotNullWhen(true)] out IEditorCommand? merged) {
+        merged = null;
+
+        return false;
+    }
+}
+
+/// <summary>A layer taken out of a stack, as one undo entry.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Where it was is resolved when it is removed, not when the command is built, and that
+///         is what makes a redo land in the right place.</b> A command is built once and can run many
+///         times — undo, then some other edit, then redo — so an index recorded at construction is an
+///         index the stack has since renumbered. Every other command here keys on something stable; a
+///         removal cannot, because the thing it names stops existing.
+///     </para>
+///     <para>
+///         ⚠ <b>A group takes its children with it and gives them back.</b> The record that comes out
+///         holds <see cref="LayerAsset.Children" />, so what this command holds is the subtree rather
+///         than a stump — an undo re-inserts the whole of it with one call and nothing walks.
+///     </para>
+///     <para>
+///         ⚠ <b>An anchor pointing at the deleted layer is left dangling on purpose.</b>
+///         <c>LayerStackGraph</c> refuses an anchor that names no layer and says so in the list under
+///         the rows; rewriting other layers' masks from a delete would be an edit an artist did not
+///         ask for, inside an undo entry that says "Delete Layer".
+///     </para>
+/// </remarks>
+sealed class RemoveLayerCommand : IEditorCommand {
+    readonly LayerStackDocument document;
+    readonly LayerPath path;
+    LayerSlot slot;
+    LayerAsset? removed;
+
+    /// <summary>Records a removal.</summary>
+    /// <param name="document">The stack it happens in.</param>
+    /// <param name="path">Which layer.</param>
+    /// <param name="name">What the undo entry says.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="document" /> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name" /> is empty.</exception>
+    public RemoveLayerCommand(LayerStackDocument document, LayerPath path, string name) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        this.document = document;
+        this.path = path;
+
+        Name = name;
+    }
+
+    /// <inheritdoc />
+    public string Name { get; }
+
+    /// <inheritdoc />
+    public void Do(EditorContext context) {
+        removed = LayerStackEdit.Find(document.Document, path);
+
+        if (!LayerStackEdit.Remove(document.Document, path, out slot)) {
+            removed = null;
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     Nothing happens when the removal did not, which is the state a redo of a command whose
+    ///     layer somebody else has already deleted is in — an insert of <see langword="null" /> would
+    ///     be a hole in the list rather than something a person could act on.
+    /// </remarks>
+    public void Undo(EditorContext context) {
+        if (removed is not null) {
+            LayerStackEdit.Insert(document.Document, slot, removed);
+        }
+    }
+
+    /// <inheritdoc />
+    /// <inheritdoc cref="SetModelCommand.TryMergeWith" path="/remarks" />
     public bool TryMergeWith(IEditorCommand previous, [NotNullWhen(true)] out IEditorCommand? merged) {
         merged = null;
 
