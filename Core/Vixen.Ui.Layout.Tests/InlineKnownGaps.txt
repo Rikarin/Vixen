@@ -324,17 +324,38 @@ generated boxes (::before/after)  doc 43's A12. ⚠ ITS PRECONDITION IS NOW MET 
 #     against the span itself. Flattening it would rebase the float's position by the span's origin a
 #     second time, because the line walk writes a float in the CONTAINER's coordinates. It is the
 #     fifth restriction in that method's list and has the same shape as the fourth.
-#   · Text wrapping around a float's staircase. A text leaf is one atomic item here and this walk
-#     never breaks inside one, so a paragraph beside a float re-flows as whole leaves. Shortening a
-#     leaf's first line is the fragmentation item three rows down, and it is the same blocker: there
-#     must not be a second text wrapper disagreeing with `TextLayout` about UAX #14. ⚠ THIS IS THE
-#     ONE ITEM OF THE THREE THAT IS STRUCTURAL RATHER THAN UNWRITTEN, and it does not become
-#     available by trying harder here. ⚠ AND THE COMPARISON THAT USED TO END THIS ROW — "the same
-#     wall the strut is behind" — IS NOW WRONG TWICE. The strut's wall was font METRICS, and metrics
-#     crossed this boundary as five numbers the moment somebody asked whether they had to be a font;
-#     see the strut section below. This wall is text BREAKING, which is a protocol and not a value: a
-#     measure function answers one size for one width, and a staircase is a different width per line.
-#     Whatever closes it will not be a `StrutMetrics`-shaped answer.
+#   · Text wrapping around a float's staircase (#901). A text leaf is one atomic item here and this
+#     walk never breaks inside one, so a paragraph beside a float re-flows as whole leaves.
+#     Shortening a leaf's first line is the fragmentation item three rows down and is the same item.
+#     ⚠⚠ WHAT THIS ROW SAID THE BLOCKER WAS IS NOT THE BLOCKER, and three separate readings of it
+#     have now been wrong in three different directions. Taking them in order:
+#       - "There must not be a second text wrapper disagreeing with `TextLayout` about UAX #14."
+#         True and irrelevant: NEITHER route needs one. Both call `TextLayout`, through the measure
+#         function that is already there, just more than once or with more than one width.
+#       - "The same wall the strut is behind." Wrong, and the row said so — the strut's wall was
+#         font METRICS, which crossed as five numbers.
+#       - ⚠ "A protocol and not a value: a measure function answers one size for one width, and a
+#         staircase is a different width per line." HALF WRONG, AND IT IS THE HALF THAT DECIDES THE
+#         SHAPE. The ANSWER never had to change: CSS 2.1 §9.5 shortens LINE BOXES beside a float and
+#         leaves the block box itself full width, so a text leaf's measured size is one rectangle
+#         either way and the staircase lives inside it. Only the QUESTION would have to carry the
+#         band — and `MeasureRequest` already carries `Tree` and `Node`, which is enough to ask for
+#         it. ⚠ The one thing that would have made such a query unsound is already gone: a
+#         band-dependent answer would be served stale by the measure cache, which keys on the width
+#         alone (`CachedMeasurement`, `CanUseCachedMeasurement`) — except that
+#         `CalculateLayoutInternal` BYPASSES THE CACHE ENTIRELY when `treeHasFloats`, deliberately,
+#         with the reason written beside it, and the same comment observes that the entry "is not
+#         even keyed on something that distinguishes" two float origins for one node. And
+#         `floatOriginY` is already the child's own top edge when its measure function runs
+#         (`LayoutTree.Block.cs`, the `floatsActive` assignment before `CalculateLayoutInternal`).
+#     So what is genuinely owed is a VALUE crossing a boundary this store already carries values
+#     across, which is the strut's shape after all: a band query on `LayoutTree`, a `LineWrapper`
+#     that takes a per-line available width rather than one, and a `TextLine` that carries a
+#     per-line inline offset so the draw list, the caret, the selection band and the hit test place
+#     it. That is three real pieces of work in `Vixen.Ui` and `Vixen.Ui.Text` and none in the
+#     protocol. ⚠ It is still not free, and the reason to be careful is unchanged: the moment a
+#     break POSITION moves, UAX #14 conformance stops being the right target, and Parley's
+#     `break_overrides.rs` or its 2 048 Chrome-recorded positions are the reference (#257).
 #   · `clear` on a line box, which is NOT owed and was measured rather than argued. §9.5.2 applies
 #     `clear` to floating and block-level elements only, and Chrome 148 agrees: `clear: left` on an
 #     `inline-block` beside a left float leaves it exactly where it was, on the same line. A `clear`
@@ -472,12 +493,15 @@ text-align                        ⚠ LANDED, and this entry's own sizing was ri
 a text leaf's first line          ⚠ STILL NOT shortened to the space left on the line box it lands
   shortened to its line             on, and the fragment arena did NOT unblock this even though it
                                   was named as the other end of the same invariant. There is now
-                                  somewhere to PUT a shortened first line; what is still true is
-                                  the reason it was refused, which was never storage. `Vixen.Ui`'s
-                                  `TextLayout` is the only thing that breaks a string, across a
-                                  font-fallback chain, and a second wrapper breaking text inside
-                                  the line box would disagree with it about kerning, fallback and
-                                  UAX #14 the moment either changed. ⚠ AND THE MOMENT IT DOES,
+                                  somewhere to PUT a shortened first line, and the reason it was
+                                  refused was never storage. ⚠ NOR IS IT A SECOND WRAPPER, which
+                                  this row asserted until #901 was audited: `TextLayout` stays the
+                                  only thing that breaks a string, and both routes to a staircase
+                                  call it rather than a rival. See the staircase entry in the
+                                  ABSENT section above for what the blocker actually reduces to —
+                                  a band on the question, which `MeasureRequest.Tree` can already
+                                  answer because the measure cache is bypassed in every
+                                  float-bearing tree. ⚠ AND THE MOMENT A BREAK POSITION MOVES,
                                   Vixen's UAX #14 conformance stops being the right target:
                                   browsers do not implement it as written, and Parley's
                                   `parley_engine/src/break_overrides.rs` documents the deltas with

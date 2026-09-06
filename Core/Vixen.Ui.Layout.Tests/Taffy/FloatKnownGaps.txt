@@ -46,9 +46,14 @@
 #                                 HAVE SINCE CLOSED TOO — a float declared INSIDE a run (§9.5.1's
 #                                 rules 5 and 6) and the intrinsic width of a shrink-to-fit container
 #                                 that holds one. What is left is the staircase a broken text leaf
-#                                 would wrap around, and that one is structural rather than
-#                                 unwritten: it needs a text wrapper below `Vixen.Ui`, which is the
-#                                 same wall §10.8's strut is behind.
+#                                 would wrap around (#901). ⚠ THIS ROW STILL SAID "it needs a text
+#                                 wrapper below `Vixen.Ui`, which is the same wall §10.8's strut is
+#                                 behind" AFTER THE OTHER THREE FILES HAD STOPPED SAYING IT, which
+#                                 is why the sentence is written out here rather than cross-
+#                                 referenced: it needs no second wrapper at all. Both routes call
+#                                 the FIRST one, `TextLayout`, through the measure function that is
+#                                 already there. See `InlineKnownGaps.txt` for what is genuinely
+#                                 left, which is narrower than either sentence.
 #
 # ── OWED ROWS THAT HAVE SINCE CLOSED, KEPT BECAUSE THE REFUTATION IS THE FINDING ─────────────────
 #

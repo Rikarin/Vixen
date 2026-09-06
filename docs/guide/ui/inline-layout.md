@@ -230,12 +230,15 @@ slot rather than a second rectangle.
 
 ⚠ **Text is not re-wrapped here.** `Vixen.Ui`'s `TextLayout` already breaks a string into lines across
 a font-fallback chain and reaches the store the way every leaf does — as a measure function. This
-algorithm treats such a leaf as one atomic item and asks it exactly the question the measure cache is
-keyed on. A second wrapper would disagree with the first about kerning, fallback and UAX #14 the
-moment either changed. The cost is stated rather than hidden: a text leaf's first line is not
-shortened to the space left on the line it lands on. ⚠ That is still true now that fragmentation has
-landed, and the two were filed as the same blocker but are not: there is somewhere to put a
-shortened first line, and the reason it was refused was never storage.
+algorithm treats such a leaf as one atomic item. The cost is stated rather than hidden: a text leaf's
+first line is not shortened to the space left on the line it lands on. ⚠ That is still true now that
+fragmentation has landed, and the two were filed as the same blocker but are not: there is somewhere
+to put a shortened first line, and the reason it was refused was never storage.
+
+⚠ **And it was not "a second wrapper" either**, which this page asserted until #901 was audited: both
+routes to a staircase call `TextLayout` itself rather than a rival. What is left is narrower — a band
+on the measure question, a per-line available width in the wrapper, and a per-line inline offset on a
+line — and `Core/Vixen.Ui.Layout/README.md` carries the evidence for each.
 
 ## Examples
 

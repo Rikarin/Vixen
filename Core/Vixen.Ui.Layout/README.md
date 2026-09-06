@@ -572,9 +572,22 @@ fallback and UAX #14 the moment either changed.
 The cost is stated rather than hidden: **a text leaf's first line is not shortened to the space left
 on the line it lands on.** ⚠ And it is *still* not, now that fragmentation has landed — which is
 worth saying because the two were filed as the same blocker and are not. There is now somewhere to
-put a shortened first line; what has not changed is the reason it was refused, which was never
-storage but the fact that two wrappers disagreeing about kerning, fallback and UAX #14 is worse than
-one. ⚠ The day text breaking does move into the line box, Vixen's UAX #14 conformance stops being
+put a shortened first line, and the reason it was refused was never storage.
+
+⚠ **Nor was it a second wrapper, which this section asserted until #901 was audited.** Both routes to
+a staircase call `TextLayout` — the first wrapper — either once per line or once with a band list, so
+no rival is created and the paragraph above is a true statement about a thing nobody proposed. What
+the refusal reduces to is narrower and worth writing down: the *answer* never had to change, because
+CSS 2.1 §9.5 shortens **line boxes** beside a float and leaves the block box itself full width, so a
+text leaf's measured size is one rectangle either way; only the *question* would have to carry the
+band, and `MeasureRequest` already carries `Tree` and `Node`. The one thing that would have made such
+a query unsound — the measure cache serving one width's answer at a different `y` — is already gone:
+`CalculateLayoutInternal` bypasses the cache outright whenever `treeHasFloats`, for the reason two
+paragraphs up, and `floatOriginY` is the child's own top edge by the time its measure function runs.
+So what is owed is a band query on the store, a `LineWrapper` taking a per-line available width, and
+a `TextLine` carrying a per-line inline offset for the draw list, caret, selection and hit test —
+values crossing a boundary this store already carries values across, which is the strut's shape after
+all. ⚠ The day text breaking does move into the line box, Vixen's UAX #14 conformance stops being
 the right target: browsers do not implement it as written, and the reference for any change to a
 break position is Parley's `break_overrides.rs` or the 2 048 Chrome-recorded positions beside it —
 not the algorithm.
