@@ -249,6 +249,57 @@ public sealed class ApiCoverageTests {
         );
     }
 
+    /// <summary>
+    ///     The README's <c>## Coverage</c> section names every root <c>ApiCheckedProjects()</c> globs.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A prose description of a gate's subject is the one part of it nothing checks, and
+    ///         this one had been wrong for as long as there were exceptions.</b> The section said
+    ///         "the <c>RUNTIME</c> profile of <c>Directory.Build.props</c>: every non-test,
+    ///         non-generator project under <c>Core/</c> and <c>Platform/</c> that packs" — two of the
+    ///         six roots the call actually passes. <c>Gameplay/</c>, <c>Live/</c>,
+    ///         <c>Editor/Vixen.Editor.Plugin</c> and <c>Raven/Vixen.Raven</c> are covered and read as
+    ///         uncovered, which is the same class of defect as #749's own subject: a document telling
+    ///         a reader something the build does not do.
+    ///     </para>
+    ///     <para>
+    ///         Read out of <see cref="CheckApiGlobs" /> rather than listed here, so this cannot be
+    ///         the second copy that drifts. The comparison is on the pattern with its
+    ///         <c>/**/*.csproj</c> or <c>/*.csproj</c> tail removed, because that tail is glob syntax
+    ///         and the root is the thing a reader needs.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheReadmeNamesEveryRootCheckApiGlobs() {
+        var readme = File.ReadAllText(Path.Combine(RepositoryRoot(), "Tools", "Vixen.ApiCheck", "README.md"));
+        var start = readme.IndexOf("## Coverage", StringComparison.Ordinal);
+
+        Assert.True(start >= 0, "Tools/Vixen.ApiCheck/README.md has no `## Coverage` heading to read.");
+
+        var rest = readme[(start + "## Coverage".Length)..];
+        var end = rest.IndexOf("\n## ", StringComparison.Ordinal);
+        var section = end >= 0 ? rest[..end] : rest;
+
+        var roots = CheckApiGlobs()
+            .Select(pattern => pattern.Replace("/**/*.csproj", string.Empty, StringComparison.Ordinal))
+            .Select(pattern => pattern.Replace("/*.csproj", string.Empty, StringComparison.Ordinal))
+            .ToList();
+
+        var unnamed = roots
+            .Where(root => !section.Contains(root, StringComparison.Ordinal))
+            .ToList();
+
+        Assert.True(
+            unnamed.Count == 0,
+            "build/Build.Api.cs globs these roots and the README's `## Coverage` section does not "
+            + "name them, so the section describes a narrower gate than the one that runs — and a "
+            + "reader concludes their assembly's surface is approved by nobody when it is, or the "
+            + "reverse.\n  "
+            + string.Join("\n  ", unnamed)
+        );
+    }
+
     /// <summary>The <c>Vixen.*</c> package ids the shipped templates reference, deduplicated.</summary>
     static List<string> TemplatePackageReferences() =>
         Directory

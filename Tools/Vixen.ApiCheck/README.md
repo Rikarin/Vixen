@@ -110,9 +110,22 @@ Two known gaps, written down rather than discovered:
 
 ## Coverage
 
-The `RUNTIME` profile of `Directory.Build.props`: every non-test, non-generator project under
-`Core/` and `Platform/` that packs — the same set that gets `IsPackable=true`, because the set whose
-surface is a promise is the set somebody can install from nuget.org.
+Every non-test, non-generator, non-analyzer project that packs and targets `net10.0` under six roots,
+which is what `ApiCheckedProjects()` in [`build/Build.Api.cs`](../../build/Build.Api.cs) globs:
+
+```
+Core/**   Gameplay/**   Platform/**   Live/**   Editor/Vixen.Editor.Plugin   Raven/Vixen.Raven
+```
+
+The criterion is packing rather than a profile, because the set whose surface is a promise is the set
+somebody can install from nuget.org. ⚠ **That is not the same thing as the `RUNTIME` profile of
+`Directory.Build.props`, which this section used to name.** `RUNTIME` is `Core/`, `Gameplay/` and
+`Platform/`; the last three roots above are each a named exception argued for in
+`ApiCheckedProjects()`'s own remarks — `Live/` ships and is operated, `Vixen.Editor.Plugin` is the one
+editor assembly doc 11 asks a compatibility policy of, and `Vixen.Raven` is a compiler useful without
+the engine. Naming the profile instead of the globs described two of the six and made the other four
+read as uncovered. `ApiCoverageTests.TheReadmeNamesEveryRootCheckApiGlobs` now holds this list to that
+call.
 
 The `net10.0-ios`, `-android` and `-browser` projects are not covered. They are outside
 `Vixen.slnx` for the reason `CompileMobile` documents, so `Compile` has not built them and there
