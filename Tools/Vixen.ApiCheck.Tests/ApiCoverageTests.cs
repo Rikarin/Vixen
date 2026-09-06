@@ -141,6 +141,123 @@ public sealed class ApiCoverageTests {
     }
 
     /// <summary>
+    ///     ⚠ The two projects that cannot be un-packed, which is the half of #641 and #749 nobody
+    ///     had measured: a covered package's own published dependencies.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Both issues offer "cover it, or stop packing it" as a free choice between two
+    ///         options. For two of the undecided projects it is not free, because a covered package
+    ///         already depends on them and a <c>ProjectReference</c> without
+    ///         <c>PrivateAssets=all</c> becomes a <c>&lt;dependency&gt;</c> in the
+    ///         <c>.nuspec</c>. <c>Vixen.Editor.Plugin</c> — the one Editor assembly
+    ///         <c>ApiCheckedProjects()</c> names, and the one doc 11 asks a *stricter* compatibility
+    ///         policy of than anywhere else in the editor — references
+    ///         <c>Vixen.Editor.Ui</c>, and <c>Vixen.Live.Realm</c> references <c>Vixen.App</c>. So
+    ///         the strictest promise in the tree is only as strict as an assembly whose surface is
+    ///         approved by nothing: a removal in <c>Vixen.Editor.Ui</c> breaks a plugin author's
+    ///         build, passes <c>CheckApi</c>, and is not even visible in the diff of the package
+    ///         that promised compatibility.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Which is why this is an assertion and not a paragraph: the exceptions are named
+    ///         here, so a covered contract taking on a *third* unreviewed dependency fails rather
+    ///         than joining a silence nobody re-reads. The other direction matters as much — when
+    ///         either is covered or stops packing, this goes red with the line to delete.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void APublishedDependencyOfACoveredPackageIsCoveredToo() {
+        string[] known = [
+            // #641. Un-packing this one is not available: Vixen.Editor.Plugin's package would
+            // declare a dependency that does not exist. Covering it is the only answer that leaves
+            // the plugin contract restorable.
+            "Editor/Vixen.Editor.Ui/Vixen.Editor.Ui.csproj",
+
+            // #749, and the same shape one folder over: Vixen.Live.Realm is covered, and
+            // VixenApp.Run<TGame> reaches its consumers through that package as well as through the
+            // six Samples that reference it by path.
+            "Tools/Vixen.App/Vixen.App.csproj",
+        ];
+
+        var unreviewed = PublishedDependencyClosure()
+            .Where(project => !IsChecked(project))
+            .OrderBy(project => project, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            unreviewed.SequenceEqual(known.OrderBy(project => project, StringComparer.Ordinal), StringComparer.Ordinal),
+            "The packable projects a covered package depends on, and which CheckApi does not read, "
+            + "are supposed to be exactly the two #641 and #749 are open about. A NEW name here is a "
+            + "reviewed package that just took on an unreviewed dependency — cover it or give the "
+            + "reference PrivateAssets=all. A name that has GONE has been covered or stopped "
+            + "packing; delete it from `known` in the same commit, because an exception list nobody "
+            + "prunes is the instrument reporting success.\n  expected: "
+            + string.Join(", ", known.OrderBy(project => project, StringComparer.Ordinal))
+            + "\n  found:    "
+            + string.Join(", ", unreviewed)
+        );
+    }
+
+    /// <summary>
+    ///     Every packable project reachable from a covered one through references that survive into
+    ///     the package — <c>ReferenceOutputAssembly=false</c> (an analyzer) and
+    ///     <c>PrivateAssets=all</c> do not, and are the two ways to depend on something without
+    ///     promising it.
+    /// </summary>
+    static IEnumerable<string> PublishedDependencyClosure() {
+        var packable = PackableProjects().ToHashSet(StringComparer.Ordinal);
+        var pending = new Stack<string>(packable.Where(IsChecked));
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var reached = new HashSet<string>(StringComparer.Ordinal);
+
+        while (pending.Count > 0) {
+            var project = pending.Pop();
+
+            if (!seen.Add(project)) {
+                continue;
+            }
+
+            foreach (var reference in PublishedReferences(project).Where(packable.Contains)) {
+                reached.Add(reference);
+                pending.Push(reference);
+            }
+        }
+
+        return reached;
+    }
+
+    static IEnumerable<string> PublishedReferences(string project) {
+        var document = XDocument.Load(Path.Combine(RepositoryRoot(), project));
+
+        foreach (var element in document.Descendants("ProjectReference")) {
+            var include = (string?)element.Attribute("Include");
+
+            if (string.IsNullOrEmpty(include)
+                || Says(element, "ReferenceOutputAssembly", "false")
+                || Says(element, "PrivateAssets", "all")) {
+                continue;
+            }
+
+            yield return Relative(project, include);
+        }
+    }
+
+    static bool Says(XElement element, string attribute, string value) =>
+        string.Equals((string?)element.Attribute(attribute), value, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    ///     A reference's <c>Include</c> is relative to the referencing project and spelled with
+    ///     backslashes; the rest of this file speaks repository-relative forward slashes.
+    /// </summary>
+    static string Relative(string project, string include) {
+        var directory = Path.GetDirectoryName(Path.Combine(RepositoryRoot(), project))!;
+        var resolved = Path.GetFullPath(Path.Combine(directory, include.Replace('\\', '/')));
+
+        return Path.GetRelativePath(RepositoryRoot(), resolved).Replace('\\', '/');
+    }
+
+    /// <summary>
     ///     ⚠ Both halves, because they are different questions and the tree can answer them
     ///     differently. <c>CheckApi</c>'s subject is the glob in <c>ApiCheckedProjects()</c>; the
     ///     file beside the project is only what it compares against once it has decided to look. A

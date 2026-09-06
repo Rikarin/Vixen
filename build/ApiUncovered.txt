@@ -43,6 +43,18 @@
 # the real price of option 1, and it is why "just generate the baselines" is not a small change
 # an agent lands on the way past.
 #
+# ⚠ Two of these lines are not free to take the other option, and that had never been measured.
+# "Cover it or stop packing it" reads as a choice between two, and for Vixen.Editor.Ui and
+# Vixen.App it is a choice between one: a covered package already depends on them, and a
+# ProjectReference without PrivateAssets=all becomes a <dependency> in the .nuspec. Vixen.Editor.Plugin
+# — the single Editor assembly CheckApi names, and the one doc 11 asks a STRICTER compatibility
+# policy of than anywhere else in the editor — references Vixen.Editor.Ui; Vixen.Live.Realm
+# references Tools/Vixen.App. So the strictest promise in this repository is today only as strict as
+# an assembly approved by nobody, a removal in Vixen.Editor.Ui breaks a plugin author's build while
+# both gates pass, and un-packing either one leaves a published package declaring a dependency that
+# does not exist. ApiCoverageTests.APublishedDependencyOfACoveredPackageIsCoveredToo holds that set
+# at exactly these two, in both directions.
+#
 # ⚠ And the order the tooling imposes is the dangerous one: `Vixen.ApiCheck --update` writes the
 # baseline beside the project, and Build.Api.cs's glob is a separate edit. A baseline added
 # without the glob is read by CheckDocsCoverage and NOT by CheckApi — that half is still true
