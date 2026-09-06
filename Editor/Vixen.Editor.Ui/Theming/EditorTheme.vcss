@@ -340,12 +340,19 @@ toolbar segmented-control {
 
 /* ⚠ Every metric restated, and none of it is decoration: these five declarations are what
    make the control occupy exactly the box the hand-drawn group did — 26 high inside a 30-high
-   group inside a 37-high band. `ControlTheme`'s small-size rule names `button`, `icon-button`
-   and `toggle-button` and not `segment`, so a segment set to `Small` keeps a form control's
-   padding while every button beside it shrinks. The visible half of getting that wrong is not
-   the group: the strip is as tall as its tallest member, so a band four pixels taller moves
-   every panel, every tree row and the status bar down with it, and a golden re-recorded onto
-   that would bury the shift under a whole-window diff. */
+   group inside a 37-high band. Neither small-size rule — `ControlTheme`'s nor this sheet's own
+   at `button.size-sm` below — names `segment`, so a segment set to `Small` keeps a form
+   control's padding while every button beside it shrinks. The visible half of getting that
+   wrong is not the group: the strip is as tall as its tallest member, so a band four pixels
+   taller moves every panel, every tree row and the status bar down with it, and a golden
+   re-recorded onto that would bury the shift under a whole-window diff.
+
+   ⚠ These numbers were once written down as measured rather than derived (#967), and they are
+   derivable: the member they replaced was `button.size-sm` — this sheet's `3px 9px`, not the
+   control theme's `2px 8px` — with `toolbar-group button { border-width: 0px }` taking its
+   border away. `2px 8px` inside a 1px transparent border is that same box to the pixel, and
+   the border is here rather than absent because the seam between two members is drawn as a
+   colour on it. */
 toolbar segment {
     padding: 2px 8px;
     font-size: 0.9em;
