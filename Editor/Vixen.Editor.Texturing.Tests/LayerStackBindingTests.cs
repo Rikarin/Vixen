@@ -297,6 +297,51 @@ public class LayerStackBindingTests {
         Assert.NotEqual(0u, canvas.At(8, 40));
     }
 
+    /// <summary>And refused above the island's rows, which the u-narrowed fixture cannot tell.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every other quad in this file spans the whole of <c>v</c>, so every other
+    ///         assertion here is satisfied by a coverage map flipped in <c>v</c></b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/955">#955</a>. This island is the
+    ///         atlas's bottom half and the two texels are the same distance from the stamp's centre
+    ///         on opposite sides of the island's edge in <c>v</c>, so nothing but the row can
+    ///         separate them: flip the map and the two swap.
+    ///     </para>
+    ///     <para>
+    ///         <b>Which half of the atlas that is takes reading two conventions against each
+    ///         other.</b> The OBJ says <c>v</c> ∈ [0, 0.5] and an OBJ's <c>v</c> counts up from the
+    ///         bottom; <c>ModelReader</c> asks Assimp for <c>FlipUVs</c>; so the island is rows
+    ///         32…63 and the refused texel is above it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_stroke_is_refused_above_the_bound_meshs_islands() {
+        using var fixture = new TexturingFixture(graphics: true);
+
+        Model(fixture, "Band.obj", Quad(0f, 1f, 0f, 0.5f));
+
+        var document = Paintable(fixture, "Hull");
+
+        document.Document = document.Document with { Model = "Assets/Band.obj" };
+
+        var image = ImageIn(PaintPane(fixture));
+
+        Drag(fixture, image, new Vector2(24f, 48f), new Vector2(32f, 48f));
+
+        var canvas = Painted(document);
+
+        Assert.NotEqual(0u, canvas.At(32, 48));
+
+        // ⚠ 24 rows above the last stamp's centre: inside the brush, above the island, and twice as
+        // far out as the four texels of gutter the seam dilation is allowed to write.
+        Assert.Equal(0u, canvas.At(32, 24));
+
+        // The instrument, as in the test above: 24 texels from the same centre along the row, where
+        // the island *is*. Without it the zero above would also be satisfied by a brush whose
+        // falloff had simply run out — and it nearly does, since 28 texels out is zero either way.
+        Assert.NotEqual(0u, canvas.At(56, 48));
+    }
+
     /// <summary>The pane says which mesh it is painting on, or why it is not.</summary>
     [Fact]
     public void The_paint_panes_line_names_the_bound_mesh_or_the_refusal() {
@@ -577,10 +622,15 @@ public class LayerStackBindingTests {
     }
 
     /// <summary>A quad spanning <paramref name="from" />…<paramref name="to" /> in <c>u</c>.</summary>
-    static string Quad(float from, float to) =>
+    /// <param name="from">Where the island starts in <c>u</c>.</param>
+    /// <param name="to">Where it ends.</param>
+    /// <param name="low">Where it starts in the OBJ's <c>v</c>, which counts up from the bottom.</param>
+    /// <param name="high">Where it ends. ⚠ <c>1</c> is the atlas's <em>first</em> row, not its last.</param>
+    /// <returns>The OBJ text.</returns>
+    static string Quad(float from, float to, float low = 0f, float high = 1f) =>
         "o hull\n"
         + $"v {from} 0 0\nv {to} 0 0\nv {to} 1 0\nv {from} 1 0\n"
-        + $"vt {from} 0\nvt {to} 0\nvt {to} 1\nvt {from} 1\n"
+        + $"vt {from} {low}\nvt {to} {low}\nvt {to} {high}\nvt {from} {high}\n"
         + "f 1/1 2/2 3/3\nf 1/1 3/3 4/4\n";
 
     static LayerStackDocument Open(TexturingFixture fixture, string name) {

@@ -333,6 +333,32 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     /// </remarks>
     public ImmutableArray<TextureGraphExternal> Externals { get; private set; } = [];
 
+    /// <summary>How many times the last compilation asked Raven to compile an expression source.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The instrument for <see cref="Bind" />'s cost sentence, which until now was
+    ///         asserted on exactly the evidence the <em>wrong</em> version of it had: none</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/940">#940</a>). That sentence said
+    ///         "once per graph" for a batch after re-keying <c>Collect</c> on the expansion made it
+    ///         false, and the correction is the kind of thing somebody quotes when deciding whether
+    ///         to put an expression on forty node fields. A bound nothing measures drifts the next
+    ///         time the grouping key moves, which is precisely what happened.
+    ///     </para>
+    ///     <para>
+    ///         <b>A count of compilations and not a stopwatch</b>, because the property being claimed
+    ///         is work rather than time: one <c>TextureGraphExpressions.Fold</c> per group
+    ///         <see cref="Collect" /> returns, and a group is a scope holding at least one
+    ///         expression. A graph with no expressions in it compiles zero sources, which is the half
+    ///         that separates this from a constant.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reset by <c>Begin</c> like everything else here</b>, so it describes the last
+    ///         compilation rather than the compiler's life — a compiler is reused across a panel's
+    ///         edits, and a running total would answer a question nobody asked.
+    ///     </para>
+    /// </remarks>
+    public int ExpressionCompilations { get; private set; }
+
     /// <inheritdoc />
     protected override void Begin(NodeGraphModel graph) {
         this.graph = graph;
@@ -354,6 +380,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         emitted.Clear();
         nodeImages.Clear();
         kernels.Clear();
+        ExpressionCompilations = 0;
         Outputs = [];
         NodeImages = [];
         Kernels = [];
@@ -441,6 +468,15 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///         the number of fields: ten instances of a compound with four expression fields each are
     ///         ten compilations, not forty.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And that bound is now counted rather than asserted</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/940">#940</a>.
+    ///         <see cref="ExpressionCompilations" /> is the number, <c>TextureExpressionCostTests</c>
+    ///         holds all three of the cases above, and the third of them — a graph with no
+    ///         expressions compiling none — is what stops the other two from being satisfied by a
+    ///         constant. The wrong version of this sentence survived a whole batch on exactly the
+    ///         evidence the right one had: none.
+    ///     </para>
     /// </remarks>
     void Bind(NodeGraphModel graph) {
         foreach (var problem in TextureGraphParameters.Check(declared)) {
@@ -487,6 +523,15 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
                     ));
                 }
             }
+
+            // ⚠ Counted here rather than inside `Fold`, because this loop is what the sentence above
+            // is about: one compilation per group, and a group is one expansion holding at least one
+            // expression — #940. `Fold` itself has no idea how many times it is being called.
+            //
+            // Unconditional, and that is a claim about `Collect` rather than an oversight: `For`
+            // makes a group only to add an expression to it, so no group here is empty and none
+            // takes `Fold`'s "nothing to compile" early return.
+            ExpressionCompilations++;
 
             var results = TextureGraphExpressions.Fold(parameters, values, expressions, out var diagnostics);
 

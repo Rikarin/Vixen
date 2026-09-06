@@ -88,6 +88,48 @@ public class NodeGraphThemeTests {
         Assert.Equal(graph.Element.Bounds.Height, canvas.Element.Bounds.Height);
     }
 
+    /// <summary>⚠ And it has a width, which the height above says nothing about.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The canvas was 0×796 in the shipping editor and the suite above was green</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/939">#939</a>. Height and width fail
+    ///         for opposite reasons here: the height is what a column hands its growing child, and
+    ///         the width is what is left of the panel after a fixed side strip, so a test that
+    ///         measured one of them measured the half that could not go wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What was wrong was where the panel docked, not the stylesheet.</b>
+    ///         <c>DockingHost.Rekey</c> puts a panel the arrangement does not name into the
+    ///         <em>first</em> group, which in every <c>LayoutPresets.Standard</c> preset is the left
+    ///         browser at <c>0.2</c> of the width — 320 px, less than <c>shadergraph-side</c>'s own
+    ///         300 px column, so the graph was the child that shrank and <c>min-width: 0</c> let it
+    ///         shrink to nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The threshold is the side strip's width and not a round number.</b> A canvas
+    ///         narrower than the fixed column beside it is a panel docked somewhere a document does
+    ///         not belong; anything wider is a real graph however the window is sized. Asserting a
+    ///         specific 609 would be asserting the preset's ratios.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_graph_canvas_is_wider_than_the_fixed_column_beside_it() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Run("assets.create-shader-graph").Settle();
+
+        var canvas = fixture.Ui.Get("node-canvas").Element;
+        var side = fixture.Ui.Get("shadergraph-side").Element;
+
+        Assert.True(side.Bounds.Width > 0f, "the side column is not laid out, so there is nothing to compare against.");
+
+        Assert.True(
+            canvas.Bounds.Width > side.Bounds.Width,
+            $"the graph canvas is {canvas.Bounds.Width}x{canvas.Bounds.Height} beside a "
+            + $"{side.Bounds.Width}px side column, so the panel is a strip of fields with no graph in it."
+        );
+    }
+
     /// <summary>⚠ And the preview layer is out of flow and takes no clicks.</summary>
     /// <remarks>
     ///     <para>
