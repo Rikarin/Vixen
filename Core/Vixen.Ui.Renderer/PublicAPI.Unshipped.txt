@@ -28,6 +28,7 @@ Vixen.Ui.Renderer.UiRenderFeature.Renderer.set -> Vixen.Ui.Renderer.UiRenderer?
 Vixen.Ui.Renderer.UiRenderFeature.Set(Vixen.Rendering.RenderObjectId id, in Vixen.Ui.Renderer.UiInterface surface) -> void
 Vixen.Ui.Renderer.UiRenderFeature.UiRenderFeature() -> void
 Vixen.Ui.Renderer.UiRenderFeature.Unmount(Vixen.Rendering.RenderObjectId id) -> void
+Vixen.Ui.Renderer.UiRenderFeature.Upload(Vixen.Graphics.ICommandList commands) -> void
 Vixen.Ui.Renderer.UiRenderer -> sealed class
 Vixen.Ui.Renderer.UiRenderer : System.IDisposable
 Vixen.Ui.Renderer.UiRenderer.AtlasUploads.get -> int

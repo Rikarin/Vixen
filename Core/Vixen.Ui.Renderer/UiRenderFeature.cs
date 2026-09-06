@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Graphics;
 using Vixen.Rendering;
 using Vixen.Ui.Rendering;
 using Vixen.Ui.Text.Rasterizing;
@@ -140,6 +141,51 @@ public sealed class UiRenderFeature : RootRenderFeature {
 
     /// <summary>Forgets a surface, for an object that has gone away.</summary>
     public void Remove(RenderObjectId id) => surfaces.Remove(id.Index);
+
+    /// <summary>Puts every mounted interface's frame where the GPU can read it.</summary>
+    /// <param name="commands">
+    ///     A list that is <b>not inside a render pass</b>, recorded ahead of the frame's own passes
+    ///     on the same list — which is the order the graph then executes them in.
+    /// </param>
+    /// <exception cref="ArgumentNullException"><paramref name="commands" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The other half of drawing, and until this existed it had no reachable caller
+    ///         either.</b> <see cref="Draw" /> runs inside a render pass and can only
+    ///         <see cref="UiRenderer.Record" />; <see cref="UiRenderer.Upload" /> is what writes this
+    ///         frame's vertices, indices and box records into the ring and copies the glyph atlas,
+    ///         and a texture copy is the one thing a Vulkan command list may not do inside a pass.
+    ///         So a feature that only recorded drew from whatever region the last upload left —
+    ///         which, with nothing ever uploading, is a buffer that has never been written.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The dead <see cref="UiInterface.Atlas" /> was the evidence.</b> Every surface
+    ///         carried the atlas its text draws from and nothing read the field: the record was
+    ///         shaped for this call and this call was not written. It is a feature that would have
+    ///         drawn a scene's HUD as untextured quads, and only where a box happened to have no
+    ///         glyphs in it would the picture have looked right.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One <see cref="Renderer" /> serves one surface, whatever <see cref="Mount" />
+    ///         allows.</b> <c>UiRenderer</c> advances its ring region inside <c>Upload</c> and
+    ///         <c>Record</c> draws from the region the <em>last</em> upload wrote, so two mounted
+    ///         interfaces uploaded through one renderer are both drawn from the second one's
+    ///         geometry. That is a renderer-per-surface arrangement this feature does not have yet
+    ///         and is tracked separately; the loop here is written for the arrangement that exists,
+    ///         which is one mounted interface, and does not pretend the second one works.
+    ///     </para>
+    /// </remarks>
+    public void Upload(ICommandList commands) {
+        ArgumentNullException.ThrowIfNull(commands);
+
+        if (Renderer is null) {
+            return;
+        }
+
+        foreach (var surface in surfaces.Values) {
+            Renderer.Upload(commands, surface.Geometry, surface.Atlas);
+        }
+    }
 
     /// <inheritdoc />
     protected override void Draw(

@@ -536,14 +536,23 @@ public sealed class WorldRenderer : IDisposable {
     ///         two scenes in must not have to rebuild the renderer to get one.
     ///     </para>
     ///     <para>
-    ///         Three things are the host's, in this order. <see cref="UiRenderFeature.Renderer" />,
+    ///         Four things are the host's, in this order. <see cref="UiRenderFeature.Renderer" />,
     ///         because building a <c>UiRenderer</c> needs the shader modules and the formats of the
     ///         pass the interface is drawn in, and neither is knowable here — see that assembly's
     ///         README on why the shaders are handed over rather than compiled. Then
     ///         <see cref="UiRenderFeature.Mount" />, once, with the stages that draw it. Then
     ///         <see cref="UiRenderFeature.Set" /> every frame, with the geometry the document's
     ///         builder produced — the geometry holds the builder's own lists and is valid for one
-    ///         frame, which is why it is pushed per frame rather than held.
+    ///         frame, which is why it is pushed per frame rather than held. And
+    ///         <see cref="UiRenderFeature.Upload" /> every frame, on a list that is not inside a
+    ///         render pass.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The fourth is not optional, and a host that skips it draws from memory nothing
+    ///         has written.</b> The feature's own <c>Draw</c> runs inside the pass, where a texture
+    ///         copy is forbidden, so it can only record — the vertices and the glyph atlas have to be
+    ///         written before the frame's passes begin. It reads as an interface that is missing, or
+    ///         worse, one drawn out of whatever was in the buffer.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The stage has to sort <c>ByGroup</c>.</b> Every other mode puts depth in the key
