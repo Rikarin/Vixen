@@ -247,6 +247,69 @@ sealed class SetLayerCommand : IEditorCommand {
     }
 }
 
+/// <summary>The stack bound to a different model, as one undo entry.</summary>
+/// <remarks>
+///     <para>
+///         <b><a href="https://github.com/Rikarin/Vixen/issues/920">#920</a>, and it is the first
+///         command here that edits the stack rather than a layer in it.</b>
+///         <see cref="SetLayerCommand" /> reaches a <see cref="LayerAsset" /> through a
+///         <see cref="LayerPath" />; a binding is the whole file's, so what is replaced is
+///         <c>LayerStackDocument.Document</c> itself.
+///     </para>
+///     <para>
+///         ⚠ <b>A <c>with</c> on the record shares its <see cref="LayerStackAsset.Sets" /> list, and
+///         that is what makes this safe to interleave with layer edits.</b> The before-image and the
+///         after-image hold the <em>same</em> list, so a layer moved between binding and undoing
+///         stays moved — which is what an artist means. It is the opposite of
+///         <see cref="SetLayerCommand" />'s rule about collections, and for the opposite reason:
+///         there the collection is part of what is being reverted, here it is not.
+///     </para>
+/// </remarks>
+sealed class SetModelCommand : IEditorCommand {
+    readonly LayerStackDocument document;
+    readonly string before;
+    readonly string after;
+
+    /// <summary>Records a binding.</summary>
+    /// <param name="document">The stack.</param>
+    /// <param name="model">The model's project-relative path, or empty to unbind.</param>
+    /// <param name="name">What the undo entry says.</param>
+    /// <exception cref="ArgumentNullException">The document or the model is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name" /> is empty.</exception>
+    public SetModelCommand(LayerStackDocument document, string model, string name) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        this.document = document;
+        before = document.Document.Model;
+        after = model;
+
+        Name = name;
+    }
+
+    /// <inheritdoc />
+    public string Name { get; }
+
+    /// <inheritdoc />
+    public void Do(EditorContext context) => document.Document = document.Document with { Model = after };
+
+    /// <inheritdoc />
+    public void Undo(EditorContext context) => document.Document = document.Document with { Model = before };
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Never, which is <see cref="MoveLayerCommand" />'s answer and not the slider's.</b>
+    ///     Choosing a mesh is one decision per gesture: an artist who bound the wrong model, then the
+    ///     right one, and pressed undo means to be back on the wrong one, not unbound.
+    /// </remarks>
+    public bool TryMergeWith(IEditorCommand previous, [NotNullWhen(true)] out IEditorCommand? merged) {
+        merged = null;
+
+        return false;
+    }
+}
+
 /// <summary>A layer moved past its neighbour, as one undo entry.</summary>
 /// <remarks>
 ///     <para>

@@ -86,11 +86,33 @@ sealed class LayerStackView {
         "Every channel ticked means the layer is unrestricted — it also writes a channel the set gains later. "
         + "A layer that should write nothing is switched off instead, so the last tick cannot be cleared.";
 
+    /// <summary>What an unbound stack's binding row says, and it is the state every new one is in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An option rather than an empty <see cref="Select" />.</b> A dropdown whose first
+    ///     entry is the first model in the project would make "no mesh" unreachable the moment a
+    ///     project has one, and unbinding is a real gesture — a stack pointed at the wrong model has
+    ///     to be able to stop being pointed at it.
+    /// </remarks>
+    public const string NoMesh = "(none)";
+
     readonly UiElement messages;
+    readonly UiElement meshStatus;
     readonly UiElement root;
     readonly UiElement rows;
     readonly UiElement status;
     readonly UiElement title;
+
+    /// <summary>The mesh picker. Its options are the project's models, and they are re-read per stack.</summary>
+    readonly Select model;
+
+    /// <summary>The brush this panel drives, or null in a host that never paints.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held, which it was not before.</b> The constructor used to hand it straight to
+    ///     <see cref="PaintBrushInspector" /> and forget it; selecting a layer is a decision made in
+    ///     these rows and read by the paint pane, and <c>PaintTool.LayerId</c> is where the two meet
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/910">#910</a>.
+    /// </remarks>
+    readonly PaintTool? tool;
 
     /// <summary>What each row re-reads when the document changed without changing shape.</summary>
     readonly List<Action> bindings = [];
@@ -107,6 +129,12 @@ sealed class LayerStackView {
     ///     and leave every control editing the file that is no longer open.
     /// </remarks>
     LayerStackDocument? built;
+
+    /// <summary>Which document the mesh picker's options were filled for.</summary>
+    LayerStackDocument? bound;
+
+    /// <summary>What the picker was last told the binding is, so a rebind is not per keystroke.</summary>
+    string boundModel = "";
 
     /// <summary>The last picture, so an edit this view made can redraw without one being handed back.</summary>
     LayerStackPicture? shown;
@@ -138,11 +166,29 @@ sealed class LayerStackView {
         root.SetStyle("flex-direction", "row");
         root.SetStyle("flex-grow", "1");
 
+        this.tool = tool;
+
         var left = root.Add("layer-stack-rows");
 
         left.SetStyle("display", "flex");
         left.SetStyle("flex-direction", "column");
         left.SetStyle("flex-grow", "1");
+
+        // ⚠ Above the rows and not beside the preview, because what it binds is what every row is
+        // about. A layer paints on a mesh; the pane that has none can draw no islands, build no
+        // coverage map and refuse no texel — #920 — so the binding is the first thing in the column
+        // rather than a setting somewhere else.
+        var binding = left.Add("layer-stack-binding");
+
+        binding.SetStyle("display", "flex");
+        binding.SetStyle("flex-direction", "row");
+
+        binding.Add("layer-stack-binding-label").Text = "Mesh";
+
+        model = binding.Add<Select>("layer-stack-model");
+        meshStatus = binding.Add("layer-stack-binding-status");
+
+        model.SelectionChanged += (_, value) => Bind(value ?? "");
 
         rows = left.Add("layer-stack-list");
 
@@ -242,6 +288,42 @@ sealed class LayerStackView {
     /// </remarks>
     public Action? Edited { get; set; }
 
+    /// <summary>Which layer the artist is working on, or <see langword="null" /> for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/910">#910</a>: nothing in this
+    ///         plugin had one.</b> The 2D paint view therefore had to answer "which layer" itself,
+    ///         and answered with <c>PaintTool.LayerId</c> defaulting to empty — <em>the first paint
+    ///         layer in composite order</em>, which is right for a stack with one and is no answer at
+    ///         all for a stack with two. A row here is now the writer and the tool is the mirror.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null is not "the first one", and the difference is deliberate.</b> An empty
+    ///         <c>LayerId</c> means the brush takes the first paint layer, which is the behaviour a
+    ///         stack has before anybody has chosen — so a panel that selected the first row on open
+    ///         would look identical and would silently make the artist's first stroke a decision
+    ///         somebody else made.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Selecting a layer that is not a <see cref="LayerKind.Paint" /> layer is allowed,
+    ///         and the brush then refuses by name.</b> A fill layer has no canvas; <c>PaintSurface</c>
+    ///         answers "the set 'X' has no paint layer with the id 'Y'", which is what an artist who
+    ///         selected a fill and reached for the brush needs to read. Silently painting somewhere
+    ///         else is the defect the whole issue is about.
+    ///     </para>
+    /// </remarks>
+    public LayerPath? Selected { get; private set; }
+
+    /// <summary>Told when the selected layer changed, so a paint pane can re-aim.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Separate from <see cref="Edited" /> because a selection is not an edit.</b> It puts
+    ///     nothing on the undo stack and does not make the document dirty — an artist who clicked a
+    ///     row and pressed undo means to undo the last thing they <em>changed</em>. Raising
+    ///     <see cref="Edited" /> for it would push the picture through a recompile per click and,
+    ///     worse, would make a selection look like a reason to save the file.
+    /// </remarks>
+    public Action? SelectionChanged { get; set; }
+
     /// <summary>Puts a stack in the panel, or takes the last one out.</summary>
     /// <param name="document">The stack, or <see langword="null" /> for none.</param>
     /// <param name="picture">What evaluating it produced, or <see langword="null" /> for nothing.</param>
@@ -302,6 +384,19 @@ sealed class LayerStackView {
 
             built = document;
             shape = wanted;
+        }
+
+        // ⚠ Only when the stack or its binding changed, and not on every show. A show runs on every
+        // edit, and refilling the picker walks the whole asset index — a project's worth of entries
+        // per keystroke on a slider. The picker is also a control an artist can be holding, and
+        // `ClearOptions` under an open dropdown is the same defect the shape comparison above exists
+        // to prevent one level up.
+        if (!ReferenceEquals(bound, document)
+            || !string.Equals(boundModel, document.Document.Model, StringComparison.Ordinal)) {
+            Rebind(document);
+
+            bound = document;
+            boundModel = document.Document.Model;
         }
 
         Restate();
@@ -552,11 +647,32 @@ sealed class LayerStackView {
         // half-loaded stack rather than a bug in a panel.
         Clear();
 
+        Selected = null;
+
         if (document.Document.Sets.Count == 0) {
+            if (tool is not null) {
+                tool.LayerId = "";
+            }
+
             return;
         }
 
         var set = document.Document.Sets[0];
+
+        // ⚠ The selection is recovered from the brush rather than reset, and which of the two is the
+        // durable copy is the decision. A panel's factory re-runs whenever the workspace relays out
+        // — opening the paint pane does it — so a view that cleared the selection on every build
+        // would take the artist's chosen layer away every time they opened another panel. The brush
+        // is the module's and survives that; this view is the presenter of it. What is *not* kept is
+        // an id no layer of this stack answers to, which is what opening a second stack looks like:
+        // two stacks made from `LayerStackDocument.Starter` have the same layer ids, so the check has
+        // to be against this document rather than against a remembered one.
+        if (tool is { LayerId.Length: > 0 }
+            && LayerStackEdit.Find(document.Document, new(set.Name, tool.LayerId)) is not null) {
+            Selected = new LayerPath(set.Name, tool.LayerId);
+        } else if (tool is not null) {
+            tool.LayerId = "";
+        }
 
         Walk(set.Layers, 0);
 
@@ -579,6 +695,14 @@ sealed class LayerStackView {
         row.SetStyle("display", "flex");
         row.SetStyle("flex-direction", "row");
         row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
+
+        // ⚠ First on the row and a button rather than a click on the row itself. Every other control
+        // here marks its own pointer events handled, so a row-wide handler would have to be on the
+        // capture leg and would then swallow the press that was aimed at a tick box — the trap
+        // `PaintUvView`'s own handler documents, in the direction that breaks the rest of the panel.
+        var select = row.Add<Button>("layer-stack-select");
+
+        select.Clicked += _ => Choose(path);
 
         var up = row.Add<Button>("layer-stack-move-up");
         var down = row.Add<Button>("layer-stack-move-down");
@@ -698,7 +822,12 @@ sealed class LayerStackView {
                 return;
             }
 
-            name.Text = Line(current, depth);
+            var chosen = Selected == path;
+
+            // The marker is in the row's own text rather than a style, so what the panel says about
+            // which layer the brush is aimed at is something a test can read.
+            name.Text = (chosen ? "● " : "") + Line(current, depth);
+            select.Label = chosen ? "Selected" : "Select";
             enabled.IsChecked = current.Enabled;
             blend.Value = current.Blend.ToString();
             opacity.Value = current.Opacity;
@@ -948,6 +1077,103 @@ sealed class LayerStackView {
         }
 
         return chosen.Count == set.Channels.Count ? [] : chosen;
+    }
+
+    /// <summary>Puts the project's models in the picker and the stack's own binding on it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The options are re-read per stack rather than once, because the project's models
+    ///         are not fixed.</b> Importing a model is an ordinary thing to do while a stack is open,
+    ///         and a picker filled when the panel was built would not have the mesh the artist just
+    ///         added — which reads as the import having failed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A binding this build cannot offer is kept as an option rather than dropped.</b> A
+    ///         stack whose model has been deleted or moved still names it, and a picker that silently
+    ///         showed <see cref="NoMesh" /> for that would tell an artist the stack is unbound and
+    ///         then rebind it to nothing on the next click. The row's status line is what says the
+    ///         file is missing.
+    ///     </para>
+    /// </remarks>
+    void Rebind(LayerStackDocument document) {
+        var bound = document.Document.Model.Trim();
+
+        writing = true;
+
+        try {
+            model.ClearOptions();
+            model.AddOption(NoMesh);
+
+            var offered = false;
+
+            foreach (var entry in document.Project.Assets.Entries.OrderBy(
+                         entry => entry.Path,
+                         StringComparer.Ordinal
+                     )) {
+                if (!LayerStackMesh.Extensions.Contains(Path.GetExtension(entry.Path).ToLowerInvariant())) {
+                    continue;
+                }
+
+                model.AddOption(entry.Path);
+                offered |= string.Equals(entry.Path, bound, StringComparison.Ordinal);
+            }
+
+            if (bound.Length > 0 && !offered) {
+                model.AddOption(bound);
+            }
+
+            model.Value = bound.Length > 0 ? bound : NoMesh;
+            meshStatus.Text = bound.Length > 0 ? "" : "Unbound: no islands, no coverage map, no 3D paint.";
+        } finally {
+            writing = false;
+        }
+    }
+
+    /// <summary>Binds the stack to a model, as one undo entry.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Through the document's own command stack like every other edit in this panel.</b>
+    ///     Binding a mesh changes which texels the brush will accept and which islands are drawn, so
+    ///     it is exactly the kind of change an artist tries and takes back — and a gesture with no
+    ///     undo is one a save might or might not carry, which is the argument
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/819">#819</a> made about the rows.
+    /// </remarks>
+    void Bind(string value) {
+        if (writing || Document is not { } document) {
+            return;
+        }
+
+        var wanted = string.Equals(value, NoMesh, StringComparison.Ordinal) ? "" : value;
+
+        if (string.Equals(wanted, document.Document.Model, StringComparison.Ordinal)) {
+            return;
+        }
+
+        document.Stack.Execute(
+            new SetModelCommand(document, wanted, wanted.Length == 0 ? "Unbind Mesh" : "Bind Mesh")
+        );
+
+        Refresh();
+    }
+
+    /// <summary>Makes a row the selected one, and mirrors it into the brush.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Clicking the selected row clears the selection rather than doing nothing.</b> Empty
+    ///     is a state with its own meaning — the brush takes the first paint layer — and a panel
+    ///     that could enter a selection and never leave it would make that state unreachable after
+    ///     the first click of a session.
+    /// </remarks>
+    void Choose(LayerPath path) {
+        Selected = Selected == path ? null : path;
+
+        // ⚠ The mirror, and it is the whole of what #910 asked for: `PaintTool.LayerId` was the only
+        // writer of "which layer" and had no reader that a person could reach. An id that names no
+        // paint layer is deliberately allowed through — `PaintSurface` refuses it by name.
+        if (tool is not null) {
+            tool.LayerId = Selected?.Id ?? "";
+        }
+
+        Restate();
+        SelectionChanged?.Invoke();
     }
 
     void Restate() {

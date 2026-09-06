@@ -48,6 +48,14 @@ static class LayerStackYaml {
 
         root.Set("version", Whole(stack.Version));
         root.Set("name", Text(stack.Name));
+
+        // ⚠ Only when it is bound, like every other member equal to its default. A `model: ''` under
+        // every stack that has never been near a mesh is a key nobody chose, and this file's own
+        // argument is that the keys in a `.vxlayers` should be the ones somebody did.
+        if (stack.Model.Length > 0) {
+            root.Set("model", Text(stack.Model));
+        }
+
         root.Set("baseWidth", Whole(stack.BaseWidth));
         root.Set("baseHeight", Whole(stack.BaseHeight));
 
@@ -87,6 +95,7 @@ static class LayerStackYaml {
         return new() {
             Version = Integer(root, "version", LayerStackAsset.CurrentVersion, ""),
             Name = String(root, "name", ""),
+            Model = String(root, "model", ""),
             BaseWidth = Integer(root, "baseWidth", 1024, ""),
             BaseHeight = Integer(root, "baseHeight", 1024, ""),
             Seed = (uint)Integer(root, "seed", 0, "", unsigned: true),
@@ -98,6 +107,10 @@ static class LayerStackYaml {
         YamlMapping mapping = new();
 
         mapping.Set("name", Text(set.Name));
+
+        if (set.Mesh.Length > 0) {
+            mapping.Set("mesh", Text(set.Mesh));
+        }
 
         YamlSequence channels = new();
 
@@ -383,7 +396,12 @@ static class LayerStackYaml {
             }
         }
 
-        return new() { Name = String(mapping, "name", path), Channels = channels, Layers = layers };
+        return new() {
+            Name = String(mapping, "name", path),
+            Mesh = String(mapping, "mesh", path),
+            Channels = channels,
+            Layers = layers
+        };
     }
 
     static LayerAsset ReadLayer(YamlNode node, string path) {

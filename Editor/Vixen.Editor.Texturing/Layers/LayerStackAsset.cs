@@ -500,6 +500,33 @@ sealed record TextureSetAsset {
     /// <summary>The slot's name on the mesh.</summary>
     public string Name { get; init; } = "";
 
+    /// <summary>
+    ///     Which mesh of <see cref="LayerStackAsset.Model" /> this slot is, by the name the model
+    ///     file gives it. Empty means every mesh in the model.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A part of the stack's <em>one</em> model and never a second model, which is the
+    ///         half of <a href="https://github.com/Rikarin/Vixen/issues/920">#920</a>'s design
+    ///         question that is not answered by putting the model on the stack.</b> A model file
+    ///         splits into one <c>MeshData</c> per material slot — Assimp splits an <c>aiMesh</c>
+    ///         that way and <c>ModelReader</c> keeps it — so "two texture sets are two slots of one
+    ///         mesh" and "each set is its own <c>MeshData</c>" are the same sentence. Without this
+    ///         member a two-set stack has one coverage map, the union of every island in the model,
+    ///         and painting the <c>Body</c> set would be allowed anywhere the <c>Head</c> set has
+    ///         surface.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Empty means <em>every</em> mesh rather than the mesh this set is named after.</b>
+    ///         <see cref="Name" /> is the slot's name and a model's mesh names are the exporter's;
+    ///         they agree on a single-mesh model and are unrelated on anything a person has renamed,
+    ///         so matching on it would bind the coverage map of a stack to a coincidence. Every mesh
+    ///         is the honest answer for a stack nobody has narrowed, and it is right for the ordinary
+    ///         case, which is one mesh.
+    ///     </para>
+    /// </remarks>
+    public string Mesh { get; init; } = "";
+
     /// <summary>The maps this set produces, in the order a bake writes them.</summary>
     public List<ChannelAsset> Channels { get; init; } = [];
 
@@ -536,6 +563,37 @@ sealed record LayerStackAsset {
 
     /// <summary>What the stack is called.</summary>
     public string Name { get; init; } = "";
+
+    /// <summary>
+    ///     The model this stack is painted on, as a path relative to the project root. Empty for a
+    ///     stack nobody has bound one to.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/920">#920</a>, and the design
+    ///         question it poses is answered here rather than on the set.</b> A stack's texture sets
+    ///         are the material slots of <em>one</em> model: <see cref="TextureSetAsset.Name" />
+    ///         already reads "the slot's name on the mesh", a bake writes one <c>.vxmat</c> for the
+    ///         stack, and a mesh map is measured once and bound by usage — three things that all
+    ///         stop meaning anything if two sets could name two models. So the model is the stack's
+    ///         and <see cref="TextureSetAsset.Mesh" /> narrows a set to one of its meshes.
+    ///     </para>
+    ///     <para>
+    ///         <b>The pair is <c>IMeshMapBaker.Bake</c>'s own.</b> That seam takes an
+    ///         <c>AssetId model</c> and a <c>string mesh</c> together, because a bake is of one mesh
+    ///         of one model; this file holds the same pair split across the two levels each half
+    ///         belongs to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A project-relative path and not an <c>AssetId</c>, which is the shape every other
+    ///         reference in this file already has.</b> <see cref="LayerAsset.Textures" /> and
+    ///         <see cref="MaskAsset.Asset" /> are paths the host resolves through
+    ///         <c>AssetDatabase.TryGetByPath</c> — <c>LayerStackPreview.Resolve</c> is that host half
+    ///         — so a GUID here would be a second scheme in one file, and a <c>.vxlayers</c> is a
+    ///         file people read and merge.
+    ///     </para>
+    /// </remarks>
+    public string Model { get; init; } = "";
 
     /// <summary>The width the stack is authored at, in texels.</summary>
     public int BaseWidth { get; init; } = 1024;

@@ -75,6 +75,14 @@
         <ProjectReference Include="..\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
 
         <!--
+            ⚠ And `MeshData`, for `LayerStackMesh` — #920. A stack names the model it is painted on
+            and the host half reads that model's UV triangles out of `ModelReader`, whose meshes are
+            `Vixen.Rendering`'s type. It arrives transitively through `Vixen.Editor.Assets`, and it is
+            named for the same reason that one is: a reference this assembly *uses* is written down.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Rendering\Vixen.Rendering.csproj" />
+
+        <!--
             ⚠ Named for one type and one question: `IGraphicsDevice`, so that
             `TexturePreview.Blocking` can ask the host for one and say precisely what is missing when
             there is none. Doc 48 § D14 predicted a plugin would need a device and that the contract
