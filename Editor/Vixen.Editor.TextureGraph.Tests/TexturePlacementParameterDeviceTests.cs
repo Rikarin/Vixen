@@ -739,11 +739,6 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
         );
     }
 
-    /// <summary>An atlas of two flat columns: the left one bright, the right one dim.</summary>
-    /// <remarks>
-    ///     <b>Flat columns rather than a picture</b>, so that "this texel came from that column" is an
-    ///     equality against a constant and a boundary tap is a value neither column holds.
-    /// </remarks>
     /// <summary>A flat atlas whose <b>last texel column only</b> is bright.</summary>
     /// <param name="side">Its width and height.</param>
     /// <returns>The pixels.</returns>
@@ -771,6 +766,11 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
         return pixels;
     }
 
+    /// <summary>An atlas of two flat columns: the left one bright, the right one dim.</summary>
+    /// <remarks>
+    ///     <b>Flat columns rather than a picture</b>, so that "this texel came from that column" is an
+    ///     equality against a constant and a boundary tap is a value neither column holds.
+    /// </remarks>
     static byte[] TwoColumns(int side) {
         var pixels = new byte[side * side * 4];
 
