@@ -3,6 +3,7 @@
 
 using Vixen.Input;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.Ui.Tests;

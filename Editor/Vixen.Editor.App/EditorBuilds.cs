@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
-using System.Text;
 using Microsoft.Extensions.Logging;
+using System.Text;
 using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
@@ -13,6 +13,7 @@ using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Input;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.App;
 

@@ -107,6 +107,24 @@ Vixen.Ui.Controls.ComboBox.Toggle.get -> Vixen.Ui.Controls.IconButton
 Vixen.Ui.Controls.ComboBox.Value.get -> string?
 Vixen.Ui.Controls.ComboBox.Value.set -> string?
 Vixen.Ui.Controls.ComboBox.ValueChanged -> System.Action<Vixen.Ui.Controls.ComboBox, string?>?
+Vixen.Ui.Controls.CommandRegistry -> sealed class
+Vixen.Ui.Controls.CommandRegistry : Vixen.Ui.IResponder
+Vixen.Ui.Controls.CommandRegistry.Add(Vixen.Ui.Controls.EditorCommand command) -> Vixen.Ui.Controls.EditorCommand
+Vixen.Ui.Controls.CommandRegistry.Add(string id, Vixen.Ui.StringId title, System.Action run) -> Vixen.Ui.Controls.EditorCommand
+Vixen.Ui.Controls.CommandRegistry.CanExecute(Vixen.Ui.Controls.EditorCommand command) -> bool
+Vixen.Ui.Controls.CommandRegistry.CanExecute(string id) -> bool
+Vixen.Ui.Controls.CommandRegistry.Changed -> System.Action<Vixen.Ui.Controls.CommandRegistry>?
+Vixen.Ui.Controls.CommandRegistry.CommandRegistry() -> void
+Vixen.Ui.Controls.CommandRegistry.Commands.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Controls.EditorCommand>
+Vixen.Ui.Controls.CommandRegistry.Execute(string id) -> bool
+Vixen.Ui.Controls.CommandRegistry.Executed -> System.Action<Vixen.Ui.Controls.EditorCommand>?
+Vixen.Ui.Controls.CommandRegistry.FocusedContext.get -> System.Func<string?>?
+Vixen.Ui.Controls.CommandRegistry.FocusedContext.set -> System.Func<string?>?
+Vixen.Ui.Controls.CommandRegistry.IsInScope(Vixen.Ui.Controls.EditorCommand command) -> bool
+Vixen.Ui.Controls.CommandRegistry.Remove(string id) -> bool
+Vixen.Ui.Controls.CommandRegistry.TryGet(string id, out Vixen.Ui.Controls.EditorCommand? command) -> bool
+Vixen.Ui.Controls.CommandRegistry.TryGetCommandHandler(string id, out Vixen.Ui.CommandHandler handler) -> bool
+Vixen.Ui.Controls.CommandRegistry.this[string id].get -> Vixen.Ui.Controls.EditorCommand?
 Vixen.Ui.Controls.ContextMenu -> sealed class
 Vixen.Ui.Controls.ContextMenu : Vixen.Ui.Controls.Menu
 Vixen.Ui.Controls.ContextMenu.Attach(Vixen.Ui.UiElement target) -> void
@@ -210,6 +228,36 @@ Vixen.Ui.Controls.DrawerSide.DrawerSide() -> void
 Vixen.Ui.Controls.DrawerSide.Left = 0 -> Vixen.Ui.Controls.DrawerSide
 Vixen.Ui.Controls.DrawerSide.Right = 1 -> Vixen.Ui.Controls.DrawerSide
 Vixen.Ui.Controls.DrawerSide.Top = 2 -> Vixen.Ui.Controls.DrawerSide
+Vixen.Ui.Controls.EditorCommand -> sealed class
+Vixen.Ui.Controls.EditorCommand.Art.get -> Vixen.Ui.Controls.IconArt?
+Vixen.Ui.Controls.EditorCommand.Art.init -> Vixen.Ui.Controls.IconArt?
+Vixen.Ui.Controls.EditorCommand.CanExecute.get -> bool
+Vixen.Ui.Controls.EditorCommand.Caption.get -> System.Func<Vixen.Ui.StringId>?
+Vixen.Ui.Controls.EditorCommand.Caption.init -> System.Func<Vixen.Ui.StringId>?
+Vixen.Ui.Controls.EditorCommand.Category.get -> Vixen.Ui.StringId
+Vixen.Ui.Controls.EditorCommand.Category.init -> Vixen.Ui.StringId
+Vixen.Ui.Controls.EditorCommand.Checked.get -> System.Func<bool>?
+Vixen.Ui.Controls.EditorCommand.Checked.init -> System.Func<bool>?
+Vixen.Ui.Controls.EditorCommand.ClassName.get -> string?
+Vixen.Ui.Controls.EditorCommand.ClassName.init -> string?
+Vixen.Ui.Controls.EditorCommand.Context.get -> string?
+Vixen.Ui.Controls.EditorCommand.Context.init -> string?
+Vixen.Ui.Controls.EditorCommand.CurrentTitle.get -> Vixen.Ui.StringId
+Vixen.Ui.Controls.EditorCommand.EditorCommand(string id, Vixen.Ui.StringId title, System.Action run) -> void
+Vixen.Ui.Controls.EditorCommand.Enablement.get -> System.Func<bool>?
+Vixen.Ui.Controls.EditorCommand.Enablement.init -> System.Func<bool>?
+Vixen.Ui.Controls.EditorCommand.Icon.get -> Vixen.Ui.PathBuilder?
+Vixen.Ui.Controls.EditorCommand.Icon.init -> Vixen.Ui.PathBuilder?
+Vixen.Ui.Controls.EditorCommand.Id.get -> string
+Vixen.Ui.Controls.EditorCommand.IsChecked.get -> bool
+Vixen.Ui.Controls.EditorCommand.IsHiddenFromPalette.get -> bool
+Vixen.Ui.Controls.EditorCommand.IsHiddenFromPalette.init -> bool
+Vixen.Ui.Controls.EditorCommand.IsUnavailable.get -> bool
+Vixen.Ui.Controls.EditorCommand.RadioGroup.get -> string?
+Vixen.Ui.Controls.EditorCommand.RadioGroup.init -> string?
+Vixen.Ui.Controls.EditorCommand.Title.get -> Vixen.Ui.StringId
+Vixen.Ui.Controls.EditorCommand.Unavailable.get -> Vixen.Ui.StringId
+Vixen.Ui.Controls.EditorCommand.Unavailable.init -> Vixen.Ui.StringId
 Vixen.Ui.Controls.EmptyState -> sealed class
 Vixen.Ui.Controls.EmptyState : Vixen.Ui.Controls.Control
 Vixen.Ui.Controls.EmptyState.Actions.get -> Vixen.Ui.UiElement
@@ -1041,6 +1089,7 @@ override Vixen.Ui.Controls.Drawer.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.Drawer.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Drawer.OnCreated() -> void
 override Vixen.Ui.Controls.Drawer.TagName.get -> string
+override Vixen.Ui.Controls.EditorCommand.ToString() -> string
 override Vixen.Ui.Controls.EmptyState.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.EmptyState.NativeAccessibleName.get -> string?
 override Vixen.Ui.Controls.EmptyState.NativeRole.get -> Vixen.Ui.AccessibleRole

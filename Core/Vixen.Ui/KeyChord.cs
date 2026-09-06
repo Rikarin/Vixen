@@ -16,11 +16,17 @@ namespace Vixen.Ui;
 // those files already carried `using Vixen.Ui;`**, so the name resolves in its new home from the
 // directive that was already there, and one `grep -L` is the whole proof.
 //
-// The same shape still holds the other four back for a different reason. `EditorCommand` holds an
-// `IconArt`, also `Vixen.Ui.Controls`, and `KeyMap` reads `Vixen.Core.Yaml`, which `Vixen.Ui` does
-// not reference either — so their honest destination is `Vixen.Ui.Controls` rather than here.
-// `CommandRegistry` and `CommandDispatcher` name nothing above `Vixen.Ui` and name `EditorCommand`,
-// so they cannot land below it.
+// `EditorCommand` and `CommandRegistry` followed, into `Vixen.Ui.Controls` rather than here: the
+// first holds an `IconArt` and the second names the first, so `Vixen.Ui` is one assembly too low for
+// both. ⚠ Crossing that boundary turned up the same latent defect the move of this file did — a
+// `<see cref="Add" />` that is CS0419 against two overloads, invisible under `Editor/` because
+// `GenerateDocumentationFile` is false there.
+//
+// `KeyMap` and `CommandDispatcher` are what is left. `KeyMap` reads `Vixen.Core.Yaml`, which neither
+// `Vixen.Ui` nor `Vixen.Ui.Controls` references, and `KeyMapPreset` — the mechanism it saves and
+// loads through — reads it too; `CommandDispatcher` names `KeyMap` and so cannot go first. Splitting
+// the YAML round-trip away from the layering is the decision that unblocks the last two, and it is a
+// design question rather than a compile one.
 
 /// <summary>A key and what is held with it.</summary>
 /// <param name="Key">The physical key, by its US-QWERTY legend.</param>

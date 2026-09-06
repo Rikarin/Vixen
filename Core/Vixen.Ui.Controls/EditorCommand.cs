@@ -2,14 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Ui;
-using Vixen.Ui.Controls;
 
-namespace Vixen.Editor.Ui;
+namespace Vixen.Ui.Controls;
 
-/// <summary>Something the editor can be asked to do, named by an id.</summary>
+/// <summary>Something an application can be asked to do, named by an id.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Every action in the editor is one of these, and that is the whole architecture.</b>
+///         <b>Every action an application offers is one of these, and that is the whole architecture.</b>
 ///         Menus, toolbars, context menus and the command palette are <i>views over the registry</i>
 ///         rather than four places that each know how to save a file — so an action added once
 ///         appears everywhere it belongs, gets a keybinding, gets a place in the palette, and gets
@@ -23,7 +22,7 @@ namespace Vixen.Editor.Ui;
 ///         predicate runs often, so it has to be cheap: <c>stack.CanUndo</c>, not a directory scan.
 ///     </para>
 ///     <para>
-///         <b>A command carries no keybinding.</b> That lives in <see cref="KeyMap" />, because a
+///         <b>A command carries no keybinding.</b> That lives in the keymap, because a
 ///         binding is the user's and a command is the application's — putting the chord here would
 ///         mean a remapped shortcut edited the command table, and a plugin's command would arrive
 ///         with a chord it has no right to claim.
@@ -147,8 +146,8 @@ public sealed class EditorCommand {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Doc 20's first bar: a verb that is not implemented is <i>visibly</i> not
-    ///         implemented rather than absent.</b> A menu line that is missing reads as an editor
-    ///         that cannot do the thing; a line that is there and greyed reads as an editor that will
+    ///         implemented rather than absent.</b> A menu line that is missing reads as an application
+    ///         that cannot do the thing; a line that is there and greyed reads as one that will
     ///         — and it is the difference between somebody filing "there is no Build and Run" and
     ///         somebody reading why. Setting this disables the command wherever it appears and gives
     ///         the palette and the refusal notice the sentence to show.

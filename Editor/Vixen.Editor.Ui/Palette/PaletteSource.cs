@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Ui.Controls;
+
 namespace Vixen.Editor.Ui;
 
 /// <summary>One line of the palette's result list.</summary>

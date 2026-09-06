@@ -119,8 +119,9 @@
         <!--
             And what `vixen-plugin` names. One package reference in the scaffolded project, because
             the contract deliberately reaches the rest through PluginContext.Services — but it does
-            bring Vixen.Editor.Ui, which is where StringId, EditorCommand and the panel and menu
-            vocabulary the template's C# uses are declared.
+            bring Vixen.Editor.Ui and, through it, Vixen.Ui and Vixen.Ui.Controls — between them
+            where StringId, EditorCommand and the panel and menu vocabulary the template's C# uses
+            are declared.
         -->
         <ProjectReference Include="..\..\Editor\Vixen.Editor.Plugin\Vixen.Editor.Plugin.csproj" />
     </ItemGroup>

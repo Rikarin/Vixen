@@ -4,7 +4,7 @@ slug: ui/commands
 kind: guide
 area: Core
 summary: A menu declares what, and the focus decides who — a command id resolved by walking outwards from the focused element and on past the root to the document and the application, so two views can answer the same verb without knowing each other exists and an item nothing handles greys itself out.
-api: [T:Vixen.Ui.CommandRoute, T:Vixen.Ui.CommandHandler, T:Vixen.Ui.IResponder, T:Vixen.Ui.CommandResponder, T:Vixen.Ui.ShortcutFormat]
+api: [T:Vixen.Ui.CommandRoute, T:Vixen.Ui.CommandHandler, T:Vixen.Ui.IResponder, T:Vixen.Ui.CommandResponder, T:Vixen.Ui.ShortcutFormat, T:Vixen.Ui.Controls.EditorCommand, T:Vixen.Ui.Controls.CommandRegistry]
 tags: [ui, commands, focus, input, menus]
 since: 0.2
 status: preview
@@ -131,10 +131,10 @@ impossible returns `true` with a predicate that says no, rather than `false`. Re
 the id fall out of the chain entirely, and there is nothing after the application to catch it.
 
 Implement `IResponder` directly only when the lookup already exists somewhere else and a
-`CommandResponder` beside it would be a second copy to keep in step. The editor's `CommandRegistry`
-is that case, and it is what `EditorShell` installs as its document's application responder — which
-is why a plain `Vixen.Ui` control bound to an editor command id resolves, greys and runs it with
-nothing editor-shaped in the control.
+`CommandResponder` beside it would be a second copy to keep in step. `CommandRegistry` is that case,
+and it is what the editor's shell installs as its document's application responder — which is why a
+plain `Vixen.Ui` control bound to an application's command id resolves, greys and runs it with
+nothing application-shaped in the control.
 
 ⚠ **Lifetime: the document holds the responders and never the other way about.** A responder is a
 table of closures and a closure reaches everything it captured, so the reference has to point from
@@ -146,6 +146,44 @@ cannot keep a closed window's element tree alive. `UiDocument.Dispose` drops bot
 Changing a responder's *table* does not invalidate anything, because a responder does not know a
 document — installing one does. After adding or removing handlers on a responder that is already
 installed, call `UiDocument.InvalidateCommands()`.
+
+### The table itself: `CommandRegistry` and `EditorCommand`
+
+⚠ **A route answers *who*; it does not hold *what*.** `CommandRoute` resolves an id against whatever
+is on the chain right now, which is the right answer for a control that owns its own verb — but a
+menu, a toolbar and a command palette all need to enumerate the actions an application has before
+anybody has focused anything. That list is `CommandRegistry`, and each entry is an `EditorCommand`:
+an id, a title, what it does, and a predicate that says whether it can run.
+
+⚠ **These two lived in `Editor/Vixen.Editor.Ui/` until 0.2 and are the reason
+`MenuItem.ShowShortcut` could draw a shortcut that nothing dispatched** — the drawing was in the
+controls library and every part of the machinery behind it was in the editor, so an application that
+was not the editor could render "⌘S" beside a menu item and pressing it did nothing. They are named
+`EditorCommand` and `CommandRegistry` because that is what the editor called them; the names are
+kept while the remaining files of that move are still in flight.
+
+```csharp compile
+using Vixen.Ui;
+using Vixen.Ui.Controls;
+
+public sealed class Actions {
+    public static CommandRegistry Build(UiDocument document) {
+        var commands = new CommandRegistry();
+        var dirty = true;
+
+        commands.Add(new EditorCommand("file.save", new StringId("app.file.save", "Save"), () => dirty = false) {
+            Enablement = () => dirty
+        });
+
+        // The last link of the chain: a control bound to `file.save` now resolves against the table.
+        document.ApplicationCommandResponder = commands;
+        return commands;
+    }
+}
+```
+
+`Enablement` is asked rather than pushed, for the reason the rest of this page gives: a flag set on
+every state change is right only if every path that changes state remembered to set it.
 
 ### A responder in the middle of the walk
 

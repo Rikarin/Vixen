@@ -38,8 +38,8 @@ Vixen.Editor.Plugin.PluginCatalog.PluginCatalog(System.Collections.Generic.IRead
 Vixen.Editor.Plugin.PluginCatalog.Plugins.get -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDescriptor>
 Vixen.Editor.Plugin.PluginCatalog.Plugins.init -> System.Collections.Generic.IReadOnlyList<Vixen.Editor.Plugin.PluginDescriptor>
 Vixen.Editor.Plugin.PluginContext -> sealed class
-Vixen.Editor.Plugin.PluginContext.AddCommand(Vixen.Editor.Ui.EditorCommand command) -> Vixen.Editor.Ui.EditorCommand
-Vixen.Editor.Plugin.PluginContext.AddCommand(string id, Vixen.Ui.StringId title, System.Action run) -> Vixen.Editor.Ui.EditorCommand
+Vixen.Editor.Plugin.PluginContext.AddCommand(Vixen.Ui.Controls.EditorCommand command) -> Vixen.Ui.Controls.EditorCommand
+Vixen.Editor.Plugin.PluginContext.AddCommand(string id, Vixen.Ui.StringId title, System.Action run) -> Vixen.Ui.Controls.EditorCommand
 Vixen.Editor.Plugin.PluginContext.AddDefaultBinding(string commandId, Vixen.Ui.KeyChord chord) -> Vixen.Editor.Ui.BindResult
 Vixen.Editor.Plugin.PluginContext.AddLayout(string name, Vixen.Ui.StringId title, System.Func<Vixen.Ui.Controls.Advanced.DockLayout> layout) -> void
 Vixen.Editor.Plugin.PluginContext.AddMenu(Vixen.Ui.StringId title, int index = -1) -> Vixen.Editor.Ui.MenuGroup
