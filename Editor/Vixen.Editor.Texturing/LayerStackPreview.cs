@@ -169,7 +169,17 @@ sealed class LayerStackPreview : IDisposable {
         // everything it has to say about an author's stack costs exactly as much on a host that
         // cannot draw. Asking for the device first meant an editor between construction and its
         // window coming up showed a stack in silence, and it is the state the editor starts in.
-        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+        //
+        // ⚠ `assets` is the whole of #924, and leaving it out was not a smaller version of the same
+        // behaviour: the compiler's default is the four compounds this build ships, so a graph fill
+        // or a mask effect naming a compound out of `Assets/Compounds` refused here while compiling
+        // in the graph panel next door. The parameter existed for a batch and nothing production
+        // passed it, which is #858's fix reaching nobody.
+        var compilation = LayerStackCompiler.Compile(
+            stack,
+            stack.Sets[0],
+            assets: document.Project.Paths.Assets
+        );
 
         // Everything either half said travels with every answer below, because a compilation that
         // produced a plan still has things to say and the sentence is not where they fit.
