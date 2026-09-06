@@ -370,13 +370,16 @@ partial class Build {
                     Since
                 );
 
+                // The Vulkan validation layer's loader path, which .runsettings used to carry and
+                // the platform runner cannot read (#560).
+                ExportLayerLibraryPath();
+
                 foreach (var project in projects) {
                     Log.Information("Testing {Project}", RootDirectory.GetRelativePathTo(project).ToUnixRelativePath());
 
                     DotNetTest(settings => settings
                         .SetProjectFile(project)
                         .SetConfiguration(Configuration)
-                        .SetSettingsFile(RootDirectory / ".runsettings")
                         .SetResultsDirectory(TestResultsDirectory)
                     );
                 }

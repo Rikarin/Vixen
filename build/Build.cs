@@ -137,6 +137,48 @@ partial class Build : NukeBuild {
 
     AbsolutePath PackagesDirectory => ArtifactsDirectory / "packages";
 
+    /// <summary>
+    ///     Puts the Vulkan validation layer's directory on the dynamic loader's search path for
+    ///     every process this one starts.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is what <c>.runsettings</c> used to do, and it had to move because the
+    ///         platform runner does not read that file</b> (#560). The symptom it prevents is
+    ///         baffling and the fix looks unrelated: on macOS the Homebrew validation layer
+    ///         enumerates and then refuses to load, because its manifest names the library by bare
+    ///         filename and <c>dlopen</c>'s default search path on macOS is <c>/usr/local/lib</c> and
+    ///         <c>/usr/lib</c>, neither of which holds it. <c>VK_LAYER_PATH</c> does not help — that
+    ///         tells the loader where the <i>manifest</i> is, and the manifest was never missing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it cannot be done from inside a test:</b> dyld reads the variable once, at
+    ///         process start. Setting it on this process is what reaches the test executable, which
+    ///         inherits it through <c>dotnet</c> and MSBuild. A run without it does not fail
+    ///         quietly — <c>VulkanInstanceTests.ValidationIsOnWhereTheLayerIsInstalled</c> fails and
+    ///         names this — but it does silently validate nothing everywhere else.
+    ///     </para>
+    ///     <para>
+    ///         Ignored on Windows and Linux, where the loader resolves the layer on its own. Both
+    ///         prefixes are named because <c>/opt/homebrew/lib</c> is Apple silicon and
+    ///         <c>/usr/local/lib</c> is Intel, so the two machines get identical settings.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Prepended rather than assigned: an inherited value belongs to whoever set it, and a
+    ///         developer who exported one for another reason should not lose it to a test run.
+    ///     </para>
+    /// </remarks>
+    static void ExportLayerLibraryPath() {
+        const string layerDirectories = "/opt/homebrew/lib:/usr/local/lib";
+
+        var inherited = Environment.GetEnvironmentVariable("DYLD_LIBRARY_PATH");
+
+        Environment.SetEnvironmentVariable(
+            "DYLD_LIBRARY_PATH",
+            string.IsNullOrEmpty(inherited) ? layerDirectories : $"{layerDirectories}:{inherited}"
+        );
+    }
+
     Target Clean => definition => definition
         .Description("Removes every build output, including the artifacts directory")
         .Executes(() => {
@@ -244,8 +286,16 @@ partial class Build : NukeBuild {
                 var projects = OrderedTestProjects();
                 var traversal = WriteTestTraversalProject(projects);
 
+                // ⚠ Not `-p:VSTestSetting=`, and that is not a simplification. The assemblies run
+                // through Microsoft.Testing.Platform now (#560, Directory.Build.props), which does
+                // not read a .runsettings at all — a settings file left on this command line would
+                // have become one MTP0001 warning inside a five-hundred-second log and Vulkan
+                // validation would have been off. The one thing that file carried is set here
+                // instead, on this process, because dyld reads it at process start.
+                ExportLayerLibraryPath();
+
                 DotNet(
-                    $"msbuild \"{traversal}\" -t:VSTest -nologo -p:Configuration={Configuration} -p:VSTestNoBuild=true -p:VSTestSetting=\"{RootDirectory / ".runsettings"}\" -p:VSTestResultsDirectory=\"{TestResultsDirectory}\" {workers}"
+                    $"msbuild \"{traversal}\" -t:VSTest -nologo -p:Configuration={Configuration} -p:VSTestNoBuild=true -p:VSTestResultsDirectory=\"{TestResultsDirectory}\" {workers}"
                 );
 
                 // ⚠ The instrument, checked after it has run. A schedule that quietly dropped half
@@ -287,6 +337,7 @@ partial class Build : NukeBuild {
                 // not — the same reasoning as CheckFormat's raw CLI invocation above.
                 Environment.SetEnvironmentVariable("VIXEN_GOLDEN_DIFF", GoldenDiffDirectory);
                 Environment.SetEnvironmentVariable("VIXEN_UPDATE_GOLDEN", UpdateGolden ? "1" : "0");
+                ExportLayerLibraryPath();
 
                 // Run separately from `Test` rather than only as part of it. The fixtures need a
                 // driver, they write artefacts a human looks at, and `--update-golden` rewrites the
@@ -298,7 +349,6 @@ partial class Build : NukeBuild {
                     .SetConfiguration(Configuration)
                     .EnableNoRestore()
                     .EnableNoBuild()
-                    .SetSettingsFile(RootDirectory / ".runsettings")
                     .SetResultsDirectory(TestResultsDirectory)
                 );
 

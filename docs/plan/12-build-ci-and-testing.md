@@ -85,7 +85,7 @@ item, and `CheckAttribution` is ADR-015's enforcement.
 | `CheckApi` | ✅ `Tools/Vixen.ApiCheck` reads the public surface of every packable assembly out of the built binary and diffs it against `PublicAPI.Shipped.txt` + `PublicAPI.Unshipped.txt` beside the project. Unapproved additions fail, and so do removals — a deleted `public` method compiles perfectly and breaks every consumer, and nothing else in the build would notice. `--update-api` rewrites the unshipped half; shipped API is only ever withdrawn through a `*REMOVED*` line, so a break is a line somebody wrote rather than an absence nobody looked for. Coverage is the RUNTIME profile: `Core/**` and `Platform/**`, non-test, non-generator, packable, `net10.0`. The subject is always the **Release** build, whatever `--configuration` says — a surface is a promise about a shipped package, and the two configurations disagree wherever a `public const` is `#if DEBUG`. See [Tools/Vixen.ApiCheck](../../Tools/Vixen.ApiCheck/README.md) |
 | `CheckFormat` | five passes, cheapest first: the SPDX licence header on every file, `CheckAttributionManifest`, `CheckWhitespaceFormatting`, `CheckDocCommentPlacement`, and then `dotnet format style` and `dotnet format analyzers` with `--verify-no-changes`. ⚠️ **This row used to say the whitespace pass was refused outright.** It is not: the lambda-indentation argument that refused it covers 551 files out of 4 842, and using it to skip the other 4 291 left mis-indentation ungated everywhere. `docs/WhitespaceExempt.txt` carries the exceptions and may only shrink, so a file that becomes clean fails until its line is removed |
 | `CheckWhitespace` / `CheckAttribution` / `CheckStrings` / `CheckDocComments` | the four of those passes that are also targets of their own, so each can be run — and watched failing — without the two minute-long `dotnet format` passes. `CheckStrings` fails on a declared string id used nowhere and on a call site that rebuilds an id a declaration class already declares; it is what caught the untranslatable Undo menu item. `CheckAttribution` is ADR-015's enforcement over `docs/manual/third-party.md`. `--update-exemptions` rewrites the whitespace list, and the diff is worth reading: a commit that grows it added mis-indented code |
-| `Test` | xunit v3 over every test project, and the allocation gates run inside it as ordinary tests. Passes `.runsettings`, which exists solely to set environment that has to be in place *before* the process starts (see below). ⚠️ **Collects no coverage and enforces no floor, and this row used to say it did both** — the collector lives in the separate `Coverage` target, which reports and does not gate; § Coverage below says why the floor is refused rather than owed |
+| `Test` | xunit v3 over every test project, and the allocation gates run inside it as ordinary tests. ⚠️ **This row used to say it passes `.runsettings`**; it does not, because the assemblies run through Microsoft.Testing.Platform, which does not read one ([#560](https://github.com/Rikarin/Vixen/issues/560)). The one variable that file carried is exported onto the build process instead (see below). ⚠️ **Collects no coverage and enforces no floor, and this row used to say it did both** — the collector lives in the separate `Coverage` target, which reports and does not gate; § Coverage below says why the floor is refused rather than owed |
 | `TestOrder` | prints the order `Test` starts the test assemblies in, which is longest first out of `build/test-cost.txt`; `--update-test-cost` rewrites that list from the last run's TRX `Times`. ⚠️ **What used to decide the order was `Vixen.slnx`**, and a solution build of a custom target walks each project's dependencies first — so the assembly referencing the most of the tree was dispatched last, and that assembly is for the same reason the slowest one. `Test` hands MSBuild a generated flat traversal project instead. Measured on the 2026-09-05 runs either side of the change: elapsed 873.3 s → **677.5 s**, with `Vixen.Editor.App.Tests` moving from a 218.4 s start to 0.2 s ([#592](https://github.com/Rikarin/Vixen/issues/592), then [#557](https://github.com/Rikarin/Vixen/issues/557)). ⚠️ **This row used to end "the run is now its longest single assembly and cannot be shortened by scheduling at all", and that expired when #557 halved that assembly** — 655.0 s → **329.5 s** against a 498.3 s run in the 2026-09-05 23:04 TRX, so 169 s of the run happens after it finishes and greedy LPT bottoms out at six workers rather than at four. The cost list itself was the last thing holding the old conclusion up: it still said 655.0, and a schedule input wrong by 2× is wrong in the direction that makes the run look unfixable. ⚠️ **A stale number now fails `Test` rather than merely packing the run worse** ([#863](https://github.com/Rikarin/Vixen/issues/863)): the same pass that counts the TRX afterwards compares each measured wall with the committed cost and fails on a gap over **both** 60 s and 1.5× — both, because the small assemblies are host start-up and noisy in ratio while irrelevant in seconds, and 1.5 rather than 2 because the drift it was written for was 1.988×. It fails only when the two are the same measurement: `--update-test-cost` stamps the configuration into the file's header, so CI's Release run on other hardware reports the gap and declines to fail on it |
 | `Coverage` | reports line coverage of each test project against its own subject assembly and gates on nothing but its own instrument; not in CI. `--coverage-project <substring>` narrows it. § Coverage below says why the floor is refused rather than owed |
 | `CheckDocsCoverage` | the half of `CheckDocs` that builds nothing: fails when a type in a `PublicAPI` baseline has no guide page and no `docs/DocsExempt.txt` line. Reachable alone precisely because `CheckDocs` costs a Release build of the solution first |
@@ -334,35 +334,64 @@ files.
 - Deterministic: no `DateTime.Now`, no unseeded random, no `Thread.Sleep`, no real network, no ambient
   filesystem (an in-memory `IFileProvider` is the default).
 - Every test project runs green with `VIXEN_JOB_WORKERS=0` (single-threaded) as a separate CI leg.
-- **Environment a test needs before its own process starts belongs in `.runsettings`, never in a
-  shell profile.** Today that is exactly one variable — `DYLD_LIBRARY_PATH`, which macOS's dynamic
-  linker reads once at launch and which is what makes the Vulkan validation layer load at all
+- **Environment a test needs before its own process starts belongs on the process that starts it,
+  never in a shell profile.** Today that is exactly one variable — `DYLD_LIBRARY_PATH`, which macOS's
+  dynamic linker reads once at launch and which is what makes the Vulkan validation layer load at all
   ([10](10-platforms.md) § macOS). Putting it in a developer's `~/.zshenv` would make "are the
   validation layers on?" depend on which terminal the suite happened to be launched from, and answer
   *no* in CI and in the IDE without saying so. The corresponding test asserts the layer is *on*
   wherever it is installed, so a machine that quietly loses validation fails rather than passes.
-- **Each test project writes its own `.trx`,** named after the project (`VSTestLogger` in
-  `Directory.Build.props`). Nuke passes a results *directory* and no filename: a fixed `LogFileName`
-  points all eighteen projects at one path, they run concurrently, and the artefact CI publishes is
-  whichever finished last. The build still fails on a red test — the exit code does not go through
-  the file — but the report a human opens to find out *which* test is the entire point of producing
-  one.
-  ⚠️ **Both bullets are what [#560](https://github.com/Rikarin/Vixen/issues/560) — dropping VSTest for
-  Microsoft.Testing.Platform — has to replace, and three things about that were measured on
-  2026-09-06 rather than assumed.** (1) MTP's TRX **does** carry `<ResultSummary outcome>` and
-  `<Times>` in VSTest's shape, so `TestOrder --update-test-cost`, `AffectedTests` and this
-  repository's read-the-outcome-not-the-counters rule all survive — probed with xunit.v3 3.2.2 plus
-  the extension and one deliberately failing test, which wrote `ResultSummary outcome="Failed"`.
-  (2) ⚠️ The TRX writer is a **separate package this tree has never referenced**,
-  `Microsoft.Testing.Extensions.TrxReport`, so the migration owes one `PackageReference` *addition* per test project
-  and not only the removals of `xunit.runner.visualstudio` — **180** of each as of 2026-09-06, not the
-  178 this bullet was written with. (3) ⚠️ Its current release **2.0.0 is
-  incompatible with xunit.v3 3.2.2** and NuGet resolves to it by default: the host dies before
-  running anything with `TypeLoadException: Could not load type
-  'Microsoft.Testing.Platform.Extensions.TestHost.IDataConsumer' from assembly
-  'Microsoft.Testing.Platform, Version=2.0.0.0'`, because xunit.v3 binds the 1.x platform. It must be
-  pinned to 1.x. And MTP names the file `_<machine>_<timestamp>.trx`, so the per-project name is
-  `--report-trx-filename` per project rather than one property.
+  ⚠️ **This used to say `.runsettings` and it had to move**, because the platform runner does not read
+  that file: `Build.ExportLayerLibraryPath` sets the variable on the Nuke process, and `Test`,
+  `GoldenImages` and `AffectedTests` call it before invoking anything. Measured on 2026-09-06 rather
+  than assumed — a probe test asserting the variable's value passes through
+  `dotnet msbuild -t:VSTest` when the invoking process exports it and fails when it does not, so the
+  inheritance chain through `dotnet` and MSBuild to the test executable is real. `.runsettings` still
+  exists and is still passed by `Coverage`, which is the one target still on VSTest.
+- **Each test project writes its own `.trx`,** named after the project — `--report-trx-filename` on
+  the platform path, `VSTestLogger` on `Coverage`'s, both in `Directory.Build.props`. Nuke passes a
+  results *directory* and no filename: a fixed name points all eighteen projects at one path, they
+  run concurrently, and the artefact CI publishes is whichever finished last. The build still fails
+  on a red test — the exit code does not go through the file — but the report a human opens to find
+  out *which* test is the entire point of producing one.
+
+**[#560](https://github.com/Rikarin/Vixen/issues/560) landed on 2026-09-06: the test assemblies run
+through Microsoft.Testing.Platform, not VSTest.** A xunit.v3 assembly is an executable that hosts its
+own runner, and VSTest started two more processes per assembly to talk to it — `vstest.console.dll`
+and `testhost.dll` beside the executable, ~1 s of protocol each across 180 assemblies. Five audits
+costed this migration and each declined it; what they got wrong is worth recording:
+
+- ⚠️ **It needed no package and no csproj edit, and four audits costed it at 180 `PackageReference`
+  additions plus 180 removals.** `Microsoft.Testing.Platform.MSBuild` 1.9.1 is *already* in every test
+  project's graph: `xunit.v3` 3.2.2 resolves to `xunit.v3.mtp-v1` → `xunit.v3.core.mtp-v1`, whose
+  nuspec depends on it and on `Microsoft.Testing.Platform` itself. Its targets override MSBuild's
+  `VSTest` target when `TestingPlatformDotnetTestSupport` is true, so the switch is one property.
+- ⚠️ **The removals were never the point and are deliberately not made.** `xunit.runner.visualstudio`
+  and `Microsoft.NET.Test.Sdk` cost restore, not run time, and keeping them is what makes the whole
+  change revertible on one line — `-p:TestingPlatformDotnetTestSupport=false` puts any single
+  invocation back on VSTest. `Coverage` is that invocation: `--collect "Code Coverage;Format=cobertura"`
+  is a VSTest data collector the platform does not have, and a coverage run left on the platform path
+  would have reported nothing and said so in green.
+- The TRX writer *is* genuinely new — `Microsoft.Testing.Extensions.TrxReport`, pinned to **1.9.1**.
+  ⚠️ 2.0.0 is what NuGet resolves by default and it dies before running a test with
+  `TypeLoadException: Could not load type 'Microsoft.Testing.Platform.Extensions.TestHost.IDataConsumer'
+  from assembly 'Microsoft.Testing.Platform, Version=2.0.0.0'`, because xunit.v3 binds the 1.x
+  platform. One `ItemGroup` in `Directory.Build.props` reaches all 180 projects.
+- The instrument survives, checked rather than reasoned about: a deliberately failing test through
+  `dotnet msbuild -t:VSTest` exits **1** and writes `<ResultSummary outcome="Failed">` with
+  `<Counters>` and `<Times>` in VSTest's shape, into a TRX named after its project in the directory
+  `-p:VSTestResultsDirectory` named. So `TestOrder --update-test-cost`, `AffectedTests`, #863's cost
+  guard and the read-the-outcome-not-the-counters rule all keep working.
+- ⚠️ **`MTP0001` is a warning, not an error**, and it is what the platform says when a VSTest property
+  is set and ignored — `VSTestSetting`, `VSTestLogger`, `VSTestResultsDirectory`. That is the failure
+  mode this change is most exposed to: one warning line inside a five-hundred-second log. Two of the
+  three are therefore set only on the path that reads them, and `VSTestResultsDirectory` is re-routed
+  into `--results-directory` rather than left to be ignored. `Test`'s existing count-the-TRX
+  assertion is the backstop.
+- **Not measured here.** The saving is quoted from earlier audits (~1 s per assembly, ~43 s of a
+  498 s run) and this session could not run `Test`. What was measured is that the run works, and
+  `Vixen.Ecs.Tests` went 2.03 s through `dotnet test` before to 1.65 s through
+  `dotnet msbuild -t:VSTest` after, on a machine with fifteen worktrees on it.
 
 ### Coverage, reported and not gated
 
@@ -404,7 +433,9 @@ assembly fails. That last one is a finding about the suite rather than a number 
 never been executed through `build.sh` by any session that wrote it, so its invocation was run by hand
 instead — `dotnet test Core/Vixen.Core.Mathematics.Tests --settings .runsettings --results-directory
 artifacts/coverage/<project> --collect "Code Coverage;Format=cobertura"`, which is what the fluent
-`DotNetTest` settings build, and the attachment landed exactly where `Measure` globs for it. Over that
+`DotNetTest` settings build — plus `--property:TestingPlatformDotnetTestSupport=false`, which is
+what keeps this one target on VSTest and its collector ([#560](https://github.com/Rikarin/Vixen/issues/560)) —
+and the attachment landed exactly where `Measure` globs for it. Over that
 real document the reader said `Vixen.Core.Mathematics` was **8 444 of 11 318** lines. It is **4 221 of
 5 658**: a cobertura `<class>` lists its lines once inside each `<method>` and once more in its own
 `<lines>`, so `Descendants("line")` counts both. ⚠️ **The rate was right to three decimal places
