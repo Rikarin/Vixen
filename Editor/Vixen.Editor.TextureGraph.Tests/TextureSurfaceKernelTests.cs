@@ -157,8 +157,10 @@ public class TextureSurfaceKernelTests {
     ///         used <c>"Warp"</c>, and § 4.4 then shipped a kernel called <c>Warp</c>.
     ///     </para>
     ///     <para>
-    ///         So the claim is asserted where it lives — <b>on the shape of an op</b>. An op is four
-    ///         pieces of data: a name, an image to write, images to read and numbers. There is no
+    ///         So the claim is asserted where it lives — <b>on the shape of an op</b>. An op is five
+    ///         pieces of data: a name for the kernel, a name for itself
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>), an image to write,
+    ///         images to read and numbers. There is no
     ///         member that could carry code, no kind discriminator, and nothing the evaluator could
     ///         branch on; and the plan's own <see cref="TexturePlan.Validate" /> has no opinion about
     ///         what a kernel name means, which is what says every op is resolved the one way. ⚠ This
@@ -179,9 +181,23 @@ public class TextureSurfaceKernelTests {
             .ToArray();
 
         Assert.Equal(
-            ["Cpu", "EmittedForExtent", "Inputs", "Kernel", "Output", "Parameters", "ReadsOtherExtents"],
+            [
+                "Cpu",
+                "EmittedForExtent",
+                "Identity",
+                "Inputs",
+                "Kernel",
+                "Output",
+                "Parameters",
+                "ReadsOtherExtents"
+            ],
             members
         );
+
+        // ⚠ `Identity` is the sixth member and it is not a sixth thing an op *does*: it is a name for
+        // the op, mixed into `TexturePlan.SeedFor` and read nowhere else — #875. A `uint?` cannot
+        // carry code and the evaluator never branches on it.
+        Assert.Equal(typeof(uint?), typeof(TextureOp).GetProperty("Identity")!.PropertyType);
 
         // Every one of them but Cpu is inert data — a string, an image index, indices, scalars. Cpu is
         // the single exception doc 48 § 4.6 argues for and #688 built, and it is nullable: an op that

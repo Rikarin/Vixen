@@ -220,6 +220,9 @@ static class LayerStackGraph {
         /// <summary>Which layer emitted each node — <see cref="LayerStackBuild.Layers" />.</summary>
         readonly Dictionary<NodeId, string> owners = [];
 
+        /// <summary>How many nodes each (channel, layer) has emitted — see <see cref="Named" />.</summary>
+        readonly Dictionary<(string Usage, string Layer), int> ordinals = [];
+
         /// <summary>Anchor edges, held until every layer's result node exists.</summary>
         /// <remarks>
         ///     ⚠ <b>Deferred so that the graph model does the cycle check.</b> Connected as each
@@ -252,6 +255,15 @@ static class LayerStackGraph {
         ///     right for everything reached from there including a method nobody has written yet.
         /// </remarks>
         string owner = "";
+
+        /// <summary>The channel whose chain is being built, which is the other half of a node's name.</summary>
+        /// <remarks>
+        ///     ⚠ <b>In the identity because <see cref="Content" /> is called once per channel</b>, so
+        ///     one layer emits one set of nodes per map the set writes. Without it every channel's
+        ///     copy of a layer would want the same id and <see cref="Named" /> would spend the whole
+        ///     stack in its collision probe.
+        /// </remarks>
+        string usage = "";
 
         public LayerStackBuild Run() {
             if (set.Channels.Count == 0) {
@@ -313,6 +325,8 @@ static class LayerStackGraph {
 
         /// <summary>One channel's chain: a base colour, every layer over it, and an output.</summary>
         void Channel(ChannelAsset channel) {
+            usage = channel.Usage;
+
             var start = Add("Source/Uniform");
 
             start.SetValue("Colour", Colour(channel.Default, channel.Usage, ""));
@@ -1437,10 +1451,12 @@ static class LayerStackGraph {
         /// <summary>A node, laid out so that the exploded graph reads left to right.</summary>
         /// <remarks>
         ///     The one funnel every node in a built stack comes through, which is why
-        ///     <see cref="LayerStackBuild.Layers" /> is filled here rather than at each emitter.
+        ///     <see cref="LayerStackBuild.Layers" /> is filled here rather than at each emitter — and
+        ///     why <see cref="Named" /> can give every node an identity that does not depend on the
+        ///     order the walk reached it in.
         /// </remarks>
         GraphNode Add(string type) {
-            var node = graph.Add(type, new Vector2(column * 220f, row * 260f));
+            var node = graph.Add(Named(), type, new Vector2(column * 220f, row * 260f));
 
             column++;
 
@@ -1449,6 +1465,77 @@ static class LayerStackGraph {
             }
 
             return node;
+        }
+
+        /// <summary>An identity for the next node, from what it is rather than from when it was made.</summary>
+        /// <returns>The id, which is free in this graph.</returns>
+        /// <remarks>
+        ///     <para>
+        ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>, and the reason
+        ///         it had to land <em>here</em> rather than only in the plan.</b>
+        ///         <c>TexturePlan.SeedFor</c> now mixes <c>TextureOp.Identity</c>, which
+        ///         <c>TextureGraphCompiler</c> derives from the <c>NodeId</c> that emitted the op —
+        ///         and for a hand-authored <c>.vxtexgraph</c> that is the end of it, because a node id
+        ///         is written in the file and <c>NodeGraphModel</c> never reuses one. A stack has no
+        ///         such file: this class builds a fresh model on every compile, so
+        ///         <c>NodeGraphModel.Add(string, …)</c>'s counter would hand every node after an
+        ///         inserted layer a new number and every noise under it a new picture. Substituting
+        ///         one counter for another is what #875 refutes, not what it asks for.
+        ///     </para>
+        ///     <para>
+        ///         <b>So the identity is the answer to "which node is this?" asked of the document.</b>
+        ///         The channel, the layer, and how many nodes that layer has already emitted for that
+        ///         channel — a triple that does not move when a layer is inserted beneath, above or
+        ///         beside it, and which changes only when the layer itself is rewritten. ⚠ It has to
+        ///         be the <em>id</em> and not a side table, because the identity must survive
+        ///         <c>LayerStackExplode</c>'s YAML round trip: exit criterion 6 compiles a graph that
+        ///         came off a file, and what is in the file is the node ids.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>A layer with no id shares one scope with every other layer that has none</b>,
+        ///         so those nodes are numbered by walk order within the channel and move exactly as
+        ///         they did before. That is honest rather than ideal: an id is what an anchor names,
+        ///         so a layer without one is already not a thing this file can refer to.
+        ///     </para>
+        ///     <para>
+        ///         <b>A collision walks forward, and that is the one place order leaks back in.</b>
+        ///         Two scopes hashing to one number would otherwise make
+        ///         <c>NodeGraphModel.Add(NodeId, …)</c> throw out of a panel build. The probe is
+        ///         deterministic for a given document and the ids it lands on are stable for it; what
+        ///         it cannot promise is that inserting a layer leaves a <em>collided</em> node's id
+        ///         alone. Over a 2³⁰ space and a stack's worth of nodes that is not a case anybody
+        ///         will meet, and the alternative — a wider id — is a change to <c>NodeId</c>.
+        ///     </para>
+        /// </remarks>
+        NodeId Named() {
+            var scope = (usage, owner);
+
+            ordinals.TryGetValue(scope, out var ordinal);
+            ordinals[scope] = ordinal + 1;
+
+            var hash = 2166136261u;
+
+            foreach (var character in usage) {
+                hash = unchecked((hash ^ character) * 16777619u);
+            }
+
+            hash = unchecked((hash ^ '\n') * 16777619u);
+
+            foreach (var character in owner) {
+                hash = unchecked((hash ^ character) * 16777619u);
+            }
+
+            hash = unchecked(((hash ^ '\n') * 16777619u) + (uint)ordinal);
+
+            // Kept well inside `int`, because `NodeGraphModel.Add(NodeId, …)` raises its own counter
+            // to the largest id it has seen and a sub-graph inlining then allocates above that.
+            var id = new NodeId((int)(hash % 0x3FFFFFFFu) + 1);
+
+            while (graph.TryGet(id, out _)) {
+                id = new NodeId(id.Value % 0x3FFFFFFF + 1);
+            }
+
+            return id;
         }
     }
 }

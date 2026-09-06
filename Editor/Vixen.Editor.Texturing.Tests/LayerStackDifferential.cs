@@ -244,7 +244,14 @@ static class LayerStackDifferential {
             }
 
             text.Append(CultureInfo.InvariantCulture, $"] cpu {op.Cpu?.GetType().Name ?? "none"}");
-            text.Append(CultureInfo.InvariantCulture, $" extent {op.EmittedForExtent?.ToString(CultureInfo.InvariantCulture) ?? "any"}\n");
+            text.Append(CultureInfo.InvariantCulture, $" extent {op.EmittedForExtent?.ToString(CultureInfo.InvariantCulture) ?? "any"}");
+
+            // ⚠ The seed, and it is the one line here that is about the *round trip* rather than about
+            // the arithmetic — #875. An op's seed is mixed from `TextureOp.Identity`, which the
+            // compiler derives from the node that emitted it, so a loader that renumbered the nodes
+            // it read would produce a plan with identical ops drawing different noise. Nothing else in
+            // this description could tell, and exit criterion 6 asks for byte-identical bakes.
+            text.Append(CultureInfo.InvariantCulture, $" seed {plan.SeedFor(index)}\n");
         }
 
         text.Append(CultureInfo.InvariantCulture, $"outputs: [{string.Join(", ", plan.Outputs)}]\n");

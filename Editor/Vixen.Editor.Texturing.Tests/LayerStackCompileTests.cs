@@ -173,6 +173,74 @@ public class LayerStackCompileTests {
         Assert.Equal(0.5f, group.Find("opacity")!.Value.Value);
     }
 
+    /// <summary>⚠ A layer keeps the numbers it draws when another layer is inserted beneath it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>, on the front end it
+    ///         was actually filed about.</b> <c>TexturePlan.SeedFor</c> mixed the op's index in
+    ///         <c>Ops</c>, and a layer inserted beneath another moves every op after it — so
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/832">#832</a>, which added three ops
+    ///         per masked layer per channel, silently redrew every noise, splatter and dither in every
+    ///         existing material.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The op index still moves and that is asserted, because it is what makes the
+    ///         equality mean something.</b> A test where the insertion happened to leave the index
+    ///         alone would be green against the old arithmetic too — which is exactly what the first
+    ///         draft of this measured on a hand-authored graph, where <c>NodeGraphModel.Ordered</c>
+    ///         seeds its queue in insertion order and a node added later therefore never precedes an
+    ///         existing one. A stack is the case where the index really does move: the whole model is
+    ///         rebuilt from the <c>.vxlayers</c> on every compile.
+    ///     </para>
+    ///     <para>
+    ///         <b>A <c>Levels</c> layer because it dithers</b>, which is the one seeded op a stack can
+    ///         express with no compound and no imported image — <c>Levels.rvn</c> takes the op's own
+    ///         seed so that two of them in one graph do not dither identically.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_layers_seed_survives_a_layer_inserted_beneath_it() {
+        var stack = One(new() {
+            Id = "grade",
+            Kind = LayerKind.Filter,
+            Filter = LayerFilterKind.Levels,
+            Blend = LayerBlendMode.Copy,
+            Settings = { ["Gamma"] = [1.4f] }
+        });
+
+        var before = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        // Underneath, which is where `TextureSetAsset.Layers` starts: the file is in composite order.
+        stack.Sets[0]
+            .Layers.Insert(
+                0,
+                new() { Id = "under", Kind = LayerKind.Fill, Values = { ["baseColor"] = Opaque } }
+            );
+
+        var after = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.NotNull(before.Plan);
+        Assert.NotNull(after.Plan);
+
+        var first = IndexOf(before.Plan, "Levels");
+        var second = IndexOf(after.Plan, "Levels");
+
+        Assert.NotEqual(first, second);
+        Assert.Equal(before.Plan.SeedFor(first), after.Plan.SeedFor(second));
+
+        static int IndexOf(TexturePlan plan, string kernel) {
+            for (var op = 0; op < plan.Ops.Length; op++) {
+                if (string.Equals(plan.Ops[op].Kernel, kernel, StringComparison.Ordinal)) {
+                    return op;
+                }
+            }
+
+            Assert.Fail($"No '{kernel}' op in the plan, so there is no seed to read.");
+
+            return -1;
+        }
+    }
+
     /// <summary>⚠ A group's own nodes are filed under the group and not under its last child.</summary>
     /// <remarks>
     ///     <b>The nesting half of <a href="https://github.com/Rikarin/Vixen/issues/880">#880</a>, and
