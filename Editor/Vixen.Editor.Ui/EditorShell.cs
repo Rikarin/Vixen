@@ -441,6 +441,23 @@ public sealed class EditorShell : IDisposable {
     /// </remarks>
     public StatusBar StatusBar { get; }
 
+    /// <summary>A diagnostics panel this shell refreshes once a frame, or <c>null</c> for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one thing an application cannot get right on its own, which is why the shell
+    ///         holds it and not the panel.</b> <see cref="DiagnosticsPanel.Refresh" /> has to run at
+    ///         the top of a frame — before the layout pass it is reporting on — and the top of the
+    ///         editor's frame is inside <see cref="Tick" />, which the host calls and a panel cannot
+    ///         see. A panel that refreshed itself from its own factory would report the numbers of
+    ///         the frame it was created in, for ever.
+    ///     </para>
+    ///     <para>
+    ///         <b>Where the panel goes stays the application's</b>, exactly as
+    ///         <c>UiApplication.Diagnostics</c> arranges it: this is the clock and not the layout.
+    ///     </para>
+    /// </remarks>
+    public DiagnosticsPanel? Diagnostics { get; set; }
+
     /// <summary>Where messages appear.</summary>
     public ToastHost Toasts { get; }
 
@@ -712,6 +729,19 @@ public sealed class EditorShell : IDisposable {
     /// </remarks>
     public void Tick(TimeSpan now, TimeSpan delta) {
         phase = (phase + (float) delta.TotalSeconds) % 1f;
+
+        // ⚠ **First, because everything below this line moves the numbers it reads.** The whole of
+        // this method runs before the host's `Document.Update`, so any point in it is "the top of
+        // the frame" for the layout pass — but the toolbar refresh, the status bar and the effect
+        // flush all write elements, and a reading taken after them describes a document the frame
+        // has already changed. `UiApplication.Diagnostics` makes the same call at the same point in
+        // its own loop; this is the editor's, and the editor is not a `UiApplication`.
+        //
+        // ⚠ The panel is in the document it describes, so it perturbs it — a row written here is an
+        // element the next pass restyles. That is `FrameStatsOverlay`'s trade and `DiagnosticsPanel`
+        // states it; `Subject` is how a reading is made exact rather than merely consistent, by
+        // pointing the panel at another document.
+        Diagnostics?.Refresh();
 
         // ⚠ <b>The document's tick, not the recogniser's, and the difference is four features
         // wide.</b> This read `Document.Gestures.Tick(now)` — the one thing the shell happened to
