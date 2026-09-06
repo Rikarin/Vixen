@@ -35,11 +35,13 @@ Vixen.Platform.Ui.PlatformWindowHost.CanOpen.get -> bool
 Vixen.Platform.Ui.PlatformWindowHost.Dispose() -> void
 Vixen.Platform.Ui.PlatformWindowHost.Handle(in Vixen.Platform.PlatformEvent platformEvent) -> bool
 Vixen.Platform.Ui.PlatformWindowHost.Main.get -> Vixen.Platform.IWindow
+Vixen.Platform.Ui.PlatformWindowHost.MainWindow.get -> Vixen.Ui.IUiWindow
 Vixen.Platform.Ui.PlatformWindowHost.Open(Vixen.Ui.UiDocument document, in Vixen.Ui.UiWindowRequest request) -> Vixen.Ui.IUiWindow?
 Vixen.Platform.Ui.PlatformWindowHost.PlatformWindowHost(Vixen.Platform.IPlatform platform, Vixen.Ui.UiDocument document, Vixen.Platform.IWindow main) -> void
 Vixen.Platform.Ui.PlatformWindowHost.TryLocate(Vixen.Ui.UiSurface surface, out float x, out float y) -> bool
 Vixen.Platform.Ui.PlatformWindowHost.TryResolve(uint windowId, out Vixen.Ui.UiSurface? surface) -> bool
 Vixen.Platform.Ui.PlatformWindowHost.TryWindow(Vixen.Ui.UiSurface surface, out Vixen.Platform.IWindow? window) -> bool
+Vixen.Platform.Ui.PlatformWindowHost.WindowOf(Vixen.Ui.UiSurface surface) -> Vixen.Ui.IUiWindow?
 Vixen.Platform.Ui.PlatformWindowHost.Windows.get -> System.Collections.Generic.IReadOnlyList<Vixen.Platform.Ui.PlatformUiWindow>
 const Vixen.Platform.Ui.PlatformInput.WheelLineHeight = 48 -> float
 static Vixen.Platform.Ui.PlatformClipboard.Install(Vixen.Ui.UiDocument document, Vixen.Platform.IPlatform platform) -> bool

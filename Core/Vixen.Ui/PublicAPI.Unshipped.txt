@@ -699,6 +699,7 @@ Vixen.Ui.IUiWindowHost -> interface
 Vixen.Ui.IUiWindowHost.CanOpen.get -> bool
 Vixen.Ui.IUiWindowHost.Open(Vixen.Ui.UiDocument document, in Vixen.Ui.UiWindowRequest request) -> Vixen.Ui.IUiWindow?
 Vixen.Ui.IUiWindowHost.TryLocate(Vixen.Ui.UiSurface surface, out float x, out float y) -> bool
+Vixen.Ui.IUiWindowHost.WindowOf(Vixen.Ui.UiSurface surface) -> Vixen.Ui.IUiWindow?
 Vixen.Ui.IUndoManager -> interface
 Vixen.Ui.IUndoManager.CanRedo.get -> bool
 Vixen.Ui.IUndoManager.CanUndo.get -> bool
@@ -1534,6 +1535,8 @@ Vixen.Ui.UiDocument.UndoManager.set -> Vixen.Ui.IUndoManager?
 Vixen.Ui.UiDocument.Unprovide<T>() -> bool
 Vixen.Ui.UiDocument.Update() -> bool
 Vixen.Ui.UiDocument.Viewport.get -> Vixen.Ui.LengthContext
+Vixen.Ui.UiDocument.WindowOf(Vixen.Ui.UiElement element) -> Vixen.Ui.IUiWindow?
+Vixen.Ui.UiDocument.WindowOf(Vixen.Ui.UiSurface? surface) -> Vixen.Ui.IUiWindow?
 Vixen.Ui.UiDocument.Windows.get -> Vixen.Ui.IUiWindowHost?
 Vixen.Ui.UiDocument.Windows.set -> Vixen.Ui.IUiWindowHost?
 Vixen.Ui.UiElement -> class

@@ -155,6 +155,32 @@ public interface IUiWindowHost {
     ///     rather than a drop landing somewhere arbitrary.
     /// </remarks>
     bool TryLocate(UiSurface surface, out float x, out float y);
+
+    /// <summary>Which window a surface is being shown in.</summary>
+    /// <param name="surface">The surface.</param>
+    /// <returns>The window, or <c>null</c> if this host does not know.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The direction <see cref="Open" /> never gave back, and its absence is what left
+    ///         <see cref="UiWindowTitle.Bind" /> with no caller.</b> Everything that has a window
+    ///         here got it by opening one, so only the application head ever held an
+    ///         <see cref="IUiWindow" /> — a component holding a <see cref="UiDocument" /> and its own
+    ///         element could not name the window it was drawn in, which is the one thing a title-bar
+    ///         binding needs. The host is the object that knows, because it is what opened every
+    ///         window there is and was told about the one it did not open.
+    ///     </para>
+    ///     <para>
+    ///         <c>null</c> is a real answer and stays one, exactly as it is for
+    ///         <see cref="TryLocate" />: a surface nobody placed, a platform with no windowing, and a
+    ///         host that only knows the windows it opened all give it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Defaulted rather than required, so an existing host still compiles.</b> A test
+    ///         double that opens fake windows is not wrong to have no answer here, and answering
+    ///         <c>null</c> is what it would have written.
+    ///     </para>
+    /// </remarks>
+    IUiWindow? WindowOf(UiSurface surface) => null;
 }
 
 public sealed partial class UiDocument {
@@ -168,4 +194,27 @@ public sealed partial class UiDocument {
 
     /// <summary>Whether a control may ask this document for a window of its own.</summary>
     public bool CanOpenWindows => Windows is { CanOpen: true };
+
+    /// <summary>Which window a surface of this document is being shown in.</summary>
+    /// <param name="surface">The surface, or <c>null</c>.</param>
+    /// <returns>The window, or <c>null</c> if nothing here knows of one.</returns>
+    /// <remarks>
+    ///     The document's forward of <see cref="IUiWindowHost.WindowOf" />, and the reason it exists
+    ///     is that a component has the document and does not have the host. A document with no
+    ///     windowing installed answers <c>null</c> rather than throwing, in the way
+    ///     <see cref="CanOpenWindows" /> does.
+    /// </remarks>
+    public IUiWindow? WindowOf(UiSurface? surface) => surface is null ? null : Windows?.WindowOf(surface);
+
+    /// <summary>Which window an element is being shown in.</summary>
+    /// <param name="element">The element.</param>
+    /// <returns>The window, or <c>null</c> if nothing here knows of one.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The overload a component actually calls.</b> A control knows itself and its
+    ///     <see cref="UiElement.Document" /> and nothing else — asking either of them for a window
+    ///     was impossible until this — so the walk from an element to its surface
+    ///     (<see cref="SurfaceOf" />) and from the surface to its window is put in one place rather
+    ///     than written out at every call site that wants to name its own window.
+    /// </remarks>
+    public IUiWindow? WindowOf(UiElement element) => WindowOf(SurfaceOf(element));
 }

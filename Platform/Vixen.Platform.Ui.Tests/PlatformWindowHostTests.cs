@@ -221,6 +221,78 @@ public class PlatformWindowHostTests {
         }
     }
 
+    /// <summary>Every surface names its window, including the one this host did not open.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The main window is the case, and it is the one that had no <c>IUiWindow</c> at
+    ///     all.</b> <c>Open</c> makes a wrapper and hands it back; the primary surface was registered
+    ///     rather than opened, so an application that has never torn a panel off — which is all of
+    ///     them until somebody does — had exactly one window and no way to name it. Disposing that
+    ///     wrapper has to do nothing, because the ordinary meaning of disposing one of these is
+    ///     "destroy the window and take its surface out of the document".
+    /// </remarks>
+    [Fact]
+    public void A_surface_names_the_window_it_is_in_and_the_main_ones_wrapper_cannot_close_it() {
+        var (platform, document, host) = Open();
+
+        using (platform) {
+            using (host) {
+                var main = host.WindowOf(document.Primary);
+
+                Assert.NotNull(main);
+                Assert.Same(host.MainWindow, main);
+                Assert.Equal(host.Main.Title, main!.Title);
+
+                var torn = host.Open(document, new UiWindowRequest("Inspector", 0f, 0f, 320f, 240f));
+
+                Assert.NotNull(torn);
+                Assert.Same(torn, host.WindowOf(torn!.Surface));
+
+                // ⚠ Inert, and the surface count is what proves it: the ordinary path removes the
+                // surface and disposes the platform window.
+                main.Dispose();
+
+                Assert.False(main.IsClosed);
+                Assert.False(host.Main.IsClosed);
+                Assert.Equal(2, document.Surfaces.Count);
+
+                // A surface this host never placed is not its business to answer for.
+                Assert.Null(host.WindowOf(document.CreateSurface(10f, 10f)));
+            }
+        }
+    }
+
+    /// <summary>The main window hears that it became the key one, which it could not before.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A wrapper that silently never raised <see cref="IUiWindow.DidBecomeKey" /> would be
+    ///     the half-wired kind of object that gets built against and then found not to work.</b> The
+    ///     host was already subscribed to <c>UiDocument.KeySurfaceChanged</c>, which is the ground
+    ///     truth; what was missing was something to raise the event on.
+    /// </remarks>
+    [Fact]
+    public void The_main_window_learns_that_it_became_the_key_one() {
+        var (platform, document, host) = Open();
+
+        using (platform) {
+            using (host) {
+                var main = host.MainWindow;
+                var torn = host.Open(document, new UiWindowRequest("Inspector", 0f, 0f, 320f, 240f));
+
+                var announced = 0;
+                main.DidBecomeKey += _ => announced++;
+
+                document.KeySurface = torn!.Surface;
+
+                Assert.False(main.IsKey);
+                Assert.Equal(0, announced);
+
+                document.KeySurface = document.Primary;
+
+                Assert.True(main.IsKey);
+                Assert.Equal(1, announced);
+            }
+        }
+    }
+
     [Fact]
     public void A_platform_that_cannot_position_windows_refuses_to_locate_rather_than_guessing() {
         var (platform, document, host) = Open();
