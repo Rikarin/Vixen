@@ -474,7 +474,7 @@ does nothing. No diagnostic. This is the same defect class the language already 
 | `.contextMenu` | `ContextMenu.Attach` is a C# call | ❌ |
 | `.help` (tooltip) | `Tooltip.Attach` is a C# call | ❌ |
 | `.alert` / `.confirmationDialog` / `.sheet` / `.popover` | `DialogService`/`Overlay` exist; nothing binds a presentation to state | ❌ markup |
-| `.searchable`, `.refreshable` | ❌ nothing | ❌ |
+| `.searchable`, `.refreshable` | a `SearchBox` over a filter signal; `Load` over a generation signal — both with committed fixtures. What is absent is placement and a gesture | ⚠ half |
 
 ⚠ **`.searchable`'s middle third is not missing, which narrows [#767](https://github.com/Rikarin/Vixen/issues/767).**
 Two audits called "what does it filter" the sharpest open question, on the grounds that a framework
@@ -486,6 +486,21 @@ into, with the predicate staying the author's `Where(...)`.
 thirds — where the field goes, and an empty state, which is genuinely absent: an `@for` has no
 fallback arm, so a filter that matches nothing leaves a list that is empty and silent. Filed as
 [#908](https://github.com/Rikarin/Vixen/issues/908).
+
+⚠ **And the empty state has since closed: `@for (…) { … } @empty { … }` is the loop's own fallback
+arm.** `SearchableSheet.vxml` writes one and `SearchableReachTests` asserts it, so of `.searchable`'s
+three named parts only *placement* is left — which is taste rather than a missing mechanism.
+
+⚠ **`.refreshable`'s open question is a gesture, and a gesture is not the row.** Two audits stopped
+on "what is a desktop pull-to-refresh", which is a question about the *trigger*. What a refresh
+**is** — a re-request of work that supersedes and cancels the one before it — is `BuildContext.Load`:
+its request expression runs with tracking on, so a signal read inside it re-asks when it is bumped,
+and `AsyncComputed.Start` cancels the overtaken run's token. `Markup/RefreshableSheet.vxml` is a
+`@for` over an `AsyncValue<T>`, an `@if` over `IsLoading` and one button;
+`RefreshableReachTests` asserts the rows and a deterministic `Starts`/`Cancellations` counter rather
+than an interval, and both sabotages — a trigger that bumps nothing, and `Start` not cancelling —
+take it red. So both of #767's rows turn out to be spellings over runtimes that already exist, which
+is the same conclusion `.searchable`'s middle third reached.
 | `.draggable` / `.dropDestination` | `on:dragstart/drag/dragend` exist; **no drop target, no payload type, no `AllowDrop`** | ⚠ half |
 
 For a project whose thesis is *markup is the authoring path*, that ❌ column is the parity claim's

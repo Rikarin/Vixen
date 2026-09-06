@@ -1,0 +1,96 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    A list that reloads on demand, written with nothing a `.refreshable` modifier would have had to
+    add.
+
+    ⚠ **The point of this file is what it does not need.** #767 calls `.refreshable` a feature with
+    nothing behind it, and says the open question is what a desktop pull-to-refresh gesture is. The
+    gesture is a *trigger*, and it is separable from the row: what a refresh actually is, is a
+    re-request of work that is already cancellable, and `BuildContext.Load` is exactly that. The
+    request expression runs with tracking on, so a signal read inside it is what re-runs the load —
+    and the previous run's token is cancelled by the same machinery that cancels it on unmount.
+
+    ⚠ **So this file is `@for` over an async value plus one button**, and the button could be a
+    pointer gesture, a menu item or a key without a line here changing.
+-->
+@component RefreshableSheet
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<refresh-sheet>
+    <!--
+        The trigger. `.refreshable`'s undecided half is which gesture stands here; the row's other
+        half — the work, its cancellation and its in-flight state — is decided below and is not the
+        button's business.
+    -->
+    <Button ref="@Refresh" Label="Refresh" on:click="@(() => generation.Value++)" />
+
+    <!--
+        ⚠ In-flight state as an ordinary arm of the markup rather than a spinner the framework
+        installs. `AsyncValue<T>` carries loading, value and failure as one value precisely so that a
+        panel cannot draw a spinner over a stale list over an error.
+    -->
+    @if (Rows.IsLoading) {
+        <refresh-busy>Loading…</refresh-busy>
+    }
+
+    @for (var row in Rows.Value ?? []) {
+        <refresh-row key="@row">@row</refresh-row>
+    } @empty {
+        <refresh-none>Nothing yet.</refresh-none>
+    }
+</refresh-sheet>
+
+@code {
+    /// <summary>
+    ///     What a refresh is: a number the request expression reads, bumped by whatever triggers it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ A signal and not a method call, because the re-run has to be the reactive graph's and
+    ///     not the panel's. `Load`'s request runs with tracking on, so bumping this re-asks; a panel
+    ///     that instead started a second task by hand would own the cancellation of the first, which
+    ///     is the half this row was filed for.
+    /// </remarks>
+    readonly Signal<int> generation = new(0);
+
+    IReadOnlySignal<AsyncValue<string[]>> loaded = null!;
+
+    /// <summary>Completed by the test when it wants a load to finish. One per generation.</summary>
+    public static TaskCompletionSource<string[]> Gate { get; set; } = new();
+
+    /// <summary>How many loads were started, which is the deterministic counter this test asserts on.</summary>
+    public static int Starts { get; private set; }
+
+    /// <summary>Cancellations observed from the token itself rather than inferred from a missing value.</summary>
+    public static int Cancellations { get; private set; }
+
+    /// <summary>Puts the statics back, because a fixture shared by several facts is not per-test.</summary>
+    public static void Reset() {
+        Gate = new();
+        Starts = 0;
+        Cancellations = 0;
+    }
+
+    /// <summary>Where the load has got to, for a test that reads the model rather than the elements.</summary>
+    public AsyncValue<string[]> Rows => loaded.Value;
+
+    /// <summary>The trigger, so a test can press it the way a person would.</summary>
+    public Button Refresh { get; private set; } = null!;
+
+    /// <summary>Asks again. What a `.refreshable` action would call, with no action type to hold it.</summary>
+    public void Again() => generation.Value++;
+
+    partial void OnComposed() =>
+        loaded = Context.Load(
+            () => generation.Value,
+            (_, token) => {
+                Starts++;
+                token.Register(() => Cancellations++);
+
+                return Gate.Task;
+            }
+        );
+}
