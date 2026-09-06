@@ -118,8 +118,11 @@
 #                      which says Tools/ "ships to nobody": seven Tools projects declare
 #                      IsPackable=true, and two of them are libraries a consumer compiles
 #                      against. (#749) ⚠ The two are not one question: Vixen.App is a published
-#                      dependency of Vixen.Live.Realm, which IS covered, so only "cover it" is
-#                      available there. Vixen.ShaderCompiler is reachable from no covered package
+#                      dependency of Vixen.Live.Realm, which IS covered, AND one of the ten
+#                      package ids the six `dotnet new` templates put in a stranger's csproj, so
+#                      only "cover it" is available there by two independent routes — it is not
+#                      merely referenced by six samples by path.
+#                      Vixen.ShaderCompiler is on neither route and is reachable from no covered package
 #                      — its consumers are two dotnet tools (which bundle rather than depend),
 #                      three samples, the tests, and Vixen.Editor.ShaderGraph and
 #                      .TextureGraph, both of which are `editor-undecided` above. So #749's second
