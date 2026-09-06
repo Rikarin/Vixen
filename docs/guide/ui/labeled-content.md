@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.Controls.LabeledContent]
 tags: [ui, controls, forms, accessibility, vxml]
 since: 0.2
 status: preview
-related: [ui/text-input, ui/key-value-list, ui/accessibility]
+related: [ui/text-input, ui/key-value-list, ui/accessibility, ui/group-box]
 ---
 
 ## What it is

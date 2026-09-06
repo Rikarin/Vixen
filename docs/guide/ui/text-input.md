@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.TextInputEvent, T:Vixen.Ui.TextCompositionEvent, T:Vixen.Ui.Tex
 tags: [ui, input, text, keyboard, ime, composition, caret, affinity, bidi, keymap, shortcuts]
 since: 0.2
 status: preview
-related: [ui/commands, ui/accessibility]
+related: [ui/commands, ui/accessibility, ui/stepper]
 ---
 
 ## What it is

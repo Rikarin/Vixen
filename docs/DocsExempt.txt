@@ -1038,7 +1038,6 @@ T:Vixen.Editor.AssetEditors.Animation.ShapeVocabularyView sweep-pending
 T:Vixen.Editor.AssetEditors.Animation.StateMapView sweep-pending
 T:Vixen.Editor.AssetEditors.Animation.VariationHarnessView sweep-pending
 T:Vixen.Editor.AssetEditors.Animation.VocabularyMember sweep-pending
-T:Vixen.Editor.AssetEditors.AssetEditorRegistry sweep-pending
 T:Vixen.Editor.AssetEditors.AssetEditorRequest sweep-pending
 T:Vixen.Editor.AssetEditors.AssetEditorTheme sweep-pending
 T:Vixen.Editor.AssetEditors.AssetFile sweep-pending
@@ -1089,7 +1088,6 @@ T:Vixen.Editor.AssetEditors.Fonts.FontDocument sweep-pending
 T:Vixen.Editor.AssetEditors.Fonts.FontEditorFactory sweep-pending
 T:Vixen.Editor.AssetEditors.Fonts.FontRangeData sweep-pending
 T:Vixen.Editor.AssetEditors.Fonts.FontView sweep-pending
-T:Vixen.Editor.AssetEditors.IAssetEditorFactory sweep-pending
 T:Vixen.Editor.AssetEditors.Importing.AddTargetCommand sweep-pending
 T:Vixen.Editor.AssetEditors.Importing.AddressableEdits sweep-pending
 T:Vixen.Editor.AssetEditors.Importing.ImportSettingsDocument sweep-pending
@@ -2325,7 +2323,6 @@ T:Vixen.Platform.Headless.HeadlessPowerInfo sweep-pending
 T:Vixen.Platform.Headless.HeadlessProcessorTopology sweep-pending
 T:Vixen.Platform.Headless.HeadlessTextInput sweep-pending
 T:Vixen.Platform.Headless.HeadlessWindow sweep-pending
-T:Vixen.Platform.IClipboard sweep-pending
 T:Vixen.Platform.IDisplayInfo sweep-pending
 T:Vixen.Platform.IFileSystemHost sweep-pending
 T:Vixen.Platform.IGamepad sweep-pending
@@ -3581,12 +3578,10 @@ T:Vixen.Ui.Styling.KeyframesTable sweep-pending
 T:Vixen.Ui.Styling.LayerRule sweep-pending
 T:Vixen.Ui.Styling.LayerRuleParser sweep-pending
 T:Vixen.Ui.Styling.MediaConditions sweep-pending
-T:Vixen.Ui.Styling.MediaContext sweep-pending
 T:Vixen.Ui.Styling.MediaPreferences sweep-with-MediaContext — the platform-settings half of a MediaContext and exempt on its terms; why these six travel as one value while the other five axes do not is on the type and in Core/Vixen.Ui/Media.cs
 T:Vixen.Ui.Styling.MediaQuery sweep-pending
 T:Vixen.Ui.Styling.MediaScopes sweep-pending
 T:Vixen.Ui.Styling.MediaVerdicts sweep-pending
-T:Vixen.Ui.Styling.MotionPreference sweep-with-MediaContext — one axis of MediaPreferences and exempt on MediaContext's terms; it is what motion-safe and motion-reduce ask
 T:Vixen.Ui.Styling.NameTable sweep-pending
 T:Vixen.Ui.Styling.NamedColors sweep-pending
 T:Vixen.Ui.Styling.PointerCapability sweep-with-MediaContext — one axis of MediaPreferences and exempt on MediaContext's terms; why its zero is Unspecified rather than the empty set CSS calls none is on the type
@@ -3704,8 +3699,6 @@ T:Vixen.Ui.TextLine sweep-pending
 T:Vixen.Ui.TextRun sweep-pending
 T:Vixen.Ui.TransformEvent sweep-pending
 T:Vixen.Ui.TransformStage sweep-pending
-T:Vixen.Ui.UiDocument sweep-pending
-T:Vixen.Ui.UiElement sweep-pending
 T:Vixen.Ui.UiEvent sweep-pending
 T:Vixen.Ui.UiPropertyAttribute sweep-pending
 T:Vixen.Ui.UiPropertyKey sweep-pending

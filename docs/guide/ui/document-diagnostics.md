@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.UiDiagnostics, T:Vixen.Ui.UiBoxModel, T:Vixen.Ui.UiDirtyRegion,
 tags: [ui, diagnostics, overlay, performance, troubleshooting, layout]
 since: 0.2
 status: preview
-related: [ui/stylesheet-diagnostics, ui/desktop-application]
+related: [ui/stylesheet-diagnostics, ui/desktop-application, ui/diagnostics-panel]
 ---
 
 ## What it is

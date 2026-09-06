@@ -8,7 +8,7 @@ api: [T:Vixen.Ui.IEditableDocument, T:Vixen.Ui.EditableDocument, T:Vixen.Ui.Docu
 tags: [ui, documents, commands, save, windows]
 since: 0.2
 status: preview
-related: [ui/commands, ui/undo, ui/desktop-application]
+related: [ui/commands, ui/undo, ui/desktop-application, ui/ambient-values]
 ---
 
 ## What it is
