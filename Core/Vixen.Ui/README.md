@@ -989,15 +989,27 @@ fades over and the shader's is the half-extent either side of it; passing the wh
 makes every shadow twice as soft as it was asked to be, which reads as a blurry renderer rather than
 as a unit mistake.
 
-⚠ **One shadow, outer only, and not clipped to outside the border box.** CSS takes a comma-separated
-list and an `inset` keyword; a list would be a command each, which is easy, and `inset` is a
-different distance field, which is not — so both are refused rather than half-applied, because the
-first shadow of a list being drawn and the rest silently dropped looks like it worked. The `inset`
-half is the parity ledger's `inset-shadow-*` seen from inside the draw list rather than a second
-decision, so it expires when that row does — `[expires-with inset-shadow-*]`, and
-`RefusalExpiryTests` reads this sentence. And CSS
-punches the box out of its own shadow, where here the blurred box is drawn whole with the background
-on top: visible only under a background that is not opaque.
+⚠ **A list and an `inset` keyword, both of which this refused, and the two refusals fell for
+different reasons.** A list is a command each — easy, and refused only because a first shadow drawn
+with the rest silently dropped looks like it worked; it is read whole or refused whole now, and
+emitted *backwards*, because CSS paints a list front to back and a draw list paints later commands
+over earlier ones. `inset` was the hard half and it is a second distance field rather than a flag:
+the region between the border box and a rectangle offset and shrunk inside it, carried by
+`UiShape.Inset` and taken as one minus that rectangle's coverage, masked to the box. ⚠ **And it is
+painted above the background rather than below it** — CSS Backgrounds 3 § 7.1.1's other answer, which
+is why `EmitShadows` runs twice over one list. Emitted whole before the fill, every inner shadow
+lands under the thing casting it, which is nothing at all on any element with an opaque background:
+every element the declaration is written on.
+
+⚠ **An inner shadow with nothing between its two rectangles is dropped, and that is CSS rather than
+an optimisation.** With no offset, no spread and no blur the two rectangles are the same one and the
+region is empty; the fragment stage cannot say so, because it reaches "empty" as one minus the box's
+own coverage and an antialiased edge is a half — a quarter of the shadow's colour all the way round.
+`box-shadow: inset 0 0 0 0 red` drew that ring, and `UtilityComposition.Shadows` puts exactly that
+shadow under every element carrying a `shadow-*` or a `ring-*`.
+
+And CSS punches the box out of its own *outer* shadow, where here the blurred box is drawn whole with
+the background on top: visible only under a background that is not opaque.
 
 ## Input
 

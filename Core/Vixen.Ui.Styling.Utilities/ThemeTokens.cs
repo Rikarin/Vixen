@@ -107,6 +107,19 @@ public sealed class ThemeTokens {
     /// </remarks>
     public Dictionary<string, string> Shadow { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>Inner shadows, as the <c>box-shadow</c> text they stand for, keyed by suffix.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A namespace of its own for <see cref="DropShadow" />'s reason, and the values are not
+    ///     the same numbers with a keyword in front.</b> An outer shadow is read as height above the
+    ///     surface and is mostly hidden behind the thing casting it; an inner one is read as depth
+    ///     below it and every pixel of it is seen, so v4's scale is shorter and much tighter — three
+    ///     steps against seven, none of them offset by more than two points. Reading a
+    ///     <c>--shadow-*</c> here would put a twenty-five-point blur inside a button.
+    ///     ⚠ The <c>inset</c> keyword is part of the token rather than added when it is used. See
+    ///     <c>UtilityComposition.InsetShadow</c>, whose initial is deliberately not an inner shadow.
+    /// </remarks>
+    public Dictionary<string, string> InsetShadow { get; } = new(StringComparer.Ordinal);
+
     /// <summary>Drop shadows, as the <c>drop-shadow()</c> arguments they stand for, keyed by suffix.</summary>
     /// <remarks>
     ///     <para>
@@ -455,6 +468,16 @@ public sealed class ThemeTokens {
             return;
         }
 
+        // ⚠ Before `--shadow-` on exactly the argument the branch above makes, and here the guard is
+        // one character from being load-bearing rather than defensive: `--inset-shadow-sm` does not
+        // begin with `--shadow-` either, so the two cannot collide while `Suffix` anchors at the
+        // start — and a `Suffix` that matched anywhere would file every inner shadow as an outer one,
+        // which is a token that resolves and a picture inside out.
+        if (Suffix(name, "--inset-shadow-") is { } inner) {
+            InsetShadow[inner] = value;
+            return;
+        }
+
         if (Suffix(name, "--shadow-") is { } shadow) {
             Shadow[shadow] = value;
             return;
@@ -572,6 +595,7 @@ public sealed class ThemeTokens {
         Drop(Colors, "--color-");
         Drop(Radius, "--radius-");
         Drop(Shadow, "--shadow-");
+        Drop(InsetShadow, "--inset-shadow-");
         Drop(DropShadow, "--drop-shadow-");
         Drop(FontWeight, "--font-weight-");
         Drop(FontFamily, "--font-");

@@ -211,6 +211,10 @@ static class UtilityConsumptionProbe {
     ///     at all and the family is measured on its <c>none</c> keyword alone, which exercises the
     ///     theme lookup not at all. ⚠ And it carries no comma, deliberately: a <c>box-shadow</c> may
     ///     be a comma-separated list and an item of <c>filter</c> may not.
+    ///     ⚠ <c>--inset-shadow-probe</c> is a THIRD, for the same reason and against the third
+    ///     namespace: <c>inset-shadow-*</c> would otherwise be measured on its <c>none</c> keyword
+    ///     alone. It carries the <c>inset</c> keyword because the token does — see
+    ///     <c>UtilityComposition.InsetShadow</c>, whose slot is not an inner shadow.
     /// </remarks>
     /// <remarks>
     ///     ⚠ <b>And <c>--*: initial;</c> before any of it, which keeps the gate measuring what it
@@ -234,6 +238,7 @@ static class UtilityConsumptionProbe {
             --breakpoint-probe: 640px;
             --blur-probe: 6px;
             --shadow-probe: 0px 3px 6px rgba(0, 0, 0, 0.5);
+            --inset-shadow-probe: inset 0px 3px 6px rgba(0, 0, 0, 0.5);
             --drop-shadow-probe: 0px 3px 4px rgba(0, 0, 0, 0.4);
             --dark-mode: media;
         }

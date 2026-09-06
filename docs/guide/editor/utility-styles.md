@@ -224,9 +224,19 @@ version of Tailwind has ever emitted for it.** `ring-2` is `box-shadow: 0 0 0 2p
 spread with no offset and no blur, which the draw list paints as a rounded box just outside the
 border box. It costs the layout nothing, per CSS UI 4 § 2.1. The width and the colour are separate
 classes that compose — `ring-2 ring-accent` — and a bare `ring` is one pixel, which is v4's meaning
-(v3's three-pixel `ring` is `ring-3`). ⚠ One limit: a `ring-*` and a `shadow-*` on the same element
-write the same property, so the cascade picks one. CSS layers them by comma and the draw list refuses
-a comma list outright rather than painting the first and dropping the rest.
+(v3's three-pixel `ring` is `ring-3`). ⚠ **The limit this said it had is gone**: `ring-2 shadow-lg`
+on one element used to write `box-shadow` twice and let the cascade keep one, and a comma list was
+refused outright anyway. Both closed — the draw list paints a list, a command each, and all four
+families now fill slots of one assembled declaration.
+
+⚠ **`inset-shadow-*` and `inset-ring-*` are the inner twins, and one keyword's difference is a whole
+other draw path.** An outer shadow is the border box grown by the spread and painted *below* the
+background; an inner one is the region between the border box and that box shrunk by the spread,
+painted *above* it — CSS Backgrounds 3 § 7.1.1's other answer, which is why an inner shadow shows on
+an opaque element at all. `inset-shadow-*` reads a scale of its own, `--inset-shadow-*`: three steps
+against the outer scale's seven, and much tighter, because every pixel of an inner shadow is seen
+where an outer one is seen at its edge. `inset-ring-*` is `ring-*`'s width and colour with the
+keyword in front. All four compose: `inset-shadow-sm inset-ring-2 ring-2 shadow-lg` is four things.
 
 ⚠ **`fill-*` and `stroke-*` reach `Icon`, and they inherit** — which is what makes them useful, since
 the class goes on the button and the `<icon>` is a child. They override the paints an icon declared

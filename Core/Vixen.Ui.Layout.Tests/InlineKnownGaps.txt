@@ -107,12 +107,17 @@ anonymous block boxes (§9.2.1.1)  a block container holding both kinds of child
 # give every fragment `Ends.Both` and is a handful of lines on top; the root stays unregistered until
 # somebody writes them.
 #
-# ⚠ ONE DIVERGENCE THIS INTRODUCED, deliberately, and it is the only place `slice` and per-fragment
-# painting differ: a `linear-gradient` background is now laid over each fragment on its own, where
-# `slice` runs one gradient across the unbroken box and cuts it at the breaks. So a two-line gradient
-# span restarts its ramp on the second line. Closing it needs the gradient emitted over the union and
-# clipped per fragment — a clip push and pop per fragment, for a declaration nothing in this
-# repository writes yet.
+# ⚠ THE ONE DIVERGENCE THIS INTRODUCED IS CLOSED, and the shape it closed in is not the shape it was
+# filed in. A `linear-gradient` was laid over each fragment on its own — `clone`'s answer on a box
+# painting `slice` everywhere else — so a two-line gradient span restarted its ramp on the second
+# line. `DrawListBuilder.EmitGradient` now takes the unbroken box alongside the fragment: the ramp's
+# direction, its positioning area and its reach are asked of the union, and the offset between the two
+# centres goes in the tile lane the side buffer already has for `background-position`. ⚠ Emitting one
+# command over the union and clipping it per fragment — what this said was needed — would have thrown
+# away the fragment's own corners, because `DrawCommandKind.ClipPush` carries ONE scalar radius and a
+# fragment's four deliberately disagree. Pinned in pixels by
+# `Core/Vixen.Ui.Testing.Tests/InlineGradientSlicePixelTests.cs`, against the picture a single
+# unbroken box of the same size paints, which is what `slice` means.
 #
 # ⚠ Worth knowing before touching that fixture: a `display: inline` element only fragments when its
 # CONTAINER runs the block or inline algorithm. This store's default display is flex, so a plain

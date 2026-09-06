@@ -120,22 +120,38 @@ public class UtilityFamilyTests {
     [InlineData(
         "shadow",
         "--tw-shadow: 0px 1px 2px rgba(0, 0, 0, 0.3)"
-        + "|box-shadow: 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
     )]
     [InlineData(
         "shadow-lg",
         "--tw-shadow: 0px 8px 24px rgba(0, 0, 0, 0.45)"
-        + "|box-shadow: 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
     )]
     [InlineData(
         "shadow-none",
         "--tw-shadow: 0 0 transparent"
-        + "|box-shadow: 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
     )]
     [InlineData(
         "ring-2",
         "--tw-ring-width: 2px"
-        + "|box-shadow: 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+    )]
+    // ⚠ <b>The two inner families emit into the same assembled `box-shadow`, which is the whole
+    // reason they are fragments rather than a second declaration.</b> `inset-shadow-sm shadow-lg
+    // ring-2` is three things on one element; three families writing one longhand would be the
+    // cascade picking one. ⚠ `inset-shadow-sm` itself cannot be a row here: this fixture is doc 09's
+    // theme verbatim and has no `--inset-shadow-*` namespace, so the keyword and the width are what
+    // this theme can say.
+    [InlineData(
+        "inset-shadow-none",
+        "--tw-inset-shadow: 0 0 transparent"
+        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
+    )]
+    [InlineData(
+        "inset-ring-2",
+        "--tw-inset-ring-width: 2px"
+        + "|box-shadow: var(--tw-inset-shadow, 0 0 transparent), inset 0 0 0 var(--tw-inset-ring-width, 0px) var(--tw-inset-ring-color, currentcolor), 0 0 0 var(--tw-ring-width, 0px) var(--tw-ring-color, currentcolor), var(--tw-shadow, 0 0 transparent)"
     )]
     [InlineData("mask-none", "mask-image: none")]
     // ⚠ The assembled `mask-image` is what these rows are really about. Each stop family sets one

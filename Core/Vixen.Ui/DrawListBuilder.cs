@@ -247,6 +247,7 @@ public sealed class DrawListBuilder {
     readonly int keywordDotted;
     readonly int boxShadow;
     readonly int currentColor;
+    readonly int currentColorSpelt;
     readonly int inset;
     readonly int rtl;
     readonly int forcedColorAdjust;
@@ -504,6 +505,23 @@ public sealed class DrawListBuilder {
         // are separate — interning here from the wrong one gives an id that can never compare equal
         // and a `currentcolor` that silently refuses the declaration instead of resolving it.
         currentColor = keywords.Intern("currentcolor");
+
+        // ⚠ <b>And the same keyword spelt the way ExCSS hands it over, which is the only spelling a
+        // hand-written stylesheet can ever produce.</b> A CSS keyword is ASCII case-insensitive, and
+        // `StyleValueParser` interns the identifier's text verbatim — so the two spellings are two
+        // ids. ExCSS canonicalises the author's `currentcolor` to `currentColor` while parsing, and
+        // the lowercase one only ever arrives through a `var()` fallback, which is substituted after
+        // parsing and therefore keeps whatever `UtilityComposition` wrote. So
+        // `box-shadow: 0 0 0 2px currentcolor` written in a `.vcss` refused the whole declaration and
+        // painted NOTHING, while `ring-2` — the same keyword, arriving inside a `var()` — painted
+        // perfectly. Two spellings of one keyword hid it: every fixture in the tree reaches this
+        // through the composition.
+        //
+        // ⚠ This pins one keyword rather than folding every identifier's case at the intern, which is
+        // the general fix and is not this file's to make: a keyword there is any identifier the parser
+        // did not recognise, custom idents included, and lowercasing those changes what every other
+        // consumer compares. Filed separately.
+        currentColorSpelt = keywords.Intern("currentColor");
 
         // ⚠ The keywords table for `currentcolor`'s reason, and it is the same trap: `inset` is an
         // identifier `StyleValueParser` does not recognise as a colour, so it arrives interned there.
@@ -1027,7 +1045,8 @@ public sealed class DrawListBuilder {
                     down,
                     sliced,
                     count == 1 ? radius : sliced.IsUniformCircular(out var sameCircle) ? sameCircle : 0f,
-                    ends
+                    ends,
+                    count > 1
                 );
             }
         }
@@ -1093,7 +1112,8 @@ public sealed class DrawListBuilder {
             float boxHeight,
             CornerRadii boxCorners,
             float boxRadius,
-            LayoutFragmentEnds ends
+            LayoutFragmentEnds ends,
+            bool fragmented
         ) {
             // Below the background, which is where CSS paints an *outer* shadow: it is cast by the
             // box and therefore lies under it, and an element with a translucent background shows its
@@ -1124,7 +1144,26 @@ public sealed class DrawListBuilder {
                 );
             }
 
-            EmitGradient(element, into, boxX, boxY, boxWidth, boxHeight, boxCorners, boxRadius, alpha);
+            // ⚠ <b>The union goes with the fragment, and this is the one decoration that reads both.</b>
+            // CSS Display §2.2's `slice` — the initial `box-decoration-break` — paints the background
+            // as though the box were never broken and then cuts it at the breaks, so a
+            // `linear-gradient` runs ONE ramp from the start of the first fragment to the end of the
+            // last. Every other call in this block is a function of the fragment alone; a gradient is
+            // a function of the fragment (what it covers) and of the union (where along the ramp it
+            // is), and passing only the first was `clone`'s answer on a box painting `slice`
+            // everywhere else.
+            EmitGradient(
+                element,
+                into,
+                boxX,
+                boxY,
+                boxWidth,
+                boxHeight,
+                boxCorners,
+                boxRadius,
+                alpha,
+                fragmented ? (x, y, width, height) : null
+            );
 
             // ⚠ <b>Above the background and below the border, and the whole feature turns on it.</b> An
             // `inset` shadow is drawn inside the box, so a list emitted whole before the background
@@ -2219,7 +2258,8 @@ public sealed class DrawListBuilder {
                 // — resolves through this branch. Without it the fallback would have had to be some
                 // concrete colour nobody chose, or `transparent`, which would make `ring-2` cascade
                 // perfectly and paint nothing.
-                case StyleValueKind.Keyword when item.Keyword == currentColor:
+                case StyleValueKind.Keyword when item.Keyword == currentColor
+                    || item.Keyword == currentColorSpelt:
                     shade = document.ForegroundOf(element);
                     continue;
 
@@ -2330,6 +2370,21 @@ public sealed class DrawListBuilder {
         // and the offset and the spread go in the record for the fragment stage to build the other
         // one from. Every other lane is exactly what an unshadowed box of this size would write.
         if (shadow.Inset) {
+            // ⚠ <b>An inner shadow with nothing to draw between covers no area at all, and left in it
+            // paints a rim.</b> The region is the border box minus the border box displaced by the
+            // offset and shrunk by the spread — so with no offset, no spread and no blur the two
+            // rectangles are the same one and CSS renders nothing. The fragment stage cannot say that:
+            // it takes one minus the inner rectangle's coverage and masks it to the box, and at an
+            // antialiased edge both numbers are a half, so a quarter of the shadow's colour survives
+            // all the way round. A hand-written `box-shadow: inset 0 0 0 0 red` drew that ring, and
+            // `UtilityComposition.Shadows` would have put one under every element carrying a
+            // `shadow-*` or a `ring-*` the moment an inner slot joined the list with a zero-width
+            // initial — the same shape of cost the transparent drop above exists for, arriving
+            // through the geometry rather than through the colour.
+            if (spread <= 0f && shadow.Falloff <= 0f && shadow.X == 0f && shadow.Y == 0f) {
+                return;
+            }
+
             into.Add(
                 Styled(
                     new DrawCommand(
@@ -2944,7 +2999,12 @@ public sealed class DrawListBuilder {
                     shade = item.Color;
                     continue;
 
-                case StyleValueKind.Keyword when item.Keyword == currentColor && shade is null:
+                // Both spellings, for the reason the constructor gives — and here it is a prediction
+                // rather than a measurement: this text reaches the parser out of a function's
+                // arguments, which ExCSS may or may not canonicalise the way it does a plain value.
+                // Accepting the keyword either way costs a comparison and cannot be wrong.
+                case StyleValueKind.Keyword
+                    when (item.Keyword == currentColor || item.Keyword == currentColorSpelt) && shade is null:
                     shade = document.ForegroundOf(element);
                     continue;
 
@@ -3731,6 +3791,7 @@ public sealed class DrawListBuilder {
     ///         <see cref="GradientRefusal" /> for the whole argument.
     ///     </para>
     /// </remarks>
+    // `union` is the whole unbroken box this rectangle is a fragment of, or null where it *is* the box.
     void EmitGradient(
         UiElement element,
         DrawList into,
@@ -3740,7 +3801,8 @@ public sealed class DrawListBuilder {
         float height,
         CornerRadii corners,
         float radius,
-        float alpha
+        float alpha,
+        (float X, float Y, float Width, float Height)? union = null
     ) {
         if (!element.Style.TryGet(backgroundImage, out var id)) {
             return;
@@ -3752,7 +3814,15 @@ public sealed class DrawListBuilder {
             return;
         }
 
-        var axis = gradient.Axis(width, height);
+        // ⚠ <b>Every question about the ramp is asked of the unbroken box and every question about
+        // the shape is asked of the fragment</b> — the direction a `to bottom right` resolves to, the
+        // positioning area a `background-size` lands in, and how far a radial one reaches are all
+        // properties of the box CSS says was never broken. `null` is the ordinary case and is
+        // literally the fragment, so the four algorithms with one box are byte for byte what they
+        // were.
+        var (rampX, rampY, rampWidth, rampHeight) = union ?? (x, y, width, height);
+
+        var axis = gradient.Axis(rampWidth, rampHeight);
 
         // ⚠ A degenerate box has no direction to run a linear ramp along, and there is nothing to see
         // at this size either way; not emitting says so honestly. Tested on the *shape* rather than on
@@ -3762,8 +3832,34 @@ public sealed class DrawListBuilder {
             return;
         }
 
-        var (areaCentre, areaHalf) = PaintArea(element, width, height);
-        var (paintCentre, paintExtent) = RampFrame(gradient, areaHalf, new Vector2(width, height) * 0.5f);
+        var (areaCentre, areaHalf) = PaintArea(element, rampWidth, rampHeight);
+        var (paintCentre, paintExtent) = RampFrame(gradient, areaHalf, new Vector2(rampWidth, rampHeight) * 0.5f);
+
+        if (union is not null) {
+            // ⚠ <b>The cut is expressed as the tile lane rather than as a clip, and that is what keeps
+            // the fragment's own rounded ends.</b> `AreaCentre` is where the tile's centre sits
+            // relative to the box the command draws, so moving it by the offset between the two
+            // centres puts every pixel of this fragment where it would have been in the unbroken box —
+            // and the fragment's rectangle still decides what is covered, so the "cut" costs nothing.
+            // Emitting the ramp over the union and clipping it per fragment — the shape this was
+            // filed as — would have thrown away exactly that: `DrawCommandKind.ClipPush` carries one
+            // scalar radius, and a fragment's four corners deliberately disagree (see `Slice`).
+            //
+            // ⚠ <b>And the tile is positive on both axes when nothing stated one, which is the
+            // sentinel's other reading rather than a choice about `background-repeat`.</b> `PaintArea`
+            // writes nothing at all for a box that stated neither a size nor a position, because a
+            // negative — clipping — half whose tile IS the box multiplies the box's own antialiased
+            // edge by itself and darkens every gradient in the interface by a quarter of a pixel. A
+            // tiling half cannot clip, so it reaches this fragment with the coverage it had.
+            if (areaHalf == Vector2.Zero) {
+                areaHalf = new Vector2(rampWidth, rampHeight) * 0.5f;
+            }
+
+            areaCentre += new Vector2(
+                rampX + (rampWidth * 0.5f) - x - (width * 0.5f),
+                rampY + (rampHeight * 0.5f) - y - (height * 0.5f)
+            );
+        }
 
         // ⚠ Unconditionally into the side buffer, unlike `Styled`. The cheap path exists because a
         // uniformly rounded box needs nothing but its scalar radius — and a gradient is precisely a

@@ -134,6 +134,15 @@ enum ValueKind : byte {
     /// <summary>A whole <c>box-shadow</c> declaration named by a token: <c>shadow-lg</c>.</summary>
     Shadow,
 
+    /// <summary>A whole <c>inset</c> shadow named by a token: <c>inset-shadow-sm</c>.</summary>
+    /// <remarks>
+    ///     ⚠ Its own kind rather than <see cref="Shadow" /> against a second table, for
+    ///     <see cref="DropShadow" />'s reason: the two namespaces are different scales in v4 and have
+    ///     to be, because an inner shadow is seen whole where an outer one is seen at its edge. See
+    ///     <see cref="ThemeTokens.InsetShadow" />.
+    /// </remarks>
+    InsetShadow,
+
     /// <summary>A <c>drop-shadow()</c>'s arguments named by a token: <c>drop-shadow-lg</c>.</summary>
     /// <remarks>
     ///     ⚠ Its own kind rather than <see cref="Shadow" /> against a second table, because the two
@@ -319,7 +328,7 @@ public static class UtilityFamilies {
         /// </remarks>
         public SlashMeaning Slash { get; init; } = Kind switch {
             ValueKind.Color or ValueKind.BorderEdge or ValueKind.Shadow or ValueKind.DropShadow
-                or ValueKind.GradientStop => SlashMeaning.Opacity,
+                or ValueKind.InsetShadow or ValueKind.GradientStop => SlashMeaning.Opacity,
             ValueKind.Size => SlashMeaning.Fraction,
             ValueKind.FontSize => SlashMeaning.Leading,
             _ => SlashMeaning.None
@@ -2239,6 +2248,46 @@ public static class UtilityFamilies {
             Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
         ));
 
+        // ⚠ <b>The inner twin of the family above, and it waited on a draw path rather than on a
+        // registration.</b> `box-shadow` has been read for as long as `shadow-*` has existed, so
+        // registering this before an inner shadow was painted would have scored the consumption gate
+        // green over a class that moved no pixel — doc 43 § F8's shape 3, the one no per-property
+        // measurement can catch. `DrawListBuilder.EmitShadow` reads the `inset` keyword since
+        // 2026-09-06 and `InsetShadowPixelTests` holds it to a closed form, which is what makes this
+        // a registration rather than a promise.
+        //
+        // ⚠ <b>Its own theme namespace, and the values are not the outer scale read inwards.</b> An
+        // outer shadow is seen at its edge and an inner one is seen whole, over the element's own
+        // background — see `--inset-shadow-*` in `vixen.default.vcss`, three steps against seven.
+        Register(new Family(
+            "inset-shadow",
+            ValueKind.InsetShadow,
+            [UtilityComposition.InsetShadow],
+            new Dictionary<string, string>(StringComparer.Ordinal) {
+                ["none"] = UtilityComposition.InsetShadow + ":0 0 transparent"
+            },
+            Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
+        ));
+
+        // ⚠ <b><c>ring-*</c>'s two fragments and one keyword's difference, which is a whole other
+        // draw path.</b> An outer ring is the border box grown by the spread and painted behind it;
+        // an inner one is the region between the box and the box shrunk by the spread, painted over
+        // the background. `BorderEdge` for `ring-*`'s reason — `inset-ring-2` is a width and
+        // `inset-ring-accent` is a colour, told apart by the value's shape.
+        //
+        // ⚠ <b>The zero-width initial is only safe because a degenerate inner shadow is dropped.</b>
+        // A zero-spread outer ring is a shadow the size of the border box, hidden behind it; its
+        // inner twin covers nothing, and the fragment stage reaches "nothing" as one minus the box's
+        // own coverage — a quarter of the ring's colour around every antialiased edge. See
+        // `UtilityComposition.InsetRingWidth`, and `EmitOneShadow`, where CSS's answer is enforced.
+        Register(new Family(
+            "inset-ring",
+            ValueKind.BorderEdge,
+            [UtilityComposition.InsetRingWidth],
+            ColorProperties: [UtilityComposition.InsetRingColor],
+            Alongside: [new UtilityDeclaration("box-shadow", UtilityComposition.Shadows())]
+        ));
+
         // ── Transforms ──────────────────────────────────────────────────────────────────────
         //
         // ⚠ <b>All four of these emitted a <c>--</c> name of their own invention, and only two of
@@ -2645,20 +2694,23 @@ public static class UtilityFamilies {
         //
         //   ⚠ <b>3. The property is READ, and the value is refused — so the gate stays green over a
         //   class that paints nothing.</b> The dangerous kind, and the one this table has to catch
-        //   by hand because no per-property measurement can. `inset-shadow-*` and `inset-ring-*`
-        //   emit `box-shadow`, which is read — but `DrawListBuilder.EmitShadow` refuses the `inset`
-        //   keyword outright and says why, and `box-shadow: inset 0 2px 4px #000` moves no channel
-        //   in any scene while `box-shadow: 0 2px 4px #000` moves paint. ⚠ <b>`ring-offset-*` used to
-        //   be worse than inert and is not any more, and the half that changed is worth reading.</b>
-        //   An offset ring is a two-shadow *list*, and `EmitShadow` refused lists — so a
-        //   `ring-offset-2` beside a `ring-2` would have stopped the ring painting at all. Lists are
-        //   painted now, a command each, last to first (`Rikarin/Vixen#279`). What still blocks the
-        //   root is the last third of that issue, and ⚠ <b>the `calc()` clause that used to stand
-        //   here expired on 2026-09-05</b>: v4 writes the outer ring's spread as
+        //   by hand because no per-property measurement can. ⚠ <b>Two of this shape's three examples
+        //   have now closed, and neither closed by being registered — they closed by the value
+        //   becoming one the engine reads.</b> `inset-shadow-*` and `inset-ring-*` emit `box-shadow`,
+        //   which has always been read, and `box-shadow: inset 0 2px 4px #000` moved no channel in any
+        //   scene while `box-shadow: 0 2px 4px #000` moved paint — so a registration would have scored
+        //   the gate green over a class that painted nothing. `EmitShadow` reads the keyword since
+        //   2026-09-06 and both roots are registered above, each with a per-value pixel assertion the
+        //   gate could not make. ⚠ <b>`ring-offset-*` is the one still open, and it has been worse
+        //   than inert and is not any more.</b> An offset ring is a two-shadow *list*, and
+        //   `EmitShadow` refused lists — so a `ring-offset-2` beside a `ring-2` would have stopped the
+        //   ring painting at all. Lists are painted now, a command each, last to first
+        //   (`Rikarin/Vixen#279`), and ⚠ <b>the `calc()` clause that used to stand here expired on
+        //   2026-09-05</b>: v4 writes the outer ring's spread as
         //   `calc(var(--tw-ring-offset-width) + var(--tw-ring-width))`, and `StyleValueParser` folds
-        //   that now — fold or refuse, so a mixed-unit expression is still `Unknown`. What is left
-        //   is the five-fragment composition, which is what makes `shadow-lg ring-2` stop being
-        //   "the cascade picks one", and `UtilityComposition` carries no offset fragment at all. ⚠ <b>`stroke-none` was the third example here and is now closed, which is worth
+        //   that now — fold or refuse, so a mixed-unit expression is still `Unknown`. What is left is
+        //   a `--tw-ring-offset-width` fragment and the second shadow that reads it; the collision the
+        //   five slots were wanted for closed with four. ⚠ <b>`stroke-none` was the third example here and is now closed, which is worth
         //   keeping because of *how*: not by a registration but by a reading.</b> `Icon.Resolve`
         //   asked `ColorOf` for the slot and fell back to the foreground for anything that was not
         //   a colour, so `stroke: none` stroked. `UiDocument.KeywordOf` — the fourth reading beside
@@ -2929,6 +2981,13 @@ public static class UtilityFamilies {
 
                 break;
 
+            case ValueKind.InsetShadow:
+                foreach (var shadow in First(tokens.InsetShadow.Keys)) {
+                    yield return shadow;
+                }
+
+                break;
+
             case ValueKind.DropShadow:
                 foreach (var shadow in First(tokens.DropShadow.Keys)) {
                     yield return shadow;
@@ -3187,6 +3246,7 @@ public static class UtilityFamilies {
             ValueKind.Color => TryColor(candidate, tokens, out var colour) && Emit(family, colour, declarations),
             ValueKind.BorderEdge => TryBorderEdge(family, candidate, tokens, declarations),
             ValueKind.Shadow => TryShadow(family, candidate, tokens, declarations),
+            ValueKind.InsetShadow => TryInsetShadow(family, candidate, tokens, declarations),
             ValueKind.DropShadow => TryDropShadow(family, candidate, tokens, declarations),
             ValueKind.GradientStop => TryGradientStop(family, candidate, tokens, declarations),
             _ => false
@@ -3308,6 +3368,23 @@ public static class UtilityFamilies {
     static bool TryShadow(Family family, UtilityCandidate candidate, ThemeTokens tokens, List<UtilityDeclaration> declarations) {
         var key = candidate.Value.Length == 0 ? ThemeTokens.DefaultKey : candidate.Value;
         return tokens.Shadow.TryGetValue(key, out var shadow) && Emit(family, shadow, declarations);
+    }
+
+    /// <summary>A named inner shadow, out of the namespace of its own that v4 gives them.</summary>
+    /// <remarks>
+    ///     <see cref="TryShadow" />'s shape against <see cref="ThemeTokens.InsetShadow" />, and what
+    ///     lands in <paramref name="declarations" /> is a <c>--tw-*</c> fragment that
+    ///     <c>UtilityComposition.Shadows</c> assembles rather than the <c>box-shadow</c> itself — so
+    ///     that <c>inset-shadow-sm shadow-lg ring-2</c> on one element is all three.
+    /// </remarks>
+    static bool TryInsetShadow(
+        Family family,
+        UtilityCandidate candidate,
+        ThemeTokens tokens,
+        List<UtilityDeclaration> declarations
+    ) {
+        var key = candidate.Value.Length == 0 ? ThemeTokens.DefaultKey : candidate.Value;
+        return tokens.InsetShadow.TryGetValue(key, out var shadow) && Emit(family, shadow, declarations);
     }
 
     /// <summary>A named drop shadow, or the theme's default one for a bare <c>drop-shadow</c>.</summary>

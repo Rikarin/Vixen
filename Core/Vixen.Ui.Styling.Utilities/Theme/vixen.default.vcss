@@ -23,9 +23,10 @@
    divergence is documented in docs/plan/43 § D1 and it is the emission, not the model.
 
    ⚠ **What is deliberately not here.** `--tracking-*`, `--leading-*`,
-   `--inset-shadow-*`, `--text-shadow-*`, `--ease-*`, `--animate-*`,
+   `--text-shadow-*`, `--ease-*`, `--animate-*`,
    `--perspective-*` and `--aspect-*` are v4 namespaces no utility family in this
-   engine reads yet. `--drop-shadow-*` left this list when `drop-shadow-*` arrived, which is what
+   engine reads yet. `--drop-shadow-*` left this list when `drop-shadow-*` arrived, and
+   `--inset-shadow-*` left it when `inset-shadow-*` did, which is what
    the last sentence of this paragraph says happens. Shipping them would emit variables that resolve and utilities that do not,
    which is the failure mode docs/plan/43 spends Part 1 measuring. They arrive with their
    families. */
@@ -474,6 +475,21 @@
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
     --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
     --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+    /* ── Inner shadows ─────────────────────────────────────────────────────
+       v4's third shadow namespace, and the `inset` keyword is part of each token rather than
+       something the utility adds — see `UtilityComposition.InsetShadow`, whose unset slot is
+       deliberately NOT an inner shadow.
+
+       ⚠ **Three steps against the seven above, and much tighter numbers.** An outer shadow is
+       mostly hidden behind the thing casting it and only its edge is seen; every pixel of an
+       inner one is seen, over the element's own background. The same scale read inwards would
+       put a twenty-five-point blur inside a button, which is why this is a namespace and not a
+       keyword on the one above.
+       */
+    --inset-shadow-2xs: inset 0 1px rgb(0 0 0 / 0.05);
+    --inset-shadow-xs: inset 0 1px 1px rgb(0 0 0 / 0.05);
+    --inset-shadow-sm: inset 0 2px 4px rgb(0 0 0 / 0.05);
 
     /* ── Drop shadows ──────────────────────────────────────────────────────
        v4's own namespace, and not a spelling of the block above. These are the arguments of a
