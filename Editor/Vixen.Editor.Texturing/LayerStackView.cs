@@ -9,6 +9,7 @@ using Vixen.Editor.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
+using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.Texturing;
 
@@ -71,7 +72,7 @@ namespace Vixen.Editor.Texturing;
 ///         is the shape of "the panel is blank".
 ///     </para>
 /// </remarks>
-sealed class LayerStackView {
+sealed class LayerStackView : IDisposable {
     /// <summary>What the legend under the rows says about an unrestricted layer.</summary>
     /// <remarks>
     ///     ⚠ <b>The one defaulting decision in <c>.vxlayers</c> a reader could get wrong, said where
@@ -138,6 +139,22 @@ sealed class LayerStackView {
 
     /// <summary>The last picture, so an edit this view made can redraw without one being handed back.</summary>
     LayerStackPicture? shown;
+
+    /// <summary>What makes an undo taken anywhere else reach these rows. See <see cref="Watch" />.</summary>
+    Effect? watch;
+
+    /// <summary>Which document <see cref="watch" /> is subscribed to.</summary>
+    LayerStackDocument? watched;
+
+    /// <summary>The undo depth these rows were last drawn at.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What keeps the panel's own edits out of its own subscription.</b> A row's edit
+    ///     executes a command and then refreshes on the spot, so the effect that wakes on the same
+    ///     write would recompile the stack a second time on the next frame. Recording the depth on
+    ///     the way through <see cref="Show" /> is what makes the effect fire for changes this view
+    ///     did <em>not</em> make — which is the whole of what it is for.
+    /// </remarks>
+    int watchedDepth;
 
     /// <summary>Whether a control is being written to rather than read from.</summary>
     /// <remarks>
@@ -232,6 +249,24 @@ sealed class LayerStackView {
         Empty = host.Add("layer-stack-empty");
         Empty.Text = "No layer stack is open. Select a .vxlayers in the Project panel and run Open Layer Stack.";
         Empty.SetStyle("display", "none");
+    }
+
+    /// <summary>Stops following the open document's undo stack.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What a caller that <em>replaces</em> this view owes it, and nothing else.</b> The
+    ///     elements go with the panel they were built into; the one thing that outlives them is the
+    ///     edge from <c>CommandStack.Depth</c> into <see cref="Watch" />'s effect, which keeps this
+    ///     view — and therefore every row's closure — alive for as long as the document is open.
+    ///     <c>TexturingModule</c>'s panel factory re-runs on every workspace relayout, so that is the
+    ///     caller with a previous view to end. A view built by
+    ///     <see cref="LayerStackEditorFactory" /> has no such caller and does not need one: its
+    ///     effect stops reading the signal once the root has left the tree, which drops the last edge.
+    /// </remarks>
+    public void Dispose() {
+        watch?.Dispose();
+
+        watch = null;
+        watched = null;
     }
 
     /// <summary>Everything this view built, for a caller that has to hand a root back.</summary>
@@ -346,6 +381,8 @@ sealed class LayerStackView {
     public void Show(LayerStackDocument? document, LayerStackPicture? picture = null) {
         Document = document;
         shown = picture;
+
+        Watch(document);
 
         Empty.SetStyle("display", document is null ? "flex" : "none");
         root.SetStyle("display", document is null ? "none" : "flex");
@@ -1226,6 +1263,82 @@ sealed class LayerStackView {
 
         document.Stack.Execute(new MoveLayerCommand(document, path, delta, name));
         Refresh();
+    }
+
+    /// <summary>Follows a document's undo stack, so a change made anywhere else reaches these rows.</summary>
+    /// <param name="document">The stack to follow, or <see langword="null" /> to stop following one.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/933">#933</a>, and it is the
+    ///         defect this panel's whole undoable model was built for.</b> Every edit a row makes
+    ///         ends in <see cref="Refresh" />, and nothing else did — so Ctrl+Z, taken through the
+    ///         editor's own verb or from any other panel, changed the document and left the
+    ///         <c>Select</c>, the <c>Slider</c>, the ticks and the row order showing what was last
+    ///         clicked. It survived because every test drove a control and then asserted on the
+    ///         <em>document</em>, which is exactly the shape a panel that never reads the document
+    ///         back still satisfies.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Here and not in <c>TexturingModule</c>, which is where the issue proposed it.</b>
+    ///         <see cref="LayerStackEditorFactory" /> builds a view with no module at all — that is
+    ///         the tab a double-click opens — so a subscription owned by the module would leave the
+    ///         one route an artist reaches without opening a panel exactly as broken as before. The
+    ///         view is also the thing that already knows which document its controls close over.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The depth is compared rather than the run counted, and a flag saying "not the
+    ///         first run" is what this had and why it did not work.</b> An effect is <em>queued</em>
+    ///         when it is created rather than executed — <c>EffectScheduler</c>'s first sentence — so
+    ///         its first run is not the constructor, it is the first flush after one, which in a
+    ///         panel that has just been built is the same frame as the artist's first undo. The flag
+    ///         swallowed exactly the refresh it was meant to allow. <c>Depth</c> is also a
+    ///         <c>Computed</c>, so an opacity drag — one merged command — moves the count once and
+    ///         the equality short-circuit stops the effect being woken for the rest of the gesture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The effect belongs to the host document's queue, not the thread's.</b>
+    ///         <c>UiDocument.Effects</c> says why: an editor has several documents on one thread, and
+    ///         flushing the thread's queue runs the bindings of every one of them including the
+    ///         disposed. A view whose root has left the tree stops reading <c>Depth</c> altogether,
+    ///         which drops the last edge and is what unsubscribes it — there is no teardown hook on a
+    ///         panel factory to do it from.
+    ///     </para>
+    /// </remarks>
+    void Watch(LayerStackDocument? document) {
+        if (ReferenceEquals(watched, document)) {
+            // Every refresh comes through here, so this is where "what is on the screen" is recorded.
+            watchedDepth = document?.Stack.Depth.Peek() ?? 0;
+
+            return;
+        }
+
+        watch?.Dispose();
+        watch = null;
+        watched = document;
+
+        if (document is null || root.IsRemoved) {
+            return;
+        }
+
+        watchedDepth = document.Stack.Depth.Peek();
+
+        watch = new Effect(
+            () => {
+                if (root.IsRemoved) {
+                    return;
+                }
+
+                var depth = document.Stack.Depth.Value;
+
+                if (depth == watchedDepth) {
+                    return;
+                }
+
+                watchedDepth = depth;
+                Refresh();
+            },
+            root.Document.Effects
+        );
     }
 
     /// <summary>Redraws after an edit this view made.</summary>

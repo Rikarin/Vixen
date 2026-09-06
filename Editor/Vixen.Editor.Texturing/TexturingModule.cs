@@ -336,6 +336,11 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             StackPanel,
             new StringId("editor.panel.layer-stack", "Layer Stack"),
             panel => {
+                // ⚠ The previous one is ended first, and this factory really does re-run: opening
+                // any other panel relays the workspace out. `LayerStackView` follows the open
+                // document's `CommandStack.Depth` (#933), and that edge outlives the elements — so
+                // a view that was not ended goes on refreshing from a stack it no longer draws.
+                stackView?.Dispose();
                 stackView = new LayerStackView(panel, tool);
 
                 // ⚠ The one line that makes the panel's edits reach the picture. `LayerStackView`

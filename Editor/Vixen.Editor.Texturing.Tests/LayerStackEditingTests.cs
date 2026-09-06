@@ -423,6 +423,69 @@ public class LayerStackEditingTests {
         Assert.NotSame(slider, Find<Slider>(panel, "layer-stack-opacity"));
     }
 
+    /// <summary>⚠ An undo taken outside the panel puts the document's value back on the control.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/933">#933</a>, and it is the defect
+    ///         the whole undoable model was built for.</b> Every other test in this file presses a
+    ///         control and then reads the <em>document</em> — so all of them are green against a
+    ///         panel that never reads the document back. What a person does is press Ctrl+Z, which
+    ///         reaches <c>CommandStack.Undo</c> through the editor's own verb and not through
+    ///         anything in these rows.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The flush is what a frame does, and it is not test ceremony.</b> Writing a signal
+    ///         only queues; <c>EditorShell</c> drains its own document's queue once per frame —
+    ///         <c>UiDocument.Effects</c> says why it is the document's queue and not the thread's —
+    ///         so a test that asserted without flushing would be asserting that the refresh happened
+    ///         at a moment the editor never assigns work to.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_undo_taken_outside_the_panel_reaches_the_controls() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Two());
+        var panel = Panel(fixture);
+
+        // The top row's tick, pressed the way an artist presses it.
+        Ticks(panel, "layer-stack-enabled")[0].Activate();
+
+        Assert.False(Ticks(panel, "layer-stack-enabled")[0].IsChecked);
+        Assert.False(Top(document).Enabled);
+
+        Assert.True(document.Stack.Undo());
+        fixture.Shell.Document.Effects.Flush();
+
+        // ⚠ The document, first: an assertion on the tick alone would pass against a panel that had
+        // simply failed to write the edit through in the first place.
+        Assert.True(Top(document).Enabled);
+        Assert.True(Ticks(panel, "layer-stack-enabled")[0].IsChecked);
+    }
+
+    /// <summary>⚠ And an undone reorder puts the rows back in the order the file has them.</summary>
+    /// <remarks>
+    ///     <b>The other half of <a href="https://github.com/Rikarin/Vixen/issues/933">#933</a>, and a
+    ///     different code path.</b> A value edit is re-read by the row's own binding; a reorder
+    ///     changes the shape signature, so what has to run is the rebuild. A panel that re-read its
+    ///     values and never rebuilt would pass the test above and leave the layers on screen in an
+    ///     order the file no longer has.
+    /// </remarks>
+    [Fact]
+    public void An_undone_reorder_puts_the_rows_back() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Two());
+        var panel = Panel(fixture);
+
+        Buttons(panel, "layer-stack-move-up")[1].Activate();
+
+        Assert.StartsWith("Bottom", Texts(panel, "layer-stack-row-name")[0], StringComparison.Ordinal);
+
+        Assert.True(document.Stack.Undo());
+        fixture.Shell.Document.Effects.Flush();
+
+        Assert.StartsWith("Top", Texts(panel, "layer-stack-row-name")[0], StringComparison.Ordinal);
+    }
+
     /// <summary>⚠ An edit made in the panel is in the file after a save.</summary>
     /// <remarks>
     ///     <b>The sentence <a href="https://github.com/Rikarin/Vixen/issues/819">#819</a> was written
