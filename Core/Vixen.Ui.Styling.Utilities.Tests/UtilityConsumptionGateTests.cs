@@ -414,6 +414,31 @@ public class UtilityConsumptionGateTests {
     public void The_transition_scenes_can_observe_a_running_animation(string property, string value) =>
         Assert.Contains("paint", UtilityConsumptionProbe.Channels(property, value), StringComparer.Ordinal);
 
+    /// <summary>The <c>discrete</c> scene can see a transition that has no midpoint to run through.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The sixth of these controls, and it is the same finding as the three above it: the
+    ///         scenes were the blind spot, not the engine.</b> <c>Animator</c> has interned
+    ///         <c>transition-behavior</c>, read it off both the shorthand and the longhand and gated
+    ///         <c>Observe</c>'s <c>Start</c> on it since #861 — and it measured inert anyway, because
+    ///         every scene's mutation moves <c>background-color</c> and <c>margin-left</c>, both of
+    ///         which interpolate. A property that decides what happens to a pair with no midpoint
+    ///         needs a pair with no midpoint in front of it.
+    ///     </para>
+    ///     <para>
+    ///         <c>allow-discrete</c> and not <c>normal</c>, because <c>normal</c> is CSS's initial
+    ///         value: injecting it reproduces the baseline exactly and would assert that writing the
+    ///         default changes nothing, which is true of every default and evidence of nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_discrete_scene_can_observe_a_transition_with_no_midpoint() =>
+        Assert.Contains(
+            "paint",
+            UtilityConsumptionProbe.Channels("transition-behavior", "allow-discrete"),
+            StringComparer.Ordinal
+        );
+
     /// <summary>The <c>clipped</c> scene can see an ellipsis, which is the fifth of these controls.</summary>
     /// <remarks>
     ///     <para>

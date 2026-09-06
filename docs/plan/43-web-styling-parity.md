@@ -84,7 +84,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **331** | 307 families |
+| Utility **roots** (the unit of this table) | **331** | 309 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **54** |
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **243** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **244** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **24** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **60** |
+| **absent** | not emitted at all | **59** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 
 ⚠ **There was a sixth, `unknown`, and it described a row rather than a state.** Exactly one row held
@@ -500,11 +500,11 @@ refusal block, which already says so for the same reason.
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 |
 | Sizing | 15 | 13 | 0 | 0 | 2 | 0 |
 | Backgrounds | 11 | 6 | 1 | 0 | 4 | 0 |
-| Transitions and Animation | 6 | 4 | 0 | 0 | 2 | 0 |
+| Transitions and Animation | 6 | 5 | 0 | 0 | 1 | 0 |
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
 | Accessibility | 1 | 0 | 0 | 0 | 1 | 0 |
-| **Total** | **331** | **243** | **24** | **1** | **60** | **3** |
+| **Total** | **331** | **244** | **24** | **1** | **59** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Layout at 35 of 50, Interactivity at 30 of 40, Borders at 28 of 34,
