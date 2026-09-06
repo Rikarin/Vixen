@@ -11,8 +11,11 @@
 # what misleads a reader.
 #
 # Sixty-four blocks in fifty-one files were already wrong the day the rule was written. ⚠ They are not
-# `MacWords`, so one public formatter is undocumented and the other is described twice — the #866
-# defect, live, in shipped code, found by the rule's first run. #879 is the task to empty this list.
+# all cosmetic: the rule's first run found `MacFormat`'s entire block stapled above `MacWords` in
+# `Editor/Vixen.Editor.Ui/Commands/KeyChord.cs`, so one public formatter was undocumented and the
+# other described twice — the #866 defect, live, in shipped code. (That one is fixed: the
+# `ShortcutFormat` split rewrote the header, and its line is gone from the list below.) #879 is the
+# task to empty this list.
 #
 # `nuke CheckDocComments` fails when
 #

@@ -398,7 +398,7 @@ sealed class LineBreakRun {
     // a two-dot leader broken across lines — and LB22 is written as "× IN" with no left-hand side, so
     // there is no class either character could be given that would relax the pair without also
     // relaxing `ID IN`, which loose does not.
-    internal LineBreakStrictness strictness;
+    internal LineBreakStrictness Strictness;
 
     /// <summary>How many code points there are.</summary>
     public int Count => classes.Count;
@@ -431,7 +431,7 @@ sealed class LineBreakRun {
     /// <param name="strictness">How strict the typography is. CSS's <c>line-break</c>.</param>
     /// <returns>The resolved run.</returns>
     public static LineBreakRun Resolve(ReadOnlySpan<char> text, WordBreakMode mode, LineBreakStrictness strictness) {
-        var run = new LineBreakRun { strictness = strictness };
+        var run = new LineBreakRun { Strictness = strictness };
         var position = 0;
 
         while (position < text.Length) {
@@ -746,7 +746,7 @@ sealed class LineBreakRun {
         // across lines in a loose column and an ellipsis after an ideograph may still not be pulled
         // off it, so the relaxation is about the *pair* and not about the class.
         if (after == LineBreakClass.IN
-            && !(strictness == LineBreakStrictness.Loose && before == LineBreakClass.IN)) {
+            && !(Strictness == LineBreakStrictness.Loose && before == LineBreakClass.IN)) {
             return false;
         }
 
