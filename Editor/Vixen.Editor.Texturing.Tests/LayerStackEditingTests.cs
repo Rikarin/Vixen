@@ -35,6 +35,9 @@ namespace Vixen.Editor.Texturing.Tests;
 ///     </para>
 /// </remarks>
 public class LayerStackEditingTests {
+    /// <summary>Where <see cref="Viewed" /> puts a view of its own, beside the module's.</summary>
+    const string ViewPanel = "texturing.tests.layer-stack";
+
     /// <summary>Moving a layer up changes which colour the last composite reads.</summary>
     /// <remarks>
     ///     ⚠ <b>The panel draws topmost first and the file stores bottom first, so the button labelled
@@ -653,6 +656,157 @@ public class LayerStackEditingTests {
             .Document.Sets[0], "bottom"));
     }
 
+    /// <summary>⚠ A layer inside a group is not offered its own group, which is a cycle.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/980">#980</a>: the two tests above
+    ///         run on flat stacks, and their own remark says a group is where composite order and row
+    ///         order differ.</b> On a flat stack the two <em>are</em> the same list, so neither could
+    ///         tell the post-order walk from any other ordering, and <c>Anchorable</c>'s group
+    ///         handling — the only non-obvious part of it — was unasserted.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The distinguishing option is the group itself, and nothing else in this fixture
+    ///         is.</b> <c>LayerStackGraph.Stack</c> composites a group's children <em>inside</em> the
+    ///         group's own composite, so the group's blend node exists only after every child's — a
+    ///         child reading it is a loop. A walk that emitted a parent before recursing into it, which
+    ///         is the obvious way to write this, offers <c>'g'</c> to <c>'child'</c>; the panel's own
+    ///         top-to-bottom row order offers the same set as the correct answer here, so the group is
+    ///         the one option that separates right from wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the group <em>is</em> offered its own children, which reads backwards and is
+    ///         the same fact.</b> Its blend node is emitted last, so anchoring onto a child of its own
+    ///         is no cycle at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_layer_inside_a_group_is_not_offered_its_own_group() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, AnchoredInsideAGroup());
+        var set = document.Document.Sets[0];
+
+        // The only anchored row in the fixture, so the only picker with anything in it — found that
+        // way rather than by index, because "which row is the child's" is what the walk decides.
+        var picker = Assert.Single(
+            Controls<Select>(Panel(fixture), "layer-stack-mask-anchor"),
+            one => one.Options.Any()
+        );
+
+        var offered = picker.Options.Select(option => option.Value ?? "").ToArray();
+
+        // Not 'g', which contains it; not 'top', which is composited after the whole group.
+        Assert.Equal([LayerStackView.NoAnchor, "bottom", "inner"], offered);
+        Assert.Equal("inner", picker.Value);
+
+        // The reverse reading, off the model: the group may anchor onto the children it holds.
+        Assert.Equal(["bottom", "inner", "child"], LayerStackView.Anchorable(set, "g"));
+
+        // And the layer above the whole group is offered every one of them.
+        Assert.Equal(["bottom", "inner", "child", "g"], LayerStackView.Anchorable(set, "top"));
+    }
+
+    /// <summary>⚠ An anchor picker walks the set once, however often its row is refreshed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/979">#979</a>.</b> The picker
+    ///         cached what it last offered — and the cache guarded only <c>ClearOptions</c>, while the
+    ///         walk that <em>produces</em> the options ran first and built the key it was compared on.
+    ///         So every anchor-masked row walked the whole layer tree and allocated three collections
+    ///         on every refresh, and a refresh is once per frame of an opacity drag.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because a picker that stopped building options at all would leave the
+    ///         count at zero and read as a perfect result.</b> The options are asserted after the
+    ///         refreshes, so "the work was not repeated" is a claim about work that happened.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A count of work rather than a duration.</b> A wall-clock budget calibrated on an
+    ///         idle laptop is this repository's largest flake source; what the fix claims is a number
+    ///         of walks, so that is what is read.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_anchor_picker_walks_the_set_once_however_often_the_row_refreshes() {
+        using var fixture = new TexturingFixture();
+        var (view, document) = Viewed(fixture, Anchored());
+
+        Assert.Equal(1, view.AnchorWalks);
+
+        // What an opacity drag does: the document is unchanged, so the rows are not rebuilt and every
+        // binding re-reads. Ten frames of one gesture.
+        for (var frame = 0; frame < 10; frame++) {
+            view.Show(document);
+        }
+
+        Assert.Equal(1, view.AnchorWalks);
+
+        var picker = Assert.Single(
+            Controls<Select>(view.Root, "layer-stack-mask-anchor"),
+            one => one.Options.Any()
+        );
+
+        Assert.Equal(
+            [LayerStackView.NoAnchor, "bottom"],
+            picker.Options.Select(option => option.Value ?? "").ToArray()
+        );
+
+        Assert.Equal("bottom", picker.Value);
+    }
+
+    /// <summary>⚠ A refresh keeps the artist's zoom, and a different stack is framed afresh.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The second half of <a href="https://github.com/Rikarin/Vixen/issues/979">#979</a>,
+    ///         and it is <a href="https://github.com/Rikarin/Vixen/issues/957">#957</a>'s defect in
+    ///         the panel #957 did not touch.</b> <c>Show</c> ended in a bare <c>Preview.Fit()</c>,
+    ///         which overwrites <c>Zoom</c> and <c>Pan</c> outright — and <c>Show</c> runs on every
+    ///         edit, so an artist who had zoomed into a corner of the map to see what an opacity drag
+    ///         did lost it on the first frame of the drag.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because "never fit" passes the first one on its own</b> — and never
+    ///         fitting is the worse defect: <c>Fit</c> answers false before the first layout, which is
+    ///         when a panel's first <c>Show</c> runs, so a view that framed once and gave up would
+    ///         open every stack at whatever zoom nothing set. The zoom the artist is given is
+    ///         deliberately not the fitted one, so "it was left alone" is a statement about a number
+    ///         rather than a coincidence.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Refreshing_the_panel_keeps_the_zoom_and_showing_another_stack_refits() {
+        using var fixture = new TexturingFixture();
+        var (view, document) = Viewed(fixture, Two());
+
+        // ⚠ The instrument, and it is the failure this fix could have introduced. `Viewed`'s own
+        // first `Show` runs before the panel is laid out, so `Fit` answered false and framed nothing;
+        // the `Show` inside it after the layout is the retry. A view that gave up leaves these equal.
+        var unframed = view.Preview.Zoom;
+
+        view.Show(document);
+
+        var framed = view.Preview.Zoom;
+
+        Assert.True(
+            framed > 0f && framed != unframed,
+            $"the preview was never framed — it is still at {unframed}, which is the zoom nothing set"
+        );
+
+        view.Preview.Zoom = framed * 4f;
+        view.Preview.Pan = new(11f, 13f);
+
+        // What an edit does: the same stack, recompiled.
+        view.Show(document);
+
+        Assert.Equal(framed * 4f, view.Preview.Zoom);
+        Assert.Equal(new(11f, 13f), view.Preview.Pan);
+
+        // A different stack is a different picture, and is framed.
+        view.Show(Another(fixture, "Tiles", Two()));
+
+        Assert.Equal(framed, view.Preview.Zoom);
+    }
+
     /// <summary>⚠ A row whose id names two layers is listed and carries no controls.</summary>
     /// <remarks>
     ///     <para>
@@ -953,6 +1107,36 @@ public class LayerStackEditingTests {
             Fill("top", "Top", 0.75f)
         );
 
+    /// <summary>⚠ A group, whose second child anchors — the case a flat stack cannot express.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The anchored layer is <em>inside</em> the group and its target is its own sibling</b>,
+    ///     because what separates the post-order walk from a parent-first one is a single option: the
+    ///     group. Every other layer here is offered identically by both. <c>'top'</c> is above the
+    ///     whole group and <c>'bottom'</c> below it, so the group's boundary is crossed in both
+    ///     directions.
+    /// </remarks>
+    static LayerStackAsset AnchoredInsideAGroup() =>
+        Stack(
+            [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+            Fill("bottom", "Bottom", 0.2f),
+            new LayerAsset {
+                Id = "g",
+                Name = "Group",
+                Kind = LayerKind.Group,
+                Children = [
+                    Fill("inner", "Inner", 0.4f),
+                    new LayerAsset {
+                        Id = "child",
+                        Name = "Child",
+                        Kind = LayerKind.Fill,
+                        Values = { ["baseColor"] = [0.6f, 0.6f, 0.6f, 1f] },
+                        Mask = new() { Source = LayerMaskSource.Anchor, Anchor = "inner" }
+                    }
+                ]
+            },
+            Fill("top", "Top", 0.8f)
+        );
+
     static LayerStackAsset Grouped() =>
         Stack(
             [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
@@ -1031,6 +1215,46 @@ public class LayerStackEditingTests {
         return Assert.IsType<LayerStackDocument>(
             fixture.Project.Documents.Single(open => open.Asset == entry.Guid)
         );
+    }
+
+    /// <summary>Opens a stack and puts it in a view this test holds, laid out and framed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Its own panel, because what these two tests read is the <em>view's</em> and the
+    ///         module keeps its own private.</b> Every other test here goes through
+    ///         <see cref="Panel" /> and reads the tree, which is the stronger assertion and the one
+    ///         this file keeps to — but a zoom and a walk count are not elements, and a module that
+    ///         handed its view out would be a seam that exists for xunit.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The first <c>Show</c> is before the layout on purpose.</b> <c>ImageView.Fit</c>
+    ///         answers false with no box to fit against, which is the state a panel's first refresh is
+    ///         really in; a helper that settled first would hide the retry the caller is asserting on.
+    ///     </para>
+    /// </remarks>
+    static (LayerStackView View, LayerStackDocument Document) Viewed(
+        TexturingFixture fixture,
+        LayerStackAsset stack
+    ) {
+        var document = Open(fixture, stack);
+        LayerStackView? built = null;
+
+        fixture.Shell.RegisterPanel(
+            ViewPanel,
+            new StringId("editor.panel." + ViewPanel, "Layers"),
+            panel => built = new LayerStackView(panel)
+        );
+
+        fixture.Shell.Workspace.Open(ViewPanel);
+
+        Assert.NotNull(built);
+
+        built.Show(document);
+
+        fixture.Shell.Document.Update();
+        fixture.Shell.Document.Draw();
+
+        return (built, document);
     }
 
     static UiElement Panel(TexturingFixture fixture) {

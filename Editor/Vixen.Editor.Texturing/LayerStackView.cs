@@ -200,6 +200,24 @@ sealed class LayerStackView : IDisposable {
     /// <summary>The last picture, so an edit this view made can redraw without one being handed back.</summary>
     LayerStackPicture? shown;
 
+    /// <summary>Which document the preview was last framed for. See <see cref="Show" />.</summary>
+    LayerStackDocument? framed;
+
+    /// <summary>The width it was framed at.</summary>
+    int framedWidth;
+
+    /// <summary>The height it was framed at.</summary>
+    int framedHeight;
+
+    /// <summary>Whether <c>ImageView.Fit</c> had a box to fit against when it was last asked.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The answer and not the call, which is the half that stops "frame once" becoming
+    ///     "never frame".</b> <c>Fit</c> returns false before the first layout — and a panel's first
+    ///     <see cref="Show" /> runs before it has been laid out — so a view that recorded the attempt
+    ///     rather than its result would open every stack at whatever zoom nothing set.
+    /// </remarks>
+    bool fitted;
+
     /// <summary>What makes an undo taken anywhere else reach these rows. See <see cref="Watch" />.</summary>
     Effect? watch;
 
@@ -391,6 +409,24 @@ sealed class LayerStackView : IDisposable {
     /// </remarks>
     public Action? Edited { get; set; }
 
+    /// <summary>How many times this view has walked the set to fill an anchor picker.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A count of work rather than a duration, because
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/979">#979</a> is a per-frame walk and
+    ///         a millisecond budget on a laptop is this repository's largest flake source.</b> The
+    ///         property under test is that a row walks the tree <em>once</em>, whatever an opacity
+    ///         drag does to the refresh count.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it cannot see is a picker that stopped being filled at all</b> — an anchor
+    ///         row that built no options would leave this at zero and read as a perfect result. The
+    ///         test that reads it therefore asserts the options as well, which is the half that says
+    ///         the work happened.
+    ///     </para>
+    /// </remarks>
+    internal int AnchorWalks { get; private set; }
+
     /// <summary>Which layer the artist is working on, or <see langword="null" /> for none.</summary>
     /// <remarks>
     ///     <para>
@@ -479,6 +515,10 @@ sealed class LayerStackView : IDisposable {
             Preview.ImageWidth = 0;
             Preview.ImageHeight = 0;
 
+            // Taking the stack out of the panel ends the picture the zoom was about, so putting one
+            // back in — the same document included — is a new subject and is framed afresh.
+            framed = null;
+
             return;
         }
 
@@ -523,7 +563,24 @@ sealed class LayerStackView : IDisposable {
         Preview.Image = picture?.Image?.Image ?? 0;
         Preview.ImageWidth = picture?.Width ?? document.Document.BaseWidth;
         Preview.ImageHeight = picture?.Height ?? document.Document.BaseHeight;
-        Preview.Fit();
+
+        // ⚠ **Framed when the subject changes and not on every refresh** — #979, and it is #957's
+        // finding in the panel #957 did not touch. `Fit` overwrites `Zoom` and `Pan` outright and
+        // this method runs on every edit — once per frame of an opacity drag — so fitting here
+        // unconditionally threw away the corner an artist had zoomed into at exactly the moment
+        // they were looking at it. A different stack, or the same one at a different extent, is a
+        // different picture and is framed; the same stack recompiled is left where they put it.
+        if (fitted
+            && ReferenceEquals(framed, document)
+            && framedWidth == Preview.ImageWidth
+            && framedHeight == Preview.ImageHeight) {
+            return;
+        }
+
+        framed = document;
+        framedWidth = Preview.ImageWidth;
+        framedHeight = Preview.ImageHeight;
+        fitted = Preview.Fit();
     }
 
     /// <summary>The rows a stack's first texture set makes, topmost first.</summary>
@@ -1367,9 +1424,21 @@ sealed class LayerStackView : IDisposable {
 
         reference.Submitted += _ => document.Stack.Seal();
 
-        // What the anchor picker was last offered, so the options are not rebuilt per refresh —
-        // `Rebind`'s argument, and `ClearOptions` under an open dropdown is the same defect.
-        var offered = "";
+        // ⚠ The *walk* is cached and not only the options, which is #979: this used to compute
+        // `Anchorable` and join its result into a key on every refresh and then compare the key, so
+        // the guard skipped `ClearOptions` and paid for two tree walks and three collections anyway
+        // — once per anchor-masked row per frame of an opacity drag. What a row may anchor onto is
+        // decided by the set's ids and their composite order, and every change to either goes
+        // through `Shape` and rebuilds this row, so for the life of the row it is a constant.
+        // Computed on first need rather than at build time, because a row whose source is not
+        // `Anchor` never asks.
+        IReadOnlyList<string>? targets = null;
+
+        // What the picker was last offered, so the options are not rebuilt per refresh — `Rebind`'s
+        // argument, and `ClearOptions` under an open dropdown is the same defect. ⚠ Null rather
+        // than an empty string, because "" is what a row with no unofferable anchor legitimately
+        // has: a sentinel a value can produce turns a comparison into a coincidence.
+        string? offered = null;
 
         bindings.Add(() => {
             if (read() is not { } current) {
@@ -1408,26 +1477,35 @@ sealed class LayerStackView : IDisposable {
                 return;
             }
 
-            List<string> targets = [.. Anchorable(set, path.Id)];
+            if (targets is null) {
+                targets = Anchorable(set, path.Id);
+                AnchorWalks++;
+            }
 
             // ⚠ A stored anchor this stack cannot offer is kept as an option rather than dropped,
             // which is `Rebind`'s three-state rule: a picker that silently showed `(none)` would say
             // the mask is unanchored and then unanchor it on the next click. What the anchor really
             // is stays on the screen, and the refusal beneath the rows is what says it is wrong.
-            if (current.Anchor.Length > 0 && !targets.Contains(current.Anchor, StringComparer.Ordinal)) {
-                targets.Add(current.Anchor);
-            }
+            // It is also the only part of the list that can change without the row being rebuilt —
+            // the anchor is a value and `Shape` deliberately holds no values — so it is the whole
+            // of what the guard below compares.
+            var unofferable = current.Anchor.Length > 0
+                && !targets.Contains(current.Anchor, StringComparer.Ordinal)
+                    ? current.Anchor
+                    : "";
 
-            var wanted = string.Join('\n', targets);
-
-            if (!string.Equals(wanted, offered, StringComparison.Ordinal)) {
-                offered = wanted;
+            if (offered is null || !string.Equals(unofferable, offered, StringComparison.Ordinal)) {
+                offered = unofferable;
 
                 anchor.ClearOptions();
                 anchor.AddOption(NoAnchor);
 
                 foreach (var target in targets) {
                     anchor.AddOption(target);
+                }
+
+                if (unofferable.Length > 0) {
+                    anchor.AddOption(unofferable);
                 }
             }
 
