@@ -620,4 +620,10 @@ chrome_issue_325928327
 # measurement at all. It is which axis a container states a constraint in. That is a field on
 # `LayoutStyle` and a swap at every point where §12, §9 and block layout convert between physical
 # and flow-relative — a real feature, and the first fixture in this corpus to ask for it.
+#
+# ⚠ Filed on its own as `Rikarin/Vixen#952`, out of #259, because it is not a grid defect and reading
+# it as one is what has kept it queued behind grid work three times. ⚠ And the corpus cannot be its
+# witness either: the sixteen vertical-text fixtures that are green are green WITH the gap present,
+# so a change here that turned these four green without a hand-written witness would be four numbers
+# agreeing with each other. `grep -rn WritingMode Core/Vixen.Ui.Layout` finds nothing today.
 grid_relayout_vertical_text
