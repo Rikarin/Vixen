@@ -70,13 +70,14 @@ The compiler is public, and two things in this assembly compile a canvas through
 `TextureGraphDocument.Compile` and `LayerStackCompiler`. `ModuleReferenceTests` holds the visibility
 so it cannot quietly go back.
 
-⚠ **Closing a visibility is not the same as closing a gap.** The graph panel still evaluates
-`TextureGraphPreview.Base` — a fixed checkerboard at the document's own resolution — because nothing
-ever wired `Evaluate` to the document's plan. That is one call plus the external upload-and-resolve
-loop `LayerStackPreview` already has, and it is
-[#792](https://github.com/Rikarin/Vixen/issues/792). The **layer stack** pane does compile and bake
-through the public compiler, which is what makes the gap a missing caller rather than a missing
-capability.
+⚠ **Closing a visibility is not the same as closing a gap, and this one stayed open for three more
+batches.** The graph panel went on evaluating `TextureGraphPreview.Base` — a fixed checkerboard at the
+document's own resolution — because nothing ever wired `Evaluate` to the document's plan, while the
+**layer stack** pane beside it compiled and baked through the same public compiler. That was
+[#792](https://github.com/Rikarin/Vixen/issues/792), and it is closed: `Evaluate` compiles the
+document, resolves its external images through `TextureExternalImages` — the loop
+`LayerStackPreview` had, now shared rather than copied — and says which node refused when the graph
+does not compile.
 
 ### 3. An asset-editor registration could not be undone ✅ *not predicted* — [#739](https://github.com/Rikarin/Vixen/issues/739)
 

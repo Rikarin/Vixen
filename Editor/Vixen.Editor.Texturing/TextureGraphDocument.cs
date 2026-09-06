@@ -11,6 +11,26 @@ using Vixen.Editor.TextureGraph;
 
 namespace Vixen.Editor.Texturing;
 
+/// <summary>A texture graph, compiled — everything a pane about to draw it needs.</summary>
+/// <param name="Plan">The plan, or <see langword="null" /> when the graph did not compile.</param>
+/// <param name="Diagnostics">What the compiler had to say, about nodes.</param>
+/// <param name="Outputs">Which image is which map, by usage.</param>
+/// <param name="Externals">The imported images this plan needs supplied, per bitmap node.</param>
+/// <remarks>
+///     ⚠ <b><c>NodeGraphCompilation&lt;TexturePlan&gt;</c> alone is not enough to draw with, which is
+///     why this exists</b> — <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>. It
+///     carries the plan and the diagnostics and drops <c>TextureGraphCompiler.Outputs</c> and
+///     <c>.Externals</c> on the floor, so a caller had the ops and no way to know which image is the
+///     base colour or which bitmap wants a file. <see cref="LayerStackCompilation" /> is this same
+///     shape one type over, and for the same reason.
+/// </remarks>
+sealed record TextureGraphCompilation(
+    TexturePlan? Plan,
+    ImmutableArray<NodeDiagnostic> Diagnostics,
+    ImmutableArray<TextureGraphOutput> Outputs,
+    ImmutableArray<TextureGraphExternal> Externals
+);
+
 /// <summary>A texture graph, open for editing.</summary>
 /// <remarks>
 ///     <para>
@@ -195,10 +215,13 @@ public sealed class TextureGraphDocument : EditorDocument {
     ///         that can change a compound, so a save is what sets the flag.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What this does not see is a compound changed outside the editor.</b>
-    ///         <c>ExternalEdits</c> is where that arrives and it is constructed by the application
-    ///         rather than reachable from a document, so a host that watches files calls this itself
-    ///         — <a href="https://github.com/Rikarin/Vixen/issues/922">#922</a>.
+    ///         ⚠ <b>And a compound changed <em>outside</em> the editor sets it too, which for a batch
+    ///         it did not</b> — <a href="https://github.com/Rikarin/Vixen/issues/922">#922</a>. A
+    ///         <c>git checkout</c>, a text editor and a tool that writes <c>.vxtexgraph</c> files
+    ///         raise no <c>DocumentSaving</c>, so a containing graph went on inlining the version
+    ///         that was on disk when it opened. <see cref="OnProjectFileChanged" /> is the other
+    ///         setter: <c>ExternalEdits</c> tells every open document what moved, and this one
+    ///         answers for its own folder.
     ///     </para>
     /// </remarks>
     public bool Republish() {
@@ -211,6 +234,55 @@ public sealed class TextureGraphDocument : EditorDocument {
         Adopt(TextureNodeLibrary.Publish(Project.Paths.Assets));
 
         return true;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half <see cref="Republish" /> could not have on its own —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/922">#922</a>.</b>
+    ///         <c>EditorProject.DocumentSaving</c> hears a save made <em>in the editor</em>; a
+    ///         <c>git checkout</c>, a text editor and a tool that writes <c>.vxtexgraph</c> files
+    ///         raise nothing at all. This is where a change from outside arrives, and it is a
+    ///         notification rather than a reload: what a compound changing means to a graph
+    ///         containing it is that the library is stale, not that this file is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A flag and no work, because this runs on the frame, once per drained change per
+    ///         open document.</b> Reading the folder here would make somebody else's Ctrl+S cost the
+    ///         editor a frame — <see cref="Republish" />'s own "a directory walk per keystroke is the
+    ///         same trap wearing a hat", moved one caller along.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null is "the watcher lost events", and it marks stale.</b> An overflow says
+    ///         nothing about which file moved, so the honest answer is the conservative one: the cost
+    ///         of being wrong is one republish, and the cost of assuming the best is a bake made from
+    ///         a compound nobody can see is old.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its own file changing is not this.</b> That is a reload, decided by
+    ///         <c>ExternalEdits</c>'s policy against unsaved edits; republishing the library for it
+    ///         would rebuild every node type because the graph on the canvas moved.
+    ///     </para>
+    /// </remarks>
+    protected override void OnProjectFileChanged(string? path) {
+        base.OnProjectFileChanged(path);
+
+        if (compounds is null) {
+            return;
+        }
+
+        if (path is null) {
+            stale = true;
+
+            return;
+        }
+
+        var absolute = Path.GetFullPath(Project.Paths.Absolute(path));
+        var folder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(compounds));
+
+        stale = stale
+            || absolute.StartsWith(folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <inheritdoc />
@@ -267,7 +339,7 @@ public sealed class TextureGraphDocument : EditorDocument {
     }
 
     /// <summary>Compiles the graph to a plan, at the resolution the document is showing.</summary>
-    /// <returns>The plan and the diagnostics, exactly as the compiler produced them.</returns>
+    /// <returns>The plan, the diagnostics, the outputs and the externals, as the compiler made them.</returns>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The compiler is built per call and that is not an oversight.</b>
@@ -288,17 +360,24 @@ public sealed class TextureGraphDocument : EditorDocument {
     ///         node that silently produced no image.
     ///     </para>
     /// </remarks>
-    internal NodeGraphCompilation<TexturePlan> Compile() {
+    internal TextureGraphCompilation Compile() {
         // ⚠ Here rather than only in the panel, because this is where a stale library costs
         // something an author cannot see: the compilation inlines whatever the compound was when
         // this document opened, and the bake made from it is that graph, silently.
         Republish();
 
-        return new TextureGraphCompiler(Registry) {
+        TextureGraphCompiler compiler = new(Registry) {
             BaseWidth = BaseWidth,
             BaseHeight = BaseHeight,
             SubGraphSource = SubGraphs
-        }.Compile(Graph);
+        };
+
+        var compilation = compiler.Compile(Graph);
+
+        // ⚠ Read off the compiler *after* the compile and carried out, because they are only set by
+        // it. A caller handed the bare `NodeGraphCompilation` has the ops and no way to know which
+        // image is which map or which bitmap wants a file — which is why nothing could draw this.
+        return new(compilation.Artefact, compilation.Diagnostics, compiler.Outputs, compiler.Externals);
     }
 
     /// <summary>The graph as it would be written.</summary>

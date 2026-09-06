@@ -106,7 +106,8 @@ public class LayerStackPanelDeviceTests {
         using var device = Open();
         using var fixture = new TexturingFixture(device);
 
-        using LayerStackPreview preview = new(fixture.Graphics!);
+        using LentEvaluator evaluators = new();
+        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease);
 
         var document = new LayerStackDocument(
             fixture.Project,
@@ -193,7 +194,8 @@ public class LayerStackPanelDeviceTests {
         using var device = Open();
         using var fixture = new TexturingFixture(device);
 
-        using LayerStackPreview preview = new(fixture.Graphics!);
+        using LentEvaluator evaluators = new();
+        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease);
 
         var stack = Painted(64);
 
@@ -261,7 +263,8 @@ public class LayerStackPanelDeviceTests {
         using var device = Open();
         using var fixture = new TexturingFixture(device);
 
-        using LayerStackPreview preview = new(fixture.Graphics!);
+        using LentEvaluator evaluators = new();
+        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease);
 
         // A 2×2 whose top-left is red and whose bottom-right is blue, written as a real PNG through
         // the project's own codec and scanned in as an asset the database can resolve by path.
@@ -339,7 +342,8 @@ public class LayerStackPanelDeviceTests {
         using var device = Open();
         using var fixture = new TexturingFixture(device);
 
-        using LayerStackPreview preview = new(fixture.Graphics!);
+        using LentEvaluator evaluators = new();
+        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease);
 
         var stack = Painted(8);
 

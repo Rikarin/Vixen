@@ -4,9 +4,11 @@
 using Vixen.Editor.AssetEditors;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
+using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Editor.Ui;
+using Vixen.Graphics;
 using Vixen.Ui;
 
 namespace Vixen.Editor.Texturing;
@@ -54,14 +56,17 @@ namespace Vixen.Editor.Texturing;
 ///         </item>
 ///         <item>
 ///             <description>
-///                 <b>The compiler — closed, and this entry was stale.</b>
-///                 <c>TextureGraphCompiler</c> is <c>public</c>; <see cref="LayerStackPreview" />
-///                 compiles the open stack through it and shows the map that comes out.
-///                 <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>. ⚠ <b>The
-///                 <em>graph</em> pane still evaluates a fixed checkerboard</b> — but its status line
-///                 no longer gives the closed reason for it. <c>TexturePreview</c> names
-///                 <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>, the gap that is
-///                 actually open: the compiler is public and nothing in the graph pane calls it.
+///                 <b>The compiler — closed, and this entry was stale twice.</b>
+///                 <c>TextureGraphCompiler</c> is <c>public</c>
+///                 (<a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>), and
+///                 <em>both</em> panes now compile through it:
+///                 <see cref="LayerStackPreview" /> the open stack, and
+///                 <see cref="TextureGraphPreview" /> the open graph. The second was the
+///                 finished-thing-nothing-calls this workstream keeps producing — the compiler
+///                 public, the document's <c>Compile</c> written, and a pane drawing a fixed
+///                 checkerboard beside them for three batches
+///                 (<a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>,
+///                 <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>).
 ///             </description>
 ///         </item>
 ///     </list>
@@ -138,13 +143,23 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// <summary>What turns the open stack into pixels.</summary>
     /// <remarks>
     ///     ⚠ <b>A second preview and not a second evaluator, and the difference is what doc 48 § D1
-    ///     claims.</b> Both hold a <c>TexturePlanEvaluator</c> — that is a pipeline cache per kernel
-    ///     and has to be held across evaluations — but both compile through the same public
-    ///     <c>TextureGraphCompiler</c> and run the same kernels. Sharing one evaluator between the
-    ///     two panels would be the better shape and is not this slice's:
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>.
+    ///     claims.</b> Both compile through the same public <c>TextureGraphCompiler</c>, run the same
+    ///     kernels, and now dispatch through the same <see cref="evaluator" /> — which for a batch
+    ///     they did not (<a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>): each built
+    ///     one of its own, so a session with both panels open compiled the whole overlap twice and
+    ///     held two pipeline caches for the rest of it.
     /// </remarks>
     LayerStackPreview? stackPreview;
+
+    /// <summary>The one evaluator both panes dispatch through.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Built on first use rather than at activation, and released through the registration
+    ///     scope rather than in <see cref="Deactivate" />.</b> The editor acquires its device after it
+    ///     builds its plugin host (<a href="https://github.com/Rikarin/Vixen/issues/737">#737</a>), so
+    ///     there is nothing to build one on at activation; and <c>Deactivate</c> runs first while the
+    ///     scope runs whatever happens to it, which is the difference that matters for a throw.
+    /// </remarks>
+    TexturePlanEvaluator? evaluator;
 
     /// <summary>The view, once the panel has been opened at least once.</summary>
     /// <remarks>
@@ -237,8 +252,8 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         graphics = context.Services.TryGet<IEditorGraphics>(out var published) ? published : null;
 
         if (graphics is not null) {
-            preview = new TextureGraphPreview(graphics);
-            stackPreview = new LayerStackPreview(graphics);
+            preview = new TextureGraphPreview(graphics, Evaluator);
+            stackPreview = new LayerStackPreview(graphics, Evaluator);
 
             // ⚠ Through the scope rather than in `Deactivate`, because it holds device resources: an
             // evaluator's pipelines and one uploaded image. `Deactivate` runs first and this runs
@@ -298,6 +313,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             new StringId("editor.panel.texture-graph", "Texture Graph"),
             panel => {
                 view = new TextureGraphView(panel);
+
+                // ⚠ The graph pane's half of #819, which was worth nothing until #792. A canvas edit
+                // now changes the map, and without this line it changed the map only the next time
+                // the panel was built or `Open Texture Graph` was run.
+                view.Edited = Refresh;
+
                 Refresh();
             }
         );
@@ -732,12 +753,52 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         stackPreview?.Dispose();
         stackPreview = null;
 
+        // ⚠ Here and in neither preview — #820. The panes borrow it; freeing it from one of them
+        // would destroy the pipelines the other is still dispatching through, which on a device is a
+        // use-after-free rather than a slow first open. `EvaluatorsBuilt` is deliberately not reset:
+        // it counts what this module built over its life.
+        evaluator?.Dispose();
+        evaluator = null;
+
         // The paint pane's own upload: it is made here rather than by a preview, so nothing else
         // would ever give it back.
         painted?.Dispose();
         painted = null;
 
         graphics = null;
+    }
+
+    /// <summary>How many evaluators this module has built over its life.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A count rather than a flag, because the defect it measures is a <em>second</em>
+    ///     one</b> — <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>. Nothing reports
+    ///     two: both panes draw correctly, and what it costs is a Raven parse, a shader module, a
+    ///     compute pipeline and a duplicate descriptor-set-layout cache entry per kernel and format
+    ///     the two panes share, held for the session.
+    /// </remarks>
+    internal int EvaluatorsBuilt { get; private set; }
+
+    /// <summary>How many kernel variants this module's evaluator has compiled.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The cost <see cref="EvaluatorsBuilt" /> only counts the cause of</b>, and the counter
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a> names: a variant is a Raven
+    ///     parse and bind, a shader module and a compute pipeline, cached per kernel and output
+    ///     format. Two evaluators over one device each compile the kernels the two panes share; one
+    ///     compiles each once, and this is the difference said as a number.
+    /// </remarks>
+    internal int KernelCompilations => evaluator?.Compilations ?? 0;
+
+    /// <summary>Hands a pane the one evaluator, building it the first time a device is seen.</summary>
+    /// <param name="device">The device the pane found on the host.</param>
+    /// <returns>The evaluator, which the caller does not own.</returns>
+    TexturePlanEvaluator Evaluator(IGraphicsDevice device) {
+        if (evaluator is not null) {
+            return evaluator;
+        }
+
+        EvaluatorsBuilt++;
+
+        return evaluator = new TexturePlanEvaluator(device);
     }
 
     /// <summary>Re-evaluates the open graph and puts the result in the pane.</summary>
@@ -752,12 +813,22 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return;
         }
 
-        var blocker = TexturePreview.Blocking(graphics);
+        if (document is null) {
+            view.Show(null, TexturePreview.Blocking(graphics));
 
+            return;
+        }
+
+        // ⚠ The blocker is no longer asked first, and that is the change #816 is. `Evaluate` compiles
+        // before it looks for a device — a graph that does not compile does not compile on any host —
+        // so a pane that gated the whole call on `Blocking` answered every mistake in an author's
+        // graph with a message about the window not being up yet. `LayerStackPreview` was moved off
+        // that order first, and the fallback below is the state where there is no preview at all,
+        // which is a host publishing no graphics rather than the editor.
         view.Show(
             document,
-            blocker,
-            blocker == TexturePreviewBlocker.None && document is not null ? preview?.Evaluate(document) : null
+            preview?.Evaluate(document)
+            ?? new TextureGraphPicture(null, TexturePreview.Describe(TexturePreview.Blocking(graphics)))
         );
     }
 
