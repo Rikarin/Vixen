@@ -194,16 +194,6 @@ sealed class GlslEmitter {
     }
 
     /// <summary>
-    ///     Declares the push-constant block, if the shader has one.
-    /// </summary>
-    /// <remarks>
-    ///     <c>std430</c> stated rather than left implicit: it is what a Vulkan push-constant block
-    ///     takes by default and what the SPIR-V side decorates its members with, and writing it
-    ///     down is what keeps the differential from depending on two defaults agreeing. No
-    ///     <c>set</c> or <c>binding</c> — a push constant has no descriptor, which is the whole
-    ///     reason to use one.
-    /// </remarks>
-    /// <summary>
     ///     Emits the per-material block as one record of a buffer, rather than as a block.
     /// </summary>
     /// <remarks>
@@ -254,6 +244,16 @@ sealed class GlslEmitter {
         }
     }
 
+    /// <summary>
+    ///     Declares the push-constant block, if the shader has one.
+    /// </summary>
+    /// <remarks>
+    ///     <c>std430</c> stated rather than left implicit: it is what a Vulkan push-constant block
+    ///     takes by default and what the SPIR-V side decorates its members with, and writing it
+    ///     down is what keeps the differential from depending on two defaults agreeing. No
+    ///     <c>set</c> or <c>binding</c> — a push constant has no descriptor, which is the whole
+    ///     reason to use one.
+    /// </remarks>
     void EmitPushConstants() {
         if (BindingPlan.PushConstants(shader) is not { IsEmpty: false } constants) {
             return;

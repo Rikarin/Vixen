@@ -475,6 +475,114 @@ public class LayerCoverageDeviceTests(ITestOutputHelper output) {
         );
     }
 
+    /// <summary>
+    ///     ⚠ #789's fold bakes the same texel as the mask it removes, on a device, at every coverage.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/789">#789</a> claims an
+    ///         <em>identity</em> and not an approximation</b>: a mask that is one constant inside the
+    ///         unit interval is a number the layer's opacity absorbs, because <c>Blend.rvn</c> reads
+    ///         <c>amount = saturate(opacity) · saturate(b.w)</c> and multiplication reassociates. Every
+    ///         other test in this file bakes the folded form only — a bare constant mask compiles to
+    ///         no mask at all — so the claim was arithmetic on both sides of the comparison and
+    ///         nothing anywhere ran the four nodes the fold removes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The unfolded side is the same mask with an entry that does nothing</b>, at opacity
+    ///         zero: <c>Folds</c> gives up the moment a mask has an enabled entry, and an entry
+    ///         blending by nothing leaves the composite exactly the constant beneath it. So the two
+    ///         stacks describe the same picture and compile to different plans — which is what makes
+    ///         this a differential rather than two spellings of one arithmetic.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not what <a href="https://github.com/Rikarin/Vixen/issues/895">#895</a> asked for,
+    ///         because its premise is refuted.</b> It says every mask in this file is a bare constant
+    ///         and that the unfolded path therefore lost its device coverage;
+    ///         <see cref="An_anchor_onto_a_partly_covered_layer_masks_by_its_coverage" /> masks by an
+    ///         <em>anchor</em>, which never folded, and bakes the full shuffle-multiply-shuffle chain
+    ///         across five coverages. What was missing is narrower and more useful: nothing compared
+    ///         the fold with the thing it replaces.
+    ///     </para>
+    /// </remarks>
+    /// <param name="coverage">The mask, which is also what the layer ends up covering.</param>
+    [Theory]
+    [MemberData(nameof(Coverages))]
+    public void A_folded_constant_mask_bakes_what_the_unfolded_one_bakes(float coverage) {
+        using var device = Open();
+
+        var bare = Grey(Ink(coverage, unfold: false));
+        var kept = Grey(Ink(coverage, unfold: true));
+
+        // ⚠ The instrument, and it is device-free on purpose: if the entry below did not actually stop
+        // `LayerStackGraph.Folds`, the two stacks would compile to one plan and every assertion after
+        // this would be an image compared with itself.
+        var one = LayerStackCompiler.Compile(bare, bare.Sets[0]);
+        var two = LayerStackCompiler.Compile(kept, kept.Sets[0]);
+
+        Assert.NotNull(one.Plan);
+        Assert.NotNull(two.Plan);
+
+        Assert.True(
+            two.Plan.Ops.Length > one.Plan.Ops.Length,
+            $"The unfolded stack compiled to {two.Plan.Ops.Length} ops and the folded one to "
+            + $"{one.Plan.Ops.Length}, so the mask folded in both and this test bakes one picture twice."
+        );
+
+        var folded = BakeRed(device, bare, "baseColor");
+        var compiled = BakeRed(device, kept, "baseColor");
+
+        // The oracle, so that two agreeing wrong answers are still caught: a black layer over a canvas
+        // of ½ at coverage K is ½(1 − K) — 128 · 96 · 64 · 32 · 0.
+        var expected = (int)Math.Round(255f * 0.5f * (1f - coverage));
+
+        output.WriteLine(
+            $"{Adapter(device)}: a mask of {coverage} baked {folded} folded and {compiled} compiled, "
+            + $"against {expected}"
+        );
+
+        Assert.True(
+            Math.Abs(folded - compiled) <= 1,
+            $"{Adapter(device)}: the same mask of {coverage} baked {folded} when it folded into the "
+            + $"opacity and {compiled} when it compiled to nodes. #789 folds on the grounds that the "
+            + "two are the same arithmetic reassociated, so a difference here is that claim being false."
+        );
+
+        Assert.True(
+            Math.Abs(folded - expected) <= 2,
+            $"{Adapter(device)}: a black layer masked to {coverage} over a canvas of ½ is ½(1 − "
+            + $"{coverage}) — {expected} — and it baked {folded}. Two forms agreeing on a wrong number "
+            + "is what this second assertion is here to catch."
+        );
+    }
+
+    /// <summary>A black layer masked by one constant, with the fold either taken or refused.</summary>
+    /// <param name="coverage">The mask.</param>
+    /// <param name="unfold">
+    ///     Whether to add the entry that stops <c>LayerStackGraph.Folds</c> — enabled, so the fold
+    ///     gives up, and at opacity zero, so it changes no texel.
+    /// </param>
+    /// <returns>The layer.</returns>
+    static LayerAsset Ink(float coverage, bool unfold) {
+        LayerAsset layer = new() {
+            Id = "ink",
+            Kind = LayerKind.Fill,
+            Values = { ["baseColor"] = [0f, 0f, 0f, 1f] },
+            Mask = new() { Source = LayerMaskSource.Constant, Value = coverage }
+        };
+
+        if (unfold) {
+            layer.Mask.Layers.Add(new() {
+                Source = LayerMaskSource.Constant,
+                Value = 1f,
+                Blend = LayerBlendMode.Copy,
+                Opacity = 0f
+            });
+        }
+
+        return layer;
+    }
+
     /// <summary>The half-covered grey group of #845's two cases, with and without an identity filter.</summary>
     static LayerStackAsset Filtered(float coverage, bool filter) {
         List<LayerAsset> children = [

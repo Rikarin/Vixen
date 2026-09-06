@@ -310,13 +310,24 @@ sealed class TextureEmitter {
 
     /// <summary>Appends one dispatch.</summary>
     /// <param name="op">The op.</param>
-    public void Dispatch(TextureOp op) => compiler.Dispatch(op);
+    /// <remarks>
+    ///     The node it is appended <em>for</em> is the one the compiler last entered, which is what
+    ///     gives the op a seed identity an insertion elsewhere cannot move —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>. A node never has to say so.
+    /// </remarks>
+    public void Dispatch(TextureOp op) => compiler.Dispatch(node, op);
 
     /// <summary>Appends several, in the order given.</summary>
     /// <param name="ops">The ops.</param>
+    /// <remarks>
+    ///     ⚠ <b>The order is part of each op's identity</b>, because the ordinal within the node is:
+    ///     a chain builder that emitted its dispatches in a different order next time would rename
+    ///     every one of them. Every builder in this assembly emits in evaluation order, which is the
+    ///     order the chain runs in and cannot be shuffled without changing the picture anyway.
+    /// </remarks>
     public void Dispatch(ImmutableArray<TextureOp> ops) {
         foreach (var op in ops) {
-            compiler.Dispatch(op);
+            compiler.Dispatch(node, op);
         }
     }
 

@@ -25,10 +25,14 @@ namespace Vixen.Editor.Texturing.Layers;
 ///         ⚠ <b>The decoration is comments and a name, and nothing else — deliberately.</b> Doc 48
 ///         exit criterion 6 asks for a stack and its explosion to bake byte-identical outputs, and
 ///         the only reason that is provable is that the explosion adds nothing a compiler reads. A
-///         decoration that inserted so much as a pass-through node would move every op index, and
-///         <c>TexturePlan.SeedFor</c> mixes the op's index into its seed — so a noise three layers
-///         further up would draw a different picture, which is exactly the drift criterion 6 exists
-///         to catch.
+///         decoration that inserted so much as a pass-through node would move every op index and
+///         emit an op of its own — and an op's seed is mixed from <c>TextureOp.Identity</c>, which
+///         is derived from the node that emitted it, so the inserted node's own dispatches would
+///         draw numbers the stack's compilation never drew. ⚠ Until
+///         <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a> the seed was mixed from
+///         the op's <em>index</em>, so the damage was worse and broader: a noise three layers
+///         further up drew a different picture. Either way it is the drift criterion 6 exists to
+///         catch.
 ///     </para>
 /// </remarks>
 static class LayerStackExplode {

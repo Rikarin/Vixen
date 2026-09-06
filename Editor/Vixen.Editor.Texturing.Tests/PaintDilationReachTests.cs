@@ -92,6 +92,77 @@ public class PaintDilationReachTests {
         Assert.Equal(gutter, worst);
     }
 
+    /// <summary>⚠ A later stamp offering a shorter path lowers the distance, at equal reach.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The mirror of the test above, and the half the <c>reached</c> guard hid —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/896">#896</a>.</b>
+    ///         <c>Dilate</c>'s scan skipped a texel whose recorded reach was already at least what
+    ///         this round offered, and the distance was written in the commit loop the skip jumped
+    ///         over. So a texel reached the long way round by an earlier stamp kept the long
+    ///         distance — and for a uniform opaque stroke, where every stamp contributes exactly
+    ///         reach 1, the skip is not the exception but the rule.
+    ///     </para>
+    ///     <para>
+    ///         <b>What that costs is under-reach, not over-reach.</b> <c>Neighbour</c> only lets a
+    ///         texel at distance <c>r</c> seed round <c>r</c>, so a stale 2 where the truth is 1
+    ///         breaks the chain: the texels beyond it are never offered a source in the round that
+    ///         would have filled them, and the gutter stops short on exactly the rows where two
+    ///         stamps met.
+    ///     </para>
+    ///     <para>
+    ///         <b>The oracle is the algorithm's own question asked from outside.</b> A
+    ///         breadth-first distance from the <em>painted</em> covered texels, walked through
+    ///         uncovered ones only — which is what a dilation can chain through — and then every
+    ///         uncovered texel within the gutter of one must be painted. Nothing in it mentions
+    ///         where the stamps were put. The count of such texels is asserted first, because "every
+    ///         texel in an empty set is painted" is the shape of predicate that cannot be false.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_second_stamp_that_offers_a_shorter_path_lets_the_gutter_reach_its_full_distance() {
+        const int Gutter = 4;
+
+        PaintImage image = new(Side, Side);
+        var coverage = Wall();
+
+        // Radius × Spacing is the stamp distance, so 3.5 × 2 puts exactly one further stamp seven
+        // texels along — two stamps and not a line of them, which is what the defect needs.
+        var brush = PaintStrokeTests.Hard(3.5f) with { Spacing = 2f };
+        PaintStroke stroke = new(image, coverage, brush, Opaque, Gutter);
+
+        stroke.MoveTo(new(30f, 12f));
+        stroke.MoveTo(new(30f, 19f));
+
+        Assert.Equal(2, stroke.StampCount);
+
+        var distance = FromPainted(coverage, image);
+        var owed = 0;
+        var missed = new List<(int X, int Y, int Distance)>();
+
+        for (var index = 0; index < Side * Side; index++) {
+            if (coverage.IsCovered(index) || distance[index] > Gutter) {
+                continue;
+            }
+
+            owed++;
+
+            if (image[index] >> 24 == 0u) {
+                missed.Add((index % Side, index / Side, distance[index]));
+            }
+        }
+
+        Assert.True(owed > Gutter, $"Only {owed} texels are within the gutter of painted coverage.");
+
+        Assert.True(
+            missed.Count == 0,
+            $"{missed.Count} of {owed} texels within {Gutter} of a painted covered texel are unpainted, "
+            + $"the nearest at {missed.FirstOrDefault()}. A texel an earlier stamp reached the long way "
+            + "round is keeping its stale distance, so it seeds the wrong round and the chain past it "
+            + "never runs."
+        );
+    }
+
     /// <summary>The reach is the same whatever the brush was, which is the property under the number.</summary>
     /// <remarks>
     ///     ⚠ <b>A differential, and the brush radius rather than the spacing is what moved it.</b>
@@ -144,6 +215,73 @@ public class PaintDilationReachTests {
         }
 
         return (reach, painted);
+    }
+
+    /// <summary>One island filling the left half, so the whole right half is gutter.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Deliberately not <see cref="Channel" />.</b> That map's gutter is bounded on both
+    ///     sides, so a dilation that stopped short still meets a covered column and the shortfall
+    ///     hides. An unbounded gutter is what lets a missing round be counted.
+    /// </remarks>
+    static PaintCoverage Wall() {
+        var raster = new bool[Side * Side];
+
+        for (var index = 0; index < raster.Length; index++) {
+            raster[index] = index % Side < 32;
+        }
+
+        return PaintCoverage.FromRaster(Side, Side, raster);
+    }
+
+    /// <summary>
+    ///     Four-neighbour distance from the nearest <em>painted</em> covered texel, through uncovered
+    ///     texels only.
+    /// </summary>
+    /// <param name="coverage">Which texels an island covers.</param>
+    /// <param name="image">What the stroke left.</param>
+    /// <returns>The distance per texel, <see cref="int.MaxValue" /> where there is none.</returns>
+    /// <remarks>
+    ///     <b>Both restrictions are the dilation's own.</b> Round zero reads a covered neighbour's
+    ///     <c>reached</c> entry, so a covered texel no stamp painted is not a source; and a covered
+    ///     texel is never written, so a path cannot pass through one. A BFS from all coverage would
+    ///     therefore owe the dilation texels it has no route to.
+    /// </remarks>
+    static int[] FromPainted(PaintCoverage coverage, PaintImage image) {
+        var distance = new int[Side * Side];
+        Queue<int> frontier = new();
+
+        for (var index = 0; index < distance.Length; index++) {
+            var painted = image[index] >> 24 != 0u;
+
+            distance[index] = coverage.IsCovered(index) && painted ? 0 : int.MaxValue;
+
+            if (distance[index] == 0) {
+                frontier.Enqueue(index);
+            }
+        }
+
+        while (frontier.Count > 0) {
+            var index = frontier.Dequeue();
+            var x = index % Side;
+            var y = index / Side;
+
+            foreach (var (nx, ny) in new[] { (x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1) }) {
+                if (nx < 0 || ny < 0 || nx >= Side || ny >= Side) {
+                    continue;
+                }
+
+                var neighbour = (ny * Side) + nx;
+
+                if (coverage.IsCovered(neighbour) || distance[neighbour] != int.MaxValue) {
+                    continue;
+                }
+
+                distance[neighbour] = distance[index] + 1;
+                frontier.Enqueue(neighbour);
+            }
+        }
+
+        return distance;
     }
 
     /// <summary>Two islands with a twenty-four-texel channel between them.</summary>

@@ -1429,20 +1429,6 @@ public sealed class UiGeometryBuilder {
         }
     }
 
-    /// <summary>A path, filled or stroked, as loose triangles.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The only kind that is real geometry rather than a quad the shader resolves.</b> A
-    ///         box and a glyph are both a distance function evaluated per pixel, so they cost four
-    ///         vertices whatever their shape; an arbitrary path has no such function, so it is
-    ///         tessellated.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ Which is why it is also the only kind whose edge has to be <i>drawn</i>. The interior
-    ///         comes out at full coverage and a strip along the outline carries the ramp from one to
-    ///         zero, and the coverage travels in the vertex where the other two kinds put a distance.
-    ///     </para>
-    /// </remarks>
     /// <summary>Turns one path command into triangles, re-using the last ones where it can.</summary>
     /// <remarks>
     ///     <para>
@@ -1489,6 +1475,20 @@ public sealed class UiGeometryBuilder {
         Emit(cached.Triangles, command.Color, new Vector2(command.X, command.Y));
     }
 
+    /// <summary>A path, filled or stroked, as loose triangles.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The only kind that is real geometry rather than a quad the shader resolves.</b> A
+    ///         box and a glyph are both a distance function evaluated per pixel, so they cost four
+    ///         vertices whatever their shape; an arbitrary path has no such function, so it is
+    ///         tessellated.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Which is why it is also the only kind whose edge has to be <i>drawn</i>. The interior
+    ///         comes out at full coverage and a strip along the outline carries the ramp from one to
+    ///         zero, and the coverage travels in the vertex where the other two kinds put a distance.
+    ///     </para>
+    /// </remarks>
     void Tessellate(DrawList list, DrawCommand command) {
         points.Clear();
         contours.Clear();

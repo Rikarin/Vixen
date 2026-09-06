@@ -122,10 +122,17 @@ static class DocCommentRule {
     /// <summary>Where the files this rule is not asked about today are listed.</summary>
     /// <remarks>
     ///     ⚠ <b>Sixty-four blocks in fifty-one files were already wrong when this rule was written,
-    ///     and one of them is a live production staple</b> — <c>KeyChord.MacFormat</c>'s whole block
-    ///     heads <c>MacWords</c>, so the glyph formatter is undocumented and the words formatter is
-    ///     described twice. None is in doc 48's own files: batch 9's two were the only ones there and
-    ///     the merge fixed them.
+    ///     and one of them was a live production staple</b> — <c>KeyChord.MacFormat</c>'s whole block
+    ///     headed <c>MacWords</c>, so the glyph formatter was undocumented and the words formatter was
+    ///     described twice. All sixty-four have since been moved onto the member they describe and the
+    ///     list is empty (#879).
+    ///     <para>
+    ///         ⚠ <b>Emptying it took an instrument with it, and both callers were changed in the same
+    ///         commit.</b> Each proved the rule still fires by asserting that a non-empty list implies
+    ///         a non-empty finding set — true for exactly as long as the list was non-empty, and
+    ///         vacuous on the day the tree is clean, which is the day it is needed. Each now runs the
+    ///         rule over a stapled fixture instead.
+    ///     </para>
     ///     <para>
     ///         The exemption is per file and committed, on <c>docs/WhitespaceExempt.txt</c>'s terms —
     ///         the list may only shrink, a file on it that has become clean is an error rather than a

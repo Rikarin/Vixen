@@ -970,7 +970,6 @@ public class LibraryTreeTests {
         );
     }
 
-    /// <summary>The fragment stage of the shipped forward pass, as GLSL.</summary>
     /// <summary>
     ///     Every shading model composes into the visibility resolve as well as into the forward pass, and
     ///     reaches both backends.
@@ -1332,6 +1331,7 @@ public class LibraryTreeTests {
             .Code;
     }
 
+    /// <summary>The fragment stage of the shipped forward pass, as GLSL.</summary>
     static string ForwardPlusSource(IrModule module) {
         var bag = new DiagnosticBag();
         var generated = TargetBackends.Create("glsl")!.Generate(module, bag);

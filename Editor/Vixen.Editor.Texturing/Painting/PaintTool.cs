@@ -59,6 +59,27 @@ sealed class PaintTool {
     /// <summary>What is being painted, packed <c>0xAABBGGRR</c>.</summary>
     public uint Colour { get; set; } = 0xFFFFFFFFu;
 
+    /// <summary>Which channel of the layer the brush writes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One channel at a time, because a <c>.vxpaint</c> holds one image per channel.</b>
+    ///     <c>PaintCanvas</c>'s own remarks say why the file is shaped that way — a layer that paints
+    ///     roughness alone must not carry a base-colour buffer it never writes — and a brush that
+    ///     wrote every channel of the set at once would create exactly those buffers on the first
+    ///     stroke.
+    /// </remarks>
+    public string Channel { get; set; } = "baseColor";
+
+    /// <summary>Which layer the brush writes into, or empty for the first paint layer there is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held here rather than read off a selection, because nothing in this plugin has
+    ///     one.</b> <c>LayerStackView</c> draws rows and edits them and has no notion of a selected
+    ///     layer at all, so "which layer am I painting into" had no answer anywhere in the tree. An
+    ///     empty id means the first paint layer in composite order, which is the right default for a
+    ///     stack with one and is not an answer for a stack with several —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/910">#910</a>.
+    /// </remarks>
+    public string LayerId { get; set; } = "";
+
     /// <summary>How much the stroke's path lags the pointer, 0…1.</summary>
     /// <remarks>
     ///     On the tool rather than on the brush because it is a filter on the <em>input points</em>

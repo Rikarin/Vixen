@@ -391,49 +391,6 @@ public partial class SharedUiShaderTests {
         Assert.Contains("UiSolid", seen.Keys);
     }
 
-    /// <summary>Every number the GLSL copy holds is a number the Raven it transcribes holds too.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>This is the first thing in the tree that compares the two languages at all, and it
-    ///         is a <i>necessary</i> condition rather than a sufficient one — which is the whole of
-    ///         what it claims.</b> The class remark above says the only real check is a golden
-    ///         rendered through each, and that is still true and still owed. What is available
-    ///         without a device is the half of the specification that survives translation unchanged:
-    ///         the constants. Björn Ottosson's eighteen Oklab coefficients, sRGB's <c>0.0031308</c>,
-    ///         <c>12.92</c>, <c>1.055</c>, <c>0.04045</c> and <c>2.4</c>, and every threshold the
-    ///         shape and shadow paths branch on are the same numbers in both files or one of them is
-    ///         wrong.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>What it cannot catch, stated so nobody reads more into a green run than is
-    ///         there.</b> An expression rearranged around the same constants passes. A term dropped
-    ///         from a sum whose coefficient appears elsewhere passes. The historical defect this
-    ///         file exists for — <c>ui-box.frag</c> losing the whole shadow path on two copies —
-    ///         <i>would</i> have been caught, because that path carries constants nothing else uses;
-    ///         but that is a property of that defect and not a general guarantee.
-    ///     </para>
-    ///     <para>
-    ///         <b>One direction, and the direction is the argument.</b> The Raven is the source every
-    ///         shipping application draws through and it carries eight shaders; the GLSL is one
-    ///         transcription of one of them. So the Raven legitimately holds numbers this file does
-    ///         not, and the containment that means anything is GLSL ⊆ Raven. The reverse would be a
-    ///         gate red on every shader the copy does not transcribe.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>Preprocessor lines are dropped rather than their numbers allow-listed</b>, which
-    ///         matters more than it looks. <c>#version 450</c> is the one number in this file that is
-    ///         not a constant, and an allow-list holding <c>450</c> would be a hole any future drift
-    ///         to that value could hide in — and allow-lists here rot. Dropping the directive drops it
-    ///         for the reason it is not a constant.
-    ///     </para>
-    ///     <para>
-    ///         <b>What this prints on the day it does not run.</b> A regex that stopped matching
-    ///         returns an empty set, and an empty set is contained in everything — the exact shape of
-    ///         the "comparator that called three empty manifests identical" this repository has
-    ///         already shipped once. So the extractor is checked before it is trusted: the sweep must
-    ///         find one named coefficient it is impossible to be right without.
-    ///     </para>
-    /// </remarks>
     /// <summary>The numbers a copy spells differently, and why none of them is drift.</summary>
     /// <remarks>
     ///     <para>
@@ -492,6 +449,46 @@ public partial class SharedUiShaderTests {
 
     /// <summary>Every number each GLSL copy holds is a number the shader it transcribes holds too.</summary>
     /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the first thing in the tree that compares the two languages at all, and it
+    ///         is a <i>necessary</i> condition rather than a sufficient one — which is the whole of
+    ///         what it claims.</b> The class remark above says the only real check is a golden
+    ///         rendered through each, and that is still true and still owed. What is available
+    ///         without a device is the half of the specification that survives translation unchanged:
+    ///         the constants. Björn Ottosson's eighteen Oklab coefficients, sRGB's <c>0.0031308</c>,
+    ///         <c>12.92</c>, <c>1.055</c>, <c>0.04045</c> and <c>2.4</c>, and every threshold the
+    ///         shape and shadow paths branch on are the same numbers in both files or one of them is
+    ///         wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it cannot catch, stated so nobody reads more into a green run than is
+    ///         there.</b> An expression rearranged around the same constants passes. A term dropped
+    ///         from a sum whose coefficient appears elsewhere passes. The historical defect this
+    ///         file exists for — <c>ui-box.frag</c> losing the whole shadow path on two copies —
+    ///         <i>would</i> have been caught, because that path carries constants nothing else uses;
+    ///         but that is a property of that defect and not a general guarantee.
+    ///     </para>
+    ///     <para>
+    ///         <b>One direction, and the direction is the argument.</b> The Raven is the source every
+    ///         shipping application draws through and it carries eight shaders; the GLSL is one
+    ///         transcription of one of them. So the Raven legitimately holds numbers this file does
+    ///         not, and the containment that means anything is GLSL ⊆ Raven. The reverse would be a
+    ///         gate red on every shader the copy does not transcribe.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Preprocessor lines are dropped rather than their numbers allow-listed</b>, which
+    ///         matters more than it looks. <c>#version 450</c> is the one number in this file that is
+    ///         not a constant, and an allow-list holding <c>450</c> would be a hole any future drift
+    ///         to that value could hide in — and allow-lists here rot. Dropping the directive drops it
+    ///         for the reason it is not a constant.
+    ///     </para>
+    ///     <para>
+    ///         <b>What this prints on the day it does not run.</b> A regex that stopped matching
+    ///         returns an empty set, and an empty set is contained in everything — the exact shape of
+    ///         the "comparator that called three empty manifests identical" this repository has
+    ///         already shipped once. So the extractor is checked before it is trusted: the sweep must
+    ///         find one named coefficient it is impossible to be right without.
+    ///     </para>
     ///     <para>
     ///         ⚠ <b>All eight, where this was <c>ui-box.frag</c> alone.</b> The record's layout is what
     ///         <c>ui-box.frag</c> is special about — it is the file <c>UiShapeLayoutTests</c> parses —

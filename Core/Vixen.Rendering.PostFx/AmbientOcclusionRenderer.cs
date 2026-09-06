@@ -70,7 +70,6 @@ public sealed class AmbientOcclusionRenderer() : PostEffectRenderer(
     /// </remarks>
     public bool BentNormal { get; set; }
 
-    /// <summary>Clip space back to view space, for turning depth into a position.</summary>
     /// <summary>The view the projection below is derived from, or null to set it by hand.</summary>
     /// <remarks>
     ///     ⚠ A document has no other way to reach a camera, and an identity projection unprojects

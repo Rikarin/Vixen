@@ -167,19 +167,23 @@ public class PaintToolTests {
         Assert.Equal(BrushFalloffKind.Tip, tool.Brush.Curve);
     }
 
-    /// <summary>The verb is registered, toggles the mode, and goes when the module does.</summary>
+    /// <summary>The verb toggles the mode, and the control follows it rather than only writing it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Its own roll call rather than a line added to <c>TexturingModuleTests</c>'.</b> That
-    ///     file's register-and-unregister pair is another slice's this batch; naming this command
-    ///     here keeps the wiring gated without two agents editing one list. It should be folded in.
+    ///     ⚠ <b>Registration is not asserted here any more, and that is the fix rather than a gap</b>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/887">#887</a>). This used to carry its own
+    ///     register-and-unregister pair because <c>TexturingModuleTests</c>' roll call was another
+    ///     slice's file that batch. Two roll calls is exactly what a roll call is for avoiding — the
+    ///     whole shape of #806 was a second registration that existed nowhere — so
+    ///     <c>It_registers_its_command_its_panel_and_its_create_entry</c> and
+    ///     <c>Unloading_takes_out_everything_it_registered</c> now name
+    ///     <see cref="TexturingModule.PaintCommand" /> alongside the other two, and what is left here
+    ///     is the behaviour: executing the verb moves the model, and the segmented control shows it.
     /// </remarks>
     [Fact]
-    public void The_paint_verb_is_registered_toggles_the_mode_and_is_taken_out_on_unload() {
+    public void The_paint_verb_toggles_the_mode_and_the_control_follows_it() {
         using var fixture = new TexturingFixture();
 
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
-
-        Assert.NotNull(fixture.Shell.Commands[TexturingModule.PaintCommand]);
 
         var panel = fixture.Shell.Workspace.Open(TexturingModule.StackPanel);
 
@@ -199,9 +203,6 @@ public class PaintToolTests {
 
         // And the artist is told, because a mode nothing drives yet is a drag that does nothing.
         Assert.NotEmpty(fixture.Shell.Notifications.History);
-
-        Assert.True(fixture.Host.Unload(TexturingModule.ModuleId));
-        Assert.Null(fixture.Shell.Commands[TexturingModule.PaintCommand]);
     }
 
     /// <summary>A host that publishes no brush gets a panel with no brush column.</summary>

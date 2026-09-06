@@ -317,20 +317,6 @@ public static class SceneSerializer {
             HalfLength = data.HalfLength
         };
 
-    /// <summary>Which of an entity's components a scene file can hold, in name order.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         The registry is the filter, and everything else on the entity is left out on purpose:
-    ///         the hierarchy links hold entity handles that mean nothing in another world, and a
-    ///         component with no contract has no name to be written under. Both are the same rule the
-    ///         compiled form applies, so what an author sees saved is what a build will compile.
-    ///     </para>
-    ///     <para>
-    ///         Sorted by name, because a file that reordered an entity's components between saves
-    ///         would be a diff with no edit behind it — the same argument this format makes about
-    ///         sibling order.
-    ///     </para>
-    /// </remarks>
     /// <summary>The behaviours on an entity that a scene may name, in a fixed order.</summary>
     /// <remarks>
     ///     Sorted by alias for <see cref="Carried" />'s reason: a file whose entries move between
@@ -353,6 +339,20 @@ public static class SceneSerializer {
         return attached;
     }
 
+    /// <summary>Which of an entity's components a scene file can hold, in name order.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The registry is the filter, and everything else on the entity is left out on purpose:
+    ///         the hierarchy links hold entity handles that mean nothing in another world, and a
+    ///         component with no contract has no name to be written under. Both are the same rule the
+    ///         compiled form applies, so what an author sees saved is what a build will compile.
+    ///     </para>
+    ///     <para>
+    ///         Sorted by name, because a file that reordered an entity's components between saves
+    ///         would be a diff with no edit behind it — the same argument this format makes about
+    ///         sibling order.
+    ///     </para>
+    /// </remarks>
     static IEnumerable<ISceneComponentBinder> Carried(World world, Entity entity) {
         var carried = new List<ISceneComponentBinder>();
 

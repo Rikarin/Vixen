@@ -139,6 +139,13 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     /// <summary>Which image an output port's variable names.</summary>
     readonly Dictionary<string, int> imageOf = new(StringComparer.Ordinal);
 
+    /// <summary>How many ops each node has dispatched, which is the ordinal in its op's identity.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Per node rather than one running counter, which would be the op index again.</b> See
+    ///     <see cref="Identify" /> — <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>.
+    /// </remarks>
+    readonly Dictionary<NodeId, int> emitted = [];
+
     /// <summary>The splat inserted for one grey image, so two colour ports fed by it share one op.</summary>
     readonly Dictionary<int, int> promotions = [];
 
@@ -325,6 +332,12 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         promotions.Clear();
         rescales.Clear();
         folded.Clear();
+
+        // ⚠ `emitted` with the others, and it was missed. It counts how many ops each node has
+        // already emitted, and that ordinal goes into the op's `Identity` — so an instance reused
+        // for a second graph would name the same op differently from a fresh instance compiling the
+        // same file, which is exactly the reproducibility `TexturePlan.SeedFor` promises.
+        emitted.Clear();
         nodeImages.Clear();
         kernels.Clear();
         Outputs = [];
@@ -418,14 +431,34 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             Report(new(TextureDiagnostics.ParameterOverrideIgnored, problem, NodeId.None, "", NodeSeverity.Warning));
         }
 
-        foreach (var (scope, expressions) in Collect(graph)) {
+        foreach (var (expansion, scope, expressions) in Collect(graph)) {
             var parameters = scope.Length == 0
                 ? declared
                 : (SubGraphSource as ITextureGraphLibrary)?.ParametersOf(scope) ?? [];
 
-            var values = scope.Length == 0
-                ? ParameterValues
-                : TextureGraphParameters.Read(parameters, null, out _);
+            var values = ParameterValues;
+
+            if (scope.Length > 0) {
+                // ⚠ The settings of the sub-graph node this expansion came out of, which used to be
+                // `null` — the declared defaults — for every published graph in every containing
+                // graph (#742). The node itself is gone by now: `Flatten` replaced it with the
+                // graph's contents, and `SubGraphExpansion` is what carried its numbers across.
+                Inlining.Expansions.TryGetValue(expansion, out var inlined);
+
+                values = TextureGraphParameters.Read(parameters, inlined.Settings, out var ignored);
+
+                foreach (var problem in ignored) {
+                    // Against the node the author can select rather than against no node, because
+                    // this one *is* somebody's typing and it is on a node they have.
+                    Report(new(
+                        TextureDiagnostics.ParameterOverrideIgnored,
+                        $"'{scope}': {problem}",
+                        inlined.Source,
+                        "",
+                        NodeSeverity.Warning
+                    ));
+                }
+            }
 
             var results = TextureGraphExpressions.Fold(parameters, values, expressions, out var diagnostics);
 
@@ -441,7 +474,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         }
     }
 
-    /// <summary>Every port of the graph whose value was written as an expression, by scope.</summary>
+    /// <summary>Every port of the graph whose value was written as an expression, by expansion.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Walked in <c>Ordered</c>'s order and each node's keys sorted</b>, because the
@@ -462,20 +495,27 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///         picture. <see cref="NodeGraphInlining" /> already says which graph each node came out
     ///         of; the scope is that path, and the empty string is the author's own graph.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Grouped by <see cref="NodeOrigin.Expansion" /> rather than by that path, because
+    ///         the path is what a knob is <em>declared</em> by and not what it is <em>set</em>
+    ///         to.</b> One graph may contain the same published graph twice with two sets of
+    ///         numbers, and grouping by path folds both against one of them. The scope travels beside
+    ///         the key because it is still what <c>ParametersOf</c> is asked.
+    ///     </para>
     /// </remarks>
-    List<(string Scope, List<TextureExpression> Expressions)> Collect(NodeGraphModel graph) {
-        List<(string Scope, List<TextureExpression> Expressions)> scopes = [];
+    List<(int Expansion, string Scope, List<TextureExpression> Expressions)> Collect(NodeGraphModel graph) {
+        List<(int Expansion, string Scope, List<TextureExpression> Expressions)> scopes = [];
 
-        List<TextureExpression> For(string scope) {
-            foreach (var (name, expressions) in scopes) {
-                if (string.Equals(name, scope, StringComparison.Ordinal)) {
+        List<TextureExpression> For(int expansion, string scope) {
+            foreach (var (key, _, expressions) in scopes) {
+                if (key == expansion) {
                     return expressions;
                 }
             }
 
             List<TextureExpression> made = [];
 
-            scopes.Add((scope, made));
+            scopes.Add((expansion, scope, made));
 
             return made;
         }
@@ -526,8 +566,13 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
                     continue;
                 }
 
-                For(Inlining.TryGet(node.Id, out var origin) ? origin.Type : "")
-                    .Add(new(node.Id, port, node.Texts[key]));
+                // ⚠ Keyed on the expansion and not on the node-type path. Two nodes of one published
+                // type in one graph are two sets of knob values, and a batch keyed on the path would
+                // fold both of them against whichever set the walk reached first — which is the
+                // shape of "the second Dirt silently uses the first one's amount".
+                var expansion = Inlining.TryGet(node.Id, out var origin) ? origin.Expansion : 0;
+
+                For(expansion, expansion == 0 ? "" : origin.Type).Add(new(node.Id, port, node.Texts[key]));
             }
         }
 
@@ -737,7 +782,8 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///     <see cref="TexturePlan.Validate" />'s hands, which would then say the compiler is broken
     ///     on top of the message the author can actually act on.
     /// </remarks>
-    internal void Dispatch(TextureOp op) {
+    internal void Dispatch(GraphNode node, TextureOp op) {
+        ArgumentNullException.ThrowIfNull(node);
         ArgumentNullException.ThrowIfNull(op);
 
         if (op.Output < 0) {
@@ -750,7 +796,106 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             }
         }
 
-        ops.Add(op);
+        // ⚠ Counted before the drops above would have skipped it, or a node whose first op was
+        // dropped would hand its second op the first one's identity — and the identity would then
+        // depend on whether an unrelated input was missing.
+        emitted.TryGetValue(node.Id, out var ordinal);
+        emitted[node.Id] = ordinal + 1;
+
+        ops.Add(op with { Identity = Identify(node, ordinal) });
+    }
+
+    /// <summary>The stable name of one op: which node emitted it, and its ordinal within that node.</summary>
+    /// <param name="node">The node, in the <em>flattened</em> graph.</param>
+    /// <param name="ordinal">How many ops that node has already emitted.</param>
+    /// <returns>A number to mix into the op's seed.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>: the op's index was
+    ///         the seed, and an index is what an insertion moves.</b> A <c>NodeId</c> is not: it is
+    ///         written in the <c>.vxtexgraph</c>, <c>NodeGraphModel</c> never reuses one, and adding
+    ///         a node hands out a fresh number rather than renumbering the existing ones. So a noise
+    ///         keeps its picture when an author wires something in beneath it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An inlined node is named by where it came from and not by the identity it was
+    ///         given</b>, because <c>SubGraphs.Flatten</c> numbers inlined nodes from above the outer
+    ///         graph's highest id — so adding any node to the author's graph renumbers every node
+    ///         inside every compound in it. <see cref="NodeGraphInlining" /> keeps the pair that does
+    ///         not move: the sub-graph node it stands for, and its own id inside that compound.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The compound's type is mixed in as well, and it narrows the collisions rather
+    ///         than removing them.</b> <c>NodeOrigin.Source</c> is the outermost sub-graph node
+    ///         however deep the nesting goes, and <c>Inner</c> is an identity in the innermost file,
+    ///         so a compound containing a compound — each with a node numbered 3 — would collide on
+    ///         those two alone; the type separates them when the two compounds differ.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it does <em>not</em> separate is two sibling instances of the SAME compound
+    ///         nested inside one outer compound</b>, which share an outermost source, a type and
+    ///         their inner ids, and therefore share a name — two noise ops drawing one picture. The
+    ///         missing component is the middle of the path: which node <em>inside the outer file</em>
+    ///         each instance came from. <c>NodeOrigin.Expansion</c> distinguishes them and is not
+    ///         usable here, because it is a walk-ordered counter and an insertion moves it — which is
+    ///         the whole defect this method exists to fix, in miniature. Recorded rather than
+    ///         papered over: <a href="https://github.com/Rikarin/Vixen/issues/925">#925</a>.
+    ///     </para>
+    ///     <para>
+    ///         <b>The ordinal is what lets one node emit several.</b> <c>AutoLevels</c> is a reduction
+    ///         chain and <c>Distance</c> is a jump flood; every one of their dispatches needs a name
+    ///         of its own, and the order a node emits them in is a property of the node rather than
+    ///         of the graph around it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Hashed" /> and not <c>string.GetHashCode</c>, and the difference is
+    ///         the whole promise.</b> .NET randomises a string's hash per process, so a compound path
+    ///         hashed that way would give one material a different picture on every launch — the
+    ///         failure <see cref="TexturePlan.SeedFor" />'s "the same on every machine and every run"
+    ///         exists to rule out, arriving through the one input that is a string.
+    ///     </para>
+    /// </remarks>
+    uint Identify(GraphNode node, int ordinal) {
+        var identity = (uint)node.Id.Value;
+
+        if (Inlining.TryGet(node.Id, out var origin)) {
+            identity = unchecked(
+                (0x9E3779B9u * (uint)origin.Source.Value)
+                ^ (0x85EBCA6Bu * (uint)origin.Inner.Value)
+                ^ Hashed(origin.Type)
+            );
+        }
+
+        // MurmurHash3's finalizer, which is `TexturePlan.SeedFor`'s own mix — used here so that the
+        // ordinal and the node are folded together rather than living in separate bit ranges a
+        // second hash would then have to separate again.
+        var value = unchecked((0xC2B2AE35u * identity) + (uint)ordinal + 1u);
+
+        value ^= value >> 16;
+        value = unchecked(value * 0x85EBCA6Bu);
+        value ^= value >> 13;
+        value = unchecked(value * 0xC2B2AE35u);
+        value ^= value >> 16;
+
+        return value;
+    }
+
+    /// <summary>A string's hash, the same in every process — FNV-1a over its UTF-16 code units.</summary>
+    /// <param name="text">The text.</param>
+    /// <returns>The hash.</returns>
+    /// <remarks>
+    ///     Four lines rather than a dependency, and the property that matters is the one
+    ///     <c>string.GetHashCode</c> deliberately does not have: it is seeded per process, so the
+    ///     same graph would seed its noise differently on every launch.
+    /// </remarks>
+    static uint Hashed(string text) {
+        var hash = 2166136261u;
+
+        foreach (var character in text) {
+            hash = unchecked((hash ^ character) * 16777619u);
+        }
+
+        return hash;
     }
 
     /// <summary>Keeps an image past the evaluation, under a usage.</summary>

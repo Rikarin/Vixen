@@ -1643,21 +1643,6 @@ public sealed class Arena : IDisposable {
         );
     }
 
-    /// <summary>The frame's GPU cost, pass by pass, most expensive first.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Sorted by cost rather than shown in declaration order, because the question this
-    ///         is opened with is "what is the frame spending its time on".</b> The declaration order
-    ///         is what the editor's timeline draws — a bar per pass along a time axis — and reading
-    ///         it off a log would mean counting rows. The rank makes the answer the first line.
-    ///     </para>
-    ///     <para>
-    ///         The remainder is the part worth watching. Passes are timed as a span each and the
-    ///         frame is the span from the first begin to the last end, so the two agree only if every
-    ///         piece of GPU work the frame does happens inside a pass the graph ran. A large gap
-    ///         means the timeline is not describing the whole frame.
-    ///     </para>
-    /// </remarks>
     /// <summary>Where the raft ended up, against where the solver said the water was under it.</summary>
     /// <remarks>
     ///     <para>
@@ -1717,6 +1702,21 @@ public sealed class Arena : IDisposable {
         );
     }
 
+    /// <summary>The frame's GPU cost, pass by pass, most expensive first.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Sorted by cost rather than shown in declaration order, because the question this
+    ///         is opened with is "what is the frame spending its time on".</b> The declaration order
+    ///         is what the editor's timeline draws — a bar per pass along a time axis — and reading
+    ///         it off a log would mean counting rows. The rank makes the answer the first line.
+    ///     </para>
+    ///     <para>
+    ///         The remainder is the part worth watching. Passes are timed as a span each and the
+    ///         frame is the span from the first begin to the last end, so the two agree only if every
+    ///         piece of GPU work the frame does happens inside a pass the graph ran. A large gap
+    ///         means the timeline is not describing the whole frame.
+    ///     </para>
+    /// </remarks>
     void ReportGpuFrame(GpuFrame frame) {
         if (frame.Scopes.Count == 0) {
             return;

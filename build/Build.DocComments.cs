@@ -74,15 +74,19 @@ partial class Build {
         }
 
         // ⚠ The other half of the instrument, and the one that catches a rule that has stopped
-        // reading rather than a walk that has stopped finding. Every file on the exemption list is a
-        // file this same run has to have flagged, so a clean sweep with a non-empty list means the
-        // checks are no longer firing — the parser's documentation mode is the way that happens, and
-        // it is a one-word change away at all times.
+        // reading rather than a walk that has stopped finding. It used to be
+        // `findings.Count > 0 || exempt.Count == 0` — "every exempt file is one this run flagged, so
+        // a clean sweep with a non-empty list means the checks stopped firing". That was a real
+        // check for exactly as long as the list was non-empty, and #879 emptied it: on the day the
+        // tree is clean, both halves of that disjunction are satisfied by a rule that reports
+        // nothing because it reads nothing. So the rule is run over a stapled fixture instead, in
+        // this process, and what says it fires is it firing. The parser's documentation mode is the
+        // way it stops, and that is a one-word change away at all times.
         Assert.True(
-            findings.Count > 0 || exempt.Count == 0,
-            $"The doc comment rule reported nothing at all while {exempt.Count} file(s) are exempt because they "
-            + "violate it. The rule did not run — check that the parse still asks for documentation trivia — "
-            + "before trusting a green run."
+            DocCommentRule.Check("fixture.cs", StapledFixture).Count > 0,
+            "The doc comment rule found nothing in a block that carries two <summary> and a <param> naming a "
+            + "parameter the member does not have. The rule did not run — check that the parse still asks for "
+            + "documentation trivia — before trusting the clean sweep below."
         );
 
         if (UpdateExemptions) {
@@ -119,6 +123,29 @@ partial class Build {
             exempt.Count
         );
     }
+
+    /// <summary>A block that trips all three of the rule's checks, so that a run can prove it fires.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The instrument, and it is here rather than in the exemption list because the list is
+    ///     empty now.</b> Two <c>&lt;summary&gt;</c>, two <c>&lt;returns&gt;</c>, and a
+    ///     <c>&lt;param&gt;</c> naming a parameter the method does not have — the shape of the
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/866">#866</a> staple, reduced. A rule that
+    ///     reported nothing over this has stopped reading, and a sweep by a rule that has stopped
+    ///     reading is indistinguishable from a clean tree.
+    /// </remarks>
+    const string StapledFixture = """
+        namespace Fixture;
+
+        static class Staple {
+            /// <summary>What to say when the compilation refused.</summary>
+            /// <param name="compilation">It.</param>
+            /// <returns>The sentence.</returns>
+            /// <summary>The picture for one external image.</summary>
+            /// <param name="entry">The external the compilation could not fill.</param>
+            /// <returns>Null when it was uploaded.</returns>
+            static string? Resolve(int entry) => null;
+        }
+        """;
 
     /// <summary>Rewrites the exemption list from what this run found.</summary>
     /// <param name="findings">Everything the rule reported.</param>

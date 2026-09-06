@@ -184,18 +184,17 @@ public sealed class WaterDebugDraw {
         into.Text(new(centre.X, height + Lift, centre.Y), node.Level.ToString(), colour, 0.35f * (high.X - low.X) * 0.05f);
     }
 
-    /// <summary>The morph bands as rings about the camera — where a pop is diagnosed.</summary>
+    /// <summary>Draws the morph bands as rings about a point — where a pop is diagnosed.</summary>
+    /// <param name="into">Where the geometry goes.</param>
+    /// <param name="mesh">The quadtree, whose ranges are the radii.</param>
+    /// <param name="eye">Where the descent was run from.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="into" /> or <paramref name="mesh" /> is null.</exception>
     /// <remarks>
     ///     ⚠ <b>Two rings per level and not one.</b> A level's range is where it takes over; its morph
     ///     band is where it has already begun degenerating onto its parent's grid. A pop that happens
     ///     at the outer ring is a range that is too near; one that happens inside the band is a morph
     ///     that is not reaching zero, and they have different fixes.
     /// </remarks>
-    /// <summary>Draws the morph bands as rings about a point — where a pop is diagnosed.</summary>
-    /// <param name="into">Where the geometry goes.</param>
-    /// <param name="mesh">The quadtree, whose ranges are the radii.</param>
-    /// <param name="eye">Where the descent was run from.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="into" /> or <paramref name="mesh" /> is null.</exception>
     public static void Bands(DebugDraw into, WaterSurfaceMesh mesh, Vector3 eye) {
         ArgumentNullException.ThrowIfNull(into);
         ArgumentNullException.ThrowIfNull(mesh);

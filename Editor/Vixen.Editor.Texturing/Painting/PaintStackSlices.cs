@@ -38,14 +38,27 @@ readonly record struct PaintSlices(TextureSetAsset? Below, TextureSetAsset? Abov
 ///         them.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Any of the four properties failing makes the group a real boundary again, and it
+///         ⚠ <b>Any of the five properties failing makes the group a real boundary again, and it
 ///         still refuses.</b> An isolated group composites its children onto transparency and blends
 ///         the result back with its own operator; a mask or an opacity applies to that result. Both
 ///         put an operation between the painted layer and the canvas that no prefix/suffix pair can
 ///         express — it needs a stack compiled over a backdrop image, a graph with an <c>Input</c>
-///         node, which <c>LayerStackGraph</c> does not build. The refusal names which of the four it
+///         node, which <c>LayerStackGraph</c> does not build. The refusal names which of the five it
 ///         was, because "move it out of the group" is bad advice when the fix is to set the group's
 ///         opacity back to one.
+///     </para>
+///     <para>
+///         ⚠ <b>The fifth is <see cref="LayerAsset.Channels" />, and the enumeration asserted itself
+///         complete without it —
+///         <a href="https://github.com/Rikarin/Vixen/issues/890">#890</a>.</b> The other four are
+///         properties of how a group <em>composites</em>; this one is a property of <em>which
+///         channels it composites into at all</em>, and <c>LayerStackGraph.Layer</c> applies it to
+///         groups exactly as it applies it to leaves. So a group restricted to <c>baseColor</c>
+///         contributes nothing to <c>roughness</c> — while a flattened child carries its own
+///         <c>Channels</c>, which is empty, which means <em>all</em>. Intersecting the restriction
+///         onto each child would fix the two halves and not the layer between them: the painted
+///         layer is the live <c>PaintImage</c> that <c>PaintComposite</c> puts between the halves
+///         whole, with no channel list to intersect anything onto. So this one refuses too.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The upper half's channels default to <em>transparency</em> and the lower half's do
@@ -119,8 +132,21 @@ static class PaintStackSlices {
                 return null;
             }
 
-            if (layer.Kind != LayerKind.Group || !Contains(layer.Children, layerId)) {
+            if (!Contains(layer.Children, layerId)) {
                 continue;
+            }
+
+            // ⚠ `Contains` is kind-agnostic, so a non-group carrying `Children` — which only a
+            // hand-edited .vxlayers produces — used to fall past this loop with both halves still
+            // empty, and past the missing-id guard, and return *success* with two empty stacks and
+            // every other layer silently gone. #892.
+            if (layer.Kind != LayerKind.Group) {
+                var carrier = layer.Name.Length > 0 ? layer.Name : layer.Id;
+
+                return $"The layer '{carrier}' is a {layer.Kind} and carries '{layerId}' in its Children, "
+                    + "which only a Group composites. A stack that nests under anything else did not come "
+                    + "from the editor, and there is no composite order to take a prefix and a suffix of. "
+                    + "Move the layer to a Group, or to the top level.";
             }
 
             if (Opaque(layer) is { } why) {
@@ -170,6 +196,15 @@ static class PaintStackSlices {
             return $"The group '{name}' has a mask, which applies to everything inside it after the fact. "
                 + "That is an operation between a paint layer in the group and the canvas that no prefix and "
                 + "suffix can express — #851. Take the mask off the group, or move the layer out of it.";
+        }
+
+        if (group.Channels.Count > 0) {
+            return $"The group '{name}' is restricted to {string.Join(", ", group.Channels)}, and a group's "
+                + "channel restriction applies to everything inside it: the compiler gates every layer, "
+                + "groups included, on whether it writes the channel being compiled. Flattening its children "
+                + "out of it would put them into every other channel too, because a layer's own empty "
+                + "channel list means all of them — #890. Clear the group's channel restriction, or move "
+                + "the layer out of it.";
         }
 
         return null;

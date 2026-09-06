@@ -256,13 +256,6 @@ public class CompositorAssetTests : IDisposable {
         public Effect? TryGet(EffectKey key) => Compiled(key);
     }
 
-    /// <summary>The virtualized path as a document describes it: traverse, then draw and shade.</summary>
-    /// <remarks>
-    ///     Two nodes for what is one system, because the placement decision genuinely is two: the
-    ///     traversal has to run before the draw its answer feeds, and the draw has to share the depth
-    ///     the classic geometry is in. Everything between the draw, the binning and the shading is one
-    ///     node, because their order is not something a file should be able to get wrong.
-    /// </remarks>
     /// <summary>
     ///     The lit path: a clipmap, a probe field, and the two screen passes that read them.
     /// </summary>
@@ -289,6 +282,13 @@ public class CompositorAssetTests : IDisposable {
               dilationPasses: 2
         """;
 
+    /// <summary>The virtualized path as a document describes it: traverse, then draw and shade.</summary>
+    /// <remarks>
+    ///     Two nodes for what is one system, because the placement decision genuinely is two: the
+    ///     traversal has to run before the draw its answer feeds, and the draw has to share the depth
+    ///     the classic geometry is in. Everything between the draw, the binning and the shading is one
+    ///     node, because their order is not something a file should be able to get wrong.
+    /// </remarks>
     const string ClusterDocument = """
         version: 2
         resources:

@@ -43,15 +43,26 @@ static class LayerStackDifferential {
     /// <summary>The image reference the texture-fill layer names, which a device test supplies.</summary>
     public const string CheckerAsset = "Assets/Checker.png";
 
-    /// <summary>Three channels, seven layers, a group, a mask and an anchor.</summary>
+    /// <summary>Three channels, seven layers, a group, a two-entry mask and an anchor.</summary>
     /// <returns>The stack.</returns>
     /// <remarks>
-    ///     ⚠ <b>Deliberately not the starter stack.</b> A one-layer stack explodes into three nodes
-    ///     and every op index is its own, so an explosion that reordered or inserted anything would
-    ///     still compile to the same plan — the differential would be green for the wrong reason.
-    ///     What is here has a nested group, a filter that reads the composite beneath it, an anchor
-    ///     that is an edge rather than a chain link, and channels that different layers write, which
-    ///     is the shape where an ordering mistake shows.
+    ///     <para>
+    ///         ⚠ <b>The mask has two entries because a mask with one constant is not a mask any
+    ///         more</b> — <a href="https://github.com/Rikarin/Vixen/issues/895">#895</a>.
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/789">#789</a>'s fold turns a bare
+    ///         constant inside the unit interval into a factor of the layer's opacity, so the
+    ///         <c>soften</c> layer's mask compiled to no ops at all and this fixture's summary was
+    ///         describing a file rather than a plan. The second entry is what puts the shuffles and
+    ///         the <c>Multiply</c> back under the round trip.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Deliberately not the starter stack.</b> A one-layer stack explodes into three
+    ///         nodes and every op index is its own, so an explosion that reordered or inserted
+    ///         anything would still compile to the same plan — the differential would be green for
+    ///         the wrong reason. What is here has a nested group, a filter that reads the composite
+    ///         beneath it, an anchor that is an edge rather than a chain link, and channels that
+    ///         different layers write, which is the shape where an ordering mistake shows.
+    ///     </para>
     /// </remarks>
     public static LayerStackAsset Stack() =>
         new() {
@@ -106,7 +117,26 @@ static class LayerStackDifferential {
                             Blend = LayerBlendMode.Copy,
                             Opacity = 0.8f,
                             Settings = { ["Radius"] = [3f] },
-                            Mask = new() { Source = LayerMaskSource.Constant, Value = 0.4f }
+
+                            // ⚠ Two entries, and the second one is what keeps the mask path in this
+                            // fixture at all — #895. A bare constant inside the unit interval folds
+                            // into the layer's opacity (#789) and compiles to no nodes, so between
+                            // #789 landing and this the exit-criterion-6 differential covered a mask
+                            // only in the sense that the file mentioned one. Two entries composite,
+                            // which means the shuffles, the Multiply and the alpha shuffle all have to
+                            // survive the explosion's round trip.
+                            Mask = new() {
+                                Source = LayerMaskSource.Constant,
+                                Value = 0.4f,
+                                Layers = [
+                                    new() {
+                                        Source = LayerMaskSource.Constant,
+                                        Value = 0.75f,
+                                        Blend = LayerBlendMode.Multiply,
+                                        Opacity = 0.6f
+                                    }
+                                ]
+                            }
                         },
                         new() {
                             Id = "grime",
@@ -244,7 +274,14 @@ static class LayerStackDifferential {
             }
 
             text.Append(CultureInfo.InvariantCulture, $"] cpu {op.Cpu?.GetType().Name ?? "none"}");
-            text.Append(CultureInfo.InvariantCulture, $" extent {op.EmittedForExtent?.ToString(CultureInfo.InvariantCulture) ?? "any"}\n");
+            text.Append(CultureInfo.InvariantCulture, $" extent {op.EmittedForExtent?.ToString(CultureInfo.InvariantCulture) ?? "any"}");
+
+            // ⚠ The seed, and it is the one line here that is about the *round trip* rather than about
+            // the arithmetic — #875. An op's seed is mixed from `TextureOp.Identity`, which the
+            // compiler derives from the node that emitted it, so a loader that renumbered the nodes
+            // it read would produce a plan with identical ops drawing different noise. Nothing else in
+            // this description could tell, and exit criterion 6 asks for byte-identical bakes.
+            text.Append(CultureInfo.InvariantCulture, $" seed {plan.SeedFor(index)}\n");
         }
 
         text.Append(CultureInfo.InvariantCulture, $"outputs: [{string.Join(", ", plan.Outputs)}]\n");

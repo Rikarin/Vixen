@@ -54,8 +54,11 @@ sealed partial class UniformNode : TextureNode {
 ///     <para>
 ///         <b>The seed is not a port and not a setting.</b> Doc 48 § D5 — a noise whose output changes
 ///         between runs is not a source asset — and the plan already answers it:
-///         <c>TexturePlan.SeedFor</c> mixes the plan's seed with the op's own index, so two Noise
-///         nodes in one graph differ and the same graph is the same picture on every machine.
+///         <c>TexturePlan.SeedFor</c> mixes the plan's seed with <c>TextureOp.Identity</c> — which
+///         the compiler derives from the node that emitted the op — so two Noise nodes in one graph
+///         differ and the same graph is the same picture on every machine. ⚠ It mixed the op's
+///         <em>index</em> until <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>, which
+///         made this node's picture a function of how many ops happened to precede it.
 ///     </para>
 /// </remarks>
 [Node("Source/Noise", Preview = true, Summary = "Value, gradient, Worley or white noise.")]

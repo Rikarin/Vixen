@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Core;
@@ -61,6 +62,12 @@ public sealed class TextureGraphDocument : EditorDocument {
     /// <summary>What a texture graph is written as.</summary>
     public const string Extension = ".vxtexgraph";
 
+    /// <summary>Where this document's compounds are read from, or null when it did not publish.</summary>
+    readonly string? compounds;
+
+    /// <summary>Whether a compound has been saved since the library was built.</summary>
+    bool stale;
+
     /// <summary>What an unopened <c>.vxtexgraph</c> is: a zero-byte file.</summary>
     /// <remarks>
     ///     ⚠ <b>Empty rather than a starter document, which is the opposite of doc 31's four.</b>
@@ -79,7 +86,12 @@ public sealed class TextureGraphDocument : EditorDocument {
     public NodeGraphModel Graph { get; }
 
     /// <summary>The node types this document is edited against.</summary>
-    public NodeTypeRegistry Registry { get; }
+    /// <remarks>
+    ///     ⚠ <b>Replaced rather than mutated when a compound is saved</b> — see
+    ///     <see cref="Republish" /> — so a caller that cached this holds an old menu. The panel reads
+    ///     it on every show for that reason.
+    /// </remarks>
+    public NodeTypeRegistry Registry { get; private set; }
 
     /// <summary>What resolves a published node type in <see cref="Registry" /> to its graph.</summary>
     /// <remarks>
@@ -87,7 +99,7 @@ public sealed class TextureGraphDocument : EditorDocument {
     ///     registry it did not publish into. <see cref="Compile" /> hands it straight to the
     ///     compiler's <c>SubGraphSource</c>.
     /// </remarks>
-    internal ISubGraphSource? SubGraphs { get; }
+    internal ISubGraphSource? SubGraphs { get; private set; }
 
     /// <summary>Every compound file that could not be published, and why.</summary>
     /// <remarks>
@@ -96,7 +108,7 @@ public sealed class TextureGraphDocument : EditorDocument {
     ///     so that one bad file in <c>Assets/Compounds</c> does not cost an author the whole library.
     ///     That makes this the only place the loss is visible.
     /// </remarks>
-    internal ImmutableArray<TextureCompoundProblem> CompoundProblems { get; } = [];
+    internal ImmutableArray<TextureCompoundProblem> CompoundProblems { get; private set; } = [];
 
     /// <summary>What reading the file had to say — repairs, and a refusal.</summary>
     /// <remarks>
@@ -131,11 +143,15 @@ public sealed class TextureGraphDocument : EditorDocument {
             // ⚠ The project's assets folder, so that `Assets/Compounds` is published beside the four
             // this build ships. A caller that brought its own registry brings its own sub-graph
             // source too — or none, which is what a graph of atomic nodes needs.
-            var library = TextureNodeLibrary.Publish(project.Paths.Assets);
+            compounds = TextureNodeLibrary.FolderOf(project.Paths.Assets);
 
-            Registry = library.Registry;
-            SubGraphs = library.SubGraphs;
-            CompoundProblems = library.Problems;
+            Adopt(TextureNodeLibrary.Publish(project.Paths.Assets));
+
+            // ⚠ Before the write rather than after it, which is why marking is all this does: the
+            // project raises this so a file watcher can be told to ignore a path it is about to see
+            // change, so the bytes are not on disk yet. Reading them here would republish the file
+            // as it was.
+            project.DocumentSaving += Saving;
         } else {
             Registry = registry;
         }
@@ -158,6 +174,82 @@ public sealed class TextureGraphDocument : EditorDocument {
             Graph = new() { Name = Path.GetFileNameWithoutExtension(path) };
             LoadDiagnostics = [new("TX0000", exception.Message, NodeId.None)];
         }
+    }
+
+    /// <summary>Rebuilds the node library if a compound has been saved since it was built.</summary>
+    /// <returns><see langword="true" /> if it was rebuilt, so a caller can re-read what it cached.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The other half of <a href="https://github.com/Rikarin/Vixen/issues/803">#803</a>:
+    ///         a document published once, in its constructor.</b> An author who edited a compound and
+    ///         came back to the graph containing it saw the version that was on disk when this
+    ///         document opened — the old ports, the old defaults, the old contents inlined into every
+    ///         bake — and nothing said so. Reopening the graph was the only cure.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A flag set by a save and read here, rather than a check that walks the folder.</b>
+    ///         The obvious mistake is republishing whenever anybody asks whether the library is
+    ///         stale: this is asked from <see cref="Compile" /> and from the panel's every show, and
+    ///         a directory walk plus a <c>stat</c> per compound on every keystroke is the same trap
+    ///         as republishing on every keystroke wearing a hat. A save is the rare, deliberate act
+    ///         that can change a compound, so a save is what sets the flag.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this does not see is a compound changed outside the editor.</b>
+    ///         <c>ExternalEdits</c> is where that arrives and it is constructed by the application
+    ///         rather than reachable from a document, so a host that watches files calls this itself
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/922">#922</a>.
+    ///     </para>
+    /// </remarks>
+    public bool Republish() {
+        if (!stale) {
+            return false;
+        }
+
+        stale = false;
+
+        Adopt(TextureNodeLibrary.Publish(Project.Paths.Assets));
+
+        return true;
+    }
+
+    /// <inheritdoc />
+    protected override void OnClosed() {
+        base.OnClosed();
+
+        // Only ever attached when this document published its own library, and unsubscribing one
+        // that was never attached is free — so this is unconditional rather than mirrored.
+        Project.DocumentSaving -= Saving;
+    }
+
+    /// <summary>Takes a freshly published library, replacing whatever this document had.</summary>
+    [MemberNotNull(nameof(Registry))]
+    void Adopt(TextureLibrary library) {
+        Registry = library.Registry;
+        SubGraphs = library.SubGraphs;
+        CompoundProblems = library.Problems;
+    }
+
+    /// <summary>Notices that a graph in this project's compound folder is about to be written.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not every save, and not this document's own.</b> A save of the graph being edited
+    ///     changes no compound, and replacing <see cref="Registry" /> on it would reproject the
+    ///     canvas for nothing. What matters is a <c>.vxtexgraph</c> under
+    ///     <c>Assets/Compounds</c> — which is the only thing <c>TextureNodeLibrary.Publish</c> reads
+    ///     off disk.
+    /// </remarks>
+    void Saving(EditorDocument document) {
+        if (compounds is null
+            || ReferenceEquals(document, this)
+            || document is not TextureGraphDocument graph) {
+            return;
+        }
+
+        var saved = Path.GetFullPath(graph.AssetPath);
+        var folder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(compounds));
+
+        stale = stale
+            || saved.StartsWith(folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>The smallest graph that produces a map.</summary>
@@ -196,12 +288,18 @@ public sealed class TextureGraphDocument : EditorDocument {
     ///         node that silently produced no image.
     ///     </para>
     /// </remarks>
-    internal NodeGraphCompilation<TexturePlan> Compile() =>
-        new TextureGraphCompiler(Registry) {
+    internal NodeGraphCompilation<TexturePlan> Compile() {
+        // ⚠ Here rather than only in the panel, because this is where a stale library costs
+        // something an author cannot see: the compilation inlines whatever the compound was when
+        // this document opened, and the bake made from it is that graph, silently.
+        Republish();
+
+        return new TextureGraphCompiler(Registry) {
             BaseWidth = BaseWidth,
             BaseHeight = BaseHeight,
             SubGraphSource = SubGraphs
         }.Compile(Graph);
+    }
 
     /// <summary>The graph as it would be written.</summary>
     /// <returns>The YAML.</returns>

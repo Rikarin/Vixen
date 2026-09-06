@@ -137,13 +137,13 @@ public class InspectorPanelTests {
     ///     — so the region is as tall as everything in it, the bar never appears, and the last
     ///     component is off the bottom of the window with no way to reach it.
     /// </summary>
-    /// <summary>
+    /// <remarks>
     ///     ⚠ <b>The region is given a height rather than the window being shrunk.</b> Only three
     ///     component types are registered, so an entity carrying all of them still fits a default
     ///     window — and the docking host does not follow a smaller one, which is its own gap and not
     ///     this one. What has to be true is the relationship: content longer than the region moves
     ///     under it, rather than pushing the panel's bottom off the screen.
-    /// </summary>
+    /// </remarks>
     [Fact]
     public void A_region_shorter_than_its_contents_scrolls_rather_than_growing() {
         using var editor = EditorSession.Start();

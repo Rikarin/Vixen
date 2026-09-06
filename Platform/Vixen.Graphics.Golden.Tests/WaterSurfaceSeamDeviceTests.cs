@@ -427,13 +427,6 @@ public class WaterSurfaceSeamDeviceTests {
         return new EffectLoader(device).Load(data!);
     }
 
-    /// <summary>How many ULP apart the widest component of two answers is.</summary>
-    /// <remarks>
-    ///     ULP rather than an absolute difference, because the quantities span four orders of
-    ///     magnitude: a tolerance loose enough for a metre of swell is meaningless for a normal's
-    ///     component, and one tight enough for the normal is unreachable for the swell. Zero ULP is
-    ///     "the same float", which is the only bound that means the same thing at both scales.
-    /// </remarks>
     /// <summary>How far apart two answers are, in metres, over the widest of their six components.</summary>
     /// <remarks>
     ///     ⚠ <b>An absolute bound and not a ULP one, and the reason is cancellation.</b> A sum of

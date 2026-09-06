@@ -141,6 +141,173 @@ public class TextureGraphSubGraphTests {
         Assert.Equal(6f, blur.Find("radius")!.Value.Value);
     }
 
+    /// <summary>What an author typed on the sub-graph node is what its expressions fold against.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Doc 48 § D9's knob, which for three batches was a field that accepted a number and
+    ///     changed nothing — <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>.</b> The
+    ///     override is stored on the sub-graph node and <c>Flatten</c> deletes that node, so the
+    ///     value used to reach nothing and the expression folded against the published graph's
+    ///     declared default. 4 × 2 is the author's number; 6 is the default's, and is what this
+    ///     asserted before the fix.
+    /// </remarks>
+    [Fact]
+    public void A_knob_turned_on_the_sub_graph_node_reaches_the_expression_inside_it() {
+        var (compiler, graph, used) = Containing(
+            Published("amount * 2f"),
+            [new("amount", Default: 3f, Minimum: 0f, Maximum: 10f)]
+        );
+
+        used.SetText("amount", "4");
+
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        var blur = compilation.Value.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+
+        Assert.Equal(8f, blur.Find("radius")!.Value.Value);
+    }
+
+    /// <summary>Two nodes of one published type are two sets of knobs, not one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The failure the fix for #742 could most easily have had.</b> Expressions are folded
+    ///     in batches — one Raven compilation per group rather than one per field — and the obvious
+    ///     key for a group is the published graph's path, which is exactly the key that cannot tell
+    ///     these two apart. Grouping that way makes both blurs take whichever value the walk reached
+    ///     first, and every assertion about a single instance still passes.
+    /// </remarks>
+    [Fact]
+    public void Two_instances_of_one_published_graph_keep_their_own_knobs() {
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        TextureGraphLibrary library = new();
+
+        library.Publish(
+            "Library/Grunge",
+            Published("amount * 2f"),
+            [new("amount", Default: 3f, Minimum: 0f, Maximum: 10f)],
+            registry
+        );
+
+        NodeGraphModel graph = new();
+        var first = graph.Add("Library/Grunge");
+        var second = graph.Add("Library/Grunge");
+        var blend = graph.Add("Colour/Blend");
+        var output = graph.Add("Output/Output");
+
+        first.SetText("amount", "1");
+        second.SetText("amount", "5");
+
+        graph.Connect(new(first.Id, "Out"), new(blend.Id, "Background"));
+        graph.Connect(new(second.Id, "Out"), new(blend.Id, "Foreground"));
+        graph.Connect(new(blend.Id, "Out"), new(output.Id, "Input"));
+
+        var compilation = new TextureGraphCompiler(registry) {
+            BaseWidth = 128,
+            BaseHeight = 128,
+            SubGraphSource = library
+        }.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        // Two separable blurs each emit two ops, and the pair that share a radius are one instance.
+        var radii = compilation.Value.Ops
+            .Where(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal))
+            .Select(op => op.Find("radius")!.Value.Value)
+            .Distinct()
+            .Order()
+            .ToArray();
+
+        Assert.Equal([2f, 10f], radii);
+    }
+
+    /// <summary>An override that will not parse keeps the default and names the node carrying it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half that makes the knob honest.</b> Reading an unparseable override as zero is
+    ///     the failure <c>TextureGraphParameters.Read</c> exists to prevent — zero is a
+    ///     valid-looking radius — and reporting it against no node at all would be a complaint about
+    ///     a graph rather than about the node the author typed into.
+    /// </remarks>
+    [Fact]
+    public void A_knob_given_something_that_is_not_a_number_says_so_against_the_node() {
+        var (compiler, graph, used) = Containing(
+            Published("amount * 2f"),
+            [new("amount", Default: 3f, Minimum: 0f, Maximum: 10f)]
+        );
+
+        used.SetText("amount", "quite a lot");
+
+        var compilation = compiler.Compile(graph);
+        var diagnostic = Assert.Single(compilation.Diagnostics, one => one.Id == "TG0015");
+
+        Assert.Equal(used.Id, diagnostic.Node);
+        Assert.Contains("Library/Grunge", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Contains("keeps its default of 3", diagnostic.Message, StringComparison.Ordinal);
+
+        // And the picture is the default's rather than zero's.
+        var blur = compilation.Value.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+
+        Assert.Equal(6f, blur.Find("radius")!.Value.Value);
+    }
+
+    /// <summary>A knob set inside a published graph, on a graph <em>it</em> contains, travels too.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The case that decides whether the overrides are keyed on the right node.</b>
+    ///     <c>NodeOrigin.Source</c> is deliberately the <em>outermost</em> sub-graph node, because
+    ///     that is the only node a canvas has to select; the settings that apply two levels in are
+    ///     the ones written on the inner node, inside the published file. Keying the overrides on
+    ///     <c>Source</c> would hand the inner graph the outer node's table — which for a shipped
+    ///     compound is a stranger's numbers.
+    /// </remarks>
+    [Fact]
+    public void A_knob_set_inside_a_published_graph_reaches_the_graph_that_one_contains() {
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        TextureGraphLibrary library = new();
+
+        library.Publish(
+            "Library/Grunge",
+            Published("amount * 2f"),
+            [new("amount", Default: 3f, Minimum: 0f, Maximum: 10f)],
+            registry
+        );
+
+        // A second published graph that contains the first, and turns its knob to 5.
+        NodeGraphModel outer = new() { Name = "Wear" };
+
+        outer.Interface.Add(new("Out", PortDirection.Output, PortKind.Image));
+
+        var inner = outer.Add("Library/Grunge");
+        var exit = outer.Add(SubGraphs.OutputType);
+
+        inner.SetText("amount", "5");
+        outer.Connect(new(inner.Id, "Out"), new(exit.Id, "Out"));
+
+        library.Publish("Library/Wear", outer, [], registry);
+
+        NodeGraphModel graph = new();
+        var used = graph.Add("Library/Wear");
+        var output = graph.Add("Output/Output");
+
+        graph.Connect(new(used.Id, "Out"), new(output.Id, "Input"));
+
+        var compilation = new TextureGraphCompiler(registry) {
+            BaseWidth = 128,
+            BaseHeight = 128,
+            SubGraphSource = library
+        }.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        var blur = compilation.Value.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+
+        Assert.Equal(10f, blur.Find("radius")!.Value.Value);
+    }
+
     /// <summary>A published graph with knobs is a node with settings, and the library keeps them.</summary>
     [Fact]
     public void A_published_graph_registers_a_node_type_carrying_its_parameters() {

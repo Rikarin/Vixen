@@ -95,13 +95,20 @@ static class TextureNodeLibrary {
     /// </remarks>
     public static TextureLibrary Publish(string? assets = null) {
         var registry = Create();
-
-        var folder = assets is { Length: > 0 }
-            ? Path.Combine(assets, CompoundFolder)
-            : null;
-
-        var source = TextureCompoundLibrary.Publish(registry, folder, out var problems);
+        var source = TextureCompoundLibrary.Publish(registry, FolderOf(assets), out var problems);
 
         return new(registry, source, problems);
     }
+
+    /// <summary>Which folder a project's compounds are read from.</summary>
+    /// <param name="assets">A project's <c>Assets/</c> folder, or <see langword="null" /> for none.</param>
+    /// <returns>The folder, or <see langword="null" /> when there is no project.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Here rather than at each caller, because a second spelling of it is a second answer
+    ///     to "did that file change".</b> <c>TextureGraphDocument.Republish</c> asks whether a saved
+    ///     graph is one of these, and a copy of the <c>Path.Combine</c> would be a copy that stops
+    ///     agreeing the day the convention moves.
+    /// </remarks>
+    public static string? FolderOf(string? assets) =>
+        assets is { Length: > 0 } ? Path.Combine(assets, CompoundFolder) : null;
 }

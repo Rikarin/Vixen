@@ -6,6 +6,20 @@ using Xunit;
 
 namespace Vixen.Ui.Controls.Advanced.Tests;
 
+/// <summary>The test classes that change the language, which is a process-wide static.</summary>
+/// <remarks>
+///     ⚠ <b><c>Strings.Use</c> is static, so two test classes that both call it cannot run at the
+///     same time.</b> xunit runs different classes in parallel, and this cost a green run: a
+///     reference window built under a pseudo-locale had its catalogue swapped out from under it by
+///     the class next door, and the symptom was one test failing in a full run and passing on its
+///     own. <c>SharedTypeRegistry</c> is the same arrangement one assembly over, for the same kind
+///     of reason.
+/// </remarks>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class SharedCatalogue {
+    public const string Name = "StringCatalogue";
+}
+
 /// <summary>
 ///     The advanced control set's half of the same claim: what it announces and what it displays are
 ///     the same words, in every language.
@@ -41,20 +55,6 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         and is not repeated here.
 ///     </para>
 /// </remarks>
-/// <summary>The test classes that change the language, which is a process-wide static.</summary>
-/// <remarks>
-///     ⚠ <b><c>Strings.Use</c> is static, so two test classes that both call it cannot run at the
-///     same time.</b> xunit runs different classes in parallel, and this cost a green run: a
-///     reference window built under a pseudo-locale had its catalogue swapped out from under it by
-///     the class next door, and the symptom was one test failing in a full run and passing on its
-///     own. <c>SharedTypeRegistry</c> is the same arrangement one assembly over, for the same kind
-///     of reason.
-/// </remarks>
-[CollectionDefinition(Name, DisableParallelization = true)]
-public sealed class SharedCatalogue {
-    public const string Name = "StringCatalogue";
-}
-
 [Collection(SharedCatalogue.Name)]
 public class AccessibleNameLocalisationTests {
     [Fact]

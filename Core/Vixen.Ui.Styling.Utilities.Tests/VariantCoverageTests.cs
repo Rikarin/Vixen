@@ -34,12 +34,6 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///     </para>
 /// </remarks>
 public class VariantCoverageTests {
-    /// <summary>The scene each state variant needs in order to match, and one in which it must not.</summary>
-    /// <remarks>
-    ///     The negative column is the half that catches a variant compiling to something broader than
-    ///     it should. <c>:nth-child(2n)</c> silently compiled to <c>:first-child</c> would pass every
-    ///     positive row and fail <c>even</c>'s negative one.
-    /// </remarks>
     /// <summary>One row: a variant, a scene, and whether the variant should reach the element in it.</summary>
     /// <param name="Variant">The variant, without its colon.</param>
     /// <param name="State">The element's own pseudo state.</param>
@@ -76,6 +70,12 @@ public class VariantCoverageTests {
     /// </remarks>
     static readonly Scene[] Scenes = BuildScenes();
 
+    /// <summary>The scene each state variant needs in order to match, and one in which it must not.</summary>
+    /// <remarks>
+    ///     The negative column is the half that catches a variant compiling to something broader than
+    ///     it should. <c>:nth-child(2n)</c> silently compiled to <c>:first-child</c> would pass every
+    ///     positive row and fail <c>even</c>'s negative one.
+    /// </remarks>
     public static TheoryData<string, ElementState, int, int, bool, string, string, int> StateScenes {
         get {
             // Primitives only. xunit serialises theory rows so it can run one of them on its own, and

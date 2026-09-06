@@ -561,6 +561,19 @@ partial class Build : NukeBuild {
         Log.Information("Checked {Count} files for an SPDX header; none missing.", files.Count);
     }
 
+    /// <summary>Every file git tracks, as absolute paths.</summary>
+    /// <returns>The set, for membership tests.</returns>
+    /// <remarks>
+    ///     Untracked and ignored files are both absent, which is the point: an ignored file is
+    ///     build output and an untracked one is not yet anybody's source. A header is a claim about
+    ///     a file somebody may vendor, and neither kind is a file anybody can vendor from here.
+    /// </remarks>
+    HashSet<AbsolutePath> TrackedFiles() {
+        var output = GitTasks.Git("ls-files", RootDirectory, logOutput: false, logInvocation: false);
+
+        return [.. output.Select(line => RootDirectory / line.Text.Trim()).Where(path => path.FileExists())];
+    }
+
     /// <summary>Whether a globbed path is one this repository is entitled to put its name on.</summary>
     /// <remarks>
     ///     <para>
@@ -584,19 +597,6 @@ partial class Build : NukeBuild {
     ///         generated inside a third party's build would be the same false claim as above.
     ///     </para>
     /// </remarks>
-    /// <summary>Every file git tracks, as absolute paths.</summary>
-    /// <returns>The set, for membership tests.</returns>
-    /// <remarks>
-    ///     Untracked and ignored files are both absent, which is the point: an ignored file is
-    ///     build output and an untracked one is not yet anybody's source. A header is a claim about
-    ///     a file somebody may vendor, and neither kind is a file anybody can vendor from here.
-    /// </remarks>
-    HashSet<AbsolutePath> TrackedFiles() {
-        var output = GitTasks.Git("ls-files", RootDirectory, logOutput: false, logInvocation: false);
-
-        return [.. output.Select(line => RootDirectory / line.Text.Trim()).Where(path => path.FileExists())];
-    }
-
     static bool IsExcludedFromLicenceHeaders(AbsolutePath path) {
         var text = path.ToString();
 

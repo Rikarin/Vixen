@@ -1,8 +1,11 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Editor.NodeGraph;
+using Vixen.Input;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 using Xunit;
 
@@ -16,6 +19,12 @@ namespace Vixen.Editor.Texturing.Tests;
 ///     state doc 48 § D14 says this whole slice exists to leave.
 /// </remarks>
 public class TextureGraphPanelTests {
+    /// <summary>The panel these tests register, which is their own rather than the module's.</summary>
+    const string TrailPanel = "texturing.graph.trail-test";
+
+    static TimeSpan clock;
+
+
     [Fact]
     public void Opening_the_panel_builds_a_canvas_and_an_image_view() {
         using var fixture = new TexturingFixture();
@@ -195,6 +204,301 @@ public class TextureGraphPanelTests {
 
         // And the blocker's own sentence survives beside it: two things to say is two sentences.
         Assert.Contains("no graphics device", view.Status, StringComparison.Ordinal);
+    }
+
+    /// <summary>Double-clicking a compound puts the graph it stands for on the canvas.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The other half of <a href="https://github.com/Rikarin/Vixen/issues/859">#859</a>,
+    ///         and it is the half that decides whether any of the rest is reachable.</b>
+    ///         <c>NodeGraphView.SubGraphOpened</c> was raised by the canvas and subscribed to by
+    ///         nothing in the whole tree — one handler, in <c>Vixen.Editor.NodeGraph.Tests</c> — so an
+    ///         author could place <c>Generators/Dirt</c>, compile it, bake it, and never see what it
+    ///         was.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The gesture is dispatched as pointer events through the shell, not raised.</b> A
+    ///         test that invoked the handler would take a path no interaction takes — and it could
+    ///         not have caught what this one did catch, which is that the canvas was zero pixels high
+    ///         in a real shell (#917) and there was nothing on it to click.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Double_clicking_a_compound_opens_it_on_the_canvas() {
+        using var fixture = new TexturingFixture();
+        var (view, canvas) = Opened(fixture);
+        var compound = TextureGraph.TextureCompoundLibrary.Shipped[0];
+
+        canvas.Graph.Add(compound, new(120f, 120f));
+
+        Settle(fixture);
+
+        Assert.Equal([canvas.Graph.Name], view.Trail);
+
+        DoubleClick(fixture, Item(canvas, compound));
+
+        // The canvas is showing the published graph, and the trail says how to get back.
+        Assert.True(canvas.SubGraphSource!.TryGet(compound, out var inner));
+        Assert.Same(inner, canvas.Graph);
+        Assert.Equal(2, view.Trail.Count);
+        Assert.Equal(compound, view.Trail[1]);
+    }
+
+    /// <summary>Inside a published graph the canvas refuses edits, because the model is shared.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One <c>NodeGraphModel</c> serves every graph that contains the node type</b> — the
+    ///     library holds it and the compiler inlines from it — so an edit made here would rewrite a
+    ///     compound for every material in the project, with no undo entry and no file to save it to.
+    ///     For a shipped compound there is no file at all: it is an embedded resource.
+    /// </remarks>
+    [Fact]
+    public void A_published_graph_is_shown_read_only() {
+        using var fixture = new TexturingFixture();
+        var (view, canvas) = Opened(fixture);
+        var compound = TextureGraph.TextureCompoundLibrary.Shipped[0];
+
+        canvas.Graph.Add(compound, new(120f, 120f));
+
+        Settle(fixture);
+
+        Assert.False(canvas.IsReadOnly);
+
+        DoubleClick(fixture, Item(canvas, compound));
+
+        Assert.True(canvas.IsReadOnly);
+        Assert.Contains("Open its own asset", view.Trail.Count > 1 ? TextureGraphView.ReadOnly : "", StringComparison.Ordinal);
+    }
+
+    /// <summary>A refresh while inside a published graph does not throw the author out of it.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Show</c> runs on every edit and every evaluation, and it re-seats the canvas on
+    ///     the document's own graph.</b> A view that did that unconditionally would close the
+    ///     compound on the next refresh, which for this panel is immediately — the feature would look
+    ///     as if the double-click had never worked.
+    /// </remarks>
+    [Fact]
+    public void Refreshing_the_panel_leaves_the_author_inside_the_compound() {
+        using var fixture = new TexturingFixture();
+        var (view, canvas) = Opened(fixture);
+        var compound = TextureGraph.TextureCompoundLibrary.Shipped[0];
+
+        canvas.Graph.Add(compound, new(120f, 120f));
+
+        Settle(fixture);
+        DoubleClick(fixture, Item(canvas, compound));
+
+        var inside = canvas.Graph;
+
+        view.Show(view.Document, TexturePreviewBlocker.NoDevice);
+
+        Assert.Same(inside, canvas.Graph);
+        Assert.Equal(2, view.Trail.Count);
+    }
+
+    /// <summary>The first crumb is the way back, and it restores the document's own undo stack.</summary>
+    [Fact]
+    public void The_trail_goes_back_to_the_document_and_gives_the_stack_back() {
+        using var fixture = new TexturingFixture();
+        var (view, canvas) = Opened(fixture);
+        var compound = TextureGraph.TextureCompoundLibrary.Shipped[0];
+
+        canvas.Graph.Add(compound, new(120f, 120f));
+
+        Settle(fixture);
+        DoubleClick(fixture, Item(canvas, compound));
+
+        var document = view.Document!;
+        var crumbs = Crumbs(view);
+
+        Assert.Equal(2, crumbs.Count);
+
+        Click(fixture, crumbs[0]);
+
+        Assert.Same(document.Graph, canvas.Graph);
+        Assert.False(canvas.IsReadOnly);
+        Assert.Single(view.Trail);
+    }
+
+    /// <summary>Opening a different graph starts a new trail rather than continuing the old one.</summary>
+    [Fact]
+    public void Showing_another_document_resets_the_trail() {
+        using var fixture = new TexturingFixture();
+        var (view, canvas) = Opened(fixture);
+        var compound = TextureGraph.TextureCompoundLibrary.Shipped[0];
+
+        canvas.Graph.Add(compound, new(120f, 120f));
+
+        Settle(fixture);
+        DoubleClick(fixture, Item(canvas, compound));
+
+        Assert.Equal(2, view.Trail.Count);
+
+        var second = new TextureGraphDocument(
+            fixture.Project,
+            fixture.AddGraph("Tiles"),
+            fixture.Paths.Absolute("Assets/Tiles" + TextureGraphDocument.Extension)
+        );
+
+        view.Show(second, TexturePreviewBlocker.NoDevice);
+
+        Assert.Single(view.Trail);
+        Assert.Same(second.Graph, canvas.Graph);
+    }
+
+    /// <summary>A compound saved while the author is inside it is re-resolved, not left stale.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A republish builds a whole new library</b> — see
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/803">#803</a> — so every graph the trail
+    ///     is holding belongs to the old one. An author who was looking inside a compound while it
+    ///     was saved in another tab would go on inspecting a model nothing in the editor refers to
+    ///     any more: a picture of the version they were trying to change, with no way to tell.
+    /// </remarks>
+    [Fact]
+    public void A_compound_saved_while_it_is_open_is_re_resolved_on_the_canvas() {
+        using var fixture = new TexturingFixture();
+
+        var folder = System.IO.Path.Combine(fixture.Paths.Assets, TextureNodeLibrary.CompoundFolder);
+
+        Directory.CreateDirectory(folder);
+
+        var compound = new TextureGraphDocument(
+            fixture.Project,
+            fixture.AddGraph(TextureNodeLibrary.CompoundFolder + "/Grunge"),
+            System.IO.Path.Combine(folder, "Grunge" + TextureGraphDocument.Extension)
+        );
+
+        compound.Graph.Interface.Add(new("Out", NodeGraph.PortDirection.Output, PortKind.Image));
+        compound.Save();
+
+        var (view, canvas) = Opened(fixture, "Material");
+
+        canvas.Graph.Add("Grunge", new(120f, 120f));
+
+        Settle(fixture);
+        DoubleClick(fixture, Item(canvas, "Grunge"));
+
+        var before = canvas.Graph;
+
+        Assert.Equal(2, before.Nodes.Count);
+        Assert.Equal(2, view.Trail.Count);
+
+        compound.Graph.Add("Filters/Blur");
+        compound.Save();
+
+        view.Show(view.Document, TexturePreviewBlocker.NoDevice);
+
+        // Still inside it, and looking at the version that is now on disk.
+        Assert.Equal(2, view.Trail.Count);
+        Assert.NotSame(before, canvas.Graph);
+        Assert.Equal(3, canvas.Graph.Nodes.Count);
+    }
+
+    /// <summary>Opens a docked panel holding the view, with a graph on it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A real <c>DockPanel</c> rather than a bare element under the root.</b> Every
+    ///     assertion below is about clicking something on the canvas, and the canvas only has a size
+    ///     inside the layout a panel gives it — a view built into a loose element would measure zero
+    ///     and every click would land on nothing while the test went green.
+    /// </remarks>
+    static (TextureGraphView View, NodeGraphView Canvas) Opened(TexturingFixture fixture, string name = "Bricks") {
+        TextureGraphView? built = null;
+
+        fixture.Shell.RegisterPanel(
+            TrailPanel,
+            new StringId("editor.panel." + TrailPanel, "Texture Graph"),
+            panel => built = new TextureGraphView(panel)
+        );
+
+        fixture.Shell.Workspace.Open(TrailPanel);
+
+        Assert.NotNull(built);
+
+        built.Show(Document(fixture, name), TexturePreviewBlocker.NoDevice);
+
+        Settle(fixture);
+
+        // ⚠ The instrument. A canvas with no height has nothing on it to click, which is exactly the
+        // state this panel was in — see #917 — and a click that lands on nothing raises nothing.
+        Assert.True(
+            built.Canvas.Bounds.Height > 0f,
+            "the canvas has no height, so nothing on it is clickable"
+        );
+
+        return (built, built.Canvas);
+    }
+
+    static TextureGraphDocument Document(TexturingFixture fixture, string name) =>
+        new(
+            fixture.Project,
+            fixture.AddGraph(name),
+            fixture.Paths.Absolute("Assets/" + name + TextureGraphDocument.Extension)
+        );
+
+    static void Settle(TexturingFixture fixture) {
+        fixture.Shell.Document.Update();
+        fixture.Shell.Document.Draw();
+    }
+
+    static NodeItem Item(NodeGraphView canvas, string type) {
+        var node = Assert.Single(canvas.Graph.Nodes, one => one.Type == type);
+
+        return canvas.Canvas.Items.FirstOrDefault(item => item.Node?.Tag is NodeId id && id == node.Id)
+            ?? throw new InvalidOperationException($"'{type}' has no element on the canvas.");
+    }
+
+    /// <summary>The buttons of the trail strip, outermost first.</summary>
+    static List<Button> Crumbs(TextureGraphView view) {
+        List<Button> found = [];
+
+        Walk(view.Root);
+
+        return found;
+
+        void Walk(UiElement element) {
+            if (element is Button button) {
+                found.Add(button);
+            }
+
+            foreach (var child in element.Children) {
+                Walk(child);
+            }
+        }
+    }
+
+    /// <summary>Presses and releases in the middle of an element, twice, as a person does.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Dispatched at the document rather than raised at the control.</b> A canvas marks its
+    ///     own pointer events handled and <c>AddHandler</c> does not hear a handled event by default,
+    ///     so a test that shortcut this would take a path no interaction takes.
+    /// </remarks>
+    static void DoubleClick(TexturingFixture fixture, UiElement element) {
+        Click(fixture, element);
+        Click(fixture, element);
+    }
+
+    static void Click(TexturingFixture fixture, UiElement element) {
+        var bounds = element.Bounds;
+        var x = bounds.X + (bounds.Width * 0.5f);
+        var y = bounds.Y + (bounds.Height * 0.5f);
+
+        Send(fixture, x, y, PointerAction.Pressed);
+        Send(fixture, x, y, PointerAction.Released);
+    }
+
+    static void Send(TexturingFixture fixture, float x, float y, PointerAction action) {
+        clock += TimeSpan.FromMilliseconds(16);
+
+        fixture.Shell.Document.Dispatch(
+            new PointerEvent {
+                X = x,
+                Y = y,
+                Action = action,
+                Button = PointerButton.Primary,
+                Timestamp = clock
+            }
+        );
+
+        Settle(fixture);
     }
 
     static T? Find<T>(UiElement element) where T : UiElement {

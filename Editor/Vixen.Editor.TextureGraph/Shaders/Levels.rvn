@@ -35,7 +35,7 @@ shader Levels {
     /// The op's own seed, so two levels nodes in one graph do not dither identically.
     ///
     /// ⚠ **A float, and the hashing already happened.** `TexturePlan.SeedFor` mixes the plan's seed
-    /// with the op's index on the CPU; what reaches here only has to be decorrelated between ops, and
+    /// with the op's identity on the CPU; what reaches here only has to be decorrelated between ops, and
     /// carrying it as a float keeps this kernel free of the integer-literal and shift-operator
     /// spellings that differ between Raven's two backends.
     var seed: float = 0f

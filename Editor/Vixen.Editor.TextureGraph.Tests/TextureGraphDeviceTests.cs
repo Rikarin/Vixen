@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Vixen.Core.Imaging;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
@@ -49,7 +50,7 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
         using var evaluator = new TexturePlanEvaluator(device);
 
         var compiled = Compiled();
-        var written = HandBuilt();
+        var written = HandBuilt(compiled);
 
         // ⚠ The plans are compared as values first, because a picture that matches tells you nothing
         // about *why*. If this line fails, the two are different programs and the pixels below would
@@ -106,14 +107,35 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
     }
 
     /// <summary>The same three operations, written out the way every other suite here writes one.</summary>
+    /// <param name="compiled">The compiled plan, for the one field a hand-written plan cannot invent.</param>
+    /// <returns>The plan.</returns>
     /// <remarks>
-    ///     ⚠ <b>The op <em>order</em> is load-bearing beyond the picture's shape.</b>
-    ///     <c>TexturePlan.SeedFor</c> mixes the plan's seed with the op's index, so a noise or a dither
-    ///     that ran at a different position in the list draws different numbers — which means this
-    ///     comparison also pins the compiler's ordering, not only its parameters.
+    ///     <para>
+    ///         ⚠ <b>The op <em>names</em> are taken from the compiled plan, and that is a real
+    ///         narrowing of what this test proves</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/875">#875</a>.
+    ///         <c>TexturePlan.SeedFor</c> used to mix the op's <em>index</em>, which a hand-written
+    ///         plan reproduces by putting its ops in the same order; it now mixes
+    ///         <c>TextureOp.Identity</c>, which the compiler derives from the <c>NodeId</c> that
+    ///         emitted the op. There is no node here, so there is no identity to write down — and a
+    ///         seeded op whose name differed would fail the pixel comparison for a reason that has
+    ///         nothing to do with the compiler being wrong.
+    ///     </para>
+    ///     <para>
+    ///         <b>So the seed half of this differential is circular now and the rest is not.</b> The
+    ///         identities are copied positionally, so an op count or an op order that disagreed still
+    ///         fails — loudly, on the <c>Describe</c> comparison, which lists the identity. What is no
+    ///         longer proved here is that the compiler names its ops <em>well</em>;
+    ///         <c>TexturePlanSeedTests</c> is where that lives, and it is the file that says what a
+    ///         name has to survive.
+    ///     </para>
     /// </remarks>
-    static TexturePlan HandBuilt() =>
-        new() {
+    static TexturePlan HandBuilt(TexturePlan compiled) {
+        // Before the indices below, so a compiler that emitted a different number of ops says that
+        // rather than throwing out of a name lookup.
+        Assert.Equal(4, compiled.Ops.Length);
+
+        return new() {
             BaseWidth = Side,
             BaseHeight = Side,
             Seed = 41823,
@@ -126,6 +148,7 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
             Ops = [
                 new() {
                     Kernel = "Noise",
+                    Identity = compiled.Ops[0].Identity,
                     Output = 0,
                     Parameters = [
                         new("basis", 0f),
@@ -138,6 +161,7 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
                 },
                 new() {
                     Kernel = "Blur",
+                    Identity = compiled.Ops[1].Identity,
                     Output = 1,
                     Inputs = [0],
                     Parameters = [
@@ -148,6 +172,7 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
                 },
                 new() {
                     Kernel = "Blur",
+                    Identity = compiled.Ops[2].Identity,
                     Output = 2,
                     Inputs = [1],
                     Parameters = [
@@ -158,6 +183,7 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
                 },
                 new() {
                     Kernel = "Levels",
+                    Identity = compiled.Ops[3].Identity,
                     Output = 3,
                     Inputs = [2],
                     Parameters = [
@@ -172,6 +198,7 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
             ],
             Outputs = [3]
         };
+    }
 
     static Bitmap Draw(TexturePlanEvaluator evaluator, TexturePlan plan) {
         Assert.Empty(plan.Validate());
@@ -202,7 +229,8 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
                 .Concat(
                     plan.Ops.Select((op, index) =>
                         $"op {index}: {op.Kernel} -> {op.Output} <- [{string.Join(", ", op.Inputs)}] "
-                        + $"{{{string.Join(", ", op.Parameters.Select(parameter => $"{parameter.Name}={parameter.Value}:{parameter.Unit}"))}}}")
+                        + $"{{{string.Join(", ", op.Parameters.Select(parameter => $"{parameter.Name}={parameter.Value}:{parameter.Unit}"))}}} "
+                        + $"named {op.Identity?.ToString(CultureInfo.InvariantCulture) ?? "nothing"}")
                 )
                 .Append($"outputs: {string.Join(", ", plan.Outputs)}")
         );

@@ -539,13 +539,6 @@ public sealed class SceneProbe : ISceneProbe {
             && pointer.Y <= bottom + radius;
     }
 
-    /// <summary>Where a ray first meets a shape, and which way that surface faces.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The normal comes back through the inverse transpose, not through the matrix.</b> A
-    ///     surface snap turns the normal into a rotation, so a crate dropped on a non-uniformly scaled
-    ///     ramp would be stood up along a direction that is not perpendicular to the ramp — which
-    ///     reads as the snap being approximate rather than as a matrix being the wrong one.
-    /// </remarks>
     /// <summary>What geometry an entity presents to a ray: its own mesh, or the shape it is drawn as.</summary>
     /// <remarks>
     ///     ⚠ <b>Cached per entity and per revision, because a probe answers per pointer move.</b>
@@ -567,6 +560,13 @@ public sealed class SceneProbe : ISceneProbe {
         return PrimitiveShapes.TryGet(document.World, entity, out var kind) ? Shape(kind) : null;
     }
 
+    /// <summary>Where a ray first meets a shape, and which way that surface faces.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The normal comes back through the inverse transpose, not through the matrix.</b> A
+    ///     surface snap turns the normal into a rotation, so a crate dropped on a non-uniformly scaled
+    ///     ramp would be stood up along a direction that is not perpendicular to the ramp — which
+    ///     reads as the snap being approximate rather than as a matrix being the wrong one.
+    /// </remarks>
     static bool Surface(Ray ray, MeshData mesh, in Matrix4x4 transform, out SurfaceHit hit) {
         hit = default;
 
