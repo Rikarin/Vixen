@@ -11,6 +11,26 @@ using Vixen.Editor.TextureGraph;
 
 namespace Vixen.Editor.Texturing;
 
+/// <summary>A texture graph, compiled — everything a pane about to draw it needs.</summary>
+/// <param name="Plan">The plan, or <see langword="null" /> when the graph did not compile.</param>
+/// <param name="Diagnostics">What the compiler had to say, about nodes.</param>
+/// <param name="Outputs">Which image is which map, by usage.</param>
+/// <param name="Externals">The imported images this plan needs supplied, per bitmap node.</param>
+/// <remarks>
+///     ⚠ <b><c>NodeGraphCompilation&lt;TexturePlan&gt;</c> alone is not enough to draw with, which is
+///     why this exists</b> — <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>. It
+///     carries the plan and the diagnostics and drops <c>TextureGraphCompiler.Outputs</c> and
+///     <c>.Externals</c> on the floor, so a caller had the ops and no way to know which image is the
+///     base colour or which bitmap wants a file. <see cref="LayerStackCompilation" /> is this same
+///     shape one type over, and for the same reason.
+/// </remarks>
+sealed record TextureGraphCompilation(
+    TexturePlan? Plan,
+    ImmutableArray<NodeDiagnostic> Diagnostics,
+    ImmutableArray<TextureGraphOutput> Outputs,
+    ImmutableArray<TextureGraphExternal> Externals
+);
+
 /// <summary>A texture graph, open for editing.</summary>
 /// <remarks>
 ///     <para>
@@ -267,7 +287,7 @@ public sealed class TextureGraphDocument : EditorDocument {
     }
 
     /// <summary>Compiles the graph to a plan, at the resolution the document is showing.</summary>
-    /// <returns>The plan and the diagnostics, exactly as the compiler produced them.</returns>
+    /// <returns>The plan, the diagnostics, the outputs and the externals, as the compiler made them.</returns>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The compiler is built per call and that is not an oversight.</b>
@@ -288,17 +308,24 @@ public sealed class TextureGraphDocument : EditorDocument {
     ///         node that silently produced no image.
     ///     </para>
     /// </remarks>
-    internal NodeGraphCompilation<TexturePlan> Compile() {
+    internal TextureGraphCompilation Compile() {
         // ⚠ Here rather than only in the panel, because this is where a stale library costs
         // something an author cannot see: the compilation inlines whatever the compound was when
         // this document opened, and the bake made from it is that graph, silently.
         Republish();
 
-        return new TextureGraphCompiler(Registry) {
+        TextureGraphCompiler compiler = new(Registry) {
             BaseWidth = BaseWidth,
             BaseHeight = BaseHeight,
             SubGraphSource = SubGraphs
-        }.Compile(Graph);
+        };
+
+        var compilation = compiler.Compile(Graph);
+
+        // ⚠ Read off the compiler *after* the compile and carried out, because they are only set by
+        // it. A caller handed the bare `NodeGraphCompilation` has the ops and no way to know which
+        // image is which map or which bitmap wants a file — which is why nothing could draw this.
+        return new(compilation.Artefact, compilation.Diagnostics, compiler.Outputs, compiler.Externals);
     }
 
     /// <summary>The graph as it would be written.</summary>

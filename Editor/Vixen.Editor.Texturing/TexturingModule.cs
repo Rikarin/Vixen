@@ -54,14 +54,17 @@ namespace Vixen.Editor.Texturing;
 ///         </item>
 ///         <item>
 ///             <description>
-///                 <b>The compiler — closed, and this entry was stale.</b>
-///                 <c>TextureGraphCompiler</c> is <c>public</c>; <see cref="LayerStackPreview" />
-///                 compiles the open stack through it and shows the map that comes out.
-///                 <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>. ⚠ <b>The
-///                 <em>graph</em> pane still evaluates a fixed checkerboard</b> — but its status line
-///                 no longer gives the closed reason for it. <c>TexturePreview</c> names
-///                 <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>, the gap that is
-///                 actually open: the compiler is public and nothing in the graph pane calls it.
+///                 <b>The compiler — closed, and this entry was stale twice.</b>
+///                 <c>TextureGraphCompiler</c> is <c>public</c>
+///                 (<a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>), and
+///                 <em>both</em> panes now compile through it:
+///                 <see cref="LayerStackPreview" /> the open stack, and
+///                 <see cref="TextureGraphPreview" /> the open graph. The second was the
+///                 finished-thing-nothing-calls this workstream keeps producing — the compiler
+///                 public, the document's <c>Compile</c> written, and a pane drawing a fixed
+///                 checkerboard beside them for three batches
+///                 (<a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>,
+///                 <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>).
 ///             </description>
 ///         </item>
 ///     </list>
@@ -590,12 +593,22 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return;
         }
 
-        var blocker = TexturePreview.Blocking(graphics);
+        if (document is null) {
+            view.Show(null, TexturePreview.Blocking(graphics));
 
+            return;
+        }
+
+        // ⚠ The blocker is no longer asked first, and that is the change #816 is. `Evaluate` compiles
+        // before it looks for a device — a graph that does not compile does not compile on any host —
+        // so a pane that gated the whole call on `Blocking` answered every mistake in an author's
+        // graph with a message about the window not being up yet. `LayerStackPreview` was moved off
+        // that order first, and the fallback below is the state where there is no preview at all,
+        // which is a host publishing no graphics rather than the editor.
         view.Show(
             document,
-            blocker,
-            blocker == TexturePreviewBlocker.None && document is not null ? preview?.Evaluate(document) : null
+            preview?.Evaluate(document)
+            ?? new TextureGraphPicture(null, TexturePreview.Describe(TexturePreview.Blocking(graphics)))
         );
     }
 

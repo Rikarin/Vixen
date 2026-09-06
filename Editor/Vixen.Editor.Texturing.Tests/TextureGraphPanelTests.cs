@@ -85,6 +85,57 @@ public class TextureGraphPanelTests {
         Assert.DoesNotContain("publishes no IEditorGraphics", status, StringComparison.Ordinal);
     }
 
+    /// <summary>⚠ A graph that does not compile says which node refused, rather than going blank.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The fourth answer <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>
+    ///         asks for.</b> Until the pane compiled the document there were three states, all of
+    ///         them facts about the host — it publishes no graphics, it has no device, or it is fine.
+    ///         A graph with an unwired image input is none of those: the host is perfectly capable and
+    ///         there is nothing to draw, which is exactly the silence this whole panel was designed
+    ///         against.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Graphics with no device, which is a state the editor really starts in</b> — it
+    ///         builds its plugin host in its constructor and acquires a device when the window can
+    ///         present. It is also what makes this device-free and what the assertion turns on: the
+    ///         compile runs <em>before</em> the device is asked for, so a pane that asked the other
+    ///         way round would answer a mistake in the author's graph with a message about the window
+    ///         not being up yet. That is the sentence this asserts is absent.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_graph_that_does_not_compile_says_which_node_refused() {
+        using var fixture = new TexturingFixture(graphics: true);
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+        fixture.Project.Selection.Set(fixture.AddGraph("Broken"));
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenCommand));
+
+        var document = Assert.Single(fixture.Project.Documents.OfType<TextureGraphDocument>());
+        var output = document.Graph.Nodes.Single(node => node.Type == "Output/Output");
+
+        // ⚠ A blur whose Input is wired to nothing, between the source and the output. The starter
+        // graph compiles, so replacing the wire is what makes this a claim about a refusal rather
+        // than about an empty document.
+        foreach (var node in document.Graph.Nodes.Where(node => node.Type == "Source/Uniform").ToArray()) {
+            document.Graph.Remove(node.Id, out _);
+        }
+
+        var blur = document.Graph.Add("Filters/Blur");
+
+        document.Graph.Connect(new(blur.Id, "Out"), new(output.Id, "Input"));
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenCommand));
+
+        var status = Status(fixture.Shell.Workspace.Open(TexturingModule.GraphPanel)!);
+
+        Assert.Contains("No preview", status, StringComparison.Ordinal);
+        Assert.Contains("TG", status, StringComparison.Ordinal);
+        Assert.DoesNotContain("no graphics device", status, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void With_no_graph_open_it_says_so_and_shows_no_extent() {
         using var fixture = new TexturingFixture();
