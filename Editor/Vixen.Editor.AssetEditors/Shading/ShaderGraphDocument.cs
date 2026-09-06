@@ -190,7 +190,9 @@ public sealed class ShaderGraphDocument : EditorDocument, INodePreviewSource {
         } catch (Exception exception) when (exception is YamlBindingException
             or YamlParseException or NotSupportedException) {
             Graph = new() { Name = Path.GetFileNameWithoutExtension(path) };
-            LoadDiagnostics = [new("SG0000", exception.Message, NodeId.None)];
+            LoadDiagnostics = [
+                new(AssetEditorDiagnostics.ShaderGraphFileDoesNotParse, exception.Message, NodeId.None)
+            ];
         }
     }
 
@@ -245,7 +247,7 @@ public sealed class ShaderGraphDocument : EditorDocument, INodePreviewSource {
             var node = source.NodeAt(diagnostic.Line, out var span) ? span : default;
 
             attributed.Add(new(
-                "SG0100",
+                AssetEditorDiagnostics.ShaderGraphSourceRefused,
                 diagnostic.Message,
                 node.Node,
                 "",

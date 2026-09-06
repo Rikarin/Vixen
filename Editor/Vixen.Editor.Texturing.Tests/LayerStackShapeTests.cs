@@ -200,8 +200,12 @@ public class LayerStackShapeTests {
         var document = new LayerStackDocument(fixture.Project, default, path);
         var diagnostic = Assert.Single(document.LoadDiagnostics);
 
-        Assert.Contains("Hologram", diagnostic, StringComparison.Ordinal);
-        Assert.Contains("blend", diagnostic, StringComparison.Ordinal);
+        Assert.Contains("Hologram", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Contains("blend", diagnostic.Message, StringComparison.Ordinal);
+
+        // ⚠ And it carries an id, which is the half a host can act on — #963. This was a bare
+        // sentence, alone among the five document kinds that report a load failure.
+        Assert.Equal(TexturingDiagnostics.StackFileDoesNotParse, diagnostic.Id);
     }
 
     /// <summary>A member left at its default is not written, so a merge sees what somebody chose.</summary>

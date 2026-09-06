@@ -76,7 +76,7 @@ public sealed class CompositorGraphCompiler : NodeGraphCompiler<GraphicsComposit
 
         if (instance is not CompositorNode compositor) {
             Report(new(
-                "CO0001",
+                AssetEditorDiagnostics.CompositorNodeIsForeign,
                 $"'{node.Type}' is not a compositor node. A graph mixing node libraries has one of them "
                 + "registered by mistake.",
                 node.Id
@@ -94,7 +94,7 @@ public sealed class CompositorGraphCompiler : NodeGraphCompiler<GraphicsComposit
 
         if (frame.IsValid) {
             Report(new(
-                "CO0002",
+                AssetEditorDiagnostics.CompositorHasTwoFrames,
                 "This graph has two frame nodes, so there are two answers to what it renders. Delete one.",
                 node.Id
             ));
@@ -111,7 +111,7 @@ public sealed class CompositorGraphCompiler : NodeGraphCompiler<GraphicsComposit
 
         if (!frame.IsValid) {
             Report(new(
-                "CO0003",
+                AssetEditorDiagnostics.CompositorHasNoFrame,
                 "This graph has no frame node, so nothing says what it renders. Add one from Frame/Frame.",
                 NodeId.None
             ));
@@ -132,7 +132,7 @@ public sealed class CompositorGraphCompiler : NodeGraphCompiler<GraphicsComposit
             }
 
             Report(new(
-                "CO0004",
+                AssetEditorDiagnostics.CompositorNodeIsUnreachable,
                 $"'{node.Type}' is not on the frame's chain, so it does not run. Wire it in, or delete it.",
                 node.Id
             ));
@@ -169,7 +169,11 @@ public sealed class CompositorGraphCompiler : NodeGraphCompiler<GraphicsComposit
                 // The model refuses cycles as they are made, so reaching a node twice means one node
                 // is on two chains — a wire from a pass's body back into the outer sequence. Stopping
                 // is what keeps the walk finite.
-                Report(new("CO0005", "This node is on two chains, so it would run twice. Disconnect one.", current));
+                Report(new(
+                    AssetEditorDiagnostics.CompositorNodeRunsTwice,
+                    "This node is on two chains, so it would run twice. Disconnect one.",
+                    current
+                ));
 
                 break;
             }
@@ -201,7 +205,7 @@ public sealed class CompositorGraphCompiler : NodeGraphCompiler<GraphicsComposit
 
             if (found.IsValid) {
                 Report(new(
-                    "CO0006",
+                    AssetEditorDiagnostics.CompositorFlowForks,
                     $"Two nodes are wired to '{port}', and two nodes cannot both be next. Chain them instead.",
                     node
                 ));
