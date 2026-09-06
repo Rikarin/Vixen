@@ -121,15 +121,23 @@ this as its own case rather than as a stricter kind of reading.
     The layer the Consortium's own conformance data cannot reach: UAX #14 as
     written is settled by LineBreakTest.txt, and CSS Text §5.2's `word-break`
     CHANGES what the algorithm is told the characters are. ICU4X's
-    components/segmenter/tests/css_word_break.rs is the only plain-data oracle
-    found for that layer — each of its cases is itself a web-platform-tests file,
-    reduced to a string and the pieces it segments into. Currently incorporated:
+    components/segmenter/tests/css_word_break.rs and css_line_break.rs are the
+    only plain-data oracles found for that layer — each of their cases is itself
+    a web-platform-tests file, reduced to a string and the pieces it segments
+    into. Currently incorporated:
 
       Core/Vixen.Ui.Text.Tests/CssWordBreakTailoringTests.cs
         seventeen of its twenty-two active assertions, case for case. The five
         that are not here need ICU4X's DICTIONARY segmenter — Thai, Lao and
         Khmer have no algorithmic word boundary — and are listed by name in that
         file rather than transcribed into red tests.
+      Core/Vixen.Ui.Text.Tests/CssLineBreakTailoringTests.cs
+        forty-four of css_line_break.rs's seventy-two assertions, case for case.
+        The twenty-eight that are not here are driven with a Japanese content
+        locale, which selects ICU's line_normal_cj.txt or line_loose_cj.txt — a
+        tailoring Vixen's LineBreakStrictness cannot name because no language
+        reaches its line breaker. They are listed by name in that file rather
+        than transcribed into red tests.
 
   text-rendering-tests
     Apache-2.0, fonts under OFL-1.1 — https://github.com/unicode-org/text-rendering-tests
@@ -158,6 +166,12 @@ this as its own case rather than as a stricter kind of reading.
         css/css-flexbox/ — the `order` property.
       Core/Vixen.Ui.Layout.Tests/InlineFormattingTests.cs
         css/css-flexbox/inline-flex.html.
+      Core/Vixen.Ui.Text.Tests/CssWordBreakTailoringTests.cs
+      Core/Vixen.Ui.Text.Tests/CssLineBreakTailoringTests.cs
+        css/css-text/word-break/ and css/css-text/line-break/ — named here as
+        well as under ICU4X because ICU4X's cases ARE those files: each of its
+        assertions cites the wpt reftest it was reduced from, so the expected
+        values travel under both licences and both entries have to carry them.
 
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions are met:

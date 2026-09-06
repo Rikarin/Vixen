@@ -10,11 +10,12 @@ namespace Vixen.Ui.Tests;
 /// <summary>CSS Text §5.2's <c>line-break</c>, from a declaration to a line.</summary>
 /// <remarks>
 ///     <para>
-///         <b>The half <c>CssLineBreakTailoringTests</c> cannot reach, and the one this repository
-///         keeps finding missing.</b> That file judges <see cref="LineBreaker" /> against ICU4X and
-///         would go on passing if no CSS declaration ever arrived at it — the commonest defect here is
-///         a finished thing nothing calls, and a property that is interned, inherited and read by a
-///         method with no caller is exactly that shape. These four assert the route: a declaration in
+///         <b>The half <c>Vixen.Ui.Text.Tests.CssLineBreakTailoringTests</c> cannot reach, and the
+///         one this repository keeps finding missing.</b> That file judges <see cref="LineBreaker" />
+///         against a transcribed oracle and would go on passing if no CSS declaration ever reached
+///         it — the commonest defect here is a finished thing nothing calls, and a property that is
+///         interned, inherited and read by a method with no caller is exactly that shape. These four
+///         assert the route: a declaration in
 ///         a stylesheet, through <c>UiDocument.LineBreakOf</c> and <c>UiElement.Block</c>, to a
 ///         paragraph that breaks somewhere it otherwise would not.
 ///     </para>
