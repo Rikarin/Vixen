@@ -166,7 +166,8 @@ sealed record ProbeScene(
     bool Floated = false,
     bool Tabbed = false,
     bool Hyphenated = false,
-    bool Pictured = false
+    bool Pictured = false,
+    bool Forced = false
 );
 
 /// <summary>Runs a declaration past the engine and reports what moved.</summary>
@@ -1150,6 +1151,63 @@ static class UtilityConsumptionProbe {
             #after { width: 30px; height: 12px; background-color: #a0a040; }
             """,
             Pictured: true
+        ),
+
+        // ⚠ <b>Forced: the surface is in forced-colours mode, and no CSS declaration can put it
+        // there.</b> Every scene before this one is a stylesheet, and `forced-color-adjust` is read
+        // on a condition that lives on the SURFACE — `DrawListBuilder` asks
+        // `document.SurfaceOf(root)?.Preferences.ForcedColors` once per frame and substitutes
+        // `Canvas` and `CanvasText` for every authored colour unless the element opted out. So the
+        // property was measuring inert with a reader present, which is the ninth entry on this
+        // list's own tally and the exact shape its remark predicts: suspect the scenes before the
+        // reader.
+        //
+        // ⚠ <b>The probe needs an OPAQUE authored colour of its own or this scene sees nothing
+        // either.</b> `Force` keeps a zero alpha, deliberately — `background-color: transparent` is
+        // the initial value and forcing it would paint `Canvas` behind every box in the document —
+        // so a probe with no background is byte-identical forced and unforced, and
+        // `forced-color-adjust: none` would have nothing to give back.
+        new(
+            "forced",
+            """
+            #host  { display: flex; flex-direction: row; width: 120px; height: 46px; align-items: stretch; }
+            #probe { display: flex; flex-direction: row; width: 60px;
+                     border-width: 2px; border-color: #c02020;
+                     background-color: #204080; color: #e0e0e0; }
+            #after { width: 40px; height: 20px; background-color: #a0a040; }
+            """,
+            Forced: true
+        ),
+
+        // ⚠ <b>Discrete: `primed` with a mutation that has no midpoint, which is the only arrangement
+        // in which `transition-behavior` is visible.</b> Every transition scene before this one moves
+        // a colour and a length, and both interpolate — so `allow-discrete` and `normal` produce the
+        // identical five frames and the property measured inert with `Animator` reading it. The tenth
+        // entry on this list's own tally, and the same sentence as `primed`'s: the scene was missing,
+        // not the reader.
+        //
+        // ⚠ <b>The discrete change is in the scene's own `#probe.moved` and not in `Common`.</b>
+        // `Common`'s mutation is shared by every scene, so a keyword added there would re-time and
+        // re-measure every property in the table — which is `primed`'s other lesson.
+        //
+        // `align-items` because it is discrete AND moves boxes: `flex-start` to `flex-end` relocates
+        // every child, so the difference shows in `layout` and not only in a computed value. Under
+        // `normal` — CSS's initial and, since #861, this engine's — the switch is instant at the
+        // first frame after the class lands; under `allow-discrete` it flips at half of 200 ms, which
+        // is past all three recorded frames. So the two values give different pictures from frame
+        // one.
+        new(
+            "discrete",
+            """
+            #host  { display: flex; flex-direction: row; width: 120px; height: 46px; align-items: stretch; }
+            #probe { display: flex; flex-direction: row; flex-wrap: nowrap; width: 44px; height: 40px;
+                     align-items: flex-start;
+                     background-color: #204080; color: #e0e0e0;
+                     transition-property: all; transition-duration: 200ms;
+                     transition-timing-function: linear; }
+            #probe.moved { align-items: flex-end; }
+            #after { width: 40px; height: 20px; background-color: #a0a040; }
+            """
         )
     ];
 
@@ -1560,6 +1618,12 @@ static class UtilityConsumptionProbe {
     /// </remarks>
     static SceneSignature Run(ProbeScene scene, string? declaration) {
         using var document = new UiDocument(240f, 160f);
+
+        // Before anything is loaded or built, because it is a property of the surface rather than of
+        // the tree — the draw list reads it once per frame off the surface the root belongs to.
+        if (scene.Forced) {
+            document.Primary.Preferences = document.Primary.Preferences with { ForcedColors = true };
+        }
 
         Typeset(document);
 

@@ -269,21 +269,34 @@ public class AutomaticMinimumSizeTests {
         Assert.Equal(50f, tree.GetWidth(holder), Tolerance);
     }
 
+    /// <summary>
+    ///     A scroll container's contents are excluded from its own automatic minimum and from
+    ///     nothing else — its intrinsic size is still the size of what is inside it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This test used to assert 50 and 50, and the number was never measured.</b> It was
+    ///         written from the editor's docking chain, on the reading that CSS Sizing §5.2.2's
+    ///         exclusion of scrollable overflow applies to a box's min-content CONTRIBUTION as well
+    ///         as to §4.5's automatic minimum. Measured in Chrome, this markup gives 40 and 60: the
+    ///         500-point row inside the scroll container does reach the item's §4.5 floor, the
+    ///         floor is capped at the item's own <c>width: 60px</c> specified size suggestion, and
+    ///         the sibling absorbs all twenty points of overflow rather than half. The same numbers
+    ///         come back with <c>overflow: hidden</c> instead of <c>scroll</c>, and with no scroll
+    ///         container at all — which is the point: the container changes nothing here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The direct question, also measured: a <c>width: min-content</c> box wrapped
+    ///         around a scroll container holding a 500-point box is 500 wide in Chrome</b> (515 with
+    ///         a classic scrollbar), not zero. A scroll container being allowed to be smaller than
+    ///         its contents is §4.5's sentence about its OWN automatic minimum, which
+    ///         <c>ComputeAutoMinMainSize</c> and <c>LayoutTree.Grid</c>'s <c>AutomaticMinimumIsZero</c>
+    ///         each say for themselves. Saying it a second time in the probe cost 24 grid fixtures.
+    ///         <c>Rikarin/Vixen#259</c>.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void A_clipping_descendant_contributes_nothing_but_its_own_edges() {
-        // ⚠ A box that clips or scrolls an axis contributes nothing along it but its padding and
-        // border. Its contents are scrollable overflow, which CSS Sizing §5.2.2 excludes from an
-        // intrinsic size — being allowed to be smaller than what is inside it is the entire point
-        // of a scroll container. §4.5 already says this one level out, where an item with
-        // `overflow` other than visible opts out of its own automatic minimum; this is the same
-        // sentence applied where the recursion reads it.
-        //
-        // ⚠ <b>Neither corpus asks for this and the editor found it.</b> Both stayed at exactly
-        // 2 818 and 534 green with the rule present and absent. Every box in the docking chain
-        // declares `overflow: hidden`, so the moment descendants began contributing their real
-        // sizes the hierarchy tree's rows propagated to the shell and it came out 2 385 points wide
-        // inside a 1 100-point window, inspector off the side. Four committed screenshots caught
-        // what 2 742 browser-derived fixtures could not.
+    public void A_clipping_descendant_still_contributes_what_is_inside_it() {
         using var tree = new LayoutTree();
         var root = tree.CreateNode();
         tree.SetFlexDirection(root, FlexDirection.Row);
@@ -303,9 +316,6 @@ public class AutomaticMinimumSizeTests {
         tree.SetDimension(clipping, Dimension.Height, StyleLength.Points(20f));
         tree.AddChild(root, clipping);
 
-        // A scrolling box between the item and the wide thing inside it. Without the rule the
-        // 500-point row reaches the item's floor and freezes it at 60, and its sibling absorbs all
-        // 20 points of overflow instead of half.
         var viewport = tree.CreateNode();
         tree.SetOverflow(viewport, Overflow.Scroll);
         tree.AddChild(clipping, viewport);
@@ -317,8 +327,80 @@ public class AutomaticMinimumSizeTests {
 
         tree.CalculateLayout(root, float.NaN, float.NaN, Direction.Ltr);
 
-        Assert.Equal(50f, tree.GetWidth(plain), Tolerance);
-        Assert.Equal(50f, tree.GetWidth(clipping), Tolerance);
+        Assert.Equal(40f, tree.GetWidth(plain), Tolerance);
+        Assert.Equal(60f, tree.GetWidth(clipping), Tolerance);
+    }
+
+    /// <summary>
+    ///     The editor's docking chain, which is what the deleted exclusion was written for: every box
+    ///     clips, so every one of them opts out of §4.5 on its own account.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The symptom this stands in for is a picture and it never had a test.</b> Once
+    ///         descendants began contributing their real sizes the hierarchy tree's rows propagated
+    ///         to the shell, which came out 2 385 points wide inside a 1 100-point window with the
+    ///         inspector pushed off the side; four committed screenshots caught what 2 742
+    ///         browser-derived fixtures could not, and the answer was a clause in the min-content
+    ///         probe that turned out to be wrong about a browser. This is the property that actually
+    ///         protects the chain, and it holds without that clause: a box whose own overflow is not
+    ///         visible has NO automatic minimum — <c>ComputeAutoMinMainSize</c> returns zero before
+    ///         it ever asks what is inside — so a chain of clipping boxes shrinks to its window
+    ///         however wide its contents are.
+    ///     </para>
+    ///     <para>
+    ///         The oracle is the window: the shell is exactly as wide as the room it was given, at
+    ///         every depth, and the 2 385-point leaf is still 2 385 points wide inside it. A test
+    ///         that only asserted the shell could be satisfied by a store that had lost the content.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This test passed while the editor was broken, and the first attempt at the
+    ///         deletion was reverted for it.</b> What it models is a chain in which <em>every</em>
+    ///         box clips, and the editor's is not one: <c>editor-shell</c> and
+    ///         <c>editor-workspace</c> sit above <c>docking-host</c> declaring no overflow and no
+    ///         zero minimums, so §4.5's opt-out reached every pane and not the frame. A layout
+    ///         property held at three depths cannot see a stylesheet's missing declaration, which is
+    ///         why the editor now has its own — <c>Vixen.Editor.Ui.Tests.ShellFitsItsWindowTests</c>,
+    ///         over the real shell and the real sheets. <c>Rikarin/Vixen#932</c>.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(6)]
+    public void A_chain_of_clipping_boxes_shrinks_to_its_window(int depth) {
+        using var tree = new LayoutTree();
+
+        var window = tree.CreateNode();
+        tree.SetFlexDirection(window, FlexDirection.Row);
+        tree.SetDimension(window, Dimension.Width, StyleLength.Points(1100f));
+        tree.SetDimension(window, Dimension.Height, StyleLength.Points(700f));
+
+        var parent = window;
+        var shell = window;
+
+        for (var i = 0; i < depth; i++) {
+            var box = tree.CreateNode();
+            tree.SetFlexDirection(box, FlexDirection.Row);
+            tree.SetFlexShrink(box, 1f);
+            tree.SetOverflow(box, Overflow.Hidden);
+            tree.AddChild(parent, box);
+            parent = box;
+
+            if (i == 0) {
+                shell = box;
+            }
+        }
+
+        var content = tree.CreateNode();
+        tree.SetDimension(content, Dimension.Width, StyleLength.Points(2385f));
+        tree.SetDimension(content, Dimension.Height, StyleLength.Points(20f));
+        tree.AddChild(parent, content);
+
+        tree.CalculateLayout(window, float.NaN, float.NaN, Direction.Ltr);
+
+        Assert.Equal(1100f, tree.GetWidth(shell), Tolerance);
+        Assert.Equal(2385f, tree.GetWidth(content), Tolerance);
     }
 
     [Fact]

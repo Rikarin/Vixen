@@ -161,10 +161,30 @@ root.dark {
    between the panes is the seam colour — which is the darkest of the three
    and is never a surface anything sits on. An editor that painted the whole
    frame one colour has to draw a line every time two things meet; this one
-   only has to leave a gap. */
+   only has to leave a gap.
+
+   ⚠ **The two zero minimums are the frame's half of a sentence `AdvancedTheme.vcss`
+   already writes on every box below it**, and they were missing for as long as this
+   sheet has existed. A flex item's automatic minimum is its content's, so a shell that
+   declares none is as wide as the widest thing in any panel and a workspace that
+   declares none is as tall as the tallest — `docking-host`, `dock-surface`,
+   `dock-split`, `dock-group` and `dock-body` each carry `min-width: 0px` and
+   `min-height: 0px` and clipped nothing, because the two boxes *above* them had already
+   agreed to be big enough. Measured with a panel scrolling 40 000 points: shell 1 049
+   wide inside a 900-point root, docking area 40 138 tall inside 700, inspector off the
+   right-hand side.
+
+   ⚠ **It looked like a layout-store bug for a whole session and was not.** The
+   min-content probe used to return a clipping box's padding and border and nothing else,
+   which hid this by making every scroll container contribute zero — a reading of CSS
+   Sizing §5.2.2 that Chrome refutes, and one that cost 24 grid conformance fixtures.
+   `ShellFitsItsWindowTests` is what holds the frame to this now.
+   `Rikarin/Vixen#932`. */
 editor-shell {
     flex-direction: column;
     flex-grow: 1;
+    min-width: 0px;
+    min-height: 0px;
     background-color: var(--chrome);
 }
 
@@ -382,7 +402,10 @@ toolbar .transport-stop:disabled icon, toolbar .transport-step:disabled icon {
     color: var(--text-muted);
 }
 
-editor-workspace { flex-direction: column; flex-grow: 1; flex-basis: 0px; }
+/* ⚠ The zero minimums are the other half of the shell's — see the note above `editor-shell`.
+   `flex-basis: 0px` alone is not enough: it settles what the item starts at, and the automatic
+   minimum is applied afterwards and floors it at its content. */
+editor-workspace { flex-direction: column; flex-grow: 1; flex-basis: 0px; min-width: 0px; min-height: 0px; }
 
 /* ⚠ `flex-shrink: 0` and a fixed height, because it is the one strip whose
    size must not follow its contents: a task title three words longer must
