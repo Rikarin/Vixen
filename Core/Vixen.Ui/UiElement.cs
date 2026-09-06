@@ -786,6 +786,7 @@ public partial class UiElement : Composition.IComposable {
         var revision = Document.Fonts.Revision;
         var mode = Document.WrapModeOf(Style);
         var breaking = Document.WordBreakOf(Style);
+        var strictness = Document.LineBreakOf(Style);
         var wrapStyle = Document.TextWrapStyleOf(Style);
         var transform = Document.TextTransformOf(Style);
         var clamp = Document.LineClampOf(Style);
@@ -821,6 +822,12 @@ public partial class UiElement : Composition.IComposable {
             && lineRevision == revision
             && lineMode == mode
             && lineBreaking == breaking
+
+            // ⚠ In the key for `word-break`'s reason and not covered by it: `line-break` changes
+            // which opportunities EXIST, and `anywhere` changes the answer for a paragraph with no
+            // CJK in it at all. A block built under one strictness and reused under another is a
+            // paragraph broken by a declaration that is no longer on it.
+            && lineStrictness == strictness
 
             // ⚠ In the key for the same reason `mode` is, and it is the easier of the two to leave
             // out: it changes where the lines BREAK without changing anything about the text, the
@@ -906,7 +913,21 @@ public partial class UiElement : Composition.IComposable {
             // whatever glyph the font has for it — however wide the box is.
             lines.Add(whole);
         } else {
-            Wrap(text, whole, width, mode, breaking, indent, chain, drawn, tabStop, hyphens, wrapStyle, lines);
+            Wrap(
+                text,
+                whole,
+                width,
+                mode,
+                breaking,
+                strictness,
+                indent,
+                chain,
+                drawn,
+                tabStop,
+                hyphens,
+                wrapStyle,
+                lines
+            );
         }
 
         // ⚠ <b>The clamp drops the lines here, in the measure path, and this is where it differs from
@@ -939,6 +960,7 @@ public partial class UiElement : Composition.IComposable {
         lineRevision = revision;
         lineMode = mode;
         lineBreaking = breaking;
+        lineStrictness = strictness;
         lineWrapStyle = wrapStyle;
         lineWidth = width;
         lineSize = FontSize;
@@ -1473,6 +1495,7 @@ public partial class UiElement : Composition.IComposable {
         float width,
         TextWrapMode mode,
         WordBreakMode breaking,
+        LineBreakStrictness strictness,
         float indent,
         List<FontFace> chain,
         TransformedText transformed,
@@ -1500,7 +1523,20 @@ public partial class UiElement : Composition.IComposable {
         // letters before it are in.
         var hyphen = hyphens == HyphenMode.Manual && text.Contains('­') ? HyphenWidth(chain) : 0f;
 
-        LineWrapper.Wrap(text, advances, width, wrapped, mode, breaking, indent, tabStop, hyphens, hyphen, wrapStyle);
+        LineWrapper.Wrap(
+            text,
+            advances,
+            width,
+            wrapped,
+            mode,
+            breaking,
+            indent,
+            tabStop,
+            hyphens,
+            hyphen,
+            wrapStyle,
+            strictness
+        );
 
         foreach (var line in wrapped) {
             // ⚠ Each line is shaped as its own string rather than sliced out of the paragraph's
@@ -1554,6 +1590,7 @@ public partial class UiElement : Composition.IComposable {
     int lineRevision;
     TextWrapMode lineMode;
     WordBreakMode lineBreaking;
+    LineBreakStrictness lineStrictness;
     TextWrapStyle lineWrapStyle;
     float lineWidth;
     float lineSize;

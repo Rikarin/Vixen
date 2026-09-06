@@ -115,6 +115,12 @@ public sealed class InheritedProperties {
         // halves inherit. `UiDocument.WrapsOf` reads this one beside `white-space`.
         "text-wrap",
         "word-break",
+
+        // ⚠ CSS-inherited, and it is here for `word-break`'s reason and one more of its own: the
+        // strictness a paragraph wants is a property of the *language it is written in*, which is a
+        // statement about a subtree rather than about the element carrying the glyphs. A
+        // `line-break: strict` written on a Japanese article has to reach every span inside it.
+        "line-break",
         "overflow-wrap",
 
         // ⚠ `text-overflow` is NOT CSS-inherited, and it is here on purpose. CSS applies it to a

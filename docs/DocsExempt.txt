@@ -3668,6 +3668,7 @@ T:Vixen.Ui.Text.GraphemeBreakClass sweep-pending
 T:Vixen.Ui.Text.GraphemeBreaker sweep-pending
 T:Vixen.Ui.Text.IndicConjunctClass sweep-pending
 T:Vixen.Ui.Text.LineBreakClass sweep-pending
+T:Vixen.Ui.Text.LineBreakStrictness sweep-pending
 T:Vixen.Ui.Text.LineBreaker sweep-pending
 T:Vixen.Ui.Text.LineWrapper sweep-pending
 T:Vixen.Ui.Text.Outlines.GlyphBounds sweep-pending
