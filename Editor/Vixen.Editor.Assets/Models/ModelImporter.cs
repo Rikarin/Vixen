@@ -105,6 +105,17 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
     /// <summary>What the sub-asset holding a mesh's page blob is called.</summary>
     public const string ClusterPageKind = VirtualGeometryContent.ClusterPageArtifact;
 
+    /// <summary>What a mesh's sub-asset is declared as, which is what a <c>.meta</c> lists it under.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <see cref="MeshType" />, and the two being different words is the point.</b> This
+    ///     is the sub-asset <i>kind</i> — what a person reads in a sidecar and what
+    ///     <c>ProjectMeshSource.Declared</c> filters a model's sub-assets by; <see cref="MeshType" />
+    ///     is the <c>[DataContract]</c> alias that goes in the chunk header. A constant rather than a
+    ///     literal because there are now two readers of it, and a second spelling of a kind is the
+    ///     shape this repository's roll calls keep going red on.
+    /// </remarks>
+    public const string MeshKind = "Mesh";
+
     /// <summary>The chunk type a mesh artefact is recorded as.</summary>
     /// <remarks>
     ///     <para>
@@ -303,7 +314,7 @@ public sealed class ModelImporter : AssetImporter<ModelImportSettings> {
             }
 
             // The sub-asset kind is "Mesh" and the chunk type is the contract alias. See MeshType.
-            context.Write(context.DeclareSubAsset("Mesh", mesh.Name), MeshType, Serializer.ToBytes(mesh));
+            context.Write(context.DeclareSubAsset(MeshKind, mesh.Name), MeshType, Serializer.ToBytes(mesh));
 
             if (!settings.GenerateDistanceFields || mesh.Indices.Length == 0) {
                 continue;

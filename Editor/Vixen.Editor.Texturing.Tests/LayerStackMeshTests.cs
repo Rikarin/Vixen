@@ -41,7 +41,7 @@ public class LayerStackMeshTests {
         var stack = LayerStackDocument.Starter("Hull");
 
         Assert.Equal("", stack.Model);
-        Assert.Null(LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], out var refusal));
+        Assert.Null(LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], geometry: null, out var refusal));
         Assert.Contains("names no model", refusal, StringComparison.Ordinal);
         Assert.Contains("Layer Stack panel", refusal, StringComparison.Ordinal);
     }
@@ -59,7 +59,7 @@ public class LayerStackMeshTests {
         using var fixture = new TexturingFixture();
         var stack = Bound(fixture, Quad("hull", 0f, 0.5f), "Hull.obj");
 
-        var mesh = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], out var refusal);
+        var mesh = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], geometry: null, out var refusal);
 
         Assert.Equal("", refusal);
         Assert.NotNull(mesh);
@@ -93,7 +93,7 @@ public class LayerStackMeshTests {
         using var fixture = new TexturingFixture();
         var stack = Bound(fixture, Quad("left", 0f, 0.5f) + Quad("right", 0.5f, 1f), "Split.obj");
 
-        var whole = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], out _);
+        var whole = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], geometry: null, out _);
 
         Assert.NotNull(whole);
         Assert.Equal(4, whole.Triangles);
@@ -103,7 +103,7 @@ public class LayerStackMeshTests {
             Sets = [stack.Sets[0] with { Mesh = "left" }]
         };
 
-        var left = LayerStackMesh.Open(fixture.Project, narrowed, narrowed.Sets[0], out var refusal);
+        var left = LayerStackMesh.Open(fixture.Project, narrowed, narrowed.Sets[0], geometry: null, out var refusal);
 
         Assert.Equal("", refusal);
         Assert.NotNull(left);
@@ -125,7 +125,7 @@ public class LayerStackMeshTests {
             Sets = [stack.Sets[0] with { Mesh = "torso" }]
         };
 
-        Assert.Null(LayerStackMesh.Open(fixture.Project, narrowed, narrowed.Sets[0], out var refusal));
+        Assert.Null(LayerStackMesh.Open(fixture.Project, narrowed, narrowed.Sets[0], geometry: null, out var refusal));
         Assert.Contains("'torso'", refusal, StringComparison.Ordinal);
         Assert.Contains("'left'", refusal, StringComparison.Ordinal);
         Assert.Contains("'right'", refusal, StringComparison.Ordinal);
@@ -146,7 +146,7 @@ public class LayerStackMeshTests {
             "Bare.obj"
         );
 
-        Assert.Null(LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], out var refusal));
+        Assert.Null(LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], geometry: null, out var refusal));
         Assert.Contains("no texture coordinates", refusal, StringComparison.Ordinal);
     }
 
@@ -162,7 +162,7 @@ public class LayerStackMeshTests {
 
         Add(fixture, "Rust.png", "not a picture either");
 
-        Assert.Null(LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], out var refusal));
+        Assert.Null(LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], geometry: null, out var refusal));
         Assert.Contains("is not a model this build reads", refusal, StringComparison.Ordinal);
         Assert.Contains(".obj", refusal, StringComparison.Ordinal);
     }
@@ -173,7 +173,7 @@ public class LayerStackMeshTests {
         using var fixture = new TexturingFixture();
         var stack = LayerStackDocument.Starter("Hull") with { Model = "Assets/Gone.obj" };
 
-        Assert.Null(LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], out var refusal));
+        Assert.Null(LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], geometry: null, out var refusal));
         Assert.Contains("is not in this project's assets", refusal, StringComparison.Ordinal);
     }
 
