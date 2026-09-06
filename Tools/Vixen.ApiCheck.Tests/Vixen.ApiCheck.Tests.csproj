@@ -40,5 +40,10 @@
              still describes the run that just happened. Its three predecessors were all about a
              project name, so a line whose number was 2x wrong failed nothing (#863). -->
         <Compile Include="..\..\build\TestCostDrift.cs" Link="TestCostDrift.cs" />
+
+        <!-- And the four conditions PruneWorktrees deletes a checkout on. Its removable verdict is
+             unreachable on a real machine — a removable worktree is one nobody has — so without a
+             linked fixture the only way anyone has ever seen that branch is by sabotage (#561). -->
+        <Compile Include="..\..\build\WorktreeSafety.cs" Link="WorktreeSafety.cs" />
     </ItemGroup>
 </Project>
