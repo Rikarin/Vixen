@@ -172,7 +172,7 @@ public sealed record TextureOp {
     ///     </para>
     ///     <para>
     ///         <b>Kept anyway, and the reason is which ops exist rather than which are imaginable.</b>
-    ///         Eight of the ten sites that declare it have a single input, where per-op and per-input
+    ///         Seven of the ten sites that declare it have a single input, where per-op and per-input
     ///         are the same statement; <c>TileSampler</c> and <c>Splatter</c> read
     ///         <em>all</em> of their four and five inputs through the source's own extent, so a list
     ///         of indices there would be every index. That leaves <c>AutoLevels</c>, whose source is

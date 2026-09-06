@@ -771,8 +771,9 @@ static class LayerStackGraph {
         ///     </para>
         ///     <para>
         ///         <b>Forced where it is needed and not everywhere</b>, which is what
-        ///         <c>MaskSlot.Opaque</c> is for: a constant, a mesh map and a folded anchor are
-        ///         opaque by construction, and a one-entry mask reaches no blend here at all — so the
+        ///         <c>MaskSlot.Opaque</c> is for: a constant and a folded anchor are opaque by
+        ///         construction — ⚠ a mesh map is <em>not</em>, because a bake's alpha is whatever the
+        ///         baker wrote into that PNG — and a one-entry mask reaches no blend here at all, so the
         ///         plain single-source mask #789 costs out compiles to exactly the nodes it did.
         ///     </para>
         /// </remarks>

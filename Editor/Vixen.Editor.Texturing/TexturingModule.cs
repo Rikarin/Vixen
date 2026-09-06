@@ -58,11 +58,10 @@ namespace Vixen.Editor.Texturing;
 ///                 <c>TextureGraphCompiler</c> is <c>public</c>; <see cref="LayerStackPreview" />
 ///                 compiles the open stack through it and shows the map that comes out.
 ///                 <a href="https://github.com/Rikarin/Vixen/issues/738">#738</a>. ⚠ <b>The
-///                 <em>graph</em> pane has not caught up</b> — <c>TextureGraphPreview</c> still
-///                 evaluates a fixed checkerboard and its status line still tells an author the
-///                 compiler is internal, which is a sentence naming an obstacle that no longer exists
-///                 and an issue that is closed.
-///                 <a href="https://github.com/Rikarin/Vixen/issues/816">#816</a>.
+///                 <em>graph</em> pane still evaluates a fixed checkerboard</b> — but its status line
+///                 no longer gives the closed reason for it. <c>TexturePreview</c> names
+///                 <a href="https://github.com/Rikarin/Vixen/issues/792">#792</a>, the gap that is
+///                 actually open: the compiler is public and nothing in the graph pane calls it.
 ///             </description>
 ///         </item>
 ///     </list>

@@ -122,7 +122,11 @@ public class LayerStackPanelDeviceTests {
         Assert.Equal(1, preview.Evaluations);
         Assert.Contains("baseColor", picture.Status, StringComparison.Ordinal);
         Assert.DoesNotContain("base layer", picture.Status, StringComparison.Ordinal);
-        Assert.DoesNotContain("#738", picture.Status, StringComparison.Ordinal);
+        // ⚠ #792, not #738. The tripwire guards against the stack's pane falling back to the graph
+        // pane's sentence, so it has to name a string that sentence actually contains — and the
+        // sweep that corrected every stale "#738" out of the tree left this assertion looking for a
+        // number no runtime string holds any more, which is a tripwire nothing can trip.
+        Assert.DoesNotContain("#792", picture.Status, StringComparison.Ordinal);
     }
 
     /// <summary>⚠ Re-evaluating releases the picture it replaces: one live upload, however many runs.</summary>

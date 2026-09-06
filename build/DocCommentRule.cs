@@ -121,8 +121,8 @@ static class DocCommentRule {
 
     /// <summary>Where the files this rule is not asked about today are listed.</summary>
     /// <remarks>
-    ///     ⚠ <b>Sixty-four blocks in forty-five files were already wrong when this rule was written,
-    ///     and one of them is a live production staple</b> — <c>KeyChord.MacGlyphs</c>'s whole block
+    ///     ⚠ <b>Sixty-four blocks in fifty-one files were already wrong when this rule was written,
+    ///     and one of them is a live production staple</b> — <c>KeyChord.MacFormat</c>'s whole block
     ///     heads <c>MacWords</c>, so the glyph formatter is undocumented and the words formatter is
     ///     described twice. None is in doc 48's own files: batch 9's two were the only ones there and
     ///     the merge fixed them.

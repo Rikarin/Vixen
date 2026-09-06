@@ -61,7 +61,7 @@ public class DocCommentRuleTests {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Fifty-one files were already wrong the day the rule was written, and one of them
-    ///         is a live production staple</b>: <c>KeyChord.cs</c> carries <c>MacGlyphs</c>' whole
+    ///         is a live production staple</b>: <c>KeyChord.cs</c> carries <c>MacFormat</c>' whole
     ///         block above <c>MacWords</c>, so one public formatter is undocumented and the other is
     ///         described twice. None is in doc 48's own files — batch 9's two were the only ones there
     ///         and the merge fixed them — so the list is other people's work to shrink (#879) rather

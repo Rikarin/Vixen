@@ -264,6 +264,11 @@ public class LayerStackEditingTests {
 
         Assert.Equal(1, document.Stack.Depth.Value);
 
+        // ⚠ Pressed first, and that is the point of this test rather than a detail of it. `Range`
+        // marks the release that ends a drag as handled, so a bare Released — no press, `dragging`
+        // still false — takes the default branch and reaches a bubbling handler that a real one
+        // never would. The seal was registered without `handledEventsToo` and this test passed.
+        slider.Raise(new PointerEvent { Action = PointerAction.Pressed, Button = PointerButton.Primary });
         slider.Raise(new PointerEvent { Action = PointerAction.Released, Button = PointerButton.Primary });
 
         slider.Value = 0.4f;

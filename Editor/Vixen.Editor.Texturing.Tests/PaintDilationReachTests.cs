@@ -106,6 +106,11 @@ public class PaintDilationReachTests {
         var thin = Halo(4f);
         var fat = Halo(16f);
 
+        // ⚠ The value, and then the equality. Two reaches of zero are equal, so the differential on
+        // its own is satisfied by a dilation that produced nothing — the same vacuity this file's
+        // sibling test names and guards against, one test along. `Halo` builds its stroke with a
+        // gutter of 4, so 4 is the number both strokes must reach.
+        Assert.Equal(4, thin.Reach);
         Assert.Equal(thin.Reach, fat.Reach);
 
         // And the two strokes really were different strokes: the fat one paints far more texels.

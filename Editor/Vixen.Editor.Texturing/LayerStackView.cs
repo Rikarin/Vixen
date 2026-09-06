@@ -619,11 +619,21 @@ sealed class LayerStackView {
             "opacity"
         );
 
-        opacity.AddHandler<PointerEvent>((_, args) => {
-            if (args.Action == PointerAction.Released) {
-                document.Stack.Seal();
-            }
-        });
+        // ⚠ `handledEventsToo`, and it is the whole of whether this line runs. `Range.Pointed` sets
+        // `args.Handled = true` on the release that ends a drag, and `AddHandler` defaults to not
+        // being called for a handled event — so the bubbling handler fires on every release EXCEPT
+        // the one that matters. A test that raises a bare Released without a Pressed leaves
+        // `dragging` false, takes the default branch, and sees an unhandled event, which is why this
+        // read as covered.
+        opacity.AddHandler<PointerEvent>(
+            (_, args) => {
+                if (args.Action == PointerAction.Released) {
+                    document.Stack.Seal();
+                }
+            },
+            RoutingStrategy.Bubble,
+            handledEventsToo: true
+        );
 
         var channels = row.Add("layer-stack-channels");
 
