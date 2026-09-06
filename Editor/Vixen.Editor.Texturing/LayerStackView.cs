@@ -13,6 +13,38 @@ using Vixen.Ui.Reactive;
 
 namespace Vixen.Editor.Texturing;
 
+/// <summary>What a mask row reads, as the one value an editor writes back.</summary>
+/// <param name="Source">Which of the six a mask reads.</param>
+/// <param name="Value">The number, when it is <see cref="LayerMaskSource.Constant" />.</param>
+/// <param name="Asset">The imported image, when it is <see cref="LayerMaskSource.Texture" />.</param>
+/// <param name="Anchor">The layer read, when it is <see cref="LayerMaskSource.Anchor" />.</param>
+/// <param name="Generator">The published compound, when it is <see cref="LayerMaskSource.Generator" />.</param>
+/// <param name="Map">What the bake measures, when it is <see cref="LayerMaskSource.Bake" />.</param>
+/// <remarks>
+///     <para>
+///         ⚠ <b>One shape for two records, which is what makes a single source editor possible</b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/882">#882</a>). <c>MaskAsset</c> and
+///         <c>MaskLayerAsset</c> carry the same discriminator and the same five members behind it, and
+///         differ in what a mask <em>base</em> does not have — an <c>Enabled</c>, a blend mode and an
+///         opacity. Reading and writing the half they share through one value is what lets the base
+///         row and an entry row be the same six controls with two different write-backs.
+///     </para>
+///     <para>
+///         ⚠ <b><c>Paint</c> is in the discriminator and has no editor.</b> A painted mask's canvas is
+///         named by <c>MaskAsset.Paint</c>, and that name is written by the brush at the first stroke
+///         — <c>TexturingModule.Recorded</c> — rather than typed. Offering a field for it would be
+///         offering to point a layer at somebody else's pixels.
+///     </para>
+/// </remarks>
+readonly record struct MaskSourceEdit(
+    LayerMaskSource Source,
+    float Value,
+    string Asset,
+    string Anchor,
+    string Generator,
+    string Map
+);
+
 /// <summary>A layer stack, open: the rows in composite order, and the map they make.</summary>
 /// <remarks>
 ///     <para>
@@ -980,8 +1012,6 @@ sealed class LayerStackView : IDisposable {
             var position = index;
 
             MaskRow(
-                document,
-                path,
                 depth,
                 () => Describe(document, path, effect: position),
                 () => LayerStackEdit.Find(document.Document, path)?.Mask.Effects is { } effects
@@ -998,9 +1028,7 @@ sealed class LayerStackView : IDisposable {
         for (var index = mask.Layers.Count - 1; index >= 0; index--) {
             var position = index;
 
-            MaskRow(
-                document,
-                path,
+            var entry = MaskRow(
                 depth,
                 () => Describe(document, path, entry: position),
                 () => LayerStackEdit.Find(document.Document, path)?.Mask.Layers is { } entries
@@ -1012,31 +1040,355 @@ sealed class LayerStackView : IDisposable {
                     value ? "Show Mask Entry" : "Hide Mask Entry"
                 )
             );
+
+            SourceEditor(
+                entry,
+                document,
+                set,
+                path,
+                position.ToString(CultureInfo.InvariantCulture),
+                () => LayerStackEdit.Find(document.Document, path)?.Mask.Layers is { } entries
+                    && position < entries.Count
+                        ? Read(entries[position])
+                        : null,
+                (value, name, key) => Set(
+                    document,
+                    path,
+                    current => current with { Mask = WithEntry(current.Mask, position, value) },
+                    name,
+                    key
+                )
+            );
         }
 
-        if (mask.Source == LayerMaskSource.None) {
-            return;
-        }
-
-        // ⚠ The base has no `Enabled` of its own and therefore no tick, which is a fact about
-        // `MaskAsset` rather than an omission here: its source, its value and its asset are the
-        // mask's own members, kept flat because every `.vxlayers` that exists names a mask that way.
-        // Switching a base off is done by setting its source to None, which wants an editor for the
-        // source — #882.
+        // ⚠ The base row is drawn whatever the source is, and that is the change #882 asked for
+        // rather than a longer list for its own sake. Switching a base off means setting its source
+        // to `None`, and a row that then vanished would be a trapdoor: an artist could take a mask
+        // off a layer and never put one back. A mask slot on every layer is what both references do.
         var row = rows.Add("layer-stack-mask-row");
 
         row.SetStyle("display", "flex");
         row.SetStyle("flex-direction", "row");
         row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
 
+        // ⚠ The base has no `Enabled` of its own and therefore no tick, which is a fact about
+        // `MaskAsset` rather than an omission here: its source, its value and its asset are the
+        // mask's own members, kept flat because every `.vxlayers` that exists names a mask that way.
         var name = row.Add("layer-stack-mask-name");
 
         bindings.Add(() => name.Text = Describe(document, path));
+
+        SourceEditor(
+            row,
+            document,
+            set,
+            path,
+            "base",
+            () => LayerStackEdit.Find(document.Document, path)?.Mask is { } current ? Read(current) : null,
+            (value, undo, key) => Set(
+                document,
+                path,
+                current => current with { Mask = WithBase(current.Mask, value) },
+                undo,
+                key
+            )
+        );
     }
 
-    void MaskRow(
+    /// <summary>What a mask base reads, as the value a source editor writes back.</summary>
+    static MaskSourceEdit Read(MaskAsset mask) =>
+        new(mask.Source, mask.Value, mask.Asset, mask.Anchor, mask.Generator, mask.Map);
+
+    /// <summary>What one mask entry reads, as the value a source editor writes back.</summary>
+    static MaskSourceEdit Read(MaskLayerAsset entry) =>
+        new(entry.Source, entry.Value, entry.Asset, entry.Anchor, entry.Generator, entry.Map);
+
+    /// <summary>A mask whose base reads something else.</summary>
+    static MaskAsset WithBase(MaskAsset mask, MaskSourceEdit value) =>
+        mask with {
+            Source = value.Source,
+            Value = value.Value,
+            Asset = value.Asset,
+            Anchor = value.Anchor,
+            Generator = value.Generator,
+            Map = value.Map
+        };
+
+    /// <summary>A mask one of whose entries reads something else.</summary>
+    /// <remarks>
+    ///     ⚠ A new list, for <see cref="ToggleEntry" />'s reason: <c>with</c> shares every collection
+    ///     member, so writing into the one this mask holds would change the layer the undo entry is
+    ///     holding as its before-image.
+    /// </remarks>
+    static MaskAsset WithEntry(MaskAsset mask, int index, MaskSourceEdit value) {
+        if (index < 0 || index >= mask.Layers.Count) {
+            return mask;
+        }
+
+        List<MaskLayerAsset> entries = [.. mask.Layers];
+
+        entries[index] = entries[index] with {
+            Source = value.Source,
+            Value = value.Value,
+            Asset = value.Asset,
+            Anchor = value.Anchor,
+            Generator = value.Generator,
+            Map = value.Map
+        };
+
+        return mask with { Layers = entries };
+    }
+
+    /// <summary>What no anchor reads, as the picker's first option.</summary>
+    /// <remarks>
+    ///     The mesh picker's <see cref="NoMesh" /> argument, one level down: a dropdown whose first
+    ///     entry is a real layer makes "anchored at nothing" unreachable the moment a stack has two.
+    /// </remarks>
+    public const string NoAnchor = "(none)";
+
+    /// <summary>The layers of a set an anchor on one layer may name, in composite order.</summary>
+    /// <param name="set">The texture set.</param>
+    /// <param name="id">The <see cref="LayerAsset.Id" /> doing the anchoring.</param>
+    /// <returns>Every id whose result exists before this layer's does.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="set" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Post-order, because that is the order results are emitted in.</b>
+    ///         <c>LayerStackGraph.Stack</c> composites a list bottom first and a group's children
+    ///         <em>inside</em> the group's own composite — so a group's blend node exists only after
+    ///         every child's does. A picker built on the panel's own top-to-bottom row order would
+    ///         offer a group to its own children, which is a cycle.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Strictly before, and the refusal says why:</b> "an anchor onto a layer at or above
+    ///         its own is a loop, and the graph model is what says so". So the picker offers what the
+    ///         model would accept rather than everything and a refusal afterwards — a dropdown that
+    ///         lists an option which always fails is a dropdown that lied.
+    ///     </para>
+    ///     <para>
+    ///         An id no layer can be addressed by is left out for the same reason: an empty one names
+    ///         nothing, and one <c>LayerStackEdit.Ambiguous</c> reports names more than one.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<string> Anchorable(TextureSetAsset set, string id) {
+        ArgumentNullException.ThrowIfNull(set);
+
+        var ambiguous = LayerStackEdit.Ambiguous(set);
+        List<string> before = [];
+        var reached = false;
+
+        Walk(set.Layers);
+
+        return before;
+
+        void Walk(List<LayerAsset> layers) {
+            foreach (var layer in layers) {
+                if (reached) {
+                    return;
+                }
+
+                Walk(layer.Children);
+
+                if (reached) {
+                    return;
+                }
+
+                if (string.Equals(layer.Id, id, StringComparison.Ordinal)) {
+                    reached = true;
+
+                    return;
+                }
+
+                if (layer.Id.Length > 0 && !ambiguous.Contains(layer.Id)) {
+                    before.Add(layer.Id);
+                }
+            }
+        }
+    }
+
+    /// <summary>The controls that change what one mask row reads, and the one that says which.</summary>
+    /// <param name="row">The row they go on.</param>
+    /// <param name="document">The stack being edited.</param>
+    /// <param name="set">The texture set the row's layer is in — what an anchor picker offers from.</param>
+    /// <param name="path">Which layer.</param>
+    /// <param name="slot">
+    ///     What tells two rows of one layer apart in a merge key: an entry's index, or <c>base</c>.
+    /// </param>
+    /// <param name="read">The row's current source, or <see langword="null" /> when it is gone.</param>
+    /// <param name="write">Puts one back, with the undo entry's name and its merge key.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/882">#882</a>, and the issue's own
+    ///         warning is the shape: a source editor is not one control.</b> The discriminator is a
+    ///         <c>Select</c>; behind it a constant wants a number, an anchor wants a picker over the
+    ///         layers below it, and a texture, a generator and a bake each want a reference that is a
+    ///         name. All of them are built and all but the relevant one is hidden, rather than the
+    ///         row being rebuilt when the source changes — a rebuild while a slider is captured is
+    ///         the defect <see cref="Show" />'s shape comparison exists to prevent, one level down.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The three reference kinds share one <c>TextBox</c> and that is a limit rather
+    ///         than a design.</b> A bake wants the nine names <c>TextureMeshMaps.Known</c> holds and
+    ///         they are <c>internal</c> to <c>Vixen.Editor.TextureGraph</c>, whose
+    ///         <c>InternalsVisibleTo</c> names its own tests alone — so this assembly cannot ask for
+    ///         the list, and writing the nine here is the second transcription of a known set that
+    ///         five roll calls in this workstream have gone red on. The node refuses a name nothing
+    ///         bakes and says all nine in the message, and that message reaches the list under these
+    ///         rows. The same argument covers a generator, whose compounds are published by a
+    ///         library this view must not acquire (#820).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A keystroke is one undo entry per typing run, not per character</b> — the merge
+    ///         key the slider taught, keyed by the row so that two entries of one layer do not
+    ///         collapse into each other. Enter seals it; so does releasing the slider.
+    ///     </para>
+    /// </remarks>
+    void SourceEditor(
+        UiElement row,
         LayerStackDocument document,
+        TextureSetAsset set,
         LayerPath path,
+        string slot,
+        Func<MaskSourceEdit?> read,
+        Action<MaskSourceEdit, string, string> write
+    ) {
+        var kind = row.Add<Select>("layer-stack-mask-source");
+
+        foreach (var source in Enum.GetValues<LayerMaskSource>()) {
+            kind.AddOption(source.ToString());
+        }
+
+        kind.SelectionChanged += (_, chosen) => {
+            if (read() is { } current && Enum.TryParse<LayerMaskSource>(chosen, out var source)) {
+                write(current with { Source = source }, "Set Mask Source", "");
+            }
+        };
+
+        var number = row.Add<Slider>("layer-stack-mask-value");
+
+        number.Minimum = 0f;
+        number.Maximum = 1f;
+
+        number.ValueChanged += (_, value) => {
+            if (read() is { } current) {
+                write(current with { Value = value }, "Set Mask Value", "mask-value:" + slot);
+            }
+        };
+
+        number.AddHandler<PointerEvent>(
+            (_, args) => {
+                if (args.Action == PointerAction.Released) {
+                    document.Stack.Seal();
+                }
+            },
+            RoutingStrategy.Bubble,
+            handledEventsToo: true
+        );
+
+        var anchor = row.Add<Select>("layer-stack-mask-anchor");
+
+        anchor.SelectionChanged += (_, chosen) => {
+            if (read() is not { } current) {
+                return;
+            }
+
+            var wanted = chosen is null || string.Equals(chosen, NoAnchor, StringComparison.Ordinal) ? "" : chosen;
+
+            write(current with { Anchor = wanted }, "Set Mask Anchor", "");
+        };
+
+        var reference = row.Add<TextBox>("layer-stack-mask-text");
+
+        reference.ValueChanged += (_, typed) => {
+            if (read() is not { } current) {
+                return;
+            }
+
+            var written = typed ?? "";
+
+            var after = current.Source switch {
+                LayerMaskSource.Texture => current with { Asset = written },
+                LayerMaskSource.Generator => current with { Generator = written },
+                LayerMaskSource.Bake => current with { Map = written },
+                _ => current
+            };
+
+            write(after, "Set Mask Reference", "mask-reference:" + slot);
+        };
+
+        reference.Submitted += _ => document.Stack.Seal();
+
+        // What the anchor picker was last offered, so the options are not rebuilt per refresh —
+        // `Rebind`'s argument, and `ClearOptions` under an open dropdown is the same defect.
+        var offered = "";
+
+        bindings.Add(() => {
+            if (read() is not { } current) {
+                return;
+            }
+
+            kind.Value = current.Source.ToString();
+
+            number.SetStyle("display", current.Source == LayerMaskSource.Constant ? "flex" : "none");
+            anchor.SetStyle("display", current.Source == LayerMaskSource.Anchor ? "flex" : "none");
+
+            reference.SetStyle(
+                "display",
+                current.Source is LayerMaskSource.Texture or LayerMaskSource.Generator or LayerMaskSource.Bake
+                    ? "flex"
+                    : "none"
+            );
+
+            number.Value = current.Value;
+
+            reference.Value = current.Source switch {
+                LayerMaskSource.Texture => current.Asset,
+                LayerMaskSource.Generator => current.Generator,
+                LayerMaskSource.Bake => current.Map,
+                _ => ""
+            };
+
+            reference.Placeholder = current.Source switch {
+                LayerMaskSource.Texture => "Assets/Textures/rust.png",
+                LayerMaskSource.Generator => "Generators/Dirt",
+                LayerMaskSource.Bake => "curvature",
+                _ => ""
+            };
+
+            if (current.Source != LayerMaskSource.Anchor) {
+                return;
+            }
+
+            List<string> targets = [.. Anchorable(set, path.Id)];
+
+            // ⚠ A stored anchor this stack cannot offer is kept as an option rather than dropped,
+            // which is `Rebind`'s three-state rule: a picker that silently showed `(none)` would say
+            // the mask is unanchored and then unanchor it on the next click. What the anchor really
+            // is stays on the screen, and the refusal beneath the rows is what says it is wrong.
+            if (current.Anchor.Length > 0 && !targets.Contains(current.Anchor, StringComparer.Ordinal)) {
+                targets.Add(current.Anchor);
+            }
+
+            var wanted = string.Join('\n', targets);
+
+            if (!string.Equals(wanted, offered, StringComparison.Ordinal)) {
+                offered = wanted;
+
+                anchor.ClearOptions();
+                anchor.AddOption(NoAnchor);
+
+                foreach (var target in targets) {
+                    anchor.AddOption(target);
+                }
+            }
+
+            anchor.Value = current.Anchor.Length > 0 ? current.Anchor : NoAnchor;
+        });
+    }
+
+    /// <summary>One switchable mask row — an effect, or an entry a source editor is added to.</summary>
+    /// <returns>The row, so that a caller with more to put on it can.</returns>
+    UiElement MaskRow(
         int depth,
         Func<string> describe,
         Func<bool> enabled,
@@ -1059,6 +1411,8 @@ sealed class LayerStackView : IDisposable {
             name.Text = describe();
             tick.IsChecked = enabled();
         });
+
+        return row;
     }
 
     /// <summary>One mask row's sentence: the base, one entry, or one effect.</summary>
