@@ -68,6 +68,20 @@ public class TextScaleWiringTests {
     }
 
     [Fact]
+    public void A_document_that_chose_its_own_root_size_keeps_its_proportions() {
+        // A twelve-pixel root and a scale of two is twenty-four, not thirty-two: the platform asked
+        // for text half again as large as *this application's*, not for a size of its own.
+        using var document = new UiDocument(400f, 400f, 12f);
+        var probe = Probe(document);
+
+        PlatformInput.ApplyAccessibility(document, new SystemAccessibility(TextScale: 2f));
+        document.Update();
+
+        Assert.Equal(48f, probe.Width, 0.001f);
+        Assert.Equal(24f, document.RootFontSize, 0.001f);
+    }
+
+    [Fact]
     public void Re_reading_the_same_scale_does_not_compound_it() {
         using var document = new UiDocument(400f, 400f);
         var probe = Probe(document);

@@ -184,17 +184,16 @@ public static class PlatformInput {
             };
         }
 
-        // ⚠ <b>A multiplier over the document's own root size and not a replacement for it.</b> An
-        // application that chose a fourteen-pixel root chose its proportions; the platform is saying
-        // "half as big again as whatever you use", so multiplying keeps that choice and setting an
-        // absolute size would silently overrule it. `LengthContext.InitialFontSize` is the base
-        // because that is what the document was constructed with when nobody said otherwise, and a
-        // scale that compounded — multiplying the *current* value each time the setting is re-read —
-        // would grow the text a little more on every poll.
+        // ⚠ <b>A multiplier over the document's own constructed root size and not a replacement for
+        // it.</b> An application that chose a fourteen-pixel root chose its proportions; the platform
+        // is saying "half again as large as whatever you use", so an absolute size would silently
+        // overrule it. ⚠ And the base is `BaseFontSize` rather than the *current* `RootFontSize`,
+        // which is the difference between applying a scale and compounding one — this is re-read
+        // four times a second on a desktop, so the second reading would grow the text without bound.
         //
         // ⚠ An unread scale is `1` here and not "leave it alone", so that a platform which stops
         // reporting one puts the text back rather than freezing it at the last value it saw.
-        document.RootFontSize = LengthContext.InitialFontSize * (accessibility.TextScale ?? 1f);
+        document.RootFontSize = document.BaseFontSize * (accessibility.TextScale ?? 1f);
 
         Repalette(document);
     }

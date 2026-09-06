@@ -1409,6 +1409,7 @@ Vixen.Ui.UiDocument.AccessibilityInvalidated -> System.Action<Vixen.Ui.UiDocumen
 Vixen.Ui.UiDocument.Adopt(Vixen.Ui.UiElement element, string? tag, Vixen.Ui.UiElement? parent, string? id = null, params System.ReadOnlySpan<string> classNames) -> Vixen.Ui.UiElement
 Vixen.Ui.UiDocument.ApplicationCommandResponder.get -> Vixen.Ui.IResponder?
 Vixen.Ui.UiDocument.ApplicationCommandResponder.set -> Vixen.Ui.IResponder?
+Vixen.Ui.UiDocument.BaseFontSize.get -> float
 Vixen.Ui.UiDocument.BeginDrag(Vixen.Ui.UiElement source, Vixen.Ui.DataObject data, Vixen.Ui.DropEffect allowed = Vixen.Ui.DropEffect.Copy) -> Vixen.Ui.DragSession
 Vixen.Ui.UiDocument.Builder.get -> Vixen.Ui.LayoutStyleBuilder
 Vixen.Ui.UiDocument.CanOpenWindows.get -> bool

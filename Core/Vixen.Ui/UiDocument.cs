@@ -131,6 +131,7 @@ public sealed partial class UiDocument : IDisposable {
         ILogger? logger = null
     ) {
         this.rootFontSize = rootFontSize;
+        BaseFontSize = rootFontSize;
         this.logger = logger ?? NullLogger.Instance;
         Styles = new StyleEngine();
 
@@ -228,6 +229,18 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>What <c>rem</c> measures against, kept because a new surface needs it too.</summary>
     float rootFontSize;
+
+    /// <summary>The root font size this document was constructed with.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Kept separately from <see cref="RootFontSize" /> so that a scale can be applied
+    ///     without compounding.</b> The operating system says "half again as large as whatever you
+    ///     use", which is a multiplier and has to be applied to a fixed base — applying it to the
+    ///     current size instead would grow the text a little more every time the setting is re-read,
+    ///     and <c>DesktopAccessibility</c> re-reads four times a second. Without this the base would
+    ///     have to be the framework's own sixteen pixels, which would silently overrule an
+    ///     application that chose a different root at construction.
+    /// </remarks>
+    public float BaseFontSize { get; }
 
     /// <summary>The font size <c>rem</c> measures against, for every surface of this document.</summary>
     /// <remarks>
