@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Graphics;
+
 namespace Vixen.Editor.Plugin;
 
 /// <summary>Everything one plugin added, and how to take each of it back out.</summary>
@@ -43,6 +45,19 @@ public sealed class PluginRegistrations : IDisposable {
     /// </remarks>
     public List<Action<TimeSpan>> Updates { get; } = [];
 
+    /// <summary>
+    ///     What this plugin asked to be told before the device goes. See
+    ///     <see cref="PluginContext.OnDeviceLost" />.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Held here for <see cref="Updates" />' reason and for one of its own.</b> A release
+    ///     callback is a delegate over the plugin's own device objects, so a plugin that has been
+    ///     unloaded while the editor still has a device must not be called on the <i>next</i> window
+    ///     loss: everything it would have destroyed went with its scope, and what is left is a
+    ///     delegate holding its assembly loaded.
+    /// </remarks>
+    public List<Action<IGraphicsDevice>> DeviceLost { get; } = [];
+
     /// <summary>What went wrong while undoing, if anything.</summary>
     public IReadOnlyList<Exception> Failures => failures;
 
@@ -60,6 +75,15 @@ public sealed class PluginRegistrations : IDisposable {
         // list this is about to clear anyway — and because a plugin half-way through unloading must
         // not be called again from a frame that lands mid-teardown.
         Updates.Clear();
+
+        // And the release callbacks with them, for the same reason.
+        //
+        // ⚠ Belt and braces rather than the mechanism, and the same is true of the line above:
+        // `PluginContext.OnDeviceLost` and `OnUpdate` each record a removal in the undo list, so both
+        // of these are already empty by the end of the loop below — sabotaging this line leaves every
+        // test green. What it covers is the route neither method owns: these lists are public and a
+        // host that appends to one directly gets the same guarantee.
+        DeviceLost.Clear();
 
         for (var index = undo.Count - 1; index >= 0; index--) {
             try {

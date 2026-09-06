@@ -230,6 +230,7 @@ Vixen.Graphics.WebGPU.WebGpuDevice.FramesInFlight.get -> int
 Vixen.Graphics.WebGPU.WebGpuDevice.GetAccelerationStructureAddress(Vixen.Graphics.AccelerationStructureHandle handle) -> ulong
 Vixen.Graphics.WebGPU.WebGpuDevice.GetAccelerationStructureSizes(in Vixen.Graphics.AccelerationStructureBuildInput input) -> Vixen.Graphics.AccelerationStructureSizes
 Vixen.Graphics.WebGPU.WebGpuDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.WebGPU.WebGpuDevice.IsFrameOpen.get -> bool
 Vixen.Graphics.WebGPU.WebGpuDevice.LiveResourceCount.get -> int
 Vixen.Graphics.WebGPU.WebGpuDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
 Vixen.Graphics.WebGPU.WebGpuDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter

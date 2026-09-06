@@ -73,18 +73,6 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
     public IReadOnlyList<string> Written { get; private set; } = [];
 
     /// <inheritdoc />
-    public MeshMapSet Bake(AssetId model, string mesh, EditMesh source, EditMesh target, BakeSettings settings) {
-        ArgumentException.ThrowIfNullOrEmpty(mesh);
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(target);
-        ArgumentNullException.ThrowIfNull(settings);
-
-        var maps = MapBaker.Bake(source, target, settings);
-
-        return Write(model, mesh, MeshMapBake.Encode(maps), maps.Warnings);
-    }
-
-    /// <inheritdoc />
     public MeshMapSet Write(
         AssetId model,
         string mesh,

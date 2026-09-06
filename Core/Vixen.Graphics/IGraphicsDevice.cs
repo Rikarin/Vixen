@@ -544,6 +544,34 @@ public interface IGraphicsDevice : IDisposable {
     /// <returns>A list, already begun. Recording is safe on any thread; one list per thread.</returns>
     ICommandList BeginCommandList(QueueKind kind = QueueKind.Graphics, string name = "");
 
+    /// <summary>Whether <see cref="BeginFrame" /> has run and <see cref="EndFrame" /> has not.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The question a caller that drives its own frame loop has to be able to ask</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/775">#775</a>. Something that opens a
+    ///         frame of its own — a bake, an offline evaluation, a tool that submits and waits — is
+    ///         correct when it owns the device and is a trap inside somebody else's frame, and until
+    ///         this there was no way to tell the two apart. <c>FrameCount</c> cannot be derived from:
+    ///         its own remarks say a backend may increment on either call.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nesting is not a slow path, it is corruption that outlives the frame.</b> A second
+    ///         <see cref="BeginFrame" /> on the Vulkan backend waits every queue's fence for the
+    ///         <em>current</em> slot and resets the command pools filed under it — the pools the
+    ///         host's in-flight lists for this very frame were allocated from — and the matching
+    ///         <see cref="EndFrame" /> then advances the frame index, so the host's own
+    ///         <see cref="EndFrame" /> signals a different slot's fences and every frame after it
+    ///         waits on one nothing signalled.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No default implementation, deliberately.</b> A <c>=&gt; false</c> here would be a
+    ///         backend that answers "no frame is open" whatever is happening, which is precisely the
+    ///         instrument that reports success on the day it does not run — and it would do so
+    ///         silently, for any backend whose author never read this. Every device answers.
+    ///     </para>
+    /// </remarks>
+    bool IsFrameOpen { get; }
+
     /// <summary>Marks the start of a frame, retiring whatever the oldest in-flight frame held.</summary>
     void BeginFrame();
 

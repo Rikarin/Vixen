@@ -24,6 +24,18 @@ namespace Vixen.Editor.Assets.MeshMaps;
 ///         whole argument.
 ///     </para>
 ///     <para>
+///         ⚠ <b>One method, and there used to be two</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/972">#972</a>. A <c>Bake</c> that measured
+///         and wrote in one call sat here for four batches with three callers, all of them test
+///         classes: the editor's own path is <c>ContentTasks.BakeMeshMaps</c>, which runs
+///         <c>MapBaker.Bake</c> on the pool and calls <see cref="Write" /> on the frame thread,
+///         because the arithmetic takes the minutes and the write is what touches <c>Assets/</c>. On
+///         a contract handed to a third party the convenience was a hazard rather than a kindness: a
+///         plugin calling the synchronous both-halves form from the frame thread stalls the editor
+///         for the length of a 4K bake and nothing in its signature said so. It lives in the test
+///         assembly now, which is where all of its callers already were.
+///     </para>
+///     <para>
 ///         ⚠ <b>What comes back is an ordinary project asset and not a cache.</b> § D12 is explicit:
 ///         an artist opens the curvature map when a generator misbehaves, and a build wants not to
 ///         re-bake it. Both of those need a file in <c>Assets/</c> with a sidecar beside it, which is
@@ -31,15 +43,6 @@ namespace Vixen.Editor.Assets.MeshMaps;
 ///     </para>
 /// </remarks>
 public interface IMeshMapBaker {
-    /// <summary>Bakes a mesh's maps and puts them in the project.</summary>
-    /// <param name="model">The model asset the mesh was read out of. See <see cref="Write" />.</param>
-    /// <param name="mesh">What to call the set. Sanitised, and made unique within the model.</param>
-    /// <param name="source">The high-resolution surface. May be the same mesh as the target.</param>
-    /// <param name="target">The mesh with the atlas the maps land in.</param>
-    /// <param name="settings">The size, the gutter, the search radius and which maps to measure.</param>
-    /// <returns>What each usage became, and what the bake could not do.</returns>
-    MeshMapSet Bake(AssetId model, string mesh, EditMesh source, EditMesh target, BakeSettings settings);
-
     /// <summary>Puts maps that have already been baked into the project.</summary>
     /// <param name="model">
     ///     The model asset the mesh was read out of, or <see cref="AssetId.Empty" /> where the caller
@@ -72,8 +75,9 @@ public interface IMeshMapBaker {
     ///         is seconds to minutes of arithmetic and belongs on a pool thread; a scan is a
     ///         directory walk that rewrites the index every panel in the editor is reading. Splitting
     ///         them is what lets the editor bake without freezing and without a second thread
-    ///         touching the database — see <c>ContentTasks</c>, which does exactly that. A caller
-    ///         with no such problem uses <see cref="Bake" /> and never sees this.
+    ///         touching the database — see <c>ContentTasks</c>, which does exactly that. A caller with
+    ///         no such problem runs <c>MapBaker.Bake</c> and <c>MeshMapBake.Encode</c> itself and then
+    ///         calls this, which is two lines and says plainly which of the two is the slow one.
     ///     </para>
     /// </remarks>
     MeshMapSet Write(

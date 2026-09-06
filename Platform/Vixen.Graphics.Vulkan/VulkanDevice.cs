@@ -506,6 +506,20 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The field this reads was already trusted for a related decision before it was
+    ///     published</b> — <see cref="Retire" /> picks the slot a destroy is filed against by asking
+    ///     it. So the answer #775 wanted has been correct here all along and simply had no way out.
+    /// </remarks>
+    public bool IsFrameOpen {
+        get {
+            lock (gate) {
+                return recording;
+            }
+        }
+    }
+
+    /// <inheritdoc />
     public void BeginFrame() {
         lock (gate) {
             ThrowIfDisposed();

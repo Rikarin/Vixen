@@ -42,12 +42,21 @@ namespace Vixen.Editor.Texturing.Tests;
 public class EvaluatorDeviceChangeTests {
     /// <summary>A second device gets a second evaluator, and the first one is not handed out again.</summary>
     /// <remarks>
-    ///     ⚠ <b>The old device is deliberately <em>not</em> disposed here, though the editor's own
-    ///     route does dispose it.</b> Destroying a <c>VkDevice</c> whose pipelines are still alive is
-    ///     undefined by the specification, and the module cannot destroy them: it is never told the
-    ///     device is going. Modelling that here would make this suite's outcome a driver's opinion
-    ///     rather than an assertion. What is asserted is the half a module can control — that it
-    ///     stops dispatching through the old one.
+    ///     <para>
+    ///         ⚠ <b>The old device is deliberately <em>not</em> disposed here, though the editor's own
+    ///         route does dispose it.</b> Destroying a <c>VkDevice</c> whose pipelines are still alive
+    ///         is undefined by the specification, and modelling that here would make this suite's
+    ///         outcome a driver's opinion rather than an assertion. What is asserted is the half a
+    ///         module can control — that it stops dispatching through the old one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>"The module cannot destroy them: it is never told the device is going" was true
+    ///         when this was written and is not any more</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/968">#968</a>. It is told, and
+    ///         <see cref="The_module_gives_its_pipelines_back_when_the_host_announces_the_loss" />
+    ///         is that path. This test keeps the silent route on purpose, because it is what a host
+    ///         that announces nothing still does and the module still has to survive it.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_second_device_gets_a_second_evaluator_rather_than_the_first_ones_pipelines() {
@@ -128,6 +137,65 @@ public class EvaluatorDeviceChangeTests {
             $"{TexturingDevice.Adapter(device)}: nothing was dispatched, so one evaluator is the count of "
             + "a module that built none."
         );
+    }
+
+    /// <summary>Told that the device is going, the module hands its pipelines back before it does.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/968">#968</a>, from the plugin's
+    ///         side.</b> The two tests above are what a module can do when it is told nothing: notice,
+    ///         afterwards, and drop what it cannot legally destroy. <c>PluginContext.OnDeviceLost</c>
+    ///         is raised while the device is still valid, so here the pipelines, shader modules and
+    ///         <c>EffectLoader</c> go back to the device that owns them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The oracle is that the device does <em>not</em> change, and that is what makes the
+    ///         assertion about the announcement rather than about the comparison.</b>
+    ///         <c>TexturingModule.Evaluator</c> already rebuilds when it is handed a device that is
+    ///         not the one it built on — so a module that ignored the announcement entirely would
+    ///         still read two evaluators in a test that swapped the device, and would read one here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>KernelCompilations</c> is asked before the rebuild for the same reason.</b> It
+    ///         reads whichever evaluator the module is holding, so zero is the module holding none —
+    ///         a release that dropped the reference without disposing it, or one that never ran,
+    ///         cannot both produce zero here and a second build below.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_module_gives_its_pipelines_back_when_the_host_announces_the_loss() {
+        using var device = TexturingDevice.Open();
+
+        Swapping graphics = new(device);
+
+        using var fixture = new TexturingFixture(graphics: false);
+
+        fixture.Services.Add<IEditorGraphics>(graphics);
+
+        TexturingModule module = new();
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, module);
+        fixture.Project.Selection.Set(LayerStackPanelTests.AddStack(fixture, "Hull"));
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
+        Assert.NotNull(fixture.Shell.Workspace.Open(TexturingModule.StackPanel));
+
+        Assert.Equal(1, module.EvaluatorsBuilt);
+        Assert.True(
+            module.KernelCompilations > 0,
+            $"{TexturingDevice.Adapter(device)}: the stack pane compiled no kernel variants, so there is "
+            + "nothing for the release below to give back."
+        );
+
+        // What the host now says before it stops answering with the device — and the device is still
+        // the same one afterwards, which is what the module's own mismatch check cannot see.
+        fixture.Host.DeviceLost(device);
+
+        Assert.Equal(0, module.KernelCompilations);
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
+
+        Assert.Equal(2, module.EvaluatorsBuilt);
     }
 
     /// <summary>A host whose device answer moves, which is what <c>PluginGraphics</c> really is.</summary>
