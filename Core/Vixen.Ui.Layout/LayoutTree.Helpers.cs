@@ -1047,22 +1047,36 @@ public sealed partial class LayoutTree {
     ) {
         var wantRow = FlexAxis.IsRow(requestedAxis);
 
-        // ⚠ <b>A BOX THAT CLIPS OR SCROLLS STILL CONTRIBUTES WHAT IS INSIDE IT, and a clause here
-        // used to say otherwise.</b> It returned a scroll container's own padding and border and
-        // nothing else, reading CSS Sizing §5.2.2's exclusion of scrollable overflow as a rule about
-        // intrinsic sizes in general. It is not: it is §4.5's rule about a box's OWN automatic
-        // minimum, which `ComputeAutoMinMainSize` and `LayoutTree.Grid`'s `AutomaticMinimumIsZero`
-        // each say for themselves — and since the former returns 0 before it ever calls this method,
-        // every firing of the clause was already somebody else's contribution.
+        // ⚠ A box that clips or scrolls an axis contributes nothing along it but its own edges. Its
+        // contents are *scrollable overflow*, which CSS Sizing §5.2.2 excludes from an intrinsic
+        // size: being allowed to be smaller than what is inside it is the whole meaning of a scroll
+        // container. §4.5 already says this one level out — ComputeAutoMinMainSize returns 0 for any
+        // overflow other than visible — and this is that same sentence where the recursion reads it.
         //
-        // ⚠ Measured in Chrome rather than argued: a `width: min-content` box around an
-        // `overflow: scroll` container holding a 500-point box is 500 wide, not zero, and `hidden`,
-        // `scroll` and no scroll container at all give identical numbers. It cost 24 grid fixtures
-        // and its only witness was a hand-written test whose expectation had never been put in front
-        // of a browser and turned out to be the defect. The editor's docking chain, which the clause
-        // was written for, never needed it: every box in it clips, so §4.5 opts every one of them out
-        // one level up — `AutomaticMinimumSizeTests.A_chain_of_clipping_boxes_shrinks_to_its_window`.
-        // `Rikarin/Vixen#259`, and the whole write-up is under §5.2.2 in `Taffy/GridKnownGaps.txt`.
+        // ⚠ Nothing in either corpus asks for this, and the editor is what found it. Every box in
+        // the docking chain declares `overflow: hidden`, so once descendants began contributing
+        // their real sizes the hierarchy tree's rows propagated all the way to the shell and the
+        // window came out 2 385 points wide inside a 1 100-point root, with the inspector pushed off
+        // the side. That is not a control compensating for a bug — it is this rule being missing.
+        //
+        // ⚠ <b>BOTH SENTENCES ABOVE HAVE EXPIRED, AND THE SECOND MAY BE BACKWARDS.</b> Twenty-four
+        // grid fixtures ask for it now — they were refused on `scrollbar-width` when this was
+        // written — and deleting this clause turns exactly those from red to green and moves nothing
+        // else in 6 420 layout tests except `AutomaticMinimumSizeTests.
+        // A_clipping_descendant_contributes_nothing_but_its_own_edges`, which is the editor's chain
+        // in six boxes and whose 50/50 expectation has never been put in front of a browser. A
+        // scroll container's `width: min-content` is not zero in any browser, so this clause is very
+        // likely §5.2.2 applied a second time where §4.5 had already applied it — and there is no
+        // seam to split it on, because `ComputeAutoMinMainSize` returns 0 for an item's own overflow
+        // before it ever reaches here, which makes every firing of this clause a CONTRIBUTION
+        // already. ⚠ The next move is a browser measurement of those six boxes, not a code change:
+        // see `Rikarin/Vixen#259` and the §5.2.2 heading in GridKnownGaps.txt.
+        if (OverflowOn(index, FlexAxis.DimensionOf(requestedAxis)) != Overflow.Visible) {
+            var clipDirection = StyleResolution.ResolveDirection(in styles[index], ownerDirection);
+            return StyleResolution.FlexStartContentInset(in styles[index], requestedAxis, clipDirection, ownerWidth)
+                + StyleResolution.FlexEndContentInset(in styles[index], requestedAxis, clipDirection, ownerWidth);
+        }
+
         if ((flags[index] & LayoutNodeState.HasMeasureFunction) != 0) {
             // ⚠ <b>A leaf's min-content size in the BLOCK axis is the height its content takes at the
             // inline size it has, not at an unbounded one.</b> There is no such thing as the
