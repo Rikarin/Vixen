@@ -66,20 +66,25 @@ static class LayerPaint {
 ///         is why that is not a compromise.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing in the editor opens one yet.</b> <c>TexturingModule</c> registers a document,
-///         an editor factory and a Create ▸ entry for <c>.vxtexgraph</c> and none of the three for
-///         <c>.vxlayers</c>; this type's callers are its tests and
-///         <see cref="LayerStackCompiler" />. That is filed as
-///         <a href="https://github.com/Rikarin/Vixen/issues/791">#791</a> rather than left implicit,
-///         because a finished thing nothing calls is this repository's commonest defect.
+///         ⚠ <b>This paragraph used to say nothing in the editor opened one, and that stopped being
+///         true.</b> <c>TexturingModule</c> registers a <c>LayerStackEditorFactory</c>, a
+///         <c>Create ▸ Layer Stack</c> kind and an <c>Open Layer Stack</c> verb, and
+///         <c>LayerStackView</c> is the panel —
+///         <a href="https://github.com/Rikarin/Vixen/issues/806">#806</a>, closed. It is corrected
+///         rather than deleted because a remark describing the state on the day it was written, and
+///         read as the state for ever after, is this repository's commonest defect wearing prose.
 ///     </para>
 /// </remarks>
 sealed class LayerStackDocument : EditorDocument {
-    /// <summary>Where this document's compounds are read from, or null when it has no project path.</summary>
-    readonly string? compounds;
-
-    /// <summary>Whether a compound has been written since the library was built.</summary>
-    bool stale;
+    /// <summary>What says a compound moved, or null when this project has no assets folder.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The type rather than a folder and a flag —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/970">#970</a>.</b> This file and
+    ///     <c>TextureGraphDocument</c> spelled the same five things twice, and
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/922">#922</a> had to be taught to each of
+    ///     them separately. <c>CompoundWatch</c> is where "did that file change" is answered once.
+    /// </remarks>
+    readonly CompoundWatch? compounds;
 
     /// <summary>What a layer stack is written as.</summary>
     public const string Extension = ".vxlayers";
@@ -139,7 +144,7 @@ sealed class LayerStackDocument : EditorDocument {
         // ⚠ Once, here, and then only when something says a compound moved. `TextureNodeLibrary`'s
         // own `FolderOf` is asked for the folder rather than a second `Path.Combine`, because a
         // second spelling of "which folder" is a second answer to "did that file change".
-        compounds = TextureNodeLibrary.FolderOf(project.Paths.Assets);
+        compounds = CompoundWatch.Over(project.Paths.Assets);
         Library = TextureNodeLibrary.Publish(project.Paths.Assets);
 
         // ⚠ Before the write rather than after it, which is why marking is all this does: the
@@ -181,17 +186,16 @@ sealed class LayerStackDocument : EditorDocument {
     ///         a change from outside the editor, because a <c>git checkout</c> raises no
     ///         <c>DocumentSaving</c> at all.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>"<c>TextureGraphDocument.Republish</c>'s shape" is now literally that shape</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/970">#970</a>. Both documents held a
+    ///         copy of the folder, the flag and the path test, so the two could drift and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/922">#922</a> had to be applied to
+    ///         each of them by hand. <see cref="CompoundWatch" /> holds it once; what stays here is
+    ///         the only part that differs, which is what a rebuilt library is assigned to.
+    ///     </para>
     /// </remarks>
-    internal bool Republish() {
-        if (!stale) {
-            return false;
-        }
-
-        stale = false;
-        Library = TextureNodeLibrary.Publish(Project.Paths.Assets);
-
-        return true;
-    }
+    internal bool Republish() => compounds?.Republish(library => Library = library) ?? false;
 
 
     /// <inheritdoc />
@@ -212,17 +216,8 @@ sealed class LayerStackDocument : EditorDocument {
             return;
         }
 
-        stale = stale || Under(Path.GetFullPath(graph.AssetPath));
+        compounds.Noticed(graph.AssetPath);
     }
-
-    /// <summary>Whether an absolute path is inside this project's compound folder.</summary>
-    /// <param name="absolute">The path.</param>
-    /// <returns>Whether it is.</returns>
-    bool Under(string absolute) =>
-        absolute.StartsWith(
-            Path.TrimEndingDirectorySeparator(Path.GetFullPath(compounds!)) + Path.DirectorySeparatorChar,
-            StringComparison.OrdinalIgnoreCase
-        );
 
     /// <summary>The seven channels doc 48 § D11 names, and what each starts from.</summary>
     /// <remarks>
@@ -298,6 +293,25 @@ sealed class LayerStackDocument : EditorDocument {
     ///         external program's Ctrl+S cost a project walk per open stack, several times over for
     ///         a checkout that touched a hundred files.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Set by <em>any</em> change and not by a model extension —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/975">#975</a>.</b> #954 tested the
+    ///         path against <c>LayerStackMesh.Extensions</c>, and the names this refreshes do not
+    ///         come from a model file at all: <c>ProjectMeshSource.Declared</c> reads the
+    ///         <c>.meta</c> sidecar, which is what an import writes and which does not have a model
+    ///         extension. So the one write that <em>creates</em> the mesh names was the one write the
+    ///         test excluded, and a model imported while a stack was open still never reached the
+    ///         picker — #954's own failure one door along.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the answer is to stop asking about paths rather than to add <c>.meta</c> to
+    ///         the list.</b> This is a marker meaning "re-ask", and the re-ask is guarded where it
+    ///         happens — <c>LayerStackView.Show</c> refills once and clears this, so a hundred
+    ///         notifications cost one project walk on the next show. A path test buys nothing against
+    ///         that and costs the class of write nobody thought of, which is exactly what this was: a
+    ///         rename that only rewrites a sidecar, a <c>.meta</c> edited by hand, a re-import that
+    ///         renames a sub-asset without touching the model.
+    ///     </para>
     /// </remarks>
     public bool ModelsChanged { get; set; } = true;
 
@@ -318,25 +332,32 @@ sealed class LayerStackDocument : EditorDocument {
     ///         from a compound nobody can see is old, and a picker stale for the rest of the session
     ///         with nothing saying so.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two flags are answered differently and that asymmetry is deliberate.</b> The
+    ///         compound one asks which file moved, because a republish rebuilds every node type and
+    ///         the folder that can cause it is one folder. <see cref="ModelsChanged" /> asks nothing:
+    ///         it is set by every notification, because the write that fills the mesh picker is a
+    ///         <c>.meta</c> sidecar rather than a model
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/975">#975</a>) and the refill it
+    ///         marks is guarded by its own reader.
+    ///     </para>
     /// </remarks>
     protected override void OnProjectFileChanged(string? path) {
         base.OnProjectFileChanged(path);
 
-        if (path is null || LayerStackMesh.Extensions.Contains(Path.GetExtension(path).ToLowerInvariant())) {
-            ModelsChanged = true;
-        }
+        ModelsChanged = true;
 
         if (compounds is null) {
             return;
         }
 
         if (path is null) {
-            stale = true;
+            compounds.Lost();
 
             return;
         }
 
-        stale = stale || Under(Path.GetFullPath(Project.Paths.Absolute(path)));
+        compounds.Noticed(Project.Paths.Absolute(path));
     }
 
     /// <summary>The stack as it would be written.</summary>
