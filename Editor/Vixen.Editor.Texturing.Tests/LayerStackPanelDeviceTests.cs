@@ -3,6 +3,7 @@
 
 using Vixen.Core.Imaging;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.Editor.Texturing.Painting;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 using Xunit;
@@ -106,7 +107,7 @@ public class LayerStackPanelDeviceTests {
         using var fixture = new TexturingFixture(device);
 
         using LentEvaluator evaluators = new();
-        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease);
+        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease, new PaintCanvasStore());
 
         var document = new LayerStackDocument(
             fixture.Project,
@@ -194,7 +195,7 @@ public class LayerStackPanelDeviceTests {
         using var fixture = new TexturingFixture(device);
 
         using LentEvaluator evaluators = new();
-        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease);
+        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease, new PaintCanvasStore());
 
         var stack = Painted(64);
 
@@ -263,7 +264,7 @@ public class LayerStackPanelDeviceTests {
         using var fixture = new TexturingFixture(device);
 
         using LentEvaluator evaluators = new();
-        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease);
+        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease, new PaintCanvasStore());
 
         // A 2×2 whose top-left is red and whose bottom-right is blue, written as a real PNG through
         // the project's own codec and scanned in as an asset the database can resolve by path.
@@ -342,7 +343,7 @@ public class LayerStackPanelDeviceTests {
         using var fixture = new TexturingFixture(device);
 
         using LentEvaluator evaluators = new();
-        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease);
+        using LayerStackPreview preview = new(fixture.Graphics!, evaluators.Lease, new PaintCanvasStore());
 
         var stack = Painted(8);
 

@@ -101,19 +101,33 @@ sealed class LayerStackPreview : IDisposable {
 
     readonly IEditorGraphics graphics;
     readonly TextureEvaluatorLease evaluators;
+    readonly PaintCanvasStore canvases;
 
     IEditorImage? shown;
 
     /// <summary>Builds a preview over the graphics a host lent the plugin.</summary>
     /// <param name="graphics">The host's graphics.</param>
     /// <param name="evaluators">Where the one evaluator comes from — see <see cref="TextureEvaluatorLease" />.</param>
-    /// <exception cref="ArgumentNullException">Either argument is null.</exception>
-    public LayerStackPreview(IEditorGraphics graphics, TextureEvaluatorLease evaluators) {
+    /// <param name="canvases">
+    ///     The session's open <c>.vxpaint</c> canvases. ⚠ The module's and not this pane's, which is
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>'s finding rather than a
+    ///     wiring detail: a cache this pane owned would serve the picture from before the stroke,
+    ///     because a live paint session writes texels in memory and does not touch the file until
+    ///     pointer-up.
+    /// </param>
+    /// <exception cref="ArgumentNullException">Any argument is null.</exception>
+    public LayerStackPreview(
+        IEditorGraphics graphics,
+        TextureEvaluatorLease evaluators,
+        PaintCanvasStore canvases
+    ) {
         ArgumentNullException.ThrowIfNull(graphics);
         ArgumentNullException.ThrowIfNull(evaluators);
+        ArgumentNullException.ThrowIfNull(canvases);
 
         this.graphics = graphics;
         this.evaluators = evaluators;
+        this.canvases = canvases;
     }
 
     /// <summary>How many plans have been evaluated over this preview's life.</summary>
@@ -218,7 +232,8 @@ sealed class LayerStackPreview : IDisposable {
             document.AssetPath,
             uploads,
             plan,
-            compilation.Externals
+            compilation.Externals,
+            canvases
         );
 
         if (unresolved.Count > 0) {
