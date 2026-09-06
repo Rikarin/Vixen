@@ -98,6 +98,16 @@ sealed class LayerStackView {
     /// <summary>What the rows currently on the screen were built for. See <see cref="Shape" />.</summary>
     string shape = "";
 
+    /// <summary>Which document the rows on the screen were built against.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held beside the shape, because a shape is not an identity.</b> Every row's controls
+    ///     close over the document they were built for, and two stacks made from
+    ///     <c>LayerStackDocument.Starter</c> have the same layer ids, the same kinds and the same
+    ///     channels — so opening the second one after the first would match on shape, keep the rows,
+    ///     and leave every control editing the file that is no longer open.
+    /// </remarks>
+    LayerStackDocument? built;
+
     /// <summary>The last picture, so an edit this view made can redraw without one being handed back.</summary>
     LayerStackPicture? shown;
 
@@ -269,9 +279,10 @@ sealed class LayerStackView {
 
         var wanted = Shape(document);
 
-        if (!string.Equals(wanted, shape, StringComparison.Ordinal)) {
+        if (!ReferenceEquals(built, document) || !string.Equals(wanted, shape, StringComparison.Ordinal)) {
             Build(document);
 
+            built = document;
             shape = wanted;
         }
 
@@ -470,6 +481,8 @@ sealed class LayerStackView {
         }
 
         bindings.Clear();
+
+        built = null;
         shape = "";
     }
 

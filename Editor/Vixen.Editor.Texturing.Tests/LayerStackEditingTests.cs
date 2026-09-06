@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
+using Vixen.Editor.Core;
 using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Ui;
@@ -407,6 +409,32 @@ public class LayerStackEditingTests {
         Assert.NotSame(slider, Find<Slider>(panel, "layer-stack-opacity"));
     }
 
+    /// <summary>⚠ A second stack of the same shape gets its own rows, not the first one's.</summary>
+    /// <remarks>
+    ///     <b>A shape is not an identity, and the rebuild rule is written on the shape.</b> Every
+    ///     control on a row closes over the document it was built for, and two stacks with the same
+    ///     layer ids, kinds and channels — which is every pair made from
+    ///     <c>LayerStackDocument.Starter</c> — produce the same signature. Without the identity check
+    ///     beside it the second stack would be shown with the first one's rows, and every edit would
+    ///     land in a file that is no longer open: an edit that appears to do nothing, and a dirty
+    ///     flag on the wrong document.
+    /// </remarks>
+    [Fact]
+    public void A_second_stack_of_the_same_shape_gets_its_own_rows() {
+        using var fixture = new TexturingFixture();
+        var first = Open(fixture, Two());
+        var panel = Panel(fixture);
+
+        var second = Another(fixture, "Keel", Two());
+
+        Buttons(panel, "layer-stack-move-up")[1].Activate();
+
+        Assert.Equal(0, first.Stack.Depth.Value);
+        Assert.Equal(1, second.Stack.Depth.Value);
+        Assert.Equal(0.75f, TopColour(first));
+        Assert.Equal(0.25f, TopColour(second));
+    }
+
     /// <summary>The colour the last composite reads, which is what "topmost" means arithmetically.</summary>
     static float TopColour(LayerStackDocument document) {
         var plan = Compile(document);
@@ -557,6 +585,35 @@ public class LayerStackEditingTests {
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
 
         return document;
+    }
+
+    /// <summary>Opens a second stack in the same panel, the way a person opens a second file.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The file is written with the stack already in it, and that is what makes the test
+    ///     about the identity rather than about the shape.</b> Opening an <em>empty</em>
+    ///     <c>.vxlayers</c> gives a document holding <c>LayerStackDocument.Starter</c>'s one layer,
+    ///     so assigning the real stack afterwards changes the row shape and forces a rebuild for a
+    ///     reason that has nothing to do with which document is open. Reading the second file gives
+    ///     the panel two stacks of identical shape back to back, which is the state the check exists
+    ///     for.
+    /// </remarks>
+    static LayerStackDocument Another(TexturingFixture fixture, string name, LayerStackAsset stack) {
+        var relative = "Assets/" + name + LayerStackDocument.Extension;
+
+        File.WriteAllText(fixture.Paths.Absolute(relative), LayerStackYaml.Write(stack));
+
+        var report = fixture.Project.Assets.Scan();
+
+        Assert.DoesNotContain(report.Issues, issue => issue.Kind != AssetIssueKind.MetaCreated);
+        Assert.True(fixture.Project.Assets.TryGetByPath(relative, out var entry));
+
+        fixture.Project.Selection.Set(entry.Guid);
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
+
+        return Assert.IsType<LayerStackDocument>(
+            fixture.Project.Documents.Single(open => open.Asset == entry.Guid)
+        );
     }
 
     static UiElement Panel(TexturingFixture fixture) {
