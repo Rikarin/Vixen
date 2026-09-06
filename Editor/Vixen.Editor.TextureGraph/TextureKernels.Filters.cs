@@ -56,6 +56,7 @@ enum TextureSlopeMode {
 ///         of § M4 are what will want these public, and they are the ones who should widen them.
 ///     </para>
 /// </remarks>
+[TextureKernelSurface]
 static class TextureFilters {
     /// <summary>A box blur along one axis. Doc 48 § 4.4's <c>Blur</c>, which § M1 already shipped.</summary>
     public const string Blur = "Blur";

@@ -54,41 +54,17 @@ public class PluginReferenceRuleTests {
     static string Repository() =>
         Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Here())!, "..", ".."));
 
-    /// <summary>The directories <c>CheckArchitecture</c> globs, in its order.</summary>
-    static readonly string[] Layers = [
-        "Core",
-        "Gameplay",
-        "Platform",
-        "Editor",
-        "Raven",
-        "Tools",
-        "Live",
-        "Samples"
-    ];
-
-    /// <summary>The project files the gate reads, found the way the gate finds them.</summary>
+    /// <summary>The project files the gate reads, read by calling what the gate calls.</summary>
     /// <remarks>
-    ///     ⚠ <b>The three exclusions are the gate's own and each one matters here too.</b>
-    ///     <c>bin/</c> and <c>obj/</c> hold copies of project files that would double every edge;
-    ///     <c>Tools/Vixen.Templates/templates/</c> holds project files that are not this repository's
-    ///     — they are what <c>dotnet new</c> writes into somebody else's directory. A test that read
-    ///     a different set from the gate would be answering a different question and saying it was
-    ///     the same one.
+    ///     ⚠ <b>This used to list the eight layers again and re-implement the three exclusions beside
+    ///     them</b> (<a href="https://github.com/Rikarin/Vixen/issues/872">#872</a>), which is the one
+    ///     thing this file's own remarks say it is not doing. Everything else about the rule was
+    ///     shared and its subject set was copied — so a ninth top-level directory would have joined
+    ///     the gate and not this test, and this test would have gone on reporting the gate's answer
+    ///     about a set that was no longer the gate's. That is the failure this rule already had once,
+    ///     when the application counted as its own ninth plugin.
     /// </remarks>
-    static List<string> Projects() {
-        var root = Repository();
-
-        return Layers
-            .Select(layer => Path.Combine(root, layer))
-            .Where(Directory.Exists)
-            .SelectMany(directory => Directory.GetFiles(directory, "*.csproj", SearchOption.AllDirectories))
-            .Select(path => path.Replace('\\', '/'))
-            .Where(path => !path.Contains("/bin/", StringComparison.Ordinal))
-            .Where(path => !path.Contains("/obj/", StringComparison.Ordinal))
-            .Where(path => !path.Contains("/Vixen.Templates/templates/", StringComparison.Ordinal))
-            .Order(StringComparer.Ordinal)
-            .ToList();
-    }
+    static List<string> Projects() => PluginReferenceRule.ProjectFiles(Repository());
 
     /// <summary>
     ///     ⚠ No plugin in this repository reaches the editor application, and the walk that says so
@@ -116,6 +92,16 @@ public class PluginReferenceRuleTests {
             $"Only {projects.Count} project files were found under {Repository()}. This roll call is anchored "
             + "at this file's compiled path and reads the tree it was built from; a run whose sources are not "
             + "on the machine reads nothing and would otherwise report no violations."
+        );
+
+        // ⚠ And every named layer contributed something, which is the half `Directory.Exists` makes
+        // invisible: a layer that has been renamed, or misspelled in `PluginReferenceRule.Layers`, is
+        // silently skipped and the rule then holds over seven eighths of the repository while
+        // reporting the same clean line. Sharing the list with the gate (#872) made that one mistake
+        // instead of two; it did not make it detectable, and this does.
+        Assert.All(
+            PluginReferenceRule.Layers,
+            layer => Assert.Contains(projects, path => path.Contains($"/{layer}/", StringComparison.Ordinal))
         );
 
         var edges = PluginReferenceRule.Edges(projects);

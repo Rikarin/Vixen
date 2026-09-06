@@ -111,6 +111,7 @@ internal enum TextureBlendCoverage {
 ///         classes are what will want it public.
 ///     </para>
 /// </remarks>
+[TextureKernelSurface]
 internal static class TextureBlend {
     /// <summary>Two images composited into one.</summary>
     /// <param name="output">The image to write.</param>

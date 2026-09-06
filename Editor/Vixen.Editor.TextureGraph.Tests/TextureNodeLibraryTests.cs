@@ -466,22 +466,7 @@ public class TextureNodeLibraryTests {
         DeclaredOps().Where(op => op.Cpu is not null).Select(op => op.Kernel).ToHashSet(StringComparer.Ordinal);
 
     /// <summary>Every op any declaring surface in this assembly builds.</summary>
-    static IEnumerable<TextureOp> DeclaredOps() {
-        foreach (var type in typeof(TextureKernels).Assembly.GetTypes()) {
-            if (type.GetProperty("All", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static) is not
-                { } all) {
-                continue;
-            }
-
-            if (all.GetValue(null) is not IEnumerable<TextureOp> ops) {
-                continue;
-            }
-
-            foreach (var op in ops) {
-                yield return op;
-            }
-        }
-    }
+    static IEnumerable<TextureOp> DeclaredOps() => TextureKernelSurfaces.Ops(TextureKernelSurfaces.Assembly);
 
     /// <summary>
     ///     An unwired optional map takes the required input; a wired one takes what is wired.
@@ -809,40 +794,17 @@ public class TextureNodeLibraryTests {
 
     /// <summary>Every kernel name any slice of this assembly declares, found rather than listed.</summary>
     /// <remarks>
-    ///     <c>TextureColourKernelTests.Declared</c>'s walk, and deliberately a second copy of it: that
-    ///     one asks whether the folder and the declarations agree, this one asks whether the
-    ///     declarations and the node library do. Sharing the method would make one file's refactor the
-    ///     other's silent change of meaning, and there is nothing to keep in step — the convention it
-    ///     reads is "a slice declares its kernels in a static <c>All</c>", which is one line long.
+    ///     ⚠ <b>The question is this file's and the surface set is not.</b>
+    ///     <c>TextureColourKernelTests</c> asks whether the folder and the declarations agree; this
+    ///     asks whether the declarations and the node library do — two questions, and it would be
+    ///     wrong to share those. What both were transcribing is <em>where the declarations live</em>,
+    ///     which is one line of convention and is now
+    ///     <see cref="TextureKernelSurfaces" />: a rule's subject set is the half of it nothing
+    ///     checks (<a href="https://github.com/Rikarin/Vixen/issues/872">#872</a>), and the detector
+    ///     it used to use was a member name rather than a predicate
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/814">#814</a>).
     /// </remarks>
-    static IEnumerable<string> Declared() {
-        // ⚠ The detector is a *member name*, so any static `All` of strings anywhere in this
-        // assembly joins the kernel inventory — measured, when a diagnostics registry called its id
-        // list `All`. `TextureColourKernelTests.Declared` is the same walk and carries the same
-        // note; #814.
-        foreach (var type in typeof(TextureKernels).Assembly.GetTypes()) {
-            if (type.GetProperty("All", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static) is not
-                { } all) {
-                continue;
-            }
-
-            switch (all.GetValue(null)) {
-                case IEnumerable<string> names:
-                    foreach (var name in names) {
-                        yield return name;
-                    }
-
-                    break;
-
-                case IEnumerable<TextureOp> ops:
-                    foreach (var op in ops) {
-                        yield return op.Kernel;
-                    }
-
-                    break;
-            }
-        }
-    }
+    static IEnumerable<string> Declared() => TextureKernelSurfaces.Names(TextureKernelSurfaces.Assembly);
 
     static readonly Regex Declaration = new(
         @"^\s{4}var\s+(?<name>[A-Za-z][A-Za-z0-9_]*)\s*:\s*(?<type>int|uint|float)\s*=\s*(?<value>-?[0-9]+(?:\.[0-9]+)?)f?\s*$",

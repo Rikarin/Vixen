@@ -3,6 +3,7 @@
 
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Vixen.Core.Imaging;
 using Vixen.Editor.TextureGraph;
@@ -107,11 +108,26 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
     ///     Every op implementation this assembly ships: an embedded kernel, or a CPU operation.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Both halves are read rather than declared, and for the same reason.</b> A kernel
-    ///     exists because a file ships, so <see cref="TextureKernels.Names" /> is the manifest
-    ///     resources; a CPU operation exists because a type ships, so it is the assembly's own
-    ///     implementations of <see cref="ITextureCpuOperation" />. Reading a declaration — a static
-    ///     <c>All</c>, a list here — is what #746 found a kernel already hiding behind.
+    ///     <para>
+    ///         ⚠ <b>Both halves are read rather than declared, and for the same reason.</b> A kernel
+    ///         exists because a file ships, so <see cref="TextureKernels.Names" /> is the manifest
+    ///         resources; a CPU operation exists because a type ships, so it is the assembly's own
+    ///         implementations of <see cref="ITextureCpuOperation" />. Reading a declaration — a
+    ///         static <c>All</c>, a list here — is what #746 found a kernel already hiding behind.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the subject set is one assembly, which is a limit rather than a fact</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/872">#872</a>).
+    ///         <see cref="ITextureCpuOperation" /> is public and <c>Vixen.Editor.Texturing</c> —
+    ///         which owns the layer stack and the module side of doc 48 — could implement one
+    ///         tomorrow; this reflection would not see it, and the roll call would report complete
+    ///         coverage of a surface it cannot see part of. That is the sentence this file's own
+    ///         remarks added one category along, one step further along again.
+    ///         <see cref="No_cpu_operation_ships_where_this_roll_call_cannot_see_it" /> is what makes
+    ///         that day loud instead of silent: it reads the repository's sources rather than this
+    ///         assembly's types, so it can name an implementation that is outside the closure
+    ///         entirely.
+    ///     </para>
     /// </remarks>
     static string[] Shipped() =>
         TextureKernels.Names
@@ -484,4 +500,101 @@ public class TextureKernelSabotageTests(ITestOutputHelper output) {
         && name[shader.Length] == '.'
             ? name[(shader.Length + 1)..]
             : name;
+
+    /// <summary>Where this file was compiled from.</summary>
+    static string Here([CallerFilePath] string path = "") => path;
+
+    /// <summary>Every type in the repository's editor sources that implements the CPU seam.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Read out of the source text on purpose, because reflection structurally cannot
+    ///         answer this question.</b> An implementation in an assembly this test project does not
+    ///         reference is not in <c>AppDomain</c>, not in the reference closure, and not on disk
+    ///         beside the test binary — it is invisible to every runtime sweep, which is exactly why
+    ///         <see cref="Shipped" /> would go on reporting complete coverage. A text scan sees a
+    ///         type that exists rather than a type that was loaded.
+    ///     </para>
+    ///     <para>
+    ///         <b>Two independent derivations rather than one pipeline compared with itself.</b> This
+    ///         is a cross-check of the reflection set against the tree, so agreement is evidence; a
+    ///         second reflection sweep would only have proved that reflection agrees with reflection.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Anchored at the compiled path, less two directories — <c>.claude/worktrees</c> holds
+    ///         a whole checkout per agent, and a walk that climbed for a <c>.git</c> would read
+    ///         somebody else's copy of these files and report their implementations as this tree's.
+    ///     </para>
+    /// </remarks>
+    static IEnumerable<string> CpuOperationsInTheTree() {
+        var editor = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(Here())!, ".."));
+
+        Regex declaration = new(
+            @"\b(?:class|record|struct)\s+(?<name>[A-Za-z_][A-Za-z0-9_]*)\s*(?:<[^>{]*>)?\s*(?:\([^)]*\))?\s*:\s*[^{;]*\bITextureCpuOperation\b"
+        );
+
+        foreach (var file in Directory.EnumerateFiles(editor, "*.cs", SearchOption.AllDirectories)) {
+            var path = file.Replace('\\', '/');
+
+            // ⚠ Build output, and test assemblies. The second one is not tidying: this scan found
+            // `TransposeRgba8` on its first run and it is a fixture in `TexturePlanCheckTests` — an
+            // implementation written to exercise the seam and shipped in nothing, so a roll call over
+            // shipped operations that demanded a sabotage for it would be demanding one for a test
+            // double. `Shipped()` reflects the production assembly and draws the same line.
+            if (path.Contains("/bin/", StringComparison.Ordinal)
+                || path.Contains("/obj/", StringComparison.Ordinal)
+                || path.Contains(".Tests/", StringComparison.Ordinal)) {
+                continue;
+            }
+
+            foreach (Match match in declaration.Matches(File.ReadAllText(file))) {
+                yield return match.Groups["name"].Value;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ Every CPU operation in this repository is inside the set this roll call takes.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The subject set, checked — which is the half of a rule that nothing checks</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/872">#872</a>). <see cref="Shipped" />
+    ///         reflects one assembly, so an <see cref="ITextureCpuOperation" /> written in
+    ///         <c>Vixen.Editor.Texturing</c> — a plugin that owns half of doc 48 and references this
+    ///         assembly — would be outside the roll call entirely, and the roll call would say the
+    ///         coverage was complete. It is not a defect today and there is exactly one
+    ///         implementation; it is the reason a defect tomorrow would be invisible.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The first assertion is the instrument and it is not decoration.</b> A regex that
+    ///         stopped matching, a walk anchored at the wrong directory, a renamed interface — each
+    ///         produces an empty set, and an empty set passes the containment check for free. So the
+    ///         one implementation that does exist has to be found before its absence means anything.
+    ///     </para>
+    ///     <para>
+    ///         <b>What a failure here asks for is a reference or a written reason</b>, not a bigger
+    ///         regex: either the operation's assembly joins this test project so
+    ///         <see cref="Shipped" /> can reflect it, or an <see cref="Unsabotaged" /> line says what
+    ///         perturbs it instead.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void No_cpu_operation_ships_where_this_roll_call_cannot_see_it() {
+        var inTheTree = CpuOperationsInTheTree().Order(StringComparer.Ordinal).ToArray();
+
+        Assert.Contains("NormalToHeightOperation", inTheTree);
+
+        var shipped = Shipped();
+
+        foreach (var operation in inTheTree) {
+            Assert.True(
+                shipped.Contains(operation, StringComparer.Ordinal),
+                $"`{operation}` implements ITextureCpuOperation somewhere under Editor/, and this roll call's "
+                + "subject set is one assembly's types — so it is outside the set entirely and every case here "
+                + "would report complete coverage of a surface that is missing one. Give this test project a "
+                + "reference to the assembly that declares it, or write an `Unsabotaged` line naming what "
+                + "perturbs it instead."
+            );
+        }
+    }
 }

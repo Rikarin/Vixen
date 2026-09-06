@@ -107,6 +107,7 @@ internal enum TextureNoiseBasis {
 ///         of § M4 are what will want these public, and they are the ones who should widen them.
 ///     </para>
 /// </remarks>
+[TextureKernelSurface]
 internal static class TextureSources {
     /// <summary>A constant colour or grey.</summary>
     /// <param name="output">The image to fill.</param>

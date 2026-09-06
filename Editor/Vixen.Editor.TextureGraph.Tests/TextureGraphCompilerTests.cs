@@ -526,10 +526,19 @@ public class TextureGraphCompilerTests {
 
         var compiler = Compiler();
         var first = compiler.Compile(graph).Value;
+
+        // ⚠ Snapshotted, because `Outputs` is state on the compiler that the second `Compile` below
+        // overwrites. This line read `Assert.Equal(compiler.Outputs, compiler.Outputs)` and could not
+        // fail: it compared the second compilation's outputs with themselves, so a compiler that
+        // emitted a different set the second time — or none at all — passed it.
+        var outputs = compiler.Outputs;
         var second = compiler.Compile(graph).Value;
 
         Assert.Equal(Describe(first), Describe(second));
-        Assert.Equal(compiler.Outputs, compiler.Outputs);
+
+        // And not vacuous the other way either: an empty set equals an empty set.
+        Assert.NotEmpty(outputs);
+        Assert.Equal(outputs, compiler.Outputs);
     }
 
     /// <summary>The pool threads a chain through fewer textures than it has images.</summary>

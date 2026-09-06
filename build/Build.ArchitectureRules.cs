@@ -144,26 +144,15 @@ partial class Build {
             + "assembly, or an editor plugin that reaches the editor application"
         )
         .Executes(() => {
-                var projects = RootDirectory
-                    .GlobFiles(
-                        "Core/**/*.csproj",
-                        "Gameplay/**/*.csproj",
-                        "Platform/**/*.csproj",
-                        "Editor/**/*.csproj",
-                        "Raven/**/*.csproj",
-                        "Tools/**/*.csproj",
-                        "Live/**/*.csproj",
-                        "Samples/**/*.csproj"
-                    )
-                    .Where(path => !path.ToString().Contains("/bin/", StringComparison.Ordinal))
-                    .Where(path => !path.ToString().Contains("/obj/", StringComparison.Ordinal))
-
-                    // ⚠ Tools/Vixen.Templates/templates/ holds project files that are not this
-                    // repository's — they are what `dotnet new` writes into somebody else's
-                    // directory, they name packages rather than projects, and their layer is
-                    // whatever the person who scaffolds them decides. Checking them here would be
-                    // this build asserting rules about a project it does not own.
-                    .Where(path => !path.ToString().Contains("/Vixen.Templates/templates/", StringComparison.Ordinal))
+                // ⚠ The eight layers and the three exclusions live in `PluginReferenceRule` and this
+                // is one caller of them. They were written here and transcribed into
+                // `PluginReferenceRuleTests`, which is the shape #872 names: everything else about
+                // that rule was shared and its subject set was copied, so a ninth top-level directory
+                // would have joined the gate and not the test — and the test would have gone on
+                // reporting the gate's answer about a set that was no longer the gate's.
+                var projects = PluginReferenceRule
+                    .ProjectFiles(RootDirectory)
+                    .Select(AbsolutePath.Create)
                     .ToList();
 
                 Assert.True(projects.Count > 0, "Found no projects to check — the glob is wrong.");

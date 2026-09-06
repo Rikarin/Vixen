@@ -11,6 +11,9 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <!-- The doc-comment rule parses C#; nothing here loads a workspace or a compilation. -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+
         <PackageReference Include="xunit.v3" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" />
         <PackageReference Include="xunit.runner.visualstudio">
@@ -27,6 +30,16 @@
             runs it over this repository tree and over synthetic fixtures that make it fire.
         -->
         <Compile Include="..\..\build\PluginReferenceRule.cs" Link="PluginReferenceRule.cs" />
+
+        <!--
+            ⚠ And the doc-comment rule, for the same reason one level along. #866's two stapled
+            comments survived a green build, a green suite and both `dotnet format` passes, so the
+            rule that catches them is new code with no history of ever having produced an answer —
+            which is the state `PluginReferenceRule` was in when it shipped. Linked here, it is
+            measured against this repository's own 5 000 files and against the two stapleings
+            themselves, without running a Nuke target.
+        -->
+        <Compile Include="..\..\build\DocCommentRule.cs" Link="DocCommentRule.cs" />
     </ItemGroup>
 
     <ItemGroup>
