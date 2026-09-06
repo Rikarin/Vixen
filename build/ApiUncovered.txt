@@ -64,6 +64,43 @@
 # match as well, and EveryBaselineSitsWhereCheckApiLooks names a baseline the glob does not
 # reach instead of hiding it. That was #809.
 #
+# ⚠ RECOMMENDED ANSWER, and the measurement nobody had made: NOTHING HAS EVER SHIPPED. There is
+# no publish workflow — .github/workflows holds ci.yml, docs.yml and nightly.yml and none of them
+# runs `dotnet nuget push`; `Pack` writes artifacts/packages and stops, and `dotnet nuget push`
+# appears in this repository only in docs/plan/12, which is intent. docs/manual/building-a-game-
+# and-a-server.md:31 says it outright — "Until the packages are on nuget.org you need a
+# nuget.config next to the project pointing at a [local feed]". So "a package is a promise" is
+# today a promise to nobody, every one of these thirty-one packages is at version 0.1.0, and the
+# cost of answering #641 will never again be as low as it is before the first push. That is an
+# argument for deciding now rather than for deferring further.
+#
+# ⚠ And there IS a first-party statement of what a consumer installs, which nobody had read as
+# one: Tools/Vixen.Templates. What `dotnet new` scaffolds is the only place this repository tells
+# an outsider which packages to reference, and across all six templates that is ten names —
+# Vixen.App, Vixen.Engine, Vixen.Live.Abstractions, Vixen.Live.Realm, Vixen.Net,
+# Vixen.Net.Transport.Udp, Vixen.Rendering.PostFx, Vixen.Ui.Desktop, Vixen.Ui.Desktop.HotReload
+# and exactly ONE under Editor/: Vixen.Editor.Plugin, which is precisely the one CheckApi already
+# covers. Twenty-three Editor assemblies pack and the templates ask for one of them.
+#
+# So the recommendation, which is a recommendation and not a decision — the owner's, per #641:
+#
+#   * Option 2 for the twenty-one `editor-undecided` lines that are neither Vixen.Editor.Plugin
+#     nor its published dependency: set IsPackable=false. They are consumed in-process by the
+#     editor, no template references them, nothing installs them, and the 1 052 documentation
+#     decisions option 1 drags in are owed to nobody. Best expressed once in the TOOLING profile
+#     in Directory.Build.props rather than twenty-one times, because that also fixes the defect
+#     the ⚠ above records: a project added under Editor/ currently packs before anyone has an
+#     opinion, so the undecided set grows by default and only this file notices.
+#   * Option 1 for Vixen.Editor.Ui and Tools/Vixen.App, where option 2 is not available at all —
+#     both are published dependencies of covered packages, and Vixen.App is in the template list
+#     besides, so it is a package an outsider is told to install. Two baselines, not twenty-three.
+#   * Vixen.ShaderCompiler then falls out by the reasoning already written under
+#     `library-undecided`: un-pack the Editor set and its last packable consumer goes with it.
+#
+# The counter-argument, stated fairly: an editor that means to be extended out-of-process, or a
+# marketplace of editor extensions, needs these packable and then option 1 is right — and that is
+# a product question about what this repository sells, which is why it is not being answered here.
+#
 # Reason tokens:
 #
 #   editor-undecided   Editor/. The TOOLING profile in Directory.Build.props sets no IsPackable,
