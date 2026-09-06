@@ -161,6 +161,15 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     TexturePlanEvaluator? evaluator;
 
+    /// <summary>Which device <see cref="evaluator" /> was built on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An evaluator is bound to its device for the life of its pipeline cache, and
+    ///     <c>IEditorGraphics.Device</c> is a <em>live view</em> that can answer with a different
+    ///     one</b> — <a href="https://github.com/Rikarin/Vixen/issues/945">#945</a>. See
+    ///     <see cref="Evaluator" /> for the route that does it and what is done about it.
+    /// </remarks>
+    IGraphicsDevice? evaluatorDevice;
+
     /// <summary>The view, once the panel has been opened at least once.</summary>
     /// <remarks>
     ///     ⚠ <b>Null until then, and replaced every time the panel is reopened.</b> A dock panel's
@@ -831,6 +840,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         evaluator?.Dispose();
         evaluator = null;
 
+        // ⚠ And the device it was built on, or the module holds the last one it saw for the rest of
+        // the process. That is a reference to an `IGraphicsDevice` this module does not own, kept
+        // past the point where it gave everything else back — and it would compare equal to a device
+        // the host happened to hand over again, which is #945 with the fix in place.
+        evaluatorDevice = null;
+
         // The paint pane's own upload: it is made here rather than by a preview, so nothing else
         // would ever give it back.
         painted?.Dispose();
@@ -859,15 +874,48 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     internal int KernelCompilations => evaluator?.Compilations ?? 0;
 
-    /// <summary>Hands a pane the one evaluator, building it the first time a device is seen.</summary>
+    /// <summary>Hands a pane the one evaluator for the device it found, building it on demand.</summary>
     /// <param name="device">The device the pane found on the host.</param>
     /// <returns>The evaluator, which the caller does not own.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One per <em>device</em> rather than one per module, and for a batch it was the
+    ///         latter</b> — <a href="https://github.com/Rikarin/Vixen/issues/945">#945</a>. An
+    ///         evaluator caches a compiled pipeline and a shader module per kernel and output format,
+    ///         and an <c>EffectLoader</c>, all built on the device it was constructed with; there is
+    ///         no route by which any of that is replayed onto another. So a module that returned its
+    ///         first evaluator whatever it was asked handed a pane pipelines belonging to a device
+    ///         that is gone, and what a dispatch does through those is a crash somewhere else
+    ///         entirely.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That the device really can change inside one session was checked rather than
+    ///         assumed, because the issue's own first question was whether it can.</b>
+    ///         <c>EditorHost</c> answers <c>PlatformEventKind.Suspending</c> with <c>Release</c>,
+    ///         which sets <c>EditorApplication.GraphicsDevice</c> to null and disposes the
+    ///         <c>VulkanDevice</c>; the next <c>Present</c> calls <c>EnsureDevice</c>, which sees a
+    ///         null device and a surface that can present and creates a <em>new</em> one. The plugin
+    ///         is told nothing at any point — <c>IEditorGraphics.Device</c> simply starts answering
+    ///         differently, which is exactly what that member's remarks say it is for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The stale evaluator is dropped and <em>not</em> disposed, which is the opposite
+    ///         of what this type does everywhere else.</b> <c>TexturePlanEvaluator.Dispose</c> calls
+    ///         <c>WaitIdle</c> and <c>Destroy</c> on the device it holds — and the only route that
+    ///         reaches this branch is the one above, where that device was disposed before the
+    ///         replacement existed. Destroying a pipeline through a destroyed device is the crash
+    ///         this is avoiding rather than a tidier version of it. Nothing outlives the device: a
+    ///         Vulkan device's objects go when it does, and what stays behind is a managed wrapper
+    ///         holding invalid handles that the next collection takes.
+    ///     </para>
+    /// </remarks>
     TexturePlanEvaluator Evaluator(IGraphicsDevice device) {
-        if (evaluator is not null) {
+        if (evaluator is not null && ReferenceEquals(evaluatorDevice, device)) {
             return evaluator;
         }
 
         EvaluatorsBuilt++;
+        evaluatorDevice = device;
 
         return evaluator = new TexturePlanEvaluator(device);
     }
