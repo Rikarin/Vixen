@@ -17,17 +17,26 @@ namespace Vixen.Ui.Text.Tests;
 ///         file, named in the comment above it, reduced to a string and the pieces it segments into.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Forty-four of ICU4X's seventy-two assertions are here and twenty-eight are not, and
-///         the twenty-eight are one reason rather than twenty-eight.</b> ICU4X's helpers take a
-///         <c>content_locale</c> and pass <c>ja</c> for the cases whose expectation comes from a
-///         Chinese or Japanese <i>document</i> — ICU ships six tailoring files, not four, and
-///         <c>line_loose_cj.txt</c> relaxes eight things <c>line_loose.txt</c> does not (a break
+///         ⚠ <b>All seventy-two are here now, and the twenty-eight that used to be a list are the
+///         reason <see cref="LineBreaker" /> takes a content language.</b> ICU4X's helpers pass a
+///         <c>content_locale</c> of <c>ja</c> for the cases whose expectation comes from a Chinese or
+///         Japanese <i>document</i> — ICU ships six tailoring files, not four, and the three
+///         <c>_cj</c> ones relax things their siblings do not (a break before U+301C and U+30A0,
 ///         between an ideograph and a hyphen, before the centred punctuation, before a wide
-///         <c>PO</c>, after a wide <c>PR</c>, and before U+301C and U+30A0).
-///         <see cref="LineBreakStrictness" /> carries no locale, so those expectations are about a
-///         tailoring this store does not have; transcribing them would have produced twenty-eight red
-///         tests that say "no content locale", which is a sentence and not a test. They are recorded
-///         in <see cref="TheContentLocaleCases" /> and filed as their own issue.
+///         <c>PO</c>, after a wide <c>PR</c>, and — at every strictness — before U+201C and after
+///         U+201D). Those twenty-eight are <see cref="Normal_in_a_Japanese_document" /> and
+///         <see cref="Loose_in_a_Japanese_document" />; all that is left in
+///         <see cref="TheContentLocaleCases" /> is ICU4X's own three commented-out ones.
+///     </para>
+///     <para>
+///         ⚠ <b>And #897's warning is refuted rather than transcribed.</b> That issue said ICU4X had
+///         <c>normal("サ°サ", ja)</c> breaking before a <c>PO</c>, which <c>line_normal_cj.txt</c>'s
+///         header does not list among its relaxations, and asked which of the two upstreams was
+///         stale. Neither is: ICU4X asserts <c>normal("サ°サ", true, ["サ°", "サ"])</c> — the
+///         <i>same</i> answer as <see cref="Strict" /> — and five of its six <c>normal</c>-with-ja
+///         cases are likewise unchanged. <c>line_normal_cj.txt</c> adds exactly one thing to
+///         <c>line_cj.txt</c>, U+301C and U+30A0, and exactly one of the six moves. The two sources
+///         agree; a reading of them did not.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>And the <c>anywhere</c> block is transcribed whole, including the eight cases ICU4X
@@ -109,7 +118,7 @@ public class CssLineBreakTailoringTests {
     public void Auto_answers_strict(string text, string pieces) =>
         Assert.Equal(pieces, Segment(text, LineBreakStrictness.Auto));
 
-    /// <summary>ICU4X's <c>linebreak_normal</c>, minus the six cases that need a content locale.</summary>
+    /// <summary>ICU4X's <c>linebreak_normal</c> in an undetermined document — its five non-CJK cases.</summary>
     /// <remarks>
     ///     ⚠ <b>The first two are the whole of what <c>line_normal.txt</c> says and the last three are
     ///     the guard on it.</b> ICU's non-CJK <c>normal</c> tailoring is one sentence — "it sets
@@ -133,7 +142,7 @@ public class CssLineBreakTailoringTests {
     public void Normal(string text, string pieces) =>
         Assert.Equal(pieces, Segment(text, LineBreakStrictness.Normal));
 
-    /// <summary>ICU4X's <c>linebreak_loose</c>, minus the twenty-two that need a content locale.</summary>
+    /// <summary>ICU4X's <c>linebreak_loose</c> in an undetermined document — its eleven non-CJK cases.</summary>
     /// <remarks>
     ///     ⚠ <b>Every case here is one <c>loose</c> is asserted <i>not</i> to change, and that is what
     ///     they are worth.</b> The relaxations ICU's <c>line_loose.txt</c> names are three, and none of
@@ -202,6 +211,168 @@ public class CssLineBreakTailoringTests {
     [InlineData("‥‥サ", "‥|‥|サ")]
     public void The_relaxations_ICU_names_for_loose(string text, string pieces) =>
         Assert.Equal(pieces, Segment(text, LineBreakStrictness.Loose));
+
+    /// <summary>ICU4X's six <c>linebreak_normal</c> cases driven with a Japanese content locale.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Five of the six answer exactly what <see cref="Strict" /> answers, and that is the
+    ///     finding rather than an accident of transcription.</b> <c>line_normal_cj.txt</c>'s header
+    ///     names one relaxation over <c>line_cj.txt</c> — "it allows breaks: * before 301C, 30A0 (both
+    ///     NS)" — so a wave dash is the only thing in this block that moves. The iteration mark, the
+    ///     two-dot leaders, the katakana middle dot and the degree sign are <c>line_loose_cj.txt</c>'s
+    ///     and stay put here, which is what makes these five worth having: an implementation that
+    ///     applied the loose CJK relaxations at <c>normal</c> passes the first case and fails all five.
+    /// </remarks>
+    /// <param name="text">The string, as ICU4X writes it.</param>
+    /// <param name="pieces">The segments it asserts, joined by <c>|</c>.</param>
+    [Theory]
+    // css/css-text/line-break/line-break-*-013.xht
+    [InlineData("サ〜サ", "サ|〜|サ")]
+    // css/css-text/line-break/line-break-*-014.xht
+    [InlineData("サ々サ", "サ々|サ")]
+    // css/css-text/line-break/line-break-*-015.xht
+    [InlineData("‥‥サ", "‥‥|サ")]
+    // css/css-text/line-break/line-break-*-016a.xht
+    [InlineData("サ・サ", "サ・|サ")]
+    // css/css-text/line-break/line-break-*-017a.xht
+    [InlineData("サ°サ", "サ°|サ")]
+    // css/css-text/line-break/line-break-*-018.xht
+    [InlineData("サ€サ", "サ|€サ")]
+    public void Normal_in_a_Japanese_document(string text, string pieces) =>
+        Assert.Equal(pieces, Segment(text, LineBreakStrictness.Normal, "ja"));
+
+    /// <summary>ICU4X's twenty-two <c>linebreak_loose</c> cases driven with a CJK content locale.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Twenty rows for twenty-two assertions</b>: ICU4X asserts <c>文€文</c> and
+    ///         <c>文＄文</c> twice, once under <c>line-break-*-018.xht</c> and once under
+    ///         <c>css-text-line-break-ja-pr-loose.html</c>, and a duplicated <c>InlineData</c> is a
+    ///         duplicate rather than a second case.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The five <c>zh</c> inseparable cases are here to assert that nothing happened.</b>
+    ///         <c>css-text-line-break-zh-in-loose.xht</c> segments <c>文․文</c> as <c>文․|文</c> in a
+    ///         Chinese document exactly as it does in an undetermined one — <c>loose</c> relaxes the
+    ///         <c>IN IN</c> <i>pair</i> and not the class, and no <c>_cj</c> file widens that. An
+    ///         implementation that took "CJK document" as licence to relax <c>NS</c> and <c>IN</c> at
+    ///         large passes the other fifteen and fails these five.
+    ///     </para>
+    /// </remarks>
+    /// <param name="text">The string, as ICU4X writes it.</param>
+    /// <param name="pieces">The segments it asserts, joined by <c>|</c>.</param>
+    [Theory]
+    // css/css-text/line-break/line-break-*-011.xht
+    [InlineData("サぁサ", "サ|ぁ|サ")]
+    // css/css-text/line-break/line-break-*-012.xht
+    [InlineData("サーサ", "サ|ー|サ")]
+    // css/css-text/line-break/line-break-loose-013.xht
+    [InlineData("サ〜サ", "サ|〜|サ")]
+    // css/css-text/line-break/line-break-*-014.xht
+    [InlineData("サ々サ", "サ|々|サ")]
+    // css/css-text/line-break/line-break-*-015.xht
+    [InlineData("‥‥サ", "‥|‥|サ")]
+    // css/css-text/line-break/line-break-*-016a.xht
+    [InlineData("サ・サ", "サ|・|サ")]
+    // css/css-text/line-break/line-break-*-017a.xht
+    [InlineData("サ°サ", "サ|°|サ")]
+    // css/css-text/line-break/line-break-*-018.xht
+    [InlineData("文€文", "文|€|文")]
+    [InlineData("文№文", "文|№|文")]
+    [InlineData("文＄文", "文|＄|文")]
+    [InlineData("文￡文", "文|￡|文")]
+    [InlineData("文￥文", "文|￥|文")]
+    // css/css-text/i18n/ja/css-text-line-break-ja-pr-loose.html
+    [InlineData("文±文", "文|±|文")]
+    // css/css-text/i18n/zh/css-text-line-break-zh-in-loose.xht
+    [InlineData("文․文", "文․|文")]
+    [InlineData("文‥文", "文‥|文")]
+    [InlineData("文…文", "文…|文")]
+    [InlineData("文⋯文", "文⋯|文")]
+    [InlineData("文︙文", "文︙|文")]
+    // css/css-text/line-break/line-break-loose-hyphens-001.html
+    [InlineData("文‐文", "文|‐|文")]
+    [InlineData("文–文", "文|–|文")]
+    public void Loose_in_a_Japanese_document(string text, string pieces) =>
+        Assert.Equal(pieces, Segment(text, LineBreakStrictness.Loose, "ja"));
+
+    /// <summary>
+    ///     The one relaxation all three <c>_cj</c> files share, from ICU's rule-file headers rather
+    ///     than from ICU4X.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A third oracle, needed because ICU4X has no case for this one at all.</b>
+    ///         <c>line_cj.txt</c>, <c>line_normal_cj.txt</c> and <c>line_loose_cj.txt</c> each end
+    ///         with the same sentence — "It allows breaking before 201C and after 201D, for zh_Hans,
+    ///         zh_Hant, and ja" — and ICU4X's <c>strict</c> block passes a non-CJK locale throughout,
+    ///         so nothing upstream exercises it. It is also the only reason <c>strict</c> in a
+    ///         Japanese document is not <c>strict</c>: <c>line_cj.txt</c> otherwise differs from
+    ///         <c>line.txt</c> by nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The Latin letter beside the quote is what makes the case visible, and it is not
+    ///         padding.</b> UAX #14 revision 51's LB19a already permits a break before a quotation
+    ///         mark when both neighbours are East Asian, so <c>文“文</c> breaks with or without a
+    ///         locale and would assert nothing. Putting an <c>a</c> on the far side puts LB19a back
+    ///         in force, and then only the tailoring can take it out.
+    ///     </para>
+    /// </remarks>
+    /// <param name="text">The string.</param>
+    /// <param name="pieces">What ICU's rule files say a CJK document segments it into.</param>
+    /// <param name="strictness">The strictness, to show the relaxation reaches all three files.</param>
+    [Theory]
+    [InlineData("文a“文", "文|a|“文", LineBreakStrictness.Auto)]
+    [InlineData("文a“文", "文|a|“文", LineBreakStrictness.Strict)]
+    [InlineData("文a“文", "文|a|“文", LineBreakStrictness.Normal)]
+    [InlineData("文a“文", "文|a|“文", LineBreakStrictness.Loose)]
+    [InlineData("文”a文", "文”|a|文", LineBreakStrictness.Strict)]
+    [InlineData("文”a文", "文”|a|文", LineBreakStrictness.Loose)]
+    public void The_relaxation_ICU_names_for_all_three_cj_files(
+        string text,
+        string pieces,
+        LineBreakStrictness strictness
+    ) => Assert.Equal(pieces, Segment(text, strictness, "ja"));
+
+    /// <summary>
+    ///     ⚠ Which BCP-47 tags select a <c>_cj</c> file, asserted through the answer rather than
+    ///     through a predicate.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The decision #897 asked for, written where it can be read.</b> ICU4X compares
+    ///         <c>content_locale</c>'s <i>language</i> subtag against <c>ja</c> and <c>zh</c>, and
+    ///         this matches it: a script or region subtag cannot change the answer, because ICU names
+    ///         <c>zh_Hans</c>, <c>zh_Hant</c> and <c>ja</c> in one line of each header.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>ko</c> is a negative on purpose and <c>jav</c> is the guard on the
+    ///         comparison.</b> ICU ships no Korean line-breaking file — Korean reads the untailored
+    ///         rules — so a store that took "CJK" to include Hangul would be inventing a tailoring.
+    ///         <c>jav</c> is Javanese and begins with the two letters that matter, which is what a
+    ///         prefix comparison rather than a subtag comparison would get wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the empty tag is the initial value</b>, which is why it appears here: it means
+    ///         undetermined and not "the machine's locale", and it is what keeps
+    ///         <c>LineBreakTest.txt</c>'s 19 338 cases judged against <c>line.txt</c>.
+    ///     </para>
+    /// </remarks>
+    /// <param name="language">The tag.</param>
+    /// <param name="selects">Whether it selects the CJK tailoring.</param>
+    [Theory]
+    [InlineData("ja", true)]
+    [InlineData("zh", true)]
+    [InlineData("ja-JP", true)]
+    [InlineData("zh-Hant-TW", true)]
+    [InlineData("zh_Hans", true)]
+    [InlineData("JA", true)]
+    [InlineData("ko", false)]
+    [InlineData("jav", false)]
+    [InlineData("zha", false)]
+    [InlineData("en", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void The_tags_that_select_a_cj_file(string? language, bool selects) =>
+        Assert.Equal(selects ? "サ|〜|サ" : "サ〜|サ", Segment("サ〜サ", LineBreakStrictness.Normal, language));
 
     /// <summary>ICU4X's <c>linebreak_anywhere</c>, whole.</summary>
     /// <remarks>
@@ -302,36 +473,75 @@ public class CssLineBreakTailoringTests {
     ) => Assert.NotEqual(Segment(text, LineBreakStrictness.Auto), Segment(text, strictness));
 
     /// <summary>
-    ///     The twenty-eight ICU4X cases that need a content locale, recorded rather than transcribed.
+    ///     ⚠ The same instrument check for the second axis: the cases whose answer the <i>language</i>
+    ///     changes, asserted to change.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A list in a test rather than a comment in one, so that it is read.</b> Each entry is an
-    ///     assertion ICU4X drives with <c>content_locale = ja</c>, which selects ICU's
-    ///     <c>line_normal_cj.txt</c> or <c>line_loose_cj.txt</c> instead of the non-CJK file of the
-    ///     same strictness. Those two relax things their non-CJK siblings do not — a break before
-    ///     U+301C and U+30A0, between an ideograph and a hyphen, before the centred punctuation
-    ///     (U+203C, U+2047-9, U+30FB, U+FF1A, U+FF1B, U+FF65, U+FF01, U+FF1F), before a <c>PO</c> of
-    ///     East Asian width A/F/W and after a <c>PR</c> of the same — so the expectations are about a
-    ///     sixth tailoring that <see cref="LineBreakStrictness" /> cannot name.
-    ///     <para>
-    ///         This is not a defect in <see cref="LineBreaker" /> and it is not a gap this file can
-    ///         close: it needs a language on the call, which is a feature and not a fixture. The three
-    ///         entries at the end are ICU4X's own commented-out cases, left out for ICU4X's reason
-    ///         rather than for this one.
-    ///     </para>
+    ///     <b>Without this the twenty-eight new cases would be satisfied by a <c>Collect</c> that
+    ///     dropped its fifth argument.</b> Thirteen of the twenty-eight segment identically with no
+    ///     language at all — the five <c>zh</c> inseparables and the five <c>normal</c> cases that
+    ///     <c>line_normal_cj.txt</c> does not touch are there precisely to pin where the tailoring
+    ///     <i>stops</i> — so the pairs below are the ones that carry the evidence. Each is asserted
+    ///     against the same string, the same strictness and no language, which is the only thing that
+    ///     differs.
+    /// </remarks>
+    /// <param name="text">The string.</param>
+    /// <param name="strictness">The strictness both halves are read under.</param>
+    [Theory]
+    [InlineData("サ〜サ", LineBreakStrictness.Normal)]
+    [InlineData("サ・サ", LineBreakStrictness.Loose)]
+    [InlineData("サ°サ", LineBreakStrictness.Loose)]
+    [InlineData("文€文", LineBreakStrictness.Loose)]
+    [InlineData("文№文", LineBreakStrictness.Loose)]
+    [InlineData("文＄文", LineBreakStrictness.Loose)]
+    [InlineData("文￡文", LineBreakStrictness.Loose)]
+    [InlineData("文￥文", LineBreakStrictness.Loose)]
+    [InlineData("文±文", LineBreakStrictness.Loose)]
+    [InlineData("文‐文", LineBreakStrictness.Loose)]
+    [InlineData("文–文", LineBreakStrictness.Loose)]
+    [InlineData("文a“文", LineBreakStrictness.Strict)]
+    [InlineData("文”a文", LineBreakStrictness.Strict)]
+    public void The_content_language_changes_the_answer_wherever_it_is_supposed_to(
+        string text,
+        LineBreakStrictness strictness
+    ) => Assert.NotEqual(Segment(text, strictness), Segment(text, strictness, "ja"));
+
+    /// <summary>
+    ///     ⚠ And the cases whose answer it must <i>not</i> change, asserted not to.
+    /// </summary>
+    /// <remarks>
+    ///     <b>The other half of the guard, and the half that catches over-reach.</b> A CJK tailoring
+    ///     written as "relax <c>NS</c> and <c>IN</c> in a Japanese document" would satisfy every
+    ///     positive case in this file and break all six of these — five of them are ICU4X's own
+    ///     expectations under <c>ja</c> or <c>zh</c>, and the sixth is a Latin word ending in a hyphen,
+    ///     which the ideograph-and-hyphen relaxation must not reach.
+    /// </remarks>
+    /// <param name="text">The string.</param>
+    /// <param name="strictness">The strictness both halves are read under.</param>
+    [Theory]
+    [InlineData("サ々サ", LineBreakStrictness.Normal)]
+    [InlineData("‥‥サ", LineBreakStrictness.Normal)]
+    [InlineData("サ・サ", LineBreakStrictness.Normal)]
+    [InlineData("サ°サ", LineBreakStrictness.Normal)]
+    [InlineData("文․文", LineBreakStrictness.Loose)]
+    [InlineData("aa‐", LineBreakStrictness.Loose)]
+    public void The_content_language_leaves_alone_what_it_is_supposed_to(
+        string text,
+        LineBreakStrictness strictness
+    ) => Assert.Equal(Segment(text, strictness), Segment(text, strictness, "ja"));
+
+    /// <summary>What is left out, which is now ICU4X's own three and nothing of this store's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This list held twenty-eight entries and holds one, and the difference is #897.</b>
+    ///     Each of the twenty-eight was an assertion ICU4X drives with <c>content_locale = ja</c>,
+    ///     selecting one of ICU's three <c>_cj</c> rule files rather than the non-CJK file of the same
+    ///     strictness; they are transcribed above, in <see cref="Normal_in_a_Japanese_document" /> and
+    ///     <see cref="Loose_in_a_Japanese_document" />, now that <see cref="LineBreaker" /> takes a
+    ///     content language. The entry that remains is left out for ICU4X's own reason and not for one
+    ///     of ours: three <c>strict</c> assertions the upstream file itself comments out, above a
+    ///     "TODO: Why ID ÷ ID × PR × ID ÷ ID ?" that nobody has answered.
     /// </remarks>
     public static readonly string[] TheContentLocaleCases = [
-        "line-break-*-013.xht — normal/loose, ja: U+301C WAVE DASH",
-        "line-break-*-014.xht — normal, ja: U+3005 iteration mark",
-        "line-break-*-015.xht — normal, ja: U+2025 two dot leader",
-        "line-break-*-016a.xht — normal/loose, ja: U+30FB katakana middle dot",
-        "line-break-*-017a.xht — normal/loose, ja: U+00B0 degree sign",
-        "line-break-*-018.xht — normal/loose, ja: U+20AC and the wide currency prefixes",
-        "line-break-*-011.xht — loose, ja: U+3041 small kana",
-        "line-break-*-012.xht — loose, ja: U+30FC prolonged sound mark",
-        "css-text-line-break-ja-pr-loose.html — loose, ja: U+00B1, U+20AC, U+FF04",
-        "css-text-line-break-zh-in-loose.xht — loose, zh: the five inseparables",
-        "line-break-loose-hyphens-001.html — loose, ja: U+2010 and U+2013 after an ideograph",
         "css-text-line-break-ja-pr-strict.html — strict, ja: ICU4X's own three commented-out cases"
     ];
 
@@ -343,9 +553,13 @@ public class CssLineBreakTailoringTests {
     ///     wrong for that file to go quietly green, so the two are kept where they can be read beside
     ///     what they judge.
     /// </remarks>
-    static string Segment(string text, LineBreakStrictness strictness) {
+    static string Segment(string text, LineBreakStrictness strictness) =>
+        Segment(text, strictness, language: null);
+
+    /// <summary>Splits a string at its break opportunities in a document of a given language.</summary>
+    static string Segment(string text, LineBreakStrictness strictness, string? language) {
         var opportunities = new List<int>();
-        LineBreaker.Collect(text, opportunities, WordBreakMode.Normal, strictness);
+        LineBreaker.Collect(text, opportunities, WordBreakMode.Normal, strictness, language);
 
         List<string> pieces = [];
         var at = 0;

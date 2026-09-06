@@ -255,6 +255,59 @@ public static class LineBreaker {
         List<int> opportunities,
         WordBreakMode mode,
         LineBreakStrictness strictness
+    ) =>
+        Collect(text, opportunities, mode, strictness, contentLanguage: null);
+
+    /// <summary>
+    ///     Collects every line break opportunity, under a <c>word-break</c>, a strictness and the
+    ///     language the content is written in.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="opportunities">Receives the positions, ascending, ending with the text length.</param>
+    /// <param name="mode">Whether breaking inside a word is allowed, forbidden, or left to UAX#14.</param>
+    /// <param name="strictness">How strict the typography is. CSS's <c>line-break</c>.</param>
+    /// <param name="contentLanguage">
+    ///     <para>
+    ///         The language the text is written in, as a BCP-47 tag — <c>UiElement.ResolvedLanguage</c>.
+    ///         <see langword="null" /> or empty means undetermined, which is the default and is
+    ///         <i>not</i> the machine's locale.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The fifth argument, and it is a <i>document</i> fact rather than a typographic
+    ///         preference — which is why it is not another value of
+    ///         <see cref="LineBreakStrictness" />.</b> ICU ships <b>six</b> line-breaking rule files
+    ///         and not four: <c>line.txt</c>, <c>line_normal.txt</c> and <c>line_loose.txt</c>, each
+    ///         with a <c>_cj</c> sibling that relaxes things its non-CJK twin does not. A break
+    ///         before U+301C, between an ideograph and a hyphen, before the centred punctuation,
+    ///         before a wide suffix sign and after a wide prefix sign are all things a Japanese or
+    ///         Chinese column does and an English one must not, whatever <c>line-break</c> says. So
+    ///         the tailoring is the product of two axes, and this is the second one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only <c>ja</c> and <c>zh</c> select it, matching ICU4X's
+    ///         <c>LineBreakOptions::content_locale</c> exactly, and <c>ko</c> deliberately does
+    ///         not.</b> ICU has no Korean line-breaking file — Korean reads the untailored rules —
+    ///         and neither does it have one for <c>yue</c>, <c>wuu</c> or the other Sinitic tags,
+    ///         which ICU4X does not map onto <c>zh</c> either. Script and region subtags are ignored,
+    ///         so <c>zh-Hant-TW</c> and <c>ja-JP</c> both count: the two <c>_cj</c> files are shared
+    ///         by <c>zh-Hans</c>, <c>zh-Hant</c> and <c>ja</c> alike.
+    ///     </para>
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>An undetermined language is the initial value and answers exactly what this method
+    ///     answered before the parameter existed</b>, which is what keeps the Consortium's 19 338
+    ///     conformance cases where they were: <c>LineBreakTest.txt</c> is written against
+    ///     <c>line.txt</c>, and it is judged with no language and no tailoring. ⚠ Nothing here reads
+    ///     <c>CultureInfo.CurrentCulture</c>, for <c>UiElement.ResolvedLanguage</c>'s reason — a
+    ///     paragraph that wrapped differently on a Japanese developer's laptop than on CI would
+    ///     surface as a golden image red on one machine only.
+    /// </remarks>
+    public static void Collect(
+        ReadOnlySpan<char> text,
+        List<int> opportunities,
+        WordBreakMode mode,
+        LineBreakStrictness strictness,
+        string? contentLanguage
     ) {
         ArgumentNullException.ThrowIfNull(opportunities);
 
@@ -279,7 +332,7 @@ public static class LineBreaker {
             return;
         }
 
-        var run = LineBreakRun.Resolve(text, mode, strictness);
+        var run = LineBreakRun.Resolve(text, mode, strictness, contentLanguage);
 
         for (var i = 1; i < run.Count; i++) {
             if (!run.ShouldBreak(i)) {
@@ -393,12 +446,20 @@ sealed class LineBreakRun {
     readonly List<LineBreakClass> original = [];
     readonly List<bool> attached = [];
 
-    // ⚠ The one CSS tailoring that could not be expressed as a class substitution, kept on the run so
-    // that `ShouldBreak` can read it. `line-break: loose` allows a break *between* two inseparables —
+    // ⚠ The first CSS tailoring that could not be expressed as a class substitution, kept on the run
+    // so that `ShouldBreak` can read it — and, since the content language arrived, not the last: see
+    // `RelaxedBefore`, whose whole set is of this kind.
+    // `line-break: loose` allows a break *between* two inseparables —
     // a two-dot leader broken across lines — and LB22 is written as "× IN" with no left-hand side, so
     // there is no class either character could be given that would relax the pair without also
     // relaxing `ID IN`, which loose does not.
     internal LineBreakStrictness Strictness;
+
+    // ⚠ The second tailoring axis, and it is a `bool` rather than the tag it was resolved from
+    // because that resolution is a question about a *document* and this is a question about a
+    // *pair*. `SelectsCjkTailoring` is asked once per run; asking it per position would compare
+    // strings nineteen thousand times over the conformance suite to answer "no" every time.
+    internal bool ChineseOrJapanese;
 
     /// <summary>How many code points there are.</summary>
     public int Count => classes.Count;
@@ -430,8 +491,25 @@ sealed class LineBreakRun {
     /// <param name="mode">Whether breaking inside a word is allowed, forbidden, or left to UAX#14.</param>
     /// <param name="strictness">How strict the typography is. CSS's <c>line-break</c>.</param>
     /// <returns>The resolved run.</returns>
-    public static LineBreakRun Resolve(ReadOnlySpan<char> text, WordBreakMode mode, LineBreakStrictness strictness) {
-        var run = new LineBreakRun { Strictness = strictness };
+    public static LineBreakRun Resolve(ReadOnlySpan<char> text, WordBreakMode mode, LineBreakStrictness strictness) =>
+        Resolve(text, mode, strictness, contentLanguage: null);
+
+    /// <summary>Decodes and resolves a string under both tailoring axes.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="mode">Whether breaking inside a word is allowed, forbidden, or left to UAX#14.</param>
+    /// <param name="strictness">How strict the typography is. CSS's <c>line-break</c>.</param>
+    /// <param name="contentLanguage">The content language as a BCP-47 tag, or <see langword="null" />.</param>
+    /// <returns>The resolved run.</returns>
+    public static LineBreakRun Resolve(
+        ReadOnlySpan<char> text,
+        WordBreakMode mode,
+        LineBreakStrictness strictness,
+        string? contentLanguage
+    ) {
+        var run = new LineBreakRun {
+            Strictness = strictness, ChineseOrJapanese = SelectsCjkTailoring(contentLanguage)
+        };
+
         var position = 0;
 
         while (position < text.Length) {
@@ -463,6 +541,41 @@ sealed class LineBreakRun {
         }
 
         return run;
+    }
+
+    /// <summary>Whether a BCP-47 tag selects one of ICU's three <c>_cj</c> rule files.</summary>
+    /// <param name="contentLanguage">The tag, or <see langword="null" /> for undetermined.</param>
+    /// <returns>Whether the CJK tailoring applies.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The primary language subtag alone, compared case-insensitively against <c>ja</c>
+    ///         and <c>zh</c>.</b> Everything after the first separator is discarded, because the
+    ///         three <c>_cj</c> files are shared by <c>zh-Hans</c>, <c>zh-Hant</c> and <c>ja</c>
+    ///         alike — ICU names all three in one line of each header — so a script or region subtag
+    ///         cannot change the answer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An empty or absent tag is undetermined and reads the non-CJK files</b>, which is
+    ///         the same decision <c>UiElement.ResolvedLanguage</c> takes and for the same reason: the
+    ///         alternative is guessing from the process locale, and a paragraph whose line breaks
+    ///         depend on the machine is a golden image that is red on one developer's laptop.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both separators, because BCP-47 is written with <c>-</c> and .NET culture names
+    ///         are written with either.</b> <c>zh_Hant</c> arrives from a resource file often enough
+    ///         that accepting only the hyphen would silently drop the tailoring on it.
+    ///     </para>
+    /// </remarks>
+    static bool SelectsCjkTailoring(string? contentLanguage) {
+        if (string.IsNullOrEmpty(contentLanguage)) {
+            return false;
+        }
+
+        var end = contentLanguage.AsSpan().IndexOfAny('-', '_');
+        var primary = end < 0 ? contentLanguage.AsSpan() : contentLanguage.AsSpan(0, end);
+
+        return primary.Equals("ja", StringComparison.OrdinalIgnoreCase)
+            || primary.Equals("zh", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>LB1 — the classes that stand for "resolve this some other way".</summary>
@@ -539,6 +652,120 @@ sealed class LineBreakRun {
     /// </remarks>
     static bool IsIterationMark(int codePoint) =>
         codePoint is 0x3005 or 0x303B or 0x309D or 0x309E or 0x30FD or 0x30FE;
+
+    /// <summary>
+    ///     Whether ICU's <c>_cj</c> rule files allow a break <i>before</i> the code point at
+    ///     <paramref name="i" />.
+    /// </summary>
+    /// <param name="i">The position.</param>
+    /// <returns>Whether the CJK tailoring in force relaxes a prohibition there.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A rule tailoring and not a class substitution, which is why it could not join
+    ///         <see cref="Substitute" /> the way the iteration marks did.</b> ICU writes each of
+    ///         these by <i>subtracting</i> a handful of code points from <c>$NS</c>, <c>$EX</c> or
+    ///         <c>$PO</c>, leaving them in no set and therefore in no prohibition — and there is no
+    ///         class that means "in no prohibition". Giving them <c>ID</c> comes close and is wrong
+    ///         in the two rules <c>ID</c> is itself named in: LB23a would then bind a wide suffix to
+    ///         an ideograph again, which is the exact break being relaxed.
+    ///     </para>
+    ///     <para>
+    ///         The three files nest, so this reads as three widening steps: <c>line_cj.txt</c> at
+    ///         every strictness, <c>line_normal_cj.txt</c> from <c>normal</c> down, and
+    ///         <c>line_loose_cj.txt</c> at <c>loose</c> alone.
+    ///     </para>
+    /// </remarks>
+    bool RelaxedBefore(int i) {
+        var codePoint = codePoints[BaseOf(i)];
+
+        // `line_cj.txt`, and inherited by both of the others: "It allows breaking before 201C and
+        // after 201D, for zh_Hans, zh_Hant, and ja."
+        //
+        // ⚠ The one relaxation that reaches `strict` and `auto`, so a Japanese document breaks
+        // before an opening quote whatever `line-break` says — and the only thing that makes
+        // `line_cj.txt` differ from `line.txt` at all. No ICU4X case covers it, its own strict block
+        // passing a non-CJK locale throughout, so the rule file's header is the oracle instead.
+        if (codePoint == 0x201C) {
+            return true;
+        }
+
+        if (Strictness is not (LineBreakStrictness.Normal or LineBreakStrictness.Loose)) {
+            return false;
+        }
+
+        // `line_normal_cj.txt`: "It allows breaks: * before 301C, 30A0 (both NS)". U+301C WAVE DASH
+        // and U+30A0 KATAKANA-HIRAGANA DOUBLE HYPHEN, and this is the whole of what `normal` adds
+        // over `strict` in a Japanese document — the iteration marks and the inseparables are
+        // `line_loose_cj.txt`'s, which is why `normal("サ々サ", ja)` still keeps the mark attached.
+        if (codePoint is 0x301C or 0x30A0) {
+            return true;
+        }
+
+        if (Strictness != LineBreakStrictness.Loose) {
+            return false;
+        }
+
+        // `line_loose_cj.txt`: "before some centered punct 203C, 2047, 2048, 2049, 30FB, FF1A,
+        // FF1B, FF65 (all NS) and FF01, FF1F (both EX)."
+        if (codePoint is 0x203C or 0x2047 or 0x2048 or 0x2049 or 0x30FB or 0xFF1A or 0xFF1B or 0xFF65
+            or 0xFF01 or 0xFF1F) {
+            return true;
+        }
+
+        // `line_loose_cj.txt`: "before suffix characters with LineBreak class PO and EastAsianWidth
+        // A,F,W."
+        //
+        // ⚠ Derived from the two tables rather than transcribed as ICU's ten code points, because
+        // that is how ICU derives it too — and a list typed out here would stop agreeing with the
+        // generated tables the first time either property moved. `H` is excluded on purpose: the
+        // header names A, F and W, and `IsEastAsianWide` includes halfwidth for LB30's sake.
+        if (classes[i] == LineBreakClass.PO && IsWideOrAmbiguous(codePoint)) {
+            return true;
+        }
+
+        // `line_loose_cj.txt`: "between ID and HYPHEN 2010 (as well as the rest of the HH class),
+        // and between ID and 2013 EN DASH."
+        //
+        // ⚠ The one relaxation here that reads both sides, so it is the one that could not have been
+        // a set subtraction: an ideograph followed by a hyphen breaks and a Latin word followed by
+        // the same hyphen does not, which is what `loose("aa‐", …)` asserts from the other side.
+        //
+        // ⚠ U+2010 is named by code point *and* by class, because ICU's header does. `HH` is a
+        // UAX#14 revision 51 class and which characters it holds is a fact about the generated
+        // table's Unicode version, so a rule that read only the class would quietly stop covering
+        // the one character ICU names.
+        return classes[i - 1] == LineBreakClass.ID
+            && (classes[i] == LineBreakClass.HH || codePoint is 0x2010 or 0x2013);
+    }
+
+    /// <summary>
+    ///     Whether ICU's <c>_cj</c> rule files allow a break <i>after</i> the code point at
+    ///     <paramref name="i" />.
+    /// </summary>
+    /// <param name="i">The position.</param>
+    /// <returns>Whether the CJK tailoring in force relaxes a prohibition there.</returns>
+    bool RelaxedAfter(int i) {
+        var codePoint = codePoints[BaseOf(i)];
+
+        // `line_cj.txt`: "It allows breaking before 201C and after 201D".
+        if (codePoint == 0x201D) {
+            return true;
+        }
+
+        // `line_loose_cj.txt`: "after prefix characters with LineBreak class PR and EastAsianWidth
+        // A,F,W." The mirror of the suffix rule above, and the reason `文€文` is three pieces in a
+        // Japanese document and two in an undetermined one.
+        return Strictness == LineBreakStrictness.Loose
+            && classes[i] == LineBreakClass.PR
+            && IsWideOrAmbiguous(codePoint);
+    }
+
+    /// <summary>The <c>EastAsianWidth</c> values ICU's <c>_cj</c> prefix and suffix rules name.</summary>
+    /// <param name="codePoint">The code point.</param>
+    /// <returns>Whether its width is <c>A</c>, <c>F</c> or <c>W</c>.</returns>
+    static bool IsWideOrAmbiguous(int codePoint) =>
+        EastAsianWidthClassTable.Of(codePoint)
+            is EastAsianWidthClass.A or EastAsianWidthClass.F or EastAsianWidthClass.W;
 
     /// <summary>CSS Text 3 § 5.2 <c>break-all</c> — every letter behaves as an ideograph.</summary>
     /// <remarks>
@@ -625,8 +852,22 @@ sealed class LineBreakRun {
             return false;
         }
 
+        // CSS Text 3 § 5.2's *second* axis, the content language, from ICU's three `_cj` rule files.
+        //
+        // ⚠ <b>Asked here rather than as an early `return true`, and the difference is every rule
+        // above this line.</b> ICU expresses each of these by taking a code point out of `$NS`,
+        // `$EX`, `$PO` or `$PR` — so the prohibitions that survive are the ones written against the
+        // classes it is still in, and the ones that vanish are the ones written against the class it
+        // left. A relaxation that returned early would also overrule LB6 through LB12a, which name
+        // the mandatory breaks, the spaces, the joiners and the glue: `！` taken out of `$EX` is
+        // still not a word joiner, and a line still may not begin with a space. So each of the rules
+        // below carries the guard instead, exactly as LB22 already carries `line-break: loose`'s.
+        var relaxedBefore = ChineseOrJapanese && RelaxedBefore(i);
+        var relaxedAfter = ChineseOrJapanese && RelaxedAfter(i - 1);
+
         // LB13 — never break before closing punctuation or an exclamation.
-        if (after is LineBreakClass.CL or LineBreakClass.CP or LineBreakClass.EX or LineBreakClass.SY) {
+        if (after is LineBreakClass.CL or LineBreakClass.CP or LineBreakClass.EX or LineBreakClass.SY
+            && !relaxedBefore) {
             return false;
         }
 
@@ -670,7 +911,8 @@ sealed class LineBreakRun {
         // another one, in both cases across spaces.
         if (beforeSpaces >= 0
             && classes[beforeSpaces] is LineBreakClass.CL or LineBreakClass.CP
-            && after == LineBreakClass.NS) {
+            && after == LineBreakClass.NS
+            && !relaxedBefore) {
             return false;
         }
 
@@ -695,11 +937,12 @@ sealed class LineBreakRun {
 
         // LB19a — and the East Asian conditions, which are what stop a Western quotation mark
         // gluing itself to a CJK character that has its own.
-        if (after == LineBreakClass.QU && (!IsEastAsian(i - 1) || !IsEastAsian(i + 1))) {
+        if (after == LineBreakClass.QU && (!IsEastAsian(i - 1) || !IsEastAsian(i + 1)) && !relaxedBefore) {
             return false;
         }
 
-        if (before == LineBreakClass.QU && (!IsEastAsian(i) || i - 2 < 0 || !IsEastAsian(i - 2))) {
+        if (before == LineBreakClass.QU && (!IsEastAsian(i) || i - 2 < 0 || !IsEastAsian(i - 2))
+            && !relaxedAfter) {
             return false;
         }
 
@@ -716,7 +959,8 @@ sealed class LineBreakRun {
         }
 
         // LB21, LB21a, LB21b — hyphens and the Hebrew exception.
-        if (after is LineBreakClass.BA or LineBreakClass.HY or LineBreakClass.HH or LineBreakClass.NS) {
+        if (after is LineBreakClass.BA or LineBreakClass.HY or LineBreakClass.HH or LineBreakClass.NS
+            && !relaxedBefore) {
             return false;
         }
 
@@ -759,25 +1003,31 @@ sealed class LineBreakRun {
             return false;
         }
 
-        if (before == LineBreakClass.PR && after is LineBreakClass.ID or LineBreakClass.EB or LineBreakClass.EM) {
+        if (before == LineBreakClass.PR && after is LineBreakClass.ID or LineBreakClass.EB or LineBreakClass.EM
+            && !relaxedAfter) {
             return false;
         }
 
-        if (before is LineBreakClass.ID or LineBreakClass.EB or LineBreakClass.EM && after == LineBreakClass.PO) {
+        if (before is LineBreakClass.ID or LineBreakClass.EB or LineBreakClass.EM && after == LineBreakClass.PO
+            && !relaxedBefore) {
             return false;
         }
 
         // LB24 — currency signs and the letters around them.
-        if (before is LineBreakClass.PR or LineBreakClass.PO && IsLetter(after)) {
+        if (before is LineBreakClass.PR or LineBreakClass.PO && IsLetter(after) && !relaxedAfter) {
             return false;
         }
 
-        if (IsLetter(before) && after is LineBreakClass.PR or LineBreakClass.PO) {
+        if (IsLetter(before) && after is LineBreakClass.PR or LineBreakClass.PO && !relaxedBefore) {
             return false;
         }
 
         // LB25 — numbers. `1,000.00` is one thing, and so is `$1,000.00-`.
-        if (IsNumberJoin(i)) {
+        //
+        // ⚠ Guarded by both halves, because a wide prefix or suffix taken out of its class takes
+        // its numeric pairs with it: `￥100` in a loose Japanese column may break after the yen
+        // sign, which is the same subtraction LB23a and LB24 above are reading.
+        if (IsNumberJoin(i) && !relaxedBefore && !relaxedAfter) {
             return false;
         }
 
@@ -795,11 +1045,11 @@ sealed class LineBreakRun {
             return false;
         }
 
-        if (IsHangul(before) && after == LineBreakClass.PO) {
+        if (IsHangul(before) && after == LineBreakClass.PO && !relaxedBefore) {
             return false;
         }
 
-        if (before == LineBreakClass.PR && IsHangul(after)) {
+        if (before == LineBreakClass.PR && IsHangul(after) && !relaxedAfter) {
             return false;
         }
 

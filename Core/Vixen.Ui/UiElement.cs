@@ -926,6 +926,7 @@ public partial class UiElement : Composition.IComposable {
                 tabStop,
                 hyphens,
                 wrapStyle,
+                language,
                 lines
             );
         }
@@ -1502,6 +1503,7 @@ public partial class UiElement : Composition.IComposable {
         float tabStop,
         HyphenMode hyphens,
         TextWrapStyle wrapStyle,
+        string language,
         ImmutableArray<TextLine>.Builder into
     ) {
         var advances = new float[text.Length + 1];
@@ -1535,7 +1537,14 @@ public partial class UiElement : Composition.IComposable {
             hyphens,
             hyphen,
             wrapStyle,
-            strictness
+            strictness,
+
+            // ⚠ Handed down rather than re-read from `ResolvedLanguage` here, and it is the same
+            // value: the caller has already resolved it for the shaper and put it in the block's
+            // cache key, so a second walk up the tree could only disagree with the key. What it
+            // buys is ICU's `_cj` rule files — a Japanese paragraph breaks before U+301C and around
+            // the wide currency signs, and an undetermined one must not.
+            language
         );
 
         foreach (var line in wrapped) {
