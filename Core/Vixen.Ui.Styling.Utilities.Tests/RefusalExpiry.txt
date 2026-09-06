@@ -56,6 +56,16 @@
 # is the stronger kind and collapses four tripwires to one. ⚠ This paragraph itself named the wrong
 # three — it listed `rotate-z-*`, which has measured `works` for as long as the census has existed
 # and never carried a clause at all. Prose beside a derived list is not derived.
+#
+# ⚠ AND THREE ROWS SHARE `UiVertex.W` ON PURPOSE NOW, which is the same pattern used deliberately
+# rather than fallen into. `scale-*` and `translate-*` are `partial` on one class each — `scale-3d`
+# and `translate-z-px` — and both of those close with the projective vertex, exactly as the four
+# `absent` transform rows do. Until 2026-09-06 neither said so in a clause: `scale-z-*` and
+# `translate-z-*` would have gone red on the day the vertex landed while the two `partial` rows
+# beside them, whose state column stopped moving when their other keywords shipped, sat green with
+# the class still unregistered. That is `hyphens`' shape, one root over. They anchor on the vertex
+# directly rather than `expires-with perspective-*`, because `expires-with` demands the carrier be
+# refused OUTRIGHT and these two half work. `Rikarin/Vixen#268`.
 Core/Vixen.Ui.Styling.Utilities/UtilityFamilies.cs	expires-on	Vixen.Ui.Text.HyphenMode.Auto
 Core/Vixen.Ui.Styling.Utilities/Variants.cs	expires-on	Vixen.Ui.Controls.Button.IsDefault
 Core/Vixen.Ui.Styling.Utilities/Variants.cs	expires-on	Vixen.Ui.Controls.TextField.Autofilled
@@ -78,8 +88,10 @@ placeholder-*	expires-on	Vixen.Ui.Styling.Selector.PseudoElement
 ring-offset-*	expires-on	Vixen.Ui.Styling.Utilities.UtilityComposition.RingOffsetWidth
 rotate-x-*	expires-with	perspective-*
 rotate-y-*	expires-with	rotate-x-*
+scale-*	expires-on	Vixen.Ui.Rendering.UiVertex.W
 scale-z-*	expires-with	perspective-*
 scrollbar-gutter	expires-on	Vixen.Ui.Layout.Overflow.Auto
 select	expires-when-read	user-select
 touch	expires-on	Vixen.Ui.UiDocument.TouchActionOf
+translate-*	expires-on	Vixen.Ui.Rendering.UiVertex.W
 translate-z-*	expires-with	perspective-*

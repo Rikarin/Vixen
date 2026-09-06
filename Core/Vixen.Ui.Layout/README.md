@@ -807,6 +807,20 @@ long it takes to get. And no `contain-*` utility class is registered — the par
 `absent` until the family lands. See `docs/guide/ui/containment.md` and
 `docs/plan/43-web-styling-parity.md` § Part 9, Bucket 3.
 
+⚠ **§4.5's automatic minimum is held under a ceiling this store keeps on purpose, and Chrome does
+not keep it.** `LayoutTree.MeasuredContentCeiling` bounds the floor by the smaller of the item's
+max-content flex base and the size its contents were measured at under the offer it really got.
+Every probe defect it was written to hide is closed and the whole layout project is green without it
+— the corpus has no text leaf that cannot break, so it cannot see the case that holds the ceiling
+up. What holds it up is one measured browser row: an unbreakable word under `overflow-wrap:
+break-word` in a `flex-direction: row` item keeps its full width in Chrome and overflows, because
+`break-word`'s intrinsic minimum is specified not to shrink. That picture is only *wrong* here
+because `LayoutStyleBuilder.CreateCssInitial` leaves `Display` at `Flex` where a browser's initial
+display is `block`, so a plain Vixen element is Chrome's row-flex row and would stop wrapping.
+Removing the ceiling is therefore a decision about that default and not about this algorithm; the
+whole table, both sabotages and four re-measurements are in `Taffy/KnownGaps.txt` and in the
+method's own remark. `Rikarin/Vixen#265` and `#682`.
+
 **Parallel layout.** Independent subtrees with a fixed available size are jobs, and text measurement
 of siblings is where the win is. `Benchmarks/Vixen.Benchmarks.Ui` now gives the serial number to
 beat, and it says the algorithm is not where an incremental frame's time goes — so this waits behind
