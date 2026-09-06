@@ -717,9 +717,11 @@ is perceptibly darker here than in a browser. Closing it means an encode and a d
 both composites and a decision about what the interface's compositing space *is*, which is a
 colour-management question rather than a blending one.
 
-⚠ **`UiRenderer` does not implement it, and says so.** The device has no read of the attachment the
-UI pass is writing — no subpass input, no framebuffer fetch, no copy — so a blended group is
-submitted source-over and the picture is the one the frame would have had without the declaration.
+⚠ **`UiRenderer` does not implement it, and says so — and the reason it used to give was refuted by
+the paragraph below it.** "The device has no read of the attachment the UI pass is writing" is true
+and is not why: § 5.1 asks for no such read. What is actually missing is a composite pipeline variant
+that samples two textures, so a blended group is submitted source-over and the picture is the one the
+frame would have had without the declaration.
 `UiRenderer.Unblended` counts exactly that, and it needs to: a blend over a flat backdrop is often
 the identity (`multiply` against white, `screen` against black), so neither a screenshot nor a
 comparison of the two executors can tell. **Closing it is a shader change and not a pass change** —
