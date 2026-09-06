@@ -1755,7 +1755,9 @@ public static class UtilityFamilies {
         // evaluates `forced-colors` now and `IPlatform.Accessibility` feeds it — that half of this
         // remark is out of date — but this engine still has no forced-colors *mode* for the
         // transparent ring to be substituted against, so the second half has nowhere to go and the
-        // class collapses to the first. It is
+        // class collapses to the first. That mode is `Rikarin/Vixen#836`, which carries the system
+        // colour keywords, the palette and the substitution point together; `forced-color-adjust`
+        // waits on the same issue and for the same reason. It is
         // registered anyway because the visible half is real, is read, and is the idiom every v4
         // sheet writes for "take the focus ring off" — refusing it would leave the common case
         // spelled only by the v3 name.
