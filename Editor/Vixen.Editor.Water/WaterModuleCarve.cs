@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using TerrainMap = Vixen.Terrain.Terrain;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Editor.Core;
@@ -10,8 +11,8 @@ using Vixen.Engine.Transforms;
 using Vixen.Rendering.Terrain;
 using Vixen.Rendering.Water;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Vixen.Water;
-using TerrainMap = Vixen.Terrain.Terrain;
 
 namespace Vixen.Editor.Water;
 

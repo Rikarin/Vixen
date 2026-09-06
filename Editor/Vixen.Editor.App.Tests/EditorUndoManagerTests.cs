@@ -117,4 +117,67 @@ public class EditorUndoManagerTests {
 
         Assert.Equal(before + 1, fixture.Project.GlobalStack.Depth.Value);
     }
+
+    /// <summary>Edit ▸ Undo takes back the active document's edit and leaves the main scene's alone.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The menu item is the half that did not follow the tab.</b> Both
+    ///         <c>edit.undo</c> and <c>edit.redo</c> closed over <c>EditorApplication.scene</c> — the
+    ///         one <c>SceneDocument</c> set in the constructor — so with an asset editor or an
+    ///         additively-opened scene active, ⌘Z stepped back through a history the user was not
+    ///         looking at. The method's own summary claimed "over whichever document is active" while
+    ///         it did that, which is why this is asserted through the registry rather than through
+    ///         the manager the tests above already exercise: <c>ActiveDocumentUndo</c> was right and
+    ///         the command beside it was not, so the two disagreed about one verb.
+    ///     </para>
+    ///     <para>
+    ///         The main scene's depth is read as well as the second document's, because "the right
+    ///         one moved" and "the wrong one did not" are two failures and only the pair rules out
+    ///         a command that undoes on both.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Undo_from_the_menu_takes_back_the_active_documents_edit() {
+        using var fixture = EditorSession.Start();
+
+        var main = fixture.Scene;
+        var applied = 0;
+
+        ((IUndoManager) main.Stack).Register("Main edit", static () => { }, static () => { });
+        var mainDepth = main.Stack.Depth.Value;
+        Assert.Equal(1, mainDepth);
+
+        var second = new BlankDocument(fixture.Project, "Second");
+        fixture.Project.Activate(second);
+
+        ((IUndoManager) second.Stack).Register("Second edit", () => applied--, () => applied++);
+        applied = 1;
+
+        Assert.True(fixture.Shell.Commands.CanExecute("edit.undo"));
+        Assert.True(fixture.Shell.Commands.Execute("edit.undo"));
+
+        Assert.Equal(0, applied);
+        Assert.Equal(0, second.Stack.Depth.Value);
+        Assert.Equal(mainDepth, main.Stack.Depth.Value);
+    }
+
+    /// <summary>The item greys itself out from the stack it would actually undo.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The enablement predicate had the same capture as the run, which is the worse half of
+    ///     the two.</b> A menu item that runs on the wrong history at least does something the user
+    ///     can see; one that reads <i>enabled</i> because a document they are not looking at has
+    ///     something to take back offers an undo that then moves nothing they can see.
+    /// </remarks>
+    [Fact]
+    public void Undo_is_greyed_when_the_active_document_has_nothing_to_take_back() {
+        using var fixture = EditorSession.Start();
+
+        ((IUndoManager) fixture.Scene.Stack).Register("Main edit", static () => { }, static () => { });
+        Assert.True(fixture.Shell.Commands.CanExecute("edit.undo"));
+
+        fixture.Project.Activate(new BlankDocument(fixture.Project, "Second"));
+
+        Assert.False(fixture.Shell.Commands.CanExecute("edit.undo"));
+        Assert.False(fixture.Shell.Commands.Execute("edit.undo"));
+    }
 }

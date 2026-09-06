@@ -183,26 +183,47 @@ was routed to an element and bubbled correctly and no `.vxml` in the tree could 
 until recently, so this is the spelling to reach for rather than a hand-rolled walk up from
 `args.Source`:
 
+⚠ **A handler that wants the event says so with a typed lambda, and this page used to show a
+spelling that does not compile.** An `on:` attribute is an `@` expression whose value is an `Action`,
+so a bare `@Accept` binds only a *parameterless* method — a handler declared to take a `DropEvent` is
+`CS1503: cannot convert from 'method group' to 'System.Action'`, and the same is true of every other
+`on:` name on the page. The lambda is what carries the arguments across:
+
 ```vxml no-compile="a fragment; the handlers are the panel's own"
-<panel on:dragover={Highlight} on:dragleave={Unhighlight} on:drop={Accept}>
+<drop-zone on:dragover="@((DragOverEvent args) => Highlight(args))"
+           on:dragleave="@((DragOverEvent args) => Unhighlight(args))"
+           on:drop="@((DropEvent args) => Accept(args))">
   <label>Drop a texture here</label>
-</panel>
+</drop-zone>
 ```
 
 ```csharp no-compile="a fragment; `Import` is the application's own"
-void Accept(UiElement source, DropEvent args) {
+void Accept(DropEvent args) {
     foreach (var path in args.Files) {
         Import(path);
     }
+
+    // A drop this panel took is not one an ancestor should take as well.
+    args.Handled = true;
 }
 ```
+
+⚠ **`AllowDrop` is not an attribute a lowercase tag can set.** On a lowercase tag every
+non-directive attribute becomes data a selector can match and nothing reads, so `AllowDrop="true"`
+compiles, matches `[AllowDrop]` and does nothing; set it from `OnComposed` through a `ref`, or put
+the handlers on a capitalised control tag, whose properties are real assignments. `on:` is a
+directive and is unaffected either way. The OS drop needs none of this — it is hit-tested and bubbles
+like a wheel — but an in-app drag will not stop on an element that has not opted in.
 
 **A row dragged onto another row inside one document.** The source's three names and the target's
 four are the same event stream seen from the two ends, so a reorder needs both halves and nothing
 else:
 
 ```vxml no-compile="a fragment; `Row` is the panel's own model"
-<row on:dragstart={Grab} on:dragend={Release} on:dragover={ShowLine} on:drop={Reorder} />
+<row on:dragstart="@((DragEvent args) => Grab(args))"
+     on:dragend="@((DragEvent args) => Release(args))"
+     on:dragover="@((DragOverEvent args) => ShowLine(args))"
+     on:drop="@((DropEvent args) => Reorder(args))" />
 ```
 
 ⚠ `on:drag` is the middle stage only — the moves between the grab and the release. A handler written
@@ -217,7 +238,10 @@ neither the seam nor a backend exists.
 **A drag image.** A source draws its own ghost from `UiDocument.CurrentDrag` and `UiElement.OffsetX/Y`;
 nothing carries a picture for it.
 
-⚠ **No production consumer.** The editor's two drags — `TreeView`'s node reordering and
+⚠ **The OS drop now has a consumer and the in-app drag still has none.** `Samples/02-HelloUi`'s
+Hierarchy panel writes `on:drop` and adds a row per dropped path, which is the first use of any of
+the four target names outside a test — until it, the markup half of this page was a spelling nobody
+had asked to compile, and the example above was wrong about how to write it. The editor's two drags — `TreeView`'s node reordering and
 `Editor/Vixen.Editor.App/AssetFieldDrop.cs` — still hit-test by hand, and the *reason* the second one
 gives has expired: its remarks say a field cannot hear its own drop because "a drag belongs to the
 element the press landed on for its whole life", which is exactly what `TrackDrag`'s hit test past

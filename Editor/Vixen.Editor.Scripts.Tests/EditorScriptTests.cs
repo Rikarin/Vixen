@@ -8,6 +8,7 @@ using Vixen.Editor.Assets;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.Ui;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.Scripts.Tests;

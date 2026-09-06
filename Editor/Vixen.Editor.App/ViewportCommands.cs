@@ -7,6 +7,7 @@ using Vixen.Editor.Ui;
 using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.App;
 

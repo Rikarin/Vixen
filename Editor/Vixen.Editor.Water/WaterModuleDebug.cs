@@ -6,6 +6,7 @@ using Vixen.Editor.Core;
 using Vixen.Editor.Ui;
 using Vixen.Rendering.Water;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.Water;
 

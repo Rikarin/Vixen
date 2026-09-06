@@ -1,0 +1,73 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    A drop target written the way an application would write one: four `on:` names and nothing else.
+
+    ⚠ **The point of this file is that it is the first of its kind.** `DropEvent`, `DragOverEvent`
+    and `UiElement.AllowDrop` all landed with `on:dragenter`, `on:dragover`, `on:dragleave` and
+    `on:drop` registered in `BuildContext`'s subscription table — and not one `.vxml` in the
+    repository used any of the four, so the markup half of drag and drop was a name the binder would
+    accept and nothing had ever asked it to. A name absent from that table is silently rejected, and
+    a name present in it but never written is silently untested; this file is the difference.
+-->
+@component DropSheet
+@namespace Vixen.Ui.Controls.Tests
+@using Vixen.Ui
+
+<drop-zone ref="@Zone"
+           style="width: 200px; height: 100px"
+           on:dragenter="@((DragOverEvent args) => Entered(args))"
+           on:dragover="@((DragOverEvent args) => MovedOver(args))"
+           on:dragleave="@((DragOverEvent args) => Left(args))"
+           on:drop="@((DropEvent args) => Dropped(args))" />
+
+@code {
+    /// <summary>The zone itself, so a test can aim a pointer at the box it ended up occupying.</summary>
+    public UiElement Zone { get; private set; } = null!;
+
+    /// <summary>Every path a drop has handed over, in the order they arrived.</summary>
+    public List<string> Files { get; } = [];
+
+    /// <summary>What an in-app drag put down here, if anything did.</summary>
+    public string? Payload { get; private set; }
+
+    /// <summary>How many times a drag has crossed into this zone.</summary>
+    public int Enters { get; private set; }
+
+    /// <summary>How many times one has crossed back out.</summary>
+    public int Leaves { get; private set; }
+
+    /// <summary>How many moves happened while a drag was over it.</summary>
+    public int Moves { get; private set; }
+
+    /// <remarks>
+    ///     ⚠ Set here rather than as an attribute, and the difference is worth knowing: on a
+    ///     lowercase tag every non-directive attribute is inert — it becomes data a selector can
+    ///     match and nothing reads — so <c>AllowDrop="true"</c> would have compiled, matched
+    ///     <c>[AllowDrop]</c> and done nothing. <c>on:</c> is a directive and is not affected.
+    /// </remarks>
+    partial void OnComposed() => Zone.AllowDrop = true;
+
+    /// <summary>Takes the drop.</summary>
+    void Dropped(DropEvent args) {
+        Files.AddRange(args.Files);
+        Payload = args.Data.Text;
+        args.Handled = true;
+    }
+
+    /// <summary>Says what this zone would do with what is being dragged over it.</summary>
+    void Entered(DragOverEvent args) {
+        Enters++;
+        args.Effect = DropEffect.Copy;
+    }
+
+    /// <summary>Keeps saying it, because the effect is narrowed per move rather than remembered.</summary>
+    void MovedOver(DragOverEvent args) {
+        Moves++;
+        args.Effect = DropEffect.Copy;
+    }
+
+    /// <summary>Notices the drag leaving again.</summary>
+    void Left(DragOverEvent args) => Leaves++;
+}

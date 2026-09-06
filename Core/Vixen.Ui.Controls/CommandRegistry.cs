@@ -4,15 +4,15 @@
 using System.Diagnostics.CodeAnalysis;
 using Vixen.Ui;
 
-namespace Vixen.Editor.Ui;
+namespace Vixen.Ui.Controls;
 
-/// <summary>Every command the editor knows, by id.</summary>
+/// <summary>Every command an application knows, by id.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>One table, and everything that shows a command reads it.</b> That is what makes a new
 ///         action appear in the menu, the palette and the keymap editor at once, and it is why a
-///         plugin adding a command is one <see cref="Add" /> call rather than an entry in four
-///         places.
+///         plugin adding a command is one <see cref="Add(EditorCommand)" /> call rather than an
+///         entry in four places.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Registering an id twice throws.</b> A silent replace would let a plugin take over
@@ -25,11 +25,11 @@ namespace Vixen.Editor.Ui;
 ///         query is empty and there is nothing better to sort by. A ranked query reorders it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It is also the editor's <see cref="IResponder" /></b> — the last link of
-///         <see cref="CommandRoute" />'s chain, installed by <see cref="EditorShell" /> as its
+///         ⚠ <b>It is also an application's <see cref="IResponder" /></b> — the last link of
+///         <see cref="CommandRoute" />'s chain, installed by the editor's shell as its
 ///         document's <see cref="UiDocument.ApplicationCommandResponder" />. That is what makes a
-///         <c>Vixen.Ui</c> control bound to <c>edit.rename</c> resolve, enable and run the editor's
-///         command with no editor-specific wiring in the control.
+///         <c>Vixen.Ui</c> control bound to <c>edit.rename</c> resolve, enable and run the application's
+///         command with no application-specific wiring in the control.
 ///     </para>
 ///     <para>
 ///         <b>The interface rather than a mirror.</b> A <see cref="CommandResponder" /> filled in
@@ -156,7 +156,7 @@ public sealed class CommandRegistry : IResponder {
     /// <param name="id">Its id.</param>
     /// <returns>Whether it was there.</returns>
     /// <remarks>What unloading a plugin does. The keymap keeps the binding — see
-    ///     <see cref="KeyMap" /> — so reloading the plugin restores it.</remarks>
+    ///     the keymap — so reloading the plugin restores it.</remarks>
     public bool Remove(string id) {
         ArgumentNullException.ThrowIfNull(id);
 
@@ -171,7 +171,7 @@ public sealed class CommandRegistry : IResponder {
         return true;
     }
 
-    /// <summary>The handler the command route gets for an id, if the editor knows it.</summary>
+    /// <summary>The handler the command route gets for an id, if this table knows it.</summary>
     /// <param name="id">The command id.</param>
     /// <param name="handler">Receives the handler.</param>
     /// <returns>Whether a command is registered under that id.</returns>

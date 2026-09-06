@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.Ui.Tests;
@@ -193,7 +195,20 @@ public class CommandChainTests {
         // One subscriber left, and it is the one this test added. Had the shell's survived, the
         // registry would still be driving a disposed document's invalidation every time a plugin
         // registered anything.
+        //
+        // ⚠ Read reflectively, and the `Assert.NotNull` is what keeps that honest. `CommandRegistry`
+        // moved to `Vixen.Ui.Controls` with doc 49 § 4.4, so its `internal` test affordance is no
+        // longer visible here — and the alternative, naming an editor test project in a Core
+        // library's friend list, would reverse the layering the move exists to establish. A rename
+        // of the member reddens this line rather than quietly returning nothing to compare.
         Assert.Equal(1, raised);
-        Assert.Equal(1, registry.ChangedSubscriberCount);
+
+        var count = typeof(CommandRegistry).GetProperty(
+            "ChangedSubscriberCount",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+
+        Assert.NotNull(count);
+        Assert.Equal(1, count.GetValue(registry));
     }
 }

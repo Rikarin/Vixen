@@ -4,7 +4,7 @@ slug: editor/index
 kind: guide
 area: Editor
 summary: The window the editor is made of, and the command registry every part of it is a view over.
-api: [T:Vixen.Editor.Ui.EditorShell, T:Vixen.Editor.Ui.EditorCommand, T:Vixen.Editor.Ui.CommandRegistry, T:Vixen.Editor.Ui.KeyMap]
+api: [T:Vixen.Editor.Ui.EditorShell, T:Vixen.Editor.Ui.KeyMap]
 tags: [editor, shell, commands, keybindings]
 since: 0.1
 status: preview

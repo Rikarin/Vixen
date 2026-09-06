@@ -56,8 +56,16 @@ in it. The boundary costs nothing to keep, and this file is a bootstrap again.
 Edit ▸ Copy is bound to `edit.copy` and to nothing else. What it does depends on where the focus is:
 with rows selected in the Hierarchy it copies their names, and anywhere else it copies the docking
 layout. Neither handler knows the other exists — `Panels/Hierarchy.vxml` registers one on its own
-root, `Shell.vxml` registers the other on the shell's, and `CommandRoute` picks the nearest one above
-the focus and stops there.
+root, `Shell.vxml` puts the other on the document's responder, and `CommandRoute` picks the nearest
+one above the focus and stops there.
+
+⚠ **The shell's half is a responder rather than an element handler, and that is the second zero this
+sample retires.** The walk carries on past the last element through two objects that are not elements
+at all: `UiDocument.CommandResponder`, for the verbs of the thing the window is showing, and
+`UiDocument.ApplicationCommandResponder`, for the ones true everywhere. Only the second had ever been
+written to — the editor's shell installs its `CommandRegistry` there — so the first link of the tail
+was, in production, a null check. A shell is not a view; registering its verb on `Root` meant it had
+to own a piece of the element tree in order to answer one.
 
 ⚠ **This is the first thing outside the framework's own tests ever to declare a command scope.**
 `Commands.cs` is eight hundred lines of `NSResponder`-shaped routing whose defining rule — the nearest
@@ -67,6 +75,15 @@ sample's three panels now declare `Root.CommandScope`, and `Shell.vxml` reads it
 `CommandRoute.ScopeOf` from wherever the focus happens to be, so the toast names the panel the user
 was in without anything having pushed or popped a context string.
 `Core/Vixen.Ui.Tests/ResponderReachTests.cs` counts these callers and fails at zero.
+
+## Files dropped from the desktop land in the panel they were dropped on
+
+`Panels/Hierarchy.vxml` writes `on:drop` and adds a row per path. ⚠ **It is the first use of any of
+the four target names outside a test.** `DropEvent` is produced by every backend, hit-tested and
+bubbled, and `on:dragenter`, `on:dragover`, `on:dragleave` and `on:drop` have been in the markup
+binder's table with nothing in the repository writing one — so the half an application is actually
+told to write was a spelling that had never been asked to compile. Nothing in the handler knows where
+the drop landed: the routing is what makes it *this* panel's files rather than the window's.
 
 ## Save and Revert grey themselves out
 
