@@ -162,6 +162,14 @@ public sealed class InheritedProperties {
         "visibility",
         "cursor",
 
+        // ⚠ <b>CSS Color Adjust 1 § 3 inherits it, and the inheritance is the entire feature rather
+        // than a convenience.</b> `forced-color-adjust: none` is written on the one element whose
+        // colours carry information a forced palette would destroy — a swatch, a syntax-highlighted
+        // listing, a chart — and every one of those is a *container* whose colours are on its
+        // children. Read without inheritance the property would work on a leaf and silently do
+        // nothing on every element anybody actually writes it on.
+        "forced-color-adjust",
+
         // ⚠ <b>CSS-inherited, and here for `fill`/`stroke`'s reason as much as for CSS's.</b>
         // CSS Basic UI 4 § 4.1 inherits it, and the case that makes the line load-bearing is the
         // narrow one the `fill`/`stroke` note below states: a `caret-accent` is as likely to be

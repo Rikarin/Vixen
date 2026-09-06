@@ -26,22 +26,55 @@ public sealed class StyleValueParser {
     readonly NameTable values;
     readonly NameTable keywords;
     readonly Dictionary<int, StyleValue> cache = [];
+    int cachedRevision;
 
     /// <summary>Creates a parser.</summary>
     /// <param name="values">The table declaration values are interned in.</param>
     /// <param name="keywords">The table identifiers are interned in.</param>
-    public StyleValueParser(NameTable values, NameTable keywords) {
+    public StyleValueParser(NameTable values, NameTable keywords)
+        : this(values, keywords, null) { }
+
+    /// <summary>Creates a parser that resolves system colours against a palette.</summary>
+    /// <param name="values">The table declaration values are interned in.</param>
+    /// <param name="keywords">The table identifiers are interned in.</param>
+    /// <param name="palette">
+    ///     What <c>CanvasText</c> and its fourteen siblings mean, or <c>null</c> for a private
+    ///     palette holding the light defaults.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>Sharing the palette is the point of passing one.</b> A parser given <c>null</c> gets a
+    ///     palette nobody else can reach, so the system colours it resolves are frozen at the
+    ///     defaults — correct, and never following the platform. Every parser that draws from one
+    ///     document should be handed that document's <c>UiDocument.SystemColors</c>.
+    /// </remarks>
+    public StyleValueParser(NameTable values, NameTable keywords, SystemPalette? palette) {
         ArgumentNullException.ThrowIfNull(values);
         ArgumentNullException.ThrowIfNull(keywords);
 
         this.values = values;
         this.keywords = keywords;
+        Palette = palette ?? new SystemPalette();
+        cachedRevision = Palette.Revision;
     }
+
+    /// <summary>What this parser resolves a CSS system colour keyword to.</summary>
+    public SystemPalette Palette { get; }
 
     /// <summary>Parses an interned value.</summary>
     /// <param name="value">Its id.</param>
     /// <returns>The parsed value, or <see cref="StyleValue.Unknown" />.</returns>
     public StyleValue Parse(int value) {
+        // ⚠ <b>The palette's revision is checked here rather than at the point a system colour is
+        // resolved, because the cache is what would otherwise outlive the change.</b> `CanvasText`
+        // parsed under the light palette and cached is the same interned id as `CanvasText` under
+        // the dark one; without this the first appearance a document ever saw would be the last it
+        // ever drew, and nothing would report it — the value is a perfectly good colour, just
+        // yesterday's.
+        if (Palette.Revision != cachedRevision) {
+            cache.Clear();
+            cachedRevision = Palette.Revision;
+        }
+
         if (cache.TryGetValue(value, out var cached)) {
             return cached;
         }
@@ -111,9 +144,26 @@ public sealed class StyleValueParser {
             return ParseFunction(text[..open].Trim(), text[(open + 1)..^1]);
         }
 
-        return NamedColors.TryGet(text, out var named)
-            ? StyleValue.FromColor(named.ToLinear())
-            : StyleValue.FromKeyword(keywords.Intern(text.ToString()));
+        if (NamedColors.TryGet(text, out var named)) {
+            return StyleValue.FromColor(named.ToLinear());
+        }
+
+        // ⚠ <b>A system colour becomes an ordinary <see cref="StyleValueKind.Color" /> here and not a
+        // kind of its own, and that decision is what makes the feature cost nothing downstream.</b>
+        // Six consumers read a colour out of a `StyleValue` — the draw list, the gradient reader,
+        // `StyleAccess`, the shadow reader, `color-mix` and the animator — and a kind they had all
+        // had to learn would have been six switch arms, each of which silently *builds* when it is
+        // missing and then never matches. Resolving it to the palette's current value instead means
+        // `color-mix(in oklab, CanvasText 50%, transparent)` and a transition from `Canvas` to a hex
+        // both work with no code anywhere that knows a system colour exists.
+        //
+        // ⚠ What it costs is that the resolution is frozen into the parse cache, which is why
+        // `Parse(int)` above watches <see cref="SystemPalette.Revision" />.
+        if (SystemPalette.TryParse(text, out var system)) {
+            return StyleValue.FromColor(Palette[system]);
+        }
+
+        return StyleValue.FromKeyword(keywords.Intern(text.ToString()));
     }
 
     StyleValue ParseFunction(ReadOnlySpan<char> name, ReadOnlySpan<char> arguments) {

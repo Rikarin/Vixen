@@ -141,9 +141,9 @@ public sealed partial class UiDocument : IDisposable {
         Restyler = new StyleUpdater(Styles);
         Layout = new LayoutTree();
         Builder = new LayoutStyleBuilder(Styles.Properties, Styles.Values, Styles.Names);
-        drawings = new DrawListBuilder(Styles.Properties, Styles.Values, Styles.Names);
+        drawings = new DrawListBuilder(Styles.Properties, Styles.Values, Styles.Names, SystemColors);
 
-        reader = new StyleValueParser(Styles.Values, Styles.Names);
+        reader = new StyleValueParser(Styles.Values, Styles.Names, SystemColors);
 
         pointerEvents = Styles.Properties.Intern("pointer-events");
         display = Styles.Properties.Intern("display");
@@ -231,6 +231,25 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>The cascade.</summary>
     public StyleEngine Styles { get; }
+
+    /// <summary>What the CSS system colour keywords mean in this document, right now.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>color: CanvasText</c> in a sheet reads through this, and so does the palette a
+    ///         <c>forced-colors: active</c> surface substitutes its authored colours for. A host that
+    ///         can read the platform's semantic colours writes them here — <c>PlatformInput</c> does
+    ///         the appearance and high-contrast halves of it — and a host that cannot leaves the
+    ///         defaults, which are the ones a browser would use.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Written to rather than replaced, and the object identity is why.</b> Every parser
+    ///         in this document holds this instance and notices a change through
+    ///         <see cref="SystemPalette.Revision" />; handing out a setter would leave those parsers
+    ///         resolving the palette the document no longer has, and the symptom would be a window
+    ///         that keeps yesterday's colours with nothing anywhere reporting it.
+    ///     </para>
+    /// </remarks>
+    public SystemPalette SystemColors { get; } = new();
 
     /// <summary>Which component built which element, for the elements that are a component's host.</summary>
     /// <remarks>

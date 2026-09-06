@@ -3621,6 +3621,8 @@ T:Vixen.Ui.Styling.StyleUpdater sweep-pending
 T:Vixen.Ui.Styling.StyleValue sweep-pending
 T:Vixen.Ui.Styling.StyleValueKind sweep-pending
 T:Vixen.Ui.Styling.StyleValueParser sweep-pending
+T:Vixen.Ui.Styling.SystemColor exempt-with-NamedColors — the CSS system colour keywords, which are a spelling a stylesheet uses rather than an API a caller calls; what each role means is on the enum and the substitution rule is on DrawListBuilder.Force
+T:Vixen.Ui.Styling.SystemPalette exempt-with-NamedColors — what those keywords resolve to, written by a host and read by the parser; the argument for a mutable object with a revision counter rather than a value is on the type
 T:Vixen.Ui.Styling.TimingFunction sweep-pending
 T:Vixen.Ui.Styling.TimingFunctionKind sweep-pending
 T:Vixen.Ui.Styling.TransitionParser sweep-pending

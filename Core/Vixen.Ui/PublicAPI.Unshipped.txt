@@ -494,6 +494,7 @@ Vixen.Ui.DrawListBuilder.Compositing.get -> bool
 Vixen.Ui.DrawListBuilder.Compositing.set -> bool
 Vixen.Ui.DrawListBuilder.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.Styling.SelectorDiagnostic>
 Vixen.Ui.DrawListBuilder.DrawListBuilder(Vixen.Ui.Styling.NameTable properties, Vixen.Ui.Styling.NameTable values, Vixen.Ui.Styling.NameTable keywords) -> void
+Vixen.Ui.DrawListBuilder.DrawListBuilder(Vixen.Ui.Styling.NameTable properties, Vixen.Ui.Styling.NameTable values, Vixen.Ui.Styling.NameTable keywords, Vixen.Ui.Styling.SystemPalette? palette) -> void
 Vixen.Ui.DropEffect -> enum : byte
 Vixen.Ui.DropEffect.Copy = 1 -> Vixen.Ui.DropEffect
 Vixen.Ui.DropEffect.DropEffect() -> void
@@ -1524,6 +1525,7 @@ Vixen.Ui.UiDocument.SurfaceAdded -> System.Action<Vixen.Ui.UiDocument, Vixen.Ui.
 Vixen.Ui.UiDocument.SurfaceOf(Vixen.Ui.UiElement element) -> Vixen.Ui.UiSurface?
 Vixen.Ui.UiDocument.SurfaceRemoved -> System.Action<Vixen.Ui.UiDocument, Vixen.Ui.UiSurface>?
 Vixen.Ui.UiDocument.Surfaces.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.UiSurface>
+Vixen.Ui.UiDocument.SystemColors.get -> Vixen.Ui.Styling.SystemPalette
 Vixen.Ui.UiDocument.TextAlignShift(Vixen.Ui.UiElement element, float slack) -> float
 Vixen.Ui.UiDocument.Tick(System.TimeSpan now) -> void
 Vixen.Ui.UiDocument.Ticked -> System.Action<Vixen.Ui.UiDocument, System.TimeSpan>?

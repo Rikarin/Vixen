@@ -1748,18 +1748,18 @@ public static class UtilityFamilies {
             ["dotted"] = "dotted", ["double"] = "double"
         });
 
-        // ⚠ <b>`outline-hidden` is v4's spelling and here it is `outline-none` exactly, which is a
-        // loss worth naming rather than papering over.</b> In v4 the class removes the visible ring
-        // *and* restores a transparent two-pixel one inside `@media (forced-colors: active)`, so a
-        // Windows high-contrast user keeps a focus indicator the sighted default hid. ⚠ `MediaQuery`
-        // evaluates `forced-colors` now and `IPlatform.Accessibility` feeds it — that half of this
-        // remark is out of date — but this engine still has no forced-colors *mode* for the
-        // transparent ring to be substituted against, so the second half has nowhere to go and the
-        // class collapses to the first. It is
-        // registered anyway because the visible half is real, is read, and is the idiom every v4
-        // sheet writes for "take the focus ring off" — refusing it would leave the common case
-        // spelled only by the v3 name.
-        Static("outline-hidden", "outline-style", "none");
+        // ⚠ <b>`outline-hidden` compiles to `hidden` and `outline-none` to `none`, and the two words
+        // being different is load-bearing rather than incidental.</b> CSS UI 4 makes them synonyms on
+        // an outline and `DrawListBuilder.Stroke` treats them as synonyms — both switch the ring off.
+        // What v4's class adds is a transparent two-pixel ring inside
+        // `@media (forced-colors: active)`, so a Windows high-contrast user keeps a focus indicator
+        // the sighted default hid. ⚠ This used to be recorded here as a loss: `MediaQuery` evaluated
+        // `forced-colors` but nothing substituted a palette, so there was nothing for a transparent
+        // ring to be seen against and the class collapsed to `outline-none` exactly. There is a
+        // forced-colours mode now — `DrawListBuilder.EmitOutline` restores the ring in `CanvasText`
+        // — and the only thing it needs to act on is a spelling that tells the two classes apart,
+        // which is this value.
+        Static("outline-hidden", "outline-style", "hidden");
 
         // ⚠ <b>A keyword table and not `Spacing`, because these are pixels and not spacing steps —
         // `border-*`'s argument one property over.</b> An outline is a hairline that happens to sit
