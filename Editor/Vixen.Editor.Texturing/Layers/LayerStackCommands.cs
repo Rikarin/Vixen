@@ -321,6 +321,77 @@ sealed class SetModelCommand : IEditorCommand {
     }
 }
 
+/// <summary>Which of the model's meshes a set is narrowed to, as one undo entry.</summary>
+/// <remarks>
+///     <para>
+///         <b><a href="https://github.com/Rikarin/Vixen/issues/941">#941</a>'s edit, and it is
+///         <see cref="SetModelCommand" /> one level down.</b> A model file splits into one mesh per
+///         material slot, which is what a texture set is; without narrowing, a two-set stack gets one
+///         coverage map over every island in the model and the <c>Body</c> set can be painted
+///         anywhere <c>Head</c> has surface.
+///     </para>
+///     <para>
+///         ⚠ <b>Keyed by the set's position rather than by the set object</b>, because
+///         <c>TextureSetAsset</c> is a record the document replaces wholesale on every edit — an undo
+///         holding the object would write into a set the stack no longer contains, and the panel
+///         would go on showing the value it had.
+///     </para>
+/// </remarks>
+sealed class SetMeshCommand : IEditorCommand {
+    readonly LayerStackDocument document;
+    readonly int set;
+    readonly string before;
+    readonly string after;
+
+    /// <summary>Records a narrowing.</summary>
+    /// <param name="document">The stack.</param>
+    /// <param name="set">Which set, by index.</param>
+    /// <param name="mesh">The mesh's name in the project, or empty for every mesh in the model.</param>
+    /// <param name="name">What the undo entry says.</param>
+    /// <exception cref="ArgumentNullException">The document or the mesh is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">There is no set at that index.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name" /> is empty.</exception>
+    public SetMeshCommand(LayerStackDocument document, int set, string mesh, string name) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(mesh);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+        ArgumentOutOfRangeException.ThrowIfNegative(set);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(set, document.Document.Sets.Count);
+
+        this.document = document;
+        this.set = set;
+        before = document.Document.Sets[set].Mesh;
+        after = mesh;
+
+        Name = name;
+    }
+
+    /// <inheritdoc />
+    public string Name { get; }
+
+    /// <inheritdoc />
+    public void Do(EditorContext context) => Write(after);
+
+    /// <inheritdoc />
+    public void Undo(EditorContext context) => Write(before);
+
+    /// <inheritdoc />
+    /// <inheritdoc cref="SetModelCommand.TryMergeWith" path="/remarks" />
+    public bool TryMergeWith(IEditorCommand previous, [NotNullWhen(true)] out IEditorCommand? merged) {
+        merged = null;
+
+        return false;
+    }
+
+    /// <summary>Puts one set back with a different mesh, leaving the others as they are.</summary>
+    void Write(string mesh) {
+        var sets = document.Document.Sets.ToList();
+
+        sets[set] = sets[set] with { Mesh = mesh };
+        document.Document = document.Document with { Sets = sets };
+    }
+}
+
 /// <summary>A layer moved past its neighbour, as one undo entry.</summary>
 /// <remarks>
 ///     <para>

@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.IO.Watch;
 using Vixen.Core.Mathematics;
+using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
@@ -157,6 +158,70 @@ public class LayerStackBindingTests {
         // Two triangles, three edges each. An unbound stack draws none of them, which is the state
         // every .vxlayers was in before it could name a model.
         Assert.Equal(6, image.Overlay.Count);
+    }
+
+    /// <summary>The part picker offers the model's meshes, and narrowing to one takes the rest away.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/941">#941</a>, whose only reason
+    ///         for not existing was cost.</b> The field round-tripped through the YAML and narrowed
+    ///         the resolve, and the sole way to set it was to edit the <c>.vxlayers</c> by hand —
+    ///         because offering the names was thought to mean parsing the model on a panel build. It
+    ///         means reading the sidecar, which an import has already written the names into.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It ends at the overlay and not at the field.</b> A test that read
+    ///         <c>Sets[0].Mesh</c> back would pass against a picker wired to nothing but the
+    ///         document — and what a narrowing is <em>for</em> is that the other mesh's islands stop
+    ///         being paintable. Twelve segments for two quads, six for one: three per triangle, and
+    ///         nothing else is on the overlay until the pointer moves.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The model is imported first, or the picker has nothing to offer.</b> That is the
+    ///         honest limit of this control and it is the picker's own third state — a model whose
+    ///         import has not run declares no sub-assets, so the field keeps whatever it names and
+    ///         the list holds only that.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task The_part_picker_narrows_the_set_and_the_islands_follow() {
+        using var fixture = new TexturingFixture(graphics: true);
+
+        await Imported(fixture, "Panels.obj", Quad(0f, 0.4f) + Named("upper", 4, 0.6f, 1f));
+
+        var document = Paintable(fixture, "Hull");
+        var panel = Panel(fixture);
+        var image = ImageIn(PaintPane(fixture));
+
+        Find<Select>(panel, "layer-stack-model").Value = "Assets/Panels.obj";
+
+        // Two quads, two triangles each, three segments a triangle.
+        Assert.Equal(12, image.Overlay.Count);
+
+        var parts = Find<Select>(Panel(fixture), "layer-stack-set-mesh");
+
+        Assert.Contains(parts.Options, option => option.Value == LayerStackView.EveryMesh);
+        Assert.Contains(parts.Options, option => option.Value == "hull");
+        Assert.Contains(parts.Options, option => option.Value == "upper");
+        Assert.Equal(LayerStackView.EveryMesh, parts.Value);
+
+        var depth = document.Stack.Depth.Value;
+
+        parts.Value = "upper";
+
+        // ⚠ The overlay first and the field afterwards, because only one of the two can pass while
+        // the panel is wrong: a picker that wrote the field and reached no resolve would satisfy
+        // every other line here and leave the other mesh's islands paintable.
+        Assert.Equal(6, image.Overlay.Count);
+        Assert.Equal("upper", document.Document.Sets[0].Mesh);
+        Assert.Equal(depth + 1, document.Stack.Depth.Value);
+
+        // And back, because widening is a gesture too — a set narrowed to the wrong mesh has to be
+        // able to stop being narrowed at all.
+        Find<Select>(Panel(fixture), "layer-stack-set-mesh").Value = LayerStackView.EveryMesh;
+
+        Assert.Equal(12, image.Overlay.Count);
+        Assert.Equal("", document.Document.Sets[0].Mesh);
     }
 
     /// <summary>An unbound stack draws none, and unbinding takes the last mesh's outlines away.</summary>
@@ -469,6 +534,46 @@ public class LayerStackBindingTests {
         fixture.Project.Assets.Scan();
 
         Assert.True(fixture.Project.Assets.TryGetByPath(relative, out _), "the scan missed " + file);
+    }
+
+    /// <summary>A second quad, named, offset past the first one's vertices.</summary>
+    /// <remarks>
+    ///     ⚠ <b>OBJ indices are one-based and <em>file-wide</em></b>, so the second object in a file
+    ///     does not start at 1 — an offset that is wrong makes a two-object fixture describe one
+    ///     object and one degenerate triangle, which proves less than it says.
+    /// </remarks>
+    static string Named(string name, int offset, float from, float to) =>
+        $"o {name}\n"
+        + $"v {from} 0 0\nv {to} 0 0\nv {to} 1 0\nv {from} 1 0\n"
+        + $"vt {from} 0\nvt {to} 0\nvt {to} 1\nvt {from} 1\n"
+        + $"f {offset + 1}/{offset + 1} {offset + 2}/{offset + 2} {offset + 3}/{offset + 3}\n"
+        + $"f {offset + 1}/{offset + 1} {offset + 3}/{offset + 3} {offset + 4}/{offset + 4}\n";
+
+    /// <summary>Writes a model into the project and runs a real import over it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The import is what puts the mesh names in the sidecar</b>, which is the only place the
+    ///     part picker reads them from — so a fixture that only wrote the file would be testing a
+    ///     picker with nothing in it.
+    /// </remarks>
+    static async Task Imported(TexturingFixture fixture, string file, string obj) {
+        Model(fixture, file, obj);
+
+        var workspace = new ProjectWorkspace(fixture.Paths);
+        List<ContentDiagnostic> said = [];
+
+        var summary = await ContentPipeline.ImportAsync(
+            workspace,
+            ProjectWorkspace.HostTarget,
+            said.Add,
+            cancellationToken: TestContext.Current.CancellationToken
+        );
+
+        Assert.True(
+            summary.Failed == 0,
+            "the import failed: " + string.Join("; ", said.Select(diagnostic => diagnostic.Message))
+        );
+
+        fixture.Project.Assets.Scan();
     }
 
     /// <summary>A quad spanning <paramref name="from" />…<paramref name="to" /> in <c>u</c>.</summary>
