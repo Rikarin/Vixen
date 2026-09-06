@@ -46,11 +46,26 @@ interface IPaintStack {
 ///         would still produce the right picture, so the picture cannot be the test.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Resolve" /> recomposites a rectangle, never the atlas.</b> That is the
-///         other half of the same claim: the cached halves make a stamp independent of the
-///         <em>number</em> of layers, and the rectangle makes it independent of their
+///         ⚠ <b><see cref="Resolve(PaintRect)" /> recomposites a rectangle, never the atlas.</b>
+///         That is the other half of the same claim: the cached halves make a stamp independent of
+///         the <em>number</em> of layers, and the rectangle makes it independent of their
 ///         <em>resolution</em>. Either one alone leaves a stamp whose cost grows with something the
 ///         artist did not touch.
+///     </para>
+///     <para>
+///         ⚠ <b>And a caller must hand over the rectangles rather than their union, which is a
+///         third thing and was missing</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a>. A union of rectangles is
+///         a rectangle, so two mirrored paths on opposite sides of the atlas produced a bounding box
+///         spanning it and symmetry — the feature the plural was built for — was the worst case
+///         rather than an edge case. <see cref="Resolve(IReadOnlyList{PaintRect})" /> is the shape
+///         that keeps the claim true.
+///     </para>
+///     <para>
+///         ⚠ <b>Nothing here composites at construction, and that was 1.9 s before the first stamp</b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/853">#853</a>. See the constructor: the
+///         whole-atlas pass it used to make produced a picture that its only possible reader — the
+///         view — already had.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Source-over, and not the sixteen operators a compiled stack has.</b> A live paint
@@ -68,8 +83,38 @@ sealed class PaintComposite {
     /// <summary>Evaluates both halves of the stack, now, and never again.</summary>
     /// <param name="stack">Where the halves come from.</param>
     /// <param name="layer">The painted layer's own pixels, read live.</param>
-    /// <exception cref="ArgumentException">A slice is not the painted layer's size.</exception>
-    public PaintComposite(IPaintStack stack, PaintImage layer) {
+    /// <param name="shown">
+    ///     What the view is already displaying, copied into <see cref="Result" /> so that the
+    ///     untouched parts of the atlas are a picture rather than transparency — or
+    ///     <see langword="null" /> when the caller only ever reads the rectangles it dirtied.
+    /// </param>
+    /// <exception cref="ArgumentException">A slice, or the seed, is not the painted layer's size.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It no longer composites the whole atlas here, and that was 1.9 seconds before the
+    ///         first stamp</b> — <a href="https://github.com/Rikarin/Vixen/issues/853">#853</a>.
+    ///         Measured in Debug at 4096² with twelve layers: 1878 ms of stroke start against 2.9 ms
+    ///         per stamp, so the number that failed exit criterion 8's spirit was the one before the
+    ///         stamps rather than any of them.
+    ///     </para>
+    ///     <para>
+    ///         <b>The reason it could go is that nothing needed it.</b> A full-atlas source-over per
+    ///         texel in managed code existed so that <see cref="Result" /> was a complete picture
+    ///         from the first frame of the drag — and the only caller that could want one is a view,
+    ///         which is already displaying that picture and re-uploads the rectangles a move
+    ///         dirtied. So the whole-atlas pass produced a copy of something the caller had.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="Result" /> is therefore valid where <see cref="Resolve(PaintRect)" />
+    ///         has been asked, plus whatever <paramref name="shown" /> seeded — and that is a
+    ///         narrower promise than before.</b> <see cref="ResolveAll" /> restores the old
+    ///         behaviour for a caller that genuinely needs the whole picture and has no seed;
+    ///         seeding from the view is the cheaper answer and an <c>Array.Copy</c>, at the price of
+    ///         making the seam with whatever produced that picture load-bearing, which is #849's
+    ///         territory.
+    ///     </para>
+    /// </remarks>
+    public PaintComposite(IPaintStack stack, PaintImage layer, PaintImage? shown = null) {
         ArgumentNullException.ThrowIfNull(stack);
         ArgumentNullException.ThrowIfNull(layer);
 
@@ -79,7 +124,9 @@ sealed class PaintComposite {
         Above = Evaluated(stack, layer, PaintStackSlice.Above);
         Result = new(layer.Width, layer.Height);
 
-        Resolve(layer.Bounds);
+        if (shown is not null) {
+            Seed(shown);
+        }
     }
 
     /// <summary>Everything under the painted layer.</summary>
@@ -88,7 +135,13 @@ sealed class PaintComposite {
     /// <summary>Everything over it.</summary>
     public PaintImage Above { get; }
 
-    /// <summary>What the artist is looking at.</summary>
+    /// <summary>What the artist is looking at, where the drag has touched it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Valid where <see cref="Resolve(PaintRect)" /> has run, plus whatever
+    ///     <see cref="Seed" /> copied in — and not before</b> (#853). It is not a whole picture on
+    ///     its own; <see cref="ResolveAll" /> makes it one, at the cost the constructor used to pay
+    ///     unconditionally.
+    /// </remarks>
     public PaintImage Result { get; }
 
     /// <summary>How many slice evaluations this composite has asked for, over its whole life.</summary>
@@ -107,6 +160,78 @@ sealed class PaintComposite {
     ///     rectangle it dirtied, and nothing about the atlas or the stack appears in either number.
     /// </remarks>
     public long TexelsResolved { get; private set; }
+
+    /// <summary>Composites the whole atlas, once.</summary>
+    /// <returns>Everything, which is what was rewritten.</returns>
+    /// <remarks>
+    ///     ⚠ <b>What the constructor used to do, kept as a method a caller has to ask for.</b> It is
+    ///     O(atlas) source-over per texel in managed code — 1.9 seconds at 4096² in Debug — so the
+    ///     one thing that must not happen is for it to be on a path a pointer-down takes. #853.
+    /// </remarks>
+    public PaintRect ResolveAll() => Resolve(layer.Bounds);
+
+    /// <summary>Copies a picture the caller already has into the result.</summary>
+    /// <param name="shown">The picture. Must be the painted layer's size.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="shown" /> is null.</exception>
+    /// <exception cref="ArgumentException">It is not the painted layer's size.</exception>
+    /// <remarks>
+    ///     ⚠ <b>An <c>Array.Copy</c> where <see cref="ResolveAll" /> is a per-texel blend, and the
+    ///     difference is two orders of magnitude.</b> The catch is that it makes the seam
+    ///     load-bearing: what a view is displaying came out of the <em>plan</em>, and this composite
+    ///     is straight source-over in C#, so a seeded region and a resolved region can disagree
+    ///     wherever the two arithmetics do. That disagreement is
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/849">#849</a> and it exists with or
+    ///     without the seed — the seed only makes it visible as a discontinuity at the edge of what
+    ///     the drag has touched instead of as a difference between the drag and the bake.
+    /// </remarks>
+    public void Seed(PaintImage shown) {
+        ArgumentNullException.ThrowIfNull(shown);
+
+        if (shown.Width != layer.Width || shown.Height != layer.Height) {
+            throw new ArgumentException(
+                $"The seed picture is {shown.Width}×{shown.Height} and the painted layer is "
+                + $"{layer.Width}×{layer.Height}. A seed at another resolution would have to be resampled, "
+                + "and a resample is exactly the whole-atlas pass the seed exists to avoid.",
+                nameof(shown)
+            );
+        }
+
+        Array.Copy(shown.Texels, Result.Texels, Result.Texels.Length);
+    }
+
+    /// <summary>Recomposites several rectangles of the result, each on its own.</summary>
+    /// <param name="regions">What changed. Each is clipped to the image; an empty list does nothing.</param>
+    /// <returns>The union of them, which is what a view re-uploads.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A union of rectangles is a rectangle, and that is the whole of
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a>.</b> Two mirrored paths
+    ///         on opposite sides of the atlas have a bounding box spanning the atlas, so a
+    ///         <c>Resolve</c> given their union recomposites nearly all of it — and symmetry is the
+    ///         feature <see cref="PaintSession.MoveAll" /> grew a plural for. The same is true one
+    ///         level down of a pointer that jumped between frames.
+    ///     </para>
+    ///     <para>
+    ///         <b>Overlapping regions are recomposited twice and that is correct rather than
+    ///         merely tolerable.</b> <see cref="Resolve(PaintRect)" /> writes each texel from
+    ///         <see cref="Below" />, the layer and <see cref="Above" /> — never from what
+    ///         <see cref="Result" /> already held — so it is idempotent, and the second pass over an
+    ///         intersection produces the same bytes. What it costs is counted honestly in
+    ///         <see cref="TexelsResolved" />; subtracting the overlap would need a rectangle
+    ///         decomposition whose own cost is not obviously smaller than the texels it saves.
+    ///     </para>
+    /// </remarks>
+    public PaintRect Resolve(IReadOnlyList<PaintRect> regions) {
+        ArgumentNullException.ThrowIfNull(regions);
+
+        var union = PaintRect.Empty;
+
+        for (var index = 0; index < regions.Count; index++) {
+            union = union.Union(Resolve(regions[index]));
+        }
+
+        return union;
+    }
 
     /// <summary>Recomposites one rectangle of the result.</summary>
     /// <param name="rect">What changed. Clipped to the image.</param>

@@ -87,6 +87,15 @@
         <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
 
         <!--
+            ⚠ The slider and the segmented control the brush inspector is, named rather than taken
+            transitively through the line above. It arrives either way — `Vixen.Ui.Controls.Advanced`
+            references it — and a reference this assembly *uses* is written down, for the same reason
+            `Vixen.Editor.Assets` is: the day somebody narrows that one is the day this file stops
+            compiling for a reason nothing states.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Controls\Vixen.Ui.Controls.csproj" />
+
+        <!--
             ⚠ **The brush, and it is a terrain assembly only by its name.** Doc 48 § D13 says
             painting is doc 31's brush aimed at an atlas instead of a heightfield, and that turned out
             to be literally true rather than an analogy: `TerrainBrush.WeightAt`, `BrushFalloff` and

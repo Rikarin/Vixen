@@ -129,6 +129,34 @@ sealed class PaintStroke {
     /// <summary>How many texels the dilation has written outside an island.</summary>
     public int DilatedTexels { get; private set; }
 
+    /// <summary>How many texels either loop has <em>looked at</em>, over the whole stroke.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The counter <see cref="WeightsEvaluated" /> is not, and the difference is what
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a> found.</b> A weight is
+    ///         evaluated only for a texel an island covers, and only inside the stamp's footprint —
+    ///         so a counter of weights measures the cheaper of a stamp's two loops. The dilation
+    ///         scans the footprint grown by the gutter on every side, up to <see cref="gutter" />
+    ///         times. Exit criterion 8 was gated on the smaller number.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>How much larger depends on the coverage, and #871's own "roughly 45 000" is the
+    ///         ceiling rather than the usual case.</b> <see cref="Dilate" /> stops as soon as a round
+    ///         finds nothing to fill, so over an atlas an island covers entirely it runs <em>once</em>
+    ///         — measured at radius 48 and gutter 4, 10 810 scanned texels a stamp against 9 216
+    ///         weights. The 45 000 is what an atlas with real seams in it costs, where each of the
+    ///         four rounds reaches new gutter texels. Either way it is the bigger of the two, and
+    ///         either way it was in no counter.
+    ///     </para>
+    ///     <para>
+    ///         <b>So this counts every texel visited, in both loops, covered or not.</b> It is still
+    ///         a property expressed as work rather than as elapsed time, and its closed form —
+    ///         footprint plus <c>gutter × (footprint + 2·gutter)²</c> — mentions the atlas and the
+    ///         stack in neither term, which is the claim the criterion is about.
+    ///     </para>
+    /// </remarks>
+    public long TexelsScanned { get; private set; }
+
     /// <summary>Whether anything has been painted.</summary>
     public bool IsEmpty => before.Count == 0;
 
@@ -137,12 +165,26 @@ sealed class PaintStroke {
 
     /// <summary>Moves the pointer, painting whatever stamps that earned.</summary>
     /// <param name="texel">Where the pointer is now, in texels of the atlas.</param>
+    /// <param name="regions">
+    ///     Appended one rectangle <em>per stamp</em>, or <see langword="null" /> to collect none.
+    /// </param>
     /// <returns>The rectangle this move dirtied, for a view to re-upload.</returns>
     /// <remarks>
-    ///     The first call always stamps, for <c>BrushStroke</c>'s reason: an artist who clicks
-    ///     without dragging expects one stamp rather than none.
+    ///     <para>
+    ///         The first call always stamps, for <c>BrushStroke</c>'s reason: an artist who clicks
+    ///         without dragging expects one stamp rather than none.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The return is the union and <paramref name="regions" /> is not, and the second is
+    ///         the one a recomposite must use</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a>. One pointer move can
+    ///         earn many stamps: a pointer that jumps half the atlas between two frames lays a line
+    ///         of them, and the union of that line is a rectangle covering everything between the
+    ///         two ends. Recompositing the union makes a stamp's cost a function of how fast the
+    ///         artist moved, which is the opposite of what "independent of atlas size" claims.
+    ///     </para>
     /// </remarks>
-    public PaintRect MoveTo(Vector2 texel) {
+    public PaintRect MoveTo(Vector2 texel, List<PaintRect>? regions = null) {
         smoothed = started ? Vector2.Lerp(smoothed, texel, 1f - smoothing) : texel;
         started = true;
 
@@ -152,7 +194,13 @@ sealed class PaintStroke {
         var dirty = PaintRect.Empty;
 
         foreach (var stamp in spaced) {
-            dirty = dirty.Union(Apply(Jittered(stamp, StampCount)));
+            var painted = Apply(Jittered(stamp, StampCount));
+
+            if (!painted.IsEmpty) {
+                regions?.Add(painted);
+            }
+
+            dirty = dirty.Union(painted);
             StampCount++;
         }
 
@@ -220,6 +268,10 @@ sealed class PaintStroke {
         for (var y = footprint.Y; y < footprint.EndY; y++) {
             for (var x = footprint.X; x < footprint.EndX; x++) {
                 var index = (y * image.Width) + x;
+
+                // Counted before the coverage test, because this loop visited the texel whether or
+                // not an island covers it — see `TexelsScanned`.
+                TexelsScanned++;
 
                 // ⚠ Only where the surface is. A stamp that painted the gutter directly would put
                 // colour where no triangle samples it and would then be *overwritten* by the
@@ -298,6 +350,12 @@ sealed class PaintStroke {
             for (var y = grown.Y; y < grown.EndY; y++) {
                 for (var x = grown.X; x < grown.EndX; x++) {
                     var index = (y * image.Width) + x;
+
+                    // ⚠ The loop exit criterion 8's counter used not to see at all, and the larger
+                    // of a stamp's two: one round over the grown footprint already exceeds the whole
+                    // footprint scan, and an atlas with real islands in it runs up to `gutter` of
+                    // them. #871.
+                    TexelsScanned++;
 
                     if (coverage.IsCovered(index)) {
                         continue;
