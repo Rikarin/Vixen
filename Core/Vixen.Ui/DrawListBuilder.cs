@@ -963,53 +963,36 @@ public sealed class DrawListBuilder {
         var shown = !element.Style.TryGet(visibility, out var mode) || (mode != hidden && mode != collapse);
 
         if (shown) {
-            // Before the background, which is where CSS paints it: a shadow is cast *by* the box and
-            // therefore lies under it, and an element with a translucent background shows its own
-            // shadow through itself.
-            EmitShadow(document, element, into, x, y, width, height, corners, radius, alpha);
+            // ⚠ <b>One box per fragment, and for four algorithms out of five there is exactly one.</b>
+            // `LayoutTree.GetFragmentCount` is one for every node that did not cross a line break, and
+            // `GetFragment(node, 0)` is then `(0, 0, width, height, Both)` — so the loop below is the
+            // single-rectangle painter, byte for byte, on every box in every interface here. What it
+            // stops being is the painter of the *union*: `element.Width` and `Height` for a
+            // fragmented inline box are the union of its fragments, which is the right answer to CSS
+            // 2.1 §10.1's containing-block question and the wrong one for a background — on a ragged
+            // second line it is a visible rectangle of colour where there is no text.
+            //
+            // ⚠ <b>The fragment's rectangle already carries the horizontal border and padding at
+            // whichever ends are real</b> (see <c>LayoutFragmentEnds</c>), so laying a background over
+            // it needs no reference to the flags. The flags say which vertical edges to *stroke* and
+            // which corners may curve, which is what <see cref="Slice" /> and `EmitBorder`'s `ends`
+            // read them for.
+            var count = document.Layout.GetFragmentCount(element.LayoutNode);
 
-            if (Color(element, backgroundColor) is { } fill) {
-                into.Add(
-                    Styled(
-                        new DrawCommand(
-                            DrawCommandKind.Rectangle,
-                            x,
-                            y,
-                            width,
-                            height,
-                            Fade(fill, alpha),
-                            radius,
-                            0f
-                        ),
-                        into,
-                        corners
-                    )
+            for (var index = 0; index < count; index++) {
+                var (left, top, across, down, ends) = document.Layout.GetFragment(element.LayoutNode, index);
+                var sliced = count == 1 ? corners : Slice(corners, ends);
+
+                Decorate(
+                    x + left,
+                    y + top,
+                    across,
+                    down,
+                    sliced,
+                    count == 1 ? radius : sliced.IsUniformCircular(out var sameCircle) ? sameCircle : 0f,
+                    ends
                 );
             }
-
-            EmitGradient(element, into, x, y, width, height, corners, radius, alpha);
-
-            // The border is drawn after the background and before the children, which is the order
-            // CSS paints them in — a child overlapping the edge covers the border, and a background
-            // never covers its own.
-            EmitBorder(document, element, into, x, y, width, height, corners, radius, alpha);
-
-            // ⚠ <b>After the border and — the part that matters — <i>before</i> the overflow clip
-            // this element is about to push.</b> `overflow: hidden` clips an element's content and
-            // its descendants; it does not clip the element's own outline, which is drawn outside
-            // the box the clip is made from. Emitting this two blocks lower, inside the clip, would
-            // have removed the whole ring on every scrolling container in the editor — invisibly,
-            // because a clipped-away ring and an unemitted one are the same picture.
-            //
-            // ⚠ <b>What this does not do is CSS's painting order, and the difference is real but
-            // small.</b> CSS Painting §3 paints every outline in the stacking context *after* every
-            // box in it, so an outline is on top of a later sibling that overlaps it; here it is
-            // painted with its own element and a later sibling covers it. Matching the spec needs a
-            // deferred list the whole tree walk appends to, which is the same machinery
-            // `box-shadow` would need and does not have either. It shows only where a ring and a
-            // sibling overlap, which is where `outline-offset` has already been asked to reach
-            // under a neighbour.
-            EmitOutline(element, into, x, y, width, height, corners, alpha);
         }
 
         var axes = overflow.Of(element.Style);
@@ -1065,6 +1048,64 @@ public sealed class DrawListBuilder {
         if (axes.Any) {
             into.Add(new DrawCommand(DrawCommandKind.ClipPop, x, y, width, height, default, radius, 0f));
         }
+
+        void Decorate(
+            float boxX,
+            float boxY,
+            float boxWidth,
+            float boxHeight,
+            CornerRadii boxCorners,
+            float boxRadius,
+            LayoutFragmentEnds ends
+        ) {
+            // Before the background, which is where CSS paints it: a shadow is cast *by* the box and
+            // therefore lies under it, and an element with a translucent background shows its own
+            // shadow through itself.
+            EmitShadow(document, element, into, boxX, boxY, boxWidth, boxHeight, boxCorners, boxRadius, alpha);
+
+            if (Color(element, backgroundColor) is { } fill) {
+                into.Add(
+                    Styled(
+                        new DrawCommand(
+                            DrawCommandKind.Rectangle,
+                            boxX,
+                            boxY,
+                            boxWidth,
+                            boxHeight,
+                            Fade(fill, alpha),
+                            boxRadius,
+                            0f
+                        ),
+                        into,
+                        boxCorners
+                    )
+                );
+            }
+
+            EmitGradient(element, into, boxX, boxY, boxWidth, boxHeight, boxCorners, boxRadius, alpha);
+
+            // The border is drawn after the background and before the children, which is the order
+            // CSS paints them in — a child overlapping the edge covers the border, and a background
+            // never covers its own.
+            EmitBorder(document, element, into, boxX, boxY, boxWidth, boxHeight, boxCorners, boxRadius, alpha, ends);
+
+            // ⚠ <b>After the border and — the part that matters — <i>before</i> the overflow clip
+            // this element is about to push.</b> `overflow: hidden` clips an element's content and
+            // its descendants; it does not clip the element's own outline, which is drawn outside
+            // the box the clip is made from. Emitting this two blocks lower, inside the clip, would
+            // have removed the whole ring on every scrolling container in the editor — invisibly,
+            // because a clipped-away ring and an unemitted one are the same picture.
+            //
+            // ⚠ <b>What this does not do is CSS's painting order, and the difference is real but
+            // small.</b> CSS Painting §3 paints every outline in the stacking context *after* every
+            // box in it, so an outline is on top of a later sibling that overlaps it; here it is
+            // painted with its own element and a later sibling covers it. Matching the spec needs a
+            // deferred list the whole tree walk appends to, which is the same machinery
+            // `box-shadow` would need and does not have either. It shows only where a ring and a
+            // sibling overlap, which is where `outline-offset` has already been asked to reach
+            // under a neighbour.
+            EmitOutline(element, into, boxX, boxY, boxWidth, boxHeight, boxCorners, alpha);
+        }
     }
 
     /// <summary>Emits an element's border: one ring when it is uniform, one band per edge when not.</summary>
@@ -1108,7 +1149,8 @@ public sealed class DrawListBuilder {
         float height,
         CornerRadii corners,
         float radius,
-        float alpha
+        float alpha,
+        LayoutFragmentEnds ends
     ) {
         // Clockwise from the top, which is the order CSS lists the edges in and the order the colour
         // table above is interned in. The two agreeing is what lets one index mean one edge.
@@ -1116,6 +1158,21 @@ public sealed class DrawListBuilder {
         var right = document.Layout.GetComputedBorder(element.LayoutNode, Edge.Right);
         var bottom = document.Layout.GetComputedBorder(element.LayoutNode, Edge.Bottom);
         var left = document.Layout.GetComputedBorder(element.LayoutNode, Edge.Left);
+
+        // ⚠ <b>A break is not an edge of the box, so it gets no border — and dropping the width here
+        // is what takes the fragment off the uniform ring path.</b> CSS Display §2.2 draws a
+        // fragmented inline box's inline-start border once, at its first fragment, and its inline-end
+        // border once, at its last. `ends` is `Both` for every unfragmented box, so these two lines
+        // are dead on every element that did not cross a line break and the ring below is reached
+        // unchanged. ⚠ Left is inline-start and right is inline-end, which is this engine's standing
+        // horizontal-tb assumption rather than a decision taken here — see `LayoutFragmentEnds`.
+        if ((ends & LayoutFragmentEnds.Start) == 0) {
+            left = 0f;
+        }
+
+        if ((ends & LayoutFragmentEnds.End) == 0) {
+            right = 0f;
+        }
 
         if (top <= 0f && right <= 0f && bottom <= 0f && left <= 0f) {
             return;
@@ -2985,6 +3042,27 @@ public sealed class DrawListBuilder {
     ///         it costs the rarer conflict and keeps one rule in the engine rather than two.
     ///     </para>
     /// </remarks>
+    /// <summary>The radii a single fragment of a box may curve, which is the ends it really has.</summary>
+    /// <param name="corners">The whole box's radii.</param>
+    /// <param name="ends">Which of the box's two real ends this fragment carries.</param>
+    /// <returns>The radii for this fragment.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A break gets a square corner for the same reason it gets no border: it is not an edge
+    ///     of the box.</b> CSS Display §2.2 puts the box's inline-start decorations on the first
+    ///     fragment and its inline-end ones on the last, and a rounded corner is a decoration —
+    ///     rounding a break would draw a pill in the middle of a paragraph and leave a notch of
+    ///     background between the two halves of one word's run.
+    ///     ⚠ <see cref="LayoutFragmentEnds.Both" /> returns the radii unchanged, which is every
+    ///     unfragmented box.
+    /// </remarks>
+    static CornerRadii Slice(CornerRadii corners, LayoutFragmentEnds ends) =>
+        new(
+            (ends & LayoutFragmentEnds.Start) != 0 ? corners.TopLeft : Vector2.Zero,
+            (ends & LayoutFragmentEnds.End) != 0 ? corners.TopRight : Vector2.Zero,
+            (ends & LayoutFragmentEnds.End) != 0 ? corners.BottomRight : Vector2.Zero,
+            (ends & LayoutFragmentEnds.Start) != 0 ? corners.BottomLeft : Vector2.Zero
+        );
+
     CornerRadii Corners(UiElement element) {
         // ⚠ Stack-allocated, because this runs for every element in the frame and the overwhelming
         // majority of them have no radius at all. A `Vector2[4]` here was four hundred allocations a
