@@ -75,6 +75,9 @@ public sealed partial class WebGpuDevice : IGraphicsDevice {
     PushConstantRing? pushConstants;
     bool disposed;
 
+    /// <summary>Whether <see cref="BeginFrame" /> has run and <see cref="EndFrame" /> has not.</summary>
+    bool recording;
+
     /// <summary>Creates a device, reporting failure rather than throwing.</summary>
     /// <param name="options">What to reach WebGPU with, and what to build the device as.</param>
     /// <param name="device">The device, when it was created.</param>
@@ -244,6 +247,23 @@ public sealed partial class WebGpuDevice : IGraphicsDevice {
 
             pushConstants?.BeginFrame(slot);
             binding.Tick();
+
+            recording = true;
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Stored rather than answered <see langword="false" />, though nothing here resets a
+    ///     command pool under a nested frame.</b> The retiring drain above is the part that would
+    ///     misfire: a nested pair advances <c>FrameCount</c>, and this backend decides what is safe to
+    ///     free by arithmetic on that number rather than by waiting on a fence. See #775.
+    /// </remarks>
+    public bool IsFrameOpen {
+        get {
+            lock (gate) {
+                return recording;
+            }
         }
     }
 
@@ -251,6 +271,8 @@ public sealed partial class WebGpuDevice : IGraphicsDevice {
     public void EndFrame() {
         lock (gate) {
             ThrowIfDisposed();
+
+            recording = false;
             FrameCount++;
         }
     }

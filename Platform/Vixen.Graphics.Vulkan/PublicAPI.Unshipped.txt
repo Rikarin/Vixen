@@ -39,6 +39,7 @@ Vixen.Graphics.Vulkan.VulkanDevice.GetAccelerationStructureAddress(Vixen.Graphic
 Vixen.Graphics.Vulkan.VulkanDevice.GetAccelerationStructureSizes(in Vixen.Graphics.AccelerationStructureBuildInput input) -> Vixen.Graphics.AccelerationStructureSizes
 Vixen.Graphics.Vulkan.VulkanDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandSubmitter
 Vixen.Graphics.Vulkan.VulkanDevice.ImportImage(nint image, in Vixen.Graphics.TextureDescription description) -> Vixen.Graphics.TextureHandle
+Vixen.Graphics.Vulkan.VulkanDevice.IsFrameOpen.get -> bool
 Vixen.Graphics.Vulkan.VulkanDevice.NativeHandles.get -> Vixen.Graphics.Vulkan.VulkanNativeHandles
 Vixen.Graphics.Vulkan.VulkanDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
 Vixen.Graphics.Vulkan.VulkanDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter

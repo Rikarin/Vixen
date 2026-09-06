@@ -703,6 +703,7 @@ Vixen.Graphics.IGraphicsDevice.FramesInFlight.get -> int
 Vixen.Graphics.IGraphicsDevice.GetAccelerationStructureAddress(Vixen.Graphics.AccelerationStructureHandle handle) -> ulong
 Vixen.Graphics.IGraphicsDevice.GetAccelerationStructureSizes(in Vixen.Graphics.AccelerationStructureBuildInput input) -> Vixen.Graphics.AccelerationStructureSizes
 Vixen.Graphics.IGraphicsDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.IGraphicsDevice.IsFrameOpen.get -> bool
 Vixen.Graphics.IGraphicsDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
 Vixen.Graphics.IGraphicsDevice.TransferQueue.get -> Vixen.Graphics.ICommandSubmitter
 Vixen.Graphics.IGraphicsDevice.TryResolveQueries(Vixen.Graphics.QueryPoolHandle pool, int first, System.Span<ulong> results) -> bool

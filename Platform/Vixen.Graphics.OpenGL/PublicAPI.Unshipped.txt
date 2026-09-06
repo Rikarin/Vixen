@@ -87,6 +87,7 @@ Vixen.Graphics.OpenGL.GlDevice.GetAccelerationStructureAddress(Vixen.Graphics.Ac
 Vixen.Graphics.OpenGL.GlDevice.GetAccelerationStructureSizes(in Vixen.Graphics.AccelerationStructureBuildInput input) -> Vixen.Graphics.AccelerationStructureSizes
 Vixen.Graphics.OpenGL.GlDevice.GlDevice(Vixen.Graphics.OpenGL.GlDeviceOptions options) -> void
 Vixen.Graphics.OpenGL.GlDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandSubmitter
+Vixen.Graphics.OpenGL.GlDevice.IsFrameOpen.get -> bool
 Vixen.Graphics.OpenGL.GlDevice.LiveResourceCount.get -> int
 Vixen.Graphics.OpenGL.GlDevice.Profile.get -> Vixen.Graphics.OpenGL.GlProfile
 Vixen.Graphics.OpenGL.GlDevice.ProgramCount.get -> int

@@ -57,18 +57,32 @@ public class TextureFrameLoopTests {
     ///     <em>tripwire</em>, its whole purpose is to fail when the set grows, and the failure
     ///     message says which issue the growth belongs to.
     /// </remarks>
-    static readonly string[] FrameSurface = ["BeginFrame", "EndFrame", "FrameCount", "FramesInFlight"];
+    static readonly string[] FrameSurface = [
+        "BeginFrame",
+        "EndFrame",
+        "FrameCount",
+        "FramesInFlight",
+        "IsFrameOpen"
+    ];
 
     /// <summary>
-    ///     ⚠ Nothing on the device says whether a frame is open — #775's blocker, confirmed.
+    ///     ⚠ The device can be asked whether a frame is open — #775's blocker, since removed.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>This is the claim the issue rests on, and it had never been checked.</b> A caller
-    ///         that wanted to be safe — the plugin's preview pane, a thumbnail pump, a render
-    ///         feature's extraction — has nothing to branch on: it cannot ask, and it cannot derive
-    ///         the answer from <c>FrameCount</c>, whose contract says only that two reads inside one
-    ///         frame agree.
+    ///         <b>This was the claim the issue rested on, and it is no longer true.</b> A caller that
+    ///         wants to be safe — the plugin's preview pane, a thumbnail pump, a render feature's
+    ///         extraction — had nothing to branch on: it could not ask, and it could not derive the
+    ///         answer from <c>FrameCount</c>, whose contract says only that two reads inside one
+    ///         frame agree. <see cref="IGraphicsDevice.IsFrameOpen" /> is the member that closed it,
+    ///         and this test now holds the surface at five names rather than four.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Kept as a tripwire rather than deleted, and the name is now load-bearing.</b> A
+    ///         backend that answered <see langword="false" /> unconditionally would satisfy every
+    ///         caller and protect nobody, which is why the contract has no default implementation —
+    ///         see <see cref="IGraphicsDevice.IsFrameOpen" />'s own remarks and
+    ///         <see cref="Every_device_tracks_whether_a_frame_is_open" /> below.
     ///     </para>
     ///     <para>
     ///         <b>The instrument: the set is read off the interface rather than counted.</b> A
@@ -98,37 +112,39 @@ public class TextureFrameLoopTests {
             $"IGraphicsDevice's frame surface is now [{string.Join(", ", members)}] rather than "
             + $"[{string.Join(", ", FrameSurface)}]. If what was added answers 'is a frame open', this test has "
             + "done its job: https://github.com/Rikarin/Vixen/issues/775 is the issue, TexturePlanEvaluator is "
-            + "the caller that should now ask, and this assertion should be replaced by one that it does."
+            + "the caller that asks, and a member that answers a different question needs its own test."
         );
     }
 
     /// <summary>
-    ///     ⚠ A plan evaluated inside a host's own frame is accepted in silence — #775's trap.
+    ///     ⚠ A plan evaluated inside a host's own frame is refused — #775's trap, now a throw.
     /// </summary>
     /// <remarks>
     ///     <para>
     ///         <b>The other half of the issue, and the half that is a behaviour rather than a
-    ///         surface.</b> Nothing in the evaluator's API, its remarks or the device refuses the
-    ///         nesting: the second <c>BeginFrame</c> is taken as an ordinary one. On this device that
-    ///         is harmless, which is exactly why the assertion is made here — the Null device is
-    ///         where a nested frame can be observed without corrupting the very pools the
-    ///         observation would be read out of.
+    ///         surface.</b> This used to assert the opposite: the nesting was accepted in silence,
+    ///         the second <c>BeginFrame</c> taken as an ordinary one, and the only evidence was the
+    ///         frame counter advancing twice across one host frame. What made it a trap rather than
+    ///         a rule was that a caller could not have checked either — see the test above.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What the counter shows is the nesting itself.</b> Two frames advance across one
-    ///         host frame that has not ended: the evaluator's, inside the caller's. On the Vulkan
-    ///         backend the same two calls reset the caller's command pool and desynchronise its
-    ///         fences, and no test can safely demonstrate that — which is the argument for the
-    ///         device refusing it rather than for a comment saying not to.
+    ///         ⚠ <b>Asserted on the Null device, where the nesting is harmless, and that is the
+    ///         point.</b> On Vulkan the same two calls reset the command pools of the slot the caller
+    ///         is recording into and leave its fences a slot behind for the rest of the session, so
+    ///         no test could safely demonstrate the damage — which is precisely the argument for a
+    ///         refusal rather than a comment saying not to. It also means this device must track the
+    ///         bit honestly rather than answer <see langword="false" />, because every test of a
+    ///         caller's frame discipline runs here.
     ///     </para>
     ///     <para>
-    ///         <b>When this goes red</b>: because a guard was added, or because the evaluator stopped
-    ///         driving the frame loop. Either is #775 closed, and the test to write in its place is
-    ///         the one that asserts the refusal.
+    ///         ⚠ <b>The frame counter is read after the refusal, and that is the instrument.</b> A
+    ///         guard that threw <em>after</em> the evaluator had opened its own frame would satisfy
+    ///         an <c>Assert.Throws</c> and leave the caller's slot already reset — the damage done
+    ///         and reported. Nothing may have advanced.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void Evaluating_a_plan_inside_a_host_frame_is_neither_refused_nor_noticed() {
+    public void Evaluating_a_plan_inside_a_host_frame_is_refused_before_anything_is_recorded() {
         using var device = new NullDevice(new() { Record = true });
 
         var source = device.CreateTexture(
@@ -141,7 +157,76 @@ public class TextureFrameLoopTests {
             )
         );
 
-        var plan = new TexturePlan {
+        var plan = Plan();
+
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        // The host opens its frame, exactly as EditorHost.Present does before it builds a pane.
+        device.BeginFrame();
+
+        var inside = device.FrameCount;
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = source })
+        );
+
+        Assert.Contains("inside a frame", refused.Message, StringComparison.Ordinal);
+
+        Assert.True(
+            device.FrameCount == inside,
+            $"The refusal happened after the evaluator had advanced the frame counter by "
+            + $"{device.FrameCount - inside}. A guard that fires once the nested BeginFrame has run has "
+            + "already reset the caller's command pools, which is the damage "
+            + "https://github.com/Rikarin/Vixen/issues/775 is about — reported rather than prevented."
+        );
+
+        device.EndFrame();
+
+        // And outside the frame the very same call succeeds, which is what says the refusal is about
+        // the nesting rather than about the plan, the device or the externals.
+        using (var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = source })) {
+            Assert.Equal(1, bake.Dispatches);
+        }
+
+        device.Destroy(source);
+    }
+
+    /// <summary>⚠ Every device answers the question, rather than three of them answering "no".</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The instrument check for the member the two tests above rest on.</b>
+    ///         <see cref="IGraphicsDevice.IsFrameOpen" /> is declared without a default
+    ///         implementation for exactly this reason, and the compiler is what enforces that across
+    ///         the four backends — but the compiler cannot tell a stored bit from a
+    ///         <c>=&gt; false</c>, and a backend that returned a constant would make every frame
+    ///         discipline test in the repository pass whatever its caller did.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the Null device is reachable from here</b>, which is the one that matters:
+    ///         it is the device the tests run on. The Vulkan, GL and WebGPU implementations are read
+    ///         by <c>CheckApi</c>'s baselines and by their own suites; what this file can assert is
+    ///         that the device under every editor test tracks it truthfully.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_device_tracks_whether_a_frame_is_open() {
+        using var device = new NullDevice(new() { Record = true });
+
+        Assert.False(device.IsFrameOpen);
+
+        device.BeginFrame();
+
+        Assert.True(device.IsFrameOpen);
+
+        device.EndFrame();
+
+        Assert.False(device.IsFrameOpen);
+    }
+
+    /// <summary>One op over one external image, which is the smallest plan that dispatches.</summary>
+    /// <returns>The plan.</returns>
+    static TexturePlan Plan() =>
+        new() {
             BaseWidth = 16,
             BaseHeight = 16,
             Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
@@ -160,27 +245,4 @@ public class TextureFrameLoopTests {
             ],
             Outputs = [1]
         };
-
-        using var evaluator = new TexturePlanEvaluator(device);
-
-        // The host opens its frame, exactly as EditorHost.Present does before it builds a pane.
-        device.BeginFrame();
-
-        var inside = device.FrameCount;
-
-        using (var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle> { [0] = source })) {
-            Assert.Equal(1, bake.Dispatches);
-        }
-
-        Assert.True(
-            device.FrameCount == inside + 1,
-            $"Evaluating inside an open frame advanced the frame counter by {device.FrameCount - inside}. "
-            + "One is the nesting https://github.com/Rikarin/Vixen/issues/775 is about — the evaluator's own "
-            + "BeginFrame/EndFrame pair inside the caller's. Zero would mean the evaluator stopped driving the "
-            + "frame loop, which closes the issue and makes this assertion the wrong one."
-        );
-
-        device.EndFrame();
-        device.Destroy(source);
-    }
 }
