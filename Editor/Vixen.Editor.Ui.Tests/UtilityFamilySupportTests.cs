@@ -1054,8 +1054,81 @@ public class UtilityFamilySupportTests {
         // did nothing — `filter`'s failure, in the one place the fragment table had not reached.
         // See <see cref="A_ring_and_an_elevation_shadow_on_one_element_are_both_painted" />.
         { "ring-2", "box-shadow", "0 0 0 2px currentcolor, 0 0 transparent" },
-        { "ring-accent", "box-shadow", "0 0 0 0px #2f6ecd, 0 0 transparent" }
+        { "ring-accent", "box-shadow", "0 0 0 0px #2f6ecd, 0 0 transparent" },
+
+        // Masks. ⚠ <b>Twenty-two rows the previous draft of this file said could not be written, and
+        // the reason it gave is refuted by the values below.</b> `Uncovered` held the whole mask and
+        // gradient cluster on the grounds that its computed value is "an assembled `--tw-*` list", so
+        // a row "would pin the mechanism rather than the answer". It is an assembly on the way
+        // through and it is not one by the time the cascade has finished with it: every `var()` is
+        // substituted, and what a row reads back is a finished `mask-image` naming the edge, the stop
+        // and the shape. That is the answer, in the same sense `bg-accent`'s row is.
+        //
+        // ⚠ <b>Six layers for an edge class and three for a shape one, which is the claim that
+        // matters most here.</b> The list is always in one order — the linear slot, which an edge
+        // family expands into four ramps, then radial, then conic — and the slots a class did not
+        // name hold `linear-gradient(#fff, #fff)`, the identity under `mask-composite: intersect`. A
+        // family that wrote its ramp into the wrong slot, or onto the edge opposite the one it names,
+        // still produces a valid `mask-image`, still masks, and is green in
+        // `UtilityConsumptionGateTests`, whose verdict is per property and unions over values. The
+        // four edges written out in every row are what makes that visible.
+        //
+        // ⚠ `mask-t-*` is `to top`: it fades the element out towards its top edge, which is the
+        // opposite of the reading that takes the letter for the direction the ramp travels.
+        { "mask-t-from-50%", "mask-image", EdgeRamps("black 50%, transparent 100%", Open, Open, Open) },
+        { "mask-t-to-25%", "mask-image", EdgeRamps("black 0%, transparent 25%", Open, Open, Open) },
+        { "mask-r-from-50%", "mask-image", EdgeRamps(Open, "black 50%, transparent 100%", Open, Open) },
+        { "mask-r-to-25%", "mask-image", EdgeRamps(Open, "black 0%, transparent 25%", Open, Open) },
+        { "mask-b-from-50%", "mask-image", EdgeRamps(Open, Open, "black 50%, transparent 100%", Open) },
+        { "mask-b-to-25%", "mask-image", EdgeRamps(Open, Open, "black 0%, transparent 25%", Open) },
+        { "mask-l-from-50%", "mask-image", EdgeRamps(Open, Open, Open, "black 50%, transparent 100%") },
+        { "mask-l-to-25%", "mask-image", EdgeRamps(Open, Open, Open, "black 0%, transparent 25%") },
+
+        // The axis pair drives *two* ramps rather than widening one, so a row naming only the edge it
+        // happened to reach would pass on an implementation that had forgotten the opposite edge.
+        { "mask-x-from-10%", "mask-image", EdgeRamps(Open, "black 10%, transparent 100%", Open, "black 10%, transparent 100%") },
+        { "mask-x-to-80%", "mask-image", EdgeRamps(Open, "black 0%, transparent 80%", Open, "black 0%, transparent 80%") },
+        { "mask-y-from-10%", "mask-image", EdgeRamps("black 10%, transparent 100%", Open, "black 10%, transparent 100%", Open) },
+        { "mask-y-to-80%", "mask-image", EdgeRamps("black 0%, transparent 80%", Open, "black 0%, transparent 80%", Open) },
+
+        // The three shapes, each filling its own layer and leaving the other two open. The bare root
+        // is an angle for the linear and conic families and an ending *size* for the radial one, and
+        // `mask-radial-at-*` is a root of its own rather than a value of `mask-radial` — `at` is part
+        // of the name, which is why `SplitName` has to be shown the longer entry.
+        { "mask-linear-45", "mask-image", Shapes("linear-gradient(45deg, black 0%, transparent 100%)", Unmasked, Unmasked) },
+        { "mask-linear-from-50%", "mask-image", Shapes("linear-gradient(180deg, black 50%, transparent 100%)", Unmasked, Unmasked) },
+        { "mask-linear-to-90%", "mask-image", Shapes("linear-gradient(180deg, black 0%, transparent 90%)", Unmasked, Unmasked) },
+        { "mask-radial-closest-side", "mask-image", Shapes(Unmasked, "radial-gradient(ellipse closest-side at center, black 0%, transparent 100%)", Unmasked) },
+        { "mask-radial-from-40%", "mask-image", Shapes(Unmasked, "radial-gradient(ellipse farthest-corner at center, black 40%, transparent 100%)", Unmasked) },
+        { "mask-radial-to-60%", "mask-image", Shapes(Unmasked, "radial-gradient(ellipse farthest-corner at center, black 0%, transparent 60%)", Unmasked) },
+        { "mask-radial-at-top-left", "mask-image", Shapes(Unmasked, "radial-gradient(ellipse farthest-corner at top left, black 0%, transparent 100%)", Unmasked) },
+        { "mask-conic-45", "mask-image", Shapes(Unmasked, Unmasked, "conic-gradient(from 45deg, black 0%, transparent 100%)") },
+        { "mask-conic-from-20%", "mask-image", Shapes(Unmasked, Unmasked, "conic-gradient(from 0deg, black 20%, transparent 100%)") },
+        { "mask-conic-to-90%", "mask-image", Shapes(Unmasked, Unmasked, "conic-gradient(from 0deg, black 0%, transparent 90%)") }
     };
+
+    /// <summary>The layer a mask class did not name, which is opaque and composites to nothing.</summary>
+    const string Unmasked = "linear-gradient(#fff, #fff)";
+
+    /// <summary>An edge ramp nobody moved: black at the edge, transparent at the far side.</summary>
+    const string Open = "black 0%, transparent 100%";
+
+    /// <summary>The four edge ramps and the two shape layers under them, in the order they compose.</summary>
+    /// <param name="top">The top ramp's stops.</param>
+    /// <param name="right">The right ramp's stops.</param>
+    /// <param name="bottom">The bottom ramp's stops.</param>
+    /// <param name="left">The left ramp's stops.</param>
+    /// <returns>The whole <c>mask-image</c>.</returns>
+    static string EdgeRamps(string top, string right, string bottom, string left) =>
+        $"linear-gradient(to top, {top}), linear-gradient(to right, {right}), " +
+        $"linear-gradient(to bottom, {bottom}), linear-gradient(to left, {left}), {Unmasked}, {Unmasked}";
+
+    /// <summary>The linear, radial and conic layers, in the order they compose.</summary>
+    /// <param name="linear">The linear layer.</param>
+    /// <param name="radial">The radial layer.</param>
+    /// <param name="conic">The conic layer.</param>
+    /// <returns>The whole <c>mask-image</c>.</returns>
+    static string Shapes(string linear, string radial, string conic) => $"{linear}, {radial}, {conic}";
 
     /// <summary>Utility, property — the families that compute a value nothing in the engine reads.</summary>
     /// <remarks>
@@ -1252,12 +1325,111 @@ public class UtilityFamilySupportTests {
         }
     };
 
+    /// <summary>Utility, the classes it needs beside it, property, and the assembled value.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The fifth table, and the reason it is not six more rows of <see cref="Supported" />
+    ///         is a fact about the families rather than about the tables.</b> A gradient stop emits
+    ///         no declaration at all — <c>from-accent</c> sets <c>--tw-gradient-from</c> and stops —
+    ///         so an element carrying it alone has nothing for a row to read, and a
+    ///         <see cref="Supported" /> row, which puts exactly one class on the probe, cannot state
+    ///         the family's claim. What states it is the class beside an assembler: the stop decides
+    ///         a colour and <c>bg-linear-*</c> decides where the colour goes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why every row is asserted twice, and the second assertion is the one
+    ///         that makes the table worth having.</b>
+    ///         <see cref="A_composed_family_decides_its_share_of_an_assembled_property" /> resolves
+    ///         the companions <i>without</i> the utility first and requires a different answer. A row
+    ///         whose utility contributed nothing — the fragment written under a name the assembler
+    ///         never reads, which is this mechanism's characteristic defect — would otherwise agree
+    ///         with the expectation for the companions' sake and report the family supported.
+    ///     </para>
+    ///     <para>
+    ///         The colours are the editor's own tokens resolved through <c>EditorTheme</c>, so
+    ///         <c>from-accent</c> here is the same <c>#2f6ecd</c> the hand-written sheet paints with,
+    ///         and <c>in oklab</c> is the interpolation space every assembler asks for.
+    ///     </para>
+    /// </remarks>
+    public static TheoryData<string, string, string, string> Composed => new() {
+        // The three assemblers. Each reads the same two stop fragments and differs only in the shape
+        // it wraps them in, so a family that had copied its neighbour's template would paint a
+        // perfectly good gradient of the wrong kind.
+        {
+            "bg-linear-to-r", "from-accent to-surface", "background-image",
+            "linear-gradient(to right in oklab, #2f6ecd 0%, #e4e6ea 100%)"
+        },
+        {
+            "bg-radial", "from-accent to-surface", "background-image",
+            "radial-gradient(in oklab, #2f6ecd 0%, #e4e6ea 100%)"
+        },
+        {
+            "bg-conic-45", "from-accent to-surface", "background-image",
+            "conic-gradient(from 45deg in oklab, #2f6ecd 0%, #e4e6ea 100%)"
+        },
+
+        // The three stops. ⚠ <b>`from-accent` alone under an assembler ends `transparent`, and that
+        // is the fallback rather than a missing `to-*`</b> — an unset fragment falls back instead of
+        // dropping the declaration, so the gradient still paints and the row has to name the far end
+        // to notice which half it got. `via-*` is the one that moves a stop into the middle: it turns
+        // the two-stop list into three and pins 50%.
+        {
+            "from-accent", "bg-linear-to-r", "background-image",
+            "linear-gradient(to right in oklab, #2f6ecd 0%, transparent 100%)"
+        },
+        {
+            "via-border", "from-accent to-surface bg-linear-to-r", "background-image",
+            "linear-gradient(to right in oklab, #2f6ecd 0%, #a9adb4 50%, #e4e6ea 100%)"
+        },
+        {
+            "to-surface", "from-accent bg-linear-to-r", "background-image",
+            "linear-gradient(to right in oklab, #2f6ecd 0%, #e4e6ea 100%)"
+        }
+    };
+
+    /// <summary>A composed family decides its share of a property its companions also write.</summary>
+    /// <param name="utility">The class whose contribution is the claim.</param>
+    /// <param name="companions">The classes it needs beside it, space separated.</param>
+    /// <param name="property">The assembled longhand.</param>
+    /// <param name="expected">What the cascade must compute for the whole set.</param>
+    [Theory]
+    [MemberData(nameof(Composed))]
+    public void A_composed_family_decides_its_share_of_an_assembled_property(
+        string utility,
+        string companions,
+        string property,
+        string expected
+    ) {
+        string[] others = companions.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        string[] all = [utility, .. others];
+
+        using (var ui = Sheet(all)) {
+            var element = ui.Create("probe", ui.Document.Root, null, all);
+
+            ui.Frame();
+
+            Assert.Equal(expected, ui.StyleOf(element, property));
+        }
+
+        // ⚠ The anti-vacuity half. The companions assemble a value on their own, so an expectation
+        // they satisfy without `utility` is an expectation about them — and a fragment written under
+        // a name the assembler never reads is exactly the defect that would produce one.
+        using (var ui = Sheet(others)) {
+            var element = ui.Create("probe", ui.Document.Root, null, others);
+
+            ui.Frame();
+
+            Assert.NotEqual(expected, ui.StyleOf(element, property));
+        }
+    }
+
     /// <summary>Roots this file has no row for, each with the reason it has none.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Exit criterion 3 of doc 43 says "a row per root", and until this list existed
     ///         nothing said whether that was true.</b> <see cref="Supported" />,
-    ///         <see cref="Inert" />, <see cref="Refused" /> and <see cref="NumericFigures" /> are
+    ///         <see cref="Inert" />, <see cref="Refused" />, <see cref="NumericFigures" /> and
+    ///         <see cref="Composed" /> are
     ///         hand-maintained and the registry was never enumerated against them — so <b>a root with
     ///         no row anywhere was not a red test, it was silence.</b> Ask what this file printed on
     ///         the day a root was missing from it: <c>Passed!</c>. That is how the five child-scoped
@@ -1279,17 +1451,24 @@ public class UtilityFamilySupportTests {
     ///         longer has — so a line cannot outlive its reason the way <c>DocsExempt.txt</c>'s do.
     ///     </para>
     ///     <para>
-    ///         ⚠ Only the first group is permanent. A <c>Family.Scope</c> root <i>cannot</i> be a row
-    ///         here, because the declaration it emits is never on the element a row would ask about.
-    ///         Every other entry is work nobody has done.
+    ///         ⚠ <b>121 entries are five, and the five are the whole of what this list is for.</b> A
+    ///         <c>Family.Scope</c> root <i>cannot</i> be a row here, because the declaration it emits
+    ///         is never on the element a row would ask about; every entry that was not one of those
+    ///         has turned out to be work nobody had done rather than work nobody could do.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And most of it has since been done: 121 entries are 33.</b> #629 wrote the rows
-    ///         for eighty-eight roots and six of this list's groups went with them — which is the
-    ///         expiry above doing its job, since the rows and the lines arrived on two different
-    ///         branches and neither knew about the other. What is left is the five scoped roots and
-    ///         the mask and gradient cluster, and the cluster's own reason had to be rewritten: the
-    ///         file it named as pinning it against pixels does not write a utility class at all.
+    ///         ⚠ <b>The last group to go was the one whose reason sounded most like a principle.</b>
+    ///         The mask and gradient cluster was held here on the grounds that its computed value is
+    ///         "an assembled <c>--tw-*</c> list", so a row would pin the mechanism rather than the
+    ///         answer. It is an assembly on the way through and not one at the end: <c>var()</c>
+    ///         substitution happens before anything reads the property, so <c>mask-t-from-50%</c>
+    ///         computes a finished <c>mask-image</c> naming the edge and the stop, and it is in
+    ///         <see cref="Supported" /> with twenty-one siblings. The six that genuinely could not be
+    ///         rows there were the gradient stops and assemblers, and the obstacle was not the value
+    ///         but the probe: a <see cref="Supported" /> row puts one class on an element and a stop
+    ///         emits no declaration by itself. <see cref="Composed" /> is that shape, and the reason
+    ///         it is a table rather than a shrug is that it asserts the companions <i>without</i> the
+    ///         utility as well.
     ///     </para>
     /// </remarks>
     public static IReadOnlyDictionary<string, string> Uncovered { get; } = BuildUncovered();
@@ -1304,33 +1483,7 @@ public class UtilityFamilySupportTests {
             "element under test, so no computed-value row can express it at all. `ChildScopedFamilyTests` " +
             "is where these are held.",
             "divide", "divide-x", "divide-y", "space-x", "space-y"
-        ),
-
-        // ── Masks and gradients ─────────────────────────────────────────────────────────────────────
-        //
-        // ⚠ <b>Six groups used to stand between this one and the scoped roots above, and they were
-        // deleted rather than shrunk.</b> #629 wrote their rows — every physical edge and axis, the
-        // sizing spellings, the per-edge borders and per-corner radii, the row half of grid
-        // placement, the scroll insets, the per-axis scales, `origin`, and ten typographic roots
-        // whose only appearance anywhere was a line in this list. 121 entries became 33, and a line
-        // that has since gained a row is one this test fails on rather than one somebody has to
-        // notice.
-        new UncoveredGroup(
-            "the mask and gradient cluster, whose computed value is an assembled `--tw-*` list: a row here " +
-            "would pin the mechanism rather than the answer, which is `NumericFigures`' finding one " +
-            "category over. ⚠ And half the reason this group used to give is refuted: it claimed " +
-            "`MaskGradientTests` pins the cluster against pixels, and that file writes hand-authored " +
-            "`mask-image` declarations rather than one utility class. What covers the eighteen mask roots " +
-            "instead is `Vixen.Ui.Styling.Utilities.Tests/MaskFamilyTests`, which resolves each class " +
-            "through the cascade and asserts the whole assembled `mask-image` — the answer rather than the " +
-            "fragment — and the gradient six are `CompositionTests`'.",
-            "bg-conic", "bg-linear", "bg-radial", "from", "mask-b-from",
-            "mask-b-to", "mask-conic", "mask-conic-from", "mask-conic-to", "mask-l-from",
-            "mask-l-to", "mask-linear", "mask-linear-from", "mask-linear-to", "mask-r-from",
-            "mask-r-to", "mask-radial", "mask-radial-at", "mask-radial-from", "mask-radial-to",
-            "mask-t-from", "mask-t-to", "mask-x-from", "mask-x-to", "mask-y-from",
-            "mask-y-to", "to", "via"
-        ),
+        )
         ];
 
         foreach (var (why, roots) in groups) {
@@ -1391,6 +1544,10 @@ public class UtilityFamilySupportTests {
         }
 
         foreach (var row in NumericFigures) {
+            claimed.Add(UtilityFamilies.SplitName(row.Data.Item1).Name);
+        }
+
+        foreach (var row in Composed) {
             claimed.Add(UtilityFamilies.SplitName(row.Data.Item1).Name);
         }
 
