@@ -474,7 +474,7 @@ does nothing. No diagnostic. This is the same defect class the language already 
 | `.contextMenu` | `ContextMenu.Attach` is a C# call | ❌ |
 | `.help` (tooltip) | `Tooltip.Attach` is a C# call | ❌ |
 | `.alert` / `.confirmationDialog` / `.sheet` / `.popover` | `DialogService`/`Overlay` exist; nothing binds a presentation to state | ❌ markup |
-| `.searchable`, `.refreshable` | a `SearchBox` over a filter signal; `Load` over a generation signal — both with committed fixtures. What is absent is placement and a gesture | ⚠ half |
+| `.searchable`, `.refreshable` | a `SearchBox` over a filter signal; `Load` over a generation signal — both with committed fixtures and both written up in the guide. What is absent is placement, and on the wheel path the gesture is *refused* on measurement rather than owed | ⚠ half |
 
 ⚠ **`.searchable`'s middle third is not missing, which narrows [#767](https://github.com/Rikarin/Vixen/issues/767).**
 Two audits called "what does it filter" the sharpest open question, on the grounds that a framework
@@ -501,6 +501,28 @@ and `AsyncComputed.Start` cancels the overtaken run's token. `Markup/Refreshable
 than an interval, and both sabotages — a trigger that bumps nothing, and `Start` not cancelling —
 take it red. So both of #767's rows turn out to be spellings over runtimes that already exist, which
 is the same conclusion `.searchable`'s middle third reached.
+
+⚠ **And the gesture question is now half-*answered* rather than open, on evidence already in the
+tree.** "What is a desktop pull-to-refresh" was treated as one question and is two, because a
+`ScrollView` has two scroll paths and they are not alike.
+
+- **The wheel path cannot carry one, and that is measured rather than assumed.**
+  `ScrollView.Wheeled` records the measurement (macOS 15 arm64, SDL 2.32.70): AppKit's momentum
+  arrives as ordinary wheel deltas and `SDL_MouseWheelEvent` carries **no phase**, so nothing on
+  that path can say where a gesture ended. That is the same evidence on which the rubber band is
+  refused there — and a pull-to-refresh is a rubber band with a threshold on it, so it is refused
+  for exactly the same reason and needs no separate decision.
+- **The drag path already has both halves.** `ScrollView.Dragged` has a real `DragStage.Completed`,
+  and `IsRubberBanding` means the content is already being held past its end by a spring the control
+  owns. A pull-to-refresh over that is a distance threshold read at `Completed`, which is a number
+  and a name — not a mechanism.
+
+So what is left of `.refreshable` is a spelling on the drag path plus a decision about the
+threshold, and a documented refusal on the wheel path. ⚠ Both rows' remaining work is now the same
+sentence: **where the widget goes.** Nothing behind either of them is missing, and the shapes are
+written down — the filter recipe in [`ui/markup-panels`](../guide/ui/markup-panels.md) and the
+re-request in [`ui/async-loading`](../guide/ui/async-loading.md) — which is what a "spelling" needs
+in a project whose thesis is that markup is the authoring path.
 | `.draggable` / `.dropDestination` | `on:dragstart/drag/dragend` exist; **no drop target, no payload type, no `AllowDrop`** | ⚠ half |
 
 For a project whose thesis is *markup is the authoring path*, that ❌ column is the parity claim's

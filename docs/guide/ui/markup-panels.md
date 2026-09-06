@@ -753,6 +753,36 @@ when there is no row: it cannot read the row variable, and `refs` in it is `VXML
 is anywhere else outside a loop. An `@empty` that no loop's closing brace precedes is `VXML1007`;
 `@if` takes `else` instead.
 
+### A list with a filter over it is those two things and nothing else
+
+Put the field's text in a signal, bind it, and let the loop's sequence read it:
+
+```vxml
+<SearchBox ref="@Field" Placeholder="Filter" bind:Value="@Filter.Value" />
+
+@for (var row in Rows.Value.Where(name => name.Contains(Filter.Value ?? "", StringComparison.OrdinalIgnoreCase))) {
+    <search-row key="@row">@row</search-row>
+} @empty {
+    <no-matches>No results.</no-matches>
+}
+```
+
+That is the whole of it, and it is worth saying plainly because it keeps being taken for a missing
+feature. SwiftUI spells this `.searchable`, and a modifier has to decide three things: where the
+field goes, what the predicate is, and what an empty result looks like. Only the first is a
+decision markup cannot already make — the field is written where it goes — and the third is
+`@empty`. The middle one is the important one: **the predicate stays the author's `Where(...)`**,
+because what "matches" means for an arbitrary sequence is not something a framework can know.
+
+⚠ **What makes it live is that the sequence expression *reads* the signal.** The loop's own effect
+subscribes to whatever the expression touched, so typing re-runs the reconciliation, surviving keys
+keep their elements, and only the rows that came or went are built or removed. A filter computed in
+the code-behind and stored in a plain field would narrow once and then stop — the same half-live
+failure a `bind:` over a non-reactive model has, one construct along.
+
+`Core/Vixen.Ui.Controls.Tests/Markup/SearchableSheet.vxml` is this list as a compiled fixture, and
+`SearchableReachTests` asserts it on the rows rather than on the field.
+
 ### Grouped lists are a nested `@for`
 
 ```xml
