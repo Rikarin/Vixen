@@ -239,6 +239,63 @@ public class IdleFrameWorkTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>And the colour handover tessellates again, which is the part of the key that fails on
+    ///     a wide display and on no other.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The gamut and the white level are handed over from the swapchain the host was
+    ///         <i>granted</i>, and the grant does not exist until the swapchain does — which is
+    ///         inside the present, after this frame's tessellation has run. So the first frame of
+    ///         every window is built against the sRGB default and the second is the one that would
+    ///         use the real numbers. Without this part of the key the second frame is a skip, and a
+    ///         still window then draws sRGB-mapped colour at the wrong white level until something
+    ///         else changes its drawing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Invisible on an sRGB display, which is every machine this is developed on</b>,
+    ///         because there the handover is exactly the default it replaces. That is why it is
+    ///         asserted on the counter rather than left to be noticed.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_colour_handover_tessellates_again_although_the_drawing_did_not_change() {
+        using var document = Still();
+
+        var (builder, glyphs, extent) = Tessellator();
+        var frame = default(UiGeometry);
+
+        document.Update();
+        document.Draw();
+
+        Assert.True(builder.TryBuild(document.Drawing, glyphs, extent, ref frame));
+        Assert.False(builder.TryBuild(document.Drawing, glyphs, extent, ref frame));
+
+        var version = document.Drawing.Version;
+
+        // The chromaticity half.
+        builder.Gamut = ColorGamut.DisplayP3;
+
+        Assert.True(builder.TryBuild(document.Drawing, glyphs, extent, ref frame));
+        Assert.Equal(version, document.Drawing.Version);
+        Assert.Equal(2, builder.Tessellations);
+
+        // And the luminance half, which is a separate property and was separately missing.
+        builder.WhiteLevel = 203f;
+
+        Assert.True(builder.TryBuild(document.Drawing, glyphs, extent, ref frame));
+        Assert.Equal(3, builder.Tessellations);
+
+        // ⚠ And it is a change and not a touch: handing over the values it already holds must not
+        // cost a rebuild, or `Adopt` on every swapchain recreate would undo the whole economy.
+        builder.Gamut = ColorGamut.DisplayP3;
+        builder.WhiteLevel = 203f;
+
+        Assert.False(builder.TryBuild(document.Drawing, glyphs, extent, ref frame));
+        Assert.Equal(3, builder.Tessellations);
+    }
+
+    /// <summary>
     ///     ⚠ <b>And a resize tessellates again although the drawing did not change</b>, which is the
     ///     half of the key that reads as redundant and is not: the same commands at the same
     ///     coordinates keep the draw list's version, and the builder is what turns a command's clip
