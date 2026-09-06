@@ -88,6 +88,28 @@ public class ResponderReachTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>One, and it was zero for the whole life of the API.</b> The chain has two slots past
+    ///     the last element and only the second of them — the application's, which the editor's shell
+    ///     fills — had ever been written to. The first,
+    ///     <see cref="UiDocument.CommandResponder" />, is what an object that owns <i>what a window
+    ///     is showing</i> installs, and <c>Samples/02-HelloUi</c>'s shell is the first thing in the
+    ///     repository to be one: its Copy fallback moved off <c>Root</c>, where it had to hold a
+    ///     piece of the element tree in order to answer a verb.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The leading dot is load-bearing.</b> The bare name is satisfied by the editor shell's
+    ///     assignment to the <i>other</i> slot — the one that never lacked a caller — so a sweep
+    ///     without it would have been green on the day this slot had none.
+    /// </remarks>
+    [Fact]
+    public void Something_outside_a_test_project_installs_a_document_responder() {
+        var callers = ProductionCallers(".CommandResponder = ");
+
+        Assert.NotEmpty(callers);
+        Assert.DoesNotContain(callers, path => path.EndsWith("EditorShell.cs", StringComparison.Ordinal));
+    }
+
+    /// <summary>
     ///     The instrument, checked before the thing it measures: the sweep must be able to tell a
     ///     production file from a test one, or the theory above is green on the test projects alone.
     /// </summary>

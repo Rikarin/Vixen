@@ -136,6 +136,15 @@
     MaterialDocument? document;
     IDisposable? title;
 
+    /// <summary>The verbs that belong to the window rather than to anything inside it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A <c>CommandResponder</c> and not a second element handler.</b> The chain has two
+    ///     slots past the last element — the document's and the application's — and this is the
+    ///     first: what the thing this window is showing can do. Installed in <c>OnComposed</c>,
+    ///     because a responder only becomes reachable when a document is told about it.
+    /// </remarks>
+    readonly CommandResponder shellCommands = new();
+
     /// <remarks>
     ///     <para>
     ///         <b>Signal-backed, because a prop that has to keep following its source is what a
@@ -180,12 +189,21 @@
         // says so on its own root — see `Panels/Hierarchy.vxml` — and does not have to be known
         // about here.
         //
+        // ⚠ **On the document's responder rather than on `Root`, and the difference is the point of
+        // the slot.** A shell is not a view: it is the object that owns what the window is showing,
+        // and registering its verb on an element meant it had to hold a piece of the element tree in
+        // order to say it handled one. `UiDocument.CommandResponder` is the seam for exactly that —
+        // consulted after the last element and before the application's — and until this line it had
+        // no caller anywhere in the repository, which made the rule the whole chain rests on
+        // unfalsifiable at that link. The order the user sees is unchanged, because `Root` was
+        // already the last element the walk reached.
+        //
         // ⚠ `CommandRoute.ScopeOf` is read rather than remembered: it walks up from wherever the
         // focus is and reports the nearest declared scope, so the message names the panel the user
         // was in without this handler being told, and without a scope ever being pushed or popped.
         // Both answers happen — the Inspector declares one, the Gallery declares none — which is
         // what makes reading it here worth doing rather than a line that can only say one thing.
-        Root.AddCommandHandler(
+        shellCommands.Add(
             "edit.copy",
             () => {
                 var scope = CommandRoute.ScopeOf(Root.Document) ?? "outside any panel";
@@ -196,6 +214,11 @@
             },
             () => Root.Document.HasClipboard
         );
+
+        // ⚠ **The document holds the responder and never the other way about.** A responder is a
+        // table of closures and a closure reaches everything it captured, so the reference points
+        // from the short-lived thing at the long-lived one; `UiDocument.Dispose` drops the slot.
+        Root.Document.CommandResponder = shellCommands;
 
         // ⚠ **The shell hosts a document, and that one line is what makes ⌘S mean something.**
         // `DocumentCommands.Install` registers `document.save` and `document.revert` on this element
