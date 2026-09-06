@@ -486,12 +486,27 @@ stated divergence.** `UiLayer.Bounds` is the group's *ink* — a child overflowi
 bigger — so a rectangle taken from there would put blurred scene outside the panel that asked for it;
 `UiLayer.BackdropBounds` carries the border box instead, which closes that half. The radius is not
 closed: a `UiLayer` carries none, and `rounded-2xl backdrop-blur-md bg-white/30` is the canonical use
-of this feature, so the blurred picture shows square corners just outside the rounded ones. The mask
-machinery cannot express a rounded rectangle — its shapes are linear, radial and conic ramps — so
-closing it needs a rounded-rect signed distance in the composite fragment, which is a change to
-`ui-image.frag`, `ui-colour.frag` and `ui-mask.frag`, to the three committed copies of each, and to
-`SoftwareUiRasterizer.Composite`. The ten `backdrop-*` roots read **partial** in `docs/plan/43` for
-this reason and this reason alone.
+of this feature, so the blurred picture shows square corners just outside the rounded ones. The ten
+`backdrop-*` roots read **partial** in `docs/plan/43` for this reason and this reason alone.
+
+⚠ **The distance field is the easy half and this used to price only that half.** Measured 2026-09-06:
+there is no way to *tell* a composite fragment where the rounded box is. A composite quad has no
+`UiShape` — an image descriptor set's storage binding never points at the box buffer. The push
+constants are at the ceiling: `UiMask`'s forty-eight-byte matrix plus the vertex stage's sixteen is
+16 + 112, exactly the 128 bytes Vulkan guarantees on every device, which is why the mask entries went
+into a storage buffer in the first place. And the quad's `shape` stream has three free lanes —
+`shape.x` is already the premultiplied flag — where a *backdrop* quad needs the box's centre as well
+as its half-size and four elliptical radii, because its `uv` is viewport-relative rather than
+box-relative.
+
+⚠ **What does have room is `MaskEntry`, and it is free of every one of those costs.** It rides a
+binding each composite draw already has bound, already carries the border box as a centre and a half
+in document pixels, and already discriminates on `ramp.z` — so a fourth shape beside linear, radial
+and conic can spend the stop lanes, which a non-ramp shape never reads, on the four radii. The cost is
+routing rather than layout: only `ui-mask.frag` reads entries, so a rounded backdrop would composite
+through the mask pipeline whether or not the element has a `mask-image`. The rest is what was already
+priced — the signed distance in the fragment, its committed copies, and
+`SoftwareUiRasterizer.Composite`.
 
 ⚠ **An element that paints nothing of its own used to get no backdrop, and the reason recorded for it
 was a claim about these two executors that was not true of either.** The claim was that both walk the
