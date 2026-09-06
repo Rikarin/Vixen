@@ -12,7 +12,7 @@ using Nuke.Common.ProjectModel;
 using Serilog;
 
 /// <summary>
-///     The order <see cref="Test" /> starts the 178 test assemblies in, which is longest first.
+///     The order <see cref="Test" /> starts the test assemblies in, which is longest first.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -203,7 +203,7 @@ partial class Build {
     ///     </para>
     ///     <para>
     ///         ⚠ No <c>SkipNonexistentTargets</c>, which a solution build of a custom target sets for
-    ///         itself. All 178 of these reference <c>Microsoft.NET.Test.Sdk</c> and therefore have a
+    ///         itself. Every one of them references <c>Microsoft.NET.Test.Sdk</c> and therefore has a
     ///         <c>VSTest</c> target; skipping silently is how one that stopped having one would
     ///         become a suite that no longer runs and no longer says so.
     ///     </para>
