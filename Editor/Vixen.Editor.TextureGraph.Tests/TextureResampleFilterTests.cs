@@ -108,12 +108,14 @@ public class TextureResampleFilterTests {
             value => value is > 8 and < 247
         );
 
+        var adapter = TextureKernelHarness.Adapter(device);
+
         Assert.All(
             Row(boxed),
             value => Assert.True(
                 value is 0 or 255,
-                $"the box produced {value} magnifying a checkerboard, so it is not the single sample "
-                + "#865 says it is and this test no longer proves what it claims."
+                $"the box produced {value} magnifying a checkerboard on {adapter}, so it is not the single "
+                + "sample #865 says it is and this test no longer proves what it claims."
             )
         );
     }
