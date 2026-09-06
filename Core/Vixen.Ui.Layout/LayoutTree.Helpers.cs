@@ -803,6 +803,20 @@ public sealed partial class LayoutTree {
         // wrong about the markup an author believes they wrote, which is a framework call and not a
         // measurement.
         //
+        // ⚠ <b>AND THAT CALL IS NOT TAKEN IN THIS FILE — IT IS ONE LINE IN `Vixen.Ui`</b>, which is
+        // worth saying because every re-measurement of this term has been made here and the term is
+        // not where the divergence is authored. `LayoutStyleBuilder.CreateCssInitial` builds the
+        // CSS-initial style a stylesheet cascades onto, and it restates `FlexDirection` as `Row`,
+        // `PositionType` as `Static`, `BoxSizing` as `ContentBox` and `AlignContent` as `Stretch` —
+        // four corrections away from `LayoutStyle.Default`, which is Yoga-flavoured — and then
+        // leaves `Display` alone at `Flex`. So a reader of the sentence above should know that
+        // `LayoutStyle.Default.FlexDirection` is in fact `Column` (Yoga's initial, and what a
+        // caller of this store directly gets); `Row` is the authoring layer's, and both halves of
+        // "initial `Display: Flex`, initial `FlexDirection: Row`" are true only of an element built
+        // through `Vixen.Ui`. The decision this cap waits on is therefore whether that method should
+        // also restate `Display` — a change to what every unstyled `.vxml` element is, which no
+        // amount of arithmetic in `LayoutTree` can settle.
+        //
         // ⚠ <b>AND UNTIL NOW NOTHING IN THIS PROJECT SAID SO.</b> With this term deleted the whole
         // layout suite is green — eight corpora and 6 431 tests — and the only red is three
         // `TextWrappingPixelTests` in `Vixen.Ui.Controls.Tests`, a different assembly two layers
