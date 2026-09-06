@@ -190,7 +190,7 @@ sealed class TextureGraphView {
         // ⚠ Before the registry is read, because a republish replaces it rather than adding to it —
         // #803. A panel that read the old one would offer an author the menu a compound had before
         // they edited it, and go on doing so until the graph was reopened.
-        document.Republish();
+        var republished = document.Republish();
 
         // ⚠ The compounds that would not read, and this is the only place the loss is visible —
         // #803. `TextureCompoundLibrary.Publish` reports and skips rather than throwing, so that one
@@ -214,6 +214,14 @@ sealed class TextureGraphView {
         // it stands for. Without it a compound is a node that looks atomic and cannot be looked
         // inside, on a canvas whose registry offers it.
         Canvas.SubGraphSource = document.SubGraphs;
+
+        // ⚠ A republish builds a whole new library, so every graph the trail is holding belongs to
+        // the old one. An author who was looking inside a compound while it was saved elsewhere
+        // would go on inspecting a model nothing in the editor refers to any more — a picture of
+        // the version they were trying to change.
+        if (republished && opened.Count > 1) {
+            Resettle(document);
+        }
 
         // ⚠ And only when the author is looking at their own graph. Inside a published one the
         // canvas is showing the library's model, and re-seating it here would undo the descent on
@@ -265,6 +273,30 @@ sealed class TextureGraphView {
     /// </remarks>
     void Descend(string type, NodeGraphModel graph) {
         opened.Add((type, graph));
+        Enter(opened.Count - 1);
+    }
+
+    /// <summary>Points the trail at a rebuilt library, and truncates it where it no longer reaches.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Re-resolved by node-type path rather than kept, because the path is the only part of
+    ///     a trail step that survives a republish.</b> A crumb's label <em>is</em> that path, which
+    ///     is what makes this possible at all; a compound that has been renamed or deleted resolves
+    ///     to nothing, and the trail is cut back to the last step that is still true rather than
+    ///     left pointing at a graph no library has.
+    /// </remarks>
+    void Resettle(TextureGraphDocument document) {
+        var kept = 1;
+
+        for (var step = 1; step < opened.Count; step++) {
+            if (document.SubGraphs?.TryGet(opened[step].Label, out var graph) != true) {
+                break;
+            }
+
+            opened[step] = (opened[step].Label, graph!);
+            kept = step + 1;
+        }
+
+        opened.RemoveRange(kept, opened.Count - kept);
         Enter(opened.Count - 1);
     }
 

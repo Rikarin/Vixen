@@ -345,6 +345,54 @@ public class TextureGraphPanelTests {
         Assert.Same(second.Graph, canvas.Graph);
     }
 
+    /// <summary>A compound saved while the author is inside it is re-resolved, not left stale.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A republish builds a whole new library</b> — see
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/803">#803</a> — so every graph the trail
+    ///     is holding belongs to the old one. An author who was looking inside a compound while it
+    ///     was saved in another tab would go on inspecting a model nothing in the editor refers to
+    ///     any more: a picture of the version they were trying to change, with no way to tell.
+    /// </remarks>
+    [Fact]
+    public void A_compound_saved_while_it_is_open_is_re_resolved_on_the_canvas() {
+        using var fixture = new TexturingFixture();
+
+        var folder = System.IO.Path.Combine(fixture.Paths.Assets, TextureNodeLibrary.CompoundFolder);
+
+        Directory.CreateDirectory(folder);
+
+        var compound = new TextureGraphDocument(
+            fixture.Project,
+            fixture.AddGraph(TextureNodeLibrary.CompoundFolder + "/Grunge"),
+            System.IO.Path.Combine(folder, "Grunge" + TextureGraphDocument.Extension)
+        );
+
+        compound.Graph.Interface.Add(new("Out", NodeGraph.PortDirection.Output, PortKind.Image));
+        compound.Save();
+
+        var (view, canvas) = Opened(fixture, "Material");
+
+        canvas.Graph.Add("Grunge", new(120f, 120f));
+
+        Settle(fixture);
+        DoubleClick(fixture, Item(canvas, "Grunge"));
+
+        var before = canvas.Graph;
+
+        Assert.Equal(2, before.Nodes.Count);
+        Assert.Equal(2, view.Trail.Count);
+
+        compound.Graph.Add("Filters/Blur");
+        compound.Save();
+
+        view.Show(view.Document, TexturePreviewBlocker.NoDevice);
+
+        // Still inside it, and looking at the version that is now on disk.
+        Assert.Equal(2, view.Trail.Count);
+        Assert.NotSame(before, canvas.Graph);
+        Assert.Equal(3, canvas.Graph.Nodes.Count);
+    }
+
     /// <summary>Opens a docked panel holding the view, with a graph on it.</summary>
     /// <remarks>
     ///     ⚠ <b>A real <c>DockPanel</c> rather than a bare element under the root.</b> Every
