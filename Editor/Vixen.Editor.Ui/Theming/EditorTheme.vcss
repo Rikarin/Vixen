@@ -212,18 +212,25 @@ mode-bar > toolbar { padding: 1px 4px; }
    buttons are the first thing `EditorModes.Bar` puts on the strip; everything after the
    separator belongs to the active mode and is an ordinary row of verbs. Stacking those too
    would turn a mode's twelve tools into twelve captioned tiles. */
-mode-bar > toolbar > toolbar-group:first-child > button {
+mode-bar > toolbar > segmented-control:first-child > segment {
     flex-direction: column;
     align-items: center;
     gap: 1px;
     padding: 3px 8px;
     min-width: 56px;
     font-size: 0.78em;
+
+    /* ⚠ And no border here, where the strip's own segments need one. A member's box is padding
+       plus border, and these two rules are the two places that box has to come out the size the
+       hand-drawn button's did: 26 high on the strip, where the border is part of the sum, and 44
+       high as a captioned tile, where it is not. A tile two pixels taller makes the mode bar two
+       pixels taller and moves the whole window down. */
+    border-width: 0px;
 }
 
 /* Bigger than a toolbar glyph, because this one is a picture rather than a mark: it is
    recognised at a glance rather than read as part of a row. */
-mode-bar > toolbar > toolbar-group:first-child > button > icon {
+mode-bar > toolbar > segmented-control:first-child > segment > icon {
     width: 20px;
     height: 20px;
 }
@@ -290,7 +297,59 @@ toolbar toggle-button:checked:hover:not(:disabled) {
    whole of what makes Translate/Rotate/Scale read as a choice rather than as
    three buttons that happen to be adjacent. Done by taking the gap away and
    squaring the inner corners: the group draws the border and the radius, and
-   its members draw neither. */
+   its members draw neither.
+
+   ⚠ It is a real `segmented-control` now, and these rules only restate the
+   *editor's* metrics over the control theme's. What the control theme already
+   supplies — the row, the border, the clip, the seam between members and
+   `segment:first-child` losing it — is not repeated here. What is repeated is
+   the toolbar's own: a button's padding rather than a form control's, the
+   concentric inner radius, the group owning the fill so members can be
+   transparent, and the accent's *soft* tone for the chosen one. That last is
+   the one real disagreement with `ControlTheme`, which uses the accent at full
+   strength: on a strip where several groups are visible at once, and beside the
+   toggles that already use `--accent-soft`, full accent is the loudest thing in
+   the window. */
+toolbar segmented-control {
+    align-items: center;
+    border-color: var(--border);
+    border-radius: var(--radius-control);
+    background-color: var(--surface);
+    padding: 1px;
+}
+
+/* ⚠ Every metric restated, and none of it is decoration: these five declarations are what
+   make the control occupy exactly the box the hand-drawn group did — 26 high inside a 30-high
+   group inside a 37-high band. `ControlTheme`'s small-size rule names `button`, `icon-button`
+   and `toggle-button` and not `segment`, so a segment set to `Small` keeps a form control's
+   padding while every button beside it shrinks. The visible half of getting that wrong is not
+   the group: the strip is as tall as its tallest member, so a band four pixels taller moves
+   every panel, every tree row and the status bar down with it, and a golden re-recorded onto
+   that would bury the shift under a whole-window diff. */
+toolbar segment {
+    padding: 2px 8px;
+    font-size: 0.9em;
+    border-width: 1px;
+    border-color: transparent;
+    border-radius: 2px;
+    background-color: transparent;
+    color: var(--text-muted);
+}
+
+/* ⚠ The seam is a colour, not a width, and the width above is why. A member of this group is
+   bordered on all four sides so that its box is the height the hand-drawn one was; drawing
+   those borders would put a rectangle round every mode tile and every gizmo mode, which is
+   the look a segmented control exists to avoid. Transparent everywhere and coloured on the
+   left of every member but the first is the same seam the old `button + button` rule drew. */
+toolbar segment + segment { border-left-color: var(--border); }
+
+toolbar segment:hover:not(:disabled) { background-color: var(--surface-hover); color: var(--text); }
+toolbar segment:checked { background-color: var(--accent-soft); color: var(--text); }
+toolbar segment:checked:hover:not(:disabled) { background-color: var(--accent-soft); color: var(--text); }
+
+/* ⚠ The box, which is what is left of the old hand-drawn group and not a synonym
+   for the control above it. `ToolbarBox` is the transport: one control and four
+   verbs, where a segmented control would claim one question with four answers. */
 toolbar-group {
     flex-direction: row;
     align-items: center;

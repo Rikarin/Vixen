@@ -157,7 +157,7 @@ public class EditorChromeVisualTests {
                 new ToolbarGroup("test.translate", "test.rotate", "test.scale"),
                 new ToolbarButton("view.toggle-theme"),
                 new ToolbarSeparator(),
-                new ToolbarGroup("test.play", "test.pause", "test.step", "test.stop"),
+                new ToolbarBox("test.play", "test.pause", "test.step", "test.stop"),
                 new ToolbarSeparator(),
                 new ToolbarDropdown(Title("Layout"), "layout", "view.layout.Default", null, "view.reset-layout")
             );

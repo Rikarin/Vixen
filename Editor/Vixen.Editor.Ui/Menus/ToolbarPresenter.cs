@@ -50,10 +50,14 @@ namespace Vixen.Editor.Ui;
 /// </remarks>
 public sealed class ToolbarPresenter {
     readonly List<ButtonBase> buttons = [];
+    readonly List<(SegmentedControl Control, IReadOnlyList<string> CommandIds)> groups = [];
     readonly List<ContextMenu> popovers = [];
     readonly CommandRegistry commands;
     readonly KeyMap keys;
     readonly UiElement host;
+
+    /// <summary>Whether a segmented control's value is being written from the route rather than by a person.</summary>
+    bool restating;
 
     /// <summary>Which of the host's children the strip is, whatever else has been added since.</summary>
     readonly int slot;
@@ -136,6 +140,7 @@ public sealed class ToolbarPresenter {
     /// <summary>Throws the strip away and builds it again.</summary>
     public void Rebuild() {
         buttons.Clear();
+        groups.Clear();
 
         // ⚠ The popovers go too, and they are not the strip's children. A `ContextMenu` hangs off the
         // document root so it can float over everything — the same arrangement `MenuBar.AddMenu`
@@ -170,6 +175,10 @@ public sealed class ToolbarPresenter {
 
                 case ToolbarGroup(var ids):
                     Segmented(ids);
+                    break;
+
+                case ToolbarBox(var ids):
+                    Box(ids);
                     break;
 
                 case ToolbarDropdown(var title, var icon, var ids):
@@ -219,15 +228,122 @@ public sealed class ToolbarPresenter {
         foreach (var button in buttons) {
             button.RefreshCommand();
         }
+
+        // ⚠ The segmented controls are asked the other way round, and that is what a group being one
+        // control rather than several buttons costs. A bound button asks its own id and shows the
+        // answer; a group has to ask every member and show *which* said yes, because the appearance
+        // it writes is a single value and not a bit per segment. `restating` keeps the write from
+        // reading back as a person having chosen — see `Choose`.
+        restating = true;
+
+        try {
+            foreach (var (control, ids) in groups) {
+                var segments = control.Segments;
+                string? chosen = null;
+
+                for (var index = 0; index < ids.Count; index++) {
+                    var handler = CommandRoute.Resolve(host.Document, ids[index]);
+
+                    // Nobody responds ⇒ not executable, which is the same branch a bound button
+                    // takes. A segment that cannot run is still in the group, because a choice with
+                    // an answer missing from it is a different question.
+                    segments[index].Disabled = handler is not { CanExecute: true };
+
+                    if (handler is { IsCheckable: true, IsChecked: true }) {
+                        chosen ??= ids[index];
+                    }
+                }
+
+                // ⚠ Left alone when nothing reports itself checked, rather than cleared. A group
+                // whose commands are momentarily out of scope — a viewport that has just closed —
+                // would otherwise empty itself and then re-fill, which reads as the mode having been
+                // lost. A group that genuinely has no answer starts with none anyway.
+                if (chosen is not null) {
+                    control.Value = chosen;
+                }
+            }
+        } finally {
+            restating = false;
+        }
     }
 
-    /// <summary>Draws a set of commands as one segmented control.</summary>
+    /// <summary>Draws a set of alternatives as one segmented control.</summary>
     /// <remarks>
-    ///     A class on the wrapper and nothing else: which corners are rounded and where the dividing
-    ///     hairlines go is the theme's, and a presenter that positioned them would be one a theme
-    ///     could not restyle.
+    ///     <para>
+    ///         ⚠ <b>A real <see cref="SegmentedControl" />, which is the difference between looking
+    ///         like a choice and being one.</b> What stood here built a bare element with a class on
+    ///         it and filled it with independent buttons: three tab stops, no arrows, no exclusivity
+    ///         anywhere but in the predicates, and a screen reader told about three unrelated
+    ///         pressed-or-not buttons. The control is one stop, announces <c>radiogroup</c>, and
+    ///         wraps with the arrows.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The segments are deliberately <i>not</i> bound to their command ids, and that is
+    ///         the decision this needed rather than a type substitution.</b>
+    ///         <c>ButtonBase.Command</c> writes the route's check state straight into
+    ///         <c>ElementState.Checked</c>, while a segment's checked-ness is <c>IsChecked</c>
+    ///         written by <c>SegmentedControl.Restate</c> from <see cref="SegmentedControl.Value" />
+    ///         — two writers on one appearance with no agreement between them. So the control owns
+    ///         the appearance, <see cref="Refresh" /> puts the id of whichever command reports itself
+    ///         checked into <c>Value</c>, and a choice made by a person executes through
+    ///         <c>CommandRoute</c>. The segment's value <i>is</i> the command id, which is what makes
+    ///         both directions one lookup.
+    ///     </para>
+    ///     <para>
+    ///         Which corners are rounded and where the dividing hairlines go stays the theme's, as
+    ///         before: a presenter that positioned them would be one a theme could not restyle.
+    ///     </para>
     /// </remarks>
     void Segmented(IReadOnlyList<string> commandIds) {
+        var control = Strip.Add<SegmentedControl>();
+        List<string> members = [];
+
+        foreach (var id in commandIds) {
+            if (!commands.TryGet(id, out var command)) {
+                continue;
+            }
+
+            var segment = control.AddSegment(id, command.CurrentTitle.Text);
+
+            // The same two `Face` gives every button on a strip. A medium control among small ones
+            // is four pixels taller than its neighbours and moves everything under the bar down.
+            segment.Variant = ControlVariant.Subtle;
+            segment.Size = ControlSize.Small;
+
+            // Art first, for `Face`'s reason: a command with a picture means the captioned face, and
+            // a segment draws its label whatever else is on it.
+            if (command.Art is { } art) {
+                segment.LeadingIcon.Art = art;
+            } else if (command.Icon is { } icon) {
+                segment.LeadingIcon.Geometry = icon;
+            }
+
+            if (command.ClassName is { Length: > 0 } className) {
+                segment.AddClass(className);
+            }
+
+            members.Add(id);
+        }
+
+        // A group whose every command has gone — a plugin's, unloaded — would otherwise be an empty
+        // bordered box on the bar.
+        if (members.Count == 0) {
+            control.Remove();
+
+            return;
+        }
+
+        control.ValueChanged += (_, value) => Choose(value);
+        groups.Add((control, members));
+    }
+
+    /// <summary>Draws a set of commands as one boxed run of ordinary buttons.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What <see cref="Segmented" /> used to be, kept for the case that wanted the box and
+    ///     not the question.</b> See <see cref="ToolbarBox" />: the transport is one control and four
+    ///     verbs, and a segmented control would claim it was one verb with four spellings.
+    /// </remarks>
+    void Box(IReadOnlyList<string> commandIds) {
         var group = Strip.Add<UiElement>("toolbar-group");
 
         foreach (var id in commandIds) {
@@ -236,11 +352,24 @@ public sealed class ToolbarPresenter {
             }
         }
 
-        // A group whose every command has gone — a plugin's, unloaded — would otherwise be an empty
-        // bordered box on the bar.
         if (group.Children.Count == 0) {
             group.Remove();
         }
+    }
+
+    /// <summary>Runs the command a segment stands for, unless the presenter is the one writing it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The guard is the whole of why this is a method.</b> <see cref="Refresh" /> writes
+    ///     <see cref="SegmentedControl.Value" /> from the command that reports itself checked, and
+    ///     that assignment raises the same event a click does — so without it every refresh would
+    ///     re-execute the mode the editor is already in, sixty times a second.
+    /// </remarks>
+    void Choose(string? id) {
+        if (restating || id is null) {
+            return;
+        }
+
+        CommandRoute.Execute(host.Document, id);
     }
 
     /// <summary>Draws a button that opens a menu of commands.</summary>

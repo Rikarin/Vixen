@@ -63,10 +63,19 @@ editor that cannot do the thing, and one that is there and greyed reads as an ed
 Replacing one with a real implementation is deleting a property initialiser.
 
 ⚠ **The toolbar grows *sections*, not entries.** `ToolbarPresenter.Show` takes a list of
-`ToolbarEntry` — a button, a rule, a `ToolbarGroup` drawn as one segmented control, or a
-`ToolbarDropdown` that opens a small menu — because three adjacent buttons say nothing about being
-one choice. The flat `Show(params string?[])` overload is still there and is the same thing with
-every entry a button.
+`ToolbarEntry` — a button, a rule, a `ToolbarGroup` built as a real `SegmentedControl`, a
+`ToolbarBox` that is only a box, or a `ToolbarDropdown` that opens a small menu — because three
+adjacent buttons say nothing about being one choice. The flat `Show(params string?[])` overload is
+still there and is the same thing with every entry a button.
+
+⚠ **A group and a box are two different claims, and the transport is why.** A `ToolbarGroup` is one
+*choice*: its members are `Segment`s in a `radiogroup`, one tab stop with wrapping arrows, and the
+presenter puts the id of whichever command reports itself checked into the control's `Value` rather
+than binding each segment to its command — a bound button writes `:checked` into the element while
+the control writes it from `Value`, and two writers on one appearance agree about nothing. A
+`ToolbarBox` is one *control*: Play, Pause, Step and Stop want the box a transport has always had,
+and are four verbs rather than four alternatives. Describing them with a group would announce a
+question with one answer and let an arrow key "choose" Stop.
 
 ⚠ **A presenter that rebuilds puts itself back where it was.** Registering a command rebuilds the
 menu bar, and rebuilding replaces the bar rather than editing it — for the good reason that its
