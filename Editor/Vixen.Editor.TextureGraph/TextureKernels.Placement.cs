@@ -69,6 +69,7 @@ internal enum TexturePlacementAccumulation {
 ///         the short <c>TileSampler</c> and <c>Splatter</c> overloads do exactly that.
 ///     </para>
 /// </remarks>
+[TextureKernelSurface]
 internal static class TexturePlacement {
     /// <summary>A grid of cells with one instance of a pattern in each.</summary>
     public const string TileSamplerKernel = "TileSampler";

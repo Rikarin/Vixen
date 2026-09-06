@@ -71,6 +71,7 @@ internal enum TextureFloodOutput {
 ///     three nodes: two of the three are chains rather than dispatches, which is what
 ///     <see cref="TextureAnalysis" /> exists to emit.
 /// </remarks>
+[TextureKernelSurface]
 internal static class TextureAnalysisKernels {
     /// <summary>One ping-ponged step of the jump flood behind <c>Distance</c>.</summary>
     public const string JumpFlood = "JumpFlood";
@@ -131,6 +132,7 @@ internal static class TextureAnalysisKernels {
 ///         that leaves one out, and a plan written by hand is a chance to name the wrong one.
 ///     </para>
 /// </remarks>
+[TextureKernelSurface]
 internal static class TextureAnalysis {
     /// <summary>The largest integer a half-float stores exactly, and the ceiling both chains have.</summary>
     /// <remarks>

@@ -30,6 +30,7 @@ namespace Vixen.Editor.TextureGraph;
 ///         defect that survives every review: the lighting stays plausible.
 ///     </para>
 /// </remarks>
+[TextureKernelSurface]
 internal static class TextureSurfaceKernels {
     /// <summary>A Sobel gradient turned into a tangent-space normal.</summary>
     public const string HeightToNormal = "HeightToNormal";
@@ -63,6 +64,7 @@ internal static class TextureSurfaceKernels {
 ///     parameters its kernel declares, so writing one out by hand is a chance to produce an exception
 ///     at bake time and — worse — a chance to name the wrong one and get a plausible picture.
 /// </remarks>
+[TextureKernelSurface]
 internal static class TextureSurfaces {
     /// <summary>Doc 48 § 4.6's <c>Height → Normal</c>.</summary>
     /// <param name="output">The normal map to write.</param>
