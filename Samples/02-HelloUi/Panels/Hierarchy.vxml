@@ -22,7 +22,14 @@
 @using Vixen.Ui.Controls.Advanced
 @using Vixen.Ui.Reactive
 
-<TreeView ref="@tree" />
+<!--
+    ⚠ **`on:drop` is the first use of it anywhere outside a test.** `DropEvent` is produced by every
+    backend, routed and bubbled, and the four target names — `dragenter`, `dragover`, `dragleave`,
+    `drop` — have been in the binder's table with nothing in the repository writing one, so the
+    markup half of drag and drop was a spelling nobody had ever asked to compile. Dropping files from
+    Finder or Explorer onto this panel puts a row in for each of them.
+-->
+<TreeView ref="@tree" on:drop="@((DropEvent args) => Dropped(args))" />
 
 @code {
     readonly Signal<ShellModel> model = new(new());
@@ -84,6 +91,37 @@
             CopySelection,
             () => !tree.SelectedNodes.IsDefaultOrEmpty && Root.Document.HasClipboard
         );
+    }
+
+    /// <summary>Takes files dragged in from the desktop and puts a row in for each.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Nothing here knows where the drop landed, and that is the point of the routing.</b>
+    ///         The event was hit-tested against the tree and bubbled up to this handler, so the panel
+    ///         gets files that were let go over <i>it</i> rather than over the window — which is what
+    ///         distinguishes a drop model from a window-level "somebody dropped something" callback.
+    ///     </para>
+    ///     <para>
+    ///         <b>Handled, because a drop this panel took is not one the shell should also see.</b>
+    ///         A parent that added its own import would otherwise import the same files twice.
+    ///     </para>
+    /// </remarks>
+    void Dropped(DropEvent args) {
+        if (args.Files.Count == 0) {
+            return;
+        }
+
+        var imported = tree.Root.Add($"Imported ({args.Files.Count})");
+
+        foreach (var path in args.Files) {
+            imported.Add(Path.GetFileName(path));
+        }
+
+        tree.Refresh();
+        tree.Expand(imported);
+
+        args.Handled = true;
+        Model.Notify($"Imported {args.Files.Count} file(s)", ControlVariant.Default);
     }
 
     /// <summary>Puts the selected rows on the pasteboard, one name per line.</summary>

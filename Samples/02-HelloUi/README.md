@@ -76,6 +76,15 @@ sample's three panels now declare `Root.CommandScope`, and `Shell.vxml` reads it
 was in without anything having pushed or popped a context string.
 `Core/Vixen.Ui.Tests/ResponderReachTests.cs` counts these callers and fails at zero.
 
+## Files dropped from the desktop land in the panel they were dropped on
+
+`Panels/Hierarchy.vxml` writes `on:drop` and adds a row per path. ⚠ **It is the first use of any of
+the four target names outside a test.** `DropEvent` is produced by every backend, hit-tested and
+bubbled, and `on:dragenter`, `on:dragover`, `on:dragleave` and `on:drop` have been in the markup
+binder's table with nothing in the repository writing one — so the half an application is actually
+told to write was a spelling that had never been asked to compile. Nothing in the handler knows where
+the drop landed: the routing is what makes it *this* panel's files rather than the window's.
+
 ## Save and Revert grey themselves out
 
 File ▸ Save is bound to `document.save` and File ▸ Revert to `document.revert`, and neither item has
