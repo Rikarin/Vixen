@@ -4,6 +4,7 @@
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
+using Vixen.Editor.Ui;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 using Xunit;
@@ -262,6 +263,36 @@ public class PaintUvViewTests {
 
         Assert.Equal(PaintBrush.Default.Radius, reach, 1);
         Assert.Equal(PaintBrush.Default.Radius * 4f, (image.ToScreen(at + new Vector2(reach, 0f)) - image.ToScreen(at)).Length(), 1);
+    }
+
+    /// <summary>The paint panel is registered, and unloading takes it and its View entry out.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Here rather than in <c>TexturingModuleTests</c>' roll call, which names two panels and
+    ///     there are now three.</b> That file's own remark says why a roll call has to name rather
+    ///     than count — <a href="https://github.com/Rikarin/Vixen/issues/806">#806</a> was a second
+    ///     document registered nowhere, and a count grown by one says nothing about which one. It
+    ///     belongs in the roll call and the roll call is another slice's file, so the property is
+    ///     asserted here and the fold-in is left to the merge.
+    ///     <para>
+    ///         The <em>command</em> half is the one that is easy to leave behind:
+    ///         <c>RegisterPanel</c> makes two registrations, and a View-menu line that toggles a panel
+    ///         nobody can open is a lambda holding the plugin's assembly for the session.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_paint_panel_is_registered_and_unloading_takes_it_out() {
+        using var fixture = new TexturingFixture();
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+
+        Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.PaintPanel);
+        Assert.NotNull(fixture.Shell.Commands[TexturingModule.PaintCommand]);
+
+        Assert.True(fixture.Host.Unload(TexturingModule.ModuleId));
+
+        Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.PaintPanel);
+        Assert.Null(fixture.Shell.Commands[EditorShell.PanelCommand(TexturingModule.PaintPanel)]);
+        Assert.Null(fixture.Shell.Commands[TexturingModule.PaintCommand]);
     }
 
     // ── The harness ─────────────────────────────────────────────────────────────────────────────
