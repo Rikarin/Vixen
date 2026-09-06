@@ -31,7 +31,7 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         plugin's own entry assembly must not declare a <c>[DataContract]</c>, because
 ///         <c>PluginLoadContext</c> loads it twice and the second registration is refused with
 ///         "Both 'X' and 'X' claim the name". The settings object that path wants is exactly such a
-///         declaration. <a href="https://github.com/Rikarin/Vixen/issues/874">#874</a>.
+///         declaration. <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a>.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Every control writes through <see cref="PaintTool" /> and none of them writes a

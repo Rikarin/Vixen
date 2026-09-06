@@ -369,7 +369,7 @@ sealed class LayerStackPreview : IDisposable {
     ///         match.</b> The imported-picture path decodes its PNG on every evaluation too, and a
     ///         preview runs on every edit. A 4K canvas is 67 MB a channel, so this is the more
     ///         expensive of the two and the one worth caching first —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/873">#873</a>. It is filed rather
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a>. It is filed rather
     ///         than done here because a cache that this pane owns and the paint session does not
     ///         would serve a stale canvas the moment the two are wired to each other.
     ///     </para>
