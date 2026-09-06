@@ -1417,6 +1417,15 @@ sealed partial class EditorApplication : IDisposable {
     ///     user their layout file.
     /// </remarks>
     public void Dispose() {
+        // ⚠ Before the plugins go, and only on the path where the host forgot. A host that releases
+        // its window properly has already written null into `GraphicsDevice` and been through
+        // `DeviceLost` there; a host that shuts down with a device still published — a test, and the
+        // path `DisposeFrames` below documents — would otherwise unload every plugin without any of
+        // them being told, which is #968 with the announcement in place and skipped.
+        if (GraphicsDevice is { } going) {
+            plugins.DeviceLost(going);
+        }
+
         plugins.UnloadAll();
 
         // ⚠ Before anything else, and it is not tidying. `EditorRegistry.Default` is process-wide —

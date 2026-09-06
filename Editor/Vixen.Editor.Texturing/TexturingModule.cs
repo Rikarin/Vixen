@@ -309,6 +309,14 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             // evaluator's pipelines and one uploaded image. `Deactivate` runs first and this runs
             // whatever happens to it, which is the difference that matters for a throw.
             context.OnUnload(Release);
+
+            // ⚠ And the other half of the same promise, which #968 is what makes expressible. Unload
+            // is not the only way this module stops owning device objects: the window can go and take
+            // the device with it, and until the contract carried that this module could only *notice*
+            // — see `Evaluator`, whose stale branch drops an evaluator it cannot legally dispose,
+            // because by the time a live view starts answering differently the old device has already
+            // been destroyed. This runs while it is still valid, so the pipelines go back.
+            context.OnDeviceLost(ReleaseDevice);
         }
 
         var registry = context.Services.Require<IEditorRegistry>();
@@ -912,6 +920,41 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         graphics = null;
     }
 
+    /// <summary>Gives back what was built on a device that is going, while it is still valid.</summary>
+    /// <param name="device">The device the host is about to stop answering with.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The release <see cref="Evaluator" />'s stale branch could not do</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/968">#968</a>. That branch meets a
+    ///         device that has <em>already</em> been destroyed and can only drop the evaluator;
+    ///         <c>PluginContext.OnDeviceLost</c> is raised before the host stops answering with it, so
+    ///         here <c>WaitIdle</c> and <c>Destroy</c> are both legal and the pipelines, shader
+    ///         modules and <c>EffectLoader</c> go back to the device that owns them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the evaluator, and not <see cref="Release" />'s whole list.</b> The module
+    ///         survives a device loss — the window comes back, <c>EnsureDevice</c> builds another and
+    ///         the panes ask again — so clearing <c>graphics</c> here would leave it holding no
+    ///         service at all for the rest of the session. The uploaded pictures are the host's
+    ///         thumbnail surface's, which the host has already taken down by this point.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Guarded on the identity, so a device this module never built on is a no-op.</b>
+    ///         Disposing an evaluator through a device that is not the one its pipelines belong to is
+    ///         the use-after-free the guard in <see cref="Evaluator" /> exists to avoid, reached from
+    ///         the other side.
+    ///     </para>
+    /// </remarks>
+    void ReleaseDevice(IGraphicsDevice device) {
+        if (evaluator is null || !ReferenceEquals(evaluatorDevice, device)) {
+            return;
+        }
+
+        evaluator.Dispose();
+        evaluator = null;
+        evaluatorDevice = null;
+    }
+
     /// <summary>How many evaluators this module has built over its life.</summary>
     /// <remarks>
     ///     ⚠ <b>A count rather than a flag, because the defect it measures is a <em>second</em>
@@ -969,19 +1012,26 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     ///         <c>EditorHost</c> answers <c>PlatformEventKind.Suspending</c> with <c>Release</c>,
     ///         which sets <c>EditorApplication.GraphicsDevice</c> to null and disposes the
     ///         <c>VulkanDevice</c>; the next <c>Present</c> calls <c>EnsureDevice</c>, which sees a
-    ///         null device and a surface that can present and creates a <em>new</em> one. The plugin
-    ///         is told nothing at any point — <c>IEditorGraphics.Device</c> simply starts answering
-    ///         differently, which is exactly what that member's remarks say it is for.
+    ///         null device and a surface that can present and creates a <em>new</em> one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The stale evaluator is dropped and <em>not</em> disposed, which is the opposite
-    ///         of what this type does everywhere else.</b> <c>TexturePlanEvaluator.Dispose</c> calls
-    ///         <c>WaitIdle</c> and <c>Destroy</c> on the device it holds — and the only route that
-    ///         reaches this branch is the one above, where that device was disposed before the
-    ///         replacement existed. Destroying a pipeline through a destroyed device is the crash
-    ///         this is avoiding rather than a tidier version of it. Nothing outlives the device: a
-    ///         Vulkan device's objects go when it does, and what stays behind is a managed wrapper
-    ///         holding invalid handles that the next collection takes.
+    ///         ⚠ <b>The plugin used to be told nothing at any point, and now it is</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/968">#968</a>. <c>OnDeviceLost</c> is
+    ///         raised before the host stops answering with the old device, so
+    ///         <see cref="ReleaseDevice" /> gives its pipelines back and this branch is no longer the
+    ///         route a lost device normally takes. What it still is, is the backstop for a host that
+    ///         raises nothing — a test that writes <c>GraphicsDevice</c> straight through, or a
+    ///         future host with a different order — and for that reason it keeps its old behaviour.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A stale evaluator reaching <em>here</em> is dropped and <em>not</em> disposed,
+    ///         which is the opposite of what this type does everywhere else.</b>
+    ///         <c>TexturePlanEvaluator.Dispose</c> calls <c>WaitIdle</c> and <c>Destroy</c> on the
+    ///         device it holds — and a device that got this far unannounced was disposed before the
+    ///         replacement existed. Destroying a pipeline through a destroyed device is the crash this
+    ///         is avoiding rather than a tidier version of it. Nothing outlives the device: a Vulkan
+    ///         device's objects go when it does, and what stays behind is a managed wrapper holding
+    ///         invalid handles that the next collection takes.
     ///     </para>
     /// </remarks>
     TexturePlanEvaluator Evaluator(IGraphicsDevice device) {

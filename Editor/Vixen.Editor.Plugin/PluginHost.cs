@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Vixen.Editor.Ui;
+using Vixen.Graphics;
 
 namespace Vixen.Editor.Plugin;
 
@@ -431,6 +432,50 @@ public sealed class PluginHost {
 
                     Changed?.Invoke(plugin);
                     break;
+                }
+            }
+        }
+    }
+
+    /// <summary>Tells every active plugin that the device it is holding is about to go.</summary>
+    /// <param name="device">The device that is ending. Still valid for the length of this call.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Called by the host from wherever it stops answering with a device</b> — for the
+    ///         editor that is <c>EditorApplication.GraphicsDevice</c>'s setter, which the window's
+    ///         own <c>Release</c> writes null into on the way down and a fresh device into when the
+    ///         window comes back. See <see cref="PluginContext.OnDeviceLost" /> for what a plugin
+    ///         does with it and <a href="https://github.com/Rikarin/Vixen/issues/968">#968</a> for
+    ///         what happened without it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A plugin that throws here is reported and <em>not</em> unloaded, which is the
+    ///         opposite of <see cref="Update" />.</b> Sixty throws a second from a per-frame callback
+    ///         is an editor that has stopped and unloading is mercy; one throw from a release path is
+    ///         a plugin that has leaked something, and unloading it mid-teardown would run its whole
+    ///         undo stack against a shell that is going down anyway — turning one leaked pipeline
+    ///         into a second, less predictable failure. The device is destroyed either way.
+    ///     </para>
+    /// </remarks>
+    public void DeviceLost(IGraphicsDevice device) {
+        ArgumentNullException.ThrowIfNull(device);
+
+        // Over copies, for `Update`'s reason: a plugin may unload itself from its release callback,
+        // and "this host has taken my device away for good" is a legitimate thing to conclude.
+        foreach (var plugin in plugins.Where(static entry => entry.State == PluginState.Active).ToList()) {
+            foreach (var release in plugin.Scope.DeviceLost.ToList()) {
+                try {
+                    release(device);
+                } catch (Exception exception) when (exception is not OutOfMemoryException and not StackOverflowException) {
+                    diagnostics.Add(
+                        new PluginDiagnostic(
+                            PluginSeverity.Error,
+                            plugin.Id,
+                            $"threw while giving back its device resources: {exception.Message}"
+                        )
+                    );
+
+                    plugin.Failure = exception;
                 }
             }
         }
