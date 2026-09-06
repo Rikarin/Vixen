@@ -145,6 +145,16 @@ Vixen.Ui.Controls.ControlVariant.Primary = 1 -> Vixen.Ui.Controls.ControlVariant
 Vixen.Ui.Controls.ControlVariant.Subtle = 2 -> Vixen.Ui.Controls.ControlVariant
 Vixen.Ui.Controls.ControlVariant.Success = 3 -> Vixen.Ui.Controls.ControlVariant
 Vixen.Ui.Controls.ControlVariant.Warning = 4 -> Vixen.Ui.Controls.ControlVariant
+Vixen.Ui.Controls.DiagnosticsPanel -> sealed class
+Vixen.Ui.Controls.DiagnosticsPanel : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.DiagnosticsPanel.DiagnosticsPanel() -> void
+Vixen.Ui.Controls.DiagnosticsPanel.Probe.get -> Vixen.Core.Mathematics.Vector2?
+Vixen.Ui.Controls.DiagnosticsPanel.Probe.set -> Vixen.Core.Mathematics.Vector2?
+Vixen.Ui.Controls.DiagnosticsPanel.Refresh() -> void
+Vixen.Ui.Controls.DiagnosticsPanel.RowCount.get -> int
+Vixen.Ui.Controls.DiagnosticsPanel.Rows.get -> Vixen.Ui.Controls.KeyValueList
+Vixen.Ui.Controls.DiagnosticsPanel.Subject.get -> Vixen.Ui.UiDocument?
+Vixen.Ui.Controls.DiagnosticsPanel.Subject.set -> Vixen.Ui.UiDocument?
 Vixen.Ui.Controls.Dialog -> sealed class
 Vixen.Ui.Controls.Dialog : Vixen.Ui.Controls.Overlay
 Vixen.Ui.Controls.Dialog.Backdrop.get -> Vixen.Ui.UiElement
@@ -1016,6 +1026,9 @@ override Vixen.Ui.Controls.ComboBox.TagName.get -> string
 override Vixen.Ui.Controls.ContextMenu.TagName.get -> string
 override Vixen.Ui.Controls.Control.OnCreated() -> void
 override Vixen.Ui.Controls.Control.OnRemoved() -> void
+override Vixen.Ui.Controls.DiagnosticsPanel.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.DiagnosticsPanel.OnCreated() -> void
+override Vixen.Ui.Controls.DiagnosticsPanel.TagName.get -> string
 override Vixen.Ui.Controls.Dialog.ContentHost.get -> Vixen.Ui.UiElement
 override Vixen.Ui.Controls.Dialog.NativeAccessibleName.get -> string?
 override Vixen.Ui.Controls.Dialog.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates

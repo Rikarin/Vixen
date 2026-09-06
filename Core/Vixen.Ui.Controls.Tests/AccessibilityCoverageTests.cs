@@ -87,6 +87,9 @@ public class AccessibilityCoverageTests {
         ["ScrollView"] = "scrolling is a viewport property, not a widget; the scroll bars inside it are `scrollbar`",
         ["Tabs"] = "ARIA puts `tablist` on the strip and `tab` on each item; the shell holding both is neither",
         ["KeyValueList"] = "a two-column layout; each row's editor carries the role and the key names it",
+        ["DiagnosticsPanel"] =
+            "a shell over a `KeyValueList` whose rows are the words; a role on the frame would "
+            + "announce a debug view as a widget and say nothing a reader could not already read",
         ["KeyValueRow"] = "a key and an editor side by side; the key names the editor through `LabelledBy`",
         ["Popover"] = "a positioned surface; what is inside it is what the user operates",
         ["Icon"] = "decoration beside a word that already says it — an icon announced twice is read twice",

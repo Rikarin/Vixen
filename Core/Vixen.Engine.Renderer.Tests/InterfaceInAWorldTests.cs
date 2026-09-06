@@ -3,10 +3,14 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Engine.Renderer;
+using Vixen.Graphics;
 using Vixen.Graphics.Null;
 using Vixen.Rendering;
 using Vixen.Shaders;
+using Vixen.Ui;
 using Vixen.Ui.Renderer;
+using Vixen.Ui.Rendering;
+using Vixen.Ui.Text.Rasterizing;
 using Xunit;
 
 namespace Tests;
@@ -190,6 +194,104 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         var loose = new UiRenderFeature();
 
         Assert.Throws<InvalidOperationException>(() => loose.Mount(RenderStageMask.All));
+    }
+
+    /// <summary>
+    ///     The frame a mounted interface was given reaches the GPU, geometry and glyph atlas
+    ///     together.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half that had no reachable caller after the registration was fixed.</b>
+    ///         <c>UiRenderFeature.Draw</c> runs inside a render pass, so it can only <c>Record</c>;
+    ///         <c>UiRenderer.Upload</c> is what writes the vertices and copies the atlas, and it
+    ///         cannot be called from there — a texture copy is the one thing a Vulkan command list
+    ///         may not do inside a pass. Nothing called it, and the giveaway was
+    ///         <c>UiInterface.Atlas</c>: every surface carried the atlas and no line read the field.
+    ///     </para>
+    ///     <para>
+    ///         Both counters are the renderer's own work, not a wall clock. <c>Region</c> advances
+    ///         only in <c>UploadGeometry</c>, and only for a frame with indices in it;
+    ///         <c>AtlasUploads</c> counts the copies. A feature that recorded without uploading
+    ///         leaves both where they started and draws from a buffer nothing has ever written,
+    ///         which is a HUD of undefined memory rather than an error.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AMountedInterfacesFrameReachesTheGpu() {
+        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var ui = UiRendererFor(device);
+
+        var system = renderer.Host.System;
+        var stage = system.AddStage(new("Ui", RenderSortMode.ByGroup));
+
+        renderer.Ui.Renderer = ui;
+
+        var id = renderer.Ui.Mount(stage.Mask);
+        var atlas = new GlyphAtlas(64, 64);
+
+        renderer.Ui.Set(id, new(Geometry(atlas), atlas, new Int2(400, 300), 0));
+
+        var region = ui.Region;
+
+        Assert.Equal(0, ui.AtlasUploads);
+
+        using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
+
+        renderer.Ui.Upload(commands);
+
+        Assert.Equal(1, ui.AtlasUploads);
+        Assert.NotEqual(region, ui.Region);
+    }
+
+    /// <summary>A feature with nothing mounted uploads nothing, and one with no renderer says nothing.</summary>
+    /// <remarks>
+    ///     The pair the assertion above needs to mean anything. <c>AtlasUploads</c> reaching one is
+    ///     only evidence that <em>this</em> surface was uploaded if a feature holding no surface
+    ///     leaves it at zero — otherwise an upload of some default would read the same. And the
+    ///     null-renderer case is the arrangement the constructor leaves behind: <c>WorldRenderer</c>
+    ///     registers the feature whether or not the application has an interface, so a game with no
+    ///     HUD calls this every frame and must not be told off for it.
+    /// </remarks>
+    [Fact]
+    public void NothingMountedUploadsNothing() {
+        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var ui = UiRendererFor(device);
+        using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
+
+        renderer.Ui.Upload(commands);
+
+        Assert.Equal(0, ui.AtlasUploads);
+
+        renderer.Ui.Renderer = ui;
+        renderer.Ui.Upload(commands);
+
+        Assert.Equal(0, ui.AtlasUploads);
+    }
+
+    static UiRenderer UiRendererFor(NullDevice device) =>
+        new(
+            device,
+            new UiShaders(
+                device.CreateShader(ShaderStage.Vertex, [1, 2, 3, 4], "ui vertex"),
+                device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui box"),
+                device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui text"),
+                device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui solid")
+            ),
+            new RenderOutput([PixelFormat.Bgra8UNorm])
+        );
+
+    static UiGeometry Geometry(GlyphAtlas atlas) {
+        var list = new DrawList();
+
+        list.BeginFrame();
+
+        // ⚠ Qualified: `Vixen.Rendering` has a `DrawCommand` of its own, and the two mean different
+        // things — one is an element's paint, the other an indirect draw's arguments.
+        list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 8f, 8f, 120f, 40f, Color4.White, 0f, 0f));
+        list.EndFrame();
+
+        return new UiGeometryBuilder().Build(list, new GlyphFieldCache(atlas), new Rectangle(0, 0, 400, 300));
     }
 
     static RenderView Camera(RenderStageMask stages) {

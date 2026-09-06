@@ -32,9 +32,23 @@ than a nuisance.
 
 `WorldRenderer` does, in its constructor, as `WorldRenderer.Ui` — and the editor's viewport gets it
 from there, because `EditorWorldRenderer` owns a `WorldRenderer` rather than assembling features of
-its own. A host then supplies three things in order: `Renderer`, because building a `UiRenderer`
+its own. A host then supplies four things in order: `Renderer`, because building a `UiRenderer`
 needs the shader modules and the formats of the pass; `Mount`, once, with the stages that draw it;
-and `Set`, every frame, with the geometry the document's builder produced.
+`Set`, every frame, with the geometry the document's builder produced; and `Upload`, every frame,
+on a command list that is **not inside a render pass**.
+
+⚠ **`Upload` is not optional and forgetting it draws from memory nothing has written.** `Draw` runs
+inside the pass and can only `Record`; the vertices, indices, box records and the glyph atlas are
+written by `UiRenderer.Upload`, and a texture copy is the one thing a Vulkan command list may not do
+inside a pass — which is why the renderer splits the two at all. The feature had no upload half for
+as long as it had no registration, and the evidence was in plain sight: every `UiInterface` carried
+the `Atlas` its text draws from and not one line read the field.
+
+⚠ **One `Renderer` serves one mounted interface, whatever `Mount` allows.** `UiRenderer` advances its
+ring region inside `Upload` and `Record` draws from the region the *last* upload wrote, so two
+surfaces uploaded through one renderer are both drawn from the second one's geometry. The `Order` a
+surface is mounted with is therefore ahead of the arrangement that would need it — that wants a
+renderer per surface, which is [#909](https://github.com/Rikarin/Vixen/issues/909).
 
 ⚠ **Until this existed the feature had no caller at all.** It compiled, it was documented, three
 other files' prose referred to it — and nothing in the tree constructed one, so whether the

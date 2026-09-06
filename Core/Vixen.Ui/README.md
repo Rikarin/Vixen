@@ -1830,7 +1830,40 @@ different builds are not a differential. The cost is one increment per window pe
 says a still window rebuilds once per frame. That is deliberate: a gate that could not tell the two
 worlds apart would be a predicate that cannot be false.
 
-### Still owed: the overlay, and the reason it is not written here
+### Landed: `DiagnosticsPanel`, and it is a control
+
+`Vixen.Ui.Controls`' `DiagnosticsPanel` is the reader, and
+[its guide page](../../docs/guide/ui/diagnostics-panel.md) is written from it. It shows the counters
+above as pooled `KeyValueList` rows, says `cold` or `incremental` for the last pass, reports the
+draw-list rebuild gap as the pair it has to be read as, and — when a `Probe` point is set — the
+element under it and its four boxes.
+
+⚠ **`Subject` is the part that makes the numbers honest.** Left unset the panel describes its own
+document, which is consistent to within its own churn; pointed at a second `UiDocument` it is not in
+the tree it is measuring and the reading is exact. `DiagnosticsPanelTests` uses the second
+arrangement for exactly that reason — it is what lets the assertions be equalities against
+`UiDiagnostics` rather than ranges.
+
+⚠ **And the row that says `not recorded in this build` rather than `0`** is the honesty
+`RecordsRegions` exists for, moved up to where somebody reads it.
+
+`UiApplication.Diagnostics` is the wiring: assigned a panel, the loop refreshes it *before*
+`Document.Update`, which is the one thing an application cannot get right on its own — where the
+panel goes and what it describes stay the application's. Still owed there: nothing in the tree
+assigns one yet, so the sample or editor adoption that would make the path taken by something is the
+next move.
+
+### Still owed: the drawn overlay, and the reason it is not written here
+
+⚠ The panel above is the *readable* half. Doc 13's fourth row is a dirty-region **highlight** and its
+first two are outlines over the live elements, and neither is text: they want boxes drawn in the
+subject document's coordinates, which is a second surface or an absolutely-positioned layer rather
+than a row in a list. The material is all there — `DirtyRegions` and `BoxOf` — and nothing draws it.
+
+The paragraphs below are the reasoning that decided the panel's shape, kept because the seam question
+was answered wrongly three times before it was answered.
+
+
 
 ⚠ **There is no host today that holds a `UiDocument` *and* a `DiagnosticOverlays`**, which is a
 sharper statement of what #461 calls "a decision, not a constraint". `AppGraphics.BuildOverlays`
@@ -1919,6 +1952,11 @@ landed — `UiDocument.Diagnostics` above — so what this section changes about
 exists but what it must be: a snapshot taken at the top of the frame with an in-process reader,
 rather than the live view "reads, does not sample" alone would have allowed. Item 2 is a control
 rather than an `IDiagnosticOverlay`, and item 3 is composing it into a host's tree rather than
-registering it in `BuildOverlays`. Neither of those two is built, and the reason for writing the seam
-answer into the README rather than into a session is that the last two attempts each re-derived one
-that was already there.
+registering it in `BuildOverlays`. The reason for writing the seam answer into the README rather than
+into a session is that the last two attempts each re-derived one that was already there.
+
+⚠ **Item 2 has since landed as `DiagnosticsPanel` and item 3 half has**: the snapshot is taken by the
+host — `UiApplication` refreshes an assigned panel before `Document.Update` — and the "snapshot at
+the top of the frame" trade is kept by *when* the read happens rather than by a copy of the numbers,
+which is what makes the read path still allocate nothing. What is not done is an application in this
+tree that assigns one.
