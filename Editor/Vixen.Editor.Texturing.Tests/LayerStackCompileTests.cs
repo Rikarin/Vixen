@@ -404,9 +404,17 @@ public class LayerStackCompileTests {
     ///         cannot make.</b> <c>Blend.rvn</c> computes
     ///         <c>amount = saturate(opacity) · saturate(b.w)</c> and reads <c>b.w</c> nowhere else, so
     ///         a constant mask inside the unit interval is a reassociation of one product.
-    ///         <c>LayerCoverageDeviceTests</c> is where that is read off the texels — it bakes
-    ///         constant-masked layers at 0, ½ and 1 and asserts the coverage arithmetic, on a device,
-    ///         and none of its numbers moved when this landed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That claim was cited to the wrong test until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/895">#895</a>.</b> The citation was
+    ///         <c>LayerCoverageDeviceTests</c> "baking constant-masked layers at 0, ½ and 1 with none
+    ///         of its numbers moving" — and none of them could have moved, because after the fold
+    ///         every one of those masks compiles to nothing at all. Agreeing with itself is not a
+    ///         differential. <c>LayerCoverageDeviceTests.A_folded_constant_mask_bakes_what_the_unfolded_one_bakes</c>
+    ///         is the one that reads it off the texels: the same mask twice, once folded and once
+    ///         with an entry that changes no texel and stops the fold, swept over five coverages
+    ///         against the closed form.
     ///     </para>
     /// </remarks>
     [Fact]
