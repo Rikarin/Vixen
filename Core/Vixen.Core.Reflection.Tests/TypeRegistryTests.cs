@@ -5,6 +5,11 @@ using Xunit;
 
 namespace Vixen.Core.Reflection.Tests;
 
+/// <summary>
+///     ⚠ In <see cref="TypeRegistryTestGroup" /> because this suite registers into a process-wide
+///     static and reads <c>Count</c> either side of one registration.
+/// </summary>
+[Collection(TypeRegistryTestGroup.Name)]
 public class TypeRegistryTests {
     [Fact]
     public void EveryAnnotatedTypeRegisteredItselfBeforeAnyCodeRan() {
