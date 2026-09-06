@@ -215,10 +215,13 @@ public sealed class TextureGraphDocument : EditorDocument {
     ///         that can change a compound, so a save is what sets the flag.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What this does not see is a compound changed outside the editor.</b>
-    ///         <c>ExternalEdits</c> is where that arrives and it is constructed by the application
-    ///         rather than reachable from a document, so a host that watches files calls this itself
-    ///         — <a href="https://github.com/Rikarin/Vixen/issues/922">#922</a>.
+    ///         ⚠ <b>And a compound changed <em>outside</em> the editor sets it too, which for a batch
+    ///         it did not</b> — <a href="https://github.com/Rikarin/Vixen/issues/922">#922</a>. A
+    ///         <c>git checkout</c>, a text editor and a tool that writes <c>.vxtexgraph</c> files
+    ///         raise no <c>DocumentSaving</c>, so a containing graph went on inlining the version
+    ///         that was on disk when it opened. <see cref="OnProjectFileChanged" /> is the other
+    ///         setter: <c>ExternalEdits</c> tells every open document what moved, and this one
+    ///         answers for its own folder.
     ///     </para>
     /// </remarks>
     public bool Republish() {
@@ -231,6 +234,55 @@ public sealed class TextureGraphDocument : EditorDocument {
         Adopt(TextureNodeLibrary.Publish(Project.Paths.Assets));
 
         return true;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half <see cref="Republish" /> could not have on its own —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/922">#922</a>.</b>
+    ///         <c>EditorProject.DocumentSaving</c> hears a save made <em>in the editor</em>; a
+    ///         <c>git checkout</c>, a text editor and a tool that writes <c>.vxtexgraph</c> files
+    ///         raise nothing at all. This is where a change from outside arrives, and it is a
+    ///         notification rather than a reload: what a compound changing means to a graph
+    ///         containing it is that the library is stale, not that this file is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A flag and no work, because this runs on the frame, once per drained change per
+    ///         open document.</b> Reading the folder here would make somebody else's Ctrl+S cost the
+    ///         editor a frame — <see cref="Republish" />'s own "a directory walk per keystroke is the
+    ///         same trap wearing a hat", moved one caller along.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null is "the watcher lost events", and it marks stale.</b> An overflow says
+    ///         nothing about which file moved, so the honest answer is the conservative one: the cost
+    ///         of being wrong is one republish, and the cost of assuming the best is a bake made from
+    ///         a compound nobody can see is old.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its own file changing is not this.</b> That is a reload, decided by
+    ///         <c>ExternalEdits</c>'s policy against unsaved edits; republishing the library for it
+    ///         would rebuild every node type because the graph on the canvas moved.
+    ///     </para>
+    /// </remarks>
+    protected override void OnProjectFileChanged(string? path) {
+        base.OnProjectFileChanged(path);
+
+        if (compounds is null) {
+            return;
+        }
+
+        if (path is null) {
+            stale = true;
+
+            return;
+        }
+
+        var absolute = Path.GetFullPath(Project.Paths.Absolute(path));
+        var folder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(compounds));
+
+        stale = stale
+            || absolute.StartsWith(folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <inheritdoc />

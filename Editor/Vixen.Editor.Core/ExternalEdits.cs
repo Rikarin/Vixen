@@ -149,6 +149,13 @@ public sealed class ExternalEdits : IDisposable {
         for (var index = 0; index < changes.Count; index++) {
             var change = changes[index];
 
+            // ⚠ Every change and every open document, before the routing and including deletions —
+            // #922. This is the other question: not "which document is this file" but "which
+            // documents care that it moved". A texture graph inlines `Assets/Compounds`, so a
+            // compound edited outside the editor reached nothing; and a compound *deleted* has to
+            // leave the menu, which the reload path below deliberately never hears about.
+            Announce(change.Path);
+
             if (change.Kind == FileChangeKind.Deleted) {
                 continue;
             }
@@ -190,6 +197,11 @@ public sealed class ExternalEdits : IDisposable {
         // list underneath this loop — skipping whatever moved into the slot it left.
         var documents = project.Documents.ToArray();
 
+        // ⚠ Null, which is this method's whole situation said in one argument: events were lost, so
+        // any file may have changed and no path can be named. A document that depends on somebody
+        // else's file has to assume the worst here, exactly as this method does about its own.
+        Announce(null);
+
         for (var index = 0; index < documents.Length; index++) {
             var document = documents[index];
 
@@ -217,6 +229,51 @@ public sealed class ExternalEdits : IDisposable {
 
         disposed = true;
         project.DocumentSaving -= OnDocumentSaving;
+    }
+
+    /// <summary>Tells every open document that a file in the project changed.</summary>
+    /// <param name="path">The watched path, or null for "events were lost".</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Project-relative, because that is what a document can compare against.</b> A
+    ///         <see cref="VirtualPath" /> is relative to the watcher's mount, which is a fact about
+    ///         how this editor was configured; <c>ProjectPaths.Relative</c> is the spelling every
+    ///         asset in the database is stored under.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Over a snapshot and inside a try, for <see cref="Rescan" />'s reasons plus one.</b>
+    ///         An override belongs to a deriving type — a plugin's, in the case this exists for — and
+    ///         one that throws would take the frame down over somebody else's text editor pressing
+    ///         Ctrl+S. A document that cannot cope with a notification keeps whatever it had.
+    ///     </para>
+    /// </remarks>
+    void Announce(VirtualPath? path) {
+        string? relative = null;
+
+        if (path is { } named && !named.IsEmpty && mount.Contains(named)) {
+            var trimmed = named.RelativeTo(mount).Value.TrimStart(VirtualPath.Separator);
+
+            if (trimmed.Length > 0) {
+                relative = project.Paths.Relative(
+                    Path.Combine(watchedDirectory, trimmed.Replace(VirtualPath.Separator, Path.DirectorySeparatorChar))
+                );
+            }
+        }
+
+        var documents = project.Documents.ToArray();
+
+        for (var index = 0; index < documents.Length; index++) {
+            try {
+                documents[index].OnProjectFileChanged(relative);
+            } catch (Exception failure)
+                when (failure is IOException
+                    or UnauthorizedAccessException
+                    or InvalidOperationException
+                    or NotSupportedException) {
+                // Kept, on `TryReload`'s argument: a document that could not take the news keeps what
+                // it has, and the next change tries again.
+            }
+        }
     }
 
     /// <summary>Applies the policy to one document whose file has changed.</summary>

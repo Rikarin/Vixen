@@ -249,6 +249,44 @@ public abstract class EditorDocument {
     protected internal virtual void OnClosed() {
     }
 
+    /// <summary>Something in the project changed on disk, whoever it belongs to.</summary>
+    /// <param name="path">
+    ///     What changed, project-relative — or <see langword="null" /> when the watcher lost events
+    ///     and any file may have.
+    /// </param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>For a document that depends on a file other than its own.</b>
+    ///         <see cref="ExternalEdits" /> routes a change to the document that <em>owns</em> that
+    ///         path, which is the whole of what a reload needs; this is the other question, and until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/922">#922</a> nothing asked it. A
+    ///         texture graph inlines the compounds in <c>Assets/Compounds</c>, so a compound edited
+    ///         by a <c>git checkout</c> or a text editor left every containing graph inlining the
+    ///         version that was on disk when it opened — old ports, old defaults, and a bake made
+    ///         from them with nothing saying so.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A notification and not a reload.</b> What a document does with it is its own —
+    ///         mark something stale, drop a cache, rebuild a menu — and the default is nothing at
+    ///         all. Re-reading the document's own file is <see cref="Reload" />'s job and is decided
+    ///         by <see cref="ExternalEdits" />'s policy, which weighs unsaved edits; this carries no
+    ///         such decision because it is not about this document's contents.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Deletions included, unlike the reload path.</b> A file that has gone must not be
+    ///         re-read — it would read back as empty — but a compound that has gone must leave the
+    ///         menu, and an override that only heard about writes would keep offering it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Called on the frame, once per drained change per open document.</b> An override
+    ///         that walks a directory or reads a file makes an external program's Ctrl+S cost the
+    ///         editor a frame; the shape that works is a flag set here and read where the work
+    ///         already happens.
+    ///     </para>
+    /// </remarks>
+    protected internal virtual void OnProjectFileChanged(string? path) {
+    }
+
     internal void MarkClosed() => IsOpen = false;
 
     /// <summary>
