@@ -151,6 +151,22 @@ a span with an out-of-flow child  refused, and the child is the reason rather th
                                   CSS's — so a flattened span, whose own `CalculateLayoutImpl`
                                   never runs, is where that walk stops. Refusing leaves a box
                                   un-split; flattening would leave the child positioned by nobody.
+                                  ⚠ RE-VERIFIED at HEAD rather than copied forward, and the shape
+                                  of the fix is worth writing down because the reading takes
+                                  three files: `LayoutStyle.cs:359` still writes `Relative` as the
+                                  default, `EstablishesAbsoluteContainingBlock` is still
+                                  `!= Static`, and `LayoutAbsoluteDescendants` descends into a
+                                  child only when that is false. So what a flattened span is
+                                  missing is one call: `CommitInlineBoxFragments` is where its
+                                  union — §10.1's containing block for exactly these children —
+                                  becomes final, and a `LayoutAbsoluteDescendants` from there
+                                  would put them somewhere. ⚠ It is NOT only that call. The static
+                                  position `HideAndPositionOutOfFlow` records for such a child is
+                                  the CONTAINER's content edge, in the container's coordinates, and
+                                  the commit rebases everything else it placed by the union's
+                                  origin — so a child with no insets would be positioned from an
+                                  origin nothing moved. Whoever takes this closes both halves or
+                                  neither.
 the strut's effect on a fragment  ⚠ CLOSED BY THE STRUT SECTION BELOW, and it closed for free: a
                                   fragment is exactly as tall as its line box, so a container with a
                                   strut now gives every fragment the strut's height without this
