@@ -490,6 +490,15 @@ stops, which is the direction an author tests second. Nothing throws, because no
 what arrives instead is a warning naming the element and the property, on log event `7008`. Bind a
 signal's `Value`, or use `change:` if a one-way write-back was what was meant.
 
+⚠ **Neither directive works on a component tag, and that is now one error rather than two puzzles.**
+`bind:` and `change:` name a `[UiProperty]`, which only an element has; a component's parameters are
+ordinary C# properties nobody is watching. `<Slider bind:Value="@x.Value" />` is right and
+`<MyPanel bind:Model="@x.Value" />` is not, even though the two tags are written identically — and
+the compiler tells the two apart, on the attribute's own characters, with a sentence saying a
+component has no properties. Pass the value in as a parameter, `Model="@expr"`, and take the
+write-back with a `change:` on the control *inside* the component, which is where the property
+actually lives.
+
 ### `bind:X.submit`, for the event that commits the write
 
 ```vxml
