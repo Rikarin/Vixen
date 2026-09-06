@@ -436,6 +436,25 @@ public static class UtilityFamilies {
             ]
         ));
 
+        // ⚠ <b>The refusal on this one expired rather than being argued away, and it had moved twice
+        // before it did.</b> `forced-color-adjust` tells a user agent whether to leave an element out
+        // of a forced-colour override. It was refused first because `MediaQuery` had no
+        // `forced-colors` feature, then — once it had — because nothing set `MediaPreferences
+        // .ForcedColors`, then, once `PlatformInput.ApplyAccessibility` fed it from
+        // `SystemAccessibility.HighContrast`, because nothing in the renderer substituted a palette
+        // and the property would have governed nothing. That last blocker was `Rikarin/Vixen#836`
+        // and it is closed: `DrawListBuilder.Force` substitutes `Canvas` and `CanvasText` for
+        // authored colours under `forced-colors: active`, and `DrawListBuilder.Preserved` is the
+        // reader — it asks this exact property for this exact value, and an element that says `none`
+        // keeps every colour it authored.
+        //
+        // ⚠ <b>Two classes and only one of them does anything, which is the shape v4 has too.</b>
+        // `auto` is the initial value, so `forced-color-adjust-auto` writes the default back — the
+        // reason it is worth a class is that these are inherited (see `InheritedProperties`, which
+        // explains that the property has to inherit because it is written on containers), so `auto`
+        // is how a descendant of a `none` container opts back in.
+        Keywords("forced-color-adjust", "forced-color-adjust", new() { ["auto"] = "auto", ["none"] = "none" });
+
         // ⚠ <b>Two static roots and not a keyword family, because v4 spells them with two different
         // shapes</b> — `isolate` bare and `isolation-auto` prefixed — which is `normal-nums`' problem
         // further down and has the same answer.
@@ -2461,11 +2480,36 @@ public static class UtilityFamilies {
         // and wins. `class="transition duration-1000"` — the way the class is actually written —
         // would have become a 150 ms transition, which is a regression wearing a fix's clothes.
         // A `var(--tw-duration, 150ms)` takes the fragment whichever rule comes second.
+        //
+        // ⚠ <b>`ValueAlongside` and not `Alongside`, and the difference arrived with
+        // `transition-discrete`.</b> `Alongside` belongs to the FAMILY, and Tailwind spells two
+        // different roots with this one prefix — the bare `transition` is `transition-property`, and
+        // `transition-discrete`/`transition-normal` are `transition-behavior`. A family-level
+        // companion would have given the behaviour classes v4's 150 ms duration as well, and CSS's
+        // initial `transition-property` is `all`, so `class="transition-discrete"` alone would have
+        // begun animating every property on the element where in Tailwind it animates nothing. Keyed
+        // on the bare value, it reaches the one class it is v4's default for.
         Register(new Family("transition", ValueKind.Static, ["transition-property"], new Dictionary<string, string>(StringComparer.Ordinal) {
             [string.Empty] = "all"
-        }, Alongside: [
-            new UtilityDeclaration("transition-duration", UtilityComposition.Reference(UtilityComposition.TransitionDuration))
-        ]));
+        }, ValueAlongside: new Dictionary<string, UtilityDeclaration[]>(StringComparer.Ordinal) {
+            [string.Empty] = [
+                new UtilityDeclaration("transition-duration", UtilityComposition.Reference(UtilityComposition.TransitionDuration))
+            ]
+        }));
+
+        // ⚠ <b>Tailwind's bare `transition` root is `transition-behavior`, which is a DIFFERENT root
+        // from `transition-*` despite the name, and its refusal expired rather than being argued
+        // away.</b> The ledger row said the family "lands with a third arm in `StyleValue.Lerp` that
+        // takes the behaviour"; that was refuted — `Lerp`'s 50 % flip for a non-interpolable pair is
+        // already the correct discrete interpolation — and what was actually missing was a gate one
+        // level out, `Animator.Observe`'s `Start` never asking `StyleValue.CanInterpolate`. That is
+        // `Rikarin/Vixen#861` and it is closed: `Animator` interns `transition-behavior`, reads it
+        // off both the shorthand and the longhand, and `!wanted.AllowDiscrete &&
+        // !StyleValue.CanInterpolate(...)` is what now skips a discrete property. So the property
+        // has its reader and this is the spelling.
+        Keywords("transition", "transition-behavior", new() {
+            ["normal"] = "normal", ["discrete"] = "allow-discrete"
+        });
 
         // ⚠ Both the fragment and the longhand, which is v4's shape too. The longhand alone would be
         // invisible to the `transition` above; the fragment alone would make the family `composed`,

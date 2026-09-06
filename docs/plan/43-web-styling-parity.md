@@ -84,7 +84,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **331** | 307 families |
+| Utility **roots** (the unit of this table) | **331** | 308 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **54** |
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **243** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **245** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **24** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **60** |
+| **absent** | not emitted at all | **58** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 
 ⚠ **There was a sixth, `unknown`, and it described a row rather than a state.** Exactly one row held
@@ -129,7 +129,7 @@ row is a legal row, `absent` is a legal state, and the counts add up because the
 the rows as they now are. What was observable is that six of its eight classes were on two rows at
 once, so that is the invariant — `ParityLedgerTests.Every_class_is_listed_by_exactly_one_row`. ⚠ Two
 cheaper rules were considered and are refuted by this file: refusing a root whose `vixen_family` names
-no registered family would fail the 60 refused roots, which have no family by construction, and
+no registered family would fail the 58 refused roots, which have no family by construction, and
 refusing a name containing parentheses or the word `only` would fail `sr-only`, `not-sr-only` and
 every `… (keywords)` row. ⚠ And **regenerating the `.tsv` after a merge would not have caught it
 either** — `VIXEN_REGENERATE=1` rewrites three computed columns of whatever rows it is handed, so it
@@ -500,15 +500,17 @@ refusal block, which already says so for the same reason.
 | Filters | 20 | 10 | 10 | 0 | 0 | 0 |
 | Sizing | 15 | 13 | 0 | 0 | 2 | 0 |
 | Backgrounds | 11 | 6 | 1 | 0 | 4 | 0 |
-| Transitions and Animation | 6 | 4 | 0 | 0 | 2 | 0 |
+| Transitions and Animation | 6 | 5 | 0 | 0 | 1 | 0 |
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
-| Accessibility | 1 | 0 | 0 | 0 | 1 | 0 |
-| **Total** | **331** | **243** | **24** | **1** | **60** | **3** |
+| Accessibility | 1 | 1 | 0 | 0 | 0 | 0 |
+| **Total** | **331** | **245** | **24** | **1** | **58** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
 policy rather than owed; then Layout at 35 of 50, Interactivity at 30 of 40, Borders at 28 of 34,
-and Effects at 27 of 34. Tables and Accessibility still have **no working root at all**.
+and Effects at 27 of 34. ⚠ Accessibility is 1 of 1 as of 2026-09-06 — `forced-color-adjust` landed the
+day its last blocker (#836) closed, and this paragraph said it had "no working root at all" for as long
+as the refusal outlived its reason. **Tables** is the one category still at zero.
 
 ⚠ **No category is `complete`, and SVG — which this section called the first one to be — is 2 of 3.**
 `stroke-none` is `absent`, refused on the same policy `inset-shadow-*` is: `stroke` is read, but only

@@ -862,6 +862,17 @@ public class UtilityFamilySupportTests {
         { "sr-only", "position", "absolute" },
         { "not-sr-only", "position", "static" },
 
+        // ⚠ <b>The whole of the Accessibility category, and it was `absent` on a refusal that had
+        // outlived its reason three times over.</b> `forced-color-adjust` says whether an element is
+        // left out of the forced-colour override; the blocker moved from "`MediaQuery` has no
+        // `forced-colors` feature" to "nothing sets `MediaPreferences.ForcedColors`" to "nothing
+        // substitutes a palette", and the last of those closed as #836.
+        // `A_forced_colour_override_leaves_an_opted_out_element_alone` below is the half these two
+        // rows cannot carry: a computed value is not a substitution, and `auto` computing to `auto`
+        // would read identically whether the renderer had ever heard of the property or not.
+        { "forced-color-adjust-none", "forced-color-adjust", "none" },
+        { "forced-color-adjust-auto", "forced-color-adjust", "auto" },
+
         { "truncate", "overflow", "hidden" },
         { "overflow-scroll", "overflow", "scroll" },
         { "overflow-auto", "overflow", "auto" },
@@ -905,6 +916,16 @@ public class UtilityFamilySupportTests {
         // an `Inert` row: the property below is genuinely read, and `transition-none` would be
         // refused by the same animator that honours `transition-property: all`.
         { "transition", "transition-property", "all" },
+
+        // ⚠ <b>Tailwind's bare `transition` root is `transition-behavior`, which is a different root
+        // wearing the same prefix</b>, and these two classes are it. The refusal on them expired
+        // rather than being argued away: what was missing was never a third arm in `StyleValue.Lerp`
+        // — its 50 % flip already IS the discrete interpolation — but a gate one level out, and
+        // #861 landed it. Until then this engine ran a transition for every discrete property, which
+        // is `allow-discrete` behaviour where CSS's initial is `normal`.
+        { "transition-discrete", "transition-behavior", "allow-discrete" },
+        { "transition-normal", "transition-behavior", "normal" },
+
         { "duration-150", "transition-duration", "150ms" },
         { "ease-out", "transition-timing-function", "ease-out" },
 
@@ -3071,6 +3092,52 @@ public class UtilityFamilySupportTests {
         ui.Document.Load(new UtilityGenerator(Tokens()).Generate(utilities), StyleOrigin.UserAgent);
 
         return ui;
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The class keeps a colour the forced palette would otherwise have taken, which is a
+    ///     claim no computed value can make.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>forced-color-adjust-none</c>'s two rows in <see cref="Supported" /> say the cascade
+    ///         reaches the property. They cannot say the renderer obeys it — <c>auto</c> computing to
+    ///         <c>auto</c> reads identically whether <c>DrawListBuilder</c> has ever heard of the
+    ///         property or not, and that is exactly the state this family was refused in for three
+    ///         successive reasons. So the assertion is a painted colour under
+    ///         <c>forced-colors: active</c>: the opted-out box keeps the accent it authored, and its
+    ///         plain sibling does not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because either alone is satisfiable by a renderer that is not
+    ///         forcing at all.</b> A test that only checked the opted-out box would pass on a build
+    ///         where the mode does nothing whatsoever, which is the build this row was written for.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_forced_colour_override_leaves_an_opted_out_element_alone() {
+        using var ui = Sheet("forced-color-adjust-none", "bg-accent", "w-8", "h-8");
+
+        ui.Document.Primary.Preferences = ui.Document.Primary.Preferences with { ForcedColors = true };
+
+        var kept = ui.Create("probe", ui.Document.Root, null, "forced-color-adjust-none", "bg-accent", "w-8", "h-8");
+        var forced = ui.Create("probe", ui.Document.Root, null, "bg-accent", "w-8", "h-8");
+
+        ui.Frame();
+
+        var accent = ui.ColorOf(kept, "background-color");
+        var fills = ui.Document.Drawing.Commands
+            .Where(command => command.Kind == DrawCommandKind.Rectangle)
+            .ToList();
+
+        Assert.NotNull(accent);
+        Assert.Contains(fills, fill => fill.Color == accent!.Value);
+
+        // And the one that did not opt out was substituted — otherwise the row above would be green
+        // on a build where nothing forces anything.
+        Assert.Contains(fills, fill => fill.Color != accent!.Value);
+
+        _ = forced;
     }
 
     /// <summary>
