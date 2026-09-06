@@ -186,6 +186,38 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     PaintSurface? surface;
 
+    /// <summary>The geometry the open stack is painted on, resolved — or null with a reason.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held, because resolving it reads a model file off the disk and parses it.</b> The two
+    ///     callers are a panel refresh and a pointer-down, and re-reading a 25 000-triangle OBJ on
+    ///     every stroke would put the mesh's triangle count into the per-stamp path — which is the
+    ///     one property doc 48's exit criterion 8 is about. <see cref="meshKey" /> is what decides
+    ///     that the answer is still the answer.
+    /// </remarks>
+    LayerStackMesh? mesh;
+
+    /// <summary>What <see cref="mesh" /> was resolved for: the stack, its model and the set's mesh.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Null is "not asked yet" and it is not a spare value.</b> A key is a real string for
+    ///     every state including the empty one — a stack that names no model has a key, and its
+    ///     answer is a refusal worth keeping rather than re-deriving. A sentinel string would have to
+    ///     be a string no path can produce, which is how a raw NUL gets into a source file and makes
+    ///     it invisible to <c>grep</c>; nullable says the same thing in the type.
+    /// </remarks>
+    string? meshKey;
+
+    /// <summary>Why there is no mesh, or empty.</summary>
+    string meshRefusal = "";
+
+    /// <summary>What the islands on the paint pane were drawn for, so they are not redrawn per stroke.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>PaintUvView.ShowIslands</c> rebuilds the whole overlay, three segments per
+    ///     triangle.</b> <see cref="RefreshPaint" /> runs at every pointer-up, and re-adding 75 000
+    ///     segments after each stroke is a cost that grows with the model and buys nothing: the
+    ///     islands change when the binding or the atlas does, and at no other moment.
+    /// </remarks>
+    string? islandsKey;
+
     /// <summary>What the paint pane is showing, so it can be given back.</summary>
     IEditorImage? painted;
 
@@ -282,6 +314,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
                 // the rows and cannot redraw the map. #819.
                 stackView.Edited = RefreshStack;
 
+                // ⚠ And the paint pane, which is the other half of #910. A row click writes
+                // `PaintTool.LayerId`, and the pane reads it once — at its own refresh — so without
+                // this line the artist selects a layer and the pane goes on showing the pixels of
+                // whichever one the brush found first, until something else happens to refresh it.
+                stackView.SelectionChanged = RefreshPaint;
+
                 RefreshStack();
             }
         );
@@ -296,6 +334,13 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
                     Reverted = Persist,
                     Finished = Recorded
                 };
+
+                // ⚠ The overlay belongs to the view and the key that says what is on it belongs to
+                // the module, so reopening the panel resets one and not the other. Without this the
+                // reopened pane keeps its key, agrees that the islands are already drawn, and shows
+                // an atlas with nothing on it — the exact state #920 is about, reintroduced by a
+                // cache.
+                islandsKey = null;
 
                 RefreshPaint();
             }
@@ -384,7 +429,45 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return null;
         }
 
-        return surface.Target(tool.Channel);
+        var target = surface.Target(tool.Channel);
+
+        // ⚠ The coverage is replaced here rather than inside `PaintSurface.Target`, and the reason is
+        // which type knows what. A surface holds a canvas and a layer; the mesh is the *module's*,
+        // because resolving one reads a file and the answer is cached across strokes. `Target`'s own
+        // remarks say a surface that does hold a mesh hands its raster in instead — this is the
+        // caller doing it, and #920's dilation is unexercisable until somebody does.
+        return Mesh() is { } bound
+            ? target with { Coverage = bound.Coverage(target.Layer.Width, target.Layer.Height) }
+            : target;
+    }
+
+    /// <summary>The geometry the open stack is painted on, resolved once per binding.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The set is <c>Sets[0]</c>, which is the same pin every other path here has and is
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a> rather than a decision.</b>
+    ///     <c>PaintSurface.Open</c> takes the first set, <c>LayerStackView</c> draws the first set and
+    ///     <c>LayerStackPreview</c> compiles the first set; a mesh resolved for a different one would
+    ///     be the only thing in the plugin that disagreed.
+    /// </remarks>
+    LayerStackMesh? Mesh() {
+        if (stack is null) {
+            mesh = null;
+            meshKey = null;
+            meshRefusal = "";
+
+            return null;
+        }
+
+        var asset = stack.Document;
+        var set = asset.Sets.Count > 0 ? asset.Sets[0] : null;
+        var key = stack.AssetPath + "\n" + asset.Model + "\n" + (set?.Mesh ?? "");
+
+        if (!string.Equals(key, meshKey, StringComparison.Ordinal)) {
+            meshKey = key;
+            mesh = LayerStackMesh.Open(project, asset, set, out meshRefusal);
+        }
+
+        return mesh;
     }
 
     /// <summary>A move, an undo or a redo dirtied a rectangle: put the composite back on the screen.</summary>
@@ -459,8 +542,11 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         stack.Stack.Execute(command);
 
+        // ⚠ One call and not two. `RefreshStack` now ends in `RefreshPaint` — binding a mesh is an
+        // edit in the rows whose effect is entirely on the paint pane — and asking twice at
+        // pointer-up would re-open the surface and re-upload the channel a second time, which at 4K
+        // is 67 MB per stroke bought by a duplicated line.
         RefreshStack();
-        RefreshPaint();
     }
 
     /// <summary>Puts the painted layer's own pixels in the paint pane.</summary>
@@ -481,6 +567,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         if (stack is null) {
             paintView.Show(0, 1, 1, "No stack is open. Select a .vxlayers and run Open Layer Stack.");
+            Islands(Mesh());
 
             return;
         }
@@ -490,13 +577,58 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         if (opened is null) {
             paintView.Show(0, stack.Document.BaseWidth, stack.Document.BaseHeight, refusal);
 
+            // ⚠ The islands still go up. A stack with no paint layer in it is one an artist is about
+            // to add a paint layer to, and the outlines are what tells them the mesh binding worked —
+            // there is nothing about a missing layer that makes the geometry unknown.
+            Islands(Mesh());
+
             return;
         }
+
+        var bound = Mesh();
 
         Show(
             opened.Canvas.Channel(tool.Channel),
             $"'{opened.Layer.Name}' · {tool.Channel} · this layer's own pixels, not the stack's composite (#849)."
+            + " " + (bound is null ? meshRefusal : $"Painting on '{bound.Model}' — {bound.Triangles} triangles.")
         );
+
+        // ⚠ After `Show`, because `ShowIslands` puts the outlines in texels of the extent `Show`
+        // just set. Before it, every segment would be scaled by the atlas the pane was showing
+        // last, which for the first refresh of a session is 1×1.
+        Islands(bound);
+    }
+
+    /// <summary>Draws the bound mesh's UV islands under the brush, or takes the last ones away.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>PaintUvView.ShowIslands</c>' first production caller</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/928">#928</a> names it among five
+    ///         members that had a declaration and no use. It could not have one before
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/920">#920</a>: the pane is handed an
+    ///         atlas and the islands are a property of a mesh, and no <c>.vxlayers</c> named one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unbound stack is drawn with <em>no</em> islands rather than left alone.</b>
+    ///         Unbinding a model, or opening a second stack that names none, would otherwise leave
+    ///         the previous mesh's outlines over an atlas they describe nothing about — which is a
+    ///         worse picture than an empty one, because it looks like information.
+    ///     </para>
+    /// </remarks>
+    void Islands(LayerStackMesh? bound) {
+        if (paintView is null) {
+            return;
+        }
+
+        var key = (bound?.Model ?? "") + "\n" + (bound?.Mesh ?? "") + "\n" + (bound?.Triangles ?? 0)
+            + "\n" + paintView.Image.ImageWidth + "×" + paintView.Image.ImageHeight;
+
+        if (string.Equals(key, islandsKey, StringComparison.Ordinal)) {
+            return;
+        }
+
+        islandsKey = key;
+        paintView.ShowIslands(bound?.Coordinates ?? []);
     }
 
     /// <summary>Uploads a paint image and hands it to the pane.</summary>
@@ -531,6 +663,13 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         // channel — a module that let the pane go and kept the canvas would leave the largest thing
         // it ever allocated alive for the session.
         surface = null;
+
+        // ⚠ And the resolved mesh, for the same reason one size larger: it holds three `Vector2`
+        // per triangle of the model plus a `bool` per texel of the atlas, which for a hero asset at
+        // 4K is tens of megabytes that outlive every panel that could have used them.
+        mesh = null;
+        meshKey = null;
+        islandsKey = null;
 
         if (document is { IsOpen: true }) {
             document.Close();
@@ -640,6 +779,13 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
                 TexturePreview.Describe(TexturePreview.Blocking(graphics))
             )
         );
+
+        // ⚠ And the paint pane, because binding a mesh is an edit made in these rows whose whole
+        // effect is on that pane: the islands under the brush and the texels it will accept. The
+        // call is cheap when nothing changed — the mesh is cached on its key and the islands on
+        // theirs — and without it the artist binds a model and the pane says "names no model" until
+        // something else happens to refresh it.
+        RefreshPaint();
     }
 
     /// <summary>Opens the selected <c>.vxtexgraph</c> on the canvas.</summary>

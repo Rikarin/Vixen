@@ -149,6 +149,24 @@ event handled on its way to panning — so a `Bubble` handler is registered, rea
 and never once runs. Capture is also the only leg on which a paint drag can win a gesture the pan
 wants: in Select mode nothing is swallowed and the pane pans as it always did.
 
+**What the brush is aimed at is chosen in the layers panel.** A row's *Select* button writes
+`LayerStackView.Selected` and mirrors it into `PaintTool.LayerId`, which the paint pane reads at every
+refresh — [#910](https://github.com/Rikarin/Vixen/issues/910). ⚠ Selecting a layer that is not a
+`Paint` layer is allowed and the brush then refuses it **by name**; silently painting into some other
+layer is the defect the issue is about. Clicking the selected row again clears the selection, which
+puts the brush back on "the first paint layer in composite order" — a state with its own meaning that
+has to stay reachable.
+
+**And what the atlas is *of* is chosen there too.** The mesh picker binds
+`LayerStackAsset.Model` — [#920](https://github.com/Rikarin/Vixen/issues/920) — and that one binding
+is what makes three things possible at once: `PaintUvView.ShowIslands` has a caller, a stroke is
+refused outside an island instead of being allowed everywhere, and the seam dilation has a seam.
+⚠ **The measured cost moved with it**: over `PaintCoverage.Everywhere` the dilation breaks out of its
+round loop immediately and runs *once*, so at radius 48 and gutter 4 a stamp scanned 10 816 texels
+past its footprint; over real islands all four rounds run and it scans 49 564 — 4.6× — which is what
+`PaintCostTests`' bound always allowed and had never measured. `PaintIslandCostTests` derives both
+from the same run rather than writing either down.
+
 Two seams are stated rather than papered over, and the line under the pane says which one you are
 looking at:
 
@@ -175,10 +193,20 @@ stroke held in memory is a stroke the map cannot show.
   M7.
 * **No 3D projection painting.** Doc 48 § D13's *first* front end — a ray to the surface, the hit's
   UV, a stamp in the atlas footprint the screen brush covers — is the half of M9 that is still owed
-  ([#574](https://github.com/Rikarin/Vixen/issues/574)). It is also where the coverage map stops
-  being `PaintCoverage.Everywhere` and becomes a mesh's, and where the mirrors come from.
-* **No layer selection.** Nothing in this plugin has one, so the brush aims at the first `Paint`
-  layer in composite order — [#910](https://github.com/Rikarin/Vixen/issues/910).
+  ([#574](https://github.com/Rikarin/Vixen/issues/574)). ⚠ **What it needed and did not have is now
+  here**: a `.vxlayers` names a model (`LayerStackAsset.Model`), `LayerStackMesh` resolves it to UV
+  triangles, and the coverage map a stroke dilates across is that mesh's rather than
+  `PaintCoverage.Everywhere` — [#920](https://github.com/Rikarin/Vixen/issues/920). What #574 still
+  owes on its own is the raycast, the screen-radius-to-texels conversion through the hit triangle's
+  density, and the mirrors, none of which an atlas can supply.
+* **No per-set mesh picker.** `TextureSetAsset.Mesh` narrows a set to one mesh of the model — a model
+  file splits into one mesh per material slot, which is what a texture set *is* — and the panel binds
+  the model only. Offering the mesh names would mean parsing the model during a panel build, which
+  for a hero asset is seconds.
+* **⚠ No refresh on an undo taken elsewhere.** Nothing here subscribes to `EditorDocument.Stack`, so
+  an undo made through the editor's own verb leaves every control in the layers panel showing the
+  value it had — the blend mode and the opacity as much as the mesh picker. An edit made *in* a row
+  refreshes, which is why this is invisible from inside the panel.
 * **No `.vxml`.** Doc 36 § P4 makes markup the authoring path and this panel is three elements; it is
   worth porting when it grows a form, not before.
 * **No base resolution in the file.** `NodeGraphModel` has nowhere to put one —
