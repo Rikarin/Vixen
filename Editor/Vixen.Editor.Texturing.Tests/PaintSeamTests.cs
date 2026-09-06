@@ -107,9 +107,17 @@ public class PaintSeamTests {
 
     /// <summary>A dilation over an atlas with no gutter in it writes nothing.</summary>
     /// <remarks>
-    ///     The degenerate case, and the cheapest evidence that the dilation is keyed on coverage
-    ///     rather than on distance from the stamp: with every texel covered there is nowhere for it
-    ///     to go.
+    ///     <para>
+    ///         The degenerate case, and the cheapest evidence that the dilation is keyed on coverage
+    ///         rather than on distance from the stamp: with every texel covered there is nowhere for
+    ///         it to go.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which a stroke that did nothing also satisfies</b>, so the stamp is read back
+    ///         first. Zero dilated texels is the answer for a dilation that is correctly idle and for
+    ///         a stroke whose brush, coverage or opacity has stopped working — and it was the whole
+    ///         of this test.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_stack_with_no_islands_has_nothing_to_dilate_into() {
@@ -118,6 +126,7 @@ public class PaintSeamTests {
 
         stroke.MoveTo(new(32f, 32f));
 
+        Assert.Equal(0xFFu, image.At(32, 32) >> 24);
         Assert.Equal(0, stroke.DilatedTexels);
     }
 
