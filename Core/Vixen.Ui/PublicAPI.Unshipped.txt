@@ -1831,6 +1831,8 @@ static Vixen.Ui.CommandRoute.Execute(Vixen.Ui.UiDocument document, string id) ->
 static Vixen.Ui.CommandRoute.Origin(Vixen.Ui.UiDocument document) -> Vixen.Ui.UiElement
 static Vixen.Ui.CommandRoute.Resolve(Vixen.Ui.UiDocument document, string id) -> Vixen.Ui.CommandHandler?
 static Vixen.Ui.CommandRoute.ScopeOf(Vixen.Ui.UiDocument document) -> string?
+static Vixen.Ui.Composition.BuildContext.Bindable(Vixen.Ui.Composition.Component component) -> Vixen.Ui.UiElement
+static Vixen.Ui.Composition.BuildContext.Bindable(Vixen.Ui.UiElement element) -> Vixen.Ui.UiElement
 static Vixen.Ui.Composition.BuildContext.Build<T>(Vixen.Ui.UiDocument document, Vixen.Ui.UiElement mount) -> T
 static Vixen.Ui.Composition.BuildContext.BuildInto(Vixen.Ui.Composition.Component component, Vixen.Ui.UiDocument document, Vixen.Ui.UiElement mount) -> Vixen.Ui.Composition.BuildContext
 static Vixen.Ui.Composition.BuildContext.Compose(Vixen.Ui.UiElement host, System.Action<Vixen.Ui.Composition.BuildContext> build, string? scope = null) -> System.IDisposable

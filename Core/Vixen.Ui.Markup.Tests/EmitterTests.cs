@@ -2623,6 +2623,122 @@ public class EmitterTests {
         }
     }
 
+    // ================================================================== bind: and change: on a component tag
+
+    /// <summary>
+    ///     ⚠ <b>A <c>bind:</c> on a component tag used to compile and then throw at compose, naming
+    ///     a tag the author never wrote.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/663">#663</a> records only the
+    ///         <c>change:</c> half of this — "cannot be used on a component tag at all", which is a
+    ///         bad compile error but is a compile error. The <c>bind:</c> half was worse and nobody
+    ///         had written it down: it went through <c>BuildContext.Host</c>, so the generated code
+    ///         was well typed and <c>KeyOf</c> threw at compose with
+    ///         <c>'callout-body' has no property called 'Kind'</c> — the component's <i>root
+    ///         element</i>, a tag that appears nowhere in the <c>.vxml</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the refusal three passes called impossible was only impossible where they
+    ///         looked for it.</b> The binder cannot tell <c>&lt;Slider&gt;</c> from
+    ///         <c>&lt;MyPanel&gt;</c> — <c>IsComponent</c> is <c>char.IsUpper(name[0])</c> — but the
+    ///         generated file does not have to ask: <c>BuildContext.Bindable</c> is overloaded on
+    ///         <c>UiElement</c> and <c>Component</c>, the component one is obsolete-as-error, and
+    ///         overload resolution answers the question with a sentence in it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_bind_on_a_component_tag_is_one_compile_error_on_the_attribute_rather_than_a_throw() {
+        const string Source = """
+                              @component Counter
+                              @code { private string _kind = "warning"; }
+                              <Callout bind:Kind="@_kind" />
+                              """;
+
+        var error = Assert.Single(Errors(Compile(Emit(Source))));
+
+        Assert.Equal("CS0619", error.Id);
+        Assert.Contains("a component has none", error.GetMessage(), StringComparison.Ordinal);
+
+        var span = error.Location.GetMappedLineSpan();
+
+        Assert.Equal(Path, span.Path);
+        Assert.Equal(2, span.StartLinePosition.Line);
+    }
+
+    /// <summary>
+    ///     The <c>change:</c> half, which failed before as <c>cannot convert Callout to
+    ///     UiElement</c> — true, and no help at all to somebody who wanted to hear about a value.
+    /// </summary>
+    [Fact]
+    public void A_change_on_a_component_tag_says_why_rather_than_cannot_convert() {
+        const string Source = """
+                              @component Counter
+                              @code { private string _kind = "warning"; }
+                              <Callout change:Kind="@(v => _kind = v)" />
+                              """;
+
+        var error = Assert.Single(Errors(Compile(Emit(Source))));
+
+        Assert.Equal("CS0619", error.Id);
+        Assert.Contains("a component has none", error.GetMessage(), StringComparison.Ordinal);
+
+        var span = error.Location.GetMappedLineSpan();
+
+        Assert.Equal(Path, span.Path);
+        Assert.Equal(2, span.StartLinePosition.Line);
+    }
+
+    /// <summary>
+    ///     The instrument: a capitalised tag that names a <i>control</i> is untouched by all of it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Without this the two above are satisfied by a refusal that refuses everything, which is
+    ///     the shape this repository has shipped before — <c>&lt;Fader&gt;</c> and
+    ///     <c>&lt;Callout&gt;</c> are written identically and are the same thing to the binder, so
+    ///     the only proof that the split is real is that one of them still compiles and runs.
+    /// </remarks>
+    [Fact]
+    public void The_same_two_directives_on_a_control_tag_still_compile_and_run() {
+        const string Source = """
+                              @component Greeter
+                              @using System.Collections.Generic
+                              @using Vixen.Ui.Reactive
+
+                              @code {
+                                  public Signal<int> Level { get; } = new(0);
+                                  public List<int> Heard { get; } = [];
+                                  public Fader? Bound;
+                                  public Fader? Reporting;
+                              }
+
+                              <Fader ref="@Bound" bind:Level="@Level.Value" />
+                              <Fader ref="@Reporting" change:Level="@(v => Heard.Add(v))" />
+                              """;
+
+        var (_, instance, document) = Run(Source);
+
+        using var owned = document;
+
+        var level = Property(instance, "Level");
+        var heard = (System.Collections.IEnumerable)Property(instance, "Heard");
+        var bound = (UiElement)Member(instance, "Bound")!;
+        var reporting = (UiElement)Member(instance, "Reporting")!;
+
+        // The forward leg, which is the one a `change:` alone does not have.
+        level.GetType().GetProperty("Value")!.SetValue(level, 4);
+        document.Effects.Flush();
+
+        Assert.Equal(4, bound.GetType().GetProperty("Level")!.GetValue(bound));
+
+        // And the write-back leg on the sibling, so the `change:` case is running rather than merely
+        // compiling.
+        reporting.GetType().GetProperty("Level")!.SetValue(reporting, 7);
+
+        Assert.Equal([7], heard.Cast<int>());
+    }
+
     // ================================================================== on:keydown, and the capture leg
 
     /// <summary>

@@ -670,6 +670,59 @@ public sealed class BuildContext {
     /// <param name="element">The element, which is its own host.</param>
     public static UiElement Host(UiElement element) => element;
 
+    /// <summary>The element a <c>bind:</c> or a <c>change:</c> names a property on.</summary>
+    /// <param name="element">The element, which is its own.</param>
+    /// <returns>The element, unchanged.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="Host(Component)" />'s trick used a second time, for the one pair of
+    ///         directives where a component tag has to be <i>refused</i> rather than redirected.
+    ///         <c>class</c> on <c>&lt;Callout&gt;</c> means the element the component drew;
+    ///         <c>bind:Kind</c> on it means nothing, because a <c>bind:</c> and a <c>change:</c>
+    ///         name a <c>[UiProperty]</c> and a <see cref="Component" /> has none.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The refusal was said to be impossible, and it was only impossible where it was
+    ///         being looked for.</b> Three passes over
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/663">#663</a> concluded that a named
+    ///         diagnostic cannot exist because the binder's <c>IsComponent</c> is nothing but
+    ///         <c>char.IsUpper(name[0])</c> — so <c>&lt;Slider&gt;</c> and <c>&lt;MyPanel&gt;</c> are
+    ///         one thing to it. True, and beside the point: the question is answered by overload
+    ///         resolution in the generated file, where Roslyn knows exactly which of the two a tag
+    ///         named, at no cost and with no type resolution in the binder at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The half nobody had recorded is <c>bind:</c>, and it was the worse of the
+    ///         two.</b> #663 says <c>change:</c> "cannot be used on a component tag at all", which is
+    ///         a compile error — a bad message, but a message. A <c>bind:</c> on a component tag
+    ///         went through <see cref="Host(Component)" /> instead: it compiled, and then threw at
+    ///         compose from <c>KeyOf</c> saying <c>'callout-body' has no property called 'Kind'</c> —
+    ///         naming the component's <i>root element</i>, a tag the author never wrote and cannot
+    ///         find in their file. Both are one error now, on the characters that caused it.
+    ///     </para>
+    /// </remarks>
+    public static UiElement Bindable(UiElement element) => element;
+
+    /// <inheritdoc cref="Bindable(UiElement)" />
+    /// <param name="component">The component, which has no properties to bind.</param>
+    /// <returns>Nothing: every call to this overload is a compile error.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Obsolete-as-error is the message, not a deprecation.</b> It is the only construct
+    ///     that puts a sentence somebody wrote into a C# compiler error, and the emitter's
+    ///     <c>#line</c> puts that sentence on the attribute in the <c>.vxml</c>. Nothing calls this;
+    ///     that is what it is for.
+    /// </remarks>
+    [Obsolete(
+        "bind: and change: name a [UiProperty], and a component has none — only elements have "
+        + "properties. Pass the value in as an ordinary parameter (Name=\"@expr\"), and take the "
+        + "write-back with a change: on the control inside the component.",
+        error: true
+    )]
+    public static UiElement Bindable(Component component) {
+        ArgumentNullException.ThrowIfNull(component);
+        return component.Root;
+    }
+
     /// <summary>Where the content written inside a capitalised tag goes.</summary>
     /// <param name="component">The component.</param>
     /// <returns>Its default slot, or its root when it declared none.</returns>
