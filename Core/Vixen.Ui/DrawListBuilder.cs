@@ -240,6 +240,7 @@ public sealed class DrawListBuilder {
     readonly int keywordDotted;
     readonly int boxShadow;
     readonly int currentColor;
+    readonly int inset;
     readonly int rtl;
 
     /// <summary>Creates a builder over a style engine's name tables.</summary>
@@ -478,6 +479,10 @@ public sealed class DrawListBuilder {
         // are separate — interning here from the wrong one gives an id that can never compare equal
         // and a `currentcolor` that silently refuses the declaration instead of resolving it.
         currentColor = keywords.Intern("currentcolor");
+
+        // ⚠ The keywords table for `currentcolor`'s reason, and it is the same trap: `inset` is an
+        // identifier `StyleValueParser` does not recognise as a colour, so it arrives interned there.
+        inset = keywords.Intern("inset");
 
         this.rtl = values.Intern("rtl");
     }
@@ -1058,10 +1063,15 @@ public sealed class DrawListBuilder {
             float boxRadius,
             LayoutFragmentEnds ends
         ) {
-            // Before the background, which is where CSS paints it: a shadow is cast *by* the box and
-            // therefore lies under it, and an element with a translucent background shows its own
-            // shadow through itself.
-            EmitShadow(document, element, into, boxX, boxY, boxWidth, boxHeight, boxCorners, boxRadius, alpha);
+            // Below the background, which is where CSS paints an *outer* shadow: it is cast by the
+            // box and therefore lies under it, and an element with a translucent background shows its
+            // own shadow through itself. The inner half of the same list is emitted three blocks
+            // down, above the background and below the border, which is § 7.1.1's other answer.
+            var shadowed = ReadShadows(document, element);
+
+            if (shadowed) {
+                EmitShadows(into, boxX, boxY, boxWidth, boxHeight, boxCorners, boxRadius, alpha, inner: false);
+            }
 
             if (Color(element, backgroundColor) is { } fill) {
                 into.Add(
@@ -1083,6 +1093,15 @@ public sealed class DrawListBuilder {
             }
 
             EmitGradient(element, into, boxX, boxY, boxWidth, boxHeight, boxCorners, boxRadius, alpha);
+
+            // ⚠ <b>Above the background and below the border, and the whole feature turns on it.</b> An
+            // `inset` shadow is drawn inside the box, so a list emitted whole before the background
+            // paints it and then covers it with the element's own fill — which is nothing at all on
+            // every element that has an opaque one, and those are the elements the declaration is
+            // written on. See `EmitShadows`.
+            if (shadowed) {
+                EmitShadows(into, boxX, boxY, boxWidth, boxHeight, boxCorners, boxRadius, alpha, inner: true);
+            }
 
             // The border is drawn after the background and before the children, which is the order
             // CSS paints them in — a child overlapping the edge covers the border, and a background
@@ -1968,11 +1987,15 @@ public sealed class DrawListBuilder {
     ///         commas of its own, and the shipped theme's <c>--shadow</c> is written exactly that way.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><c>inset</c> is still refused, and it is a different distance field rather than a
-    ///         missing branch.</b> An inner shadow's coverage is the complement of the outer one's,
-    ///         masked to the box, and there is no lane left in <c>UiShape</c> to say which a record
-    ///         is — see #279, where the two unsound sentinels are argued out. An inset shadow drawn
-    ///         as an outer one is not a near miss; it is a shadow on the wrong side of the box.
+    ///         ⚠ <b><c>inset</c> is drawn since 2026-09-06, and it was a different distance field
+    ///         rather than a missing branch.</b> An inner shadow's coverage is the complement of the
+    ///         outer one's, in a rectangle offset and shrunk inside the box, masked to the box — so an
+    ///         inset shadow drawn as an outer one was never a near miss, it was a shadow on the wrong
+    ///         side of the box. ⚠ What blocked it was recorded as a decision — "there is no lane left
+    ///         in <c>UiShape</c>" — and that was a claim about the lanes that exist rather than about
+    ///         the record: <c>UiShape</c> is a grown record, and a tenth <c>Vector4</c> whose zero is
+    ///         what every writer before it meant is the rule each of its earlier growths already used.
+    ///         See <c>UiShape.Inset</c>.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And it is not clipped to outside the border box.</b> CSS punches the box out of
@@ -1981,20 +2004,11 @@ public sealed class DrawListBuilder {
     ///         background that is not opaque, and it needs a stencil or a second field to fix.
     ///     </para>
     /// </remarks>
-    void EmitShadow(
-        UiDocument document,
-        UiElement element,
-        DrawList into,
-        float x,
-        float y,
-        float width,
-        float height,
-        CornerRadii corners,
-        float radius,
-        float alpha
-    ) {
+    bool ReadShadows(UiDocument document, UiElement element) {
+        shadows.Clear();
+
         if (!element.Style.TryGet(boxShadow, out var id)) {
-            return;
+            return false;
         }
 
         // ⚠ <b>The comma split runs first, and reading the value to decide whether it is a list does
@@ -2008,11 +2022,9 @@ public sealed class DrawListBuilder {
         Span<Range> parts = stackalloc Range[MostShadows];
         var count = Split(text, parts);
 
-        shadows.Clear();
-
         if (count == 0) {
             Refuse(boxShadow, id, $"a list of more than {MostShadows} shadows is refused whole rather than cut short");
-            return;
+            return false;
         }
 
         if (count == 1) {
@@ -2034,23 +2046,59 @@ public sealed class DrawListBuilder {
                     );
                 }
 
-                return;
+                shadows.Clear();
+
+                return false;
             }
 
             if (!TryShadow(document, element, value, id)) {
-                return;
+                shadows.Clear();
+                return false;
             }
         } else if (!TryShadowList(document, element, id, text, parts[..count])) {
-            return;
+            shadows.Clear();
+            return false;
         }
 
-        // ⚠ <b>Backwards, and it is not a detail.</b> CSS Backgrounds 3 § 7.1.1 paints the shadows of
-        // a list front to back in the order written, and this draw list paints later commands over
-        // earlier ones — so the first shadow has to be added last. Emitting them in order gives a
-        // picture that is right whenever the shadows do not overlap and quietly wrong the moment they
-        // do, which is the commonest thing a two-shadow list is written to do.
+        return true;
+    }
+
+    /// <summary>Emits the outer or the inner half of an already-read list.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Backwards, and it is not a detail.</b> CSS Backgrounds 3 § 7.1.1 paints the
+    ///         shadows of a list front to back in the order written, and this draw list paints later
+    ///         commands over earlier ones — so the first shadow has to be added last. Emitting them in
+    ///         order gives a picture that is right whenever the shadows do not overlap and quietly
+    ///         wrong the moment they do, which is the commonest thing a two-shadow list is written to
+    ///         do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two passes over one list because the two halves sit on opposite sides of the
+    ///         background, and one pass would have put an inner shadow under it.</b> § 7.1.1 paints an
+    ///         outer shadow <i>below</i> the background — which is why a translucent background shows
+    ///         its own shadow through itself — and an inner one <i>above</i> it and below the border.
+    ///         A single pass before the background is right for every outer shadow there has ever been
+    ///         and hides every inner one behind the thing casting it, which is a feature that draws
+    ///         nothing on any element with an opaque background: every element the declaration is
+    ///         written on.
+    ///     </para>
+    /// </remarks>
+    void EmitShadows(
+        DrawList into,
+        float x,
+        float y,
+        float width,
+        float height,
+        CornerRadii corners,
+        float radius,
+        float alpha,
+        bool inner
+    ) {
         for (var index = shadows.Count - 1; index >= 0; index--) {
-            EmitOneShadow(into, shadows[index], x, y, width, height, corners, radius, alpha);
+            if (shadows[index].Inset == inner) {
+                EmitOneShadow(into, shadows[index], x, y, width, height, corners, radius, alpha);
+            }
         }
     }
 
@@ -2093,6 +2141,7 @@ public sealed class DrawListBuilder {
         Span<float> lengths = [0f, 0f, 0f, 0f];
         var count = 0;
         Color4? shade = null;
+        var inner = false;
 
         foreach (var item in value.Items) {
             switch (item.Kind) {
@@ -2113,15 +2162,26 @@ public sealed class DrawListBuilder {
                     shade = document.ForegroundOf(element);
                     continue;
 
-                // ⚠ Every other keyword refuses the whole declaration, and `inset` is the one that
-                // matters: an inset shadow drawn as an outer one is not a near miss, it is a shadow
-                // on the wrong side of the box.
+                // ⚠ <b>The second keyword that is not a colour, and it is a whole second distance
+                // field rather than a modifier.</b> CSS Backgrounds 3 § 7.1.1 draws an inner shadow
+                // between the border box and a rectangle offset and shrunk inside it, where an outer
+                // one is drawn around a rectangle grown outside it — so an inset shadow drawn as an
+                // outer one is not a near miss, it is a shadow on the wrong side of the box. It
+                // reaches the shader as `UiShape.Inset`, whose all-zero is every other box.
+                // ⚠ Position-free, which is CSS: `inset 0 2px #000` and `0 2px #000 inset` are the
+                // same declaration, so this is a flag set wherever the keyword appears rather than a
+                // leading token.
+                case StyleValueKind.Keyword when item.Keyword == inset:
+                    inner = true;
+                    continue;
+
+                // Every other keyword refuses the whole declaration.
                 case StyleValueKind.Keyword:
                     Refuse(
                         boxShadow,
                         id,
-                        "a shadow is two to four lengths and a colour, and `inset` is the one this "
-                        + "engine cannot draw"
+                        "a shadow is two to four lengths and a colour, and this holds a keyword that "
+                        + "is neither `inset` nor `currentcolor`"
                     );
 
                     return false;
@@ -2167,7 +2227,7 @@ public sealed class DrawListBuilder {
         // shader's is the half-extent either side of the boundary — passing the whole radius makes
         // every shadow twice as soft as it was asked to be, which reads as a blurry renderer rather
         // than as a unit mistake.
-        shadows.Add(new ResolvedShadow(lengths[0], lengths[1], lengths[2] / 2f, lengths[3], colour));
+        shadows.Add(new ResolvedShadow(lengths[0], lengths[1], lengths[2] / 2f, lengths[3], colour, inner));
 
         return true;
     }
@@ -2200,9 +2260,41 @@ public sealed class DrawListBuilder {
             return;
         }
 
+        var spread = shadow.Spread;
+
+        // ⚠ <b>An inner shadow's quad is the box itself, and the second rectangle is described rather
+        // than drawn.</b> An outer shadow puts its offset and spread in the geometry — the quad moves
+        // and grows, and the record needs neither. An inner one is the region *between* two
+        // rectangles, so the quad has to be the border box, because the border box is what clips it,
+        // and the offset and the spread go in the record for the fragment stage to build the other
+        // one from. Every other lane is exactly what an unshadowed box of this size would write.
+        if (shadow.Inset) {
+            into.Add(
+                Styled(
+                    new DrawCommand(
+                        DrawCommandKind.Shadow,
+                        x,
+                        y,
+                        width,
+                        height,
+                        Fade(shadow.Colour, alpha),
+                        radius,
+                        shadow.Falloff
+                    ),
+                    into,
+                    BoxStyle.Rounded(corners) with {
+                        Inset = true,
+                        InsetOffset = new Vector2(shadow.X, shadow.Y),
+                        InsetSpread = spread
+                    }
+                )
+            );
+
+            return;
+        }
+
         // The spread grows the box in every direction, and the corner radius with it: a spread that
         // kept the original corner would give a shadow visibly squarer than the thing casting it.
-        var spread = shadow.Spread;
         var wide = width + (spread * 2f);
         var tall = height + (spread * 2f);
 
@@ -2276,9 +2368,10 @@ public sealed class DrawListBuilder {
     /// <param name="X">The horizontal offset.</param>
     /// <param name="Y">The vertical offset.</param>
     /// <param name="Falloff">Half the CSS blur radius, which is what the shader takes.</param>
-    /// <param name="Spread">How far the box grows in every direction.</param>
+    /// <param name="Spread">How far the box grows in every direction — or shrinks, when inset.</param>
     /// <param name="Colour">The shadow's colour, before the element's own opacity.</param>
-    readonly record struct ResolvedShadow(float X, float Y, float Falloff, float Spread, Color4 Colour);
+    /// <param name="Inset">Whether it is drawn inside the box rather than around it.</param>
+    readonly record struct ResolvedShadow(float X, float Y, float Falloff, float Spread, Color4 Colour, bool Inset);
 
     /// <summary>Every corner grown by a shadow's spread, never below square.</summary>
     /// <remarks>
@@ -2403,7 +2496,7 @@ public sealed class DrawListBuilder {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The whole declaration is refused rather than partly applied, which is the rule
-    ///         <see cref="EmitShadow" /> already keeps and the one that matters most here.</b>
+    ///         <see cref="ReadShadows" /> already keeps and the one that matters most here.</b>
     ///         <c>filter</c> is an ordered list of functions and this reads eight of them; a
     ///         <c>filter: drop-shadow(2px 2px 4px black) blur(4px)</c> that quietly dropped the shadow
     ///         would draw a blurred element that is missing something and look like a blur bug. So a
@@ -2659,7 +2752,7 @@ public sealed class DrawListBuilder {
         if (keyword == blurFunction) {
             // ⚠ <b><see cref="LengthContext.ToLength" /> and not
             // <see cref="LengthContext.PixelsPer" />, the same swap <see cref="Shadow" /> and
-            // <see cref="EmitShadow" /> make and for the same reason.</b> `StyleValueParser` accepts
+            // <see cref="ReadShadows" /> make and for the same reason.</b> `StyleValueParser` accepts
             // any <see cref="StyleValueKind.Length" /> here — it checks the shape and leaves the
             // meaning to this method — so `blur(200ms)` and `blur(50%)` both arrive, and read through
             // `PixelsPer` both answered a σ of zero. A zero σ is not a refusal: it survives the
@@ -2744,7 +2837,7 @@ public sealed class DrawListBuilder {
     /// <returns>Null when the arguments are a shape this refuses, which refuses the whole list.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The walk is <see cref="EmitShadow" />'s, deliberately and almost line for line,
+    ///         ⚠ <b>The walk is <see cref="ReadShadows" />'s, deliberately and almost line for line,
     ///         because the two functions have the same grammar problem and only one of them had
     ///         solved it.</b> A length, a bare zero and a colour are told apart by kind rather than by
     ///         position — Filter Effects 1 § 8.4 puts the colour at either end — and
@@ -2795,7 +2888,7 @@ public sealed class DrawListBuilder {
                     continue;
 
                 // ⚠ <b><see cref="LengthContext.ToLength" /> and not
-                // <see cref="LengthContext.PixelsPer" />, which is the trap <see cref="EmitShadow" />
+                // <see cref="LengthContext.PixelsPer" />, which is the trap <see cref="ReadShadows" />
                 // was in too, until it was taken out of it.</b> That method answers <i>zero</i> for
                 // a unit that measures no distance, so a `drop-shadow(90deg 2px black)` read through
                 // it is a shadow with a zero x-offset — invalid CSS silently clamped, which is the
@@ -3140,6 +3233,21 @@ public sealed class DrawListBuilder {
         corners.IsUniformCircular(out _)
             ? command
             : command with { Offset = into.AddBox(BoxStyle.Rounded(corners)), Length = 1 };
+
+    /// <summary>The same, for a style whose entry is not optional.</summary>
+    /// <param name="command">The command.</param>
+    /// <param name="into">The list holding the side buffer.</param>
+    /// <param name="style">The entry.</param>
+    /// <returns>The command, pointing at its entry.</returns>
+    /// <remarks>
+    ///     ⚠ <b>No uniform-corner shortcut, because the shortcut is a statement about corners and this
+    ///     overload exists for the styles that say something else.</b> An <c>inset</c> shadow on a
+    ///     square box is `Inset` set and four zero radii; the corner test would leave it out of the
+    ///     side buffer, and a shadow with nothing to say it is an inner one is drawn as an outer one,
+    ///     square across the element it was meant to be inside.
+    /// </remarks>
+    static DrawCommand Styled(DrawCommand command, DrawList into, BoxStyle style) =>
+        command with { Offset = into.AddBox(style), Length = 1 };
 
     /// <summary>The mask list this element's <c>mask-image</c> asks for, into a caller's span.</summary>
     /// <param name="element">The element.</param>

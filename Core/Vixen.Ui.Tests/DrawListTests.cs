@@ -601,22 +601,91 @@ public class DrawListTests {
         Assert.Equal(13f, shadow.Radius, Tolerance);
     }
 
+    /// <summary>An <c>inset</c> shadow is the box's own rectangle, with the second one in the record.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This asserted a refusal until 2026-09-06 — one <c>Rectangle</c> and no shadow at
+    ///         all</b>, because an inset shadow drawn as an outer one is not a near miss but a shadow
+    ///         outside the box that was asked to have one inside it, and nothing was better than that.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The geometry is the assertion, and it is the opposite of an outer shadow's.</b> An
+    ///         outer shadow moves and grows its quad — <c>0 4px</c> with a 5px spread comes out at
+    ///         <c>(-5, -1)</c> and ten points larger. An inner one cannot: it is the region between
+    ///         the border box and a rectangle offset and shrunk inside it, so the quad has to be the
+    ///         border box exactly, or there is nothing to clip it to. That the command is at
+    ///         <c>(0, 0, 100, 60)</c> is the whole of that.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void An_inset_shadow_is_refused_rather_than_drawn_on_the_wrong_side() {
-        // Not a near miss: an inset shadow drawn as an outer one is a shadow outside the box that
-        // was asked to have one inside it. Nothing is better than that.
+    public void An_inset_shadow_is_the_boxs_own_quad_with_the_second_rectangle_in_the_record() {
         using var document = Drawn(
             """
             root { width: 400px; height: 300px; }
             .card {
                 width: 100px; height: 60px; background-color: #ffffff;
-                box-shadow: inset 0px 4px 12px #000000;
+                box-shadow: inset 0px 4px 12px 5px #000000;
             }
             """,
             document => document.Root.Add("div", classNames: "card")
         );
 
-        Assert.Equal(DrawCommandKind.Rectangle, Assert.Single(document.Drawing.Commands).Kind);
+        var commands = document.Drawing.Commands;
+
+        Assert.Equal(2, commands.Count);
+
+        // ⚠ Second, where an outer shadow is first: CSS Backgrounds 3 § 7.1.1 paints an outer shadow
+        // below the background and an inner one above it, so the background rectangle is what comes
+        // out of `EmitBody` first here.
+        Assert.Equal(DrawCommandKind.Rectangle, commands[0].Kind);
+
+        var shadow = commands[1];
+
+        Assert.Equal(DrawCommandKind.Shadow, shadow.Kind);
+        Assert.Equal(0f, shadow.X, Tolerance);
+        Assert.Equal(0f, shadow.Y, Tolerance);
+        Assert.Equal(100f, shadow.Width, Tolerance);
+        Assert.Equal(60f, shadow.Height, Tolerance);
+
+        // Half the CSS blur, which is the half-extent the shader fades over.
+        Assert.Equal(6f, shadow.Thickness, Tolerance);
+
+        // ⚠ The side-buffer entry is not optional here, and a square box is the case that proves it:
+        // there are no radii to record, so a shadow that took the uniform-corner shortcut would carry
+        // nothing saying it is an inner one and would be drawn as an outer one.
+        Assert.True(shadow.HasStyle);
+
+        var style = document.Drawing.Boxes[shadow.Offset];
+
+        Assert.True(style.Inset);
+        Assert.Equal(0f, style.InsetOffset.X, Tolerance);
+        Assert.Equal(4f, style.InsetOffset.Y, Tolerance);
+        Assert.Equal(5f, style.InsetSpread, Tolerance);
+    }
+
+    /// <summary><c>inset</c> is a keyword anywhere in the declaration, which is what CSS says.</summary>
+    /// <remarks>
+    ///     ⚠ CSS Backgrounds 3 § 7.1.1's grammar puts <c>inset</c> before or after the lengths and the
+    ///     colour, so reading it as a leading token would refuse half the declarations a stylesheet
+    ///     can legally write — and refuse them with a diagnostic blaming the author.
+    /// </remarks>
+    [Fact]
+    public void Inset_is_read_wherever_the_keyword_sits() {
+        using var document = Drawn(
+            """
+            root { width: 400px; height: 300px; }
+            .card {
+                width: 100px; height: 60px; background-color: #ffffff;
+                box-shadow: 0px 4px 12px #000000 inset;
+            }
+            """,
+            document => document.Root.Add("div", classNames: "card")
+        );
+
+        var shadow = document.Drawing.Commands[1];
+
+        Assert.Equal(DrawCommandKind.Shadow, shadow.Kind);
+        Assert.True(document.Drawing.Boxes[shadow.Offset].Inset);
     }
 
     /// <summary>The two other things a <c>box-shadow</c> can say that this refuses whole.</summary>

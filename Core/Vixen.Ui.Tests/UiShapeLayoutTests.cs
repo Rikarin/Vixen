@@ -65,7 +65,8 @@ public class UiShapeLayoutTests {
         ("Mid", "midColour"),
         ("Stops", "stops"),
         ("Paint", "paint"),
-        ("Area", "area")
+        ("Area", "area"),
+        ("Inset", "inset")
     ];
 
     [Fact]
