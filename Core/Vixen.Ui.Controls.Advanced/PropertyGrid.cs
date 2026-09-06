@@ -333,7 +333,26 @@ public sealed partial class PropertyGrid : Control {
             numeric.Maximum = presentation.Maximum ?? double.PositiveInfinity;
             numeric.Step = presentation.Step > 0 ? presentation.Step : 1d;
             numeric.Decimals = IsIntegral(type) ? 0 : 3;
-            numeric.NumberChanged += (_, value) => Write(row, Convert(value, type));
+
+            // ⚠ Gated on the field's own verdict, and this is the grid's answer to a question the
+            // control stopped answering for it. `NumericInput` used to clamp inside its coerce, so
+            // whatever arrived here already satisfied the bounds; it now *holds and reports* an
+            // out-of-range number instead, which means an ungated write would put a value into the
+            // model that the member's own `[Range]` forbids. The inspector is a form, not a
+            // slider's read-out: a refused value stays in the field where the person can see it and
+            // correct it, and the object keeps the last value that was allowed.
+            //
+            // ⚠ The verdict is already settled when this runs — `OnNumberChanged` revalidates
+            // before it raises — so reading `IsValid` here is not a frame behind.
+            //
+            // ⚠ And the field is where the refusal is *shown*: `:invalid` puts a ring round the box,
+            // `:out-of-range` is set with it, and the accessibility tree carries `Invalid` plus the
+            // message. The row has nowhere of its own to put words, and does not need one.
+            numeric.NumberChanged += (field, value) => {
+                if (field.IsValid) {
+                    Write(row, Convert(value, type));
+                }
+            };
 
             return;
         }
