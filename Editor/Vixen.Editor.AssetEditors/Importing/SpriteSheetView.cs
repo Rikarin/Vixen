@@ -520,9 +520,35 @@ public sealed class SpriteSheetView : Control {
     }
 
     /// <summary>Writes the fields back onto the selected sprite.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Refused wholesale while any geometry field is out of range, and the refusal is the
+    ///     panel's answer to a question the control stopped answering for it.</b>
+    ///     <see cref="NumericInput" /> used to clamp inside its coerce, so a width read off the field
+    ///     could not be negative however it was typed; it now <i>holds and reports</i> the number
+    ///     instead, and nothing downstream clamps — <c>UpdateSprite</c> range-checks the index and
+    ///     pushes the record straight onto the undo stack. An ungated commit would therefore write a
+    ///     sprite with a negative extent, or a pivot outside its own rect, and make it an undo step.
+    ///     <para>
+    ///         ⚠ <b>All ten, not just the field that moved.</b> The record is built from every field
+    ///         at once, so a commit driven by a good field would carry a bad neighbour's number with
+    ///         it — which is exactly the case a per-field guard would miss.
+    ///     </para>
+    ///     <para>
+    ///         The refusal is already <i>shown</i> where it happened: the field rings itself
+    ///         <c>:invalid</c>, carries <c>:out-of-range</c> with it, and says both in the
+    ///         accessibility tree. The sprite keeps the last geometry that was allowed, and correcting
+    ///         the number commits the lot.
+    ///     </para>
+    /// </remarks>
     void Commit() {
         if (restating || document is not { } texture || Selected < 0 || Selected >= texture.Sprites.Count) {
             return;
+        }
+
+        foreach (var field in geometry) {
+            if (!field.IsValid) {
+                return;
+            }
         }
 
         texture.UpdateSprite(
