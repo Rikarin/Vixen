@@ -729,8 +729,14 @@ sealed class LayerStackView : IDisposable {
                     .Append(':')
                     .Append((int)layer.Kind)
                     .Append(':')
-                    .Append((int)layer.Mask.Source)
-                    .Append(':')
+
+                    // ⚠ `Mask.Source` is deliberately NOT here, and it used to be. It belonged while
+                    // `MaskRows` returned early for `None`, because the source then decided whether a
+                    // base row existed at all. The base row is unconditional now and every source's
+                    // control is created with it, so the source changes what a row *shows* and not
+                    // which elements exist — and leaving it in made the source dropdown tear down and
+                    // rebuild the whole tree from inside its own `SelectionChanged`, which is exactly
+                    // what this signature exists to prevent.
                     .Append(layer.Mask.Layers.Count)
                     .Append(':')
                     .Append(layer.Mask.Effects.Count)

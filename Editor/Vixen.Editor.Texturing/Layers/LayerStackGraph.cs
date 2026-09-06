@@ -162,8 +162,9 @@ static class LayerStackGraph {
     /// <param name="set">Which of its sets.</param>
     /// <param name="registry">
     ///     The node types a generator or a mask effect is looked up in. ⚠ <see langword="null" />
-    ///     means <b>the four compounds this build ships and nothing else</b> — for a caller that has
-    ///     no project — and not "the library".
+    ///     means the built-in library <b>plus the compounds this build ships, and no project's own</b>
+    ///     — which is the default that made a project compound <c>TG0001</c> in the panel, so a
+    ///     caller that has a project should pass one built with its <c>Assets</c> folder.
     /// </param>
     /// <returns>The graph and what building it had to say.</returns>
     /// <exception cref="ArgumentNullException">The stack or the set is null.</exception>

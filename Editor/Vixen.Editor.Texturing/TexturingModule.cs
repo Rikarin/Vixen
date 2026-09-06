@@ -825,6 +825,13 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     public void Deactivate() {
         view = null;
+
+        // ⚠ Ended and not only dropped. `LayerStackView` subscribes to the document's command stack
+        // so it can redraw on an undo taken elsewhere, and that subscription outlives the elements —
+        // so a view merely nulled here goes on refreshing from a stack it no longer draws. The panel
+        // factory learned this; this path is the other way a view is let go.
+        stackView?.Dispose();
+
         stackView = null;
         paintView = null;
 
