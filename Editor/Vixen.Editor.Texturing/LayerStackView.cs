@@ -954,6 +954,7 @@ sealed class LayerStackView : IDisposable {
                     AmbiguousRow(layer, depth);
                 } else {
                     LayerRow(document, set, layer, depth);
+                    FillRows(document, set, layer, depth + 1);
                     MaskRows(document, set, layer, depth + 1);
                 }
 
@@ -1279,6 +1280,312 @@ sealed class LayerStackView : IDisposable {
                 ticks[index].Disabled = writes && written == 1;
             }
         });
+    }
+
+    /// <summary>What a fill layer <em>is</em>: where its pixels come from, and its value per channel.</summary>
+    /// <param name="document">The stack being edited.</param>
+    /// <param name="set">The texture set the layer is in — its channels are the rows.</param>
+    /// <param name="layer">The layer.</param>
+    /// <param name="depth">How far in to indent, in the layer list's own units.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/986">#986</a>: a fill added from
+    ///         this panel kept the mid-grey it was born with, because nothing here could edit
+    ///         <c>LayerAsset.Values</c> or <c>LayerAsset.Textures</c>.</b> The panel could already
+    ///         edit a layer's blend, opacity, channels and its whole mask — every property except the
+    ///         two that decide what the layer actually puts on the surface. The flow that left was
+    ///         press <em>Add layer</em>, get a grey row, and open the <c>.vxlayers</c> in a text
+    ///         editor.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A row per channel and not a colour swatch, which is the whole shape of it.</b>
+    ///         <c>Values</c> is keyed by usage and a fill that sets roughness alone is one entry
+    ///         rather than seven — deliberately, per that member's own remarks — so a single swatch
+    ///         would have to pick a channel to be about and would silently be about the wrong one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A row per channel of the <em>set</em>, shown or hidden — not a row per channel
+    ///         the layer writes.</b> Which channels a layer writes is a tick on the row above, so
+    ///         building only the written ones would put <c>LayerAsset.Channels</c> into
+    ///         <see cref="Shape" /> and tear the whole tree down from inside a tick box's own
+    ///         handler. This is the rule <c>MaskAsset.Source</c> already follows one method down: the
+    ///         controls all exist, and what changes is which of them are displayed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The tick is presence in <c>Values</c> and it is not the same question as the
+    ///         channel tick above.</b> A layer restricting no channels writes all of them
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/807">#807</a> · 2), and an absent
+    ///         entry is then the only way to say "this layer has nothing to say about that channel" —
+    ///         so a fill writes a channel exactly when both are true, and the panel that showed one
+    ///         of the two would be lying about the picture. A tick switched on starts from the
+    ///         channel's own <c>ChannelAsset.Default</c>, which is #807's rejected <em>fallback</em>
+    ///         used as a starting value, where it is the honest answer rather than a number taken
+    ///         from a layer that is not there.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sliders run 0 to 1 and a value above 1 is therefore not authorable here</b> —
+    ///         an emissive of 4 cd/m² stays a thing the file says and this panel cannot. What it must
+    ///         not do is <em>lose</em> it: each slider rewrites its own component of the array read
+    ///         back out of the document, so dragging red on an HDR colour leaves the other three
+    ///         exactly as the file has them. Filed rather than solved, because the fix is a numeric
+    ///         field this framework does not have.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Graph</c> is offered, and #986's "refused in this build" is wrong.</b>
+    ///         <c>LayerStackGraph.Fill</c> resolves a graph fill through the compound library exactly
+    ///         as a generator mask is resolved — same mechanism, pointed at the colour — so what it
+    ///         wants is the published path, which is the field beside the picker.
+    ///     </para>
+    /// </remarks>
+    void FillRows(LayerStackDocument document, TextureSetAsset set, LayerAsset layer, int depth) {
+        if (layer.Kind != LayerKind.Fill) {
+            return;
+        }
+
+        LayerPath path = new(set.Name, layer.Id);
+        var source = rows.Add("layer-stack-fill-row");
+
+        source.SetStyle("display", "flex");
+        source.SetStyle("flex-direction", "row");
+        source.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
+
+        source.Add("layer-stack-fill-label").Text = "Fill";
+
+        var kind = source.Add<Select>("layer-stack-fill-source");
+
+        foreach (var choice in Enum.GetValues<LayerFillSource>()) {
+            kind.AddOption(choice.ToString());
+        }
+
+        kind.SelectionChanged += (_, chosen) => {
+            if (!Enum.TryParse<LayerFillSource>(chosen, out var wanted)) {
+                return;
+            }
+
+            Set(document, path, current => current with { Fill = wanted }, "Set Fill Source");
+        };
+
+        var graph = source.Add<TextBox>("layer-stack-fill-graph");
+
+        graph.ValueChanged += (_, typed) => Set(
+            document,
+            path,
+            current => current with { Graph = typed ?? "" },
+            "Set Fill Graph",
+            "fill-graph:" + layer.Id
+        );
+
+        graph.Submitted += _ => document.Stack.Seal();
+
+        bindings.Add(() => {
+            if (LayerStackEdit.Find(document.Document, path) is not { } current) {
+                return;
+            }
+
+            kind.Value = current.Fill.ToString();
+            graph.Value = current.Graph;
+            graph.SetStyle("display", current.Fill == LayerFillSource.Graph ? "flex" : "none");
+        });
+
+        foreach (var channel in set.Channels) {
+            ChannelRow(document, set, path, channel, depth + 1);
+        }
+    }
+
+    /// <summary>One channel's constant or image, on a fill layer.</summary>
+    /// <param name="document">The stack being edited.</param>
+    /// <param name="set">The texture set, for the channel's own default.</param>
+    /// <param name="path">Which layer.</param>
+    /// <param name="channel">Which channel.</param>
+    /// <param name="depth">How far in to indent.</param>
+    /// <remarks>
+    ///     ⚠ <b>Every control is created and the binding decides which are on screen</b> — see
+    ///     <see cref="FillRows" /> for why that is a correctness rule here rather than a saving.
+    /// </remarks>
+    void ChannelRow(
+        LayerStackDocument document,
+        TextureSetAsset set,
+        LayerPath path,
+        ChannelAsset channel,
+        int depth
+    ) {
+        var usage = channel.Usage;
+        var row = rows.Add("layer-stack-fill-channel");
+
+        row.SetStyle("display", "flex");
+        row.SetStyle("flex-direction", "row");
+        row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
+
+        row.Add("layer-stack-fill-usage").Text = usage;
+
+        var writes = row.Add<CheckBox>("layer-stack-fill-writes");
+
+        writes.Label = usage;
+
+        writes.CheckedChanged += (_, on) => Set(
+            document,
+            path,
+            current => current with { Values = Valued(current, usage, on ? Starting(channel) : null) },
+            on ? "Give Channel a Colour" : "Clear Channel's Colour"
+        );
+
+        List<Slider> components = [];
+
+        for (var index = 0; index < 4; index++) {
+            var component = index;
+            var slider = row.Add<Slider>(ComponentTags[index]);
+
+            slider.Minimum = 0f;
+            slider.Maximum = 1f;
+
+            slider.ValueChanged += (_, value) => Set(
+                document,
+                path,
+
+                // ⚠ Read out of the document and rewrite one component, rather than gathering the
+                // four sliders. A colour the file holds outside 0…1 arrives at a slider clamped, so
+                // collecting what the controls show would write the clamp back over three components
+                // nobody touched — an emissive of 4 becoming 1 because somebody nudged red.
+                current => {
+                    if (!current.Values.TryGetValue(usage, out var colour)
+                        || colour.Length != 4
+                        || colour[component] == value) {
+                        return current;
+                    }
+
+                    var next = (float[])colour.Clone();
+
+                    next[component] = value;
+
+                    return current with { Values = Valued(current, usage, next) };
+                },
+                "Set Fill Colour",
+                $"fill-colour:{path.Id}:{usage}:{component.ToString(CultureInfo.InvariantCulture)}"
+            );
+
+            // The slider's own reason, unchanged from the opacity row: a drag is one undo entry and
+            // the release is what ends it, and `handledEventsToo` is what makes this run at all.
+            slider.AddHandler<PointerEvent>(
+                (_, args) => {
+                    if (args.Action == PointerAction.Released) {
+                        document.Stack.Seal();
+                    }
+                },
+                RoutingStrategy.Bubble,
+                handledEventsToo: true
+            );
+
+            components.Add(slider);
+        }
+
+        var image = row.Add<TextBox>("layer-stack-fill-texture");
+
+        // ⚠ Empty text removes the entry rather than storing "", because the compiler answers a
+        // texture fill naming no image with a refusal either way — so a blank field that left a key
+        // behind would be a state the file can hold and nothing can mean.
+        image.ValueChanged += (_, typed) => Set(
+            document,
+            path,
+            current => current with { Textures = Imaged(current, usage, typed ?? "") },
+            "Set Fill Image",
+            "fill-image:" + path.Id + ":" + usage
+        );
+
+        image.Submitted += _ => document.Stack.Seal();
+
+        bindings.Add(() => {
+            if (LayerStackEdit.Find(document.Document, path) is not { } current) {
+                return;
+            }
+
+            var written = current.Writes(usage);
+            var constant = current.Fill == LayerFillSource.Constant;
+            var texture = current.Fill == LayerFillSource.Texture;
+
+            row.SetStyle("display", written && (constant || texture) ? "flex" : "none");
+
+            var colour = current.Values.TryGetValue(usage, out var stored) && stored.Length == 4 ? stored : null;
+
+            writes.IsChecked = colour is not null;
+            writes.SetStyle("display", constant ? "flex" : "none");
+
+            for (var index = 0; index < components.Count; index++) {
+                components[index].SetStyle("display", constant && colour is not null ? "flex" : "none");
+
+                if (colour is not null) {
+                    components[index].Value = colour[index];
+                }
+            }
+
+            image.SetStyle("display", texture ? "flex" : "none");
+            image.Value = current.Textures.TryGetValue(usage, out var named) ? named : "";
+        });
+    }
+
+    /// <summary>What each of a colour's four sliders is called on the tree.</summary>
+    /// <remarks>
+    ///     Written out rather than indexed into a single tag, because a test reading "the red slider"
+    ///     off the panel should be naming red rather than counting.
+    /// </remarks>
+    static readonly string[] ComponentTags = [
+        "layer-stack-fill-red",
+        "layer-stack-fill-green",
+        "layer-stack-fill-blue",
+        "layer-stack-fill-alpha"
+    ];
+
+    /// <summary>What switching a channel on starts from.</summary>
+    /// <param name="channel">The channel.</param>
+    /// <returns>Four numbers.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The channel's own default, which is exactly the number #807 · 2 refused as a
+    ///     <em>fallback</em>.</b> The two are opposite decisions about the same value: reading it
+    ///     when there is no entry invents a layer's opinion out of the set's, while starting an entry
+    ///     the artist just asked for is the set's opinion offered as a first draft. A malformed
+    ///     default becomes mid-grey, which is what <see cref="Blank" /> gives a new fill.
+    /// </remarks>
+    static float[] Starting(ChannelAsset channel) =>
+        channel.Default.Length == 4 ? [.. channel.Default] : [0.5f, 0.5f, 0.5f, 1f];
+
+    /// <summary>A layer's colours with one channel's set or taken out.</summary>
+    /// <param name="layer">The layer.</param>
+    /// <param name="usage">The channel.</param>
+    /// <param name="colour">Four numbers, or null to remove the entry.</param>
+    /// <returns>A new dictionary.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A copy, and that is load-bearing twice over.</b> <c>LayerAsset</c> is a record whose
+    ///     equality over a dictionary is by reference, so <see cref="Set" /> would compare a mutated
+    ///     dictionary equal to itself and execute nothing; and <c>SetLayerCommand</c> holds the
+    ///     before and the after, so a mutation in place would edit the undo entry as well as the
+    ///     document.
+    /// </remarks>
+    static Dictionary<string, float[]> Valued(LayerAsset layer, string usage, float[]? colour) {
+        Dictionary<string, float[]> values = new(layer.Values);
+
+        if (colour is null) {
+            values.Remove(usage);
+        } else {
+            values[usage] = colour;
+        }
+
+        return values;
+    }
+
+    /// <summary>A layer's images with one channel's set, or taken out when the name is empty.</summary>
+    /// <param name="layer">The layer.</param>
+    /// <param name="usage">The channel.</param>
+    /// <param name="asset">What was typed.</param>
+    /// <returns>A new dictionary.</returns>
+    static Dictionary<string, string> Imaged(LayerAsset layer, string usage, string asset) {
+        Dictionary<string, string> textures = new(layer.Textures);
+
+        if (asset.Length == 0) {
+            textures.Remove(usage);
+        } else {
+            textures[usage] = asset;
+        }
+
+        return textures;
     }
 
     /// <summary>The rows for one layer's mask: its effects, its entries, and its base.</summary>
@@ -2318,10 +2625,11 @@ sealed class LayerStackView : IDisposable {
     ///         question.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which is also the honest statement of what this panel still cannot do:</b> there
-    ///         is no editor for a fill's colour, so the value it is born with is the value it keeps
-    ///         until somebody edits the file. That is a gap in #882 rather than a decision, and it is
-    ///         filed.
+    ///         ⚠ <b>And it is a starting value again rather than the only one</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/986">#986</a>. This paragraph used to
+    ///         say there was no editor for a fill's colour, so the value a layer was born with was
+    ///         the value it kept until somebody opened the <c>.vxlayers</c> in a text editor;
+    ///         <see cref="FillRows" /> is that editor.
     ///     </para>
     ///     <para>
     ///         The id is <see cref="LayerStackEdit.FreeId" />'s, so it is unique in the set from the
