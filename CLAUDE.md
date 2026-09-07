@@ -190,7 +190,12 @@ zero is a valid-looking value.
 
 ## Gates that fail for non-obvious reasons
 
-- **`Docs`** refuses any new public type with no guide page *and* no line in `docs/DocsExempt.txt`.
+- **`CheckDocs`** refuses any new public type with no guide page *and* no line in
+  `docs/DocsExempt.txt`. ⚠ **`Docs` is not that gate**: it generates, prints the identical
+  `[ERR] … has no guide page and no line in docs/DocsExempt.txt`, and then exits **0**. A sweep that
+  runs `Docs` on the belief that it gates lets every undocumented public type through, which is what
+  sixteen batches of one workstream did. ⚠ And `CheckDocsCoverage` — the sub-second one CI pairs with
+  it — only sees types in a `PublicAPI` baseline, so it is not a substitute either.
 - **`CheckApi`** fails on an unapproved public addition **and** on a silent removal; the baseline moves
   with the code.
 - **`CheckStrings`** fails on a declared string id used nowhere, and on a call site that rebuilds an id
