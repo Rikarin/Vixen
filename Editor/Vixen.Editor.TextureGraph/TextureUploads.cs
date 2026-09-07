@@ -225,8 +225,13 @@ public sealed class TextureUploads : IDisposable {
 
         var texture = Upload(image, format, width, height, texels);
 
-        declared[image] = new(texture, UploadUsage);
         sizes[image] = new(width, height);
+
+        // ⚠ The size goes into the declaration as well as into `sizes`, and it is the same value
+        // read twice for the same reason `UploadUsage` is — #1000. `TexturePlanEvaluator` sizes a
+        // CPU op's read-back from what the caller declares, because the plan's level for an image
+        // it does not allocate is nominal; leaving it out here is a copy larger than the picture.
+        declared[image] = new(texture, UploadUsage, sizes[image]);
 
         return texture;
     }

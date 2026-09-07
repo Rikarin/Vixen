@@ -114,7 +114,12 @@ public class TextureUploadTests {
         var texture = uploads.AddCoverage(plan, 1, Side, Side, new float[Side * Side]);
 
         Assert.Equal(1, uploads.Count);
-        Assert.Equal(new TextureExternal(texture, TextureUploads.UploadUsage), Assert.Contains(1, uploads.Externals));
+        // ⚠ The size is part of the declaration and not only of `SizeOf` — #1000. `TexturePlan`
+        // cannot answer for an external image, so a CPU op's read-back is sized from this.
+        Assert.Equal(
+            new TextureExternal(texture, TextureUploads.UploadUsage, new(Side, Side)),
+            Assert.Contains(1, uploads.Externals)
+        );
         Assert.DoesNotContain(0, uploads.Externals);
         Assert.Equal(new Int2(Side, Side), uploads.SizeOf(1));
     }

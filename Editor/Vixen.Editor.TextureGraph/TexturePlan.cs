@@ -492,6 +492,7 @@ public sealed class TexturePlan {
     /// <summary>How big one image is in this bake, in texels.</summary>
     /// <param name="image">Its index in <see cref="Images" />.</param>
     /// <returns>Its width and height.</returns>
+    /// <exception cref="ArgumentException">The image is one the caller supplies.</exception>
     /// <remarks>
     ///     <para>
     ///         The image's own <see cref="TextureImage.LevelOffset" /> and the plan's
@@ -503,8 +504,37 @@ public sealed class TexturePlan {
     ///         would otherwise be a zero-sized image, which is a dispatch of no groups and a texture
     ///         no backend will create.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An external image is refused rather than answered</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/715">#715</a> and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1008">#1008</a>. This method's own
+    ///         <see cref="Check" /> already skips an external image's level, in as many words: an
+    ///         imported bitmap is whatever size it is, nothing here allocates it, and the level it
+    ///         carries is nominal. So the number this used to return for one was plausible, checked
+    ///         by nothing, and wrong for every picture that was not the plan's own resolution.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It was harmless right up until it was not, which is why the refusal is here
+    ///         rather than in a comment.</b> #715 recorded "nothing currently asks"; #1000 found the
+    ///         asker — <c>TexturePlanEvaluator.OnCpu</c> sized a CPU op's read-back from it, so a
+    ///         16×16 upload in a 64² plan copied 64×64 out of the device and handed the operation
+    ///         48 rows of a buffer nothing had written. Who knows the size is whoever supplied the
+    ///         picture: <c>TextureUploads.SizeOf</c>, or the <see cref="TextureExternal.Size" /> a
+    ///         caller declares beside the handle.
+    ///     </para>
     /// </remarks>
     public Int2 SizeOf(int image) {
+        if (Images[image].External) {
+            throw new ArgumentException(
+                $"Image {image} is external, so this plan does not know how big it is. An external image is the "
+                + "one place an absolute size enters a plan — it is an imported bitmap, nothing here allocates "
+                + "it, and the level it carries is nominal (this plan's Check skips it for that reason). Ask "
+                + "whoever supplied the picture: TextureUploads.SizeOf, or the Size declared on the "
+                + "TextureExternal handed to Evaluate.",
+                nameof(image)
+            );
+        }
+
         var level = LevelOf(image);
 
         return new(Extent(BaseWidth, level), Extent(BaseHeight, level));
@@ -739,6 +769,12 @@ public sealed class TexturePlan {
                         + "input and is never written."
                     )
                 );
+
+                // ⚠ Nothing below this can be asked about an external image: `SizeOf` refuses one
+                // (#715, #1008), and every check from here down is measured against the size of the
+                // image being written. The plan is already refused, so what is lost is a second
+                // message about an op that is not going to run.
+                continue;
             }
 
             // ⚠ A CPU op is written to through a buffer copy and needs no storage image, and it is

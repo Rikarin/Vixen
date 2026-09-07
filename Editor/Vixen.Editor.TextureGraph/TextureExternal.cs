@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 
 namespace Vixen.Editor.TextureGraph;
@@ -10,6 +11,9 @@ namespace Vixen.Editor.TextureGraph;
 /// <param name="Usage">
 ///     The <see cref="TextureUsage" /> it was created with — the same expression that was passed to
 ///     <see cref="IGraphicsDevice.CreateTexture" />, and not a wish.
+/// </param>
+/// <param name="Size">
+///     How big the picture actually is, in texels, or the default for a caller that did not say.
 /// </param>
 /// <remarks>
 ///     <para>
@@ -21,6 +25,17 @@ namespace Vixen.Editor.TextureGraph;
 ///         handle turns "the caller forgot" from undefined behaviour into a refusal with a message.
 ///     </para>
 ///     <para>
+///         ⚠ <b><see cref="Size" /> is here for exactly the same reason, and
+///         <a href="https://github.com/Rikarin/Vixen/issues/1000">#1000</a> is what it costs to be
+///         without it.</b> An external image is the one place an absolute size enters a plan, so
+///         <see cref="TexturePlan.SizeOf" /> cannot answer for one — it reads a level off an image
+///         nothing allocates. A dispatch never needed the number, because every kernel clamps its
+///         taps to the source's own <c>GetDimensions</c>; a <see cref="TextureOp.Cpu" /> op does,
+///         because it is a <c>vkCmdCopyImageToBuffer</c> and a copy has to name an extent. Sized
+///         from the plan's nominal level, that copy asked a 16×16 upload for 64×64 and handed the
+///         operation 48 rows of a buffer nothing had written.
+///     </para>
+///     <para>
 ///         ⚠ <b>What it is not: proof.</b> A declaration that does not match the description the
 ///         texture was created with is a lie this type cannot detect, and the behaviour is then
 ///         exactly what it was before — undefined, and green on a unified adapter. Write the two in
@@ -28,7 +43,15 @@ namespace Vixen.Editor.TextureGraph;
 ///         <c>TextureUsage</c> expression, the way <c>TextureKernelHarness.Upload</c> does.
 ///     </para>
 /// </remarks>
-public readonly record struct TextureExternal(TextureHandle Texture, TextureUsage Usage) {
+public readonly record struct TextureExternal(TextureHandle Texture, TextureUsage Usage, Int2 Size = default) {
+    /// <summary>Whether the caller said how big the picture is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both axes, and positive rather than non-negative.</b> A zero-sized copy is a
+    ///     zero-byte staging buffer and an image with no texels in it, which is the shape of "off"
+    ///     that reads as a legitimate value everywhere it is passed on.
+    /// </remarks>
+    public bool HasSize => Size.X > 0 && Size.Y > 0;
+
     /// <summary>What every external image needs, because a dispatch samples it.</summary>
     public const TextureUsage Sampled = TextureUsage.Sampled;
 

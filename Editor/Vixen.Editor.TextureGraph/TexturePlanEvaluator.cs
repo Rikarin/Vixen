@@ -3,6 +3,7 @@
 
 using System.Collections.Immutable;
 using System.Globalization;
+using Vixen.Core.Mathematics;
 using Vixen.Graphics;
 using Vixen.ShaderCompiler;
 using Vixen.Shaders;
@@ -391,7 +392,8 @@ public sealed class TexturePlanEvaluator : IDisposable {
 
         CheckExternalUsage(plan, externals);
 
-        var handles = externals.ToDictionary(supplied => supplied.Key, supplied => supplied.Value.Texture);
+        CheckExternalSizes(plan, externals);
+
         var schedule = TexturePoolSchedule.For(plan);
         var textures = new TextureHandle[schedule.Allocations];
         var slotViews = new TextureViewHandle[schedule.Allocations];
@@ -431,7 +433,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
         };
 
         try {
-            Run(plan, schedule, bake, slotViews, ExternalViews(plan, handles, owned), handles);
+            Run(plan, schedule, bake, slotViews, ExternalViews(plan, externals, owned), externals);
         } catch {
             bake.Dispose();
 
@@ -597,6 +599,59 @@ public sealed class TexturePlanEvaluator : IDisposable {
         }
     }
 
+    /// <summary>Refuses an external image a CPU op reads whose size the caller did not declare.</summary>
+    /// <param name="plan">What is about to run.</param>
+    /// <param name="externals">What the caller supplied.</param>
+    /// <exception cref="ArgumentException">A CPU op reads an external image of undeclared size.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/1000">#1000</a>, and the reason
+    ///         it is asked of a CPU op alone is that nothing else has ever needed a number.</b> A
+    ///         dispatch binds the caller's texture as a sampled image and every kernel in
+    ///         <c>Shaders/</c> clamps its taps to that image's own <c>GetDimensions</c>, so the
+    ///         plan's nominal level never reaches the GPU. <see cref="OnCpu" /> is a
+    ///         <c>vkCmdCopyImageToBuffer</c>, and a copy has to name an extent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A refusal rather than a fall-back to the nominal size, and it can be one because
+    ///         the path that cannot answer cannot get here.</b>
+    ///         <see cref="Evaluate(TexturePlan,IReadOnlyDictionary{int,TextureHandle})" /> declares
+    ///         <see cref="TextureExternal.Sampled" /> and nothing else, so
+    ///         <see cref="CheckExternalUsage" /> has already refused every plan whose CPU op reads an
+    ///         external image before this runs — a caller reaching this check is one that spelled a
+    ///         <see cref="TextureExternal" /> out, and spelling the size is the same sentence. The
+    ///         alternative was a default meaning "use the plan's number", which is #1000 kept alive
+    ///         behind a field that looks like a fix.
+    ///     </para>
+    /// </remarks>
+    static void CheckExternalSizes(TexturePlan plan, IReadOnlyDictionary<int, TextureExternal> externals) {
+        foreach (var op in plan.Ops) {
+            if (op.Cpu is null) {
+                continue;
+            }
+
+            foreach (var input in op.Inputs) {
+                if (input < 0 || input >= plan.Images.Length || !plan.Images[input].External) {
+                    continue;
+                }
+
+                if (externals.TryGetValue(input, out var supplied) && supplied.HasSize) {
+                    continue;
+                }
+
+                throw new ArgumentException(
+                    $"Image {input} is external and is read by a CPU op, which copies it out of the device with an "
+                    + "extent it has to be told, and the texture supplied for it declares no size. The plan cannot "
+                    + "answer instead: an external image is the one place an absolute size enters a plan, and its "
+                    + "level is nominal. ⚠ A copy larger than the picture is undefined rather than invalid, so the "
+                    + "operation would be handed rows of a buffer nothing wrote — declare the size beside the "
+                    + "usage, as TextureUploads does.",
+                    nameof(externals)
+                );
+            }
+        }
+    }
+
     /// <summary>A view onto each external image, made once and destroyed with the bake.</summary>
     /// <remarks>
     ///     ⚠ <b>Unconditional, which is why <see cref="CheckExternalUsage" /> asks every external for
@@ -608,7 +663,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
     /// </remarks>
     Dictionary<int, TextureViewHandle> ExternalViews(
         TexturePlan plan,
-        IReadOnlyDictionary<int, TextureHandle>? externals,
+        IReadOnlyDictionary<int, TextureExternal> externals,
         List<TextureViewHandle> owned
     ) {
         Dictionary<int, TextureViewHandle> made = [];
@@ -618,7 +673,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
                 continue;
             }
 
-            if (externals is null || !externals.TryGetValue(image, out var supplied) || !supplied.IsValid) {
+            if (!externals.TryGetValue(image, out var declaration) || !declaration.Texture.IsValid) {
                 throw new ArgumentException(
                     $"Image {image} is external and no texture was supplied for it. An external image is a bitmap "
                     + "input; a plan that has one cannot be evaluated without it.",
@@ -626,7 +681,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
                 );
             }
 
-            var view = device.CreateTextureView(supplied);
+            var view = device.CreateTextureView(declaration.Texture);
 
             made[image] = view;
             owned.Add(view);
@@ -641,7 +696,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
         TextureBake bake,
         TextureViewHandle[] slotViews,
         Dictionary<int, TextureViewHandle> externals,
-        IReadOnlyDictionary<int, TextureHandle>? externalTextures
+        IReadOnlyDictionary<int, TextureExternal> supplied
     ) {
         var state = new ResourceState[schedule.Allocations];
         List<BufferHandle> constants = [];
@@ -661,7 +716,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
                 var slot = schedule.SlotOf[image];
 
                 if (op.Cpu is not null) {
-                    commands = OnCpu(plan, schedule, bake, index, state, externalTextures, staging, commands);
+                    commands = OnCpu(plan, schedule, bake, index, state, supplied, staging, commands);
 
                     continue;
                 }
@@ -777,7 +832,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
         TextureBake bake,
         int index,
         ResourceState[] state,
-        IReadOnlyDictionary<int, TextureHandle>? externalTextures,
+        IReadOnlyDictionary<int, TextureExternal> externalTextures,
         List<BufferHandle> staging,
         ICommandList commands
     ) {
@@ -814,7 +869,13 @@ public sealed class TexturePlanEvaluator : IDisposable {
         }
 
         foreach (var input in op.Inputs) {
-            var size = plan.SizeOf(input);
+            // ⚠ #1000: the *supplied* size for an external image and the plan's only for a pooled
+            // one. `plan.SizeOf` reads a level off an image the plan does not allocate, so for a
+            // 16×16 upload in a 64² plan this asked the copy for 64×64 — 16 KB of host buffer of
+            // which a kilobyte can have been written, handed to the operation as picture data.
+            // MoltenVK raised nothing, because a copy larger than the image is undefined rather
+            // than invalid.
+            var size = SizeOf(plan, externalTextures, input);
             var bytes = size.X * size.Y * TextureFormats.BytesPerTexel(plan.Images[input].Format);
             var buffer = device.CreateBuffer(
                 new(bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, $"{op.Kernel} read-back")
@@ -841,7 +902,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
         var inputs = ImmutableArray.CreateBuilder<TextureCpuImage>(reads.Count);
 
         foreach (var (image, buffer) in reads) {
-            var size = plan.SizeOf(image);
+            var size = SizeOf(plan, externalTextures, image);
             var format = plan.Images[image].Format;
             var raw = new byte[size.X * size.Y * TextureFormats.BytesPerTexel(format)];
 
@@ -893,16 +954,35 @@ public sealed class TexturePlanEvaluator : IDisposable {
     static TextureHandle TextureFor(
         TexturePoolSchedule schedule,
         TextureBake bake,
-        IReadOnlyDictionary<int, TextureHandle>? externals,
+        IReadOnlyDictionary<int, TextureExternal> externals,
         int image
     ) =>
         schedule.SlotOf[image] >= 0
             ? bake.TextureOf(image)
-            : externals?[image]
-            ?? throw new ArgumentException(
-                $"Image {image} is external and no texture was supplied for it.",
-                nameof(externals)
-            );
+            : externals.TryGetValue(image, out var supplied)
+                ? supplied.Texture
+                : throw new ArgumentException(
+                    $"Image {image} is external and no texture was supplied for it.",
+                    nameof(externals)
+                );
+
+    /// <summary>How big one image is here, asking whoever can answer for it.</summary>
+    /// <param name="plan">The plan being evaluated.</param>
+    /// <param name="externals">What the caller supplied.</param>
+    /// <param name="image">The image's index in <see cref="TexturePlan.Images" />.</param>
+    /// <returns>The picture's real size in texels.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Two answerers rather than one, because <see cref="TexturePlan" /> genuinely does not
+    ///     know</b> — <a href="https://github.com/Rikarin/Vixen/issues/1000">#1000</a> and
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1008">#1008</a>. An image the pool made
+    ///     has the size the plan's level says, because the plan is what created it; an image the
+    ///     caller supplied has the size the caller declared, because an imported bitmap is whatever
+    ///     size it is and no <see cref="IGraphicsDevice" /> can describe a handle back.
+    ///     <see cref="CheckExternalSizes" /> is what makes the second answer present rather than
+    ///     defaulted.
+    /// </remarks>
+    static Int2 SizeOf(TexturePlan plan, IReadOnlyDictionary<int, TextureExternal> externals, int image) =>
+        plan.Images[image].External ? externals[image].Size : plan.SizeOf(image);
 
     static int Groups(int extent) => (extent + GroupSize - 1) / GroupSize;
 
