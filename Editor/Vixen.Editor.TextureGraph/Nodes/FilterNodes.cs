@@ -201,7 +201,7 @@ sealed partial class LevelsNode : TextureNode {
 
         emitter.Dispatch(
             new TextureOp {
-                Kernel = "Levels",
+                Kernel = TextureColourKernels.Levels,
                 Output = target,
                 Inputs = [source],
                 Parameters = [

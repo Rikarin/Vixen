@@ -67,6 +67,22 @@ bake.Save(3, "Assets/Materials/hull-height.png");
 - **No UI and no project.** Nothing here draws, and no test here needs a panel to check any of it. ⚠
   The `Vixen.Editor.NodeGraph` reference above means the *assembly closure* is a UI one even so, which
   is the difference [#720](https://github.com/Rikarin/Vixen/issues/720) exists to restore.
+  ⚠ **The split is deliberately not being done yet, and the reason is that no consumer would notice.**
+  Measured on 2026-09-07: `bin/Debug` holds 32 assemblies, eleven of them `Vixen.Ui*` /
+  `Vixen.Editor.Core` / `Vixen.Editor.Inspector` — so the issue's first claim is true. Its second, that
+  something pays for them, is not yet: all four projects that reference this one already load the same
+  eleven by another path. `Vixen.Editor.Texturing` is a panel assembly; `Vixen.Graphics.Golden.Tests`
+  and `Vixen.Editor.App.Tests` reach them through `Vixen.Editor.Assets` → `Vixen.Editor.VfxGraph` →
+  `Vixen.Editor.NodeGraph` (`Vixen.Editor.VfxGraph/bin` carries `Vixen.Ui.dll` and nine of its
+  neighbours with no texture graph anywhere in it); and this assembly's own suite drives both halves.
+  **The consumer the split is for is § M5's `vixen texture bake`, which does not exist** — so splitting
+  now builds the seam before the caller, which is this workstream's commonest defect rather than a fix
+  for one. **What it would cost, so the next reader does not re-derive it**: 23 of 47 source files and
+  ~7.2k of 14.0k lines move; 44 of 71 top-level declarations here are non-public, so the node half
+  needs either an `InternalsVisibleTo` broad enough to make the wall a formality or ~40 newly public
+  editor types with the `Docs` entries that implies; and `Compounds/**` moves with
+  `TextureCompoundLibrary`, whose `Root` is a manifest prefix spelled from this assembly's root
+  namespace, so every shipped compound's resource id changes with it.
 - **No frame.** `Evaluate` opens its own, submits one command list and waits. A bake is a modal
   operation; the interactive per-node preview of § M4 will want the recording half split out rather
   than this called sixty times a second.

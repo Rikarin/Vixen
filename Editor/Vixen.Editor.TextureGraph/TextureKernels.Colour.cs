@@ -118,6 +118,20 @@ enum TextureFilter {
 /// </remarks>
 [TextureKernelSurface]
 static class TextureColourKernels {
+    /// <summary>An input range remapped through a gamma into an output range.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Doc 48 § 4.2's first entry, shipped by § M1 and declared by nobody until
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/756">#756</a>.</b> Every other kernel in
+    ///     this assembly is a <c>const string</c> on a surface and a member of that surface's
+    ///     <c>All</c>; <c>Levels</c> was a bare literal in <c>LevelsNode</c> and nowhere else, so a
+    ///     mistyped name was a missing-resource exception at bake time rather than a build error, and
+    ///     it sat outside every per-kernel theory the others are given by being in a list.
+    ///     ⚠ <b>#756 asked for it on <c>TextureFilters</c> and that is the wrong family</b>: § 4.4 is
+    ///     blurs and warps, and § 4.2's own table opens with this line — which is also where
+    ///     <see cref="AutoLevels" />, the kernel that automates it, already lives.
+    /// </remarks>
+    public const string Levels = "Levels";
+
     /// <summary>A spline per channel, through a table baked by <see cref="TextureRamp" />.</summary>
     public const string Curve = "Curve";
 
@@ -167,6 +181,7 @@ static class TextureColourKernels {
         Grayscale,
         Hsl,
         Invert,
+        Levels,
         MinMaxReduce,
         Mirror,
         Resample,
