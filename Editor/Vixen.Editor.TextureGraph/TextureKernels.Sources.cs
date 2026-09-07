@@ -176,6 +176,12 @@ internal static class TextureSources {
             Kernel = "Gradient",
             Output = output,
             Inputs = [ramp],
+
+            // ⚠ The ramp is read at its own extent by design — a 256×1 strip is a lookup table the
+            // kernel samples by position along the gradient, not a picture the size of the output.
+            // Without this the extent caution fires on every `Source/Gradient` an artist places.
+            ReadsOtherExtents = true,
+            OtherExtentInputs = [ramp],
             Parameters = [
                 new("kind", (float)kind),
                 new("angle", angle),

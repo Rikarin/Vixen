@@ -489,11 +489,20 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 > and [#803](https://github.com/Rikarin/Vixen/issues/803) closed by publishing the project's own
 > `Assets/Compounds` beside the four this build ships, so an author's graph does reach the menu.
 > ⚠ **And a fourth claim in that same sentence has now gone stale the same way**: it said M8's anchors
-> and mask generators were owed, and M8 landed — a generator authored once makes a plausible mask on
+> and mask generators were owed, and both landed — a generator authored once makes a plausible mask on
 > two meshes with no rewiring, measured on a device, once
 > [#799](https://github.com/Rikarin/Vixen/issues/799) gave `TextureCompoundLibrary.Publish` a caller.
+> ⚠ **M8 itself is *not* closed and [#573](https://github.com/Rikarin/Vixen/issues/573) is open**: two
+> of its scope rows are owed, the colour/ID selection mask
+> ([#1010](https://github.com/Rikarin/Vixen/issues/1010)) and the projections
+> ([#815](https://github.com/Rikarin/Vixen/issues/815)) — which is what row 93 of Part 4 says, and
+> these two halves of this file have contradicted each other before.
 > The milestone ledger was reconciled against the tree on 2026-09-07 and **seven of the twelve phases
-> turned out to be finished and still open**; M1–M4 and M7 were closed that day.
+> turned out to be finished and still open**; M1–M4 and M7 were closed that day. ⚠ **M4's closure was
+> one item too generous**: its scope line *"per-node previews through `INodePreviewSource`"* is a
+> subsystem with device tests and no production caller, which closing the umbrella made untracked —
+> [#1015](https://github.com/Rikarin/Vixen/issues/1015) is where it lives now. The ledger is worth
+> doing and its failure mode is exactly this, so it is recorded rather than quietly corrected.
 > ⚠ What is genuinely owed is **3D projection painting** and symmetry, an **ID selection mask**
 > ([#1010](https://github.com/Rikarin/Vixen/issues/1010)) and projections
 > ([#815](https://github.com/Rikarin/Vixen/issues/815)), M10's content and M11's height — and one
@@ -1095,9 +1104,11 @@ usually means "true today, with nothing requiring the next node to keep it true"
 **Nine met · three partial · none unmeasurable**, re-derived 2026-09-07 while settling doc 48's
 milestone ledger ([#577](https://github.com/Rikarin/Vixen/issues/577)).
 
-⚠ **Three rows moved, and all three moved because the *criterion* changed rather than because the
-tree did** — which is the failure mode a scoreboard has that a plan does not, and it is worth more
-than the marks. 1, 3 and 4 were being scored against sentences doc 48 no longer carries: 1's
+⚠ **Three rows were re-scored because the *criterion* changed rather than because the tree did** —
+which is the failure mode a scoreboard has that a plan does not, and it is worth more than the marks.
+⚠ Two of the three **marks** moved; row 4's was already ✅ and only its *wording* was wrong, which is
+the same drift one degree quieter. 1, 3 and 4 were being scored against sentences doc 48 no longer
+carries: 1's
 "under 250 ms" and its withdrawn sub-graph clause ([#846](https://github.com/Rikarin/Vixen/issues/846)),
 3's "a golden per node" — amended on the very finding this table made, since the instrument was wrong
 rather than the work skipped — and 4's "per node" where the criterion says *shipped op

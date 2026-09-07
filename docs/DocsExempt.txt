@@ -1323,6 +1323,7 @@ T:Vixen.Editor.Inspector.Drawers.BooleanDrawer sweep-pending
 T:Vixen.Editor.Inspector.Drawers.Color3Drawer sweep-pending
 T:Vixen.Editor.Inspector.Drawers.ColorDrawer sweep-pending
 T:Vixen.Editor.Inspector.Drawers.ComponentDrawer`1 sweep-pending
+T:Vixen.Editor.Inspector.Drawers.ChoiceDrawer sweep-pending
 T:Vixen.Editor.Inspector.Drawers.CompositeEditor sweep-pending
 T:Vixen.Editor.Inspector.Drawers.CurveDrawer sweep-pending
 T:Vixen.Editor.Inspector.Drawers.EnumDrawer sweep-pending
