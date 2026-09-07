@@ -59,6 +59,39 @@ static class TextureNodeLibrary {
     /// <summary>Where a project keeps the graphs it publishes as nodes, under <c>Assets/</c>.</summary>
     public const string CompoundFolder = "Compounds";
 
+    /// <summary>The node that names a baked mesh map, and the setting on it that says which.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two strings rather than nine, which is the trade this makes.</b> A path and a setting
+    ///     name are a lookup that fails loudly the moment either moves — <see cref="MeshMaps" />
+    ///     throws — where nine transcribed measurements fail silently by disagreeing with the node
+    ///     that refuses them.
+    /// </remarks>
+    const string MeshMapNode = "Source/Mesh Map";
+
+    /// <summary>What a mesh-map reference may measure, as the node itself declares it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>, and it is a
+    ///         plugin seam rather than a convenience.</b> The list lives in
+    ///         <c>Vixen.Editor.TextureGraph</c> and is <see langword="internal" /> to it — that
+    ///         assembly's one <c>InternalsVisibleTo</c> names its own tests — so a panel in this
+    ///         plugin could not ask what the nine were and shipped a <c>TextBox</c> in which a typo
+    ///         is a diagnostic rather than an impossibility. What crosses the wall is the node
+    ///         <em>type definition</em>, which every plugin already has through the registry, now
+    ///         that a setting can state what it accepts.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Computed once, off a registry of the built-in types alone.</b> A published
+    ///         compound cannot add a mesh map, and acquiring a project's library here would be the
+    ///         thing <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a> says a view must
+    ///         not do — this is a fact about the build rather than about the project that is open.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    ///     The node or its setting has been renamed, or the setting states no accepted values.
+    /// </exception>
+    public static IReadOnlyList<string> MeshMaps { get; } = Declared();
+
     /// <summary>A registry holding this build's texture nodes, and nothing published.</summary>
     /// <returns>The registry.</returns>
     /// <remarks>
@@ -111,4 +144,23 @@ static class TextureNodeLibrary {
     /// </remarks>
     public static string? FolderOf(string? assets) =>
         assets is { Length: > 0 } ? Path.Combine(assets, CompoundFolder) : null;
+
+    /// <summary>The mesh-map node's accepted values, or a sentence saying what moved.</summary>
+    static IReadOnlyList<string> Declared() {
+        if (!Create().TryGet(MeshMapNode, out var definition)) {
+            throw new InvalidOperationException(
+                $"'{MeshMapNode}' is not a registered node type, so nothing in this plugin can say "
+                + "what a bake mask may measure."
+            );
+        }
+
+        if (definition.Setting("Map") is not { Accepted.Length: > 0 } setting) {
+            throw new InvalidOperationException(
+                $"'{MeshMapNode}' has no 'Map' setting stating what it accepts, so nothing in this "
+                + "plugin can offer the measurements it will take."
+            );
+        }
+
+        return setting.Accepted;
+    }
 }

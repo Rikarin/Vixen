@@ -266,6 +266,13 @@ public sealed class NodeSettingMember : InspectorMember {
             Tooltip = setting.Summary;
         }
 
+        if (setting.IsChoice) {
+            // ⚠ The declaration itself and not a copy of it, which is the whole of #964: the list a
+            // dropdown offers and the list a compiler refuses a name against have to be one object,
+            // or they are two lists that agree until somebody edits one.
+            Choices = setting.Accepted;
+        }
+
         if (setting.IsBounded) {
             // A step of one for a count and a hundredth for a knob — the same division
             // `ReflectedMember` makes, and the reason a slider over 0…1 is usable at all.

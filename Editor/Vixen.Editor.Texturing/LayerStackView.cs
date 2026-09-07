@@ -1975,15 +1975,28 @@ sealed class LayerStackView : IDisposable {
     ///         the defect <see cref="Show" />'s shape comparison exists to prevent, one level down.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The three reference kinds share one <c>TextBox</c> and that is a limit rather
-    ///         than a design.</b> A bake wants the nine names <c>TextureMeshMaps.Known</c> holds and
-    ///         they are <c>internal</c> to <c>Vixen.Editor.TextureGraph</c>, whose
-    ///         <c>InternalsVisibleTo</c> names its own tests alone — so this assembly cannot ask for
-    ///         the list, and writing the nine here is the second transcription of a known set that
-    ///         five roll calls in this workstream have gone red on. The node refuses a name nothing
-    ///         bakes and says all nine in the message, and that message reaches the list under these
-    ///         rows. The same argument covers a generator, whose compounds are published by a
-    ///         library this view must not acquire (#820).
+    ///         ⚠ <b>A bake is a picker and no longer a text box —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b> It used to share
+    ///         the reference <c>TextBox</c> with a texture and a generator, because the nine names it
+    ///         may hold were <c>internal</c> to <c>Vixen.Editor.TextureGraph</c> and this assembly
+    ///         could not ask for them — and writing the nine here would have been the second
+    ///         transcription of a known set that five roll calls in this workstream have gone red on.
+    ///         What crosses that wall now is the node type's own declaration, through
+    ///         <see cref="TextureNodeLibrary.MeshMaps" />: one list, offered here and refused by the
+    ///         node, so the picker and the diagnostic cannot disagree.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A texture and a generator still share the <c>TextBox</c>, and that is still a
+    ///         limit.</b> A generator's options are the published compounds, which a library this
+    ///         view must not acquire produces (<a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>);
+    ///         a texture's are a project's files. Neither is a fact about the build, so neither is
+    ///         reachable the way the nine now are.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A stored map the list does not hold stays on the screen</b>, which is
+    ///         <c>Rebind</c>'s three-state rule and the anchor picker's below: a dropdown that
+    ///         silently showed the first option would say the mask measures that, and then write it
+    ///         on the next click.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A keystroke is one undo entry per typing run, not per character</b> — the merge
@@ -2045,6 +2058,18 @@ sealed class LayerStackView : IDisposable {
             write(current with { Anchor = wanted }, "Set Mask Anchor", "");
         };
 
+        var map = row.Add<Select>("layer-stack-mask-map");
+
+        foreach (var measurement in TextureNodeLibrary.MeshMaps) {
+            map.AddOption(measurement);
+        }
+
+        map.SelectionChanged += (_, chosen) => {
+            if (read() is { } current && chosen is not null) {
+                write(current with { Map = chosen }, "Set Mask Map", "");
+            }
+        };
+
         var reference = row.Add<TextBox>("layer-stack-mask-text");
 
         reference.ValueChanged += (_, typed) => {
@@ -2057,7 +2082,6 @@ sealed class LayerStackView : IDisposable {
             var after = current.Source switch {
                 LayerMaskSource.Texture => current with { Asset = written },
                 LayerMaskSource.Generator => current with { Generator = written },
-                LayerMaskSource.Bake => current with { Map = written },
                 _ => current
             };
 
@@ -2094,26 +2118,36 @@ sealed class LayerStackView : IDisposable {
 
             reference.SetStyle(
                 "display",
-                current.Source is LayerMaskSource.Texture or LayerMaskSource.Generator or LayerMaskSource.Bake
-                    ? "flex"
-                    : "none"
+                current.Source is LayerMaskSource.Texture or LayerMaskSource.Generator ? "flex" : "none"
             );
+
+            map.SetStyle("display", current.Source == LayerMaskSource.Bake ? "flex" : "none");
 
             number.Value = current.Value;
 
             reference.Value = current.Source switch {
                 LayerMaskSource.Texture => current.Asset,
                 LayerMaskSource.Generator => current.Generator,
-                LayerMaskSource.Bake => current.Map,
                 _ => ""
             };
 
             reference.Placeholder = current.Source switch {
                 LayerMaskSource.Texture => "Assets/Textures/rust.png",
                 LayerMaskSource.Generator => "Generators/Dirt",
-                LayerMaskSource.Bake => "curvature",
                 _ => ""
             };
+
+            if (current.Source == LayerMaskSource.Bake) {
+                // ⚠ Offered rather than dropped, the anchor picker's rule one control along: a map
+                // this build does not bake is still what the stack says, and the refusal beneath the
+                // rows is what says it is wrong.
+                if (current.Map.Length > 0 && !map.Options.Any(option => option.Value == current.Map)) {
+                    map.AddOption(current.Map);
+                }
+
+                map.Value = current.Map.Length > 0 ? current.Map : null;
+                map.Placeholder = current.Map.Length > 0 ? null : "curvature";
+            }
 
             if (current.Source != LayerMaskSource.Anchor) {
                 return;

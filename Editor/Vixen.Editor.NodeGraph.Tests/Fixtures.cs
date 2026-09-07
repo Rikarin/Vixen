@@ -118,6 +118,28 @@ public sealed partial class TestSettingNode : Node {
     public Scalar Out;
 }
 
+/// <summary>A node one of whose settings is chosen from a stated few rather than typed.</summary>
+/// <remarks>
+///     ⚠ <b>Its own type rather than a third setting on <c>TestSettingNode</c>, deliberately.</b>
+///     <c>NodeInspectorDumpTests</c> compares whole panels byte for byte across a dozen states, so a
+///     member added to a node those states use would be a diff in every one of them — and a dump
+///     comparison that has to be re-blessed is one nobody reads afterwards.
+/// </remarks>
+[Node("Test/Chosen Thing", Summary = "A setting that is one of three, and one that is any name.")]
+public sealed partial class TestChoiceNode : Node {
+    /// <summary>A setting whose legal values are stated, and whose default is one of them.</summary>
+    [Setting(Summary = "Which of the three.", Accepted = ["alpha", "beta", "gamma"])]
+    public string Pick = "beta";
+
+    /// <summary>A setting beside it that states none, so the two drawers can be told apart.</summary>
+    [Setting(Summary = "Anything at all.")]
+    public string Free = "";
+
+    /// <summary>The result.</summary>
+    [Output(Name = "Out")]
+    public Scalar Out;
+}
+
 /// <summary>A whole raster out, which is what a texture graph's source nodes produce.</summary>
 [Node("Test/Image Source", Summary = "A raster.")]
 public sealed partial class TestImageSourceNode : Node {

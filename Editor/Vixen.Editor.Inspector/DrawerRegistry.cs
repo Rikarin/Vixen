@@ -196,6 +196,12 @@ public sealed class DrawerRegistry {
         registry.ForType<bool>(new BooleanDrawer());
         registry.ForType<string>(new StringDrawer());
 
+        // ⚠ After the text box and not instead of it. The most recently registered wins and falls
+        // through the moment it declines, so a string member that states no `Choices` is a text box
+        // exactly as it was — which is what makes this safe to add to the one type every editor in
+        // the tree has members of. See `ChoiceDrawer`; #964.
+        registry.ForType<string>(new ChoiceDrawer());
+
         var number = new NumberDrawer();
 
         foreach (var type in NumberDrawer.SupportedTypes) {

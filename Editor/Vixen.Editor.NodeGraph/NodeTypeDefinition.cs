@@ -77,6 +77,9 @@ public enum SettingKind {
 /// <param name="Minimum">The bottom of its range, or negative infinity for none.</param>
 /// <param name="Maximum">The top of it, or positive infinity for none.</param>
 /// <param name="Group">Which section of an inspector it belongs to, or empty for the ungrouped ones.</param>
+/// <param name="Accepted">
+///     Every value this setting may hold, or empty when it may hold any name.
+/// </param>
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>Deliberately not a <see cref="PortDefinition" /> with a tenth
@@ -98,6 +101,17 @@ public enum SettingKind {
 ///         compiles</b>, which is what keeps a setting that is genuinely a name — a menu path, an
 ///         expression, an asset reference — exactly as cheap to declare as it was.
 ///     </para>
+///     <para>
+///         ⚠ <b><see cref="Accepted" /> is the fifth, and it exists because a set of legal names had
+///         no way across this boundary at all —
+///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b> A node whose setting is
+///         one of nine measurements said so in its <see cref="Summary" /> prose and in the sentence it
+///         refuses a tenth with, and every consumer that wanted to <em>offer</em> the nine — the node
+///         inspector, a plugin's own panel — had to write them down again. Five exact-equality roll
+///         calls in this workstream have gone red on a second transcription of a known set, and a
+///         picker that disagrees with the compiler's refusal is worse than a text box, because the
+///         disagreement is silent in the direction the author cannot see.
+///     </para>
 /// </remarks>
 public sealed record SettingDefinition(
     string Name,
@@ -106,8 +120,18 @@ public sealed record SettingDefinition(
     SettingKind Kind = SettingKind.Text,
     float Minimum = float.NegativeInfinity,
     float Maximum = float.PositiveInfinity,
-    string Group = ""
+    string Group = "",
+    ImmutableArray<string> Accepted = default
 ) {
+    /// <summary>Every value this setting may hold, in declaration order, or empty for any name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Normalised out of <c>default</c>, for <see cref="NodeTypeDefinition.Settings" />'s
+    ///     reason.</b> An <see cref="ImmutableArray{T}" /> parameter with no argument is not an empty
+    ///     array but an uninitialised one, and every member on it throws — so a consumer asking a
+    ///     setting that declares nothing what it accepts would fault rather than be told "anything".
+    /// </remarks>
+    public ImmutableArray<string> Accepted { get; } = Accepted.IsDefault ? [] : Accepted;
+
     /// <summary>Whether this setting is edited between two stated numbers.</summary>
     /// <remarks>
     ///     ⚠ <b>Both ends finite <em>and</em> a numeric kind.</b> A range on a
@@ -116,6 +140,41 @@ public sealed record SettingDefinition(
     /// </remarks>
     public bool IsBounded =>
         Kind is SettingKind.Int or SettingKind.Float && float.IsFinite(Minimum) && float.IsFinite(Maximum);
+
+    /// <summary>Whether this setting is chosen from a stated list rather than typed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A text kind <em>and</em> a non-empty list</b>, the same shape
+    ///     <see cref="IsBounded" /> has. A list on a <see cref="SettingKind.Bool" /> is a declaration
+    ///     that disagrees with itself — a checkbox already enumerates its two — and a dropdown drawn
+    ///     over a numeric setting would write a label where a number is parsed.
+    /// </remarks>
+    public bool IsChoice => Kind == SettingKind.Text && Accepted.Length > 0;
+
+    /// <summary>Whether a written value is one this setting accepts.</summary>
+    /// <param name="value">What the author wrote.</param>
+    /// <returns>
+    ///     Whether <paramref name="value" /> is one of <see cref="Accepted" /> — and true for every
+    ///     value when the setting states no list, because a setting that accepts anything accepts
+    ///     this.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>Ordinal, because these are stored names rather than words.</b> A setting's value is
+    ///     what a saved graph holds and what a compiler matches, so a culture in which <c>id</c>
+    ///     uppercases to something else must not decide whether a graph compiles.
+    /// </remarks>
+    public bool Accepts(string value) {
+        if (Accepted.Length == 0) {
+            return true;
+        }
+
+        foreach (var accepted in Accepted) {
+            if (string.Equals(accepted, value, StringComparison.Ordinal)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
 
 /// <summary>One node type: what a graph can contain an instance of.</summary>

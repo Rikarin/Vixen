@@ -56,8 +56,36 @@ sealed record SettingModel(
     string Kind,
     float Minimum,
     float Maximum,
-    string Group
-);
+    string Group,
+    ImmutableArray<string> Accepted
+) {
+    public bool Equals(SettingModel? other) =>
+        other is not null
+        && Field == other.Field
+        && Name == other.Name
+        && Default == other.Default
+        && Summary == other.Summary
+        && Kind == other.Kind
+        && Minimum.Equals(other.Minimum)
+        && Maximum.Equals(other.Maximum)
+        && Group == other.Group
+        // ⚠ Elementwise, and this override exists only for this line. A record's generated equality
+        // compares an `ImmutableArray<T>` by reference, so two runs that read the same nine strings
+        // out of the same attribute would compare unequal and the incremental generator would treat
+        // every keystroke in an unrelated file as a change — which is `NodeModel`'s own reason for
+        // spelling `Ports.SequenceEqual` out rather than letting the record do it.
+        && Accepted.SequenceEqual(other.Accepted, StringComparer.Ordinal);
+
+    public override int GetHashCode() {
+        var hash = Field.GetHashCode();
+
+        hash = (hash * 31) + Name.GetHashCode();
+        hash = (hash * 31) + Kind.GetHashCode();
+        hash = (hash * 31) + Accepted.Length;
+
+        return hash;
+    }
+}
 
 /// <summary>One node type, as the generator read it off a class.</summary>
 sealed record NodeModel(
