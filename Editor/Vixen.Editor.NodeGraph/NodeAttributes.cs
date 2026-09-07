@@ -145,6 +145,26 @@ public sealed class SettingAttribute : Attribute {
     ///     a property of where a field is written rather than a second ordering to maintain.
     /// </remarks>
     public string Group { get; init; } = "";
+
+    /// <summary>Every value this setting may hold, or empty when it may hold any name.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The declaration a set of legal names had nowhere to live —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b> A node whose
+    ///         setting is one of nine wrote the nine into its <see cref="Summary" /> prose and into
+    ///         the sentence it refuses a tenth with, and a picker anywhere else had to transcribe
+    ///         them. This is the one place they are written; the compiler's refusal and every
+    ///         inspector's dropdown both read it, so they cannot disagree.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Order is the order offered</b>, so it is the declaration's rather than an
+    ///         alphabetisation — a list whose first entry is the ordinary answer reads better in a
+    ///         dropdown than one whose first entry starts with an <c>a</c>.
+    ///     </para>
+    /// </remarks>
+#pragma warning disable CA1819 // Properties should not return arrays: an attribute argument can be no other shape.
+    public string[] Accepted { get; init; } = [];
+#pragma warning restore CA1819
 }
 
 /// <summary>Marks a field as an output port.</summary>

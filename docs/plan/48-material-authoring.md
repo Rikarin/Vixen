@@ -993,6 +993,15 @@ This is the first phase with a picture an artist can use.
 Outputs with usages, channel packing to ORM, mip and block-compression through `Vixen.Core.Imaging`,
 the `.vxmat` write, the scan-then-read-back GUID dance, and the provenance block with its digest check.
 
+⚠ **Every one of those is built and the phase's first exit word is not: a graph does not bake.**
+`new ProjectMaterialBaker` has exactly one caller outside tests — `Tools/Vixen.Cli/TextureRunner.cs` —
+and that verb reads a folder of PNGs and evaluates no graph, while `TexturingModule` registers two
+documents, three panels and three verbs and mentions a bake nowhere. So neither a `.vxtexgraph` nor a
+`.vxlayers` can become a `.vxmat` by any route a person can take
+([#1009](https://github.com/Rikarin/Vixen/issues/1009)). ⚠ **And the verb's own reason for it has
+become a stale claim** — its remarks say "a `.vxtexgraph` is M4's document and does not exist yet",
+which was true when written and now argues against closing the gap.
+
 ### M6 — Mesh maps · 1.25 EM
 
 D12's seven measurements on `MapBaker`'s existing raster, a bake panel, and the maps landing as
@@ -1008,6 +1017,12 @@ exploded graph bake byte-identical outputs.
 
 The mask stack, generators as shipped `.vxtexgraph`s reading the mesh maps by usage, anchors as DAG
 edges, and the cycle refusal proved by a test that tries to make one.
+
+⚠ **Two of the four scope rows are owed, and one of them had no issue for four batches** — a phase
+comment naming something as still owed is not a tracker entry, which is how this happens.
+[#815](https://github.com/Rikarin/Vixen/issues/815) is triplanar and planar projection, refused by
+name in `LayerStackGraph`; [#1010](https://github.com/Rikarin/Vixen/issues/1010) is the colour/ID
+selection mask, and the `id` bake is already read and already sampled *nearest* for it.
 
 ### M9 — Painting · 2.0 EM
 
@@ -1030,6 +1045,17 @@ doc 23 rather than by this document**, it belongs to the renderer, and nothing a
 
 ⚠ **Landed, less height** — see the note under [B1](#b1-a-layer-stack-cannot-ship-as-a-live-layered-material--for-the-runtime-path-only).
 Height is [#615](https://github.com/Rikarin/Vixen/issues/615) and is a decision before it is work.
+
+⚠ **"Landed" is a statement about the code and it should not be read as "a splat-mapped layered
+material renders".** B1's finding survives one level along, inside the feature added to answer it: the
+only constructions of `TexturedMaterialLayersFeature` in the tree are four in
+`Core/Vixen.Rendering.Tests` and one in `WorldRenderer` that exists to read its *map names* off for
+the pairing table. No material carries one, `MaterialBake` composes the textured emissive and opacity
+and not this, and **no frame has been drawn through it**. The textured half of B1 that *is* fed is
+emissive and opacity; the layered half is a feature waiting for a caller, which is the shape this
+document warns about in [D14](#d14-it-is-a-plugin-and-that-is-the-test) and the whole reason B1 was
+written as a blocker. [#622](https://github.com/Rikarin/Vixen/issues/622) is a live bug in it —
+`splat.a` is 1 everywhere on a three-channel splat map.
 
 ### Cost
 
@@ -1161,7 +1187,7 @@ that has rotted is a `git grep` away from being caught.
 | 9 | A painted-over output is detected | **measured** | `MaterialBakeAssetTests` — refused, overwritten when forced, and an untouched set not called painted | — |
 | 10 | The plugin loads, activates, unloads, and links the app in no build | **measured, both halves** | `Vixen.Editor.Plugin.Tests/LoadingTests` via `PluginHost.WaitForCollection`; `PluginReferenceRule` called by `CheckArchitecture` and by `PluginReferenceRuleTests` | — |
 | 11 | A device confirmed by name in every GPU test in this area | **measured, both projects** | `DeviceRollCall`, one walk with two callers — `TextureAdapterRollCallTests` and `TexturingAdapterRollCallTests` — plus the harness half: `TextureKernelHarness.Open` and `TexturingDevice.Open` each write the adapter into the running test's output, so a device that goes through a harness cannot be anonymous ([#883](https://github.com/Rikarin/Vixen/issues/883)) | ⚠ The harness half reaches two of the seven device-opening files in `Vixen.Editor.Texturing.Tests`; the other five carry a private `Open()` calling `VulkanDevice.TryCreate` directly, so the *walk* is what holds them and the stronger mechanism does not ([#923](https://github.com/Rikarin/Vixen/issues/923)) |
-| 12 | A frame is photographed | **measured** | `BakedMaterialImageTests` — maps from `TexturePlanEvaluator`, packed by `MaterialBake`, drawn through `StandardFrameAsset`, differenced against `MetalRoughnessFeature` | It is a golden-suite file, so it skips without a device; ⚠ eighteen files in that suite *passed* rather than skipped until 2026-08-21 |
+| 12 | A frame is photographed | **measured** | `BakedMaterialImageTests` — maps from `TexturePlanEvaluator`, packed by `MaterialBake`, drawn through `StandardFrameAsset`, differenced against `MetalRoughnessFeature` | It is a golden-suite file, so it skips without a device; ⚠ eighteen files in that suite *passed* rather than skipped until 2026-08-21. ⚠ **And its `TexturePlan` is hand-built** — no document is opened, so what is photographed is the evaluator rather than the tool, and the sentence "a mesh, textured entirely in the tool" is stronger than what runs ([#1009](https://github.com/Rikarin/Vixen/issues/1009)). ⚠⚠ **The reason the file gives for that is refuted**: it says `TextureGraphOutput` is internal so no outside assembly can ask a compiled graph which image is the base colour. It is `public readonly record struct` (`TextureGraphCompiler.cs:26`) and `Vixen.Editor.Texturing` reads `output.Usage` in four places with no `InternalsVisibleTo`. Nothing stops this file driving the compiler |
 
 ✅ **Two of the twelve were cited in the tests by the wrong number and one by wording the criterion no
 longer has; all three now cite the sentence instead** ([#884](https://github.com/Rikarin/Vixen/issues/884)).

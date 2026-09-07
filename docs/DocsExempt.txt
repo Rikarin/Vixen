@@ -405,6 +405,7 @@ T:Vixen.Animation.WrapMode sweep-pending
 T:Vixen.ApiCheck.ApiBaseline sweep-pending
 T:Vixen.ApiCheck.ApiDifference sweep-pending
 T:Vixen.ApiCheck.ApiSurfaceReader sweep-pending
+T:Vixen.ApiCheck.AssemblyConfiguration sweep-pending — arrived 2026-09-05 with the AOT probe work and was invisible until CheckDocs was run rather than Docs
 T:Vixen.App.AppArguments sweep-pending
 T:Vixen.App.AppGraphics sweep-pending
 T:Vixen.App.AppServices sweep-pending
@@ -1323,6 +1324,7 @@ T:Vixen.Editor.Inspector.Drawers.BooleanDrawer sweep-pending
 T:Vixen.Editor.Inspector.Drawers.Color3Drawer sweep-pending
 T:Vixen.Editor.Inspector.Drawers.ColorDrawer sweep-pending
 T:Vixen.Editor.Inspector.Drawers.ComponentDrawer`1 sweep-pending
+T:Vixen.Editor.Inspector.Drawers.ChoiceDrawer sweep-pending
 T:Vixen.Editor.Inspector.Drawers.CompositeEditor sweep-pending
 T:Vixen.Editor.Inspector.Drawers.CurveDrawer sweep-pending
 T:Vixen.Editor.Inspector.Drawers.EnumDrawer sweep-pending
@@ -1363,6 +1365,7 @@ T:Vixen.Editor.Inspector.ReflectedMember sweep-pending
 T:Vixen.Editor.Inspector.SetMembersCommand`2 sweep-pending
 T:Vixen.Editor.Inspector.ShowIfAttribute sweep-pending
 T:Vixen.Editor.NodeGraph.AddCommentCommand sweep-pending
+T:Vixen.Editor.NodeGraph.GraphParameterAsset sweep-pending
 T:Vixen.Editor.NodeGraph.AddGroupCommand sweep-pending
 T:Vixen.Editor.NodeGraph.AddNodeCommand sweep-pending
 T:Vixen.Editor.NodeGraph.Bool sweep-pending
@@ -1437,6 +1440,7 @@ T:Vixen.Editor.NodeGraph.Scalar sweep-pending
 T:Vixen.Editor.NodeGraph.SetCommentCommand sweep-pending
 T:Vixen.Editor.NodeGraph.SetPortTextCommand sweep-pending
 T:Vixen.Editor.NodeGraph.SetPortValueCommand sweep-pending
+T:Vixen.Editor.NodeGraph.SettingKind sweep-pending
 T:Vixen.Editor.NodeGraph.SubGraphExtraction sweep-pending
 T:Vixen.Editor.NodeGraph.SubGraphLibrary sweep-pending
 T:Vixen.Editor.NodeGraph.SubGraphNode sweep-pending
@@ -3406,6 +3410,7 @@ T:Vixen.Ui.FontRegistry sweep-pending
 T:Vixen.Ui.FontSpan sweep-pending
 T:Vixen.Ui.FontStyle sweep-pending
 T:Vixen.Ui.FontVariant sweep-pending
+T:Vixen.Ui.Generators.ComponentParameterAnalyzer sweep-pending — arrived 2026-09-06 with the component-parameter analyzer and was invisible for the same reason
 T:Vixen.Ui.Generators.UiPropertyGenerator sweep-pending
 T:Vixen.Ui.GestureRecognizer sweep-pending
 T:Vixen.Ui.GestureSettings sweep-pending
@@ -3544,6 +3549,8 @@ T:Vixen.Ui.Rendering.PathTessellator sweep-pending
 T:Vixen.Ui.Rendering.PathVertex sweep-pending
 T:Vixen.Ui.Rendering.UiDraw sweep-pending
 T:Vixen.Ui.Rendering.UiGeometry sweep-pending
+T:Vixen.Ui.Rendering.UiImageChannel #611 — which channel of an image a draw shows as a grey; the numbering is Ui.rvn's wire format and the reasoning is in Core/Vixen.Ui/README.md and on the type
+T:Vixen.Ui.Rendering.UiImageView #611 — the field that made ImageView's channel and colour-space toggles reach the picture; described with the image command in Core/Vixen.Ui/README.md
 T:Vixen.Ui.Rendering.UiShape sweep-pending
 T:Vixen.Ui.Rendering.UiVertex sweep-pending
 T:Vixen.Ui.RoutingPhase sweep-pending

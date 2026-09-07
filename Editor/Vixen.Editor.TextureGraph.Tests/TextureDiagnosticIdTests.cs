@@ -61,9 +61,21 @@ public class TextureDiagnosticIdTests {
         "Vixen.Editor.TextureGraph"
     );
 
-    /// <summary>Every <c>.cs</c> file the production project owns, without what the build wrote.</summary>
+    /// <summary>Every source file the production project owns, without what the build wrote.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>.vxml</c> as well as <c>.cs</c>, and this project has none today</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1007">#1007</a>. A view's
+    ///     <c>&lt;code&gt;</c> block is production C# and is exactly where a panel writes a
+    ///     diagnostic it renders, so the day a slice adds one here this walk covers it by existing
+    ///     rather than by somebody remembering. The cost of being early is a glob term; the cost of
+    ///     being late is a roll call reporting a clean sweep of a tree it read half of, which is what
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1002">#1002</a> was.
+    ///     <c>AssetEditorDiagnosticIdTests</c> is where the same walk is not hypothetical.
+    /// </remarks>
     static (string Name, string Text)[] Production() =>
-        Directory.GetFiles(Sources(), "*.cs", SearchOption.AllDirectories)
+        Directory.GetFiles(Sources(), "*.*", SearchOption.AllDirectories)
+            .Where(path => path.EndsWith(".cs", StringComparison.Ordinal)
+                || path.EndsWith(".vxml", StringComparison.Ordinal))
             .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
                 StringComparison.Ordinal))
             .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",

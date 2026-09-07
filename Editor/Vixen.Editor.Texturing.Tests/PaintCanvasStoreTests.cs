@@ -399,6 +399,83 @@ public class PaintCanvasStoreTests : IDisposable {
         Assert.Equal(0L, store.Bytes);
     }
 
+    /// <summary>⚠ And a held canvas whose re-read throws is dropped, not left charged and unservable.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1001">#1001</a>, the sibling of
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/995">#995</a> one method along.</b>
+    ///         <c>Open</c> forgot before its read only on the branch where the file cannot be
+    ///         stamped. The <em>other</em> miss is this one — an entry is held and the file has been
+    ///         rewritten — and its <c>Put</c> is on the far side of the read, so a read that throws
+    ///         left the entry behind with a stamp that can never match again: the bytes it was
+    ///         stamped from are gone. Unservable for the rest of the session, and still counted
+    ///         against the budget.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The rewrite is garbage of a different length, which is both halves of the
+    ///         fixture at once.</b> The length is what moves the stamp without depending on the file
+    ///         system's timestamp resolution, and the missing magic is what makes
+    ///         <c>PaintCanvas.Read</c> throw — a file that stamps and does not decode is the cheaper
+    ///         half of the pair the issue named, since the other needs a read to fail on a file that
+    ///         exists.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asserted on <c>Bytes</c> as well as <c>Count</c>.</b> A store that dropped the
+    ///         entry and kept its bytes charged would be the same leak with the dictionary tidied,
+    ///         and the budget is what the defect actually costs.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_canvas_whose_re_read_throws_is_dropped_rather_than_held_unservable() {
+        var file = Written("Hull.vxpaint", 16, 16);
+
+        PaintCanvasStore store = new();
+
+        Assert.NotNull(store.Open(file));
+        Assert.Equal(1, store.Count);
+        Assert.NotEqual(0L, store.Bytes);
+
+        File.WriteAllBytes(file, "NOT A VXPAINT AT ALL"u8.ToArray());
+
+        Assert.Throws<InvalidDataException>(() => store.Open(file));
+
+        Assert.Equal(0, store.Count);
+        Assert.Equal(0L, store.Bytes);
+    }
+
+    /// <summary>⚠ And the same of a picture whose file was rewritten into one the decoder refuses.</summary>
+    /// <remarks>
+    ///     <b>The half of <a href="https://github.com/Rikarin/Vixen/issues/1001">#1001</a> that is
+    ///     not in the issue's title, and it is why both methods now forget on every miss.</b> #995
+    ///     covered <c>Picture</c>'s <em>deleted</em> file only, so a picture whose file was rewritten
+    ///     into something the decoder throws on had exactly <c>Open</c>'s defect: the old entry
+    ///     survived with the old stamp, which the new file can never match.
+    /// </remarks>
+    [Fact]
+    public void A_picture_whose_decode_throws_is_dropped_rather_than_held_unservable() {
+        var file = Path.Combine(folder, "Rust.png");
+
+        File.WriteAllBytes(file, [1, 2, 3, 4]);
+
+        PaintCanvasStore store = new();
+
+        Assert.NotNull(store.Picture(file, Decoded));
+        Assert.Equal(1, store.Count);
+        Assert.NotEqual(0L, store.Bytes);
+
+        File.WriteAllBytes(file, [1, 2, 3, 4, 5, 6, 7, 8]);
+
+        Assert.Throws<InvalidDataException>(
+            () => store.Picture(
+                file,
+                _ => throw new InvalidDataException("This is not a picture this build can decode.")
+            )
+        );
+
+        Assert.Equal(0, store.Count);
+        Assert.Equal(0L, store.Bytes);
+    }
+
     /// <summary>Decodes a two-by-two picture, opening the file the way a real decoder would.</summary>
     static TextureData Decoded(string path) {
         using var stream = File.OpenRead(path);

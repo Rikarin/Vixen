@@ -100,7 +100,7 @@ public class TextureValidationDeviceTests(ITestOutputHelper output) {
         VulkanDiagnostics.Reset();
 
         using (var evaluator = new TexturePlanEvaluator(device)) {
-            using var bake = evaluator.Evaluate(plan, TextureKernelHarness.Externals(0, texture));
+            using var bake = evaluator.Evaluate(plan, TextureKernelHarness.Externals(0, texture, Side, Side));
 
             bake.Read(2);
             bake.Read(3);

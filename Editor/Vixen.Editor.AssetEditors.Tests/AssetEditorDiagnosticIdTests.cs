@@ -54,9 +54,22 @@ public class AssetEditorDiagnosticIdTests {
     static string Sources() =>
         Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(Here())!)!, "Vixen.Editor.AssetEditors");
 
-    /// <summary>Every <c>.cs</c> file the production project owns, without what the build wrote.</summary>
+    /// <summary>Every source file the production project owns, without what the build wrote.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>.vxml</c> as well as <c>.cs</c>, and here that is a live blind spot rather than a
+    ///     precaution</b> — <a href="https://github.com/Rikarin/Vixen/issues/1007">#1007</a>. This
+    ///     project carries twenty-five views, and a view's <c>&lt;code&gt;</c> block is production
+    ///     C#: it is where four of the five document kinds render their load diagnostics, and
+    ///     therefore exactly where an id written as a literal would be. A <c>--include="*.cs"</c>
+    ///     grep of this shape filed
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1002">#1002</a>, claiming all five
+    ///     report a load failure to nobody; it was closed invalid.
+    ///     <c>ShaderGraphDiagnosticIdTests.Production</c> reads both for the same reason.
+    /// </remarks>
     static (string Name, string Text)[] Production() =>
-        Directory.GetFiles(Sources(), "*.cs", SearchOption.AllDirectories)
+        Directory.GetFiles(Sources(), "*.*", SearchOption.AllDirectories)
+            .Where(path => path.EndsWith(".cs", StringComparison.Ordinal)
+                || path.EndsWith(".vxml", StringComparison.Ordinal))
             .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
                 StringComparison.Ordinal))
             .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
@@ -134,6 +147,12 @@ public class AssetEditorDiagnosticIdTests {
         var sources = Production();
 
         Assert.Contains(sources, source => source.Name == "CompositorGraphCompiler.cs");
+
+        // ⚠ And it really read the views, or the widening is a glob term matching nothing and this
+        // is the `--include="*.cs"` sweep again with a longer comment — #1007. Twenty-five of them,
+        // and their code blocks are where four of the five document kinds render the diagnostics
+        // this file is about.
+        Assert.Contains(sources, source => source.Name.EndsWith(".vxml", StringComparison.Ordinal));
 
         Assert.True(
             sources.Length >= 70,

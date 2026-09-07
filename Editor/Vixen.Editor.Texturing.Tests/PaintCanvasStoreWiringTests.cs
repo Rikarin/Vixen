@@ -72,8 +72,14 @@ public class PaintCanvasStoreWiringTests {
         // `CanvasHits` passes too, as soon as the readers still wired clear it. `CanvasOpens` counts
         // the questions asked, so any reader that stops asking lowers it and an exact expectation
         // goes red. Traced per event, opening the pane is two, a pointer-down is one, a pointer-move
-        // is none and a pointer-up is fifteen: the paint pane's refresh, plus two evaluations of the
-        // map, each of which asks about this one canvas once per channel of the set — seven.
+        // is none and a pointer-up is three: the paint pane's refresh, plus two evaluations of the
+        // map.
+        //
+        // ⚠ A pointer-up was fifteen until #981, and the eleven that went were one evaluation
+        // asking about one canvas once per channel of the set — seven each. `TextureExternalPass`
+        // memoises the resolution for the duration of a fill, so an evaluation now asks once per
+        // *file*. The syscalls were the smaller half: seven stamps inside one evaluation could
+        // straddle a write, and the map was then built out of two different canvases.
         //
         // ⚠ These numbers are the shape of this scripted session and not the claim. A change to the
         // module's refresh policy moves them; what must not change is that they are exact, and a run
@@ -83,16 +89,16 @@ public class PaintCanvasStoreWiringTests {
 
         Drag(fixture, image, new Vector2(16f, 16f), new Vector2(40f, 40f));
 
-        Assert.Equal(18, module.CanvasOpens);
+        Assert.Equal(6, module.CanvasOpens);
 
         Drag(fixture, image, new Vector2(20f, 44f), new Vector2(44f, 20f));
 
-        Assert.Equal(34, module.CanvasOpens);
+        Assert.Equal(10, module.CanvasOpens);
 
         // And every one of them was answered from memory: one miss, which is the pane's first look
         // at a layer that had never been painted, and no reads at all.
         Assert.Equal(0, module.CanvasReads);
-        Assert.Equal(33, module.CanvasHits);
+        Assert.Equal(9, module.CanvasHits);
 
         // And the stroke really reached the disk, so "no reads" is not "no painting". The file is
         // opened here rather than through the store, which is the only reading of it in this test.

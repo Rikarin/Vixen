@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Ui.Rendering;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Advanced.Tests;
@@ -277,8 +278,34 @@ public class ImageViewTests {
         Assert.Equal(new ImageViewRequest(ImageChannels.Alpha, ImageColorSpace.Linear), view.Requested);
     }
 
+    /// <summary>
+    ///     A channel the host has not answered reaches the picture anyway, and moves nothing else.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This test used to assert the opposite, and the claim it pinned was true when it
+    ///         was written.</b> The draw list's image command carried a tint and a source rectangle;
+    ///         a tint multiplies, and neither an alpha isolate nor a transfer function is a multiply,
+    ///         so both toggles were a request nothing had to honour.
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/611">#611</see> gave the command a
+    ///         <c>UiImageView</c> and the shader the two components to read it out of, so the control
+    ///         now answers its own toggles.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it still pins is everything that must <i>not</i> move</b>, and that is the
+    ///         half worth keeping. A swizzle written as a tint, or as a second command, or as a
+    ///         different source rectangle would each show up here — the picture is one image command,
+    ///         over the same texture, at the same size, with the same untouched tint. Only the field
+    ///         that means "which channels" changed.
+    ///     </para>
+    ///     <para>
+    ///         It cannot say the shader honours the field: that is a device and a readback away, in
+    ///         <c>Vixen.Graphics.Golden.Tests.UiImageViewTests</c>, which reads the rendered texel
+    ///         against a number worked out on paper.
+    ///     </para>
+    /// </remarks>
     [Fact]
-    public void A_channel_the_host_has_not_answered_changes_nothing_about_the_picture() {
+    public void A_channel_the_host_has_not_answered_still_reaches_the_picture() {
         using var fixture = new AdvancedFixture();
         var view = Hosted(fixture, 100, 50);
 
@@ -287,17 +314,20 @@ public class ImageViewTests {
 
         var plain = fixture.Document.Drawing.Commands.Single(static command => command.Kind == DrawCommandKind.Image);
 
+        // The default is the identity, which is what every image drawn before #611 asked for.
+        Assert.True(plain.View.IsIdentity);
+
         view.Channels = ImageChannels.Alpha;
         view.ColorSpace = ImageColorSpace.Linear;
         fixture.Update();
 
         var isolated = fixture.Document.Drawing.Commands.Single(static command => command.Kind == DrawCommandKind.Image);
 
-        // ⚠ **Not a gap — the contract.** The draw list's image command carries a tint and a source
-        // rectangle, and neither an alpha isolate nor a transfer function is a multiply. A control
-        // that tinted red for `Red` and did nothing for `Alpha` would leave a reader unable to tell
-        // which of the two they were looking at. The toggles reach the picture only through
-        // `ViewChanged`, and a host answers by preparing a different texture.
+        Assert.Equal(new UiImageView(UiImageChannel.Alpha, true), isolated.View);
+
+        // ⚠ And nothing else moved. A control that reached the picture by tinting, by drawing a
+        // second command or by narrowing the source rectangle would be caught by exactly these three
+        // — which is why they survive the reversal above.
         Assert.Equal(plain.Image, isolated.Image);
         Assert.Equal(plain.Color, isolated.Color);
         Assert.Equal(plain.Width, isolated.Width, 3);

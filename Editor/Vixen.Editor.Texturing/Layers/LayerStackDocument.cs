@@ -291,10 +291,10 @@ sealed class LayerStackDocument : EditorDocument {
             ]
         };
 
-    /// <summary>Whether a model has appeared, moved or gone since the picker was last filled.</summary>
+    /// <summary>How many times this document has been told a project file moved.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A flag set by a notification and cleared by whoever acts on it</b> —
+    ///         ⚠ <b>Moved by a notification and read by whoever acts on it</b> —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/954">#954</a>. <c>LayerStackView</c>
     ///         refilled the mesh picker only when the document reference or the bound path changed,
     ///         and the module hands the same reference to every refresh — so importing a model while
@@ -321,19 +321,42 @@ sealed class LayerStackDocument : EditorDocument {
     ///     <para>
     ///         ⚠ <b>And the answer is to stop asking about paths rather than to add <c>.meta</c> to
     ///         the list.</b> This is a marker meaning "re-ask", and the re-ask is guarded where it
-    ///         happens — <c>LayerStackView.Show</c> refills once and clears this, so a hundred
-    ///         notifications cost one project walk on the next show. A path test buys nothing against
-    ///         that and costs the class of write nobody thought of, which is exactly what this was: a
-    ///         rename that only rewrites a sidecar, a <c>.meta</c> edited by hand, a re-import that
-    ///         renames a sub-asset without touching the model.
+    ///         happens — <c>LayerStackView.Show</c> refills once and records this number, so a
+    ///         hundred notifications cost one project walk on the next show. A path test buys nothing
+    ///         against that and costs the class of write nobody thought of, which is exactly what
+    ///         this was: a rename that only rewrites a sidecar, a <c>.meta</c> edited by hand, a
+    ///         re-import that renames a sub-asset without touching the model.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A number rather than the flag it was, because a flag has exactly one reader</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1006">#1006</a>. The picker's refill
+    ///         cleared it, so any second consumer of the same notification saw nothing at all: the
+    ///         two would race on who read it first, and whoever lost was told a model had never
+    ///         changed. Nothing clears a number. Each consumer keeps its own copy of the last one it
+    ///         acted on, and a consumer added later is correct by existing rather than by being
+    ///         wired into whoever was clearing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it still cannot see: an import run from inside the editor.</b> A version
+    ///         bump or an import-settings edit rewrites <c>Library/</c> and moves nothing under
+    ///         <c>Assets/</c>, so the watcher never fires and this never moves. <c>ContentTasks</c>
+    ///         calls <c>ProjectMeshSource.Invalidate</c> and announces its imports to nobody, which
+    ///         is why <a href="https://github.com/Rikarin/Vixen/issues/971">#971</a> was closed by
+    ///         giving the mesh cache key two terms that move on their own rather than by trusting a
+    ///         notification. Anything that needs to <em>hear</em> about an import is still blind, and
+    ///         a revision is the shape that could carry one once something announces it.
+    ///     </para>
+    ///     <para>
+    ///         Starts at one so that a consumer whose own copy starts at zero refills once before
+    ///         anything has happened, which is what the flag's <c>= true</c> default bought.
     ///     </para>
     /// </remarks>
-    public bool ModelsChanged { get; set; } = true;
+    public int ModelsRevision { get; private set; } = 1;
 
     /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Two flags and no work, because this runs on the frame, once per drained change
+    ///         ⚠ <b>Two answers and no work, because this runs on the frame, once per drained change
     ///         per open document.</b> Reading the compound folder or walking the project's assets
     ///         here would make somebody else's Ctrl+S cost the editor a frame —
     ///         <see cref="Republish" />'s own trap, moved one caller along. Both answers are set
@@ -348,11 +371,11 @@ sealed class LayerStackDocument : EditorDocument {
     ///         with nothing saying so.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The two flags are answered differently and that asymmetry is deliberate.</b> The
+    ///         ⚠ <b>The two answers are shaped differently and that asymmetry is deliberate.</b> The
     ///         compound one asks which file moved, because a republish rebuilds every node type and
-    ///         the folder that can cause it is one folder. <see cref="ModelsChanged" /> asks nothing:
-    ///         it is set by every notification, because the write that fills the mesh picker is a
-    ///         <c>.meta</c> sidecar rather than a model
+    ///         the folder that can cause it is one folder. <see cref="ModelsRevision" /> asks
+    ///         nothing: it moves on every notification, because the write that fills the mesh picker
+    ///         is a <c>.meta</c> sidecar rather than a model
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/975">#975</a>) and the refill it
     ///         marks is guarded by its own reader.
     ///     </para>
@@ -360,7 +383,7 @@ sealed class LayerStackDocument : EditorDocument {
     protected override void OnProjectFileChanged(string? path) {
         base.OnProjectFileChanged(path);
 
-        ModelsChanged = true;
+        ModelsRevision++;
 
         if (compounds is null) {
             return;

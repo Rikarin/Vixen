@@ -215,6 +215,17 @@ sealed class LayerStackView : IDisposable {
     /// </remarks>
     string boundModel = "";
 
+    /// <summary>Which <c>LayerStackDocument.ModelsRevision</c> the picker's options were filled at.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This view's own copy, because a notification with one reader is a notification with
+    ///     one reader</b> — <a href="https://github.com/Rikarin/Vixen/issues/1006">#1006</a>. The
+    ///     document used to carry a boolean that this refill cleared, so a second consumer of the
+    ///     same "a model changed" would see nothing whenever this one read it first. Nothing clears a
+    ///     number; zero here against a document that starts at one is what refills a picker once
+    ///     before anything has happened.
+    /// </remarks>
+    int boundModels;
+
     /// <summary>The last picture, so an edit this view made can redraw without one being handed back.</summary>
     LayerStackPicture? shown;
 
@@ -619,18 +630,20 @@ sealed class LayerStackView : IDisposable {
         // `ClearOptions` under an open dropdown is the same defect the shape comparison above exists
         // to prevent one level up.
         if (!ReferenceEquals(bound, document)
-            || document.ModelsChanged
+            || boundModels != document.ModelsRevision
             || !string.Equals(boundModel, Binding(document, SetName), StringComparison.Ordinal)) {
             Rebind(document);
 
             bound = document;
             boundModel = Binding(document, SetName);
 
-            // ⚠ Cleared here and not where it is set — #954. The document is told a model file moved
-            // by `ExternalEdits`, on the frame, once per drained change; this is the one place that
-            // has done something about it, and clearing it at the notification would mean a stack
-            // whose panel is closed forgets what happened before it is opened.
-            document.ModelsChanged = false;
+            // ⚠ Recorded here and not cleared there — #954, and #1006 for why it is a number this
+            // view copies rather than a flag it clears. The document is told a model file moved by
+            // `ExternalEdits`, on the frame, once per drained change; acting on it at the
+            // notification would mean a stack whose panel is closed forgets what happened before it
+            // is opened, and clearing it here would mean whichever consumer read it first was the
+            // only one that ever heard.
+            boundModels = document.ModelsRevision;
         }
 
         Restate();
@@ -1975,15 +1988,28 @@ sealed class LayerStackView : IDisposable {
     ///         the defect <see cref="Show" />'s shape comparison exists to prevent, one level down.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The three reference kinds share one <c>TextBox</c> and that is a limit rather
-    ///         than a design.</b> A bake wants the nine names <c>TextureMeshMaps.Known</c> holds and
-    ///         they are <c>internal</c> to <c>Vixen.Editor.TextureGraph</c>, whose
-    ///         <c>InternalsVisibleTo</c> names its own tests alone — so this assembly cannot ask for
-    ///         the list, and writing the nine here is the second transcription of a known set that
-    ///         five roll calls in this workstream have gone red on. The node refuses a name nothing
-    ///         bakes and says all nine in the message, and that message reaches the list under these
-    ///         rows. The same argument covers a generator, whose compounds are published by a
-    ///         library this view must not acquire (#820).
+    ///         ⚠ <b>A bake is a picker and no longer a text box —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b> It used to share
+    ///         the reference <c>TextBox</c> with a texture and a generator, because the nine names it
+    ///         may hold were <c>internal</c> to <c>Vixen.Editor.TextureGraph</c> and this assembly
+    ///         could not ask for them — and writing the nine here would have been the second
+    ///         transcription of a known set that five roll calls in this workstream have gone red on.
+    ///         What crosses that wall now is the node type's own declaration, through
+    ///         <see cref="TextureNodeLibrary.MeshMaps" />: one list, offered here and refused by the
+    ///         node, so the picker and the diagnostic cannot disagree.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A texture and a generator still share the <c>TextBox</c>, and that is still a
+    ///         limit.</b> A generator's options are the published compounds, which a library this
+    ///         view must not acquire produces (<a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>);
+    ///         a texture's are a project's files. Neither is a fact about the build, so neither is
+    ///         reachable the way the nine now are.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A stored map the list does not hold stays on the screen</b>, which is
+    ///         <c>Rebind</c>'s three-state rule and the anchor picker's below: a dropdown that
+    ///         silently showed the first option would say the mask measures that, and then write it
+    ///         on the next click.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A keystroke is one undo entry per typing run, not per character</b> — the merge
@@ -2045,6 +2071,18 @@ sealed class LayerStackView : IDisposable {
             write(current with { Anchor = wanted }, "Set Mask Anchor", "");
         };
 
+        var map = row.Add<Select>("layer-stack-mask-map");
+
+        foreach (var measurement in TextureNodeLibrary.MeshMaps) {
+            map.AddOption(measurement);
+        }
+
+        map.SelectionChanged += (_, chosen) => {
+            if (read() is { } current && chosen is not null) {
+                write(current with { Map = chosen }, "Set Mask Map", "");
+            }
+        };
+
         var reference = row.Add<TextBox>("layer-stack-mask-text");
 
         reference.ValueChanged += (_, typed) => {
@@ -2057,7 +2095,6 @@ sealed class LayerStackView : IDisposable {
             var after = current.Source switch {
                 LayerMaskSource.Texture => current with { Asset = written },
                 LayerMaskSource.Generator => current with { Generator = written },
-                LayerMaskSource.Bake => current with { Map = written },
                 _ => current
             };
 
@@ -2094,26 +2131,36 @@ sealed class LayerStackView : IDisposable {
 
             reference.SetStyle(
                 "display",
-                current.Source is LayerMaskSource.Texture or LayerMaskSource.Generator or LayerMaskSource.Bake
-                    ? "flex"
-                    : "none"
+                current.Source is LayerMaskSource.Texture or LayerMaskSource.Generator ? "flex" : "none"
             );
+
+            map.SetStyle("display", current.Source == LayerMaskSource.Bake ? "flex" : "none");
 
             number.Value = current.Value;
 
             reference.Value = current.Source switch {
                 LayerMaskSource.Texture => current.Asset,
                 LayerMaskSource.Generator => current.Generator,
-                LayerMaskSource.Bake => current.Map,
                 _ => ""
             };
 
             reference.Placeholder = current.Source switch {
                 LayerMaskSource.Texture => "Assets/Textures/rust.png",
                 LayerMaskSource.Generator => "Generators/Dirt",
-                LayerMaskSource.Bake => "curvature",
                 _ => ""
             };
+
+            if (current.Source == LayerMaskSource.Bake) {
+                // ⚠ Offered rather than dropped, the anchor picker's rule one control along: a map
+                // this build does not bake is still what the stack says, and the refusal beneath the
+                // rows is what says it is wrong.
+                if (current.Map.Length > 0 && !map.Options.Any(option => option.Value == current.Map)) {
+                    map.AddOption(current.Map);
+                }
+
+                map.Value = current.Map.Length > 0 ? current.Map : null;
+                map.Placeholder = current.Map.Length > 0 ? null : "curvature";
+            }
 
             if (current.Source != LayerMaskSource.Anchor) {
                 return;
@@ -2340,9 +2387,10 @@ sealed class LayerStackView : IDisposable {
     ///         gate above this used to be the document reference and the bound path alone — while
     ///         the module hands the same reference to every refresh. So the mesh an artist had just
     ///         added was the one mesh the picker did not offer, which reads as the import having
-    ///         failed. <c>LayerStackDocument.ModelsChanged</c> is the third term, and it is a flag
-    ///         rather than a walk because this walks every asset in the project and a show runs on
-    ///         every edit.
+    ///         failed. <c>LayerStackDocument.ModelsRevision</c> is the third term, and it is a
+    ///         number rather than a walk because this walks every asset in the project and a show
+    ///         runs on every edit — and a number rather than a flag because a flag its reader clears
+    ///         has exactly one reader (#1006).
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A binding this build cannot offer is kept as an option rather than dropped.</b> A

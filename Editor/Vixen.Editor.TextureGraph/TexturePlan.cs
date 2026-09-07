@@ -210,6 +210,41 @@ public sealed record TextureOp {
     /// </remarks>
     public ImmutableArray<int> OtherExtentInputs { get; init; } = [];
 
+    /// <summary>Whether one texel of this op's output depends on <em>every</em> texel of its input.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/636">#636</a>, and doc 48 § 4.2
+    ///         says of <c>Auto Levels</c> in as many words that the plan runner has to know.</b> It
+    ///         did not: every op in the catalogue up to that node had a bounded neighbourhood, so
+    ///         nothing had ever needed to ask, and the knowledge lived in three prose paragraphs
+    ///         beside the kernels that have it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The failure it prevents is a picture rather than an error.</b> A tiled evaluator
+    ///         — which is what a 4K or 8K bake wants — would dispatch a reduction over one tile and
+    ///         stretch that tile by <em>its own</em> extremes. Every tile comes out looking correct
+    ///         and the seams between them are a different contrast, which reads as a lighting problem
+    ///         in whatever consumes the map.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not the same property as <see cref="EmittedForExtent" />, though the same three
+    ///         chains carry both and it is tempting to read one off the other.</b> That one says the
+    ///         op <em>count</em> is a function of the bake; this says one texel's <em>value</em> is a
+    ///         function of the whole image. <c>AutoLevels</c>' final map dispatch is the case that
+    ///         separates them: it is one dispatch at any resolution and carries no
+    ///         <see cref="EmittedForExtent" />, and it is the most global op in the library —
+    ///         every one of its texels is scaled by the 1×1 the reduction ended on.
+    ///     </para>
+    ///     <para>
+    ///         <b>Declared by whoever writes the chain, for <see cref="ReadsOtherExtents" />'s
+    ///         reason.</b> A list of global kernel names goes red on the merge that adds a kernel
+    ///         rather than on the change that breaks one, and it could say nothing at all about a
+    ///         kernel a graph authored — doc 48 § D6's Pixel Processor is a kernel with no entry in
+    ///         any table.
+    ///     </para>
+    /// </remarks>
+    public bool DependsOnEveryTexel { get; init; }
+
     /// <summary>The image it writes, as an index into <see cref="TexturePlan.Images" />.</summary>
     public required int Output { get; init; }
 
@@ -492,6 +527,7 @@ public sealed class TexturePlan {
     /// <summary>How big one image is in this bake, in texels.</summary>
     /// <param name="image">Its index in <see cref="Images" />.</param>
     /// <returns>Its width and height.</returns>
+    /// <exception cref="ArgumentException">The image is one the caller supplies.</exception>
     /// <remarks>
     ///     <para>
     ///         The image's own <see cref="TextureImage.LevelOffset" /> and the plan's
@@ -503,8 +539,37 @@ public sealed class TexturePlan {
     ///         would otherwise be a zero-sized image, which is a dispatch of no groups and a texture
     ///         no backend will create.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An external image is refused rather than answered</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/715">#715</a> and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1008">#1008</a>. This method's own
+    ///         <see cref="Check" /> already skips an external image's level, in as many words: an
+    ///         imported bitmap is whatever size it is, nothing here allocates it, and the level it
+    ///         carries is nominal. So the number this used to return for one was plausible, checked
+    ///         by nothing, and wrong for every picture that was not the plan's own resolution.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It was harmless right up until it was not, which is why the refusal is here
+    ///         rather than in a comment.</b> #715 recorded "nothing currently asks"; #1000 found the
+    ///         asker — <c>TexturePlanEvaluator.OnCpu</c> sized a CPU op's read-back from it, so a
+    ///         16×16 upload in a 64² plan copied 64×64 out of the device and handed the operation
+    ///         48 rows of a buffer nothing had written. Who knows the size is whoever supplied the
+    ///         picture: <c>TextureUploads.SizeOf</c>, or the <see cref="TextureExternal.Size" /> a
+    ///         caller declares beside the handle.
+    ///     </para>
     /// </remarks>
     public Int2 SizeOf(int image) {
+        if (Images[image].External) {
+            throw new ArgumentException(
+                $"Image {image} is external, so this plan does not know how big it is. An external image is the "
+                + "one place an absolute size enters a plan — it is an imported bitmap, nothing here allocates "
+                + "it, and the level it carries is nominal (this plan's Check skips it for that reason). Ask "
+                + "whoever supplied the picture: TextureUploads.SizeOf, or the Size declared on the "
+                + "TextureExternal handed to Evaluate.",
+                nameof(image)
+            );
+        }
+
         var level = LevelOf(image);
 
         return new(Extent(BaseWidth, level), Extent(BaseHeight, level));
@@ -588,6 +653,45 @@ public sealed class TexturePlan {
         value ^= value >> 16;
 
         return value;
+    }
+
+    /// <summary>Why this plan cannot be evaluated a tile at a time, if it cannot.</summary>
+    /// <returns>One message per op whose texel depends on the whole image; empty when tiling is safe.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/636">#636</a>, and it is
+    ///         deliberately here before the evaluator that will ask.</b> Nothing in this assembly
+    ///         evaluates in tiles today; doc 48 § M5's bake is what wants to, at 4K and 8K. The
+    ///         reason the record cannot wait for it is that the answer is only knowable by whoever
+    ///         wrote the chain — <see cref="TextureOp.DependsOnEveryTexel" /> — and the failure it
+    ///         prevents is a picture rather than an error, so a tiled evaluator written without it
+    ///         would ship, look right per tile, and put a contrast seam in every map.
+    ///     </para>
+    ///     <para>
+    ///         <b>Separate from <see cref="Check" /> rather than folded into it, because this is not
+    ///         wrong with the plan.</b> Every op named here bakes correctly whole; what it cannot do
+    ///         is be cut up. A caller that intends to tile asks this first and falls back to a whole
+    ///         dispatch — which is a decision, not a refusal.
+    ///     </para>
+    /// </remarks>
+    public ImmutableArray<string> TilingRefusals() {
+        var messages = ImmutableArray.CreateBuilder<string>();
+
+        for (var index = 0; index < Ops.Length; index++) {
+            if (!Ops[index].DependsOnEveryTexel) {
+                continue;
+            }
+
+            messages.Add(
+                $"Op {index} runs '{Ops[index].Kernel}', and one texel of what it writes depends on every texel of "
+                + "what it reads — a reduction or a propagation to a fixed point. Evaluated a tile at a time it "
+                + "would answer from that tile alone: every tile looks correct and the seams between them are a "
+                + "different answer, which reads as a lighting problem in whatever consumes the map. Bake this "
+                + "plan whole."
+            );
+        }
+
+        return messages.ToImmutable();
     }
 
     /// <summary>Everything about this plan that would make an evaluation meaningless.</summary>
@@ -739,6 +843,12 @@ public sealed class TexturePlan {
                         + "input and is never written."
                     )
                 );
+
+                // ⚠ Nothing below this can be asked about an external image: `SizeOf` refuses one
+                // (#715, #1008), and every check from here down is measured against the size of the
+                // image being written. The plan is already refused, so what is lost is a second
+                // message about an op that is not going to run.
+                continue;
             }
 
             // ⚠ A CPU op is written to through a buffer copy and needs no storage image, and it is
@@ -869,13 +979,22 @@ public sealed class TexturePlan {
     /// <param name="input">One of its inputs, as an index into <see cref="Images" />.</param>
     /// <returns>Whether the extent guard has been answered for that input.</returns>
     /// <remarks>
-    ///     ⚠ <b>An empty <see cref="TextureOp.OtherExtentInputs" /> means every input and not none</b>
-    ///     — <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>. That is what makes the
-    ///     narrowing additive: an op written before the list existed, or one whose every input really
-    ///     is read at its own extent (<c>TileSampler</c>, <c>Splatter</c>), says nothing and is where
-    ///     it was. The list only ever puts a guard <em>back</em>.
+    ///     <para>
+    ///         ⚠ <b>An empty <see cref="TextureOp.OtherExtentInputs" /> means every input and not
+    ///         none</b> — <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>. That is
+    ///         what makes the narrowing additive: an op written before the list existed, or one whose
+    ///         every input really is read at its own extent (<c>TileSampler</c>, <c>Splatter</c>),
+    ///         says nothing and is where it was. The list only ever puts a guard <em>back</em>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Internal rather than private, because there are two extent guards and only one of
+    ///         them can measure.</b> An external image's size is the caller's, so <see cref="Check" />
+    ///         skips one entirely — and <c>TexturePlanEvaluator</c>, which is handed the declared
+    ///         size, asks the same question about the same ops over there. Two spellings of "did this
+    ///         op say it meant it" is how one of them ends up silencing a guard the other keeps.
+    ///     </para>
     /// </remarks>
-    static bool Declared(TextureOp op, int input) =>
+    internal static bool Declared(TextureOp op, int input) =>
         op.ReadsOtherExtents && (op.OtherExtentInputs.IsDefaultOrEmpty || op.OtherExtentInputs.Contains(input));
 
     /// <summary>The messages of one severity, in the order they were found.</summary>

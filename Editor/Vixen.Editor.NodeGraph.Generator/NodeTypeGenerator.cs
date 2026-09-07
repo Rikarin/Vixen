@@ -149,7 +149,8 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
                     Kind(setting),
                     Named(setting, "Minimum") is float low ? low : float.NegativeInfinity,
                     Named(setting, "Maximum") is float high ? high : float.PositiveInfinity,
-                    Named(setting, "Group") as string ?? ""
+                    Named(setting, "Group") as string ?? "",
+                    Accepted(setting)
                 ));
 
                 continue;
@@ -261,10 +262,14 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
             var setting = model.Settings[index];
             var comma = index == model.Settings.Length - 1 ? "" : ",";
 
+            var accepted = setting.Accepted.IsEmpty
+                ? "[]"
+                : "[" + string.Join(", ", setting.Accepted.Select(Quote)) + "]";
+
             text.AppendLine(
                 $"            new({Quote(setting.Name)}, {Quote(setting.Default)}, {Quote(setting.Summary)}, "
                 + $"SettingKind.{setting.Kind}, {Number(setting.Minimum)}, {Number(setting.Maximum)}, "
-                + $"{Quote(setting.Group)}){comma}"
+                + $"{Quote(setting.Group)}, {accepted}){comma}"
             );
         }
 
@@ -441,6 +446,29 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
         }
 
         return null;
+    }
+
+    /// <summary>The values a setting states it accepts, or empty when it states none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A null entry is dropped rather than emitted.</b> <c>Accepted = new string?[] { null }</c>
+    ///     compiles, and a generated file containing <c>new("", …, [null])</c> would not — so the one
+    ///     shape an author can write that this cannot spell is discarded here, where the list is read,
+    ///     instead of at the line that writes it.
+    /// </remarks>
+    static ImmutableArray<string> Accepted(AttributeData setting) {
+        if (Named(setting, "Accepted") is not ImmutableArray<TypedConstant> values || values.Length == 0) {
+            return [];
+        }
+
+        var accepted = ImmutableArray.CreateBuilder<string>(values.Length);
+
+        foreach (var value in values) {
+            if (value.Value is string name) {
+                accepted.Add(name);
+            }
+        }
+
+        return accepted.ToImmutable();
     }
 
     /// <summary>The port's default: the attribute's if it has one, else the field's initializer.</summary>

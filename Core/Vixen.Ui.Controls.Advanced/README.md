@@ -386,14 +386,27 @@ and which transfer function.
 and the texture graph, the layer stack and the 2D paint view all want the same pane. Three copies of
 this arithmetic is three chances to disagree about which way y goes.
 
-⚠ **The channel and colour-space toggles are a *request*, not a filter, and that is the one thing to
-know before using it.** The draw list's image command carries a tint and a source rectangle: a tint
-multiplies, and neither isolating the alpha as a grey nor applying a transfer function is a multiply.
-So the control does not touch the pixels — it raises `ViewChanged`, and a host that owns the image
-answers by preparing a different texture and writing `Image`. A control that quietly tinted red for
-`Red` and did *nothing* for `Alpha` would be worse than one that does neither, because a reader could
-not tell which of the two they were looking at. It is the bargain `Viewport.RenderTarget` makes and
-the one `TextureImportView.ViewChanged` already makes one assembly up.
+⚠ **The channel and colour-space toggles were a *request* that changed no pixel, and that was the
+one thing to know before using it. They are not any more.** The draw list's image command carried a
+tint and a source rectangle: a tint multiplies, and neither isolating the alpha as a grey nor undoing
+a transfer function is a multiply, so the control raised `ViewChanged` and drew whatever it was then
+given. [#611](https://github.com/Rikarin/Vixen/issues/611) gave the command a `UiImageView` and gave
+`Ui.rvn`'s image stage the two `shape` components to read it out of, so `Drawn` translates the
+control's request into the draw and both toggles reach the picture on their own.
+
+**`ViewChanged` is still raised and is still worth answering**, for the case a shader cannot serve:
+a host whose pixels are on the CPU can answer with a false-colour ramp, a difference against a
+reference, or a channel of an image whose other channels are not resident. What changed is that
+answering it is an improvement rather than the difference between a control that works and one that
+lies.
+
+⚠ **`Linear` is what asks the shader to do something, and `Srgb` is the identity** — which reads
+backwards from the names, and is forced by where the encode happens. `UiWindowSurface` presents to a
+`Bgra8UNormSrgb` target, so the hardware applies the transfer function already: "shown as authored"
+is what the pipeline does by default, and it is "shown as stored" — a roughness map's 0.5 landing on
+the glass as 128/255 rather than 188/255 — that has to undo it. `Vixen.Graphics.Golden.Tests`'
+`UiImageViewTests` is where that arithmetic is checked, on a device, against numbers worked out on
+paper rather than against a reference image.
 
 ⚠ **The chequerboard is in screen pixels and clipped to the visible part of the image.** Fixed-size
 squares are the only thing that reads as transparency at any zoom — ones that scaled with the image
@@ -410,10 +423,12 @@ when a mesh changes and never when a pointer moves. Texels rather than UVs becau
 measured in texels and a fraction would change shape on a non-square image; the thickness is in screen
 pixels, because an island outline is a label on the picture rather than part of it.
 
-⚠ **It has no production caller yet.** The overlay, the channels and the colour space are all seams
-the texture graph's panel and the paint view will use; nothing in the editor builds an `ImageView`
-today. That is stated here rather than discovered, because a finished thing nothing calls is this
-repository's commonest defect.
+⚠ **The overlay still has no production caller, and the control itself now does.** The texture
+graph's panel builds an `ImageView` — `TextureGraphPanelTests` calls itself its first production
+caller — and the paint view is the second. What nothing yet drives is the *toggles*: no panel binds
+`Channels` or `ColorSpace` to a control an artist can reach, so the picker works and there is
+nowhere to click it. That is stated here rather than discovered, because a finished thing nothing
+calls is this repository's commonest defect and #611 closed only the half below the panel.
 
 ### Timeline
 

@@ -69,9 +69,19 @@ static class TextureExternalImages {
     /// <returns>One sentence per external that could not be filled, in the order the plan names them.</returns>
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Every one of them, and only then the refusal.</b> A pane that returned at the first
-    ///     would send an artist round the loop once per missing picture, which for a stack that has
-    ///     been moved between projects is once per layer.
+    ///     <para>
+    ///         ⚠ <b>Every one of them, and only then the refusal.</b> A pane that returned at the
+    ///         first would send an artist round the loop once per missing picture, which for a stack
+    ///         that has been moved between projects is once per layer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One <see cref="TextureExternalPass" /> for the whole loop, which is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/981">#981</a>.</b> The plan carries
+    ///         one external per channel a layer writes, so without it a seven-channel paint layer
+    ///         asked the store about the same file seven times — and, because the store re-reads
+    ///         whatever the stamp says has changed, seven asks that straddle a write answer with two
+    ///         different canvases and this one evaluation builds a map out of both.
+    ///     </para>
     /// </remarks>
     public static List<string> Fill(
         EditorProject project,
@@ -88,9 +98,10 @@ static class TextureExternalImages {
 
         var owed = TextureGraphExternals.Upload(uploads, plan, externals);
         List<string> unresolved = [];
+        TextureExternalPass pass = new(canvases);
 
         foreach (var entry in owed) {
-            if (Resolve(project, documentPath, uploads, plan, entry, canvases) is { } why) {
+            if (Resolve(project, documentPath, uploads, plan, entry, pass) is { } why) {
                 unresolved.Add(why);
             }
         }
@@ -104,9 +115,10 @@ static class TextureExternalImages {
     /// <param name="uploads">Where the texture is made, and what owns it.</param>
     /// <param name="plan">The plan the image belongs to, which says what format and size it is.</param>
     /// <param name="entry">The external the compilation could not fill.</param>
-    /// <param name="canvases">
-    ///     The session's pixels: the open <c>.vxpaint</c> canvases, and the imported pictures this
-    ///     resolver decodes into it rather than re-reading per evaluation.
+    /// <param name="pass">
+    ///     This fill's answers about the session's pixels: the open <c>.vxpaint</c> canvases, and the
+    ///     imported pictures this resolver decodes into the store rather than re-reading per
+    ///     evaluation — each of them resolved once for the pass rather than once per channel.
     /// </param>
     /// <returns>Null when it was uploaded, or the sentence saying why it was not.</returns>
     /// <remarks>
@@ -121,7 +133,7 @@ static class TextureExternalImages {
         TextureUploads uploads,
         TexturePlan plan,
         TextureGraphExternal entry,
-        PaintCanvasStore canvases
+        TextureExternalPass pass
     ) {
         var reference = entry.Asset.Trim();
 
@@ -132,7 +144,7 @@ static class TextureExternalImages {
         }
 
         if (PaintReference.Claims(reference)) {
-            return Painted(documentPath, uploads, plan, entry, reference, canvases);
+            return Painted(documentPath, uploads, plan, entry, reference, pass);
         }
 
         if (!project.Assets.TryGetByPath(reference, out var asset)) {
@@ -146,25 +158,23 @@ static class TextureExternalImages {
             return $"nothing here decodes '{extension}', so '{reference}' cannot be read.";
         }
 
-        TextureData decoded;
+        // ⚠ Through the store rather than straight off the disk — #885's last bullet — and once per
+        // pass rather than once per channel, which is #981. A preview runs on every edit and this
+        // decoded the same unchanged PNG once per evaluation; the callback is what a miss costs, and
+        // the stamp is taken before it. `Picture` never holds one it cannot invalidate, so a deleted
+        // file is decoded — and refused — every time.
+        var (picture, unreadable) = pass.Picture(
+            file,
+            path => {
+                using var stream = File.OpenRead(path);
 
-        try {
-            // ⚠ Through the store rather than straight off the disk — #885's last bullet. A preview
-            // runs on every edit and this decoded the same unchanged PNG once per evaluation; the
-            // callback is what a miss costs, and the stamp is taken before it. `Picture` never holds
-            // one it cannot invalidate, so a deleted file is decoded — and refused — every time.
-            decoded = canvases.Picture(
-                file,
-                path => {
-                    using var stream = File.OpenRead(path);
+                return decoder.Decode(stream, extension);
+            }
+        );
 
-                    return decoder.Decode(stream, extension);
-                }
-            );
-        } catch (Exception failure) when (failure is IOException
-            or InvalidDataException or NotSupportedException or ArgumentException
-            or UnauthorizedAccessException) {
-            return $"'{reference}' would not read: {failure.Message}";
+        // The pass answers with a picture or with a message and never with neither.
+        if (picture is not { } decoded) {
+            return $"'{reference}' would not read: {unreadable}";
         }
 
         if (decoded.Format != PixelFormat.Rgba8UNorm) {
@@ -187,7 +197,7 @@ static class TextureExternalImages {
     /// <param name="plan">The plan the image belongs to.</param>
     /// <param name="entry">The external to fill.</param>
     /// <param name="reference">Its <c>vxpaint:</c> reference.</param>
-    /// <param name="canvases">The session's open canvases, which this consults before the disk.</param>
+    /// <param name="pass">This fill's answers, which hold the open canvases and are asked once a file.</param>
     /// <returns>Null when it was uploaded, or the sentence saying why it was not.</returns>
     /// <remarks>
     ///     <para>
@@ -246,7 +256,7 @@ static class TextureExternalImages {
         TexturePlan plan,
         TextureGraphExternal entry,
         string reference,
-        PaintCanvasStore canvases
+        TextureExternalPass pass
     ) {
         if (!PaintReference.TryParse(reference, out var relative, out var usage)) {
             return $"a layer reads '{reference}', which claims to be painted pixels and does not name both a "
@@ -261,14 +271,10 @@ static class TextureExternalImages {
         }
 
         var file = Path.GetFullPath(Path.Combine(folder, relative));
+        var (canvas, unreadable) = pass.Canvas(file);
 
-        PaintCanvas? canvas;
-
-        try {
-            canvas = canvases.Open(file);
-        } catch (Exception failure) when (failure is IOException
-            or InvalidDataException or UnauthorizedAccessException or EndOfStreamException) {
-            return $"'{relative}' would not read: {failure.Message}";
+        if (unreadable is not null) {
+            return $"'{relative}' would not read: {unreadable}";
         }
 
         if (canvas is null) {

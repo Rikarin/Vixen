@@ -437,6 +437,8 @@ Vixen.Ui.DrawCommand.Thickness.get -> float
 Vixen.Ui.DrawCommand.Thickness.init -> float
 Vixen.Ui.DrawCommand.Transform.get -> Vixen.Ui.Rendering.UiTransform?
 Vixen.Ui.DrawCommand.Transform.init -> Vixen.Ui.Rendering.UiTransform?
+Vixen.Ui.DrawCommand.View.get -> Vixen.Ui.Rendering.UiImageView
+Vixen.Ui.DrawCommand.View.init -> Vixen.Ui.Rendering.UiImageView
 Vixen.Ui.DrawCommand.Width.get -> float
 Vixen.Ui.DrawCommand.Width.init -> float
 Vixen.Ui.DrawCommand.X.get -> float
@@ -460,7 +462,7 @@ Vixen.Ui.DrawCommandKind.Text = 3 -> Vixen.Ui.DrawCommandKind
 Vixen.Ui.DrawContext -> readonly struct
 Vixen.Ui.DrawContext.Bounds.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.DrawContext.DrawContext() -> void
-Vixen.Ui.DrawContext.DrawImage(Vixen.Core.Mathematics.Rectangle rectangle, ulong image, Vixen.Core.Mathematics.Color4 tint = default(Vixen.Core.Mathematics.Color4), Vixen.Core.Mathematics.Rectangle source = default(Vixen.Core.Mathematics.Rectangle)) -> void
+Vixen.Ui.DrawContext.DrawImage(Vixen.Core.Mathematics.Rectangle rectangle, ulong image, Vixen.Core.Mathematics.Color4 tint = default(Vixen.Core.Mathematics.Color4), Vixen.Core.Mathematics.Rectangle source = default(Vixen.Core.Mathematics.Rectangle), Vixen.Ui.Rendering.UiImageView view = default(Vixen.Ui.Rendering.UiImageView)) -> void
 Vixen.Ui.DrawContext.DrawNineSlice(Vixen.Core.Mathematics.Rectangle rectangle, ulong image, Vixen.Core.Mathematics.NineSlice border, Vixen.Core.Mathematics.NineSlice sourceBorder, Vixen.Core.Mathematics.Color4 tint = default(Vixen.Core.Mathematics.Color4), Vixen.Core.Mathematics.Rectangle source = default(Vixen.Core.Mathematics.Rectangle), bool hollowCentre = false) -> void
 Vixen.Ui.DrawContext.Element.get -> Vixen.Ui.UiElement
 Vixen.Ui.DrawContext.Fill(Vixen.Ui.PathBuilder path, Vixen.Core.Mathematics.Color4 color, Vixen.Ui.PathFillRule rule = Vixen.Ui.PathFillRule.NonZero) -> void
@@ -1051,6 +1053,23 @@ Vixen.Ui.Rendering.UiGeometryBuilder.TryBuild(Vixen.Ui.DrawList list, Vixen.Ui.T
 Vixen.Ui.Rendering.UiGeometryBuilder.UiGeometryBuilder() -> void
 Vixen.Ui.Rendering.UiGeometryBuilder.WhiteLevel.get -> float
 Vixen.Ui.Rendering.UiGeometryBuilder.WhiteLevel.set -> float
+Vixen.Ui.Rendering.UiImageChannel -> enum : byte
+Vixen.Ui.Rendering.UiImageChannel.All = 0 -> Vixen.Ui.Rendering.UiImageChannel
+Vixen.Ui.Rendering.UiImageChannel.Alpha = 4 -> Vixen.Ui.Rendering.UiImageChannel
+Vixen.Ui.Rendering.UiImageChannel.Blue = 3 -> Vixen.Ui.Rendering.UiImageChannel
+Vixen.Ui.Rendering.UiImageChannel.Green = 2 -> Vixen.Ui.Rendering.UiImageChannel
+Vixen.Ui.Rendering.UiImageChannel.Red = 1 -> Vixen.Ui.Rendering.UiImageChannel
+Vixen.Ui.Rendering.UiImageChannel.UiImageChannel() -> void
+Vixen.Ui.Rendering.UiImageView -> readonly struct
+Vixen.Ui.Rendering.UiImageView : System.IEquatable<Vixen.Ui.Rendering.UiImageView>
+Vixen.Ui.Rendering.UiImageView.Channel.get -> Vixen.Ui.Rendering.UiImageChannel
+Vixen.Ui.Rendering.UiImageView.Channel.init -> Vixen.Ui.Rendering.UiImageChannel
+Vixen.Ui.Rendering.UiImageView.IsIdentity.get -> bool
+Vixen.Ui.Rendering.UiImageView.Shape(float premultiplied = 0) -> Vixen.Core.Mathematics.Vector4
+Vixen.Ui.Rendering.UiImageView.ShowStoredValues.get -> bool
+Vixen.Ui.Rendering.UiImageView.ShowStoredValues.init -> bool
+Vixen.Ui.Rendering.UiImageView.UiImageView() -> void
+Vixen.Ui.Rendering.UiImageView.UiImageView(Vixen.Ui.Rendering.UiImageChannel Channel, bool ShowStoredValues) -> void
 Vixen.Ui.Rendering.UiLayer -> readonly struct
 Vixen.Ui.Rendering.UiLayer : System.IEquatable<Vixen.Ui.Rendering.UiLayer>
 Vixen.Ui.Rendering.UiLayer.Alpha.get -> float

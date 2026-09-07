@@ -190,7 +190,12 @@ zero is a valid-looking value.
 
 ## Gates that fail for non-obvious reasons
 
-- **`Docs`** refuses any new public type with no guide page *and* no line in `docs/DocsExempt.txt`.
+- **`CheckDocs`** refuses any new public type with no guide page *and* no line in
+  `docs/DocsExempt.txt`. ⚠ **`Docs` is not that gate**: it generates, prints the identical
+  `[ERR] … has no guide page and no line in docs/DocsExempt.txt`, and then exits **0**. A sweep that
+  runs `Docs` on the belief that it gates lets every undocumented public type through, which is what
+  sixteen batches of one workstream did. ⚠ And `CheckDocsCoverage` — the sub-second one CI pairs with
+  it — only sees types in a `PublicAPI` baseline, so it is not a substitute either.
 - **`CheckApi`** fails on an unapproved public addition **and** on a silent removal; the baseline moves
   with the code.
 - **`CheckStrings`** fails on a declared string id used nowhere, and on a call site that rebuilds an id
@@ -232,3 +237,10 @@ zero is a valid-looking value.
   surprising or previously believed false with ⚠. Read `git log` before writing one.
 - **The commonest defect here is a finished thing nothing calls.** Before assuming a feature works,
   grep for *callers*, not for the type.
+- ⚠ **This repository's source is `.cs` *and* `.vxml`**, and `--include="*.cs"` is how you file a
+  wrong issue. A view's `<code>` block is production C# — `Vixen.Editor.AssetEditors` alone carries
+  twenty-five views, and four of the five document kinds render their load diagnostics from one — so
+  a sweep for a *reader* (a caller, a subscriber, a rendered field) that reads only `.cs` reports a
+  gap that is not there, silently, because a clean grep looks like evidence. Two such issues were
+  filed in one batch and both were closed invalid. Sweep `--include="*.cs" --include="*.vxml"`, and
+  a test that walks the tree globs both (`ShaderGraphDiagnosticIdTests.Production` is the shape).

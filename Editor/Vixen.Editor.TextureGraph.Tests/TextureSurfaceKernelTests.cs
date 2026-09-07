@@ -183,6 +183,7 @@ public class TextureSurfaceKernelTests {
         Assert.Equal(
             [
                 "Cpu",
+                "DependsOnEveryTexel",
                 "EmittedForExtent",
                 "Identity",
                 "Inputs",
@@ -206,6 +207,12 @@ public class TextureSurfaceKernelTests {
         // declaration speaks for — read by `TexturePlan.Check` and by nothing that runs an op. A list
         // of image indices cannot carry code, and the evaluator never reads it at all.
         Assert.Equal(typeof(ImmutableArray<int>), typeof(TextureOp).GetProperty("OtherExtentInputs")!.PropertyType);
+
+        // ⚠ And `DependsOnEveryTexel` is the eighth, arriving with #636. It is not an eighth thing an
+        // op does either: it is a record of what the chain's author knows — that this op's texel is a
+        // function of the whole image — read by `TexturePlan.TilingRefusals` and by nothing that runs
+        // an op. A bool cannot carry code, and the evaluator never branches on it.
+        Assert.Equal(typeof(bool), typeof(TextureOp).GetProperty("DependsOnEveryTexel")!.PropertyType);
 
         // Every one of them but Cpu is inert data — a string, an image index, indices, scalars. Cpu is
         // the single exception doc 48 § 4.6 argues for and #688 built, and it is nullable: an op that

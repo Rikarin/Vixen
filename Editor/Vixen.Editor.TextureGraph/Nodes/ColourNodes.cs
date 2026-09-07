@@ -336,6 +336,13 @@ sealed partial class CurveNode : TextureNode {
                 Kernel = TextureColourKernels.Curve,
                 Output = target,
                 Inputs = [source, table],
+                // ⚠ The ramp is read at its own extent by design, and saying so per input is what
+                // stops the extent caution firing on every node of this kind. A 256×1 strip is a
+                // lookup table, not a picture the size of the output — the kernel samples it by the
+                // grey it read, not by the coordinate it is writing. `OtherExtentInputs` is the
+                // per-input form precisely so the *source* stays guarded while the table does not.
+                ReadsOtherExtents = true,
+                OtherExtentInputs = [table],
                 Parameters = [new("amount", emitter.Number(nameof(Amount)))]
             }
         );
@@ -395,6 +402,13 @@ sealed partial class GradientMapNode : TextureNode {
                 Kernel = TextureColourKernels.GradientMap,
                 Output = target,
                 Inputs = [source, ramp],
+                // ⚠ The ramp is read at its own extent by design, and saying so per input is what
+                // stops the extent caution firing on every node of this kind. A 256×1 strip is a
+                // lookup table, not a picture the size of the output — the kernel samples it by the
+                // grey it read, not by the coordinate it is writing. `OtherExtentInputs` is the
+                // per-input form precisely so the *source* stays guarded while the table does not.
+                ReadsOtherExtents = true,
+                OtherExtentInputs = [ramp],
                 Parameters = [new("keepAlpha", emitter.Flag("Keep Alpha") ? 1f : 0f)]
             }
         );

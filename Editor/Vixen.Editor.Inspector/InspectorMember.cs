@@ -93,6 +93,26 @@ public abstract class InspectorMember : Core.IEditMember {
     /// <summary>How many lines a string member is edited over, or zero for one.</summary>
     public int Lines { get; init; }
 
+    /// <summary>
+    ///     The values this member may hold, when it holds one of a stated few rather than any.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What an enum member gets for free and a <see langword="string" /> member had no
+    ///         way to ask for — <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b>
+    ///         <c>EnumDrawer</c> reads its options off the type, so a set of legal values that is not
+    ///         a CLR type — a node setting's nine measurements, a plugin's published names — drew as
+    ///         a text box in which a typo is a diagnostic rather than an impossibility.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null and empty are the same answer and both mean "any".</b> A member that states
+    ///         no list is not a member whose list happens to be empty: a dropdown with no options is
+    ///         a control that cannot be used, and offering one is worse than the box it replaced.
+    ///         <c>ChoiceDrawer</c> declines both.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<string>? Choices { get; init; }
+
     /// <summary>The <c>bool</c> member that decides whether this one is shown, if any.</summary>
     public string? Condition { get; init; }
 
