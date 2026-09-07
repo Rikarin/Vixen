@@ -80,13 +80,36 @@ public sealed class ProjectMeshSource : IMeshSource {
         }
     }
 
+    /// <summary>How many times this source has been invalidated.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>For consumers that cache something derived from a mesh and cannot see
+    ///         <see cref="Invalidate" /> happen</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/971">#971</a>. Clearing this source's
+    ///         own map is enough for a caller that asks it every frame and no use at all to one that
+    ///         resolved a mesh once and keyed the answer on the reference — because the reference is
+    ///         exactly what a re-import does not change. Such a caller stores its own copy of this
+    ///         number and compares.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Monotone rather than a flag, and that is the whole of why it is a counter.</b> A
+    ///         boolean has to be cleared by whoever read it, so the second consumer of one never
+    ///         hears — which is the state the texturing plugin and the layer-stack panel were in.
+    ///         Nothing clears a number.
+    ///     </para>
+    /// </remarks>
+    public int Revision { get; private set; }
+
     /// <summary>Forgets what has been read, so a re-import is picked up.</summary>
     /// <remarks>
     ///     ⚠ <b>Called when an import finishes, or the viewport keeps drawing the old mesh for ever.</b>
     ///     A chunk is content-addressed, so a re-imported mesh is a <em>different</em> id under the same
     ///     reference — nothing about the cached <see cref="MeshData" /> would ever say it is stale.
     /// </remarks>
-    public void Invalidate() => meshes.Clear();
+    public void Invalidate() {
+        meshes.Clear();
+        Revision++;
+    }
 
     /// <inheritdoc />
     public bool TryGet(AssetReference reference, out MeshData mesh) {

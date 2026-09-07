@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Vixen.Editor.AssetEditors;
+using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.TextureGraph;
@@ -564,7 +566,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         var asset = stack.Document;
         var set = asset.Sets.Count > 0 ? asset.Sets[0] : null;
-        var key = stack.AssetPath + "\n" + asset.Model + "\n" + (set?.Mesh ?? "");
+
+        var key = stack.AssetPath
+            + "\n" + asset.Model
+            + "\n" + (set?.Mesh ?? "")
+            + "\n" + Exported(asset.Model)
+            + "\n" + ((geometry as ProjectMeshSource)?.Revision ?? 0).ToString(CultureInfo.InvariantCulture);
 
         if (!string.Equals(key, meshKey, StringComparison.Ordinal)) {
             meshKey = key;
@@ -572,6 +579,50 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         }
 
         return mesh;
+    }
+
+    /// <summary>What the model file on disk is, as a string that moves when the file does.</summary>
+    /// <param name="model">The stack's model, project-relative, or empty when it names none.</param>
+    /// <returns>Its write time and length, or the empty string where there is no file to stat.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Half of <a href="https://github.com/Rikarin/Vixen/issues/971">#971</a>, and the
+    ///         half the issue does not name.</b> A stack open while the artist re-exports the model
+    ///         over the top of itself keeps the previous export's islands and goes on accepting the
+    ///         previous export's texels: none of the three terms the key used to have — the stack's
+    ///         path, its model and the set's mesh — moves when a file's contents change. It needs no
+    ///         import to reproduce.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the revision beside it is the other half, because a stat cannot see it.</b> A
+    ///         re-import driven by a version bump or an import-settings edit rewrites the chunks under
+    ///         an unchanged <c>.obj</c>, so the stamp is identical and only
+    ///         <see cref="ProjectMeshSource.Revision" /> moves. Each term catches a case the other
+    ///         misses, which is why both are here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A stat per gesture rather than per stamp.</b> <see cref="Mesh" /> is called from
+    ///         a pointer-<i>down</i> and from a panel refresh, never from a pointer move — the whole
+    ///         reason the resolve is cached is that it parses a model file, and this is three orders
+    ///         of magnitude under that. A missing or unreadable file answers the empty string, which
+    ///         is the same answer as "no model" and is right: there is nothing to re-read.
+    ///     </para>
+    /// </remarks>
+    string Exported(string model) {
+        if (model.Length == 0) {
+            return "";
+        }
+
+        try {
+            var file = new FileInfo(project.Paths.Absolute(model));
+
+            return file.Exists
+                ? file.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture)
+                + ":" + file.Length.ToString(CultureInfo.InvariantCulture)
+                : "";
+        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
+            return "";
+        }
     }
 
     /// <summary>A move, an undo or a redo dirtied a rectangle: put the composite back on the screen.</summary>
