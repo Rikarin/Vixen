@@ -79,13 +79,28 @@ public static class ShaderGraphPreview {
         ArgumentNullException.ThrowIfNull(registry);
 
         if (!graph.TryGet(node, out var subject)) {
-            return new(null, [new("SGP0001", $"{node} is not in this graph.", node)]);
+            return new(
+                null,
+                [
+                    new(
+                        ShaderGraphDiagnostics.PreviewNodeIsNotInTheGraph,
+                        $"{node} is not in this graph.",
+                        node
+                    )
+                ]
+            );
         }
 
         if (!registry.TryGet(subject.Type, out var definition)) {
             return new(
                 null,
-                [new("SGP0002", $"No node type is registered at '{subject.Type}', so it has no expression.", node)]
+                [
+                    new(
+                        ShaderGraphDiagnostics.PreviewNodeTypeIsUnregistered,
+                        $"No node type is registered at '{subject.Type}', so it has no expression.",
+                        node
+                    )
+                ]
             );
         }
 
@@ -97,7 +112,7 @@ public static class ShaderGraphPreview {
                 null,
                 [
                     new(
-                        "SGP0003",
+                        ShaderGraphDiagnostics.PreviewNodeHasNoColourOutput,
                         $"'{definition.Path}' has no output that could be shown as a colour"
                         + (port is null ? "." : $", so '{port}' is not one."),
                         node
