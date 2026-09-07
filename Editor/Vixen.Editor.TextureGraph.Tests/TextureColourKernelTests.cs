@@ -238,7 +238,7 @@ public class TextureColourKernelTests {
     }
 
     /// <summary>
-    ///     ⚠ Not one parameter of these thirteen kernels is a length in texels, so § D8's scaling
+    ///     ⚠ Not one parameter of these fourteen kernels is a length in texels, so § D8's scaling
     ///     never applies to any of them.
     /// </summary>
     /// <remarks>

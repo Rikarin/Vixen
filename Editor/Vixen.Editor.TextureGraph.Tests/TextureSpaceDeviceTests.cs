@@ -200,7 +200,7 @@ public class TextureSpaceDeviceTests(ITestOutputHelper output) {
     ///         <b>And the finding underneath it.</b> Issue #567's exit criterion is agreement between
     ///         a 1K and a downsampled 4K bake within 2/255, and § D8's machinery for it —
     ///         <c>TextureParameterUnit.TexelsAtBase</c> and <c>TexturePlan.Resolve</c> — applies to
-    ///         lengths in texels. <b>Not one parameter of § 4.2's or § 4.3's thirteen kernels is a
+    ///         lengths in texels. <b>Not one parameter of § 4.2's or § 4.3's fourteen kernels is a
     ///         length in texels.</b> A rotation is an angle, a scale is a ratio, an offset is a
     ///         fraction of the image, a rect is normalised and a repeat is a count — so these kernels
     ///         are resolution-independent by construction, and
