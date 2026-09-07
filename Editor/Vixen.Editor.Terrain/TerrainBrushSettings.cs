@@ -31,7 +31,6 @@ namespace Vixen.Editor.Terrain;
 ///         of discs; Unity and every paint application spell it this way for that reason.
 ///     </para>
 /// </remarks>
-[DataContract("TerrainBrushSettings")]
 public sealed class TerrainBrushSettings {
     /// <summary>How far the brush reaches, in metres.</summary>
     [Inspector]

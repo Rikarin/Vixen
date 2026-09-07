@@ -34,7 +34,6 @@ namespace Vixen.Editor.Terrain;
 ///         one flutter, and putting the scale on the asset would make a calm day a re-import.
 ///     </para>
 /// </remarks>
-[DataContract("TerrainGrassSettings")]
 public sealed class TerrainGrassSettings {
     /// <summary>The largest range a panel offers, in metres.</summary>
     public const float MaximumRange = 2000f;

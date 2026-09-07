@@ -24,7 +24,6 @@ namespace Vixen.Editor.Terrain;
 ///         need a dictionary keyed by tool, which is the same thing spelled less clearly.
 ///     </para>
 /// </remarks>
-[DataContract("TerrainToolSettings")]
 public sealed class TerrainToolSettings {
     /// <summary>Which half of the toolset a drag belongs to.</summary>
     public TerrainCategory Category { get; set; } = TerrainCategory.Sculpt;

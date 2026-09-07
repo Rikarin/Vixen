@@ -23,10 +23,19 @@ namespace Vixen.Editor.Terrain;
 /// <remarks>
 ///     <para>
 ///         <b>Four panels over settings objects, and no dialog code.</b> Every number here is an
-///         <c>[Inspector]</c> member of a <c>[DataContract]</c> type that
-///         <see cref="Vixen.Editor.Terrain" /> already owns — which is doc 20's B6 bargain for World
-///         settings applied to a toolset. What a panel adds beside the rows is the verb that makes
-///         the numbers mean something and the readout that says what they cost.
+///         <c>[Inspector]</c> member of a type <see cref="Vixen.Editor.Terrain" /> already owns —
+///         which is doc 20's B6 bargain for World settings applied to a toolset. What a panel adds
+///         beside the rows is the verb that makes the numbers mean something and the readout that
+///         says what they cost.
+///     </para>
+///     <para>
+///         ⚠ <b><c>[Inspector]</c> is the whole of it, and the <c>[DataContract]</c> those types also
+///         carried was decoration</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/989">#989</a>.
+///         <c>InspectorDescriptorGenerator</c> keys on <c>[Inspector]</c>; the serialisation
+///         attribute registered nothing at all here, because this assembly names neither generator
+///         that reads it. It is gone, and <c>TerrainContractTests</c> refuses the next one added
+///         without them.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Two of them are <em>mode</em> panels, which is why they are not on a menu by
