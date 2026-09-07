@@ -33,15 +33,9 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class TextureColourKernelTests {
-    /// <summary>The three kernels doc 48 § M1 shipped, which this slice did not add and does not own.</summary>
-    static readonly string[] Existing = ["Blend", "Blur", "Levels"];
-
     public static TheoryData<string> Kernels => [.. TextureColourKernels.All];
 
-    /// <summary>
-    ///     Every kernel this slice registers is embedded, and every kernel embedded is registered or
-    ///     is one of the three that came before it.
-    /// </summary>
+    /// <summary>Every kernel any surface registers is embedded, and every kernel embedded is registered.</summary>
     /// <remarks>
     ///     Both directions, because each catches a different mistake: a name in
     ///     <c>TextureColourKernels</c> with no <c>.rvn</c> behind it is a plan that fails at
@@ -52,9 +46,32 @@ public class TextureColourKernelTests {
     ///         Written against this slice's own list plus the three that came before it, this
     ///         assertion was green on its branch and red the moment § 4.1's six source kernels landed
     ///         in the same tree — the folder is shared and the declarations are not. That is
-    ///         cross-branch drift no per-branch test run can see, which is why the union is spelled
-    ///         out here rather than left as a literal: a slice that adds a seventh surface has to
-    ///         appear in this line, and the failure that follows says exactly which one is missing.
+    ///         cross-branch drift no per-branch test run can see, which is why the union is read off
+    ///         <see cref="TextureKernelSurfaceAttribute" /> rather than written down: a slice that
+    ///         adds a seventh surface needs no edit here, and the failure says which kernel is
+    ///         unclaimed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>There is no escape hatch beside that union any more, and removing it was a
+    ///         strengthening rather than a tidy</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/999">#999</a>. An <c>Existing</c>
+    ///         array excused <c>Blend</c>, <c>Blur</c> and <c>Levels</c> from a time before any of
+    ///         the three was held by a surface; all three are held now, so the <c>Concat</c> was a
+    ///         no-op — but a no-op that still <em>worked</em>. Measured: delete <c>Levels</c> from
+    ///         <c>TextureColourKernels.All</c> and this goes red today, and passed with the array in
+    ///         place. The hatch's own last remaining job was to hide exactly the defect it sat next
+    ///         to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Deleted rather than guarded, which is the opposite of what
+    ///         <c>TextureNodeLibraryTests</c>' <c>Deliberate</c> table does, and deliberately.</b>
+    ///         That table's entries are decisions somebody has to be able to defend and there is no
+    ///         mechanism that could remove the need for them, so it is guarded and can only shrink.
+    ///         An unclaimed kernel is not a decision: <see cref="TextureKernelSurfaces" /> enumerates
+    ///         every declaring surface, so declaring one is a one-line edit and there is no longer a
+    ///         legitimate reason to excuse an embedded <c>.rvn</c> instead. A guarded hatch with zero
+    ///         entries would be a mechanism nothing exercises — this workstream's own commonest
+    ///         defect — sitting where the next author would reach for it.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -76,7 +93,6 @@ public class TextureColourKernelTests {
         Assert.All(cpu, name => Assert.DoesNotContain(name, TextureKernels.Names));
 
         var registered = Declared()
-            .Concat(Existing)
             .Except(cpu, StringComparer.Ordinal)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)

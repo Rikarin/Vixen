@@ -232,3 +232,10 @@ zero is a valid-looking value.
   surprising or previously believed false with ⚠. Read `git log` before writing one.
 - **The commonest defect here is a finished thing nothing calls.** Before assuming a feature works,
   grep for *callers*, not for the type.
+- ⚠ **This repository's source is `.cs` *and* `.vxml`**, and `--include="*.cs"` is how you file a
+  wrong issue. A view's `<code>` block is production C# — `Vixen.Editor.AssetEditors` alone carries
+  twenty-five views, and four of the five document kinds render their load diagnostics from one — so
+  a sweep for a *reader* (a caller, a subscriber, a rendered field) that reads only `.cs` reports a
+  gap that is not there, silently, because a clean grep looks like evidence. Two such issues were
+  filed in one batch and both were closed invalid. Sweep `--include="*.cs" --include="*.vxml"`, and
+  a test that walks the tree globs both (`ShaderGraphDiagnosticIdTests.Production` is the shape).
