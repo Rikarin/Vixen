@@ -215,6 +215,17 @@ sealed class LayerStackView : IDisposable {
     /// </remarks>
     string boundModel = "";
 
+    /// <summary>Which <c>LayerStackDocument.ModelsRevision</c> the picker's options were filled at.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This view's own copy, because a notification with one reader is a notification with
+    ///     one reader</b> — <a href="https://github.com/Rikarin/Vixen/issues/1006">#1006</a>. The
+    ///     document used to carry a boolean that this refill cleared, so a second consumer of the
+    ///     same "a model changed" would see nothing whenever this one read it first. Nothing clears a
+    ///     number; zero here against a document that starts at one is what refills a picker once
+    ///     before anything has happened.
+    /// </remarks>
+    int boundModels;
+
     /// <summary>The last picture, so an edit this view made can redraw without one being handed back.</summary>
     LayerStackPicture? shown;
 
@@ -619,18 +630,20 @@ sealed class LayerStackView : IDisposable {
         // `ClearOptions` under an open dropdown is the same defect the shape comparison above exists
         // to prevent one level up.
         if (!ReferenceEquals(bound, document)
-            || document.ModelsChanged
+            || boundModels != document.ModelsRevision
             || !string.Equals(boundModel, Binding(document, SetName), StringComparison.Ordinal)) {
             Rebind(document);
 
             bound = document;
             boundModel = Binding(document, SetName);
 
-            // ⚠ Cleared here and not where it is set — #954. The document is told a model file moved
-            // by `ExternalEdits`, on the frame, once per drained change; this is the one place that
-            // has done something about it, and clearing it at the notification would mean a stack
-            // whose panel is closed forgets what happened before it is opened.
-            document.ModelsChanged = false;
+            // ⚠ Recorded here and not cleared there — #954, and #1006 for why it is a number this
+            // view copies rather than a flag it clears. The document is told a model file moved by
+            // `ExternalEdits`, on the frame, once per drained change; acting on it at the
+            // notification would mean a stack whose panel is closed forgets what happened before it
+            // is opened, and clearing it here would mean whichever consumer read it first was the
+            // only one that ever heard.
+            boundModels = document.ModelsRevision;
         }
 
         Restate();
@@ -2340,9 +2353,10 @@ sealed class LayerStackView : IDisposable {
     ///         gate above this used to be the document reference and the bound path alone — while
     ///         the module hands the same reference to every refresh. So the mesh an artist had just
     ///         added was the one mesh the picker did not offer, which reads as the import having
-    ///         failed. <c>LayerStackDocument.ModelsChanged</c> is the third term, and it is a flag
-    ///         rather than a walk because this walks every asset in the project and a show runs on
-    ///         every edit.
+    ///         failed. <c>LayerStackDocument.ModelsRevision</c> is the third term, and it is a
+    ///         number rather than a walk because this walks every asset in the project and a show
+    ///         runs on every edit — and a number rather than a flag because a flag its reader clears
+    ///         has exactly one reader (#1006).
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A binding this build cannot offer is kept as an option rather than dropped.</b> A

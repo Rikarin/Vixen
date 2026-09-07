@@ -96,10 +96,11 @@ public class LayerStackBindingTests {
     ///         fill walks every asset in the project and a show runs on every keystroke of a slider.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Driven through <c>ExternalEdits.Apply</c> and not by setting the flag.</b> The
+    ///         ⚠ <b>Driven through <c>ExternalEdits.Apply</c> and not by moving the number.</b> The
     ///         notification is the mechanism under test: a document that never heard about the file
-    ///         is the state this was in, and a test that set <c>ModelsChanged</c> itself would be
-    ///         green against a document with no override at all.
+    ///         is the state this was in, and a test that moved <c>ModelsRevision</c> itself would be
+    ///         green against a document with no override at all — which is also why the setter is
+    ///         private.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -124,8 +125,10 @@ public class LayerStackBindingTests {
 
         using var edits = new ExternalEdits(fixture.Project);
 
+        var before = document.ModelsRevision;
+
         Assert.Equal(0, edits.Apply([new FileChange(new("/Late.obj"), FileChangeKind.Created)]));
-        Assert.True(document.ModelsChanged, "the document was not told a model appeared.");
+        Assert.NotEqual(before, document.ModelsRevision);
 
         Refresh(fixture);
 
@@ -134,9 +137,68 @@ public class LayerStackBindingTests {
             option => option.Value == "Assets/Late.obj"
         );
 
-        // ⚠ And the flag is down again, or every subsequent show refills — which is the cost the
-        // gate exists to avoid, arriving by the door that was opened to fix the staleness.
-        Assert.False(document.ModelsChanged, "the refill did not clear the flag.");
+        // ⚠ And the view recorded the number it refilled at, or every subsequent show refills —
+        // which is the cost the gate exists to avoid, arriving by the door that was opened to fix
+        // the staleness. Asserted through behaviour rather than by reading the view's copy: a second
+        // model appears with nothing told about it, and a panel that refilled on every show would be
+        // offering it.
+        Model(fixture, "Later.obj", Quad(0f, 0.5f));
+        Refresh(fixture);
+
+        Assert.DoesNotContain(
+            Find<Select>(Panel(fixture), "layer-stack-model").Options,
+            option => option.Value == "Assets/Later.obj"
+        );
+    }
+
+    /// <summary>⚠ And a second consumer of that same notification still hears it afterwards.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1006">#1006</a>, which is the
+    ///         hazard <a href="https://github.com/Rikarin/Vixen/issues/971">#971</a> named in its own
+    ///         last warning and routed around rather than repaired.</b> The document carried a
+    ///         boolean that the picker's refill cleared, so the two consumers of "a model changed"
+    ///         raced on who read it first and the loser was told nothing had happened. Nothing clears
+    ///         a number.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The second consumer here is the test itself, holding its own copy, which is the
+    ///         whole contract.</b> A consumer added later is correct by existing rather than by being
+    ///         wired into whoever was clearing — so a fixture that added a real second panel would be
+    ///         asserting the same thing at more expense.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It asserts the picker consumed the notification too, in the same run.</b>
+    ///         Otherwise it is green against a build where nothing acts on the notification at all,
+    ///         which is not the fix — it is the staleness #954 opened.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_second_consumer_still_hears_a_model_appear_after_the_picker_has() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, "Hull");
+
+        Refresh(fixture);
+
+        // This is the second consumer: it kept the last revision it acted on, exactly as the view
+        // keeps its own.
+        var seen = document.ModelsRevision;
+
+        Model(fixture, "Late.obj", Quad(0f, 0.5f));
+
+        using var edits = new ExternalEdits(fixture.Project);
+
+        Assert.Equal(0, edits.Apply([new FileChange(new("/Late.obj"), FileChangeKind.Created)]));
+
+        // The picker reads and acts, which is what used to clear the flag.
+        Refresh(fixture);
+
+        Assert.Contains(
+            Find<Select>(Panel(fixture), "layer-stack-model").Options,
+            option => option.Value == "Assets/Late.obj"
+        );
+
+        Assert.NotEqual(seen, document.ModelsRevision);
     }
 
     /// <summary>A bound stack puts the mesh's UV islands under the brush.</summary>
