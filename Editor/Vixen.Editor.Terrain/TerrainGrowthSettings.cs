@@ -31,7 +31,6 @@ namespace Vixen.Editor.Terrain;
 ///         working. <see cref="FoliageGrowthResult.Capped" /> is what the panel shows instead.
 ///     </para>
 /// </remarks>
-[DataContract("TerrainGrowthSettings")]
 public sealed class TerrainGrowthSettings {
     /// <summary>The smallest region worth simulating, in metres on a side.</summary>
     public const float MinimumSize = 1f;

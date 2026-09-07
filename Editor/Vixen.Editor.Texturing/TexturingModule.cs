@@ -1195,7 +1195,15 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         // half. ⚠ The read is now the store's and costs nothing (#948); the upload is unchanged, so
         // the comparison is still worth making. What an edit to these rows can change for that pane
         // is which model, which mesh and which layer, so that triple is what is compared.
-        var binding = (stack.Document.Model, stack.Document.Sets[0].Mesh, tool.LayerId, tool.Channel);
+        //
+        // ⚠ **And the set is asked for rather than indexed, because a stack can have none** — #983.
+        // `LayerStackDocument` answers a file it could not read with a document holding no texture
+        // set at all, which is the honest answer and is not the starter stack; this line indexed
+        // `Sets[0]` and threw, so running `Open Layer Stack` on a `.vxlayers` naming a blend mode
+        // this build lacks took the command handler down before the panel that was to explain it had
+        // been built. The other `Sets[0]` in this file already asks the question this way.
+        var mesh = stack.Document.Sets.Count > 0 ? stack.Document.Sets[0].Mesh : "";
+        var binding = (stack.Document.Model, mesh, tool.LayerId, tool.Channel);
 
         if (binding != paintBinding) {
             paintBinding = binding;

@@ -81,7 +81,6 @@ public enum FoliageReapply {
 ///     <see cref="TerrainBrushSettings" />'s — [§ D12]'s one service — and what is here is what
 ///     foliage adds to it.
 /// </remarks>
-[DataContract("FoliageSettings")]
 public sealed class FoliageSettings {
     /// <summary>Which tool a drag runs.</summary>
     public FoliageTool Tool { get; set; } = FoliageTool.Paint;

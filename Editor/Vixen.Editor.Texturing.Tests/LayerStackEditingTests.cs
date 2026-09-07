@@ -1195,6 +1195,173 @@ public class LayerStackEditingTests {
         Assert.Equal("lower", tool.LayerId);
     }
 
+    /// <summary>A fill's colour can be changed from the panel, per channel, and undone.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/986">#986</a>.</b> Every other
+    ///         property of a layer was editable here and the two that decide what a fill actually
+    ///         puts on the surface were not, so a fill added from the panel kept the mid-grey it was
+    ///         born with until somebody opened the file in a text editor.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The second channel is what makes this an assertion about the keying.</b>
+    ///         <c>Values</c> is a dictionary per usage, so a row that wrote the whole layer's colour
+    ///         — or that wrote the first entry whatever row was dragged — would pass on a
+    ///         one-channel stack and be wrong on every real one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_fill_channels_colour_is_edited_a_component_at_a_time() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, TwoChannels());
+        var panel = Panel(fixture);
+
+        var greens = Controls<Slider>(panel, "layer-stack-fill-green");
+
+        // One row per channel of the set, in the set's own order.
+        Assert.Equal(2, greens.Count);
+        Assert.Equal(0.25f, greens[0].Value);
+        Assert.Equal(0.5f, greens[1].Value);
+
+        greens[1].Value = 0.125f;
+
+        Assert.Equal([0.5f, 0.125f, 0.5f, 1f], Only(document).Values["roughness"]);
+
+        // ⚠ And the channel nobody touched is untouched — the dictionary is rewritten, not rebuilt.
+        Assert.Equal([0.25f, 0.25f, 0.25f, 1f], Only(document).Values["baseColor"]);
+
+        Assert.True(document.Stack.Undo());
+        fixture.Shell.Document.Effects.Flush();
+
+        Assert.Equal([0.5f, 0.5f, 0.5f, 1f], Only(document).Values["roughness"]);
+        Assert.Equal(0.5f, Controls<Slider>(panel, "layer-stack-fill-green")[1].Value);
+    }
+
+    /// <summary>⚠ A colour the file holds outside 0…1 survives a drag of another component.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The sliders run 0 to 1 and an emissive of 4 cd/m² does not.</b> That is a limit on
+    ///         what this panel can author and it must not become a limit on what it can hold: a row
+    ///         that gathered its four sliders into a colour would write the clamp back over three
+    ///         components nobody dragged, so opening the panel and nudging red would quietly turn a
+    ///         4 into a 1.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why the assertion is on the components that were <em>not</em>
+    ///         dragged.</b> The dragged one is clamped and should be — that is what dragging a 0…1
+    ///         slider means — so an assertion on it could not tell the two designs apart.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_component_above_one_survives_a_drag_of_its_neighbour() {
+        using var fixture = new TexturingFixture();
+
+        var document = Open(
+            fixture,
+            Stack(
+                [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+                new LayerAsset {
+                    Id = "l",
+                    Name = "Bright",
+                    Kind = LayerKind.Fill,
+                    Values = { ["baseColor"] = [4f, 0.25f, 0.25f, 1f] }
+                }
+            )
+        );
+
+        var panel = Panel(fixture);
+
+        // The instrument: the slider really did clamp what it was shown, so the wrong design would
+        // really have had a 1 to write back.
+        Assert.Equal(1f, Controls<Slider>(panel, "layer-stack-fill-red")[0].Value);
+
+        Controls<Slider>(panel, "layer-stack-fill-green")[0].Value = 0.75f;
+
+        Assert.Equal([4f, 0.75f, 0.25f, 1f], Only(document).Values["baseColor"]);
+    }
+
+    /// <summary>A channel a fill says nothing about can be given a colour, and told to stop.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Presence in <c>Values</c> is a second question from the channel tick, and both
+    ///         have to be true.</b> A layer restricting no channels writes all of them
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/807">#807</a> · 2) and an absent
+    ///         entry is then the only way a fill says "nothing about this channel" — so the panel has
+    ///         to be able to add one and take it away, or half the states a <c>.vxlayers</c> can hold
+    ///         are states it cannot reach.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And what it starts from is the channel's own default</b>, which is exactly the
+    ///         number #807 · 2 refused as a <em>fallback</em>: read when there is no entry it invents
+    ///         a layer's opinion, offered as the first draft of an entry the artist just asked for it
+    ///         is the set's own answer.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_channel_with_nothing_to_say_can_be_given_a_colour_and_take_it_back() {
+        using var fixture = new TexturingFixture();
+
+        var document = Open(
+            fixture,
+            Stack(
+                [
+                    new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] },
+                    new() { Usage = "roughness", Default = [0.9f, 0.9f, 0.9f, 1f] }
+                ],
+                Fill("l", "Layer", 0.25f)
+            )
+        );
+
+        var panel = Panel(fixture);
+        var ticks = Controls<CheckBox>(panel, "layer-stack-fill-writes");
+
+        Assert.Equal(2, ticks.Count);
+        Assert.True(ticks[0].IsChecked);
+        Assert.False(ticks[1].IsChecked);
+        Assert.DoesNotContain("roughness", Only(document).Values.Keys);
+
+        ticks[1].Activate();
+
+        Assert.Equal([0.9f, 0.9f, 0.9f, 1f], Only(document).Values["roughness"]);
+
+        Controls<CheckBox>(panel, "layer-stack-fill-writes")[1].Activate();
+
+        Assert.DoesNotContain("roughness", Only(document).Values.Keys);
+        Assert.Equal(2, document.Stack.Depth.Value);
+    }
+
+    /// <summary>A texture fill names its image per channel, through the same rows.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The picker is here too, because otherwise the field below it is unreachable.</b>
+    ///     Nothing else in this panel could set <c>LayerAsset.Fill</c>, so an image field offered
+    ///     only on a texture fill would be a control no route in the editor arrives at — the defect
+    ///     this workstream produces more than any other, built on purpose.
+    /// </remarks>
+    [Fact]
+    public void A_texture_fill_names_an_image_for_the_channel_it_writes() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, TwoChannels());
+        var panel = Panel(fixture);
+        var source = Find<Select>(panel, "layer-stack-fill-source");
+
+        Assert.Equal(nameof(LayerFillSource.Constant), source.Value);
+
+        source.Value = nameof(LayerFillSource.Texture);
+
+        Assert.Equal(LayerFillSource.Texture, Only(document).Fill);
+
+        Controls<TextBox>(panel, "layer-stack-fill-texture")[0].Value = "Assets/Rust.png";
+
+        Assert.Equal("Assets/Rust.png", Only(document).Textures["baseColor"]);
+
+        // ⚠ Emptied is removed rather than stored as "", because the compiler answers a texture fill
+        // naming no image with a refusal either way — a key with an empty string behind it is a
+        // state the file can hold and nothing can mean.
+        Controls<TextBox>(panel, "layer-stack-fill-texture")[0].Value = "";
+
+        Assert.Empty(Only(document).Textures);
+    }
+
     /// <summary>⚠ A row whose id names two layers is listed and carries no controls.</summary>
     /// <remarks>
     ///     <para>
@@ -1623,6 +1790,9 @@ public class LayerStackEditingTests {
                 Children = [Fill("lower", "Lower", 0.25f), Fill("upper", "Upper", 0.75f)]
             }
         );
+
+    /// <summary>The layer <see cref="TwoChannels" /> makes, read back out of the open document.</summary>
+    static LayerAsset Only(LayerStackDocument document) => document.Document.Sets[0].Layers[0];
 
     static LayerAsset Fill(string id, string name, float grey) =>
         new() {

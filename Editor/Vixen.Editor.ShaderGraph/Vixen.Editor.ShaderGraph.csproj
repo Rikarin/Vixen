@@ -63,6 +63,18 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Editor.ShaderGraph.Tests" />
+
+        <!--
+            ⚠ **Two production assemblies, because a diagnostic family is not per assembly** —
+            [#982](https://github.com/Rikarin/Vixen/issues/982). `ShaderGraphDiagnostics` declares the
+            whole `SG` family and `SG0000`/`SG0100` are reported from
+            `Vixen.Editor.AssetEditors.ShaderGraphDocument`, which already has a `ProjectReference`
+            here. The alternative was making the declaration public, which buys a `docs/DocsExempt`
+            line and a permanent API surface for nine constants nothing outside the editor may spell;
+            the seam is narrower than the export.
+        -->
+        <InternalsVisibleTo Include="Vixen.Editor.AssetEditors" />
+        <InternalsVisibleTo Include="Vixen.Editor.AssetEditors.Tests" />
     </ItemGroup>
 
 </Project>

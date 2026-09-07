@@ -89,9 +89,18 @@ public readonly record struct TerrainFacts(
 /// <remarks>
 ///     <para>
 ///         <b>[docs/plan/31 § The terrain panel], as a settings object rather than as dialog
-///         code.</b> Every row is an <c>[Inspector]</c> member of a <c>[DataContract]</c> type, which
-///         is [20 § B6]'s bargain for world settings and is what makes the form testable without a
-///         window.
+///         code.</b> Every row is an <c>[Inspector]</c> member, which is [20 § B6]'s bargain for
+///         world settings and is what makes the form testable without a window.
+///     </para>
+///     <para>
+///         ⚠ <b>And <em>not</em> a <c>[DataContract]</c>, which this type carried until
+///         <a href="https://github.com/Rikarin/Vixen/issues/989">#989</a>.</b> The attribute
+///         registered nothing — <c>Vixen.Editor.Terrain.csproj</c> names neither of the two
+///         generators that give it meaning, and analyzers do not flow through a
+///         <c>ProjectReference</c> — so the alias it stated could not be serialised and could not be
+///         looked up. Nothing writes one of these to a file. A saved brush preset or a project-level
+///         default is the thing that would want one, and the answer then is to name the generator;
+///         <c>TerrainContractTests</c> is what refuses the attribute without it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The tile size is offered in quads and stored in samples.</b> An artist reads
@@ -101,7 +110,6 @@ public readonly record struct TerrainFacts(
 ///         translation happens, once — see [§ D2].
 ///     </para>
 /// </remarks>
-[DataContract("TerrainCreateSettings")]
 public sealed class TerrainCreateSettings {
     /// <summary>The tile sizes the form offers, in quads.</summary>
     /// <remarks>

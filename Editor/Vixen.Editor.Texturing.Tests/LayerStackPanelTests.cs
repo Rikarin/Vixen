@@ -46,7 +46,11 @@ public class LayerStackPanelTests {
 
         // The starter stack is one Fill layer called "Base" — `LayerStackDocument.Starter`. A panel
         // that opened the document and drew nothing would satisfy every assertion above.
-        var row = Assert.Single(LayerStackView.Describe(document));
+        //
+        // ⚠ Off the tree the panel built and no longer off a static walk of the document — #987. The
+        // walk listed the *first* texture set while the panel draws `LayerStackView.SetName`'s, so a
+        // green assertion here was a statement about a second derivation nothing on screen used.
+        var row = Assert.Single(Rows(panel));
 
         Assert.Contains("Base", row, StringComparison.Ordinal);
         Assert.Contains("Fill", row, StringComparison.Ordinal);
@@ -73,7 +77,12 @@ public class LayerStackPanelTests {
 
         document.Document = stack;
 
-        var rows = LayerStackView.Describe(document);
+        // ⚠ Re-run the verb, because the rows under test are the ones the panel drew — #987. The
+        // assignment above changes the document behind the view's back; the refresh is what makes
+        // this an assertion about the panel rather than about a walk only xunit ever calls.
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
+
+        var rows = Rows(Panel(fixture));
 
         Assert.Equal(3, rows.Count);
         Assert.StartsWith("Top", rows[0], StringComparison.Ordinal);
@@ -84,6 +93,58 @@ public class LayerStackPanelTests {
         // switched off would leave nobody a way to switch it back on.
         Assert.Contains("off", rows[0], StringComparison.Ordinal);
         Assert.DoesNotContain("off", rows[1], StringComparison.Ordinal);
+    }
+
+    /// <summary>⚠ A stack this build cannot read says so in the panel rather than opening blank.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/983">#983</a>.</b>
+    ///         <c>LayerStackYaml.Read</c> refuses a blend mode this build cannot spell rather than
+    ///         defaulting it — deliberately, because defaulting would composite every layer that used
+    ///         it as a <c>Copy</c> and hand back a wrong picture instead of an error. That decision is
+    ///         what makes the <em>report</em> load-bearing: <c>LayerStackDocument.LoadDiagnostics</c>
+    ///         held the reason and nothing in production read it, so a seven-layer file opened as a
+    ///         document with no layers in it and the panel said nothing at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read off the tree and not off <c>LayerStackView.Messages</c>.</b> The property is
+    ///         assigned by <c>Show</c> and the elements are added from it in the same statement, so
+    ///         asserting on the property alone cannot tell a message that was drawn from one that was
+    ///         merely computed — and this whole issue is about a value that existed and reached no
+    ///         screen.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_stack_this_build_cannot_read_says_why_in_the_panel() {
+        using var fixture = new TexturingFixture();
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+
+        fixture.Project.Selection.Set(
+            AddStack(
+                fixture,
+                "Future",
+                "version: 1\nname: Future\nsets:\n  - name: S\n    layers:\n      - id: l\n        kind: Fill\n"
+                + "        blend: Hologram\n"
+            )
+        );
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
+
+        var document = Assert.IsType<LayerStackDocument>(fixture.Project.Documents.Single());
+
+        // The instrument: the document really did refuse the file. A fixture whose YAML happened to
+        // parse would leave every assertion below about an empty list.
+        Assert.Single(document.LoadDiagnostics);
+
+        var panel = fixture.Shell.Workspace.Open(TexturingModule.StackPanel);
+
+        Assert.NotNull(panel);
+
+        var said = Assert.Single(Messages(panel));
+
+        Assert.Contains(TexturingDiagnostics.StackFileDoesNotParse, said, StringComparison.Ordinal);
+        Assert.Contains("Hologram", said, StringComparison.Ordinal);
     }
 
     /// <summary>A host with no device says which of the two reasons the pane is empty for.</summary>
@@ -339,6 +400,15 @@ public class LayerStackPanelTests {
     /// </remarks>
     static string Status(UiElement panel) => Find(panel, "layer-stack-status")?.Text ?? "";
 
+    /// <summary>The stack panel the module registered, opened.</summary>
+    static UiElement Panel(TexturingFixture fixture) {
+        var panel = fixture.Shell.Workspace.Open(TexturingModule.StackPanel);
+
+        Assert.NotNull(panel);
+
+        return panel;
+    }
+
     /// <summary>The rows the panel drew.</summary>
     /// <remarks>
     ///     ⚠ <b>The name element inside each row, not the row.</b> A row carries controls now —
@@ -413,10 +483,24 @@ public class LayerStackPanelTests {
     ///     helper — the two differ only in an extension, and merging them is a change to a shared
     ///     file this slice does not own.
     /// </remarks>
-    internal static AssetId AddStack(TexturingFixture fixture, string name) {
+    internal static AssetId AddStack(TexturingFixture fixture, string name) =>
+        AddStack(fixture, name, LayerStackDocument.NewContents);
+
+    /// <summary>Writes a <c>.vxlayers</c> holding the text it is given and scans it in.</summary>
+    /// <param name="fixture">The project to write into.</param>
+    /// <param name="name">The file's name, without its extension.</param>
+    /// <param name="contents">What to write.</param>
+    /// <returns>The asset it became.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The bytes are the argument because a load failure has no other way in.</b> Every other
+    ///     test here opens the empty file the overload above writes, which is the one input that
+    ///     cannot fail to read — <c>LayerStackDocument</c> answers it with the starter stack before
+    ///     the parser is reached at all.
+    /// </remarks>
+    internal static AssetId AddStack(TexturingFixture fixture, string name, string contents) {
         var relative = "Assets/" + name + LayerStackDocument.Extension;
 
-        File.WriteAllText(fixture.Paths.Absolute(relative), LayerStackDocument.NewContents);
+        File.WriteAllText(fixture.Paths.Absolute(relative), contents);
 
         var report = fixture.Project.Assets.Scan();
 

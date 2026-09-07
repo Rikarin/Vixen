@@ -57,7 +57,6 @@ public readonly record struct TerrainTargetRow(
 ///         mode would make that three mode switches.
 ///     </para>
 /// </remarks>
-[DataContract("TerrainLayerSettings")]
 public sealed class TerrainLayerSettings {
     /// <summary>What the layer is called.</summary>
     [Inspector]
