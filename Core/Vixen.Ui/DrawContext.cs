@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Ui.Rendering;
 
 namespace Vixen.Ui;
 
@@ -213,6 +214,9 @@ public readonly struct DrawContext {
     /// <param name="image">The renderer's name for the texture. Zero draws nothing.</param>
     /// <param name="tint">What to multiply it by. White leaves it alone.</param>
     /// <param name="source">Which part of the texture, in UVs. The whole of it by default.</param>
+    /// <param name="view">
+    ///     Which channels to show and through which curve. The default is the whole colour.
+    /// </param>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The image is a number this assembly cannot interpret</b>, exactly as
@@ -224,8 +228,21 @@ public readonly struct DrawContext {
     ///         The tint goes through the element's own opacity like every other colour, so an image
     ///         inside a fading panel fades with it rather than staying solid until the panel vanishes.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b><paramref name="view" /> is not a tint and cannot be expressed as one</b> —
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/611">#611</see>. It survives the
+    ///         opacity fade above because the fade rides the tint's alpha and an isolated channel is
+    ///         drawn opaque *before* that multiply, so a channel picker inside a fading panel fades
+    ///         rather than snapping.
+    ///     </para>
     /// </remarks>
-    public void DrawImage(Rectangle rectangle, ulong image, Color4 tint = default, Rectangle source = default) =>
+    public void DrawImage(
+        Rectangle rectangle,
+        ulong image,
+        Color4 tint = default,
+        Rectangle source = default,
+        UiImageView view = default
+    ) =>
         List.Add(
             new DrawCommand(
                 DrawCommandKind.Image,
@@ -241,7 +258,8 @@ public readonly struct DrawContext {
 
                 // `default` is an empty rectangle and not the whole texture, so the caller who wrote
                 // nothing gets the whole of it rather than a zero-area sample of its top-left texel.
-                Source = source == default ? new Rectangle(0f, 0f, 1f, 1f) : source
+                Source = source == default ? new Rectangle(0f, 0f, 1f, 1f) : source,
+                View = view
             }
         );
 

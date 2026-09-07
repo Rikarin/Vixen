@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Input;
+using Vixen.Ui.Rendering;
 using Vixen.Ui.Styling;
 
 namespace Vixen.Ui.Controls.Advanced;
@@ -90,16 +91,16 @@ public readonly record struct ImageOverlaySegment(Vector2 From, Vector2 To);
 ///         overlay to be in.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Channels" /> and <see cref="ColorSpace" /> are a <i>request</i>, not a
-///         filter, and this is the one thing about this control worth reading twice.</b> The draw
-///         list's image command carries a tint and a source rectangle and nothing else: a tint can
-///         multiply, and neither isolating the alpha as a grey nor applying a transfer function is a
-///         multiply. So the control does not touch the pixels — it says what it wants through
-///         <see cref="ViewChanged" /> and draws whatever <see cref="Image" /> it is then given. A
-///         control that quietly tinted red for <see cref="ImageChannels.Red" /> and did nothing at
-///         all for <see cref="ImageChannels.Alpha" /> would be worse than one that does neither,
-///         because the reader could not tell which of the two they were looking at. It is the same
-///         bargain <c>TextureImportView.ViewChanged</c> already makes, one assembly up.
+///         ⚠ <b><see cref="Channels" /> and <see cref="ColorSpace" /> used to be a <i>request</i>
+///         that changed no pixel, and that was the one thing about this control worth reading
+///         twice.</b> The draw list's image command carried a tint and a source rectangle and
+///         nothing else: a tint can multiply, and neither isolating the alpha as a grey nor undoing
+///         a transfer function is a multiply, so the control raised <see cref="ViewChanged" /> and
+///         drew whatever <see cref="Image" /> it was then given.
+///         <see href="https://github.com/Rikarin/Vixen/issues/611">#611</see> gave the command a
+///         <see cref="UiImageView" /> and both toggles now reach the picture on their own — see
+///         <see cref="Drawn" /> for the translation, and <see cref="ViewChanged" /> for what
+///         answering it still buys.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The chequerboard is in <i>screen</i> pixels and bounded to the visible part of the
@@ -226,13 +227,53 @@ public sealed partial class ImageView : Control {
     /// <summary>What is being asked for: the pair a host prepares an image from.</summary>
     public ImageViewRequest Requested => new(Channels, ColorSpace);
 
+    /// <summary>The same request as the draw list carries it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/611">#611</see>'s translation, and
+    ///         it is a translation rather than a shared type on purpose: <see cref="Requested" />
+    ///         describes the <i>image</i> — what is in it, in an artist's words — and
+    ///         <see cref="UiImageView" /> describes the <i>draw</i>. A control can say "this texture
+    ///         holds linear data"; a draw command cannot, because the same texture is a colour to
+    ///         one viewer and a roughness field to the next.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="ImageColorSpace.Linear" /> is what asks the shader to do something,
+    ///         not <see cref="ImageColorSpace.Srgb" />.</b> That reads backwards from the names and
+    ///         is forced by where the encode happens: the window presents to an sRGB target, so the
+    ///         hardware already applies the transfer function and "shown as authored" is the
+    ///         identity. It is "shown as stored" that has to undo it.
+    ///     </para>
+    /// </remarks>
+    public UiImageView Drawn =>
+        new(
+            Channels switch {
+                ImageChannels.Red => UiImageChannel.Red,
+                ImageChannels.Green => UiImageChannel.Green,
+                ImageChannels.Blue => UiImageChannel.Blue,
+                ImageChannels.Alpha => UiImageChannel.Alpha,
+                _ => UiImageChannel.All
+            },
+            ColorSpace == ImageColorSpace.Linear
+        );
+
     /// <summary>Raised when <see cref="Channels" /> or <see cref="ColorSpace" /> moved.</summary>
     /// <remarks>
-    ///     ⚠ <b>This is the only way either of those two reaches the picture.</b> See the type's own
-    ///     remarks: the draw list can multiply by a tint and cannot swizzle or apply a transfer
-    ///     function, so a host that wants the toggles to mean something answers this by preparing a
-    ///     different texture and writing <see cref="Image" />. A host that ignores it gets a view
-    ///     whose toggles change nothing, which is at least a state the reader can see.
+    ///     <para>
+    ///         ⚠ <b>This was the only way either of those two reached the picture, and it no longer
+    ///         is</b> — <see href="https://github.com/Rikarin/Vixen/issues/611">#611</see>. The draw
+    ///         command carries a <see cref="UiImageView" /> now, so the control isolates the channel
+    ///         and applies the curve itself and a host that ignores this event gets a working
+    ///         picker rather than a dead one.
+    ///     </para>
+    ///     <para>
+    ///         <b>It is still raised, and it is still worth answering</b>, for the case the shader
+    ///         cannot serve: a host whose pixels are on the CPU can answer by preparing a different
+    ///         texture — a false-colour ramp, a difference against a reference, a channel of an
+    ///         image whose other channels are not even resident. What changed is that answering it
+    ///         is an <i>improvement</i> rather than the difference between a control that works and
+    ///         one that lies.
+    ///     </para>
     /// </remarks>
     public event Action<ImageView>? ViewChanged;
 
@@ -319,7 +360,7 @@ public sealed partial class ImageView : Control {
         }
 
         if (Image != 0) {
-            context.DrawImage(image, Image);
+            context.DrawImage(image, Image, view: Drawn);
         }
 
         Segments(context);

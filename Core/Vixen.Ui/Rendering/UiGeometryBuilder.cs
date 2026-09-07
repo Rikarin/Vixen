@@ -1325,11 +1325,22 @@ public sealed class UiGeometryBuilder {
 
     /// <summary>One textured quad, or the nine a nine-slice cuts it into.</summary>
     /// <remarks>
-    ///     ⚠ <b>No shape entry and no distance field.</b> An image is the one thing the interface
-    ///     draws that is already a picture: there is nothing to round, no border to inset and no
-    ///     coverage to compute, so it is four vertices and the UVs the command asked for. Rounding
-    ///     an image's corners would need the box shader's field and the image shader's sample at
-    ///     once, which is a fourth pipeline and not a fourth branch.
+    ///     <para>
+    ///         ⚠ <b>No shape entry and no distance field.</b> An image is the one thing the interface
+    ///         draws that is already a picture: there is nothing to round, no border to inset and no
+    ///         coverage to compute, so it is four vertices and the UVs the command asked for.
+    ///         Rounding an image's corners would need the box shader's field and the image shader's
+    ///         sample at once, which is a fourth pipeline and not a fourth branch.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is exactly why <see cref="DrawCommand.View" /> rides the <c>shape</c>
+    ///         stream</b> —
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/611">#611</see>. Three of its four
+    ///         components were unread on this path, so a channel isolate and a transfer curve cost
+    ///         no attribute, no stride, no second pipeline and no batch break. The one component
+    ///         that was already spoken for is <c>x</c>, and <see cref="UiImageView.Shape" /> takes it
+    ///         as its argument rather than assuming it.
+    ///     </para>
     /// </remarks>
     void Image(DrawCommand command) {
         if (command.Image == 0) {
@@ -1350,7 +1361,7 @@ public sealed class UiGeometryBuilder {
                 new Vector2(command.Source.X, command.Source.Y),
                 new Vector2(command.Source.X + command.Source.Width, command.Source.Y + command.Source.Height),
                 command.Color,
-                Vector4.Zero
+                command.View.Shape()
             );
 
             return;
@@ -1401,7 +1412,11 @@ public sealed class UiGeometryBuilder {
                 new Vector2(source[cell].Left, source[cell].Top),
                 new Vector2(source[cell].Right, source[cell].Bottom),
                 command.Color,
-                Vector4.Zero
+                // ⚠ The same shape on all nine, not `Vector4.Zero` on eight of them. A nine-slice is
+                // one image the batcher happens to emit as nine quads, so a channel picker that
+                // reached the stretched path and not this one would isolate the middle of a panel
+                // and leave its border in colour.
+                command.View.Shape()
             );
         }
     }

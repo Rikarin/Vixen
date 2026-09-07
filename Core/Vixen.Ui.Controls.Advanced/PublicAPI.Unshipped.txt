@@ -714,6 +714,7 @@ Vixen.Ui.Controls.Advanced.ImageView.ClearShowCheckerboard() -> void
 Vixen.Ui.Controls.Advanced.ImageView.ClearZoom() -> void
 Vixen.Ui.Controls.Advanced.ImageView.ColorSpace.get -> Vixen.Ui.Controls.Advanced.ImageColorSpace
 Vixen.Ui.Controls.Advanced.ImageView.ColorSpace.set -> Vixen.Ui.Controls.Advanced.ImageColorSpace
+Vixen.Ui.Controls.Advanced.ImageView.Drawn.get -> Vixen.Ui.Rendering.UiImageView
 Vixen.Ui.Controls.Advanced.ImageView.Fit() -> bool
 Vixen.Ui.Controls.Advanced.ImageView.Image.get -> ulong
 Vixen.Ui.Controls.Advanced.ImageView.Image.set -> ulong
