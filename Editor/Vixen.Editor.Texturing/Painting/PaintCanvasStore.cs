@@ -152,11 +152,20 @@ sealed class PaintCanvasStore {
             return held;
         }
 
+        // ⚠ Forgotten on *every* miss and before the read, not only on the unstampable one —
+        // https://github.com/Rikarin/Vixen/issues/1001, the sibling of #995 one method along. The
+        // other miss is an entry whose file has been rewritten, and its stamp can never match
+        // again: the file those bytes came from is gone. So a `Forget` on the far side of a read
+        // that throws is a `Forget` that never runs, and the entry stays unservable with its bytes
+        // charged against the budget until something else pushes past it — which for a session that
+        // opens nothing more is never. ⚠ Forgetting the *pinned* entry here is byte accounting and
+        // not a divergence: the surface that pinned it holds the `PaintCanvas` object, and the
+        // object is what `Pin` exists to keep single.
+        Forget(absolute);
+
         if (stamp is null) {
             // Never on disk and nothing open for it: this is a layer whose first stroke has not
             // happened. `Adopt` is how the canvas that stroke creates gets in here.
-            Forget(absolute);
-
             return null;
         }
 
@@ -218,16 +227,14 @@ sealed class PaintCanvasStore {
             return held;
         }
 
-        if (stamp is null) {
-            // ⚠ Forgotten *before* the decode and not after it, for the reason `Open` forgets before
-            // its read — https://github.com/Rikarin/Vixen/issues/995. A file that has gone is the
-            // one case where the decode cannot succeed, so a `Forget` on the far side of it is a
-            // `Forget` that never runs: the entry and its bytes stayed charged against the budget
-            // for the rest of the session while being unservable, and the exception the caller sees
-            // is the same either way. Nothing is held for a file this store cannot stamp, so
-            // whichever way the decode ends there is nothing here to keep.
-            Forget(absolute);
-        }
+        // ⚠ Forgotten *before* the decode and not after it, and on every miss rather than only the
+        // unstampable one — https://github.com/Rikarin/Vixen/issues/995 and, for the other miss,
+        // https://github.com/Rikarin/Vixen/issues/1001. This is the same rule `Open` reads by, said
+        // once for each payload: a `Forget` on the far side of an operation that can
+        // fail is a `Forget` that never runs, and what survives is an entry stamped from a file
+        // that is gone or rewritten — unservable for the rest of the session with its bytes still
+        // charged against the budget. The exception the caller sees is the same either way.
+        Forget(absolute);
 
         var picture = decode(absolute);
 
