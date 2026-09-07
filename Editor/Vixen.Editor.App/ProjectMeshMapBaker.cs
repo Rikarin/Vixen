@@ -204,17 +204,43 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
     ///         the occlusion map instead would call a name free whenever the set under it was baked
     ///         with the ray-casting maps turned off.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two passes, and one pass was the whole of
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/708">#708</a>.</b> A single walk that
+    ///         accepted the first candidate that was free <i>or</i> this model's own takes the free
+    ///         one, because a free stem comes first — so the day the set that displaced this one is
+    ///         renamed or deleted, a re-bake walks back to suffix 1, mints nine fresh GUIDs, and
+    ///         leaves the set every generator resolves through sitting under <c>Cube_2</c> with
+    ///         nothing pointing at it. That is exactly the state this file's own remarks name as the
+    ///         thing to avoid, reached from the other direction. Owning a stem is asked about every
+    ///         candidate before being free is asked about any.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And <paramref name="taken" /> is only what displaces a <i>new</i> set.</b> A
+    ///         re-bake that finds its own suffixed stem was displaced once, long ago; reporting the
+    ///         collision again on every re-bake is a warning an artist learns to skip past, which is
+    ///         how the one that matters gets skipped past too.
+    ///     </para>
     /// </remarks>
     /// <exception cref="IOException">There are already <see cref="Crowd" /> sets under that name.</exception>
     static string SetName(string directory, AssetId model, string mesh, out AssetId taken) {
         taken = AssetId.Empty;
 
-        for (var suffix = 1; suffix <= Crowd; suffix++) {
-            var candidate = suffix == 1 ? mesh : mesh + "_" + suffix.ToString(CultureInfo.InvariantCulture);
-            var owner = OwnerOf(directory, candidate);
+        var owners = new AssetId?[Crowd];
 
-            if (owner is not { } already || already.IsEmpty || already == model) {
-                return candidate;
+        for (var suffix = 1; suffix <= Crowd; suffix++) {
+            var owner = OwnerOf(directory, Candidate(mesh, suffix));
+
+            owners[suffix - 1] = owner;
+
+            if (owner == model) {
+                return Candidate(mesh, suffix);
+            }
+        }
+
+        for (var suffix = 1; suffix <= Crowd; suffix++) {
+            if (owners[suffix - 1] is not { } already || already.IsEmpty) {
+                return Candidate(mesh, suffix);
             }
 
             if (taken.IsEmpty) {
@@ -230,11 +256,28 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
         );
     }
 
+    /// <summary>What the set under a suffix would be called. Suffix 1 is the bare name.</summary>
+    /// <param name="mesh">The mesh's name, already safe for a file name.</param>
+    /// <param name="suffix">Which candidate, from one.</param>
+    /// <returns>The stem.</returns>
+    static string Candidate(string mesh, int suffix) =>
+        suffix == 1 ? mesh : mesh + "_" + suffix.ToString(CultureInfo.InvariantCulture);
+
     /// <summary>How many differently-owned sets may share one mesh name before the bake refuses.</summary>
     /// <remarks>
-    ///     Absurd rather than tuned — a hundred models whose meshes are all called <c>Cube</c> is a
-    ///     project with a naming problem the editor cannot fix — and it is a bound on a loop that
-    ///     opens a file per turn rather than a judgement about what is reasonable.
+    ///     <para>
+    ///         Absurd rather than tuned — a hundred models whose meshes are all called <c>Cube</c> is a
+    ///         project with a naming problem the editor cannot fix — and it is a bound on a loop that
+    ///         opens a file per turn rather than a judgement about what is reasonable.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Since <see cref="SetName" /> takes two passes it is a hundred sidecar lookups on
+    ///         every bake rather than one</b>, and that is affordable for a reason worth writing down:
+    ///         all but the first few are <c>File.Exists</c> against a name nothing is under, and the
+    ///         call they sit in front of casts several hundred rays per texel of an atlas. Ordering
+    ///         the search cheaply instead — stopping the ownership pass at the first free stem — is
+    ///         precisely the defect, because a free stem is what a deleted neighbour leaves behind.
+    ///     </para>
     /// </remarks>
     const int Crowd = 100;
 

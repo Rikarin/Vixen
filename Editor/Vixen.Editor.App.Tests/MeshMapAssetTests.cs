@@ -228,6 +228,61 @@ public sealed class MeshMapAssetTests : IDisposable {
 
         Assert.Equal(crate.Files, again.Files);
         Assert.Equal(crate.Maps, again.Maps);
+
+        // ⚠ And says nothing about a collision, which is the assertion this test used to omit. The
+        // displacement happened once; repeating the message on every re-bake teaches an artist that
+        // the bake's warnings are noise, which is how the one that matters gets skipped over.
+        Assert.False(Renamed(again), "a re-bake of a displaced set was reported as a fresh collision.");
+    }
+
+    /// <summary>A re-bake finds the model's own set even when the stem it was displaced from is free.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The orphaning route <see cref="Two_models_with_one_mesh_name_do_not_overwrite_each_other" />
+    ///         cannot reach</b> — <a href="https://github.com/Rikarin/Vixen/issues/708">#708</a>. The
+    ///         name search took the first candidate that was free <i>or</i> the model's own, and the
+    ///         free one comes first: so the moment the set that displaced this one is gone, a re-bake
+    ///         walks back to suffix 1, writes nine fresh files with nine fresh GUIDs, and leaves the
+    ///         set every generator is bound to sitting under <c>Cube_2</c> with nothing pointing at it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A rename is the ordinary way to get here, not a deletion.</b>
+    ///         <c>Editor/Vixen.Editor.Assets/README.md</c> says a baked map may be renamed — the
+    ///         sidecar's usage is what binds, not the file name — and the owner lookup keys off a file
+    ///         called <c>Cube_normal.png</c> being there. So the documented-safe operation on one
+    ///         model's set silently moved another model's.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_re_bake_keeps_its_own_set_when_the_stem_it_was_displaced_from_falls_free() {
+        var project = Project();
+        var baker = new ProjectMeshMapBaker(project);
+        var folder = Path.Combine(project.Paths.Assets, MeshMapNaming.DefaultFolder);
+
+        baker.Bake(Barrel, "Cube", Sheet(), Sheet(), Settings());
+
+        var crate = baker.Bake(Crate, "Cube", Sheet(), Sheet(), Settings());
+
+        Assert.NotEqual("Cube", crate.Mesh);
+
+        // The first model's maps are renamed — which the module's README says is safe — so nothing
+        // called `Cube_normal.png` is in the folder any more.
+        foreach (var file in Directory.GetFiles(folder, "Cube_*")) {
+            var name = Path.GetFileName(file);
+
+            if (name.StartsWith(crate.Mesh + "_", StringComparison.Ordinal)) {
+                continue;
+            }
+
+            File.Move(file, Path.Combine(folder, "Archived_" + name));
+        }
+
+        var again = baker.Bake(Crate, "Cube", Sheet(), Sheet(), Settings());
+
+        // ⚠ The GUIDs are the assertion, not the name: a set under a fresh id is a set every
+        // generator has stopped reading, and that is the loss the file names alone do not show.
+        Assert.Equal(crate.Mesh, again.Mesh);
+        Assert.Equal(crate.Maps, again.Maps);
     }
 
     /// <summary>A mesh named by a person cannot escape the folder it is baked into.</summary>
