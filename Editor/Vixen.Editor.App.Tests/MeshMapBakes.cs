@@ -42,6 +42,7 @@ static class MeshMapBakes {
     /// <param name="source">The high-resolution surface.</param>
     /// <param name="target">The mesh with the atlas the maps land in.</param>
     /// <param name="settings">The size, the gutter, the search radius and which maps to measure.</param>
+    /// <param name="force">Overwrite maps somebody has painted over.</param>
     /// <returns>What each usage became, and what the bake could not do.</returns>
     public static MeshMapSet Bake(
         this IMeshMapBaker baker,
@@ -49,12 +50,13 @@ static class MeshMapBakes {
         string mesh,
         EditMesh source,
         EditMesh target,
-        BakeSettings settings
+        BakeSettings settings,
+        bool force = false
     ) {
         ArgumentNullException.ThrowIfNull(baker);
 
         var maps = MapBaker.Bake(source, target, settings);
 
-        return baker.Write(model, mesh, MeshMapBake.Encode(maps), maps.Warnings);
+        return baker.Write(model, mesh, MeshMapBake.Encode(maps), maps.Warnings, force);
     }
 }

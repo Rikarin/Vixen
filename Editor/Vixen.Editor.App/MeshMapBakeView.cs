@@ -81,6 +81,25 @@ sealed class MeshMapBakeSettings {
     /// <summary>Which of § D12's seven to measure. The normal and the displacement are not optional.</summary>
     public Measurements Maps { get; set; } = Measurements.All;
 
+    /// <summary>Whether a bake may replace a map somebody has painted over.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Off, and it has to open off every time somebody looks at the panel</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/716">#716</a>. It is the one field
+    ///         here whose wrong value destroys work rather than wasting minutes, so it is the one
+    ///         field <see cref="MeshMapBakeOptions" />'s persistence deliberately does not carry: a
+    ///         checkbox somebody ticked once for a good reason, remembered across a restart, is the
+    ///         guard silently turned off for every later bake.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is a setting rather than a prompt because the bake's two halves are minutes
+    ///         apart.</b> The refusal happens on the frame thread after the casting has finished; a
+    ///         dialog there would ask the question at the end of a bake somebody started and walked
+    ///         away from, which is the one moment nobody is looking.
+    ///     </para>
+    /// </remarks>
+    public bool Overwrite { get; set; }
+
     /// <summary>The seven a person can turn off, in the order § D12's table lists them.</summary>
     public static IReadOnlyList<MeshMapUsage> Optional { get; } = [
         MeshMapUsage.AmbientOcclusion,

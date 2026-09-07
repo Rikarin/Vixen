@@ -1721,7 +1721,15 @@ sealed partial class EditorApplication {
             // ⚠ The model's own asset id goes with the name, and it is what keys the set rather
             // than decorating it. The name is whatever the artist called the object in Blender,
             // which is `Cube` in every file nobody renamed — see `MeshMapNaming.ModelKey`.
-            content.BakeMeshMaps(meshMaps, entry.Guid, name, kernel, kernel, meshMapBake.ToBake());
+            content.BakeMeshMaps(
+                meshMaps,
+                entry.Guid,
+                name,
+                kernel,
+                kernel,
+                meshMapBake.ToBake(),
+                meshMapBake.Overwrite
+            );
         } catch (Exception failure) when (failure
             is IOException
             or UnauthorizedAccessException

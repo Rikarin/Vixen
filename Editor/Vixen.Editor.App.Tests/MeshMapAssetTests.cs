@@ -285,6 +285,81 @@ public sealed class MeshMapAssetTests : IDisposable {
         Assert.Equal(crate.Maps, again.Maps);
     }
 
+    /// <summary>A map somebody has painted over is refused rather than replaced.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The case § D12's own argument creates</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/716">#716</a>. These are ordinary files
+    ///         precisely so that an artist can open the curvature map and paint out a seam artefact,
+    ///         and a bake that then replaces it silently is that argument turned against itself. § D4
+    ///         requires the refusal for the material bake; nine PNGs landing in <c>Assets/</c> under
+    ///         the same argument had no equivalent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The bytes on disk are the assertion, not the exception.</b> A refusal that has
+    ///         already overwritten four of the nine files is not a refusal, and it is the shape this
+    ///         would take if the check were made per file as the writes went.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_map_somebody_painted_over_is_refused_rather_than_replaced() {
+        var project = Project();
+        var baker = new ProjectMeshMapBaker(project);
+        var set = baker.Bake(Barrel, "Barrel", Sheet(), Sheet(), Settings());
+
+        var painted = set.Files.Single(file => file.EndsWith("_curvature.png", StringComparison.Ordinal));
+        var normal = set.Files.Single(file => file.EndsWith("_normal.png", StringComparison.Ordinal));
+        var strokes = new byte[] { 1, 2, 3, 4 };
+        var before = File.ReadAllBytes(normal);
+
+        File.WriteAllBytes(painted, strokes);
+
+        var refusal = Assert.Throws<IOException>(
+            () => baker.Bake(Barrel, "Barrel", Sheet(), Sheet(), Settings() with { OcclusionSamples = 8 })
+        );
+
+        Assert.Contains("curvature", refusal.Message, StringComparison.Ordinal);
+
+        // Nothing was written: not the file that was painted on, and not the eight beside it.
+        Assert.Equal(strokes, File.ReadAllBytes(painted));
+        Assert.Equal(before, File.ReadAllBytes(normal));
+
+        // ⚠ And forcing gets past it, with the loss carried in the set's warnings rather than nowhere.
+        // A guard whose only outcome is a refusal is a guard an artist works around by deleting files.
+        var forced = baker.Bake(Barrel, "Barrel", Sheet(), Sheet(), Settings() with { OcclusionSamples = 8 }, force: true);
+
+        Assert.NotEqual(strokes, File.ReadAllBytes(painted));
+        Assert.Contains(forced.Warnings, warning => warning.Contains("curvature", StringComparison.Ordinal));
+        Assert.Equal(set.Maps, forced.Maps);
+    }
+
+    /// <summary>A re-bake of maps nobody has touched is not refused, and neither is a first bake.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half that says the guard can be quiet</b>, and the reason it is a separate test
+    ///     rather than a line in the one above. A digest check that reported every file as painted —
+    ///     because it hashed the bytes about to be written rather than the bytes the last bake wrote,
+    ///     which is the easy way round to get it — would pass every assertion of the refusal test and
+    ///     make the bake unusable. <c>MaterialProvenance</c>'s own remarks record that exact defect
+    ///     shipping once, on the material side, as #723's second half.
+    /// </remarks>
+    [Fact]
+    public void An_untouched_set_is_re_baked_without_a_word_about_painting() {
+        var project = Project();
+        var baker = new ProjectMeshMapBaker(project);
+
+        baker.Bake(Barrel, "Barrel", Sheet(), Sheet(), Settings());
+
+        var again = baker.Bake(Barrel, "Barrel", Sheet(), Sheet(), Settings() with { OcclusionSamples = 8 });
+
+        Assert.DoesNotContain(again.Warnings, warning => warning.Contains("painted", StringComparison.Ordinal));
+
+        // And the digest moved with the pixels, or the *next* re-bake would call this one's own output
+        // somebody's work.
+        var third = baker.Bake(Barrel, "Barrel", Sheet(), Sheet(), Settings() with { OcclusionSamples = 16 });
+
+        Assert.DoesNotContain(third.Warnings, warning => warning.Contains("painted", StringComparison.Ordinal));
+    }
+
     /// <summary>A mesh named by a person cannot escape the folder it is baked into.</summary>
     /// <remarks>
     ///     <para>
@@ -432,15 +507,12 @@ public sealed class MeshMapAssetTests : IDisposable {
         public bool Wrote { get; private set; }
 
         /// <inheritdoc />
-        public MeshMapSet Bake(AssetId model, string mesh, EditMesh source, EditMesh target, BakeSettings settings) =>
-            throw new NotSupportedException("ContentTasks bakes and writes in two halves; it never calls this.");
-
-        /// <inheritdoc />
         public MeshMapSet Write(
             AssetId model,
             string mesh,
             IReadOnlyList<MeshMapImage> images,
-            IReadOnlyList<string> warnings
+            IReadOnlyList<string> warnings,
+            bool force = false
         ) {
             BusyDuringWrite = Busy?.Invoke();
             Wrote = true;

@@ -57,14 +57,20 @@ the one you get is whichever you used last.
 `MeshMaps` at all. They fall out of the one ray the bake already casts, so a set is always at least
 those two. The panel's own count says nine, not seven.
 
-⚠ **Cancel does not stop the casting.** `MapBaker.Bake` takes no cancellation token and reports no
-progress — it is one call that returns when every texel is done — so the task centre's Cancel is read
-either side of it and nowhere inside. Pressing it during a 4K bake means the maps are not written,
-not that the machine stops.
+⚠ **Cancel stops the casting, and the bar is a fraction of it.** `MapBaker.Bake`'s five-argument
+overload takes a cancellation token, checked once per texel row, and a callback told what fraction of
+the rows have been cast; `ContentTasks.BakeMeshMaps` passes both. The row is the granularity because
+per texel is a branch inside the hemisphere loop and per chart triangle is not a bound at all — one
+quad can cover the whole atlas. ⚠ **The three-argument overload still cannot be stopped**, so anything
+with a Cancel button wants the other one.
 
-⚠ **The settings are the editor's and are not persisted.** They are a field on the application rather
-than a `[DataContract]` under `ProjectSettings/`, so a resolution somebody raised is back at 1024 next
-session.
+⚠ **A map you have painted on is not overwritten.** Each sidecar records `meshMap.digest` over the
+bytes the bake wrote, and a re-bake that finds a file disagreeing with its digest refuses and names
+the maps — because the usual reason for the mismatch is that somebody opened the curvature map and
+fixed a seam by hand. **Overwrite painted maps**, beside the Bake button, is how you say you meant it;
+the loss is then carried in the set's warnings rather than nowhere. A set baked before the key existed
+records no digest and is overwritten, which is deliberate: a guard that fires on every project is a
+guard people turn off.
 
 ### The naming, which is the part M8 depends on
 
@@ -97,6 +103,7 @@ extensions:
   meshMap.mesh: Barrel
   meshMap.model: 7c41a0d29e5b4f1783ac6d0e2b9f5541
   meshMap.scale: 0.42
+  meshMap.digest: sha256:9f2c…
 ```
 
 A rename changes the file name and does not change what the map measures, which is doc 08's whole
@@ -118,6 +125,13 @@ it before it reaches a file:
 
 A set written before `meshMap.model` existed records no model, and the next keyed bake of that name
 adopts it rather than landing beside it.
+
+⚠ **The set a model owns is looked for before a free name is taken.** Suffix 1 is the first *free*
+candidate and a free candidate is what a deleted or renamed neighbour leaves behind — so a bake that
+took it would walk `Cube_2`'s owner back to `Cube`, mint nine fresh GUIDs, and orphan the set every
+generator was bound to. Owning a stem is asked about every candidate before freedom is asked about
+any, and the collision warning is only reported when a *new* set is displaced, not on every re-bake of
+an already-displaced one.
 
 ### Reading one back — the resolver
 

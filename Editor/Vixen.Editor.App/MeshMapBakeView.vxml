@@ -70,6 +70,8 @@
 </meshbake-maps>
 
 <meshbake-actions>
+    <CheckBox ref="@Overwrite" Label="Overwrite painted maps" />
+
     <meshbake-spacer />
 
     <Button ref="@BakeButton" Size="Small" Variant="Primary" Label="Bake" on:click="@(() => BakeRequested?.Invoke(this))" />
@@ -135,6 +137,15 @@
     /// <inheritdoc cref="Occlusion" />
     public CheckBox Identifiers { get; private set; } = null!;
 
+    /// <summary>Whether the bake may replace a map somebody has painted over.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside the button rather than up in the form, because it is not a bake parameter.</b>
+    ///     Every field above says what to measure; this one says what to do about work already on
+    ///     disk, and putting it among the resolutions is how it gets ticked by somebody adjusting the
+    ///     ray count.
+    /// </remarks>
+    public CheckBox Overwrite { get; private set; } = null!;
+
     /// <summary>Runs a bake with what is on the panel.</summary>
     public Button BakeButton { get; private set; } = null!;
 
@@ -185,6 +196,7 @@
             PositionMap.IsChecked = value.Wants(MeshMapUsage.Position);
             WorldNormal.IsChecked = value.Wants(MeshMapUsage.WorldNormal);
             Identifiers.IsChecked = value.Wants(MeshMapUsage.Id);
+            Overwrite.IsChecked = value.Overwrite;
         } finally {
             loading = false;
         }
@@ -252,6 +264,13 @@
         PositionMap.CheckedChanged += (_, on) => Toggled(MeshMapUsage.Position, on);
         WorldNormal.CheckedChanged += (_, on) => Toggled(MeshMapUsage.WorldNormal, on);
         Identifiers.CheckedChanged += (_, on) => Toggled(MeshMapUsage.Id, on);
+
+        Overwrite.CheckedChanged += (_, on) => {
+            if (!loading && settings is { } current) {
+                current.Overwrite = on;
+                Restate();
+            }
+        };
 
         Results.AddColumn("Map", item => Row(item).Map).Width = 130f;
         Results.AddColumn("File", item => Row(item).File).Width = 260f;

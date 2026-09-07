@@ -323,6 +323,7 @@ required Vixen.Geometry.Remeshing.SkinBinding.Influences.init -> System.Collecti
 required Vixen.Geometry.Remeshing.SkinBinding.Stride.get -> int
 required Vixen.Geometry.Remeshing.SkinBinding.Stride.init -> int
 static Vixen.Geometry.Remeshing.AttributeTransfer.Transfer(Vixen.Geometry.EditMesh source, Vixen.Geometry.Remeshing.SourceAttributes attributes, Vixen.Geometry.EditMesh target, Vixen.Geometry.Remeshing.TransferSettings settings) -> Vixen.Geometry.Remeshing.TransferResult
+static Vixen.Geometry.Remeshing.MapBaker.Bake(Vixen.Geometry.EditMesh source, Vixen.Geometry.EditMesh target, Vixen.Geometry.Remeshing.BakeSettings settings, System.Action<float>? progress, System.Threading.CancellationToken cancellationToken) -> Vixen.Geometry.Remeshing.BakedMaps
 static Vixen.Geometry.Remeshing.MapBaker.Bake(Vixen.Geometry.EditMesh source, Vixen.Geometry.EditMesh target, Vixen.Geometry.Remeshing.BakeSettings settings) -> Vixen.Geometry.Remeshing.BakedMaps
 static Vixen.Geometry.Remeshing.MapBaker.IdColour(int id) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Geometry.Remeshing.RemeshDump.Capture(Vixen.Geometry.EditMesh source, Vixen.Geometry.Remeshing.RemeshSettings settings, Vixen.Core.Threading.JobScheduler? scheduler = null) -> Vixen.Geometry.Remeshing.RemeshDump

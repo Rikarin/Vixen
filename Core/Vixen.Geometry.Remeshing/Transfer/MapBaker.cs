@@ -304,7 +304,63 @@ public static class MapBaker {
     /// <exception cref="ArgumentNullException">Any argument is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">The resolution is not positive, or the gutter is negative.</exception>
     /// <exception cref="ArgumentException">The target has no texture-coordinate layer to bake into.</exception>
-    public static BakedMaps Bake(EditMesh source, EditMesh target, BakeSettings settings) {
+    /// <remarks>
+    ///     ⚠ <b>This overload cannot be stopped and says nothing while it runs</b>, which for a 4K
+    ///     atlas at several hundred rays a texel is minutes. Anything with a Cancel button wants the
+    ///     one below it.
+    /// </remarks>
+    public static BakedMaps Bake(EditMesh source, EditMesh target, BakeSettings settings) =>
+        Bake(source, target, settings, progress: null, CancellationToken.None);
+
+    /// <summary>Bakes a normal and a displacement map, reporting progress and stopping when asked.</summary>
+    /// <param name="source">The high-resolution surface. Read, never modified.</param>
+    /// <param name="target">The remeshed output. Must carry texture coordinates.</param>
+    /// <param name="settings">The size, the gutter and the search radius.</param>
+    /// <param name="progress">Told what fraction of the casting is done, or null.</param>
+    /// <param name="cancellationToken">Checked once per texel row of every chart triangle.</param>
+    /// <returns>The pixels, and what was measured about them.</returns>
+    /// <exception cref="ArgumentNullException">Any argument but <paramref name="progress" /> is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The resolution is not positive, or the gutter is negative.</exception>
+    /// <exception cref="ArgumentException">The target has no texture-coordinate layer to bake into.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken" /> was signalled.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The casting is the whole of the cost and it was one uninterruptible call</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/700">#700</a>. An editor Cancel that
+    ///         is read on either side of a call it cannot enter is a button that does nothing for the
+    ///         whole of the minutes somebody presses it in, which is worse than no button: it teaches
+    ///         that the task centre's controls are decorative.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A texel <i>row</i> is the granularity, and neither of its neighbours would
+    ///         do.</b> Per texel is a branch inside the hemisphere loop, which is the one place in this
+    ///         file where a predictable branch is worth avoiding; per chart triangle is not a bound at
+    ///         all, because a single quad can cover the whole atlas and is the ordinary case for the
+    ///         planes these bakes are tested on. A row is a check every few thousand rays, which
+    ///         cancels within a frame at any resolution and costs nothing measurable.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><paramref name="progress" /> is a fraction of rows, counted before the first ray is
+    ///         cast, and not a fraction of triangles.</b> Chart triangles differ in atlas area by
+    ///         orders of magnitude — that is what a packer is for — so a bar driven by how many of them
+    ///         are done sits still and then jumps, which is a bar that reports the loop's shape rather
+    ///         than the work. The pre-pass that counts the rows walks the same triangles and casts
+    ///         nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The dilation is deliberately outside the reported fraction and cannot be
+    ///         cancelled.</b> It is a fixed number of passes over the atlas with no rays in it, so it
+    ///         is the part a caller is never waiting on — and a half-dilated buffer handed back as a
+    ///         finished bake is a set of maps whose gutters lie.
+    ///     </para>
+    /// </remarks>
+    public static BakedMaps Bake(
+        EditMesh source,
+        EditMesh target,
+        BakeSettings settings,
+        Action<float>? progress,
+        CancellationToken cancellationToken
+    ) {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(settings);
@@ -348,6 +404,7 @@ public static class MapBaker {
         // mesh and a million texels asking it the same question is the shape of bug § D12's "the
         // expensive half is already built" is about — the tree is built once for the same reason.
         var curvature = settings.Maps.HasFlag(MeshMaps.Curvature) ? MeanCurvature.Build(surface) : null;
+        var cast = new Casting(progress, Rows(target, resolution), cancellationToken);
 
         for (var face = 0; face < target.FaceCount; face++) {
             var entry = target.Faces[face];
@@ -366,9 +423,11 @@ public static class MapBaker {
                     shaded[at] = shading[slots[at]];
                 }
 
-                Rasterize(surface, settings, uv, points, shaded, radius, curvature, buffers);
+                Rasterize(surface, settings, uv, points, shaded, radius, curvature, buffers, cast);
             }
         }
+
+        cast.Done();
 
         var dilated = Dilate(settings, buffers);
 
@@ -467,6 +526,127 @@ public static class MapBaker {
         };
     }
 
+    /// <summary>The texels a chart triangle could touch, or null where it lies off the atlas.</summary>
+    /// <param name="uv">The triangle's three atlas coordinates.</param>
+    /// <param name="resolution">The atlas's edge length in texels.</param>
+    /// <returns>The inclusive texel bounds.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Floor and ceiling rather than a round, and then one texel of slack on each side.</b> A
+    ///     triangle that ends at x = 4.0 exactly still touches the <i>edge</i> of texel 3, and
+    ///     conservative coverage counts a shared edge — the separating-axis test is what decides, so
+    ///     the bounds only have to be generous enough not to exclude a candidate it would have
+    ///     accepted.
+    /// </remarks>
+    static (int X0, int Y0, int X1, int Y1)? Box(Vector2[] uv, int resolution) {
+        var minimum = Vector2.Min(uv[0], Vector2.Min(uv[1], uv[2])) * resolution;
+        var maximum = Vector2.Max(uv[0], Vector2.Max(uv[1], uv[2])) * resolution;
+
+        if (maximum.X < 0f || maximum.Y < 0f || minimum.X > resolution || minimum.Y > resolution) {
+            return null;
+        }
+
+        return (
+            Math.Clamp((int) MathF.Floor(minimum.X) - 1, 0, resolution - 1),
+            Math.Clamp((int) MathF.Floor(minimum.Y) - 1, 0, resolution - 1),
+            Math.Clamp((int) MathF.Ceiling(maximum.X) + 1, 0, resolution - 1),
+            Math.Clamp((int) MathF.Ceiling(maximum.Y) + 1, 0, resolution - 1)
+        );
+    }
+
+    /// <summary>How many texel rows the whole casting pass will walk.</summary>
+    /// <param name="target">The mesh with the atlas.</param>
+    /// <param name="resolution">The atlas's edge length in texels.</param>
+    /// <returns>The sum of every chart triangle's row count.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The same walk the bake does, with <see cref="Box" /> and nothing else in it.</b> It
+    ///     exists so that a fraction can be reported at all: progress needs its denominator before the
+    ///     first ray, and the alternative — counting triangles — is a bar that reports the loop's
+    ///     shape rather than the work, because chart areas differ by orders of magnitude.
+    /// </remarks>
+    static long Rows(EditMesh target, int resolution) {
+        var rows = 0L;
+        var uv = new Vector2[3];
+
+        for (var face = 0; face < target.FaceCount; face++) {
+            var entry = target.Faces[face];
+            var loop = target.CornersOf(face);
+
+            for (var corner = 1; corner + 1 < loop.Length; corner++) {
+                uv[0] = target.TexCoords[entry.Start];
+                uv[1] = target.TexCoords[entry.Start + corner];
+                uv[2] = target.TexCoords[entry.Start + corner + 1];
+
+                if (Box(uv, resolution) is { } box) {
+                    rows += box.Y1 - box.Y0 + 1;
+                }
+            }
+        }
+
+        return rows;
+    }
+
+    /// <summary>How far through the casting the bake is, and whether it may go on.</summary>
+    /// <param name="progress">Told the fraction, or null.</param>
+    /// <param name="rows">How many texel rows the whole pass will walk.</param>
+    /// <param name="cancellationToken">What stops it.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Reported on a step rather than on every row.</b> A 4K bake walks millions of
+    ///         rows and a bar is two hundred pixels wide, so all but one report in every few thousand
+    ///         is a callback nobody could see the effect of. The step is about the width of a pixel
+    ///         of it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An <see cref="Action{T}" /> rather than an <see cref="IProgress{T}" />, which is
+    ///         the opposite of the usual advice and is right here.</b> <c>Progress&lt;T&gt;</c>
+    ///         captures a synchronisation context at construction and <i>posts</i> to it — so the
+    ///         reports arrive out of band, possibly out of order, and possibly after the bake has
+    ///         returned. This callback is invoked synchronously on the thread doing the casting, which
+    ///         is what every other progress callback in this repository does (<c>ContentPipeline</c>'s
+    ///         is an <c>Action</c> for the same reason) and what a caller reading a counter needs.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not thread-safe, deliberately.</b> The casting loop is single-threaded and this
+    ///         holds its counters; making it safe would be an interlocked increment on the hottest
+    ///         path in the file for a property nothing has asked for.
+    ///     </para>
+    /// </remarks>
+    sealed class Casting(Action<float>? progress, long rows, CancellationToken cancellationToken) {
+        long done;
+        float said = -1f;
+
+        /// <summary>Counts a texel row, and stops the bake if it has been cancelled.</summary>
+        /// <exception cref="OperationCanceledException">The bake was cancelled.</exception>
+        public void Row() {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            done++;
+
+            if (progress is null || rows <= 0) {
+                return;
+            }
+
+            var fraction = MathF.Min((float) ((double) done / rows), 1f);
+
+            if (fraction - said < Step) {
+                return;
+            }
+
+            said = fraction;
+            progress(fraction);
+        }
+
+        /// <summary>Says the casting is over, whatever the last step reported.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Because the step means the last row usually reports nothing.</b> A bar that stops
+        ///     at 0.996 and waits for the dilation is a bar somebody reads as a hang.
+        /// </remarks>
+        public void Done() => progress?.Invoke(1f);
+
+        /// <summary>How much the fraction must move before it is worth saying again.</summary>
+        const float Step = 0.005f;
+    }
+
     /// <summary>Rasterizes one chart triangle conservatively and bakes every texel it touches.</summary>
     static void Rasterize(
         SourceSurface surface,
@@ -476,26 +656,16 @@ public static class MapBaker {
         Vector3[] shaded,
         float radius,
         float[]? curvature,
-        BakeBuffers buffers
+        BakeBuffers buffers,
+        Casting cast
     ) {
         var resolution = settings.Resolution;
 
-        var minimum = Vector2.Min(uv[0], Vector2.Min(uv[1], uv[2])) * resolution;
-        var maximum = Vector2.Max(uv[0], Vector2.Max(uv[1], uv[2])) * resolution;
-
-        // ⚠ Floor and ceiling rather than a round, and then one texel of slack on each side. A
-        // triangle that ends at x = 4.0 exactly still touches the *edge* of texel 3, and conservative
-        // coverage counts a shared edge — the separating-axis test is what decides, so the bounds
-        // only have to be generous enough not to exclude a candidate it would have accepted.
-        var x0 = Math.Clamp((int) MathF.Floor(minimum.X) - 1, 0, resolution - 1);
-        var y0 = Math.Clamp((int) MathF.Floor(minimum.Y) - 1, 0, resolution - 1);
-        var x1 = Math.Clamp((int) MathF.Ceiling(maximum.X) + 1, 0, resolution - 1);
-        var y1 = Math.Clamp((int) MathF.Ceiling(maximum.Y) + 1, 0, resolution - 1);
-
-        if (maximum.X < 0f || maximum.Y < 0f || minimum.X > resolution || minimum.Y > resolution) {
+        if (Box(uv, resolution) is not { } bounds) {
             return;
         }
 
+        var (x0, y0, x1, y1) = bounds;
         var scaled = new Vector2[3];
 
         for (var at = 0; at < 3; at++) {
@@ -505,6 +675,11 @@ public static class MapBaker {
         var frame = Frame(uv, points);
 
         for (var y = y0; y <= y1; y++) {
+            // ⚠ Before the row rather than after it, so that a bake cancelled at the very first row
+            // has cast nothing. After would make the first row unconditional, which at 4K with a
+            // chart spanning the atlas is several million rays a Cancel cannot reach.
+            cast.Row();
+
             for (var x = x0; x <= x1; x++) {
                 var index = (y * resolution) + x;
 

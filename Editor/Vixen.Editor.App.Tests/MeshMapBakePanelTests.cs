@@ -63,6 +63,14 @@ public sealed class MeshMapBakePanelTests {
         Assert.Equal(9, bake.Gutter);
         Assert.Equal(0.2f, bake.SearchRadius, 0.001f);
         Assert.False(bake.Maps.HasFlag(Vixen.Geometry.Remeshing.MeshMaps.Id));
+
+        // ⚠ The one control that is not a bake parameter, and the one whose wrong value destroys
+        // work — see #716. It travels the same seam, so it is asserted on the same object.
+        Assert.False(settings.Overwrite);
+
+        view.Overwrite.IsChecked = true;
+
+        Assert.True(settings.Overwrite);
     }
 
     /// <summary>Opening the panel shows the settings rather than rewriting them.</summary>
