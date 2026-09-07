@@ -28,6 +28,27 @@ namespace Tests;
 ///         is why the first test here is the one that would have caught it.
 ///     </para>
 ///     <para>
+///         ⚠ <b>"Covers the grid" was two uniforms counted as one, and the one that was uncovered is
+///         <c>gridY</c>.</b> Sixteen of the seventeen <c>TileSampler</c> fixtures in this assembly
+///         pass <c>gridX</c> and <c>gridY</c> the <em>same</em> number, where a kernel confusing its
+///         two axes draws the bit-identical picture and the coverage closed form — a total — cannot
+///         see an axis at all. The seventeenth is
+///         <see cref="An_instance_overhanging_the_border_reads_the_map_where_its_twin_is" />, whose
+///         2×1 grid catches a transposition <em>incidentally</em>, as a side effect of a fixture
+///         about the map wrap.
+///     </para>
+///     <para>
+///         ⚠ <b>Measured, not assumed: a kernel that reads <c>gridX</c> for both axes and never
+///         reads <c>gridY</c> at all leaves every one of those seventeen green.</b> The 2×1 fixture
+///         becomes a 2×2 one and its overhang property still holds, so the uniform could have been
+///         deleted from the shader without a single assertion moving.
+///         <see cref="A_grid_lays_its_cells_along_the_axis_that_names_them" /> is the rectangle that
+///         names each axis on its own — and the lesson is the derivation: the list of unasserted
+///         uniforms has to be read off the call sites, because
+///         <a href="https://github.com/Rikarin/Vixen/issues/709">#709</a>'s own list did not hold
+///         this one.
+///     </para>
+///     <para>
 ///         <b>Closed forms and not pictures</b>, doc 48 § D3 and the file above's own method. Under
 ///         <c>add</c> the mean of the result is the instance count times the area of one instance
 ///         times the pattern's mean, so every modulation that multiplies a size or a colour has an
@@ -832,6 +853,131 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
         );
     }
 
+    /// <summary>⚠ Eight cells across and one down is eight bands across, and one band down.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The two grid uniforms, separated.</b> Sixteen of the other seventeen fixtures give
+    ///         <c>gridX</c> and <c>gridY</c> the same value, and on a square grid a kernel that read
+    ///         the two the wrong way round draws the identical picture — so the coverage closed form,
+    ///         the accumulation modes, the jitters and the maps were all measured through an
+    ///         arrangement in which the defect does not exist. ⚠ Against a kernel that reads
+    ///         <c>gridX</c> for <em>both</em> axes and never reads <c>gridY</c>, all seventeen stay
+    ///         green and only this one goes red.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And no total can see it either</b>, which is why the means are asserted
+    ///         <em>equal</em> here rather than each against a number. A scale is a fraction of its own
+    ///         cell and the cells tile the image, so an 8×1 grid at half scale and a 1×8 grid at half
+    ///         scale both cover exactly a quarter — the coverage oracle this file is otherwise written
+    ///         against is precisely the instrument that cannot distinguish them. The picture has to be
+    ///         read as a <em>shape</em>, and that equality is the sentence saying so.
+    ///     </para>
+    ///     <para>
+    ///         <b>The shape is exact rather than statistical.</b> With no jitter an instance sits at
+    ///         its cell's centre and covers the middle half of it in each axis, so an 8×1 grid lights
+    ///         texels <c>8i+2 … 8i+5</c> in <c>x</c> — eight runs of four — and rows 16 … 47 in
+    ///         <c>y</c>, which is one run of thirty-two. The 1×8 grid is that transposed. Both counts
+    ///         are asserted for both bakes: a kernel that used <c>gridX</c> for both axes passes the
+    ///         first bake and fails the second, and one that ignored the grid entirely fails both.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_grid_lays_its_cells_along_the_axis_that_names_them() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var wide = Placed(
+            device,
+            TexturePlacement.TileSampler(
+                1,
+                0,
+                gridX: 8,
+                gridY: 1,
+                scale: 0.5f,
+                accumulation: TexturePlacementAccumulation.Add
+            )
+        );
+
+        var tall = Placed(
+            device,
+            TexturePlacement.TileSampler(
+                1,
+                0,
+                gridX: 1,
+                gridY: 8,
+                scale: 0.5f,
+                accumulation: TexturePlacementAccumulation.Add
+            )
+        );
+
+        var (wideAcross, wideDown) = Bands(wide);
+        var (tallAcross, tallDown) = Bands(tall);
+        var wideMean = Mean(wide, 0);
+        var tallMean = Mean(tall, 0);
+
+        output.WriteLine($"8×1: {wideAcross} bands across, {wideDown} down, mean {wideMean:0.0000}");
+        output.WriteLine($"1×8: {tallAcross} bands across, {tallDown} down, mean {tallMean:0.0000}");
+
+        // The instrument, stated as an assertion: the two bakes cover the same fraction of the image,
+        // so every closed form in this file is satisfied by both and the shape below is the only
+        // thing that separates them.
+        Assert.True(
+            Math.Abs(wideMean - tallMean) <= 0.01f,
+            $"an 8×1 grid covers {wideMean:0.0000} and a 1×8 grid {tallMean:0.0000}: if a total can tell them "
+            + $"apart then this test is measuring something other than the axes "
+            + $"({TextureKernelHarness.Adapter(device)})"
+        );
+
+        Assert.True(
+            wideAcross == 8 && wideDown == 1,
+            $"an 8×1 grid drew {wideAcross} bands across and {wideDown} down, and eight cells across is eight "
+            + $"bands across ({TextureKernelHarness.Adapter(device)})"
+        );
+
+        Assert.True(
+            tallAcross == 1 && tallDown == 8,
+            $"a 1×8 grid drew {tallAcross} bands across and {tallDown} down, so the kernel does not tell its two "
+            + $"grid axes apart ({TextureKernelHarness.Adapter(device)})"
+        );
+    }
+
+    /// <summary>How many runs of lit columns and of lit rows a picture holds.</summary>
+    /// <param name="picture">The bake.</param>
+    /// <returns>The bands across and the bands down.</returns>
+    /// <remarks>
+    ///     A column is lit when any texel in it is, which turns a field of rectangles into two
+    ///     one-dimensional profiles — and the number of runs in each is the cell count along that
+    ///     axis. ⚠ Not wrapped, unlike the splatter's own variation helper: a grid's instance sits at
+    ///     its cell centre with no jitter, so at half scale nothing reaches a border and a wrapped
+    ///     count would merge the first run with the last only if the fixture changed underneath it.
+    /// </remarks>
+    static (int Across, int Down) Bands(Bitmap picture) {
+        return (Runs(picture.Width, picture.Height, (a, b) => TextureKernelHarness.At(picture, a, b, 0) > 128),
+            Runs(picture.Height, picture.Width, (a, b) => TextureKernelHarness.At(picture, b, a, 0) > 128));
+
+        static int Runs(int outer, int inner, Func<int, int, bool> lit) {
+            var runs = 0;
+            var was = false;
+
+            for (var a = 0; a < outer; a++) {
+                var now = false;
+
+                for (var b = 0; b < inner && !now; b++) {
+                    now = lit(a, b);
+                }
+
+                if (now && !was) {
+                    runs++;
+                }
+
+                was = now;
+            }
+
+            return runs;
+        }
+    }
+
     /// <summary>A flat atlas whose <b>last texel column only</b> is bright.</summary>
     /// <param name="side">Its width and height.</param>
     /// <returns>The pixels.</returns>
@@ -937,7 +1083,13 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
     }
 
     /// <summary>One placement op over a white pattern, as the mean of one channel.</summary>
-    static float Coverage(VulkanDevice device, TextureOp op, int channel) {
+    static float Coverage(VulkanDevice device, TextureOp op, int channel) => Mean(Placed(device, op), channel);
+
+    /// <summary>One placement op over a white pattern, as the picture it drew.</summary>
+    /// <param name="device">The device.</param>
+    /// <param name="op">The op, whose output is image 1 and whose pattern is image 0.</param>
+    /// <returns>The bake.</returns>
+    static Bitmap Placed(VulkanDevice device, TextureOp op) {
         var plan = new TexturePlan {
             BaseWidth = Side,
             BaseHeight = Side,
@@ -952,7 +1104,7 @@ public class TexturePlacementParameterDeviceTests(ITestOutputHelper output) {
         using var evaluator = new TexturePlanEvaluator(device);
         using var bake = evaluator.Evaluate(plan, new Dictionary<int, TextureHandle>());
 
-        return Mean(bake.Read(1), channel);
+        return bake.Read(1);
     }
 
     /// <summary>The mean of one channel of a picture, in 0..1.</summary>
