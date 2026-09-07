@@ -229,6 +229,21 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
         using var evaluator = new TexturePlanEvaluator(device);
         using var bake = evaluator.Evaluate(plan, uploads.Externals);
 
+        // ⚠ And the bake says so — #632. This is the picture that issue describes and the guard
+        // written for it (#801) could not see: `TexturePlan.Check` skips an external input because
+        // the plan has no size for one, so a pointwise kernel over an undersized import was silent
+        // everywhere. The declared size is what makes the claim measurable, and it only exists at
+        // the evaluation.
+        var caution = Assert.Single(bake.Warnings);
+
+        Assert.Contains("Op 0", caution, StringComparison.Ordinal);
+        Assert.Contains("Invert", caution, StringComparison.Ordinal);
+        Assert.Contains($"{Side}×{Side}", caution, StringComparison.Ordinal);
+        Assert.Contains($"{Narrow}×{Narrow}", caution, StringComparison.Ordinal);
+
+        // It is a report and not a refusal: the bake happened, and the picture below is what it drew.
+        Assert.Empty(plan.Validate());
+
         var picture = bake.Read(1);
 
         // The first sixteen columns are the ramp itself; everything past them is its last column.
@@ -239,6 +254,43 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
         for (var x = Narrow; x < Side; x++) {
             Assert.Equal(255, TextureKernelHarness.At(picture, x, 3, 0));
         }
+    }
+
+    /// <summary>And an op that means to read another extent is silent about the same upload.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half that stops the caution being "every import that is not the graph's size is a
+    ///     warning".</b> <c>Resample</c>, <c>Crop</c>, <c>Tile</c>, <c>Transform2D</c> and
+    ///     <c>Bitmap</c> all read their source's extent on purpose and say so on the op, and the
+    ///     evaluator's guard asks <c>TexturePlan.Declared</c> — the same predicate the plan's own
+    ///     guard asks — rather than re-spelling it. It is the same plan, the same upload and the same
+    ///     kernel as
+    ///     <see cref="An_upload_smaller_than_the_plan_is_clamped_to_its_own_edge" />; only the
+    ///     declaration differs.
+    /// </remarks>
+    [Fact]
+    public void An_op_that_declares_the_difference_is_not_cautioned_about_the_upload() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"declared extent difference on {TextureKernelHarness.Adapter(device)}");
+
+        const int Narrow = 16;
+
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
+            Ops = [Copy(1, 0) with { ReadsOtherExtents = true }],
+            Outputs = [1]
+        };
+
+        using var uploads = new TextureUploads(device);
+
+        uploads.Add(plan, 0, Narrow, Narrow, TextureKernelHarness.Ramp(Narrow));
+
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var bake = evaluator.Evaluate(plan, uploads.Externals);
+
+        Assert.Empty(bake.Warnings);
     }
 
     /// <summary>⚠ A CPU op reading an undersized upload is handed that picture, not the plan's size.</summary>

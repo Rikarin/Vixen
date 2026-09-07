@@ -905,13 +905,22 @@ public sealed class TexturePlan {
     /// <param name="input">One of its inputs, as an index into <see cref="Images" />.</param>
     /// <returns>Whether the extent guard has been answered for that input.</returns>
     /// <remarks>
-    ///     ⚠ <b>An empty <see cref="TextureOp.OtherExtentInputs" /> means every input and not none</b>
-    ///     — <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>. That is what makes the
-    ///     narrowing additive: an op written before the list existed, or one whose every input really
-    ///     is read at its own extent (<c>TileSampler</c>, <c>Splatter</c>), says nothing and is where
-    ///     it was. The list only ever puts a guard <em>back</em>.
+    ///     <para>
+    ///         ⚠ <b>An empty <see cref="TextureOp.OtherExtentInputs" /> means every input and not
+    ///         none</b> — <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a>. That is
+    ///         what makes the narrowing additive: an op written before the list existed, or one whose
+    ///         every input really is read at its own extent (<c>TileSampler</c>, <c>Splatter</c>),
+    ///         says nothing and is where it was. The list only ever puts a guard <em>back</em>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Internal rather than private, because there are two extent guards and only one of
+    ///         them can measure.</b> An external image's size is the caller's, so <see cref="Check" />
+    ///         skips one entirely — and <c>TexturePlanEvaluator</c>, which is handed the declared
+    ///         size, asks the same question about the same ops over there. Two spellings of "did this
+    ///         op say it meant it" is how one of them ends up silencing a guard the other keeps.
+    ///     </para>
     /// </remarks>
-    static bool Declared(TextureOp op, int input) =>
+    internal static bool Declared(TextureOp op, int input) =>
         op.ReadsOtherExtents && (op.OtherExtentInputs.IsDefaultOrEmpty || op.OtherExtentInputs.Contains(input));
 
     /// <summary>The messages of one severity, in the order they were found.</summary>

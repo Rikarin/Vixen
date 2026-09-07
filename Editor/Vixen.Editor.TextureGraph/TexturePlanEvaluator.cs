@@ -428,7 +428,12 @@ public sealed class TexturePlanEvaluator : IDisposable {
             Warnings = [
                 .. problems
                     .Where(problem => problem.Severity == TextureProblemSeverity.Warning)
-                    .Select(problem => problem.Message)
+                    .Select(problem => problem.Message),
+
+                // ⚠ #632: the half of the extent guard the plan cannot make. `TexturePlan.Check`
+                // skips an external input because it has no size for one; the declaration does, and
+                // it only exists here.
+                .. ExternalExtentCautions(plan, externals)
             ]
         };
 
@@ -650,6 +655,77 @@ public sealed class TexturePlanEvaluator : IDisposable {
                 );
             }
         }
+    }
+
+    /// <summary>The extent cautions only a caller's declaration can produce.</summary>
+    /// <param name="plan">What is about to run.</param>
+    /// <param name="externals">What the caller supplied, with the sizes it declared.</param>
+    /// <returns>One message per op that reads a supplied picture at a size it did not mean to.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/632">#632</a>'s own cited case
+    ///         is the one <see cref="TexturePlan.Check" /> structurally cannot see.</b> The plan's
+    ///         extent guard (<a href="https://github.com/Rikarin/Vixen/issues/801">#801</a>) skips an
+    ///         external input, because an imported bitmap is whatever size it is and the plan has no
+    ///         number for it — so a pointwise kernel over a 512-texel import in a 1K graph drew the
+    ///         import in the top-left quarter with its last row and column smeared over the rest, and
+    ///         said nothing. That is the exact picture #632 describes, and it survived the guard
+    ///         written for it.
+    ///     </para>
+    ///     <para>
+    ///         <b>Here rather than in the plan, because this is the layer that has the size.</b>
+    ///         <see cref="TextureExternal.Size" /> is a declaration, and a declaration only reaches
+    ///         an evaluation. <see cref="TexturePlan.Declared" /> is called rather than re-spelled,
+    ///         so the two halves of the guard cannot disagree about which ops meant it —
+    ///         <c>Resample</c>, <c>Crop</c>, <c>Tile</c>, <c>Transform2D</c> and <c>Bitmap</c> read
+    ///         another extent on purpose and stay silent in both.
+    ///     </para>
+    ///     <para>
+    ///         <b>A caution rather than a refusal, for the reason the plan's own is one:</b> the bake
+    ///         succeeds and draws something, and what it draws is not what the graph describes. A
+    ///         refusal would stop an artist's material dead on the day they imported a bitmap that
+    ///         was not a power of two away from their graph.
+    ///     </para>
+    /// </remarks>
+    static List<string> ExternalExtentCautions(
+        TexturePlan plan,
+        IReadOnlyDictionary<int, TextureExternal> externals
+    ) {
+        List<string> cautions = [];
+
+        for (var index = 0; index < plan.Ops.Length; index++) {
+            var op = plan.Ops[index];
+
+            if (op.Output < 0 || op.Output >= plan.Images.Length || plan.Images[op.Output].External) {
+                continue;
+            }
+
+            var size = plan.SizeOf(op.Output);
+
+            foreach (var input in op.Inputs) {
+                if (input < 0 || input >= plan.Images.Length || !plan.Images[input].External) {
+                    continue;
+                }
+
+                if (TexturePlan.Declared(op, input)
+                    || !externals.TryGetValue(input, out var supplied)
+                    || !supplied.HasSize
+                    || supplied.Size == size) {
+                    continue;
+                }
+
+                cautions.Add(
+                    $"Op {index} runs '{op.Kernel}', writes a {size.X}×{size.Y} image {op.Output} and reads a "
+                    + $"{supplied.Size.X}×{supplied.Size.Y} image {input} the caller supplied. A pointwise kernel "
+                    + "taps its source at the coordinate it is writing, so what this draws is the picture's "
+                    + "top-left corner with its last row and column smeared over the rest — resample the import "
+                    + $"into the size it is read at, or say {nameof(TextureOp.ReadsOtherExtents)} on the op if the "
+                    + "difference is the point."
+                );
+            }
+        }
+
+        return cautions;
     }
 
     /// <summary>A view onto each external image, made once and destroyed with the bake.</summary>
