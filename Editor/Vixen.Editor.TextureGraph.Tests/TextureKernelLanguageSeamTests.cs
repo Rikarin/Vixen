@@ -178,20 +178,23 @@ public class TextureKernelLanguageSeamTests {
     }
 
     /// <summary>
-    ///     A kernel that declares a permutation compiles, takes the default, and says nothing.
+    ///     A kernel that declares a permutation compiles, takes its default, and says nothing.
     /// </summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>The demonstration behind the refusal above, because a ban whose reason is only
-    ///         written down is a ban somebody lifts.</b> This puts a two-shader-line source through
-    ///         the *same* call the evaluator makes — one source, no defines — and reads the compiled
-    ///         result. It compiles. There is no diagnostic. What comes back is the branch the
-    ///         declared default selects, and no argument anywhere could have selected the other one.
+    ///         written down is a ban somebody lifts.</b> This puts a source declaring
+    ///         <c>[Permutation] val Fancy</c> through the *same* call the evaluator makes — one
+    ///         source, no defines — and reads what comes back. It compiles. There is no diagnostic,
+    ///         at any severity. Nothing at this call site could have said which branch it wanted.
     ///     </para>
     ///     <para>
-    ///         It asserts on the reflected permutation rather than on the bytecode, because the
-    ///         bytecode of a folded permutation is just a shader: there is nothing in it that says a
-    ///         choice was made, which is precisely the complaint.
+    ///         ⚠ <b>And "took the default" is asserted rather than assumed, by compiling the same
+    ///         shader twice with the two defaults and requiring the modules to differ.</b> That is
+    ///         the half that makes this a finding: if the two came out identical, the permutation
+    ///         would be dead text and there would be nothing to lose. They do not, so the choice is
+    ///         real, is made at compile time, and is made by the only party that can — whoever last
+    ///         edited the <c>.rvn</c>.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -202,8 +205,17 @@ public class TextureKernelLanguageSeamTests {
         // language accepted a switch the layer above has no way to throw.
         Assert.NotNull(data);
         Assert.Equal("Chosen", data.ShaderName);
-        Assert.NotEmpty(data.Stages);
-        Assert.All(data.Stages, stage => Assert.NotEmpty(stage.Bytecode));
+
+        var chosen = Assert.Single(data.Stages);
+
+        Assert.NotEmpty(chosen.Bytecode);
+
+        var flipped = RavenEffectCompiler
+            .FromSources([("Chosen.rvn", Declaring.Replace("Fancy: bool = false", "Fancy: bool = true", StringComparison.Ordinal))])
+            .TryGet(EffectKey.Of("Chosen"));
+
+        Assert.NotNull(flipped);
+        Assert.NotEqual(chosen.Bytecode, Assert.Single(flipped.Stages).Bytecode);
     }
 
     /// <summary>A kernel declaring a permutation, which is both fixtures' subject.</summary>
