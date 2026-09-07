@@ -236,7 +236,7 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
     protected override void Visit(GraphNode node, NodeTypeDefinition definition, Node instance, NodeBinding binding) {
         if (instance is not ShaderNode shader) {
             Report(new(
-                "SG0001",
+                ShaderGraphDiagnostics.NodeIsNotAShaderNode,
                 $"'{definition.Path}' is in this graph's library but is not a shader node, so there is "
                 + "nothing it could emit.",
                 node.Id
@@ -248,7 +248,7 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
         if (shader is ShaderMasterNode found) {
             if (master is not null) {
                 Report(new(
-                    "SG0002",
+                    ShaderGraphDiagnostics.GraphHasTwoMasters,
                     $"This graph has two master nodes, {masterId} and {node.Id}. A shader has one output, "
                     + "so one of them is the one that matters and the graph does not say which.",
                     node.Id
@@ -296,7 +296,7 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
     protected override ShaderGraphSource? Finish(NodeGraphModel graph) {
         if (master is null) {
             Report(new(
-                "SG0003",
+                ShaderGraphDiagnostics.GraphHasNoMaster,
                 "This graph has no master node, so there is nothing for the shader to write. Add one from "
                 + "the Master category.",
                 NodeId.None
@@ -415,7 +415,7 @@ public sealed class ShaderGraphCompiler : NodeGraphCompiler<ShaderGraphSource> {
             }
 
             Report(new(
-                "SG0004",
+                ShaderGraphDiagnostics.SurfaceReadsAForbiddenStream,
                 $"A surface graph cannot read {Stream(input)}: {reason}. Take it out, or use a master "
                 + "that makes a standalone shader.",
                 stagedBy.TryGetValue(input, out var asker) ? Inlining.Resolve(asker) : NodeId.None

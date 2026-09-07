@@ -130,6 +130,32 @@ public static class MeshMapNaming {
     /// </remarks>
     public const string ScaleKey = "meshMap.scale";
 
+    /// <summary>The sidecar extension key holding the digest of the bytes the bake wrote.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What separates a re-bake from an overwrite of somebody's work</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/716">#716</a>. § D12's whole argument
+    ///         for these being ordinary files in <c>Assets/</c> is that an artist opens the curvature
+    ///         map when a generator misbehaves, and the file they open is a file they can paint on.
+    ///         Without a digest, the next bake replaces that work, reports success, and says nothing
+    ///         anywhere — which is that argument turned against itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Per map rather than per set, because a mesh-map set has no sidecar of its own.</b>
+    ///         § D4's material bake hangs its <c>texturing.writtenDigest</c> on the <c>.vxmat</c> the
+    ///         bake finishes with; nine PNGs and no manifest have nowhere to put one, so the digest
+    ///         goes where <see cref="UsageKey" /> already is. It also makes the answer per file, which
+    ///         is the granularity the refusal wants to report in.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Absent means "nobody recorded one", not "unchanged".</b> A set baked before this
+    ///         key existed has no digest and is overwritten, which is deliberate: treating a missing
+    ///         digest as evidence of painting would fire the guard on every project where nobody has
+    ///         painted anything, and a guard that fires everywhere is a guard somebody turns off.
+    ///     </para>
+    /// </remarks>
+    public const string DigestKey = "meshMap.digest";
+
     /// <summary>The suffix a usage's file name ends in.</summary>
     /// <param name="usage">The usage.</param>
     /// <returns>The suffix, with no separator and no dot.</returns>

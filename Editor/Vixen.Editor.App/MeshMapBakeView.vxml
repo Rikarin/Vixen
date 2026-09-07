@@ -70,6 +70,8 @@
 </meshbake-maps>
 
 <meshbake-actions>
+    <CheckBox ref="@Overwrite" Label="Overwrite painted maps" />
+
     <meshbake-spacer />
 
     <Button ref="@BakeButton" Size="Small" Variant="Primary" Label="Bake" on:click="@(() => BakeRequested?.Invoke(this))" />
@@ -135,6 +137,15 @@
     /// <inheritdoc cref="Occlusion" />
     public CheckBox Identifiers { get; private set; } = null!;
 
+    /// <summary>Whether the bake may replace a map somebody has painted over.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside the button rather than up in the form, because it is not a bake parameter.</b>
+    ///     Every field above says what to measure; this one says what to do about work already on
+    ///     disk, and putting it among the resolutions is how it gets ticked by somebody adjusting the
+    ///     ray count.
+    /// </remarks>
+    public CheckBox Overwrite { get; private set; } = null!;
+
     /// <summary>Runs a bake with what is on the panel.</summary>
     public Button BakeButton { get; private set; } = null!;
 
@@ -157,6 +168,15 @@
 
     /// <summary>Why a bake cannot be started, or null when it can.</summary>
     public Func<string?>? Refusal { get; set; }
+
+    /// <summary>Called after any control has changed the settings, so they can be written.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Raised by the panel rather than watched by the owner, because nothing here is
+    ///     bound</b> — see the header. There is no signal to attach an effect to, so a settings object
+    ///     edited in place changes with nothing observable happening, and a persistence that polled
+    ///     for it would write a file every frame.
+    /// </remarks>
+    public Action? Changed { get; set; }
 
     /// <summary>Points the panel at the settings a bake will read.</summary>
     /// <param name="value">The settings. Held, not copied — the verb reads the same object.</param>
@@ -185,6 +205,14 @@
             PositionMap.IsChecked = value.Wants(MeshMapUsage.Position);
             WorldNormal.IsChecked = value.Wants(MeshMapUsage.WorldNormal);
             Identifiers.IsChecked = value.Wants(MeshMapUsage.Id);
+            // ⚠ Cleared rather than read, and the settings object is cleared with it. `Overwrite`
+            // carries [DataMemberIgnore] so it never reaches the file — but the object it lives on is
+            // the one `ProjectSettingsStore` caches for the life of the store, so a tick survived
+            // every later open in the same session. That is the guard #716 exists to be silently
+            // off for the rest of an afternoon, which is what this field's own remarks promise it
+            // cannot be.
+            value.Overwrite = false;
+            Overwrite.IsChecked = false;
         } finally {
             loading = false;
         }
@@ -228,6 +256,7 @@
             if (!loading && settings is { } current && int.TryParse(value, CultureInfo.InvariantCulture, out var size)) {
                 current.Resolution = size;
                 Restate();
+                Changed?.Invoke();
             }
         };
 
@@ -239,6 +268,7 @@
             if (!loading && settings is { } current && int.TryParse(value, CultureInfo.InvariantCulture, out var many)) {
                 current.OcclusionSamples = many;
                 Restate();
+                Changed?.Invoke();
             }
         };
 
@@ -252,6 +282,15 @@
         PositionMap.CheckedChanged += (_, on) => Toggled(MeshMapUsage.Position, on);
         WorldNormal.CheckedChanged += (_, on) => Toggled(MeshMapUsage.WorldNormal, on);
         Identifiers.CheckedChanged += (_, on) => Toggled(MeshMapUsage.Id, on);
+
+        // ⚠ No `Changed` here, and that is the point of the field being `[DataMemberIgnore]`: the
+        // one control whose wrong value destroys work must not be remembered across a session.
+        Overwrite.CheckedChanged += (_, on) => {
+            if (!loading && settings is { } current) {
+                current.Overwrite = on;
+                Restate();
+            }
+        };
 
         Results.AddColumn("Map", item => Row(item).Map).Width = 130f;
         Results.AddColumn("File", item => Row(item).File).Width = 260f;
@@ -380,6 +419,7 @@
         }
 
         Restate();
+        Changed?.Invoke();
     }
 
     /// <summary>Turns one optional map on or off.</summary>
@@ -390,6 +430,7 @@
 
         current.Want(usage, on);
         Restate();
+        Changed?.Invoke();
     }
 
     /// <summary>One row of the result list, which is the only thing the grid holds.</summary>

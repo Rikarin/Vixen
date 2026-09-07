@@ -51,6 +51,7 @@ public interface IMeshMapBaker {
     /// <param name="mesh">What to call the set.</param>
     /// <param name="images">The files, as <see cref="MeshMapBake.Encode" /> produced them.</param>
     /// <param name="warnings">What the bake could not do, to be carried into the set.</param>
+    /// <param name="force">Overwrite maps somebody has painted over.</param>
     /// <returns>What each usage became.</returns>
     /// <remarks>
     ///     <para>
@@ -79,11 +80,21 @@ public interface IMeshMapBaker {
     ///         no such problem runs <c>MapBaker.Bake</c> and <c>MeshMapBake.Encode</c> itself and then
     ///         calls this, which is two lines and says plainly which of the two is the slow one.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A map whose bytes are no longer what the last bake wrote is refused rather than
+    ///         replaced, and <paramref name="force" /> is how a person says they meant it</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/716">#716</a>, which is § D4's rule
+    ///         for the material bake applied to the nine files this one lands. The most common reason
+    ///         a baked map differs from what the bake wrote is that somebody painted on it, and § D12's
+    ///         case for these being openable files is exactly the case for not destroying that
+    ///         silently. See <see cref="MeshMapNaming.DigestKey" />.
+    ///     </para>
     /// </remarks>
     MeshMapSet Write(
         AssetId model,
         string mesh,
         IReadOnlyList<MeshMapImage> images,
-        IReadOnlyList<string> warnings
+        IReadOnlyList<string> warnings,
+        bool force = false
     );
 }

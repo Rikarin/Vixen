@@ -5,6 +5,8 @@ using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using Vixen.Core;
 using Vixen.Editor.AssetEditors.Compositor;
+using Vixen.Editor.AssetEditors.Shading;
+using Vixen.Editor.ShaderGraph;
 using Xunit;
 
 namespace Vixen.Editor.AssetEditors.Tests;
@@ -25,11 +27,15 @@ namespace Vixen.Editor.AssetEditors.Tests;
 ///         be comparing other people's copies of these files with each other.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What this cannot see: <c>SG0001</c>…<c>SG0004</c> live in
-///         <c>Vixen.Editor.ShaderGraph</c>.</b> The <c>SG</c> family is split across two assemblies
-///         that do not reference one another, so an id declared here could collide with one over
-///         there and every gate in the tree would stay green. That is the residue of #963 rather than
-///         something these tests close.
+///         ⚠ <b>The <c>SG</c> family is no longer half of it, and the walk still looks for
+///         <c>SG</c></b> — <a href="https://github.com/Rikarin/Vixen/issues/982">#982</a>. Every
+///         <c>SG</c> and <c>SGP</c> id is declared in
+///         <c>Vixen.Editor.ShaderGraph.ShaderGraphDiagnostics</c>, which this assembly references and
+///         <c>ShaderGraphDocument</c> reports two of; <c>ShaderGraphDiagnosticIdTests</c> walks both
+///         source trees against that one list. What stays here is the <em>refusal</em>: an
+///         <c>SG…</c> literal written in this project is a stray, because the declaration it belongs
+///         to is one <c>using</c> away. ⚠ Before #982 this same refusal actively routed a new
+///         <c>SG</c> id into the half of the family that could not see the other half.
 ///     </para>
 /// </remarks>
 public class AssetEditorDiagnosticIdTests {
@@ -39,7 +45,7 @@ public class AssetEditorDiagnosticIdTests {
     ///     <c>&lt;c&gt;CO0003&lt;/c&gt;</c> in a doc comment, which is what the remarks in this
     ///     repository are for and not a second call site. Only a string literal reports anything.
     /// </remarks>
-    static readonly Regex Literal = new("\"((?:SG|CO|VF)[0-9]{4})\"", RegexOptions.CultureInvariant);
+    static readonly Regex Literal = new("\"((?:SGP|SG|CO|VF)[0-9]{4})\"", RegexOptions.CultureInvariant);
 
     /// <summary>Where this file was compiled from, which is what the source walk is anchored to.</summary>
     static string Here([CallerFilePath] string path = "") => path;
@@ -70,13 +76,16 @@ public class AssetEditorDiagnosticIdTests {
         var ids = AssetEditorDiagnostics.Ids;
 
         Assert.True(
-            ids.Length >= 9,
-            $"AssetEditorDiagnostics declares {ids.Length} ids and there were nine when this was written, so "
-            + "the reflection walk is finding less than the file holds — which is the silent-success failure "
-            + "this file is about. Check that the members are still `const string`."
+            ids.Length >= 7,
+            $"AssetEditorDiagnostics declares {ids.Length} ids and there were seven after #982 moved the two "
+            + "SG ones to ShaderGraphDiagnostics, so the reflection walk is finding less than the file holds "
+            + "— which is the silent-success failure this file is about. Check that the members are still "
+            + "`const string`."
         );
 
-        Assert.All(ids, id => Assert.Matches("^(SG|CO|VF)[0-9]{4}$", id));
+        // ⚠ No SG here any more — #982. An `SG…` id in this array would be a second declaration of a
+        // family `ShaderGraphDiagnostics` declares whole, which is the collision one seam along.
+        Assert.All(ids, id => Assert.Matches("^(CO|VF)[0-9]{4}$", id));
 
         var repeated = ids.GroupBy(id => id, StringComparer.Ordinal)
             .Where(group => group.Count() > 1)
@@ -152,10 +161,12 @@ public class AssetEditorDiagnosticIdTests {
 
         Assert.True(
             strays.Length == 0,
-            $"{string.Join(", ", strays)} — a diagnostic id written as a literal rather than taken from "
-            + "AssetEditorDiagnostics. Nothing tells you what that id already means, which is how TG0012, "
-            + "TG0017 and TG0018 each came to mean two things one assembly over — #804, #963. Declare it "
-            + "there, with the sentence it means, and report it by name."
+            $"{string.Join(", ", strays)} — a diagnostic id written as a literal rather than taken from a "
+            + "declaration. Nothing tells you what that id already means, which is how TG0012, TG0017 and "
+            + "TG0018 each came to mean two things one assembly over — #804, #963. CO and VF are declared "
+            + "in AssetEditorDiagnostics; SG and SGP belong to Vixen.Editor.ShaderGraph's "
+            + "ShaderGraphDiagnostics, which this assembly references, because that family is reported "
+            + "from both projects — #982."
         );
     }
 
@@ -176,5 +187,25 @@ public class AssetEditorDiagnosticIdTests {
         var diagnostic = Assert.Single(document.LoadDiagnostics);
 
         Assert.Equal(AssetEditorDiagnostics.CompositorFileDoesNotParse, diagnostic.Id);
+    }
+
+    /// <summary>⚠ And the one id this assembly reports out of another assembly's declaration.</summary>
+    /// <remarks>
+    ///     <b>The half of <a href="https://github.com/Rikarin/Vixen/issues/982">#982</a> a source walk
+    ///     cannot take.</b> Both roll calls are statements about text: this project's refuses an
+    ///     <c>SG</c> literal and <c>ShaderGraphDiagnosticIdTests</c> requires every one of them to be
+    ///     declared in <c>ShaderGraphDiagnostics</c>. Neither can tell that the constant a document
+    ///     actually reports is the constant it names — a <c>nameof</c>, an interpolation or a folded
+    ///     constant would satisfy both — and the whole point of moving the declaration was that the
+    ///     panel shows one family under one set of numbers.
+    /// </remarks>
+    [Fact]
+    public void A_shader_graph_that_does_not_parse_reports_the_declared_id() {
+        using var fixture = new EditorFixture();
+        var path = fixture.Write("Assets/Unreadable.vxshadergraph", "nodes: [ this is not\n  yaml: {");
+        var document = new ShaderGraphDocument(fixture.Project, AssetId.New(), path);
+        var diagnostic = Assert.Single(document.LoadDiagnostics);
+
+        Assert.Equal(ShaderGraphDiagnostics.FileDoesNotParse, diagnostic.Id);
     }
 }

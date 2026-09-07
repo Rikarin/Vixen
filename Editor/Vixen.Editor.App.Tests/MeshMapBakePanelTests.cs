@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.Assets.MeshMaps;
+using Vixen.Editor.Core;
 using Vixen.Editor.Testing;
 using Xunit;
 
@@ -63,6 +64,65 @@ public sealed class MeshMapBakePanelTests {
         Assert.Equal(9, bake.Gutter);
         Assert.Equal(0.2f, bake.SearchRadius, 0.001f);
         Assert.False(bake.Maps.HasFlag(Vixen.Geometry.Remeshing.MeshMaps.Id));
+
+        // ⚠ The one control that is not a bake parameter, and the one whose wrong value destroys
+        // work — see #716. It travels the same seam, so it is asserted on the same object.
+        Assert.False(settings.Overwrite);
+
+        view.Overwrite.IsChecked = true;
+
+        Assert.True(settings.Overwrite);
+    }
+
+    /// <summary>A resolution somebody raised is still raised in the next session.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Read back through a second store over the same directory, not off the object the
+    ///         panel edited</b> — <a href="https://github.com/Rikarin/Vixen/issues/701">#701</a>.
+    ///         "The panel wrote 4096 into the settings object" and "the project holds 4096" are two
+    ///         claims, and only the second survives closing the editor. A test that asserted the first
+    ///         would have passed against the field this replaced.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the measurements come back by <i>name</i>.</b> The stored form is a list of
+    ///         usage suffixes rather than the flags integer, because a bitset written as a number
+    ///         comes back meaning something else the day somebody inserts a member into the enum —
+    ///         which is <c>ViewportPreferences</c>'s recorded reason for doing the same thing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_bake_settings_are_in_the_project_and_survive_the_session() {
+        using var session = EditorSession.Start();
+        var view = session.Control<MeshMapBakeView>("mesh-map-bake");
+
+        view.ResolutionPicker.Value = "4096";
+        view.SamplesPicker.Value = "256";
+        view.GutterBox.Value = "7";
+        view.Thickness.IsChecked = false;
+        view.Overwrite.IsChecked = true;
+
+        var store = new ProjectSettingsStore(session.Project.Paths);
+
+        Assert.True(File.Exists(store.FileFor<MeshMapBakeSettings>()), "nothing was written to ProjectSettings/.");
+
+        var reopened = store.Get<MeshMapBakeSettings>();
+
+        Assert.Equal(4096, reopened.Resolution);
+        Assert.Equal(256, reopened.OcclusionSamples);
+        Assert.Equal(7, reopened.Gutter);
+        Assert.False(reopened.Wants(MeshMapUsage.Thickness));
+        Assert.True(reopened.Wants(MeshMapUsage.Curvature));
+
+        // ⚠ The one field that must not be remembered. A guard against destroying an artist's
+        // painting, ticked once for a good reason and then carried into every later session, is the
+        // guard silently turned off — see #716.
+        Assert.False(reopened.Overwrite, "the overwrite-painted-maps tick was carried across a session.");
+
+        // And the file says the measurements by name rather than as a number.
+        var written = File.ReadAllText(store.FileFor<MeshMapBakeSettings>());
+
+        Assert.Contains("curvature", written, StringComparison.Ordinal);
+        Assert.DoesNotContain("thickness", written, StringComparison.Ordinal);
     }
 
     /// <summary>Opening the panel shows the settings rather than rewriting them.</summary>

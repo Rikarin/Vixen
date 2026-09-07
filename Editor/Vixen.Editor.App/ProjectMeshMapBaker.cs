@@ -5,6 +5,7 @@ using System.Globalization;
 using Vixen.Core;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
+using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Assets.MeshMaps;
 using Vixen.Editor.Core;
 using Vixen.Geometry;
@@ -49,6 +50,22 @@ namespace Vixen.Editor.App;
 ///         <c>Barrel_ao_3</c> while every generator went on reading the first one.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Except over a map somebody has painted on, which is the sentence the one above
+///         stopped one step short of</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/716">#716</a>. Overwriting is right for a
+///         re-bake of untouched files and is exactly what must not happen to a file an artist has
+///         edited, and until <see cref="MeshMapNaming.DigestKey" /> existed nothing here could tell
+///         the two apart. <see cref="Painted" /> is the check; <c>force</c> is how a person says they
+///         meant it.
+///     </para>
+///     <para>
+///         ⚠ <b>The hash comes from <see cref="MaterialProvenance.Digest" /> rather than being
+///         spelled again here</b>, which reads as a mesh map borrowing a material's type and is the
+///         point: a sidecar digest that a person, a tool or the next bake may compare across the two
+///         bakes has to be one spelling — <c>sha256:</c> and lower-case hexadecimal — and a second
+///         private SHA-256 is how the day arrives when the two disagree about the prefix.
+///     </para>
+///     <para>
 ///         ⚠ <b>Which is why the set is keyed on the <i>model</i> and not on the name.</b> "The same
 ///         mesh" and "another model's mesh with the same name" produce identical file names, and the
 ///         second one is Blender's default object name — so keying on the name made the correct
@@ -77,7 +94,8 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
         AssetId model,
         string mesh,
         IReadOnlyList<MeshMapImage> images,
-        IReadOnlyList<string> warnings
+        IReadOnlyList<string> warnings,
+        bool force = false
     ) {
         ArgumentException.ThrowIfNullOrEmpty(mesh);
         ArgumentNullException.ThrowIfNull(images);
@@ -93,7 +111,24 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
         // `Safe`'s own remarks say it exists to stop.
         var wanted = Safe(mesh);
         var name = SetName(directory, model, wanted, out var taken);
-        var said = taken.IsEmpty ? warnings : [.. warnings, Clashed(wanted, name)];
+        var said = new List<string>(warnings);
+
+        if (!taken.IsEmpty) {
+            said.Add(Clashed(wanted, name));
+        }
+
+        // ⚠ Against the resolved name and before the first byte is written, so that a set the bake
+        // refuses is a set the bake has not half-replaced. Asking per file as they go would leave the
+        // normal map overwritten and the occlusion map refused, which is a worse state than either.
+        var painted = Painted(directory, name, images);
+
+        if (painted.Count > 0) {
+            if (!force) {
+                throw new IOException(Overpainted(name, painted));
+            }
+
+            said.Add(Overpainted(name, painted) + " It was overwritten because this bake was forced.");
+        }
 
         var files = new List<string>(images.Count);
 
@@ -174,6 +209,63 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
         + "replace one, because minting a new id would break every reference to it. Repair or remove that .meta "
         + "and bake again.";
 
+    /// <summary>Which of the maps about to be written are not the bytes the last bake left.</summary>
+    /// <param name="directory">The folder the set is in.</param>
+    /// <param name="name">The set's resolved name.</param>
+    /// <param name="images">What this bake is about to write.</param>
+    /// <returns>The usages whose file on disk disagrees with its recorded digest.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only over the maps this bake would write.</b> A set baked with the ray-casting
+    ///         maps on and re-baked with them off leaves an occlusion map this run does not touch, and
+    ///         a run that refused because of a file it was not going to overwrite would be a run
+    ///         nobody can get past. That is <c>ProjectMaterialBaker</c>'s reasoning for the same
+    ///         narrowing, and it is why forcing does not widen it either.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A file that cannot be read is not painted over.</b> The evidence is a digest over
+    ///         bytes, and the other outcome of this check is an overwrite — so the direction to fail in
+    ///         is the one that overwrites a file the process could not open, which the write is about
+    ///         to report on anyway.
+    ///     </para>
+    /// </remarks>
+    static List<MeshMapUsage> Painted(string directory, string name, IReadOnlyList<MeshMapImage> images) {
+        var painted = new List<MeshMapUsage>();
+
+        foreach (var image in images) {
+            var file = Path.Combine(directory, MeshMapNaming.FileName(name, image.Usage));
+
+            if (Existing(AssetMetaFile.PathFor(file)) is not { } meta
+                || !meta.Extensions.TryGetValue(MeshMapNaming.DigestKey, out var digest)) {
+                continue;
+            }
+
+            try {
+                if (File.Exists(file)
+                    && !string.Equals(MaterialProvenance.Digest(File.ReadAllBytes(file)), digest, StringComparison.Ordinal)) {
+                    painted.Add(image.Usage);
+                }
+            } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
+                // Not this check's to report — see the remarks.
+            }
+        }
+
+        return painted;
+    }
+
+    /// <summary>What the artist is told when a map they have edited would have been replaced.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Named per map rather than per set</b>, because "one of nine" is the sentence that makes
+    ///     somebody open the right file. The material bake's equivalent says the same thing and this is
+    ///     deliberately worded to match it: the two refusals are one rule and an artist should not have
+    ///     to learn that it is spelled twice.
+    /// </remarks>
+    static string Overpainted(string name, IReadOnlyList<MeshMapUsage> painted) =>
+        $"The {string.Join(", ", painted.Select(MeshMapNaming.Suffix))} "
+        + $"{(painted.Count == 1 ? "map" : "maps")} of \"{name}\" "
+        + $"{(painted.Count == 1 ? "is" : "are")} not what the last bake wrote, which usually means somebody "
+        + "painted over them. Re-baking would replace that work, so it did not.";
+
     /// <summary>What this set is called in the folder, which is not simply what it was asked to be.</summary>
     /// <param name="directory">The folder the set lands in.</param>
     /// <param name="model">The model asset it was baked from, or empty where there is none.</param>
@@ -204,17 +296,43 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
     ///         the occlusion map instead would call a name free whenever the set under it was baked
     ///         with the ray-casting maps turned off.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two passes, and one pass was the whole of
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/708">#708</a>.</b> A single walk that
+    ///         accepted the first candidate that was free <i>or</i> this model's own takes the free
+    ///         one, because a free stem comes first — so the day the set that displaced this one is
+    ///         renamed or deleted, a re-bake walks back to suffix 1, mints nine fresh GUIDs, and
+    ///         leaves the set every generator resolves through sitting under <c>Cube_2</c> with
+    ///         nothing pointing at it. That is exactly the state this file's own remarks name as the
+    ///         thing to avoid, reached from the other direction. Owning a stem is asked about every
+    ///         candidate before being free is asked about any.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And <paramref name="taken" /> is only what displaces a <i>new</i> set.</b> A
+    ///         re-bake that finds its own suffixed stem was displaced once, long ago; reporting the
+    ///         collision again on every re-bake is a warning an artist learns to skip past, which is
+    ///         how the one that matters gets skipped past too.
+    ///     </para>
     /// </remarks>
     /// <exception cref="IOException">There are already <see cref="Crowd" /> sets under that name.</exception>
     static string SetName(string directory, AssetId model, string mesh, out AssetId taken) {
         taken = AssetId.Empty;
 
-        for (var suffix = 1; suffix <= Crowd; suffix++) {
-            var candidate = suffix == 1 ? mesh : mesh + "_" + suffix.ToString(CultureInfo.InvariantCulture);
-            var owner = OwnerOf(directory, candidate);
+        var owners = new AssetId?[Crowd];
 
-            if (owner is not { } already || already.IsEmpty || already == model) {
-                return candidate;
+        for (var suffix = 1; suffix <= Crowd; suffix++) {
+            var owner = OwnerOf(directory, Candidate(mesh, suffix));
+
+            owners[suffix - 1] = owner;
+
+            if (owner == model) {
+                return Candidate(mesh, suffix);
+            }
+        }
+
+        for (var suffix = 1; suffix <= Crowd; suffix++) {
+            if (owners[suffix - 1] is not { } already || already.IsEmpty) {
+                return Candidate(mesh, suffix);
             }
 
             if (taken.IsEmpty) {
@@ -230,11 +348,28 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
         );
     }
 
+    /// <summary>What the set under a suffix would be called. Suffix 1 is the bare name.</summary>
+    /// <param name="mesh">The mesh's name, already safe for a file name.</param>
+    /// <param name="suffix">Which candidate, from one.</param>
+    /// <returns>The stem.</returns>
+    static string Candidate(string mesh, int suffix) =>
+        suffix == 1 ? mesh : mesh + "_" + suffix.ToString(CultureInfo.InvariantCulture);
+
     /// <summary>How many differently-owned sets may share one mesh name before the bake refuses.</summary>
     /// <remarks>
-    ///     Absurd rather than tuned — a hundred models whose meshes are all called <c>Cube</c> is a
-    ///     project with a naming problem the editor cannot fix — and it is a bound on a loop that
-    ///     opens a file per turn rather than a judgement about what is reasonable.
+    ///     <para>
+    ///         Absurd rather than tuned — a hundred models whose meshes are all called <c>Cube</c> is a
+    ///         project with a naming problem the editor cannot fix — and it is a bound on a loop that
+    ///         opens a file per turn rather than a judgement about what is reasonable.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Since <see cref="SetName" /> takes two passes it is a hundred sidecar lookups on
+    ///         every bake rather than one</b>, and that is affordable for a reason worth writing down:
+    ///         all but the first few are <c>File.Exists</c> against a name nothing is under, and the
+    ///         call they sit in front of casts several hundred rays per texel of an atlas. Ordering
+    ///         the search cheaply instead — stopping the ownership pass at the first free stem — is
+    ///         precisely the defect, because a free stem is what a deleted neighbour leaves behind.
+    ///     </para>
     /// </remarks>
     const int Crowd = 100;
 
@@ -290,7 +425,13 @@ public sealed class ProjectMeshMapBaker(EditorProject project, string folder = M
         var existing = Existing(sidecar);
         var extensions = new Dictionary<string, string>(existing?.Extensions ?? [], StringComparer.Ordinal) {
             [MeshMapNaming.UsageKey] = MeshMapNaming.Suffix(image.Usage),
-            [MeshMapNaming.MeshKey] = mesh
+            [MeshMapNaming.MeshKey] = mesh,
+
+            // ⚠ Over the bytes this bake handed the file system rather than over a read-back, and the
+            // difference is what the digest is for: a re-read would record whatever is on disk,
+            // including a write somebody else's process got in first, and a guard that records the
+            // state it is meant to detect can never fire. See `Painted` and #716.
+            [MeshMapNaming.DigestKey] = MaterialProvenance.Digest(image.Png)
         };
 
         // ⚠ Written even though nothing reads it back except the next bake, which is the point: it is

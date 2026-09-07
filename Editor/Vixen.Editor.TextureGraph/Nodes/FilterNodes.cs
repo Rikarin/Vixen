@@ -130,7 +130,7 @@ sealed partial class BlurNode : TextureNode {
     /// </remarks>
     static TextureOp Pass(int output, int source, float radius, bool vertical) =>
         new() {
-            Kernel = "Blur",
+            Kernel = TextureFilters.Blur,
             Output = output,
             Inputs = [source],
             Parameters = [
@@ -201,7 +201,7 @@ sealed partial class LevelsNode : TextureNode {
 
         emitter.Dispatch(
             new TextureOp {
-                Kernel = "Levels",
+                Kernel = TextureColourKernels.Levels,
                 Output = target,
                 Inputs = [source],
                 Parameters = [

@@ -82,6 +82,22 @@
         <ProjectReference Include="..\..\Core\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            ⚠ **Vixen.Core.Reflection.Generator and Vixen.Core.Serialization.Generator are absent on
+            purpose, and eight `[DataContract]` attributes used to hide that** —
+            [#989](https://github.com/Rikarin/Vixen/issues/989). `DataContractAttribute` lives in
+            `Vixen.Core` and arrives transitively, so the attribute compiled; the generators that
+            turn it into a registration do not flow through a `ProjectReference`, so nothing was
+            registered under any of the eight names and nothing could serialise one of those types
+            or look one up. Every one of them is the terrain panel's form model and no caller ever
+            wanted either, so the attributes went rather than the references arriving.
+
+            `Vixen.Editor.Terrain.Tests`' `TerrainContractTests` is what keeps the two halves of that
+            sentence together: a `[DataContract]` added here without the generators is red, and one
+            added with them is green. This omission was invisible at compile time, at run time and in
+            every other test until it was written down.
+        -->
     </ItemGroup>
 
     <ItemGroup>

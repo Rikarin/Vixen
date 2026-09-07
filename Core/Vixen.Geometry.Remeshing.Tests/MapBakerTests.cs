@@ -222,6 +222,92 @@ public class MapBakerTests {
         }
     }
 
+    /// <summary>A cancelled bake stops casting, rather than finishing and being thrown away.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The work done is the assertion, not the exception</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/700">#700</a>. A <c>Bake</c> that ran
+    ///         to completion and then threw would satisfy <c>Assert.Throws</c> exactly as well as one
+    ///         that stopped, and it is what the editor already had: the token read on either side of a
+    ///         call it could not enter. So this counts rows, cancels on the second one, and requires
+    ///         that far fewer rows were walked than the same bake walks uninterrupted.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Rows rather than milliseconds.</b> An elapsed-time budget for "it stopped early"
+    ///         is calibrated on an idle machine and measures the machine; the row counter is
+    ///         deterministic and is the same number on every box.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_cancelled_bake_stops_casting_rather_than_finishing_first() {
+        var source = Cone(32, 2f, 0.25f);
+        var target = TransferFixtures.Grid(4, 2f, _ => 0);
+
+        Halves(target, whole: true);
+
+        BakeSettings settings = new() { Resolution = 64, Gutter = 2, SearchRadius = 0.4f };
+
+        var whole = 0;
+
+        MapBaker.Bake(source, target, settings, _ => whole++, CancellationToken.None);
+
+        Assert.True(whole > 8, $"The uncancelled bake reported {whole} times, which is too few to compare against.");
+
+        using CancellationTokenSource cancellation = new();
+        var reports = 0;
+
+        Assert.ThrowsAny<OperationCanceledException>(
+            () => MapBaker.Bake(
+                source,
+                target,
+                settings,
+                _ => {
+                    if (++reports == 2) {
+                        cancellation.Cancel();
+                    }
+                },
+                cancellation.Token
+            )
+        );
+
+        // ⚠ Two plus slack rather than "fewer than whole". The step the reporter throttles on means a
+        // bake that ignored the token entirely would still report `whole` times, so the bound has to
+        // be near the cancellation point rather than merely below the total.
+        Assert.True(reports < 4, $"The bake went on for {reports} reports after being cancelled at the second.");
+    }
+
+    /// <summary>Progress is a fraction of the work, rises, and finishes at one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What the panel's bar was before this: two values, <c>0f</c> and <c>0.9f</c>.</b> The
+    ///     property that makes a bar worth having is that it moves while the expensive part runs, so
+    ///     "more than two reports" is the assertion with teeth — a fraction that is merely monotone
+    ///     and ends at one is satisfied by reporting nothing but <c>1f</c> at the end.
+    /// </remarks>
+    [Fact]
+    public void Progress_rises_through_the_casting_and_ends_at_one() {
+        var source = Cone(32, 2f, 0.25f);
+        var target = TransferFixtures.Grid(4, 2f, _ => 0);
+
+        Halves(target, whole: true);
+
+        List<float> said = [];
+
+        MapBaker.Bake(
+            source,
+            target,
+            new() { Resolution = 64, Gutter = 2, SearchRadius = 0.4f },
+            said.Add,
+            CancellationToken.None
+        );
+
+        Assert.True(said.Count > 2, $"The bake reported {said.Count} times, which is not a bar.");
+        Assert.Equal(1f, said[^1]);
+
+        for (var at = 1; at < said.Count; at++) {
+            Assert.InRange(said[at], said[at - 1], 1f);
+        }
+    }
+
     /// <summary>A target with no coordinates is refused rather than baked into nothing.</summary>
     [Fact]
     public void A_target_with_no_atlas_is_refused() {

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Editor.Assets.MeshMaps;
 using Vixen.Geometry.Remeshing;
 using Measurements = Vixen.Geometry.Remeshing.MeshMaps;
@@ -45,11 +46,21 @@ sealed partial class MeshMapBakeView;
 /// <summary>What a mesh-map bake is set to measure, and how finely.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The editor's, not the project's, and not persisted — a limitation rather than a
-///         decision.</b> Every other settings surface in the editor is a <c>[DataContract]</c> under
-///         <c>ProjectSettings/</c>; this one is a field on <see cref="EditorApplication" /> because
-///         a bake setting is not yet something a checkout has to agree about. It means a resolution
-///         somebody raised is back at 1024 next session.
+///         ⚠ <b>The project's, and the machine-preference argument loses</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/701">#701</a>. A ray count is a cost paid
+///         on this workstation, which is the argument for <c>EditorPreferences</c>; what settles it
+///         the other way is <i>where the output goes</i>. These numbers decide the bytes of nine PNGs
+///         that land in <c>Assets/</c> and are committed, so two artists baking the same model on one
+///         project have to agree about them the way they agree about an import setting. A resolution
+///         that was a field on the application was back at 1024 every session, which is the half
+///         nobody defended.
+///     </para>
+///     <para>
+///         ⚠ <b>The measurements are stored as usage names and never as the flags integer.</b>
+///         <see cref="ViewportPreferences" /> records why in one line: a bitset written as a number
+///         comes back meaning something else the moment somebody inserts a member into the enum, and
+///         it looks like the editor forgetting rather than like a defect. <see cref="Maps" /> is
+///         derived from <see cref="Measure" /> and is deliberately not itself a stored member.
 ///     </para>
 ///     <para>
 ///         ⚠ <b><see cref="SearchRadius" /> is a fraction of the source's bounding-box diagonal and
@@ -65,7 +76,8 @@ sealed partial class MeshMapBakeView;
 ///         which two of the nine are not in them.
 ///     </para>
 /// </remarks>
-sealed class MeshMapBakeSettings {
+[DataContract("MeshMapBake")]
+public sealed class MeshMapBakeSettings {
     /// <summary>How big a map, on a side.</summary>
     public int Resolution { get; set; } = 1024;
 
@@ -78,8 +90,51 @@ sealed class MeshMapBakeSettings {
     /// <summary>How many rays the hemisphere at a texel is sampled with.</summary>
     public int OcclusionSamples { get; set; } = 64;
 
+    /// <summary>Which of § D12's seven to measure, by <see cref="MeshMapNaming.Suffix" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The stored form, and it is a list of names for the reason this type's own remarks
+    ///     give.</b> A name that no longer parses is simply not wanted rather than refused — a project
+    ///     opened in an older editor after somebody added a measurement has to load — which is
+    ///     <c>ProjectSettingsStore.UnknownKeys</c>'s bargain one level down.
+    /// </remarks>
+    public List<string> Measure { get; set; } = [.. Optional.Select(MeshMapNaming.Suffix)];
+
     /// <summary>Which of § D12's seven to measure. The normal and the displacement are not optional.</summary>
-    public Measurements Maps { get; set; } = Measurements.All;
+    /// <remarks>Derived from <see cref="Measure" />, which is the half that is written to the file.</remarks>
+    [DataMemberIgnore]
+    public Measurements Maps {
+        get {
+            var wanted = Measurements.None;
+
+            foreach (var usage in Optional) {
+                if (Wants(usage) && Flag(usage) is { } flag) {
+                    wanted |= flag;
+                }
+            }
+
+            return wanted;
+        }
+    }
+
+    /// <summary>Whether a bake may replace a map somebody has painted over.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Off, and it has to open off every time somebody looks at the panel</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/716">#716</a>. It is the one field
+    ///         here whose wrong value destroys work rather than wasting minutes, so it is the one
+    ///         field <see cref="MeshMapBakeOptions" />'s persistence deliberately does not carry: a
+    ///         checkbox somebody ticked once for a good reason, remembered across a restart, is the
+    ///         guard silently turned off for every later bake.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is a setting rather than a prompt because the bake's two halves are minutes
+    ///         apart.</b> The refusal happens on the frame thread after the casting has finished; a
+    ///         dialog there would ask the question at the end of a bake somebody started and walked
+    ///         away from, which is the one moment nobody is looking.
+    ///     </para>
+    /// </remarks>
+    [DataMemberIgnore]
+    public bool Overwrite { get; set; }
 
     /// <summary>The seven a person can turn off, in the order § D12's table lists them.</summary>
     public static IReadOnlyList<MeshMapUsage> Optional { get; } = [
@@ -111,18 +166,29 @@ sealed class MeshMapBakeSettings {
     /// <summary>Whether a bake would measure one of the seven.</summary>
     /// <param name="usage">Which map.</param>
     /// <returns>Whether it is on. Anything not in <see cref="Optional" /> is not.</returns>
-    public bool Wants(MeshMapUsage usage) => Flag(usage) is { } flag && Maps.HasFlag(flag);
+    public bool Wants(MeshMapUsage usage) =>
+        Flag(usage) is not null && Measure.Contains(MeshMapNaming.Suffix(usage), StringComparer.Ordinal);
 
     /// <summary>Turns one of the seven on or off.</summary>
     /// <param name="usage">Which map.</param>
     /// <param name="on">Whether to measure it.</param>
     /// <remarks>A usage that is not one of the seven is ignored: the other two are not optional.</remarks>
     public void Want(MeshMapUsage usage, bool on) {
-        if (Flag(usage) is not { } flag) {
+        if (Flag(usage) is null) {
             return;
         }
 
-        Maps = on ? Maps | flag : Maps & ~flag;
+        var suffix = MeshMapNaming.Suffix(usage);
+
+        if (on) {
+            if (!Measure.Contains(suffix, StringComparer.Ordinal)) {
+                Measure.Add(suffix);
+            }
+
+            return;
+        }
+
+        Measure.RemoveAll(named => string.Equals(named, suffix, StringComparison.Ordinal));
     }
 
     /// <summary>These settings as the bake's own.</summary>

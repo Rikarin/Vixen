@@ -12,24 +12,24 @@
         <PackageReadmeFile>README.md</PackageReadmeFile>
 
         <!--
-          ⚠ **A workaround for a name-resolution collision, and it should go the moment two words
-          change in `TexturePlanEvaluator.cs`.** That file writes `Core.Imaging.Bitmap` and
-          `Core.Imaging.PngCodec` — relative names, resolved by walking out from
-          `namespace Vixen.Editor.TextureGraph` until something called `Core` turns up. Until the
-          `Vixen.Editor.NodeGraph` reference below, the first hit was `Vixen.Core`; that reference
-          brings `Vixen.Editor.Core` in transitively, `Vixen.Editor` is a *nearer* enclosing namespace
-          than `Vixen`, and the same two lines then name a namespace with no `Imaging` in it. Nothing
-          in either file changed and the build stopped.
+          **The compile-time reference set is exactly what is named below, and nothing else.** That is
+          why `Vixen.Core` and `Vixen.Core.Mathematics` appear there — they used to arrive through
+          `Vixen.Graphics` — and why `Vixen.Core.Syntax` does, which used to arrive through Raven. It
+          does *not* keep the interface framework out of the output directory, which the note on the
+          node-graph reference is about: what it keeps out is this assembly's ability to *spell*
+          `UiElement`, and doc 48 § 4.1's refusal of an `Svg Path` node rests on that.
 
-          ⚠ **A `global using Core = Vixen.Core;` does not fix it** — tried, and it does not: a
-          compilation-unit alias is consulted only after the enclosing-namespace walk, so
-          `Vixen.Editor.Core` still wins. Spelling `Vixen.Core.Imaging.Bitmap` in that one file is the
-          real fix, and this slice does not own it — [#717](https://github.com/Rikarin/Vixen/issues/717).
-
-          What this property buys beyond dodging that: the compile-time reference set becomes exactly
-          what is named below, which is why `Vixen.Core` and `Vixen.Core.Mathematics` had to be added
-          — they used to arrive through `Vixen.Graphics`. It does *not* keep the interface framework
-          out of the output directory, which the note on the node-graph reference is about.
+          ⚠ **It also used to be what made `TexturePlanEvaluator.cs` compile, and that is no longer
+          true** — [#717](https://github.com/Rikarin/Vixen/issues/717). That file wrote
+          `Core.Imaging.Bitmap`, a *relative* name resolved by walking out from
+          `namespace Vixen.Editor.TextureGraph` until something called `Core` turns up: hiding
+          `Vixen.Editor.Core` from the compilation was the only reason the walk still found
+          `Vixen.Core`, so the file compiled by accident and turning this property off failed a file
+          nobody had edited. The names are spelled `Vixen.Core.Imaging.…` now, and this property
+          answers for the compile surface alone. ⚠ **The issue's own prescription — that the property
+          and those two references come out with the qualification — is refused here**: since it was
+          filed, doc 48 § 4.1 made the property load-bearing for a decision that has nothing to do
+          with a namespace collision.
         -->
         <DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
 
@@ -169,6 +169,12 @@
           that M5 will run headless. `DisableTransitiveProjectReferences` narrows what this project
           *compiles* against and does nothing about that. Splitting the compiler into an assembly of
           its own is the fix — [#720](https://github.com/Rikarin/Vixen/issues/720).
+
+          ⚠ **And the split is deliberately deferred, because no consumer would notice it yet.** All
+          four projects that reference this one already load those eleven assemblies by another path
+          — measured, and written down in the README's "No UI and no project" bullet along with what
+          the move would cost. The consumer it is for is § M5's `vixen texture bake`; doing it before
+          that caller exists is a seam built ahead of its caller rather than a fix for one.
         -->
         <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
 

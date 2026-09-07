@@ -1277,7 +1277,7 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         // the very Blend node the promotion exists for.
         ops.Add(
             new() {
-                Kernel = "ChannelShuffle",
+                Kernel = TextureColourKernels.ChannelShuffle,
                 Output = promoted,
                 Inputs = [source, source],
                 Parameters = [new("sourceR", 0f), new("sourceG", 0f), new("sourceB", 0f), new("sourceA", 9f)]

@@ -148,6 +148,12 @@ public class TextureColourKernelTests {
     [InlineData("Grayscale", "source")]
     [InlineData("Hsl", "source")]
     [InlineData("Invert", "source")]
+
+    // ⚠ Added when `Levels` joined `TextureColourKernels.All` — #756. The roll call above walks that
+    // list and this theory does not, so a kernel can join the family and be the only one of the
+    // fourteen whose input order nothing asserts. Two lists that must agree and only one of them
+    // derived is the shape this suite exists to refuse.
+    [InlineData("Levels", "source")]
     [InlineData("MinMaxReduce", "source")]
     [InlineData("Mirror", "source")]
     [InlineData("Resample", "source")]
@@ -238,7 +244,7 @@ public class TextureColourKernelTests {
     }
 
     /// <summary>
-    ///     ⚠ Not one parameter of these thirteen kernels is a length in texels, so § D8's scaling
+    ///     ⚠ Not one parameter of these fourteen kernels is a length in texels, so § D8's scaling
     ///     never applies to any of them.
     /// </summary>
     /// <remarks>

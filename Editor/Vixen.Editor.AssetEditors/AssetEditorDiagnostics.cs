@@ -26,15 +26,22 @@ namespace Vixen.Editor.AssetEditors;
 ///         stop had already had eight chances.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The <c>SG</c> family is split across two assemblies and nothing here can see the
-///         other half.</b> <c>SG0001</c>…<c>SG0004</c> are in
-///         <c>Vixen.Editor.ShaderGraph.ShaderGraphCompiler</c>, which does not reference this
-///         assembly and is not referenced by this declaration; a roll call anchored at one project's
-///         sources cannot enumerate the other's. So <c>SG0100</c>'s distance from the compiler's
-///         range is a convention held by nothing, and a tenth id numbered <c>SG0002</c> here would
-///         compile, gate green, and mean two things in one panel — which is exactly #804's finding.
-///         That is recorded rather than absorbed: it wants one declaration per <em>family</em>, in
-///         the assembly both can reference.
+///         ⚠ <b>Seven of those nine are here and the other two are not, because a diagnostic family
+///         is not per assembly</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/982">#982</a>. <c>SG0000</c> and
+///         <c>SG0100</c> are reported from this assembly and declared in
+///         <c>Vixen.Editor.ShaderGraph.ShaderGraphDiagnostics</c>, beside the <c>SG0001</c>…
+///         <c>SG0004</c> that compiler raises, because the two halves of one family in two
+///         declarations neither of which can enumerate the other is a convention held by nothing: a
+///         tenth id numbered <c>SG0002</c> here would have compiled and gated green in both projects
+///         and meant two things in the one panel an author reads them in.
+///     </para>
+///     <para>
+///         ⚠ <b>So <c>SG</c> is still a literal this assembly refuses, and that is the point rather
+///         than an oversight.</b> <c>AssetEditorDiagnosticIdTests</c> walks these sources for the
+///         whole family and not merely for what is declared below, so the next <c>SG</c> id reported
+///         from here is forced into the shared declaration — the gate used to force it into this
+///         file, which is the half of #982 that made it urgent rather than tidy.
 ///     </para>
 ///     <para>
 ///         ⚠ <b><c>&lt;XX&gt;0000</c> is a per-document-kind id and folding it into a compiler's
@@ -43,6 +50,7 @@ namespace Vixen.Editor.AssetEditors;
 ///         when the file is not a graph at all, and it has three siblings spelled the same way —
 ///         <c>CO0000</c>, <c>VF0000</c> and <c>TX0000</c> one assembly over. One document kind out of
 ///         four spelling "this file is unreadable" unlike the other three is worse than two prefixes.
+///         That is why the move was of the declaration and not of the number.
 ///     </para>
 ///     <para>
 ///         ⚠ <b><c>Ids</c> and emphatically not <c>All</c>.</b> The texture-graph kernel roll calls
@@ -51,23 +59,6 @@ namespace Vixen.Editor.AssetEditors;
 ///     </para>
 /// </remarks>
 static class AssetEditorDiagnostics {
-    /// <summary>
-    ///     A <c>.vxshadergraph</c> did not parse, so the document opened empty and carries the
-    ///     parser's own complaint. ⚠ Not a graph that is wrong — one whose bytes are not a graph.
-    /// </summary>
-    internal const string ShaderGraphFileDoesNotParse = "SG0000";
-
-    /// <summary>
-    ///     Raven objected to the source a shader graph emitted, blamed on the node whose span covers
-    ///     the line.
-    /// </summary>
-    /// <remarks>
-    ///     ⚠ <b>One id for every Raven complaint, carrying that complaint's own severity.</b> The
-    ///     shader graph does not re-diagnose what the language already diagnosed; what it adds is the
-    ///     node the line belongs to, which is the only part a canvas can select.
-    /// </remarks>
-    internal const string ShaderGraphSourceRefused = "SG0100";
-
     /// <summary>A <c>.vxcompositor</c> did not parse. <c>SG0000</c>'s sentence, one document over.</summary>
     internal const string CompositorFileDoesNotParse = "CO0000";
 

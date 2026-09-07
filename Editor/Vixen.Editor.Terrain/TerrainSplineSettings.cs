@@ -29,7 +29,6 @@ namespace Vixen.Editor.Terrain;
 ///         stack.
 ///     </para>
 /// </remarks>
-[DataContract("TerrainSplineSettings")]
 public sealed class TerrainSplineSettings {
     /// <summary>The narrowest road worth deforming for, in metres of half-width.</summary>
     public const float MinimumHalfWidth = 0.1f;

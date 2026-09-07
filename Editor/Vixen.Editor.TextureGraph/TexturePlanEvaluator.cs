@@ -108,7 +108,7 @@ public sealed class TextureBake : IDisposable {
     ///         submission, so a copy recorded for one queue can never be submitted to another.
     ///     </para>
     /// </remarks>
-    public Core.Imaging.Bitmap Read(int image) {
+    public Vixen.Core.Imaging.Bitmap Read(int image) {
         ObjectDisposedException.ThrowIf(disposed, this);
 
         // ⚠ The same refusal `TexturePlanEvaluator.RefuseInsideAFrame` makes, and it belongs here as
@@ -172,7 +172,20 @@ public sealed class TextureBake : IDisposable {
     /// <summary>Writes one image to a PNG.</summary>
     /// <param name="image">Its index in <see cref="TexturePlan.Images" />.</param>
     /// <param name="path">Where to write it.</param>
-    public void Save(int image, string path) => Core.Imaging.PngCodec.Save(path, Read(image));
+    /// <remarks>
+    ///     ⚠ <b>The <c>Vixen.</c> on the front is load-bearing, here and on <see cref="Read" />, and
+    ///     shortening it is a build failure in a file nobody edited</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/717">#717</a>. A relative <c>Core.Imaging</c>
+    ///     is resolved by walking out from <c>Vixen.Editor.TextureGraph</c> until something called
+    ///     <c>Core</c> turns up: that used to be <c>Vixen.Core</c>, and the moment
+    ///     <c>Vixen.Editor.Core</c> is visible to this compilation — it arrives through
+    ///     <c>Vixen.Editor.NodeGraph</c> — the nearer <c>Vixen.Editor</c> wins and names a namespace
+    ///     with no <c>Imaging</c> in it. ⚠ <b>A <c>global using Core = Vixen.Core;</c> does not fix
+    ///     it</b>: a compilation-unit alias is consulted only after the enclosing-namespace walk. Only
+    ///     <c>DisableTransitiveProjectReferences</c> was keeping the short spelling alive, and that
+    ///     property is set for an unrelated reason it should not have to answer for.
+    /// </remarks>
+    public void Save(int image, string path) => Vixen.Core.Imaging.PngCodec.Save(path, Read(image));
 
     /// <inheritdoc />
     public void Dispose() {

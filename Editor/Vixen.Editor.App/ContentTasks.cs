@@ -134,6 +134,7 @@ sealed class ContentTasks {
     /// <param name="source">The high-resolution surface. May be the same mesh as the target.</param>
     /// <param name="target">The mesh with the atlas the maps land in.</param>
     /// <param name="settings">The size, the gutter, the search radius and which maps to measure.</param>
+    /// <param name="force">Overwrite maps somebody has painted over.</param>
     /// <remarks>
     ///     <para>
     ///         <b>Doc 48 § D12's maps, from the editor, without freezing the window.</b> A bake casts
@@ -159,12 +160,19 @@ sealed class ContentTasks {
     ///         not.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Cancel does not stop the casting, and saying so is the honest half.</b>
-    ///         <c>MapBaker.Bake</c> takes no cancellation token and reports no progress — it is one
-    ///         call that returns when every texel of the atlas is done — so the task centre's Cancel
-    ///         is read at the two points around it and nowhere inside. Pressing it during a 4K bake
-    ///         means the maps are not written, not that the machine stops. The bar moves twice for
-    ///         the same reason.
+    ///         ⚠ <b>Cancel stops the casting, and until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/700">#700</a> it did not.</b> The
+    ///         remark here used to say so — <c>MapBaker.Bake</c> was one call that returned when every
+    ///         texel was done, so the token was read on either side of it and nowhere inside, and the
+    ///         bar moved exactly twice. Honesty about a dead button is better than a lie about a live
+    ///         one and is still a dead button: at 4K with several hundred rays that was minutes of a
+    ///         task row whose Cancel was a decoration. The token now reaches the row loop and the
+    ///         fraction is rows cast.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The casting is scaled into the first nine tenths rather than reported raw.</b>
+    ///         Encoding nine PNGs is the tenth and it is not free; a bar that reached 1.0 and then sat
+    ///         there is the shape of progress bar people learn to disbelieve.
     ///     </para>
     /// </remarks>
     public void BakeMeshMaps(
@@ -173,7 +181,8 @@ sealed class ContentTasks {
         string mesh,
         EditMesh source,
         EditMesh target,
-        BakeSettings settings
+        BakeSettings settings,
+        bool force = false
     ) {
         ArgumentNullException.ThrowIfNull(baker);
         ArgumentException.ThrowIfNullOrEmpty(mesh);
@@ -194,14 +203,20 @@ sealed class ContentTasks {
                 try {
                     task.Report(0f, "Casting");
 
-                    var maps = MapBaker.Bake(source, target, settings);
+                    var maps = MapBaker.Bake(
+                        source,
+                        target,
+                        settings,
+                        fraction => task.Report(fraction * 0.9f, "Casting"),
+                        task.Cancellation
+                    );
 
                     task.Cancellation.ThrowIfCancellationRequested();
                     task.Report(0.9f, "Encoding");
 
                     var images = MeshMapBake.Encode(maps);
 
-                    afterwards.Enqueue(() => Landed(baker, model, mesh, images, maps.Warnings));
+                    afterwards.Enqueue(() => Landed(baker, model, mesh, images, maps.Warnings, force));
                     handed = true;
                 } catch (Exception failure) when (failure is IOException or ArgumentException) {
                     finished.Enqueue(new(NotificationSeverity.Error, "Could not bake " + mesh, failure.Message));
@@ -230,10 +245,11 @@ sealed class ContentTasks {
         AssetId model,
         string mesh,
         IReadOnlyList<MeshMapImage> images,
-        IReadOnlyList<string> warnings
+        IReadOnlyList<string> warnings,
+        bool force
     ) {
         try {
-            var set = baker.Write(model, mesh, images, warnings);
+            var set = baker.Write(model, mesh, images, warnings, force);
 
             LastBake = set;
 
