@@ -218,6 +218,17 @@ sealed class PaintCanvasStore {
             return held;
         }
 
+        if (stamp is null) {
+            // ⚠ Forgotten *before* the decode and not after it, for the reason `Open` forgets before
+            // its read — https://github.com/Rikarin/Vixen/issues/995. A file that has gone is the
+            // one case where the decode cannot succeed, so a `Forget` on the far side of it is a
+            // `Forget` that never runs: the entry and its bytes stayed charged against the budget
+            // for the rest of the session while being unservable, and the exception the caller sees
+            // is the same either way. Nothing is held for a file this store cannot stamp, so
+            // whichever way the decode ends there is nothing here to keep.
+            Forget(absolute);
+        }
+
         var picture = decode(absolute);
 
         Reads++;
@@ -225,9 +236,7 @@ sealed class PaintCanvasStore {
         if (stamp is null) {
             // Decoded from a file this store cannot stamp — it was gone when the stamp was taken and
             // the decoder found something anyway. Holding it would be holding a picture nothing can
-            // invalidate, so it is handed back and forgotten.
-            Forget(absolute);
-
+            // invalidate, so it is handed back unheld.
             return picture;
         }
 

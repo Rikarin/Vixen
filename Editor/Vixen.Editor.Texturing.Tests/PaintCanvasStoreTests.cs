@@ -362,6 +362,43 @@ public class PaintCanvasStoreTests : IDisposable {
         Assert.Equal(0, store.Hits);
     }
 
+    /// <summary>⚠ And a held picture whose file has since gone is dropped, not charged for the session.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/995">#995</a>, and it is the one
+    ///         path where the decode cannot succeed.</b> A deleted file fails its own stamp, so the
+    ///         entry is a miss and the decoder is called — and a real decoder opens the file, so it
+    ///         throws. The <c>Forget</c> that handles an unstampable file used to sit on the far side
+    ///         of that call and therefore never ran: the picture stayed in the store, unservable,
+    ///         with its bytes still counted against the budget for the rest of the session.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asserted on <c>Bytes</c> as well as <c>Count</c>, because the budget is what the
+    ///         defect costs.</b> A store that dropped the entry and forgot to give its bytes back
+    ///         would be the same leak with the dictionary tidied, and <c>Count</c> alone cannot see
+    ///         it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_picture_whose_file_has_gone_is_dropped_rather_than_held_unservable() {
+        var file = Path.Combine(folder, "Rust.png");
+
+        File.WriteAllBytes(file, [1, 2, 3, 4]);
+
+        PaintCanvasStore store = new();
+
+        Assert.NotNull(store.Picture(file, Decoded));
+        Assert.Equal(1, store.Count);
+        Assert.NotEqual(0L, store.Bytes);
+
+        File.Delete(file);
+
+        Assert.Throws<FileNotFoundException>(() => store.Picture(file, Decoded));
+
+        Assert.Equal(0, store.Count);
+        Assert.Equal(0L, store.Bytes);
+    }
+
     /// <summary>Decodes a two-by-two picture, opening the file the way a real decoder would.</summary>
     static TextureData Decoded(string path) {
         using var stream = File.OpenRead(path);

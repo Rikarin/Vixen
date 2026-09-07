@@ -23,10 +23,18 @@ namespace Tests;
 ///     <para>
 ///         <b>The pairing is derived and not listed</b>, which is the point — four transcribed
 ///         subject sets in this workstream have each turned out narrower than the rule they stood
-///         for. A builder's body says which kernel it writes (<c>Kernel = …</c>, resolved through the
-///         project's own <c>const string</c>s) or calls a builder that does, so a delegating overload
-///         is paired through the one it delegates to; the <c>.rvn</c> says which uniforms exist. What
-///         is left is a name in both, and every such name is a row here.
+///         for. A builder's body says which kernels it writes (<c>Kernel = …</c>, resolved through
+///         the project's own <c>const string</c>s) or calls a builder that does, so a delegating
+///         overload is paired through the one it delegates to; the <c>.rvn</c> says which uniforms
+///         exist. What is left is a name in both, and every such name is a row here.
+///     </para>
+///     <para>
+///         ⚠ <b>Kernels rather than a kernel, and the plural was untrue for three batches</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/994">#994</a>. <c>Distance</c> and
+///         <c>FloodFill</c> each emit a chain and name two, and the pairing took the first
+///         <c>Kernel =</c> in the body — so the kernel that <em>reads</em> the chain's result had no
+///         row at all, in a suite whose whole claim is that both halves of a description are
+///         checked.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>One direction, deliberately: what the kernel says the C# must say.</b> A uniform the
@@ -79,11 +87,20 @@ public class TextureKernelUnitDocTests {
     ///     resolved through two different <c>const string</c>s — enough that a parse which had
     ///     stopped finding methods, uniforms or kernel names fails here rather than silently
     ///     asserting over nothing. ⚠ Deliberately a floor — see the remark on the class.
+    ///     <para>
+    ///         ⚠ <b>The fourth is the multi-kernel one and it is here for its own reason</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/994">#994</a>. <c>mode</c> is declared
+    ///         by <c>Distance.rvn</c> alone, and the builder that documents it emits <c>JumpFlood</c>
+    ///         first, so this row exists only while the pairing reads <em>every</em> <c>Kernel =</c> a
+    ///         builder writes. Matching the first put every second kernel of a chain in no row while
+    ///         the class remark claimed otherwise, and none of the three above could see it.
+    ///     </para>
     /// </remarks>
     static readonly (string Kernel, string Parameter)[] Known = [
         ("TileSampler", "rotationJitter"),
         ("Splatter", "rotationMapAmount"),
-        ("Emboss", "elevation")
+        ("Emboss", "elevation"),
+        ("Distance", "mode")
     ];
 
     /// <summary>A method's doc block and its name, at a class member's indentation.</summary>
@@ -191,13 +208,27 @@ public class TextureKernelUnitDocTests {
     static List<(string Kernel, string Parameter, string CSharp, string Raven)> Pairs() {
         var sources = Builders();
         var constants = Constants();
-        var kernels = new Dictionary<string, string>(StringComparer.Ordinal);
+        var kernels = new Dictionary<string, List<string>>(StringComparer.Ordinal);
 
         // The builders that name a kernel outright, and then the ones that reach it through those —
         // a short overload delegates rather than building, and #797's six lines were mostly in one.
+        //
+        // ⚠ Every `Kernel =` in the body and not the first — #994. A builder that emits a chain names
+        // more than one: `Distance` writes `JumpFlood` inside its loop and then `Distance` after it,
+        // and `FloodFill` writes `FloodBounds` and then `FloodFill`. Matching only the first put the
+        // *second* kernel's uniforms in no row at all, while the remark above claims every name in
+        // both is one — so the half of a two-kernel builder that reads its own results was ungated.
         foreach (var (name, _, body) in sources) {
-            if (Writes.Match(body) is { Success: true } match) {
-                kernels[name] = Resolve(match.Groups["kernel"].Value, constants);
+            foreach (Match match in Writes.Matches(body)) {
+                var kernel = Resolve(match.Groups["kernel"].Value, constants);
+
+                if (!kernels.TryGetValue(name, out var written)) {
+                    kernels[name] = written = [];
+                }
+
+                if (!written.Contains(kernel, StringComparer.Ordinal)) {
+                    written.Add(kernel);
+                }
             }
         }
 
@@ -206,9 +237,9 @@ public class TextureKernelUnitDocTests {
                 continue;
             }
 
-            foreach (var (called, kernel) in kernels.ToArray()) {
+            foreach (var (called, written) in kernels.ToArray()) {
                 if (Regex.IsMatch(body, $@"\b{Regex.Escape(called)}\s*\(")) {
-                    kernels[name] = kernel;
+                    kernels[name] = written;
 
                     break;
                 }
@@ -218,15 +249,24 @@ public class TextureKernelUnitDocTests {
         List<(string, string, string, string)> pairs = [];
 
         foreach (var (name, doc, _) in sources) {
-            if (!kernels.TryGetValue(name, out var kernel) || !TextureKernels.Names.Contains(kernel)) {
+            if (!kernels.TryGetValue(name, out var written)) {
                 continue;
             }
 
-            var uniforms = Uniforms(TextureKernels.Source(kernel));
+            // ⚠ A row per kernel and not per builder: a `<param>` a chain's builder documents is
+            // paired against every kernel of the chain that declares that name, because both
+            // declarations are descriptions of the value the caller passed.
+            foreach (var kernel in written) {
+                if (!TextureKernels.Names.Contains(kernel)) {
+                    continue;
+                }
 
-            foreach (Match parameter in Param.Matches(doc)) {
-                if (uniforms.TryGetValue(parameter.Groups["name"].Value, out var declared)) {
-                    pairs.Add((kernel, parameter.Groups["name"].Value, parameter.Groups["text"].Value, declared));
+                var uniforms = Uniforms(TextureKernels.Source(kernel));
+
+                foreach (Match parameter in Param.Matches(doc)) {
+                    if (uniforms.TryGetValue(parameter.Groups["name"].Value, out var declared)) {
+                        pairs.Add((kernel, parameter.Groups["name"].Value, parameter.Groups["text"].Value, declared));
+                    }
                 }
             }
         }
