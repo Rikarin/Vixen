@@ -469,6 +469,13 @@ sealed class LayerStackView : IDisposable {
     ///         that a value existed in a record. A diagnostic an author cannot see is not a
     ///         diagnostic.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is where the <em>file's</em> own failures are said too</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/983">#983</a>. A picture is one
+    ///         attempt at the map and a load failure is a fact about the bytes, so the second had no
+    ///         surface at all until it was folded in here. The two-argument <c>Describe</c> says why
+    ///         it leads rather than trails, and why the status line was the wrong home for it.
+    ///     </para>
     /// </remarks>
     public IReadOnlyList<string> Messages { get; private set; } = [];
 
@@ -570,7 +577,7 @@ sealed class LayerStackView : IDisposable {
             child.Remove();
         }
 
-        Messages = picture is null ? [] : Describe(picture);
+        Messages = Describe(document, picture);
 
         foreach (var message in Messages) {
             messages.Add("layer-stack-message").Text = message;
@@ -658,53 +665,46 @@ sealed class LayerStackView : IDisposable {
         fitted = Preview.Fit();
     }
 
-    /// <summary>The rows a stack's first texture set makes, topmost first.</summary>
-    /// <param name="document">The stack.</param>
-    /// <returns>One line per layer, a group's children indented under it.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="document" /> is null.</exception>
+    /// <summary>Everything an open stack has to say about itself, as lines.</summary>
+    /// <param name="document">The stack, or null when none is open.</param>
+    /// <param name="picture">The latest attempt at its map, when there was one.</param>
+    /// <returns>The file's own load failures first, then everything the compile had to say.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A disabled layer is listed and marked rather than hidden.</b> A row that vanished
-    ///         when it was switched off would leave an artist with no way to switch it back on, which
-    ///         is the same defect as a layer that never appears.
+    ///         ⚠ <b>The load diagnostics are read here and nowhere else, which is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/983">#983</a>.</b>
+    ///         <c>LayerStackDocument.LoadDiagnostics</c> exists because <c>LayerStackYaml.Read</c>
+    ///         <em>refuses</em> a blend mode this build cannot spell rather than defaulting it — the
+    ///         alternative to the report is not a wrong picture, it is no explanation for an empty
+    ///         panel — and until this overload nothing in production asked for it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And a group's children are listed, which they were not before this panel could
-    ///         reorder.</b> A list that stopped at the top level was honest while nothing could be
-    ///         moved; it stops being honest the moment there is an <em>up</em> button, because a
-    ///         layer inside a group is then a layer an artist cannot reach at all —
-    ///         <c>LayerStackEdit</c> reorders inside whichever list a layer is really in, and this is
-    ///         the half that lets somebody name one.
+    ///         ⚠ <b>Here rather than on the status line, because the two answer different
+    ///         questions.</b> <c>picture.Status</c> is recomputed per evaluation and says why there
+    ///         is no map; a load failure is a fact about the <em>file</em> that survives every
+    ///         refresh, so a sentence written into the status line is one the next edit erases.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing in this panel calls it, and that is the shape
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/898">#898</a> already removed once.</b>
-    ///         <see cref="Build" /> lays out one row per layer through <see cref="Line" /> and never
-    ///         comes here; the only callers are in xunit. It is left alone rather than deleted because
-    ///         two tests read it, and it is said here because a method that describes a panel it does
-    ///         not drive is a description that can drift — this one already has. It says "first
-    ///         texture set" and means it, while the panel now shows <see cref="SetName" />'s.
+    ///         ⚠ <b>And they lead, because a file that did not parse makes every compile message
+    ///         downstream of it.</b> A stack whose bytes were refused compiles as a stack with
+    ///         nothing in it, so the diagnostics under this line are about a document the artist
+    ///         never wrote.
     ///     </para>
     /// </remarks>
-    public static IReadOnlyList<string> Describe(LayerStackDocument document) {
-        ArgumentNullException.ThrowIfNull(document);
-
+    public static IReadOnlyList<string> Describe(LayerStackDocument? document, LayerStackPicture? picture) {
         List<string> lines = [];
 
-        if (document.Document.Sets.Count == 0) {
-            return lines;
-        }
-
-        Walk(document.Document.Sets[0].Layers, 0);
-
-        return lines;
-
-        void Walk(List<LayerAsset> layers, int depth) {
-            for (var index = layers.Count - 1; index >= 0; index--) {
-                lines.Add(Line(layers[index], depth));
-                Walk(layers[index].Children, depth + 1);
+        if (document is not null) {
+            foreach (var diagnostic in document.LoadDiagnostics) {
+                lines.Add($"{Severity(diagnostic.Severity)} — {diagnostic.Id}: {diagnostic.Message}");
             }
         }
+
+        if (picture is not null) {
+            lines.AddRange(Describe(picture));
+        }
+
+        return lines;
     }
 
     /// <summary>Everything one attempt at the map had to say, as lines.</summary>
