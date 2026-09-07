@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Editor.TextureGraph;
+using Vixen.Graphics;
 using Xunit;
 
 namespace Tests;
@@ -218,13 +219,30 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
 
         Assert.Equal(new Int2(Narrow, Narrow), uploads.SizeOf(0));
 
-        // ⚠ The plan's own answer is the nominal one, and it disagrees. `TexturePlan.SizeOf` reads a
-        // size off the image's level, and nothing allocates an external image, so for one it is a
-        // number no picture produced.
-        Assert.Equal(new Int2(Side, Side), plan.SizeOf(0));
+        // ⚠ And the plan refuses to give a second answer — #715, #1008. It used to return the
+        // nominal 64×64 here, a number no picture produced, read off the level of an image nothing
+        // allocates; that answer had one caller and it was `OnCpu`'s read-back (#1000).
+        var nominal = Assert.Throws<ArgumentException>(() => plan.SizeOf(0));
+
+        Assert.Contains("external", nominal.Message, StringComparison.Ordinal);
 
         using var evaluator = new TexturePlanEvaluator(device);
         using var bake = evaluator.Evaluate(plan, uploads.Externals);
+
+        // ⚠ And the bake says so — #632. This is the picture that issue describes and the guard
+        // written for it (#801) could not see: `TexturePlan.Check` skips an external input because
+        // the plan has no size for one, so a pointwise kernel over an undersized import was silent
+        // everywhere. The declared size is what makes the claim measurable, and it only exists at
+        // the evaluation.
+        var caution = Assert.Single(bake.Warnings);
+
+        Assert.Contains("Op 0", caution, StringComparison.Ordinal);
+        Assert.Contains("Invert", caution, StringComparison.Ordinal);
+        Assert.Contains($"{Side}×{Side}", caution, StringComparison.Ordinal);
+        Assert.Contains($"{Narrow}×{Narrow}", caution, StringComparison.Ordinal);
+
+        // It is a report and not a refusal: the bake happened, and the picture below is what it drew.
+        Assert.Empty(plan.Validate());
 
         var picture = bake.Read(1);
 
@@ -236,5 +254,174 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
         for (var x = Narrow; x < Side; x++) {
             Assert.Equal(255, TextureKernelHarness.At(picture, x, 3, 0));
         }
+    }
+
+    /// <summary>And an op that means to read another extent is silent about the same upload.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half that stops the caution being "every import that is not the graph's size is a
+    ///     warning".</b> <c>Resample</c>, <c>Crop</c>, <c>Tile</c>, <c>Transform2D</c> and
+    ///     <c>Bitmap</c> all read their source's extent on purpose and say so on the op, and the
+    ///     evaluator's guard asks <c>TexturePlan.Declared</c> — the same predicate the plan's own
+    ///     guard asks — rather than re-spelling it. It is the same plan, the same upload and the same
+    ///     kernel as
+    ///     <see cref="An_upload_smaller_than_the_plan_is_clamped_to_its_own_edge" />; only the
+    ///     declaration differs.
+    /// </remarks>
+    [Fact]
+    public void An_op_that_declares_the_difference_is_not_cautioned_about_the_upload() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"declared extent difference on {TextureKernelHarness.Adapter(device)}");
+
+        const int Narrow = 16;
+
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
+            Ops = [Copy(1, 0) with { ReadsOtherExtents = true }],
+            Outputs = [1]
+        };
+
+        using var uploads = new TextureUploads(device);
+
+        uploads.Add(plan, 0, Narrow, Narrow, TextureKernelHarness.Ramp(Narrow));
+
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var bake = evaluator.Evaluate(plan, uploads.Externals);
+
+        Assert.Empty(bake.Warnings);
+    }
+
+    /// <summary>⚠ A CPU op reading an undersized upload is handed that picture, not the plan's size.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1000">#1000</a>, and the fixture
+    ///         is the whole finding.</b> Every other CPU-op case in this assembly uploads at its
+    ///         plan's own resolution, where the plan's nominal answer for an external image happens
+    ///         to be right — so eight green tests covered a read-back sized from a number no picture
+    ///         had. Sixteen texels in a sixty-four-texel plan is the case none of them varied.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the old code did was read memory nobody wrote.</b>
+    ///         <c>CopyTextureToBuffer</c> was issued with a 64×64 extent against a 16×16 texture into
+    ///         a 16 KB buffer, of which at most 1 KB can have been filled, and the operation was
+    ///         handed all of it as picture data — <c>NormalToHeight</c> integrates over exactly that.
+    ///         A copy larger than the image is undefined rather than invalid, so MoltenVK raised
+    ///         nothing.
+    ///     </para>
+    ///     <para>
+    ///         <b>The bytes are asserted as well as the size</b>, because a size assertion alone
+    ///         would pass a read-back that reported 16×16 and copied the wrong region: the ramp is
+    ///         unique per texel, so this is 1 024 independent claims that what arrived is what went
+    ///         up.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_cpu_op_reading_an_upload_smaller_than_the_plan_is_handed_the_uploads_own_size() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"undersized upload into a cpu op on {TextureKernelHarness.Adapter(device)}");
+
+        const int Narrow = 16;
+
+        var source = TextureKernelHarness.Ramp(Narrow);
+        var probe = new RecordTheInput();
+
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
+            Ops = [new() { Kernel = "Record", Output = 1, Inputs = [0], Cpu = probe }],
+            Outputs = [1]
+        };
+
+        using var uploads = new TextureUploads(device);
+
+        uploads.Add(plan, 0, Narrow, Narrow, source);
+
+        using var evaluator = new TexturePlanEvaluator(device);
+        using var bake = evaluator.Evaluate(plan, uploads.Externals);
+
+        Assert.Equal(new Int2(Narrow, Narrow), probe.Size);
+        Assert.Equal(source, probe.Bytes);
+
+        // And the operation's own output is still the plan's size, which is what it writes into.
+        Assert.Equal(new Int2(Side, Side), probe.Wrote);
+    }
+
+    /// <summary>An external image a CPU op reads whose size the caller did not declare is refused.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A refusal rather than a fall-back, and it can be one because the path that cannot
+    ///     answer cannot get here.</b> The bare-handle overload of <c>Evaluate</c> declares
+    ///     <see cref="TextureUsage.Sampled" /> alone, so a plan whose CPU op reads an external image
+    ///     is already refused for the usage before any of this — a caller reaching the size check has
+    ///     spelled a <see cref="TextureExternal" /> out, and the size is the same sentence. A default
+    ///     meaning "use the plan's number" would have been
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1000">#1000</a> kept alive behind a field
+    ///     that looks like a fix.
+    /// </remarks>
+    [Fact]
+    public void A_cpu_op_over_an_external_of_undeclared_size_is_refused() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"undeclared external size on {TextureKernelHarness.Adapter(device)}");
+
+        var plan = new TexturePlan {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Images = [new(TextureFormat.Rgba8, External: true), new(TextureFormat.Rgba8)],
+            Ops = [new() { Kernel = "Record", Output = 1, Inputs = [0], Cpu = new RecordTheInput() }],
+            Outputs = [1]
+        };
+
+        using var uploads = new TextureUploads(device);
+
+        var texture = uploads.Add(plan, 0, Side, Side, TextureKernelHarness.Unique(Side));
+
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        var refusal = Assert.Throws<ArgumentException>(
+            () => evaluator.Evaluate(
+                plan,
+                new Dictionary<int, TextureExternal> { [0] = new(texture, TextureUploads.UploadUsage) }
+            )
+        );
+
+        Assert.Contains("declares no size", refusal.Message, StringComparison.Ordinal);
+
+        // The instrument: the same plan and the same texture run the moment the size is declared.
+        using var bake = evaluator.Evaluate(plan, uploads.Externals);
+
+        Assert.Equal(0, bake.Dispatches);
+    }
+}
+
+/// <summary>A CPU operation that remembers the picture it was handed and writes nothing.</summary>
+/// <remarks>
+///     ⚠ <b>It asserts nothing itself.</b> An operation that threw inside <c>Run</c> would surface as
+///     whatever the evaluator does with an exception mid-bake rather than as the claim under test, so
+///     what it saw is recorded and read back outside.
+/// </remarks>
+sealed class RecordTheInput : ITextureCpuOperation {
+    /// <inheritdoc />
+    public string Name => "Record";
+
+    /// <summary>How big the first input was.</summary>
+    public Int2 Size { get; private set; }
+
+    /// <summary>Its texels, exactly as they arrived.</summary>
+    public byte[] Bytes { get; private set; } = [];
+
+    /// <summary>How big the image it was asked to fill was.</summary>
+    public Int2 Wrote { get; private set; }
+
+    /// <inheritdoc />
+    public void Run(in TextureCpuInvocation invocation) {
+        var source = invocation.Inputs[0];
+
+        Size = new(source.Width, source.Height);
+        Bytes = [.. source.Bytes];
+        Wrote = new(invocation.Output.Width, invocation.Output.Height);
     }
 }

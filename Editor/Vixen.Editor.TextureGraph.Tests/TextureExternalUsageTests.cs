@@ -122,7 +122,7 @@ public class TextureExternalUsageTests {
         using var bake = evaluator.Evaluate(
             CopiedThenSampled(),
             new Dictionary<int, TextureExternal> {
-                [0] = new(source, TextureUsage.Sampled | TextureUsage.CopySource)
+                [0] = new(source, TextureUsage.Sampled | TextureUsage.CopySource, new(16, 16))
             }
         );
 
@@ -238,7 +238,7 @@ public class TextureExternalUsageTests {
         using (var bake = evaluator.Evaluate(
             plan,
             new Dictionary<int, TextureExternal> {
-                [0] = new(viewable, TextureUsage.Sampled | TextureUsage.CopySource)
+                [0] = new(viewable, TextureUsage.Sampled | TextureUsage.CopySource, new(16, 16))
             }
         )) {
             Assert.Equal(0, bake.Dispatches);

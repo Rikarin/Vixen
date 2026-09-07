@@ -65,7 +65,7 @@ public class TextureNormalToHeightDeviceTests(ITestOutputHelper output) {
         Assert.Empty(plan.Check());
 
         using var evaluator = new TexturePlanEvaluator(device);
-        using var bake = evaluator.Evaluate(plan, TextureKernelHarness.Externals(0, texture));
+        using var bake = evaluator.Evaluate(plan, TextureKernelHarness.Externals(0, texture, Side, Side));
 
         // ⚠ None, and it is worth asserting: a seam that quietly compiled a kernel for an op naming
         // no `.rvn` would say one here — and would have thrown about an embedded resource on the way.

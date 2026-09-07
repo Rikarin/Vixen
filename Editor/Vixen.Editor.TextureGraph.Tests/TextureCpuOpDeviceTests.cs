@@ -94,7 +94,7 @@ public class TextureCpuOpDeviceTests(ITestOutputHelper output) {
         Assert.Equal(2, TexturePoolSchedule.For(plan).Allocations);
 
         using var evaluator = new TexturePlanEvaluator(device);
-        using var bake = evaluator.Evaluate(plan, TextureKernelHarness.Externals(0, texture));
+        using var bake = evaluator.Evaluate(plan, TextureKernelHarness.Externals(0, texture, Side, Side));
 
         // Two, not three: the op in the middle is not a dispatch, and a seam that quietly compiled a
         // kernel for it would say three here.
@@ -170,7 +170,7 @@ public class TextureCpuOpDeviceTests(ITestOutputHelper output) {
         };
 
         using var evaluator = new TexturePlanEvaluator(device);
-        using var bake = evaluator.Evaluate(plan, TextureKernelHarness.Externals(0, texture));
+        using var bake = evaluator.Evaluate(plan, TextureKernelHarness.Externals(0, texture, Side, Side));
 
         Assert.Equal(2, bake.Dispatches);
 

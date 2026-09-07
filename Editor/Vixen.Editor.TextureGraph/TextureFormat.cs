@@ -11,8 +11,17 @@ namespace Vixen.Editor.TextureGraph;
 ///         Five, and <b>32-bit float is deliberately not one of them</b> — doc 48 § M1. A texture
 ///         graph produces material maps, and a material map that needs more than half-float precision
 ///         is a map whose author has made a mistake somewhere upstream. The saving is not small: an
-///         intermediate at 4K is 16 MB as <see cref="Rgba16Float" /> and 32 MB as four 32-bit floats,
-///         and a plan holds several of them at once.
+///         intermediate at 4K is 128 MiB as <see cref="Rgba16Float" /> and 256 MiB as four 32-bit
+///         floats, and a plan holds several of them at once.
+///     </para>
+///     <para>
+///         ⚠ <b>Those two figures read "16 MB and 32 MB" until
+///         <a href="https://github.com/Rikarin/Vixen/issues/690">#690</a>, which is 8× under</b> —
+///         4096² at eight bytes a texel is 128 MiB. The correction <em>strengthens</em> the
+///         exclusion. And it is a policy about material maps rather than a capability limit: Raven
+///         admits <c>r32f</c>, <c>rg32f</c> and <c>rgba32f</c>, and
+///         <c>Core/Vixen.Rendering/HiZPyramid.cs</c> already dispatches into an <c>R32Float</c>
+///         storage image in production, so "no 32-bit float format" was never the reason.
 ///     </para>
 ///     <para>
 ///         ⚠ <b><see cref="R8" /> and <see cref="Rg8" /> can be read and cannot be written</b>, which

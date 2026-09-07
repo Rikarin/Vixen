@@ -184,14 +184,28 @@ static class TextureKernelHarness {
     }
 
     /// <summary>What a texture <see cref="Upload" /> made is declared as, for one external image.</summary>
+    /// <param name="image">Its index in the plan's image table.</param>
+    /// <param name="texture">What <see cref="Upload" /> returned.</param>
+    /// <param name="width">The picture's width in texels — the one <see cref="Upload" /> was given.</param>
+    /// <param name="height">Its height.</param>
+    /// <returns>The dictionary to hand <c>Evaluate</c>.</returns>
     /// <remarks>
-    ///     The plain <c>TextureHandle</c> overload of <c>Evaluate</c> declares
-    ///     <see cref="TextureUsage.Sampled" /> only, which is right for the dozens of suites that
-    ///     dispatch over an external image and wrong for the one that copies out of it. This is what
-    ///     the second kind passes.
+    ///     <para>
+    ///         The plain <c>TextureHandle</c> overload of <c>Evaluate</c> declares
+    ///         <see cref="TextureUsage.Sampled" /> only, which is right for the dozens of suites that
+    ///         dispatch over an external image and wrong for the one that copies out of it. This is
+    ///         what the second kind passes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The size is spelled rather than defaulted</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1000">#1000</a>. Every fixture in
+    ///         this assembly uploads at its plan's own resolution, which is exactly why nothing saw
+    ///         a CPU op's read-back being sized from the plan's nominal level; a helper that filled
+    ///         the size in from the plan would put that blindness back where no test could reach it.
+    ///     </para>
     /// </remarks>
-    public static Dictionary<int, TextureExternal> Externals(int image, TextureHandle texture) =>
-        new() { [image] = new(texture, SourceUsage) };
+    public static Dictionary<int, TextureExternal> Externals(int image, TextureHandle texture, int width, int height) =>
+        new() { [image] = new(texture, SourceUsage, new(width, height)) };
 
     /// <summary>One channel of one texel of a read-back picture.</summary>
     public static byte At(Bitmap picture, int x, int y, int channel) =>

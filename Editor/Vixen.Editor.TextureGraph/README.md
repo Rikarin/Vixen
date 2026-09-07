@@ -190,8 +190,19 @@ whose three submitters are three objects. It asserts a queue and never a pixel.
 ## Formats, and the two that turned out to be read-only
 
 `R8` · `Rg8` · `Rgba8` · `R16Float` · `Rgba16Float`. **32-bit float is deliberately not one of them** —
-a material map that needs it has a mistake upstream, and an intermediate at 4K is 16 MB as
-`Rgba16Float` against 32 MB as four 32-bit floats.
+a material map that needs it has a mistake upstream, and an intermediate at 4K is **128 MiB** as
+`Rgba16Float` against **256 MiB** as four 32-bit floats.
+
+⚠ **Those two figures used to read "16 MB against 32 MB", which understated both by 8×** — 4096² at
+eight bytes a texel is 128 MiB, not 16 MB. The arithmetic *strengthens* the exclusion rather than
+weakening it, and it is a policy about material maps rather than a capability limit: Raven admits
+`r32f`, `rg32f` and `rgba32f`, the RHI maps all three, and `Core/Vixen.Rendering/HiZPyramid.cs`
+already dispatches into an `R32Float` storage image in production. ⚠ So
+[#690](https://github.com/Rikarin/Vixen/issues/690)'s premise — that no 32-bit float format exists —
+is refuted; what § 4.5's two position-carrying records actually want is `rgba32f` (both store four
+channels), and widening `TextureFormats.Storable` would compile a fourth variant of every kernel and
+let any plan ask for a 256 MiB intermediate. It belongs with the slice that measures a 4K flood on a
+device and lifts `TextureAnalysis.ExactExtent`.
 
 ⚠ **`R8` and `Rg8` can be read and cannot be written, which refutes § M1's and
 [#566](https://github.com/Rikarin/Vixen/issues/566)'s format list.** Both name the five as though a
@@ -307,12 +318,20 @@ output texel's centre. `Rescale` derives the filter from the two level offsets
 ([#865](https://github.com/Rikarin/Vixen/issues/865)); the setting's default is `Auto` rather than a
 filter name, because no one name is right in both directions.
 
-**⚠ `Auto Levels` is more than the two dispatches § 4.2 names, and nothing in the plan records what
-makes it different.** It is the first op whose output depends on *every texel of its input*, so it is
-one `MinMaxReduce` dispatch per level down to a 1×1 image and then the map — three at 64², five at
-4K. That much a plan expresses perfectly well. What a plan cannot say is that the op **can never be
-evaluated in tiles**: `TextureOp` has no such field, so a future tiled evaluator would run it per
-tile and produce a plausible picture with a different stretch in each one.
+**⚠ `Auto Levels` is more than the two dispatches § 4.2 names.** It is the first op whose output
+depends on *every texel of its input*, so it is one `MinMaxReduce` dispatch per level down to a 1×1
+image and then the map — three at 64², five at 4K.
+
+**⚠ And "it can never be evaluated in tiles" is a second property, now recorded**
+([#636](https://github.com/Rikarin/Vixen/issues/636)). `TextureOp.DependsOnEveryTexel` is declared by
+whoever writes the chain — `Auto Levels`, `Distance`'s jump flood and `Flood Fill`'s propagation —
+and `TexturePlan.TilingRefusals()` is what a tiled evaluator asks before it cuts a plan up. **Nothing
+evaluates in tiles today**, which is precisely the argument for writing the record now: the failure
+it prevents is a picture rather than an error, so an evaluator written after the fact has nothing to
+ask and ships a map whose every tile is correct and whose seams are a different contrast. ⚠ It is not
+the same property as `EmittedForExtent`, though the same three chains carry both — that one says the
+op *count* is a function of the bake, and `Auto Levels`' final map is one dispatch at any resolution,
+carries no stamp, and is the most global op in the library.
 
 **⚠ `Crop` is the one node whose output resolution is not its input's, and `TextureImage` cannot
 express most of the answers.** The rect is in the source's normalised space and the target's size is

@@ -26,11 +26,13 @@ namespace Vixen.Editor.TextureGraph;
 ///         the very bake it was emitted for.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What this does not record is that <c>Auto Levels</c> cannot be evaluated in
-///         tiles.</b> Its output depends on every texel of its input, and a tiled evaluator would
-///         produce a different stretch in every tile — a plausible picture again.
-///         <a href="https://github.com/Rikarin/Vixen/issues/636">#636</a> is that property and it is
-///         still recorded nowhere.
+///         ⚠ <b>And every op of this chain says separately that it cannot be evaluated in
+///         tiles</b> — <see cref="TextureOp.DependsOnEveryTexel" />, which is
+///         <a href="https://github.com/Rikarin/Vixen/issues/636">#636</a>. A tiled evaluator would
+///         otherwise stretch each tile by its own extremes: a plausible picture per tile and a
+///         different contrast across every seam. ⚠ It is <em>not</em> the same property as the stamp
+///         above, though the reductions carry both — the map at the end of the chain is one dispatch
+///         at any resolution, carries no stamp, and is the most global op in the library.
 ///     </para>
 /// </remarks>
 internal static class TextureAdjust {
@@ -160,6 +162,10 @@ internal static class TextureAdjust {
                     // emitted for one bake and TexturePlan.Validate refuses it at another. The
                     // number is this op's own output extent, which is what Validate compares.
                     EmittedForExtent = Math.Max(Reduced(width, levels[pass]), Reduced(height, levels[pass])),
+                    // ⚠ #636: doc 48 § 4.2 names this chain as the first in the catalogue the plan
+                    // runner has to know about. A reduction evaluated a tile at a time reports that
+                    // tile's extremes.
+                    DependsOnEveryTexel = true,
                     Parameters = [new("first", pass == 0 ? 1f : 0f)]
                 }
             );
@@ -183,7 +189,13 @@ internal static class TextureAdjust {
                 // coordinate being written, so a plan handing this dispatch a source of another size
                 // draws its top-left corner smeared, and until the list existed the 1×1 statistics
                 // image bought that mismatch its silence too.
-                OtherExtentInputs = [scratch[^1]]
+                OtherExtentInputs = [scratch[^1]],
+
+                // ⚠ #636, and this op is what separates the property from `EmittedForExtent`: it is
+                // one dispatch at any resolution and carries no stamp, and every texel it writes is
+                // scaled by the 1×1 the reduction ended on. It is the most global op in the library
+                // and the only clue is which image it reads second.
+                DependsOnEveryTexel = true
             }
         );
 
