@@ -355,6 +355,78 @@ public class NodePortProviderTests : IDisposable {
     }
 
     /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A setting that states what it accepts is a dropdown, and the one beside it is
+    ///         still a text box — <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b>
+    ///         Both halves, because either alone is satisfied by a defect: a panel that drew every
+    ///         string as a <c>Select</c> would pass the first, and one that drew every string as a
+    ///         <c>TextBox</c> — which is what it did — passes the second.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The options are read off the control rather than compared with a list written
+    ///         here.</b> What is asserted is that the declaration reached the control in the
+    ///         declaration's own order, which is the only claim the seam makes; three literal names
+    ///         are the node type's, one file away.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_setting_that_states_its_values_is_drawn_as_a_dropdown() {
+        var node = graph.Add("Test/Chosen Thing", new(60f, 60f));
+        var provider = Provider("Test/Chosen Thing", node.Id);
+
+        var panel = fixture.Ui.Root.Add<InspectorView>();
+
+        panel.EditedDocument = fixture.Document;
+        panel.Inspect(provider.Descriptor, provider, node);
+
+        fixture.Update();
+
+        var chosen = panel.Rows.Single(row => row.Field.Member.Name == "Pick");
+        var free = panel.Rows.Single(row => row.Field.Member.Name == "Free");
+
+        var select = Assert.Single(Inside<Select>(chosen));
+
+        Assert.Equal(["alpha", "beta", "gamma"], select.Options.Select(option => option.Value));
+
+        // The declared default is what a node nobody has typed into shows.
+        Assert.Equal("beta", select.Value);
+
+        // ⚠ And the other half: a setting that states nothing is untouched by any of this.
+        Assert.Empty(Inside<Select>(free));
+        Assert.Single(Inside<TextBox>(free));
+    }
+
+    /// <remarks>
+    ///     ⚠ Choosing an option writes it the way typing one did — through the graph's own
+    ///     <c>SetPortTextCommand</c> — so the dropdown is a different control over the same edit
+    ///     rather than a second path into the model.
+    /// </remarks>
+    [Fact]
+    public void Choosing_a_settings_value_writes_it_as_one_undo_entry() {
+        var node = graph.Add("Test/Chosen Thing", new(60f, 60f));
+        var provider = Provider("Test/Chosen Thing", node.Id);
+
+        var panel = fixture.Ui.Root.Add<InspectorView>();
+
+        panel.EditedDocument = fixture.Document;
+        panel.Inspect(provider.Descriptor, provider, node);
+
+        fixture.Update();
+
+        var select = Assert.Single(Inside<Select>(panel.Rows.Single(row => row.Field.Member.Name == "Pick")));
+        var depth = fixture.Stack.History.Count;
+
+        select.Value = "gamma";
+
+        Assert.Equal("gamma", node.Texts["Pick"]);
+        Assert.Equal(depth + 1, fixture.Stack.History.Count);
+
+        fixture.Stack.Undo();
+
+        Assert.False(node.Texts.ContainsKey("Pick"));
+    }
+
+    /// <remarks>
     ///     ⚠ The command is <c>SetPortTextCommand</c> — the graph's own — so an undo restores the
     ///     <i>absence</i> of a text, which is what a setting that was never typed into had. Writing
     ///     the default back instead would pin the node to a string its type is free to change.

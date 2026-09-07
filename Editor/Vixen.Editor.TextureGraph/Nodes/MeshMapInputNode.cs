@@ -42,17 +42,31 @@ static class TextureMeshMaps {
     public const string Scheme = "meshmap:";
 
     /// <summary>The nine a <c>Mesh Map</c> node may name.</summary>
-    public static IReadOnlyList<string> Known { get; } = [
-        "normal",
-        "height",
-        "ao",
-        "bent",
-        "curvature",
-        "thickness",
-        "position",
-        "world",
-        "id"
-    ];
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Read off the node's own declaration rather than written here —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b> Until
+    ///         <c>SettingDefinition.Accepted</c> existed the nine were written down twice inside this
+    ///         one file: as this array, and as the <c>Summary</c> prose a node inspector shows. A
+    ///         plugin that wanted to <em>offer</em> them could reach neither and drew a text box, and
+    ///         the two lists were free to disagree because nothing compared them. The
+    ///         <c>[Setting]</c> is now the only spelling; this reads it, the refusal below quotes it,
+    ///         and an inspector's dropdown is built from the same object.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It throws rather than answering empty when the setting cannot be found.</b> A
+    ///         renamed setting would otherwise make <see cref="Canonical" /> refuse all nine, which
+    ///         is every mesh-map node in every graph failing to compile with a message about the
+    ///         author's spelling.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<string> Known { get; } =
+        MeshMapInputNode.Definition.Setting(MeshMapInputNode.Setting) is { Accepted.Length: > 0 } declared
+            ? declared.Accepted
+            : throw new InvalidOperationException(
+                $"'{MeshMapInputNode.Setting}' declares no accepted values, so nothing knows what a "
+                + "mesh map may measure. The list lives on the node's [Setting] attribute."
+            );
 
     /// <summary>The four that are one measurement per texel, and are therefore grey.</summary>
     /// <remarks>
@@ -132,10 +146,26 @@ static class TextureMeshMaps {
     Summary = "A baked mesh map, bound by what it measures — the same graph works on every mesh."
 )]
 sealed partial class MeshMapInputNode : TextureNode {
+    /// <summary>What the setting is called, which is what reads it back off the definition.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A constant rather than <c>nameof(Map)</c>, because the two are allowed to differ.</b>
+    ///     A setting's name is the key a saved graph stores and a field's name is a C# identifier;
+    ///     <c>SettingAttribute.Name</c> exists precisely so one can be renamed without orphaning the
+    ///     other, so a lookup spelled <c>nameof</c> would be right only for as long as they agree.
+    /// </remarks>
+    public const string Setting = "Map";
+
     /// <summary>Which map: one of <c>TextureMeshMaps.Known</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The nine live in <c>Accepted</c> and nowhere else — #964.</b> They used to be in the
+    ///     summary prose as well as in <c>TextureMeshMaps.Known</c>, which is two transcriptions of a
+    ///     known set inside one file. What reads this now: the refusal below, the picker a plugin
+    ///     draws, and the node inspector's dropdown.
+    /// </remarks>
     [Setting(
-        Name = "Map",
-        Summary = "What the map measures: normal, height, ao, bent, curvature, thickness, position, world or id."
+        Name = Setting,
+        Summary = "What the map measures — the bake's own vocabulary, and a name nothing bakes binds nothing.",
+        Accepted = ["normal", "height", "ao", "bent", "curvature", "thickness", "position", "world", "id"]
     )]
     public string Map = "curvature";
 

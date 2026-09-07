@@ -561,26 +561,42 @@ public class LayerStackEditingTests {
         Assert.Equal(0.5f, Mask(document).Layers[0].Value);
     }
 
-    /// <summary>A bake mask's map is typed, and what is typed is what the compile reads.</summary>
+    /// <summary>A bake mask's map is chosen from what the node accepts, and reaches the external.</summary>
     /// <remarks>
-    ///     ⚠ <b>A field and not a list of the nine, which is a limit rather than a preference.</b>
-    ///     <c>TextureMeshMaps.Known</c> is <c>internal</c> to <c>Vixen.Editor.TextureGraph</c> and
-    ///     visible to its own tests alone, so this assembly cannot ask for the names — and writing
-    ///     them here would be the second transcription of a known set that five roll calls in this
-    ///     workstream have gone red on. The assertion is therefore that a typed name reaches the
-    ///     plan's external, which is the thing an artist is actually after.
+    ///     <para>
+    ///         ⚠ <b>A picker, and it took a plugin seam to draw one —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b> This was a
+    ///         <c>TextBox</c>, because <c>TextureMeshMaps.Known</c> is <c>internal</c> to
+    ///         <c>Vixen.Editor.TextureGraph</c>: neither the panel nor this test could ask what the
+    ///         nine were, and writing them here would have been the second transcription of a known
+    ///         set that five roll calls in this workstream have gone red on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the assertion is still not a list of nine names.</b> It is that what the
+    ///         picker offers <em>is</em> what the node declares — <c>TextureNodeLibrary.MeshMaps</c>
+    ///         reads the node type's own <c>Accepted</c> rather than copying it — and that choosing
+    ///         one reaches the plan's external, which is what an artist is after. A test that spelled
+    ///         the nine would stay green while the picker offered a tenth the compiler refuses.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the offer is asserted non-empty, because an equality against an empty list is
+    ///         satisfied by an empty picker</b> — which is exactly what an <c>Accepted</c> that never
+    ///         reached the generated definition would produce.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void A_bake_masks_map_is_typed_and_reaches_the_external() {
+    public void A_bake_masks_map_is_chosen_from_what_the_node_accepts_and_reaches_the_external() {
         using var fixture = new TexturingFixture();
         var document = Open(fixture, Masked());
         var panel = Panel(fixture);
 
-        var reference = Controls<TextBox>(panel, "layer-stack-mask-text")[^1];
+        var picker = Controls<Select>(panel, "layer-stack-mask-map")[^1];
 
-        Assert.Equal("curvature", reference.Value);
+        Assert.Equal("curvature", picker.Value);
+        Assert.NotEmpty(picker.Options);
+        Assert.Equal(TextureNodeLibrary.MeshMaps, picker.Options.Select(option => option.Value ?? "").ToList());
 
-        reference.Value = "thickness";
+        picker.Value = "thickness";
 
         Assert.Equal("thickness", Mask(document).Map);
 
@@ -590,6 +606,30 @@ public class LayerStackEditingTests {
 
         Assert.True(document.Stack.Undo());
         Assert.Equal("curvature", Mask(document).Map);
+    }
+
+    /// <summary>A stored map this build does not bake stays on the screen rather than being replaced.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Rebind</c>'s three-state rule, one control along from the anchor picker.</b> A
+    ///     dropdown that dropped a value it cannot offer shows the first option instead — which
+    ///     <em>says</em> the mask measures that, and writes it on the next click, losing a value the
+    ///     author was never told was wrong. What the stack holds stays visible; the compile's own
+    ///     refusal is what says it is wrong.
+    /// </remarks>
+    [Fact]
+    public void A_bake_masks_unknown_map_is_offered_rather_than_replaced() {
+        using var fixture = new TexturingFixture();
+
+        Open(fixture, Masked("porosity"));
+
+        var picker = Controls<Select>(Panel(fixture), "layer-stack-mask-map")[^1];
+
+        Assert.Equal("porosity", picker.Value);
+        Assert.Contains(picker.Options, option => option.Value == "porosity");
+
+        // ⚠ And the nine are still all there: a stranger is appended, not substituted, so the author
+        // can still pick a real one without retyping.
+        Assert.Equal(TextureNodeLibrary.MeshMaps.Count + 1, picker.Options.Count);
     }
 
     /// <summary>⚠ The anchor picker offers the layers whose result exists before this one's.</summary>
@@ -1606,7 +1646,12 @@ public class LayerStackEditingTests {
             }
         );
 
-    static LayerStackAsset Masked() =>
+    /// <summary>One masked layer, whose mask is a bake.</summary>
+    /// <param name="map">
+    ///     What the bake measures. ⚠ A parameter so that one test can stage a map this build does
+    ///     <em>not</em> bake — the case a picker has to keep on the screen rather than replace.
+    /// </param>
+    static LayerStackAsset Masked(string map = "curvature") =>
         Stack(
             [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
             new LayerAsset {
@@ -1616,7 +1661,7 @@ public class LayerStackEditingTests {
                 Values = { ["baseColor"] = [0.25f, 0.25f, 0.25f, 1f] },
                 Mask = new() {
                     Source = LayerMaskSource.Bake,
-                    Map = "curvature",
+                    Map = map,
                     Layers = [
                         new() { Source = LayerMaskSource.Constant, Value = 0.5f, Blend = LayerBlendMode.Multiply }
                     ]

@@ -252,6 +252,89 @@ public sealed class MultilineDrawer : PropertyDrawer<string, TextArea> {
     }
 }
 
+/// <summary>A dropdown over the values a member states it accepts.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b><c>EnumDrawer</c> for a set of legal values that is not a CLR type —
+///         <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a>.</b> A node setting is one
+///         of nine measurements, a plugin's own row is one of the names a library published: legal
+///         sets both, enumerable both, and neither is an <see langword="enum" />, so both drew as a
+///         text box in which a typo is a diagnostic instead of an impossibility.
+///     </para>
+///     <para>
+///         ⚠ <b>Registered for <see langword="string" /> after <see cref="StringDrawer" /> and
+///         declining when there is no list</b>, which is the registry's own idiom: the most recently
+///         registered wins and what it declines falls through untouched. So a string member that
+///         states nothing is a text box exactly as it was, and this file adds no behaviour to any
+///         member that did not ask for it.
+///     </para>
+///     <para>
+///         ⚠ <b>A stored value the list does not hold is offered rather than dropped.</b> A dropdown
+///         that silently showed the first option would <em>say</em> the member holds that, and then
+///         write it on the next click — losing a value the author has not been told is wrong.
+///         Whatever refuses it downstream is what says so; this control's job is to stop showing a
+///         lie.
+///     </para>
+/// </remarks>
+public sealed class ChoiceDrawer : PropertyDrawer<string, Select> {
+    /// <inheritdoc />
+    public override bool CanDraw(InspectorMember member) {
+        ArgumentNullException.ThrowIfNull(member);
+
+        // ⚠ Empty is the same answer as null and both decline: a dropdown with no options is a
+        // control nobody can use, which is worse than the box it would have replaced.
+        return base.CanDraw(member) && member.Choices is { Count: > 0 };
+    }
+
+    /// <inheritdoc />
+    protected override Select Build(InspectorField field, UiElement parent) {
+        ArgumentNullException.ThrowIfNull(field);
+        ArgumentNullException.ThrowIfNull(parent);
+
+        var select = parent.Add<Select>();
+        select.Disabled = !field.CanWrite;
+
+        foreach (var choice in field.Member.Choices ?? []) {
+            select.AddOption(choice);
+        }
+
+        select.SelectionChanged += (_, value) => {
+            if (value is not null && field.Write(value)) {
+                field.Seal();
+            }
+        };
+
+        return select;
+    }
+
+    /// <inheritdoc />
+    protected override void Show(InspectorField field, Select editor, string? value, bool isMixed) {
+        ArgumentNullException.ThrowIfNull(field);
+        ArgumentNullException.ThrowIfNull(editor);
+
+        if (!isMixed && value is { Length: > 0 } written && !Offered(editor, written)) {
+            // ⚠ Appended rather than inserted, so the declared order stays the declared order and
+            // the stranger is visibly last. `AddOption` is idempotent only in the sense that
+            // `Offered` above is what makes it so — a second identical option would be a duplicate
+            // row in the popover.
+            editor.AddOption(written);
+        }
+
+        editor.Value = isMixed ? null : value;
+        editor.Placeholder = isMixed ? "—" : null;
+    }
+
+    static bool Offered(Select select, string value) {
+        foreach (var option in select.Options) {
+            if (string.Equals(option.Value, value, StringComparison.Ordinal)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
 /// <summary>A dropdown over an enum's names.</summary>
 /// <remarks>
 ///     ⚠ <b>A <c>[Flags]</c> enum gets a multi-select</b>, because a dropdown that lets you choose
