@@ -834,6 +834,41 @@ The destination inset is fitted to the box and the source inset is not, so a pan
 than its own two corners shows them compressed rather than quietly reading different texels — which
 would look like the artwork changed rather than like the box got small.
 
+## An image's channels
+
+`DrawCommand.View` — a `UiImageView`, which is a `UiImageChannel` and a flag — is what a viewer's
+channel picker and colour-space toggle arrive on.
+[#611](https://github.com/Rikarin/Vixen/issues/611): `ImageView` shipped both controls and neither
+changed a pixel, because this command carried a tint and a source rectangle and nothing else. **A
+tint multiplies**, and showing the alpha as a grey is a swizzle while undoing a transfer function is
+a curve; neither is a multiply, so the control could only ask a host to prepare a different texture.
+
+⚠ **It rides three components of the `shape` stream the image pipeline never read**, which is what
+makes it free. A per-draw uniform would have split the batch, so two images from one atlas asking for
+different channels would be two draws; a new vertex attribute would have moved the stride,
+`UiVertex.vert.spv`, the hand-written GLSL twin in `Vixen.Graphics.Golden.Tests` and every other
+pipeline sharing the layout. As it stands exactly one module changed — `UiImage.frag.spv` — and not
+one `.reflect.json` did.
+
+⚠ **The default is the identity, unlike `DrawCommand.Filter`'s.** A zeroed `UiColorMatrix` maps every
+colour to black, which is why that field is nullable; a zeroed `UiImageView` is the whole colour
+through no curve, which is what every image command in the repository was already asking for. No
+caller had to change.
+
+**An isolated channel is drawn opaque**, and that is the difference between a viewer and a tint.
+`Alpha` asks *what is in the alpha*, so the one number that must not also decide how much of it you
+can see is the alpha itself — a grey drawn at its own value shows the chequerboard through exactly
+the texels it is reporting on. The three colour isolates are opaque for the same reason one step
+weaker: a red channel read through the image's own alpha is two numbers multiplied and neither is
+legible.
+
+⚠ **`ShowStoredValues` is a *decode*, and the swapchain is why.** `UiWindowSurface` presents to a
+`Bgra8UNormSrgb` target, so the hardware applies the sRGB encode on every write and this pipeline's
+output is linear — a stored 0.5 reaches the glass as 188/255. That is right for a colour and wrong
+for a roughness map, so the flag decodes first and the two cancel: 0.5 shows as 128/255, the number
+the author typed. It is named for what it does rather than for a colour space because a draw command
+cannot know which the texture is; the same texture is a colour to one viewer and a field to the next.
+
 ## Batching
 
 **Runs of consecutive commands, and never a reordering.** Worth being blunt about, because reordering

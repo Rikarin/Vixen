@@ -110,6 +110,30 @@ struct Ui {
     /// Straight alpha here would show as a dark halo around every antialiased edge. Having one
     /// function means a shader either calls it or visibly does not.
     static func Premultiply(colour: float4): float4 => float4(colour.rgb * colour.a, colour.a)
+
+    /// The exact sRGB EOTF for one channel — a decode, `Raven/Library/Core/ColorSpaces.rvn:26`'s.
+    ///
+    /// ⚠ **Transcribed rather than imported, and this file is *required* to be.**
+    /// `Build.Shaders.DiscoverEditorSources` refuses a source with committed modules that `import`s a
+    /// package, because a package's declarations are visible to a sibling only within one
+    /// compilation. So the two copies of these five constants are the price of the modules beside
+    /// this file being committed rather than built — the same trade
+    /// `Editor/Vixen.Editor.TextureGraph/Shaders/Hsl.rvn` writes down for
+    /// [#635](https://github.com/Rikarin/Vixen/issues/635), reached from the other direction.
+    static func SrgbToLinearChannel(c: float): float {
+        if (c <= 0.04045f) {
+            return c / 12.92f
+        }
+
+        return pow((c + 0.055f) / 1.055f, 2.4f)
+    }
+
+    /// The same decode over three channels.
+    static func SrgbToLinear(colour: float3): float3 => float3(
+        SrgbToLinearChannel(colour.x),
+        SrgbToLinearChannel(colour.y),
+        SrgbToLinearChannel(colour.z)
+    )
 }
 
 /// The one vertex stage all four interface pipelines share.
@@ -583,6 +607,15 @@ shader UiSolid {
 /// both, so an image costs a set to allocate and nothing to design. What differs is what the sample
 /// *means*: text reads three distance channels and reconstructs a coverage from them, and this reads
 /// a colour and believes it.
+///
+/// ⚠ **`shape.y` and `shape.z` are what make a viewer's channel and colour-space toggles reach the
+/// picture** — [#611](https://github.com/Rikarin/Vixen/issues/611). Before them
+/// `Vixen.Ui.Controls.Advanced.ImageView` had both controls and neither changed a pixel: the image
+/// command carried a tint and a source rectangle, a tint multiplies, and neither isolating the alpha
+/// as a grey nor undoing a transfer function is a multiply. They ride the *existing* `shape` stream
+/// rather than a new vertex attribute, because three of its four components were unread on this
+/// path — so the vertex layout, `UiVertex.vert.spv` and every other pipeline are untouched, and two
+/// images asking for different channels still batch.
 shader UiImage {
     [PerFrame] var source: Texture2D
     [PerFrame] var sourceSampler: Sampler
@@ -599,13 +632,54 @@ shader UiImage {
     func Fragment(): float4 {
         val sampled = source.Sample(sourceSampler, uv)
 
+        // ⚠ An isolated channel is shown **opaque**, and that is the difference between a viewer and
+        // a tint. `UiImageChannel.Alpha` asks "what is in the alpha", so the one number that must
+        // not also decide how much of it you can see is the alpha itself — a grey drawn at its own
+        // value would show the chequerboard through exactly the texels it is reporting on, and the
+        // reader could not tell 0.2 coverage from a 0.2 grey. The other three isolates are opaque
+        // for the same reason one step weaker: a red channel read through the image's own alpha is
+        // two numbers multiplied and neither is legible.
+        var rgb = sampled.rgb
+        var coverage = sampled.a
+        val channel = int(round(shape.y))
+
+        if (channel > 0) {
+            var value = sampled.x
+
+            if (channel == 2) {
+                value = sampled.y
+            }
+
+            if (channel == 3) {
+                value = sampled.z
+            }
+
+            if (channel == 4) {
+                value = sampled.w
+            }
+
+            rgb = float3(value, value, value)
+            coverage = 1f
+        }
+
+        // ⚠ **A decode, where the toggle is named for an encode, and the swapchain is why.**
+        // `UiWindowSurface` presents to a `Bgra8UNormSrgb` target, so the hardware applies the sRGB
+        // *encode* on every write and this stage's output is linear. A stored 0.5 therefore reaches
+        // the screen as 188/255 today, which is the correct answer for a colour and the wrong one
+        // for a roughness map: "shown as stored" means the number an author typed is the number on
+        // the glass. Decoding here cancels the hardware's encode exactly, so 0.5 shows as 128/255.
+        // Zero is the identity and is what every image quad already carries.
+        if (shape.z > 0.5f) {
+            rgb = Ui.SrgbToLinear(rgb)
+        }
+
         // ⚠ The target is premultiplied — that is what the other three pipelines write and what the
         // blend state expects — and the *source* is premultiplied on exactly one of the two paths
         // through here. A texture a host uploaded holds straight alpha, so its colour has to be
         // multiplied by its own coverage on the way out; a composited group's surface was written by
         // these same pipelines and already has been. Doing it twice darkens every partly covered
         // texel, which reads as a dark fringe around everything inside the group.
-        val alpha = sampled.a * colour.a
+        val alpha = coverage * colour.a
 
         // ⚠ `shape.x` is what says which, and zero is the straight-alpha case every image quad
         // already carries — see `UiGeometryBuilder.Layer`, which is the only thing that emits a one.
@@ -614,7 +688,7 @@ shader UiImage {
         // is one interpolation rather than two branches.
         val scale = lerp(alpha, colour.a, shape.x)
 
-        return float4(sampled.rgb * colour.rgb * scale, alpha)
+        return float4(rgb * colour.rgb * scale, alpha)
     }
 }
 

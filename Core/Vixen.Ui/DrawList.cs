@@ -175,6 +175,35 @@ public readonly record struct DrawCommand(
     /// </remarks>
     public Rectangle Source { get; init; } = new(0f, 0f, 1f, 1f);
 
+    /// <summary>
+    ///     Which channels of <see cref="Image" /> to show and through which curve. Unread on every
+    ///     kind but <see cref="DrawCommandKind.Image" />.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/611">#611</see>: a viewer's channel
+    ///         and colour-space toggles had nowhere to arrive. This command carried
+    ///         <see cref="DrawCommand.Color" /> and <see cref="Source" /> and nothing else, and a
+    ///         tint can only multiply — where showing the alpha as a grey is a swizzle and undoing a
+    ///         transfer function is a curve. Neither is a multiply, so the control raised an event
+    ///         and drew whatever it was given.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A plain value where <see cref="Filter" /> is nullable, and the difference is
+    ///         which default is the absence.</b> A zeroed <c>UiColorMatrix</c> maps everything to
+    ///         black; a zeroed <see cref="UiImageView" /> is the whole colour through no curve, which
+    ///         is exactly what every image command in the repository was already asking for. So this
+    ///         needed no sentinel and no caller had to change.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It does not split a batch.</b> <c>UiGeometryBuilder</c> writes it into three
+    ///         components of the <c>shape</c> stream the image pipeline never read, so two images
+    ///         from one atlas asking for different channels are still one draw — see
+    ///         <see cref="UiImageView.Shape" />.
+    ///     </para>
+    /// </remarks>
+    public UiImageView View { get; init; }
+
     /// <summary>How the destination is cut for a nine-slice, in document pixels.</summary>
     /// <remarks>
     ///     <para>

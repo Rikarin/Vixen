@@ -3544,6 +3544,8 @@ T:Vixen.Ui.Rendering.PathTessellator sweep-pending
 T:Vixen.Ui.Rendering.PathVertex sweep-pending
 T:Vixen.Ui.Rendering.UiDraw sweep-pending
 T:Vixen.Ui.Rendering.UiGeometry sweep-pending
+T:Vixen.Ui.Rendering.UiImageChannel #611 — which channel of an image a draw shows as a grey; the numbering is Ui.rvn's wire format and the reasoning is in Core/Vixen.Ui/README.md and on the type
+T:Vixen.Ui.Rendering.UiImageView #611 — the field that made ImageView's channel and colour-space toggles reach the picture; described with the image command in Core/Vixen.Ui/README.md
 T:Vixen.Ui.Rendering.UiShape sweep-pending
 T:Vixen.Ui.Rendering.UiVertex sweep-pending
 T:Vixen.Ui.RoutingPhase sweep-pending

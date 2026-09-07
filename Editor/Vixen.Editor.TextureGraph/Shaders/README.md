@@ -190,6 +190,39 @@ texels at the base resolution: doc 48 § D8's rule lives on the plan and `Textur
 applies it. A kernel that scaled it itself would need to know the base, and then two places would have
 to agree about what a half-resolution image is.
 
+## What a kernel cannot say, and what now notices
+
+Both of these are the same shape — a feature of the language a kernel is *written in* that a kernel
+cannot use — because `TexturePlanEvaluator.VariantFor` compiles one source with no `referencePaths`
+and no defines. `TextureKernelLanguageSeamTests` is where each is held.
+
+⚠ **A kernel cannot `import`, so `Hsl.rvn` transcribes `ComputeColor.rvn`'s hue rotation**
+([#635](https://github.com/Rikarin/Vixen/issues/635)). Fifteen constants, in two files, chosen as a
+YIQ chroma rotation over a convert-rotate-convert precisely so that a material graph and a texture
+graph agree about what a hue is. **The failure mode is not a compile error, it is a disagreement**:
+an artist matches a hue in the shader graph's node preview and watches it shift here, and nothing
+fails when one copy is edited. So one test reads `HueRotate` out of both files and compares the
+numbers. It is not the fix the issue asks for — it is what makes the fix optional rather than urgent.
+
+⚠ **A kernel cannot declare a `[Permutation]`, and the compiler will not say so**
+([#638](https://github.com/Rikarin/Vixen/issues/638)). `TextureOp` carries no permutation value and
+`VariantFor`'s `EffectKey` is built from the kernel's name alone, so one written here would take its
+`.rvn` default in every op of every plan, for ever, silently — the registered-permutation trap
+arriving from the side with no key list at all. A second test refuses one, and a third *demonstrates*
+the silence: a kernel declaring `[Permutation] val Fancy: bool = false` compiles clean, with no
+diagnostic, having chosen `false` because nothing could choose otherwise.
+
+⚠ **The refusal's first predicate was the defect it was meant to catch.** `Contains("[Permutation]")`
+reported `Blend`, `Noise` and `Shape` — the three kernels that discuss the attribute *in a comment
+explaining why they use a uniform instead*. A test that goes red for the files which thought hardest
+about the question is worse than no test, so the pattern is anchored at the start of a line, where a
+comment's `//` is in the way, and it is proved against a source that really does declare one.
+
+**Threading one through is a four-part change and the fourth is the one that bites**: a field on
+`TextureOp`, that field in `VariantFor`'s `EffectKey`, that field in its `(kernel, format)` cache
+key — and a variant-count assertion. Forget the cache key and two ops with different permutations
+share one pipeline, the second drawing the first one's picture.
+
 ## Why the blend mode is a uniform and not a permutation
 
 A permutation would specialise the branch away at the cost of one compiled module per mode per output
