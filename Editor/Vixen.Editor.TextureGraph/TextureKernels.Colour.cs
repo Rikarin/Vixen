@@ -111,9 +111,11 @@ enum TextureFilter {
 ///         ⚠ <b><c>AutoLevels</c> is two kernels and cannot be evaluated in tiles.</b> It is the
 ///         first op in the catalogue whose output depends on every texel of its input:
 ///         <see cref="MinMaxReduce" /> is dispatched once per level down to a 1×1 image, and
-///         <see cref="AutoLevels" /> reads that. Nothing on <c>TextureOp</c> records that property,
-///         so a future tiled evaluator would run it per tile and produce a plausible picture with a
-///         different stretch in every tile — see this assembly's README.
+///         <see cref="AutoLevels" /> reads that. ⚠ Every op <c>TextureAdjust.AutoLevels</c> emits
+///         says so on itself — <c>TextureOp.DependsOnEveryTexel</c>, and <c>TexturePlan</c>'s
+///         <c>TilingRefusals</c> is what a tiled evaluator asks
+///         (<a href="https://github.com/Rikarin/Vixen/issues/636">#636</a>). Without it one would run
+///         the reduction per tile and produce a plausible picture with a different stretch in each.
 ///     </para>
 /// </remarks>
 [TextureKernelSurface]

@@ -123,8 +123,18 @@ internal static class TextureAnalysisKernels {
 ///         <a href="https://github.com/Rikarin/Vixen/issues/689">#689</a>: without it the re-bake
 ///         was silent, and <c>TexturePlan.Validate</c> now refuses the list at any other extent
 ///         rather than emitting too few halvings. (<c>AutoLevels</c>' reduction has the same
-///         property and its chain is built at call sites, which owe the same stamp; that it cannot
-///         be <em>tiled</em> is a different property and is still recorded nowhere.)
+///         property and its chain is built by <c>TextureAdjust</c>, which carries the same stamp.)
+///     </para>
+///     <para>
+///         ⚠ <b>That a chain cannot be <em>tiled</em> is a different property, and both propagations
+///         now declare it</b> — <see cref="TextureOp.DependsOnEveryTexel" />,
+///         <a href="https://github.com/Rikarin/Vixen/issues/636">#636</a>. A jump flood's first pass
+///         steps half the image at once and a flood fill's label crosses whatever shape the island
+///         is, so a tile evaluated alone answers from its own contents: a field that is correct per
+///         tile and discontinuous across every seam, and an island straddling a seam that becomes
+///         two. ⚠ The final read at the end of each chain is <em>pointwise</em> over the settled
+///         record and does not declare it, which is why this is a property of the op rather than of
+///         the chain.
 ///     </para>
 ///     <para>
 ///         <b>Every builder emits the complete parameter set its kernel declares</b>, for
@@ -247,6 +257,12 @@ internal static class TextureAnalysis {
                     // ⚠ #689: how many of these there are is log2 of the extent, so the list is
                     // emitted for one bake and TexturePlan.Validate refuses it at another.
                     EmittedForExtent = Math.Max(width, height),
+                    // ⚠ #636, and a *different* property from the one above even though the same
+                    // chains carry both: this one says a texel's value is a function of the whole
+                    // image. A jump flood's first pass steps half the image at once, so a tile
+                    // evaluated alone finds only the seeds inside it — a distance field that is
+                    // correct per tile and discontinuous across every seam.
+                    DependsOnEveryTexel = true,
                     Parameters = [
                         new("first", pass == 0 ? 1f : 0f),
                         new("step", Math.Max(step, 1)),
@@ -356,6 +372,10 @@ internal static class TextureAnalysis {
                     // half-float record's ceiling below is a property of this bake's extent too — so
                     // this list, like the jump flood's, is emitted for one resolution.
                     EmittedForExtent = extent,
+                    // ⚠ #636: an island is whatever shape it is, so a label reaches a texel from
+                    // arbitrarily far away. Flooded a tile at a time, one island straddling a seam
+                    // becomes two with different identities and different sizes.
+                    DependsOnEveryTexel = true,
                     Parameters = [
                         new("first", pass == 0 ? 1f : 0f),
                         new("threshold", threshold),
