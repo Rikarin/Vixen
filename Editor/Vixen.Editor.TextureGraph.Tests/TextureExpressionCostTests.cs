@@ -178,7 +178,15 @@ public class TextureExpressionCostTests {
         // The other half of the same claim: with nothing to fold, the authored 2 is what arrives.
         // A "folder" that wrote 0.5 over every radius it saw would pass both tests above and fail
         // here, which is why this one reads the number too.
-        Assert.All(Radii(compilation.Artefact), radius => Assert.Equal(2f, radius));
+        //
+        // ⚠ Counted before it is read, and that is #993 rather than tidiness: `Assert.All` over an
+        // empty list passes, so a compiler that emitted no ops at all — which is what a broken fold
+        // looks like from here — satisfied the line below on its own. The compound holds one blur,
+        // and a blur is two ops because the box is separable.
+        var radii = Radii(compilation.Artefact);
+
+        Assert.Equal(2, radii.Count);
+        Assert.All(radii, radius => Assert.Equal(2f, radius));
     }
 
     /// <summary>⚠ And the count is the last compilation's, not the compiler's life.</summary>
@@ -207,7 +215,13 @@ public class TextureExpressionCostTests {
 
         Assert.NotNull(first.Artefact);
         Assert.Equal(1, compiler.ExpressionCompilations);
-        Assert.All(Radii(first.Artefact), radius => Assert.Equal(0.5f, radius));
+
+        // ⚠ The count beside the values, for #993's reason: one blur, two separable ops, and an
+        // empty list is what a fold that produced nothing hands back — which `Assert.All` accepts.
+        var radii = Radii(first.Artefact);
+
+        Assert.Equal(2, radii.Count);
+        Assert.All(radii, radius => Assert.Equal(0.5f, radius));
 
         NodeGraphModel bare = new();
         var flat = bare.Add("Source/Noise");
