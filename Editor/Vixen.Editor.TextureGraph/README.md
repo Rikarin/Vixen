@@ -190,8 +190,19 @@ whose three submitters are three objects. It asserts a queue and never a pixel.
 ## Formats, and the two that turned out to be read-only
 
 `R8` · `Rg8` · `Rgba8` · `R16Float` · `Rgba16Float`. **32-bit float is deliberately not one of them** —
-a material map that needs it has a mistake upstream, and an intermediate at 4K is 16 MB as
-`Rgba16Float` against 32 MB as four 32-bit floats.
+a material map that needs it has a mistake upstream, and an intermediate at 4K is **128 MiB** as
+`Rgba16Float` against **256 MiB** as four 32-bit floats.
+
+⚠ **Those two figures used to read "16 MB against 32 MB", which understated both by 8×** — 4096² at
+eight bytes a texel is 128 MiB, not 16 MB. The arithmetic *strengthens* the exclusion rather than
+weakening it, and it is a policy about material maps rather than a capability limit: Raven admits
+`r32f`, `rg32f` and `rgba32f`, the RHI maps all three, and `Core/Vixen.Rendering/HiZPyramid.cs`
+already dispatches into an `R32Float` storage image in production. ⚠ So
+[#690](https://github.com/Rikarin/Vixen/issues/690)'s premise — that no 32-bit float format exists —
+is refuted; what § 4.5's two position-carrying records actually want is `rgba32f` (both store four
+channels), and widening `TextureFormats.Storable` would compile a fourth variant of every kernel and
+let any plan ask for a 256 MiB intermediate. It belongs with the slice that measures a 4K flood on a
+device and lifts `TextureAnalysis.ExactExtent`.
 
 ⚠ **`R8` and `Rg8` can be read and cannot be written, which refutes § M1's and
 [#566](https://github.com/Rikarin/Vixen/issues/566)'s format list.** Both name the five as though a
