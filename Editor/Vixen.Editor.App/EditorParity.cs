@@ -1727,8 +1727,8 @@ sealed partial class EditorApplication {
                 name,
                 kernel,
                 kernel,
-                meshMapBake.ToBake(),
-                meshMapBake.Overwrite
+                MeshMapBakeOptions.ToBake(),
+                MeshMapBakeOptions.Overwrite
             );
         } catch (Exception failure) when (failure
             is IOException
@@ -1834,14 +1834,42 @@ sealed partial class EditorApplication {
 
     /// <summary>The one copy of what a bake is set to measure, which the verb and the panel share.</summary>
     /// <remarks>
-    ///     ⚠ <b>Exposed for a suite to read, and it is the assertion doc 20's A4 rule needs.</b> "The
-    ///     panel and the bake read one object" is not visible from either of them — a panel editing a
-    ///     copy looks identical from the panel's own tests, and the failure is a resolution somebody
-    ///     set being ignored by the button beside it.
+    ///     <para>
+    ///         ⚠ <b>Exposed for a suite to read, and it is the assertion doc 20's A4 rule needs.</b>
+    ///         "The panel and the bake read one object" is not visible from either of them — a panel
+    ///         editing a copy looks identical from the panel's own tests, and the failure is a
+    ///         resolution somebody set being ignored by the button beside it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Out of the settings store rather than a field</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/701">#701</a>. <c>Get&lt;T&gt;</c>
+    ///         hands every caller the same instance, which is what keeps the sentence above true
+    ///         across the persistence: the panel edits what the verb reads and what
+    ///         <see cref="SaveMeshMapBakeSettings" /> writes, and none of the three is a copy.
+    ///     </para>
     /// </remarks>
-    internal MeshMapBakeSettings MeshMapBakeOptions => meshMapBake;
+    internal MeshMapBakeSettings MeshMapBakeOptions => project.Settings.Get<MeshMapBakeSettings>();
 
-    readonly MeshMapBakeSettings meshMapBake = new();
+    /// <summary>Writes the bake settings, which is what every control on the panel does.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Immediately rather than behind an Apply</b>, for the reason
+    ///     <c>EditorBuilds.SaveBuildSettings</c> gives: the Bake button reads these fields, so an edit
+    ///     that had not been committed would mean the button baking something other than what is on
+    ///     screen. Nothing here costs anything until a bake runs.
+    /// </remarks>
+    void SaveMeshMapBakeSettings() {
+        project.Settings.MarkChanged<MeshMapBakeSettings>();
+
+        try {
+            project.Settings.Save<MeshMapBakeSettings>();
+        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
+            Shell.Notifications.Show(
+                "Could not save the mesh-map bake settings",
+                NotificationSeverity.Error,
+                failure.Message
+            );
+        }
+    }
 
     /// <summary>Doc 48 § D12's bake panel.</summary>
     void MeshMapPanels() =>
@@ -1859,7 +1887,12 @@ sealed partial class EditorApplication {
                     view.Refusal = MeshMapRefusal;
 
                     view.BakeRequested += _ => BakeSelectedMeshMaps();
-                    view.Show(meshMapBake);
+
+                    // ⚠ Every control on the panel writes, and the panel is the only writer of these
+                    // settings — no inspector page over the same state, which is doc 20's A4 rule:
+                    // two writers is how a settings row and the panel beside it come to disagree.
+                    view.Changed = SaveMeshMapBakeSettings;
+                    view.Show(MeshMapBakeOptions);
                     view.ShowResult(content.LastBake);
 
                     bakeView = view;

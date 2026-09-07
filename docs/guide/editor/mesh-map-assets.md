@@ -4,7 +4,7 @@ slug: editor/mesh-map-assets
 kind: guide
 area: Editor
 summary: The bake panel a mesh-map bake is set up in, what the nine files are called, how a set is keyed on the model it came from, and how a generator finds one by usage rather than by path.
-api: [T:Vixen.Editor.Assets.MeshMaps.MeshMapUsage, T:Vixen.Editor.Assets.MeshMaps.MeshMapNaming, T:Vixen.Editor.Assets.MeshMaps.MeshMapBake, T:Vixen.Editor.Assets.MeshMaps.MeshMapImage, T:Vixen.Editor.Assets.MeshMaps.MeshMapSet, T:Vixen.Editor.Assets.MeshMaps.IMeshMapBaker, T:Vixen.Editor.Assets.MeshMaps.MeshMapLibrary, T:Vixen.Editor.Assets.MeshMaps.MeshMapAsset, T:Vixen.Editor.App.ProjectMeshMapBaker, T:Vixen.Cli.MeshMapRunner]
+api: [T:Vixen.Editor.Assets.MeshMaps.MeshMapUsage, T:Vixen.Editor.Assets.MeshMaps.MeshMapNaming, T:Vixen.Editor.Assets.MeshMaps.MeshMapBake, T:Vixen.Editor.Assets.MeshMaps.MeshMapImage, T:Vixen.Editor.Assets.MeshMaps.MeshMapSet, T:Vixen.Editor.Assets.MeshMaps.IMeshMapBaker, T:Vixen.Editor.Assets.MeshMaps.MeshMapLibrary, T:Vixen.Editor.Assets.MeshMaps.MeshMapAsset, T:Vixen.Editor.App.ProjectMeshMapBaker, T:Vixen.Editor.App.MeshMapBakeSettings, T:Vixen.Cli.MeshMapRunner]
 tags: [editor, bake, mesh-maps, assets, material-authoring, texture-graph]
 since: 0.1
 status: preview
@@ -64,13 +64,24 @@ per texel is a branch inside the hemisphere loop and per chart triangle is not a
 quad can cover the whole atlas. ⚠ **The three-argument overload still cannot be stopped**, so anything
 with a Cancel button wants the other one.
 
+⚠ **The settings are the project's and are written as you change them.** `MeshMapBakeSettings` is a
+`[DataContract("MeshMapBake")]` under `ProjectSettings/`, so a resolution somebody raised is still
+raised next session and is the same on a teammate's checkout. ⚠ **The machine-preference argument
+loses on purpose**: a ray count is a cost paid on this workstation, but these numbers decide the bytes
+of nine PNGs that land in `Assets/` and get committed, so one project has to agree about them the way
+it agrees about an import setting. ⚠ **The measurements are stored as usage names, never as the flags
+integer** — a bitset written as a number comes back meaning something else the day a member is
+inserted into the enum, and it looks like the editor forgetting rather than like a defect.
+
 ⚠ **A map you have painted on is not overwritten.** Each sidecar records `meshMap.digest` over the
 bytes the bake wrote, and a re-bake that finds a file disagreeing with its digest refuses and names
 the maps — because the usual reason for the mismatch is that somebody opened the curvature map and
 fixed a seam by hand. **Overwrite painted maps**, beside the Bake button, is how you say you meant it;
 the loss is then carried in the set's warnings rather than nowhere. A set baked before the key existed
 records no digest and is overwritten, which is deliberate: a guard that fires on every project is a
-guard people turn off.
+guard people turn off. ⚠ **That tick is the one setting that is deliberately not persisted** — ticked
+once for a good reason and remembered across a restart, it is the guard silently off for every later
+bake.
 
 ### The naming, which is the part M8 depends on
 
