@@ -205,7 +205,14 @@
             PositionMap.IsChecked = value.Wants(MeshMapUsage.Position);
             WorldNormal.IsChecked = value.Wants(MeshMapUsage.WorldNormal);
             Identifiers.IsChecked = value.Wants(MeshMapUsage.Id);
-            Overwrite.IsChecked = value.Overwrite;
+            // ⚠ Cleared rather than read, and the settings object is cleared with it. `Overwrite`
+            // carries [DataMemberIgnore] so it never reaches the file — but the object it lives on is
+            // the one `ProjectSettingsStore` caches for the life of the store, so a tick survived
+            // every later open in the same session. That is the guard #716 exists to be silently
+            // off for the rest of an afternoon, which is what this field's own remarks promise it
+            // cannot be.
+            value.Overwrite = false;
+            Overwrite.IsChecked = false;
         } finally {
             loading = false;
         }

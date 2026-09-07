@@ -336,8 +336,13 @@ public static class MapBaker {
     ///         do.</b> Per texel is a branch inside the hemisphere loop, which is the one place in this
     ///         file where a predictable branch is worth avoiding; per chart triangle is not a bound at
     ///         all, because a single quad can cover the whole atlas and is the ordinary case for the
-    ///         planes these bakes are tested on. A row is a check every few thousand rays, which
-    ///         cancels within a frame at any resolution and costs nothing measurable.
+    ///         planes these bakes are tested on. ⚠ A row is a check every <c>width × samples</c>
+    ///         rays, which is a few thousand on the 64-texel fixtures and <em>millions</em> at the
+    ///         4096 the panel offers with occlusion on — so the honest claim is that the check costs
+    ///         nothing measurable, and not that it cancels within a frame. At the top resolution a
+    ///         cancel waits for the row in flight, which is seconds rather than milliseconds; per
+    ///         texel would fix that and pay a branch inside the hemisphere loop for every bake that
+    ///         is never cancelled.
     ///     </para>
     ///     <para>
     ///         ⚠ <b><paramref name="progress" /> is a fraction of rows, counted before the first ray is

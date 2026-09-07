@@ -56,9 +56,22 @@ public class ShaderGraphDiagnosticIdTests {
     /// <summary>The directory holding every editor project, which is this test project's parent.</summary>
     static string Editors() => Path.GetDirectoryName(Path.GetDirectoryName(Here())!)!;
 
-    /// <summary>Every <c>.cs</c> file one production project owns, without what the build wrote.</summary>
+    /// <summary>Every source file one production project owns, without what the build wrote.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>.vxml</c> as well as <c>.cs</c>, and leaving it out is a live blind spot rather
+    ///     than a nicety.</b> <c>Vixen.Editor.AssetEditors</c> carries twenty-five <c>.vxml</c> views
+    ///     whose C# code blocks are where its diagnostic rendering actually lives — so a walk over
+    ///     <c>*.cs</c> alone reports a clean sweep of a tree it has read most of the wrong half of.
+    ///     A <c>--include="*.cs"</c> grep of exactly this shape produced a filed issue claiming five
+    ///     document kinds report a load failure to nobody, when four of them render theirs from a
+    ///     <c>.vxml</c>; the issue was closed invalid.
+    /// </remarks>
+    /// <param name="project">The project directory name.</param>
+    /// <returns>Each file's name and its text.</returns>
     static (string Name, string Text)[] Production(string project) =>
-        Directory.GetFiles(Path.Combine(Editors(), project), "*.cs", SearchOption.AllDirectories)
+        Directory.GetFiles(Path.Combine(Editors(), project), "*.*", SearchOption.AllDirectories)
+            .Where(path => path.EndsWith(".cs", StringComparison.Ordinal)
+                || path.EndsWith(".vxml", StringComparison.Ordinal))
             .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
                 StringComparison.Ordinal))
             .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",

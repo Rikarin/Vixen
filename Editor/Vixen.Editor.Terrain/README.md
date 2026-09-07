@@ -92,9 +92,15 @@ mask is a square reaching `radius × √2` into its corners; the cursor does not
 
 [Doc 31 § Part 2](../../docs/plan/31-terrain-grass-and-trees.md)'s bargain, which is
 [doc 20 § B6](../../docs/plan/20-editor-parity.md)'s for world settings: every row is an
-`[Inspector]` member of a `[DataContract]` type. `TerrainCreateSettings`, `TerrainBrushSettings`,
-`TerrainToolSettings`, `TerrainGrowthSettings` and `TerrainSplineSettings` are the whole of it, and
-every one of them is testable with no window. `Vixen.Editor.App` is what draws them.
+`[Inspector]` member. `TerrainCreateSettings`, `TerrainBrushSettings`, `TerrainToolSettings`,
+`TerrainGrowthSettings` and `TerrainSplineSettings` are the whole of it, and every one of them is
+testable with no window. `Vixen.Editor.App` is what draws them.
+
+⚠ **They are not `[DataContract]` types, and they used to say they were.** The attribute registers an
+alias with the type registry, and this assembly names neither the reflection nor the serialization
+generator — so the six aliases registered nothing and the declaration was a claim the build did not
+keep ([#989](https://github.com/Rikarin/Vixen/issues/989)). Nothing serialises these: they are the
+live state of a tool while somebody is holding it, and they are gone when the tool is put down.
 
 ⚠ **Each of the five is mutable beside something immutable.** A brush has to be the same brush from
 the first sample of a stroke to the last, a simulation the same settings from its first step to its
