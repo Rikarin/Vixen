@@ -1755,9 +1755,23 @@ sealed class LayerStackView : IDisposable {
     ///         <c>NodeGraphCompiler.Bind</c> makes the other way round for a node's settings.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A port carrying more than four lanes is drawn as its first four.</b> Nothing in
-    ///         the library declares one and the cap is a bound rather than a judgement — four is what
-    ///         a colour has and what <see cref="ComponentClasses" /> names.
+    ///         ⚠ <b>How many fields a port gets is <see cref="Width" />'s answer and comes from the
+    ///         port's <see cref="PortKind" />, not from the length of its declared default</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1097">#1097</a>. A default is
+    ///         optional and a kind is not: <c>GraphModel.Interface</c> lets a published compound
+    ///         expose <c>("Colour", Input, Float4)</c> with no default at all, and counting lanes off
+    ///         the default drew that port <em>one</em> field. <see cref="Lanes" /> then treats a
+    ///         stored value whose width is not the drawn count as absent, so opening such a row and
+    ///         touching its one field replaced the compound's four numbers with one — data lost by a
+    ///         panel that looked like it was only reading.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And a port wider than four is refused rather than truncated.</b> No
+    ///         <see cref="PortKind" /> carries more than four lanes, so this is reachable only from a
+    ///         declaration whose default says more numbers than its kind holds; drawing its first
+    ///         four would be the same silent narrowing one door along. The row is listed and
+    ///         disarmed, which is what <see cref="Ambiguity" /> and <see cref="Unnamed" /> already do
+    ///         with a row this panel will not edit.
     ///     </para>
     /// </remarks>
     void KnobRows(
@@ -1774,11 +1788,21 @@ sealed class LayerStackView : IDisposable {
     ) {
         foreach (var port in Knobs(type)) {
             var name = port.Name;
-            var lanes = port.Default.Length == 0 ? 1 : Math.Min(4, port.Default.Length);
+            var lanes = Width(port);
             var row = rows.Add("layer-stack-knob-row");
 
             row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
             row.Add("layer-stack-knob-label").Text = name;
+
+            // ⚠ Listed and disarmed, and the sentence is the whole of the refusal: a row that drew
+            // its first four fields would write four numbers over however many the file holds the
+            // moment one of them is touched, which is the narrowing #1097 is about with a smaller
+            // number in it.
+            if (lanes > ComponentClasses.Length || port.Default.Length > lanes) {
+                row.Add("layer-stack-row-refusal").Text = WideKnob(name, port.Default.Length);
+
+                continue;
+            }
 
             List<NumericInput> fields = [];
 
@@ -1902,6 +1926,57 @@ sealed class LayerStackView : IDisposable {
             });
         }
     }
+
+    /// <summary>How many numbers one port holds, and therefore how many fields its row draws.</summary>
+    /// <param name="port">The declared port.</param>
+    /// <returns>Its lane count, at least one.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The <see cref="PortKind" /> first and the default only where the kind has no
+    ///         width</b> — <a href="https://github.com/Rikarin/Vixen/issues/1097">#1097</a>. Reading
+    ///         the count off <c>Default.Length</c> alone is wrong in the one direction that loses
+    ///         data: a default is optional, so a <c>Float4</c> declared with none reported
+    ///         <em>one</em> lane, and <see cref="Lanes" /> then read the file's four numbers as
+    ///         absent and let one field overwrite them. ⚠ It is not a hypothetical shape — the
+    ///         generator only ever derives a default from a field initializer, and a vector port's
+    ///         initializer is not a constant, so every vector input that does not spell
+    ///         <c>[Input(Default = …)]</c> out by hand arrives here with an empty one;
+    ///         <c>GraphModel.Interface</c> is the same shape for a published compound, where the
+    ///         port is a row in an editor and the default is a thing an author may simply not fill
+    ///         in.
+    ///     </para>
+    ///     <para>
+    ///         <see cref="PortKind.Dynamic" /> and <see cref="PortKind.None" /> are the two with
+    ///         nothing to say about width — a dynamic port is as wide as whatever reaches it — so
+    ///         there the declared default is the only evidence there is, and an empty one is a
+    ///         scalar.
+    ///     </para>
+    /// </remarks>
+    static int Width(PortDefinition port) =>
+        port.Kind switch {
+            PortKind.Float2 => 2,
+            PortKind.Float3 => 3,
+            PortKind.Float4 => 4,
+            PortKind.Bool or PortKind.Int or PortKind.Float => 1,
+            _ => port.Default.Length == 0 ? 1 : port.Default.Length
+        };
+
+    /// <summary>What a knob row says in place of its fields when the port is wider than it can draw.</summary>
+    /// <param name="port">The port's name.</param>
+    /// <param name="lanes">How many numbers its declaration says it takes.</param>
+    /// <returns>The sentence.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Unreachable from any <see cref="PortKind" />, and said anyway.</b> Four is the widest
+    ///     kind there is, so a row gets here only from a declaration whose default lists more numbers
+    ///     than its kind holds — which is a node type disagreeing with itself, and the reader who has
+    ///     to fix it is the person who wrote it. A row that quietly drew the first four would hand
+    ///     that author a panel that narrows their port on the first click instead.
+    /// </remarks>
+    public static string WideKnob(string port, int lanes) =>
+        $"'{port}' declares {lanes.ToString(CultureInfo.InvariantCulture)} numbers and no port carries "
+        + "more than four, so this panel will not edit it — a row of four fields would write four "
+        + "numbers over all of them the moment one was touched. Fix the port's declaration, and the "
+        + "fields come back.";
 
     /// <summary>What one port is worth on this layer: what was stored, or the port's own default.</summary>
     /// <remarks>
