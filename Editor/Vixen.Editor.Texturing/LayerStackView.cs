@@ -608,12 +608,22 @@ sealed class LayerStackView : IDisposable {
             return;
         }
 
-        // ⚠ Recovered from the document rather than reset, exactly as the layer selection is
-        // recovered from the brush a few lines into `Build` — #927. This panel's factory re-runs
-        // whenever the workspace relays out, so a view that started at "" every time would put the
-        // artist back on the first set while the *brush* stayed on the one they chose; the two would
-        // then disagree, which is the silence the issue is about wearing a different hat.
-        if (SetName.Length == 0 && document.PaintSet.Length > 0) {
+        // ⚠ Adopted from the document whenever the document changes, rather than recovered only
+        // when the panel's copy is empty — #927. Two things sit behind that.
+        //
+        // The panel's factory re-runs whenever the workspace relays out, so a fresh view that
+        // started at "" every time would put the artist back on the first set while the *brush*
+        // stayed on the one they chose. That is the case a recovery covers.
+        //
+        // ⚠ What a recovery does *not* cover is a second stack opened into the same panel. This
+        // view outlives the document it shows, so a non-empty `SetName` carried across the switch is
+        // the previous stack's choice pointed at this one — and because two stacks made from
+        // `LayerStackDocument.Starter` carry the same set names, `SetFor` resolves it rather than
+        // refusing it. The picker would then read "Body" while `PaintSet` was still "" and the
+        // stroke landed in the first set: #927's exact mis-aim, in the one window the `OtherSet`
+        // disarm used to cover, and with no way to correct it from the picker because choosing the
+        // set it already shows returns at the equality above in `ChooseSet`.
+        if (!ReferenceEquals(built, document)) {
             SetName = document.PaintSet;
         }
 

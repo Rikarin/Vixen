@@ -465,13 +465,23 @@ sealed record LayerAsset {
     /// <summary>Which adjustment a <see cref="LayerKind.Filter" /> layer applies.</summary>
     public LayerFilterKind Filter { get; init; } = LayerFilterKind.Levels;
 
-    /// <summary>The filter's numbers, by the port name the node declares.</summary>
+    /// <summary>The layer's numbers, by the port name the node declares.</summary>
     /// <remarks>
-    ///     ⚠ <b>By port name rather than as a typed record per filter.</b> Five filters with five
-    ///     records is five more shapes in a file format, and the node the number reaches already
-    ///     names its own ports — so a wrong name is a compiler diagnostic against the node rather
-    ///     than a silently ignored member. <c>LayerStackGraph</c> writes only the ports the chosen
-    ///     filter declares and reports the rest.
+    ///     <para>
+    ///         ⚠ <b>By port name rather than as a typed record per filter.</b> Five filters with
+    ///         five records is five more shapes in a file format, and the node the number reaches
+    ///         already names its own ports — so a wrong name is a compiler diagnostic against the
+    ///         node rather than a silently ignored member. <c>LayerStackGraph</c> writes only the
+    ///         ports the chosen filter declares and reports the rest.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two readers, and this said "the filter's" while a second one arrived</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>. A filter layer's
+    ///         ports are read by <c>LayerStackGraph.Adjustment</c>; a <em>projected</em> layer's
+    ///         <c>Scale</c> and <c>Sharpness</c> are read by <c>LayerStackGraph.Project</c>, on a
+    ///         fill layer, which the old sentence excluded by name. Both warn on a key no port
+    ///         answers to, so the dictionary is still checked rather than open.
+    ///     </para>
     /// </remarks>
     public Dictionary<string, float[]> Settings { get; init; } = [];
 

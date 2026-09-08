@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System;
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
@@ -348,11 +349,17 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
         production.AddSource("NodeTypes.g.cs", text.ToString());
     }
 
+    // ⚠ Every id is named. The wildcard used to answer `MustDeriveFromNode`, which was true while
+    // VXN0103 was the last id left over — and silently wrong the moment VXN0105 arrived, so a
+    // misdeclared `AcceptedFrom` was reported with "A [Node] class has to derive from Node". A
+    // forgotten arm now stops the generator rather than borrowing another rule's sentence.
     static DiagnosticDescriptor Descriptor(string id) => id switch {
         "VXN0101" => MustBePartial,
         "VXN0102" => NotAPortType,
+        "VXN0103" => MustDeriveFromNode,
         "VXN0104" => SettingMustBeString,
-        _ => MustDeriveFromNode
+        "VXN0105" => AcceptedFromMustBeAnEnum,
+        _ => throw new ArgumentOutOfRangeException(nameof(id), id, "No descriptor is mapped for this id.")
     };
 
     static DiagnosticModel Problem(string id, string message, Location location) {

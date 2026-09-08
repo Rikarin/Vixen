@@ -132,6 +132,48 @@ public class PaintSurfaceTests : IDisposable {
         Assert.Equal("Body", PaintSurface.Open(document, "rust", store, out _)?.Set.Name);
     }
 
+    /// <summary>⚠ Production really does supply two blank halves, which is the load-bearing half.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The instrument behind #849's refusal</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/849">#849</a>. "Sixteen operators
+    ///         degenerate to one" is a fact about the <em>halves</em>, and the degeneracy case in
+    ///         <c>PaintCompositeTests</c> constructs its own — so the sentence that the live composite may stay source-over is
+    ///         only true while <c>PaintSurface.Target</c> goes on passing
+    ///         <c>PaintStackImages.Empty</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So this reads the surface rather than a fixture.</b> The day someone gives
+    ///         <c>Target</c> real slices, this case goes red and the refusal has to be re-argued —
+    ///         which is what a tripwire is for, and what
+    ///         <c>PaintCompositeTests</c>' remark claimed without holding.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_surface_supplies_two_blank_halves_which_is_what_makes_the_degeneracy_a_claim() {
+        var document = Stack("Hull", "");
+
+        PaintCanvasStore store = new();
+
+        var surface = PaintSurface.Open(document, "rust", store, out _);
+
+        Assert.NotNull(surface);
+
+        var stack = surface.Target("baseColor").Stack;
+
+        foreach (var slice in Enum.GetValues<PaintStackSlice>()) {
+            var half = stack.Evaluate(slice);
+
+            // The instrument. A half of no size is blank by vacuity, and every texel assertion
+            // below it would be skipped rather than made.
+            Assert.True(half.Width * half.Height > 0, "the " + slice + " half has no texels at all.");
+
+            for (var index = 0; index < half.Width * half.Height; index++) {
+                Assert.Equal(0u, half[index]);
+            }
+        }
+    }
+
     /// <summary>A stack with one paint layer whose canvas is named, or not.</summary>
     LayerStackDocument Stack(string name, string paint) {
         var document = new LayerStackDocument(

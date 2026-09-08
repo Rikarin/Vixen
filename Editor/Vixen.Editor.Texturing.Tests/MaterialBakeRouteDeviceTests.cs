@@ -203,6 +203,15 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
             "a graph that does not compile wrote files, so the refusal happens after the bake rather "
             + "than before it."
         );
+
+        // ⚠ And what it refused *for*, which the assertion above cannot see. This fixture publishes
+        // an `IEditorGraphics` with a null device, so "no folder was written" is equally true of the
+        // untouched starter graph — the route refuses a missing device too, and earlier. Without
+        // this line the broken graph the test builds is not load bearing and the case is green on a
+        // route that never compiled anything.
+        // `Refused` writes each error as "<id>: <message>", and no device refusal carries an id —
+        // so one positive assertion is enough to say which of the two refusals ran.
+        Assert.Contains("TG0002", Say(fixture), StringComparison.Ordinal);
     }
 
     /// <summary>Every usage an Output node accepts is one the baker can write.</summary>
@@ -250,6 +259,36 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
                 Assert.Single(compilation.Outputs).Usage
             );
         }
+
+        // ⚠ The other direction, and this test asserted only the first one until a reviewer read
+        // its name against its body. Walking the *baker's* list and asking the compiler to accept
+        // each proves "every usage the baker writes is one a node accepts" — which is silent on the
+        // failure the remark above names first: a tenth entry in `TextureUsages.Known` is a map an
+        // artist can author and the bake drops, and every case above would stay green.
+        //
+        // Read out of the refusal rather than off the list, for the reason the remark gives — the
+        // list is internal to the other assembly, and the refusal is what actually decides.
+        target.SetText("Usage", "nothing-is-called-this");
+
+        var refusal = Assert.Single(
+            document.Compile().Diagnostics.Where(one => one.Severity == NodeSeverity.Error)
+        );
+
+        const string marker = "which is not one of ";
+
+        var at = refusal.Message.IndexOf(marker, StringComparison.Ordinal);
+
+        Assert.True(at >= 0, "the refusal no longer enumerates what it accepts: " + refusal.Message);
+
+        var list = refusal.Message[(at + marker.Length)..];
+        var stop = list.IndexOf('.', StringComparison.Ordinal);
+
+        Assert.Equal(
+            MaterialMapNaming.Every.Select(MaterialMapNaming.Suffix).Order(StringComparer.Ordinal),
+            (stop < 0 ? list : list[..stop])
+                .Split(", ", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .Order(StringComparer.Ordinal)
+        );
     }
 
     /// <summary>Scans the committed fixture in, opens it through the verb, and shrinks it.</summary>

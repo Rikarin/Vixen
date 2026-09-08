@@ -268,10 +268,13 @@ public class PaintCompositeTests {
     ///         implementing them would move zero texels for any stack anybody can currently open.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is the halves that make this true and not the join, which is why the test
-    ///         reads the halves.</b> If a future change makes the module supply real slices this goes
-    ///         red — and it should, because that is exactly the moment the fifteen stop being
-    ///         unobservable.
+    ///         ⚠ <b>It is the halves that make this true and not the join</b> — so the claim rests
+    ///         on <em>what production supplies</em>, which this case does not read: it builds its
+    ///         own <c>PaintStackImages.Empty</c>, so <c>PaintSurface.Target</c> could start handing
+    ///         out real slices and this would stay green for ever.
+    ///         <c>PaintSurfaceTests.The_surface_supplies_two_blank_halves_which_is_what_makes_the_degeneracy_a_claim</c>
+    ///         is the assertion about the supply, and it is the one that goes red on the day the
+    ///         fifteen stop being unobservable.
     ///     </para>
     /// </remarks>
     [Fact]

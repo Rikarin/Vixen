@@ -252,6 +252,8 @@ public class TextureProjectionDeviceTests(ITestOutputHelper output) {
         var once = Project(device, source, Sweeping(), facing, TextureProjectionAxis.Z);
         var twice = Project(device, source, Sweeping(), facing, TextureProjectionAxis.Z, scale: 2f);
 
+        var discriminating = 0;
+
         for (var channel = 0; channel < 3; channel++) {
             var head = TextureKernelHarness.At(twice, 1, 8, channel);
             var wrapped = TextureKernelHarness.At(twice, 1 + (Side / 2), 8, channel);
@@ -267,8 +269,20 @@ public class TextureProjectionDeviceTests(ITestOutputHelper output) {
                 continue;
             }
 
+            discriminating++;
+
             Assert.InRange(wrapped, head - 3, head + 3);
         }
+
+        // ⚠ The instrument, and without it this test asserted nothing under exactly the defect its
+        // own remark names. A kernel that ignored `position` produces a constant `once`, every
+        // channel takes the `continue` above, and the loop finishes having made zero assertions —
+        // green. The guard is right and it needed a count beside it.
+        Assert.True(
+            discriminating > 0,
+            "no channel varied along x at scale 1, so nothing here compared a repeat — a kernel that "
+            + "ignored the position entirely would reach this line."
+        );
     }
 
     static Bitmap Project(

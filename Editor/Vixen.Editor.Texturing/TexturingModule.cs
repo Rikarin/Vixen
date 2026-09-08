@@ -513,11 +513,15 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     ///         another graph's set.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Force is not offered and the refusal says so by name</b> —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1019">#1019</a>. A map somebody has
-    ///         painted over stops the bake, which is § D4's whole point; the command line answers
-    ///         that with <c>--force</c> and this verb has no argument to carry one. Saying which file
-    ///         it was, and that replacing it is a deliberate act, is the honest half.
+    ///         ⚠ <b>Force is not offered, and the refusal must not name a route that cannot take
+    ///         this graph</b> — <a href="https://github.com/Rikarin/Vixen/issues/1019">#1019</a>. A
+    ///         map somebody has painted over stops the bake, which is § D4's whole point, and a
+    ///         command handler carries no argument to force with. ⚠ <b>The sentence used to send the
+    ///         artist to <c>vixen texture bake --force</c> and that verb cannot re-bake a
+    ///         graph</b>: its <c>--from</c> is required and reads a folder of maps
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1020">#1020</a>), so running it
+    ///         would have written a <em>second</em> set beside the painted one rather than replacing
+    ///         anything. Naming the file and saying there is no control here yet is the honest half.
     ///     </para>
     /// </remarks>
     void BakeMaterial() {
@@ -548,8 +552,8 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             outcome.Set is null ? "Nothing baked" : "Baked '" + outcome.Set.Name + "'",
             outcome.Set is null ? NotificationSeverity.Warning : NotificationSeverity.Info,
             outcome.Painted
-                ? outcome.Status + " Replacing it is a deliberate act: `vixen texture bake --force` is "
-                + "the only route that offers one, and there is no control for it here yet (#1019)."
+                ? outcome.Status + " Replacing it is a deliberate act and there is no control for it "
+                + "here yet (#1019); until there is, move or delete the file the sentence above names."
                 : outcome.Status
         );
 
@@ -603,14 +607,17 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
     /// <summary>Which set and which layer a drag would reach, as a person reads it.</summary>
     /// <remarks>
-    ///     ⚠ <b>The set is named even though it cannot be chosen, and that is the point of naming
-    ///     it.</b> <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>: every path in this
-    ///     plugin takes <c>Sets[0]</c> and the messages read as though one had been picked, so a
-    ///     multi-set stack paints into the first one and says nothing about it. Saying which is the
-    ///     honest half of the fix; the selector is the other and is not built.
+    ///     ⚠ <b>The set is named, and it is now the set that was actually chosen.</b>
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>: every path here used to
+    ///     take <c>Sets[0]</c> while the messages read as though one had been picked, so a multi-set
+    ///     stack painted into the first one and said nothing. The selector is built and
+    ///     <c>LayerStackDocument.PaintSet</c> is the choice, so this sentence names <em>that</em>
+    ///     set — ⚠ naming the first one after the selector landed would have been worse than the
+    ///     original silence, because it would be a confident wrong answer.
     /// </remarks>
     string Aimed() {
-        var set = stack?.Document.Sets is { Count: > 0 } sets ? $"set '{sets[0].Name}'" : "this stack";
+        var chosen = stack is null ? null : LayerStackEdit.SetFor(stack.Document, stack.PaintSet);
+        var set = chosen is not null ? $"set '{chosen.Name}'" : "this stack";
 
         return tool.LayerId.Length > 0
             ? $"the layer '{tool.LayerId}' of {set}"
@@ -654,11 +661,16 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
     /// <summary>The geometry the open stack is painted on, resolved once per binding.</summary>
     /// <remarks>
-    ///     ⚠ <b>The set is <c>Sets[0]</c>, which is the same pin every other path here has and is
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a> rather than a decision.</b>
-    ///     <c>PaintSurface.Open</c> takes the first set, <c>LayerStackView</c> draws the first set and
-    ///     <c>LayerStackPreview</c> compiles the first set; a mesh resolved for a different one would
-    ///     be the only thing in the plugin that disagreed.
+    ///     ⚠ <b>The set is the chosen one, and this was the last <c>Sets[0]</c> left</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>,
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1048">#1048</a>. Once
+    ///     <c>PaintSurface.Open</c>, <c>LayerStackView</c> and <c>LayerStackPreview</c> all resolved
+    ///     <c>LayerStackDocument.PaintSet</c> through <c>LayerStackEdit.SetFor</c>, a mesh still
+    ///     resolved for the first set became the only thing in the plugin that disagreed — and the
+    ///     disagreement is silent: a stroke aimed at set B would be dilated and refused against set
+    ///     A's islands.
+    ///     ⚠ <b>Which is why <c>PaintSet</c> is a term of the cache key</b>, not only of the
+    ///     resolve: without it, switching sets keeps the previous set's mesh.
     /// </remarks>
     LayerStackMesh? Mesh() {
         if (stack is null) {
@@ -670,10 +682,11 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         }
 
         var asset = stack.Document;
-        var set = asset.Sets.Count > 0 ? asset.Sets[0] : null;
+        var set = LayerStackEdit.SetFor(asset, stack.PaintSet);
 
         var key = stack.AssetPath
             + "\n" + asset.Model
+            + "\n" + stack.PaintSet
             + "\n" + (set?.Mesh ?? "")
             + "\n" + Exported(asset.Model)
             + "\n" + ((geometry as ProjectMeshSource)?.Revision ?? 0).ToString(CultureInfo.InvariantCulture);

@@ -25,12 +25,13 @@ namespace Tests;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A table checked only by the plans that happen to exercise it goes stale silently.</b>
-///         The old table's own doc comment said "the five entries below" over four entries, which
-///         reads as a typo and was not: the sweep below finds seven, so at least one entry really had
-///         been dropped in review. Nothing could have noticed — every existing assertion about the
-///         ceilings drives off the table itself, so a missing line makes them assert less rather than
-///         fail. This file reads the <b>kernel sources</b>, which is where the number the loop stops
-///         at is actually written.
+///         The old table's doc comment said "the five entries below" over four entries, which reads
+///         as a dropped line and was not — <c>ad29fde1f</c> removed <c>Blur</c>'s row and wrote the
+///         sentence in the same commit. ⚠ The three that were missing had simply never been in it,
+///         and nothing could have noticed: every existing assertion about the ceilings drives off
+///         the table itself, so a missing line makes them assert <em>less</em> rather than fail.
+///         This file reads the <b>kernel sources</b>, which is where the number the loop stops at is
+///         actually written.
 ///     </para>
 ///     <para>
 ///         <b>What counts as clipped, precisely.</b> A <c>float</c> parameter that appears inside a

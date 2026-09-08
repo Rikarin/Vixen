@@ -585,7 +585,8 @@ public class TextureKernelLanguageSeamTests {
                 .Names
                 .Where(kernel =>
                     needles.Any(needle =>
-                        TextureKernels.Source(kernel).Contains(needle, StringComparison.OrdinalIgnoreCase)
+                        Uncommented(TextureKernels.Source(kernel))
+                            .Contains(needle, StringComparison.OrdinalIgnoreCase)
                     )
                 )
                 .OrderBy(kernel => kernel, StringComparer.Ordinal)
@@ -635,7 +636,12 @@ public class TextureKernelLanguageSeamTests {
         // it has to be in there.
         Assert.Contains("mod(", expression, StringComparison.Ordinal);
 
-        Assert.Contains(expression, TextureKernels.Source("Checker"), StringComparison.Ordinal);
+        // ⚠ `Uncommented`, and it is the assertion rather than tidiness. `Checker.rvn`'s header
+        // says what this test holds and quotes the fold to say it, so searching the raw source
+        // found the needle in a comment: the live line at `Checker.rvn:52` could be changed to
+        // anything and this stayed green. A parity check that its own subject's prose satisfies is
+        // the "instrument that cannot fail" this repository keeps finding.
+        Assert.Contains(expression, Uncommented(TextureKernels.Source("Checker")), StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -673,6 +679,12 @@ public class TextureKernelLanguageSeamTests {
     [Theory]
     [InlineData("Grayscale", @"var weight[RGB]: float = \S+")]
     [InlineData("Hsl", @"dot\(rotated, float3\([^)]*\)")]
+    // ⚠ Found by a reviewer, not by the sweep. The completeness check next door keys on
+    // `Random.rvn`'s three constants only, so two live copies of the library's luminance sat in
+    // `Coverage` bodies with nothing holding them — the theory's summary claimed the class and
+    // covered two of four.
+    [InlineData("Splatter", @"dot\(texel\.xyz, float3\([^)]*\)")]
+    [InlineData("TileSampler", @"dot\(texel\.xyz, float3\([^)]*\)")]
     public void The_luminance_weights_are_still_the_library_s(string kernel, string declaration) {
         var luminance = Reduce(Library("Material", "ComputeColor.rvn"), "Saturation").Numbers;
 

@@ -71,9 +71,14 @@ public class TextureSettingChoiceTests {
             // part company on `TextureResampleSize`, whose members run -2 to 2. A sequence equality
             // here would have been an assertion about `Enum.GetNames`' implementation, which is not
             // what anybody wants held still.
+            var withheld = Withheld
+                .Where(row => row.Path == definition.Path && row.Setting == setting.Name)
+                .Select(row => row.Value)
+                .ToImmutableArray();
+
             Assert.Equal(
-                Offered(refusal).Sort(StringComparer.Ordinal),
-                setting.Accepted.Sort(StringComparer.Ordinal)
+                Offered(refusal).Where(name => !withheld.Contains(name)).Order(StringComparer.Ordinal),
+                setting.Accepted.Order(StringComparer.Ordinal)
             );
         }
 
@@ -135,6 +140,137 @@ public class TextureSettingChoiceTests {
 
         Assert.NotNull(setting);
         Assert.Equal(["Quadruple", "Double", "Same", "Half", "Quarter"], setting.Accepted);
+    }
+
+    /// <summary>The settings that deliberately offer fewer names than their refusal enumerates.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A narrowing is a claim, and this is the list of them so that
+    ///         <see cref="Every_refused_setting_offers_exactly_the_names_its_refusal_enumerates" />
+    ///         stays an equality rather than becoming a subset.</b> "Offered ⊆ refused" would be
+    ///         satisfied by a picker that offered nothing at all, which is the weaker assertion in
+    ///         the direction that matters — a value the compiler accepts and no dropdown can reach
+    ///         is exactly what #1013 was filed about.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Each row is held to a real refusal</b> by
+    ///         <see cref="A_withheld_value_is_one_the_node_refuses" />, so a value cannot be dropped
+    ///         from a picker on somebody's opinion that it is unlikely.
+    ///     </para>
+    /// </remarks>
+    internal static ImmutableArray<(string Path, string Setting, string Value)> Withheld { get; } = [
+        // `Transform2D.rvn`, `Crop.rvn` and `Bitmap.rvn` each compare `filter` against 0 and
+        // interpolate for everything else, so a `Box` would be a bilinear read drawn under the name
+        // of a box filter. A box needs a minification ratio, which only `Space/Resample` has.
+        ("Space/Transform 2D", "Filter", "Box"),
+        ("Space/Crop", "Filter", "Box"),
+        ("Source/Bitmap", "Filter", "Box")
+    ];
+
+    /// <summary>Settings a node needs written before it compiles as far as the one under test.</summary>
+    static ImmutableArray<(string Path, string Setting, string Value)> Prerequisites { get; } = [
+        ("Source/Bitmap", "Source", "Assets/Textures/anything.png")
+    ];
+
+    /// <summary><see cref="Withheld" />, as rows a theory can take.</summary>
+    public static TheoryData<string, string, string> Narrowed {
+        get {
+            TheoryData<string, string, string> rows = [];
+
+            foreach (var (path, setting, value) in Withheld) {
+                rows.Add(path, setting, value);
+            }
+
+            return rows;
+        }
+    }
+
+    /// <summary>A value withheld from a picker is one the node refuses when it is written by hand.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The graph is wired, which is the whole point of this test.</b> A node whose image
+    ///     input is missing reports that and returns before it reads its own settings, so
+    ///     <see cref="One" /> — which connects nothing — reaches the <c>TextureSettings.Enum</c>
+    ///     parse at the top of a node and nothing below it. A narrowing check run on an unconnected
+    ///     node would pass whether or not the refusal existed.
+    /// </remarks>
+    /// <param name="path">The node.</param>
+    /// <param name="setting">The setting.</param>
+    /// <param name="value">The value the picker withholds.</param>
+    [Theory]
+    [MemberData(nameof(Narrowed))]
+    public void A_withheld_value_is_one_the_node_refuses(string path, string setting, string value) {
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        var definition = registry.Get(path);
+
+        Assert.DoesNotContain(value, definition.Setting(setting)!.Accepted);
+
+        var compilation = Compiler().Compile(Wired(path, setting, value));
+
+        Assert.Contains(
+            compilation.Diagnostics,
+            diagnostic => diagnostic.Id == "TG0010" && Names(diagnostic.Message, setting)
+        );
+    }
+
+    /// <summary>The same graph with the setting left alone, so the refusal above is about the value.</summary>
+    /// <param name="path">The node.</param>
+    /// <param name="setting">The setting.</param>
+    /// <param name="value">Unused — the row is shared with <see cref="A_withheld_value_is_one_the_node_refuses" />.</param>
+    [Theory]
+    [MemberData(nameof(Narrowed))]
+    public void The_same_graph_compiles_when_the_withheld_value_is_not_written(
+        string path,
+        string setting,
+        string value
+    ) {
+        _ = value;
+
+        var compilation = Compiler().Compile(Wired(path, setting, null));
+
+        Assert.DoesNotContain(
+            compilation.Diagnostics,
+            diagnostic => diagnostic.Id == "TG0010" && Names(diagnostic.Message, setting)
+        );
+    }
+
+    /// <summary>A graph in which every input port of one node is fed, so the node compiles through.</summary>
+    /// <param name="path">The node.</param>
+    /// <param name="setting">The setting to write.</param>
+    /// <param name="value">The value, or <c>null</c> to leave the setting at its default.</param>
+    /// <returns>The graph.</returns>
+    static NodeGraphModel Wired(string path, string setting, string? value) {
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        NodeGraphModel graph = new();
+        var node = graph.Add(path);
+
+        if (value is not null) {
+            node.SetText(setting, value);
+        }
+
+        // ⚠ A node can refuse and return above the setting this theory is about. `Source/Bitmap`
+        // reads its asset reference first and refuses an empty one, so without a reference the Box
+        // check below it is never reached and the theory would be green for the wrong reason.
+        foreach (var (owner, required, filled) in Prerequisites) {
+            if (owner == path) {
+                node.SetText(required, filled);
+            }
+        }
+
+        // An unwired image input is reported before a node reads its own settings, so without this
+        // the graph never reaches the refusal the theory is about.
+        foreach (var port in registry.Get(path).Ports) {
+            if (port is { Direction: PortDirection.Input, Kind: PortKind.Image }) {
+                graph.Connect(new(graph.Add("Source/Noise").Id, "Out"), new(node.Id, port.Name));
+            }
+        }
+
+        return graph;
     }
 
     /// <summary>Each setting whose value the compiler refuses, with the sentence it refused it in.</summary>

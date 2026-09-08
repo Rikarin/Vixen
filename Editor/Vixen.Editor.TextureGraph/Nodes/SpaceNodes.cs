@@ -156,7 +156,15 @@ sealed partial class TileNode : TextureNode {
 [Node("Space/Crop", Preview = true, Summary = "A rectangle of the source, stretched onto the whole target.")]
 sealed partial class CropNode : TextureNode {
     /// <summary>How a sub-sample reads: <c>Point</c> or <c>Bilinear</c>. ⚠ Not <c>Box</c>.</summary>
-    [Setting(AcceptedFrom = typeof(TextureFilter))]
+    /// <remarks>
+    ///     ⚠ <b>Listed rather than <c>AcceptedFrom = typeof(TextureFilter)</c>, because this node
+    ///     refuses the enum's third member.</b> A picker generated off the whole enum would offer
+    ///     <c>Box</c> and the compiler would then refuse it — which is the defect
+    ///     <c>[Setting(Accepted = …)]</c> exists to remove, arriving from the other side.
+    ///     <c>TextureSettingChoiceTests</c> holds the narrowing to a real refusal rather than to an
+    ///     opinion, so this list cannot quietly drop a value the node would have accepted.
+    /// </remarks>
+    [Setting(Accepted = ["Point", "Bilinear"])]
     public string Filter = "Point";
 
     /// <summary>What to crop.</summary>

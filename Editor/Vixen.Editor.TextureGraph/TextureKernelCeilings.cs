@@ -23,12 +23,15 @@ namespace Vixen.Editor.TextureGraph;
 ///         kernels at once.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The count in the old comment was right and the table was wrong.</b> That doc comment
-///         said "the five entries below are the kernels that do clip" over four entries — the sort of
-///         off-by-one that reads as a typo. It was not: a sweep of the <c>.rvn</c> files for a
-///         <c>const val Max…</c> applied to a parameter a builder declares <c>TexelsAtBase</c> finds
-///         <em>seven</em>, so at least one entry really had been dropped in review and the missing
-///         ones were live instances of the bug rather than a miscount.
+///         ⚠ <b>The old comment's "five entries below" over four was a stale numeral, not a
+///         dropped line — and the first account written here said the opposite.</b>
+///         <c>ad29fde1f</c> removed <c>Blur</c>'s row and wrote that sentence in the same commit, so
+///         the count described the table one line earlier in its own diff. ⚠ It is recorded because
+///         the wrong story is the more flattering one: "a line was dropped in review" makes the
+///         missing ceilings somebody's oversight, while what actually happened is that <em>nothing
+///         ever looked</em> — <c>Curvature</c>, <c>HeightToNormal</c> and <c>EdgeDetect</c> were
+///         never in this table at all, and the sweep below is the first thing that could have said
+///         so.
 ///     </para>
 ///     <para>
 ///         <b>What keeps it whole is a sweep rather than a reviewer.</b>

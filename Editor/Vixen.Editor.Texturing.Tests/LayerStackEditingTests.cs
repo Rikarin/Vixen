@@ -1712,6 +1712,62 @@ public class LayerStackEditingTests {
             Fill("top", "Top", 0.75f)
         );
 
+    /// <summary>⚠ A second stack in the same panel does not inherit the first one's chosen set.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>#927's mis-aim in the window a set selector opens.</b> The panel's <c>SetName</c>
+    ///         is a copy of the document's <c>PaintSet</c>, and the view outlives the document it is
+    ///         showing — so a copy carried across a document switch aims the picker at the previous
+    ///         stack while the new stack's <c>PaintSet</c> is still empty and the stroke lands in its
+    ///         first set.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both stacks carry the same set names, which is what makes it silent.</b>
+    ///         <c>LayerStackEdit.SetFor</c> resolves "Head" in the second stack rather than refusing
+    ///         it, so nothing anywhere reports a disagreement — the picker reads right and the paint
+    ///         goes elsewhere. A fixture whose two stacks had different set names would go green
+    ///         under the defect, because the stale name would fail to resolve and fall back.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_second_stack_opened_into_the_panel_starts_at_its_own_set() {
+        using var fixture = new TexturingFixture();
+
+        var first = Open(fixture, TwoSets());
+
+        Find<Select>(Panel(fixture), "layer-stack-set").Value = "Head";
+
+        Assert.Equal("Head", first.PaintSet);
+
+        fixture.Project.Selection.Set(LayerStackPanelTests.AddStack(fixture, "Keel"));
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
+
+        // ⚠ Both documents stay open — the panel is what switches, which is the whole point.
+        var second = Assert.IsType<LayerStackDocument>(
+            fixture.Project.Documents.Single(document => !ReferenceEquals(document, first))
+        );
+
+        second.Document = TwoSets();
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
+
+        var panel = Panel(fixture);
+
+        // The picker is aimed at the second stack's own answer, which is its first set.
+        Assert.Equal("Body", Find<Select>(panel, "layer-stack-set").Value);
+        Assert.Equal("", second.PaintSet);
+
+        // ⚠ And the rows agree with it, which is what says the adoption reached the build rather
+        // than only the field: under the defect these read "Head" while `PaintSet` stayed empty.
+        Assert.Contains(Texts(panel, "layer-stack-row-name"), row => row.Contains("Body", StringComparison.Ordinal));
+
+        Assert.DoesNotContain(
+            Texts(panel, "layer-stack-row-name"),
+            row => row.Contains("Head", StringComparison.Ordinal)
+        );
+    }
+
     /// <summary>⚠ Two sets that differ in every single thing the panel reads off one.</summary>
     /// <remarks>
     ///     ⚠ <b>A different channel list, a different layer id and a different <c>Mesh</c>.</b> Two

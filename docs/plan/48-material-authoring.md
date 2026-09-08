@@ -1047,11 +1047,21 @@ exploded graph bake byte-identical outputs.
 The mask stack, generators as shipped `.vxtexgraph`s reading the mesh maps by usage, anchors as DAG
 edges, and the cycle refusal proved by a test that tries to make one.
 
-⚠ **Two of the four scope rows are owed, and one of them had no issue for four batches** — a phase
-comment naming something as still owed is not a tracker entry, which is how this happens.
-[#815](https://github.com/Rikarin/Vixen/issues/815) is triplanar and planar projection, refused by
-name in `LayerStackGraph`; [#1010](https://github.com/Rikarin/Vixen/issues/1010) is the colour/ID
-selection mask, and the `id` bake is already read and already sampled *nearest* for it.
+⚠ **The last two scope rows landed 2026-09-08, and one of them had no issue for four batches** — a
+phase comment naming something as still owed is not a tracker entry, which is how that happens.
+[#815](https://github.com/Rikarin/Vixen/issues/815) was triplanar and planar projection, *refused by
+name* in `LayerStackGraph`; the refusal and its tripwire test are deleted and `Project` wires
+`Space/Triplanar` through two `Source/Mesh Map` reads, with planar the same kernel under one-hot
+weights rather than a second file. [#1010](https://github.com/Rikarin/Vixen/issues/1010) is
+`Analysis/Colour Select` over the `id` bake this doc already had read *nearest* for it.
+
+⚠ **The selection mask matches a colour rather than an index, and the choice was forced.** `MapBaker`
+paints island *n* with hue `frac(n·φ)` and applies it at the last moment, so the index is not in the
+file — there is no space in which a `± tolerance` on a number could be compared. Nor could a plugin
+be asked which ids a bake produced: a graph names no mesh by design, so at the moment the setting is
+edited there is no bake to ask. ⚠ **And a tolerance over an index map is a trap the test carries**:
+ids are nominal rather than ordinal, so the discriminating fixture is two islands whose ids differ by
+one and whose colours differ a lot, which inverts under a comparison written in index space.
 
 ### M9 — Painting · 2.0 EM
 

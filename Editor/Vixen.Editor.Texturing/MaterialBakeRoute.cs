@@ -189,6 +189,19 @@ sealed class MaterialBakeRoute {
             );
         }
 
+        // ⚠ And the mixed case, which the branch above cannot reach. One known usage alongside one
+        // unknown one leaves `wanted.Count` at 1, and an artist was told the bake succeeded while a
+        // map they named was silently missing from the material — the exact failure this whole
+        // stretch was written to prevent, in the case that is likelier than a graph whose every
+        // output has drifted.
+        var dropped = unknown.Count > 0
+            ? " ⚠ This build writes no map called "
+            + string.Join(", ", unknown.Select(one => "'" + one + "'"))
+            + ", so nothing was written for "
+            + (unknown.Count == 1 ? "it" : "them")
+            + "."
+            : "";
+
         var evaluator = evaluators(device);
 
         using TextureUploads uploads = new(device);
@@ -232,13 +245,14 @@ sealed class MaterialBakeRoute {
             // maps are not one size rather than resampling one to meet the other.
             return Said("Nothing baked: " + failure.Message);
         } catch (IOException failure) {
-            // ⚠ The painted-over refusal, and the only one force answers. § D4's digest exists so
-            // that a file whose bytes are no longer what the bake wrote is flagged rather than
-            // overwritten, because the commonest reason for the mismatch is that somebody painted on
-            // it.
+            // ⚠ Only the overpaint, and this used to flag all three. § D4's digest exists so that a
+            // file whose bytes are no longer what the bake wrote is flagged rather than overwritten
+            // — but `Write` also raises this for the `Crowd` ceiling and for a locked or read-only
+            // file, and force answers neither. Flagging those was sending an artist to a control
+            // that changes nothing, which is the sentence `Painted` exists to avoid.
             return new MaterialBakeOutcome(null, "Nothing baked: " + failure.Message) {
                 Diagnostics = compilation.Diagnostics,
-                Painted = true
+                Painted = failure.Message.EndsWith(ProjectMaterialBaker.Overpaint, StringComparison.Ordinal)
             };
         } catch (InvalidOperationException failure) {
             // ⚠ And this one is deliberately not offered force, because forcing would not help: a
@@ -258,7 +272,7 @@ sealed class MaterialBakeRoute {
             ? " ⚠ " + string.Join(" · ", set.Warnings)
             : "";
 
-        return new MaterialBakeOutcome(set, Reported(set) + cautions + warnings) {
+        return new MaterialBakeOutcome(set, Reported(set) + dropped + cautions + warnings) {
             Diagnostics = compilation.Diagnostics
         };
     }

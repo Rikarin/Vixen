@@ -26,6 +26,17 @@ and `Vixen.Editor.TextureGraph`, and it **does not reference `Vixen.Editor.App`*
 | `TexturePreview` | Whether the preview pane can show anything, as a value a test can assert. |
 | `TextureGraphPreview` | Evaluates a plan on the host's device and hands the pane a picture. |
 | `TextureGraphEditorFactory` | Claims `.vxtexgraph`, inside the module's registration scope. |
+| `MaterialBakeRoute` | The open `.vxtexgraph` to a `.vxmat`, behind the *Bake Material* verb. |
+
+⚠ **This README said "No bake" until 2026-09-08, and it was the reason nobody looked**
+([#1009](https://github.com/Rikarin/Vixen/issues/1009)). The bake *itself* is still
+`Vixen.Editor.Assets/Materials`' — what lives here is the route to it: compile, refuse before asking
+for a device, fill the externals, dispatch through the evaluator both panes already share, read
+**every** output rather than the first, and hand `ProjectMaterialBaker` the pictures. Three narrower
+routes stay owed and are filed rather than described here: the CLI's `--graph`
+([#1020](https://github.com/Rikarin/Vixen/issues/1020)), a `.vxlayers` bake
+([#1029](https://github.com/Rikarin/Vixen/issues/1029)) and a force control
+([#1019](https://github.com/Rikarin/Vixen/issues/1019)).
 
 ## The three things a plugin could not do. Two of them it can now
 
@@ -206,7 +217,12 @@ looking at one of them:
   ⚠ **Why implementing the fifteen is not the fix, measured rather than argued.** Over two
   `PaintStackImages.Empty` halves every separable operator degenerates to the foreground, so the
   fifteen would move **zero texels** for any stack anybody can open today — there is a test for that
-  too. What would make them observable is real halves, and real halves force the seed and the resolved
+  too. ⚠ **And a second one for the supply, which is the half the first cannot see**: the degeneracy
+  case builds its own empty halves, so `PaintSurfaceTests`
+  `.The_surface_supplies_two_blank_halves_which_is_what_makes_the_degeneracy_a_claim` reads
+  `PaintSurface.Target`'s instead. That is what goes red the day the halves stop being blank, and
+  without it this whole paragraph would have stayed true-sounding after it stopped being true.
+  What would make them observable is real halves, and real halves force the seed and the resolved
   rectangles to come from the same join, which is `PaintComposite.ResolveAll`: **2712 ms at 4096² in
   Debug**, measured on two machines and corroborated by [#853](https://github.com/Rikarin/Vixen/issues/853)'s
   1878 ms on a third — and it would land on the pointer-down path *and* on an opacity slider's
@@ -238,8 +254,6 @@ it replaces is I/O-bound ([#850](https://github.com/Rikarin/Vixen/issues/850)).
 
 ## What is not here
 
-* **No bake.** Doc 48 § D4's output — a folder of PNGs and a `.vxmat` — is the material bake in
-  `Vixen.Editor.Assets/Materials` and the CLI's `texture` verb, not this.
 * **No layer stack.** § D10's `.vxlayers` is a second document over the same `TexturePlan`, and it is
   M7.
 * **No 3D projection painting.** Doc 48 § D13's *first* front end — a ray to the surface, the hit's

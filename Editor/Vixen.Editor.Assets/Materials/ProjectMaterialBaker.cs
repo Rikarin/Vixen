@@ -262,6 +262,18 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
         );
     }
 
+    /// <summary>How an overpaint refusal ends, and the only <see cref="IOException" /> force answers.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Shared rather than matched by shape, because a caller has to tell this refusal from
+    ///     the others.</b> <c>Write</c> raises an <see cref="IOException" /> for three unrelated
+    ///     reasons — a map somebody painted over, the <see cref="Crowd" /> ceiling, and a locked or
+    ///     read-only file — and only the first is one <c>force</c> changes. A caller that offered
+    ///     force for all three would send an artist to a control that does nothing, which is the
+    ///     defect this constant exists to prevent; <c>MaterialBakeRouteDeviceTests</c> holds both
+    ///     halves.
+    /// </remarks>
+    public const string Overpaint = "Re-baking would replace that work, so it did not.";
+
     /// <summary>How many differently-sourced sets may share one name before the bake refuses.</summary>
     /// <remarks>
     ///     Absurd rather than tuned, and it is a bound on a loop that opens a file per turn rather
@@ -489,7 +501,7 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
         $"The {string.Join(", ", painted.Select(MaterialMapNaming.Suffix))} "
         + $"{(painted.Count == 1 ? "map" : "maps")} of \"{name}\" "
         + $"{(painted.Count == 1 ? "is" : "are")} not what the last bake wrote, which usually means somebody "
-        + "painted over them. Re-baking would replace that work, so it did not.";
+        + "painted over them. " + Overpaint;
 
     /// <summary>The material as it already stands, or null where there is none to keep anything from.</summary>
     /// <remarks>
