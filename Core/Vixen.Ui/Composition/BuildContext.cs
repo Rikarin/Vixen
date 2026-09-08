@@ -64,7 +64,7 @@ public readonly record struct EventSubscription {
 /// <remarks>
 ///     <para>
 ///         Per ADR-010 every method here does one thing once. <see cref="Element" /> creates an
-///         element; <see cref="Attribute" /> sets a value that will never change; <see cref="Bind(System.Action)" />
+///         element; <see cref="Attribute" /> sets a value that will never change; <see cref="Bind(System.Action,string,int)" />
 ///         registers one effect that assigns one property. Nothing walks a tree, nothing diffs, and
 ///         a steady-state interface allocates nothing because nothing runs.
 ///     </para>
@@ -328,7 +328,7 @@ public sealed class BuildContext {
     ///         <b>The whole of what a <c>@inherits</c> component needs from the runtime, and it is
     ///         deliberately one method.</b> A <c>.vxml</c> whose class is a <see cref="UiElement" />
     ///         gets the <i>same</i> <see cref="BuildContext" /> a <see cref="Component" /> does, so it
-    ///         gets the same <see cref="Bind(System.Action)" />, the same <see cref="Switch" />, the
+    ///         gets the same <see cref="Bind(System.Action,string,int)" />, the same <see cref="Switch" />, the
     ///         same keyed <c>For</c> reconciliation and the same region discipline. That
     ///         equality is the point: a second, weaker way to build a tree from markup would make the
     ///         markup a worse way to write the imperative code it replaced.
@@ -853,13 +853,23 @@ public sealed class BuildContext {
     /// <param name="target">The element.</param>
     /// <param name="name">The attribute name.</param>
     /// <param name="value">What it should be.</param>
-    public void Bind(UiElement target, string name, Func<object?> value) {
+    /// <param name="origin">Filled in by the compiler; forwarded so the effect names its own caller.</param>
+    /// <param name="line">Filled in by the compiler; the line half of <paramref name="origin" />.</param>
+    public void Bind(
+        UiElement target,
+        string name,
+        Func<object?> value,
+        [CallerFilePath] string? origin = null,
+        [CallerLineNumber] int line = 0
+    ) {
         ArgumentNullException.ThrowIfNull(value);
-        Bind(() => Attribute(target, name, Format(value())));
+        Bind(() => Attribute(target, name, Format(value())), origin, line);
     }
 
     /// <summary>Runs an assignment now, and again whenever what it read changes.</summary>
     /// <param name="assign">The assignment.</param>
+    /// <param name="origin">Filled in by the compiler; where the binding was written.</param>
+    /// <param name="line">Filled in by the compiler; the line half of <paramref name="origin" />.</param>
     /// <remarks>
     ///     <para>
     ///         One effect per dynamic expression. It is registered against the region being built,
@@ -873,10 +883,45 @@ public sealed class BuildContext {
     ///         either of them can drain the other's, and a document that has been disposed still
     ///         has effects in it.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The caller's file and line are forwarded, and until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1109">#1109</a> they were not.</b>
+    ///         <c>Effect</c>'s <c>[CallerFilePath]</c> exists precisely so that a suspended-effect
+    ///         log line "points at the effect rather than at this file" — and this was the one call
+    ///         site that constructs effects for the whole framework, so it let the default stand and
+    ///         every binding in every panel reported <c>BuildContext.cs</c> and this line. One
+    ///         origin shared by ten thousand bindings names none of them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A throw is counted before it is contained.</b> <c>Effect</c> answers an
+    ///         unhandled exception by suspending itself, which is the right answer for a UI
+    ///         framework — one bad binding must not take the window down — and is also completely
+    ///         silent to everything but an <c>ILogger</c> nobody has attached. So the throw is
+    ///         recorded on the document on its way past, where <see cref="UiDiagnostics" /> and the
+    ///         diagnostics panel can see it, and then rethrown so that the containment is unchanged.
+    ///         A panel that renders once and freezes now has a number and a message.
+    ///     </para>
     /// </remarks>
-    public void Bind(Action assign) {
+    public void Bind(Action assign, [CallerFilePath] string? origin = null, [CallerLineNumber] int line = 0) {
         ArgumentNullException.ThrowIfNull(assign);
-        building.Track(new Effect(assign, Document.Effects));
+
+        var document = Document;
+
+        building.Track(
+            new Effect(
+                () => {
+                    try {
+                        assign();
+                    } catch (Exception exception) {
+                        document.RecordBrokenBinding(origin, line, exception);
+                        throw;
+                    }
+                },
+                document.Effects,
+                origin,
+                line
+            )
+        );
     }
 
     /// <summary>Runs asynchronous work for as long as whatever declared it is in the document.</summary>
@@ -958,7 +1003,7 @@ public sealed class BuildContext {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>An effect and not a callback, which is the whole of why it is worth having.</b>
-    ///         It is <see cref="Bind(Action)" /> with a subject, so every signal the expression
+    ///         It is <see cref="Bind(Action,string,int)" /> with a subject, so every signal the expression
     ///         reads is a dependency and the call is made again when one of them changes — which is
     ///         what makes <c>use="@(v =&gt; v.Inspect(Chosen, Provider, Targets))"</c> a live panel
     ///         rather than a one-shot. It is registered against the region being built, so a branch
@@ -1653,7 +1698,7 @@ public sealed class BuildContext {
     ///     ⚠ <b>An arm inside a <c>@for</c> row builds under that row's iteration key, and getting
     ///     that wrong was a silent defect until 2026-08-23.</b> <c>For</c> sets
     ///     <c>iteration</c> around the <i>synchronous</i> build of a new region and restores it in a
-    ///     <c>finally</c>; this registers its own <see cref="Bind(Action)" />, which the scheduler
+    ///     <c>finally</c>; this registers its own <see cref="Bind(Action,string,int)" />, which the scheduler
     ///     runs later — so a <c>refs</c> in an arm found no key and threw the "only meaningful inside
     ///     an @for" message that <see cref="Refs{TElement}" />'s own remark says nothing generated can
     ///     reach. It reached it, and what it looked like was not an exception in anybody's face: the

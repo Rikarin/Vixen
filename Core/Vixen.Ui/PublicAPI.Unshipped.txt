@@ -218,8 +218,8 @@ Vixen.Ui.CommandRoute -> static class
 Vixen.Ui.Composition.BuildContext -> sealed class
 Vixen.Ui.Composition.BuildContext.Anchor.get -> Vixen.Ui.UiElement
 Vixen.Ui.Composition.BuildContext.Attribute(Vixen.Ui.UiElement target, string name, string value) -> void
-Vixen.Ui.Composition.BuildContext.Bind(System.Action assign) -> void
-Vixen.Ui.Composition.BuildContext.Bind(Vixen.Ui.UiElement target, string name, System.Func<object?> value) -> void
+Vixen.Ui.Composition.BuildContext.Bind(System.Action assign, string? origin = null, int line = 0) -> void
+Vixen.Ui.Composition.BuildContext.Bind(Vixen.Ui.UiElement target, string name, System.Func<object?> value, string? origin = null, int line = 0) -> void
 Vixen.Ui.Composition.BuildContext.Changed<T>(Vixen.Ui.UiElement target, string name, System.Func<T> read, System.Action<T> handler) -> void
 Vixen.Ui.Composition.BuildContext.Child<T>(Vixen.Ui.UiElement? parent) -> T
 Vixen.Ui.Composition.BuildContext.Child<T>(Vixen.Ui.UiElement? parent, string? tag) -> T
@@ -1427,10 +1427,12 @@ Vixen.Ui.UiCursor.UiCursor() -> void
 Vixen.Ui.UiCursor.Wait = 10 -> Vixen.Ui.UiCursor
 Vixen.Ui.UiDiagnostics -> readonly struct
 Vixen.Ui.UiDiagnostics.BoxOf(Vixen.Ui.UiElement element) -> Vixen.Ui.UiBoxModel
+Vixen.Ui.UiDiagnostics.BrokenBindings.get -> int
 Vixen.Ui.UiDiagnostics.ContainerScopesEntered.get -> int
 Vixen.Ui.UiDiagnostics.DirtyRegions.get -> System.ReadOnlySpan<Vixen.Ui.UiDirtyRegion>
 Vixen.Ui.UiDiagnostics.DrawListsBuilt.get -> int
 Vixen.Ui.UiDiagnostics.DrawListsChanged.get -> int
+Vixen.Ui.UiDiagnostics.LastBrokenBinding.get -> string?
 Vixen.Ui.UiDiagnostics.LastPassWasCold.get -> bool
 Vixen.Ui.UiDiagnostics.LayoutNodes.get -> int
 Vixen.Ui.UiDiagnostics.RegionsRecorded.get -> int
