@@ -53,8 +53,24 @@ partial class Build {
 
     AbsolutePath DocsDirectory => RootDirectory / "artifacts" / "docs";
 
+    /// <summary>Generates the graph. ⚠ Not the coverage gate — see <see cref="CheckDocs" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It reported the written half's problems as <c>[ERR]</c> and then exited 0</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1018">#1018</a>. Nuke tags a child
+    ///     process's standard error that way, so the word came from the stream the tool wrote on;
+    ///     <c>ProblemReport</c> now picks the stream from whether the run gates, and a
+    ///     <see cref="Docs" /> run prints the same list as ordinary output naming
+    ///     <see cref="CheckDocs" /> as what fails on it. Sixteen batches of one workstream ran this
+    ///     target in their pre-merge sweep believing it was the gate.
+    ///     <para>
+    ///         ⚠ <b>The baseline half still fails <em>this</em> target.</b> <see cref="VerifyDocs" />
+    ///         defaults on and its disagreements return 1 from either target, so "Docs gates
+    ///         nothing" is not true and was never the claim — what it does not gate is coverage,
+    ///         page contracts and examples, which is what the description now says.
+    ///     </para>
+    /// </remarks>
     Target Docs => definition => definition
-        .Description("Emits the documentation graph the site is rendered from")
+        .Description("Emits the documentation graph the site is rendered from — CheckDocs is the coverage gate")
         .DependsOn(CompileRelease)
         .Produces(DocsDirectory / "graph.json")
         .Executes(() => Emit(false));

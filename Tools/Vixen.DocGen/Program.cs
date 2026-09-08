@@ -359,19 +359,12 @@ static async Task<int> Run(Arguments arguments) {
         Console.WriteLine($"  not compiled  {exempt.Page}:{exempt.Line} — {exempt.Reason}");
     }
 
-    if (problems.Count > 0) {
-        Console.Error.WriteLine();
-        Console.Error.WriteLine($"{problems.Count} problem{(problems.Count == 1 ? string.Empty : "s")} "
-            + "in the written half:");
+    // ⚠ The stream follows whether this run gates — #1018. Printing to stderr regardless made Nuke
+    // tag every one of these `[ERR]` on a `Docs` run that then reported `Succeeded` and exited 0,
+    // which is a gate that passed as far as anybody reading the log is concerned. `ProblemReport` is
+    // the one place that decides; an inline loop here is the defect coming back.
+    ProblemReport.Write(problems, arguments.CheckDocs);
 
-        foreach (var problem in problems.Take(25)) {
-            Console.Error.WriteLine($"  {problem}");
-        }
-
-        if (problems.Count > 25) {
-            Console.Error.WriteLine($"  …and {problems.Count - 25} more");
-        }
-    }
     Console.WriteLine($"done in {watch.Elapsed.TotalSeconds:F1} s");
 
     if (arguments.CheckDocs && problems.Count > 0) {
