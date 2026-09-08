@@ -302,6 +302,19 @@ public sealed class TexturePlanEvaluator : IDisposable {
         loader = new EffectLoader(device);
     }
 
+    /// <summary>Where this evaluator's images, modules and pipelines live.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Here so that a caller who was lent an evaluator does not have to hold a device
+    ///     beside it</b> — <a href="https://github.com/Rikarin/Vixen/issues/1089">#1089</a>.
+    ///     <c>TextureUploads</c> takes a device, so anything that wants to supply a plan's external
+    ///     images needs one; and a pane that kept its own would be the shape
+    ///     <c>TextureGraphPreviews</c>' constructor refuses, because the frame after a device loss
+    ///     it would ask the lease for the evaluator of a device that is <em>gone</em>. The device
+    ///     that comes out of here is by construction the one the next <c>Evaluate</c> will run on,
+    ///     which a field cannot promise.
+    /// </remarks>
+    public IGraphicsDevice Device => device;
+
     /// <summary>How many kernel variants have been compiled.</summary>
     public int Compilations { get; private set; }
 
@@ -340,13 +353,21 @@ public sealed class TexturePlanEvaluator : IDisposable {
     ///         in its top-left corner with no complaint. That is now <em>said</em> rather than
     ///         forgone in silence: the bake carries one warning per op it could not check, which is
     ///         the difference between a caller who chose the shorter call and one who did not know
-    ///         there was a longer one. ⚠ This said "every caller is a test fixture" and there is
-    ///         one in production — <c>TextureGraphPreviews.Rebuild</c>, which reaches it only after
-    ///         refusing every plan that has externals, so the caution can never fire for it. That is
-    ///         a stronger sentence than the false one. It is the right overload for a suite that
-    ///         dispatches over one uploaded image; anything supplying a picture wants
-    ///         <c>TextureUploads.Externals</c>, which declares the size from the value it already
-    ///         remembers.
+    ///         there was a longer one. It is the right overload for a suite that dispatches over one
+    ///         uploaded image; anything supplying a picture wants <c>TextureUploads.Externals</c>,
+    ///         which declares the size from the value it already remembers.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every caller is a test fixture again, and the sentence has now been false in both
+    ///         directions.</b> <a href="https://github.com/Rikarin/Vixen/issues/1014">#1014</a> said
+    ///         it and was refuted by <c>TextureGraphPreviews.Rebuild</c>, which called this with
+    ///         <see langword="null" /> and threw <c>ArgumentException</c> out of a plugin's per-frame
+    ///         work (<a href="https://github.com/Rikarin/Vixen/issues/1089">#1089</a>); #1089's
+    ///         remainder moved that caller onto <c>TextureUploads.Externals</c>, so it is true once
+    ///         more. ⚠ It is therefore a fact about today and not a property: the warning above is
+    ///         what makes the overload safe for the production caller it will acquire next, and it
+    ///         exists <em>because</em> the difference was invisible at the call site the one time
+    ///         there was one.
     ///     </para>
     /// </remarks>
     public TextureBake Evaluate(TexturePlan plan, IReadOnlyDictionary<int, TextureHandle>? externals = null) =>
@@ -1303,6 +1324,35 @@ public sealed class TexturePlanEvaluator : IDisposable {
     ///         <see cref="TexturePlan.Kernels" /> is a public property, so two plans may spell one
     ///         name two ways; <see cref="VariantFor" /> refuses the second rather than serving it the
     ///         first one's module.
+    ///     </para>
+    ///     <para>
+    ///         <b>#1080 asks whether the convention behind that refusal is enough, and the answer is
+    ///         yes — but not for the reason it looks like.</b> Folding the authored text into the key
+    ///         would make a collision impossible, and it is the worse trade twice over. It does not
+    ///         shrink this dictionary, it <em>grows</em> it: a second spelling would take a second
+    ///         module and pipeline instead of a message. And it would let a front end that does not
+    ///         hash work by accident, right up until the name collided with something a key cannot
+    ///         disambiguate — <c>EffectKey.Of</c> resolves the shader <em>by that name</em>
+    ///         inside the compiled module. A name that means two things is an authoring mistake, and
+    ///         the message names the fix.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the refusal costs, and it is not one bake.</b> Nothing is ever evicted from
+    ///         this dictionary — <see cref="Dispose" /> is the only thing that empties it — and an
+    ///         evaluator is lent per host rather than per document. So a front end that spelled one
+    ///         name two ways would not fail once: it would fail every bake of that kernel for the
+    ///         rest of the session, with a message about a plan the author has since corrected. That
+    ///         is a tolerable price for one authoring mistake and it would not be one for a mechanism.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the convention that makes the refusal unnecessary is what makes this
+    ///         dictionary unbounded.</b> <c>TexturePixelProcessor</c> names its shader after a digest
+    ///         of the expression, so <em>every distinct expression an author types</em> is a new key,
+    ///         a new <see cref="ShaderHandle" /> and a new <see cref="PipelineHandle" /> that live
+    ///         until the host's evaluator is disposed — and <c>TextureGraphPreviews</c> re-evaluates
+    ///         on every graph change, which is per keystroke. Hashing is the right convention and
+    ///         eviction is the thing it owes;
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1091">#1091</a>.
     ///     </para>
     /// </remarks>
     Variant VariantFor(TexturePlan plan, string kernel, TextureFormat output) {

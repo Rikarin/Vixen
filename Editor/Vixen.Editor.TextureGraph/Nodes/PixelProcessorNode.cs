@@ -42,10 +42,12 @@ namespace Vixen.Editor.TextureGraph.Nodes;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>That no shipped compound uses this node is a claim about the library, not about the
-///         node.</b> § 4.9's twelve are the measurement of whether the atomic set is complete, and an
-///         escape hatch in one of them would have hidden the two gaps they found —
+///         node.</b> § 4.9's thirty-one are the measurement of whether the atomic set is complete, and
+///         an escape hatch in one of them would have hidden the two gaps they found —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1059">#1059</a> and
-///         <a href="https://github.com/Rikarin/Vixen/issues/1060">#1060</a>.
+///         <a href="https://github.com/Rikarin/Vixen/issues/1060">#1060</a>. Counted rather than
+///         repeated: the sentence said twelve while thirty-one shipped, and no <c>.vxtexgraph</c>
+///         under <c>Compounds/</c> names this node.
 ///     </para>
 /// </remarks>
 [Node(
