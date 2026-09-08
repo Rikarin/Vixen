@@ -24,21 +24,33 @@ enum LayerKind {
 
 /// <summary>How a fill layer's source is put onto the surface.</summary>
 /// <remarks>
-///     ⚠ <b>Modelled, and only <see cref="Uv" /> compiles in this build.</b> Triplanar and planar are
-///     a projection of a <em>world</em> position onto a UV atlas, so they need the position mesh map
-///     § D12 bakes and a node that reads it — which is M8's
-///     <a href="https://github.com/Rikarin/Vixen/issues/573">#573</a>. The field exists here because
-///     a <c>.vxlayers</c> is a file people merge and adding a member to it later rewrites every one
-///     that exists; refusing the two values is a message rather than a silent UV projection.
+///     <para>
+///         <b>All three compile</b> — <a href="https://github.com/Rikarin/Vixen/issues/815">#815</a>.
+///         Triplanar and planar are a projection of a <em>world</em> position onto the UV atlas, so
+///         they need the <c>position</c> and <c>world</c> mesh maps § D12 bakes and a node that reads
+///         them; <c>Space/Triplanar</c> is that node and <c>LayerStackGraph.Project</c> is the
+///         wiring. ⚠ These three members were modelled and two of them refused for two milestones,
+///         which this remark used to say: keeping the enum whole while the compiler said no was what
+///         let them land without rewriting every <c>.vxlayers</c> that exists.
+///     </para>
+///     <para>
+///         ⚠ <b>A projection means something only on a <see cref="LayerKind.Fill" /> that is not a
+///         constant</b>, and <c>LayerStackGraph.Project</c> warns rather than ignoring it anywhere
+///         else: a paint layer's pixels are authored in the atlas, a filter reads whatever is under
+///         it, and a constant is the same colour at every world position.
+///     </para>
 /// </remarks>
 enum LayerProjection {
     /// <summary>The mesh's own UVs — the atlas, one to one.</summary>
     Uv = 0,
 
-    /// <summary>Three planar projections blended by the world normal. M8.</summary>
+    /// <summary>Three planar projections blended by the world normal.</summary>
     Triplanar = 1,
 
-    /// <summary>One planar projection along an axis. M8.</summary>
+    /// <summary>
+    ///     One planar projection along an axis. ⚠ Which axis is not in this file, so the compiler
+    ///     projects down y — <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>.
+    /// </summary>
     Planar = 2
 }
 
