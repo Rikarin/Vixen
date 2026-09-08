@@ -913,6 +913,124 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
 }
 
 /// <summary>
+///     Parallax occlusion: a height map read as depth, and the coordinate moved to where the eye
+///     really sees the surface.
+/// </summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The only feature in the library that writes the coordinate rather than reading it</b>,
+///         which is why <see cref="MaterialFeatureStage.Coordinate" /> exists and why this declares it.
+///         Listed behind a feature that samples, it displaces the coordinate that feature has already
+///         read — half a parallaxed surface, on every device, with nothing reported —
+///         so <see cref="MaterialCompiler" /> refuses the material rather than reordering it. See
+///         <a href="https://github.com/Rikarin/Vixen/issues/1065">#1065</a>.
+///     </para>
+///     <para>
+///         ⚠ <b>Not the same map as <see cref="TexturedMaterialLayersFeature.HeightMap" />, and the
+///         names are deliberately different for it.</b> That one is a <em>four-channel per-layer</em>
+///         bundle whose channel <c>i</c> is layer <c>i</c>'s height; this samples one material's single
+///         channel, which is what <c>MaterialMapTarget.Height</c> bakes. Two textures, one English
+///         word — and giving them one parameter name would fill both indices from one texture, which
+///         shades and does not fail.
+///     </para>
+///     <para>
+///         <b>The budget is steps, never time.</b> <see cref="MinSteps" /> is the walk head-on and
+///         <see cref="MaxSteps" /> is the walk edge-on, where the ray crosses the most surface per unit
+///         of depth. A wall-clock budget would be a different picture on every machine, which is a
+///         property this repository has already paid for in flakes.
+///     </para>
+///     <para>
+///         Same conditions as every other sampling feature: a name rather than a handle, a device with
+///         <c>HasBindless</c>, and a host that paired the name through
+///         <c>MaterialRenderFeature.TextureIndices</c>. Without the pairing the index stays zero, the
+///         march reads the fallback checker's red channel as a height field, and the surface swims.
+///     </para>
+///     <para>
+///         ⚠ <b>It is the flat-surface case and says so.</b> A displaced coordinate that leaves 0..1
+///         samples the map's wrap rather than showing the surface's edge fall away; fixing that needs a
+///         <c>discard</c>, and <c>IMaterialSurface.Compute</c> contributes to a struct while the pass
+///         owns coverage. Walls, floors and roads are what this is for.
+///     </para>
+/// </remarks>
+[DataContract("ParallaxOcclusion")]
+public sealed record ParallaxOcclusionFeature : IMaterialFeature {
+    /// <summary>The most steps the march is allowed, and the fewest it is worth.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The ceiling is the refinement's, not a performance preference.</b> The shader divides
+    ///     by the thickness of one depth layer, and at 257 steps that thickness is within a factor of
+    ///     forty of <c>Const.Epsilon</c> — the floor the division is guarded by, which past this count
+    ///     starts deciding the answer instead of guarding it.
+    /// </remarks>
+    public const int StepCeiling = 256;
+
+    /// <summary>What the material calls the single-channel height map it wants marched.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>parallaxHeightMap</c> and not <c>heightMap</c>, which is taken</b> — see the type's
+    ///     remarks. And not a name a material may choose freely, for
+    ///     <see cref="TexturedMetalRoughnessFeature" />'s reason: a host pairs one name with one name,
+    ///     keyed off this default.
+    /// </remarks>
+    public string HeightMap { get; init; } = "parallaxHeightMap";
+
+    /// <summary>How deep the field's floor is, in the surface's own UV units.</summary>
+    /// <remarks>
+    ///     ⚠ <b>UV units rather than metres</b>, which is what makes it authored rather than derived:
+    ///     the depth that reads correctly depends on how the map is tiled, and the tiling is the
+    ///     material's. Zero is the feature switched off at full cost — the march still runs.
+    /// </remarks>
+    public float HeightScale { get; init; } = 0.05f;
+
+    /// <summary>How many steps the march takes with the eye straight on.</summary>
+    public int MinSteps { get; init; } = 8;
+
+    /// <summary>And with the eye edge-on, where a coarse walk steps over a ridge.</summary>
+    public int MaxSteps { get; init; } = 32;
+
+    /// <inheritdoc />
+    public string ShaderName => "ParallaxSurface";
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The one non-default <see cref="MaterialFeatureStage" /> in the engine.</b> Everything
+    ///     else contributes at the coordinate it was handed and is correct wherever an author put it.
+    /// </remarks>
+    public MaterialFeatureStage Stage => MaterialFeatureStage.Coordinate;
+
+    /// <summary>What the shader calls the slot, under a composition path.</summary>
+    /// <param name="path">
+    ///     The qualified prefix the feature was composed under, as
+    ///     <see cref="MaterialCompilationContext" /> builds it.
+    /// </param>
+    /// <remarks>
+    ///     Exposed for <see cref="TexturedMetalRoughnessFeature.BaseColorIndexParameter" />'s reason:
+    ///     only the compiler knows the path, and a host that wrote the name down would write down one
+    ///     composition's answer.
+    /// </remarks>
+    public static string HeightIndexParameter(string path) {
+        ArgumentNullException.ThrowIfNull(path);
+        return path + "heightIndex";
+    }
+
+    /// <inheritdoc />
+    public void Compile(MaterialCompilationContext context) {
+        ArgumentNullException.ThrowIfNull(context);
+
+        context.Set("heightScale", HeightScale);
+
+        // Clamped here rather than only in the shader, so that what the material carries is what the
+        // march will run. A count of zero is a loop that never executes, which in the shader is the
+        // full sweep — a surface displaced by its whole depth everywhere, which reads as a texture
+        // that slid rather than as a step count of nothing.
+        context.Set("minSteps", (float)Math.Clamp(MinSteps, 1, StepCeiling));
+        context.Set("maxSteps", (float)Math.Clamp(MaxSteps, 1, StepCeiling));
+
+        // Zero until a host with a table writes a slot over it — see
+        // TexturedMetalRoughnessFeature.Compile for what the zero is and why it is not nothing.
+        context.Set("heightIndex", 0u);
+    }
+}
+
+/// <summary>
 ///     Two different surfaces, mixed by a weight.
 /// </summary>
 /// <remarks>

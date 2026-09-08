@@ -1137,6 +1137,7 @@ public sealed class WorldRenderer : IDisposable {
         var emissive = new TexturedEmissiveFeature();
         var opacity = new TexturedOpacityFeature();
         var layers = new TexturedMaterialLayersFeature();
+        var parallax = new ParallaxOcclusionFeature();
 
         Pair(TexturedMetalRoughnessFeature.BaseColorIndexParameter(Under(baseColor)), baseColor.BaseColorMap);
         Pair(TexturedNormalMapFeature.NormalIndexParameter(Under(normal)), normal.NormalMap);
@@ -1151,6 +1152,15 @@ public sealed class WorldRenderer : IDisposable {
         // map could have been left unpaired with every assertion green. MaterialPairingInventoryTests
         // now reads the library's `var …Index: uint` declarations instead.
         Pair(TexturedMaterialLayersFeature.HeightIndexParameter(Under(layers)), layers.HeightMap);
+
+        // ⚠ The second shader in the library to call its slot `heightIndex`, and the second *map*
+        // called a height map — and they are different textures. The layered feature's is a
+        // four-channel per-layer bundle; this one is a single material's single channel, which is what
+        // a bake writes. The composition path is what keeps the two shader-side keys apart, and the
+        // material-side names are apart because `ParallaxOcclusionFeature.HeightMap` deliberately is
+        // not spelled `heightMap`. NoTwoSamplingFeaturesShareAMapName is what says so out loud, since
+        // one texture filling both indices shades and does not fail.
+        Pair(ParallaxOcclusionFeature.HeightIndexParameter(Under(parallax)), parallax.HeightMap);
 
         string Under(IMaterialFeature feature) => prefix + feature.ShaderName + ".";
 

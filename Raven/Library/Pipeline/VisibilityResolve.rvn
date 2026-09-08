@@ -335,15 +335,20 @@ shader VisibilityResolve : ClusteredShading {
         val geometricNormal = Math.SafeNormalize(cross(v1.position - v0.position, v2.position - v0.position))
         val frame = Normals.Frame(normalWS, TangentOf(b, v0, v1, v2, geometricNormal), 1f)
 
+        // ⚠ Before the chain and not after it, for the reason `ForwardPlus` states: a coordinate
+        // feature walks along this ray, so it has to exist by the time `Begin` runs. This pass has a
+        // reconstructed position rather than an interpolated one, which changes nothing about the
+        // vector — the eye is where it is, and the point is where the barycentrics put it.
+        val v = Math.SafeNormalize(viewPosition - positionWS)
+
         var d: MaterialData
-        MaterialDefaults.Begin(d, frame.normal, float4(frame.tangent, 1f), texcoord)
+        MaterialDefaults.Begin(d, frame.normal, float4(frame.tangent, 1f), texcoord, v)
 
         d.uvDdx = Barycentric.Ddx2(b, v0.uv, v1.uv, v2.uv)
         d.uvDdy = Barycentric.Ddy2(b, v0.uv, v1.uv, v2.uv)
 
         surface.Compute(d)
 
-        val v = Math.SafeNormalize(viewPosition - positionWS)
         val n = Normals.FaceForward(Math.SafeNormalize(d.normalWS), v)
         val alpha = Brdf.Alpha(d.perceptualRoughness)
 

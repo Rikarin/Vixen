@@ -387,13 +387,18 @@ shader ForwardPlus : ClusteredShading {
 
     [FragmentShader]
     func Fragment(): ForwardTargets {
+        // ⚠ The view direction is computed BEFORE the chain runs and not after, because the chain now
+        // reads it: a coordinate feature walks along this ray to find where the height field the
+        // material carries actually intersects it. `Begin` rotates it into the tangent frame it builds
+        // in the same call. It is the same vector the BRDF uses below, moved rather than duplicated.
+        val v = Math.SafeNormalize(viewPosition - positionWS)
+
         // The material fills the surface. Every feature reads what the previous one left, which is
         // what `inout` buys: adding a feature to the chain changes no other feature's signature.
         var d: MaterialData
-        MaterialDefaults.Begin(d, normalWS, tangentWS, uv)
+        MaterialDefaults.Begin(d, normalWS, tangentWS, uv, v)
         surface.Compute(d)
 
-        val v = Math.SafeNormalize(viewPosition - positionWS)
         val n = Normals.FaceForward(Math.SafeNormalize(d.normalWS), v)
         val alpha = Brdf.Alpha(d.perceptualRoughness)
 
