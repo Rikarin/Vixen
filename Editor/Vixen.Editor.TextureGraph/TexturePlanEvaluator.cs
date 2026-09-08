@@ -1325,6 +1325,35 @@ public sealed class TexturePlanEvaluator : IDisposable {
     ///         name two ways; <see cref="VariantFor" /> refuses the second rather than serving it the
     ///         first one's module.
     ///     </para>
+    ///     <para>
+    ///         <b>#1080 asks whether the convention behind that refusal is enough, and the answer is
+    ///         yes — but not for the reason it looks like.</b> Folding the authored text into the key
+    ///         would make a collision impossible, and it is the worse trade twice over. It does not
+    ///         shrink this dictionary, it <em>grows</em> it: a second spelling would take a second
+    ///         module and pipeline instead of a message. And it would let a front end that does not
+    ///         hash work by accident, right up until the name collided with something a key cannot
+    ///         disambiguate — <c>EffectKey.Of</c> resolves the shader <em>by that name</em>
+    ///         inside the compiled module. A name that means two things is an authoring mistake, and
+    ///         the message names the fix.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the refusal costs, and it is not one bake.</b> Nothing is ever evicted from
+    ///         this dictionary — <see cref="Dispose" /> is the only thing that empties it — and an
+    ///         evaluator is lent per host rather than per document. So a front end that spelled one
+    ///         name two ways would not fail once: it would fail every bake of that kernel for the
+    ///         rest of the session, with a message about a plan the author has since corrected. That
+    ///         is a tolerable price for one authoring mistake and it would not be one for a mechanism.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the convention that makes the refusal unnecessary is what makes this
+    ///         dictionary unbounded.</b> <c>TexturePixelProcessor</c> names its shader after a digest
+    ///         of the expression, so <em>every distinct expression an author types</em> is a new key,
+    ///         a new <see cref="ShaderHandle" /> and a new <see cref="PipelineHandle" /> that live
+    ///         until the host's evaluator is disposed — and <c>TextureGraphPreviews</c> re-evaluates
+    ///         on every graph change, which is per keystroke. Hashing is the right convention and
+    ///         eviction is the thing it owes;
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1091">#1091</a>.
+    ///     </para>
     /// </remarks>
     Variant VariantFor(TexturePlan plan, string kernel, TextureFormat output) {
         var authored = plan.Kernels.GetValueOrDefault(kernel);
