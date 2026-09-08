@@ -6,8 +6,13 @@ package Vixen.Editor.TextureGraph.Shaders
 // is compiled on its own — `TexturePlanEvaluator.VariantFor` hands `RavenEffectCompiler.FromSources`
 // exactly one tree and no `.rvnlib` references — and a package's declarations are visible to another
 // file only within one compilation. So `import Vixen.Shaders.Material` here does not resolve, and the
-// two lines of arithmetic are written out. See `Shaders/Sources.md` for what it would take to close
-// that, and `TextureSourceKernelTests` for the tripwire that goes red the day it is closed.
+// two lines of arithmetic are written out. See this folder's `README.md` for what it would take to
+// close that, and `TextureSourceKernelTests` for the tripwire that goes red the day it is closed.
+//
+// ⚠ `Shaders/Sources.md` was cited here and has never existed. The copy is held instead:
+// `TextureKernelLanguageSeamTests` reads `ComputeColor.Checker`'s return expression out of the
+// library and requires this file to contain it, so `mod(cell.x + cell.y, 2f)` cannot drift on one
+// side alone.
 //
 // **Like `Shape`, nothing here is in texels**, so a checker is the same picture at every resolution
 // by construction — with the caveat that a checker's edges are hard, so a 1K bake and a downsampled

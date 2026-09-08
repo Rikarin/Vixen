@@ -1226,6 +1226,24 @@ public sealed class TexturePlanEvaluator : IDisposable {
     ///     not embedded and never will be. <see cref="TexturePlan.Source" /> is what answers for
     ///     both, so the ordinary case is unchanged and the authored one stops throwing about a
     ///     resource nobody could have added.
+    ///     <para>
+    ///         ⚠ <b>Two things this compilation cannot carry, and both are held by
+    ///         <c>TextureKernelLanguageSeamTests</c> rather than by anything here.</b> There are no
+    ///         <c>referencePaths</c>, so a kernel binds against nothing but itself and
+    ///         <c>import Vixen.Shaders.Material</c> does not resolve
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/635">#635</a>) — thirteen functions
+    ///         are transcribed out of the shader library because of it, and a parity table compares
+    ///         every one of them against its original. And there are no defines, so a
+    ///         <c>[Permutation]</c> in a kernel would take its <c>.rvn</c> default in every op for
+    ///         ever, silently (<a href="https://github.com/Rikarin/Vixen/issues/638">#638</a>); a
+    ///         kernel declaring one is refused.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>If a permutation is ever threaded through, the cache key below grows in the same
+    ///         commit.</b> It is <c>(kernel, output)</c>, so a permutation reaching
+    ///         <see cref="EffectKey" /> and not reaching the key would put two ops with different
+    ///         permutations on one pipeline and the second would draw the first one's picture.
+    ///     </para>
     /// </remarks>
     Variant VariantFor(TexturePlan plan, string kernel, TextureFormat output) {
         if (variants.TryGetValue((kernel, output), out var existing)) {
