@@ -102,7 +102,7 @@ public sealed class SerializedHandleAnalyzer : DiagnosticAnalyzer {
         INamedTypeSymbol component,
         INamedTypeSymbol contract
     ) {
-        var type = (INamedTypeSymbol) context.Symbol;
+        var type = (INamedTypeSymbol)context.Symbol;
 
         // A component that is not written down is not this rule's business, and the pair is what
         // decides that: SceneComponentRegistry declares the types carrying both.

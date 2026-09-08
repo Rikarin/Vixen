@@ -102,7 +102,8 @@ public sealed class NetworkSceneMapTests : IDisposable {
         client.Add(
             standIn,
             new NetworkSpawn {
-                Prefab = prefabs.Require(Address).Id.Value, Scene = NetworkSceneId.From("Level1").Value
+                Prefab = prefabs.Require(Address).Id.Value,
+                Scene = NetworkSceneId.From("Level1").Value
             }
         );
 
@@ -126,7 +127,8 @@ public sealed class NetworkSceneMapTests : IDisposable {
         client.Add(
             standIn,
             new NetworkSpawn {
-                Prefab = prefabs.Require(Address).Id.Value, Scene = NetworkSceneId.From("Level1").Value
+                Prefab = prefabs.Require(Address).Id.Value,
+                Scene = NetworkSceneId.From("Level1").Value
             }
         );
 

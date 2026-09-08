@@ -556,7 +556,7 @@ sealed partial class EditorApplication {
             // is the property this panel and its tests read. Until a bound toggle writes its own
             // `IsChecked` (#1046) this line is what makes a command that refused leave the toggle
             // where it was, which is the behaviour doc 20 asks of this page.
-            button.Clicked += control => ((ToggleButton) control).IsChecked = command.IsChecked;
+            button.Clicked += control => ((ToggleButton)control).IsChecked = command.IsChecked;
         }
     }
 

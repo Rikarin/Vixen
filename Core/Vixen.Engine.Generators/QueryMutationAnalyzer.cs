@@ -104,7 +104,7 @@ public sealed class QueryMutationAnalyzer : DiagnosticAnalyzer {
         INamedTypeSymbol? query,
         INamedTypeSymbol? extensions
     ) {
-        var invocation = (IInvocationOperation) context.Operation;
+        var invocation = (IInvocationOperation)context.Operation;
         var method = invocation.TargetMethod;
 
         if (!SymbolEqualityComparer.Default.Equals(method.ContainingType, world)) {

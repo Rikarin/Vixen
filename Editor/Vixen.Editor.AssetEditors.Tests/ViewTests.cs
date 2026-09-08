@@ -207,7 +207,7 @@ public class ImportViewTests {
         var path = project.Paths.Absolute("Assets/hero.png");
         var pixels = new byte[width * height * 4];
 
-        Array.Fill(pixels, (byte) 255);
+        Array.Fill(pixels, (byte)255);
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, Assets.Tests.MinimalPng.Write(width, height, pixels));
