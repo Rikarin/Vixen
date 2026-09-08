@@ -1,0 +1,83 @@
+version: 1
+name: Grunge Leaks
+nodes:
+  - id: 1
+    type: Source/Noise
+    x: -1280
+    y: 0
+    values:
+      Scale: [10]
+      Octaves: [3]
+      Tiling: [1]
+    texts: { Basis: Gradient }
+  - id: 2
+    type: Space/Transform 2D
+    x: -960
+    y: 0
+    values:
+      Scale X: [1]
+    texts:
+      Tiling: Wrap
+      Filter: Bilinear
+      '=Scale Y': 0.08f + length * 0.5f
+  - id: 3
+    type: Source/Noise
+    x: -1280
+    y: 300
+    values:
+      Scale: [4]
+      Tiling: [1]
+    texts: { Basis: Value }
+  - id: 4
+    type: Filters/Slope Blur
+    x: -640
+    y: 0
+    values:
+      Samples: [12]
+    texts:
+      Mode: Max
+      '=Intensity': 2f + length * 22f
+  - id: 5
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Input Black': 0.35f - density * 0.3f
+      '=Input White': 0.95f - density * 0.25f
+  - id: 6
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Slope }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: Runs down a wall — a field squashed along one axis, then dilated along a slope.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: length
+    default: '0.5'
+    summary: How far a run travels before it dries.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Runs
+  - name: density
+    default: '0.4'
+    summary: How much of the wall the runs cover.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Runs

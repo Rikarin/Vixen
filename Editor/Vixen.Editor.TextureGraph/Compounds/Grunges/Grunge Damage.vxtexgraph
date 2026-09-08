@@ -1,0 +1,89 @@
+version: 1
+name: Grunge Damage
+nodes:
+  - id: 1
+    type: Source/Noise
+    x: -1280
+    y: 0
+    values:
+      Scale: [6]
+      Tiling: [1]
+    texts: { Basis: Worley }
+  - id: 2
+    type: Colour/Invert
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+  - id: 3
+    type: Colour/Levels
+    x: -640
+    y: 0
+    values: {}
+    texts:
+      '=Input Black': 0.55f - size * 0.5f
+      '=Input White': 0.98f - size * 0.35f
+  - id: 4
+    type: Source/Noise
+    x: -1280
+    y: 300
+    values:
+      Scale: [20]
+      Octaves: [2]
+      Tiling: [1]
+    texts: { Basis: Worley }
+  - id: 7
+    type: Colour/Grayscale
+    x: -960
+    y: 300
+    values:
+      Weight R: [1]
+      Weight G: [0]
+      Weight B: [0]
+    texts: {}
+  - id: 5
+    type: Filters/Slope Blur
+    x: -320
+    y: 0
+    values:
+      Samples: [12]
+    texts:
+      Mode: Max
+      '=Intensity': 1f + ragged * 17f
+  - id: 6
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 7, toPort: Input }
+  - { fromNode: 7, fromPort: Out, toNode: 5, toPort: Slope }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: Chipped paint — cell centres kept as patches, then torn outwards along a finer cell field.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: size
+    default: '0.4'
+    summary: How large one chip is.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Chips
+  - name: ragged
+    default: '0.5'
+    summary: How torn a chip's edge is.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Chips

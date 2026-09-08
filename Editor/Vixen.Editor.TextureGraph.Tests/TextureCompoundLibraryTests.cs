@@ -26,8 +26,12 @@ namespace Tests;
 ///         ⚠ <b>Ask what this file prints on the day the folder ships nothing.</b>
 ///         <see cref="Every_shipped_compound_publishes_and_compiles" /> would then iterate an empty
 ///         list and pass, which is the shape of a green suite over no work at all — so
-///         <see cref="The_shipped_library_is_the_folder_and_not_a_list" /> asserts the count and
-///         names the four, and it is the first thing to read when something here goes quiet.
+///         <see cref="The_shipped_library_is_the_folder_and_not_a_list" /> holds a floor per folder,
+///         quoted from doc 48 § 4.9's own ● marks, and it is the first thing to read when something
+///         here goes quiet. ⚠ <b>That floor was a single <c>4</c> for three batches while
+///         thirty-one compounds shipped</b>, which is the same defect one step along: an instrument
+///         that cannot fail, because the number it compares against stopped being re-derived when
+///         content landed.
 ///     </para>
 /// </remarks>
 public sealed class TextureCompoundLibraryTests : IDisposable {
@@ -135,13 +139,35 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
             .ToArray();
 
         // The instrument: an empty folder listing would make the equality below a claim that the
-        // assembly ships nothing, which is what a vacuous pass looks like here. Four when this was
-        // written — a floor, because a fifth compound is somebody's work rather than this file's bug.
-        Assert.True(
-            onDisk.Length >= 4,
-            $"Only {onDisk.Length} compound(s) were found under '{folder}', and there were four when this was "
-            + "written. Doc 48 § A.9's honest number is measured against this folder, so a walk that found "
-            + "almost nothing is a pass over no content rather than a clean library."
+        // assembly ships nothing, which is what a vacuous pass looks like here.
+        //
+        // ⚠ **A single whole-library floor is the wrong shape and this file carried the wrong one for
+        // three batches.** It read `>= 4` while thirty-one compounds shipped, so twenty-seven of them
+        // could have stopped being embedded and every assertion in this class would still have been
+        // green — the stale-floor twin of the empty-loop failure the paragraph above warns about. A
+        // floor that is not re-derived when content lands measures the batch that wrote it and
+        // nothing since.
+        //
+        // So the floors are **per folder and quoted from doc 48 § 4.9**, which is a claim the
+        // document makes rather than a snapshot of the tree: the grunges are "a family of eight", the
+        // Surface row names four, and the mask generators read their maps by usage. A folder that
+        // loses content goes red against the sentence that asked for it, and a slice that adds a
+        // ninth grunge is covered without editing this.
+        Assert.All(
+            new (string Folder, int Least, string Why)[] {
+                ("Utility/", 8, "§ 4.9's Utility row marks eight ●"),
+                ("Patterns/", 4, "§ 4.9's Patterns row marks Brick, Panels, Tile Random and Rivets ●"),
+                ("Grunges/", 8, "§ 4.9 calls the grunges 'a family of eight ●'"),
+                ("Surface/", 4, "§ 4.9's Surface row marks Height Blend, Bevel, Curvature Smooth and Height to AO ●"),
+                ("Generators/", 7, "§ 4.9's mask-generator row marks seven ●")
+            },
+            expected => Assert.True(
+                onDisk.Count(path => path.StartsWith(expected.Folder, StringComparison.Ordinal)) >= expected.Least,
+                $"'{folder}' holds "
+                + $"{onDisk.Count(path => path.StartsWith(expected.Folder, StringComparison.Ordinal))} compound(s) "
+                + $"under '{expected.Folder}' and {expected.Least} are owed: {expected.Why}. A walk that found "
+                + "fewer is a pass over content that has stopped shipping rather than a clean library."
+            )
         );
 
         Assert.Equal(onDisk, TextureCompoundLibrary.Shipped);
@@ -153,8 +179,10 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         // that vanishes from a menu — so it should be a deliberate edit here rather than a silence.
         // `Contains` and not `Equal`: a fifth compound is a sibling's work, not this file's failure.
         Assert.All(
-            ["Generators/Curvature Edge Wear", "Generators/Dirt", "Generators/Grunge Rough Dirty",
-                "Utility/Histogram Scan"],
+            ["Generators/Curvature Edge Wear", "Generators/Dirt", "Generators/Dust",
+                "Generators/Grunge Rough Dirty", "Generators/Metal Edge Wear", "Generators/Position Gradient",
+                "Surface/Bevel", "Surface/Curvature Smooth", "Surface/Height Blend", "Surface/Height to AO",
+                "Utility/Histogram Scan", "Utility/Make It Tile"],
             path => Assert.Contains(path, TextureCompoundLibrary.Shipped)
         );
 

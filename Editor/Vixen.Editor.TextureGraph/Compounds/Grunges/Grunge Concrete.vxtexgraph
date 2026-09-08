@@ -1,0 +1,91 @@
+version: 1
+name: Grunge Concrete
+nodes:
+  - id: 1
+    type: Source/Noise
+    x: -960
+    y: 0
+    values:
+      Octaves: [5]
+      Gain: [0.55]
+      Tiling: [1]
+    texts:
+      Basis: Gradient
+      '=Scale': 3f + coarse * 13f
+  - id: 2
+    type: Source/Noise
+    x: -960
+    y: 260
+    values:
+      Scale: [24]
+      Tiling: [1]
+    texts: { Basis: Worley }
+  - id: 6
+    type: Colour/Grayscale
+    x: -800
+    y: 260
+    values:
+      Weight R: [1]
+      Weight G: [0]
+      Weight B: [0]
+    texts: {}
+  - id: 3
+    type: Filters/Slope Blur
+    x: -640
+    y: 0
+    values:
+      Samples: [8]
+    texts:
+      Mode: Blend
+      '=Intensity': 1f + wear * 11f
+  - id: 4
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Input Black': contrast * 0.35f
+      '=Input White': 1f - contrast * 0.35f
+  - id: 5
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 6, toPort: Input }
+  - { fromNode: 6, fromPort: Out, toNode: 3, toPort: Slope }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: A poured surface — a coarse field pulled about by a cell field.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: coarse
+    default: '0.4'
+    summary: How large the pour's own patches are.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: wear
+    default: '0.35'
+    summary: How far the cell field drags the pour about.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Surface
+  - name: contrast
+    default: '0.3'
+    summary: How hard the result is, applied last.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Global
