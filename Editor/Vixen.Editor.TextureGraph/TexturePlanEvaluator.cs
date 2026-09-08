@@ -1227,16 +1227,20 @@ public sealed class TexturePlanEvaluator : IDisposable {
     ///     both, so the ordinary case is unchanged and the authored one stops throwing about a
     ///     resource nobody could have added.
     ///     <para>
-    ///         ⚠ <b>Two things this compilation cannot carry, and both are held by
-    ///         <c>TextureKernelLanguageSeamTests</c> rather than by anything here.</b> There are no
-    ///         <c>referencePaths</c>, so a kernel binds against nothing but itself and
-    ///         <c>import Vixen.Shaders.Material</c> does not resolve
-    ///         (<a href="https://github.com/Rikarin/Vixen/issues/635">#635</a>) — thirteen functions
-    ///         are transcribed out of the shader library because of it, and a parity table compares
-    ///         every one of them against its original. And there are no defines, so a
+    ///         ⚠ <b>The compilation is the kernel <em>and</em> the shader library, which is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/635">#635</a>.</b>
+    ///         <see cref="TextureKernelPrelude" /> is what supplies the second half, and it is why
+    ///         <c>Hsl</c> can write <c>ComputeColor.HueRotate</c> and <c>Noise</c>
+    ///         <c>Random.Hash</c> instead of transcribing them. There are still no
+    ///         <c>referencePaths</c> — a <c>.rvnlib</c> is not what makes an <c>import</c> resolve
+    ///         here; being in the same compilation is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this compilation still cannot carry is a define</b>, so a
     ///         <c>[Permutation]</c> in a kernel would take its <c>.rvn</c> default in every op for
     ///         ever, silently (<a href="https://github.com/Rikarin/Vixen/issues/638">#638</a>); a
-    ///         kernel declaring one is refused.
+    ///         kernel declaring one is refused, by
+    ///         <c>TextureKernelLanguageSeamTests</c> rather than by anything here.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>If a permutation is ever threaded through, the cache key below grows in the same
@@ -1253,7 +1257,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
         var name = TextureKernels.VariantName(kernel, output);
         var source = TextureKernels.Variant(kernel, plan.Source(kernel), output);
 
-        var data = RavenEffectCompiler.FromSources([(name, source)]).TryGet(EffectKey.Of(kernel))
+        var data = TextureKernelPrelude.Compile(name, source).TryGet(EffectKey.Of(kernel))
             ?? throw new ArgumentException(
                 $"'{name}' compiled and declares no shader called '{kernel}'. A kernel's file name is its shader "
                 + "name, because an op names the shader.",

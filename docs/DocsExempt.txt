@@ -3621,6 +3621,7 @@ T:Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap sweep-pending
 T:Vixen.Ui.Text.Rasterizing.Edge sweep-pending
 T:Vixen.Ui.Text.Rasterizing.EdgeChannels sweep-pending
 T:Vixen.Ui.Text.Rasterizing.EdgeColoring sweep-pending
+T:Vixen.Ui.Text.Rasterizing.FillRule sweep-pending — every other type in Vixen.Ui.Text.Rasterizing carries this line, and a fill rule is not a page: GlyphRasterizer, which takes it, has no guide page either. Its own doc comment argues why the option exists (#687)
 T:Vixen.Ui.Text.Rasterizing.GlyphAtlas sweep-pending
 T:Vixen.Ui.Text.Rasterizing.GlyphFieldCache sweep-pending
 T:Vixen.Ui.Text.Rasterizing.GlyphKey sweep-pending

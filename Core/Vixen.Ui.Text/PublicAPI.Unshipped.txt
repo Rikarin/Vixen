@@ -385,6 +385,10 @@ Vixen.Ui.Text.Rasterizing.EdgeChannels.None = 0 -> Vixen.Ui.Text.Rasterizing.Edg
 Vixen.Ui.Text.Rasterizing.EdgeChannels.Red = 1 -> Vixen.Ui.Text.Rasterizing.EdgeChannels
 Vixen.Ui.Text.Rasterizing.EdgeChannels.White = Vixen.Ui.Text.Rasterizing.EdgeChannels.Red | Vixen.Ui.Text.Rasterizing.EdgeChannels.Green | Vixen.Ui.Text.Rasterizing.EdgeChannels.Blue -> Vixen.Ui.Text.Rasterizing.EdgeChannels
 Vixen.Ui.Text.Rasterizing.EdgeColoring -> static class
+Vixen.Ui.Text.Rasterizing.FillRule -> enum : int
+Vixen.Ui.Text.Rasterizing.FillRule.EvenOdd = 1 -> Vixen.Ui.Text.Rasterizing.FillRule
+Vixen.Ui.Text.Rasterizing.FillRule.FillRule() -> void
+Vixen.Ui.Text.Rasterizing.FillRule.NonZero = 0 -> Vixen.Ui.Text.Rasterizing.FillRule
 Vixen.Ui.Text.Rasterizing.GlyphAtlas -> sealed class
 Vixen.Ui.Text.Rasterizing.GlyphAtlas.Add(Vixen.Ui.Text.Rasterizing.GlyphKey key, Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap field, out Vixen.Ui.Text.Rasterizing.AtlasRegion region) -> bool
 Vixen.Ui.Text.Rasterizing.GlyphAtlas.Clear() -> void
@@ -753,7 +757,7 @@ static Vixen.Ui.Text.Outlines.GlyphOutline.Empty.get -> Vixen.Ui.Text.Outlines.G
 static Vixen.Ui.Text.Outlines.GlyphOutline.FromSegments(System.Collections.Generic.IEnumerable<Vixen.Ui.Text.Outlines.OutlineSegment> segments) -> Vixen.Ui.Text.Outlines.GlyphOutline
 static Vixen.Ui.Text.Rasterizing.DistanceField.Generate(Vixen.Ui.Text.Outlines.GlyphOutline outline, int width, int height, float scale, System.Numerics.Vector2 origin, float range = 4) -> Vixen.Ui.Text.Rasterizing.DistanceFieldBitmap
 static Vixen.Ui.Text.Rasterizing.EdgeColoring.Colour(Vixen.Ui.Text.Outlines.GlyphOutline outline, System.Collections.Generic.List<Vixen.Ui.Text.Rasterizing.Edge> edges) -> System.Collections.Generic.List<Vixen.Ui.Text.Rasterizing.ColouredEdge>
-static Vixen.Ui.Text.Rasterizing.GlyphRasterizer.Rasterize(Vixen.Ui.Text.Outlines.GlyphOutline outline, int width, int height, float scale, System.Numerics.Vector2 origin) -> Vixen.Ui.Text.Rasterizing.CoverageBitmap
+static Vixen.Ui.Text.Rasterizing.GlyphRasterizer.Rasterize(Vixen.Ui.Text.Outlines.GlyphOutline outline, int width, int height, float scale, System.Numerics.Vector2 origin, Vixen.Ui.Text.Rasterizing.FillRule rule = Vixen.Ui.Text.Rasterizing.FillRule.NonZero) -> Vixen.Ui.Text.Rasterizing.CoverageBitmap
 static Vixen.Ui.Text.Rasterizing.OutlineFlattener.Flatten(Vixen.Ui.Text.Outlines.GlyphOutline outline, float tolerance) -> System.Collections.Generic.List<Vixen.Ui.Text.Rasterizing.Edge>
 static Vixen.Ui.Text.TextItemizer.Itemize(string text, Vixen.Ui.Text.ParagraphDirection direction = Vixen.Ui.Text.ParagraphDirection.Auto) -> System.Collections.Generic.List<Vixen.Ui.Text.TextItem>
 static Vixen.Ui.Text.TextItemizer.VisualOrder(System.Collections.Generic.IReadOnlyList<Vixen.Ui.Text.TextItem> items) -> int[]

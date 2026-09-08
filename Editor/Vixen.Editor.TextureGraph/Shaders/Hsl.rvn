@@ -3,14 +3,18 @@
 
 package Vixen.Editor.TextureGraph.Shaders
 
+import Vixen.Shaders.Material
+
 // Hue, saturation and lightness — doc 48 § 4.2's `HSL`.
 //
-// ⚠ **The hue rotation is `Raven/Library/Material/ComputeColor.rvn`'s `HueRotate`, transcribed
-// rather than imported, and the duplication is forced by the compiler this assembly uses.** The
-// evaluator calls `RavenEffectCompiler.FromSources([(name, source)])` with no `referencePaths`, so
-// a kernel here binds against nothing but itself — `import Vixen.Shaders.Material` does not
-// resolve. The alternative is passing the compiled `.rvnlib` into every variant, which is a
-// build-order dependency from an editor assembly onto the shader library. See this folder's README.
+// ⚠ **The hue rotation is `Raven/Library/Material/ComputeColor.rvn`'s `HueRotate`, called rather
+// than transcribed, and it was transcribed here on a diagnosis that was wrong.**
+// The header used to say the duplication was forced because the evaluator passes no
+// `referencePaths` and so "a kernel here binds against nothing but itself". A `.rvnlib` is not what
+// makes an `import` resolve: `RavenEffectCompiler.FromSources` takes a *set* of texts and makes
+// them one compilation, and a package's declarations are visible across one compilation. The
+// evaluator was passing one text. `TextureKernelPrelude` now passes the library's own sources
+// beside every kernel — #635.
 //
 // **It rotates the chroma plane in YIQ rather than converting to HSL and back.** Three dot products
 // against a conversion, a rotation and a conversion back; it preserves luminance exactly and
@@ -41,28 +45,6 @@ shader Hsl {
 
     const val Tau: float = 6.28318530718f
 
-    /// `ComputeColor.HueRotate`, to the digit.
-    func HueRotate(color: float3, radians: float): float3 {
-        val c = cos(radians)
-        val s = sin(radians)
-
-        val luma = dot(color, float3(0.299f, 0.587f, 0.114f))
-        val i = dot(color, float3(0.596f, -0.274f, -0.322f))
-        val q = dot(color, float3(0.211f, -0.523f, 0.312f))
-
-        val ri = i * c - q * s
-        val rq = i * s + q * c
-
-        return max(
-            float3(
-                luma + ri * 0.956f + rq * 0.621f,
-                luma - ri * 0.272f - rq * 0.647f,
-                luma - ri * 1.106f + rq * 1.703f
-            ),
-            float3(0f, 0f, 0f)
-        )
-    }
-
     [ComputeShader(8, 8, 1)]
     func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
         val coord = int2(int(id.x), int(id.y))
@@ -75,7 +57,7 @@ shader Hsl {
         val extent = source.GetDimensions(0)
         val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
 
-        val rotated = HueRotate(float3(texel.x, texel.y, texel.z), hue * Tau)
+        val rotated = ComputeColor.HueRotate(float3(texel.x, texel.y, texel.z), hue * Tau)
         val luma = dot(rotated, float3(0.2126f, 0.7152f, 0.0722f))
         val saturated = lerp(float3(luma, luma, luma), rotated, float3(max(saturation, 0f), max(saturation, 0f), max(saturation, 0f)))
 

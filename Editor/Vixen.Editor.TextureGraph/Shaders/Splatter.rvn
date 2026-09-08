@@ -3,6 +3,8 @@
 
 package Vixen.Editor.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // Doc 48 § 4.7's `Splatter`: `TileSampler`'s machine with the grid taken away — a count, a
 // distribution, and optionally a vector map that says where the instances go.
 //
@@ -131,32 +133,10 @@ shader Splatter {
     /// The most sub-samples per axis, whatever the minification says. `TileSampler`'s number.
     const val MaxSamples: int = 4
 
-    /// `Random.Multiplier`. Copied for `TileSampler.rvn`'s reason: no kernel here can import.
-    const val Multiplier: uint = 0x2C9277B5u
-
-    /// `Random.Combine`'s odd constant.
-    const val Golden: uint = 0x9E3779B9u
-
-    /// 2^-24 — `Random.InvTwo24`.
-    const val InvTwo24: float = 5.9604645e-8f
-
-    func Hash(value: uint): uint {
-        var state = value
-        state = state ^ (state >> 16)
-        state = state * Multiplier
-        state = state ^ (state >> 16)
-
-        return state
-    }
-
-    func Mix(a: uint, b: uint): uint => Hash(a ^ (b * Golden))
-
-    func ToFloat01(hash: uint): float => float(hash >> 8) * InvTwo24
-
     func Seeded(): uint => uint(int(max(seed, 0f)))
 
     /// One of an instance's independent random numbers. `lane` keeps the five uncorrelated.
-    func Draw(instance: uint, lane: uint): float => ToFloat01(Mix(Mix(instance, lane), Seeded()))
+    func Draw(instance: uint, lane: uint): float => Random.ToFloat01(Random.Combine(Random.Combine(instance, lane), Seeded()))
 
     /// One texel of a source, clamped to **that source's** dimensions and never the target's — #618.
     func Tap(image: Texture2D, x: int, y: int): float4 {

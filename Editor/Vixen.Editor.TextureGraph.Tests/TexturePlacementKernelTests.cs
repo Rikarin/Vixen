@@ -4,7 +4,6 @@
 using System.Text.RegularExpressions;
 using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Xunit;
 
@@ -262,22 +261,31 @@ public class TexturePlacementKernelTests {
         Assert.Equal(15, Regex.Count(source, @"mode == \d+\)"));
     }
 
-    /// <summary>Neither placement kernel imports, because neither can.</summary>
+    /// <summary>Both placement kernels call the shader library's hash rather than carrying one.</summary>
     /// <remarks>
-    ///     <c>TextureSourceKernelTests.A_standalone_kernel_cannot_reach_the_shader_library</c> is the
-    ///     tripwire that proves the <em>why</em>; this is the rule it guards, applied to the two files
-    ///     that carry `Random`'s hash for that reason.
+    ///     <para>
+    ///         ⚠ <b>This was <c>A_placement_kernel_imports_nothing</c>, and what it asserted was a
+    ///         property of the <em>call</em> rather than of these two files</b>:
+    ///         <c>TexturePlanEvaluator</c> handed the compiler one text, so an <c>import</c> could
+    ///         not resolve. <c>TextureKernelPrelude</c> hands it the library too — #635 — and both
+    ///         kernels spell <c>Random.Combine</c> where they used to declare a local <c>Mix</c>
+    ///         over three copied constants.
+    ///     </para>
+    ///     <para>
+    ///         <b>The instrument is the absence, not the import.</b> A kernel that imports and keeps
+    ///         its copy satisfies every check about the import line and is exactly the state this
+    ///         suite existed to make impossible, so the copy's own declaration is what is refused.
+    ///     </para>
     /// </remarks>
     [Theory]
     [MemberData(nameof(Placement))]
-    public void A_placement_kernel_imports_nothing(string kernel) {
-        var imports = TextureKernels
-            .Source(kernel)
-            .Split('\n')
-            .Where(line => line.TrimStart().StartsWith("import", StringComparison.Ordinal))
-            .ToArray();
+    public void A_placement_kernel_calls_the_library_hash_rather_than_carrying_one(string kernel) {
+        var source = TextureKernels.Source(kernel);
 
-        Assert.Empty(imports);
+        Assert.Contains("import Vixen.Shaders.Core", source, StringComparison.Ordinal);
+        Assert.Contains("Random.Combine(", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("func Hash(", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("func Mix(", source, StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -348,11 +356,11 @@ public class TexturePlacementKernelTests {
             : name;
 
     static EffectData Compile(string kernel) {
-        var data = RavenEffectCompiler
-            .FromSources([
-                (TextureKernels.VariantName(kernel, TextureFormat.Rgba8),
-                    TextureKernels.Variant(kernel, TextureFormat.Rgba8))
-            ])
+        var data = TextureKernelPrelude
+            .Compile(
+                TextureKernels.VariantName(kernel, TextureFormat.Rgba8),
+                TextureKernels.Variant(kernel, TextureFormat.Rgba8)
+            )
             .TryGet(EffectKey.Of(kernel));
 
         Assert.NotNull(data);

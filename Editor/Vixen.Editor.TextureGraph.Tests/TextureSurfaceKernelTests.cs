@@ -5,7 +5,6 @@ using System.Collections.Immutable;
 using System.Reflection;
 using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Xunit;
 
@@ -256,11 +255,11 @@ public class TextureSurfaceKernelTests {
             : name;
 
     static EffectData Compile(string kernel) {
-        var data = RavenEffectCompiler
-            .FromSources([
-                (TextureKernels.VariantName(kernel, TextureFormat.Rgba8),
-                    TextureKernels.Variant(kernel, TextureFormat.Rgba8))
-            ])
+        var data = TextureKernelPrelude
+            .Compile(
+                TextureKernels.VariantName(kernel, TextureFormat.Rgba8),
+                TextureKernels.Variant(kernel, TextureFormat.Rgba8)
+            )
             .TryGet(EffectKey.Of(kernel));
 
         Assert.NotNull(data);
