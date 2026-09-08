@@ -65,7 +65,14 @@ shader AutoExposure {
     [Format("r32f")] var target: RWTexture2D<float4>
 
     /// The 1×1 result of the last reduction, which `Adapt` reads.
-    [Format("r32f")] var average: RWTexture2D<float4>
+    ///
+    /// ⚠ **Not `average`, and the reason is a GLSL ES built-in.** `average(int, int)` is one of
+    /// `GL_EXT_shader_integer_functions2`'s functions, and glslang puts that whole set in the ESSL
+    /// 3.10-and-above symbol table whether or not the extension is enabled — so a *global* named
+    /// after it is `'average' : redefinition` on every cross-compile, exactly as a global named
+    /// `dot` would be. Desktop GLSL 450 accepts it, which is why nothing saw this until the library
+    /// met an ES front end.
+    [Format("r32f")] var meanLuminance: RWTexture2D<float4>
 
     /// The exposure the tonemapper will use, kept across frames. One element.
     ///
@@ -329,7 +336,7 @@ shader AutoExposure {
             return
         }
 
-        Ease(exp(average.Load(int2(0, 0)).x))
+        Ease(exp(meanLuminance.Load(int2(0, 0)).x))
     }
 
     /// Moves the stored exposure toward the one a measured scene luminance asks for.

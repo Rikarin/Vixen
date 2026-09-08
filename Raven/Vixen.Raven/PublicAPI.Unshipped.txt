@@ -866,6 +866,7 @@ Vixen.Raven.IR.IrType.IrType() -> void
 Vixen.Raven.IR.IrType.Is64Bit.get -> bool
 Vixen.Raven.IR.IrType.IsInteger.get -> bool
 Vixen.Raven.IR.IrType.IsNumeric.get -> bool
+Vixen.Raven.IR.IrType.IsOpaque.get -> bool
 Vixen.Raven.IR.IrType.IsScalar.get -> bool
 Vixen.Raven.IR.IrType.IsUnsigned.get -> bool
 Vixen.Raven.IR.IrType.IsVoid.get -> bool

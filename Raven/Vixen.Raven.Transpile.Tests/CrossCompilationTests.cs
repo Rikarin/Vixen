@@ -260,32 +260,40 @@ public class CrossCompilationTests {
     ///     <para>
     ///         ⚠ <b>This is the honest boundary of this work, written down where it fails rather
     ///         than in a report.</b> Every raster entry point in the library cross-compiles and is
-    ///         accepted; four compute ones are not, for two reasons, and both are fixable in
-    ///         <c>Vixen.Raven</c> rather than here.
+    ///         accepted; three compute ones are not, for one reason, and it is not a translation
+    ///         defect at all.
     ///     </para>
     ///     <list type="bullet">
     ///         <item>
     ///             <description>
-    ///                 <b>An unqualified storage image.</b> GLSL ES only lets an image be both read
-    ///                 and written when its format is one of the 32-bit-per-channel single-component
-    ///                 ones; anything else must be <c>readonly</c> or <c>writeonly</c>. SPIRV-Cross
-    ///                 writes those qualifiers from SPIR-V's <c>NonReadable</c> / <c>NonWritable</c>
-    ///                 decorations — and Raven's SPIR-V backend emits neither, so an image these
-    ///                 shaders only ever store into looks read-write to the translator. The fix is a
-    ///                 decoration in the emitter, which changes committed <c>.spv</c> bytes and so
-    ///                 belongs in its own change with <c>CheckShaders</c> run against it.
-    ///             </description>
-    ///         </item>
-    ///         <item>
-    ///             <description>
-    ///                 <b>A name used twice.</b> SPIRV-Cross emits <c>average</c> twice in
-    ///                 <c>AutoExposure</c>, which declares one at <c>AutoExposure.rvn:68</c> —
-    ///                 <c>[Format("r32f")] var average: RWTexture2D&lt;float4&gt;</c>. ⚠ The second
-    ///                 one has <em>not</em> been identified, and saying which it is would be a guess;
-    ///                 what is measured is the message and the line.
+    ///                 <b>A read-write storage image whose format is not one of the r32 ones.</b>
+    ///                 GLSL ES lets an image be both read and written only when its format is
+    ///                 <c>r32f</c>, <c>r32i</c> or <c>r32ui</c>; anything else must be
+    ///                 <c>readonly</c> or <c>writeonly</c>. ⚠ These three genuinely do both —
+    ///                 <c>IrradianceFill</c> stores its four probe images and reads them back in the
+    ///                 same entry point, and <c>ImpostorFinish</c> reads <c>target</c> twice before
+    ///                 storing to it — so no decoration can help, and the earlier reading of this
+    ///                 ("Raven emits no <c>NonReadable</c>/<c>NonWritable</c>, so a write-only image
+    ///                 looks read-write") was wrong twice over. SPIRV-Cross deduces both qualifiers
+    ///                 from use on its own (<c>fixup_image_load_store_access</c>), which is why
+    ///                 <c>AutoExposure</c>'s images come out <c>writeonly</c> and <c>readonly</c>
+    ///                 with no decoration in the module at all. The fix is a narrower format or two
+    ///                 views, in the shader.
     ///             </description>
     ///         </item>
     ///     </list>
+    ///     <para>
+    ///         ⚠ <b>And one that came off this list by being diagnosed rather than fixed in the
+    ///         emitter.</b> <c>AutoExposure</c> was pinned here for <c>'average' : redefinition</c>,
+    ///         read as SPIRV-Cross emitting a second declaration. It was not: the module emits
+    ///         exactly one <c>average</c>, and it collides with a <em>built-in function</em>.
+    ///         <c>average(int, int)</c> belongs to <c>GL_EXT_shader_integer_functions2</c>, and
+    ///         glslang puts that whole set in the ESSL 3.10-and-above symbol table whether the
+    ///         extension is enabled or not — so a global named after it is refused exactly as a
+    ///         global named <c>dot</c> is, at any GLSL version. Desktop GLSL 450 has no
+    ///         <c>average</c> in its table, which is why the shader had always compiled. The binding
+    ///         is now <c>meanLuminance</c>.
+    ///     </para>
     ///     <para>
     ///         ⚠ Held in <em>both</em> directions: a new refusal fails, and so does a listed one that
     ///         starts passing. A list that only grows would let this rot into a mute button, which is
@@ -293,10 +301,9 @@ public class CrossCompilationTests {
     ///     </para>
     /// </remarks>
     static readonly Dictionary<string, string> OwedAtEs320 = new(StringComparer.Ordinal) {
-        ["IrradianceFill.comp"] = "rgba32f storage image with no NonReadable/NonWritable decoration",
-        ["IrradianceRepair.comp"] = "rgba32f storage image with no NonReadable/NonWritable decoration",
-        ["ImpostorFinish.comp"] = "rgba8 storage image with no NonReadable/NonWritable decoration",
-        ["AutoExposure.comp"] = "'average' emitted twice — a groupshared and a local under one name"
+        ["IrradianceFill.comp"] = "rgba32f image genuinely read AND written; ES needs one of the r32 formats for that",
+        ["IrradianceRepair.comp"] = "rgba32f image genuinely read AND written; ES needs one of the r32 formats for that",
+        ["ImpostorFinish.comp"] = "rgba8 image genuinely read AND written; ES needs one of the r32 formats for that"
     };
 
     /// <summary>

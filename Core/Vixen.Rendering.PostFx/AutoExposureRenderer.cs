@@ -194,7 +194,7 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
     /// </remarks>
     public string HistogramResource => $"{this}.Histogram";
 
-    /// <summary>What the histogram's <c>target</c> and <c>average</c> bindings point at.</summary>
+    /// <summary>What the histogram's <c>target</c> and <c>meanLuminance</c> bindings point at.</summary>
     /// <remarks>
     ///     <para>
     ///         <b>The one image the histogram meter needs, and it needs it for its size.</b> None of
@@ -428,10 +428,10 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
 
         // ⚠ Bound in every step even though only the adaptation writes it, because an incomplete set
         // is not bound at all — the fault `WorldRenderer` records as a five-set layout with four sets
-        // bound. `average` takes the same texture as `target` here, which nothing reads: the reduce
+        // bound. `meanLuminance` takes the same texture as `target` here, which nothing reads: the reduce
         // path does not touch it.
         node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.AverageBinding, Kind = DescriptorKind.StorageTexture, Resource = target
+            Binding = AutoExposureKeys.MeanLuminanceBinding, Kind = DescriptorKind.StorageTexture, Resource = target
         });
 
         node.Descriptors.Bindings.Add(new() {
@@ -530,7 +530,7 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
         });
 
         node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.AverageBinding, Kind = DescriptorKind.StorageTexture, Resource = GridResource
+            Binding = AutoExposureKeys.MeanLuminanceBinding, Kind = DescriptorKind.StorageTexture, Resource = GridResource
         });
 
         node.Descriptors.Bindings.Add(new() {
@@ -584,7 +584,7 @@ public sealed class AutoExposureRenderer : SceneRenderer, IDisposable, IPostProc
         });
 
         node.Descriptors.Bindings.Add(new() {
-            Binding = AutoExposureKeys.AverageBinding, Kind = DescriptorKind.StorageTexture, Resource = average
+            Binding = AutoExposureKeys.MeanLuminanceBinding, Kind = DescriptorKind.StorageTexture, Resource = average
         });
 
         node.Descriptors.Bindings.Add(new() {

@@ -959,12 +959,11 @@ sealed class GlslEmitter {
         // `texture2D _0 = shadowMap;`, which glslc refuses with "sampler/image types can only be
         // used in uniform variables or function parameters". Adding an opaque IR type and not
         // adding it here is a shader that compiles in this backend and in no GLSL front end.
-        if (result.Type is IrSamplerType
-            or IrTextureType
-            or IrStorageImageType
-            or IrAccelerationStructureType
-            or IrDepthTextureType
-            or IrComparisonSamplerType) {
+        //
+        // ⚠ So the list is IrType.IsOpaque and not a pattern spelled out twice: this one and the
+        // SPIR-V emitter's opaque-parameter arm are the same rule about the same set, and they had
+        // already disagreed by one member (StorageImage) for long enough to ship.
+        if (result.Type.IsOpaque) {
             values[result.Id] = instruction is IrLoadInstruction opaque ? Place(opaque.Place) : "/* opaque */";
             return;
         }
