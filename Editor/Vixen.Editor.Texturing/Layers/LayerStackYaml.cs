@@ -162,10 +162,12 @@ static class LayerStackYaml {
             mapping.Set("projection", Text(layer.Projection.ToString()));
         }
 
-        // ⚠ Written whenever it is not y, whatever the projection is — #1032. Dropping it for a
-        // layer whose projection is Uv would silently delete an author's choice on the round trip
-        // through a panel that changed the projection, and `Project`'s warning is what tells them
-        // the axis is doing nothing rather than this file forgetting it for them.
+        // ⚠ Written whenever it is not y, whatever the projection is — #1032. A hand-written file may
+        // carry an axis on a layer that is not planar, and a *writer* that decided such a value was
+        // meaningless and dropped it would delete an author's line on a save they asked nothing of.
+        // `Project`'s warning is what tells them it is doing nothing. The layers panel clears the
+        // axis when it moves a layer off Planar, which is the same decision made where it is visible
+        // and undoable.
         if (layer.PlanarAxis != LayerAxis.Y) {
             mapping.Set("axis", Text(layer.PlanarAxis.ToString()));
         }

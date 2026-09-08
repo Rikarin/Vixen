@@ -1554,6 +1554,90 @@ public class LayerStackEditingTests {
         Assert.Empty(Only(document).Textures);
     }
 
+    /// <summary>⚠ A planar fill's axis is chosen in the panel and it reaches the kernel.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>'s other half.</b>
+    ///         The member is what lets a <c>.vxlayers</c> say which plane a planar fill uses; this
+    ///         row is what lets a person say it. Without it the axis is a file-format feature — the
+    ///         shape the top of this workstream's defect list calls "a mechanism whose caller passes
+    ///         the default", one file along from where #1078 found it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read off the plan's own parameter, and the numbers are
+    ///         <c>TextureProjectionAxis</c>' rather than <c>LayerAxis</c>'</b> — 3 for Z against the
+    ///         member's 2 — so a panel wired to the wrong enum, or to nothing, reads one short.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_planar_fills_axis_is_chosen_in_the_panel_and_reaches_the_kernel() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Projected());
+        var panel = Panel(fixture);
+
+        // 2 is TextureProjectionAxis.Y, which is where a planar layer starts.
+        Assert.Equal(2f, Axis(document));
+
+        Find<Select>(panel, "layer-stack-fill-axis").Value = nameof(LayerAxis.Z);
+
+        Assert.Equal(LayerAxis.Z, Layer(document, "wrap").PlanarAxis);
+        Assert.Equal(3f, Axis(document));
+
+        Assert.True(document.Stack.Undo());
+        Assert.Equal(2f, Axis(document));
+    }
+
+    /// <summary>⚠ Moving a fill off Planar puts the axis back, so no stale value warns.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The panel deciding, where the file deliberately does not.</b> <c>LayerStackYaml</c>
+    ///         writes <c>axis:</c> whatever the projection is, because a hand-written file may carry
+    ///         one and a writer that dropped it would delete a line on a save nobody asked anything
+    ///         of. A panel is the other case: the axis picker is the only way a person can set it,
+    ///         and it is hidden the moment the projection is not planar — so a value left behind
+    ///         makes <c>LayerStackGraph.Project</c> warn about something the artist cannot see.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The warning is the assertion, not the member.</b> Comparing
+    ///         <c>PlanarAxis == Y</c> is satisfied by a panel that never wrote the axis at all; that
+    ///         the compile has nothing to say is what makes this about the state an artist is left in.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Moving_a_fill_off_planar_puts_the_axis_back_to_y() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Projected());
+        var panel = Panel(fixture);
+
+        Find<Select>(panel, "layer-stack-fill-axis").Value = nameof(LayerAxis.X);
+
+        Assert.Equal(LayerAxis.X, Layer(document, "wrap").PlanarAxis);
+
+        Find<Select>(panel, "layer-stack-fill-projection").Value = nameof(LayerProjection.Triplanar);
+
+        Assert.Equal(LayerProjection.Triplanar, Layer(document, "wrap").Projection);
+        Assert.Equal(LayerAxis.Y, Layer(document, "wrap").PlanarAxis);
+
+        var compilation = LayerStackCompiler.Compile(document.Document, document.Document.Sets[0]);
+
+        Assert.NotNull(compilation.Plan);
+        Assert.Empty(compilation.Problems);
+
+        // ⚠ Verify the instrument: the compiler really does warn about the state this avoids, so the
+        // emptiness above is a claim about the edit rather than about a compiler that says nothing.
+        var stale = document.Document.Sets[0].Layers[0] with {
+            Projection = LayerProjection.Triplanar,
+            PlanarAxis = LayerAxis.X
+        };
+
+        var set = document.Document.Sets[0] with { Layers = [stale] };
+
+        Assert.Contains(
+            LayerStackCompiler.Compile(document.Document, set).Problems,
+            problem => problem.Message.Contains("Axis 'X'", StringComparison.Ordinal)
+        );
+    }
+
     /// <summary>⚠ A filter layer's kind can be chosen in the panel, and the choice compiles.</summary>
     /// <remarks>
     ///     <para>
@@ -1874,6 +1958,16 @@ public class LayerStackEditingTests {
 
     /// <summary>The compiled plan as the string two plans are compared by.</summary>
     static string Plan(LayerStackDocument document) => LayerStackDifferential.Describe(Compile(document));
+
+    /// <summary>The projection op's axis parameter, as <c>TextureProjectionAxis</c> numbers it.</summary>
+    static float Axis(LayerStackDocument document) {
+        var op = Assert.Single(Compile(document).Ops, candidate => candidate.Kernel == "Triplanar");
+        var axis = op.Find("axis");
+
+        Assert.NotNull(axis);
+
+        return axis.Value.Value;
+    }
 
     /// <summary>A style and layout pass, so an element's geometry is the one on the screen.</summary>
     static void Laid(TexturingFixture fixture) {
@@ -2210,6 +2304,26 @@ public class LayerStackEditingTests {
 
     /// <summary>The layer <see cref="TwoChannels" /> makes, read back out of the open document.</summary>
     static LayerAsset Only(LayerStackDocument document) => document.Document.Sets[0].Layers[0];
+
+    /// <summary>A texture fill, which is the one kind a projection means anything on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not a constant.</b> <c>LayerStackGraph.Project</c> warns rather than projecting a
+    ///     constant fill — the same colour at every world position — so a fixture built on
+    ///     <see cref="Fill" /> would compile no <c>Triplanar</c> op at all and every axis assertion
+    ///     would be about an op that is not there.
+    /// </remarks>
+    static LayerStackAsset Projected() =>
+        Stack(
+            [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+            new LayerAsset {
+                Id = "wrap",
+                Name = "Wrap",
+                Kind = LayerKind.Fill,
+                Fill = LayerFillSource.Texture,
+                Projection = LayerProjection.Planar,
+                Textures = { ["baseColor"] = "Assets/Rust.png" }
+            }
+        );
 
     /// <summary>A constant fill with a filter layer over it, which is #1078's subject.</summary>
     static LayerStackAsset Filtered() =>

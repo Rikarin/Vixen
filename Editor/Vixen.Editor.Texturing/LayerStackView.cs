@@ -1359,6 +1359,13 @@ sealed class LayerStackView : IDisposable {
     ///         field this framework does not have.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>The projection is here and its axis beside it</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>. It belongs on the
+    ///         fill row rather than on the layer's own, because a projection means something only on
+    ///         a fill: <c>LayerStackGraph.Project</c> warns on every other kind by name. The axis is
+    ///         shown for <c>Planar</c> alone, which is the one projection that chooses a plane.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b><c>Graph</c> is offered, and #986's "refused in this build" is wrong.</b>
     ///         <c>LayerStackGraph.Fill</c> resolves a graph fill through the compound library exactly
     ///         as a generator mask is resolved — same mechanism, pointed at the colour — so what it
@@ -1403,6 +1410,48 @@ sealed class LayerStackView : IDisposable {
 
         graph.Submitted += _ => document.Stack.Seal();
 
+        var projection = source.Add<Select>(null, null, "layer-stack-fill-projection");
+
+        foreach (var choice in Enum.GetValues<LayerProjection>()) {
+            projection.AddOption(choice.ToString());
+        }
+
+        // ⚠ Moving off Planar puts the axis back to y, and it is the panel deciding rather than the
+        // file. An axis means one plane for a planar projection and nothing anywhere else, so a
+        // stale one left behind makes `LayerStackGraph.Project` warn about a value the artist can no
+        // longer see — a diagnostic about this panel's bookkeeping rather than about their stack.
+        // `LayerStackYaml` still writes the key whatever the projection is: a hand-written file may
+        // carry one, and a *writer* silently dropping it is a different thing from an edit that is
+        // visible, undoable and asked for. #1032.
+        projection.SelectionChanged += (_, chosen) => {
+            if (!Enum.TryParse<LayerProjection>(chosen, out var wanted)) {
+                return;
+            }
+
+            Set(
+                document,
+                path,
+                current => wanted == LayerProjection.Planar
+                    ? current with { Projection = wanted }
+                    : current with { Projection = wanted, PlanarAxis = LayerAxis.Y },
+                "Set Projection"
+            );
+        };
+
+        var axis = source.Add<Select>(null, null, "layer-stack-fill-axis");
+
+        foreach (var choice in Enum.GetValues<LayerAxis>()) {
+            axis.AddOption(choice.ToString());
+        }
+
+        axis.SelectionChanged += (_, chosen) => {
+            if (!Enum.TryParse<LayerAxis>(chosen, out var wanted)) {
+                return;
+            }
+
+            Set(document, path, current => current with { PlanarAxis = wanted }, "Set Projection Axis");
+        };
+
         bindings.Add(() => {
             if (LayerStackEdit.Find(document.Document, path) is not { } current) {
                 return;
@@ -1411,6 +1460,13 @@ sealed class LayerStackView : IDisposable {
             kind.Value = current.Fill.ToString();
             graph.Value = current.Graph;
             graph.SetStyle("display", current.Fill == LayerFillSource.Graph ? "flex" : "none");
+
+            projection.Value = current.Projection.ToString();
+            axis.Value = current.PlanarAxis.ToString();
+
+            // Shown for the one projection it decides anything about — the other two have no plane
+            // to choose, and `Project` says so rather than ignoring an axis set on them.
+            axis.SetStyle("display", current.Projection == LayerProjection.Planar ? "flex" : "none");
         });
 
         foreach (var channel in set.Channels) {
