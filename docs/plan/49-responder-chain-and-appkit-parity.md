@@ -44,6 +44,22 @@ Outside test projects, the **only** files in the repository that mention `AddCom
 `CommandScope` or `AccessKey` are their own definitions plus `Core/Vixen.Ui.Controls/ButtonBase.cs`.
 Not one sample, not one application, and — this is the load-bearing part — **not the editor either**.
 
+⚠ **Six of the seven rows are retired, and the last one of them says why the whole table was
+possible.** `MoveFocus(NavigationDirection)` had no caller for an honest reason rather than an
+oversight: every control that wants the arrows owns them over its own items, so a document-wide
+answer to an arrow key would take them away, and there is nowhere in a *control* for spatial
+navigation to live. What wants it is the space **between** the controls —
+`Samples/02-HelloUi/Shell.vxml` takes Ctrl-Alt-arrow on its own host and steps between three panels
+whose left-of/right-of relationship is decided by a docking host and changes when a splitter is
+dragged, which is precisely the question no `TabOrder` can answer. ⚠ It runs *after* the route and
+only on a press nothing else wanted, exactly as `UiDocument.Dispatch`'s Tab and access-key legs do
+(`NavigationTests.An_arrow_nothing_wanted_can_be_answered_above_everything_that_did_not_want_it`
+asserts both halves; the falsifiable one is that a control which marks the press handled keeps its
+focus). The modifier is load-bearing too: a bare arrow that escaped a panel would mean a keyboard
+user in a list loses their place the moment the list runs out. `RemoveCommandHandler` is the one row
+still at zero, and `EditorShell.Context` → `CommandScope` remains refused for the reason recorded on
+the field itself.
+
 So `CommandRoute.Resolve` (`Commands.cs:394-416`) in production is: a loop over parents that finds
 nothing, followed by one dictionary lookup in `ApplicationCommandResponder`. Every property the
 design is *about* is inert.
@@ -517,12 +533,33 @@ tree.** "What is a desktop pull-to-refresh" was treated as one question and is t
   owns. A pull-to-refresh over that is a distance threshold read at `Completed`, which is a number
   and a name — not a mechanism.
 
-So what is left of `.refreshable` is a spelling on the drag path plus a decision about the
-threshold, and a documented refusal on the wheel path. ⚠ Both rows' remaining work is now the same
-sentence: **where the widget goes.** Nothing behind either of them is missing, and the shapes are
-written down — the filter recipe in [`ui/markup-panels`](../guide/ui/markup-panels.md) and the
-re-request in [`ui/async-loading`](../guide/ui/async-loading.md) — which is what a "spelling" needs
-in a project whose thesis is that markup is the authoring path.
+⚠ **The number and the name are written now, so the drag path is a trigger rather than a plan.**
+`ScrollView.PulledToRefresh` is raised at `DragStage.Completed` when the content was being held past
+its **top** by more than `PullToRefreshDistance`. Four things about it are the whole of the design and
+each is a way it could have been wrong:
+
+- **The threshold is read on what the edge *gave*, not on how far the finger travelled.** `Resist` is
+  asymptotic to the viewport's own height, so the same raw pull gives half as much in a view half as
+  tall — a raw threshold would fire at a visibly different place in every view in the application
+  while reading, in the source, as one constant.
+- **The sign is the top/bottom test.** Pulling past the *bottom* is a different verb — "there is
+  more, fetch it" — and answering it with a refresh reloads the list from the beginning at the moment
+  the user has finally reached the end of it.
+- **Completed and never Cancelled.** A gesture the system took away is not a request.
+- **Nothing subscribed is no gesture at all**, which is how it is turned on; a flag beside the event
+  would be two ways of saying one thing and a state in which one of them is wrong.
+
+And ⚠ **it fires for touch and pen, or for a mouse only where `DragToScroll` is on** — so on an
+ordinary desktop it never fires, which is the wheel-path refusal above showing up as behaviour rather
+than as a note. The desktop trigger for the same refresh is a button, a menu item or a key, which is
+what `Markup/RefreshableSheet.vxml` writes, and neither trigger knows the other exists because what a
+refresh *is* belongs to `BuildContext.Load`.
+
+⚠ Both rows' remaining work is now the same sentence, and it is smaller than it was: **where the
+widget goes.** Nothing behind either of them is missing, and the shapes are written down — the filter
+recipe in [`ui/markup-panels`](../guide/ui/markup-panels.md) and the re-request in
+[`ui/async-loading`](../guide/ui/async-loading.md) — which is what a "spelling" needs in a project
+whose thesis is that markup is the authoring path.
 | `.draggable` / `.dropDestination` | `on:dragstart/drag/dragend` exist; **no drop target, no payload type, no `AllowDrop`** | ⚠ half |
 
 For a project whose thesis is *markup is the authoring path*, that ❌ column is the parity claim's
@@ -633,6 +670,23 @@ refusal that refuses everything would satisfy both).
 same cast with nobody told — the objection three passes raised, and the pair is why it is not needed
 rather than merely unsafe. Whether a component should publish change notification for its parameters
 is the remaining call; refusing until it does is now legible rather than cryptic.
+
+⚠ **The seventh correction closes the measurement: the seam is the target, and the editor binds now.**
+Four passes asked which of three spellings a converter should take — implicit coercion, an
+`IValueConverter`, or a markup form like `bind:Value:int="…"` — and none of them is needed, because
+`bind:` already accepts an lvalue and **a settable property is an lvalue**. So the seam is a property
+on the panel: its getter is what goes into the control, and its setter is where a conversion, a clamp,
+or (as in the first real case) three consequences of the write are written down where a reader finds
+them. `Editor/Vixen.Editor.App/AddComponentMenu.vxml` is the first product view in the repository to
+bind two-way — `bind:Value="@Query"` over the picker's search box — and what it replaced says why the
+count was thirteen. A `change:` carries a value *out* only, so every place that cleared the query had
+to write `Field.Value` **and** `query.Value` side by side; two of them did, and the two staying in
+step depended on nobody forgetting a line. `ResponderReachTests.Something_the_editor_actually_is_binds_a_property_in_both_directions`
+is the measurement as a gate, and it asserts an *editor* path deliberately: a theory satisfied by
+`Samples/` or by `Markup/BindReachSheet.vxml` would have been green on the day #663 was filed.
+⚠ Its needle carries `="@` because the bare word `bind:` appears in the prose of four editor views,
+each explaining that `change:` is this feature's write-back leg — a sweep for the word would count,
+as uses, the comments saying it was not used.
 
 Four earlier corrections to the paragraph above, from #663 and `BindReachTests`:
 

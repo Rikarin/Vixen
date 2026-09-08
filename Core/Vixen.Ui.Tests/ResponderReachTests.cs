@@ -166,6 +166,68 @@ public class ResponderReachTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>A complete spatial-navigation implementation with no caller at all.</b>
+    ///     <see cref="UiDocument.MoveFocus(NavigationDirection)" /> is a beam model with a strictly
+    ///     positive overlap test, a documented refusal to wrap and its own test file — and outside
+    ///     that file nothing in the repository had ever pressed an arrow into it. The reason is
+    ///     honest rather than an oversight: every control that wants the arrows owns them over its
+    ///     own items, so a document-wide answer would take them away.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>What wants it is the space between the controls, and <c>Samples/02-HelloUi</c> is
+    ///     where that space is.</b> Its three panels are arranged by a docking host, so which one is
+    ///     to the right of another is a fact about the layout that no <c>TabOrder</c> could keep
+    ///     true across a dragged splitter. The shell takes Ctrl-Alt-arrow on its own host, after the
+    ///     route and only when nothing else wanted the press.
+    ///     <para>
+    ///         ⚠ The overload is named in the needle. <c>MoveFocus(FocusDirection…)</c> — Tab — has
+    ///         had a caller since the day it was written, so a sweep for the bare method would have
+    ///         been satisfied by <c>Vixen.Ui.Testing</c>'s Tab helper on the day this one had none.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Something_outside_a_test_project_moves_the_focus_by_direction() {
+        Assert.NotEmpty(ProductionCallers("MoveFocus(NavigationDirection."));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Two-way binding was nominally present and practically absent, and the measurement is
+    ///     the whole of issue #663.</b> Across every committed <c>.vxml</c>, <c>bind:</c> appeared
+    ///     thirteen times in exactly two files — one sample gallery and one test fixture — against
+    ///     twenty-six <c>change:</c> attributes spread through thirteen editor panels. Nothing an
+    ///     application actually is bound anything in both directions.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>So this asserts an <i>editor</i> file, and that is the falsifiable half.</b> A
+    ///         theory satisfied by <c>Samples/</c> or by <c>Markup/BindReachSheet.vxml</c> would have
+    ///         been green on the day the issue was filed, which is the shape of a gate that records a
+    ///         defect rather than catching it. <c>AddComponentMenu.vxml</c> is the first product view
+    ///         to bind, and what it binds to is a <i>property</i> — which is also the answer to the
+    ///         converter seam the issue asks for, since <c>bind:</c> wants an lvalue and a settable
+    ///         property is one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The needle carries <c>="@</c> and it must.</b> The bare word <c>bind:</c> appears
+    ///         in the prose of four editor views, each explaining that <c>change:</c> is this
+    ///         feature's write-back leg without the forward one — so a sweep for the word would have
+    ///         counted, as uses, the comments saying it was not used. That is this file's recurring
+    ///         instrument failure in its purest form.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Something_the_editor_actually_is_binds_a_property_in_both_directions() {
+        var callers = ProductionCallers("bind:Value=\"@");
+
+        Assert.NotEmpty(callers);
+
+        Assert.Contains(
+            callers,
+            path => path.Contains(Path.DirectorySeparatorChar + "Editor" + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+        );
+    }
+
+    /// <summary>
     ///     The instrument, checked before the thing it measures: the sweep must be able to tell a
     ///     production file from a test one, or the theory above is green on the test projects alone.
     /// </summary>

@@ -206,7 +206,20 @@ raised on the element that holds the document, so the prompt's walk finds *that*
 as for a quit could not tell the two apart. `UiCloseReason.DocumentClosed` is its default reason, and
 `Samples/02-HelloUi`'s File ▸ Close is the first caller either has had.
 
-**A proxy icon and a recent-documents list.** Both are platform seams with no interface here.
+**A proxy icon.** A platform seam with no interface here.
+
+⚠ **A recent-documents list, and both halves of that entry were wrong.** It is not a platform seam —
+`Vixen.Editor.App` has a complete one in ordinary C#: `ProjectHistory` keeps a most-recent-first
+deduplicated list, and `EditorParity.RecentProjectCommands` turns it into a live submenu with a
+command id derived from each *path* rather than from its position in the list (a positional id names
+a different project every time the order changes, so a keybinding on it would silently move), a
+greyed line for a path on an unmounted volume, and a `file.no-recent` placeholder so that an empty
+submenu reads as empty rather than broken. And it is not absent from the framework for want of
+writing: a recent list is keyed on `IEditableDocument.Location`, and **no document in this repository
+ever sets one** — `Samples/02-HelloUi`'s save is in memory and says so, and an editor document's
+identity is an `AssetId`. The same list one level down is worth having; ⚠ what it needs first is a
+document with a location, not a data structure. Until then a menu built on it is always empty, which
+is exactly what the sample's two invented file names were, and they are gone.
 
 ⚠ **A window title bound to a document from inside a component is no longer missing, and this entry
 was the last thing still saying it was.** The obstacle was real when it was written — `UiWindowTitle.Bind`

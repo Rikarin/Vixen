@@ -757,6 +757,9 @@ Vixen.Ui.Controls.ScrollView.MaximumLeft.get -> float
 Vixen.Ui.Controls.ScrollView.MaximumTop.get -> float
 Vixen.Ui.Controls.ScrollView.OverscrollLeft.get -> float
 Vixen.Ui.Controls.ScrollView.OverscrollTop.get -> float
+Vixen.Ui.Controls.ScrollView.PullToRefreshDistance.get -> float
+Vixen.Ui.Controls.ScrollView.PullToRefreshDistance.set -> float
+Vixen.Ui.Controls.ScrollView.PulledToRefresh -> System.Action<Vixen.Ui.Controls.ScrollView>?
 Vixen.Ui.Controls.ScrollView.Refresh() -> void
 Vixen.Ui.Controls.ScrollView.ScrollIntoView(Vixen.Ui.UiElement element) -> void
 Vixen.Ui.Controls.ScrollView.ScrollLeft.get -> float

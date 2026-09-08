@@ -106,6 +106,28 @@ Bumping `generation` re-runs the request, which starts the work again and cancel
 Nothing about that is the trigger's business: the same panel refreshes from a button, a menu item, a
 key or a pointer gesture without a line of this changing.
 
+⚠ **The pointer gesture is `ScrollView.PulledToRefresh`, and it exists for touch.** A scroll view is
+already elastic at its ends, so a pull-to-refresh is that rubber band with a threshold on it:
+subscribe, and a drag that holds the content more than `PullToRefreshDistance` below its **top** and
+is then let go bumps whatever the request reads.
+
+```csharp no-compile="the panel around it is the point; `RefreshableSheet.vxml` is the whole one"
+Scroller.PullToRefreshDistance = 64f;
+Scroller.PulledToRefresh += _ => generation.Value++;
+```
+
+Four things about it are worth knowing before relying on it. The distance is measured on what the
+edge *gave* rather than on how far the finger travelled, because the elastic curve is scaled by the
+view's own height — a threshold in raw pixels fires at a visibly different place in a short view. Only
+the top counts: pulling past the *bottom* means "there is more, fetch it", and refreshing there
+reloads the list from the beginning at the moment the reader has finally got to the end of it. A
+cancelled gesture never asks, because a drag the system took away is not a request. And ⚠ **nothing
+subscribed means no gesture**, which is also why it never fires on an ordinary desktop: the drag path
+runs for touch and pen, or for a mouse only where `DragToScroll` is on. There is no wheel equivalent
+and there will not be one — `SDL_MouseWheelEvent` carries no phase, so nothing on that path can say
+where a gesture *ended*, which is the same measurement on which the rubber band is refused there.
+On a desktop the refresh is a button, a menu item or a key, and the panel above does not change.
+
 ⚠ **The request must be synchronous, and the compiler is what enforces it.** Dependency tracking
 stops at the first `await` — the ambient consumer is thread-local and the continuation is on another
 thread — so an `async` function that read signals after awaiting would silently record half its

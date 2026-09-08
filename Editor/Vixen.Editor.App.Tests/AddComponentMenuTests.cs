@@ -214,6 +214,58 @@ public class AddComponentMenuTests {
         Assert.True(editor.Scene.World.Has<Camera>(entity));
     }
 
+    /// <summary>Reopening the picker starts on an empty query, and the box empties itself.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the editor's first two-way binding, and the assertion is on the
+    ///         <i>control</i>.</b> Issue #663 measures <c>bind:</c> at thirteen attributes across one
+    ///         sample and one test fixture and concludes the feature is too narrow to be used. What
+    ///         this panel had instead was a <c>change:</c>, which carries a value <i>out</i> only —
+    ///         so clearing the query meant writing <c>Field.Value</c> and the signal beside it in two
+    ///         separate places, and the two staying in step depended on nobody forgetting a line.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the picker is reopened rather than reconstructed.</b> <c>ComponentsView</c>
+    ///         caches one and drops it again, which is what makes a stale query reachable at all: a
+    ///         freshly built element would start empty however the binding behaved, and this would
+    ///         prove nothing. Putting <c>change:Value</c> back, or breaking <c>TwoWay</c>'s forward
+    ///         leg, leaves the second opening showing the first opening's word over a list that no
+    ///         longer matches it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Reopening_the_picker_empties_the_box_through_the_binding() {
+        using var editor = Selected();
+
+        var picker = Open(editor);
+
+        picker.Field.Value = "Camera";
+        editor.Settle();
+
+        var narrowed = picker.LineCount;
+        Assert.True(narrowed > 0, "the query should match something, or the rest of this proves nothing");
+
+        picker.Close(CloseReason.Cancelled);
+        editor.Settle();
+
+        var again = Open(editor);
+        editor.Settle();
+
+        // The same element, or the emptiness below is a new control's rather than this one's.
+        Assert.Same(picker, again);
+
+        Assert.True(
+            string.IsNullOrEmpty(again.Field.Value),
+            $"the reopened picker still shows '{again.Field.Value}'"
+        );
+
+        // ⚠ And the list agrees with the box. The failure guarded against is not an empty string
+        // somewhere — it is the two halves disagreeing, a picker showing one query while filtering
+        // by another, which neither half can report on its own.
+        Assert.Null(again.Category);
+        Assert.NotEqual(narrowed, again.LineCount);
+    }
+
     /// <summary>Where a category name comes from, which is the namespace and nothing else.</summary>
     /// <remarks>
     ///     ⚠ <b>The plumbing segments are dropped, and "Ecs" is the one that matters.</b> Every

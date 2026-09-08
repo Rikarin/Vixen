@@ -30,6 +30,22 @@
 @using Vixen.Samples.HelloUi.Panels
 
 <!--
+    ⚠ **Moving the focus by *direction*, which is the one thing Tab cannot do.** `UiDocument` has
+    carried a complete spatial-navigation implementation — a beam model, a strict overlap test, no
+    wrap — with **no caller anywhere outside its own tests**, because every control that wants the
+    arrows handles them over its own item list and none of them wants this. What does want it is the
+    thing *between* the controls: three panels side by side, arranged by a docking host, where "the
+    one to the right" is a fact about the layout and not about any order a document could keep.
+
+    ⚠ **On the host and after the route**, exactly like the Tab fallback in `UiDocument.Dispatch`:
+    the tree's own arrows move its selection and the gallery's fields keep their caret keys, because
+    this only runs on what nothing wanted. ⚠ **And with Ctrl-Alt held**, because a bare arrow that
+    escaped a panel would be a keyboard user losing their place in a list any time it ran out — the
+    modifier is what makes leaving deliberate.
+-->
+<self on:keydown="@((KeyEvent args) => Steer(args))" />
+
+<!--
     The window's whole layout, in one line of class names: a column that fills the window, with a
     menu bar that does not stretch (shell.vcss says so, because it is a fact about the tag) and a
     docking host that takes what is left.
@@ -66,12 +82,24 @@
             <MenuItem Label="Open…" ref="@openItem" />
             <Separator />
 
-            <Menu Label="Open Recent">
-                <MenuItem Label="shader-graph.vixen" />
-                <MenuItem Label="terrain.vixen" />
-            </Menu>
+            <!--
+                ⚠ **There is no Open Recent here, and its absence is the honest half of #656.** This
+                submenu used to hold two items called `shader-graph.vixen` and `terrain.vixen` —
+                names standing for nothing, in the one sample that exists to show what a document
+                is, and by the same rule that stops `New` and `Open…` from claiming a chord they do
+                not register. A recent list is keyed on `IEditableDocument.Location`, and **no
+                document in this repository ever sets one**: this sample's save is in memory and says
+                so, and the editor's documents are identified by an `AssetId` rather than a path. A
+                menu built on that is a menu that is always empty, drawn as though it were not.
 
-            <Separator />
+                ⚠ And "the framework has no recent list" is only true of *documents*. The editor's
+                `ProjectHistory` is a complete one at project granularity — most-recent-first,
+                deduplicated, an entry per path with its own command id derived from the path rather
+                than its position, a greyed line for an unmounted volume and a `file.no-recent`
+                placeholder so an empty submenu reads as empty rather than broken
+                (`Vixen.Editor.App/EditorParity.cs:208`). What `Vixen.Ui` owes is the same idea one
+                level down, and it owes a document with a `Location` first.
+            -->
 
             <!--
                 ⚠ **Bound to an id rather than to a click, and it is the first menu item in any
@@ -395,6 +423,79 @@
 
     /// <summary>Lets the toasts count down.</summary>
     void Expire(UiDocument document, TimeSpan now) => toasts.Tick(now);
+
+    /// <summary>Moves the focus to whatever is in the direction of a held Ctrl-Alt-arrow.</summary>
+    /// <param name="args">The key.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="UiDocument.MoveFocus(NavigationDirection)" /> had no production caller
+    ///         anywhere.</b> A beam model, a strictly positive overlap test so that two grid cells
+    ///         sharing an edge do not each count as the other's diagonal, and a deliberate refusal to
+    ///         wrap — a complete implementation of a thing nothing asked for, which is this
+    ///         repository's commonest defect and the reason #642 exists. It has no caller because
+    ///         controls do not want it: a tree, a list and a menu each own the arrows over their own
+    ///         items, and a document-wide answer would take them away.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What wants it is the space <i>between</i> the controls.</b> Three panels are laid
+    ///         out by a docking host, so which one is to the right of this one is decided by the
+    ///         arrangement and can change when the user drags a splitter — there is no order for Tab
+    ///         to walk that would stay true. That is the question this method is the answer to, and
+    ///         the only one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Handled first, which is the whole of the rule.</b> This is a fallback in the same
+    ///         sense the Tab and access-key legs of <c>UiDocument.Dispatch</c> are: it runs on the
+    ///         shell's own host, after the event has bubbled out of whatever had the focus, and only
+    ///         on a press nothing else wanted. A gallery field keeps its caret keys and the tree
+    ///         keeps its selection arrows without either of them knowing this exists.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The modifier is not decoration.</b> A bare arrow that escaped a panel would mean
+    ///         a keyboard user in a list loses their place the moment the list runs out, in a
+    ///         direction they cannot see coming. Ctrl-Alt is what makes leaving something the user
+    ///         asked for.
+    ///     </para>
+    /// </remarks>
+    void Steer(KeyEvent args) {
+        if (args.Handled || args.Action != KeyAction.Pressed) {
+            return;
+        }
+
+        if (args.Modifiers != (ModifierKeys.Control | ModifierKeys.Alt)) {
+            return;
+        }
+
+        // ⚠ Four spelled-out calls rather than a direction computed into a variable, so that a sweep
+        // for `MoveFocus(NavigationDirection.` finds this file. `MoveFocus(FocusDirection…)` — Tab —
+        // has had callers since it was written, so the gate in `ResponderReachTests` has to name the
+        // overload, and a needle can only find what somebody wrote.
+        switch (args.Key) {
+            case InputKey.Left:
+                Root.Document.MoveFocus(NavigationDirection.Left);
+                break;
+
+            case InputKey.Right:
+                Root.Document.MoveFocus(NavigationDirection.Right);
+                break;
+
+            case InputKey.Up:
+                Root.Document.MoveFocus(NavigationDirection.Up);
+                break;
+
+            case InputKey.Down:
+                Root.Document.MoveFocus(NavigationDirection.Down);
+                break;
+
+            default:
+                return;
+        }
+
+        // ⚠ Handled either way, and that is deliberate: the arrows do not wrap, so running out of
+        // panel is a wall rather than a miss, and letting the press fall through to a Tab fallback
+        // would turn "there is nothing to my right" into "the focus jumped somewhere else entirely".
+        args.Handled = true;
+    }
 
     /// <summary>Turns the <c>_</c> in each menu's name into an access key, and takes the marker out.</summary>
     /// <remarks>

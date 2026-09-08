@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Input;
 using Xunit;
 
 namespace Vixen.Ui.Tests;
@@ -284,6 +285,48 @@ public class NavigationTests {
         // move would leave a keyboard-only user with no way in.
         Assert.True(document.MoveFocus(NavigationDirection.Up));
         Assert.Same(cells[0], document.Focused);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The shape that makes spatial navigation usable at all, and the reason it had no
+    ///     caller for so long.</b> Nothing in <c>Vixen.Ui</c> turns an arrow key into a
+    ///     <see cref="UiDocument.MoveFocus(NavigationDirection)" />, deliberately: a tree, a list and
+    ///     a menu each own the arrows over their own items, so a document-wide answer would take them
+    ///     away. What works instead is the shape <c>UiDocument.Dispatch</c> already uses for Tab and
+    ///     for access keys — a handler above everything that runs only on a press nothing wanted —
+    ///     and this asserts both halves of it, because only the second half is falsifiable.
+    /// </summary>
+    /// <remarks>
+    ///     Without the <c>Handled</c> test the fallback would be a rule rather than a default: the
+    ///     cell that took the arrow for itself would move the focus off itself as well, which is the
+    ///     exact behaviour a control owning its own arrows exists to prevent.
+    /// </remarks>
+    [Fact]
+    public void An_arrow_nothing_wanted_can_be_answered_above_everything_that_did_not_want_it() {
+        var (document, cells) = Grid();
+        using var owner = document;
+
+        document.Root.AddHandler<KeyEvent>(
+            (_, args) => {
+                if (args is { Handled: false, Action: KeyAction.Pressed, Key: InputKey.Right }) {
+                    document.MoveFocus(NavigationDirection.Right);
+                    args.Handled = true;
+                }
+            }
+        );
+
+        // Cell 4 is an ordinary control: it does not want the arrows, so the press bubbles out to
+        // the fallback and the focus moves the way the layout says.
+        document.Focus(cells[4]);
+        document.Dispatch(new KeyEvent { Key = InputKey.Right, Action = KeyAction.Pressed });
+        Assert.Same(cells[5], document.Focused);
+
+        // Cell 5 is a control that owns its arrows — a list moving its own selection. It marks the
+        // press handled on the way out, and the focus must stay exactly where it is.
+        cells[5].AddHandler<KeyEvent>((_, args) => args.Handled = true);
+
+        document.Dispatch(new KeyEvent { Key = InputKey.Right, Action = KeyAction.Pressed });
+        Assert.Same(cells[5], document.Focused);
     }
 
     [Fact]
