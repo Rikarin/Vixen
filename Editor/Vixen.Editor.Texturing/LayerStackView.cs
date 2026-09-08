@@ -10,6 +10,7 @@ using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 using Vixen.Ui.Reactive;
+using GraphPortDirection = Vixen.Editor.NodeGraph.PortDirection;
 
 namespace Vixen.Editor.Texturing;
 
@@ -942,7 +943,26 @@ sealed class LayerStackView : IDisposable {
                     .Append(layer.Mask.Layers.Count)
                     .Append(':')
                     .Append(layer.Mask.Effects.Count)
-                    .Append(';');
+                    .Append(':')
+
+                    // ⚠ The node type each of them *resolves to*, and emphatically not the text
+                    // somebody is typing — #1086. A filter's knob rows are one field per declared
+                    // port, so which elements exist really does depend on which type it is; but a
+                    // shape carrying `FilterNode` itself would tear the tree down on every keystroke
+                    // of a path, which is the defect `FilterRows` is written around. Resolved, it
+                    // changes exactly once — at the keystroke that turns an unknown path into a real
+                    // node type, which is the keystroke the rows appear on.
+                    .Append(FilterType(document, layer)?.Path ?? "");
+
+                foreach (var effect in layer.Mask.Effects) {
+                    builder
+                        .Append(':')
+                        .Append(
+                            document.Library.Registry.TryGet(effect.Node.Trim(), out var type) ? type.Path : ""
+                        );
+                }
+
+                builder.Append(';');
 
                 Walk(layer.Children, depth + 1);
             }
@@ -1613,6 +1633,343 @@ sealed class LayerStackView : IDisposable {
             node.Value = current.FilterNode;
             node.SetStyle("display", named ? "flex" : "none");
         });
+
+        if (FilterType(document, layer) is { } type) {
+            KnobRows(
+                document,
+                path,
+                type,
+                depth + 1,
+                "Filter",
+                "filter:" + layer.Id,
+                current => current.Settings,
+                current => current.Texts,
+                (current, port, lanes) => current with { Settings = Numbered(current.Settings, port.Name, port, lanes) },
+                (current, setting, text) => current with { Texts = Named(current.Texts, setting, text) }
+            );
+        }
+    }
+
+    /// <summary>The node type a filter layer compiles to, or null when the library has not got it.</summary>
+    /// <param name="document">The stack being edited, which is where the library is.</param>
+    /// <param name="layer">The layer.</param>
+    /// <returns>The type, or null.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/1086">#1086</a> says this view
+    ///         has no registry to ask and that is refuted: <c>LayerStackDocument.Library</c> has
+    ///         carried one since <a href="https://github.com/Rikarin/Vixen/issues/858">#858</a>.</b>
+    ///         What the issue is right about is why it matters — a numeric field for
+    ///         <c>Colour/Levels</c>' <c>Input White</c> opening at <b>0</b> where the node uses
+    ///         <b>1</b> is an interface the picture contradicts — and
+    ///         <c>LayerStackGraph.Filter(kind)</c>, which is all this row had, gives port names and
+    ///         no defaults.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a> does not
+    ///         forbid it.</b> That issue is about two <c>TexturePlanEvaluator</c>s compiling every
+    ///         kernel twice: what it objects to is a second holder of pipelines, shader modules and
+    ///         a set-layout cache on a <em>device</em>. A <see cref="NodeTypeRegistry" /> holds
+    ///         declarations, and this one is the document's own rather than a second publication —
+    ///         which is the half of #858 that would be worth objecting to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The preset path resolves through the registry too, rather than trusting
+    ///         <c>LayerStackGraph.Filter</c>'s type name.</b> A library that has not got
+    ///         <c>Colour/Levels</c> is a library this panel must not draw fields against, and the
+    ///         same call answers both halves.
+    ///     </para>
+    /// </remarks>
+    static NodeTypeDefinition? FilterType(LayerStackDocument document, LayerAsset layer) {
+        if (layer.Kind != LayerKind.Filter) {
+            return null;
+        }
+
+        var path = layer.FilterNode.Trim();
+
+        if (path.Length == 0) {
+            path = LayerStackGraph.Filter(layer.Filter).Type;
+        }
+
+        return document.Library.Registry.TryGet(path, out var type) ? type : null;
+    }
+
+    /// <summary>Every input of a node type a stack file may write a number into.</summary>
+    /// <param name="type">The type.</param>
+    /// <returns>The ports, in declaration order.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Derived exactly as <c>LayerStackGraph.Published</c> and <c>Effect</c> derive it,
+    ///     because a field this panel draws for a port those two drop is a field an artist edits and
+    ///     the compiler warns about.</b> Both refuse a value whose port is not a declared input or is
+    ///     an <see cref="PortKind.Image" /> — the named image input being one of those — so the
+    ///     drawable set is the declared inputs that carry numbers. ⚠ It is <em>not</em>
+    ///     <c>LayerStackGraph.Filter(kind).Ports</c>: that list is a hand-written one per preset with
+    ///     no defaults in it, which is the whole of what #1086 could not ask for.
+    /// </remarks>
+    static IEnumerable<PortDefinition> Knobs(NodeTypeDefinition type) {
+        foreach (var port in type.Ports) {
+            if (port.Direction == GraphPortDirection.Input
+                && port.Kind is not (PortKind.Image or PortKind.Flow or PortKind.Texture or PortKind.Sampler)) {
+                yield return port;
+            }
+        }
+    }
+
+    /// <summary>A field per number and a control per setting of one node type, on their own rows.</summary>
+    /// <param name="document">The stack being edited.</param>
+    /// <param name="path">Which layer the edit is addressed to.</param>
+    /// <param name="type">The node type whose declarations the rows are built from.</param>
+    /// <param name="depth">How far in to indent.</param>
+    /// <param name="what">What the undo entries are called — <c>Filter</c> or <c>Mask Effect</c>.</param>
+    /// <param name="key">The prefix each field's coalescing key is built on.</param>
+    /// <param name="numbers">Where this thing's numbers live on a layer.</param>
+    /// <param name="settings">And its settings.</param>
+    /// <param name="setNumber">How one number is written back.</param>
+    /// <param name="setSetting">And one setting.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>One builder for a filter layer and for a mask effect, because they are one row
+    ///         shape one level apart</b> — <c>LayerStackGraph.Published</c> <em>is</em> <c>Effect</c>
+    ///         pointed at a layer, down to the two loops and the warning each drops a stray key with.
+    ///         #1086 asks for both together for that reason, and doing the layer alone would leave a
+    ///         mask effect that can name <c>Filters/Blur</c> and cannot say how wide.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A field opens at the port's <em>declared</em> default and never at zero.</b> That
+    ///         is the whole of why this could not be built before the view could reach a registry: a
+    ///         field showing a number the compiler is not using is worse than no field, because the
+    ///         artist reads it, believes it, and cannot explain the render.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A lane at its default writes nothing, and that is what keeps a saved stack from
+    ///         growing a key per port the moment somebody opens the panel.</b> A file that stored
+    ///         every declared default would also pin them: a node type that improved one would leave
+    ///         every stack ever opened holding the old number, which is the bargain
+    ///         <c>NodeGraphCompiler.Bind</c> makes the other way round for a node's settings.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A port carrying more than four lanes is drawn as its first four.</b> Nothing in
+    ///         the library declares one and the cap is a bound rather than a judgement — four is what
+    ///         a colour has and what <see cref="ComponentClasses" /> names.
+    ///     </para>
+    /// </remarks>
+    void KnobRows(
+        LayerStackDocument document,
+        LayerPath path,
+        NodeTypeDefinition type,
+        int depth,
+        string what,
+        string key,
+        Func<LayerAsset, Dictionary<string, float[]>> numbers,
+        Func<LayerAsset, Dictionary<string, string>> settings,
+        Func<LayerAsset, PortDefinition, float[], LayerAsset> setNumber,
+        Func<LayerAsset, string, string, LayerAsset> setSetting
+    ) {
+        foreach (var port in Knobs(type)) {
+            var name = port.Name;
+            var lanes = port.Default.Length == 0 ? 1 : Math.Min(4, port.Default.Length);
+            var row = rows.Add("layer-stack-knob-row");
+
+            row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
+            row.Add("layer-stack-knob-label").Text = name;
+
+            List<NumericInput> fields = [];
+
+            for (var index = 0; index < lanes; index++) {
+                var lane = index;
+                var field = row.Add<NumericInput>(null, null, "layer-stack-knob-value");
+
+                // `ChannelRow`'s three, for its reasons: three places because a `Decimals = 0` field
+                // writes "0" for 0.25 and reads it back on the next submit, and a hundredth because
+                // `Step` is also the floor of the scrub rate.
+                field.Decimals = 3;
+                field.Step = 0.01d;
+
+                field.NumberChanged += (typed, value) => {
+                    // Gated on the field's own verdict, exactly as the colour components are: this
+                    // control holds and reports a number rather than clamping it.
+                    if (!typed.IsValid) {
+                        return;
+                    }
+
+                    Set(
+                        document,
+                        path,
+                        current => {
+                            var held = Lanes(numbers(current), name, port, lanes);
+
+                            if (held[lane] == (float)value) {
+                                return current;
+                            }
+
+                            held[lane] = (float)value;
+
+                            return setNumber(current, port, held);
+                        },
+                        "Set " + what + " Number",
+                        $"{key}:{name}:{lane.ToString(CultureInfo.InvariantCulture)}"
+                    );
+                };
+
+                field.AddHandler<PointerEvent>(
+                    (_, args) => {
+                        if (args.Action == PointerAction.Released) {
+                            document.Stack.Seal();
+                        }
+                    },
+                    RoutingStrategy.Bubble,
+                    handledEventsToo: true
+                );
+
+                field.Submitted += _ => document.Stack.Seal();
+                fields.Add(field);
+            }
+
+            bindings.Add(() => {
+                if (LayerStackEdit.Find(document.Document, path) is not { } current) {
+                    return;
+                }
+
+                var held = Lanes(numbers(current), name, port, lanes);
+
+                for (var index = 0; index < fields.Count; index++) {
+                    fields[index].Number = held[index];
+                }
+            });
+        }
+
+        foreach (var setting in type.Settings) {
+            var name = setting.Name;
+            var row = rows.Add("layer-stack-knob-row");
+
+            row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
+            row.Add("layer-stack-knob-label").Text = name;
+
+            // ⚠ A picker when the type says what it accepts and a box when it does not, which is
+            // `NodeSettingMember`'s own rule and has to be the same one: a free-text field over a
+            // setting with a stated list is where `ture` becomes a value, and a dropdown over one
+            // without a list has nothing to offer.
+            if (setting.IsChoice) {
+                var choice = row.Add<Select>(null, null, "layer-stack-knob-choice");
+
+                foreach (var accepted in setting.Accepted) {
+                    choice.AddOption(accepted);
+                }
+
+                choice.SelectionChanged += (_, chosen) => Set(
+                    document,
+                    path,
+                    current => setSetting(current, name, chosen ?? setting.Default),
+                    "Set " + what + " Setting"
+                );
+
+                bindings.Add(() => {
+                    if (LayerStackEdit.Find(document.Document, path) is { } current) {
+                        choice.Value = settings(current).TryGetValue(name, out var held) && held.Length > 0
+                            ? held
+                            : setting.Default;
+                    }
+                });
+
+                continue;
+            }
+
+            var text = row.Add<TextBox>(null, null, "layer-stack-knob-text");
+
+            text.Placeholder = setting.Default;
+
+            text.ValueChanged += (_, typed) => Set(
+                document,
+                path,
+                current => setSetting(current, name, typed ?? ""),
+                "Set " + what + " Setting",
+                $"{key}:{name}"
+            );
+
+            text.Submitted += _ => document.Stack.Seal();
+
+            bindings.Add(() => {
+                if (LayerStackEdit.Find(document.Document, path) is { } current) {
+                    text.Value = settings(current).TryGetValue(name, out var held) ? held : setting.Default;
+                }
+            });
+        }
+    }
+
+    /// <summary>What one port is worth on this layer: what was stored, or the port's own default.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A copy, always.</b> The array this answers with is written into and handed to
+    ///     <c>with</c>, so returning the stored one would edit the layer an undo entry is holding as
+    ///     its before-image — <c>WithEffect</c>'s reason, one container down. And a stored value of
+    ///     the wrong width is treated as absent rather than padded, because a file that says three
+    ///     numbers for a one-lane port is saying something this panel cannot mean.
+    /// </remarks>
+    static float[] Lanes(Dictionary<string, float[]> stored, string port, PortDefinition declared, int lanes) {
+        if (stored.TryGetValue(port, out var held) && held.Length == lanes) {
+            return (float[])held.Clone();
+        }
+
+        var made = new float[lanes];
+
+        for (var index = 0; index < lanes && index < declared.Default.Length; index++) {
+            made[index] = declared.Default[index];
+        }
+
+        return made;
+    }
+
+    /// <summary>A copy of one table with a port's lanes set, or taken out when they are the default.</summary>
+    /// <param name="stored">What the layer holds.</param>
+    /// <param name="port">Which port.</param>
+    /// <param name="declared">Its declaration, whose default decides whether the key is kept.</param>
+    /// <param name="lanes">What the fields say.</param>
+    /// <returns>A new dictionary.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A lane back at the port's own default takes the key out.</b> Keeping it would make
+    ///     opening the panel and nudging a field back where it was a change to the file — and worse,
+    ///     it would <em>pin</em> the number: a node type that improved its default would leave every
+    ///     stack ever touched holding the old one, with nothing anywhere saying why.
+    /// </remarks>
+    static Dictionary<string, float[]> Numbered(
+        Dictionary<string, float[]> stored,
+        string port,
+        PortDefinition declared,
+        float[] lanes
+    ) {
+        Dictionary<string, float[]> next = new(stored, StringComparer.Ordinal);
+
+        var same = lanes.Length <= declared.Default.Length;
+
+        for (var index = 0; same && index < lanes.Length; index++) {
+            same = lanes[index] == declared.Default[index];
+        }
+
+        if (same) {
+            next.Remove(port);
+        } else {
+            next[port] = lanes;
+        }
+
+        return next;
+    }
+
+    /// <summary>A copy of one table with a setting set, or taken out when the text is empty.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Empty removes the key rather than storing <c>""</c>.</b> Both
+    ///     <c>LayerStackGraph.Published</c> and <c>Effect</c> write whatever is there into the node,
+    ///     so an empty string is a setting the node reads as empty rather than as unset — and
+    ///     clearing the box is how an artist goes back to the type's own default.
+    /// </remarks>
+    static Dictionary<string, string> Named(Dictionary<string, string> stored, string setting, string text) {
+        Dictionary<string, string> next = new(stored, StringComparer.Ordinal);
+
+        if (text.Length == 0) {
+            next.Remove(setting);
+        } else {
+            next[setting] = text;
+        }
+
+        return next;
     }
 
     /// <summary>One channel's constant or image, on a fill layer.</summary>
@@ -1913,6 +2270,33 @@ sealed class LayerStackView : IDisposable {
                     node.Value = effects[position].Node;
                 }
             });
+
+            if (document.Library.Registry.TryGet(mask.Effects[position].Node.Trim(), out var type)) {
+                KnobRows(
+                    document,
+                    path,
+                    type,
+                    depth + 1,
+                    "Mask Effect",
+                    $"mask-effect:{layer.Id}:{position.ToString(CultureInfo.InvariantCulture)}",
+                    current => Effect(current, position).Values,
+                    current => Effect(current, position).Texts,
+                    (current, declared, lanes) => current with {
+                        Mask = WithEffectValues(
+                            current.Mask,
+                            position,
+                            Numbered(Effect(current, position).Values, declared.Name, declared, lanes)
+                        )
+                    },
+                    (current, setting, text) => current with {
+                        Mask = WithEffectTexts(
+                            current.Mask,
+                            position,
+                            Named(Effect(current, position).Texts, setting, text)
+                        )
+                    }
+                );
+            }
         }
 
         for (var index = mask.Layers.Count - 1; index >= 0; index--) {
@@ -2129,7 +2513,59 @@ sealed class LayerStackView : IDisposable {
         return mask with { Effects = effects };
     }
 
+    /// <summary>One of a layer's mask effects, or an empty one when the index has gone.</summary>
+    /// <param name="layer">The layer.</param>
+    /// <param name="index">Which effect.</param>
+    /// <returns>The effect.</returns>
+    /// <remarks>
+    ///     ⚠ <b>An empty effect rather than a null, because every caller is inside a
+    ///     <c>Set</c> callback and a null there is a crash from a control the artist is holding.</b>
+    ///     An effect can go while its rows are on screen — a delete on another row, an undo from the
+    ///     keyboard — and what the write then does is put a number on a table nothing reads, which
+    ///     <c>Set</c> discards as an unchanged layer.
+    /// </remarks>
+    static MaskEffectAsset Effect(LayerAsset layer, int index) =>
+        index >= 0 && index < layer.Mask.Effects.Count ? layer.Mask.Effects[index] : new MaskEffectAsset();
+
+    /// <summary>A mask one of whose effects carries different numbers.</summary>
+    /// <param name="mask">The mask.</param>
+    /// <param name="index">Which effect.</param>
+    /// <param name="values">Its numbers by port.</param>
+    /// <returns>A new mask.</returns>
+    static MaskAsset WithEffectValues(MaskAsset mask, int index, Dictionary<string, float[]> values) {
+        if (index < 0 || index >= mask.Effects.Count) {
+            return mask;
+        }
+
+        List<MaskEffectAsset> effects = [.. mask.Effects];
+
+        effects[index] = effects[index] with { Values = values };
+
+        return mask with { Effects = effects };
+    }
+
+    /// <summary>A mask one of whose effects carries different settings.</summary>
+    /// <param name="mask">The mask.</param>
+    /// <param name="index">Which effect.</param>
+    /// <param name="texts">Its settings by name.</param>
+    /// <returns>A new mask.</returns>
+    static MaskAsset WithEffectTexts(MaskAsset mask, int index, Dictionary<string, string> texts) {
+        if (index < 0 || index >= mask.Effects.Count) {
+            return mask;
+        }
+
+        List<MaskEffectAsset> effects = [.. mask.Effects];
+
+        effects[index] = effects[index] with { Texts = texts };
+
+        return mask with { Effects = effects };
+    }
+
     /// <summary>A mask one of whose effects names a different node type.</summary>
+    /// <param name="mask">The mask.</param>
+    /// <param name="index">Which effect.</param>
+    /// <param name="node">The node type's path.</param>
+    /// <returns>A new mask.</returns>
     /// <remarks>
     ///     ⚠ A new list, for <see cref="WithEntry" />'s reason: <c>with</c> shares every collection
     ///     member, so writing into the one this mask holds would change the layer the undo entry is
