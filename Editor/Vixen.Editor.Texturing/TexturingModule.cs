@@ -217,6 +217,26 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     public const string PaintPanel = "texturing.paint";
 
+    /// <summary>The pane a stroke is <em>aimed</em> in: doc 48 § D13's 3D view.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A second panel and not a mode of <see cref="PaintPanel" />, which is the same
+    ///         argument that one makes against being a mode of the layers pane.</b> The 2D view is
+    ///         "the only way to fix the places the 3D view cannot reach" — doc 48 § D13's own words —
+    ///         so the two are a pair an artist works across rather than an either/or, and a pane that
+    ///         replaced one with the other would make fixing a seam mean losing sight of the model.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is the plugin's own pane rather than the scene viewport</b>, which is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1063">#1063</a>'s recommendation and
+    ///         not a fallback: a <c>.vxlayers</c> names a model asset path that nothing maps to an
+    ///         entity, the scene's ray comes back in world space, and what the artist would be
+    ///         looking at there is the entity's material rather than the stack's composite.
+    ///         <see cref="PaintMeshView" /> carries the argument in full.
+    ///     </para>
+    /// </remarks>
+    public const string MeshPanel = "texturing.paint-3d";
+
     EditorProject project = null!;
     EditorShell shell = null!;
 
@@ -377,6 +397,17 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// <summary>The 2D UV pane, once the panel has been opened at least once.</summary>
     PaintUvView? paintView;
 
+    /// <summary>The 3D pane, on the same terms.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held for the same three things <a href="https://github.com/Rikarin/Vixen/issues/1063">#1063</a>
+    ///     names as the blocker.</b> The pane needs the resolved <see cref="mesh" />'s projection,
+    ///     an upload, and somewhere to be put — and all three are this type's: a 3D pane built
+    ///     entirely inside <c>Painting/</c> would have been a class with no constructor call and an
+    ///     upload delegate nobody sets, which is this workstream's most-shipped defect rather than a
+    ///     step towards closing it.
+    /// </remarks>
+    PaintMeshView? meshView;
+
     /// <summary>The paint layer the last drag opened, and the canvas behind it.</summary>
     /// <remarks>
     ///     ⚠ <b>Re-opened at every pointer-down rather than held across drags.</b> The layer, the
@@ -429,6 +460,15 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
     /// <summary>What the paint pane is showing, so it can be given back.</summary>
     IEditorImage? painted;
+
+    /// <summary>What the 3D pane is showing, on the same terms.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its own image and not a share of <see cref="painted" />.</b> The two panes show
+    ///     different pictures of one layer — an atlas and a render of the model wearing it — at
+    ///     different sizes, so one handle could not serve both; and the 3D one is re-uploaded when
+    ///     the <em>camera</em> moves, which is a moment the atlas knows nothing about.
+    /// </remarks>
+    IEditorImage? modelled;
 
     /// <summary>One dirtied rectangle's own rows, for the partial upload.</summary>
     /// <remarks>
@@ -506,6 +546,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             // rationed to one graph per frame inside `Update` for `ShaderGraphPreviewRenderer`'s
             // reason.
             context.OnUpdate(_ => nodePreviews?.Update());
+
+            // ⚠ The 3D pane's resize, and it is a *comparison* per frame rather than a draw — see
+            // `PaintMeshView.Tick`. A dock panel has no resize event a plugin can subscribe to, and
+            // the alternative is a pane that keeps rasterising at whatever size it had when the
+            // stack was opened: correct in the middle and stretched at the edges, silently.
+            context.OnUpdate(_ => Resized());
 
             // ⚠ Through the scope rather than in `Deactivate`, because it holds device resources: an
             // evaluator's pipelines and one uploaded image. `Deactivate` runs first and this runs
@@ -633,6 +679,23 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
                 // an atlas with nothing on it — the exact state #920 is about, reintroduced by a
                 // cache.
                 islandsKey = null;
+
+                RefreshPaint();
+            }
+        );
+
+        context.AddPanel(
+            MeshPanel,
+            new StringId("editor.panel.texture-paint-3d", "Paint (3D)"),
+            panel => {
+                meshView = new PaintMeshView(panel, tool) {
+                    Target = BeginStroke,
+                    Painted = RedrawFromMesh,
+                    Reverted = Persist,
+                    Finished = Recorded,
+                    Presented = ShowModel,
+                    Patched = PatchModel
+                };
 
                 RefreshPaint();
             }
@@ -1305,8 +1368,30 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     ///         stroke, which looks precisely like a brush that does not paint.
     ///     </para>
     /// </remarks>
-    void Redraw(PaintRect rect) {
-        if (paintView?.Live is not { } composite) {
+    void Redraw(PaintRect rect) => Redraw(rect, paintView?.Live);
+
+    /// <summary>The same, for a stroke made in the 3D pane.</summary>
+    /// <param name="rect">What the stamp dirtied, in atlas texels.</param>
+    /// <remarks>
+    ///     ⚠ <b>A second entry point rather than one that reads "whichever pane has a composite",
+    ///     and the difference is a stale one.</b> <c>PaintUvView.Live</c> is deliberately kept after
+    ///     pointer-up so an undo can re-resolve it, so both panes hold a composite for the rest of
+    ///     the session once each has been drawn in — and a redraw that picked between them would
+    ///     eventually pick the one belonging to the drag before last.
+    /// </remarks>
+    void RedrawFromMesh(PaintRect rect) => Redraw(rect, meshView?.Live);
+
+    /// <summary>Puts one dirtied rectangle of a stroke's composite on both panes.</summary>
+    /// <param name="rect">The rectangle, in atlas texels.</param>
+    /// <param name="live">The composite the stroke is building, or null when there is none.</param>
+    /// <remarks>
+    ///     ⚠ <b>Both panes from one call, which is what makes a stroke in either of them visible in
+    ///     the other.</b> They are two pictures of one layer — an atlas, and a render of the model
+    ///     wearing it — so a redraw that served only the pane the pointer is in would leave the
+    ///     other showing the state from before the drag until something else happened to refresh it.
+    /// </remarks>
+    void Redraw(PaintRect rect, PaintComposite? live) {
+        if (live is not { } composite) {
             return;
         }
 
@@ -1317,9 +1402,15 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return;
         }
 
-        if (Patch(image, clipped)) {
+        // ⚠ The composite and not the layer, and the 3D pane cannot work that out for itself: what
+        // it was textured with at the last refresh is the layer's own pixels, and what the stroke is
+        // writing is the composite between the stack's two cached halves. What comes back out
+        // through `PaintMeshView.Patched` is in pane pixels rather than in texels.
+        meshView?.Repaint(image, clipped);
+
+        if (Patch(painted, image, clipped)) {
             // Only the sentence, because the picture is the same handle with new texels in it.
-            paintView.Say("Painting: " + tool.Describe());
+            paintView?.Say("Painting: " + tool.Describe());
 
             return;
         }
@@ -1327,17 +1418,29 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         Show(image, "Painting: " + tool.Describe());
     }
 
-    /// <summary>Copies one rectangle's rows out of the composite and into the live image.</summary>
+    /// <summary>Copies one rectangle's rows out of a picture and into the image showing it.</summary>
+    /// <param name="shown">The uploaded image the pane is drawing, or null when there is none yet.</param>
+    /// <param name="image">The picture those rows come out of.</param>
+    /// <param name="rect">Which rows and columns, in that picture's own pixels.</param>
     /// <returns>Whether the host took it.</returns>
     /// <remarks>
-    ///     ⚠ <b>The extent is checked against the <em>image</em> rather than trusted from the
-    ///     composite.</b> The two disagree for one redraw whenever the atlas resolution changes under
-    ///     an open pane — a stack edited to a different base size — and a patch against the old handle
-    ///     would be refused by the host anyway; checking here is what makes the fallback take over
-    ///     rather than the pane going quietly stale.
+    ///     <para>
+    ///         ⚠ <b>The extent is checked against the <em>image</em> rather than trusted from the
+    ///         composite.</b> The two disagree for one redraw whenever the atlas resolution changes
+    ///         under an open pane — a stack edited to a different base size — and a patch against the
+    ///         old handle would be refused by the host anyway; checking here is what makes the
+    ///         fallback take over rather than the pane going quietly stale.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The uploaded image is a parameter rather than <see cref="painted" />, because
+    ///         there are two panes now.</b> The 3D pane's picture is a render of the model at the
+    ///         pane's own size and the 2D pane's is the atlas, so a method that reached for one field
+    ///         would patch the wrong texture with the right bytes — which on a host that accepts the
+    ///         write is a picture corrupted rather than an update refused.
+    ///     </para>
     /// </remarks>
-    bool Patch(PaintImage image, PaintRect rect) {
-        if (graphics is null || painted is not { } live || live.Width != image.Width || live.Height != image.Height) {
+    bool Patch(IEditorImage? shown, PaintImage image, PaintRect rect) {
+        if (graphics is null || shown is not { } live || live.Width != image.Width || live.Height != image.Height) {
             return false;
         }
 
@@ -1450,12 +1553,13 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     ///     looking at is what the sentence under the pane is for.
     /// </remarks>
     void RefreshPaint() {
-        if (paintView is null) {
+        if (paintView is null && meshView is null) {
             return;
         }
 
         if (stack is null) {
-            paintView.Show(0, 1, 1, "No stack is open. Select a .vxlayers and run Open Layer Stack.");
+            paintView?.Show(0, 1, 1, "No stack is open. Select a .vxlayers and run Open Layer Stack.");
+            Model(null, null, "No stack is open. Select a .vxlayers and run Open Layer Stack.");
             Islands(Mesh());
 
             return;
@@ -1464,7 +1568,13 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         var opened = PaintSurface.Open(stack, tool.LayerId, canvases, out var refusal);
 
         if (opened is null) {
-            paintView.Show(0, stack.Document.BaseWidth, stack.Document.BaseHeight, refusal);
+            paintView?.Show(0, stack.Document.BaseWidth, stack.Document.BaseHeight, refusal);
+
+            // ⚠ The model still goes up, for the reason the islands below do: a stack with no paint
+            // layer in it is one an artist is about to add a paint layer to, and a clay render of
+            // the bound mesh is what tells them the binding worked. It is also the first honest
+            // milestone of #1063's own order — the picture, before anything textures it.
+            Model(Mesh()?.Projection, null, refusal);
 
             // ⚠ The islands still go up. A stack with no paint layer in it is one an artist is about
             // to add a paint layer to, and the outlines are what tells them the mesh binding worked —
@@ -1475,18 +1585,100 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         }
 
         var bound = Mesh();
+        var canvas = opened.Canvas.Channel(tool.Channel);
 
         Show(
-            opened.Canvas.Channel(tool.Channel),
+            canvas,
             $"'{opened.Set.Name}' · '{opened.Layer.Name}' · {tool.Channel} · this layer's own pixels, not "
             + "the stack's composite (#849)."
             + " " + (bound is null ? meshRefusal : $"Painting on '{bound.Model}' — {bound.Triangles} triangles.")
+        );
+
+        // ⚠ The same picture the 2D pane was just handed, which is the sentence #1063's
+        // recommendation turns on: every pixel of the 3D pane is the atlas the brush writes, so a
+        // stroke shows up on the model without a bake and without an entity's material anywhere.
+        Model(
+            bound?.Projection,
+            canvas,
+            bound is null
+                ? meshRefusal
+                : $"'{opened.Layer.Name}' on '{bound.Model}' · {tool.Channel} · {bound.Triangles} triangles."
         );
 
         // ⚠ After `Show`, because `ShowIslands` puts the outlines in texels of the extent `Show`
         // just set. Before it, every segment would be scaled by the atlas the pane was showing
         // last, which for the first refresh of a session is 1×1.
         Islands(bound);
+    }
+
+    /// <summary>Puts the bound mesh and what it wears in the 3D pane.</summary>
+    /// <param name="projection">The mesh as a raycast, or null when the stack binds none.</param>
+    /// <param name="canvas">What to texture it with, or null when there is no paint layer yet.</param>
+    /// <param name="status">What to say under it.</param>
+    /// <remarks>
+    ///     ⚠ <b>The projection and not the <c>LayerStackMesh</c>, and that is what keeps the camera
+    ///     still.</b> <c>LayerStackMesh.Projection</c> is built once and kept, so the same instance
+    ///     comes back for as long as <see cref="meshKey" /> holds — and <c>PaintMeshView.Show</c>
+    ///     re-frames on a projection that is a <em>different object</em>. Handing over the mesh and
+    ///     letting the pane ask would work the same today and would stop the moment anything cached
+    ///     one level up.
+    /// </remarks>
+    void Model(PaintProjection? projection, PaintImage? canvas, string status) =>
+        meshView?.Show(projection, canvas, status);
+
+    /// <summary>Uploads the 3D pane's whole picture and hands it over.</summary>
+    /// <param name="picture">The render, at the pane's own size.</param>
+    /// <remarks>
+    ///     ⚠ <b>One live upload at a time, exactly as <see cref="Show" /> keeps for the 2D pane.</b>
+    ///     This runs on every camera move — an orbit is one per frame of the drag — so a version
+    ///     that did not give the last one back would hold a texture and a descriptor set per frame
+    ///     of every gesture the artist makes.
+    /// </remarks>
+    void ShowModel(PaintImage picture) {
+        if (meshView is null) {
+            return;
+        }
+
+        var uploaded = graphics?.Upload(picture.Width, picture.Height, picture.Texels);
+
+        modelled?.Dispose();
+        modelled = uploaded;
+
+        meshView.Image.Image = uploaded?.Image ?? 0ul;
+    }
+
+    /// <summary>Rewrites one rectangle of the 3D pane's picture in place.</summary>
+    /// <param name="rect">What moved, in the pane's own pixels.</param>
+    /// <remarks>
+    ///     ⚠ <b>The half that makes a stamp cost its own footprint on this pane too.</b> Without it
+    ///     every stamp would hand the host a whole render — at a docked pane's size that is a few
+    ///     megabytes, a texture and a descriptor-set write per pointer move, which is
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/912">#912</a> reintroduced one pane
+    ///     across. The fallback is the same one the 2D pane takes and for the same reason: a refused
+    ///     <c>Update</c> that were treated as done leaves the model showing the surface from before
+    ///     the stroke.
+    /// </remarks>
+    void PatchModel(PaintRect rect) {
+        if (meshView?.Raster.Picture is not { } picture) {
+            return;
+        }
+
+        if (!Patch(modelled, picture, rect)) {
+            ShowModel(picture);
+        }
+    }
+
+    /// <summary>Lets the 3D pane notice it has been resized.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A comparison per frame and not a draw</b> — see <c>PaintMeshView.Tick</c>, which
+    ///     returns without touching a triangle unless the pane's box has actually changed. A dock
+    ///     panel raises nothing a plugin can subscribe to when its size moves, and the alternative
+    ///     is a render stretched by whatever the layout has done since the stack was opened.
+    /// </remarks>
+    void Resized() {
+        if (meshView is not null) {
+            meshView.Tick();
+        }
     }
 
     /// <summary>Draws the bound mesh's UV islands under the brush, or takes the last ones away.</summary>
@@ -1555,6 +1747,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         stackView = null;
         paintView = null;
+
+        // ⚠ And the 3D pane, whose raster holds five buffers at the pane's own size plus the picture
+        // — a few megabytes for a maximised panel, kept alive by one field for the rest of the
+        // process if it were left. The uploaded image goes in `Release` with the other device
+        // objects, because that is what runs while the device is still valid.
+        meshView = null;
 
         // ⚠ The surface and not only the pane. It holds a `PaintCanvas`, which at 4K is 67 MB a
         // channel — a module that let the pane go and kept the canvas would leave the largest thing
@@ -1646,6 +1844,10 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         // would ever give it back.
         painted?.Dispose();
         painted = null;
+
+        // And the 3D pane's, which is a second one on exactly the same terms.
+        modelled?.Dispose();
+        modelled = null;
 
         graphics = null;
     }

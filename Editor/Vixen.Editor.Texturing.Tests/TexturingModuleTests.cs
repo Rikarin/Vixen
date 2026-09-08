@@ -38,6 +38,14 @@ public class TexturingModuleTests {
         Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.GraphPanel);
         Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.StackPanel);
 
+        // ⚠ The two paint panes, on the same list rather than in a roll call of their own — the
+        // argument the third verb above makes. The 3D one is
+        // <a href="https://github.com/Rikarin/Vixen/issues/1063">#1063</a>: the ray-to-texel half of
+        // the projection had landed with nothing to stand in, so a panel registration is exactly what
+        // was missing.
+        Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.PaintPanel);
+        Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.MeshPanel);
+
         // ⚠ Both documents this plugin owns, named rather than counted —
         // <a href="https://github.com/Rikarin/Vixen/issues/806">#806</a>. This was `Assert.Single`,
         // which is what caught the second kind arriving; a count grown to two would have said nothing
@@ -85,6 +93,8 @@ public class TexturingModuleTests {
         Assert.Null(fixture.Shell.Commands[TexturingModule.BakeCommand]);
         Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.GraphPanel);
         Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.StackPanel);
+        Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.PaintPanel);
+        Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.MeshPanel);
         Assert.Empty(fixture.Extensions.All<NewAssetKind>());
 
         // ⚠ The panel's *command* too, which is the half that is easy to leave: `RegisterPanel` makes
@@ -95,6 +105,8 @@ public class TexturingModuleTests {
         // un-unregistered.
         Assert.Null(fixture.Shell.Commands[EditorShell.PanelCommand(TexturingModule.GraphPanel)]);
         Assert.Null(fixture.Shell.Commands[EditorShell.PanelCommand(TexturingModule.StackPanel)]);
+        Assert.Null(fixture.Shell.Commands[EditorShell.PanelCommand(TexturingModule.PaintPanel)]);
+        Assert.Null(fixture.Shell.Commands[EditorShell.PanelCommand(TexturingModule.MeshPanel)]);
     }
 
     /// <summary>

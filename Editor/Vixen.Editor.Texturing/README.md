@@ -346,28 +346,47 @@ It is still written at pointer-up, and since format version 2 it is Deflated per
 — a stroked 4K channel is 4.09 MB rather than 64 MiB, for the same wall clock, because the raw write
 it replaces is I/O-bound ([#850](https://github.com/Rikarin/Vixen/issues/850)).
 
-### The 3D projection: the mechanism is here and the viewport is not
+### The 3D projection, and the pane it now has
 
 `PaintProjection`, `PaintFootprint`, `PaintSymmetry` and `PaintProjector` are § D13's **first** front
 end — the ray, the coordinate under it, the screen-radius conversion and the mirrors. `PaintProjector`
 is the whole of what a viewport calls: `Begin(eye, ray, screenRadius, out footprint)` at pointer-down
 and `Resolve(ray)` per move, whose span is exactly what `PaintSession.MoveAll` takes.
 
-⚠ **Nothing calls it yet, and the reason is a viewport rather than more arithmetic** —
-[#1063](https://github.com/Rikarin/Vixen/issues/1063). No pane in this editor shows a `.vxlayers`'
-model: the scene viewport shows the *scene*, and a stack names a model **asset path** that nothing
-maps to an entity, while a pane of the plugin's own cannot draw geometry because `IEditorGraphics`
-lends a device and `Upload` takes pixels.
+⚠ **For two batches nothing called any of it, and the gap was a viewport rather than more
+arithmetic** — [#1063](https://github.com/Rikarin/Vixen/issues/1063). `texturing.paint-3d` is that
+viewport: `PaintCamera` (orbit, pan, dolly, and a ray per pane pixel), `PaintMeshRaster` (a
+depth-buffered CPU rasteriser of the stack's own mesh) and `PaintMeshView` (the pane), wired by
+`TexturingModule` — which is where the mesh, the upload and the panel registration all live, and is
+therefore the only place the three could have been joined.
 
-The other half of that chain is done: `LayerStackMesh` keeps the positions beside the coordinates and
-hands back a `PaintProjection` built from both ([#1062](https://github.com/Rikarin/Vixen/issues/1062)).
-One resolution, five refusals, and a raycast that cannot disagree with the coverage map about which
-triangle is which — the two arrays are written by one loop over one index list, so a triangle reaches
-both or neither. ⚠ **What is left is entirely the host**, and the host is `TexturingModule`: it is
-what holds the resolved mesh, what holds the `IEditorGraphics` an upload goes through, and what builds
-the paint panel. A pane cannot reach any of the three from inside `Painting/`.
+⚠ **The plugin's own pane and deliberately not the scene viewport**, which is the issue's
+recommendation and its reasons stand: a stack names a model **asset path** that nothing maps to an
+entity, the scene's ray comes back in *world* space while `PaintProjection` works in the mesh's own,
+and what an artist would be looking at there is the entity's material rather than the stack's
+composite — so the stroke would be invisible until a bake. Here every pixel of the pane is the atlas
+the brush writes.
 
-Three things are worth knowing before that is wired.
+⚠ **A CPU rasteriser is what § D14's third bullet leaves as the only option**: `IEditorGraphics`
+lends a device and `Upload` takes *pixels*, so a plugin pane can present an image and nothing else.
+Two passes, and the split is exit criterion 8 rather than a structure — `Draw` is the geometry, run
+when the camera or the pane moves, and `Retexture` is the shading of one dirtied atlas rectangle, run
+per stamp against a bucketing of pane pixels by the atlas cell they read. ⚠ **A scan over every pane
+pixel would also be independent of the layer count and of the atlas size**, so a counter measuring
+only those two would call it local; `PaintMeshRaster.Shaded` counts the pixels a stamp actually
+visits and `Renders` counts the geometry passes, which is what makes the claim checkable.
+
+⚠ **The brush radius means pane *pixels* here and atlas *texels* in `PaintUvView`**, which is the
+difference between the two front ends rather than an inconsistency: a 3D view has a disc on the
+screen, and the texels it covers are a property of the chart under it.
+
+The other half of that chain landed first: `LayerStackMesh` keeps the positions beside the
+coordinates and hands back a `PaintProjection` built from both
+([#1062](https://github.com/Rikarin/Vixen/issues/1062)). One resolution, five refusals, and a raycast
+that cannot disagree with the coverage map about which triangle is which — the two arrays are written
+by one loop over one index list, so a triangle reaches both or neither.
+
+Three things are worth knowing about the conversion the pane drives.
 
 1. ⚠ **No raycaster was written.** `TriangleTree` in `Vixen.Core.Mathematics` already answers with the
    triangle, the barycentric weights and the distance. ⚠ **Its `Raycast` bounds the search at the
