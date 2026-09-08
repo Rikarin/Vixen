@@ -201,8 +201,36 @@ and no defines. `TextureKernelLanguageSeamTests` is where each is held.
 YIQ chroma rotation over a convert-rotate-convert precisely so that a material graph and a texture
 graph agree about what a hue is. **The failure mode is not a compile error, it is a disagreement**:
 an artist matches a hue in the shader graph's node preview and watches it shift here, and nothing
-fails when one copy is edited. So one test reads `HueRotate` out of both files and compares the
-numbers. It is not the fix the issue asks for — it is what makes the fix optional rather than urgent.
+fails when one copy is edited.
+
+⚠ **And it is not one copy, it is thirteen across five kernels — which is why the gate is a table
+and not a test.** `Noise`, `FloodFill`, `Splatter` and `TileSampler` each carry `Random.Hash`,
+`Random.Combine` (twice under the name `Mix`) and `Random.ToFloat01` together with the three
+constants they stand on; `Checker` carries `ComputeColor.Checker`'s return expression. The
+`Random.rvn` copies are the worse ones, because that file's header argues every choice in it from
+*exactness* — wrapping 32-bit arithmetic only, no float in the state, a multiply by a power of two
+rather than a division — so a copy that drifts by one shift is a field that is subtly different on
+one backend and impossible to attribute.
+
+`TextureKernelLanguageSeamTests` reduces each copy and each original to three sequences — its
+numbers, its operators and the names it calls — and compares all three. ⚠ **The three together are
+the arithmetic and each one alone is not**: numbers cannot see `>>` become `<<`, and neither can see
+`max` become `min`, which the previous single-function version of this test admitted it could not.
+Two kernels call `Random.Combine` `Mix` and the library's helpers are `static` where a kernel's are
+not, so a text diff would be red on the day it was written; three sequences are what make the
+comparison about the arithmetic rather than about the spelling.
+
+⚠ **A table of copies is a gate only while it is complete**, and four kernels copied the hash in four
+separate batches, each with a comment saying it copied because it could not import. A fifth will be
+written the same way — so a second test sweeps every kernel for the three constants *read out of
+`Random.rvn`*, and requires the set that carries one to be exactly the set the table names. It goes
+red on the day the copy lands rather than on the day the two disagree.
+
+None of this is the fix the issue asks for — it is what makes the fix optional rather than urgent.
+⚠ **The embedded prelude the issue proposes would not remove the need for it**: a prelude puts one
+copy inside the texture graph instead of one per kernel, which is a real improvement to thirteen
+rows, and it is still a second copy of the arithmetic. Something that goes red when the two disagree
+has to exist either way.
 
 ⚠ **A kernel cannot declare a `[Permutation]`, and the compiler will not say so**
 ([#638](https://github.com/Rikarin/Vixen/issues/638)). `TextureOp` carries no permutation value and

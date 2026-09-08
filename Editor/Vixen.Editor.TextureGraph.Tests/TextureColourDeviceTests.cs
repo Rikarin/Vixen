@@ -222,7 +222,7 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
     /// <summary>A hue rotation of zero, full saturation and no lightness change leaves the picture.</summary>
     /// <remarks>
     ///     ⚠ <b>Within two steps rather than exactly, and the reason is worth writing down.</b> The
-    ///     rotation is `ComputeColor.rvn:78`'s YIQ pair, and the forward and backward matrices there
+    ///     rotation is `ComputeColor.HueRotate`'s YIQ pair, and the forward and backward matrices there
     ///     are the standard rounded constants — they are not exact inverses of each other. A test
     ///     demanding equality here would be demanding a different rotation from the one the shader
     ///     graph uses, and the two agreeing matters more.

@@ -2,12 +2,12 @@ package Vixen.Editor.TextureGraph.Shaders
 
 // Hue, saturation and lightness — doc 48 § 4.2's `HSL`.
 //
-// ⚠ **The hue rotation is `Raven/Library/Material/ComputeColor.rvn:78`'s, transcribed rather than
-// imported, and the duplication is forced by the compiler this assembly uses.** The evaluator calls
-// `RavenEffectCompiler.FromSources([(name, source)])` with no `referencePaths`, so a kernel here
-// binds against nothing but itself — `import Vixen.Shaders.Material` does not resolve. The
-// alternative is passing the compiled `.rvnlib` into every variant, which is a build-order
-// dependency from an editor assembly onto the shader library. See this folder's README.
+// ⚠ **The hue rotation is `Raven/Library/Material/ComputeColor.rvn`'s `HueRotate`, transcribed
+// rather than imported, and the duplication is forced by the compiler this assembly uses.** The
+// evaluator calls `RavenEffectCompiler.FromSources([(name, source)])` with no `referencePaths`, so
+// a kernel here binds against nothing but itself — `import Vixen.Shaders.Material` does not
+// resolve. The alternative is passing the compiled `.rvnlib` into every variant, which is a
+// build-order dependency from an editor assembly onto the shader library. See this folder's README.
 //
 // **It rotates the chroma plane in YIQ rather than converting to HSL and back.** Three dot products
 // against a conversion, a rotation and a conversion back; it preserves luminance exactly and
@@ -38,7 +38,7 @@ shader Hsl {
 
     const val Tau: float = 6.28318530718f
 
-    /// `ComputeColor.rvn:78`'s rotation, to the digit.
+    /// `ComputeColor.HueRotate`, to the digit.
     func HueRotate(color: float3, radians: float): float3 {
         val c = cos(radians)
         val s = sin(radians)
