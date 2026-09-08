@@ -80,7 +80,7 @@ public class TexturePlanKernelTests {
     /// <summary>An embedded kernel still resolves through the assembly, plan or no plan.</summary>
     /// <remarks>
     ///     ⚠ <b>The instrument.</b> Every other assertion in this file would also pass if
-    ///     <see cref="TexturePlan.Source" /> had stopped answering for the forty-five kernels this
+    ///     <see cref="TexturePlan.Source" /> had stopped answering for the kernels this
     ///     assembly ships, which is every op in every graph anybody has authored.
     /// </remarks>
     [Fact]

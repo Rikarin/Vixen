@@ -59,8 +59,9 @@ public interface IEditorImage : IDisposable {
 ///         surface and run this on it".</b> That was the intended answer and the evaluator refutes
 ///         it: <c>TexturePlanEvaluator</c> caches a compiled pipeline per kernel and output format
 ///         across evaluations, so a contract that lent the device for the duration of one call would
-///         make every preview recompile forty-five kernels. A plugin that dispatches its own work
-///         needs a device it can <i>hold</i>, and nothing narrower expresses that.
+///         make every preview recompile every kernel it had already compiled. A plugin that
+///         dispatches its own work needs a device it can <i>hold</i>, and nothing narrower
+///         expresses that.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>What the plugin is promising by taking it.</b> The device is the host's: it outlives

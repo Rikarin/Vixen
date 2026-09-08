@@ -21,8 +21,8 @@ namespace Vixen.Editor.Texturing;
 /// <remarks>
 ///     <para>
 ///         <b>This is the claim doc 48 § D14 says the whole document exists to prove.</b> Four
-///         batches built an evaluator, forty-five kernels and a compiler, and none of it was reachable
-///         from the editor: nothing registered a document, a panel or a command. This type is that
+///         batches built an evaluator, a folder of kernels and a compiler, and none of it was
+///         reachable from the editor: nothing registered a document, a panel or a command. This type is that
 ///         spine — and it references <c>Vixen.Editor.App</c> not at all, which is the property that
 ///         makes "it is a plugin" a fact rather than a description.
 ///     </para>

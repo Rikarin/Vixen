@@ -11,7 +11,8 @@ namespace Vixen.Editor.TextureGraph.Nodes;
 ///     <para>
 ///         <b>Doc 48 § D6's escape hatch, and the shape of it is the point.</b> The setting is a
 ///         Raven <em>expression</em>, compiled by the real Raven compiler into a kernel of exactly
-///         the shape the other forty-five have, with the complaints mapped back to this node. It is
+///         the shape every other kernel in <c>Shaders/</c> has, with the complaints mapped back to
+///         this node. It is
 ///         not a hand-rolled evaluator, not a scripting language, and not a nested function graph of
 ///         forty tiny nodes — Designer's answer, which § D6 refuses by name.
 ///     </para>
