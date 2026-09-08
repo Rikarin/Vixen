@@ -373,6 +373,73 @@ public class TextureGraphNameKnobTests {
         Assert.Empty(TextureGraphParameters.Check([parameter]));
     }
 
+    /// <summary>
+    ///     ⚠ A shipped compound's new knob defaults to exactly what it used to hard-wire, and turning
+    ///     it changes the plan.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The caller, and the half a unit test cannot make.</b> <c>Patterns/Tile Random</c>
+    ///         held <c>texts: { Accumulation: Max }</c> and now holds <c>$Accumulation</c> over a
+    ///         parameter defaulting to <c>Max</c> — so the claim that the picture is unchanged is a
+    ///         claim about a file in the library rather than about a fixture, and it is asserted
+    ///         against the number the kernel actually receives.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because either alone is satisfied by a wrong implementation.</b> A
+    ///         substitution that never happened leaves the kernel on its own fallback, which is also
+    ///         <c>Max</c>; a knob wired to nothing is at <c>Max</c> for both readings. Only the pair
+    ///         separates them.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_shipped_tile_random_exposes_the_accumulation_it_used_to_hard_wire() {
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        var library = TextureCompoundLibrary.Publish(registry, folder: null, out var problems);
+
+        Assert.Empty(problems);
+
+        NodeGraphModel graph = new();
+        var used = graph.Add("Patterns/Tile Random");
+        var noise = graph.Add("Source/Noise");
+        var output = graph.Add("Output/Output");
+
+        graph.Connect(new(noise.Id, "Out"), new(used.Id, "Pattern"));
+        graph.Connect(new(used.Id, "Out"), new(output.Id, "Input"));
+
+        TextureGraphCompiler compiler = new(registry) {
+            BaseWidth = 64,
+            BaseHeight = 64,
+            Seed = 3,
+            SubGraphSource = library
+        };
+
+        var settled = compiler.Compile(graph);
+
+        Assert.Empty(settled.Diagnostics);
+        Assert.Equal(
+            (float)TexturePlacementAccumulation.Max,
+            Accumulation(settled.Value)
+        );
+
+        used.SetText("Accumulation", "Add");
+
+        var added = compiler.Compile(graph);
+
+        Assert.Empty(added.Diagnostics);
+        Assert.Equal((float)TexturePlacementAccumulation.Add, Accumulation(added.Value));
+    }
+
+    /// <summary>How the tile sampler was told to combine overlapping instances.</summary>
+    static float Accumulation(TexturePlan plan) =>
+        plan.Ops
+            .Single(op => op.Kernel == "TileSampler")
+            .Parameters.Single(one => one.Name == "accumulation")
+            .Value;
+
     /// <summary>A name knob with no list is refused at publish, and the sentence says why.</summary>
     /// <remarks>
     ///     ⚠ <b>Refused rather than allowed as a free-text field</b>, because an empty list is
