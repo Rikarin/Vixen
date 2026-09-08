@@ -113,9 +113,21 @@ previews.Update();
 
 // From the canvas's draw, per visible node.
 if (previews.TryGet(graph, node, definition, out var preview)) {
-    // preview.Image is the host's number for a picture 64 texels square.
+    if (preview.Unavailable) {
+        // ⚠ There is no picture. Draw the swatch and the hatch, or nothing — `preview.Image` is 0
+        // here, and passing that to `DrawImage` draws whatever handle 0 happens to be.
+    } else {
+        // preview.Image is the host's number for a picture 64 texels square.
+    }
 }
 ```
+
+⚠ **A `true` answer no longer means there is a picture.** `Unavailable` is how a node says the
+graph reached this source and the source had nothing to bake with — no device, or a refused
+rebuild — and it carries a swatch colour so a host can draw *something* rather than a hole. A host
+that branches on the return value alone gets a zero image handle, which is why the branch above is
+in this example rather than in a footnote. `INodePreviewSource.TryGet`'s own `<returns>` says
+"true if there is anything to draw", and a swatch is something to draw.
 
 ⚠ **The first argument answers `null` when there is no device**, and that is not a convenience: the
 editor acquires its device and creates its thumbnail surface *after* the first `Update`, so a source

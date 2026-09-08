@@ -122,6 +122,13 @@
     generator, with `dotnet msbuild <project> -getItem:ProjectReference -p:VixenUi=true`: before this
     change the markup compiler was absent from the list; after it, it is there.
 
+    ⚠ **And that `-p:` is an override, not a build this tree performs — so today the change moves no
+    project's reference list at all.** Exactly one project both sets `VixenUi` and self-imports
+    (`Editor/Vixen.Editor.Texturing`), and it already names both generators by hand, so it is owed
+    neither. This is a latent-correctness fix plus a diagnostics message that has stopped lying, and
+    it is exercised by `BuildIntegrationTests` rather than by any project the solution builds. Worth
+    saying plainly, because "measured live on four projects" reads as reach and is not.
+
     **The two guards do not have to be the same guard, and this is why they are not.** The flag
     exists to stop the *globs* being declared twice, which is a duplicate-item failure. An analyzer
     reference declared twice is one too — so rather than reinstating the guard, the duplicate is

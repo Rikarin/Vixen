@@ -166,31 +166,48 @@ public sealed class NodePreviewLayer : UiElement {
         }
     }
 
-    /// <summary>Diagonal bars across a swatch whose picture is somebody else's to supply.</summary>
+    /// <summary>Diagonal bars across the whole of a swatch whose picture is somebody else's to supply.</summary>
     /// <param name="context">Where to draw.</param>
     /// <param name="box">The swatch.</param>
     /// <param name="color">The canvas's wire colour, so it belongs to the graph rather than to a theme.</param>
     /// <remarks>
-    ///     ⚠ <b>Bars and not a flat colour, because a flat colour is what an ordinary constant node
-    ///     shows.</b> The one thing this has to do is be unmistakable for both of the other two
-    ///     states — a picture and a swatch — from across a canvas at any zoom, and a hatch over the
-    ///     chequer is neither. Four of them at fractions of the swatch's own side, so the count does
-    ///     not change with the zoom and the shape is the same at every size.
-    ///
-    ///     ⚠ Every segment ends on an edge rather than being clipped to one: a swatch is square —
-    ///     <see cref="Size" /> by <see cref="Size" />, times the zoom — so a bar from
-    ///     <c>(x + offset, top)</c> to <c>(x, top + offset)</c> is inside the box by construction.
-    ///     The layer is a sibling of the canvas's own drawing and nothing here establishes a clip, so
-    ///     a bar that ran past the corner would be painted over the node above it.
+    ///     <para>
+    ///         ⚠ <b>Bars and not a flat colour, because a flat colour is what an ordinary constant
+    ///         node shows.</b> The one thing this has to do is be unmistakable for both of the other
+    ///         two states — a picture and a swatch — from across a canvas at any zoom, and a hatch
+    ///         over the chequer is neither. Seven of them at quarters of the swatch's own side, so
+    ///         the count does not change with the zoom and the shape is the same at every size.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Seven and not four, and the four were a corner fan rather than a hatch.</b> The
+    ///         offsets run to <em>twice</em> the side: a bar at an offset past the width starts on
+    ///         the right edge and ends on the bottom one instead of on the top and left. Stopping at
+    ///         the width puts every segment in the triangle above the anti-diagonal, so the whole
+    ///         lower-right half of the swatch carried nothing but the chequer — which is a shape
+    ///         asking to be read as a corner mark rather than as "no picture here", and it is what
+    ///         this drew for one batch while these remarks said hatch.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Every segment ends on an edge rather than being clipped to one: a swatch is square —
+    ///         <see cref="Size" /> by <see cref="Size" />, times the zoom — so both spellings are
+    ///         inside the box by construction. The layer is a sibling of the canvas's own drawing and
+    ///         nothing here establishes a clip, so a bar that ran past the corner would be painted
+    ///         over the node above it.
+    ///     </para>
     /// </remarks>
     static void Hatch(DrawContext context, Rectangle box, Color4 color) {
         PathBuilder bars = new();
 
-        for (var bar = 1; bar <= 4; bar++) {
+        for (var bar = 1; bar < 8; bar++) {
             var offset = box.Width * bar * 0.25f;
 
-            bars.MoveTo(new Vector2(box.X + offset, box.Y));
-            bars.LineTo(new Vector2(box.X, box.Y + offset));
+            if (offset <= box.Width) {
+                bars.MoveTo(new Vector2(box.X + offset, box.Y));
+                bars.LineTo(new Vector2(box.X, box.Y + offset));
+            } else {
+                bars.MoveTo(new Vector2(box.X + box.Width, box.Y + offset - box.Width));
+                bars.LineTo(new Vector2(box.X + offset - box.Width, box.Y + box.Height));
+            }
         }
 
         context.Stroke(bars, color, Math.Max(1f, box.Width * 0.03f));

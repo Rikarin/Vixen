@@ -73,11 +73,20 @@ public sealed class DoctorGraphicsTests {
 
     /// <summary>The probe runs for real and says one of exactly those two things about this machine.</summary>
     /// <remarks>
+    ///     <para>
     ///     ⚠ <b>Branching on the machine, and each branch asserts something only that branch can
-    ///     produce.</b> This is the case that would catch the probe never being called at all — the
-    ///     formatter above is perfectly happy on a <c>doctor</c> that no longer asks — and it is
-    ///     deliberately not an assertion about which answer is right, because that is a fact about
-    ///     the box the suite is running on.
+    ///     produce</b> — deliberately not an assertion about which answer is right, because that is a
+    ///     fact about the box the suite is running on.
+    ///     </para>
+    ///     <para>
+    ///     ⚠ <b>And it is not the case that catches the probe never being called</b>, whatever an
+    ///     earlier version of this remark claimed: it wires <c>DoctorRunner.Machine</c> up itself
+    ///     rather than going through <c>Examine</c>, so deleting <c>findings.Add(Machine())</c> from
+    ///     production leaves it green. What asserts the wiring is
+    ///     <c>VixenCommandTests</c>'s <c>Assert.Contains("GPU:", output)</c> over a real
+    ///     <c>doctor</c> run — and that file's own comment said so about this one, in the same
+    ///     commit.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void The_doctor_asks_this_machine_and_prints_whichever_answer_it_gets() {

@@ -496,15 +496,18 @@ than one path, so no 2D stroke pays for it.
   moving the rows into markup moves the whole panel from synchronous to frame-deferred — six test
   files and `LayerStackView.Status` read the tree immediately after a `Show`.
 
-  ⚠ **The build note that stood here was wrong, and it is worth reading before the next `.vxml`.** It
-  said the `.csproj` needs `<VixenUi>true</VixenUi>`, which is what VX4002's and VX4003's own message
-  text says. That line does nothing in *this* project: `Directory.Build.targets` conditions the two
-  analyzer references on `_VixenUiWiredByProject != true`, and that flag is set by the project's own
-  `Import` of `Vixen.Ui.targets` — which is the import that makes a `.vxml` compiler input in the
-  first place, so the projects that can reach VX4002 are exactly the ones `VixenUi` skips. Confirmed
-  with `dotnet msbuild -getItem:ProjectReference -p:VixenUi=true`, which lists neither generator. The
-  cure is the other one VX4003 names: reference `Vixen.Ui.Markup.Generators` and `Vixen.Ui.Generators`
-  with `OutputItemType="Analyzer"` from the `.csproj` itself.
+  ⚠ **The build note that stood here was wrong, was fixed at the source, and the fix is worth reading
+  before the next `.vxml`.** It said the `.csproj` needs `<VixenUi>true</VixenUi>`, which is what
+  VX4002's and VX4003's own message text says, and that line used to do nothing in a project like
+  this one: `Directory.Build.targets` conditioned the two analyzer references on
+  `_VixenUiWiredByProject != true`, and that flag is set by the project's own `Import` of
+  `Vixen.Ui.targets` — which is the import that makes a `.vxml` a compiler input in the first place,
+  so the projects that could reach VX4002 were exactly the ones `VixenUi` skipped. ⚠ **As of
+  2026-09-09 the guard is on the globs alone** and the property contributes whichever generator the
+  project has not named itself, so the diagnostics' advice is now true wherever it is read. This
+  project still names `Vixen.Ui.Markup.Generators` and `Vixen.Ui.Generators` with
+  `OutputItemType="Analyzer"` from the `.csproj` itself, which remains the clearer spelling once the
+  import is by hand.
 * **No base resolution in the file.** `NodeGraphModel` has nowhere to put one —
   [#719](https://github.com/Rikarin/Vixen/issues/719) — so `TextureGraphDocument.BaseWidth` is held,
   shown and not saved. A sidecar to hold it would be a second file that disagrees with the one #719

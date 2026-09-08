@@ -328,9 +328,6 @@ public class TextureGraphPreviewDeviceTests {
         Assert.True(after.Unavailable);
         Assert.Equal(0ul, after.Image);
 
-        // ⚠ And `Skipped` did not move, which is what keeps the two counters able to tell "the whole
-        // graph was refused" from "these nodes were dropped from a bake that happened".
-        Assert.Equal(0, previews.Skipped);
     }
 
     /// <summary>

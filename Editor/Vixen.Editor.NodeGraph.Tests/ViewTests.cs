@@ -462,6 +462,13 @@ public class ViewTests : IDisposable {
         Assert.DoesNotContain(Commands(DrawCommandKind.Image), command => command.Image == 77UL);
     }
 
+    /// <summary>How many bars <c>NodePreviewLayer</c>'s hatch draws.</summary>
+    /// <remarks>
+    ///     Quarters of the swatch's side over twice the side, so the bars cross the whole square
+    ///     rather than one corner of it.
+    /// </remarks>
+    const int Bars = 7;
+
     /// <summary>
     ///     ⚠ A preview that has no picture <i>for a reason</i> is drawn, and drawn differently from
     ///     both of the other two.
@@ -492,7 +499,7 @@ public class ViewTests : IDisposable {
 
         // ⚠ Counted as a difference across the two frames rather than absolutely: this canvas strokes
         // paths for its own reasons — a wire is one — so an absolute count would be a number about
-        // the fixture. Four bars of two points is the shape the layer adds and the only stroke in
+        // the fixture. Seven bars of two points is the shape the layer adds and the only stroke in
         // either frame with that many points.
         var plain = Commands(DrawCommandKind.PathStroke).ToArray();
 
@@ -502,8 +509,53 @@ public class ViewTests : IDisposable {
         var hatched = Commands(DrawCommandKind.PathStroke).ToArray();
 
         Assert.Equal(plain.Length + 1, hatched.Length);
-        Assert.DoesNotContain(plain, command => command.Length == 4 * 2);
-        Assert.Single(hatched, command => command.Length == 4 * 2);
+        Assert.DoesNotContain(plain, command => command.Length == Bars * 2);
+
+        var stroke = Assert.Single(hatched, command => command.Length == Bars * 2);
+
+        // ⚠ The closed-form oracle for "a hatch", which a count of bars is not. The bars are drawn
+        // over a square, so a segment's midpoint tells you which side of the swatch's anti-diagonal
+        // it is on, and a hatch puts bars well clear of it on both sides. ⚠ The first spelling of
+        // this drew four in the triangle *above* it — a corner fan, with the lower-right half of the
+        // swatch carrying nothing but the chequer — and every assertion about counts, colours and
+        // command kinds was green for it.
+        //
+        // ⚠ And the margins are not decoration: a fan's last bar runs corner to corner, so its
+        // midpoint sits exactly *on* the anti-diagonal and a bare `> side` counts it as being on the
+        // far side. A tenth of the side either way is what makes this a question about where the
+        // bars are rather than about how a boundary case rounds.
+        var points = new List<Vector2>();
+
+        for (var index = stroke.Offset; index < stroke.Offset + stroke.Length; index++) {
+            points.Add(fixture.Ui.Drawing.Segments[index].P2);
+        }
+
+        // The swatch, read off the bars rather than off the command, so this measures the shape the
+        // layer drew and not a rectangle the draw list happened to record.
+        var least = points.Aggregate(Vector2.Min);
+        var most = points.Aggregate(Vector2.Max);
+        var side = most.X - least.X;
+
+        var above = 0;
+        var below = 0;
+
+        for (var index = 0; index < points.Count; index += 2) {
+            var middle = (points[index] + points[index + 1]) * 0.5f;
+
+            var diagonal = middle.X - least.X + (middle.Y - least.Y);
+
+            if (diagonal < side * 0.9f) {
+                above++;
+            } else if (diagonal > side * 1.1f) {
+                below++;
+            }
+        }
+
+        Assert.True(
+            above > 0 && below > 0,
+            $"{above} bars clear of the anti-diagonal above it and {below} below it, over a swatch {side} wide. "
+            + "A hatch crosses the whole square; bars on one side of it are a corner mark."
+        );
 
         // ⚠ And no image is asked for, so "unavailable" is not a picture drawn with a handle of zero
         // — which is what `DrawImage` would be handed if the branch were ordered the other way.

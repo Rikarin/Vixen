@@ -891,10 +891,14 @@ Grunges 8 · Surface 5 ·
 Mask generators 7. **The number was never a summary of the table, and three ledger readings quoted it
 rather than the marks** — `docs/overview.md` scored M10 at "4 of two dozen" and then "sixteen of
 roughly two dozen", each time against a denominator eleven short, which reads a milestone as
-two-thirds done when it is under a half. ⚠ **And a test quotes these marks as a floor**
-(`TextureCompoundLibraryTests.The_shipped_library_is_the_folder_and_not_a_list`), so an ● here is
-load-bearing rather than decorative: the count in prose is the one thing in this section nothing
-derives, which is why it is now stated as an enumeration instead.
+two-thirds done when it is under a half. ⚠ **And a test carries these marks beside a floor that is the shipped count**
+(`TextureCompoundLibraryTests.The_shipped_library_is_the_folder_and_not_a_list`), which are two
+different questions and were one for three batches. The floor is what refuses a compound that has
+stopped being embedded; the ● count is this document's ask, and it is not assertable on its own,
+because a marked compound may be refused for a reason. What keeps an ● load-bearing is the ratchet
+between them: the moment a folder ships as many as it marks, the floor has to follow, or the test is
+red. So the count in prose is still the one thing in this section nothing derives — which is why it
+is stated as an enumeration — and it is now a number a test will come and ask about.
 
 ⚠ **A mark and a shipped file are different things, and a folder floor quoting these marks equals the
 file count only on a row where nothing is blocked.** Counted on 2026-09-09: **34 files against 35

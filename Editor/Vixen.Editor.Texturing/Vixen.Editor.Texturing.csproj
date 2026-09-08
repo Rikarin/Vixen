@@ -193,14 +193,18 @@
         ⚠ **And for the `**/*.vxml` glob, which stopped being inert with `LayerStackChrome.vxml`** —
         #881's second half. The comment that used to stand here predicted the day a `.vxml` appeared
         and named the wrong cure: it said, as VX4002's and VX4003's own message text still does, that
-        "the one line that fixes it is `<VixenUi>true</VixenUi>`". ⚠ **That line does nothing in
-        *this* project, and it cannot.** `Directory.Build.targets` conditions the two analyzer
-        references on `'$(_VixenUiWiredByProject)' != 'true'`, and `_VixenUiWiredByProject` is the
-        flag *this very import* sets — so a project that names the .targets by hand is exactly the
-        project `VixenUi` skips, and it is also exactly the set of projects that can reach VX4002 at
-        all. Confirmed by asking a real evaluation: `-getItem:ProjectReference -p:VixenUi=true` on
-        this file lists neither generator. The cure for a hand-wired project is the one VX4003's
-        message describes second — name both generators here, which is what the ItemGroup below does.
+        "the one line that fixes it is `<VixenUi>true</VixenUi>`". ⚠ **That line did nothing in
+        *this* project, and could not**, until 2026-09-09: `Directory.Build.targets` conditioned the
+        two analyzer references on `'$(_VixenUiWiredByProject)' != 'true'`, and that flag is set by
+        *this very import* — so a project that named the .targets by hand was exactly the project
+        `VixenUi` skipped, and that is also exactly the set of projects that can reach VX4002 at all.
+        ⚠ **That guard is gone and the advice is now true**: the flag guards the globs only, and
+        `Directory.Build.targets` contributes whichever of the two generators the project has not
+        already named itself, comparing full paths so a hand-written relative reference and a
+        root-relative one are not two items for one file. This project names both below, so it is
+        owed neither, and the change moves nothing here — it is the *next* hand-wired project that
+        it is for. Keep the ItemGroup: naming them is still the clearer spelling when the import is
+        already by hand.
     -->
     <Import Project="..\..\Core\Vixen.Ui\build\Vixen.Ui.targets" />
 
