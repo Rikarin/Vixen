@@ -312,9 +312,9 @@ is the assembly that should hold it. Status: ✅ built, 🟡 partial, ⛔ absent
 | Panel | UE / Unity | Owner | Status | What is owed |
 |---|---|---|---|---|
 | **Hierarchy** | Outliner / Hierarchy | `.App` → `.SceneView` | ✅ | — |
-| **Inspector** | Details / Inspector | `.Inspector` | 🟡 | Multiple inspector windows, pinned/favourite members, debug (raw) mode |
+| **Inspector** | Details / Inspector | `.Inspector` | 🟡 | Multiple inspector windows and pinned/favourite members ([#1038](https://github.com/Rikarin/Vixen/issues/1038)), debug (raw) mode ([#1039](https://github.com/Rikarin/Vixen/issues/1039)). ⚠ **The second window is a second *instance*, which is the hard half**: `EditorApplication` holds one `inspector` field and `FollowSelection` exists to arbitrate several selections into it |
 | **Scene viewport** | Level Viewport / Scene | `.SceneView` | 🟡 | See [B2](#b2--the-viewport) |
-| **Project browser** | Content Browser / Project | `.App` | 🟡 | Saved filters, collections/favourites, source-control column, a folder tree beside the grid |
+| **Project browser** | Content Browser / Project | `.App` | 🟡 | Saved filters, collections/favourites and a folder tree beside the grid ([#1040](https://github.com/Rikarin/Vixen/issues/1040)); the source-control column waits on a provider ([#1034](https://github.com/Rikarin/Vixen/issues/1034)). ⚠ The tree and the grid are two *modes* of one view today, so a folder tree beside the grid is a second, folders-only control that narrows it rather than the existing one turned on as well |
 | **Console** | Output Log / Console | `.Ui` | ✅ | — |
 | **Message log** | Message Log | `.Ui` | ✅ | — |
 | **Command palette** | — (both have search) | `.Ui` | ✅ | Recency boosting. Search-everywhere is a second palette over content ([A8](#a8--search-everywhere)) |
@@ -389,7 +389,7 @@ is, and `EditorHost` instruments its loop with the four phases its own remarks n
 | **Audio mixer** | Audio Mixer (both) | `.AssetEditors` | ✅ | A strip per bus with its sends, inserts and snapshots, validated by running the real `MixerBuilder`. ⚠ The format was already `Vixen.Audio`'s |
 | **Input actions** | Input / Input System | `.AssetEditors` | ✅ | Maps, actions, composite bindings, control schemes, and rebinding as a *mode* rather than a modal — `KeyBindingsView`'s argument, restated |
 | **Font editor** | — / Font asset | `.AssetEditors` | ✅ | `.vxfont`: coverage per Unicode block against *assigned* code points, a glyph page drawn from the face's own outlines, and a fallback chain whose colour says which face drew each cell |
-| **Curve / gradient presets** | ✅ both | `.Inspector` | 🟡 | Controls exist; a library of saved presets does not |
+| **Curve / gradient presets** | ✅ both | `.Inspector` | 🟡 | Controls exist; a library of saved presets does not. A user-store file rather than an editor surface, which is where [E5](#e5--authoring-surfaces-25-em)'s "not built" table already puts it. [#1041](https://github.com/Rikarin/Vixen/issues/1041) |
 
 ### B6 — World building
 
