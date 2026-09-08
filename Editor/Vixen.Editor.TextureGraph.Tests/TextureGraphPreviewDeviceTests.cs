@@ -263,6 +263,54 @@ public class TextureGraphPreviewDeviceTests {
         Assert.True(Middle(sink.Pictures[second.Image]) is > 180 and < 200);
     }
 
+    /// <summary>
+    ///     ⚠ A graph reading an imported picture is refused, not thrown out of the plugin's frame.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What this looked like before <a href="https://github.com/Rikarin/Vixen/issues/1089">#1089</a>:</b>
+    ///         <c>Rebuild</c> called the bare-handle <c>Evaluate</c> overload with no externals at
+    ///         all, <c>ExternalViews</c> raised <c>ArgumentException</c> for the one nothing
+    ///         supplied, and it left <c>Update</c> — which is a plugin's per-frame work, and which
+    ///         <c>PluginHost.Update</c> answers by unloading the plugin. A <c>Source/Bitmap</c>
+    ///         naming an imported image is an ordinary graph and reports nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The refusal is counted and the bake is not, which is what separates "skipped" from
+    ///         "drew something".</b> Asserting only that <c>Update</c> does not throw would be
+    ///         satisfied by a source that had stopped rebuilding anything at all —
+    ///         <see cref="A_preview_source_registers_one_picture_per_node" /> is the half that says
+    ///         it still does.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_graph_reading_an_imported_picture_is_refused_rather_than_thrown_out_of() {
+        using var device = TextureKernelHarness.Open();
+
+        NodeGraphModel graph = new();
+        var picture = graph.Add("Source/Bitmap");
+        var output = graph.Add("Output/Output");
+
+        // A reference a host would resolve, and this source cannot: it holds a leased evaluator and
+        // no asset database. Non-empty is all it takes — the node reports nothing and compiles.
+        picture.SetText("Source", "Assets/Imported.png");
+        graph.Connect(new(picture.Id, "Out"), new(output.Id, "Input"));
+
+        Kept sink = new();
+
+        using Lease lease = new(device);
+        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
+
+        Assert.False(previews.TryGet(graph, First(graph, picture.Id), Definition(Registry(), graph, picture.Id), out _));
+
+        previews.Update();
+
+        Assert.Equal(1, previews.Compilations);
+        Assert.Equal(0, previews.Bakes);
+        Assert.Equal(1, previews.Refusals);
+        Assert.Empty(sink.Pictures);
+    }
+
     /// <summary>An edit invalidates the graph, and the next update draws the new numbers.</summary>
     [Fact]
     public void An_edit_is_what_makes_a_preview_stale() {

@@ -80,6 +80,18 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
     /// </remarks>
     public NodeGraphInlining Inlining { get; private set; } = NodeGraphInlining.Empty;
 
+    /// <summary>Who decides what an unfed sub-graph input is worth, when it is not a literal.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read once, before inlining, and <see langword="null" /> by default</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a>. A subclass that returns
+    ///     itself gets asked mid-walk, in the scope the sub-graph node was written in, which is the
+    ///     one join that cannot be made afterwards: by the time <see cref="Begin" /> runs, the node
+    ///     carrying the value is gone and the graph it was written in is not distinguishable from the
+    ///     graph it was inlined into. See <see cref="ISubGraphValues" />, and <see cref="Prepare" />
+    ///     for the half a subclass has to move to be ready in time.
+    /// </remarks>
+    protected virtual ISubGraphValues? SubGraphValues => null;
+
     /// <summary>Compiles a graph.</summary>
     /// <param name="graph">The graph.</param>
     /// <returns>The artefact and everything the compiler had to say.</returns>
@@ -90,8 +102,12 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
         diagnostics.Clear();
         Inlining = NodeGraphInlining.Empty;
 
+        // ⚠ The author's own graph, before anything is inlined, which is the only point at which a
+        // subclass can still be ready for `SubGraphValues` — see `Prepare`.
+        Prepare(graph);
+
         if (SubGraphSource is { } source && SubGraphs.ContainsSubGraph(graph, source)) {
-            graph = SubGraphs.Flatten(graph, source, out var refused, out var inlining);
+            graph = SubGraphs.Flatten(graph, source, SubGraphValues, out var refused, out var inlining);
 
             // ⚠ Before the loop, not after it. `Report` reads it to name a node the author can
             // select, and a diagnostic reported against an empty map keeps a synthetic identity.
@@ -130,8 +146,19 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
         return new(artefact, [.. diagnostics]);
     }
 
+    /// <summary>Called with the author's own graph, before anything is inlined.</summary>
+    /// <param name="graph">The graph as it was saved, sub-graph nodes and all.</param>
+    /// <remarks>
+    ///     ⚠ <b><see cref="Begin" /> is too late for anything <see cref="SubGraphValues" /> reads</b>,
+    ///     and that ordering is the whole reason this exists. Inlining decides a sub-graph port's
+    ///     value <em>during</em> the walk, so a subclass whose resolver needs the graph's declared
+    ///     parameters has to have read them by now. Everything that does not is better left in
+    ///     <see cref="Begin" />, which sees the graph that will actually be compiled.
+    /// </remarks>
+    protected virtual void Prepare(NodeGraphModel graph) { }
+
     /// <summary>Called before the walk, to reset whatever the subclass accumulates.</summary>
-    /// <param name="graph">The graph about to be walked.</param>
+    /// <param name="graph">The graph about to be walked, already flattened.</param>
     protected virtual void Begin(NodeGraphModel graph) { }
 
     /// <summary>Called once per node, in dependency order, with its ports already filled.</summary>

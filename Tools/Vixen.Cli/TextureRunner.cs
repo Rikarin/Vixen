@@ -30,15 +30,14 @@ namespace Vixen.Cli;
 ///         called from the editor as a second caller rather than copied.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What keeps <c>--graph</c> off this verb is a device and not a document.</b>
-///         Evaluating a graph means <c>TexturePlanEvaluator</c>, which dispatches compute on an
-///         <c>IGraphicsDevice</c>; nothing in this CLI creates one, and a command-line bake that
-///         silently produced a black picture on a machine with no adapter is the failure doc 48 § D3
-///         is about. That is a real piece of work with a real decision in it —
-///         <a href="https://github.com/Rikarin/Vixen/issues/1020">#1020</a> — and not a paragraph.
-///         What is here is independently useful without one: a build script with a folder of authored
-///         or externally generated maps gets a packed, mipped, compressed, provenanced material out of
-///         it.
+///         ⚠ <b>And <c>--graph</c> is the other half of this verb now, rather than the thing this
+///         file explained the absence of</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1020">#1020</a>.
+///         <see cref="TextureGraphRunner" /> compiles and evaluates one, on a device
+///         <c>HeadlessGraphics</c> refuses to fake, and ends in this type's own baker. What is here
+///         stays independently useful and is the half that needs no GPU: a build script with a folder
+///         of authored or externally generated maps gets a packed, mipped, compressed, provenanced
+///         material out of it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The inputs are named by <i>usage</i> and the outputs by <i>file</i>, which are not
@@ -199,7 +198,7 @@ public static class TextureRunner {
     ///     ⚠ An absolute path off somebody's machine in a provenance block is a fact about that
     ///     machine, and it is the sort that reaches a review as a diff nobody can act on.
     /// </remarks>
-    static string Relative(Project project, string path) {
+    internal static string Relative(Project project, string path) {
         var full = Path.GetFullPath(path);
         var root = Path.GetFullPath(project.Paths.Root);
 

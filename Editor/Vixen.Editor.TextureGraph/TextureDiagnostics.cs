@@ -27,13 +27,16 @@ namespace Vixen.Editor.TextureGraph;
 ///         inventing a twenty-second id in passing.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>TG0003</c> and <c>TG0007</c> had never been used, and <c>TG0003</c> now is.</b>
+///         ⚠ <b><c>TG0003</c> and <c>TG0007</c> are both free, and <c>TG0003</c> has been twice.</b>
 ///         Measured with <c>git log -S</c> over the whole history rather than assumed: the numbering
-///         had those two holes in it since the ids were first written, so neither was a retired
-///         meaning and either could be taken by whatever needed one next —
-///         <see cref="ExpressionOnASubGraphPort" /> took the first, and <c>TG0007</c> is still free.
-///         There is deliberately no <c>TG0023</c>-shaped "next free id" member — a constant somebody
-///         has to remember to increment is the defect one level up.
+///         had those two holes in it since the ids were first written, so neither was ever a retired
+///         meaning. <c>TG0003</c> was taken for one batch by "an expression on a sub-graph port is
+///         refused" and given back when <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a>
+///         made that expression fold — what survives of the rule is the complaint
+///         <see cref="ExpressionOnAPortThatTakesNone" /> already made about an atomic node's port,
+///         and a second id for one meaning is what this file exists to prevent. There is deliberately
+///         no <c>TG0023</c>-shaped "next free id" member — a constant somebody has to remember to
+///         increment is the defect one level up.
 ///     </para>
 ///     <para>
 ///         Internal, like every other type here. A host that wants to filter on one of these spells
@@ -47,13 +50,6 @@ static class TextureDiagnostics {
     ///     or an entry that is not a texture node at all.
     /// </summary>
     internal const string NothingToCompile = "TG0001";
-
-    /// <summary>
-    ///     A port of a <em>sub-graph</em> node carries a Raven expression. A published graph is
-    ///     inlined rather than called, so what its ports are worth is decided before anything is
-    ///     folded — the arithmetic belongs on the published graph's own parameters.
-    /// </summary>
-    internal const string ExpressionOnASubGraphPort = "TG0003";
 
     /// <summary>
     ///     A node needs an image and has none — an unwired input, or a source node whose asset

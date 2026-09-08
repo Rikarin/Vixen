@@ -46,18 +46,22 @@ writes maps.
 
 Two entry points over one implementation:
 
-- **`vixen texture bake`**, for a folder of maps named by usage. That is [the command line
+- **`vixen texture bake --from`**, for a folder of maps named by usage. That is [the command line
   below](#from-the-command-line), and it is what a build script or a headless machine uses.
+- **`vixen texture bake --graph`**, for a `.vxtexgraph` compiled and evaluated on a GPU. ⚠ It
+  **refuses** when there is no adapter rather than falling back to the device that draws nothing,
+  because that fallback writes black maps and exits 0.
 - **`ProjectMaterialBaker`**, for code inside the editor. `MaterialBake.Encode` turns a dictionary of
   bitmaps keyed by `MaterialMapUsage` into the files to write — that is where the ORM packing and the
   PNG-or-KTX2 decision happen — and `Write` puts them in the project, mints the identities and writes
   the `.vxmat` and the provenance.
 
-The seam between the two halves is that dictionary: whatever fills it, the write below it is the same.
-⚠ **There is no material bake panel yet.** `ProjectMaterialBaker`'s only callers are `vixen texture
-bake` and the asset tests — the editor application mentions it in one comment and constructs it
-nowhere — so the button an artist would press is still owed
-([#570](https://github.com/Rikarin/Vixen/issues/570)). The mesh-map bake **does** have one, which is
+The seam between the three is that dictionary: whatever fills it, the write below it is the same.
+⚠ **This paragraph said there was no bake verb in the editor and that `ProjectMaterialBaker`'s only
+callers were the CLI and the asset tests. Both stopped being true on 2026-09-08.** A *Bake Material*
+verb takes the open `.vxtexgraph` to a `.vxmat`, a *Bake Material from Layers* verb writes one per
+texture set of a `.vxlayers`, and the CLI grew its graph half — one baker, three callers. The
+mesh-map bake **does** have a panel, which is
 the shape it will take.
 
 ## The nine usages and the seven files
@@ -250,11 +254,17 @@ output the bake has stopped producing survives a forced run, with a warning.
 ```bash
 vixen texture bake --project . --from authored/ --name ShipHull
 vixen texture bake --project . --from authored/ --name ShipHull --force
+vixen texture bake --project . --graph Assets/Hull.vxtexgraph --name ShipHull
 ```
 
 The inputs are named `<anything>_<usage>.png` — `hull_roughness.png`, `hull_baseColor.png` — and
 everything else in the folder is ignored. Two files claiming one usage is refused rather than
 resolved by enumeration order.
+
+Exactly one of `--from` and `--graph` is passed; neither is guessed, because two sources for one
+material is a script that bakes whichever the parser preferred. ⚠ `--adapter` is refused beside
+`--graph`: it records what ran a bake this tool did not do, and a graph bake ran on the device this
+process opened.
 
 ⚠ **`--from` is the set's identity, not just a note in the sidecar.** Baking the same folder again
 overwrites that set and keeps its GUIDs, which is what re-baking means; baking a *different* folder
@@ -274,11 +284,18 @@ because packing three inputs into one output is the work the verb exists to do.
 
 ## What is not here yet
 
-- **A bake panel.** M5 is the write; nothing in the editor calls it
-  ([#570](https://github.com/Rikarin/Vixen/issues/570)).
-- **Evaluating a graph.** The seam is a dictionary of bitmaps by usage, and nothing yet fills it from
-  a compiled graph's outputs.
 - **A height feature.** [#615](https://github.com/Rikarin/Vixen/issues/615).
+- **A `Source/Bitmap` naming a project asset, from the command line.** The graph verb refuses one
+  rather than resolving it: that resolver reads a live editor session's unsaved paint canvases, and a
+  second copy in a CLI would be the copy that forgot a case
+  ([#1087](https://github.com/Rikarin/Vixen/issues/1087)).
+
+⚠ **Two entries came off this list on 2026-09-08 and one of them had been wrong for a batch.**
+"A bake panel — nothing in the editor calls it" was false once *Bake Material* landed
+([#570](https://github.com/Rikarin/Vixen/issues/570), [#1009](https://github.com/Rikarin/Vixen/issues/1009)),
+and "evaluating a graph — nothing yet fills the dictionary from a compiled graph's outputs" was false
+in the editor from that day and is now false from the command line too
+([#1020](https://github.com/Rikarin/Vixen/issues/1020)).
 
 ⚠ **"A frame that draws one of these" used to be on that list and has come off it.**
 `BakedMaterialImageTests` renders a material whose maps the evaluator made and this bake packed,

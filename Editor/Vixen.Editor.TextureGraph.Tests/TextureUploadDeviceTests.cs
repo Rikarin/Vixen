@@ -256,6 +256,63 @@ public class TextureUploadDeviceTests(ITestOutputHelper output) {
         }
     }
 
+    /// <summary>
+    ///     ⚠ And the bare-handle overload says it could not check, rather than saying nothing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1014">#1014</a>: a mechanism whose
+    ///         caller passes the default.</b>
+    ///         <c>Evaluate(TexturePlan, IReadOnlyDictionary&lt;int, TextureHandle&gt;)</c> fills in
+    ///         <c>new TextureExternal(handle, Sampled)</c> and cannot fill in a size — a handle is an
+    ///         opaque number — so the extent guard had nothing to compare and was <em>silent</em> for
+    ///         every plan supplied through it. Silence and "checked and fine" were the same output,
+    ///         which is the failure this repository keeps producing one layer up: an instrument that
+    ///         reports success on the day it did not run.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The same plan, the same upload and the same undersized picture as
+    ///         <see cref="An_upload_smaller_than_the_plan_is_clamped_to_its_own_edge" />, through the
+    ///         other overload.</b> That is what makes this a claim about the overload rather than
+    ///         about the guard: one of them names the sizes and the other says it does not have them,
+    ///         and before this the second said nothing at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_bare_handle_overload_says_the_extent_could_not_be_checked() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"undeclared extent on {TextureKernelHarness.Adapter(device)}");
+
+        const int Narrow = 16;
+
+        var plan = Plan(TextureFormat.Rgba8);
+
+        using var uploads = new TextureUploads(device);
+
+        uploads.Add(plan, 0, Narrow, Narrow, TextureKernelHarness.Ramp(Narrow));
+
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        // The same texture, handed over without the size beside it — which is the whole of what the
+        // shorter overload can express.
+        using var bake = evaluator.Evaluate(
+            plan,
+            new Dictionary<int, TextureHandle> { [0] = uploads.Externals[0].Texture }
+        );
+
+        var caution = Assert.Single(bake.Warnings);
+
+        Assert.Contains("Op 0", caution, StringComparison.Ordinal);
+        Assert.Contains("without saying how big it is", caution, StringComparison.Ordinal);
+        Assert.Contains("not checked", caution, StringComparison.Ordinal);
+
+        // ⚠ And it does not claim the difference it cannot see: the 16×16 never appears, because
+        // this overload does not know it. A message that named a size would be one this call could
+        // only have invented.
+        Assert.DoesNotContain($"{Narrow}×{Narrow}", caution, StringComparison.Ordinal);
+    }
+
     /// <summary>And an op that means to read another extent is silent about the same upload.</summary>
     /// <remarks>
     ///     ⚠ <b>The half that stops the caution being "every import that is not the graph's size is a

@@ -21,8 +21,10 @@ namespace Vixen.Cli;
 ///         with no consumer at all —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/702">#702</a> — and a resolver whose only
 ///         caller is a node that does not exist yet is the finished-thing-nothing-calls shape this
-///         repository produces most often. This runs the same index the node will, so a project in
-///         which the verb finds nothing is a project in which the node would bind nothing.
+///         repository produces most often. ⚠ <b>That node exists now</b>: <c>Source/Mesh Map</c> is
+///         registered by <c>NodeTypes</c> and resolves through the same index, so this is no longer
+///         the only reader — it is the one a person can run, and a project in which the verb finds
+///         nothing is a project in which the node binds nothing.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>It scans before it indexes.</b> A library is a snapshot over the asset database, and
