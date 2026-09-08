@@ -38,6 +38,18 @@ namespace Vixen.Samples.NetworkSoak;
 ///         resolver would produce; <c>--interest all</c> is there to show the difference and is not a
 ///         configuration anybody should ship.
 ///     </para>
+///     <para>
+///         ⚠ <b><c>--interest grid</c> is a third mode rather than a replacement for the slice, and
+///         that is deliberate.</b> <see cref="SliceResolver" /> exists because a distance grid makes
+///         the measurement depend on how the entities were laid out, which is a fair objection to
+///         measuring <i>the pipeline</i> with one — so the slice stays the default and stays the
+///         layout-independent number. What was missing is the other half: <c>InterestGrid</c> makes a
+///         cost claim ("ten thousand objects and two hundred players is two million questions a
+///         tick") that nothing in this repository measured, and the honest way to put a number on it
+///         is the two modes run against each other on the same machine at the same sitting. Compare
+///         the observed counts as well as the tick times: a grid that sees a tenth as much is not
+///         faster, it is doing less.
+///     </para>
 /// </remarks>
 public static class Program {
     /// <summary>Runs the soak.</summary>
@@ -59,7 +71,8 @@ public static class Program {
             Observed = Number(arguments, "--observed", 250),
             MovingPercent = Number(arguments, "--moving", 20),
             AcknowledgeLag = Number(arguments, "--ack-lag", 4),
-            SeesEverything = Text(arguments, "--interest", "slice") == "all",
+            Interest = Text(arguments, "--interest", "slice"),
+            GridRadius = Number(arguments, "--grid-radius", 32),
             BandwidthBudget = Number(arguments, "--kbit", 128),
             AllocationBudget = Number(arguments, "--alloc", 4_096)
         };
@@ -80,13 +93,20 @@ public static class Program {
               --observed N   entities each connection sees       (250)
               --moving N     percent of entities that move a tick (20)
               --ack-lag N    ticks before a connection acknowledges (4)
-              --interest X   `slice` or `all`                  (slice)
+              --interest X   `slice`, `all` or `grid`           (slice)
+              --grid-radius N  metres a connection sees, `grid` only (32)
               --kbit N       bandwidth budget per client, kbit/s  (128)
               --alloc N      allocation budget per tick, bytes   (4096)
 
             Thirty minutes at the default rate:
 
               dotnet run -c Release --project Samples/09-NetworkSoak -- --ticks 54000
+
+            What a distance grid costs, measured against the slice on the same machine at the same
+            sitting rather than against a number somebody wrote down:
+
+              dotnet run -c Release --project Samples/09-NetworkSoak -- --interest slice
+              dotnet run -c Release --project Samples/09-NetworkSoak -- --interest grid
             """
         );
 
@@ -132,8 +152,17 @@ internal readonly record struct SoakSettings {
     /// <summary>How many ticks a connection takes to acknowledge, standing in for a round trip.</summary>
     public int AcknowledgeLag { get; init; }
 
+    /// <summary>Which resolver to run: <c>slice</c>, <c>all</c> or <c>grid</c>.</summary>
+    public string Interest { get; init; }
+
+    /// <summary>How far a connection is told about things, in the <c>grid</c> mode.</summary>
+    public int GridRadius { get; init; }
+
     /// <summary>Whether every connection sees everything.</summary>
-    public bool SeesEverything { get; init; }
+    public bool SeesEverything => string.Equals(Interest, "all", StringComparison.Ordinal);
+
+    /// <summary>Whether the distance grid is the source of candidates.</summary>
+    public bool UsesGrid => string.Equals(Interest, "grid", StringComparison.Ordinal);
 
     /// <summary>What a connection may cost, in kilobits a second.</summary>
     public int BandwidthBudget { get; init; }

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
 using Vixen.Ecs;
 using Vixen.Engine.Frames;
 using Vixen.Net;
@@ -54,6 +55,12 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
     readonly List<PlayerId> leaving = [];
     readonly byte[] lastSnapshot = new byte[2048];
 
+    // What each connection is told about, rather than everything there is. See `Interest`.
+    readonly InterestGrid grid;
+    readonly ExplicitInterestRule overrides = new();
+    readonly InterestChain interest;
+    readonly List<Entity> observed = [];
+
     int lastSnapshotLength;
 
     /// <summary>The session, for whoever is driving this.</summary>
@@ -92,6 +99,26 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
     /// <summary>Payloads that arrived claiming to be a snapshot, which only a server sends.</summary>
     public long BogusPayloadCount { get; private set; }
 
+    /// <summary>What decides who is told about what.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An <see cref="InterestGrid" /> is the chain's <i>source</i> and
+    ///         <see cref="ExplicitInterestRule" /> is a rule after it, and the order is not
+    ///         decoration.</b> A rule only ever sees the candidates the source produced, so
+    ///         <c>Show</c> can keep something visible that a later rule would have hidden and cannot
+    ///         resurrect an object the grid never offered. In an arena forty metres across with a
+    ///         ninety-six metre radius nothing is ever out of range, which is the point of the
+    ///         default: the chain runs, the grid buckets, and the match still converges. Narrow the
+    ///         radius (<c>--interest-radius</c>) and fighters start being hidden — and
+    ///         <c>LocalMatch</c> then checks that a client holds exactly what the chain says it
+    ///         should and nothing else.
+    ///     </para>
+    /// </remarks>
+    public InterestChain Interest => interest;
+
+    /// <summary>Where the candidates come from.</summary>
+    public InterestGrid Grid => grid;
+
     /// <summary>Stands a server up.</summary>
     /// <param name="transport">What it listens on. Disposed with the session.</param>
     /// <param name="options">
@@ -99,7 +126,12 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
     ///     built against different components or different calls is refused at the handshake rather
     ///     than at the first packet that means something different to each of them.
     /// </param>
-    public GameServer(ITransport transport, SessionOptions? options = null) {
+    /// <param name="interestRadius">
+    ///     How far a player is told about things. The arena is eighty metres across, so the default
+    ///     ninety-six sees all of it and the chain hides nothing — which is what keeps the default
+    ///     run's convergence check about replication rather than about interest.
+    /// </param>
+    public GameServer(ITransport transport, SessionOptions? options = null, float interestRadius = 96f) {
         loop = new(world);
 
         // ⚠ Added by hand, and it has to be: the sweep is what turns a SyncVar written from ordinary
@@ -125,7 +157,14 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
         };
 
         session = new(transport, settings, ownsTransport: true);
-        replication = new(registry);
+
+        // A third of the radius, which is what InterestGrid's own remarks ask for: large enough that
+        // a query walks a handful of cells, small enough that most of what it finds is genuinely
+        // close.
+        grid = new() { CellSize = MathF.Max(1f, interestRadius / 3f), Radius = interestRadius };
+        interest = new() { Source = grid, Rules = { overrides } };
+
+        replication = new(registry, interest);
         router = new(manifest, new SessionRpcTransport(session), RpcRole.Server);
         arena = new(world, ids, replication, router, settings.TickRate, loop.Behaviors);
         tickDuration = settings.TickRate.Duration;
@@ -181,6 +220,29 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
         }
     }
 
+    /// <summary>What the chain says one player is entitled to be told about, right now.</summary>
+    /// <param name="player">Whose view.</param>
+    /// <param name="into">Filled with the network ids. Cleared first.</param>
+    /// <remarks>
+    ///     The same call <see cref="ReplicationServer" /> makes per connection, run again by whoever
+    ///     is checking the clients. Asking the chain rather than remembering what was sent is what
+    ///     makes the check a statement about the interest wiring: a client holding an object the
+    ///     chain says is hidden, or missing one it says is observed, is a disagreement either way.
+    /// </remarks>
+    public void Observed(PlayerId player, HashSet<uint> into) {
+        ArgumentNullException.ThrowIfNull(into);
+
+        into.Clear();
+        observed.Clear();
+        interest.Resolve(world, player, observed);
+
+        foreach (var entity in observed) {
+            if (world.TryGet<NetworkId>(entity, out var id)) {
+                into.Add(id.Value);
+            }
+        }
+    }
+
     /// <summary>The last snapshot that went out, for taking apart.</summary>
     public ReadOnlySpan<byte> LastSnapshot => lastSnapshot.AsSpan(0, lastSnapshotLength);
 
@@ -192,11 +254,22 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
         world.AdvanceVersion();
 
         foreach (var player in joining) {
-            arena.Spawn(player);
+            var fighter = arena.Spawn(player);
+
+            // The override the rule exists for, in the one direction it can work: a player is never
+            // told to stop watching their own avatar, whatever the grid would have said about the
+            // distance between them and themselves. ⚠ The other direction does not work at all —
+            // Show cannot resurrect an object the source never offered as a candidate, which is
+            // every example in ExplicitInterestRule's own remarks. Issue #1042.
+            overrides.Show(player, fighter.Id);
         }
 
         foreach (var player in leaving) {
             arena.Remove(player);
+
+            // Three maps keyed by player, and a match that ran for a day would leak all three.
+            grid.Forget(player);
+            overrides.Forget(player);
         }
 
         joining.Clear();
@@ -212,6 +285,18 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
         loop.Frame(tickDuration);
 
         Ledger.Advance(tickDuration);
+
+        // ⚠ Once a tick and before any connection is resolved, which is the entire reason the grid
+        // is a source and not a rule: written as a rule this would be one distance test per object
+        // per player, and it is instead one sweep of the world shared by everybody. A rebuild that
+        // ran per connection would pass every test and scale like the thing it replaces.
+        grid.Rebuild(world);
+
+        foreach (var fighter in arena.Fighters) {
+            // Their own avatar is where they are looking from. A spectator's camera would go here
+            // instead, and a player with no viewpoint at all is told about everything and counted.
+            grid.SetViewpoint(fighter.Player, world.Read<NetworkTransform>(fighter.Entity).Position);
+        }
 
         // Once, whatever the player count. What each connection gets is a copy of these bits minus
         // what it has already acknowledged — fifty players cost fifty memcpys and one encode.

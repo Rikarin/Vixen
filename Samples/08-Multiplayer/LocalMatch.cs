@@ -5,6 +5,7 @@ using System.Globalization;
 using Vixen.Core.Mathematics;
 using Vixen.Net.Diagnostics;
 using Vixen.Net.Motion;
+using Vixen.Net.Sessions;
 using Vixen.Net.Transport;
 using Vixen.Net.Transport.Local;
 
@@ -46,7 +47,11 @@ internal static class LocalMatch {
         // wrapping only the clients would lose their input and never lose a snapshot — which is the
         // direction all the delta and acknowledgement machinery lives in, and the one a "tested
         // under packet loss" claim is about.
-        using var server = new GameServer(Wrap(new LocalTransport(network), settings, 0, damage));
+        using var server = new GameServer(
+            Wrap(new LocalTransport(network), settings, 0, damage),
+            options: null,
+            settings.InterestRadius
+        );
 
         // Per-object attribution is off by default because its table grows with the world; eight
         // fighters is not a world, and "which object is expensive" is half the question being asked.
@@ -164,6 +169,18 @@ internal static class LocalMatch {
             );
         }
 
+        // ⚠ Considered against hidden, which is the pair InterestChain's own remarks say to watch: a
+        // hidden count near zero is rules doing nothing for the time they take, and a considered
+        // count equal to the whole match is a grid that was never wired up. Both are what this
+        // sample was before the chain replaced ReplicateEverythingResolver.
+        Write(
+            $"interest {server.Grid.PositionedCount:N0} bucketed into {server.Grid.CellCount:N0} cells, "
+            + $"{server.Grid.UnpositionedCount:N0} placeless, "
+            + $"last resolve considered {server.Interest.ConsideredCount:N0} and hid "
+            + $"{server.Interest.HiddenCount:N0} "
+            + $"(radius {server.Grid.Radius:N0} m, {server.Grid.ViewpointlessCount:N0} queries from nowhere)"
+        );
+
         Write(
             $"server   {arena.Fighters.Count} fighters, {server.StepCount:N0} ticks, "
             + $"{arena.ShotsFired:N0} shots ({arena.ShotsHit:N0} hit, {arena.Deaths:N0} deaths)"
@@ -269,15 +286,23 @@ internal static class LocalMatch {
     static bool Converged(GameServer server, List<GameClient> clients) {
         var world = server.World;
         var failures = 0;
+        var visible = new HashSet<uint>();
 
         for (var index = 0; index < clients.Count; index++) {
             var client = clients[index];
             var name = (index + 1).ToString(CultureInfo.InvariantCulture);
 
-            if (client.EntityCount != server.Arena.Fighters.Count) {
+            // ⚠ What the interest chain says this connection is entitled to, rather than everything
+            // the arena holds. With the default radius the two are the same set and this check is
+            // what it always was; with a narrowed one it is the only honest version of it, because
+            // "the client is missing a fighter" and "the server refused to send that fighter" look
+            // identical from here and are opposite outcomes.
+            server.Observed(client.Session.LocalPlayer?.Id ?? PlayerId.None, visible);
+
+            if (client.EntityCount != visible.Count) {
                 Write(
-                    $"client {name}: holds {client.EntityCount} entities, the server has "
-                    + $"{server.Arena.Fighters.Count}"
+                    $"client {name}: holds {client.EntityCount} entities, the chain says it should "
+                    + $"hold {visible.Count} of the server's {server.Arena.Fighters.Count}"
                 );
 
                 failures++;
@@ -286,6 +311,19 @@ internal static class LocalMatch {
             }
 
             foreach (var fighter in server.Arena.Fighters) {
+                if (!visible.Contains(fighter.Id.Value)) {
+                    // Hidden is not "not sent yet": leaving interest and being destroyed are
+                    // deliberately the same thing to a client, so a fighter the chain refuses is one
+                    // the client must have dropped. A client still holding it is a removal that
+                    // never went out.
+                    if (client.TryLatest(fighter.Id, out _)) {
+                        Write($"client {name}: still holds {fighter.Id}, which the chain hides from it");
+                        failures++;
+                    }
+
+                    continue;
+                }
+
                 var truth = world.Read<NetworkTransform>(fighter.Entity);
                 var vitals = world.Read<Vitals>(fighter.Entity);
 
@@ -346,8 +384,8 @@ internal static class LocalMatch {
 
         Write(
             failures == 0
-                ? $"converged: {clients.Count} clients agree with the server about "
-                + $"{server.Arena.Fighters.Count} fighters, to within {Tolerance:N3} m"
+                ? $"converged: {clients.Count} clients agree with the server about every fighter "
+                + $"the interest chain gave them, to within {Tolerance:N3} m"
                 : $"NOT converged: {failures} disagreements"
         );
 
@@ -387,4 +425,13 @@ internal readonly record struct MatchSettings {
 
     /// <summary>The seed every random decision comes from.</summary>
     public ulong Seed { get; init; }
+
+    /// <summary>How far a player is told about things, in metres.</summary>
+    /// <remarks>
+    ///     The arena is eighty metres across, so anything at or above that hides nothing and the
+    ///     convergence check below is about replication. Below it the interest chain starts refusing
+    ///     fighters, and the check becomes a statement about the chain as well: a client holds what
+    ///     <c>GameServer.Observed</c> says it should, and does not hold what it says it should not.
+    /// </remarks>
+    public float InterestRadius { get; init; }
 }
