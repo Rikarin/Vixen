@@ -136,6 +136,17 @@ explicit `[Reads]`/`[Writes]` on the same class overrides the inference and the 
 (`VXS0410`) rather than emitting a declaration nothing reads, and a class it could infer nothing from
 is told (`VXS0411`) rather than left silently undeclared.
 
+⚠ **What it can see is the class, and it now says when something leaves.** Inference walks every
+invocation under the class's own declarations, so a private helper, a local function and the other
+half of a partial are all read — but a query built in a base class, in another type or in another
+assembly is not, and a system with one visible query and one borne by a helper used to get a
+confidently *under*-declared `IDeclaredAccess` with no signal at all. `VXS0412` is that signal: a
+call that takes a `World`, `Chunk`, `CommandBuffer`, `ParallelWriter` or `SystemContext` out of the
+class is reported at the call site, on the emitting path only — a class already refused by
+`VXS0407`–`VXS0411` has been told no declaration is being written. It is not a whole-program
+analysis and does not pretend to be: a world handed to a *constructor* is an object creation rather
+than an invocation and is still silent.
+
 **The same declaration is handed to the job scheduler.** For the length of a system's `Update` the
 runner opens a `JobAccessScope` carrying that system's access, so every job the system schedules
 carries it too and the scheduler refuses a schedule that lets two conflicting systems' jobs run at

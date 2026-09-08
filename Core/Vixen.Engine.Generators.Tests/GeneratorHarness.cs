@@ -93,7 +93,10 @@ public static class GeneratorHarness {
     static CSharpCompilation Compile(string source) {
         var compilation = CSharpCompilation.Create(
             "GeneratedUnderTest",
-            [CSharpSyntaxTree.ParseText(source)],
+            // Named, because a tree with no path has no file for a location to point at and every
+            // diagnostic reported on one comes back as Location.None — which is what a rule that
+            // lost its location looks like too.
+            [CSharpSyntaxTree.ParseText(source, path: "Subject.cs")],
             References,
             new(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable)
         );

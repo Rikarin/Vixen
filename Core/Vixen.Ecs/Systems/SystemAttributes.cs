@@ -45,6 +45,17 @@ public sealed class WritesAttribute(params Type[] componentTypes) : Attribute {
 ///         the author's statement that its access is visible in its own body.
 ///     </para>
 ///     <para>
+///         ⚠ <b>"The class itself" is the whole class, and what leaves it is now reported.</b> Every
+///         invocation under the class's own declarations is walked, so a private helper, a local
+///         function and the other half of a partial are all seen. What is outside is a base class,
+///         another type and another assembly — and a call that carries a <c>World</c>,
+///         <c>Chunk</c>, <c>CommandBuffer</c>, <c>CommandBuffer.ParallelWriter</c> or
+///         <see cref="SystemContext" /> into one of those is <c>VXS0412</c>, at the call site. It
+///         used to be silent, which made an under-declared system indistinguishable from a
+///         correctly declared one. Not caught: a world handed to a <em>constructor</em>, which is an
+///         object creation rather than an invocation.
+///     </para>
+///     <para>
 ///         ⚠ <b>Where the direction is not knowable it errs towards writing.</b> The delegate and
 ///         visitor forms take every component by <c>ref</c> whether or not the body assigns through
 ///         it, so their type arguments are inferred as writes. The chunk form distinguishes them,

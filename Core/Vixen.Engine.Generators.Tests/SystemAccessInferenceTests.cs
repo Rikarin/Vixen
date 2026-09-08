@@ -404,6 +404,207 @@ public sealed class SystemAccessInferenceTests {
     }
 
     [Fact]
+    public void AQueryHandedToAnotherTypeIsVXS0412() {
+        // ⚠ The declaration is still emitted, and that is why this has to be said. Silence here is
+        // a confidently under-declared IDeclaredAccess, which the runner hands to the job
+        // scheduler's safety system — an under-declared system is a data race, not a slow one.
+        var source = $$"""
+            {{GeneratorHarness.Preamble}}
+
+            {{Components}}
+
+            public static class Helper {
+                public static void Sweep(World world) {
+                    foreach (var chunk in world.Chunks(new QueryDescription().WithAll<Velocity>())) {
+                        var velocities = chunk.Values<Velocity>();
+                    }
+                }
+            }
+
+            [InferAccess]
+            public partial class MoveSystem : SystemBase {
+                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                    foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
+                        var positions = chunk.Values<Position>();
+                    }
+
+                    Helper.Sweep(context.World);
+
+                    return dependency;
+                }
+            }
+            """;
+
+        var (diagnostics, sources) = GeneratorHarness.Run(new SystemAccessInferenceGenerator(), source);
+        var warning = Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0412");
+
+        Assert.Contains("Sweep", warning.GetMessage());
+
+        // ⚠ On the call, not on the project. The five rules above it report at Location.None because
+        // their model carries only a name; this one lands on the line that causes it, which is the
+        // only thing that makes it actionable in an editor.
+        Assert.NotEqual(Location.None, warning.Location);
+
+        var span = warning.Location.GetLineSpan();
+        var lines = source.Replace("\r\n", "\n").Split('\n');
+
+        Assert.Equal("Subject.cs", span.Path);
+        Assert.Contains("Helper.Sweep(context.World);", lines[span.StartLinePosition.Line]);
+
+        // The declaration is emitted, and it is exactly as wrong as the warning says: Velocity,
+        // which Helper.Sweep writes, is not in it.
+        var emitted = Assert.Single(sources);
+
+        Assert.Contains(".Write<global::Subject.Position>()", emitted);
+        Assert.DoesNotContain("Velocity", emitted);
+    }
+
+    [Fact]
+    public void AContextHandedToABaseClassIsVXS0412() {
+        // The other half of the issue's blind spot, and the one an inheritance-shaped codebase hits
+        // first: a base class's Update is not in this class's declarations.
+        var (diagnostics, _) = GeneratorHarness.Run(
+            new SystemAccessInferenceGenerator(),
+            $$"""
+            {{GeneratorHarness.Preamble}}
+
+            {{Components}}
+
+            public abstract class Sweeping : SystemBase {
+                protected void SweepAll(in SystemContext context) { }
+            }
+
+            [InferAccess]
+            public partial class MoveSystem : Sweeping {
+                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                    foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
+                        var positions = chunk.Values<Position>();
+                    }
+
+                    SweepAll(context);
+
+                    return dependency;
+                }
+            }
+            """
+        );
+
+        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0412");
+    }
+
+    /// <summary>The VXS0412 negative: a private helper on the same class is not a blind spot.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the half that decides whether the rule is usable.</b> Inference walks every
+    ///     invocation under the class's own <c>DeclaringSyntaxReferences</c>, so a private method, a
+    ///     local function and the other half of a partial are all already read — a rule that warned
+    ///     about those would fire on the ordinary way of writing a system and get suppressed
+    ///     wholesale. Widened by dropping the
+    ///     <c>SymbolEqualityComparer.Default.Equals(owner, system)</c> test in
+    ///     <c>HandsOffAccess</c>: this goes red and both positives above stay green. Reverted.
+    /// </remarks>
+    [Fact]
+    public void APrivateHelperOnTheSameClassIsNotVXS0412_AndItsQueryIsInferred() {
+        var (diagnostics, sources) = GeneratorHarness.Run(
+            new SystemAccessInferenceGenerator(),
+            $$"""
+            {{GeneratorHarness.Preamble}}
+
+            {{Components}}
+
+            [InferAccess]
+            public partial class MoveSystem : SystemBase {
+                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                    Sweep(context.World);
+
+                    return dependency;
+                }
+
+                void Sweep(World world) {
+                    foreach (var chunk in world.Chunks(new QueryDescription().WithAll<Velocity>())) {
+                        var velocities = chunk.Values<Velocity>();
+                    }
+                }
+            }
+            """
+        );
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXS0412");
+
+        // And the proof that it is not a blind spot: what the helper queries is in the declaration.
+        Assert.Contains(".Write<global::Subject.Velocity>()", Assert.Single(sources));
+    }
+
+    /// <summary>The other VXS0412 negative: a call that carries none of the four is not one.</summary>
+    /// <remarks>
+    ///     The rule is about a world (or a piece of it) leaving the class, not about calling out of
+    ///     it at all — a system that calls <c>Math.Clamp</c> or a logger has handed nothing away.
+    ///     Widened by returning <see langword="true" /> from <c>HandsOffAccess</c> without the
+    ///     parameter test: this goes red and both positives stay green. Reverted.
+    /// </remarks>
+    [Fact]
+    public void ACallThatCarriesNoWorldIsNotVXS0412() {
+        var (diagnostics, _) = GeneratorHarness.Run(
+            new SystemAccessInferenceGenerator(),
+            $$"""
+            {{GeneratorHarness.Preamble}}
+
+            {{Components}}
+
+            public static class Helper {
+                public static float Scale(float value) => value * 2f;
+            }
+
+            [InferAccess]
+            public partial class MoveSystem : SystemBase {
+                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                    foreach (var chunk in context.World.Chunks(new QueryDescription().WithAll<Position>())) {
+                        var positions = chunk.Values<Position>();
+
+                        for (var index = 0; index < chunk.Count; index++) {
+                            positions[index].X = Helper.Scale(positions[index].X);
+                        }
+                    }
+
+                    return dependency;
+                }
+            }
+            """
+        );
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXS0412");
+    }
+
+    [Fact]
+    public void ARefusedSystemIsNotAlsoToldItsAccessLeftTheClass() {
+        // A class that already has VXS0407-VXS0411 has been told no declaration is being written,
+        // so a second warning about what that declaration might be missing is noise.
+        var (diagnostics, _) = GeneratorHarness.Run(
+            new SystemAccessInferenceGenerator(),
+            $$"""
+            {{GeneratorHarness.Preamble}}
+
+            {{Components}}
+
+            public static class Helper {
+                public static void Sweep(World world) { }
+            }
+
+            [InferAccess]
+            public partial class EmptySystem : SystemBase {
+                public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+                    Helper.Sweep(context.World);
+
+                    return dependency;
+                }
+            }
+            """
+        );
+
+        Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXS0411");
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXS0412");
+    }
+
+    [Fact]
     public void WhatIsEmittedCompiles() {
         // ⚠ `Write<T>` closes a generic and so assigns the component an id — which means the
         // emitted chain has to name types that satisfy the constraint, in a partial half the author
