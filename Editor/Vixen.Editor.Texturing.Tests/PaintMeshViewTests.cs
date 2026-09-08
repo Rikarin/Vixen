@@ -118,6 +118,99 @@ public class PaintMeshViewTests {
         Assert.Contains(fixture.Graphics.Updates, patch => patch.Image == atlas);
     }
 
+    /// <summary>A pane past the cap rasterises at the cap and still paints where the pointer is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a>.</b> An orbit
+    ///         rasterises the whole mesh at whatever size the pane is, once per pointer move, on one
+    ///         thread — and <c>PaintMeshCostTests</c> measures what that costs at 4K. The cap is the
+    ///         first of the issue's three answers; what it must not cost is the agreement between the
+    ///         picture and the brush, because the pointer now arrives in one pixel size and the
+    ///         camera's rays are cast in another.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The middle of the atlas is the assertion and the cap is only the setup.</b> A
+    ///         capped picture whose <c>ImageView.Fit</c> and <c>ToImage</c> had stopped agreeing
+    ///         would still be capped, still upload, still look like a model — and would paint
+    ///         somewhere the artist did not click, which is the one failure a pane exists to prevent.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_pane_past_the_cap_rasterises_at_the_cap_and_still_paints_where_the_pointer_is() {
+        using var fixture = new TexturingFixture(graphics: true);
+
+        // A maximised window on a 4K display, which is the case the issue measured and nothing here
+        // covered: the default shell is 1280×800, so every other case in this file is under the cap.
+        fixture.Shell.Document.Resize(3800f, 2400f);
+
+        var document = Open(fixture, Quad(0f, 1f));
+        var pane = OpenMesh(fixture);
+        var image = Viewer(pane);
+
+        // The instrument, first: a dock that laid the pane out under the cap would make every
+        // assertion below true of an uncapped rasteriser as well.
+        Assert.True(
+            image.Width > PaintMeshView.RasterLimit,
+            $"the 3D pane laid out {image.Width} wide in a 3800-wide shell, which is "
+            + "under the cap — this case cannot tell a capped rasteriser from an uncapped one."
+        );
+
+        Assert.Equal(PaintMeshView.RasterLimit, Math.Max(image.ImageWidth, image.ImageHeight));
+
+        // ⚠ And the picture is the pane's own shape. `ImageView.Fit` scales by the smaller of the two
+        // ratios, so a picture of a different aspect is letterboxed — and every pane pixel in the
+        // letterbox converts to a picture pixel outside the picture, which is a pointer aimed at a
+        // part of the model that is not under it.
+        Assert.InRange(
+            image.ImageWidth / (float)image.ImageHeight,
+            (image.Width / image.Height) - 0.01f,
+            (image.Width / image.Height) + 0.01f
+        );
+
+        Drag(fixture, image, new Vector2(-6f, -6f), new Vector2(6f, 6f));
+
+        var layer = Assert.Single(document.Document.Sets[0].Layers, one => one.Kind == LayerKind.Paint);
+
+        Assert.NotEmpty(layer.Paint);
+
+        using var stream = File.OpenRead(Path.Combine(Path.GetDirectoryName(document.AssetPath)!, layer.Paint));
+        var painted = PaintCanvas.Read(stream).Channel("baseColor");
+
+        // The camera looks straight down the quad's own normal and the quad's layout is its own
+        // coordinates, so the middle of the pane is the middle of the atlas — at the cap as much as
+        // under it.
+        Assert.NotEqual(0u, painted.At(painted.Width / 2, painted.Height / 2) >> 24);
+
+        // ⚠ And the corners are untouched, which is what a coordinate space that had come apart by a
+        // scale factor would not leave alone: a pointer converted through the wrong size lands away
+        // from the middle in proportion to how far from the middle it was.
+        Assert.Equal(0u, painted.At(0, 0) >> 24);
+        Assert.Equal(0u, painted.At(painted.Width - 1, painted.Height - 1) >> 24);
+    }
+
+    /// <summary>The raster size is the pane below the cap and the pane's own shape above it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The identity below the cap is the half worth asserting.</b> Every coordinate in this
+    ///     pane — the pointer's, the ray's, the brush's radius — converts between the pane's pixels
+    ///     and the picture's, and below the cap all of those conversions are the identity. A cap that
+    ///     quietly rounded a 1280-wide pane to 1279 would put a scale factor into every one of them
+    ///     for no benefit at all, on the panes an artist actually docks.
+    /// </remarks>
+    [Theory]
+    [InlineData(1280, 720, 1280, 720)]
+    [InlineData(PaintMeshView.RasterLimit, 900, PaintMeshView.RasterLimit, 900)]
+    [InlineData(3840, 2160, 1600, 900)]
+    [InlineData(900, 2400, 600, 1600)]
+    [InlineData(0, 0, 0, 0)]
+    public void The_raster_size_is_the_pane_below_the_cap_and_the_panes_own_shape_above_it(
+        int paneWidth,
+        int paneHeight,
+        int width,
+        int height
+    ) {
+        Assert.Equal((width, height), PaintMeshView.RasterSize(paneWidth, paneHeight));
+    }
+
     /// <summary>The drag is exactly one undo entry, and undoing it takes the paint off.</summary>
     /// <remarks>
     ///     Two entries and not one, for the reason <c>PaintUvViewTests</c> gives: naming the layer's

@@ -15,7 +15,7 @@ namespace Vixen.Editor.Texturing.Tests;
 ///     <para>
 ///         <b>What makes this suite worth more than a pixel comparison</b> is that every assertion
 ///         here is between <em>two</em> pieces of the 3D paint path rather than between one of them
-///         and a number written down beside it. <c>PaintCamera.Project</c> decides what the artist
+///         and a number written down beside it. <c>PaintCamera.ToPane</c> decides what the artist
 ///         sees and <c>PaintCamera.Ray</c> decides what the brush hits; a suite that checked each
 ///         against its own expected value would be green for a pair that were consistently wrong by
 ///         half a pixel, which is the failure that reads as a brush painting next to the pointer.
@@ -244,6 +244,115 @@ public class PaintMeshRasterTests {
         Assert.Equal(1, raster.Renders);
     }
 
+    /// <summary>Inside an open shell, every pixel whose ray hits the model shows the model.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1105">#1105</a>.</b> A triangle
+    ///         with a corner behind the eye used to be dropped rather than cut, so the picture lost
+    ///         whole triangles the moment the eye got inside the surface — which
+    ///         <c>PaintCamera.Distance</c>'s floor does not prevent, because that floor is a fraction
+    ///         of the framed <em>sphere</em> and an open shell's surface is nowhere near its sphere.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The oracle is the raycast and not a pixel count, because a pixel count cannot say
+    ///         which pixels.</b> Coverage is decided by the projection and the hit by
+    ///         <c>PaintProjection.TryHit</c>, which knows nothing about a near plane — so "a ray that
+    ///         hits and a pixel that shows nothing" is exactly the hole this issue is about, stated
+    ///         without a reference picture and without a number written down beside it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the fixture is asserted to reach the defect before anything else is asserted
+    ///         at all.</b> A floor placed where no triangle straddles the eye plane draws the same
+    ///         picture with the clip and without it, and would be a case that passes against the code
+    ///         it was written to refute. The straddle is counted through the camera's own frame,
+    ///         which is where the plane is a plane.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_pixel_whose_ray_hits_the_model_shows_it_with_the_eye_inside_an_open_shell() {
+        var mesh = Floor();
+        PaintCamera camera = new();
+
+        camera.Frame(mesh.Bounds);
+
+        // Down among the floor rather than out on the framing sphere: the dolly's floor is a
+        // twentieth of a radius of eleven, so this is a camera an artist reaches by holding the
+        // wheel.
+        camera.Pitch = 0.6f;
+        camera.Distance = 0f;
+
+        var straddling = 0;
+
+        for (var triangle = 0; triangle < mesh.Triangles; triangle++) {
+            mesh.Triangle(triangle, out var a, out var b, out var c, out _, out _, out _);
+
+            var infront = 0;
+
+            foreach (var corner in (ReadOnlySpan<Vector3>)[a, b, c]) {
+                if (camera.ToView(corner).Z > camera.Near) {
+                    infront++;
+                }
+            }
+
+            if (infront is > 0 and < 3) {
+                straddling++;
+            }
+        }
+
+        Assert.True(
+            straddling > 0,
+            $"no triangle of the {mesh.Triangles} straddles the eye plane from here, so this camera "
+            + "cannot tell a rasteriser that clips from one that drops."
+        );
+
+        PaintMeshRaster raster = new();
+
+        raster.Draw(mesh, camera, 160, 120);
+
+        var hits = 0;
+        var holes = 0;
+        var worst = 0f;
+
+        for (var y = 0; y < raster.Height; y++) {
+            for (var x = 0; x < raster.Width; x++) {
+                var covered = raster.Triangle(x, y) >= 0;
+
+                if (!mesh.TryHit(camera.Ray(x, y, raster.Width, raster.Height), out var hit)) {
+                    continue;
+                }
+
+                hits++;
+
+                if (!covered) {
+                    holes++;
+
+                    continue;
+                }
+
+                worst = MathF.Max(worst, (hit.Coordinate - raster.Coordinate(x, y)).Length());
+            }
+        }
+
+        // The instrument, before the assertion it guards: a camera aimed at nothing makes every count
+        // below zero and every bound below vacuous.
+        Assert.True(hits > raster.Width * raster.Height / 4, $"only {hits} pixels aim at the floor at all.");
+
+        // ⚠ A silhouette allowance and not a tolerance for a dropped triangle. Coverage is three
+        // half-space tests and a hit is an intersection, so a sample within a float of an edge can
+        // fall either way; a dropped triangle takes thousands of pixels, which is why this can be a
+        // percent rather than an exact zero.
+        Assert.True(
+            holes <= hits / 100,
+            $"{holes} of {hits} pixels aim at the floor and show nothing. A triangle that straddles the "
+            + "eye plane is being dropped instead of clipped — #1105."
+        );
+
+        // ⚠ And the clipped corners carry the right coordinate, which no coverage count can say. A
+        // crossing interpolated on the *pane* rather than in the camera's frame is still coverage —
+        // it just paints the wrong texels, which is the failure this pane exists to make visible.
+        Assert.True(worst < Tolerance, $"the worst pixel disagrees by {worst:F5} of the unit square.");
+    }
+
     /// <summary>The same model at three scales draws the same picture.</summary>
     /// <remarks>
     ///     <para>
@@ -337,6 +446,45 @@ public class PaintMeshRasterTests {
             [new(0f, 0f), new(1f, 0f), new(1f, 1f), new(0f, 1f)],
             [0, 1, 2, 0, 2, 3]
         );
+
+    /// <summary>A big flat grid in the y = 0 plane, as an open shell an eye can get inside.</summary>
+    /// <returns>The projection.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Coarse on purpose: sixteen cells over sixteen units, so a cell is four units and a
+    ///     triangle that straddles the eye plane covers a large part of the pane.</b> A finely
+    ///     tessellated floor straddles too, but each dropped triangle is then a few pixels — inside
+    ///     the silhouette allowance the assertion needs for its own reasons, so the case would pass
+    ///     against the defect it was written for.
+    /// </remarks>
+    static PaintProjection Floor() {
+        const int Cells = 4;
+        const float Half = 8f;
+
+        List<Vector3> points = [];
+        List<Vector2> layout = [];
+        List<int> indices = [];
+
+        for (var row = 0; row <= Cells; row++) {
+            for (var column = 0; column <= Cells; column++) {
+                var u = (float)column / Cells;
+                var v = (float)row / Cells;
+
+                points.Add(new(((u * 2f) - 1f) * Half, 0f, ((v * 2f) - 1f) * Half));
+                layout.Add(new(u, v));
+            }
+        }
+
+        for (var row = 0; row < Cells; row++) {
+            for (var column = 0; column < Cells; column++) {
+                var corner = (row * (Cells + 1)) + column;
+
+                indices.AddRange([corner, corner + 1, corner + Cells + 2]);
+                indices.AddRange([corner, corner + Cells + 2, corner + Cells + 1]);
+            }
+        }
+
+        return PaintProjection.Over([.. points], [.. layout], [.. indices]);
+    }
 
     /// <summary>A quad square to the camera, whose layout is the whole unit square.</summary>
     /// <returns>The projection.</returns>

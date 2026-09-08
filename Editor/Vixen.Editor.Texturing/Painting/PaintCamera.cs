@@ -15,13 +15,13 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1063">#1063</a> is about, in the half
 ///         that is arithmetic.</b> Everything the 3D paint path needs from a viewport is here —
 ///         <see cref="Ray" /> for <c>PaintProjector</c>, <see cref="Eye" /> for the footprint, and
-///         <see cref="Project" /> for the rasteriser — and none of it is a scene, an entity or a
+///         <see cref="ToPane" /> for the rasteriser — and none of it is a scene, an entity or a
 ///         world transform. That is the whole reason the issue recommends the plugin's own pane over
 ///         the scene viewport: a <c>.vxlayers</c> names a model asset, and the mesh's own space is
 ///         the only space in which every one of the three is defined.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Ray" /> and <see cref="Project" /> are exact inverses and that is the
+///         ⚠ <b><see cref="Ray" /> and <see cref="ToPane" /> are exact inverses and that is the
 ///         property everything above them rests on.</b> The rasteriser writes a triangle at a pixel
 ///         through one of them and the brush casts a ray at that pixel through the other; a pair
 ///         that disagreed by half a pixel would paint next to what the artist clicked, and would
@@ -76,9 +76,14 @@ sealed class PaintCamera {
     /// <remarks>
     ///     ⚠ <b>Floored at a fraction of the framed radius rather than at a constant.</b> A floor of
     ///     "0.01 units" is inside a bolt and a hundred times too coarse for a terrain; the fraction
-    ///     is what keeps the same gesture usable at both scales, and what keeps the eye outside a
-    ///     convex model — which is what makes <see cref="Project" />'s missing near-plane clip
-    ///     unreachable by ordinary use.
+    ///     is what keeps the same gesture usable at both scales. ⚠ <b>What it does not do is keep the
+    ///     eye out of the surface, which is what this remark used to claim.</b> The floor is a
+    ///     fraction of the framed <em>sphere</em>, so it keeps the eye outside a convex model and
+    ///     says nothing at all about an open shell, a room or a mouth — where the eye reaches the
+    ///     surface long before the dolly stops. <c>PaintMeshRaster</c> clips against
+    ///     <see cref="Near" /> for that reason
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1105">#1105</a>) rather than resting on
+    ///     a floor that was never load-bearing.
     /// </remarks>
     public float Distance {
         get => distance;
@@ -96,6 +101,24 @@ sealed class PaintCamera {
         get => pitch;
         set => pitch = Math.Clamp(Safe(value, 0f), -PitchLimit, PitchLimit);
     }
+
+    /// <summary>How far in front of the eye a point has to be to be drawn, in the mesh's units.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A fraction of the framed radius, for this file's whole argument: a near plane of
+    ///         "0.01" is inside a bolt and outside a terrain.</b> A tenth of a thousandth of the
+    ///         framing is a hair's breadth in front of the eye at every scale — a surface nearer than
+    ///         that fills the pane many times over, so nothing an artist can read is lost to it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One number and not two, and that is what makes <c>PaintMeshRaster</c>'s clip
+    ///         exact.</b> A cull threshold that admitted a corner the clipper then cut at a different
+    ///         depth would leave a sliver of triangle whose projected corner is at a depth nobody
+    ///         chose — which is where the projection's pixel coordinate goes to a hundred million and
+    ///         a bounding box in <c>int</c> stops being a bounding box.
+    ///     </para>
+    /// </remarks>
+    public float Near => radius * 1e-4f;
 
     /// <summary>Where the eye is, in the mesh's own space.</summary>
     public Vector3 Position => Target + (Back * distance);
@@ -209,7 +232,7 @@ sealed class PaintCamera {
     /// <returns>The ray, with a unit direction.</returns>
     /// <remarks>
     ///     ⚠ <b>The pixel's centre and not its corner.</b> Half a pixel is invisible in a picture
-    ///     and is exactly the offset that makes <see cref="Project" /> stop being this method's
+    ///     and is exactly the offset that makes <see cref="ToPane" /> stop being this method's
     ///     inverse — so the rasteriser would write a triangle at the pixel next to the one the ray
     ///     finds, at the silhouette where the two triangles are different things.
     /// </remarks>
@@ -221,42 +244,68 @@ sealed class PaintCamera {
         return new(Position, Forward + (Right * right * scale) + (Up * up * scale));
     }
 
-    /// <summary>Where a point in the mesh's own space lands on the pane.</summary>
+    /// <summary>Where the eye is and which way its three axes point, all four read at once.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Taken once by a caller that is about to transform thousands of points, and that is a
+    ///     measured difference rather than a tidy-up.</b> <see cref="Position" />, <see cref="Right" />,
+    ///     <see cref="Up" /> and <see cref="Forward" /> are computed properties over
+    ///     <c>MathF.SinCos</c>, and <see cref="ToView" /> reads all four — so a rasteriser calling it
+    ///     per corner rebuilds the basis three times per triangle. On an eighteen-thousand-triangle
+    ///     model that was the <em>dominant</em> cost of a pane redraw, ahead of every pixel of the
+    ///     clear, the fill and the shade put together, which is not where
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a> expected to find it.
+    /// </remarks>
+    public PaintBasis Basis => new(Position, Right, Up, Forward);
+
+    /// <summary>Where a point in the mesh's own space is in the camera's own frame.</summary>
     /// <param name="point">The point.</param>
+    /// <returns>How far right of the eye, how far above it, and how far in front along <see cref="Forward" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The step <see cref="ToPane" /> was split off from, and the split is the whole of
+    ///         what makes a near-plane clip possible.</b> Clipping has to happen where the eye plane
+    ///         <em>is</em> a plane — <c>z = Near</c> in this frame — because after the projection it
+    ///         is nowhere: a corner behind the eye comes back with a pixel on the wrong side of the
+    ///         pane and no arithmetic downstream can tell it from a corner in front. A rasteriser
+    ///         handed only a pixel and a depth can therefore do nothing but drop the triangle, which
+    ///         is what this one did until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1105">#1105</a>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the coordinate a clipped corner carries is interpolated <em>here</em> rather
+    ///         than on the pane.</b> This frame is a rigid motion of the mesh's own, so a layout
+    ///         coordinate is affine in it and a straight lerp along a cut edge is exact; the same
+    ///         lerp between two projected pixels is the perspective error the rasteriser's own
+    ///         reciprocal-depth interpolation exists to avoid.
+    ///     </para>
+    /// </remarks>
+    public Vector3 ToView(Vector3 point) => Basis.Of(point);
+
+    /// <summary>Where a point of the camera's own frame lands on the pane.</summary>
+    /// <param name="view">The point, as <see cref="ToView" /> answers. Its z must be over <see cref="Near" />.</param>
     /// <param name="paneWidth">How wide the pane is, in pixels.</param>
     /// <param name="paneHeight">How tall.</param>
-    /// <param name="pixel">Its column and row, in the same frame <see cref="Ray" /> takes.</param>
-    /// <param name="depth">How far in front of the eye it is, along <see cref="Forward" />.</param>
-    /// <returns>Whether it is in front of the camera at all.</returns>
+    /// <returns>Its column and row, in the same frame <see cref="Ray" /> takes.</returns>
     /// <remarks>
-    ///     ⚠ <b>There is no near-plane clip here and a triangle that straddles the eye plane is
-    ///     dropped by its caller rather than cut.</b> Clipping a triangle is four cases and a
-    ///     re-interpolation of every attribute, and the state it exists for — the eye inside the
-    ///     surface — is one <see cref="Distance" />'s floor keeps out of reach for a closed model.
-    ///     What it costs is a hole in the picture when an artist dollies into an open shell, which
-    ///     is visible, recoverable by dollying back out, and cannot paint anything wrong: a pixel
-    ///     with no triangle takes no stroke.
+    ///     ⚠ <b><see cref="Ray" />'s exact inverse, and the caller owes the near test rather than
+    ///     this owing an answer for a point behind the eye.</b> The division is by the depth, so a
+    ///     point at the eye is an infinity and one behind it is a pixel mirrored through the centre
+    ///     of the pane — a plausible-looking number for a corner that is not on screen at all, which
+    ///     is exactly the kind of answer a caller forgets to check. It is not checked here because
+    ///     the one caller has already cut its triangle against <see cref="Near" /> and every corner
+    ///     it hands over is at or in front of it by construction.
+    ///     <para>
+    ///         ⚠ <b>Static, and that is a statement about the split rather than an analyzer's
+    ///         opinion.</b> Every one of the camera's own numbers — where the eye is, which way it
+    ///         faces, how far it has dollied — is already spent in <see cref="ToView" />; what is
+    ///         left is the perspective divide and the pane's own centre, which depend on the field
+    ///         of view and the pane and on nothing an orbit moves.
+    ///     </para>
     /// </remarks>
-    public bool Project(Vector3 point, int paneWidth, int paneHeight, out Vector2 pixel, out float depth) {
-        pixel = Vector2.Zero;
+    public static Vector2 ToPane(Vector3 view, int paneWidth, int paneHeight) {
+        var scale = WorldPerPixel(paneHeight) * view.Z;
 
-        var offset = point - Position;
-
-        depth = Vector3.Dot(offset, Forward);
-
-        // Relative to the framing, for this file's whole argument: a constant near plane is either
-        // inside a bolt or outside a terrain.
-        if (!(depth > radius * 1e-5f)) {
-            return false;
-        }
-
-        var scale = WorldPerPixel(paneHeight) * depth;
-        var right = Vector3.Dot(offset, Right) / scale;
-        var up = Vector3.Dot(offset, Up) / scale;
-
-        pixel = new(right + (paneWidth * 0.5f) - 0.5f, (paneHeight * 0.5f) - 0.5f - up);
-
-        return true;
+        return new((view.X / scale) + (paneWidth * 0.5f) - 0.5f, (paneHeight * 0.5f) - 0.5f - (view.Y / scale));
     }
 
     /// <summary>The camera as <c>PaintFootprint</c> reads it.</summary>
@@ -289,4 +338,27 @@ sealed class PaintCamera {
     ///     nothing on screen to say why.
     /// </remarks>
     static float Safe(float value, float fallback) => float.IsFinite(value) ? value : fallback;
+}
+
+/// <summary>A camera's frame at one moment, and the transform into it.</summary>
+/// <remarks>
+///     ⚠ <b>A snapshot and not a camera, which is the whole point of it existing.</b> Nothing here
+///     can be orbited, panned or dollied; it is what <c>PaintCamera.Basis</c> hands a caller that is
+///     about to transform a model's worth of points and must not pay for the camera's trigonometry
+///     once per point. A frame that could move would be a second copy of the camera's state that
+///     could disagree with it.
+/// </remarks>
+/// <param name="Position">Where the eye is, in the mesh's own space.</param>
+/// <param name="Right">Its right axis. Unit.</param>
+/// <param name="Up">Its up axis. Unit.</param>
+/// <param name="Forward">Which way it looks. Unit.</param>
+readonly record struct PaintBasis(Vector3 Position, Vector3 Right, Vector3 Up, Vector3 Forward) {
+    /// <summary>Where a point in the mesh's own space is in this frame.</summary>
+    /// <param name="point">The point.</param>
+    /// <returns>How far right of the eye, how far above it, and how far in front along <see cref="Forward" />.</returns>
+    public Vector3 Of(Vector3 point) {
+        var offset = point - Position;
+
+        return new(Vector3.Dot(offset, Right), Vector3.Dot(offset, Up), Vector3.Dot(offset, Forward));
+    }
 }

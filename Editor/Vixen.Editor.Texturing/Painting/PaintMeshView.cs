@@ -46,14 +46,23 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         brush.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Every pixel here is a <em>layout</em> pixel, and saying so is what keeps the brush
-///         honest.</b> <c>PaintEye.Perspective</c>'s remarks warn that a conversion fed layout
-///         pixels where the pane renders in device pixels is wrong by the display scale. Nothing
-///         here mixes the two: <see cref="PaintMeshRaster" /> draws at the pane's layout size,
-///         <c>ImageView.ToImage</c> answers in that picture's own pixels, and
-///         <c>PaintCamera.Eye</c> is built from the same height — so the disc the artist sets is the
-///         disc they see, on a retina display and on a projector alike. What it costs is a picture
-///         resampled by the compositor on a scaled display, which is a softness rather than a lie.
+///         ⚠ <b>There are two pixel sizes here and the conversion between them is one number,
+///         <see cref="Scale" />.</b> The pointer, the drag deltas and the brush's authored radius are
+///         in <em>layout</em> pixels; the picture, the camera's rays and the footprint are in the
+///         <em>picture's</em> pixels, which <see cref="RasterSize" /> caps at
+///         <see cref="RasterLimit" />. Below the cap the two are the same number and every one of
+///         those conversions is the identity, which is what they were before
+///         <a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a> — so the cap is a
+///         magnification the compositor performs and not a change of coordinate system.
+///     </para>
+///     <para>
+///         ⚠ <b>Which of the two a quantity is in is not a detail: it is the whole of what
+///         <c>PaintEye.Perspective</c>'s remarks warn about.</b> An eye built from a layout height
+///         over a picture rasterised at another reports a brush of the wrong size, silently, and
+///         reads as a broken brush rather than as a mismatched unit. <see cref="Begin" /> converts
+///         the authored radius into the picture's pixels for exactly that reason, and
+///         <see cref="Turned" /> converts nothing because a drag is measured against the pane the
+///         hand is moving over.
 ///     </para>
 /// </remarks>
 sealed class PaintMeshView {
@@ -66,6 +75,32 @@ sealed class PaintMeshView {
     ///     plane is a gizmo rather than a picker.
     /// </remarks>
     public static IReadOnlyList<string> Axes { get; } = ["None", "X", "Y", "Z"];
+
+    /// <summary>The longest side the model is rasterised at, in the picture's own pixels.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a>, and the number is
+    ///         measured rather than chosen.</b> <c>PaintMeshCostTests</c> times one geometry pass at
+    ///         both sizes on the same machine in the same second: a maximised 4K pane costs about
+    ///         two and a half times what a 1280×720 one does over an eighteen-thousand-triangle
+    ///         model, and an orbit pays that <em>per pointer move</em> on one thread. A cap at 1600
+    ///         across is most of that difference back.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A softness and not a lie, which is the whole reason a cap is allowed here at
+    ///         all.</b> The pane is a viewport onto a model rather than an image being authored — the
+    ///         thing an artist is judging is the atlas, which the 2D pane shows at its own
+    ///         resolution — so a picture magnified by the compositor loses sharpness and nothing
+    ///         else. It would not be allowed one pane across.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it is <em>not</em> is the whole answer.</b> Even at the cap a geometry pass
+    ///         is tens of milliseconds on a model-sized mesh, which is a visibly coarse orbit; the
+    ///         issue's other two options — a parallel raster and a reduced draw while a gesture is in
+    ///         flight — are still owed, and the measurement above is what decides between them.
+    ///     </para>
+    /// </remarks>
+    public const int RasterLimit = 1600;
 
     readonly PaintTool tool;
     readonly UiElement status;
@@ -164,6 +199,35 @@ sealed class PaintMeshView {
         Image.AddHandler<WheelEvent>((_, args) => Wheeled(args), RoutingStrategy.Capture);
 
         Status = "";
+    }
+
+    /// <summary>What size to rasterise a pane at, capped at <see cref="RasterLimit" />.</summary>
+    /// <param name="paneWidth">How wide the pane is, in layout pixels.</param>
+    /// <param name="paneHeight">How tall.</param>
+    /// <returns>The picture's size. Zero in either axis when the pane has none.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The aspect is kept, and that is not a nicety.</b> <c>ImageView.Fit</c> scales by the
+    ///     <em>smaller</em> of the two ratios, so a picture of a different shape from the pane is
+    ///     letterboxed — and every pane pixel in the letterbox converts, through
+    ///     <c>ImageView.ToImage</c>, to a picture pixel outside the picture. The brush would then
+    ///     aim at a part of the model that is not under the pointer. Truncation leaves the two
+    ///     aspects within a pixel of each other, which is a letterbox under a pixel wide.
+    /// </remarks>
+    public static (int Width, int Height) RasterSize(int paneWidth, int paneHeight) {
+        var longest = Math.Max(paneWidth, paneHeight);
+
+        if (paneWidth <= 0 || paneHeight <= 0 || longest <= RasterLimit) {
+            return (paneWidth, paneHeight);
+        }
+
+        var scale = (float)RasterLimit / longest;
+
+        // ⚠ The long side is written rather than scaled, because `1600f / w * w` is not 1600 for
+        // every w — and a picture one pixel under the cap would make every assertion about the cap
+        // an assertion about float rounding.
+        return paneWidth >= paneHeight
+            ? (RasterLimit, Math.Max((int)(paneHeight * scale), 1))
+            : (Math.Max((int)(paneWidth * scale), 1), RasterLimit);
     }
 
     /// <summary>The rendered model, as the interface draws it.</summary>
@@ -333,9 +397,18 @@ sealed class PaintMeshView {
             : $"{mesh.Triangles} triangles · brush {tool.Brush.Radius:F0} px on screen · symmetry "
             + $"{tool.SymmetryAxis}. Drag to paint, right-drag to orbit, middle-drag to pan, wheel to zoom.";
 
-    /// <summary>How big the picture should be, in the pane's own pixels.</summary>
+    /// <summary>How big the picture should be, in its own pixels.</summary>
     /// <returns>The width and height, either of which is zero before the first layout.</returns>
-    (int Width, int Height) Extent() => ((int)Image.Width, (int)Image.Height);
+    (int Width, int Height) Extent() => RasterSize((int)Image.Width, (int)Image.Height);
+
+    /// <summary>How many of the picture's pixels one of the pane's layout pixels is worth.</summary>
+    /// <remarks>
+    ///     One below the cap, and under one above it. ⚠ <b>Read off the rasteriser rather than
+    ///     recomputed from <see cref="RasterSize" />, because what a coordinate has to agree with is the
+    ///     picture that was actually drawn</b> — a pane resized between a draw and a press would
+    ///     otherwise convert against a size nothing on screen has yet.
+    /// </remarks>
+    float Scale => Image.Height > 0f && raster.Height > 0 ? raster.Height / Image.Height : 1f;
 
     /// <summary>Rasterises the mesh and hands the whole picture up to be uploaded.</summary>
     void Render() {
@@ -367,8 +440,10 @@ sealed class PaintMeshView {
         Image.ImageWidth = picture.Width;
         Image.ImageHeight = picture.Height;
 
-        // At one pane pixel per picture pixel, which is what makes `ToImage` the identity on the
-        // pane's own frame — the frame the camera casts rays in.
+        // ⚠ At one pane pixel per picture pixel *below the cap*, and magnified above it — which is
+        // why `ToImage` is what every coordinate goes through rather than the identity it used to
+        // be. `Fit` is what makes the two agree either way: it is the inverse of the same zoom and
+        // pan `ToImage` divides by.
         Image.Fit();
     }
 
@@ -483,10 +558,17 @@ sealed class PaintMeshView {
 
         held = now;
 
+        // ⚠ The pane's height and not the rasteriser's, and the two differ once `RasterSize` caps the
+        // picture. Both of these take a delta the hand made in *layout* pixels and both mean "a drag
+        // of the pane's own height is half a turn" — measured against the capped picture instead,
+        // an orbit on a maximised 4K pane would turn two and a half times as far as the same gesture
+        // on a docked one, which reads as a viewport with a mind of its own.
+        var pane = (int)Image.Height;
+
         if (drag == PaintMeshDrag.Pan) {
-            Camera.Pan(moved.X, -moved.Y, raster.Height);
+            Camera.Pan(moved.X, -moved.Y, pane);
         } else {
-            Camera.Orbit(moved.X, -moved.Y, raster.Height);
+            Camera.Orbit(moved.X, -moved.Y, pane);
         }
 
         Render();
@@ -513,7 +595,12 @@ sealed class PaintMeshView {
         var aimed = new PaintProjector(mesh, atlas.Width, atlas.Height) { Symmetry = tool.Symmetry };
         var ray = Camera.Ray(at.X, at.Y, raster.Width, raster.Height);
 
-        if (!aimed.Begin(Camera.Eye(raster.Height), ray, tool.Brush.Radius, out var footprint)
+        // ⚠ Into the picture's pixels, because that is the resolution the eye and the ray are in.
+        // `PaintBrush.Radius` is what the artist set and means pixels *on screen*; a capped picture
+        // is magnified to the pane, so the same disc on screen is fewer of its pixels. Handing the
+        // unconverted number over would grow the brush with the pane's size, which is a brush that
+        // changes when the panel is undocked.
+        if (!aimed.Begin(Camera.Eye(raster.Height), ray, tool.Brush.Radius * Scale, out var footprint)
             || !footprint.IsMeasurable) {
             Say("The pointer is not on the model, or the triangle under it carries no usable layout.");
 

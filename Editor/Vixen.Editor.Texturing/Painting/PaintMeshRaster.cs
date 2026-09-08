@@ -151,19 +151,60 @@ sealed class PaintMeshRaster {
         Array.Clear(depths);
 
         var forward = camera.Forward;
+        var near = camera.Near;
+
+        // ⚠ Once, and not once per corner. See `PaintCamera.Basis`: the camera's four axes are
+        // computed properties over `MathF.SinCos`, and reading them inside this loop was the
+        // dominant cost of a redraw on a model-sized mesh — #1107.
+        var basis = camera.Basis;
+
+        Span<Vector3> corners = stackalloc Vector3[4];
+        Span<Vector2> layout = stackalloc Vector2[4];
+        Span<Vector2> pane = stackalloc Vector2[4];
 
         for (var triangle = 0; triangle < mesh.Triangles; triangle++) {
             mesh.Triangle(triangle, out var a, out var b, out var c, out var ua, out var ub, out var uc);
 
-            if (!camera.Project(a, width, height, out var pa, out var za)
-                || !camera.Project(b, width, height, out var pb, out var zb)
-                || !camera.Project(c, width, height, out var pc, out var zc)) {
-                // A triangle with a corner behind the eye. See `PaintCamera.Project` for why it is
-                // dropped rather than clipped, and what that costs.
+            corners[0] = basis.Of(a);
+            corners[1] = basis.Of(b);
+            corners[2] = basis.Of(c);
+            layout[0] = ua;
+            layout[1] = ub;
+            layout[2] = uc;
+
+            var count = Clip(corners, layout, near);
+
+            if (count < 3) {
+                // Wholly behind the eye. A cut triangle keeps at least three corners, so this is the
+                // only case in which nothing is drawn at all.
                 continue;
             }
 
-            Fill(triangle, Shade(a, b, c, forward), pa, pb, pc, za, zb, zc, ua, ub, uc);
+            var shade = Shade(a, b, c, forward);
+
+            for (var corner = 0; corner < count; corner++) {
+                pane[corner] = PaintCamera.ToPane(corners[corner], width, height);
+            }
+
+            // ⚠ A fan and not a strip, and the shade is the *unclipped* triangle's. Flat shading
+            // reads the plane the three original corners lie in, which is the plane every piece of
+            // the cut polygon is still in — so the two or three pieces cannot disagree about how lit
+            // one triangle is, which is what a shade recomputed per piece would risk at a sliver.
+            for (var corner = 1; corner + 1 < count; corner++) {
+                Fill(
+                    triangle,
+                    shade,
+                    pane[0],
+                    pane[corner],
+                    pane[corner + 1],
+                    corners[0].Z,
+                    corners[corner].Z,
+                    corners[corner + 1].Z,
+                    layout[0],
+                    layout[corner],
+                    layout[corner + 1]
+                );
+            }
         }
 
         Covered = 0;
@@ -351,6 +392,77 @@ sealed class PaintMeshRaster {
         indexedHeight = 0;
     }
 
+    /// <summary>Cuts a triangle against the near plane, in the camera's own frame.</summary>
+    /// <param name="corners">
+    ///     The three corners as <c>PaintCamera.ToView</c> answers, on the way in; the polygon that
+    ///     survives, on the way out. At least four long.
+    /// </param>
+    /// <param name="layout">Their coordinates, in and out, in step with <paramref name="corners" />.</param>
+    /// <param name="near">How far in front of the eye the plane is.</param>
+    /// <returns>How many corners the polygon has: nought, three or four, and never one or two.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1105">#1105</a>: what the
+    ///         rasteriser did before this was <em>drop</em> a triangle with any corner behind the
+    ///         eye.</b> ⚠ That could not paint anything wrong — a pane pixel with no triangle takes
+    ///         no stroke, and the brush's raycast never goes through the projection at all — so the
+    ///         symptom was geometry vanishing rather than paint landing in the wrong place. It is
+    ///         reachable wherever the eye can get inside the surface, which is every open shell, room
+    ///         interior and character's mouth: <c>PaintCamera.Distance</c>'s floor is a fraction of
+    ///         the framed <em>sphere</em> and only keeps the eye outside a convex model.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Sutherland–Hodgman against one plane, which is one case and not the four the
+    ///         old remark feared.</b> Walking the three edges and emitting a corner when it is in
+    ///         front plus a crossing whenever an edge changes side covers "one in", "two in" and
+    ///         "all in" without naming any of them — and a triangle wholly behind emits nothing,
+    ///         which is the only way to get fewer than three back.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A crossing's depth is written as <paramref name="near" /> and not as the lerp's
+    ///         answer.</b> The two differ by a float's worth, and the rasteriser divides by that
+    ///         depth: a corner that landed a rounding <em>short</em> of the plane would be a corner
+    ///         the projection was told never to receive, at a reciprocal depth several times larger
+    ///         than the one the clip was chosen to bound.
+    ///     </para>
+    /// </remarks>
+    static int Clip(Span<Vector3> corners, Span<Vector2> layout, float near) {
+        Span<Vector3> points = stackalloc Vector3[3];
+        Span<Vector2> coordinates = stackalloc Vector2[3];
+
+        corners[..3].CopyTo(points);
+        layout[..3].CopyTo(coordinates);
+
+        var count = 0;
+
+        for (var edge = 0; edge < 3; edge++) {
+            var next = edge == 2 ? 0 : edge + 1;
+            var from = points[edge];
+            var to = points[next];
+            var starts = from.Z > near;
+            var ends = to.Z > near;
+
+            if (starts) {
+                corners[count] = from;
+                layout[count] = coordinates[edge];
+                count++;
+            }
+
+            if (starts == ends) {
+                continue;
+            }
+
+            // The two sides differ, so the denominator cannot be zero.
+            var t = (near - from.Z) / (to.Z - from.Z);
+
+            corners[count] = new(from.X + ((to.X - from.X) * t), from.Y + ((to.Y - from.Y) * t), near);
+            layout[count] = coordinates[edge] + ((coordinates[next] - coordinates[edge]) * t);
+            count++;
+        }
+
+        return count;
+    }
+
     /// <summary>How lit one triangle is, flat, from a light on the camera.</summary>
     /// <param name="a">Its first corner.</param>
     /// <param name="b">Its second.</param>
@@ -408,7 +520,7 @@ sealed class PaintMeshRaster {
     /// <param name="uc">The third's.</param>
     /// <remarks>
     ///     ⚠ <b>The sample point of pixel <c>n</c> is <c>n</c> exactly, and not <c>n + ½</c>.</b>
-    ///     <c>PaintCamera.Ray</c> casts through a pixel's centre and <c>PaintCamera.Project</c> is
+    ///     <c>PaintCamera.Ray</c> casts through a pixel's centre and <c>PaintCamera.ToPane</c> is
     ///     its exact inverse, so the projected frame is already centre-based — adding a half here
     ///     would offset the picture from the brush by half a pixel, which is invisible everywhere
     ///     except the silhouette and at the seam between two islands.
@@ -432,10 +544,16 @@ sealed class PaintMeshRaster {
             return;
         }
 
-        var lowX = Math.Max((int)MathF.Floor(MathF.Min(pa.X, MathF.Min(pb.X, pc.X))), 0);
-        var lowY = Math.Max((int)MathF.Floor(MathF.Min(pa.Y, MathF.Min(pb.Y, pc.Y))), 0);
-        var highX = Math.Min((int)MathF.Ceiling(MathF.Max(pa.X, MathF.Max(pb.X, pc.X))), Width - 1);
-        var highY = Math.Min((int)MathF.Ceiling(MathF.Max(pa.Y, MathF.Max(pb.Y, pc.Y))), Height - 1);
+        // ⚠ Clamped in float and converted afterwards, which is the opposite order to the obvious
+        // one and is not a style choice. A corner sitting on the near plane projects to a pixel
+        // coordinate of a hundred million and a shallower one to far more than that; `(int)` on a
+        // float outside `int`'s range is undefined in C# and answers `int.MinValue` on x64, so
+        // `Math.Min(that, Width - 1)` is `int.MinValue` and the triangle silently covers nothing.
+        // The clamp is exact in float at these magnitudes and the conversion is then always in range.
+        var lowX = (int)MathF.Floor(Math.Clamp(MathF.Min(pa.X, MathF.Min(pb.X, pc.X)), 0f, Width - 1f));
+        var lowY = (int)MathF.Floor(Math.Clamp(MathF.Min(pa.Y, MathF.Min(pb.Y, pc.Y)), 0f, Height - 1f));
+        var highX = (int)MathF.Ceiling(Math.Clamp(MathF.Max(pa.X, MathF.Max(pb.X, pc.X)), 0f, Width - 1f));
+        var highY = (int)MathF.Ceiling(Math.Clamp(MathF.Max(pa.Y, MathF.Max(pb.Y, pc.Y)), 0f, Height - 1f));
 
         var inverse = 1f / area;
         var invA = 1f / za;

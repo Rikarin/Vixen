@@ -199,6 +199,144 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
         Assert.Equal(2, raster.Renders);
     }
 
+    /// <summary>What one frame of an orbit costs, at a docked pane's size and at a maximised 4K one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a>: the stamp path
+    ///         was measured and the <em>camera</em> path was not.</b> An orbit calls
+    ///         <c>PaintMeshRaster.Draw</c> once per pointer move at whatever size the pane is, on one
+    ///         thread — and the case above measures 1280×720, which says nothing at all about the
+    ///         8.3 million pixels of a maximised pane on a 4K display. The issue asks for the
+    ///         measurement <em>first</em>, because a cap, a coarser draw while dragging and a
+    ///         parallel raster are three different answers and only a number chooses between them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both sizes in one case, on the same machine in the same second.</b> A budget for
+    ///         "a 4K draw" calibrated on an idle laptop is this repository's largest flake source; a
+    ///         <em>ratio</em> between two draws taken back to back is not, because the load that
+    ///         would inflate one inflates the other. What is asserted is that the cost tracks the
+    ///         pane's area rather than sitting at some fixed number — which is the property that
+    ///         makes an uncapped pane a problem and the capped one below the fix.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The mesh is sized so the triangles are not the story.</b> Eighteen thousand
+    ///         triangles over a pane that is 8.3 million pixels means the per-pixel work dominates,
+    ///         which is what the issue claims and what the cap addresses; a fixture of forty
+    ///         triangles would measure the same milliseconds at both sizes for the wrong reason.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void One_frame_of_an_orbit_costs_what_the_pane_is_wide_at_both_sizes() {
+        const int Repeats = 3;
+
+        var mesh = Grid(96);
+
+        Assert.True(mesh.Triangles > 10_000, $"{mesh.Triangles} triangles is not a model.");
+
+        PaintImage atlas = new(2048, 2048, 0xFF808080u);
+
+        var docked = Cost(mesh, atlas, 1280, 720, Repeats, out var small);
+        var maximised = Cost(mesh, atlas, 3840, 2160, Repeats, out var large);
+
+        // The instrument: a draw that covered nothing would be fast for a reason that has nothing to
+        // do with the pane's size.
+        Assert.True(small > 100_000, $"{small} pixels covered at 1280×720 — the model is not on screen.");
+        Assert.True(large > 900_000, $"{large} pixels covered at 3840×2160 — the model is not on screen.");
+
+        output.WriteLine(
+            $"{mesh.Triangles} triangles, best of {Repeats}: 1280×720 draw {docked:F1} ms "
+            + $"({small} covered), 3840×2160 draw {maximised:F1} ms ({large} covered) — "
+            + $"{maximised / Math.Max(docked, 1e-3d):F1}× for 9× the pixels. An orbit pays this per "
+            + "pointer move, on one thread."
+        );
+
+        // ⚠ The claim, as a ratio rather than as a budget: the cost is in the pane's pixels. Three
+        // is the floor rather than nine because the per-triangle setup is paid at both sizes and is
+        // a larger share of the small one — what is being refused is the reading that a 4K pane
+        // costs about what a docked one does.
+        Assert.True(
+            maximised > docked * 3d,
+            $"3840×2160 drew in {maximised:F1} ms against {docked:F1} ms for a ninth of the pixels, so this "
+            + "case is no longer measuring the per-pixel cost it was written for."
+        );
+
+        // A hang check and not a bound, in this file's established shape.
+        Assert.True(maximised < 5_000d, $"{maximised:F0} ms for one geometry pass is a hang, not a slow machine.");
+    }
+
+    /// <summary>The best of several whole-pane draws at one size, in milliseconds.</summary>
+    /// <param name="mesh">The model.</param>
+    /// <param name="atlas">What it wears.</param>
+    /// <param name="width">How wide the pane is.</param>
+    /// <param name="height">How tall.</param>
+    /// <param name="repeats">How many times to draw it.</param>
+    /// <param name="covered">How many pane pixels showed the model.</param>
+    /// <returns>The fastest of the passes, in milliseconds.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The best and not the mean, and the buffers are allocated outside the timing.</b> A
+    ///     mean over three passes on a machine running four other agents measures the machine; the
+    ///     minimum is the closest thing to the work itself that a wall clock can report. The first
+    ///     draw at a size also allocates five buffers and a picture, which an orbit's second frame
+    ///     never pays — so it is drawn once before the clock starts.
+    /// </remarks>
+    static double Cost(PaintProjection mesh, PaintImage atlas, int width, int height, int repeats, out int covered) {
+        PaintMeshRaster raster = new();
+        PaintCamera camera = new();
+
+        camera.Frame(mesh.Bounds);
+        raster.Draw(mesh, camera, width, height);
+        raster.Texture(atlas);
+
+        var best = double.MaxValue;
+
+        for (var pass = 0; pass < repeats; pass++) {
+            // A different angle each time, so nothing can be cached on the camera not having moved —
+            // which is exactly what an orbit does.
+            camera.Orbit(3f, 1f, height);
+
+            var started = Stopwatch.GetTimestamp();
+
+            raster.Draw(mesh, camera, width, height);
+            raster.Texture(atlas);
+
+            best = Math.Min(best, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+        }
+
+        covered = raster.Covered;
+
+        return best;
+    }
+
+    /// <summary>A subdivided quad in the z = 0 plane, as a model-sized triangle count.</summary>
+    /// <param name="cells">How many cells across. The triangle count is twice its square.</param>
+    /// <returns>The projection.</returns>
+    static PaintProjection Grid(int cells) {
+        List<Vector3> points = [];
+        List<Vector2> layout = [];
+        List<int> indices = [];
+
+        for (var row = 0; row <= cells; row++) {
+            for (var column = 0; column <= cells; column++) {
+                var u = (float)column / cells;
+                var v = (float)row / cells;
+
+                points.Add(new((u * 2f) - 1f, (v * 2f) - 1f, 0f));
+                layout.Add(new(u, v));
+            }
+        }
+
+        for (var row = 0; row < cells; row++) {
+            for (var column = 0; column < cells; column++) {
+                var corner = (row * (cells + 1)) + column;
+
+                indices.AddRange([corner, corner + 1, corner + cells + 2]);
+                indices.AddRange([corner, corner + cells + 2, corner + cells + 1]);
+            }
+        }
+
+        return PaintProjection.Over([.. points], [.. layout], [.. indices]);
+    }
+
     /// <summary>A quad in the z = 0 plane whose layout is the whole unit square.</summary>
     /// <returns>The projection.</returns>
     static PaintProjection Quad() =>
