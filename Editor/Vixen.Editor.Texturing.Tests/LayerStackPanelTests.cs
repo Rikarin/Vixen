@@ -452,14 +452,20 @@ public class LayerStackPanelTests {
         return lines;
     }
 
-    /// <summary>The first element in the tree with that tag.</summary>
-    static UiElement? Find(UiElement element, string tag) {
-        if (string.Equals(element.Tag, tag, StringComparison.Ordinal)) {
+    /// <summary>The first element in the tree under that name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its tag or its class</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1071">#1071</a>. The panel's containers
+    ///     are tags and its typed controls are classes, and <c>layer-stack-set</c> — the one control
+    ///     this file looks for — is the second kind.
+    /// </remarks>
+    static UiElement? Find(UiElement element, string name) {
+        if (string.Equals(element.Tag, name, StringComparison.Ordinal) || element.HasClass(name)) {
             return element;
         }
 
         foreach (var child in element.Children) {
-            if (Find(child, tag) is { } found) {
+            if (Find(child, name) is { } found) {
                 return found;
             }
         }

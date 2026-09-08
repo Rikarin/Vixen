@@ -1569,6 +1569,11 @@ public class LayerStackEditingTests {
     ///         the row would leave an artist with a file whose shape they cannot see, and the shape
     ///         is the thing they have to fix.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And each absence is measured against a second panel that has the control</b>, so
+    ///         that "the view stopped calling it that" cannot satisfy it —
+    ///         <see cref="Missing" /> and <a href="https://github.com/Rikarin/Vixen/issues/1071">#1071</a>.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_row_whose_id_names_two_layers_is_listed_without_controls() {
@@ -1578,16 +1583,24 @@ public class LayerStackEditingTests {
 
         var panel = Panel(fixture);
 
+        // The same panel over a stack the compiler accepts, which is what each name below is proved
+        // against: an `Assert.Empty` alone is green for a control that no longer exists.
+        using var editable = new TexturingFixture();
+
+        Open(editable, Two());
+
+        var armed = Panel(editable);
+
         Assert.Equal(2, Texts(panel, "layer-stack-row-name").Count);
 
         // Not one button, one tick, one slider or one selector between them: every control on this
         // row is addressed by the id that names both layers.
-        Assert.Empty(All(panel, "layer-stack-move-up"));
-        Assert.Empty(All(panel, "layer-stack-move-down"));
-        Assert.Empty(All(panel, "layer-stack-enabled"));
-        Assert.Empty(All(panel, "layer-stack-opacity"));
-        Assert.Empty(All(panel, "layer-stack-blend"));
-        Assert.Empty(All(panel, "layer-stack-select"));
+        Missing(panel, armed, "layer-stack-move-up");
+        Missing(panel, armed, "layer-stack-move-down");
+        Missing(panel, armed, "layer-stack-enabled");
+        Missing(panel, armed, "layer-stack-opacity");
+        Missing(panel, armed, "layer-stack-blend");
+        Missing(panel, armed, "layer-stack-select");
 
         var refusals = Texts(panel, "layer-stack-row-refusal");
 
@@ -2164,97 +2177,102 @@ public class LayerStackEditingTests {
         return panel;
     }
 
-    static UiElement Element(UiElement root, string tag) {
-        var found = All(root, tag);
+    static UiElement Element(UiElement root, string name) => All(root, name)[0];
 
-        Assert.NotEmpty(found);
-
-        return found[0];
-    }
-
-    static T Find<T>(UiElement root, string tag) where T : UiElement {
-        var found = All(root, tag);
-
-        Assert.NotEmpty(found);
-
-        return Assert.IsType<T>(found[0]);
-    }
+    static T Find<T>(UiElement root, string name) where T : UiElement => Controls<T>(root, name)[0];
 
     /// <summary>The only layer's mask, for a stack made by <see cref="Masked" />.</summary>
     static MaskAsset Mask(LayerStackDocument document) => document.Document.Sets[0].Layers[^1].Mask;
 
     /// <summary>Every fill-colour component field the panel drew under that class, in layout order.</summary>
-    /// <remarks>
-    ///     ⚠ <b>By class, where every other finder here walks tags, and the panel is what forced
-    ///     it.</b> The four components of a fill colour are the one place in this view that keeps the
-    ///     control's own tag — <c>numeric-input</c>, so that the field is styled as a field at all —
-    ///     and carries its name as a class instead. A tag walk finds nothing, which is a green
-    ///     assertion about an empty list rather than a failure, so the two forms are not
-    ///     interchangeable and this one is named for the thing it finds.
-    /// </remarks>
-    static List<NumericInput> Fields(UiElement root, string className) {
-        List<NumericInput> found = [];
+    static List<NumericInput> Fields(UiElement root, string name) => Controls<NumericInput>(root, name);
 
-        Walk(root);
-
-        Assert.NotEmpty(found);
-
-        return found;
-
-        void Walk(UiElement element) {
-            if (element.HasClass(className)) {
-                found.Add(Assert.IsType<NumericInput>(element));
-            }
-
-            foreach (var child in element.Children) {
-                Walk(child);
-            }
-        }
-    }
-
-    /// <summary>Every control of one kind the panel drew under that tag, in layout order.</summary>
-    static List<T> Controls<T>(UiElement root, string tag) where T : UiElement {
+    /// <summary>Every control of one kind the panel drew under that name, in layout order.</summary>
+    static List<T> Controls<T>(UiElement root, string name) where T : UiElement {
         List<T> found = [];
 
-        foreach (var element in All(root, tag)) {
+        foreach (var element in All(root, name)) {
             found.Add(Assert.IsType<T>(element));
         }
 
         return found;
     }
 
-    static List<Button> Buttons(UiElement root, string tag) {
-        List<Button> found = [];
+    static List<Button> Buttons(UiElement root, string name) => Controls<Button>(root, name);
 
-        foreach (var element in All(root, tag)) {
-            found.Add(Assert.IsType<Button>(element));
-        }
+    static List<CheckBox> Ticks(UiElement root, string name) => Controls<CheckBox>(root, name);
 
-        return found;
-    }
-
-    static List<CheckBox> Ticks(UiElement root, string tag) {
-        List<CheckBox> found = [];
-
-        foreach (var element in All(root, tag)) {
-            found.Add(Assert.IsType<CheckBox>(element));
-        }
-
-        return found;
-    }
-
-    static List<string> Texts(UiElement root, string tag) {
+    /// <summary>The text of every element under that name — which may legitimately be none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one finder here that does not insist on a match, and the reason is that its
+    ///     subjects are untyped containers.</b> <c>layer-stack-row-refusal</c> and
+    ///     <c>layer-stack-message</c> are built only when there is something to say, so "no refusals"
+    ///     is an answer several tests want; and being untyped they answer to no
+    ///     <c>ControlTheme</c> rule, so they kept their tags through
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1071">#1071</a> and were never at risk of
+    ///     the silent rename it is about. ⚠ It follows that an <c>Assert.Empty</c> over this is
+    ///     satisfied by a misspelling — use <see cref="Missing" /> where the absence is the finding.
+    /// </remarks>
+    static List<string> Texts(UiElement root, string name) {
         List<string> found = [];
 
-        foreach (var element in All(root, tag)) {
+        foreach (var element in Named(root, name)) {
             found.Add(element.Text ?? "");
         }
 
         return found;
     }
 
-    /// <summary>Every element with that tag, in the order the panel laid them out.</summary>
-    static List<UiElement> All(UiElement root, string tag) {
+    /// <summary>Every element the panel drew under that name, in the order it laid them out.</summary>
+    /// <param name="root">The panel.</param>
+    /// <param name="name">A container's tag, or a control's class.</param>
+    /// <returns>What it found, never empty.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Tag <em>or</em> class, and non-empty is part of the contract</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1071">#1071</a>. Every typed control
+    ///         in the panel now carries its name as a class rather than as a tag, so a walk over
+    ///         <c>element.Tag</c> alone finds nothing for twenty-eight of them; and the way this
+    ///         suite reads an empty list is <c>Buttons(panel, …)[0]</c> in some tests and a passing
+    ///         <c>Assert.Equal(0, …Count)</c> in others. Half the assertions in this file would have
+    ///         gone quietly green, which is why the walk was widened <em>before</em> the panel was
+    ///         renamed rather than after.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So an empty result throws here rather than being handed back.</b> The one place
+    ///         a name legitimately matches nothing is a row the panel refused to build controls for,
+    ///         and that has <see cref="Missing" />, which proves the name against a panel that
+    ///         <em>does</em> build it in the same test.
+    ///     </para>
+    /// </remarks>
+    static List<UiElement> All(UiElement root, string name) {
+        var found = Named(root, name);
+
+        Assert.NotEmpty(found);
+
+        return found;
+    }
+
+    /// <summary>Asserts a name the panel really builds is absent from this tree.</summary>
+    /// <param name="absent">The tree it must not be in.</param>
+    /// <param name="present">A tree it must be in.</param>
+    /// <param name="name">The name.</param>
+    /// <remarks>
+    ///     ⚠ <b>Two trees, because "no element is called that" and "the control is not there" are
+    ///     the same green.</b> An <c>Assert.Empty</c> over one panel passes just as well when the
+    ///     name has been misspelt, renamed in the view, or moved from a tag to a class — which is
+    ///     exactly what <a href="https://github.com/Rikarin/Vixen/issues/1071">#1071</a> did to
+    ///     twenty-eight of them. Naming a panel that must contain it makes the assertion a
+    ///     differential: rename the control in the view and this goes red on the
+    ///     <paramref name="present" /> half.
+    /// </remarks>
+    static void Missing(UiElement absent, UiElement present, string name) {
+        Assert.NotEmpty(Named(present, name));
+        Assert.Empty(Named(absent, name));
+    }
+
+    /// <summary>The raw walk, which may find nothing. Prefer <see cref="All" />.</summary>
+    static List<UiElement> Named(UiElement root, string name) {
         List<UiElement> found = [];
 
         Walk(root);
@@ -2262,7 +2280,7 @@ public class LayerStackEditingTests {
         return found;
 
         void Walk(UiElement element) {
-            if (string.Equals(element.Tag, tag, StringComparison.Ordinal)) {
+            if (string.Equals(element.Tag, name, StringComparison.Ordinal) || element.HasClass(name)) {
                 found.Add(element);
             }
 

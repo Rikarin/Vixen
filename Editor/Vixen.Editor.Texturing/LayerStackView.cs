@@ -94,6 +94,20 @@ readonly record struct MaskSourceEdit(
 ///         both, and the cost is a longer list — which is what the group indent already spends.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Every typed control here is named by <em>class</em>, and a container by tag.</b>
+///         <c>UiElement.Add&lt;T&gt;(string)</c>'s first parameter is the tag, so
+///         <c>row.Add&lt;Slider&gt;("layer-stack-opacity")</c> built a slider that no <c>slider</c>
+///         rule in <c>ControlTheme.vcss</c> matched — no height, no minimum width and no
+///         focus ring, for twenty-eight controls and sixteen batches
+///         (<a href="https://github.com/Rikarin/Vixen/issues/1071">#1071</a>). A <see cref="Slider" />
+///         survives that looking like a slider because it draws its own track, which is why nobody
+///         saw it; a <c>TextBox</c> does not, since <c>textbox</c>'s rule carries the
+///         <c>position: relative</c> its placeholder is laid out against. The untyped
+///         <c>Add(string)</c> containers — <c>layer-stack-row</c>, <c>layer-stack-fill-channel</c> —
+///         answer to no control rule and stay tags, which is what <c>TexturingTheme.vcss</c> selects
+///         on.
+///     </para>
+///     <para>
 ///         ⚠ <b>Built in C# rather than <c>.vxml</c>, and that is a debt.</b>
 ///         <c>TextureGraphView</c>'s reason unchanged: doc 36 § P4 makes markup the authoring path,
 ///         and porting is worth doing when the panel grows a form to edit with. It has now grown one,
@@ -306,20 +320,20 @@ sealed class LayerStackView : IDisposable {
         // — the part picker narrows *this* set, and the rows below are this set's layers.
         binding.Add("layer-stack-binding-label").Text = "Set";
 
-        sets = binding.Add<Select>("layer-stack-set");
+        sets = binding.Add<Select>(null, null, "layer-stack-set");
 
         sets.SelectionChanged += (_, value) => ChooseSet(value ?? "");
 
         binding.Add("layer-stack-binding-label").Text = "Mesh";
 
-        model = binding.Add<Select>("layer-stack-model");
+        model = binding.Add<Select>(null, null, "layer-stack-model");
 
         // ⚠ Beside the model and not on the set's own row, because the two are one decision read
         // left to right: which file, and which of the meshes in it. #941's own summary is that a set
         // narrowed to a mesh is what stops one coverage map covering every island in the model.
         binding.Add("layer-stack-binding-label").Text = "Part";
 
-        part = binding.Add<Select>("layer-stack-set-mesh");
+        part = binding.Add<Select>(null, null, "layer-stack-set-mesh");
         meshStatus = binding.Add("layer-stack-binding-status");
 
         model.SelectionChanged += (_, value) => Bind(value ?? "");
@@ -330,7 +344,7 @@ sealed class LayerStackView : IDisposable {
         // deleted is in. Delete is per row, for the opposite reason: it names the layer it is on.
         var actions = left.Add("layer-stack-actions");
 
-        addKind = actions.Add<Select>("layer-stack-add-kind");
+        addKind = actions.Add<Select>(null, null, "layer-stack-add-kind");
 
         foreach (var value in Enum.GetValues<LayerKind>()) {
             addKind.AddOption(value.ToString());
@@ -338,7 +352,7 @@ sealed class LayerStackView : IDisposable {
 
         addKind.Value = LayerKind.Fill.ToString();
 
-        var add = actions.Add<Button>("layer-stack-add");
+        var add = actions.Add<Button>(null, null, "layer-stack-add");
 
         add.Label = "Add layer";
         add.Clicked += _ => AddLayer();
@@ -1118,7 +1132,7 @@ sealed class LayerStackView : IDisposable {
         // here marks its own pointer events handled, so a row-wide handler would have to be on the
         // capture leg and would then swallow the press that was aimed at a tick box — the trap
         // `PaintUvView`'s own handler documents, in the direction that breaks the rest of the panel.
-        var select = row.Add<Button>("layer-stack-select");
+        var select = row.Add<Button>(null, null, "layer-stack-select");
 
         select.Clicked += _ => Choose(path);
 
@@ -1136,8 +1150,8 @@ sealed class LayerStackView : IDisposable {
             row.Add("layer-stack-row-refusal").Text = Unnamed;
         }
 
-        var up = row.Add<Button>("layer-stack-move-up");
-        var down = row.Add<Button>("layer-stack-move-down");
+        var up = row.Add<Button>(null, null, "layer-stack-move-up");
+        var down = row.Add<Button>(null, null, "layer-stack-move-down");
 
         up.Label = "Move up";
         down.Label = "Move down";
@@ -1153,12 +1167,12 @@ sealed class LayerStackView : IDisposable {
         // ⚠ On the row and never disabled, the last layer included. A stack with no layers compiles
         // — every channel is its own default — so "you may not delete this one" would be a rule with
         // nothing behind it, and the undo entry is what makes the gesture safe.
-        var delete = row.Add<Button>("layer-stack-delete");
+        var delete = row.Add<Button>(null, null, "layer-stack-delete");
 
         delete.Label = "Delete";
         delete.Clicked += _ => RemoveLayer(document, path);
 
-        var enabled = row.Add<CheckBox>("layer-stack-enabled");
+        var enabled = row.Add<CheckBox>(null, null, "layer-stack-enabled");
 
         enabled.Label = "Enabled";
         enabled.CheckedChanged += (_, value) => Set(
@@ -1170,7 +1184,7 @@ sealed class LayerStackView : IDisposable {
 
         var name = row.Add("layer-stack-row-name");
 
-        var blend = row.Add<Select>("layer-stack-blend");
+        var blend = row.Add<Select>(null, null, "layer-stack-blend");
 
         foreach (var mode in Enum.GetValues<LayerBlendMode>()) {
             blend.AddOption(mode.ToString());
@@ -1182,7 +1196,7 @@ sealed class LayerStackView : IDisposable {
             }
         };
 
-        var opacity = row.Add<Slider>("layer-stack-opacity");
+        var opacity = row.Add<Slider>(null, null, "layer-stack-opacity");
 
         opacity.Minimum = 0f;
         opacity.Maximum = 1f;
@@ -1223,7 +1237,7 @@ sealed class LayerStackView : IDisposable {
 
         foreach (var channel in set.Channels) {
             var usage = channel.Usage;
-            var tick = channels.Add<CheckBox>("layer-stack-channel");
+            var tick = channels.Add<CheckBox>(null, null, "layer-stack-channel");
 
             tick.Label = usage;
 
@@ -1362,7 +1376,7 @@ sealed class LayerStackView : IDisposable {
 
         source.Add("layer-stack-fill-label").Text = "Fill";
 
-        var kind = source.Add<Select>("layer-stack-fill-source");
+        var kind = source.Add<Select>(null, null, "layer-stack-fill-source");
 
         foreach (var choice in Enum.GetValues<LayerFillSource>()) {
             kind.AddOption(choice.ToString());
@@ -1376,7 +1390,7 @@ sealed class LayerStackView : IDisposable {
             Set(document, path, current => current with { Fill = wanted }, "Set Fill Source");
         };
 
-        var graph = source.Add<TextBox>("layer-stack-fill-graph");
+        var graph = source.Add<TextBox>(null, null, "layer-stack-fill-graph");
 
         graph.ValueChanged += (_, typed) => Set(
             document,
@@ -1427,7 +1441,7 @@ sealed class LayerStackView : IDisposable {
 
         row.Add("layer-stack-fill-usage").Text = usage;
 
-        var writes = row.Add<CheckBox>("layer-stack-fill-writes");
+        var writes = row.Add<CheckBox>(null, null, "layer-stack-fill-writes");
 
         writes.Label = usage;
 
@@ -1442,14 +1456,9 @@ sealed class LayerStackView : IDisposable {
 
         for (var index = 0; index < 4; index++) {
             var component = index;
-            // ⚠ A class, where every other row in this panel names a tag, and the difference is
-            // `ImageViewBar`'s recorded one: `Add<T>(string)` takes the *tag*, so the slider this
-            // replaces was called `layer-stack-fill-red` and was therefore matched by no `slider`
-            // rule in any sheet. A `Slider` survives that because it draws its own track; a field
-            // does not — `numeric-input`'s rule carries the border, the padding and the
-            // `position: relative` the placeholder is laid out against, and an element renamed out
-            // of it puts its placeholder at the left edge of the *window*.
-            var field = row.Add<NumericInput>(null, null, ComponentTags[index]);
+            // These four were the first controls in the panel to be named by class, and #1071 is
+            // the other twenty-eight following them.
+            var field = row.Add<NumericInput>(null, null, ComponentClasses[index]);
 
             // ⚠ A floor and no ceiling, and that is the whole of
             // <a href="https://github.com/Rikarin/Vixen/issues/1004">#1004</a>. The renderer works
@@ -1533,7 +1542,7 @@ sealed class LayerStackView : IDisposable {
             components.Add(field);
         }
 
-        var image = row.Add<TextBox>("layer-stack-fill-texture");
+        var image = row.Add<TextBox>(null, null, "layer-stack-fill-texture");
 
         // ⚠ Empty text removes the entry rather than storing "", because the compiler answers a
         // texture fill naming no image with a refusal either way — so a blank field that left a key
@@ -1580,10 +1589,9 @@ sealed class LayerStackView : IDisposable {
     /// <summary>What each of a colour's four fields is classed on the tree.</summary>
     /// <remarks>
     ///     Written out rather than indexed into a single name, because a test reading "the red field"
-    ///     off the panel should be naming red rather than counting. ⚠ These are <em>classes</em> and
-    ///     every other name in this panel is a tag — see the call site for the rule that forced it.
+    ///     off the panel should be naming red rather than counting.
     /// </remarks>
-    static readonly string[] ComponentTags = [
+    static readonly string[] ComponentClasses = [
         "layer-stack-fill-red",
         "layer-stack-fill-green",
         "layer-stack-fill-blue",
@@ -1677,7 +1685,7 @@ sealed class LayerStackView : IDisposable {
             // caller passes the default. `MaskEffectAsset.Node` is the whole of what an effect is —
             // "any single-input graph", named by its path in the node menu — so an add with no field
             // to type into offers a row an artist can create and cannot make mean anything.
-            var node = effect.Add<TextBox>("layer-stack-effect-node");
+            var node = effect.Add<TextBox>(null, null, "layer-stack-effect-node");
 
             node.Placeholder = "Colour/Levels";
 
@@ -1691,7 +1699,7 @@ sealed class LayerStackView : IDisposable {
 
             node.Submitted += _ => document.Stack.Seal();
 
-            var remove = effect.Add<Button>("layer-stack-effect-delete");
+            var remove = effect.Add<Button>(null, null, "layer-stack-effect-delete");
 
             remove.Label = "Delete";
             remove.Clicked += _ => Set(
@@ -1744,7 +1752,7 @@ sealed class LayerStackView : IDisposable {
                 )
             );
 
-            var remove = entry.Add<Button>("layer-stack-entry-delete");
+            var remove = entry.Add<Button>(null, null, "layer-stack-entry-delete");
 
             remove.Label = "Delete";
             remove.Clicked += _ => Set(
@@ -1774,7 +1782,7 @@ sealed class LayerStackView : IDisposable {
         // an entry row is a thing there may be none of, and hanging "add another" off it would make
         // the first one unreachable. They are here rather than on the layer row because what they
         // add belongs to the mask.
-        var addEntry = row.Add<Button>("layer-stack-mask-add-entry");
+        var addEntry = row.Add<Button>(null, null, "layer-stack-mask-add-entry");
 
         addEntry.Label = "Add mask entry";
         addEntry.Clicked += _ => Set(
@@ -1784,7 +1792,7 @@ sealed class LayerStackView : IDisposable {
             "Add Mask Entry"
         );
 
-        var addEffect = row.Add<Button>("layer-stack-mask-add-effect");
+        var addEffect = row.Add<Button>(null, null, "layer-stack-mask-add-effect");
 
         addEffect.Label = "Add effect";
         addEffect.Clicked += _ => Set(
@@ -2067,7 +2075,7 @@ sealed class LayerStackView : IDisposable {
         Func<MaskSourceEdit?> read,
         Action<MaskSourceEdit, string, string> write
     ) {
-        var kind = row.Add<Select>("layer-stack-mask-source");
+        var kind = row.Add<Select>(null, null, "layer-stack-mask-source");
 
         foreach (var source in Enum.GetValues<LayerMaskSource>()) {
             kind.AddOption(source.ToString());
@@ -2079,7 +2087,7 @@ sealed class LayerStackView : IDisposable {
             }
         };
 
-        var number = row.Add<Slider>("layer-stack-mask-value");
+        var number = row.Add<Slider>(null, null, "layer-stack-mask-value");
 
         number.Minimum = 0f;
         number.Maximum = 1f;
@@ -2100,7 +2108,7 @@ sealed class LayerStackView : IDisposable {
             handledEventsToo: true
         );
 
-        var anchor = row.Add<Select>("layer-stack-mask-anchor");
+        var anchor = row.Add<Select>(null, null, "layer-stack-mask-anchor");
 
         anchor.SelectionChanged += (_, chosen) => {
             if (read() is not { } current) {
@@ -2112,7 +2120,7 @@ sealed class LayerStackView : IDisposable {
             write(current with { Anchor = wanted }, "Set Mask Anchor", "");
         };
 
-        var map = row.Add<Select>("layer-stack-mask-map");
+        var map = row.Add<Select>(null, null, "layer-stack-mask-map");
 
         foreach (var measurement in TextureNodeLibrary.MeshMaps) {
             map.AddOption(measurement);
@@ -2124,7 +2132,7 @@ sealed class LayerStackView : IDisposable {
             }
         };
 
-        var reference = row.Add<TextBox>("layer-stack-mask-text");
+        var reference = row.Add<TextBox>(null, null, "layer-stack-mask-text");
 
         reference.ValueChanged += (_, typed) => {
             if (read() is not { } current) {
@@ -2255,7 +2263,7 @@ sealed class LayerStackView : IDisposable {
 
         row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
 
-        var tick = row.Add<CheckBox>("layer-stack-mask-enabled");
+        var tick = row.Add<CheckBox>(null, null, "layer-stack-mask-enabled");
 
         tick.Label = "Enabled";
         tick.CheckedChanged += (_, value) => toggle(value);
