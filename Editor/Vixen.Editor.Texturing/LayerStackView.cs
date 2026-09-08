@@ -626,6 +626,38 @@ sealed class LayerStackView : IDisposable {
     ///     </para>
     /// </remarks>
     public void Show(LayerStackDocument? document, LayerStackPicture? picture = null) {
+        Refresh(document, picture);
+
+        // ⚠ **The blocker #881's remaining half is written against, closed here rather than
+        // measured a fourth time.** A markup binding is an `Effect`, and
+        // `Core/Vixen.Ui.Reactive/Effect.cs` is explicit that an effect never runs on the write — it
+        // queues, and `EffectScheduler.Flush` runs it at the point in the frame the UI system chose.
+        // So the moment any part of this panel became markup, `Show` stopped being a call that
+        // leaves the panel showing what it was given: it left it showing the previous frame until
+        // something else drained the queue. Six test files read this tree synchronously, and
+        // `LayerStackPanelTests.Lines` had grown a flush of its own to cover for it — a cost being
+        // paid once per reader instead of once at the source, and one every future reader would
+        // have had to rediscover.
+        //
+        // ⚠ **Re-entrant by construction, so this is safe inside a frame.** `Flush` returns
+        // immediately when one is already running and defers itself out of a `ReactiveGraph.Batch`,
+        // so the drain `UiDocument.Update` makes on the way past is untouched and a `Show` reached
+        // from inside one is a no-op here rather than a nested drain.
+        //
+        // ⚠ **Not `Update`, which would lay the document out.** What is owed is that the elements
+        // the statements above asked for exist; a pass would also restyle and re-measure the whole
+        // window, once per frame of an opacity drag.
+        root.Document.Effects.Flush();
+    }
+
+    /// <summary>Everything <see cref="Show" /> does before the effect queue is drained.</summary>
+    /// <param name="document">The stack, or <see langword="null" /> for none.</param>
+    /// <param name="picture">What evaluating it produced, or <see langword="null" /> for nothing.</param>
+    /// <remarks>
+    ///     Split out for the early returns rather than for tidiness: this method leaves through
+    ///     three of them, and a flush written at the bottom of it would run on one path in three.
+    /// </remarks>
+    void Refresh(LayerStackDocument? document, LayerStackPicture? picture) {
         Document = document;
         shown = picture;
 
