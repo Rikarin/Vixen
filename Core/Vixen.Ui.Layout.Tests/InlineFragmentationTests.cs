@@ -883,6 +883,72 @@ public class InlineFragmentationTests {
         Assert.Equal(20f, over.GetTop(overThird), Tolerance);
     }
 
+    /// <summary>
+    ///     A span whose opening tag is the last thing that would fit starts on the next line instead.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The mirror image of
+    ///         <see cref="A_box_that_carries_on_past_the_break_spends_no_end_edge_on_the_line" />, and
+    ///         it is a different rule rather than the same one read backwards.</b> An end edge is not
+    ///         charged at a break because the box carries on; a <i>start</i> edge cannot be charged to
+    ///         a line the box has no content on at all, because there is no such thing as a fragment
+    ///         with neither an end of the box nor any of its children in it. So the line ends
+    ///         <i>before</i> the opening tag and the box begins on the next one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every other fragmentation case in this file opens the span on a line that also
+    ///         holds one of its children</b>, which is exactly why none of them could see this: it
+    ///         takes an opening tag that is the last stream entry on a line.
+    ///     </para>
+    ///     <para>
+    ///         Chrome 148.0.7778.280, a 200-wide <c>flow-root</c> at <c>font-size: 0; line-height: 0</c>
+    ///         with two bare 60×20 <c>inline-block</c> items and then a <c>display: inline</c> span
+    ///         padded 30 at its start holding a third: the span has <b>one</b> rectangle,
+    ///         <c>left 0, width 90</c>, on the second line, and its child sits at <c>x = 30</c>. Vixen
+    ///         gave the span two rectangles — 30 of padding hanging off the end of the first line at
+    ///         x = 120, and the child at x = 0 on the second with its start padding nowhere near it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_opening_tag_that_ends_a_line_moves_to_the_next_line_with_its_content() {
+        using var tree = new LayoutTree();
+        var root = PaddedRoot(tree, width: 200f, padding: 0f);
+
+        Item(tree, root, 60f, 20f);
+        Item(tree, root, 60f, 20f);
+
+        var span = Span(tree, root);
+        tree.SetPadding(span, Edge.Left, StyleLength.Points(30f));
+
+        var child = Item(tree, span, 60f, 20f);
+
+        tree.CalculateLayout(root, 200f, float.NaN, Direction.Ltr);
+
+        // One rectangle, because not one of the box's children is on the first line — 30 + 60, with
+        // both real ends on it.
+        Assert.Equal(1, tree.GetFragmentCount(span));
+
+        var (left, top, width, _, ends) = tree.GetFragment(span, 0);
+        Assert.Equal(0f, left, Tolerance);
+        Assert.Equal(0f, top, Tolerance);
+        Assert.Equal(90f, width, Tolerance);
+        Assert.Equal(LayoutFragmentEnds.Both, ends);
+
+        // The union is that one rectangle, on the second line.
+        Assert.Equal(0f, tree.GetLeft(span), Tolerance);
+        Assert.Equal(20f, tree.GetTop(span), Tolerance);
+        Assert.Equal(90f, tree.GetWidth(span), Tolerance);
+
+        // And the child is inset by the padding that opened the box — the half that was lost, since
+        // the padding was spent on the line above and the child started at the band's own edge.
+        Assert.Equal(30f, tree.GetLeft(child), Tolerance);
+        Assert.Equal(0f, tree.GetTop(child), Tolerance);
+
+        // Two lines, not three: the first still holds both bare items.
+        Assert.Equal(40f, tree.GetHeight(root), Tolerance);
+    }
+
     static LayoutNodeId PaddedRoot(LayoutTree tree, float width, float padding) {
         var root = tree.CreateNode();
         tree.SetDisplay(root, Display.Block);

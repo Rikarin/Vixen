@@ -819,6 +819,17 @@ public sealed partial class LayoutTree {
             if (placed > 0
                 && lineWidth + advance + ClosingEdgesAfter(cursor + 1, streamEnd, direction, innerWidth)
                 > availableWidth + LineFitTolerance) {
+                // ⚠ The line ends BEFORE the boxes that opened just ahead of the item that did not
+                // fit, and did not fit itself. A start edge charged here would give the box a
+                // fragment on a line holding none of its children — a rectangle that is neither an
+                // end of the box nor any of its content — and the continuation line would then draw
+                // the box's start at the band's own edge, §9.2.1.1's continuation rule, leaving the
+                // `padding-left` on the line above and the content without it. Chrome moves the open
+                // tag down with what it opened.
+                while (cursor > lineStart && inlineItems[cursor - 1].Kind == InlineItemKind.Open) {
+                    cursor--;
+                }
+
                 break;
             }
 
