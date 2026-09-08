@@ -523,7 +523,8 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 > closed and #371's completeness test now reads the library's slots. What is missing is that
 > **nothing in the tree constructs one**: the only constructions are tests, a golden and the line in
 > `WorldRenderer.Paired` that exists so the pairing can read its map names off
-> ([#1073](https://github.com/Rikarin/Vixen/issues/1073)). ⚠ **The editor bakes a material as of 2026-09-08** — `MaterialBakeRoute` compiles the open
+> ([#1073](https://github.com/Rikarin/Vixen/issues/1073)).
+> ⚠ **The editor bakes a material as of 2026-09-08** — `MaterialBakeRoute` compiles the open
 > `.vxtexgraph`, fills its externals, dispatches through the evaluator both panes already share,
 > reads *every* output and writes the `.vxmat`, behind a *Bake Material* verb
 > ([#1009](https://github.com/Rikarin/Vixen/issues/1009)). Three narrower routes stay owed and are
