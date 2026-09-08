@@ -8,7 +8,7 @@ api: [T:Vixen.Net.Animation.NetworkBonePrecision]
 tags: [networking, replication, animation, bandwidth, quantization]
 since: 0.1
 status: preview
-related: [engine/parent-relative-transforms, engine/networked-players, engine/measuring-loss]
+related: [engine/parent-relative-transforms, engine/networked-players, engine/measuring-loss, animation/replicating-a-pose]
 ---
 
 ## What it is
@@ -115,3 +115,5 @@ change late.
   mismatched manifest from a peer that never arrived.
 - [Parent-relative transforms](parent-relative-transforms.md) — the other half of sending less: which
   axes an object bothers with at all.
+- [Replicating a pose](../animation/replicating-a-pose.md) — registering the passes, and where the
+  list of joints this table is indexed against comes from.

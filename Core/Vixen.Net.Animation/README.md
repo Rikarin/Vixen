@@ -96,6 +96,35 @@ visible cut is a bug; a pose arrives every tick, and blending each into the last
 filter on the animation — a ragdoll that lands softly on every impact. Smoothing a pose belongs in
 `SnapshotBuffer`, at the layer that already knows about interpolation delay.
 
+## Reaching it
+
+Two calls, and they are separate because a registry is built once at startup and hashed into the
+session's content hash while systems belong to a loop:
+
+```csharp
+registry.AddNetworkAnimation();     // the three records
+loop.AddNetworkAnimation();         // the five passes
+world.Add(character, default(NetworkBones));
+```
+
+⚠ **Until [#481](https://github.com/Rikarin/Vixen/issues/481) there was no third line to write and no
+first two either.** The assembly had no registration surface at all — four systems and two replicators
+constructed only by `NetworkBonesTests` — and worse, `NetworkBoneSelection.Joints` was written in
+exactly one place in the repository, line 227 of that same test. Both pose systems bail out when it is
+null, so a game that did everything else right still had a pose path that did nothing: no exception,
+no counter, no bytes. The cost analysis above described a path no shipped configuration could take.
+
+`NetworkBoneSelectionSystem` is what closed that. It gives every networked character with an animator
+a selection — adding the component as well as filling it, because a second thing to remember is a
+second thing to forget invisibly — and `NetworkBoneSelector.Trunk` is the default policy: breadth-first
+from the root, capped at what one record holds. ⚠ **Breadth-first rather than depth-first is the whole
+of it at the cap**: depth-first spends twenty-four slots walking one arm to the fingertips and never
+reaches the other, which reads as a broken clip rather than as a selection.
+
+The policy has to be a pure function of the rig, and that is a correctness rule rather than a style
+one. The selection is not replicated *because* it comes from content both ends have; a policy reading
+anything else leaves the two ends unpacking one wire layout into different joints.
+
 ## Owed
 
 - ~~**Per-bone quantisation by importance.**~~ Built: `NetworkBonePrecision` is a per-slot table the
@@ -109,7 +138,14 @@ filter on the animation — a ragdoll that lands softly on every impact. Smoothi
   read against, which is why the table is indexed by slot and a game using one has to order every
   character's selection the same way. See `docs/guide/engine/pose-precision.md`.
 - **Interpolating a pose.** `SnapshotBuffer` interpolates a transform; a pose wants the same treatment
-  and does not have it, so a received pose is applied at whatever rate it arrives.
+  and does not have it, so a received pose is applied at whatever rate it arrives. ⚠ The prerequisite
+  moved: `NetworkTransformInterpolateSystem` is now the engine's answer to where an interpolation
+  buffer lives, what gives it a tick and an alpha, and when a per-object buffer is evicted
+  ([#467](https://github.com/Rikarin/Vixen/issues/467)), so the pose version is the same shape against
+  a `SkeletonPose` rather than a new question.
+- **A sample.** Nothing in `Samples/` replicates a pose, so the 776-bit figure above is still
+  arithmetic rather than a measurement. The end-to-end test in `NetworkAnimationWiringTests` is what
+  says the path is reachable; it does not say what it costs in a match.
 - **Layers past the first.** Only the base layer's state is sent; additive and masked layers are
   driven by the parameters that are already on the wire. A game whose upper-body layer has its own
   machine driven by something *not* replicated would need those too.
