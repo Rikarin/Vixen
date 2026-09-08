@@ -323,6 +323,50 @@ It is still written at pointer-up, and since format version 2 it is Deflated per
 — a stroked 4K channel is 4.09 MB rather than 64 MiB, for the same wall clock, because the raw write
 it replaces is I/O-bound ([#850](https://github.com/Rikarin/Vixen/issues/850)).
 
+### The 3D projection: the mechanism is here and the viewport is not
+
+`PaintProjection`, `PaintFootprint`, `PaintSymmetry` and `PaintProjector` are § D13's **first** front
+end — the ray, the coordinate under it, the screen-radius conversion and the mirrors. `PaintProjector`
+is the whole of what a viewport calls: `Begin(eye, ray, screenRadius, out radius)` at pointer-down and
+`Resolve(ray)` per move, whose span is exactly what `PaintSession.MoveAll` takes.
+
+⚠ **Nothing calls it yet, and the reason is a viewport rather than more arithmetic** —
+[#1063](https://github.com/Rikarin/Vixen/issues/1063). No pane in this editor shows a `.vxlayers`'
+model: the scene viewport shows the *scene*, and a stack names a model **asset path** that nothing
+maps to an entity, while a pane of the plugin's own cannot draw geometry because `IEditorGraphics`
+lends a device and `Upload` takes pixels. The other half of the chain is
+[#1062](https://github.com/Rikarin/Vixen/issues/1062): `LayerStackMesh` resolves the model and keeps
+only the coordinates, so the positions a raycast needs are read and discarded.
+
+Three things are worth knowing before that is wired.
+
+1. ⚠ **No raycaster was written.** `TriangleTree` in `Vixen.Core.Mathematics` already answers with the
+   triangle, the barycentric weights and the distance. ⚠ **Its `Raycast` bounds the search at the
+   *length of the direction*** — right for a bake, whose radius is a fraction of the model's diagonal,
+   and a trap for a picking ray: passing a viewport's unit direction straight through finds nothing
+   further off than one unit, which works on a model the size of a room and misses one the size of a
+   house with no error anywhere.
+2. ⚠ **The screen-to-texel conversion is three steps and [#574](https://github.com/Rikarin/Vixen/issues/574)
+   names one and a half of them.** `UvDensity` is not the second half either: it answers texels per
+   square metre *per island*, and what a brush wants is the **hit triangle's** own Jacobian —
+   `PaintProjection.Density`, as its two singular values. The step neither doc 48 nor the issue
+   mentions is the **grazing stretch**: a disc on the screen lands on a tilted surface as an ellipse,
+   so a conversion without the cosine is exactly right face-on — which is how anybody testing by hand
+   holds the model — and wrong at every silhouette. ⚠ The angle is the **ray's**, not the line from
+   the eye to the hit; they agree under perspective and do not under an orthographic camera, where
+   every ray is parallel to the forward axis.
+3. ⚠ **The stamp is a disc and the footprint is an ellipse, so a stretched chart is painted wrong in
+   one direction** — [#1064](https://github.com/Rikarin/Vixen/issues/1064). `PaintDensity.Area` is the
+   geometric mean, which is wrong by the square root either way and preserves the painted area; sizing
+   by the major axis paints past where the artist swept and by the minor leaves a sliver. The fix is
+   an elliptical stamp and it is not here.
+
+⚠ **And symmetry is the ray's, which is why `MoveAll` takes a set.** A mirrored ray that misses the
+mesh cannot be skipped for one move — the session refuses a changed path count, correctly, because a
+mirror with no record leaves the one undo entry restoring half the drag — so a missed path **holds its
+last position**, which costs nothing: `BrushStroke.MoveTo` lays a stamp only for a movement with a
+length.
+
 ## What is not here
 
 * **No layer stack.** § D10's `.vxlayers` is a second document over the same `TexturePlan`, and it is
