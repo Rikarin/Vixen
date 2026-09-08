@@ -281,6 +281,17 @@ public class GridViewTests {
     ///     the browser's own objects and a pool of tiles the size of the viewport — and the last of
     ///     them is reachable, which is what separates pooling from a cap.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The setup is asserted in two halves because its red used to name neither.</b> This
+    ///     test counted 1 999 of 2 000 once, on 2026-09-05, and was filed three times over — #748,
+    ///     #751, #769 — each reading the same single number differently, because
+    ///     <c>grid.Items.Count</c> is the only thing the old assertion looked at and it is a function
+    ///     of two independent things: what the scan put in the index, and what the browser built out
+    ///     of it. The index is asked first now, so a repeat says which of the two lost the file
+    ///     instead of leaving the next reader to guess for the fourth time. Neither half is a settle:
+    ///     <c>assets.refresh</c> is <c>ProjectBrowser.Rescan</c> — a synchronous <c>Scan</c>, <c>Save</c>
+    ///     and <c>Rebuild</c> with no import behind it — so there is no work in flight to wait on.
+    /// </remarks>
     [Fact]
     public void A_folder_of_thousands_costs_a_pool_rather_than_thousands_of_elements() {
         using var editor = Started();
@@ -294,6 +305,16 @@ public class GridViewTests {
         }
 
         editor.Run("assets.refresh");
+
+        // ⚠ The index before the interface. `AssetDatabaseTests.TwoThousandFilesWithNoSidecarsAllReachTheIndex`
+        // holds the same claim two seconds away from a developer rather than four hundred, so a red
+        // here that is also red there is the scan, and a red here alone is the browser.
+        var indexed = editor.Project.Assets.Entries.Count(entry =>
+            !entry.IsFolder && entry.Path.StartsWith("Assets/Many/", StringComparison.Ordinal)
+        );
+
+        Assert.Equal(2000, indexed);
+
         DoubleClick(editor, "Many");
 
         var grid = Grid(editor);
