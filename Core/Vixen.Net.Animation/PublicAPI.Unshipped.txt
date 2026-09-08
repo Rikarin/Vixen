@@ -136,6 +136,7 @@ const Vixen.Net.Animation.NetworkBonePrecision.MinBits = 4 -> int
 const Vixen.Net.Animation.NetworkBonesReplicator.MaxBones = 24 -> int
 override Vixen.Net.Animation.NetworkAnimatorApplySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Animation.NetworkAnimatorCaptureSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+override Vixen.Net.Animation.NetworkBoneSelectionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Animation.NetworkBonesApplySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Animation.NetworkBonesCaptureSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 static Vixen.Net.Animation.NetworkAnimationSystems.AddNetworkAnimation(this Vixen.Ecs.Systems.SystemRunner runner) -> Vixen.Ecs.Systems.SystemRunner

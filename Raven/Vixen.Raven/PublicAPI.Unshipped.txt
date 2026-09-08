@@ -2549,7 +2549,7 @@ abstract Vixen.Raven.Syntax.SimpleNameSyntax.Identifier.get -> Vixen.Core.Syntax
 abstract Vixen.Raven.Syntax.StatementSyntax.AttributeLists.get -> Vixen.Core.Syntax.SyntaxList<Vixen.Raven.Syntax.AttributeListSyntax>
 const Vixen.Raven.Artefacts.CompiledEffectFormat.Version = 1 -> int
 const Vixen.Raven.Artefacts.CompiledLibraryFormat.Extension = ".rvnlib" -> string
-const Vixen.Raven.Artefacts.CompiledLibraryFormat.Version = 3 -> int
+const Vixen.Raven.Artefacts.CompiledLibraryFormat.Version = 4 -> int
 const Vixen.Raven.IR.IrCapability.Compute = "Compute" -> string
 const Vixen.Raven.IR.IrCapability.Float64 = "Float64" -> string
 const Vixen.Raven.IR.IrCapability.Geometry = "Geometry" -> string

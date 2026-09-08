@@ -37,7 +37,7 @@ Vixen.Net.Physics.LagCompensationSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Net.Physics.LagCompensationSystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Net.Physics.LagCompensationSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
 Vixen.Net.Physics.LagCompensationSystem.AdoptedCount.get -> long
-Vixen.Net.Physics.LagCompensationSystem.Capture(Vixen.Ecs.World world, Vixen.Net.Time.Tick at) -> void
+Vixen.Net.Physics.LagCompensationSystem.Capture(Vixen.Ecs.World world, Vixen.Net.Tick at) -> void
 Vixen.Net.Physics.LagCompensationSystem.CapturedTicks.get -> long
 Vixen.Net.Physics.LagCompensationSystem.Compensator.get -> Vixen.Net.Physics.LagCompensator
 Vixen.Net.Physics.LagCompensationSystem.LagCompensationSystem(Vixen.Net.Physics.LagCompensator compensator, Vixen.Net.Time.TickManager clock) -> void
@@ -132,6 +132,7 @@ Vixen.Net.Physics.RewindScope.Equals(Vixen.Net.Physics.RewindScope other) -> boo
 Vixen.Net.Physics.RewindScope.RewindScope() -> void
 const Vixen.Net.Physics.NetworkRigidBodyCaptureSystem.RestSpeed = 0.01 -> float
 const Vixen.Net.Physics.NetworkRigidBodyReplicator.VelocityBits = 12 -> int
+override Vixen.Net.Physics.LagCompensationSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Physics.NetworkRigidBodyCaptureSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Physics.RewindScope.Equals(object? obj) -> bool

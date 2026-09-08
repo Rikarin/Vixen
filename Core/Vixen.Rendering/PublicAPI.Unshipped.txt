@@ -5540,8 +5540,6 @@ const Vixen.Rendering.VirtualShadowMap.PagesPerSide = 32 -> int
 const Vixen.Rendering.VirtualShadowPages.PageBytes = 65536 -> int
 const Vixen.Rendering.VirtualShadowPages.Source = 21316 -> int
 const Vixen.Shaders.Generated.AutoExposureConstants.Size = 48 -> int
-const Vixen.Shaders.Generated.AutoExposureKeys.AverageBinding = 6 -> uint
-const Vixen.Shaders.Generated.AutoExposureKeys.AverageSet = 2 -> int
 const Vixen.Shaders.Generated.AutoExposureKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.AutoExposureKeys.ConstantBufferSet = 2 -> int
 const Vixen.Shaders.Generated.AutoExposureKeys.ConstantBufferSize = 48 -> int
@@ -5549,6 +5547,8 @@ const Vixen.Shaders.Generated.AutoExposureKeys.ExposureBinding = 3 -> uint
 const Vixen.Shaders.Generated.AutoExposureKeys.ExposureSet = 2 -> int
 const Vixen.Shaders.Generated.AutoExposureKeys.HistogramBinding = 4 -> uint
 const Vixen.Shaders.Generated.AutoExposureKeys.HistogramSet = 2 -> int
+const Vixen.Shaders.Generated.AutoExposureKeys.MeanLuminanceBinding = 6 -> uint
+const Vixen.Shaders.Generated.AutoExposureKeys.MeanLuminanceSet = 2 -> int
 const Vixen.Shaders.Generated.AutoExposureKeys.ShaderName = "AutoExposure" -> string
 const Vixen.Shaders.Generated.AutoExposureKeys.SourceBinding = 1 -> uint
 const Vixen.Shaders.Generated.AutoExposureKeys.SourceSamplerBinding = 2 -> uint
@@ -6823,7 +6823,6 @@ static readonly Vixen.Rendering.ViewConstants.PreviousViewProjection -> Vixen.Sh
 static readonly Vixen.Rendering.ViewConstants.View -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Rendering.ViewConstants.ViewPosition -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Rendering.ViewConstants.ViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
-static readonly Vixen.Shaders.Generated.AutoExposureKeys.Average -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.BrightenRate -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.DarkenRate -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.DeltaTime -> Vixen.Shaders.ParameterKey<float>
@@ -6834,6 +6833,7 @@ static readonly Vixen.Shaders.Generated.AutoExposureKeys.Histogram -> Vixen.Shad
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.LowPercentile -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.MaximumExposure -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.MaximumLogLuminance -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.AutoExposureKeys.MeanLuminance -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.MeteringPower -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.MiddleGrey -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AutoExposureKeys.MinimumExposure -> Vixen.Shaders.ParameterKey<float>
