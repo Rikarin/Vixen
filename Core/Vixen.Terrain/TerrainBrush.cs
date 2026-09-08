@@ -141,15 +141,37 @@ public readonly record struct TerrainBrush {
     ///     because a tool whose mask asset has not finished loading should paint rather than crash.
     /// </param>
     /// <returns>The weight, 0…<see cref="Strength" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>An alpha stamp is measured across its square and every other stamp across its
+    ///     disc</b> — <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>. This used to
+    ///     measure radially whatever the shape, which clipped an alpha to the disc inscribed in its
+    ///     own mask: <see cref="BrushShape.Alpha" />'s summary says "a square footprint",
+    ///     <see cref="FootprintOf" /> sizes the rectangle at <c>√2</c> radii to hold one, and
+    ///     <see cref="AlphaUv" /> maps the whole unit square — all three were describing a shape the
+    ///     arithmetic refused to produce. ⚠ <b>And the visible consequence was worse than a clipped
+    ///     corner</b>: a mask that is one over its whole square — which is what an artist means by a
+    ///     square brush — painted exactly what a circle painted, so a rotation control over it would
+    ///     have moved no texel at all.
+    ///     <para>
+    ///         <see cref="BrushShape.Pattern" /> keeps the disc, and deliberately: a pattern brush is
+    ///         a round brush revealing a world-tiled texture, so its extent is the brush's and not
+    ///         the texture's.
+    ///     </para>
+    /// </remarks>
     public float WeightAt(Vector2 sample, BrushStamp stamp, IBrushMask? mask = null) {
         if (!(Radius > 0f)) {
             return 0f;
         }
 
         var offset = sample - stamp.Centre;
-        var distance = offset.Length();
+        var square = Shape == BrushShape.Alpha && mask is not null;
 
-        if (distance >= Radius) {
+        // Turned into the stamp's own frame once, for the extent and for the mask's uv both. The two
+        // read the same rotation, and computing it twice is how they come to disagree.
+        var local = square ? Rotate(offset, -stamp.Rotation) : offset;
+        var reach = square ? MathF.Max(MathF.Abs(local.X), MathF.Abs(local.Y)) : local.Length();
+
+        if (reach >= Radius) {
             return 0f;
         }
 
@@ -160,10 +182,10 @@ public readonly record struct TerrainBrush {
         // be a division by zero at exactly the setting an artist reaches for to get a hard edge.
         var radial = falloff <= 0f
             ? 1f
-            : BrushFalloff.Evaluate(Curve, Math.Clamp((distance - plateau) / (Radius - plateau), 0f, 1f));
+            : BrushFalloff.Evaluate(Curve, Math.Clamp((reach - plateau) / (Radius - plateau), 0f, 1f));
 
         var shaped = Shape switch {
-            BrushShape.Alpha when mask is not null => radial * mask.Sample(AlphaUv(offset, stamp.Rotation)),
+            BrushShape.Alpha when mask is not null => radial * mask.Sample(AlphaUv(local)),
             BrushShape.Pattern when mask is not null => radial * mask.Sample(PatternUv(sample, stamp.Rotation)),
             _ => radial
         };
@@ -172,10 +194,10 @@ public readonly record struct TerrainBrush {
     }
 
     /// <summary>Where a sample lands on a stamp-fitted mask.</summary>
-    Vector2 AlphaUv(Vector2 offset, float rotation) {
-        var local = Rotate(offset, -rotation);
-        return new((local.X / (2f * Radius)) + 0.5f, (local.Y / (2f * Radius)) + 0.5f);
-    }
+    /// <param name="local">The sample's offset from the centre, already turned into the stamp's frame.</param>
+    /// <returns>The point of the unit square, with the stamp's own square filling it exactly.</returns>
+    Vector2 AlphaUv(Vector2 local) =>
+        new((local.X / (2f * Radius)) + 0.5f, (local.Y / (2f * Radius)) + 0.5f);
 
     /// <summary>Where a sample lands on a world-tiled mask.</summary>
     /// <remarks>

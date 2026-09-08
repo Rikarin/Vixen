@@ -71,6 +71,88 @@ public class PaintToolTests {
         Assert.Equal(90f, tool.AngleJitterDegrees, 3);
     }
 
+    /// <summary>The alpha is chosen by name, and an unknown one is a round brush.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The name that was settled on rather than the one that arrived —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.</b> A brush restored
+    ///     from a file a later build wrote names a shape this one does not ship; reporting the name
+    ///     back is what lets a picker light the segment that is actually in force instead of lighting
+    ///     none while the brush paints a disc.
+    /// </remarks>
+    [Fact]
+    public void An_alpha_is_chosen_by_name_and_an_unknown_one_is_a_round_brush() {
+        PaintTool tool = new();
+
+        Assert.Equal(PaintAlphas.Round, tool.AlphaName);
+        Assert.Null(tool.Brush.Alpha);
+        Assert.False(tool.IsMasked);
+
+        tool.SetAlpha(PaintAlphas.Square);
+
+        Assert.Equal(PaintAlphas.Square, tool.AlphaName);
+        Assert.NotNull(tool.Brush.Alpha);
+        Assert.True(tool.IsMasked);
+
+        tool.SetAlpha("a shape from some later build");
+
+        Assert.Equal(PaintAlphas.Round, tool.AlphaName);
+        Assert.Null(tool.Brush.Alpha);
+    }
+
+    /// <summary>The angle is typed in degrees, kept in radians, and wrapped rather than clamped.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Wrapped, because an angle is cyclic and every other setting on this tool is not.</b>
+    ///     A clamp would stick a dial dragged past 360° at 360°, and there is nothing to defend a
+    ///     stroke against: 361° and 1° are the same stamp. The infinity is the case
+    ///     <c>Safe</c> alone does not cover — <c>∞ % 360</c> is a NaN, and a NaN angle makes every
+    ///     weight a NaN, which paints transparency.
+    /// </remarks>
+    [Fact]
+    public void The_angle_is_typed_in_degrees_wrapped_into_a_turn_and_survives_an_infinity() {
+        PaintTool tool = new();
+
+        tool.SetAngle(90f);
+
+        Assert.Equal(MathF.PI / 2f, tool.Brush.Angle, 5);
+        Assert.Equal(90f, tool.AngleDegrees, 3);
+
+        tool.SetAngle(450f);
+        Assert.Equal(90f, tool.AngleDegrees, 3);
+
+        tool.SetAngle(-90f);
+        Assert.Equal(270f, tool.AngleDegrees, 3);
+
+        foreach (var broken in new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity }) {
+            tool.SetAngle(broken);
+
+            Assert.False(float.IsNaN(tool.Brush.Angle), $"{broken} reached the brush as an angle.");
+        }
+    }
+
+    /// <summary>An angle only means something on a brush that has a shape to turn.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The predicate that keeps the inspector from offering a dead control.</b>
+    ///     <c>PaintBrush.KernelFor</c> picks <c>BrushShape.Circle</c> for a null alpha and
+    ///     <c>TerrainBrush.WeightAt</c> turns nothing about a disc, so with a round brush the angle
+    ///     is a number nothing downstream reads.
+    /// </remarks>
+    [Fact]
+    public void The_angle_applies_only_to_a_masked_brush_that_is_turned_by_hand() {
+        PaintTool tool = new();
+
+        Assert.False(tool.IsAngled);
+
+        tool.SetAlpha(PaintAlphas.Chisel);
+        Assert.True(tool.IsAngled);
+
+        tool.SetRotation(BrushRotation.AlongStroke);
+        Assert.True(tool.IsMasked);
+        Assert.False(tool.IsAngled);
+
+        tool.SetRotation((BrushRotation)97);
+        Assert.Equal(BrushRotation.Fixed, tool.Brush.Rotation);
+    }
+
     /// <summary>The mode swaps, and it starts off.</summary>
     /// <remarks>
     ///     ⚠ Off first, because a panel that opened in paint mode would make the first drag on a
@@ -141,6 +223,126 @@ public class PaintToolTests {
         inspector.Refresh();
 
         Assert.Contains(inspector.Captions, caption => caption.Contains("17", StringComparison.Ordinal));
+    }
+
+    /// <summary>The alpha and the rotation have pickers, and choosing one writes the tool.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a> is about:
+    ///     the settings existed and no control wrote them.</b> So this drives the controls rather
+    ///     than the model, which is the only way round that can tell a wired picker from a declared
+    ///     property.
+    /// </remarks>
+    [Fact]
+    public void The_alpha_and_the_rotation_pickers_write_the_brush() {
+        PaintTool tool = new();
+
+        using UiDocument document = new(1280f, 800f);
+
+        PaintBrushInspector inspector = new(document.Root, tool);
+
+        var pickers = Every<SegmentedControl>(inspector.Root);
+
+        var alpha = pickers.Single(picker =>
+            picker.Segments.Any(segment =>
+                string.Equals(segment.Value, PaintAlphas.Chisel, StringComparison.Ordinal)));
+
+        var rotation = pickers.Single(picker =>
+            picker.Segments.Any(segment =>
+                string.Equals(segment.Value, nameof(BrushRotation.AlongStroke), StringComparison.Ordinal)));
+
+        // Both offered whole, from their own declarations, so a fifth of either appears here without
+        // an edit — the curve picker's rule.
+        Assert.Equal(PaintAlphas.Names, alpha.Segments.Select(segment => segment.Value));
+
+        Assert.Equal(
+            Enum.GetValues<BrushRotation>().Select(kind => kind.ToString()),
+            rotation.Segments.Select(segment => segment.Value)
+        );
+
+        alpha.Value = PaintAlphas.Chisel;
+
+        Assert.NotNull(tool.Brush.Alpha);
+        Assert.Equal(PaintAlphas.Chisel, tool.AlphaName);
+
+        rotation.Value = nameof(BrushRotation.Random);
+
+        Assert.Equal(BrushRotation.Random, tool.Brush.Rotation);
+
+        alpha.Value = PaintAlphas.Round;
+
+        Assert.Null(tool.Brush.Alpha);
+    }
+
+    /// <summary>The angle row says when it is inert rather than pretending to be a setting.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A slider that drags and moves no texel is worse than an absent one, because it reads
+    ///     as a working setting</b> — #1083's own argument for why the alpha and the rotation could
+    ///     not be shipped separately.
+    /// </remarks>
+    [Fact]
+    public void The_angle_row_says_when_a_round_brush_is_ignoring_it() {
+        PaintTool tool = new();
+
+        using UiDocument document = new(1280f, 800f);
+
+        PaintBrushInspector inspector = new(document.Root, tool);
+
+        tool.SetAngle(45f);
+        inspector.Refresh();
+
+        var told = inspector.Captions.Single(caption => caption.Contains("45°", StringComparison.Ordinal));
+
+        Assert.Contains("ignores", told, StringComparison.Ordinal);
+
+        tool.SetAlpha(PaintAlphas.Square);
+        inspector.Refresh();
+
+        Assert.DoesNotContain(
+            "ignores",
+            inspector.Captions.Single(caption => caption.Contains("45°", StringComparison.Ordinal)),
+            StringComparison.Ordinal
+        );
+    }
+
+    /// <summary>Every control follows the model, not only the other way round.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The defect is the one the mode's segmented control was already fixed for, one
+    ///         row down.</b> A radius changed by anything but a drag — a verb, a preset, this tool's
+    ///         own clamp — left the slider showing what the artist last dragged it to, so the panel
+    ///         and the brush disagreed about the brush.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the number beside the radius is not decoration.</b> Half a texel to five
+    ///         hundred and twelve across a 220-pixel column is two texels a pixel: 32 — the brush an
+    ///         artist reaches for most — is not a value the slider can be dragged to at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_radius_has_a_number_beside_its_slider_and_both_follow_the_tool() {
+        PaintTool tool = new();
+
+        using UiDocument document = new(1280f, 800f);
+
+        PaintBrushInspector inspector = new(document.Root, tool);
+
+        var box = Every<NumericInput>(inspector.Root).Single();
+
+        box.Number = 32d;
+
+        Assert.Equal(32f, tool.Brush.Radius, 3);
+
+        var slider = Every<Slider>(inspector.Root)
+            .Single(control => control.Maximum > PaintTool.MaximumRadius - 1f);
+
+        Assert.Equal(32f, slider.Value, 3);
+
+        // And from the other side: a change made anywhere but a control reaches both of them.
+        tool.SetRadius(96f);
+        inspector.Refresh();
+
+        Assert.Equal(96d, box.Number, 3);
+        Assert.Equal(96f, slider.Value, 3);
     }
 
     /// <summary>Four curves, from the enum, so a fifth appears without an edit here.</summary>
