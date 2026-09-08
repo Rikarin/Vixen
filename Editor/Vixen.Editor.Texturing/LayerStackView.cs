@@ -117,6 +117,17 @@ readonly record struct MaskSourceEdit(
 ///         expresses. A row is not.
 ///     </para>
 ///     <para>
+///         ⚠ <b>The three paragraphs below are no longer prose: <c>LayerRowKeyTests</c> runs both
+///         candidate keys and the answer against a real document edited through this panel's own
+///         slider, so each is a test that goes red if it stops being true.</b> ⚠ And it turned up a
+///         fourth blocker nothing had written down — <c>UiElement.Text</c> on an element with
+///         children throws from <c>LayoutTree.SetMeasureFunction</c>, and an <c>Effect</c> answers a
+///         throw by <em>suspending itself</em>, so a row that bound its own <c>Text</c> renders once,
+///         keeps the string, and follows nothing thereafter with no diagnostic
+///         (<a href="https://github.com/Rikarin/Vixen/issues/1109">#1109</a>). Every row shape here
+///         is a container, so the port owes a label element per bound string.
+///     </para>
+///     <para>
 ///         ⚠ <b>The rows are a model change before they are a markup change, and it is a specific
 ///         one.</b> <c>BuildContext.For</c> matches a key, <em>reuses the region and does not re-run
 ///         the body</em>, so every binding inside a row closes over the item as it was when that key
@@ -145,7 +156,9 @@ readonly record struct MaskSourceEdit(
 ///         <c>EffectScheduler.Flush</c> runs it. <see cref="Show" /> is called from
 ///         <c>TexturingModule</c> on every evaluation and its result is read synchronously by six
 ///         test files and by <see cref="Status" />, so moving the rows into markup moves the whole
-///         panel from synchronous to frame-deferred. That is survivable —
+///         panel from synchronous to frame-deferred. ⚠ <b>Six is derived rather than remembered</b>,
+///         and re-derived 2026-09-09: thirteen test files open this panel and seven of them ask for
+///         a frame, so the six that do not are the ones a deferred row would surprise. That is survivable —
 ///         <c>UiDocument.Update</c> drains the queue before its first pass — but it is a change to
 ///         what this class promises its callers, and it is why only the message block was moved.
 ///     </para>
