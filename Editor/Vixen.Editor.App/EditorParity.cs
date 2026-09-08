@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.IO.Compression;
 using System.Reflection;
 using Microsoft.Extensions.Logging;
 using Vixen.Core;
@@ -161,11 +162,17 @@ sealed partial class EditorApplication {
             enabled: () => services.CanPick && !content.IsBusy
         );
 
-        Planned(
+        // ⚠ The walk this waited on is `assets.select-dependencies`, and it has been a real verb
+        // since E5. What a package needs over that verb is the *closure* rather than one step of it:
+        // Select Dependencies answers "what does this point at" for a person about to look at the
+        // answer, and an archive that carried only that would unpack a material whose textures are
+        // missing.
+        Verb(
             "file.export-package",
             new StringId("editor.command.file.export-package", "Export Package…"),
             EditorStrings.CategoryFile,
-            "Package export needs the dependency walk the content browser's Select Dependencies builds."
+            ExportPackage,
+            enabled: () => services.CanPick && project.Selection.Count > 0
         );
 
         Verb(
@@ -293,19 +300,30 @@ sealed partial class EditorApplication {
         Shell.Keys.SetDefault("edit.delete", new KeyChord(InputKey.Delete, ModifierKeys.None));
         Shell.Keys.SetDefault("edit.rename", new KeyChord(InputKey.F2, ModifierKeys.None));
 
-        // ⚠ Cut, Copy, Paste and Duplicate need a subtree *clone*, which the engine does not have.
-        // `SubtreeSnapshot` looks like the answer and is not: it takes a subtree by destroying it and
-        // gives back the same handles, which is what an undone delete wants and the opposite of what
-        // a paste wants. A real clipboard is `World.CopyComponentsFrom` into fresh entities with the
-        // hierarchy components excluded and stable ids re-minted — a piece of work with its own
-        // correctness argument, and doc 20 files it under the outliner's milestone rather than here.
+        // ⚠ This block said "Cut, Copy, Paste and Duplicate need a subtree *clone*, which the engine
+        // does not have", and `SceneClone`'s own remarks call themselves "the thing doc 20's
+        // clipboard was blocked on". Duplicate is that clone with nothing in between, so it is a verb
+        // now. The other three still are not, and the reason is no longer the copy: a clipboard is a
+        // *buffer that outlives the selection* — what was cut has to survive being deleted, and a
+        // paste has to land somewhere the copy did not come from.
+        Verb(
+            "edit.duplicate",
+            new StringId("editor.command.edit.duplicate", "Duplicate"),
+            EditorStrings.CategoryEdit,
+            DuplicateSelection,
+            enabled: () => scene.Selection.Count > 0
+        );
+
         foreach (var (id, title, key) in Clipboard()) {
-            Planned(
-                id,
-                new StringId("editor.command." + id, title),
-                EditorStrings.CategoryEdit,
-                "Cloning a subtree needs a component-wise copy the engine does not have yet. Milestone E1."
-            );
+            if (Shell.Commands[id] is null) {
+                Planned(
+                    id,
+                    new StringId("editor.command." + id, title),
+                    EditorStrings.CategoryEdit,
+                    "A clipboard is a buffer that outlives the selection it was filled from; the editor "
+                    + "has the subtree copy (SceneClone) and nowhere to keep one."
+                );
+            }
 
             if (key.IsBound) {
                 Shell.Keys.SetDefault(id, key);
@@ -400,11 +418,16 @@ sealed partial class EditorApplication {
     // ── Assets ──────────────────────────────────────────────────────────────────────────────────
 
     void AssetCommands() {
-        Planned(
+        // ⚠ Not a template gallery, and it never needed to be. Eighteen `assets.create-*` verbs
+        // exist and each writes a sensible empty file of its kind — see `BuiltInAssetKinds` — so the
+        // general line's whole job is asking *which one*, over the same registry the Create submenu
+        // is built from. A kind a plugin contributed is in the dialog for free, which is the half a
+        // literal list of templates would have got wrong.
+        Verb(
             "assets.create",
             new StringId("editor.command.assets.create", "New Asset…"),
             CategoryAssets,
-            "Creating assets from templates arrives with the content browser, milestone E1."
+            ChooseAssetKind
         );
 
         Verb(
@@ -736,11 +759,16 @@ sealed partial class EditorApplication {
             "Ungrouping has to reparent children and delete the group in one undoable step."
         );
 
-        Planned(
+        // ⚠ The picker this waited for was never the outliner's drag. `ChooseAsync` is the editor's
+        // one drawn "pick one of these", the drag has been wired for a milestone anyway
+        // (`hierarchy.AllowDrag`), and `ReparentCommand` is the undoable move both gestures make —
+        // so what was left was a list of candidate parents and one call.
+        Verb(
             "entity.set-parent",
             new StringId("editor.command.entity.set-parent", "Set Parent"),
             CategoryEntity,
-            "Reparenting by menu needs the entity picker the outliner's drag will bring. Milestone E1."
+            SetParent,
+            enabled: () => scene.Selection.Count > 0
         );
 
         Verb(
@@ -886,18 +914,27 @@ sealed partial class EditorApplication {
             "Choosing a play topology needs the standalone and server paths hosted from the editor."
         );
 
+        // ⚠ Both of these named milestone E6, and E6 has shipped — `build.settings` is a window and
+        // `build.run` publishes and starts a player. What is actually missing is on this side of the
+        // line and is the same thing twice: a *supervised* process. Play is a transport — Pause, Step
+        // and Stop have to mean something — and `StartPlayerBuild` hands the artefact to the OS and
+        // forgets it, so a play mode over it would be a Play button with three dead buttons beside
+        // it. A reason naming a mechanism can be checked against the tree; one naming a schedule
+        // stayed on screen for two milestones after its schedule closed.
         Planned(
             "play.mode-standalone",
             new StringId("editor.command.play.mode-standalone", "Standalone Process"),
             CategoryPlay,
-            "Launching a standalone player from the editor needs the build settings window. Milestone E6."
+            "Build and Run starts a player and does not keep it, so there is no process for Pause and "
+            + "Stop to reach. Playing standalone needs a supervised child process."
         );
 
         Planned(
             "play.mode-server",
             new StringId("editor.command.play.mode-server", "Server and Clients"),
             CategoryPlay,
-            "PlayerSessions has the topology; hosting it from the editor is milestone E6."
+            "Nothing constructs a PlayerSessions, so there is no host for the editor to start — the "
+            + "type carries the topology and no code makes one."
         );
 
         // ⚠ A preference rather than an action, which is what the tick says. It changes what the
@@ -993,11 +1030,18 @@ sealed partial class EditorApplication {
             () => Shell.Workspace.Open(PluginsPanel)
         );
 
-        Planned(
+        // ⚠ This said "the editor loads its shaders once at start-up", and that has been false since
+        // `EditorEffects` was constructed: an `.rvn` saved under the project already re-reads every
+        // source and drops the resolved table — `EditorFrames.ReloadShaders` on an external edit, and
+        // its empty-list case means "everything" precisely so a person can ask. So the verb is the
+        // manual door onto a mechanism that was already running, which is what somebody wants after
+        // editing a shader through a path the watcher does not see.
+        Verb(
             "tools.reload-shaders",
             new StringId("editor.command.tools.reload-shaders", "Reload Shaders"),
             CategoryTools,
-            "The editor loads its shaders once at start-up; hot reload is milestone E6."
+            ReloadShadersNow,
+            enabled: () => Effects is not null
         );
 
         Verb(
@@ -1536,6 +1580,166 @@ sealed partial class EditorApplication {
         );
     }
 
+    /// <summary>Asks which kind of asset to make, and runs that kind's own verb.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It runs the command rather than calling <c>CreateAsset</c> itself.</b> Each kind's
+    ///     verb is what the Create submenu, the palette and a key binding all reach, and a second
+    ///     path into the same file would be a second place the folder, the naming and the "does it
+    ///     open" answer are decided — which is how two ways of making an animation graph come to
+    ///     produce two different files.
+    /// </remarks>
+    void ChooseAssetKind() {
+        var kinds = AssetKinds;
+
+        if (kinds.Count == 0) {
+            return;
+        }
+
+        _ = Ask();
+
+        async Task Ask() {
+            var chosen = await ChooseAsync(
+                "What kind of asset?",
+                kinds,
+                static kind => kind.Title,
+                static kind => kind.Extension
+            ).ConfigureAwait(true);
+
+            if (chosen is not null) {
+                Shell.Commands.Execute(chosen.Id);
+            }
+        }
+    }
+
+    /// <summary>What a package this editor writes is called.</summary>
+    internal const string PackageExtension = ".vxpackage";
+
+    /// <summary>Everything the selection reaches through the reference graph, itself included.</summary>
+    /// <param name="roots">Where to start.</param>
+    /// <returns>The closure, roots first and each asset once.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A closure and not one step, and the difference is what a package is for.</b>
+    ///     <see cref="SelectDependencies" /> walks one edge because a person is about to look at the
+    ///     answer; an archive has to carry the material, the textures it names, and whatever those
+    ///     name in turn, or it unpacks into a project with holes in it.
+    ///     <para>
+    ///         ⚠ <b>A reference cycle is ordinary here rather than exceptional.</b> Two prefabs that
+    ///         name each other are a project people actually have, so the walk is over a visited set
+    ///         and not a recursion with a depth limit.
+    ///     </para>
+    /// </remarks>
+    internal IReadOnlyList<AssetId> Closure(IEnumerable<AssetId> roots) {
+        ArgumentNullException.ThrowIfNull(roots);
+
+        List<AssetId> found = [];
+        HashSet<AssetId> seen = [];
+        Queue<AssetId> pending = [];
+
+        foreach (var root in roots) {
+            if (seen.Add(root)) {
+                found.Add(root);
+                pending.Enqueue(root);
+            }
+        }
+
+        while (pending.Count > 0) {
+            foreach (var reference in project.References.ReferencesFrom(pending.Dequeue())) {
+                if (seen.Add(reference.Asset)) {
+                    found.Add(reference.Asset);
+                    pending.Enqueue(reference.Asset);
+                }
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>Asks where to put a package of the selection, and writes one there.</summary>
+    void ExportPackage() {
+        if (services.Dialogs is not { } dialogs) {
+            return;
+        }
+
+        var assets = Closure(project.Selection);
+
+        if (assets.Count == 0) {
+            return;
+        }
+
+        deferred.When(
+            dialogs.SaveFileAsync(
+                new FileDialogOptions {
+                    Title = "Export Package",
+                    InitialDirectory = project.Paths.Root,
+                    SuggestedFileName = Path.GetFileName(project.Paths.Root.TrimEnd(Path.DirectorySeparatorChar))
+                        + PackageExtension,
+                    Filters = [new FileFilter("Vixen package", PackageExtension.TrimStart('.'))]
+                }
+            ),
+            path => {
+                if (path is { Length: > 0 }) {
+                    WritePackage(path, assets);
+                }
+            },
+            failure => Shell.Notifications.Show("Could not export", NotificationSeverity.Error, failure.Message)
+        );
+    }
+
+    /// <summary>Writes the assets into an archive, each under its project-relative path.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The sidecar ships with the asset, and leaving it out would be the defect.</b> An
+    ///         identity is in the <c>.meta</c> — a package unpacked without one is scanned into a
+    ///         project that mints fresh GUIDs, so every reference inside the package points at
+    ///         nothing and the material arrives white. That is exactly the failure the closure was
+    ///         computed to avoid, arriving by the other door.
+    ///     </para>
+    ///     <para>
+    ///         Folders carry no bytes, so they are skipped rather than written as empty entries: the
+    ///         paths inside the archive already describe the shape of the tree.
+    ///     </para>
+    /// </remarks>
+    internal void WritePackage(string path, IReadOnlyList<AssetId> assets) {
+        var written = 0;
+
+        try {
+            // ⚠ Truncated rather than opened. `ZipArchiveMode.Create` over an existing file appends
+            // to whatever is in it, which for a second export to the same name is an archive with
+            // two copies of every asset — and a reader that takes the first one.
+            using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var archive = new ZipArchive(stream, ZipArchiveMode.Create)) {
+                foreach (var asset in assets) {
+                    if (!project.Assets.TryGetByGuid(asset, out var entry) || entry.IsFolder) {
+                        continue;
+                    }
+
+                    var absolute = project.Paths.Absolute(entry.Path);
+
+                    if (!File.Exists(absolute)) {
+                        continue;
+                    }
+
+                    archive.CreateEntryFromFile(absolute, entry.Path);
+
+                    var meta = AssetMetaFile.PathFor(absolute);
+
+                    if (File.Exists(meta)) {
+                        archive.CreateEntryFromFile(meta, AssetMetaFile.PathFor(entry.Path));
+                    }
+
+                    written++;
+                }
+            }
+        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+            Shell.Notifications.Show("Could not export", NotificationSeverity.Error, exception.Message);
+            return;
+        }
+
+        Shell.Notifications.Success(
+            written == 1 ? "1 asset exported" : $"{written} assets exported"
+        );
+    }
+
     void OpenSelectedAsset() {
         if (project.Selection.Count > 0) {
             Open(project.Selection[0]);
@@ -1995,6 +2199,28 @@ sealed partial class EditorApplication {
         Shell.Notifications.Success("Styles reloaded");
     }
 
+    /// <summary>Recompiles every shader source, whether or not a file was seen to change.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It reports the refusal rather than swallowing it.</b> The watcher's path writes a
+    ///     line to the log, which is right for something nobody asked for; a person who pressed the
+    ///     menu line is owed the compiler's answer where they are looking — and "reloaded" over a
+    ///     shader that would not compile is the message that costs somebody an afternoon.
+    /// </remarks>
+    void ReloadShadersNow() {
+        if (Effects is null) {
+            return;
+        }
+
+        ReloadShaders([]);
+
+        if (Effects.Refusal is { } refusal) {
+            Shell.Notifications.Show("Shaders reloaded and refused", NotificationSeverity.Error, refusal);
+            return;
+        }
+
+        Shell.Notifications.Success($"{Effects.SourceCount} shader source(s) reloaded");
+    }
+
     /// <summary>Opens the source a console line came from, as far as anything here can tell.</summary>
     /// <remarks>
     ///     ⚠ <b>The folder, not the file and not the line, and that is the honest limit today.</b>
@@ -2156,9 +2382,111 @@ sealed partial class EditorApplication {
         scene.Selection.Set([group]);
     }
 
+    /// <summary>Copies the selection in place, and selects what came out.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>No offset, which is what every editor with this key does.</b> A duplicate nudged
+    ///         sideways is a duplicate somebody has to put back; a copy exactly on top of the
+    ///         original, already selected, is one drag away from wherever they meant. Blockout's
+    ///         array tools pass an offset because a row of nine walls is what they are for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The copies become the selection, and the originals stop being it.</b> Pressing
+    ///         Ctrl+D twice has to give two copies rather than a copy of a copy of the same thing —
+    ///         and leaving the originals selected would make the second press duplicate them again.
+    ///     </para>
+    /// </remarks>
+    void DuplicateSelection() {
+        if (scene.Selection.Count == 0) {
+            return;
+        }
+
+        List<Entity> copies = [];
+
+        if (SceneClone.Duplicate(scene, scene.Selection.ToList(), Vector3.Zero, copies) == 0) {
+            return;
+        }
+
+        scene.Selection.Set(copies);
+        hierarchyStale = true;
+    }
+
     void ClearParent() {
         foreach (var entity in scene.Selection.ToList()) {
             scene.Reparent(entity, Entity.Null);
+        }
+    }
+
+    /// <summary>One row of the Set Parent dialog.</summary>
+    /// <param name="Label">What the row says.</param>
+    /// <param name="Parent">Where choosing it would put the selection.</param>
+    /// <param name="Refusal">Why it cannot be chosen, or <see langword="null" /> when it can.</param>
+    sealed record ParentChoice(string Label, Entity Parent, string? Refusal);
+
+    /// <summary>Asks which entity to hang the selection from, and moves it there undoably.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The impossible parents are listed and greyed rather than left out.</b> Dragging a
+    ///         parent onto its own child is a gesture people make on purpose — they are looking for
+    ///         the row and expect to find it — and a list that quietly omitted the descendants would
+    ///         read as the editor having lost them. The row says which rule refused it, which is the
+    ///         same bargain the whole <c>Planned</c> mechanism makes one level up.
+    ///     </para>
+    ///     <para>
+    ///         One <see cref="ReparentCommand" /> for the whole selection, so one Ctrl+Z takes it
+    ///         back — the drag in the outliner makes exactly the same call.
+    ///     </para>
+    /// </remarks>
+    void SetParent() {
+        if (scene.Selection.Count == 0) {
+            return;
+        }
+
+        var moving = scene.Selection.ToList();
+
+        // ⚠ Not called "Scene Root", which is what the default scene's own root entity is called.
+        // A list where the row meaning "no parent at all" is spelled the same as a row meaning "under
+        // that entity" is a list with two different answers under one name.
+        List<ParentChoice> choices = [new ParentChoice("(No parent)", Entity.Null, null)];
+
+        foreach (var entity in scene.Entities) {
+            choices.Add(new ParentChoice(scene.NameOf(entity), entity, WhyNot(entity)));
+        }
+
+        _ = Ask();
+
+        string? WhyNot(Entity candidate) {
+            foreach (var entity in moving) {
+                if (candidate == entity) {
+                    return "That is the entity being moved.";
+                }
+
+                if (Hierarchy.IsAncestorOf(world, entity, candidate)) {
+                    return $"It is inside {scene.NameOf(entity)}, which is what is moving.";
+                }
+            }
+
+            // ⚠ Refused only when *every* one of them is already there. A mixed selection with one
+            // entity outside still has something to move, and `ReparentCommand` drops the ones that
+            // do not — so greying the row would refuse a move that is half meaningful, which is the
+            // opposite of that command's own rule.
+            return moving.All(entity => Hierarchy.ParentOf(world, entity) == candidate)
+                ? "Already the parent."
+                : null;
+        }
+
+        async Task Ask() {
+            var chosen = await ChooseAsync(
+                moving.Count == 1 ? "Hang it from what?" : $"Hang {moving.Count} entities from what?",
+                choices,
+                static choice => choice.Label,
+                static choice => choice.Refusal,
+                static choice => choice.Refusal is null
+            ).ConfigureAwait(true);
+
+            if (chosen is not null && scene.Reparent(moving, chosen.Parent)) {
+                hierarchyStale = true;
+            }
         }
     }
 
