@@ -114,7 +114,7 @@ public class TextureCeilingTests {
     ///         ⚠ <b>Ask what this prints on the day the sweep matches nothing.</b> It would find no
     ///         clipped parameters, the table would be non-empty, and the equality would fail naming
     ///         all seven as unclipped — which is the right failure and not a quiet pass.
-    ///         <see cref="Assert.NotEmpty{T}(IEnumerable{T})" /> below says so directly anyway, so a
+    ///         The <c>Assert.NotEmpty</c> below says so directly anyway, so a
     ///         table emptied at the same time as the regexes broke cannot read as agreement.
     ///     </para>
     /// </remarks>
