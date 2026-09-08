@@ -41,12 +41,15 @@ namespace Vixen.Editor.Texturing.Painting;
 sealed class PaintCamera {
     /// <summary>How far from straight up the pitch may get, in radians.</summary>
     /// <remarks>
-    ///     ⚠ <b>A clamp and not a wrap, because the up vector is fixed.</b> The camera's right axis
-    ///     is the cross product of its forward with world up, and at the pole those are parallel —
-    ///     so <c>Vector3.Normalize</c> is being asked to normalise a vector whose length is the sine
-    ///     of the gap. At one degree off the pole that length is 0.017, which is four orders above
-    ///     the 1e-6 at which <c>Normalize</c> gives up; at a tenth of a degree it is 0.0017 and
-    ///     still safe, and beyond the pole the basis flips. One degree is the honest margin.
+    ///     ⚠ <b>A clamp and not a wrap, and it is <em>not</em> about a degenerate cross product —
+    ///     which is what the first version of this remark said.</b> The usual reason to clamp a pitch
+    ///     is that the right axis is <c>cross(forward, worldUp)</c>, which shortens to the sine of
+    ///     the gap at the pole and is then handed to a <c>Vector3.Normalize</c> that gives up below
+    ///     1e-6. <see cref="Right" /> is read straight off the yaw here, so it is unit at every
+    ///     pitch including the pole and that failure does not exist. What does happen at the pole is
+    ///     that <see cref="Up" /> <em>flips</em>: an orbit dragged through it reverses which way is
+    ///     up and the model appears to somersault, which reads as a broken viewport. One degree short
+    ///     is the margin, and in radians it is scale-free.
     /// </remarks>
     public const float PitchLimit = 1.5533431f;
 
