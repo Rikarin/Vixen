@@ -19,3 +19,4 @@ VXS0411 | Vixen.Engine | Warning | An [InferAccess] type's body yielded no compo
 VXS0412 | Vixen.Engine | Error | A Behavior holds an Entity, which is a slot in a running process and does not survive being written down
 VXS0413 | Vixen.Engine | Error | A Behavior holds a copy of a component the world is already the authority on
 VXS0414 | Vixen.Engine | Warning | A structural change made inside a query body, a chunk walk or a struct visitor
+VXS0415 | Vixen.Engine | Error | A component carrying [Component] and [DataContract] holds an Entity, which is written down as a slot number that means nothing elsewhere

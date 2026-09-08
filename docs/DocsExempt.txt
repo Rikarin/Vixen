@@ -1725,6 +1725,7 @@ T:Vixen.Engine.Generators.BehaviorRegistrationGenerator sweep-pending
 T:Vixen.Engine.Generators.BehaviorStateAnalyzer sweep-pending — arrived 2026-09-08 with the behaviour-state rule doc 04 has asked for since the revision
 T:Vixen.Engine.Generators.ComponentRegistrationGenerator sweep-pending
 T:Vixen.Engine.Generators.QueryMutationAnalyzer sweep-pending — arrived 2026-09-08 with the structural-change rule doc 04 already described as built
+T:Vixen.Engine.Generators.SerializedHandleAnalyzer sweep-pending — arrived 2026-09-08 with the "never serialise a raw Entity" refusal doc 04 states as a rule
 T:Vixen.Engine.Generators.SystemAccessInferenceGenerator sweep-pending
 T:Vixen.Engine.Renderer.AssetTextureSource sweep-pending
 T:Vixen.Engine.Renderer.AssetVirtualGeometrySource sweep-pending

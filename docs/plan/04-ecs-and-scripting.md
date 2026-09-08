@@ -157,6 +157,24 @@ it uses change versions. They exist for editor tooling and user code.
 - A fixed-step world can be checkpointed and replayed from an input log — the basis for the
   determinism tests and for netcode later.
 
+> ⚠ **"Never serialise a raw `Entity`" is now enforced; persistent identity is still owed.** There is
+> no `GuidComponent` and no `Guid → Entity` map — [#296](https://github.com/Rikarin/Vixen/issues/296)
+> is the decision between that shape and generated per-component handle metadata, and it is not
+> made here. What has landed is the half that does not need it decided: `SerializedHandleAnalyzer`
+> (`VXS0415`, an error) refuses a component carrying both `[Component]` and `[DataContract]` that
+> holds an `Entity`, so the gap is loud rather than silent.
+>
+> **It is a convention the engine already kept by hand.** `CameraTargets`, `Possessing`,
+> `PossessedBy`, `ViewTarget` and `PredictionSmoothing` all carry `[Component]` *without*
+> `[DataContract]`, and each says in its own remarks that this is because it names an entity. The
+> rule is that paragraph, checked.
+>
+> ⚠ **`WorldSerializer` supplies the raw material for the fix and nothing consumes it.** `Capture`
+> fills an optional list with the entity at each index and `Restore` returns the same list, so
+> zipping the two is a translation table — and no caller does. ⚠ Nor does any caller do anything
+> else: outside `WorldSerializerTests` the type has **no production callers at all**, which is worth
+> knowing before treating "world serialisation is built" as "worlds are being saved".
+
 ## Layer 2 — the system scheduler
 
 ```csharp

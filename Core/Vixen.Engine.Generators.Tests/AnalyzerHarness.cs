@@ -19,10 +19,10 @@ namespace Vixen.Engine.Generators.Tests;
 ///     </para>
 ///     <para>
 ///         The shapes are the ones the rules name and no more: <c>Entity</c>, <c>[Component]</c>,
-///         <c>ITagComponent</c>, a <c>World</c> with the structural calls and a chunk walk, the
-///         generated query extension and visitor interface, and <c>Behavior</c>. Anything the
-///         analyzer does not resolve by name is left out, because a preamble that drifts towards
-///         being the engine is one nobody reads.
+///         <c>[DataContract]</c>, <c>ITagComponent</c>, a <c>World</c> with the structural calls and
+///         a chunk walk, the generated query extension and visitor interface, and <c>Behavior</c>.
+///         Anything the analyzer does not resolve by name is left out, because a preamble that drifts
+///         towards being the engine is one nobody reads.
 ///     </para>
 /// </remarks>
 public static class AnalyzerHarness {
@@ -33,6 +33,12 @@ public static class AnalyzerHarness {
 
             [System.AttributeUsage(System.AttributeTargets.Struct | System.AttributeTargets.Class)]
             public sealed class ComponentAttribute : System.Attribute;
+
+            [System.AttributeUsage(System.AttributeTargets.Struct | System.AttributeTargets.Class)]
+            public sealed class DataContractAttribute : System.Attribute {
+                public DataContractAttribute() { }
+                public DataContractAttribute(string alias) { }
+            }
         }
 
         namespace Vixen.Ecs {
