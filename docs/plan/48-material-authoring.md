@@ -661,8 +661,8 @@ Three rules the whole catalogue obeys:
 | **Bitmap** | image | asset, filter, **colour space** | ⚠ An sRGB texture decoded as linear and then blended is the commonest wrong-looking graph there is. The node decodes on the asset's declared space and the port carries it |
 | **Gradient** | image | linear · radial · angular · reflected, angle, centre, ramp | The ramp is `Vixen.Ui.Controls.Advanced`'s `Gradient`, and ⚠ this is **`GradientEditor`'s first production consumer** — `overview.md:270` records that it has none, and a grep confirms it: the control, its tests and a string table |
 | **Shape** | grey | disc · square · triangle · paraboloid · gaussian · cone · half-bell · gradation, scale, rotation, falloff | The splatter's usual pattern input. Analytic rather than rasterised, so it is exact at every resolution — which is half of D8's scale-invariance criterion passing for free |
-| **Noise** | grey **+ cell id** | basis: value · gradient · worley · white; octaves, lacunarity, gain, **seed**, tiling | ⚠ One kernel with a **permutation**, because that is how this engine already varies a shader. Worley also outputs F1, F2 and a **cell index** — which is what a splatter wants and what saves a flood fill downstream |
-| **Checker** | grey | scale, rotation, offset | `ComputeColor.rvn:169` has one already, for the shader graph |
+| **Noise** | grey **+ cell id** | basis: value · gradient · worley · white; octaves, lacunarity, gain, **seed**, tiling | ⚠ One kernel with the basis as a **uniform** and a branch — this row said *permutation* from the day the document was written and [#638](https://github.com/Rikarin/Vixen/issues/638) is where the reversal is argued. A texture-graph plan has nowhere to put a permutation value, so one written here would take its `.rvn` default in every op for ever, silently; and the branch is the better answer anyway, because four bases times three storable formats is twelve modules for a branch every invocation in a bandwidth-bound dispatch takes the same way. `TextureKernelLanguageSeamTests` refuses a `[Permutation]` in any kernel, so the decision is held rather than remembered. Worley also outputs F1, F2 and a **cell index** — which is what a splatter wants and what saves a flood fill downstream |
+| **Checker** | grey | scale, rotation, offset | `ComputeColor.rvn:169` has one already, for the shader graph — and `Checker.rvn` **transcribes** its fold rather than calling it, for [#635](https://github.com/Rikarin/Vixen/issues/635)'s reason. The copy is held: the gate reads `mod(cell.x + cell.y, 2f)` out of the library and requires the kernel to contain it |
 | **Text** | grey | string, font, size, alignment, tracking | ⚙️ **Half built.** `TextureText.Rasterize` shapes and fills the string through the `Outlines` path and `TextureUploads.AddCoverage` puts it on the device — closed on an adapter, texel for texel, in `TextureTextDeviceTests`. ⚠ **There is still no node, and the reason recorded here has expired.** It said a node cannot allocate an *external* image ([#732](https://github.com/Rikarin/Vixen/issues/732), shared with `Bitmap`, `Gradient`, `Curve` and `Gradient Map`). That closed: `TextureEmitter.External` exists and all four of those nodes were written on it. So `Text` is now simply **unwritten** rather than blocked, which is a smaller and more actionable thing to say — and worth saying, because a row that keeps citing a closed issue is how work stays unclaimed. ⚠ And it is **not** a kernel — [#687](https://github.com/Rikarin/Vixen/issues/687) — because a compute kernel has no rasteriser and cannot reach a font |
 | **Svg Path** | grey | path data (`d`), fill rule, scale | ⛔ **Refused here, and the reason that was written down first is wrong.** See the measurement below |
 
@@ -720,7 +720,7 @@ the stack. [#753](https://github.com/Rikarin/Vixen/issues/753) carries this.
 | **Levels** | in black / white / gamma, out black / white, per channel | |
 | **Curve** | a spline per channel | `CurveEditor` exists and already has consumers — `AnimationClipView`, the AI views |
 | **Gradient Map** | grey → colour through a ramp | The `Gradient` control again |
-| **HSL** | hue rotate, saturation, lightness | `ComputeColor.rvn:78` has the hue rotation |
+| **HSL** | hue rotate, saturation, lightness | `ComputeColor.rvn:78` has the hue rotation, and `Hsl.rvn` **transcribes** it rather than importing it — a kernel binds against nothing but itself ([#635](https://github.com/Rikarin/Vixen/issues/635)). ⚠ It is one of **thirteen** such copies across five kernels, and the other twelve are `Random.rvn`'s hash in `Noise`, `FloodFill`, `Splatter` and `TileSampler`; `TextureKernelLanguageSeamTests` now compares every one against its original and refuses a sixth kernel that copies without being added to the table |
 | **Grayscale Conversion** | weights, default Rec. 709 | ⚠ A weight set that does not sum to one is a brightness change nobody asked for, so the node normalises and says so |
 | **Invert** | per channel | |
 | **Channel Shuffle** | per output channel, a source channel of one of two inputs | |
@@ -943,9 +943,11 @@ behave.** No graph, no UI, no node classes.
 ### M1 — `Vixen.Editor.TextureGraph`: the plan, the evaluator and its shader gate · 1.25 EM
 
 `TexturePlan`, `TextureOp`, the image pool with liveness-based reuse, the dispatcher, the format rules
-(R8 / RG8 / RGBA8 / R16F / RGBA16F), the resolution rules of D8, and the seed.
+(**three storable — RGBA8 / R16F / RGBA16F — and two readable-only, R8 and RG8**), the resolution
+rules of D8, and the seed.
 
-⚠ **Two of those five format rows were wrong and the ban on 32-bit float is narrower than it reads.**
+⚠ **That line listed all five as though a kernel could write any of them, and the ban on 32-bit
+float is narrower than it reads.**
 R8 and RG8 cannot be *written*: `Raven/Vixen.Raven/Symbols/ImageFormats.cs` admits sixteen
 storage-image formats and neither is among them, and Vulkan requires neither for `STORAGE_IMAGE`
 either — so `TextureFormats.IsStorable` admits three, and a plan takes an R8 bitmap **in** and
