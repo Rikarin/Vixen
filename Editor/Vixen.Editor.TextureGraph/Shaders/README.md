@@ -1,14 +1,19 @@
 # Shaders
 
-The texture graph's atomic kernels, in Raven. **Forty-five `.rvn` files**, which is
-[doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-one adjusted one way — and the
+The texture graph's atomic kernels, in Raven. **Forty-seven `.rvn` files**, which is
+[doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-one adjusted twice — and each
 adjustment is a fact about the catalogue rather than an arithmetic slip:
 
 | | | |
 |---|---:|---|
 | § 4.11's compute kernels | **41** | The catalogue's rows, less the three that are not compute shaders |
 | + `MinMaxReduce`, `JumpFlood`, `FloodBounds`, `FloodResidual` | +4 | **Dispatches, not nodes**: three nodes need a chain |
-| = files in this folder | **45** | `TextureKernels.Names` at run time |
+| + `Triplanar`, `ColourSelect` | +2 | Kernels doc 48 asks for outside § 4.11 — § M8's two late scope rows, [#815](https://github.com/Rikarin/Vixen/issues/815) and [#1010](https://github.com/Rikarin/Vixen/issues/1010) |
+| = files in this folder | **47** | `TextureKernels.Names` at run time |
+
+⚠ **The last row read forty-five until this sweep, and neither of the two was mentioned anywhere in
+this file.** That is the third time a count here has fallen behind the directory, which is what the
+warning below is about and is why the warning is worth more than the table.
 
 ⚠ **This table used to start from forty-four and subtract three, and it double-counted a correction**
 ([#728](https://github.com/Rikarin/Vixen/issues/728)). Forty-four was § 4.11's count of catalogue

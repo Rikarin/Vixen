@@ -113,15 +113,6 @@ shader Blend {
         return foreground.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
     }
 
-    /// The mode applied to two colours, alpha left alone.
-    ///
-    /// **Every mode has a neutral foreground, and that is what the suite reads them off.** Copy has
-    /// none by construction; multiply and divide are neutral at white, screen, add, subtract,
-    /// difference, exclusion and colour dodge at black, darken at white, lighten at black, colour
-    /// burn at white, overlay, hard light, soft light and signed add at mid-grey. ⚠ A mode
-    /// implemented with an operand swapped, a factor dropped or a `1 −` missing generally *keeps*
-    /// its distinguishing value at some point and loses its neutral, or the reverse — which is why
-    /// `TextureBlendDeviceTests` asserts both and not either.
     /// A three-channel result back in the four lanes `Combine` answers in.
     ///
     /// ⚠ **The fourth lane of `Combine` is dead and this is where that is written down.** Both
@@ -132,6 +123,20 @@ shader Blend {
     /// lane is not more correct, it is arithmetic nothing reads.
     func Lift(colour: float3, over: float4): float4 => float4(colour.x, colour.y, colour.z, over.w)
 
+    /// The mode applied to two texels.
+    ///
+    /// ⚠ **"alpha left alone" is what this line used to say and it was never true.** Every mode
+    /// operated on all four lanes; what makes the fourth harmless is that nothing reads it — see
+    /// `Lift`. The three modes that call the shader library now fill it with the foreground's own
+    /// coverage, and the thirteen that do not still compute a fourth lane out of habit.
+    ///
+    /// **Every mode has a neutral foreground, and that is what the suite reads them off.** Copy has
+    /// none by construction; multiply and divide are neutral at white, screen, add, subtract,
+    /// difference, exclusion and colour dodge at black, darken at white, lighten at black, colour
+    /// burn at white, overlay, hard light, soft light and signed add at mid-grey. ⚠ A mode
+    /// implemented with an operand swapped, a factor dropped or a `1 −` missing generally *keeps*
+    /// its distinguishing value at some point and loses its neutral, or the reverse — which is why
+    /// `TextureBlendDeviceTests` asserts both and not either.
     func Combine(a: float4, b: float4): float4 {
         val one = float4(1f, 1f, 1f, 1f)
         val epsilon = float4(0.0001f, 0.0001f, 0.0001f, 0.0001f)
