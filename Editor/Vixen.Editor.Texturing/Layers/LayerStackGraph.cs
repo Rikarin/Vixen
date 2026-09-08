@@ -1393,8 +1393,9 @@ static class LayerStackGraph {
 
         /// <summary>
         ///     The node one mask entry reads, or <see langword="null" /> when it was refused. An
-        ///     anchor comes back as the node that folded it, with its edge deferred by
-        ///     <see cref="Into" />.
+        ///     anchor comes back as the node that folded it, with its edge deferred into
+        ///     <see cref="anchors" />. ⚠ This named <c>Into</c>, which nothing in this file has ever
+        ///     declared — the first broken link found here after #821 turned the instrument on.
         /// </summary>
         MaskSlot? MaskSource(MaskLayerAsset entry, ChannelAsset channel, string layerId) {
             switch (entry.Source) {

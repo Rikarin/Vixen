@@ -626,7 +626,7 @@ sealed class LayerStackView : IDisposable {
     ///     </para>
     /// </remarks>
     public void Show(LayerStackDocument? document, LayerStackPicture? picture = null) {
-        Refresh(document, picture);
+        Present(document, picture);
 
         // ⚠ **The blocker #881's remaining half is written against, closed here rather than
         // measured a fourth time.** A markup binding is an `Effect`, and
@@ -657,7 +657,7 @@ sealed class LayerStackView : IDisposable {
     ///     Split out for the early returns rather than for tidiness: this method leaves through
     ///     three of them, and a flush written at the bottom of it would run on one path in three.
     /// </remarks>
-    void Refresh(LayerStackDocument? document, LayerStackPicture? picture) {
+    void Present(LayerStackDocument? document, LayerStackPicture? picture) {
         Document = document;
         shown = picture;
 
