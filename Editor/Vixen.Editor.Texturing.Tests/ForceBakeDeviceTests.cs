@@ -87,6 +87,75 @@ public class ForceBakeDeviceTests(ITestOutputHelper output) {
         Assert.Equal(baked, File.ReadAllBytes(map));
     }
 
+    /// <summary>⚠ The forced run repeats the bake that was refused, not whatever is open by then.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The gap between the refusal and the answer is a gap an artist spends looking at
+    ///         the file.</b> A painted-over refusal names a map; the ordinary next move is to go and
+    ///         open it, or the graph beside it, and decide. So by the time <c>Bake Material
+    ///         (Force)</c> is pressed, the document on the canvas is very often <em>not</em> the one
+    ///         the refusal was about.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which makes the closure's captured subject the load-bearing part of the whole
+    ///         design.</b> The first version armed <c>() =&gt; BakeGraph(force: true)</c>, which
+    ///         re-read the module's live field — so a verb whose entire purpose is overwriting
+    ///         somebody's work would have overwritten the wrong work, silently, and the notification
+    ///         would have named the second graph as though that had been the plan.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_forced_bake_answers_the_document_that_was_refused_and_not_the_one_now_open() {
+        using var device = TexturingDevice.Open();
+        var adapter = TexturingDevice.Adapter(device);
+
+        using var fixture = new TexturingFixture(device);
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+        Open(fixture);
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.BakeCommand), Say(fixture));
+
+        var map = Path.Combine(
+            fixture.Paths.Assets,
+            MaterialMapNaming.DefaultFolder,
+            Material + "_baseColor" + MaterialMapNaming.PortableExtension
+        );
+
+        var baked = File.ReadAllBytes(map);
+
+        File.WriteAllBytes(map, [.. baked, 0]);
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.BakeCommand));
+        Assert.Equal(baked.Length + 1, new FileInfo(map).Length);
+
+        // The artist goes and looks at something else, which is what a refusal naming a file invites.
+        var second = Open(fixture, "Keel");
+
+        Assert.NotEqual(Material, Path.GetFileNameWithoutExtension(second.AssetPath));
+
+        var forcedAt = fixture.Shell.Notifications.History.Count;
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.ForceBakeCommand));
+
+        output.WriteLine($"{adapter}: the forced bake said — {Since(fixture, forcedAt)}");
+
+        // The refused map is repaired ...
+        Assert.Equal(baked, File.ReadAllBytes(map));
+
+        // ... and the graph that merely happened to be open was not baked at all. ⚠ This is the
+        // assertion the defect fails: under the live-field closure the second graph is what the
+        // forced run wrote, and the first map keeps the artist's stray byte for ever.
+        Assert.False(
+            Directory.EnumerateFiles(
+                    Path.Combine(fixture.Paths.Assets, MaterialMapNaming.DefaultFolder),
+                    "Keel_*"
+                )
+                .Any(),
+            $"{adapter}: the forced bake wrote the document that was open rather than the one refused."
+        );
+    }
+
     /// <summary>The force verb does nothing at all until a bake has been refused for that reason.</summary>
     /// <remarks>
     ///     ⚠ <b>This is what makes one verb safe enough to sit on the Tools menu, and it is the half
@@ -147,10 +216,16 @@ public class ForceBakeDeviceTests(ITestOutputHelper output) {
     ///     the document and a bake at the default would spend the run on a mip chain this asserts
     ///     nothing about.
     /// </remarks>
-    static void Open(TexturingFixture fixture) {
+    static TextureGraphDocument Open(TexturingFixture fixture) => Open(fixture, Material);
+
+    /// <summary>Scans a copy of the committed fixture in under a given name and opens it.</summary>
+    /// <param name="fixture">The host.</param>
+    /// <param name="name">What to call the asset.</param>
+    /// <returns>The document now on the canvas.</returns>
+    static TextureGraphDocument Open(TexturingFixture fixture, string name) {
         fixture.Project.Selection.Set(
             fixture.AddGraph(
-                Material,
+                name,
                 File.ReadAllText(
                     Path.Combine(AppContext.BaseDirectory, "Fixtures", "BakeRoute" + TextureGraphDocument.Extension)
                 )
@@ -159,12 +234,17 @@ public class ForceBakeDeviceTests(ITestOutputHelper output) {
 
         Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenCommand));
 
-        var document = Assert.Single(fixture.Project.Documents.OfType<TextureGraphDocument>());
+        var document = Assert.Single(
+            fixture.Project.Documents.OfType<TextureGraphDocument>(),
+            one => Path.GetFileNameWithoutExtension(one.AssetPath) == name
+        );
 
         Assert.Empty(document.LoadDiagnostics);
 
         document.BaseWidth = 64;
         document.BaseHeight = 64;
+
+        return document;
     }
 
     /// <summary>What the module last said, because every refusal here is a notification and not an exception.</summary>

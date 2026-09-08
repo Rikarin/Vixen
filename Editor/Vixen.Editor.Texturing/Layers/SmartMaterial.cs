@@ -53,12 +53,20 @@ sealed record SmartMaterialApplied(ImmutableArray<LayerAsset> Layers, string Sta
 /// <summary>A <c>.vxsmartmat</c>: a layer stack without its meshes, re-bindable onto another model.</summary>
 /// <remarks>
 ///     <para>
-///         <b>Doc 48 § M10 and the file-format table's own line — "a stack fragment plus parameter
-///         overrides · a <c>.vxlayers</c> group with no mesh binding".</b> Until this type the
-///         extension appeared in the plan, in <c>docs/overview.md</c> and in five <c>.cs</c>
-///         <em>comments</em>, and in no type, no extension constant, no reader and no verb
+///         <b>Doc 48 § M10's file.</b> Until this type the extension appeared in the plan, in
+///         <c>docs/overview.md</c> and in five <c>.cs</c> <em>comments</em>, and in no type, no
+///         extension constant, no reader and no verb
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/575">#575</a>) — which is exactly the
 ///         shape that reads as a feature to anybody who greps for the word.
+///     </para>
+///     <para>
+///         ⚠ <b>Half of the format table's line, and saying which half matters.</b> That line reads
+///         "a stack fragment plus <em>parameter overrides</em> · a <c>.vxlayers</c> group with no
+///         mesh binding". This is the second clause. The first has nowhere to live yet:
+///         <c>LayerStackAsset</c> carries no parameter-override member at all, so a smart material
+///         cannot yet say "apply me, but with the rust dialled down" — it applies the numbers it was
+///         saved with. Filed rather than quietly implied by quoting the whole line
+///         (<a href="https://github.com/Rikarin/Vixen/issues/1072">#1072</a>).
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The file <em>is</em> a <c>.vxlayers</c>, byte for byte, and that is the design rather

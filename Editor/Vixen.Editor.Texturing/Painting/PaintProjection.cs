@@ -192,11 +192,41 @@ sealed class PaintProjection {
             weights,
             (ua * weights.X) + (ub * weights.Y) + (uc * weights.Z),
             found.Point,
-            Vector3.Normalize(Vector3.Cross(b - a, c - a)),
+            Facing(a, b, c),
             found.Distance * far
         );
 
         return true;
+    }
+
+    /// <summary>The triangle's geometric normal, at any scale.</summary>
+    /// <param name="a">The first corner.</param>
+    /// <param name="b">The second.</param>
+    /// <param name="c">The third.</param>
+    /// <returns>The unit normal, or zero for a degenerate triangle.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Not <c>Vector3.Normalize(Cross(…))</c>, which gives up on an <em>absolute</em>
+    ///     length.</b> <c>MathUtil.ZeroTolerance</c> is 1e-6 and a cross product is twice the
+    ///     triangle's area, so an equilateral triangle whose side is under about 1.07e-3 mesh units
+    ///     has a cross product shorter than the tolerance and <c>Normalize</c> answers
+    ///     <c>Zero</c> — on a perfectly ordinary triangle whose corners are a millimetre apart.
+    ///     ⚠ <b>And the failure is silent and wrong in the expensive direction</b>: a zero normal
+    ///     makes <see cref="PaintFootprint" />'s grazing cosine fall to its floor, so the brush comes
+    ///     out about 3.2× too wide, face-on, on small meshes only. The edges are scaled to unit
+    ///     length before the cross, which moves the tolerance from "how big is this triangle" to
+    ///     "is this triangle degenerate", which is the question actually being asked.
+    /// </remarks>
+    static Vector3 Facing(Vector3 a, Vector3 b, Vector3 c) {
+        var first = b - a;
+        var second = c - a;
+        var one = first.Length();
+        var two = second.Length();
+
+        if (one <= 0f || two <= 0f) {
+            return Vector3.Zero;
+        }
+
+        return Vector3.Normalize(Vector3.Cross(first / one, second / two));
     }
 
     /// <summary>Where a coordinate lands in an atlas of a size.</summary>

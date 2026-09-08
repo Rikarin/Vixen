@@ -327,14 +327,21 @@ shader TexturedMaterialLayersSurface : MaterialTextures, IMaterialSurface {
     ///
     /// ⚠ With `HeightBlended` off this is exactly `layers[i].weight * Painted(splat, i)`, which the
     /// loop then clamps at zero — the arithmetic this shader had before the height map, unchanged.
+    ///
+    /// ⚠ **The height term is scaled by `layers[i].weight` too, and the first version was not.**
+    /// This file says, of that constant, that "zero disables a layer wherever it was painted". A
+    /// height term outside the product broke exactly that: a layer an author had toggled off still
+    /// received `heightContrast * height` and could hold the peak, so switching a layer off could
+    /// *raise* it above the ones still on. One multiplication is the difference between a scale on a
+    /// layer and a scale on half of one.
     func Keyed(splat: float4, height: float4, layer: int): float {
-        val painted = layers[layer].weight * Painted(splat, layer)
+        val painted = Painted(splat, layer)
 
         if (HeightBlended) {
-            return painted + heightContrast * Painted(height, layer)
+            return layers[layer].weight * (painted + heightContrast * Painted(height, layer))
         }
 
-        return painted
+        return layers[layer].weight * painted
     }
 
     func Compute(inout d: MaterialData) {

@@ -474,11 +474,12 @@ what #1012 asked to be insisted on: the two are the same assertion only until so
 `view:` at the `DrawImage` call, and the property read-back stays green through that whole
 regression. Sabotaged exactly that way, four of its five cases go red.
 
-⚠ **What is still owed is three lines in `Vixen.Editor.Texturing`.** `TextureGraphView.Preview`,
-`LayerStackView.Preview` and `PaintUvView` each build an `ImageView` and none builds a bar beside it,
-so the toggles are reachable from a control library and not yet from the editor. Stated here rather
-than left to be discovered, because a finished thing nothing calls is this repository's commonest
-defect and #611 closed only the half below the panel.
+⚠ **This said until 2026-09-08 that three lines in `Vixen.Editor.Texturing` were still owed, and
+they landed** — `TextureGraphView`, `LayerStackView` and `PaintUvView` each build a bar beside the
+viewer they already had (#1012). The `image-view-bar` rule's one load-bearing declaration is
+`flex-shrink: 0`, without which the strip is squeezed to nothing by the picture below it in a short
+pane. Recorded because a finished thing nothing calls is this repository's commonest defect, and a
+sentence saying so after it has a caller is how the same issue gets filed twice.
 
 ### Timeline
 

@@ -644,17 +644,29 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     ///         anything. <see cref="ForceBakeCommand" /> repeats <em>this</em> bake instead.
     ///     </para>
     /// </remarks>
-    void BakeMaterial() => BakeGraph(force: false);
+    void BakeMaterial() => BakeGraph(document, force: false);
 
     /// <summary>Turns the graph on the canvas into a material, forcing or not.</summary>
+    /// <param name="subject">The document to bake.</param>
     /// <param name="force">Whether to overwrite outputs somebody has painted over.</param>
     /// <remarks>
-    ///     ⚠ <b>The forced run is a closure this arms rather than a flag the verb reads</b>, so that
-    ///     <see cref="ForceBakeCommand" /> can answer a refusal from either document with one
-    ///     handler and cannot force a bake nobody asked about. See <see cref="Refused" />.
+    ///     <para>
+    ///         ⚠ <b>The forced run is a closure this arms rather than a flag the verb reads</b>, so
+    ///         that <see cref="ForceBakeCommand" /> can answer a refusal from either document with
+    ///         one handler and cannot force a bake nobody asked about. See <see cref="Refused" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the document is a <em>parameter</em> rather than the field, which is the
+    ///         whole of what makes that closure safe.</b> Reading <c>document</c> inside the forced
+    ///         run would force-bake whatever happened to be open when the artist reached for the
+    ///         verb — and the ordinary way to meet a painted-over refusal is to go and look at the
+    ///         file that was painted, which means opening something else first. Capturing the
+    ///         subject is what stops a verb whose whole purpose is overwriting somebody's work from
+    ///         overwriting the <em>wrong</em> work.
+    ///     </para>
     /// </remarks>
-    void BakeGraph(bool force) {
-        if (document is null) {
+    void BakeGraph(TextureGraphDocument? subject, bool force) {
+        if (subject is null) {
             shell.Notifications.Show(
                 "No graph is open",
                 NotificationSeverity.Warning,
@@ -675,9 +687,9 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return;
         }
 
-        var outcome = baker.Bake(document, Path.GetFileNameWithoutExtension(document.AssetPath), force: force);
+        var outcome = baker.Bake(subject, Path.GetFileNameWithoutExtension(subject.AssetPath), force: force);
 
-        Refused(outcome.Painted ? () => BakeGraph(force: true) : null);
+        Refused(outcome.Painted ? () => BakeGraph(subject, force: true) : null);
 
         shell.Notifications.Show(
             outcome.Set is null ? "Nothing baked" : "Baked '" + outcome.Set.Name + "'",
@@ -699,18 +711,22 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     ///     compile the layers pane runs, the evaluator both panes share and the
     ///     <see cref="ProjectMaterialBaker" /> the command line calls.
     /// </remarks>
-    void BakeStackMaterial() => BakeStack(force: false);
+    void BakeStackMaterial() => BakeStack(stack, force: false);
 
     /// <summary>Turns the open layer stack into materials, forcing or not.</summary>
+    /// <param name="subject">The stack to bake.</param>
     /// <param name="force">Whether to overwrite outputs somebody has painted over.</param>
     /// <remarks>
+    ///     ⚠ <b>The stack is a parameter and not the field, for <see cref="BakeGraph" />'s
+    ///     reason</b>: the closure <see cref="Refused" /> arms must repeat the bake that was
+    ///     refused, not whatever is open when somebody presses the verb.
     ///     ⚠ <b>One notification for the whole stack rather than one per set.</b> A set that refused
     ///     and a set that wrote are both facts about the same gesture, and an artist reading two
     ///     notifications has to work out which of them was the answer to what they pressed. Every
     ///     set's own sentence is in the detail, named by its set.
     /// </remarks>
-    void BakeStack(bool force) {
-        if (stack is null) {
+    void BakeStack(LayerStackDocument? subject, bool force) {
+        if (subject is null) {
             shell.Notifications.Show(
                 "No layer stack is open",
                 NotificationSeverity.Warning,
@@ -731,11 +747,11 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return;
         }
 
-        var outcomes = baker.Bake(stack, Path.GetFileNameWithoutExtension(stack.AssetPath), force: force);
+        var outcomes = baker.Bake(subject, Path.GetFileNameWithoutExtension(subject.AssetPath), force: force);
         var written = outcomes.Count(one => one.Set is not null);
         var painted = outcomes.Any(one => one.Painted);
 
-        Refused(painted ? () => BakeStack(force: true) : null);
+        Refused(painted ? () => BakeStack(subject, force: true) : null);
 
         var detail = string.Join(" · ", outcomes.Select(one => one.Status));
 

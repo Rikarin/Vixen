@@ -84,7 +84,13 @@ sealed partial class TileSamplerNode : TextureNode {
     [Input]
     public Scalar Rotation = 0f;
 
-    /// <summary>How much it may randomly differ, in radians. At 2π it is free. ⚠ Turns until #735.</summary>
+    /// <summary>How much it may randomly differ, in radians. At 2π it is free.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This said "turns until #735" and #735 is closed</b>, which is the stale claim that
+    ///     put a default of 1 on <c>Patterns/Tile Random</c>'s <c>Turn</c> port under a summary
+    ///     promising a whole turn — about a sixth of one, silently, with nothing in either test file
+    ///     able to see it: the compound roll call only asks that the picture is not flat.
+    /// </remarks>
     [Input(Name = "Rotation Jitter")]
     public Scalar RotationJitter = 0f;
 

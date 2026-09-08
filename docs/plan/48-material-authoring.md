@@ -1116,16 +1116,22 @@ decision is that § B1's height map means **height-blended layering**: a second 
 true displacement are separate features and separate tasks.
 
 ⚠ **"Landed" is a statement about the code and it should not be read as "a splat-mapped layered
-material renders".** B1's finding survives one level along, inside the feature added to answer it: the
-only constructions of `TexturedMaterialLayersFeature` in the tree are four in
-`Core/Vixen.Rendering.Tests` and one in `WorldRenderer` that exists to read its *map names* off for
-the pairing table. No material carries one, `MaterialBake` composes the textured emissive and opacity
-and not this, and **no frame has been drawn through it**. The textured half of B1 that *is* fed is
-emissive and opacity; the layered half is a feature waiting for a caller, which is the shape this
-document warns about in [D14](#d14-it-is-a-plugin-and-that-is-the-test) and the whole reason B1 was
-written as a blocker. ⚠ **The height map lands into that same gap and does not close it**: it is a
-second map on a feature nothing constructs, so the honest reading of it is "the renderer can now
-express a height-blended stack", not "one has been drawn".
+material ships".** B1's finding survives one level along, inside the feature added to answer it: no
+**production** material carries a `TexturedMaterialLayersFeature`, and `MaterialBake` composes the
+textured emissive and opacity and not this. The layered half is a feature waiting for a caller, which
+is the shape this document warns about in [D14](#d14-it-is-a-plugin-and-that-is-the-test) and the
+whole reason B1 was written as a blocker.
+
+⚠ **What that gap is *not* is "no frame has been drawn through it", which this paragraph said until
+2026-09-08 and which was already false when written.**
+`Platform/Vixen.Graphics.Golden.Tests/LayeredMaterialImageTests` has constructed the feature and
+photographed it through the real `StandardFrame` since 2026-09-07, and the height slice gave "there
+is no material anywhere to render" as its reason for shipping the blend arithmetic unmeasured. It is
+worth recording because of how the error is shaped: a claim about the *production* tree written as
+though it were about the whole of it, which is exactly the sentence that lets a feature ship with no
+picture. The height blend has a closed-form golden now — two layers painted 0.5 each tie and blend to
+neither colour; a height map lifting one by 0.25 over a transition of 0.1 clamps the other to zero
+and the frame becomes that layer alone.
 [#622](https://github.com/Rikarin/Vixen/issues/622) — `splat.a` is 1 everywhere on a three-channel
 splat map — was a live bug in it and is **fixed and closed**: `paintedChannels` gates the alpha, and
 the same gate now serves the height map, so the two maps cannot disagree about which channel a layer

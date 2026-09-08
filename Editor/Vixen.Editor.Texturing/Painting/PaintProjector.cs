@@ -56,6 +56,7 @@ sealed class PaintProjector {
     readonly Vector2[] held = new Vector2[2];
 
     int paths;
+    PaintSymmetry? mirror;
     bool started;
 
     /// <summary>Aims a brush at a mesh, for one atlas size.</summary>
@@ -76,9 +77,13 @@ sealed class PaintProjector {
 
     /// <summary>The plane a stroke is mirrored through, or null for no symmetry.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read at pointer-down and not per move.</b> Turning symmetry on halfway through a
-    ///     drag is precisely what <c>PaintSession.MoveAll</c> refuses, so this is latched by
-    ///     <see cref="Begin" /> and a change during a drag takes effect on the next one.
+    ///     ⚠ <b>Latched by <see cref="Begin" /> into <c>held</c>, and read from there afterwards.</b>
+    ///     Turning symmetry on halfway through a drag is precisely what <c>PaintSession.MoveAll</c>
+    ///     refuses — the path count is fixed at pointer-down — so a change during a drag takes
+    ///     effect on the next one. ⚠ The first version said this and did not do it: <c>Begin</c>
+    ///     stored only the resulting texel and <c>Advance</c> re-read the property, so clearing the
+    ///     plane mid-drag froze the mirror where it was and moving it redirected the mirrored ray
+    ///     immediately, both silently.
     /// </remarks>
     public PaintSymmetry? Symmetry { get; set; }
 
@@ -115,7 +120,9 @@ sealed class PaintProjector {
         radius = PaintFootprint.Radius(eye, ray, hit, projection.Density(hit.Triangle, width, height), screenRadius);
         held[paths++] = PaintProjection.Texel(hit.Coordinate, width, height);
 
-        if (Symmetry is { } plane && projection.TryHit(plane.Mirror(ray), out var mirrored)) {
+        mirror = Symmetry;
+
+        if (mirror is { } plane && projection.TryHit(plane.Mirror(ray), out var mirrored)) {
             held[paths++] = PaintProjection.Texel(mirrored.Coordinate, width, height);
         }
 
@@ -146,7 +153,7 @@ sealed class PaintProjector {
         } else {
             Advance(0, ray);
 
-            if (paths > 1 && Symmetry is { } plane) {
+            if (paths > 1 && mirror is { } plane) {
                 Advance(1, plane.Mirror(ray));
             }
         }

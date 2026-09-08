@@ -150,6 +150,83 @@ public class PaintProjectionTests {
         Assert.Equal(Size * MathF.Sqrt(squash), density.Area, 2);
     }
 
+    /// <summary>⚠ A model a thousandth the size still reports a normal, and a brush of the same size.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This repository's most-repeated arithmetic defect, in the one file that boasts
+    ///         about doc 41's scale rule.</b> <c>Vector3.Normalize</c> gives up below an
+    ///         <em>absolute</em> 1e-6, and a cross product is twice the triangle's area — so it
+    ///         scales as the <em>square</em> of the model. A mesh whose triangles are a millimetre
+    ///         across has a cross product under the tolerance and the normal comes back
+    ///         <c>Zero</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And a zero normal is not a crash, it is a wider brush.</b>
+    ///         <c>PaintFootprint</c> reads the grazing cosine off it, a zero cosine falls to
+    ///         <c>GrazingFloor</c>, and the radius comes out 1/√floor ≈ 3.2× too large — face-on, on
+    ///         small models only, which is the shape nobody notices until an artist says the brush is
+    ///         wrong on one asset.
+    ///     </para>
+    ///     <para>
+    ///         So the assertion is the <em>ratio</em>: the same view of the same model at three
+    ///         scales must give one answer. A test that only checked "the normal is not zero" would
+    ///         pass on a normal pointing anywhere.
+    ///     </para>
+    /// </remarks>
+    /// <param name="scale">How big the model is.</param>
+    [Theory]
+    [InlineData(1f)]
+    [InlineData(1024f)]
+    [InlineData(1f / 1024f)]
+    // ⚠ The one that actually trips it, and picking it took arithmetic rather than intuition. The
+    // cross product is 2·area, so it falls as the *square*: this fixture's edges are 4·scale, and
+    // 1/1024 gives |cross| ≈ 1.5e-5 — fifteen times the tolerance, comfortably safe. The threshold
+    // is 4·scale < ~1.07e-3, so a case that only went down to a thousandth would have been green
+    // against the defect and would have read as coverage.
+    [InlineData(1f / 16384f)]
+    public void A_models_scale_changes_neither_its_normal_nor_the_texels_a_brush_covers(float scale) {
+        var projection = PaintProjection.Over(
+            [new(-1f * scale, -1f * scale, 0f), new(3f * scale, -1f * scale, 0f), new(-1f * scale, 3f * scale, 0f)],
+            [new(-1f, -1f), new(3f, -1f), new(-1f, 3f)],
+            [0, 1, 2]
+        );
+
+        var ray = new Ray(new(0.5f * scale, 0.5f * scale, Away * scale), new(0f, 0f, -1f));
+
+        Assert.True(projection.TryHit(ray, out var hit));
+
+        // The normal is a unit vector whatever the model measures.
+        Assert.Equal(1f, hit.Normal.Length(), 3);
+        Assert.Equal(1f, MathF.Abs(hit.Normal.Z), 3);
+
+        // ⚠ And the footprint follows the scale exactly: at a thousandth the size, a screen pixel
+        // buys a thousandth of the world, and the coordinates did not move — so the same view of the
+        // same model covers the same texels. Under the defect this is 3.2× at one scale and not the
+        // others, which no single-scale case can see.
+        var eye = PaintEye.Orthographic(ray.Origin, new(0f, 0f, -1f), 4f * scale, Size);
+        var radius = PaintFootprint.Radius(eye, ray, hit, projection.Density(hit.Triangle, Size, Size), 4f);
+
+        Assert.True(radius > 0f, "the footprint collapsed, which is what a zero normal does to it.");
+        Assert.Equal(Unscaled(), radius, 2);
+    }
+
+    /// <summary>The same view of the same layout at scale one, as the number every scale must match.</summary>
+    /// <returns>The radius, in texels.</returns>
+    static float Unscaled() {
+        var projection = Plane();
+        var ray = Down(0.5f, 0.5f);
+
+        Assert.True(projection.TryHit(ray, out var hit));
+
+        return PaintFootprint.Radius(
+            PaintEye.Orthographic(ray.Origin, new(0f, 0f, -1f), 4f, Size),
+            ray,
+            hit,
+            projection.Density(hit.Triangle, Size, Size),
+            4f
+        );
+    }
+
     /// <summary>Two charts of the same size on one mesh get two densities, by which one was hit.</summary>
     /// <remarks>
     ///     <para>

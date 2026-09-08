@@ -49,8 +49,8 @@ interface:
   - name: Turn
     direction: Input
     kind: Float
-    default: [1]
-    summary: How far an instance may be turned, as a fraction of a whole turn.
+    default: [6.2831855]
+    summary: How far an instance may be turned, in radians. 6.28 is a free turn.
   - name: Shift
     direction: Input
     kind: Float

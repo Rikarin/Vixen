@@ -52,8 +52,17 @@ public class TextureGraphPreviewDeviceTests {
     ///         is expected exactly rather than as a floor.
     ///     </para>
     /// </remarks>
-    sealed class Lease(IGraphicsDevice device) : IDisposable {
+    sealed class Lease : IDisposable {
+        readonly IGraphicsDevice held;
+
         TexturePlanEvaluator? evaluator;
+
+        /// <summary>Lends for one device.</summary>
+        /// <param name="device">The device.</param>
+        public Lease(IGraphicsDevice device) {
+            held = device;
+            Device = device;
+        }
 
         /// <summary>How many evaluators this lender has made.</summary>
         public int Built { get; private set; }
@@ -61,13 +70,22 @@ public class TextureGraphPreviewDeviceTests {
         /// <summary>How many times one was asked for.</summary>
         public int Asks { get; private set; }
 
-        /// <summary>Hands out the one evaluator for the device it was built on.</summary>
-        /// <param name="asked">The device the caller means. Must be this lender's.</param>
-        /// <returns>The evaluator, which the caller does not own.</returns>
-        public TexturePlanEvaluator Take(IGraphicsDevice asked) {
+        /// <summary>The device this lender lends for, or null once the host has lost it.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Settable, because a source that cached the device could not be told apart from
+        ///     one that re-reads it.</b> Both answer the same evaluator for as long as the device
+        ///     lives; the difference only shows on the frame after it dies.
+        /// </remarks>
+        public IGraphicsDevice? Device { get; set; }
+
+        /// <summary>Hands out the one evaluator for the device the host currently has.</summary>
+        /// <returns>The evaluator, which the caller does not own, or null when there is no device.</returns>
+        public TexturePlanEvaluator? Take() {
             Asks++;
 
-            Assert.Same(device, asked);
+            if (Device is null) {
+                return null;
+            }
 
             if (evaluator is not null) {
                 return evaluator;
@@ -75,7 +93,7 @@ public class TextureGraphPreviewDeviceTests {
 
             Built++;
 
-            return evaluator = new(device);
+            return evaluator = new(held);
         }
 
         /// <inheritdoc />
@@ -220,7 +238,7 @@ public class TextureGraphPreviewDeviceTests {
         Kept sink = new();
 
         using Lease lease = new(device);
-        using TextureGraphPreviews previews = new(device, lease.Take, () => new(Registry()), sink);
+        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
 
         var registry = Registry();
 
@@ -253,7 +271,7 @@ public class TextureGraphPreviewDeviceTests {
         Kept sink = new();
 
         using Lease lease = new(device);
-        using TextureGraphPreviews previews = new(device, lease.Take, () => new(Registry()), sink);
+        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
 
         var registry = Registry();
         var node = First(graph, source);
@@ -290,7 +308,7 @@ public class TextureGraphPreviewDeviceTests {
         Kept sink = new();
 
         using Lease lease = new(device);
-        using TextureGraphPreviews previews = new(device, lease.Take, () => new(Registry()), sink);
+        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
 
         var registry = Registry();
         var node = First(graph, source);
@@ -349,7 +367,7 @@ public class TextureGraphPreviewDeviceTests {
         Kept sink = new();
 
         using Lease lease = new(device);
-        using TextureGraphPreviews previews = new(device, lease.Take, () => new(Registry()), sink);
+        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
 
         var registry = Registry();
         var node = First(graph, source);
@@ -376,6 +394,21 @@ public class TextureGraphPreviewDeviceTests {
         Assert.Equal(2, lease.Asks);
 
         // And the lender made one, which is the whole point of lending.
+        Assert.Equal(1, lease.Built);
+
+        // ⚠ The half a cached device hides. The host loses its device; the source must ask, be told
+        // there is none, and draw nothing — rather than hand the lease a device that is gone, which
+        // is the one question a lease cannot answer safely. Under the old shape the device was a
+        // constructor argument in a field, so this line asked for the *dead* device's evaluator and
+        // every count above stayed exactly as green as it is now.
+        lease.Device = null;
+
+        node.SetValue("Colour", 0.25f, 0.25f, 0.25f, 1f);
+        graph.Touch();
+        previews.Update();
+
+        Assert.Equal(3, lease.Asks);
+        Assert.Equal(2, previews.Bakes);
         Assert.Equal(1, lease.Built);
     }
 

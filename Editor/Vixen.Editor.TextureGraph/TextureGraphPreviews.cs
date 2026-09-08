@@ -96,18 +96,17 @@ sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
 
     readonly Func<TextureGraphCompiler> compilers;
     readonly ITexturePreviewImages? images;
-    readonly IGraphicsDevice device;
-    readonly Func<IGraphicsDevice, TexturePlanEvaluator> evaluators;
+    readonly Func<TexturePlanEvaluator?> evaluators;
     readonly Dictionary<(NodeGraphModel Graph, NodeId Node), ulong> registered = [];
     readonly HashSet<NodeGraphModel> watched = [];
     readonly List<NodeGraphModel> dirty = [];
 
     bool disposed;
 
-    /// <summary>Builds a preview source on a device, over an evaluator somebody else owns.</summary>
-    /// <param name="device">Where the images are evaluated.</param>
+    /// <summary>Builds a preview source over an evaluator somebody else owns.</summary>
     /// <param name="evaluators">
-    ///     Hands out the one evaluator for a device. Asked on every rebuild rather than once.
+    ///     Answers the one evaluator for the host's <em>current</em> device, or <see langword="null" />
+    ///     when there is none. Asked on every rebuild rather than once.
     /// </param>
     /// <param name="compilers">
     ///     Makes a compiler over the node library the graphs are edited against, with whatever
@@ -134,23 +133,25 @@ sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
     ///         commit that closed the issue.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Asked on every rebuild rather than held.</b> That is the same shape
-    ///         <c>LayerStackPreview</c> and <c>TextureGraphPreview</c> have, and it is what makes a
-    ///         device loss survivable: the lender's stale branch drops the evaluator it cannot
-    ///         legally dispose, and the next rebuild is handed the new device's.
+    ///         ⚠ <b>Asked on every rebuild rather than held, and the <em>device</em> goes with
+    ///         it.</b> The first version of this took an <c>IGraphicsDevice</c> as well and cached
+    ///         it in a field, which is only half of the shape <c>LayerStackPreview</c> and
+    ///         <c>TextureGraphPreview</c> have: they both re-read <c>graphics.Device</c> at the top
+    ///         of every use. Holding the device and asking for its evaluator per rebuild would have
+    ///         asked the lease for the evaluator of a device that is <em>gone</em> — the one
+    ///         question the lease cannot answer safely, arriving from the only pane whose device
+    ///         nothing re-reads. So this takes one delegate that answers both, and
+    ///         <see langword="null" /> means there is nothing to draw on yet.
     ///     </para>
     /// </remarks>
     public TextureGraphPreviews(
-        IGraphicsDevice device,
-        Func<IGraphicsDevice, TexturePlanEvaluator> evaluators,
+        Func<TexturePlanEvaluator?> evaluators,
         Func<TextureGraphCompiler> compilers,
         ITexturePreviewImages? images = null
     ) {
-        ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(evaluators);
         ArgumentNullException.ThrowIfNull(compilers);
 
-        this.device = device;
         this.evaluators = evaluators;
         this.compilers = compilers;
         this.images = images;
@@ -294,7 +295,15 @@ sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
         // panes; `A_preview_source_takes_its_evaluator_from_the_lease_on_every_rebuild` counts it
         // for this one, because a source that asked once on the way in leaves every count about the
         // lender's own builds green.
-        using var bake = evaluators(device).Evaluate(plan);
+        if (evaluators() is not { } evaluator) {
+            // No device, which is an ordinary state rather than a fault — the host has not finished
+            // starting, or it has just lost one. A rebuild that cannot draw leaves the graph dirty.
+            Refusals++;
+
+            return;
+        }
+
+        using var bake = evaluator.Evaluate(plan);
 
         Bakes++;
 

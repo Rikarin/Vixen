@@ -12,9 +12,11 @@ namespace Tests;
 /// </summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>The remark this replaces said <see cref="SettingDefinition.Accepts" /> has no
-///         production caller and that this suite was not an argument that it does. It has one
-///         now</b> — <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>. The predicate
+///         ⚠ <b><see cref="SettingDefinition.Accepts" /> still has no production caller, and
+///         <c>Canonical</c> is the shape that got two</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>. They share an index, so
+///         this suite covers both; it is not an argument that the predicate is reached. The
+///         predicate
 ///         was never going to acquire one in that shape: the two refusals that would adopt it need
 ///         the <em>canonical spelling</em> back, because a graph written <c>Multiply</c> and one
 ///         written <c>multiply</c> have to compile to one thing, and a <c>bool</c> throws that away.

@@ -241,10 +241,12 @@ sealed class MaterialBakeRoute {
         document.Republish();
 
         var outcomes = ImmutableArray.CreateBuilder<MaterialBakeOutcome>(stack.Sets.Count);
+        var names = Names(stack, name);
 
-        foreach (var set in stack.Sets) {
+        for (var index = 0; index < stack.Sets.Count; index++) {
+            var set = stack.Sets[index];
             var compilation = LayerStackCompiler.Compile(stack, set, document.Library);
-            var material = stack.Sets.Count == 1 || set.Name.Length == 0 ? name : name + "_" + set.Name;
+            var material = names[index];
 
             MaterialBakeOutcome Said(string status) =>
                 new(null, $"'{set.Name}': " + status) { Diagnostics = compilation.Diagnostics };
@@ -445,6 +447,46 @@ sealed class MaterialBakeRoute {
         return new MaterialBakeOutcome(set, Reported(set) + dropped + cautions + warnings) {
             Diagnostics = diagnostics
         };
+    }
+
+    /// <summary>One material name per texture set, all of them distinct.</summary>
+    /// <param name="stack">The stack.</param>
+    /// <param name="name">The stack's own name, which a single-set stack keeps unchanged.</param>
+    /// <returns>The names, in the sets' order.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The obvious spelling — <c>name + "_" + set.Name</c> per set — loses a set's whole
+    ///     bake silently.</b> <c>TextureSetAsset.Name</c> defaults to the empty string, so a stack
+    ///     with two unnamed sets sent both through the writer under one name: the second overwrote
+    ///     the first's maps, and because the first write had just recorded its digest the overpaint
+    ///     guard saw bytes that matched and raised nothing. Both sets were then reported as baked
+    ///     and one of them was not on the disk.
+    ///     ⚠ <b>A collision falls back to the set's index rather than refusing</b>, because the
+    ///     artist's fix — naming the sets — is one they can only make after seeing what was baked,
+    ///     and a refusal on a `.vxlayers` that was fine yesterday is worse than a name with a 1 in
+    ///     it. The notification names the set either way.
+    /// </remarks>
+    static ImmutableArray<string> Names(LayerStackAsset stack, string name) {
+        if (stack.Sets.Count == 1) {
+            return [name];
+        }
+
+        var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var names = ImmutableArray.CreateBuilder<string>(stack.Sets.Count);
+
+        for (var index = 0; index < stack.Sets.Count; index++) {
+            var wanted = stack.Sets[index].Name.Length == 0
+                ? name + "_" + index.ToString(CultureInfo.InvariantCulture)
+                : name + "_" + stack.Sets[index].Name;
+
+            if (!taken.Add(wanted)) {
+                wanted += "_" + index.ToString(CultureInfo.InvariantCulture);
+                taken.Add(wanted);
+            }
+
+            names.Add(wanted);
+        }
+
+        return names.DrainToImmutable();
     }
 
     /// <summary>What the artist is told when it worked.</summary>

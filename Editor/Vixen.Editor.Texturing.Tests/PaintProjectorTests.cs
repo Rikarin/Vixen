@@ -95,6 +95,44 @@ public class PaintProjectorTests {
         Assert.NotNull(command);
     }
 
+    /// <summary>⚠ Clearing symmetry mid-drag does not freeze the mirror, and moving it does not aim it.</summary>
+    /// <remarks>
+    ///     <b>The property is latched at pointer-down, and the first version only said so.</b>
+    ///     <c>Begin</c> stored the mirrored texel and <c>Advance</c> re-read <c>Symmetry</c>, so a
+    ///     plane cleared halfway through a drag left the mirror stuck at the position it started at
+    ///     — a stroke with one live path and one dead one, painting a stamp that never moves — and a
+    ///     plane <em>moved</em> mid-drag redirected the mirrored ray on the next event. Both are
+    ///     silent, and both contradict <c>PaintSession.MoveAll</c>, whose path count is fixed for
+    ///     the drag.
+    /// </remarks>
+    [Fact]
+    public void A_symmetry_plane_changed_during_a_drag_is_ignored_until_the_next_one() {
+        var projection = PaintProjectionTests.Plane();
+
+        PaintProjector projector = new(projection, Size, Size) {
+            Symmetry = new(new(1f, 0f, 0f), 0.5f)
+        };
+
+        Assert.True(projector.Begin(Eye(), PaintProjectionTests.Down(0.25f, 0.5f), 4f, out _));
+        Assert.Equal(2, projector.Paths);
+
+        projector.Resolve(PaintProjectionTests.Down(0.25f, 0.5f));
+
+        // The artist lets go of the symmetry toggle without letting go of the pointer.
+        projector.Symmetry = null;
+
+        var moved = projector.Resolve(PaintProjectionTests.Down(0.3f, 0.5f)).ToArray();
+
+        Assert.Equal(2, moved.Length);
+
+        // ⚠ Both paths moved. Under the defect the mirror is the texel `Begin` recorded, for ever.
+        Assert.Equal(0.3f * Size, moved[0].X, 2);
+        Assert.Equal(0.7f * Size, moved[1].X, 2);
+
+        // And it is not where `Begin` put it, which is what the defect leaves it at.
+        Assert.NotEqual(0.75f * Size, moved[1].X, 2);
+    }
+
     /// <summary>A mirrored drag paints on both sides, and the second side is where the plane says.</summary>
     /// <remarks>
     ///     ⚠ <b>The mirror is applied to the ray and not to the atlas, so this case is the proof that

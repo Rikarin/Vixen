@@ -29,12 +29,12 @@ namespace Vixen.Ui.Controls.Advanced;
 ///         and reads the <em>draw command's</em> <c>View</c>, not the property back.
 ///     </para>
 ///     <para>
-///         ⚠ <b>No panel hosts one yet, and three host the viewer it drives.</b>
-///         <c>TextureGraphView.Preview</c>, <c>LayerStackView.Preview</c> and <c>PaintUvView</c> all
-///         build an <see cref="ImageView" />; each is two lines from offering the toggles —
-///         <c>Add&lt;ImageViewBar&gt;()</c> and <c>bar.View = Preview</c>. This closes the half of
-///         #1012 that belongs to this assembly, which is the strip and the proof that it reaches the
-///         picture; the half that belongs to <c>Vixen.Editor.Texturing</c> is those three lines.
+///         <b>Three panels host one</b> — <c>TextureGraphView</c>, <c>LayerStackView</c> and
+///         <c>PaintUvView</c>, each pointed at that pane's own <see cref="ImageView" />, which is
+///         all of <a href="https://github.com/Rikarin/Vixen/issues/1012">#1012</a>. ⚠ <b>The strip
+///         is added <em>before</em> the viewer and <c>View</c> assigned after</b>: <c>Add</c>
+///         appends, so the toggles sit above the picture, and assigning <c>View</c> adopts what the
+///         pane is already showing rather than pushing this strip's first segment over it.
 ///     </para>
 /// </remarks>
 public sealed partial class ImageViewBar : Control {
