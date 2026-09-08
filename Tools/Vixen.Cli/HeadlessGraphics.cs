@@ -49,17 +49,38 @@ static class HeadlessGraphics {
     ///     person reading it is running a build script on a container image somebody else wrote —
     ///     "no Vulkan device" alone sends them to look at their graph.
     /// </remarks>
-    public static bool TryOpen(out IGraphicsDevice? device, out string? reason) {
+    public static bool TryOpen(out IGraphicsDevice? device, out string? reason) =>
+        TryOpen(out device, out reason, out _);
+
+    /// <summary>Opens a device with no surface, keeping the driver's own words as well.</summary>
+    /// <param name="device">The device, when one opened. The caller owns it.</param>
+    /// <param name="reason">What to tell somebody who has no adapter, when none did.</param>
+    /// <param name="driver">
+    ///     What <c>VulkanDevice.TryCreate</c> said, unwrapped, or <see langword="null" /> when one
+    ///     opened.
+    /// </param>
+    /// <returns><see langword="true" /> if a device opened.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The unwrapped half exists because <see cref="Refusal" /> is a bake's sentence and not
+    ///     every caller is a bake</b> — <a href="https://github.com/Rikarin/Vixen/issues/1094">#1094</a>.
+    ///     It ends "bake the maps elsewhere and pass <c>--from</c> to write the material from them",
+    ///     which is exactly right for <c>texture bake</c> and is advice about a verb the reader may
+    ///     not have run. <c>doctor</c> is asking whether the <em>machine</em> has a device and wants
+    ///     the driver's sentence with nothing appended: it repairs nothing and recommends nothing.
+    /// </remarks>
+    public static bool TryOpen(out IGraphicsDevice? device, out string? reason, out string? driver) {
         // ⚠ `new()` and not a surface: a bake presents to nothing, and asking for surface extensions
         // is what makes a headless container fail for a reason that has nothing to do with compute.
         if (VulkanDevice.TryCreate(new(), out var opened, out var refusal)) {
             device = opened;
             reason = null;
+            driver = null;
 
             return true;
         }
 
         device = null;
+        driver = refusal;
         reason = Refusal(refusal);
 
         return false;

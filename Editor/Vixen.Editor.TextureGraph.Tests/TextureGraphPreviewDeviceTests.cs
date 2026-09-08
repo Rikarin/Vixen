@@ -316,6 +316,21 @@ public class TextureGraphPreviewDeviceTests {
         Assert.Equal(1, previews.Refusals);
         Assert.Equal(0, previews.Skipped);
         Assert.Empty(sink.Pictures);
+
+        // ⚠ Refused, and the author is told rather than shown an empty canvas — #1092. This is the
+        // branch that needed it most: no bake happened at all, so before this every node here drew
+        // nothing, and nothing is also what a preview source that has crashed draws.
+        Assert.True(
+            previews.TryGet(graph, First(graph, picture.Id), Definition(Registry(), graph, picture.Id), out var after),
+            "a refused graph left its nodes blank rather than saying the picture is the host's to supply"
+        );
+
+        Assert.True(after.Unavailable);
+        Assert.Equal(0ul, after.Image);
+
+        // ⚠ And `Skipped` did not move, which is what keeps the two counters able to tell "the whole
+        // graph was refused" from "these nodes were dropped from a bake that happened".
+        Assert.Equal(0, previews.Skipped);
     }
 
     /// <summary>
@@ -441,20 +456,36 @@ public class TextureGraphPreviewDeviceTests {
         Assert.True(previews.TryGet(graph, clean, cleanType, out var preview), $"{adapter}: the uniform went blank");
         Assert.True(Middle(sink.Pictures[preview.Image]) is > 55 and < 75, $"{adapter}: the uniform's grey is wrong");
 
-        // And the ones whose answer is the import's do not, rather than drawing the stand-in.
-        Assert.False(
-            previews.TryGet(graph, First(graph, picture.Id), Definition(registry, graph, picture.Id), out _),
-            $"{adapter}: the bitmap drew a swatch, which can only be the black texel standing in for it"
+        // And the ones whose answer is the import's draw no picture, rather than drawing the stand-in.
+        //
+        // ⚠ **These two used to assert `false` and now assert something stronger** —
+        // <a href="https://github.com/Rikarin/Vixen/issues/1092">#1092</a>. `false` leaves a gap, and
+        // a gap under a node is exactly what this source looks like when it has stopped running
+        // altogether: the answer now says *which* of the two states it is, and `Image == 0` is what
+        // still rules out the black stand-in being drawn.
+        Assert.True(
+            previews.TryGet(graph, First(graph, picture.Id), Definition(registry, graph, picture.Id), out var missing),
+            $"{adapter}: the bitmap gave no answer at all, so its swatch is missing rather than hatched"
         );
 
-        Assert.False(
-            previews.TryGet(graph, First(graph, blend.Id), Definition(registry, graph, blend.Id), out _),
-            $"{adapter}: the blend drew a swatch, so the taint stopped at the node that reads the picture"
+        Assert.True(missing.Unavailable, $"{adapter}: the bitmap answered as an ordinary swatch");
+        Assert.Equal(0ul, missing.Image);
+
+        Assert.True(
+            previews.TryGet(graph, First(graph, blend.Id), Definition(registry, graph, blend.Id), out var tainted),
+            $"{adapter}: the blend gave no answer, so the taint did not reach the node that reads the picture"
         );
 
-        // Counted, because a swatch that is simply missing is what a source that has stopped running
-        // also looks like.
+        Assert.True(tainted.Unavailable, $"{adapter}: the blend drew a swatch of its own");
+        Assert.Equal(0ul, tainted.Image);
+
+        // Counted as well as shown: the counter is the instrument a test reads and the flag is what
+        // the author sees, and neither replaces the other.
         Assert.True(previews.Skipped >= 2, $"{adapter}: {previews.Skipped} nodes were skipped");
+
+        // ⚠ And the clean node is *not* hatched, which is the half that stops the flag being a
+        // constant. A source that marked everything unavailable would satisfy both cases above.
+        Assert.False(preview.Unavailable, $"{adapter}: the uniform was hatched, so every node is");
     }
 
     /// <summary>An edit invalidates the graph, and the next update draws the new numbers.</summary>

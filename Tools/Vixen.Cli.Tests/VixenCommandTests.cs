@@ -455,6 +455,16 @@ public sealed class VixenCommandTests : IDisposable {
         Assert.Equal(ExitCode.Success, code);
         Assert.DoesNotContain("broken", output, StringComparison.Ordinal);
         Assert.Contains("UiCore", output, StringComparison.Ordinal);
+
+        // ⚠ The machine is examined too, and this is the assertion that says the verb actually calls
+        // it — <a href="https://github.com/Rikarin/Vixen/issues/1094">#1094</a>.
+        // `DoctorGraphicsTests` asks what the two answers say and would be perfectly green against a
+        // `doctor` that had stopped asking, which is this workstream's commonest defect.
+        //
+        // ⚠ And the exit code above is the other half: whatever this machine answers, a missing
+        // device is information rather than a project fault, so a CI image with no adapter still
+        // exits 0.
+        Assert.Contains("GPU:", output, StringComparison.Ordinal);
     }
 
     /// <summary>

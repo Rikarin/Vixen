@@ -160,6 +160,60 @@ public sealed class BuildIntegrationTests : IDisposable {
     }
 
     /// <summary>
+    ///     ⚠ <c>VixenUi=true</c> works for a project that imports <c>Vixen.Ui.targets</c> by hand —
+    ///     which is the one shape it did not work for, and the shape VX4002's own message named.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1102">#1102</a>, and the two
+    ///         states are the same fixture with one property.</b> This project self-imports the
+    ///         <c>.targets</c>, so the <c>.vxml</c> is <c>AdditionalFiles</c> and
+    ///         <c>VixenUiBuildImported</c> is set before <c>Directory.Build.targets</c> is evaluated.
+    ///         That flag used to guard the generator references as well as the globs, so
+    ///         <c>VixenUi=true</c> brought neither generator and the build failed with the very
+    ///         diagnostic whose cure it was.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both diagnostics are asserted absent, not just the one.</b> VX4002 is the loud
+    ///         half; VX4003 is the silent one, and a fix that added only the markup compiler would
+    ///         leave a green build with an invisible <c>[UiProperty]</c> — exactly the state seven
+    ///         projects reached master in. ⚠ And VX4001 too, because a change that made the globs
+    ///         stop running would satisfy both of the others by leaving nothing to check.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The build has to succeed rather than merely not print VX4002.</b> A `.vxml` whose
+    ///         generator never ran still compiles when nothing references the class it declares —
+    ///         the silence this whole family of checks exists for — so the component is used from
+    ///         C# here, and only a compilation that has the generated partial can link it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_hand_imported_project_is_wired_by_the_one_property_the_diagnostics_name() {
+        Unwired(
+            $"""
+             <ItemGroup>
+                 <ProjectReference Include="{UiProject}" />
+               </ItemGroup>
+               <Import Project="{BuildTargets}" />
+             """,
+            $"<DirectoryBuildTargetsPath>{RepositoryTargets}</DirectoryBuildTargetsPath><VixenUi>true</VixenUi>"
+        );
+
+        Markup("Ui/Counter.vxml", "@component Counter\n<div>hello</div>\n");
+        File.WriteAllText(
+            Path.Combine(root, "Uses.cs"),
+            "namespace Demo; static class Uses { static object M() => new Demo.Ui.Counter(); }\n"
+        );
+
+        var (succeeded, output) = Run();
+
+        Assert.True(succeeded, output);
+        Assert.DoesNotContain("VX4001", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("VX4002", output, StringComparison.Ordinal);
+        Assert.DoesNotContain("VX4003", output, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     ///     ⚠ The unwired project: a <c>.vxml</c> on disk that is not an item at all, which is what
     ///     <c>Vixen.Editor.Water</c> hit and what the repository's <c>Directory.Build.targets</c> is
     ///     the only possible place to catch — a check inside <c>Vixen.Ui.targets</c> is a check

@@ -462,6 +462,54 @@ public class ViewTests : IDisposable {
         Assert.DoesNotContain(Commands(DrawCommandKind.Image), command => command.Image == 77UL);
     }
 
+    /// <summary>
+    ///     ⚠ A preview that has no picture <i>for a reason</i> is drawn, and drawn differently from
+    ///     both of the other two.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1092">#1092</a>, and the reader
+    ///         this asserts is the one that field never had.</b> <c>NodePreview</c> used to carry a
+    ///         <c>Label</c> that nothing in the tree read and no producer ever set, and the reason it
+    ///         could not be read is structural: <c>NodePreviewLayer</c> draws rather than building
+    ///         elements, and <c>DrawContext</c> has no text primitive. So the channel became a flag
+    ///         the layer can draw, and this is what says it draws it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Three states and each is checked against the other two</b>, because the whole
+    ///         point of the flag is telling them apart on a canvas. A hatch asserted on its own would
+    ///         be satisfied by a layer that hatched every swatch — which is why the ordinary swatch is
+    ///         drawn from the same fixture and shown to produce no stroke at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_preview_with_no_picture_to_show_is_hatched_rather_than_left_blank() {
+        graph.Add("Test/Combine", new(64f, 64f));
+        fixture.Update();
+
+        View.PreviewSource = new Fixed(new NodePreview(Color4.White));
+        fixture.Update();
+
+        // ⚠ Counted as a difference across the two frames rather than absolutely: this canvas strokes
+        // paths for its own reasons — a wire is one — so an absolute count would be a number about
+        // the fixture. Four bars of two points is the shape the layer adds and the only stroke in
+        // either frame with that many points.
+        var plain = Commands(DrawCommandKind.PathStroke).ToArray();
+
+        View.PreviewSource = new Fixed(new NodePreview(Color4.White, Unavailable: true));
+        fixture.Update();
+
+        var hatched = Commands(DrawCommandKind.PathStroke).ToArray();
+
+        Assert.Equal(plain.Length + 1, hatched.Length);
+        Assert.DoesNotContain(plain, command => command.Length == 4 * 2);
+        Assert.Single(hatched, command => command.Length == 4 * 2);
+
+        // ⚠ And no image is asked for, so "unavailable" is not a picture drawn with a handle of zero
+        // — which is what `DrawImage` would be handed if the branch were ordered the other way.
+        Assert.Empty(Commands(DrawCommandKind.Image));
+    }
+
     // ── Sticky notes, edited in place ────────────────────────────────────────
 
     (GraphComment Comment, NodeCommentView Note) Noted(string text = "why this is here") {

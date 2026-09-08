@@ -108,6 +108,15 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
     readonly ITexturePreviewImages? images;
     readonly Func<TexturePlanEvaluator?> evaluators;
     readonly Dictionary<(NodeGraphModel Graph, NodeId Node), ulong> registered = [];
+
+    /// <summary>The nodes whose picture only a host with an asset database could supply.</summary>
+    /// <remarks>
+    ///     ⚠ The channel <see cref="Skipped" /> could not be — that counter is an instrument for a
+    ///     test, and this is what an author sees. Rebuilt per rebuild along with
+    ///     <see cref="registered" />, so a node that stops being tainted stops being hatched.
+    /// </remarks>
+    readonly HashSet<(NodeGraphModel Graph, NodeId Node)> unavailable = [];
+
     readonly HashSet<NodeGraphModel> watched = [];
     readonly List<NodeGraphModel> dirty = [];
 
@@ -246,7 +255,18 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
         }
 
         if (registered.TryGetValue((graph, node.Id), out var image) && image != 0) {
-            preview = new(new Color4(1f, 1f, 1f, 1f), "", image);
+            preview = new(new Color4(1f, 1f, 1f, 1f), image);
+
+            return true;
+        }
+
+        if (unavailable.Contains((graph, node.Id))) {
+            // ⚠ `true` with no picture, which is the state that had no way to be expressed until
+            // #1092. Answering `false` here leaves a gap, and a gap is what this source looks like
+            // when it has stopped running altogether — the symptom #1089 was invisible behind. The
+            // canvas draws a hatched swatch for it, so an author can see that the panel is alive and
+            // that this node's picture is theirs to supply.
+            preview = new(new Color4(1f, 1f, 1f, 1f), Unavailable: true);
 
             return true;
         }
@@ -310,6 +330,11 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
 
         registered.Clear();
 
+        // ⚠ Not cleared, and the asymmetry is deliberate. Every number handed out named a texture on
+        // the device that is going; "this node's picture is somebody else's to supply" names nothing
+        // of the device's and is still true on the next one. Clearing it would blank the hatches for
+        // the frames between a device loss and the rebuild that follows it, which is the flicker
+        // this flag exists to remove.
         foreach (var graph in watched) {
             Invalidate(graph);
         }
@@ -334,6 +359,7 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
         }
 
         registered.Clear();
+        unavailable.Clear();
         watched.Clear();
         dirty.Clear();
 
@@ -342,6 +368,10 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
         // holding — which is the use-after-free the lender's own device guard exists to avoid,
         // reached from the one place nothing would think to look.
     }
+
+    /// <summary>Drops what this source was saying about one graph's unavailable nodes.</summary>
+    /// <param name="graph">The graph being rebuilt.</param>
+    void Forget(NodeGraphModel graph) => unavailable.RemoveWhere(entry => entry.Graph == graph);
 
     void Rebuild(NodeGraphModel graph) {
         // ⚠ Asked *before* the compile, and the order is the whole of #1015's second half. The
@@ -439,6 +469,22 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
                 // database supplies the picture, so re-baking every frame would be a spin.
                 Refusals++;
 
+                // ⚠ And every node in it is hatched rather than left blank, which is the branch that
+                // most needed #1092: a graph with no bake at all draws *nothing*, and a canvas of
+                // empty nodes is precisely what a dead preview source looks like. `Refusals` counts
+                // it for a test; this is what the author reads.
+                //
+                // ⚠ <see cref="Skipped" /> is deliberately not moved by this branch. It counts nodes
+                // dropped *from a bake that happened* — "the same thing per node" as a refusal, its
+                // own remark says — and a refusal has already been counted here. Two counters both
+                // rising for one event would make the pair unable to tell the two states apart,
+                // which is the only reason either of them exists.
+                Forget(graph);
+
+                foreach (var written in compiler.NodeImages) {
+                    unavailable.Add((graph, written.Node));
+                }
+
                 return;
             }
 
@@ -483,12 +529,19 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
         // leave such a node showing an *earlier* image it wrote — a clean intermediate of itself,
         // which is a picture and is not its result. Taking the last write and then removing it is
         // the same rule the loop above states.
+        // ⚠ Cleared for this graph before the loop below refills it, so a node that stops being
+        // downstream of an unresolved import stops being hatched. Without this the flag would be a
+        // one-way door: the author supplies the picture, the bake succeeds, and the node keeps the
+        // "somebody else's to supply" swatch for the rest of the session.
+        Forget(graph);
+
         foreach (var (node, image) in shown.ToArray()) {
             if (!unresolved.Contains(image)) {
                 continue;
             }
 
             shown.Remove(node);
+            unavailable.Add((graph, node));
             Skipped++;
         }
 
