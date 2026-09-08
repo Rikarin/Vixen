@@ -3,9 +3,13 @@
 
 using System.Diagnostics.CodeAnalysis;
 using Vixen.Core;
+using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
+using Vixen.Editor.NodeGraph;
+using Vixen.Editor.ShaderGraph;
+using Vixen.Rendering.Materials;
 
 namespace Vixen.Editor.AssetEditors.Materials;
 
@@ -105,6 +109,94 @@ public sealed class MaterialParameterCommand : IEditorCommand {
     }
 }
 
+/// <summary>Setting one of a graph's properties on the material that composes it.</summary>
+/// <remarks>
+///     <para>
+///         <b>The feature is a record and the values are <c>init</c>, so an edit is a replacement.</b>
+///         <see cref="GraphSurfaceFeature" /> holds <c>Numbers</c> and <c>Vectors</c> as arrays a
+///         caller may not write into, which is what makes an undo cheap here: the before-image is the
+///         whole feature, held by reference, and putting it back is one list assignment.
+///     </para>
+///     <para>
+///         ⚠ <b>A property the author has not touched is left out of the feature rather than written
+///         at zero</b>, which is the only decision in this file that is not mechanical. A generated
+///         surface shader declares each property with the graph's own default; a
+///         <see cref="GraphSurfaceNumber" /> entry <em>overrides</em> that default, so writing every
+///         property out at its type's zero the moment the panel opens would silently replace every
+///         graph default with black. That is this renderer's standing "zero looks like a valid value"
+///         trap, and it is the same call <c>LayerStackView</c> makes one panel over when a lane
+///         returns to its port's default: the key comes out.
+///     </para>
+/// </remarks>
+public sealed class MaterialGraphValueCommand : IEditorCommand {
+    readonly MaterialDocument document;
+    readonly GraphSurfaceFeature? before;
+    readonly GraphSurfaceFeature after;
+    readonly string property;
+
+    /// <inheritdoc />
+    public string Name => "Set Graph Property";
+
+    /// <summary>Describes replacing the material's graph feature.</summary>
+    /// <param name="document">The material.</param>
+    /// <param name="before">The feature as it stands, or null when the material has none yet.</param>
+    /// <param name="after">The feature the edit produces.</param>
+    /// <param name="property">Which property moved, so that a drag merges and two names do not.</param>
+    public MaterialGraphValueCommand(
+        MaterialDocument document,
+        GraphSurfaceFeature? before,
+        GraphSurfaceFeature after,
+        string property
+    ) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(after);
+        ArgumentException.ThrowIfNullOrEmpty(property);
+
+        this.document = document;
+        this.before = before;
+        this.after = after;
+        this.property = property;
+    }
+
+    /// <inheritdoc />
+    public void Do(EditorContext context) {
+        ArgumentNullException.ThrowIfNull(context);
+
+        document.Replace(before, after);
+        context.Touch(document);
+    }
+
+    /// <inheritdoc />
+    public void Undo(EditorContext context) {
+        ArgumentNullException.ThrowIfNull(context);
+
+        document.Replace(after, before);
+        context.Touch(document);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Merged by property name, and the merged entry keeps the <em>earlier</em> command's
+    ///     before-image.</b> A number field dragged across a range raises one of these per frame, and
+    ///     an undo stack that recorded each would make a single gesture forty presses to undo. Two
+    ///     different properties are two decisions and do not merge, which is what stops a drag on one
+    ///     row from swallowing the edit made on the row above it.
+    /// </remarks>
+    public bool TryMergeWith(IEditorCommand previous, [NotNullWhen(true)] out IEditorCommand? merged) {
+        if (previous is MaterialGraphValueCommand earlier
+            && ReferenceEquals(earlier.document, document)
+            && string.Equals(earlier.property, property, StringComparison.Ordinal)) {
+            merged = new MaterialGraphValueCommand(document, earlier.before, after, property);
+
+            return true;
+        }
+
+        merged = null;
+
+        return false;
+    }
+}
+
 /// <summary>A material, open for editing.</summary>
 /// <remarks>
 ///     <para>
@@ -133,6 +225,32 @@ public sealed class MaterialDocument : EditorDocument {
 
     /// <summary>Why the file did not read, or <see langword="null" /> if it did.</summary>
     public string? LoadError { get; }
+
+    /// <summary>The linked shader graph, compiled, or null when there is not one to compile.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Compiled here rather than read from the built shader, because the property list is
+    ///     the compiler's answer and nothing else's.</b> A <c>.vxshadergraph</c> is nodes; what a
+    ///     material has to fill in is <see cref="ShaderGraphSource.Properties" />, which exists only
+    ///     after the graph is compiled. <see cref="GraphProblem" /> is why it is null.
+    /// </remarks>
+    public ShaderGraphSource? GraphSource { get; private set; }
+
+    /// <summary>Why the linked graph produced no properties, or null when it did.</summary>
+    /// <remarks>
+    ///     Null on a material that names no graph at all — the ordinary case, and not a problem —
+    ///     which is why the panel reads <see cref="MaterialAsset.Graph" /> for whether to show the
+    ///     section and this only for what to say inside it.
+    /// </remarks>
+    public string? GraphProblem { get; private set; }
+
+    /// <summary>The one feature that carries this material's graph values, if it has one yet.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The first, not the only.</b> Nothing refuses a second <see cref="GraphSurfaceFeature" />
+    ///     in a hand-written file, and a panel that edited whichever it reached last would move a
+    ///     different one each time the list was reordered.
+    /// </remarks>
+    public GraphSurfaceFeature? Surface =>
+        Material.Features.OfType<GraphSurfaceFeature>().FirstOrDefault();
 
     /// <summary>Raised when a parameter is added or removed.</summary>
     /// <remarks>
@@ -164,6 +282,8 @@ public sealed class MaterialDocument : EditorDocument {
             Shading = Material.Shading,
             Graph = Material.Graph
         };
+
+        ReadGraph();
     }
 
     /// <summary>Adds a parameter, undoably.</summary>
@@ -203,6 +323,169 @@ public sealed class MaterialDocument : EditorDocument {
         Stack.Seal();
 
         return true;
+    }
+
+    /// <summary>Reads and compiles the graph <see cref="MaterialHeaderEdits.Graph" /> names.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Called when the panel opens and whenever the link moves</b>, which is the same
+    ///         moment <c>MaterialView.Restate</c> works out what the "open graph" button is. Both
+    ///         read a plain mutable field and a service that no signal watches.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every failure is a sentence and none is an exception.</b> A material outlives the
+    ///         graph it was generated from — deleted, on another branch, or edited into something
+    ///         that no longer compiles — and this panel is the one place an author would find that
+    ///         out. Throwing would take the parameter list and the preview with it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A standalone graph is reported rather than compiled into a feature.</b>
+    ///         <c>ShaderGraphMaterial.Feature</c> refuses one, and the sentence it refuses with is
+    ///         about a master node an author can add; reaching that refusal from a row of number
+    ///         fields would report it as a failed edit instead.
+    ///     </para>
+    /// </remarks>
+    public void ReadGraph() {
+        GraphSource = null;
+        GraphProblem = null;
+
+        var graph = Header.Graph;
+
+        if (graph.IsEmpty) {
+            return;
+        }
+
+        if (!Project.Assets.TryGetByGuid(graph, out var entry)) {
+            GraphProblem = "This material names a shader graph that is not in the project, so there is nothing "
+                + "to read its properties from.";
+
+            return;
+        }
+
+        string text;
+
+        try {
+            text = AssetFile.Read(Project.Paths.Absolute(entry.Path));
+        } catch (IOException failure) {
+            GraphProblem = $"The shader graph did not read: {failure.Message}";
+
+            return;
+        }
+
+        NodeGraphModel model;
+
+        try {
+            model = NodeGraphDocument.Load(YamlSerializer.Parse<NodeGraphAsset>(text), out _);
+        } catch (Exception failure) when (failure is YamlBindingException
+            or YamlParseException or NotSupportedException or FormatException) {
+            GraphProblem = $"The shader graph did not read: {failure.Message}";
+
+            return;
+        }
+
+        NodeTypeRegistry registry = new();
+
+        // ⚠ The shader graph's registry, spelled in full. Every assembly with a `[Node]` in it gets a
+        // generated `NodeTypes` of its own, and this one has several on its references.
+        Vixen.Editor.ShaderGraph.NodeTypes.Register(registry);
+
+        var compiled = new ShaderGraphCompiler(registry) {
+            DefaultName = Path.GetFileNameWithoutExtension(entry.Name)
+        }.Compile(model);
+
+        if (!compiled.Succeeded || compiled.Value is not { } source) {
+            var said = string.Join("; ", compiled.Diagnostics.Select(diagnostic => diagnostic.Message));
+
+            GraphProblem = said.Length > 0
+                ? "The shader graph does not compile, so it declares no properties: " + said
+                : "The shader graph does not compile, so it declares no properties.";
+
+            return;
+        }
+
+        if (source.Kind != ShaderGraphKind.Surface) {
+            GraphProblem = $"'{source.Name}' compiles to a standalone shader, which a material cannot compose. "
+                + "Give the graph a Master/Surface node and its properties appear here.";
+
+            return;
+        }
+
+        GraphSource = source;
+    }
+
+    /// <summary>Sets one of the linked graph's properties, undoably.</summary>
+    /// <param name="property">The property, as the graph declares it.</param>
+    /// <param name="value">Its value; a <c>float</c> property reads <c>X</c> and ignores the rest.</param>
+    /// <returns>Whether there was a compiled graph to set it on.</returns>
+    /// <exception cref="ArgumentException"><paramref name="property" /> is empty.</exception>
+    /// <remarks>
+    ///     ⚠ <b>This is the editor's first feature-editing path, and keeping every other feature is
+    ///     the whole of what it has to get right.</b> <see cref="MaterialAsset.Features" /> was
+    ///     carried and never written precisely so that opening a material with features and saving it
+    ///     did not delete them; a write that rebuilt the list would turn that non-destructive read
+    ///     into the loss it was guarding against. So this replaces one element in place and appends
+    ///     when there is none.
+    /// </remarks>
+    public bool SetGraphValue(string property, Vector4 value) {
+        ArgumentException.ThrowIfNullOrEmpty(property);
+
+        if (GraphSource is not { } source) {
+            return false;
+        }
+
+        var declared = ShaderGraphMaterial.Values(source)
+            .FirstOrDefault(entry => string.Equals(entry.Name, property, StringComparison.Ordinal));
+
+        if (declared.Name is null or "") {
+            return false;
+        }
+
+        var before = Surface;
+
+        // ⚠ The shader name comes from the compilation and not from `Header.Shader`. A material's
+        // `Shader` is the effect it draws with — `ForwardPlus` — and a feature's is the generated
+        // surface the graph compiled to; writing the first into the second is a composition Raven
+        // cannot resolve, reported against a material whose author never saw the generated text.
+        var numbers = (before?.Numbers ?? []).ToList();
+        var vectors = (before?.Vectors ?? []).ToList();
+
+        if (string.Equals(declared.Type, "float", StringComparison.Ordinal)) {
+            numbers.RemoveAll(entry => string.Equals(entry.Name, property, StringComparison.Ordinal));
+            numbers.Add(new(property, value.X));
+        } else {
+            vectors.RemoveAll(entry => string.Equals(entry.Name, property, StringComparison.Ordinal));
+            vectors.Add(new(property, value));
+        }
+
+        GraphSurfaceFeature after = new() {
+            Shader = source.Name,
+            Numbers = [.. numbers],
+            Vectors = [.. vectors],
+            Maps = before is null ? [.. source.Maps.Select(map => new GraphSurfaceMap(map.Texture, map.Slot))]
+                : before.Maps
+        };
+
+        Stack.Execute(new MaterialGraphValueCommand(this, before, after, property));
+
+        return true;
+    }
+
+    /// <summary>Puts one graph feature where another was, keeping every other feature in place.</summary>
+    /// <param name="removing">What to take out, or null to only add.</param>
+    /// <param name="adding">What to put in, or null to only remove.</param>
+    internal void Replace(GraphSurfaceFeature? removing, GraphSurfaceFeature? adding) {
+        var features = Material.Features;
+        var index = removing is null ? -1 : features.IndexOf(removing);
+
+        if (index >= 0) {
+            if (adding is null) {
+                features.RemoveAt(index);
+            } else {
+                features[index] = adding;
+            }
+        } else if (adding is not null) {
+            features.Add(adding);
+        }
     }
 
     /// <summary>The material as this document would write it, without writing it.</summary>
