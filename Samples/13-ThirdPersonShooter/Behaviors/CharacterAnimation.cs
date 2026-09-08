@@ -43,6 +43,13 @@ public sealed class CharacterAnimation : Behavior {
     bool wasAirborne;
     bool leftWasDown = true;
 
+    // ⚠ Seven entity handles on a behaviour, which VXS0413 forbids and is right to: a handle is a
+    // slot in a running process, and this rig is assembled in code every run rather than restored
+    // from a file, which is the only reason these are not already stale numbers. There is nothing to
+    // hold instead — persistent entity identity is #296 — so the suppression names the issue rather
+    // than the rule, and comes out when that lands.
+#pragma warning disable VXS0413
+
     /// <summary>The entity every visible part hangs from.</summary>
     public Entity Visuals { get; init; }
 
@@ -60,6 +67,8 @@ public sealed class CharacterAnimation : Behavior {
 
     /// <summary>The right leg.</summary>
     public Entity LegRight { get; init; }
+
+#pragma warning restore VXS0413
 
     /// <summary>Where the footsteps and the landing come from.</summary>
     public GameSounds Sounds { get; init; } = GameSounds.Silent;

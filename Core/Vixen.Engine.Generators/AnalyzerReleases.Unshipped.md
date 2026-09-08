@@ -17,3 +17,7 @@ VXS0409 | Vixen.Engine | Warning | An [InferAccess] type already implements IDec
 VXS0410 | Vixen.Engine | Warning | An [InferAccess] type also carries [Reads] or [Writes], so the attributes win and nothing is inferred
 VXS0411 | Vixen.Engine | Warning | An [InferAccess] type's body yielded no component access, so it stays undeclared and conflicts with everything
 VXS0412 | Vixen.Engine | Warning | An [InferAccess] type hands a world, chunk, command buffer or context to a call the inference cannot read
+VXS0413 | Vixen.Engine | Error | A Behavior holds an Entity, which is a slot in a running process and does not survive being written down
+VXS0414 | Vixen.Engine | Error | A Behavior holds a copy of a component the world is already the authority on
+VXS0415 | Vixen.Engine | Warning | A structural change made inside a query body, a chunk walk or a struct visitor
+VXS0416 | Vixen.Engine | Error | A component carrying [Component] and [DataContract] holds an Entity, which is written down as a slot number that means nothing elsewhere

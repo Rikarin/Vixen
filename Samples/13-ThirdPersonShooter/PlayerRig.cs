@@ -365,7 +365,7 @@ public sealed class PlayerRig : IDisposable {
         // the body's axis and so cannot tell a forward from a backward; this one can, and it had the
         // gun hanging out of the character's back for exactly as long as the facing was half a turn
         // out and the two errors agreed with each other.
-        var weapon = Part(assets, armRight, "player-weapon", "PlayerWeapon", new(0f, -0.52f, -0.22f), "weapon");
+        Part(assets, armRight, "player-weapon", "PlayerWeapon", new(0f, -0.52f, -0.22f), "weapon");
 
         // The behaviours. Each is attached under its own static type, which is what gives the store a
         // bucket of exactly that type and a monomorphic loop over it.
@@ -381,8 +381,8 @@ public sealed class PlayerRig : IDisposable {
             Jump = Clip(assets, "Assets/Animation/jump.vxanim")
         });
 
-        Weapon = loop.Behaviors.Add(Pawn, new WeaponFire { Muzzle = weapon, Physics = arena.Physics, Sounds = Sounds });
-        Respawn = loop.Behaviors.Add(Pawn, new RespawnWhenBelow { Floor = -8f, Controller = Controller });
+        Weapon = loop.Behaviors.Add(Pawn, new WeaponFire { Physics = arena.Physics, Sounds = Sounds });
+        Respawn = loop.Behaviors.Add(Pawn, new RespawnWhenBelow { Floor = -8f });
     }
 
     /// <summary>The compiled clip at an address, or <see langword="null" /> if there is none.</summary>

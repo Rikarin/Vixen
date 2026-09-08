@@ -102,10 +102,24 @@ world.Query(query, static (ref Position p, ref Velocity v) => p.Value += v.Value
 >   deciding to remove the same tag is ordinary. A caller that *can* look uses `World` and is told
 >   when it is wrong.
 >
-> **Owed, and named rather than approximated:** world serialisation and the `VIXEN_ECS_EVENTS` hooks.
-> `WorldDigest` covers what the determinism test needed — a canonical hash, ordered by component type
-> *name* because ids are handed out in first-touch order — but writing a world to a stream needs the
-> per-component serialisers of [08](08-asset-pipeline-and-addressables.md).
+> ✅ **World serialisation landed.** `WorldSerializer` has `Capture`/`Restore` and its own
+> per-component column interface, gated by `WorldSerializerTests`. `WorldDigest` still covers what
+> the determinism test needed — a canonical hash, ordered by component type *name* because ids are
+> handed out in first-touch order — and the stream on top of it is what this paragraph said needed
+> [08](08-asset-pipeline-and-addressables.md). ⚠ What it deliberately does **not** solve is a game
+> component holding an `Entity`: `Capture` and `Restore` hand back the entity at each index, which is
+> the raw material for a translation table, and nothing zips them —
+> [#296](https://github.com/Rikarin/Vixen/issues/296).
+>
+> ✅ **The `VIXEN_ECS_EVENTS` hooks landed too** — five events on `World`, raised through
+> `[Conditional]` so the *call site* vanishes in release rather than the body being an empty method
+> nobody can see is empty, behind `DEBUG || VIXEN_ECS_EVENTS` so a debug build gets them without
+> anyone opting in. ⚠ `Create(Archetype)` announces after the row is written, because the typed
+> `Create<T0>` overloads write their components after allocating and an announcement from inside the
+> allocation handed every listener a zero.
+>
+> **Owed here: nothing.** Both of this note's original Owed items are closed
+> ([#27](https://github.com/Rikarin/Vixen/issues/27) and world serialisation).
 
 ### Structural change safety
 
@@ -118,6 +132,21 @@ Adding/removing components during iteration invalidates chunks. Two mechanisms:
 
 Direct structural mutation on the main thread outside iteration is allowed and fast; the analyzer
 flags it inside a query body.
+
+> ✅ **Built** — `QueryMutationAnalyzer` in `Core/Vixen.Engine.Generators/`, `VXS0415`. It reports
+> `World.Create`/`Destroy`/`Add`/`AddDefault`/`Remove`/`CreateMany` reached from inside the three
+> shapes iteration takes: a delegate handed to a `Query*` extension, a `foreach` over
+> `world.Chunks(…)` or `query.Chunks(…)`, and a struct visitor's `Update` — that last one being the
+> form a reader cannot see from the call site at all. `Set` is not structural and is not reported.
+> ⚠ It is a **warning**, and `#pragma warning disable VXS0415` with a reason is the intended escape:
+> mutating the entity a walk is about to leave is sometimes right, and a rule with no way out is one
+> that gets turned off at the project level rather than at the line.
+>
+> ⚠ **Here rather than in `Vixen.Ecs.Generators`**, for the reason
+> `SystemAccessInferenceGenerator` already gives: that project is referenced by `Vixen.Ecs` and
+> travels in no package, while `Vixen.Engine.Generators` is packed into `Vixen.Engine`'s
+> `analyzers/dotnet/cs` and therefore reaches a game's own compilation. The claim that neither
+> analyzer had a project to live in was wrong — the project was already there and already shipping.
 
 ### Events and hooks
 
@@ -134,6 +163,24 @@ it uses change versions. They exist for editor tooling and user code.
   saved scene is byte-identical across platforms.
 - A fixed-step world can be checkpointed and replayed from an input log — the basis for the
   determinism tests and for netcode later.
+
+> ⚠ **"Never serialise a raw `Entity`" is now enforced; persistent identity is still owed.** There is
+> no `GuidComponent` and no `Guid → Entity` map — [#296](https://github.com/Rikarin/Vixen/issues/296)
+> is the decision between that shape and generated per-component handle metadata, and it is not
+> made here. What has landed is the half that does not need it decided: `SerializedHandleAnalyzer`
+> (`VXS0416`, an error) refuses a component carrying both `[Component]` and `[DataContract]` that
+> holds an `Entity`, so the gap is loud rather than silent.
+>
+> **It is a convention the engine already kept by hand.** `CameraTargets`, `Possessing`,
+> `PossessedBy`, `ViewTarget` and `PredictionSmoothing` all carry `[Component]` *without*
+> `[DataContract]`, and each says in its own remarks that this is because it names an entity. The
+> rule is that paragraph, checked.
+>
+> ⚠ **`WorldSerializer` supplies the raw material for the fix and nothing consumes it.** `Capture`
+> fills an optional list with the entity at each index and `Restore` returns the same list, so
+> zipping the two is a translation table — and no caller does. ⚠ Nor does any caller do anything
+> else: outside `WorldSerializerTests` the type has **no production callers at all**, which is worth
+> knowing before treating "world serialisation is built" as "worlds are being saved".
 
 ## Layer 2 — the system scheduler
 
@@ -173,15 +220,26 @@ public interface ISystem
 > - **A system that declares nothing conflicts with everything.** Not stated above and load-bearing:
 >   the other reading of an undeclared system — that it touches nothing — is silently wrong exactly
 >   when it matters. Over-declaring costs parallelism; under-declaring is a data race.
-> - **Read/write inference is not implemented; the attributes are.** Programmatic declaration via
+> - **Inference emits into `IDeclaredAccess`, not into the attributes.** Programmatic declaration via
 >   `IDeclaredAccess` and `SystemAccess.Declare()` is the path that also *registers* the component
 >   types it names, which an attribute cannot do — an attribute can only look an id up, and there is
->   nothing to look up until something has stored one. The generator that infers access from query
->   bodies is owed, and it will emit into `IDeclaredAccess` rather than into attributes for that
->   reason.
+>   nothing to look up until something has stored one. ⚠ **The generator that infers access from
+>   query bodies has since landed** —
+>   `Core/Vixen.Engine.Generators/SystemAccessInferenceGenerator.cs`, opt-in behind `[InferAccess]`
+>   because a wrong inference is a data race, with `Core/Vixen.Engine.Tests/InferredSystemAccessTests.cs`
+>   asserting the schedule reads it back. The delegate and visitor forms take every component by
+>   `ref` and so cannot tell a read from a write; they are read as writes, and only the chunk form,
+>   where `Values<T>` and `ReadValues<T>` are different calls, is exact.
 >
-> **Owed:** the inference generator, and `vixen doctor systems` — the dumps exist, the CLI that
-> prints them is Phase 3.
+> ✅ **`vixen doctor systems` landed** — `Tools/Vixen.Cli/SystemsRunner.cs`, gated by
+> `Tools/Vixen.Cli.Tests/DoctorSystemsTests.cs` against the test assembly's own declared frame. ⚠ It
+> reads `SystemGraph.Plan` rather than building systems, so it reports the *planned* order and says
+> out loud what it therefore cannot know: which systems run concurrently, because that comes from an
+> instance's `IDeclaredAccess`, and whether a service will be registered, because nothing has
+> registered anything yet.
+>
+> **Owed here: nothing.** ⚠ Both of this note's original Owed items have landed — the inference
+> generator was [#26](https://github.com/Rikarin/Vixen/issues/26), and it is closed.
 
 ## Layer 3 — `Behavior`, the MonoBehaviour-shaped API
 
@@ -284,8 +342,18 @@ need throughput. Both are first-class and documented as such.
 >   site, where the concrete type is already known, and its loop is the same monomorphic walk over
 >   the same contiguous array that a generated `Update_PlayerController(Span<…>)` would be. The
 >   enabled behaviours live in a prefix of the array, so `[SkipIfDisabled]` is not an attribute
->   either — there is no reason not to always do it. The generator is still owed for `[Inspector]`
->   metadata.
+>   either — there is no reason not to always do it. ⚠ **The `[Inspector]` generator is built, and it
+>   is not in `Vixen.Ecs.Generators`.** `InspectorDescriptorGenerator`, in
+>   `Editor/Vixen.Editor.Inspector.Generator/`, emits one descriptor per annotated type, registered
+>   by a module initializer — and it lives on the editor side because `[Inspector]` itself does
+>   (`Editor/Vixen.Editor.Inspector/InspectorAttributes.cs`), so a game assembly cannot annotate a
+>   `Behavior` with it without referencing an editor package. **It does not have to.** A game's
+>   behaviour still gets rows without one: `ReflectedDescriptor` builds a descriptor from the
+>   `Vixen.Core.Reflection` type descriptor that `TypeDescriptorGenerator` emits into the game's own
+>   assembly, honouring `[EditorVisible(false)]` because being left out of the file and being left
+>   out of the panel are separate answers. What the editor-side attribute buys on top is the metadata
+>   a serializer has no reason to know — conditions, asset-picker types, headers, explicit order —
+>   and a declared descriptor wins over the reflected one.
 > - **The lifecycle callbacks are `protected`, reached through internal bridges.** `protected
 >   internal` compiles until an assembly with `InternalsVisibleTo` has to write `protected internal
 >   override` while everyone else writes `protected override`.
@@ -296,9 +364,21 @@ need throughput. Both are first-class and documented as such.
 >   distinct archetype. The hierarchy is rebuilt from recorded indices rather than remapped, because
 >   remapping would need to know which fields of which components are entity handles.
 >
-> **Owed:** the drawing half of `DebugDraw`, which needs a renderer; prefab variants/overrides, which
-> this document already schedules explicitly; and the `IWorldCommand` undo/redo vocabulary, which
-> arrives with the editor. The ImGui scaffold is **cut** — see [14](14-roadmap.md) § Phase 2.
+> ✅ **The drawing half of `DebugDraw` landed** — `Core/Vixen.Engine.Renderer/DebugDrawRenderer.cs`
+> drains the accumulator through two `LineRenderer`s (a depth-tested world one and an overlay one
+> that never is), with `Platform/Vixen.Graphics.Golden.Tests/DebugDrawImageTests.cs` as its picture.
+> A subsystem written against the accumulator needed no change to become visible.
+>
+> ✅ **Prefab overrides landed** with [47](47-prefab-overrides-and-nested-prefabs.md) — `PrefabOverrides` and
+> `PrefabReconcile` in `Editor/Vixen.Editor.Core/Scenes/`. ⚠ **Variants did not**: doc 47 scoped them
+> out of its slice while this paragraph kept promising both, which is
+> [#299](https://github.com/Rikarin/Vixen/issues/299).
+>
+> **Owed:** prefab variants ([#299](https://github.com/Rikarin/Vixen/issues/299)). ⚠ The
+> `IWorldCommand` undo/redo vocabulary is **withdrawn, not owed** — see § Scenes, prefabs, and the
+> editor seam: the editor's stack is a document-level concern and the command buffer is a world-level
+> one, and they deliberately do not meet. The ImGui scaffold is **cut** — see [14](14-roadmap.md)
+> § Phase 2.
 >
 > ✅ **The camera façade grew a system.** This document gives a game a `Camera` component and a
 > transform, which is everything it needs and nothing it wants — what gets written on top of it, every
@@ -371,9 +451,31 @@ Without this rule, the ECS below becomes decoration and the whole design collaps
 > carries `[DataMemberIgnore]` so that a serialised behaviour cannot smuggle the entity's position
 > into the file beside the transform that already holds it.
 >
-> ⚠ **The analyzer is still owed.** Nothing enforces any of this today; the attributes on `Behavior`
-> stop the base class leaking, and a game's own behaviour can still hold a `List<Entity>` and be
-> saved. That is the gap this revision creates and it should be closed before the pattern spreads.
+> ✅ **Built** — `BehaviorStateAnalyzer` in `Core/Vixen.Engine.Generators/`. The two hard rules are
+> errors: `VXS0413` on a behaviour that holds an entity handle, `VXS0414` on one that holds a copy of
+> a component.
+>
+> - ⚠ **It reads *storage*, not declared types**, and the difference is the whole calibration. A
+>   computed `public NetworkId NetworkId => Read<NetworkId>();` reaches through to the world on every
+>   call and is exactly what the rule asks an author to write — a first version that read the
+>   property's type reported `NetworkBehaviour`'s, which would have taught everyone that the right
+>   answer is a violation. So the rule walks fields, backing fields included: an auto-property is
+>   caught through the field it has, a computed one has none.
+> - ⚠ **`[Component]` is not what makes a struct a component**, it is what makes one
+>   scene-placeable — `LocalTransform` carries none. A rule reading only the annotation would have
+>   been silent on "a cached transform", the case this section spells out. What is decidable instead
+>   is the read: assigning what `Get<T>`/`Read<T>` returns into a member of the behaviour is the copy,
+>   whatever `T` is annotated with.
+> - **The hot-data warning is deliberately not built.** There is no static predicate for "hot" — this
+>   section says profiling is what promotes a field — and a rule whose predicate cannot be false is
+>   worse than no rule.
+>
+> ⚠ **It found eight live violations on its first run**, all in `Samples/13-ThirdPersonShooter`: two
+> write-only handles nothing read, now deleted, and six body-part entities `CharacterAnimation`
+> genuinely uses. Those six are suppressed with the issue number rather than the rule, because there
+> is nothing to hold instead until persistent entity identity lands
+> ([#296](https://github.com/Rikarin/Vixen/issues/296)) — which is the same gap, seen from the other
+> end.
 
 ## Transforms and hierarchy
 
@@ -410,8 +512,31 @@ struct HierarchyDepth  { short Value; }         // tag component; archetype-spli
 - **Prefab variants/overrides** follow Unity's model: an instance stores a sparse override list
   (property path → value) against its source prefab, so editing the prefab propagates. This is
   genuinely hard and is scheduled explicitly in the roadmap rather than assumed.
-- Editor mutations go through `IWorldCommand` objects on the undo/redo stack, so the editor's
-  entity manipulation and the runtime's `CommandBuffer` share the same mutation vocabulary.
+- Editor mutations go through reversible command objects on the undo/redo stack.
+
+> ⚠ **Amended: the two stacks deliberately do not meet, and `IWorldCommand` is withdrawn rather than
+> owed.** This line used to say the editor's entity manipulation and the runtime's `CommandBuffer`
+> would "share the same mutation vocabulary". What was built is `IEditorCommand` and
+> `Editor/Vixen.Editor.Core/CommandStack.cs`, with `SetValuesCommand`, `SetPropertyCommand`,
+> `DelegateCommand`, `CompositeCommand` and `TransformTargetsCommand`. It is not an unfinished
+> version of the shared thing — the two answer different questions, and the shapes say so:
+>
+> - **`IEditorCommand` is `Do` + `Undo` + `TryMergeWith` over an `EditorContext`.** It has to be
+>   reversible, repeatable, and mergeable — that last is what makes a slider drag one undo step
+>   rather than three hundred — and what it edits is a **document**, which includes edits a world has
+>   no notion of: renaming an asset and updating four hundred references in files nobody opened.
+> - **`CommandBuffer` is a flat record of `(Kind, Entity, ComponentTypeId, Slot, SortKey, Sequence,
+>   Channel)`, and it is not reversible at all.** It cannot be: it is recorded *during* iteration by
+>   a recorder that is forbidden to look at the world, which is the same reason it is lenient where
+>   `World` is strict. Making it reversible means storing the previous value of every structural
+>   change on the frame path, to serve an undo nothing in a running game asks for.
+>
+> A single vocabulary would therefore either tax the frame with undo state or take merging and
+> asset-scope edits away from the editor. ⚠ **And the cost this section's gap was said to have has
+> since been examined and refuted**: [#123](https://github.com/Rikarin/Vixen/issues/123) —
+> `EntityGizmoTarget.Record` building a `TransformTargetsCommand` directly — was closed by finding
+> that the direct construction is *correct*, and that what the gizmo and the inspector genuinely
+> share is `PrefabInstances`, one layer down. The seam that turned out to be needed was not this one.
 
 ## Tests
 

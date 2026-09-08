@@ -30,9 +30,6 @@ public sealed class RespawnWhenBelow : Behavior {
     /// <summary>The height below which the player has left the level.</summary>
     public float Floor { get; init; } = -8f;
 
-    /// <summary>The controller, kept only to make the point that it is not what moves.</summary>
-    public Entity Controller { get; init; }
-
     /// <summary>Which spawn point to come back at.</summary>
     public int SpawnIndex { get; init; }
 
