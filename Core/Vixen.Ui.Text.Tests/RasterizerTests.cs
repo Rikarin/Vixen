@@ -145,6 +145,131 @@ public class RasterizerTests {
         Assert.Equal(2f, GlyphRasterizer.Rasterize(outline, 4, 1, 1f, Vector2.Zero).Area, 3);
     }
 
+    /// <summary>
+    ///     Even-odd punches the overlap the same two contours fill under non-zero, and the two rules
+    ///     disagree by exactly the shared area.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The same outline as <see cref="Two_contours_wound_the_same_way_fill_their_overlap" />
+    ///         and the opposite expectation, which is the whole content of a fill rule.</b> Two 8×8
+    ///         squares sharing a 4×4 corner: non-zero fills their union at 112, even-odd fills the
+    ///         symmetric difference at 96, and the shared corner that was solid is now empty. There
+    ///         is a closed form for both and neither is a number read off a picture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is the case a rule has to be able to express, and the reason it is the
+    ///         <em>overlap</em> rather than a hole.</b> A counter in an <c>o</c> is a contour wound
+    ///         the other way, and the two rules agree about it exactly — a test built on a letter
+    ///         would pass under both and prove nothing.
+    ///         <see cref="A_counter_is_a_hole_under_either_rule" /> is that agreement, asserted so
+    ///         that "the parameter does nothing" and "the parameter does the right thing" are
+    ///         different colours. Sabotaged: making <c>EvenOdd</c> behave as <c>NonZero</c> leaves
+    ///         that one green and this one red, which is the right way round.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Even_odd_empties_the_overlap_that_non_zero_fills() {
+        var outline = Path(
+            new OutlineSegment(OutlineVerb.Move, 0, 0),
+            new OutlineSegment(OutlineVerb.Line, 8, 0),
+            new OutlineSegment(OutlineVerb.Line, 8, 8),
+            new OutlineSegment(OutlineVerb.Line, 0, 8),
+            new OutlineSegment(OutlineVerb.Close, 0, 0),
+            new OutlineSegment(OutlineVerb.Move, 4, 4),
+            new OutlineSegment(OutlineVerb.Line, 12, 4),
+            new OutlineSegment(OutlineVerb.Line, 12, 12),
+            new OutlineSegment(OutlineVerb.Line, 4, 12),
+            new OutlineSegment(OutlineVerb.Close, 0, 0)
+        );
+
+        var nonZero = GlyphRasterizer.Rasterize(outline, 12, 12, 1f, Vector2.Zero);
+        var evenOdd = GlyphRasterizer.Rasterize(outline, 12, 12, 1f, Vector2.Zero, FillRule.EvenOdd);
+
+        // 128 − 16 against 128 − 48: the shared 4×4 counts once under one rule and not at all under
+        // the other, so the difference is twice the overlap.
+        Assert.Equal(112f, nonZero.Area, 2);
+        Assert.Equal(96f, evenOdd.Area, 2);
+
+        Assert.Equal(1f, nonZero[6, 12 - 1 - 6], 3);
+        Assert.Equal(0f, evenOdd[6, 12 - 1 - 6], 3);
+    }
+
+    /// <summary>Even-odd leaves a ring a ring when its two contours are wound opposite ways.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The counter case with the rule asked for explicitly</b>, so that even-odd is
+    ///         exercised on an outline whose windings cancel rather than only on one where they
+    ///         accumulate.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This was written as <c>Even_odd_counts_crossings_rather_than_summing_windings</c>,
+    ///         claiming to separate the crossing count from <c>winding &amp; 1</c>, and the sabotage
+    ///         refuted the claim rather than the code.</b> Substituting the winding's parity for the
+    ///         count left every test here green, and it must: <c>GlyphRasterizer.Cross</c> adds ±1
+    ///         and nothing else, so the parity of the sum <em>is</em> the parity of the count. There
+    ///         is no outline that tells the two spellings apart, which makes "counting instead of
+    ///         summing" a statement about how the code reads and not a behaviour anything can gate.
+    ///         The test is kept for the shape it covers; the sentence it was named after is gone.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Even_odd_leaves_a_ring_when_the_two_contours_are_wound_oppositely() {
+        var outline = Path(
+            // Outer square, counter-clockwise.
+            new OutlineSegment(OutlineVerb.Move, 0, 0),
+            new OutlineSegment(OutlineVerb.Line, 8, 0),
+            new OutlineSegment(OutlineVerb.Line, 8, 8),
+            new OutlineSegment(OutlineVerb.Line, 0, 8),
+            new OutlineSegment(OutlineVerb.Close, 0, 0),
+            // Inner square, clockwise — a counter.
+            new OutlineSegment(OutlineVerb.Move, 2, 2),
+            new OutlineSegment(OutlineVerb.Line, 2, 6),
+            new OutlineSegment(OutlineVerb.Line, 6, 6),
+            new OutlineSegment(OutlineVerb.Line, 6, 2),
+            new OutlineSegment(OutlineVerb.Close, 0, 0)
+        );
+
+        var evenOdd = GlyphRasterizer.Rasterize(outline, 8, 8, 1f, Vector2.Zero, FillRule.EvenOdd);
+
+        // The ring: 64 − 16. A rule that filled the counter would report 64, and one that filled
+        // nothing but the counter would report 16.
+        Assert.Equal(48f, evenOdd.Area, 2);
+
+        // Inside the ring, and inside the counter.
+        Assert.Equal(1f, evenOdd[1, 8 - 1 - 1], 3);
+        Assert.Equal(0f, evenOdd[4, 8 - 1 - 4], 3);
+    }
+
+    /// <summary>A counter is a hole under either rule, which is why a glyph cannot tell them apart.</summary>
+    /// <remarks>
+    ///     The instrument for the two tests above: they are about a difference, and a difference is
+    ///     only evidence once the sameness is established. If this ever disagreed, one of the two
+    ///     rules would be wrong about the case both are supposed to agree on, and a "rules differ"
+    ///     assertion would go on passing.
+    /// </remarks>
+    [Fact]
+    public void A_counter_is_a_hole_under_either_rule() {
+        var outline = Path(
+            new OutlineSegment(OutlineVerb.Move, 0, 0),
+            new OutlineSegment(OutlineVerb.Line, 8, 0),
+            new OutlineSegment(OutlineVerb.Line, 8, 8),
+            new OutlineSegment(OutlineVerb.Line, 0, 8),
+            new OutlineSegment(OutlineVerb.Close, 0, 0),
+            new OutlineSegment(OutlineVerb.Move, 2, 2),
+            new OutlineSegment(OutlineVerb.Line, 2, 6),
+            new OutlineSegment(OutlineVerb.Line, 6, 6),
+            new OutlineSegment(OutlineVerb.Line, 6, 2),
+            new OutlineSegment(OutlineVerb.Close, 0, 0)
+        );
+
+        Assert.Equal(
+            GlyphRasterizer.Rasterize(outline, 8, 8, 1f, Vector2.Zero).Area,
+            GlyphRasterizer.Rasterize(outline, 8, 8, 1f, Vector2.Zero, FillRule.EvenOdd).Area,
+            2
+        );
+    }
+
     [Fact]
     public void An_empty_outline_covers_nothing() =>
         Assert.Equal(0f, GlyphRasterizer.Rasterize(GlyphOutline.Empty, 8, 8, 1f, Vector2.Zero).Area);

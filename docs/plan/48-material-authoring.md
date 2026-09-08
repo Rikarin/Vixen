@@ -700,7 +700,7 @@ Three rules the whole catalogue obeys:
 | **Noise** | grey **+ cell id** | basis: value · gradient · worley · white; octaves, lacunarity, gain, **seed**, tiling | ⚠ One kernel with the basis as a **uniform** and a branch — this row said *permutation* from the day the document was written and [#638](https://github.com/Rikarin/Vixen/issues/638) is where the reversal is argued. A texture-graph plan has nowhere to put a permutation value, so one written here would take its `.rvn` default in every op for ever, silently; and the branch is the better answer anyway, because four bases times three storable formats is twelve modules for a branch every invocation in a bandwidth-bound dispatch takes the same way. `TextureKernelLanguageSeamTests` refuses a `[Permutation]` in any kernel, so the decision is held rather than remembered. Worley also outputs F1, F2 and a **cell index** — which is what a splatter wants and what saves a flood fill downstream |
 | **Checker** | grey | scale, rotation, offset | `ComputeColor.Checker` has one already, for the shader graph — and `Checker.rvn` **transcribes** its fold rather than calling it, for [#635](https://github.com/Rikarin/Vixen/issues/635)'s reason. The copy is held: the gate reads `mod(cell.x + cell.y, 2f)` out of the library and requires the kernel to contain it |
 | **Text** | grey | string, font, size, alignment, tracking | ⚙️ **Half built.** `TextureText.Rasterize` shapes and fills the string through the `Outlines` path and `TextureUploads.AddCoverage` puts it on the device — closed on an adapter, texel for texel, in `TextureTextDeviceTests`. ⚠ **There is still no node, and the reason recorded here has expired.** It said a node cannot allocate an *external* image ([#732](https://github.com/Rikarin/Vixen/issues/732), shared with `Bitmap`, `Gradient`, `Curve` and `Gradient Map`). That closed: `TextureEmitter.External` exists and all four of those nodes were written on it. So `Text` is now simply **unwritten** rather than blocked, which is a smaller and more actionable thing to say — and worth saying, because a row that keeps citing a closed issue is how work stays unclaimed. ⚠ And it is **not** a kernel — [#687](https://github.com/Rikarin/Vixen/issues/687) — because a compute kernel has no rasteriser and cannot reach a font |
-| **Svg Path** | grey | path data (`d`), fill rule, scale | ⛔ **Refused here, and the reason that was written down first is wrong.** See the measurement below |
+| **Svg Path** | grey | path data (`d`), fill rule, scale | ⛔ **Refused here on one remaining reason of the three first written down.** The closure measurement was wrong, the fill rule is now implemented, and what is left is a compile surface — see below |
 
 ⚠ **`Svg Path`'s refusal, re-derived — and the closure argument it rested on does not survive.**
 Batch 5 refused the node on a measurement: `Core/Vixen.Ui`'s project closure at 20 against
@@ -731,10 +731,21 @@ five-case switch, and `GlyphRasterizer` then fills it exactly as `Text` above is
   `Vixen.Ui` buys `UiElement`, `Signal`, styling, layout and input inside an assembly whose job is a
   compute plan, and [#720](https://github.com/Rikarin/Vixen/issues/720) exists to make this assembly
   *less* of a UI assembly rather than more.
-- **Fill rule.** § 4.1 lists one, and `GlyphRasterizer` is non-zero winding only — deliberately, with
-  a reason about counters in an `o` that fonts depend on. Even-odd means changing the only rasteriser
-  in `Vixen.Ui.Text` to take a rule, which moves a `CheckApi` baseline in a `Core/` assembly to serve
-  one editor caller.
+- ⚠ **Fill rule — decided, and it is no longer a blocker.** This read: *§ 4.1 lists one, and
+  `GlyphRasterizer` is non-zero winding only — deliberately, with a reason about counters in an `o`
+  that fonts depend on. Even-odd means changing the only rasteriser in `Vixen.Ui.Text` to take a
+  rule, which moves a `CheckApi` baseline in a `Core/` assembly to serve one editor caller.* The
+  rasteriser has grown the rule. `GlyphRasterizer.Rasterize` takes a `FillRule` as a trailing
+  parameter defaulting to `NonZero`, so every existing caller is a font and says so by saying
+  nothing, and the `CheckApi` baseline moved by five lines. **The reason for paying that** is that
+  `fill-rule="evenodd"` is a thing a path author writes and means: a rasteriser that cannot express
+  it does not refuse an SVG, it silently draws a different shape. The counters argument was never an
+  argument against the option — both rules agree about a counter exactly, which is why the tests that
+  separate them use two *same-wound* contours and why one of them asserts the agreement.
+  ⚠ And a claim written while doing it was refuted by its own sabotage: even-odd's parity cannot be
+  distinguished from `winding & 1` by any outline, because `Cross` adds ±1 and the parity of such a
+  sum is the parity of its length. So **one** blocker remains on `Svg Path`, not two: the compile
+  surface above.
 - ⚠ **The third reason was [#732](https://github.com/Rikarin/Vixen/issues/732) and it has gone.** It
   read: *until an external image can be allocated by a node, an `Svg Path` rasteriser is a second
   finished thing nothing calls.* A node can allocate one now, so the refusal rests on the two reasons
