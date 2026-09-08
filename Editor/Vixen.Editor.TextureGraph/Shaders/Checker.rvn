@@ -13,8 +13,15 @@ package Vixen.Editor.TextureGraph.Shaders
 // nothing else; this kernel rotates about the image centre and offsets in cells first, so the call
 // would be `Checker(turned * scale + offset, 1)` — a use of the library that passes the identity for
 // the only parameter it has, which is not sharing a function, it is calling one to look as though
-// you did. Widening the library's to take a rotation is a change to the shader graph's checker node
-// and wants its own decision.
+// you did.
+//
+// ⚠ **That decision was taken on 2026-09-08 and the answer is no** (#1077). It is not about the cost
+// of the change: `ComputeColor.Checker` has exactly one production caller in the tree —
+// `ProceduralNodes.CheckerNode` — so widening it would touch one node. It is about the pivot. This
+// kernel rotates about the *image centre*, `uv` 0.5, which is a fact about a square texture being
+// baked; a material's 0.5 is wherever the mesh's unwrap put it, so a rotation on the library's
+// function would have to name a pivot that means nothing outside a bake. `ComputeColor.RotateUv`
+// already takes a pivot, which is what a shader wanting a turned checker composes.
 //
 // ⚠ `Shaders/Sources.md` was cited here and has never existed. The copy is held instead:
 // `TextureKernelLanguageSeamTests` reads `ComputeColor.Checker`'s return expression out of the
