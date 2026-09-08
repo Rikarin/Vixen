@@ -89,6 +89,7 @@ public readonly record struct NetworkSceneId(uint Value) {
 public sealed class NetworkSceneMap {
     readonly Dictionary<uint, SceneHandle> byNetworkId = [];
     readonly Dictionary<int, NetworkSceneId> byHandle = [];
+    readonly List<int> stale = [];
 
     /// <summary>How many scenes are mapped.</summary>
     public int Count => byNetworkId.Count;
@@ -128,6 +129,54 @@ public sealed class NetworkSceneMap {
     /// <param name="scene">The local handle.</param>
     /// <returns>Its id, or <see cref="NetworkSceneId.None" /> if it is not tracked.</returns>
     public NetworkSceneId IdOf(SceneHandle scene) => byHandle.GetValueOrDefault(scene.Id);
+
+    /// <summary>Makes the map say what the scene manager says, and nothing else.</summary>
+    /// <param name="scenes">The scenes this peer has loaded.</param>
+    /// <returns>How many scenes are mapped afterwards.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="scenes" /> is null.</exception>
+    /// <exception cref="InvalidOperationException">
+    ///     Two loaded scenes have names that hash to one id. Thrown rather than counted, because the
+    ///     alternative is two levels whose placed objects answer to the same ids and a bug that
+    ///     appears only when both happen to be loaded.
+    /// </exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Reconciled rather than appended to</b>, which is what makes it safe to call from a
+    ///         frame: a scene that has been unloaded since the last call is forgotten here, so
+    ///         nothing has to remember to say so. A peer that calls this and nothing else has a map
+    ///         that is always exactly its loaded scenes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A scene the manager has no name for is skipped.</b> <c>SceneManager.NameOf</c>
+    ///         answers the empty string for a handle it does not know, and hashing that would give
+    ///         every unnamed scene on every peer the same id — which is the one collision this type
+    ///         exists to refuse, arriving by the back door.
+    ///     </para>
+    /// </remarks>
+    public int TrackAll(SceneManager scenes) {
+        ArgumentNullException.ThrowIfNull(scenes);
+
+        stale.Clear();
+        stale.AddRange(byHandle.Keys);
+
+        foreach (var scene in scenes.Loaded) {
+            stale.Remove(scene.Id);
+
+            if (byHandle.ContainsKey(scene.Id)) {
+                continue;
+            }
+
+            if (scenes.NameOf(scene) is { Length: > 0 } name) {
+                Track(name, scene);
+            }
+        }
+
+        foreach (var handle in stale) {
+            Forget(new(handle));
+        }
+
+        return byNetworkId.Count;
+    }
 
     /// <summary>Forgets a scene that has been unloaded.</summary>
     /// <param name="scene">The local handle.</param>

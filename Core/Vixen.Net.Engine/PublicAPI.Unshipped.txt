@@ -89,6 +89,7 @@ Vixen.Net.Engine.NetworkSceneMap.Forget(Vixen.Engine.Scenes.SceneHandle scene) -
 Vixen.Net.Engine.NetworkSceneMap.IdOf(Vixen.Engine.Scenes.SceneHandle scene) -> Vixen.Net.Engine.NetworkSceneId
 Vixen.Net.Engine.NetworkSceneMap.NetworkSceneMap() -> void
 Vixen.Net.Engine.NetworkSceneMap.Track(string name, Vixen.Engine.Scenes.SceneHandle scene) -> Vixen.Net.Engine.NetworkSceneId
+Vixen.Net.Engine.NetworkSceneMap.TrackAll(Vixen.Engine.Scenes.SceneManager scenes) -> int
 Vixen.Net.Engine.NetworkSceneMap.TryResolve(Vixen.Net.Engine.NetworkSceneId id, out Vixen.Engine.Scenes.SceneHandle scene) -> bool
 Vixen.Net.Engine.NetworkSpawnSystem -> sealed class
 Vixen.Net.Engine.NetworkSpawnSystem : Vixen.Ecs.Systems.IDeclaredAccess
@@ -110,6 +111,7 @@ Vixen.Net.Engine.NetworkSpawner -> sealed class
 Vixen.Net.Engine.NetworkSpawner.Despawn(Vixen.Ecs.World world, Vixen.Core.Entity root) -> int
 Vixen.Net.Engine.NetworkSpawner.DespawnScene(Vixen.Ecs.World world, Vixen.Engine.Scenes.SceneHandle scene) -> int
 Vixen.Net.Engine.NetworkSpawner.DespawnedCount.get -> long
+Vixen.Net.Engine.NetworkSpawner.IdOf(Vixen.Engine.Scenes.SceneHandle scene) -> Vixen.Net.Engine.NetworkSceneId
 Vixen.Net.Engine.NetworkSpawner.MaySpawn(Vixen.Net.Sessions.PlayerId requester) -> bool
 Vixen.Net.Engine.NetworkSpawner.NetworkSpawner(Vixen.Net.Engine.NetworkPrefabRegistry prefabs, Vixen.Net.Replication.NetworkIdAllocator ids) -> void
 Vixen.Net.Engine.NetworkSpawner.OnOwnerLeft(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player) -> int

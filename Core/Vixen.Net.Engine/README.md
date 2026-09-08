@@ -177,12 +177,23 @@ scene 2 on a server that loaded a lobby first and scene 1 on a client that did n
 is the hash of the scene's *name* — the thing both ends already agree on — and `NetworkSceneMap` is
 the join between the two on each peer.
 
+- **Nobody has to build the map.** `NetworkSpawner` and `NetworkSpawnSystem` both make one out of
+  their `SceneManager` when they are not given one, and `NetworkSceneMap.TrackAll` reconciles it
+  against what is loaded — so an unloaded scene is forgotten without anything remembering to say so.
+  ⚠ It was optional before, and that was worse than an unreached type: `Spawn` read
+  `SceneIds?.IdOf(scene)`, so **"no map" and "no scene" were spelled the same way** and every spawn
+  into a scene went out as `NetworkSceneId.None` while holding the handle and the name. Nothing in
+  this repository outside a test ever constructed one
+  ([#491](https://github.com/Rikarin/Vixen/issues/491)).
 - **A spawn for a scene this peer has not loaded waits.** Not built-and-untagged, which would leave an
   object the scene's unload never sweeps, standing in the middle of the next map. `PendingCount` is
   where that becomes visible, and a number that never comes down is a client that will never have the
   content.
 - **`SceneInterestRule`** is doc 16's first resolver, and it goes in an `InterestChain` beside the
-  explicit overrides and the distance grid. It **hides and never shows**: being in the right scene is
+  explicit overrides and the distance grid. ⚠ **It does not use a `NetworkSceneMap` and does not need
+  one**: `Enter` takes a `SceneHandle` and `Decide` reads `SceneTag.SceneId`, both of them local, and
+  the wire id never enters into it. Everything on the receiving side is already the peer's own
+  numbering by the time interest is asked. It **hides and never shows**: being in the right scene is
   not a reason to be told about something, only the absence of a reason not to be, so an object in a
   loaded scene comes back `Undecided` and the grid after it gets its say. An entity in no scene is
   left to everybody — a rule whose default is "vanish" is one everybody debugs.
