@@ -97,6 +97,37 @@ nothing: the canvas is still holding the source, and a disposed source throws fr
 - **There is no way to ask for one node's picture at a larger size.** A preview is the same 64 texels
   for every node of every graph.
 
+## Examples
+
+Wiring one to a canvas, which is the whole of what a host owes it:
+
+```csharp no-compile="illustrative — `graphics` and `evaluators` come from the plugin host"
+TextureGraphPreviews previews = new(
+    () => graphics.Device is { } device ? evaluators(device) : null,
+    () => new TextureGraphCompiler(registry),
+    new TexturePreviewImages(graphics)
+);
+
+// Once per frame. A graph is compiled and baked only if something touched it.
+previews.Update();
+
+// From the canvas's draw, per visible node.
+if (previews.TryGet(graph, node, definition, out var preview)) {
+    // preview.Image is the host's number for a picture 64 texels square.
+}
+```
+
+⚠ **The first argument answers `null` when there is no device**, and that is not a convenience: the
+editor acquires its device and creates its thumbnail surface *after* the first `Update`, so a source
+that treated either absence as "drawn" would take the graph off its dirty list and leave the panel
+blank until the author typed something.
+
+Releasing a device the host has lost, without disposing an evaluator this does not own:
+
+```csharp no-compile="illustrative — called from the plugin's own device-release hook"
+previews.Drop();
+```
+
 ## See also
 
 - [Evaluating a texture plan](editor/texture-graph-evaluation) — the plan, the pool and the bake this

@@ -255,11 +255,17 @@ public class PaintCostTests(ITestOutputHelper output) {
     ///     <para>
     ///         <b>Doc 48's exit criterion 8 asks for a stamp under 16 ms on a 4K set with twelve
     ///         layers under it, and every measurement of it until now was of the 2D path.</b> That is
-    ///         not the same claim: the 3D path adds a raycast per path per pointer move, converts a
-    ///         screen radius through the hit triangle's Jacobian, and — this is the part that could
-    ///         have gone wrong — could plausibly have rebuilt the session, and therefore the
-    ///         composite, per move. <c>PaintComposite.Evaluations</c> is what says it does not, and it
-    ///         is asserted rather than argued.
+    ///         not the same claim: the 3D path adds a raycast per path per pointer move and converts
+    ///         a screen radius through the hit triangle's Jacobian.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this case adds is the <em>size</em>, and the two <c>Evaluations</c> lines
+    ///         below are not the reason it exists.</b> This test builds its own
+    ///         <c>PaintSession</c> and hands the projector's texels to it, so nothing on the
+    ///         projected path could rebuild the session even if it wanted to — the once-per-stroke
+    ///         property is <c>PaintCompositeTests</c>' and is already proved there. Repeating the
+    ///         assertion here reads as coverage of the new path and is not; it is kept only because
+    ///         a 4K twelve-layer fixture that silently re-evaluated would still be worth catching.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Two is once, and the two are the slices rather than the strokes.</b>

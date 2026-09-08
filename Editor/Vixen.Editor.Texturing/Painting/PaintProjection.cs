@@ -321,8 +321,10 @@ sealed class PaintProjection {
     ///         project's import artefacts and falls back to the source file, with five distinct
     ///         refusals about which of those failed; a projection that opened the model itself would
     ///         be a second opinion about all five, and the two would disagree the first time an
-    ///         import was stale. What it does <em>not</em> keep is the positions, which is the one
-    ///         thing a raycast needs — see this project's README.
+    ///         import was stale. ⚠ <b>It said here until 2026-09-09 that the positions were the one thing
+    ///         that type does <em>not</em> keep</b>; it keeps them now, and
+    ///         <c>LayerStackMesh.Projection</c> is the built projection, so one resolution feeds the
+    ///         layout an artist aims with and the geometry a ray hits.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Every failure is a returned sentence and none is an exception</b>, for

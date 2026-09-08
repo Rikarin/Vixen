@@ -31,8 +31,9 @@ internal enum TextureTextAlignment : byte {
 /// <remarks>
 ///     <para>
 ///         ⚠ <b>Not a kernel, and it could not be one.</b> A compute kernel has no rasteriser and
-///         cannot reach a font; the evaluator compiles each kernel alone with no reference paths, so
-///         there is nowhere for shaping to happen on that side of the line. What doc 48 § 4.1 needs is
+///         cannot reach a font — ⚠ not because it is compiled alone, which it is not, but because a
+///         <c>.rvn</c> cannot call managed code whatever is in its compilation. So there is nowhere
+///         for shaping to happen on that side of the line. What doc 48 § 4.1 needs is
 ///         a picture the caller supplies, which <see cref="TextureImage.External" /> has always been
 ///         able to express and <see cref="TextureUploads.AddCoverage" /> is the door for —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/687">#687</a>. This is the half that

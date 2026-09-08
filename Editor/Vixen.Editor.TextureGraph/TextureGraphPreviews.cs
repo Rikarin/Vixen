@@ -385,6 +385,8 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
             shown[written.Node] = written.Image;
         }
 
+        var refused = false;
+
         foreach (var (node, image) in shown) {
             var picture = bake.Read(image);
             var had = registered.GetValueOrDefault((graph, node));
@@ -394,7 +396,20 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
                 images?.Release(had);
             }
 
+            refused |= made == 0 && images is not null;
             registered[(graph, node)] = made;
+        }
+
+        // ⚠ A sink that could not name a picture leaves the graph dirty, for the same reason a
+        // missing device does — and this half was the one that actually fired. `EditorHost` acquires
+        // the device in `Present()` and creates the thumbnail surface in `Sync()`, both *after*
+        // `editor.Update`, so the first frame that has a device has no surface: a full compile, a
+        // GPU bake and a `WaitIdle` producing zero swatches, after which `Update` had already taken
+        // the graph off the dirty list and the panel stayed blank until the author typed something.
+        // ⚠ `images is not null` is load bearing — a source with no sink at all (a test, a headless
+        // editor) registers nothing by design and must not spin.
+        if (refused) {
+            Invalidate(graph);
         }
 
         // A node that has left the graph gives its number up, or the host holds a texture for a node

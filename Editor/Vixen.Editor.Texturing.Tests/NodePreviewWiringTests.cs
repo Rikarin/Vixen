@@ -76,6 +76,69 @@ public class NodePreviewWiringTests {
         Assert.Empty(fixture.Host.Diagnostics);
     }
 
+    /// <summary>⚠ A frame that had a device and no surface does not count as drawn.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The editor's own startup ordering reaches this state deterministically.</b>
+    ///         <c>EditorHost</c> acquires the device in <c>Present()</c> and creates the thumbnail
+    ///         surface in <c>Sync()</c>, and both run <em>after</em> <c>editor.Update</c> — so there
+    ///         is exactly one frame with a device and no surface, in which every
+    ///         <c>IEditorGraphics.Upload</c> answers null.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And that frame cost a full compile, a GPU bake and a <c>WaitIdle</c> to produce
+    ///         nothing</b>, after which <c>Update</c> had already taken the graph off the dirty list.
+    ///         The panel then stayed blank until the author typed something — which is the shape of
+    ///         the defect the missing-device branch was fixed for, surviving in the branch beside it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_frame_whose_pictures_the_host_refused_is_asked_for_again() {
+        using var device = TexturingDevice.Open();
+        using var fixture = new TexturingFixture(device);
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+        fixture.Project.Selection.Set(fixture.AddGraph("Bricks"));
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenCommand));
+
+        var canvas = Canvas(fixture);
+        var source = canvas.PreviewSource;
+
+        Assert.NotNull(source);
+
+        var document = Assert.Single(fixture.Project.Documents.OfType<TextureGraphDocument>());
+        var uniform = document.Graph.Nodes.Single(node => node.Type == "Source/Uniform");
+
+        Assert.True(canvas.Registry.TryGet(uniform.Type, out var definition));
+        Assert.False(source.TryGet(document.Graph, uniform, definition!, out _));
+
+        // The window has not made its thumbnail surface yet.
+        fixture.Graphics!.Surfaces = false;
+
+        fixture.Host.Update(Frame);
+
+        Assert.False(
+            source.TryGet(document.Graph, uniform, definition!, out _),
+            "the host refused every picture and the source reported one anyway."
+        );
+
+        // The surface arrives on a later frame, and nothing has changed in the document.
+        fixture.Graphics.Surfaces = true;
+
+        fixture.Host.Update(Frame);
+
+        // ⚠ This is the assertion the defect fails: with the graph left clean, no later frame ever
+        // rebuilds it and the panel is blank until the author edits the graph.
+        Assert.True(
+            source.TryGet(document.Graph, uniform, definition!, out var preview),
+            "the graph was taken off the dirty list by a frame that drew nothing, so the swatches "
+            + "never came back."
+        );
+
+        Assert.NotEqual(0ul, preview.Image);
+    }
+
     /// <summary>⚠ The per-frame step draws each node's own picture, and a draw draws none.</summary>
     /// <remarks>
     ///     <para>

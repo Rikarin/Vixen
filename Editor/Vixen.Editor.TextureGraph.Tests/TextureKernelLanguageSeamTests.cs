@@ -332,7 +332,7 @@ public class TextureKernelLanguageSeamTests {
         // ⚠ And the prelude, which is the half #635 created. Every kernel is now compiled beside
         // `Raven/Library`'s sources, so a `[Permutation]` in one of *those* takes its default in
         // every op of every plan — the same defect as a kernel's own, arriving through a file this
-        // assembly did not write and reaching forty-five kernels rather than one. The library is
+        // assembly did not write and reaching every kernel rather than one. The library is
         // free to declare permutations for the shader graph, which binds keys; what it may not do
         // is declare one in a file the texture graph puts in its compilation.
         Assert.NotEmpty(TextureKernelPrelude.Sources);

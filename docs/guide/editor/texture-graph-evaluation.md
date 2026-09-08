@@ -244,7 +244,7 @@ shader graph gets from the same file.
 > `Math.rvn` is in the set even though no kernel names it: `Random.rvn` spells
 > `Math.SphericalToCartesian`, and a prelude that stopped at `Random.rvn` failed `RVN2010` on every
 > kernel at once. It is also why a `[Permutation]` in one of these three files would be a defect in
-> all forty-five — a plan has no way to name a permutation value, so every kernel would take the
+> every one of them — a plan has no way to name a permutation value, so every kernel would take the
 > library's default silently. A test refuses that too.
 
 Nothing else is reachable. A kernel cannot see a font, a glyph outline or any managed code, which is
@@ -274,8 +274,9 @@ Dispose it when the document closes.
 > RGBA costs, and a sampled read hands the kernel `(r, 0, 0, 1)`.
 
 > ⚠ **Doc 48 § 4.1's `Text` and `Svg Path` arrive this way rather than as kernels.** A compute shader
-> has no rasteriser and each kernel is compiled alone with no reference paths, so neither can reach a
-> font or a path parser. Both are filled on the CPU and uploaded as coverage — see
+> has no rasteriser, and a `.rvn` cannot call managed code whatever is in its compilation — so
+> neither can reach a font or a path parser. (⚠ Not "compiled alone with no reference paths", which
+> this said until the section above it was written, and which was never the reason.) Both are filled on the CPU and uploaded as coverage — see
 > [#687](https://github.com/Rikarin/Vixen/issues/687).
 
 ### What the texture behind one has to be

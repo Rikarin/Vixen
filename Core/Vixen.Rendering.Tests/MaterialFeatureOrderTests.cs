@@ -80,7 +80,13 @@ public class MaterialFeatureOrderTests {
             foreach (var raw in File.ReadAllLines(file)) {
                 var line = raw.Trim();
 
-                if (Opens.Match(line) is { Success: true } opens) {
+                // ⚠ Matched against the RAW line, so only a declaration at column zero opens or
+                // closes anything. Against the trimmed line a *nested* struct closed its own
+                // shader — `Terrain/ImpostorCapture.rvn` declares `struct Captured` four spaces in,
+                // inside `shader ImpostorCapture`, so every line after it was attributed to no
+                // shader at all. The sweep would have gone on passing while reading less and less
+                // of the library, which is exactly what the remark above says must not happen.
+                if (Opens.Match(raw) is { Success: true } opens) {
                     // Reset on a struct or a protocol, which is the half that matters: only a shader
                     // can be a feature, and a body that is not one has to end the shader above it.
                     shader = opens.Groups["kind"].Value is "shader" ? opens.Groups["name"].Value : string.Empty;
@@ -181,6 +187,67 @@ public class MaterialFeatureOrderTests {
             .Count(line => Write.IsMatch(line.Trim()));
 
         Assert.True(writes >= 3, $"the coordinate-write pattern matched {writes} lines in the library");
+    }
+
+    /// <summary>⚠ A struct nested inside a shader does not end it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The apparatus, not the pattern — and it was the half that was already wrong.</b>
+    ///         <c>Opens</c> was matched against the <em>trimmed</em> line, so a <c>struct</c>
+    ///         declared inside a shader body closed its own shader and every line after it was
+    ///         attributed to nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A floor on how much the walk reads cannot see this and I tried one first</b>: the
+    ///         difference is 33 lines out of 13 278, and the shader keeps the lines <em>above</em> its
+    ///         nested struct so it stays in any set-of-shaders count. Both numbers are also
+    ///         maintenance debt that rots on the next library edit. What discriminates is the one
+    ///         file that has the shape — so this reads it by name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it breaks to silent green, which is why it is worth a case at all.</b> A walk
+    ///         attributing nothing finds no coordinate writers, and "no shader writes the coordinate"
+    ///         is what the library says today — so both inventories above would pass while reading
+    ///         less and less.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AStructInsideAShaderDoesNotEndIt() {
+        var file = Shipped()
+            .SingleOrDefault(one => Path.GetFileName(one) == "ImpostorCapture.rvn");
+
+        Assert.True(
+            file is not null,
+            "Terrain/ImpostorCapture.rvn is the library's one shader carrying a nested struct, and "
+            + "it is what makes this case a claim. If it has moved, find another and say so here."
+        );
+
+        var lines = File.ReadAllLines(file!);
+        var nested = Array.FindIndex(lines, line => line.StartsWith("    struct ", StringComparison.Ordinal));
+
+        Assert.True(nested > 0, "ImpostorCapture.rvn no longer declares an indented struct.");
+
+        var shader = string.Empty;
+        var after = 0;
+
+        for (var index = 0; index < lines.Length; index++) {
+            if (Opens.Match(lines[index]) is { Success: true } opens) {
+                shader = opens.Groups["kind"].Value is "shader" ? opens.Groups["name"].Value : string.Empty;
+                continue;
+            }
+
+            if (index > nested && shader.Length > 0 && lines[index].Trim().Length > 0) {
+                after++;
+            }
+        }
+
+        // ⚠ Under the trimmed match this is exactly zero: the nested struct cleared the shader and
+        // nothing in the rest of the file belonged to one.
+        Assert.True(
+            after > 0,
+            "every line after the nested struct was attributed to no shader, so the walk stops "
+            + "reading a shader body the moment one declares a struct inside itself."
+        );
     }
 
     /// <summary>A feature whose shader displaces the coordinate the rest of the chain samples at.</summary>

@@ -531,7 +531,7 @@ public static class MaterialCompiler {
     ///     </para>
     /// </remarks>
     static void Ordered(MaterialDescriptor descriptor, List<MaterialDiagnostic> diagnostics) {
-        IMaterialFeature? sampled = null;
+        IMaterialFeature? ahead = null;
 
         foreach (var feature in descriptor.Features) {
             if (feature is null) {
@@ -539,22 +539,29 @@ public static class MaterialCompiler {
             }
 
             if (feature.Stage != MaterialFeatureStage.Coordinate) {
-                sampled ??= feature;
+                ahead ??= feature;
                 continue;
             }
 
-            if (sampled is null) {
+            if (ahead is null) {
                 continue;
             }
 
+            // ⚠ The rule is "ahead of everything", not "ahead of everything that samples", and the
+            // message has to say the rule it enforces. There is no way to ask a feature whether it
+            // samples — a `[Sampling]`-shaped flag would be a second thing to forget, and the one
+            // feature in the library that does *not* read `d.uv` is not worth an escape hatch that
+            // can be wrong. So the conservative rule stands and is stated plainly; the first
+            // sentence blamed the feature in front for "having already sampled", which is false of
+            // most of them.
             diagnostics.Add(
                 new(
                     MaterialDiagnosticId.CoordinateFeatureOutOfOrder,
-                    $"'{feature.ShaderName}' rewrites the surface coordinate, and it is behind "
-                    + $"'{sampled.ShaderName}', which has already sampled at the coordinate it "
-                    + "replaces. The chain runs in the order the features are listed, so this "
-                    + "material would be displaced from there on and undisplaced before it — half a "
-                    + "surface, drawn without an error. Move it ahead of every feature that samples.",
+                    $"'{feature.ShaderName}' rewrites the surface coordinate and is listed behind "
+                    + $"'{ahead.ShaderName}'. The chain runs in the order the features are listed, "
+                    + "so every feature ahead of this one reads the coordinate it is about to "
+                    + "replace — half a surface displaced and half not, drawn without an error. A "
+                    + "coordinate feature has to be first in the list.",
                     IsError: true
                 )
             );
