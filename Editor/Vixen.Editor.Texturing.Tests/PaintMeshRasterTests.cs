@@ -447,6 +447,60 @@ public class PaintMeshRasterTests {
             [0, 1, 2, 0, 2, 3]
         );
 
+    /// <summary>The clip does not buy its geometry back with a whole-pane scan per triangle.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The cost cliff the near clip opened, measured as work rather than as a clock.</b>
+    ///         A corner the clip writes onto the plane projects to tens of thousands of pane pixels,
+    ///         so a bounding box taken from the three corners and then clamped is the <em>whole
+    ///         pane</em> for every straddling triangle — and the picture is pixel-identical either
+    ///         way, because the barycentric test rejects all the surplus. Before
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1105">#1105</a> those triangles were
+    ///         dropped and cost nothing, so the fix for the hole is what could have paid for it.
+    ///     </para>
+    ///     <para>
+    ///         The camera is the one <see cref="Every_pixel_whose_ray_hits_the_model_shows_it_with_the_eye_inside_an_open_shell" />
+    ///         uses, for the same reason: the straddle is what the case is about, and this fixture is
+    ///         coarse enough that a straddling triangle is a large share of the pane rather than a
+    ///         few pixels.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two panes, and one pane is not available as the ceiling.</b> The floor covers
+    ///         most of the pane and neighbouring triangles' boxes overlap along their shared edge,
+    ///         so a tight sum is already more than one pane: measured, 28 188 pixels against a pane
+    ///         of 19 200. The unbounded box takes the same pass to 45 468 — the whole difference is
+    ///         the <em>one</em> triangle that straddles here, whose tight box is a corner of the
+    ///         pane and whose clamped box is all of it. So the ceiling sits between two numbers
+    ///         about 1.6× apart rather than orders, and it is the count of straddling triangles and
+    ///         not the margin that would grow on a real model.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_eye_inside_the_shell_does_not_cost_a_pane_of_scanning_per_straddling_triangle() {
+        var mesh = Floor();
+        PaintCamera camera = new();
+
+        camera.Frame(mesh.Bounds);
+
+        camera.Pitch = 0.6f;
+        camera.Distance = 0f;
+
+        PaintMeshRaster raster = new();
+
+        raster.Draw(mesh, camera, 160, 120);
+
+        var pane = (long)raster.Width * raster.Height;
+
+        Assert.True(
+            raster.Examined <= pane * 2,
+            $"the geometry pass asked about {raster.Examined} pane pixels over {mesh.Triangles} "
+            + $"triangles, against a pane of {pane}. A bounding box that is the whole pane whenever a "
+            + "corner sits on the near plane is what this looks like."
+        );
+
+        // And the pass did happen: a bound alone is satisfied by a rasteriser that draws nothing.
+        Assert.True(raster.Covered > 0);
+    }
     /// <summary>A big flat grid in the y = 0 plane, as an open shell an eye can get inside.</summary>
     /// <returns>The projection.</returns>
     /// <remarks>

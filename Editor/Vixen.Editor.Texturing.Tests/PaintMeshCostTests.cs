@@ -250,14 +250,16 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
             + "pointer move, on one thread."
         );
 
-        // ⚠ The claim, as a ratio rather than as a budget: the cost is in the pane's pixels. Three
-        // is the floor rather than nine because the per-triangle setup is paid at both sizes and is
-        // a larger share of the small one — what is being refused is the reading that a 4K pane
-        // costs about what a docked one does.
+        // ⚠ The claim as work and not as a clock: what makes a 4K pane expensive is that the pass
+        // shades nine times the pixels, and *that* is what is asserted. Three rather than nine
+        // because the model does not cover either pane entirely. An earlier draft asserted the
+        // milliseconds instead — `maximised > docked * 3` — which would have gone red for the fix:
+        // #1107's two remaining answers both help the larger pass more than the smaller, so making
+        // the pane cheap would have broken the case that exists to say it is expensive.
         Assert.True(
-            maximised > docked * 3d,
-            $"3840×2160 drew in {maximised:F1} ms against {docked:F1} ms for a ninth of the pixels, so this "
-            + "case is no longer measuring the per-pixel cost it was written for."
+            large > small * 3L,
+            $"{large} pixels covered at 3840×2160 against {small} at 1280×720, for nine times the pane, so "
+            + "this case is no longer measuring the per-pixel cost it was written for."
         );
 
         // A hang check and not a bound, in this file's established shape.

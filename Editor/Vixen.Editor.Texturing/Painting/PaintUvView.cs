@@ -321,7 +321,7 @@ sealed class PaintUvView {
 
             path.Clear();
 
-            held = -1;
+            Drop();
         }
 
         // ⚠ Never while a stroke is in flight. `Fit` writes both `Zoom` and `Pan`, which are the
@@ -506,7 +506,7 @@ sealed class PaintUvView {
             case InputKey.Escape when args.Has(ModifierKeys.None):
                 path.Clear();
 
-                held = -1;
+                Drop();
 
                 Say("Path cleared.");
                 ShowCursor(hovered);
@@ -514,6 +514,9 @@ sealed class PaintUvView {
                 break;
 
             case InputKey.Backspace when args.Has(ModifierKeys.None):
+                // ⚠ Before the removal, because it reads the index the removal is about to take.
+                Removing(path.Points.Count - 1);
+
                 path.Undo();
                 Say(Placed());
                 ShowCursor(hovered);
@@ -532,6 +535,8 @@ sealed class PaintUvView {
                     // to whatever else has the focus.
                     return;
                 }
+
+                Removing(picked);
 
                 path.RemoveAt(picked);
                 Say(Placed());
@@ -582,8 +587,10 @@ sealed class PaintUvView {
     void StrokePath() {
         // ⚠ Enter reaches `Keyed` while a point is still being dragged — the pointer is down and the
         // keyboard is not — so the drag is ended here rather than left holding an index into a list
-        // this method is about to clear.
-        held = -1;
+        // this method is about to clear. And the *capture* goes with it: clearing the index alone
+        // strands the pointer on this element, which is the defect the release arm's own remark
+        // describes.
+        Drop();
 
         if (!path.IsStrokeable) {
             path.Clear();
@@ -696,9 +703,7 @@ sealed class PaintUvView {
                 break;
 
             case PointerAction.Released when held >= 0:
-                Image.Document.ReleasePointer();
-
-                held = -1;
+                Drop();
 
                 Say(Placed());
 
@@ -799,6 +804,51 @@ sealed class PaintUvView {
         }
 
         args.Handled = true;
+    }
+
+    /// <summary>Ends a drag of a placed point, capture and all.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One place, because clearing <c>held</c> without releasing the capture is worse than
+    ///     leaving both.</b> <c>UiDocument.Captured</c> routes every later pointer event to this
+    ///     element until something clears it, so a drag ended by Escape, by Enter or by a secondary
+    ///     press — none of which reaches the <c>Released</c> arm, since that arm is guarded on
+    ///     <c>held</c> — left the pane swallowing the pointer for the rest of the session. That is
+    ///     the same class as the stranded pan the release arm's own remark describes, one level up.
+    /// </remarks>
+    void Drop() {
+        if (held < 0) {
+            return;
+        }
+
+        held = -1;
+
+        Image.Document.ReleasePointer();
+    }
+
+    /// <summary>Keeps a drag's index honest across a point being taken out from under it.</summary>
+    /// <param name="index">The point about to be removed.</param>
+    /// <remarks>
+    ///     ⚠ <b>An index survives an insert and not a removal.</b> <c>held</c> is an index rather
+    ///     than the point itself so that the drag survives the list moving underneath it — which is
+    ///     true of <see cref="Pick" />'s insert, where everything moves <em>up</em> from a point at
+    ///     or after the held one. A removal below it moves everything down, and the drag then
+    ///     silently moved its neighbour: Delete and Backspace both reach this while the pointer is
+    ///     still down, because the press took the focus.
+    /// </remarks>
+    void Removing(int index) {
+        if (held < 0 || index < 0) {
+            return;
+        }
+
+        if (index == held) {
+            Drop();
+
+            return;
+        }
+
+        if (index < held) {
+            held--;
+        }
     }
 
     /// <summary>What a primary press in the path mode means: move a point, insert one, or add one.</summary>

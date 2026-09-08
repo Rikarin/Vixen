@@ -129,7 +129,7 @@ public class LayerStackKnobWidthTests {
         Assert.Empty(Named(refused, "layer-stack-knob-value"));
 
         Assert.Equal(
-            LayerStackView.WideKnob("Tint", 5),
+            LayerStackView.WideKnob("Tint", PortKind.Float4, 4, 5),
             Assert.Single(Named(refused, "layer-stack-row-refusal")).Text
         );
 
@@ -141,6 +141,67 @@ public class LayerStackKnobWidthTests {
 
         Assert.NotEmpty(Named(Row(Panel(ordinary), "Tint"), "layer-stack-knob-value"));
         Assert.Empty(Named(Row(Panel(ordinary), "Tint"), "layer-stack-row-refusal"));
+    }
+
+    /// <summary>⚠ A scalar port declaring three numbers is refused too, and told which two counts disagree.</summary>
+    /// <remarks>
+    ///     <b>The refusal's second arm, which its sentence used to misdescribe.</b> The guard has
+    ///     always had two — a kind wider than four fields, and a default longer than the kind — but
+    ///     one sentence, and that sentence announced a port carrying more than four. A
+    ///     <c>Float</c> declared with three numbers takes the same door, so an author reading the
+    ///     panel was sent to look for a fifth lane that was never there. Nothing refuses the shape
+    ///     on the way in: <c>NodeGraphDocument</c> copies a published interface port's default
+    ///     straight out of the file with no width check against its kind.
+    /// </remarks>
+    [Fact]
+    public void A_scalar_port_declaring_three_numbers_is_refused_with_both_counts_named() {
+        using var fixture = new TexturingFixture();
+
+        Publish(fixture, new("Tint", GraphPortDirection.Input, PortKind.Float, [1f, 1f, 1f]));
+
+        Open(fixture, Filtered());
+
+        var refused = Row(Panel(fixture), "Tint");
+
+        Assert.Empty(Named(refused, "layer-stack-knob-value"));
+
+        var said = Assert.Single(Named(refused, "layer-stack-row-refusal")).Text;
+
+        Assert.Equal(LayerStackView.WideKnob("Tint", PortKind.Float, 1, 3), said);
+
+        // The half that would go on passing against the old sentence: it must name the port's own
+        // width, and it must not talk about four.
+        Assert.Contains("takes 1 number", said, StringComparison.Ordinal);
+        Assert.DoesNotContain("more than four", said, StringComparison.Ordinal);
+    }
+
+    /// <summary>⚠ A vector port declaring one number opens every field at it, not the first alone.</summary>
+    /// <remarks>
+    ///     <b>The mirror of #1097, reached through the widening that fixed it.</b> The compiler
+    ///     splats a one-element default across a vector port's lanes
+    ///     (<c>NodeGraphCompiler.Value</c>), so the frame renders <c>0.5, 0.5, 0.5, 0.5</c>. Before
+    ///     this the row drew one field; after it the row draws four, and filling only the first left
+    ///     three noughts sitting over numbers the render was using — which the first nudge of any
+    ///     lane then wrote into the file.
+    /// </remarks>
+    [Fact]
+    public void A_vector_ports_single_default_opens_every_lane_at_it() {
+        using var fixture = new TexturingFixture();
+
+        Publish(fixture, new("Tint", GraphPortDirection.Input, PortKind.Float4, [0.5f]));
+
+        var document = Open(fixture, Filtered());
+
+        var fields = Fields(Panel(fixture), "Tint");
+
+        Assert.Equal(4, fields.Count);
+        Assert.Equal([0.5d, 0.5d, 0.5d, 0.5d], fields.Select(field => Math.Round(field.Number, 3)));
+
+        // And a lane put back where it was still takes the key out, which a comparison against the
+        // one-number default could not do.
+        fields[1].Number = 0.9d;
+
+        Assert.Equal([0.5f, 0.9f, 0.5f, 0.5f], Layer(document).Settings["Tint"]);
     }
 
     /// <summary>Writes a compound exposing one input into the project, before any document reads it.</summary>

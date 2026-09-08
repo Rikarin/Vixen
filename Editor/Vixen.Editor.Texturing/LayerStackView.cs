@@ -1812,7 +1812,7 @@ sealed class LayerStackView : IDisposable {
             // moment one of them is touched, which is the narrowing #1097 is about with a smaller
             // number in it.
             if (lanes > ComponentClasses.Length || port.Default.Length > lanes) {
-                row.Add("layer-stack-row-refusal").Text = WideKnob(name, port.Default.Length);
+                row.Add("layer-stack-row-refusal").Text = WideKnob(name, port.Kind, lanes, port.Default.Length);
 
                 continue;
             }
@@ -1959,37 +1959,46 @@ sealed class LayerStackView : IDisposable {
     ///         in.
     ///     </para>
     ///     <para>
-    ///         <see cref="PortKind.Dynamic" /> and <see cref="PortKind.None" /> are the two with
-    ///         nothing to say about width — a dynamic port is as wide as whatever reaches it — so
-    ///         there the declared default is the only evidence there is, and an empty one is a
-    ///         scalar.
+    ///         ⚠ <b><see cref="PortKinds.Fields" /> and not a fourth table.</b> An earlier draft of
+    ///         this method answered <see cref="PortKind.Dynamic" /> with the declared default's
+    ///         length, on the reading that a dynamic port is as wide as whatever reaches it. That is
+    ///         true of the <em>value</em> and wrong for the <em>editor</em>, and the shared member's
+    ///         own remark says why: drawing four boxes because the node happened to resolve to a
+    ///         <c>float4</c> would make the same graph offer a different editor depending on what
+    ///         was wired to a different port. This panel has no business disagreeing with the node
+    ///         inspector about that.
+    ///     </para>
+    ///     <para>
+    ///         The one thing left to decide here is the kinds with no fields at all — an image port,
+    ///         a <see cref="PortKind.None" /> — which reach this only through a declaration that
+    ///         should not have produced a knob row. One field is what the refusal below can then
+    ///         measure a too-long default against.
     ///     </para>
     /// </remarks>
-    static int Width(PortDefinition port) =>
-        port.Kind switch {
-            PortKind.Float2 => 2,
-            PortKind.Float3 => 3,
-            PortKind.Float4 => 4,
-            PortKind.Bool or PortKind.Int or PortKind.Float => 1,
-            _ => port.Default.Length == 0 ? 1 : port.Default.Length
-        };
+    static int Width(PortDefinition port) => PortKinds.Fields(port.Kind) is var fields && fields > 0 ? fields : 1;
 
-    /// <summary>What a knob row says in place of its fields when the port is wider than it can draw.</summary>
+    /// <summary>What a knob row says in place of its fields when the declaration disagrees with itself.</summary>
     /// <param name="port">The port's name.</param>
-    /// <param name="lanes">How many numbers its declaration says it takes.</param>
+    /// <param name="kind">Its kind.</param>
+    /// <param name="fields">How many numbers that kind takes.</param>
+    /// <param name="declared">How many its default lists.</param>
     /// <returns>The sentence.</returns>
     /// <remarks>
-    ///     ⚠ <b>Unreachable from any <see cref="PortKind" />, and said anyway.</b> Four is the widest
-    ///     kind there is, so a row gets here only from a declaration whose default lists more numbers
-    ///     than its kind holds — which is a node type disagreeing with itself, and the reader who has
-    ///     to fix it is the person who wrote it. A row that quietly drew the first four would hand
-    ///     that author a panel that narrows their port on the first click instead.
+    ///     ⚠ <b>Two arms and, until #1108's review, one sentence — which was false on the arm it did
+    ///     not describe.</b> Four is the widest kind there is, so no <see cref="PortKind" /> ever
+    ///     trips the width half on its own; what actually reaches here is a default listing more
+    ///     numbers than its kind holds, and that includes a <c>Float</c> declared with three, which
+    ///     the old wording announced as a port carrying more than four. Both arms say the same true
+    ///     thing once the two counts are named separately. A row that quietly drew the first
+    ///     <paramref name="fields" /> would hand the author a panel that narrows their port on the
+    ///     first click instead.
     /// </remarks>
-    public static string WideKnob(string port, int lanes) =>
-        $"'{port}' declares {lanes.ToString(CultureInfo.InvariantCulture)} numbers and no port carries "
-        + "more than four, so this panel will not edit it — a row of four fields would write four "
-        + "numbers over all of them the moment one was touched. Fix the port's declaration, and the "
-        + "fields come back.";
+    public static string WideKnob(string port, PortKind kind, int fields, int declared) =>
+        $"'{port}' is a {kind} and takes {fields.ToString(CultureInfo.InvariantCulture)} "
+        + $"number{(fields == 1 ? "" : "s")}, but its declaration lists "
+        + $"{declared.ToString(CultureInfo.InvariantCulture)} — so this panel will not edit it. A row "
+        + "of fields would write its own count over all of them the moment one was touched. Fix the "
+        + "port's declaration, and the fields come back.";
 
     /// <summary>What one port is worth on this layer: what was stored, or the port's own default.</summary>
     /// <remarks>
@@ -2004,7 +2013,33 @@ sealed class LayerStackView : IDisposable {
             return (float[])held.Clone();
         }
 
+        return Default(declared, lanes);
+    }
+
+    /// <summary>A port's declared default, as many numbers wide as its row draws.</summary>
+    /// <param name="declared">The declaration.</param>
+    /// <param name="lanes">How many fields the row has.</param>
+    /// <returns>A fresh array of that many numbers.</returns>
+    /// <remarks>
+    ///     ⚠ <b>One number is splatted across the lanes and not written into the first of them</b>,
+    ///     because that is what the frame does: <c>NodeGraphCompiler.Value</c> fills every lane of a
+    ///     vector port from a one-element default. Opening the surplus fields at nought instead
+    ///     showed <c>0.5, 0, 0, 0</c> over a render using <c>0.5, 0.5, 0.5, 0.5</c>, and the first
+    ///     nudge of any lane wrote the noughts into the file — the mirror of
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1097">#1097</a>'s narrowing, reached
+    ///     through the widening that fixed it. ⚠ It also keeps <see cref="Numbered" />'s
+    ///     back-at-the-default test able to fire, which a comparison against a shorter array cannot.
+    ///     A default of some other length that is neither one nor the row's width is refused before
+    ///     the row is built at all, so this only ever splats or copies.
+    /// </remarks>
+    static float[] Default(PortDefinition declared, int lanes) {
         var made = new float[lanes];
+
+        if (declared.Default.Length == 1) {
+            Array.Fill(made, declared.Default[0]);
+
+            return made;
+        }
 
         for (var index = 0; index < lanes && index < declared.Default.Length; index++) {
             made[index] = declared.Default[index];
@@ -2033,10 +2068,11 @@ sealed class LayerStackView : IDisposable {
     ) {
         Dictionary<string, float[]> next = new(stored, StringComparer.Ordinal);
 
-        var same = lanes.Length <= declared.Default.Length;
+        var fallback = Default(declared, lanes.Length);
+        var same = declared.Default.Length > 0;
 
         for (var index = 0; same && index < lanes.Length; index++) {
-            same = lanes[index] == declared.Default[index];
+            same = lanes[index] == fallback[index];
         }
 
         if (same) {

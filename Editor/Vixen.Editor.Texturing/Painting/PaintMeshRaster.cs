@@ -124,6 +124,18 @@ sealed class PaintMeshRaster {
     /// <summary>How many pane pixels show a triangle at all.</summary>
     public int Covered { get; private set; }
 
+    /// <summary>How many pane pixels the last geometry pass asked about.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Work rather than a clock, and the only instrument that can see
+    ///     <see cref="Bounds" /> stop bounding.</b> A box taken from the clamped extremes of three
+    ///     corners is the whole pane whenever one corner sits on the near plane, and the picture it
+    ///     produces is pixel-identical to a tight box — every extra pixel is rejected by the
+    ///     barycentric test. So the cliff is invisible in a frame, invisible in a pass count, and a
+    ///     wall-clock budget for it would be this repository's commonest flake. One add per
+    ///     triangle says it exactly.
+    /// </remarks>
+    public long Examined { get; private set; }
+
     /// <summary>Draws the mesh's geometry into the pane's buffers, at a size.</summary>
     /// <param name="mesh">The mesh, in its own space.</param>
     /// <param name="camera">Where it is seen from.</param>
@@ -149,6 +161,8 @@ sealed class PaintMeshRaster {
 
         Array.Fill(triangles, -1);
         Array.Clear(depths);
+
+        Examined = 0;
 
         var forward = camera.Forward;
         var near = camera.Near;
@@ -392,6 +406,135 @@ sealed class PaintMeshRaster {
         indexedHeight = 0;
     }
 
+    /// <summary>The pane pixels a projected triangle can cover, as a box.</summary>
+    /// <param name="pa">Its first corner, in pane pixels.</param>
+    /// <param name="pb">Its second.</param>
+    /// <param name="pc">Its third.</param>
+    /// <param name="width">How wide the pane is, in pixels.</param>
+    /// <param name="height">How tall it is.</param>
+    /// <param name="lowX">The leftmost pixel the triangle can reach.</param>
+    /// <param name="lowY">The topmost.</param>
+    /// <param name="highX">The rightmost.</param>
+    /// <param name="highY">The bottommost.</param>
+    /// <returns>Whether the triangle reaches the pane at all.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Taking the extremes of the three corners and clamping them is not this, and the
+    ///         difference is a cost cliff rather than a wrong picture.</b> A corner the near clip
+    ///         wrote onto the plane projects to tens of thousands of pixels — the plane is a
+    ///         ten-thousandth of the framed radius, so the divide is by a very small number — and
+    ///         one such corner sends the clamped box to the whole pane whatever the triangle
+    ///         actually covers. <see cref="Fill" /> then runs its barycentric test over every pane
+    ///         pixel to reject nearly all of them, per triangle, and a few hundred straddling
+    ///         triangles is a hundred million tests a frame. Before
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1105">#1105</a> those triangles were
+    ///         dropped and cost nothing, so the clip that stopped the geometry vanishing is what
+    ///         opened this.
+    ///     </para>
+    ///     <para>
+    ///         So the box comes from the triangle's <em>intersection</em> with the pane, found by
+    ///         Sutherland–Hodgman against the four edges. ⚠ The polygon it computes is thrown away
+    ///         and only its extent is kept: filling the clipped shape instead would need the corner
+    ///         attributes carried through the clip, and a screen-space lerp of them is wrong under
+    ///         perspective. The barycentric weights over the <em>original</em> corners stay exact,
+    ///         and the box merely stops asking about pixels no weight can accept.
+    ///     </para>
+    /// </remarks>
+    static bool Bounds(
+        Vector2 pa,
+        Vector2 pb,
+        Vector2 pc,
+        int width,
+        int height,
+        out int lowX,
+        out int lowY,
+        out int highX,
+        out int highY
+    ) {
+        Span<Vector2> polygon = stackalloc Vector2[8];
+        Span<Vector2> clipped = stackalloc Vector2[8];
+
+        polygon[0] = pa;
+        polygon[1] = pb;
+        polygon[2] = pc;
+
+        var count = 3;
+
+        lowX = 0;
+        lowY = 0;
+        highX = 0;
+        highY = 0;
+
+        for (var side = 0; side < 4; side++) {
+            var limit = side switch {
+                0 => 0f,
+                1 => width - 1f,
+                2 => 0f,
+                _ => height - 1f,
+            };
+
+            var written = 0;
+
+            for (var index = 0; index < count; index++) {
+                var from = polygon[index];
+                var to = polygon[index == count - 1 ? 0 : index + 1];
+                var here = Keeps(from, side, limit);
+
+                if (here) {
+                    clipped[written] = from;
+                    written++;
+                }
+
+                if (here == Keeps(to, side, limit)) {
+                    continue;
+                }
+
+                var start = side < 2 ? from.X : from.Y;
+                var end = side < 2 ? to.X : to.Y;
+
+                // The two sides differ, so the denominator cannot be zero.
+                clipped[written] = from + ((to - from) * ((limit - start) / (end - start)));
+                written++;
+            }
+
+            count = written;
+
+            if (count == 0) {
+                return false;
+            }
+
+            clipped[..count].CopyTo(polygon);
+        }
+
+        var least = polygon[0];
+        var most = polygon[0];
+
+        for (var index = 1; index < count; index++) {
+            least = Vector2.Min(least, polygon[index]);
+            most = Vector2.Max(most, polygon[index]);
+        }
+
+        // Every corner is inside the pane by construction, so the conversion is always in range.
+        lowX = (int)MathF.Floor(Math.Clamp(least.X, 0f, width - 1f));
+        lowY = (int)MathF.Floor(Math.Clamp(least.Y, 0f, height - 1f));
+        highX = (int)MathF.Ceiling(Math.Clamp(most.X, 0f, width - 1f));
+        highY = (int)MathF.Ceiling(Math.Clamp(most.Y, 0f, height - 1f));
+
+        return true;
+    }
+
+    /// <summary>Whether one corner is on the kept side of one pane edge.</summary>
+    /// <param name="point">The corner, in pane pixels.</param>
+    /// <param name="side">Which edge: left, right, top, then bottom.</param>
+    /// <param name="limit">Where that edge is.</param>
+    /// <returns>Whether the corner survives that edge.</returns>
+    static bool Keeps(Vector2 point, int side, float limit) => side switch {
+        0 => point.X >= limit,
+        1 => point.X <= limit,
+        2 => point.Y >= limit,
+        _ => point.Y <= limit,
+    };
+
     /// <summary>Cuts a triangle against the near plane, in the camera's own frame.</summary>
     /// <param name="corners">
     ///     The three corners as <c>PaintCamera.ToView</c> answers, on the way in; the polygon that
@@ -426,6 +569,7 @@ sealed class PaintMeshRaster {
     ///         than the one the clip was chosen to bound.
     ///     </para>
     /// </remarks>
+
     static int Clip(Span<Vector3> corners, Span<Vector2> layout, float near) {
         Span<Vector3> points = stackalloc Vector3[3];
         Span<Vector2> coordinates = stackalloc Vector2[3];
@@ -544,16 +688,11 @@ sealed class PaintMeshRaster {
             return;
         }
 
-        // ⚠ Clamped in float and converted afterwards, which is the opposite order to the obvious
-        // one and is not a style choice. A corner sitting on the near plane projects to a pixel
-        // coordinate of a hundred million and a shallower one to far more than that; `(int)` on a
-        // float outside `int`'s range is undefined in C# and answers `int.MinValue` on x64, so
-        // `Math.Min(that, Width - 1)` is `int.MinValue` and the triangle silently covers nothing.
-        // The clamp is exact in float at these magnitudes and the conversion is then always in range.
-        var lowX = (int)MathF.Floor(Math.Clamp(MathF.Min(pa.X, MathF.Min(pb.X, pc.X)), 0f, Width - 1f));
-        var lowY = (int)MathF.Floor(Math.Clamp(MathF.Min(pa.Y, MathF.Min(pb.Y, pc.Y)), 0f, Height - 1f));
-        var highX = (int)MathF.Ceiling(Math.Clamp(MathF.Max(pa.X, MathF.Max(pb.X, pc.X)), 0f, Width - 1f));
-        var highY = (int)MathF.Ceiling(Math.Clamp(MathF.Max(pa.Y, MathF.Max(pb.Y, pc.Y)), 0f, Height - 1f));
+        if (!Bounds(pa, pb, pc, Width, Height, out var lowX, out var lowY, out var highX, out var highY)) {
+            return;
+        }
+
+        Examined += (long)(highX - lowX + 1) * (highY - lowY + 1);
 
         var inverse = 1f / area;
         var invA = 1f / za;
