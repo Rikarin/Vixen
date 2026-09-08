@@ -37,6 +37,7 @@ public sealed class SystemRunner : IDisposable {
 
     SystemGraph? graph;
     bool initialised;
+    bool running;
 
     /// <summary>The world the systems operate on.</summary>
     public World World { get; }
@@ -101,7 +102,62 @@ public sealed class SystemRunner : IDisposable {
     /// <summary>Runs one phase to completion.</summary>
     /// <param name="phase">Which phase.</param>
     /// <param name="time">The clock to hand the systems.</param>
+    /// <exception cref="InvalidOperationException">
+    ///     A phase is already running on this runner. See the remarks: re-entry is refused rather
+    ///     than supported.
+    /// </exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Not re-entrant, and refused rather than left to corrupt.</b> A system that calls
+    ///         this from inside its own <c>Update</c> — running a fixed-step group from prediction's
+    ///         replay is the case that wants to — used to be allowed to, and broke three things
+    ///         quietly rather than one loudly:
+    ///     </para>
+    ///     <para>
+    ///         <b>The handle array is shared per phase.</b> <c>handlesByPhase</c> hands back the same
+    ///         array object for the same phase, so an inner call overwrites the outer call's handles;
+    ///         the outer loop then feeds the inner call's handles to <c>Dependency</c> for its
+    ///         remaining systems and completes those instead of its own. A job completed against the
+    ///         wrong handle is a race, not an error.
+    ///     </para>
+    ///     <para>
+    ///         <b>There is one command buffer.</b> The inner call's <c>Playback</c> applies whatever
+    ///         the outer phase's earlier systems recorded, from inside a system — which is the
+    ///         structural-change-mid-phase that the complete-before-playback ordering above exists to
+    ///         prevent.
+    ///     </para>
+    ///     <para>
+    ///         <b>And the version advances again.</b> The outer phase's systems before and after the
+    ///         re-entrant call are stamped with different versions, so "what changed since tick N"
+    ///         straddles two versions inside one phase.
+    ///     </para>
+    ///     <para>
+    ///         Supporting it needs per-invocation handles and a per-invocation buffer, and a decision
+    ///         about the version stamp — a nested replay of the same tick probably should not advance
+    ///         it. That is <see href="https://github.com/Rikarin/Vixen/issues/208">#208</see>; this
+    ///         guard is worth having either way, and is <c>LocalTransport.Poll</c>'s arrangement.
+    ///     </para>
+    /// </remarks>
     public void RunPhase(SystemPhase phase, GameTime time) {
+        if (running) {
+            throw new InvalidOperationException(
+                $"A phase is already running on this SystemRunner, so '{phase}' cannot start. RunPhase "
+                + "is not reentrant: the job handles are shared per phase, there is one command buffer "
+                + "played back at every phase boundary, and the world's version would advance a second "
+                + "time inside one phase. Record the work and run the phase after this one returns."
+            );
+        }
+
+        running = true;
+
+        try {
+            RunPhaseCore(phase, time);
+        } finally {
+            running = false;
+        }
+    }
+
+    void RunPhaseCore(SystemPhase phase, GameTime time) {
         Initialize(time);
 
         var nodes = Graph.InPhase(phase);

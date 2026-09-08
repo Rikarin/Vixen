@@ -116,6 +116,14 @@ runner.RunPhase(SystemPhase.FixedUpdate, time);
 conflict, so a system that returns promptly lets every non-conflicting system after it start
 immediately, and **a phase costs its critical path rather than its sum**.
 
+⚠ **`RunPhase` is not re-entrant and now says so.** A system that calls it from inside its own
+`Update` gets an `InvalidOperationException` naming the three reasons: the job-handle array is kept
+per phase and an inner call into the same phase overwrites the outer call's, there is one command
+buffer and the inner playback would apply the outer phase's structural change from inside a system,
+and the world's version would advance a second time inside one phase. All three corrupt rather than
+fail, which is why the refusal is worth having before the nested run is ever supported — see
+`Vixen.Net/README.md` § Owed for the case that wants it.
+
 Conflict is decided from the declared access: read against read is not one, write against anything
 is, and a write implies a read so "only writes X" and "only reads X" are never mistaken for
 disjoint. **A system that declares nothing conflicts with everything** — the only safe reading of "I
