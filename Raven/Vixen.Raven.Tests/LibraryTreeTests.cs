@@ -1278,8 +1278,71 @@ public class LibraryTreeTests {
         Assert.Contains("paintedChannels", painted, StringComparison.Ordinal);
 
         // And the fourth channel is still reachable, so the guard is a gate rather than a removal:
-        // a material that declares four channels gets its fourth layer.
-        Assert.Contains("splat.w", painted, StringComparison.Ordinal);
+        // a material that declares four channels gets its fourth layer. ⚠ `channels`, not `splat`:
+        // the same chain reads the height map since doc 48 § B1's height feature, so its parameter is
+        // named after what it is rather than after the first map that used it.
+        Assert.Contains("channels.w", painted, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     The height blend emits a second sample, and the variant without it emits none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 48 § B1's height map, in the layering reading of it</b> — the map biases a splat
+    ///         weight rather than displacing a coordinate. The permutation is the guard and both halves
+    ///         of it are the claim: on, the shader reads a second map; off, it reads none.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <em>off</em> half is the one that matters and it is not a formality.</b> An
+    ///         unpaired <c>heightIndex</c> is slot zero, which is the fallback checker, and the checker
+    ///         is not black — so a height sample left in the unblended variant would bias the layer
+    ///         weights of every layered material in the frame that never asked for the feature. That
+    ///         failure draws, plausibly, and no counter moves.
+    ///     </para>
+    ///     <para>
+    ///         Asserted on the emitted unit rather than the source, for the reason the alpha-channel
+    ///         test above gives: what a permutation is worth is what the lowering folded away, and the
+    ///         source says nothing about that.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_painted_stacks_height_blend_is_a_permutation_that_folds_its_sample_away() {
+        var blended = ForwardPlusSource(
+            LowerTree(
+                PermutationValues.Parse(["LayerCount=4", "HeightBlended=true"]),
+                ("surface", "TexturedMaterialLayersSurface")
+            )
+        );
+
+        var plain = ForwardPlusSource(
+            LowerTree(
+                PermutationValues.Parse(["LayerCount=4"]),
+                ("surface", "TexturedMaterialLayersSurface")
+            )
+        );
+
+        var on = Body(blended, "TexturedMaterialLayersSurface_Compute");
+        var off = Body(plain, "TexturedMaterialLayersSurface_Compute");
+
+        // Inside `Compute`, not merely in the unit: a uniform is emitted into the material block
+        // whether or not anything reads it, so the whole-unit form is green with the sample deleted.
+        Assert.Contains("heightIndex", on, StringComparison.Ordinal);
+        Assert.DoesNotContain("heightIndex", off, StringComparison.Ordinal);
+
+        // And the bias itself, which is the arithmetic rather than the sample. `Keyed` carries it, and
+        // the unblended variant's copy has to fold to the painted weight alone.
+        Assert.Contains(
+            "heightContrast",
+            Body(blended, "TexturedMaterialLayersSurface_Keyed"),
+            StringComparison.Ordinal
+        );
+
+        Assert.DoesNotContain(
+            "heightContrast",
+            Body(plain, "TexturedMaterialLayersSurface_Keyed"),
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>One emitted function's body, so an assertion can be about what it reads.</summary>

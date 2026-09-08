@@ -220,6 +220,22 @@ shader MaterialLayersSurface : IMaterialSurface {
 /// The weights are normalised for `MaterialLayersSurface`'s reason, which a painted map only makes
 /// stronger: a splat map painted by hand never sums to one, and a material that dims where the artist
 /// was imprecise is a bug that gets blamed on the lighting.
+///
+/// ⚠ **`HeightBlended` is doc 48 § B1's height map, and it is the *layering* reading of it.** A height
+/// map is three different features wearing one name — parallax occlusion, height-blended layering, and
+/// true displacement — and only the middle one is a surface feature at all. § B1 names height in the
+/// same sentence as the layering gap, so the map biases a splat weight here rather than displacing a
+/// coordinate: a second four-channel map whose channel `i` is layer `i`'s height, so gravel shows
+/// through sand in the gaps between the stones instead of the two averaging to mud. Parallax needs a
+/// tangent-space view vector `MaterialData` does not carry and a rule about a feature that writes
+/// `d.uv` before the features that read it; displacement is a vertex stage. Both are separate tasks.
+///
+/// ⚠ **Off by default, and the permutation is the whole guard.** An unpaired `heightIndex` is slot
+/// zero, which is the magenta checker — whose channels are emphatically not zero — so a height sample
+/// left in the unblended variant would bias every layered material in the frame by the checker. With
+/// the permutation off the sample, the peak and the bias all fold away, and what is left computes the
+/// weights this shader computed before the map existed: the floor stays at zero, `Keyed` folds to the
+/// painted weight, and `max(w - 0, 0)` is `max(w, 0)` for every float there is.
 shader TexturedMaterialLayersSurface : MaterialTextures, IMaterialSurface {
     /// How many layers this material has. A permutation, so it sizes the array below and an unused
     /// layer costs no uniform. ⚠ Not an iteration — see the note above `MaterialLayersSurface`.
@@ -241,15 +257,47 @@ shader TexturedMaterialLayersSurface : MaterialTextures, IMaterialSurface {
     /// number is a fact about *this material's* texture rather than about the frame.
     var paintedChannels: int = 3
 
+    /// Whether a second map's per-layer heights decide which layer shows where they compete.
+    ///
+    /// A permutation rather than a value, because off has to cost nothing *and emit nothing*: see the
+    /// note on this shader. A material that sets this without a paired height map reads the table's
+    /// fallback, which is the loudest wrong answer this shader has.
+    [Permutation] val HeightBlended: bool = false
+
+    /// Which slot of the frame's table holds this material's height map. Channel `i` is layer `i`.
+    ///
+    /// Read only when `HeightBlended`, and the same `paintedChannels` gates it: a layer the splat map
+    /// does not paint has no weight to bias, so its height is not read either.
+    var heightIndex: uint = 0u
+
+    /// How far a full-height texel can push a layer, in splat-weight units.
+    ///
+    /// ⚠ **Bounded on purpose, and this is the parameter that keeps the effect honest.** With the
+    /// height added at full scale, a layer painted 0 whose height is 1 ties with a layer painted 1
+    /// whose height is 0 — an unpainted layer bleeding over a painted one, which is the classic
+    /// failure of the naive form. A quarter means height decides only where the paint is already
+    /// close, which is the seam it was wanted for.
+    var heightContrast: float = 0.25f
+
+    /// How wide the transition between two competing layers is, in the same units.
+    ///
+    /// Zero is a hard cut — no blend at all — and is clamped up to an epsilon rather than refused,
+    /// because the alternative is a surface whose weights all fall to zero and which reads black.
+    var heightTransition: float = 0.1f
+
     var layers: MaterialLayer[LayerCount]
 
-    /// One layer's painted weight, by channel. Layers past `paintedChannels` are unpainted.
+    /// One layer's channel of a per-layer map. Layers past `paintedChannels` read zero.
+    ///
+    /// Called for the splat map and, when `HeightBlended`, for the height map: both are four channels
+    /// standing for four layers in the same order, so one chain serves both and the two cannot
+    /// disagree about which channel a layer is.
     ///
     /// A chain rather than a dynamic index into the vector, because a vector's components are not
     /// addressable by a runtime index in every backend this library targets — and `layer` *is* a
     /// runtime index here, since the loop above is emitted as a loop. Four comparisons a layer, which
     /// a driver that unrolls a constant-bound loop folds to one swizzle.
-    func Painted(splat: float4, layer: int): float {
+    func Painted(channels: float4, layer: int): float {
         // ⚠ Zero rather than the channel, for a layer the map does not paint. See `paintedChannels`:
         // the alpha of a map that has none reads 1, which is the widest possible wrong answer.
         if (layer >= paintedChannels) {
@@ -257,26 +305,65 @@ shader TexturedMaterialLayersSurface : MaterialTextures, IMaterialSurface {
         }
 
         if (layer == 0) {
-            return splat.r
+            return channels.r
         }
 
         if (layer == 1) {
-            return splat.g
+            return channels.g
         }
 
         if (layer == 2) {
-            return splat.b
+            return channels.b
         }
 
         if (layer == 3) {
-            return splat.a
+            return channels.a
         }
 
         return 0f
     }
 
+    /// One layer's weight before the transition floor is taken off it.
+    ///
+    /// ⚠ With `HeightBlended` off this is exactly `layers[i].weight * Painted(splat, i)`, which the
+    /// loop then clamps at zero — the arithmetic this shader had before the height map, unchanged.
+    func Keyed(splat: float4, height: float4, layer: int): float {
+        val painted = layers[layer].weight * Painted(splat, layer)
+
+        if (HeightBlended) {
+            return painted + heightContrast * Painted(height, layer)
+        }
+
+        return painted
+    }
+
     func Compute(inout d: MaterialData) {
         val splat = SampleSurface(splatIndex, d)
+
+        // ⚠ Inside the permutation, so the unblended variant emits no second sample. Slot zero is the
+        // checker and its channels are not zero, so a sample hoisted out of here would bias every
+        // layered material that has no height map by whatever the fallback view holds.
+        var height = float4(0f)
+
+        if (HeightBlended) {
+            height = SampleSurface(heightIndex, d)
+        }
+
+        // Zero is additive-neutral, which is what makes the loop below one path rather than two: with
+        // the permutation off nothing is subtracted and the blend is the plain weighted mean.
+        var floor = 0f
+
+        if (HeightBlended) {
+            var peak = 0f
+
+            for (i in 0 .. LayerCount - 1) {
+                peak = max(peak, Keyed(splat, height, i))
+            }
+
+            // Clamped up, because a transition of zero would put the floor *on* the winning layer and
+            // leave every weight at zero — a black surface where the author asked for a hard edge.
+            floor = peak - max(heightTransition, Const.Epsilon)
+        }
 
         var color = float3(0f)
         var metalness = 0f
@@ -284,7 +371,7 @@ shader TexturedMaterialLayersSurface : MaterialTextures, IMaterialSurface {
         var total = 0f
 
         for (i in 0 .. LayerCount - 1) {
-            val weight = max(layers[i].weight * Painted(splat, i), 0f)
+            val weight = max(Keyed(splat, height, i) - floor, 0f)
 
             color += layers[i].baseColor * weight
             metalness += layers[i].metalness * weight

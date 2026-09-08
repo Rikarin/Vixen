@@ -140,6 +140,7 @@ looking for "the vertex buffer my mesh lives in", it is not in a file with `Mesh
 | `MaterialLayersFeature`, `MaterialLayerValue`, `BlendFeature` | `Vixen.Rendering.Materials` | Layering and mixing: rock under moss under snow; two surfaces by a weight |
 | `TexturedMaterialLayersFeature` | `Vixen.Rendering.Materials` | The same stack with its weights **painted**: one splat map, R G B A as layers 0 to 3. ⚠ `MaterialLayerValue.Weight` becomes a *scale* on the painted channel; one is the map exactly |
 | ⤷ `PaintedChannels` | same | ⚠ How many channels that map really has, **three by default**. A one- or three-channel texture samples alpha as 1, so a fourth layer read from `.a` would weigh 1 at every texel and, normalised, be the whole surface. A four-channel map says so and gets its fourth layer; a stack deeper than the count is a compiler warning and an unpainted layer |
+| ⤷ `HeightBlended`, `HeightMap`, `HeightContrast`, `HeightTransition` | same | A **second** four-channel map, channel `i` being layer `i`'s height, biasing that layer's weight: gravel shows through sand in the gaps between the stones instead of the two averaging to mud. ⚠ A permutation and **off by default**, because an unpaired `heightIndex` is slot zero — the fallback checker, whose channels are not zero — so a sample left in the unblended variant would bias every layered material in the frame. ⚠ Not parallax and not displacement: those are the other two readings of "height map" and are separate features |
 | `IMaterialShading` | `Vixen.Rendering.Materials` | What the material does with light. The second slot on a shading pass |
 | `StandardShading`, `AnisotropicShading`, `ClearCoatShading`, `SheenShading`, `SubsurfaceShading`, `HairShading`, `CelShading` | `Vixen.Rendering.Materials` | The seven models |
 | `MaterialShading` | `Vixen.Rendering.Materials` | The name → model table, so a document can name one |
@@ -198,6 +199,12 @@ a host assigning that array is not making a mistake by leaving it out. The engin
 take a registered key away**, which is the reason this is a type of its own rather than a
 `Dictionary`. It was a dictionary once, the host line ran after the engine's, and every host that drew
 compiled three-layer materials as two-layer ones without a word.
+
+⚠ **`HeightBlended` is the same key one knob over and its unregistered failure is quieter.** An
+unregistered `LayerCount` draws the wrong number of layers; an unregistered `HeightBlended` leaves the
+variant at the shader's `false`, so the height map a material paid for is never sampled and the old
+blend is drawn — plausibly, with nothing anywhere saying the feature did not run. `MaterialKeys` names
+both and the engine registers both.
 
 ### Types called Mesh or Material that are not on either chain
 

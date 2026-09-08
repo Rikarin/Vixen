@@ -31,6 +31,21 @@ public static class MaterialKeys {
         ArgumentException.ThrowIfNullOrEmpty(shaderName);
         return ParameterKeys.NewPermutation(DefaultLayerCount, $"{shaderName}.LayerCount");
     }
+
+    /// <summary>Whether a painted layer stack's weights are biased by a height map.</summary>
+    /// <param name="shaderName">The shading pass the material is authored against.</param>
+    /// <remarks>
+    ///     ⚠ <see cref="LayerCount" />'s trap one knob over, and a worse one: an unregistered
+    ///     <c>LayerCount</c> draws the wrong number of layers, where an unregistered
+    ///     <c>HeightBlended</c> leaves the variant at the shader's <c>false</c> and the height map a
+    ///     material paid for is simply never sampled — a plausible surface, blended the old way, with
+    ///     nothing anywhere saying the feature did not run. A host that draws layered materials
+    ///     registers both.
+    /// </remarks>
+    public static PermutationKey<bool> HeightBlended(string shaderName) {
+        ArgumentException.ThrowIfNullOrEmpty(shaderName);
+        return ParameterKeys.NewPermutation(false, $"{shaderName}.HeightBlended");
+    }
 }
 
 /// <summary>
@@ -715,6 +730,12 @@ public sealed record MaterialLayersFeature : IMaterialFeature {
 ///         <c>MaterialRenderFeature.PermutationKeys</c>, without which the count set here reaches no
 ///         compiler and every layered material draws the shader's declared two.
 ///     </para>
+///     <para>
+///         ⚠ <b>Two maps, not one</b> — see <see cref="HeightBlended" />. The second is doc 48 § B1's
+///         height map in the only one of its three readings that is a surface feature, it is off by
+///         default, and its own key <see cref="MaterialKeys.HeightBlended" /> has to be registered
+///         beside the count.
+///     </para>
 /// </remarks>
 [DataContract("TexturedMaterialLayers")]
 public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
@@ -751,6 +772,59 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
     /// </remarks>
     public int PaintedChannels { get; init; } = 3;
 
+    /// <summary>Whether a second map's per-layer heights decide which layer shows at a seam.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>Doc 48 § B1's height map, in the one of its three readings that is a surface
+    ///         feature.</strong> A height map is parallax occlusion, height-blended layering or true
+    ///         displacement depending on who is asking; § B1 names height in the same sentence as the
+    ///         layering gap, so this is the middle one — the map biases a splat weight rather than
+    ///         displacing a coordinate. Gravel shows through sand in the gaps between the stones
+    ///         instead of the two averaging to mud. See
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/615">#615</a>, which is where the three
+    ///         were separated.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>False is not merely a default, it is the guard.</b> It is a permutation, so the
+    ///         unblended variant emits no second sample at all — which matters because an unpaired
+    ///         <see cref="HeightMap" /> resolves to slot zero, the magenta checker, whose channels are
+    ///         emphatically not zero. A height sample left in the variant that has no height map would
+    ///         bias every layered material in the frame by the fallback.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And it needs a host that registered <see cref="MaterialKeys.HeightBlended" />, without
+    ///         which this reaches no compiler and the map a material paid for is never sampled — the
+    ///         unregistered-permutation trap, whose whole difficulty is that the frame still draws.
+    ///     </para>
+    /// </remarks>
+    public bool HeightBlended { get; init; }
+
+    /// <summary>What the material calls the per-layer height map. Channel <c>i</c> is layer <c>i</c>.</summary>
+    /// <remarks>
+    ///     ⚠ Read only when <see cref="HeightBlended" />, and paired unconditionally — the pairing is
+    ///     one static entry per name for <see cref="TexturedMetalRoughnessFeature.BaseColorMap" />'s
+    ///     reason, so what decides whether the map is sampled is the permutation and not this name.
+    /// </remarks>
+    public string HeightMap { get; init; } = "heightMap";
+
+    /// <summary>How far a full-height texel can push a layer, in splat-weight units.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Bounded on purpose.</b> Added at full scale, a layer painted 0 whose height is 1 ties
+    ///     with a layer painted 1 whose height is 0 — an unpainted layer bleeding over a painted one,
+    ///     which is the classic failure of the naive form and the reason this is a quarter rather than
+    ///     one. Height decides only where the paint is already close, which is the seam it was wanted
+    ///     for.
+    /// </remarks>
+    public float HeightContrast { get; init; } = 0.25f;
+
+    /// <summary>How wide the transition between two competing layers is, in the same units.</summary>
+    /// <remarks>
+    ///     Zero is a hard cut and the shader clamps it up to an epsilon rather than refusing it,
+    ///     because the arithmetic's own answer at exactly zero is a surface whose weights all fall to
+    ///     zero — black where the author asked for a sharp edge.
+    /// </remarks>
+    public float HeightTransition { get; init; } = 0.1f;
+
     /// <inheritdoc />
     public string ShaderName => "TexturedMaterialLayersSurface";
 
@@ -762,6 +836,16 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
     public static string SplatIndexParameter(string path) {
         ArgumentNullException.ThrowIfNull(path);
         return path + "splatIndex";
+    }
+
+    /// <summary>What the shader calls the height map's slot, under a composition path.</summary>
+    /// <param name="path">
+    ///     The qualified prefix the feature was composed under, as
+    ///     <see cref="MaterialCompilationContext" /> builds it.
+    /// </param>
+    public static string HeightIndexParameter(string path) {
+        ArgumentNullException.ThrowIfNull(path);
+        return path + "heightIndex";
     }
 
     /// <inheritdoc />
@@ -795,6 +879,21 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
         var painted = Math.Clamp(PaintedChannels, 0, 4);
 
         context.Set("paintedChannels", painted);
+
+        // The pass's name, not this feature's — see MaterialCompilationContext.SetPermutation.
+        context.SetPermutation("HeightBlended", false, HeightBlended);
+
+        if (HeightBlended) {
+            // ⚠ Written only under the permutation, and that is what makes UnresolvedTextureCount mean
+            // something here. MaterialRenderFeature.Index writes a slot onto a material that already
+            // declared the parameter, and counts one that declared it and got no texture — so setting
+            // this on every layered material would report a missing height map for every material that
+            // never wanted one.
+            context.Set("heightIndex", 0u);
+
+            context.Set("heightContrast", HeightContrast);
+            context.Set("heightTransition", HeightTransition);
+        }
 
         if (Layers.Count > painted) {
             // ⚠ A warning rather than an error, and the shader paints nothing with the layers past the
