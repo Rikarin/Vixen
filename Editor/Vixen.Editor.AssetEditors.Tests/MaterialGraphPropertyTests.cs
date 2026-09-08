@@ -266,6 +266,46 @@ public class MaterialGraphPropertyTests {
         Assert.False(view.GraphBroken.HasClass("hidden"));
     }
 
+    /// <summary>⚠ Re-reading the panel after an edit pushes nothing, so an undo can reach the file.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one case that makes the equality guard in the row's handler load-bearing.</b>
+    ///         <c>Reload</c> assigns <c>Number</c> on every field with the change handler attached —
+    ///         which is what a field re-reading the document <em>means</em> — so without the guard a
+    ///         re-read is an edit, and the undo that caused the re-read is followed straight back by
+    ///         a command restoring what it undid.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Written after the ordering it was assumed to be was measured and was not.</b>
+    ///         Assigning the opening value before subscribing looks like the thing preventing this,
+    ///         and reversing those two lines leaves every other case here green: a
+    ///         <c>[UiProperty]</c> raises <c>Changed</c> only on a real change, and an unset
+    ///         property's opening value is the field's own default already.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ReloadingAfterAnEditPushesNothing() {
+        using var harness = new ViewHarness();
+        var document = Open(harness);
+        var view = harness.Ui.Document.Root.Add<MaterialView>();
+
+        view.Show(document);
+        harness.Ui.Frames(3);
+
+        Assert.True(document.SetGraphValue("roughness", new(0.5f, 0f, 0f, 0f)));
+        document.Stack.Seal();
+
+        view.Reload();
+        harness.Ui.Frames(2);
+
+        Assert.Equal(0.5f, Assert.IsType<GraphSurfaceFeature>(document.Surface).Numbers[0].Value);
+
+        // One undo, and the material is back to having no feature at all. A reload that had pushed a
+        // command of its own would be undone by this instead, leaving the feature in place.
+        Assert.True(document.Stack.Undo());
+        Assert.Null(document.Surface);
+    }
+
     /// <summary>A property the graph does not declare is refused rather than written.</summary>
     /// <remarks>
     ///     ⚠ <b>Because a <c>GraphSurfaceNumber</c> naming nothing is not an error anywhere

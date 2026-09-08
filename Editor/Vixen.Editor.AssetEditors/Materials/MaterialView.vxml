@@ -433,11 +433,16 @@
             field.Decimals = 3;
             field.Step = 0.01d;
 
-            // ⚠ Assigned *before* the subscription below, which is the same ordering `Shapes` needs
-            // and for a sharper consequence. `Number` is a `[UiProperty]` with a `Changed` callback,
-            // so writing the opening value with a handler attached would raise an edit per field the
-            // moment the panel is built — and every property would be written into the file at the
-            // nought this row shows for "nobody has set this".
+            // Assigned before the subscription below, which is `Shapes`' ordering one control over.
+            //
+            // ⚠ **And it is *not* what stops the panel writing every property out at nought when it
+            // opens — the equality guard below is, measured.** Reversing these two lines leaves every
+            // case in `MaterialGraphPropertyTests` green, because a `[UiProperty]` raises `Changed`
+            // only on an actual change and an unset property's opening value is already the field's
+            // own default. What the ordering does buy is the case that is not nought: a row opening
+            // at a value the material already holds would raise one edit per field on compose. The
+            // guard catches that too. Both are kept, and this comment says which is load-bearing
+            // rather than crediting the one that reads as though it must be.
             field.Number = Lane(material, property, lane);
 
             field.NumberChanged += (typed, value) => {
@@ -449,10 +454,11 @@
 
                 var held = Held(material, property);
 
-                // ⚠ And a lane already at that number writes nothing. `Reload` assigns `Number` with
-                // this handler attached, so an unguarded write would push an undo entry every time
-                // the panel re-read the document — including the re-read an undo itself causes,
-                // which is a stack that cannot be emptied.
+                // ⚠ **A lane already at that number writes nothing, and this is the guard that
+                // actually holds** — `ReloadingAfterAnEditPushesNothing` is red without it.
+                // `Reload` assigns `Number` with this handler attached, so an unguarded write pushes
+                // an undo entry every time the panel re-reads the document, and one of those
+                // re-reads is the one an undo itself causes.
                 if (held[lane] == (float) value) {
                     return;
                 }
