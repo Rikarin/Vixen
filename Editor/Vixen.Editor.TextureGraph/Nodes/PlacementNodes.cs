@@ -41,7 +41,7 @@ namespace Vixen.Editor.TextureGraph.Nodes;
 [Node("Placement/Tile Sampler", Preview = true, Summary = "A grid of cells with one jittered instance of a pattern in each.")]
 sealed partial class TileSamplerNode : TextureNode {
     /// <summary>How overlapping instances combine: <c>Max</c>, <c>Add</c> or <c>Blend</c>.</summary>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TexturePlacementAccumulation))]
     public string Accumulation = "Max";
 
     /// <summary>The stamp, read as an atlas of <c>Pattern Count</c> equal-width columns.</summary>
@@ -200,7 +200,7 @@ sealed partial class TileSamplerNode : TextureNode {
 [Node("Placement/Splatter", Preview = true, Summary = "A bounded free scatter of one pattern, seeded from the plan.")]
 sealed partial class SplatterNode : TextureNode {
     /// <summary>How overlapping instances combine: <c>Max</c>, <c>Add</c> or <c>Blend</c>.</summary>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TexturePlacementAccumulation))]
     public string Accumulation = "Max";
 
     /// <summary>The stamp, read as an atlas of <c>Pattern Count</c> equal-width columns.</summary>

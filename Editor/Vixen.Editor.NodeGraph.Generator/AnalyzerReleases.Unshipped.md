@@ -9,3 +9,4 @@ VXN0101 | Vixen.NodeGraph | Error | A [Node] class has to be partial
 VXN0102 | Vixen.NodeGraph | Error | A port field's type is not a port type
 VXN0103 | Vixen.NodeGraph | Error | A [Node] class has to derive from Node
 VXN0104 | Vixen.NodeGraph | Error | A [Setting] field has to be a string
+VXN0105 | Vixen.NodeGraph | Error | A [Setting]'s AcceptedFrom has to name an enum, and not also list Accepted

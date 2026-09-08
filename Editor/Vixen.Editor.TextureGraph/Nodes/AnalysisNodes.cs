@@ -95,7 +95,7 @@ sealed partial class FloodFillNode : TextureNode {
     public const int MaxIterations = 256;
 
     /// <summary>Which picture: <c>Id</c>, <c>Random</c>, <c>LocalUv</c>, <c>BoundingBox</c> or <c>Size</c>.</summary>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TextureFloodOutput))]
     public string Kind = "Random";
 
     /// <summary>The mask whose islands are found. A single channel.</summary>

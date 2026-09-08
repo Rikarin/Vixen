@@ -74,6 +74,17 @@ happened to be loaded. It is also what lets `Create` be a `new` rather than an `
 assembly's types. Nothing is global, which is why a shader graph's create menu contains no spawner
 nodes and a test can have a registry with three types in it.
 
+**A setting whose legal values are an enum names the enum, not the values.**
+`[Setting(AcceptedFrom = typeof(TextureBlendMode))]` — the generator enumerates the type's members at
+generation time, so the node inspector draws a dropdown over exactly the set the node's own refusal
+enumerates, and adding a member to the enum adds an option with no edit anywhere else. Write
+`Accepted = [...]` only for a set of legal names that is *not* a CLR type; stating both is refused
+(`VXN0105`). ⚠ **The order is the enum's declaration order and `Enum.GetNames` is not** — that method
+sorts by the underlying value read as *unsigned*, so `TextureResampleSize`, written `Quadruple = -2`
+through `Quarter = 2`, comes back from it as `Same, Half, Quarter, Quadruple, Double`. The offered
+list and a refusal's list are therefore the same **set** and not the same sequence, which is what
+`TextureSettingChoiceTests` holds.
+
 ## `DynamicVector` is the interesting part of the type system
 
 A `Lerp` works on floats, on colours and on positions. Authoring three of it is what a graph without

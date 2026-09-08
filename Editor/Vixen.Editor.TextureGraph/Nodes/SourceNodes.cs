@@ -64,7 +64,7 @@ sealed partial class UniformNode : TextureNode {
 [Node("Source/Noise", Preview = true, Summary = "Value, gradient, Worley or white noise.")]
 sealed partial class NoiseNode : TextureNode {
     /// <summary>Which lattice: <c>Value</c>, <c>Gradient</c>, <c>Worley</c> or <c>White</c>.</summary>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TextureNoiseBasis))]
     public string Basis = "Value";
 
     /// <summary>How many cells across the image at the first octave.</summary>
@@ -144,7 +144,7 @@ sealed partial class ShapeNode : TextureNode {
     ///     Which pattern: <c>Disc</c>, <c>Square</c>, <c>Triangle</c>, <c>Paraboloid</c>,
     ///     <c>Gaussian</c>, <c>Cone</c>, <c>HalfBell</c> or <c>Gradation</c>.
     /// </summary>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TextureShapeKind))]
     public string Kind = "Disc";
 
     /// <summary>The shape's diameter, as a fraction of the image.</summary>
@@ -300,11 +300,11 @@ sealed partial class BitmapNode : TextureNode {
     ///     asked for, which is as silent as the over-bright colour map it would fix; a host that has
     ///     resolved the asset is what can answer honestly.
     /// </remarks>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TextureColourSpace))]
     public string Space = "Linear";
 
     /// <summary>How it is resampled: <c>Point</c> or <c>Bilinear</c>. ⚠ Not <c>Box</c>.</summary>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TextureFilter))]
     public string Filter = "Bilinear";
 
     /// <summary>The picture.</summary>
@@ -378,7 +378,7 @@ sealed partial class BitmapNode : TextureNode {
 [Node("Source/Gradient", Preview = true, Summary = "A linear, radial, angular or reflected sweep along a ramp.")]
 sealed partial class GradientNode : TextureNode {
     /// <summary>Which sweep: <c>Linear</c>, <c>Radial</c>, <c>Angular</c> or <c>Reflected</c>.</summary>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TextureGradientKind))]
     public string Kind = "Linear";
 
     /// <summary>The gradient asset the strip is baked from, or empty for black to white.</summary>

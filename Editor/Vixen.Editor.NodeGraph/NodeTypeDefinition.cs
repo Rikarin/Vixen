@@ -158,9 +158,23 @@ public sealed record SettingDefinition(
     ///     this.
     /// </returns>
     /// <remarks>
-    ///     ⚠ <b>Ordinal, because these are stored names rather than words.</b> A setting's value is
-    ///     what a saved graph holds and what a compiler matches, so a culture in which <c>id</c>
-    ///     uppercases to something else must not decide whether a graph compiles.
+    ///     <para>
+    ///         ⚠ <b>Ordinal, because these are stored names rather than words.</b> A setting's value
+    ///         is what a saved graph holds and what a compiler matches, so a culture in which
+    ///         <c>id</c> uppercases to something else must not decide whether a graph compiles.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And case-insensitively, which it was not — every refusal this mirrors ignores
+    ///         case.</b> <c>TextureSettings.Enum&lt;T&gt;</c> parses with <c>ignoreCase: true</c>,
+    ///         and both nodes that walk a list of their own compare with
+    ///         <see cref="StringComparison.OrdinalIgnoreCase" />; a graph holding <c>multiply</c>
+    ///         compiles today. So an exact-case predicate here was <em>stricter than the thing it
+    ///         exists to agree with</em>, and anything that had wired it in as a refusal would have
+    ///         rejected graphs that compile — which is the reason it could not be wired in, rather
+    ///         than an argument that it should not be.
+    ///         <see cref="StringComparison.OrdinalIgnoreCase" /> is culture-independent too, so the
+    ///         paragraph above is untouched by this.
+    ///     </para>
     /// </remarks>
     public bool Accepts(string value) {
         if (Accepted.Length == 0) {
@@ -168,7 +182,7 @@ public sealed record SettingDefinition(
         }
 
         foreach (var accepted in Accepted) {
-            if (string.Equals(accepted, value, StringComparison.Ordinal)) {
+            if (string.Equals(accepted, value, StringComparison.OrdinalIgnoreCase)) {
                 return true;
             }
         }
