@@ -126,6 +126,21 @@ Adding/removing components during iteration invalidates chunks. Two mechanisms:
 Direct structural mutation on the main thread outside iteration is allowed and fast; the analyzer
 flags it inside a query body.
 
+> ✅ **Built** — `QueryMutationAnalyzer` in `Core/Vixen.Engine.Generators/`, `VXS0414`. It reports
+> `World.Create`/`Destroy`/`Add`/`AddDefault`/`Remove`/`CreateMany` reached from inside the three
+> shapes iteration takes: a delegate handed to a `Query*` extension, a `foreach` over
+> `world.Chunks(…)` or `query.Chunks(…)`, and a struct visitor's `Update` — that last one being the
+> form a reader cannot see from the call site at all. `Set` is not structural and is not reported.
+> ⚠ It is a **warning**, and `#pragma warning disable VXS0414` with a reason is the intended escape:
+> mutating the entity a walk is about to leave is sometimes right, and a rule with no way out is one
+> that gets turned off at the project level rather than at the line.
+>
+> ⚠ **Here rather than in `Vixen.Ecs.Generators`**, for the reason
+> `SystemAccessInferenceGenerator` already gives: that project is referenced by `Vixen.Ecs` and
+> travels in no package, while `Vixen.Engine.Generators` is packed into `Vixen.Engine`'s
+> `analyzers/dotnet/cs` and therefore reaches a game's own compilation. The claim that neither
+> analyzer had a project to live in was wrong — the project was already there and already shipping.
+
 ### Events and hooks
 
 Component added/removed/set events exist behind a compile-time flag (`VIXEN_ECS_EVENTS`), as in Arch,
@@ -405,9 +420,31 @@ Without this rule, the ECS below becomes decoration and the whole design collaps
 > carries `[DataMemberIgnore]` so that a serialised behaviour cannot smuggle the entity's position
 > into the file beside the transform that already holds it.
 >
-> ⚠ **The analyzer is still owed.** Nothing enforces any of this today; the attributes on `Behavior`
-> stop the base class leaking, and a game's own behaviour can still hold a `List<Entity>` and be
-> saved. That is the gap this revision creates and it should be closed before the pattern spreads.
+> ✅ **Built** — `BehaviorStateAnalyzer` in `Core/Vixen.Engine.Generators/`. The two hard rules are
+> errors: `VXS0412` on a behaviour that holds an entity handle, `VXS0413` on one that holds a copy of
+> a component.
+>
+> - ⚠ **It reads *storage*, not declared types**, and the difference is the whole calibration. A
+>   computed `public NetworkId NetworkId => Read<NetworkId>();` reaches through to the world on every
+>   call and is exactly what the rule asks an author to write — a first version that read the
+>   property's type reported `NetworkBehaviour`'s, which would have taught everyone that the right
+>   answer is a violation. So the rule walks fields, backing fields included: an auto-property is
+>   caught through the field it has, a computed one has none.
+> - ⚠ **`[Component]` is not what makes a struct a component**, it is what makes one
+>   scene-placeable — `LocalTransform` carries none. A rule reading only the annotation would have
+>   been silent on "a cached transform", the case this section spells out. What is decidable instead
+>   is the read: assigning what `Get<T>`/`Read<T>` returns into a member of the behaviour is the copy,
+>   whatever `T` is annotated with.
+> - **The hot-data warning is deliberately not built.** There is no static predicate for "hot" — this
+>   section says profiling is what promotes a field — and a rule whose predicate cannot be false is
+>   worse than no rule.
+>
+> ⚠ **It found eight live violations on its first run**, all in `Samples/13-ThirdPersonShooter`: two
+> write-only handles nothing read, now deleted, and six body-part entities `CharacterAnimation`
+> genuinely uses. Those six are suppressed with the issue number rather than the rule, because there
+> is nothing to hold instead until persistent entity identity lands
+> ([#296](https://github.com/Rikarin/Vixen/issues/296)) — which is the same gap, seen from the other
+> end.
 
 ## Transforms and hierarchy
 

@@ -16,3 +16,6 @@ VXS0408 | Vixen.Engine | Warning | An [InferAccess] type is not a partial top-le
 VXS0409 | Vixen.Engine | Warning | An [InferAccess] type already implements IDeclaredAccess, so the inferred declaration is dropped
 VXS0410 | Vixen.Engine | Warning | An [InferAccess] type also carries [Reads] or [Writes], so the attributes win and nothing is inferred
 VXS0411 | Vixen.Engine | Warning | An [InferAccess] type's body yielded no component access, so it stays undeclared and conflicts with everything
+VXS0412 | Vixen.Engine | Error | A Behavior holds an Entity, which is a slot in a running process and does not survive being written down
+VXS0413 | Vixen.Engine | Error | A Behavior holds a copy of a component the world is already the authority on
+VXS0414 | Vixen.Engine | Warning | A structural change made inside a query body, a chunk walk or a struct visitor

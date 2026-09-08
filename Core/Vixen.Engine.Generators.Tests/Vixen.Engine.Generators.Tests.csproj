@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            A reference rather than an analyzer, for the reason Vixen.Core.IO.Analyzers.Tests gives:
+            the analyzer is constructed and driven over a string of C# through
+            CompilationWithAnalyzers, which is the only way to assert on a span and a message.
+
+            ⚠ And no reference to Vixen.Engine or Vixen.Ecs. The source under test declares its own
+            `Behavior`, `Entity` and `World`, because what an analyzer resolves is a metadata name —
+            a declaration in the compilation under test is the same thing to it as one in a
+            referenced assembly, and a test that referenced the real engine would be asserting that a
+            restore happened. It would also be circular: Vixen.Engine references this generator.
+        -->
+        <ProjectReference Include="..\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj" />
+    </ItemGroup>
+</Project>

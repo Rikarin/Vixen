@@ -29,9 +29,6 @@ public sealed class WeaponFire : Behavior {
     bool wasHeld;
     float cooldown;
 
-    /// <summary>Where the ray starts, so tracers and flashes have somewhere to be.</summary>
-    public Entity Muzzle { get; init; }
-
     /// <summary>What the ray is cast against.</summary>
     public required PhysicsScene Physics { get; init; }
 
