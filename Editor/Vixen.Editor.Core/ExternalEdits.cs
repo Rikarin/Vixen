@@ -231,20 +231,22 @@ public sealed class ExternalEdits : IDisposable {
         project.DocumentSaving -= OnDocumentSaving;
     }
 
-    /// <summary>Tells every open document that a file in the project changed.</summary>
+    /// <summary>Resolves a watched path and tells every open document about it.</summary>
     /// <param name="path">The watched path, or null for "events were lost".</param>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Project-relative, because that is what a document can compare against.</b> A
     ///         <see cref="VirtualPath" /> is relative to the watcher's mount, which is a fact about
     ///         how this editor was configured; <c>ProjectPaths.Relative</c> is the spelling every
-    ///         asset in the database is stored under.
+    ///         asset in the database is stored under. Resolving it is all this method does now.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Over a snapshot and inside a try, for <see cref="Rescan" />'s reasons plus one.</b>
-    ///         An override belongs to a deriving type — a plugin's, in the case this exists for — and
-    ///         one that throws would take the frame down over somebody else's text editor pressing
-    ///         Ctrl+S. A document that cannot cope with a notification keeps whatever it had.
+    ///         ⚠ <b>The walk itself is <c>EditorProject.AnnounceFileChanged</c> and no longer here</b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/1006">#1006</a>. A watcher is not
+    ///         the only thing that changes a project's files: an import run from inside the editor
+    ///         rewrites <c>Library/</c> and moves nothing under <c>Assets/</c>, so this type never
+    ///         hears about it and could never have told anyone. Two callers means the walk belongs to
+    ///         the thing that owns the documents.
     ///     </para>
     /// </remarks>
     void Announce(VirtualPath? path) {
@@ -260,20 +262,7 @@ public sealed class ExternalEdits : IDisposable {
             }
         }
 
-        var documents = project.Documents.ToArray();
-
-        for (var index = 0; index < documents.Length; index++) {
-            try {
-                documents[index].OnProjectFileChanged(relative);
-            } catch (Exception failure)
-                when (failure is IOException
-                    or UnauthorizedAccessException
-                    or InvalidOperationException
-                    or NotSupportedException) {
-                // Kept, on `TryReload`'s argument: a document that could not take the news keeps what
-                // it has, and the next change tries again.
-            }
-        }
+        project.AnnounceFileChanged(relative);
     }
 
     /// <summary>Applies the policy to one document whose file has changed.</summary>

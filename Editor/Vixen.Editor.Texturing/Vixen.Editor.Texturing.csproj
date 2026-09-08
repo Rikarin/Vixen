@@ -155,4 +155,23 @@
         <InternalsVisibleTo Include="Vixen.Editor.Texturing.Tests" />
     </ItemGroup>
 
+    <!--
+        ⚠ **Imported for the `**/*.vcss` glob, which is what makes `TexturingTheme.vcss` an
+        EmbeddedResource.** `TexturingTheme.Css` reads it back by its logical name, so without this
+        line the property throws at the first `Install` rather than failing to compile — the message
+        it throws names this import for that reason.
+
+        At the bottom of the file, because the glob has to run after DefaultItemExcludes is final.
+
+        ⚠ **There is no `.vxml` in this project, so the other half of the .targets is inert here** —
+        the `**/*.vxml` glob produces no items and VX4002 and VX4003 are both conditioned on it
+        finding some. That is the state `Vixen.Editor.NodeGraph` was in, and its own comment records
+        what happens on the day it stops being true: the glob makes a `.vxml` an `AdditionalFiles`,
+        no analyzer reads it, and the build fails with "does not contain a definition for" on every
+        member the markup declares. The two errors above exist to catch exactly that; the line that
+        fixes it is `<VixenUi>true</VixenUi>` in the first PropertyGroup. The second half of #881 —
+        the panel as markup — is what would bring a `.vxml` here.
+    -->
+    <Import Project="..\..\Core\Vixen.Ui\build\Vixen.Ui.targets" />
+
 </Project>

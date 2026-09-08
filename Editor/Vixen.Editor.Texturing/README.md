@@ -161,6 +161,19 @@ layer is the defect the issue is about. Clicking the selected row again clears t
 puts the brush back on "the first paint layer in composite order" — a state with its own meaning that
 has to stay reachable.
 
+**And which texture *set* it is aimed at is chosen there too, by the same panel's set picker** —
+[#927](https://github.com/Rikarin/Vixen/issues/927). The picker writes `LayerStackDocument.PaintSet`
+and `PaintSurface.Open` resolves it through `LayerStackEdit.SetFor`, the one function the panel and
+the preview already resolve through, so the set on the screen is the set a stroke lands in. ⚠ Before
+this every path took `Sets[0]` while every refusal named `set.Name`, so a multi-set stack painted into
+the first set and said a sentence that read as though a set had been chosen. ⚠ **The choice is on the
+document rather than on `PaintTool`**, which is what the code here used to predict: a set name means
+something only inside one stack, and the tool outlives documents by design — two stacks made from
+`LayerStackDocument.Starter` carry the same set names, so a name on the tool would be stale in the
+silent direction. ⚠ **What still takes `Sets[0]` is `TexturingModule.Mesh`**, so a chosen set that
+narrows to a different mesh is given the first set's coverage map; that is a finding rather than a
+decision, and the file belongs to another slice.
+
 **And what the atlas is *of* is chosen there too.** The mesh picker binds
 `LayerStackAsset.Model` — [#920](https://github.com/Rikarin/Vixen/issues/920) — and that one binding
 is what makes three things possible at once: `PaintUvView.ShowIslands` has a caller, a stroke is
@@ -171,8 +184,8 @@ past its footprint; over real islands all four rounds run and it scans 49 564 �
 `PaintCostTests`' bound always allowed and had never measured. `PaintIslandCostTests` derives both
 from the same run rather than writing either down.
 
-One seam is stated rather than papered over, and the line under the pane is what says you are looking
-at it:
+Two seams are stated rather than papered over, and the line under the pane is what says you are
+looking at one of them:
 
 * **The pane shows the layer, not the stack.** `PaintComposite`'s two halves come from an
   `IPaintStack`, and the module supplies `PaintStackImages.Empty` — so the composite of the layer
@@ -180,6 +193,26 @@ at it:
   [#849](https://github.com/Rikarin/Vixen/issues/849); ⚠ what that needs is **not** the read-back
   that issue names (`TextureBake.Read` already exists and `LayerStackPreview` already calls it) but
   a seam that evaluates an arbitrary sliced `TextureSetAsset`.
+
+* **The pane composites with one of the bake's sixteen operators, and the other fifteen diverge.**
+  `PaintComposite.Resolve` is straight-alpha source-over, which is exactly `LayerBlendMode.Copy` at
+  full opacity; a compiled stack joins through `Colour/Blend`. So a painted layer whose blend mode is
+  anything but `Copy` — or which carries a mask, or per-channel enables — bakes to something other
+  than what was under the brush. ⚠ **This is written down and pinned rather than fixed**, and the two
+  lists that say which is which are `PaintComposite.Reproduces` and `PaintComposite.Diverges`;
+  `PaintCompositeTests` asserts they partition `LayerBlendMode`, so a *seventeenth* operator appended
+  to the bake cannot widen the gap silently.
+
+  ⚠ **Why implementing the fifteen is not the fix, measured rather than argued.** Over two
+  `PaintStackImages.Empty` halves every separable operator degenerates to the foreground, so the
+  fifteen would move **zero texels** for any stack anybody can open today — there is a test for that
+  too. What would make them observable is real halves, and real halves force the seed and the resolved
+  rectangles to come from the same join, which is `PaintComposite.ResolveAll`: **2712 ms at 4096² in
+  Debug**, measured on two machines and corroborated by [#853](https://github.com/Rikarin/Vixen/issues/853)'s
+  1878 ms on a third — and it would land on the pointer-down path *and* on an opacity slider's
+  per-frame path. #849's own design (the painted layer as an external image the stroke re-uploads per
+  dirty rectangle, so the plan does the join) is the one that closes this, and it does not begin with
+  a C# operator table.
 
 ⚠ **A pointer move uploads its own rectangle** ([#912](https://github.com/Rikarin/Vixen/issues/912),
 closed). `IEditorGraphics.Update` takes a rectangle and the host defers the copy to the frame that
@@ -221,8 +254,25 @@ it replaces is I/O-bound ([#850](https://github.com/Rikarin/Vixen/issues/850)).
   an undo made through the editor's own verb leaves every control in the layers panel showing the
   value it had — the blend mode and the opacity as much as the mesh picker. An edit made *in* a row
   refreshes, which is why this is invisible from inside the panel.
-* **No `.vxml`.** Doc 36 § P4 makes markup the authoring path and this panel is three elements; it is
-  worth porting when it grows a form, not before.
+* **No `.vxml` yet, and no longer any inline styling either.** Doc 36 § P4 makes markup the authoring
+  path, and [#881](https://github.com/Rikarin/Vixen/issues/881) is the debt: `LayerStackView` builds
+  its tree in C#. ⚠ **Half of that has landed.** The layout is `TexturingTheme.vcss` — the flex boxes
+  that were fifty-two `SetStyle` calls are nineteen, and every one of the nineteen is either a
+  runtime toggle (`display` written from `Show`) or a computed length (`depth × 12px`), neither of
+  which a stylesheet can express. ⚠ **A plugin installs its own sheet**, which was worth checking
+  before assuming otherwise: `EditorApplication` names the editor's five sheets one by one and
+  `PluginContext` has no stylesheet seam, but `UiElement.Document` reaches the document a panel is
+  in, so `LayerStackView` loads it — guarded, because a panel's factory re-runs on every workspace
+  relayout and `UiDocument.Load` appends. `LayerStackThemeTests` asserts the sheet reaches a real
+  panel, by geometry rather than by declaration.
+
+  ⚠ **What is still owed is the harder half**: the tree as markup with a reactive row model. It is
+  not a syntax translation — `Show` rebuilds rows only when a *shape signature* changes, precisely so
+  a slider survives a refresh mid-drag, and a naive `@for` over the layer list re-runs every row body
+  on every evaluation. The `@for` key rule applies: key rows on the layer's `Id`, stable across
+  reorders by construction. ⚠ And the day a `.vxml` appears in this project, its `.csproj` needs
+  `<VixenUi>true</VixenUi>` — the `.vcss` glob it now imports also globs `**/*.vxml`, and the
+  generator is what VX4002 and VX4003 are there to say is missing.
 * **No base resolution in the file.** `NodeGraphModel` has nowhere to put one —
   [#719](https://github.com/Rikarin/Vixen/issues/719) — so `TextureGraphDocument.BaseWidth` is held,
   shown and not saved. A sidecar to hold it would be a second file that disagrees with the one #719

@@ -918,7 +918,7 @@ public class LayerStackEditingTests {
     public void Choosing_a_set_changes_the_rows_the_ticks_and_the_part_picker() {
         using var fixture = new TexturingFixture();
 
-        Open(fixture, TwoSets());
+        var document = Open(fixture, TwoSets());
 
         var panel = Panel(fixture);
 
@@ -942,10 +942,15 @@ public class LayerStackEditingTests {
         Assert.Equal(2, Ticks(panel, "layer-stack-channel").Count);
         Assert.Equal("head", Find<Select>(panel, "layer-stack-set-mesh").Value);
 
-        // ⚠ And the honest half: the brush is still aimed at the first set, so a row of this one
-        // cannot be selected — an id both sets carried would send the stroke to the wrong one.
-        Assert.True(Buttons(panel, "layer-stack-select")[0].Disabled);
-        Assert.Contains(LayerStackView.OtherSet, Texts(panel, "layer-stack-row-refusal"));
+        // ⚠ And the brush went with it — #927, which this assertion used to say the opposite of. A
+        // row of the second set was disarmed with `LayerStackView.OtherSet` under it, because
+        // `PaintSurface.Open` took `Sets[0]` whatever the panel showed. The choice is now
+        // `LayerStackDocument.PaintSet` and the pane resolves it, so the row selects and the stroke
+        // lands in the set on the screen. `PaintSurfaceTests` is where the stroke's half is proved;
+        // this is the panel's.
+        Assert.False(Buttons(panel, "layer-stack-select")[0].Disabled);
+        Assert.Empty(Texts(panel, "layer-stack-row-refusal"));
+        Assert.Equal("Head", document.PaintSet);
     }
 
     /// <summary>⚠ And two sets of identical shape still swap, which the test above cannot see.</summary>
