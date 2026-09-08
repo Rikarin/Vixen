@@ -275,6 +275,12 @@ arrives with the mesh-map slice.
 decision rather than as a node and Part 4 never lists it. It is the escape hatch, and the section
 below on § D6 is where it is written down.
 
+**And most of doc 48 § 4.9's catalogue is not in `Nodes/` at all** — it is `Compounds/`, which is
+files. `Compounds/README.md` is that folder's own reasoning: what ships, what an author may expose
+from a published graph, and — the part that outlives the content — what turned out **not** to be
+authorable out of the atomic set, which is the standing test of whether the forty-odd kernels are the
+right ones. Three gaps and one refuted claim came out of writing the first dozen.
+
 ## The colour, channel and space kernels — doc 48 § 4.2 and § 4.3
 
 Thirteen `.rvn` files — fifteen in all, counting § M1's `Levels` and `Blend` — and
