@@ -101,5 +101,11 @@ waiting on.
 **Generic types** get a warning (`VXS0201`) and no descriptor. A descriptor names one closed type; a
 generic definition would need one per instantiation and the generator cannot know which exist. A
 closed generic used as a component would need the ECS to declare it, which is a Phase 2 conversation.
+⚠ Note what the rule is *not* about: a described **member** of type `List<int>` is fine and reaches
+`CollectionFactory` — only a generic *declaring* type is refused. The warning is reported on the type's
+own identifier; it used to be reported at `Location.None`, which under `TreatWarningsAsErrors` is a
+build error with no file and no line on it. `TypeDescriptorGeneratorTests` in
+`Vixen.Core.Reflection.Tests` drives the generator through `CSharpGeneratorDriver` and asserts both —
+it cannot be a fixture in `Described.cs`, because a warning there fails the build rather than being read.
 
 Licensed under Apache-2.0.

@@ -16,13 +16,18 @@ namespace Vixen.Engine.Generators;
 /// <param name="Reads">Fully qualified component types read, sorted.</param>
 /// <param name="Writes">Fully qualified component types written, sorted.</param>
 /// <param name="Problem">Why nothing can be emitted, or <see langword="null" /> if something can.</param>
+/// <param name="Handoffs">
+///     Calls in this class's body that hand a world, chunk, command buffer or context to something
+///     the inference did not read. Empty for a system whose access is entirely visible here.
+/// </param>
 sealed record AccessModel(
     string QualifiedName,
     string Namespace,
     string TypeName,
     ImmutableArray<string> Reads,
     ImmutableArray<string> Writes,
-    DiagnosticDescriptor? Problem
+    DiagnosticDescriptor? Problem,
+    ImmutableArray<Handoff> Handoffs
 );
 
 /// <summary>
@@ -75,6 +80,7 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
     const string CommandBufferType = "global::Vixen.Ecs.CommandBuffer";
     const string ParallelWriterType = "global::Vixen.Ecs.CommandBuffer.ParallelWriter";
     const string QueryExtensionsType = "global::Vixen.Ecs.WorldQueryExtensions";
+    const string SystemContextType = "global::Vixen.Ecs.Systems.SystemContext";
 
     static readonly DiagnosticDescriptor NotASystem = new(
         "VXS0407",
@@ -137,6 +143,21 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
         + "IDeclaredAccess, or the attribute is on the wrong class."
     );
 
+    static readonly DiagnosticDescriptor AccessLeavesTheClass = new(
+        "VXS0412",
+        "An inferred access cannot see what a call it does not read will do",
+        "'{0}' is marked [InferAccess] and hands a world, chunk, command buffer or context to '{1}', "
+        + "which this cannot read — so the inferred declaration may be missing what that call touches",
+        "Vixen.Engine",
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        "Inference reads the invocations in this class's own declarations, which includes its private "
+        + "helpers and local functions. A call into a base class, another type or another assembly is "
+        + "outside that, and a component it queries is inferred as nothing — an under-declared system "
+        + "is a data race rather than a slow one, so this is said rather than assumed harmless. Query "
+        + "in this class, or declare the access with [Reads]/[Writes] or IDeclaredAccess."
+    );
+
     /// <inheritdoc />
     public void Initialize(IncrementalGeneratorInitializationContext context) {
         var systems = context.SyntaxProvider
@@ -156,7 +177,7 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
         var space = type.ContainingNamespace.IsGlobalNamespace ? "" : type.ContainingNamespace.ToDisplayString();
 
         AccessModel Refused(DiagnosticDescriptor problem) =>
-            new(qualified, space, type.Name, [], [], problem);
+            new(qualified, space, type.Name, [], [], problem, []);
 
         // Before the shape checks, because "this is not a system" is the mistake and "it is not
         // partial" is only how it would have been fixed. A class that is neither should be told the
@@ -183,6 +204,7 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
 
         var reads = new SortedSet<string>(StringComparer.Ordinal);
         var writes = new SortedSet<string>(StringComparer.Ordinal);
+        var handoffs = ImmutableArray.CreateBuilder<Handoff>();
 
         foreach (var reference in type.DeclaringSyntaxReferences) {
             token.ThrowIfCancellationRequested();
@@ -197,6 +219,10 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
                 }
 
                 Collect(method, reads, writes);
+
+                if (HandsOffAccess(method, type)) {
+                    handoffs.Add(new(method.Name, LocationInfo.At(invocation.GetLocation())));
+                }
             }
         }
 
@@ -210,7 +236,71 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
             return Refused(NothingInferred);
         }
 
-        return new(qualified, space, type.Name, [.. reads], [.. writes], null);
+        return new(qualified, space, type.Name, [.. reads], [.. writes], null, handoffs.ToImmutable());
+    }
+
+    /// <summary>Whether this call takes the world (or a piece of it) somewhere inference cannot follow.</summary>
+    /// <param name="method">The method being called.</param>
+    /// <param name="system">The class the attribute is on.</param>
+    /// <returns>Whether it is a blind spot worth saying out loud.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The blind spot is narrower than it reads, and that is what makes the rule
+    ///         affordable.</b> Inference walks every invocation under the class's own
+    ///         <c>DeclaringSyntaxReferences</c>, which is the whole class — so a private helper, a
+    ///         local function and the other half of a partial are all already read. What is outside
+    ///         is a base class, another type, and another assembly.
+    ///     </para>
+    ///     <para>
+    ///         The question is asked of the <em>parameters</em> rather than of the argument syntax,
+    ///         which is what makes an extension method work: <c>world.Something()</c> is reduced, so
+    ///         the world is not in the argument list, but it is still parameter zero of
+    ///         <c>ReducedFrom</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it does not catch, deliberately.</b> A world handed to a
+    ///         <em>constructor</em> is an object creation and not an invocation, so a system that
+    ///         stows the world in a helper object at construction is still silent. Widening to that
+    ///         would also have to decide what to say about every field of a system that holds one,
+    ///         which is a bigger question than this rule.
+    ///     </para>
+    /// </remarks>
+    static bool HandsOffAccess(IMethodSymbol method, INamedTypeSymbol system) {
+        // A local function's body is inside the class declaration, so it was walked with everything
+        // else — the invocation is not a handoff even though the symbol's container is the method.
+        if (method.MethodKind == MethodKind.LocalFunction) {
+            return false;
+        }
+
+        var original = method.ReducedFrom ?? method;
+        var owner = original.ContainingType;
+
+        if (owner is null || SymbolEqualityComparer.Default.Equals(owner, system)) {
+            return false;
+        }
+
+        var name = owner.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+
+        // The calls Collect already understands. `Chunks` is here for the same reason `Query` is:
+        // it is a World method, and what it hands back is read by calls this does follow.
+        if (name is QueryDescriptionType
+            or WorldType
+            or ChunkType
+            or CommandBufferType
+            or ParallelWriterType
+            or QueryExtensionsType) {
+            return false;
+        }
+
+        foreach (var parameter in original.Parameters) {
+            var carried = parameter.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+
+            if (carried is WorldType or ChunkType or CommandBufferType or ParallelWriterType or SystemContextType) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     static void Collect(IMethodSymbol method, SortedSet<string> reads, SortedSet<string> writes) {
@@ -285,6 +375,21 @@ public sealed class SystemAccessInferenceGenerator : IIncrementalGenerator {
             if (model.Problem is not null) {
                 context.ReportDiagnostic(Diagnostic.Create(model.Problem, Location.None, model.QualifiedName));
                 continue;
+            }
+
+            // ⚠ Only on the emitting path, and that is the point. A refused class has already been
+            // told the declaration is not being written; this is about the class that gets one and
+            // is confident about it. A system with one visible query and one borne by a helper gets
+            // an under-declared IDeclaredAccess, and an under-declared system is a data race.
+            foreach (var handoff in model.Handoffs) {
+                context.ReportDiagnostic(
+                    Diagnostic.Create(
+                        AccessLeavesTheClass,
+                        handoff.Where.ToLocation(),
+                        model.QualifiedName,
+                        handoff.Method
+                    )
+                );
             }
 
             valid.Add(model);

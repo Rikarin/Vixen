@@ -250,7 +250,86 @@ public sealed class SystemTests {
         Assert.Equal(["dispose second", "dispose first"], log);
     }
 
+    /// <summary>Re-entering a phase from inside a system is refused, not attempted.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What it used to do was worse than failing.</b> The job-handle array is shared per
+    ///     phase, so an inner call into the same phase overwrites the outer call's handles and the
+    ///     outer loop then completes the inner call's; the single command buffer gets played back
+    ///     from inside a system, which is the structural change mid-phase the complete-before-playback
+    ///     ordering exists to prevent; and the world's version advances twice inside one phase, so
+    ///     "what changed since tick N" straddles two of them. None of the three fails — they corrupt.
+    ///     <para>
+    ///         The message is asserted, not just the type: an <c>InvalidOperationException</c> saying
+    ///         nothing is what somebody reaches this from a game with, and the three reasons are what
+    ///         tell them the fix is not "try again".
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void RunningAPhaseFromInsideAPhaseIsRefused() {
+        using var world = new World();
+        using var runner = new SystemRunner(world);
+
+        var reentrant = new ReentrantSystem();
+        runner.Add(reentrant);
+        reentrant.Runner = runner;
+
+        var thrown = Assert.Throws<InvalidOperationException>(() => runner.RunPhase(SystemPhase.Update, default));
+
+        Assert.Contains("not reentrant", thrown.Message, StringComparison.Ordinal);
+        Assert.Contains("FixedUpdate", thrown.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ARefusedReentryDoesNotLeaveTheRunnerUnusable() {
+        // The flag is cleared in a finally, so the exception a system threw does not turn into a
+        // runner that refuses every phase after it — which would be a worse failure than the one
+        // being reported, and is what a bare `running = false` after the call would produce.
+        var log = new List<string>();
+        using var world = new World();
+        using var runner = new SystemRunner(world);
+
+        var reentrant = new ReentrantSystem();
+        runner.Add(reentrant).Add(new RecordingSystem("after", log));
+        reentrant.Runner = runner;
+
+        Assert.Throws<InvalidOperationException>(() => runner.RunPhase(SystemPhase.Update, default));
+
+        reentrant.Runner = null;
+        runner.RunPhase(SystemPhase.Update, default);
+
+        Assert.Equal(["after"], log);
+    }
+
+    [Fact]
+    public void RunningPhasesOneAfterAnotherIsNotReentry() {
+        // The guard is about nesting, not about calling twice — RunFrame is nine calls in a row and
+        // must stay legal. A flag set and never cleared passes the two tests above and fails this.
+        var log = new List<string>();
+        using var world = new World();
+        using var runner = new SystemRunner(world);
+
+        runner.Add(new RecordingSystem("first", log));
+
+        runner.RunPhase(SystemPhase.Update, default);
+        runner.RunPhase(SystemPhase.Update, default);
+        runner.RunFrame(default);
+
+        Assert.Equal(["first", "first", "first"], log);
+    }
+
     // ---------------------------------------------------------------- systems under test
+
+    /// <summary>Calls back into the runner from inside its own update, which is the thing refused.</summary>
+    sealed class ReentrantSystem : SystemBase {
+        /// <summary>The runner to re-enter, or null to behave.</summary>
+        public SystemRunner? Runner { get; set; }
+
+        public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+            Runner?.RunPhase(SystemPhase.FixedUpdate, default);
+
+            return dependency;
+        }
+    }
 
     sealed class RecordingSystem(string name, List<string> log) : SystemBase {
         public override JobHandle Update(in SystemContext context, JobHandle dependency) {

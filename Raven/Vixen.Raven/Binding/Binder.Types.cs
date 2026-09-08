@@ -387,6 +387,14 @@ internal abstract partial class Binder {
         }
 
         // A type parameter passed through satisfies what its own constraints imply.
+        //
+        // ⚠ This looks redundant against the arm above and is not, which #454 asked and
+        // NegativeDiagnosticTests.A_type_parameter_constrained_by_another_type_parameter_is_allowed
+        // now answers. TypeParameterSymbol.Interfaces is `constraintTypes.OfType<NamedTypeSymbol>()`,
+        // so IsSubtypeOf reaches every constraint that is a named type one arm earlier — and reaches
+        // none that is not. `where T : U` is exactly that: T's only constraint is a
+        // TypeParameterSymbol, IsSubtypeOf has nothing to walk, and this is the only arm that can
+        // say yes. Replacing it with `return false` reports RVN2096 on a program that compiles.
         return argument is TypeParameterSymbol parameter
             && parameter.ConstraintTypes.Any(c => SatisfiesConstraint(c, constraint));
     }

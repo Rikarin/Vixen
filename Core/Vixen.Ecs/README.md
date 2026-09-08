@@ -116,6 +116,14 @@ runner.RunPhase(SystemPhase.FixedUpdate, time);
 conflict, so a system that returns promptly lets every non-conflicting system after it start
 immediately, and **a phase costs its critical path rather than its sum**.
 
+⚠ **`RunPhase` is not re-entrant and now says so.** A system that calls it from inside its own
+`Update` gets an `InvalidOperationException` naming the three reasons: the job-handle array is kept
+per phase and an inner call into the same phase overwrites the outer call's, there is one command
+buffer and the inner playback would apply the outer phase's structural change from inside a system,
+and the world's version would advance a second time inside one phase. All three corrupt rather than
+fail, which is why the refusal is worth having before the nested run is ever supported — see
+`Vixen.Net/README.md` § Owed for the case that wants it.
+
 Conflict is decided from the declared access: read against read is not one, write against anything
 is, and a write implies a read so "only writes X" and "only reads X" are never mistaken for
 disjoint. **A system that declares nothing conflicts with everything** — the only safe reading of "I
@@ -135,6 +143,17 @@ are all inferred as writes. Over-declaring costs parallelism; under-declaring is
 explicit `[Reads]`/`[Writes]` on the same class overrides the inference and the generator says so
 (`VXS0410`) rather than emitting a declaration nothing reads, and a class it could infer nothing from
 is told (`VXS0411`) rather than left silently undeclared.
+
+⚠ **What it can see is the class, and it now says when something leaves.** Inference walks every
+invocation under the class's own declarations, so a private helper, a local function and the other
+half of a partial are all read — but a query built in a base class, in another type or in another
+assembly is not, and a system with one visible query and one borne by a helper used to get a
+confidently *under*-declared `IDeclaredAccess` with no signal at all. `VXS0412` is that signal: a
+call that takes a `World`, `Chunk`, `CommandBuffer`, `ParallelWriter` or `SystemContext` out of the
+class is reported at the call site, on the emitting path only — a class already refused by
+`VXS0407`–`VXS0411` has been told no declaration is being written. It is not a whole-program
+analysis and does not pretend to be: a world handed to a *constructor* is an object creation rather
+than an invocation and is still silent.
 
 **The same declaration is handed to the job scheduler.** For the length of a system's `Update` the
 runner opens a `JobAccessScope` carrying that system's access, so every job the system schedules

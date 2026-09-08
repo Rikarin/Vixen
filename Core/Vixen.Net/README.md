@@ -626,10 +626,12 @@ in that package's README; the roadmap has the whole of Phase 9 in one place.
 - **The predicted step is a delegate, not the scheduler.** `PredictedStep<T>` is a callback the game
   supplies. What it should be is a re-entrant run of `SystemPhase.FixedUpdate`, so "what is simulated"
   and "what is replayed" cannot drift apart — and that wants the scheduler to be re-entrant, which it
-  is not. ⚠ **And it does not say it is not.** `SystemRunner.RunPhase` shares one job-handle array per
-  phase, one command buffer, and advances the world version again, so a nested run corrupts the outer
-  one silently — where `LocalTransport.Poll`, facing the same question, refuses with a message. The
-  refusal is worth having whether or not the nested run is ever built. Issue 496.
+  is not. `SystemRunner.RunPhase` shares one job-handle array per phase, one command buffer, and
+  advances the world version again, so a nested run would corrupt the outer one. ⚠ **It used not to
+  say so and now does**: re-entry throws an `InvalidOperationException` naming those three reasons,
+  which is `LocalTransport.Poll`'s arrangement — a silent corruption turned into a message (#496).
+  Making the nested run *work* still wants per-invocation handles and a per-invocation buffer, plus a
+  decision about the version stamp: a replay of the same tick probably should not advance it.
 - **A producer for `NetworkParent`.** Per-axis enable and parent-relative replication are built —
   `NetworkTransformAxes` narrows a replicator's lanes, `NetworkParent` names the frame a transform is
   quoted in, and `NetworkTransformApplySystem` holds a rider still until that frame exists rather than
