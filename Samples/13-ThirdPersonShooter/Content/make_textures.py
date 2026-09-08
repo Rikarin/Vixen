@@ -44,10 +44,14 @@ def emit(name, colour, height, rough, metal=False, alpha=None, strength=2.0, nor
     # one array and two encodings of it, and a recipe that regenerated the height for parallax would
     # be the defect it is trying to demonstrate.
     #
-    # Grey rather than one channel: the sample's importer settings are `Linear` + BC4 for this map,
-    # and BC4 takes red — but a one-channel PNG samples green and blue as 0, which is a trap
-    # `TexturedOpacitySurface` documents at length. Writing R = G = B costs the PNG and nothing in a
-    # bundle, since the block format is what ships.
+    # Grey rather than one channel: a one-channel PNG samples green and blue as 0, which is a trap
+    # `TexturedOpacitySurface` documents at length, and the march reads whichever channel the feature
+    # was pointed at. ⚠ An earlier version of this comment justified the three channels as free
+    # because "the block format is what ships" under `Linear` + BC4 — the sidecar this recipe writes
+    # beside the file says `compression: None`, four bytes a texel, like every other texture in the
+    # folder. BC4 is what `MaterialMapNaming.CompressionOf` picks for a *baked* height target, and
+    # this map is authored rather than baked. The three channels do cost bytes here; they cost less
+    # than a map that reads as black in two of them.
     if displaced:
         files.append((f"{name}-height.png", rgba(np.repeat(height[..., None], 3, axis=-1))))
 

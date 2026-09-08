@@ -77,8 +77,10 @@ public enum MaterialMapUsage {
 ///         material any graph ever emitted a height output from. So the name is
 ///         <see cref="MaterialBake.Material" />'s to supply, and only for a material whose author put
 ///         the feature there. See <a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>.
-///         <a href="https://github.com/Rikarin/Vixen/issues/1067">#1067</a> (displacement, which no
-///         material feature can be) is still open.
+///         ⚠ <a href="https://github.com/Rikarin/Vixen/issues/1067">#1067</a> is not a third reading
+///         still waiting for one: it was closed on 2026-09-08 <em>by deciding it</em> — true
+///         displacement moves vertices on a pre-subdivided mesh and is therefore not a material
+///         feature at all.
 ///     </para>
 /// </remarks>
 public enum MaterialMapTarget {

@@ -244,7 +244,14 @@ public static class MaterialBake {
 
         foreach (var feature in existing?.Features ?? []) {
             if (feature is ParallaxOcclusionFeature parallax) {
-                return parallax;
+                // ⚠ The author's numbers and the feature's own map name. `HeightScale` is theirs to
+                // keep; `HeightMap` is not, because it is half of a *pairing*: `WorldRenderer` keys
+                // the height texture index on `new ParallaxOcclusionFeature().HeightMap` and nothing
+                // anywhere refuses a material that spells the parameter differently. Preserving a
+                // renamed map would write a texture entry no feature ever looks up, leave the index
+                // at nought, and march the fallback checker — the silent failure the drop rule below
+                // exists to prevent, reached through the preservation rule above it.
+                return parallax with { HeightMap = new ParallaxOcclusionFeature().HeightMap };
             }
         }
 

@@ -28,9 +28,12 @@ features:
   # three maps and do *not* march them, which makes the arena its own A/B: one surface, one added
   # feature, everything else held.
   #
-  # **`heightScale` is in UV units, and here that is metres.** Every arena mesh is box-projected in
-  # metres of world (`Content/boxuv.py`), so one uv unit is one metre of wall and 0.004 is four
-  # millimetres of concrete relief. A number in metres would be a coincidence of this projection;
+  # **`heightScale` is in UV units, and here two metres of wall is one of them.** Every arena mesh
+  # is box-projected in metres of world and *divided by the tile* (`Content/boxuv.py`, invoked at
+  # 2.0), so `arena-wall.obj`'s 64 metres run over 32 uv units and 0.004 is eight millimetres of
+  # concrete relief. ⚠ This comment said one metre and four millimetres until 2026-09-09; the tile
+  # divisor is the half that is easy to read past, and it is also the only reading under which the
+  # thirty-two repeats below are true. A number in metres would be a coincidence of this projection;
   # the shader's unit is the material's tiling, which is why the feature cannot derive it.
   #
   # ⚠ **The silhouette is not this**, and the wall is the case where that is free: a displaced

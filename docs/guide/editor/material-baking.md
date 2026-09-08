@@ -78,7 +78,7 @@ length, because three usages share one file.
 | `metalness` | `<name>_orm` — blue | `ormMap` |
 | `emissive` | `<name>_emissive` | `emissiveMap` |
 | `opacity` | `<name>_opacity` | `opacityMap` |
-| `height` | `<name>_height` | — nothing samples it |
+| `height` | `<name>_height` | `parallaxHeightMap`, **only** where the material carries `ParallaxOcclusionFeature` |
 | `mask` | `<name>_mask` | — nothing samples it |
 
 ⚠ **The R, G, B order of the packed map is `TexturedOrmFeature`'s and not a preference.** That
@@ -92,10 +92,19 @@ black and shades. The absent values are read off the runtime features' own defau
 `OcclusionFeature.OcclusionMap` for occlusion, and `MetalRoughnessFeature`'s roughness and metalness
 for the other two.
 
-⚠ **Two of the nine bind to nothing, and are written anyway.** There is no textured height feature —
-[#615](https://github.com/Rikarin/Vixen/issues/615) is that decision — so a height map is a file an
-artist and a future feature can read and a material cannot. A mask is § 4.10's input to another graph
-or to a layer stack, and a material never samples one.
+⚠ **One of the nine binds to nothing, and is written anyway.** A mask is § 4.10's input to another
+graph or to a layer stack, and a material never samples one.
+
+⚠ **The height map's name is the author's answer and not the target's, which is why it is not in the
+naming table.** A material that carries `ParallaxOcclusionFeature` gets its height output bound to
+`parallaxHeightMap`; a material that does not gets the file and no texture entry. Returning the name
+unconditionally would put bytes the build imports, a bundle carries and a pool makes resident on
+every baked material with a height output, sampled by nothing. Composing the feature unconditionally
+is worse: it would march every such material per pixel, and — since the base surface is appended
+first — produce a `.vxmat` `MaterialCompiler` refuses, because the coordinate stage has to be first.
+⚠ **This paragraph said "there is no textured height feature" until 2026-09-09**, which was true when
+[#615](https://github.com/Rikarin/Vixen/issues/615) was decided and stopped being true when parallax
+landed.
 
 ⚠ **A material may not rename its maps.** `WorldRenderer.Paired` pairs one shader parameter with one
 material-side name and keys that on the feature's *default*, so a renamed map resolves nothing, takes

@@ -175,12 +175,68 @@ public sealed class MaterialBakeTests {
 
         Assert.Equal(0.02f, parallax.HeightScale);
 
-        // Named as the feature names it, which is what WorldRenderer.Paired keys the one entry on —
-        // and spelled apart from TexturedMaterialLayersFeature.HeightMap on purpose.
-        var bound = Assert.Single(material.Textures, texture => texture.Parameter == parallax.HeightMap);
+        // ⚠ Against the *default* and not against `parallax.HeightMap`. Comparing the entry with the
+        // instance the entry's name was copied from holds for any spelling, so it would pass against
+        // a material that renamed the map — which is the one arrangement `WorldRenderer.Paired`
+        // cannot key on, since it pairs on the default alone.
+        var bound = Assert.Single(
+            material.Textures,
+            texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap
+        );
 
         Assert.Equal(Reference(4), bound.Texture);
         Assert.Equal(4, material.Textures.Length);
+    }
+
+    /// <summary>⚠ A renamed height map is put back to the name the feature is paired on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one thing the preservation rule may not preserve.</b> Everything else in the
+    ///         author's <c>ParallaxOcclusionFeature</c> comes back untouched, because the numbers are
+    ///         theirs. The map's <em>name</em> is not a number, it is half of a pairing:
+    ///         <c>WorldRenderer</c> asks for the height texture index under
+    ///         <c>new ParallaxOcclusionFeature().HeightMap</c>, so a material spelling it anything
+    ///         else binds a texture nothing looks up, keeps <c>heightIndex</c> at nought and marches
+    ///         the fallback checker.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing refuses the rename on the way in.</b> The two sampling-feature tests that
+    ///         look like they would both assert over <c>new ParallaxOcclusionFeature()</c> defaults
+    ///         rather than over authored content, and the guide page's "a material may not rename its
+    ///         maps" is a rule with no enforcement behind it — which is why re-seating it here is the
+    ///         fix and not a diagnostic.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_re_bake_puts_a_renamed_height_map_back_to_the_name_the_feature_is_paired_on() {
+        var existing = new MaterialContent {
+            Features = [new ParallaxOcclusionFeature { HeightScale = 0.02f, HeightMap = "heightMap" }]
+        };
+
+        var material = MaterialBake.Material(
+            new Dictionary<MaterialMapTarget, AssetReference> {
+                [MaterialMapTarget.BaseColor] = Reference(1),
+                [MaterialMapTarget.Height] = Reference(4)
+            },
+            existing
+        );
+
+        var parallax = Assert.IsType<ParallaxOcclusionFeature>(material.Features[0]);
+
+        // The author's number survives and their spelling does not.
+        Assert.Equal(0.02f, parallax.HeightScale);
+        Assert.Equal(new ParallaxOcclusionFeature().HeightMap, parallax.HeightMap);
+
+        var bound = Assert.Single(
+            material.Textures,
+            texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap
+        );
+
+        Assert.Equal(Reference(4), bound.Texture);
+
+        // And nothing was bound under the author's name, which is what would have been resident and
+        // unread.
+        Assert.DoesNotContain(material.Textures, texture => texture.Parameter == "heightMap");
     }
 
     /// <summary>A material that never asked for parallax does not get it, and keeps its file.</summary>
@@ -254,7 +310,9 @@ public sealed class MaterialBakeTests {
     ///         binding lives in <see cref="MaterialBake.Material" /> rather than in the naming table —
     ///         see <see cref="A_bake_composes_no_parallax_for_a_material_that_did_not_ask" />, which
     ///         is this test one map along.
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1067">#1067</a> is still open.
+    ///         ⚠ <a href="https://github.com/Rikarin/Vixen/issues/1067">#1067</a>, the third reading
+    ///         of the word, was closed on 2026-09-08 by deciding it rather than by building it:
+    ///         displacement moves vertices and no material feature can.
     ///     </para>
     /// </remarks>
     [Fact]
