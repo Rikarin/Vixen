@@ -549,7 +549,12 @@ public class ShaderGraphViewTests {
         view.GraphView.Select([sample.Id]);
         harness.Ui.Frame();
 
-        var said = string.Join(" ", view.PreviewNote.Children.Select(child => child.Text ?? string.Join(" ", child.Children.Select(cell => cell.Text ?? ""))));
+        var said = string.Join(
+            " ",
+            view.PreviewNote.Children.Select(
+                child => child.Text ?? string.Join(" ", child.Children.Select(cell => cell.Text ?? ""))
+            )
+        );
 
         Assert.Contains("preview binds no resources", said, StringComparison.Ordinal);
     }
