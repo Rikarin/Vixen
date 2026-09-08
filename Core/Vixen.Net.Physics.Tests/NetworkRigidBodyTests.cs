@@ -304,6 +304,133 @@ public sealed class NetworkRigidBodyTests {
         Assert.True(angular < 5f, $"Corrected the long way round: {angular} rad/s.");
     }
 
+    /// <summary>A body the authority says has settled stops being steered; one that has not, does not.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The flag crossed the wire and was read by nobody</b> (#465). Both halves are here
+    ///         because only the pair is evidence: a receiver that ignored the flag entirely passes
+    ///         the "moving body is steered" half, and a receiver that never steered anything passes
+    ///         the "resting body settles" half.
+    ///     </para>
+    ///     <para>
+    ///         The two bodies are the same distance out and differ only in the flag, so what is
+    ///         measured is the flag and not the geometry. Sixty ticks is not a duration — it is
+    ///         enough integration steps that a body being pushed by a residual would have visibly
+    ///         moved, which is the property, and it is compared against the body beside it rather
+    ///         than against a number.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ABodyTheAuthorityHasDeclaredAsleepStopsBeingSteered() {
+        using var world = new World("rigid-resting");
+        var correction = new NetworkRigidBodyCorrectionSystem { Local = Receiving };
+
+        // Ten centimetres out, which is well inside the snap distance and exactly the residual a
+        // quantised position leaves behind when a body comes to rest.
+        var asleep = Corrected(
+            world,
+            new NetworkRigidBody { LinearVelocity = Vector3.Zero, IsResting = true },
+            new NetworkTransform { Position = new(0.1f, 0f, 0f), Rotation = Quaternion.Identity },
+            new LocalTransform { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
+        );
+
+        var awake = Corrected(
+            world,
+            new NetworkRigidBody { LinearVelocity = Vector3.Zero, IsResting = false },
+            new NetworkTransform { Position = new(0.1f, 0f, 0f), Rotation = Quaternion.Identity },
+            new LocalTransform { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
+        );
+
+        for (var tick = 0; tick < 60; tick++) {
+            correction.Correct(world, Step);
+
+            foreach (var entity in (Entity[])[asleep, awake]) {
+                ref var local = ref world.Get<LocalTransform>(entity);
+                local.Position += world.Read<PhysicsLinearVelocity>(entity).Value * Step;
+            }
+
+            Assert.Equal(Vector3.Zero, world.Read<PhysicsLinearVelocity>(asleep).Value);
+        }
+
+        // The sleeping one never moved; the one beside it, identical but for the flag, arrived.
+        Assert.Equal(Vector3.Zero, world.Read<LocalTransform>(asleep).Position);
+        Assert.True(
+            world.Read<LocalTransform>(awake).Position.X > 0.09f,
+            $"The moving body was not steered either — {world.Read<LocalTransform>(awake).Position.X} m."
+        );
+
+        Assert.Equal(60, correction.SettledCount);
+        Assert.Equal(60, correction.CorrectedCount);
+        Assert.Equal(0, correction.SnappedCount);
+    }
+
+    /// <summary>A body whose angular velocity is also stopped, because resting means both.</summary>
+    [Fact]
+    public void ASettledBodyStopsTurningAsWellAsMoving() {
+        using var world = new World("rigid-resting-spin");
+        var correction = new NetworkRigidBodyCorrectionSystem { Local = Receiving };
+
+        var entity = Corrected(
+            world,
+            new NetworkRigidBody { IsResting = true },
+            new NetworkTransform {
+                Position = Vector3.Zero,
+                Rotation = Quaternion.FromAxisAngle(Vector3.UnitY, 0.2f)
+            },
+            new LocalTransform { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
+        );
+
+        world.Get<PhysicsAngularVelocity>(entity).Value = new(0f, 3f, 0f);
+
+        correction.Correct(world, Step);
+
+        Assert.Equal(Vector3.Zero, world.Read<PhysicsAngularVelocity>(entity).Value);
+        Assert.Equal(1, correction.SettledCount);
+    }
+
+    /// <summary>A body rotated past the snap angle is snapped; one inside it is spun.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The threshold was declared, defaulted to π/2 and asked by nobody</b> (#466), while
+    ///     the type's own remarks said a body far out is teleported. Both halves again: a
+    ///     comparison written the wrong way round snaps everything, and one that never fires snaps
+    ///     nothing — and each passes the other's half.
+    /// </remarks>
+    [Theory]
+    [InlineData(3.0f, true)]
+    [InlineData(1.6f, true)]
+    [InlineData(1.5f, false)]
+    [InlineData(0.2f, false)]
+    public void ABodyRotatedPastTheSnapAngleIsSnapped(float radians, bool snaps) {
+        using var world = new World("rigid-snap-angle");
+        var correction = new NetworkRigidBodyCorrectionSystem { Local = Receiving };
+        var wanted = Quaternion.FromAxisAngle(Vector3.UnitY, radians);
+
+        // In the right place, so nothing the distance threshold could explain is in the answer.
+        var entity = Corrected(
+            world,
+            default,
+            new NetworkTransform { Position = Vector3.Zero, Rotation = wanted },
+            new LocalTransform { Position = Vector3.Zero, Rotation = Quaternion.Identity, Scale = Vector3.One }
+        );
+
+        correction.Correct(world, Step);
+
+        Assert.Equal(snaps ? 1 : 0, correction.SnappedCount);
+        Assert.Equal(snaps ? 0 : 1, correction.CorrectedCount);
+
+        if (snaps) {
+            // Placed, tagged so nothing draws it spinning there, and given the authority's motion.
+            Assert.Equal(wanted.Y, world.Read<LocalTransform>(entity).Rotation.Y, 4);
+            Assert.Equal(wanted.W, world.Read<LocalTransform>(entity).Rotation.W, 4);
+            Assert.True(world.Has<global::Vixen.Physics.Ecs.PhysicsTeleport>(entity));
+            Assert.Equal(Vector3.Zero, world.Read<PhysicsAngularVelocity>(entity).Value);
+        } else {
+            Assert.Equal(Quaternion.Identity, world.Read<LocalTransform>(entity).Rotation);
+            Assert.False(world.Has<global::Vixen.Physics.Ecs.PhysicsTeleport>(entity));
+            Assert.True(world.Read<PhysicsAngularVelocity>(entity).Value.Length() > 0f);
+        }
+    }
+
     /// <summary>Authority is the rules registry's answer, not a flag on the component.</summary>
     /// <remarks>
     ///     <para>

@@ -83,6 +83,7 @@ Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.Local.set -> Vixen.Net.Sessio
 Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.NetworkRigidBodyCorrectionSystem() -> void
 Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.Rules.get -> Vixen.Net.Rules.NetworkRulesRegistry?
 Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.Rules.set -> Vixen.Net.Rules.NetworkRulesRegistry?
+Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.SettledCount.get -> long
 Vixen.Net.Physics.NetworkRigidBodyCorrectionSystem.SnappedCount.get -> long
 Vixen.Net.Physics.NetworkRigidBodyReplicator -> sealed class
 Vixen.Net.Physics.NetworkRigidBodyReplicator : Vixen.Net.Replication.IComponentReplicator
