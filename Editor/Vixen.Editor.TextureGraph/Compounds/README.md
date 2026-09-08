@@ -29,6 +29,9 @@ authored, and what it cost to author the things that could**.
 | | Panels | `Shape Square` → `Tile` → `Blur` for the bevel |
 | | Tile Random | `Tile Sampler`, jitter on size, turn and position |
 | | Rivets | `Shape Paraboloid` → `Tile Sampler` |
+| | Scratches | a `Shape Disc` stretched forty times by `Transform 2D`, scattered by `Splatter` |
+| | Wood Grain | `Gradient` → `Mirror` → `Tile` for the rings, `Warp` for the wander, `Directional Warp` for the fibre |
+| | Cells | one `Worley` noise read three times: F1, F2 and the cell index |
 | `Generators` | Dirt · Curvature Edge Wear · Grunge Rough Dirty | mesh maps, by usage |
 | | Mask Editor | curvature, occlusion and noise under four sliders |
 | | Metal Edge Wear | curvature, broken away by a noise through `Colour/Mix`, gated by occlusion |
@@ -39,6 +42,10 @@ authored, and what it cost to author the things that could**.
 | | Bevel | `Distance` inside → `Levels` for the profile → `Height to Normal` |
 | | Curvature Smooth | `Blur HQ` → `Height to Normal` → `Curvature` |
 | | Height to AO | `Ambient Occlusion` → `Blur` → `Levels` |
+
+The five `.vxsmartmat` smart materials live one assembly over, in
+`Vixen.Editor.Texturing/SmartMaterials/`, and `Leather` — § 4.9's sixth, listed there without a ● —
+joined them in the second round, with its pebble grain masked by `Patterns/Cells`.
 
 `TextureCompoundLibraryTests` proves each of these parses, publishes, names only ports that exist and
 produces a plan; `TextureCompoundBakeDeviceTests` bakes every one of them on a device and refuses a
@@ -84,12 +91,14 @@ compounds that then shipped declared `parameters`, so the fix had no shipped rea
 
 Five findings, each measured rather than reasoned, and each filed.
 
-⚠ **Written over two rounds and the second one is where the arithmetic gets checked.** The first round
-authored twelve compounds and predicted three gaps; the second authored fifteen more — the grunge
-family of eight, the Surface row, the last three mask generators — against an atomic set that had
-gained `Colour/Mix` in the meantime. **Two of the first round's predicted gaps turned out not to be
-gaps**, which is recorded below beside what did, because a round that only writes down its hits will
-predict the same misses again.
+⚠ **Written over three rounds and each later one is where the previous one's arithmetic gets
+checked.** The first round authored twelve compounds and predicted three gaps; the second authored
+fifteen more — the grunge family of eight, the Surface row, the last three mask generators — against
+an atomic set that had gained `Colour/Mix` in the meantime; the third authored § 4.9's last three
+`Patterns` rows against one that had also gained the name knob. **Two of the first round's predicted
+gaps turned out not to be gaps and three of the third round's would have been**, which is recorded
+below beside what did, because a round that only writes down its hits will predict the same misses
+again.
 
 ### 1 · An expression on a sub-graph node's port is dropped, silently — [#1058](https://github.com/Rikarin/Vixen/issues/1058)
 
@@ -170,6 +179,10 @@ had its `$Knob` overwritten by every preview compile, and the next save wrote th
 vector for `TextureGraphExpressions` to fold. And **Metal Reflectance** still cannot be authored,
 though the blocker moved rather than went: no atomic node maps a metal name to an F0, so there is no
 setting for a compound to forward ([#1096](https://github.com/Rikarin/Vixen/issues/1096)).
+⚠ **Re-checked in the third round and unchanged**: nothing under `Nodes/` names a metal, an F0 or a
+reflectance, so the row is still a compound with nothing to wrap. It stays **refused** rather than
+half-built, because a named-metal lookup with the metal hard-wired is § 4.9's row with the row's
+whole purpose removed — and building it needs a kernel, which is the one thing § M10 may not add.
 
 ⚠ **Narrowed by the second round, and the line is not where "no name, no choice, no colour"
 puts it.** A *choice among channels* is authorable, because some nodes spell that choice as **numbers**
@@ -215,3 +228,76 @@ flat" bar sees it only by luck.
 the same experiment twice, and without one it fails good compounds — which is exactly how
 `Utility/Highpass` went red.
 
+### 6 · The third round: three patterns, and the two new mechanisms neither of them wanted
+
+`Patterns/Scratches`, `Patterns/Wood Grain` and `Patterns/Cells` are the last three ● in § 4.9's
+Patterns row. They were authored *after* both of round two's answers landed, which makes them the
+first honest test of whether those answers were the ones the library needed.
+
+⚠ **Neither of them was used, and that is the measurement rather than an oversight.** Not one of the
+three wanted a **name** knob — every choice they make is a shape kind, a blend mode or a mirror axis
+the compound has decided *for* the artist, and what is left over is arithmetic. And not one wanted
+`Colour/Mix`: a pattern generator composites nothing, because it has no backdrop. The two answers
+were both right for the rows that asked for them — masks and mask generators — and neither is what a
+pattern is short of.
+
+**Three gaps this rule would have predicted, and none of them is one.** The rule at the end of
+finding 3 says a compound can expose a `Scalar`, `Int` or `Bool` **port** and nothing spelled as a
+`[Setting]`. Applied ahead of authoring it predicts:
+
+| Predicted | Measured |
+|---|---|
+| No absolute value, so a wood ring's **triangle wave** is `Invert` + `Blend Darken` + a `Levels` to undo the halving | ⚠ **One node.** `Space/Mirror` in `Reflect` at offset 0.5 turns the `Gradient` ramp into a triangle before `Space/Tile` ever sees it. The halving is real — the peak is 0.5, not 1 — and the final `Levels` was going to be there anyway, so it costs nothing |
+| No **anisotropic stamp**, so a scratch needs a bar `Source/Shape` has not got | ⚠ **One node.** `Space/Transform 2D` at `Scale X` 40 under `Clamp` magnifies a `Disc` into a full-width capsule. ⚠ And the sign is the trap: the kernel's parameters are **forward** — "below 1 minifies" — so `Grunge Scratches`' `Scale X` of 0.05 is a *twentyfold minification whose supersample* produces its streaks, and copying that number here would have produced twenty thin bars rather than one long one |
+| No way to pick **one channel of a colour image**, so Worley's F1 needs a `Channel Shuffle` per lane | ⚠ **Not a gap, and it is round two's claim reaching production for the first time.** `Colour/Grayscale` with weights `(1, 0, 0)` *is* "the red channel", and `Patterns/Cells` uses three of them |
+
+**And one that is** — the sharp version of the row above, found by trying it:
+
+> ⚠ **A channel *choice* is authorable and a channel *difference* is not, and it fails silently.**
+> `Grayscale.rvn` normalises its three weights **by their sum**, deliberately and for a good reason
+> that is written out there. So `(−1, 1, 0)` does not compute `g − r`: the sum is zero, the kernel
+> takes its documented fallback and the node computes **Rec. 709 luminance** — a completely different
+> picture, with no diagnostic anywhere, because nothing about the weight triple is invalid.
+> `(−1, 1, 0.001)` is worse: the sum is 0.001, so the weights are scaled by a thousand.
+
+`Patterns/Cells` pays it. Worley reports F1 in red and F2 in green and the cell border is `F2 − F1`,
+which is **three nodes and two intermediate images** — a `Grayscale` per channel and a
+`Blend Subtract` — where one weight triple would have been one node. It is finding 2's shape one
+level down: the atomic set can select and it cannot combine, and the combination it is missing is one
+subtraction between two lanes of the *same* image.
+
+⚠ **`Filters/Pixel Processor` would have made it `a.g - a.r` and is deliberately not used**, for the
+reason its own remarks give: an escape hatch inside § 4.9's library would hide exactly the gap this
+paragraph is. No `.vxtexgraph` under `Compounds/` names that node, and that is still true.
+
+**What Cells wants that no node has at all** is a **distance metric** — Chebyshev and Manhattan
+Worley are the two other cell shapes a pattern library needs, and `Source/Noise` has neither a port
+nor a setting for one. That is a kernel gap rather than an authoring one, so it is not this folder's
+finding; it is recorded here because "Cells is the row most likely to want something that is not
+there" turned out to be true of the *kernel* and false of the compound vocabulary.
+
+### 7 · Two things the third round nearly got wrong
+
+⚠ **A compound containing `Source/Gradient` makes its containing plan carry an external image, even
+with no ramp asset.** `TextureTables.Ramp` bakes the black-to-white strip and hands it to
+`emitter.External(…, texels)`, so the plan has an external whose bytes it carries — and a host that
+evaluates without calling `TextureGraphExternals.Upload` gets *"Image 0 is external and no texture was
+supplied for it"* rather than a picture. `Wood Grain` is the first shipped compound to reach a table
+node, so this was worth checking rather than assuming: all four evaluation paths in the tree do call
+it — `TextureGraphPreviews`, `TextureExternalImages` (the layer-stack and material-bake routes) and
+`Vixen.Cli`'s `TextureGraphRunner`.
+
+⚠ **`Worn Wood`'s grime layer reads `roughness: 1.2` and `metalness: 1`, and neither is a bug.** That
+layer's `blend` is `Multiply`, whose neutral is **white** — `LayerStackGraph` writes the layer's blend
+straight onto a `Colour/Blend` `Mode` — so its `values` are *factors*: 1.2 is "20% rougher" and 1 is
+"leave metalness alone". A reader checking a smart material's channels against 0…1 will file an issue
+about both, and it will be wrong. The range a layer's value is in is decided by its blend mode and
+nowhere else.
+
+### What a compound costs the roll call
+
+Thirty-four compounds bake at 1024² in **4 s** end to end on an Apple M1 Max, and the three added by
+the third round moved that by about 0.3 s — a tenth of a second each, which is one compile, one submit
+and one `WaitIdle`. The extent is not what the roll call spends its time on, which is the same
+measurement finding 5 made from the other side. So the answer to "what would fifteen more cost" is
+about a second and a half, and the reason to be careful about adding fifteen is not the roll call.
