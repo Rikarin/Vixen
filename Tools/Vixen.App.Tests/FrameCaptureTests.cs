@@ -110,6 +110,79 @@ public sealed class FrameCaptureTests : IDisposable {
         Assert.True(application.Services.Graphics!.RequestCapture("frame"));
     }
 
+    /// <summary>
+    ///     ⚠ A run that can present is refused <em>and says so</em>, which is the half that did not
+    ///     exist.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1108">#1108</a>, and it is this
+    ///         repository's named failure shape rather than a missing convenience:
+    ///         <c>--vixen-frames 6 --vixen-capture ./shots</c> on a desktop rendered six frames,
+    ///         printed every counter a sample logs, printed "Stopping after 6 frames.", exited zero
+    ///         and wrote nothing — with no line anywhere saying why. Two runs were spent on it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The message names <c>--vixen-headless</c> and warns off
+    ///         <c>--vixen-offscreen</c>, which is a correction to the issue.</b> Offscreen is parsed
+    ///         into <c>GraphicsOptions.Offscreen</c> and decides which backend may answer — it is
+    ///         what turns the Null fall-through into a boot failure — and reaches neither the window
+    ///         nor the surface. A desktop run given it opens a window and lands right back here, so
+    ///         suggesting it would have sent the operator round the same loop a third time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The refusal itself is not new and asserting only that would prove nothing</b> —
+    ///         <c>ARequestWithNoDirectoryIsRefused</c> already covers a false return. What is under
+    ///         test is that the run is no longer silent, so the log record is the assertion and the
+    ///         false is the precondition.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ARunThatCanPresentIsRefusedAndSaysSo() {
+        using var device = new Graphics.Null.NullDevice(new() { Record = true });
+        using var application = Presenting(device, new WindowedCapturingGame(directory));
+
+        application.Initialise();
+
+        Assert.NotNull(application.Services.Window);
+        Assert.False(application.Services.Graphics!.RequestCapture("frame"));
+        Assert.Null(application.Services.Graphics!.LastCapturePath);
+        Assert.False(Directory.Exists(directory));
+
+        Assert.Contains(
+            application.Services.Logs.Snapshot(),
+            entry => entry.EventId == 13033 && entry.Message.Contains(directory, StringComparison.Ordinal)
+        );
+
+        // ⚠ Once, however often it is asked. The one caller asks on the last frame only, so a
+        // per-call line is invisible today and would be a wall of text the moment a head captured
+        // more than one frame — which is the shape a warning has to survive to stay readable.
+        application.Services.Graphics!.RequestCapture("frame");
+        application.Services.Graphics!.RequestCapture("frame");
+
+        Assert.Single(application.Services.Logs.Snapshot(), entry => entry.EventId == 13033);
+    }
+
+    /// <summary>
+    ///     And the same run without a capture directory says nothing, because there is nothing wrong
+    ///     with it.
+    /// </summary>
+    /// <remarks>
+    ///     The instrument check. A warning that fired on every windowed run would be indistinguishable
+    ///     from the one above in every assertion it makes, and would train an operator to ignore the
+    ///     line that matters.
+    /// </remarks>
+    [Fact]
+    public void ARunThatCanPresentAndAskedForNoPictureIsQuiet() {
+        using var device = new Graphics.Null.NullDevice(new() { Record = true });
+        using var application = Presenting(device, new WindowedGame());
+
+        application.Initialise();
+
+        Assert.False(application.Services.Graphics!.RequestCapture("frame"));
+        Assert.DoesNotContain(application.Services.Logs.Snapshot(), entry => entry.EventId == 13033);
+    }
+
     /// <summary>Asking for a picture with nowhere to put it is refused rather than guessed at.</summary>
     [Fact]
     public void ARequestWithNoDirectoryIsRefused() {
@@ -149,4 +222,23 @@ public sealed class FrameCaptureTests : IDisposable {
             config.Graphics.CapturePath = directory;
         }
     }
+
+    /// <summary>A window and no capture at all: the ordinary desktop run.</summary>
+    sealed class WindowedGame : Game {
+        protected internal override void OnConfigure(AppConfig config) {
+            config.Window = new();
+        }
+    }
+
+    /// <summary>The same application on a platform whose window can actually be presented to.</summary>
+    /// <remarks>
+    ///     See <see cref="PresentingPlatform" /> for why the headless one cannot stand in here: its
+    ///     surface is <c>SurfaceKind.None</c> unconditionally, which is the branch every other case
+    ///     in this file exercises.
+    /// </remarks>
+    VixenApplication Presenting(Graphics.IGraphicsDevice device, Game game) =>
+        VixenApp.Create(["--vixen-workers", "1", "--vixen-frame-limit", "0"])
+            .WithPlatform(new PresentingPlatform(new HeadlessPlatform(new HeadlessPlatformOptions { FileSystem = files })))
+            .WithGraphics(device)
+            .Build(game);
 }

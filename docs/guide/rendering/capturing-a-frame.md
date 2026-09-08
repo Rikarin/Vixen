@@ -26,7 +26,8 @@ buffer once the queue has retired the frame, and encoded by `PngCodec`.
 
 | Piece | What it is |
 |---|---|
-| `--vixen-capture <dir>` | Where the picture goes. Also what waives the no-surface refusal, below. |
+| `--vixen-capture <dir>` | Where the picture goes. Also what waives the no-*device* refusal, below — ⚠ not the surface. |
+| `--vixen-headless` | ⚠ Not optional. It is what removes the surface, and a capture run that can present writes nothing. |
 | `--vixen-frames N` | Which frame. The captured one is the last, and without this there is no last. |
 | `--vixen-fixed-step <s>` | How long each frame is *told* it took. Implied by `--vixen-capture` at 1/60. `0` puts the wall clock back. |
 | `GraphicsOptions.CapturePath` | The same setting from `OnConfigure`, for a head that always captures. |
@@ -93,6 +94,24 @@ info  Captured the frame to ./shots/frame.png.
 
 If that middle line names a software device instead, the picture is black and the run will still
 exit zero.
+
+### ⚠ The flag waives the device refusal and not the surface, and the two read alike
+
+`--vixen-capture ./shots --vixen-frames 6` on a desktop, with no `--vixen-headless`, opens a window,
+renders six frames, prints every counter and exits zero **having written nothing**: a presented image
+carries no `TransferSrcBit`, so `RequestCapture` refuses. It now says so, once, at the refusal:
+
+```
+warn  --vixen-capture was given but this run has a surface to present to, so nothing will be written
+      to ./shots. Add --vixen-headless (⚠ not --vixen-offscreen, which chooses the device and not the
+      surface), or leave AppConfig.Window null.
+```
+
+⚠ **`--vixen-offscreen` is not a substitute**, and that is the trap the line names out loud. It
+decides which backend may answer — it is what turns the Null fall-through into a boot failure — and
+touches neither the window nor the surface, so a desktop run given it lands in exactly the same place.
+`AppConfig.Headless` is what `PlatformHost.Create` reads to choose a platform whose surfaces report
+`SurfaceKind.None`, and a null `AppConfig.Window` is the in-code spelling of the same thing.
 
 ⚠ **The black picture is the *loud* half of that failure, and it is not the half that costs you a
 day.** A headless run without `--vixen-capture` runs no compute, so every counter that reads a result

@@ -94,6 +94,7 @@ public sealed class AppGraphics : IDisposable {
 
     int reportedWarnings;
     string captureName = "frame";
+    bool refusedCapture;
     bool disposed;
 
     /// <summary>Builds the frame a world is drawn through.</summary>
@@ -792,7 +793,10 @@ public sealed class AppGraphics : IDisposable {
     /// <returns>
     ///     Whether the request was taken. <see langword="false" /> when no capture directory was
     ///     configured, or when the frame has a window to present to — a presented image is created
-    ///     without the transfer-source flag, so nothing can copy out of it.
+    ///     without the transfer-source flag, so nothing can copy out of it. ⚠ The second of those is
+    ///     <em>logged</em>, once, because a run that asked for a picture and can present looks
+    ///     successful in every other respect; the first is not, because a run that asked for nothing
+    ///     and got nothing is the ordinary case.
     /// </returns>
     /// <remarks>
     ///     <para>
@@ -813,7 +817,21 @@ public sealed class AppGraphics : IDisposable {
         ObjectDisposedException.ThrowIf(disposed, this);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
-        if (options.CapturePath is not { Length: > 0 } directory || !IsOffscreen) {
+        if (options.CapturePath is not { Length: > 0 } directory) {
+            return false;
+        }
+
+        if (!IsOffscreen) {
+            // ⚠ Said once, at the refusal, because everything else about this run looks like a
+            // success: the frames render, every counter prints, the process exits zero and the
+            // directory the operator typed stays empty. #1108. Once rather than per frame because
+            // the caller asks on the last frame — but a host that asked every frame would otherwise
+            // turn a diagnosis into a wall of text.
+            if (!refusedCapture) {
+                refusedCapture = true;
+                HostLog.CaptureWithASurface(logger, directory);
+            }
+
             return false;
         }
 
