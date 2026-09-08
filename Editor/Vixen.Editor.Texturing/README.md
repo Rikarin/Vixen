@@ -327,16 +327,22 @@ it replaces is I/O-bound ([#850](https://github.com/Rikarin/Vixen/issues/850)).
 
 `PaintProjection`, `PaintFootprint`, `PaintSymmetry` and `PaintProjector` are § D13's **first** front
 end — the ray, the coordinate under it, the screen-radius conversion and the mirrors. `PaintProjector`
-is the whole of what a viewport calls: `Begin(eye, ray, screenRadius, out radius)` at pointer-down and
-`Resolve(ray)` per move, whose span is exactly what `PaintSession.MoveAll` takes.
+is the whole of what a viewport calls: `Begin(eye, ray, screenRadius, out footprint)` at pointer-down
+and `Resolve(ray)` per move, whose span is exactly what `PaintSession.MoveAll` takes.
 
 ⚠ **Nothing calls it yet, and the reason is a viewport rather than more arithmetic** —
 [#1063](https://github.com/Rikarin/Vixen/issues/1063). No pane in this editor shows a `.vxlayers`'
 model: the scene viewport shows the *scene*, and a stack names a model **asset path** that nothing
 maps to an entity, while a pane of the plugin's own cannot draw geometry because `IEditorGraphics`
-lends a device and `Upload` takes pixels. The other half of the chain is
-[#1062](https://github.com/Rikarin/Vixen/issues/1062): `LayerStackMesh` resolves the model and keeps
-only the coordinates, so the positions a raycast needs are read and discarded.
+lends a device and `Upload` takes pixels.
+
+The other half of that chain is done: `LayerStackMesh` keeps the positions beside the coordinates and
+hands back a `PaintProjection` built from both ([#1062](https://github.com/Rikarin/Vixen/issues/1062)).
+One resolution, five refusals, and a raycast that cannot disagree with the coverage map about which
+triangle is which — the two arrays are written by one loop over one index list, so a triangle reaches
+both or neither. ⚠ **What is left is entirely the host**, and the host is `TexturingModule`: it is
+what holds the resolved mesh, what holds the `IEditorGraphics` an upload goes through, and what builds
+the paint panel. A pane cannot reach any of the three from inside `Painting/`.
 
 Three things are worth knowing before that is wired.
 
@@ -355,17 +361,34 @@ Three things are worth knowing before that is wired.
    holds the model — and wrong at every silhouette. ⚠ The angle is the **ray's**, not the line from
    the eye to the hit; they agree under perspective and do not under an orthographic camera, where
    every ray is parallel to the forward axis.
-3. ⚠ **The stamp is a disc and the footprint is an ellipse, so a stretched chart is painted wrong in
-   one direction** — [#1064](https://github.com/Rikarin/Vixen/issues/1064). `PaintDensity.Area` is the
-   geometric mean, which is wrong by the square root either way and preserves the painted area; sizing
-   by the major axis paints past where the artist swept and by the minor leaves a sliver. The fix is
-   an elliptical stamp and it is not here.
+3. ⚠ **The stamp is an ellipse, and it was a disc until
+   [#1064](https://github.com/Rikarin/Vixen/issues/1064).** `PaintDensity.Area` is the geometric mean,
+   which preserves the painted area and is wrong by the square root in both directions — a chart
+   stretched four to one was painted twice too wide one way and twice too narrow the other.
+   `PaintBrush.Aspect` and `AspectAngle` now carry the shape: `PaintBrush.Circularised` squeezes the
+   texel offset before `TerrainBrush.WeightAt` sees it, so there is still one falloff curve and the
+   kernel pays nothing. ⚠ **The long axis in the atlas is the map's *left* singular vector**, and the
+   issue asked for the right one — those are directions on the *surface*, and the two agree only for a
+   symmetric map. Every axis-aligned fixture reports both as zero, so only a chart stretched along a
+   *rotated* axis can tell them apart.
+   ⚠ **The grazing tilt is still collapsed to its area factor**, which is a second ellipse of the same
+   order (2:1 at 60° off the normal) — [#1075](https://github.com/Rikarin/Vixen/issues/1075).
 
 ⚠ **And symmetry is the ray's, which is why `MoveAll` takes a set.** A mirrored ray that misses the
 mesh cannot be skipped for one move — the session refuses a changed path count, correctly, because a
 mirror with no record leaves the one undo entry restoring half the drag — so a missed path **holds its
 last position**, which costs nothing: `BrushStroke.MoveTo` lays a stamp only for a movement with a
 length.
+
+⚠ **A drag's undo record is not its strokes' records concatenated, and this was wrong until batch
+19.** Each `PaintStroke` remembers what a texel held before *it* first wrote there, which is the value
+`PaintImage.Mix` blends from. Where two paths of one drag overlap in the atlas — two mirrors whose
+islands the packer put next to each other, which is the ordinary case for a symmetric model — the
+second one's record holds **the first one's paint**, so undoing them in any fixed order leaves some of
+it behind. There is no order that works: the strokes interleave per pointer move, so a texel's first
+writer can be either of them. `PaintOriginal` is one map of first-seen values per drag, written from
+the same place the per-stroke record is and restored after them; it is made only where there is more
+than one path, so no 2D stroke pays for it.
 
 ## What is not here
 
