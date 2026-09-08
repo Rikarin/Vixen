@@ -5,6 +5,12 @@
 # four fixtures. TaffyFloatConformanceTests asserts both that every failure is listed here AND that
 # the totals are the committed counts, so a line cannot quietly widen and a fix cannot quietly land.
 #
+# COUNTS, generated — VIXEN_REGENERATE=1: 84 fixtures, 84 pass, 0 fail, 0 refused.
+#
+# ⚠ That line is generated because the same sentence in GridKnownGaps.txt drifted two batches behind
+# the constants its suite asserts. A count written as prose beside a pinned constant is the one number
+# in this arrangement nothing could contradict, and it is the number a reader trusts most.
+#
 # ⚠ **THIS FILE IS EMPTY AND THAT IS A WEAK RESULT, NOT A STRONG ONE — READ IT THE SAME WAY
 # UnsupportedFixtures.txt SAYS TO READ THE OTHER CLEAN CONVERSIONS.** All 84 of these fixtures were
 # ENGINE gaps: the store had no `float` field, so nothing here had ever been run, and the algorithm

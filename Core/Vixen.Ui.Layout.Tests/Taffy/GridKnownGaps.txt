@@ -15,7 +15,14 @@
 # corollary is the one rule that matters: a gap that closes comes off this file in the same commit
 # as it closes, and a gap that opens does not get added without a heading explaining it.
 #
-# 2 104 of the 2 120 grid, blockgrid and gridflex fixtures pass, 16 fail and none is refused.
+# COUNTS, generated — VIXEN_REGENERATE=1: 2 120 fixtures, 2 104 pass, 16 fail, 0 refused.
+#
+# ⚠ That line is the ONE statement of the counts in this file, and it is generated because the
+# sentence it replaces was prose beside a pinned constant: it read "2 080 … pass, 40 fail" for two
+# batches after the suite had pinned 2 104 and 16, while the headings further down already carried
+# the new figures. `Summary_line_states_the_counts_the_suite_pins` holds it to them now, and a
+# rewording that loses the line fails rather than passing silently. The categories it counts are
+# grid, blockgrid and gridflex.
 #
 # ⚠ FOUR NAMES ARE LEFT IN THIS FILE AND NOT ONE OF THEM IS ARITHMETIC A READER COULD GO AND FIX,
 # which is the answer to the question the file exists to answer and is worth stating before the

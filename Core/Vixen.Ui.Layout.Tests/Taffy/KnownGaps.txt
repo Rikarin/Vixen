@@ -12,7 +12,7 @@
 #
 # Names are given without the __{border,content}_box_{ltr,rtl} suffix, so one line covers up to four
 # fixtures — and not always all four. ⚠ THERE ARE NO LINES LEFT: this corpus disagrees with Chrome
-# about nothing and refuses nothing, 2 408 of 2 408. The last two entries were the
+# about nothing and refuses nothing, which is the generated line below. The last two entries were the
 # align_baseline_multiline_column families, and the sentence that used to stand here named the wrong
 # axis for them — it said box-sizing decided whether their bug was reachable where DIRECTION did.
 # Their heading below carries the rule that closed them.
@@ -20,6 +20,12 @@
 # TaffyFlexConformanceTests asserts both that every failure is listed here AND that the totals are
 # exactly the committed counts — so a line cannot quietly widen to cover a new failure, and fixing
 # any one of these turns the suite red until the count and the line are both updated.
+#
+# COUNTS, generated — VIXEN_REGENERATE=1: 2 408 fixtures, 2 408 pass, 0 fail, 0 refused.
+#
+# ⚠ That line is generated because the same sentence in GridKnownGaps.txt drifted two batches behind
+# the constants its suite asserts. A count written as prose beside a pinned constant is the one number
+# in this arrangement nothing could contradict, and it is the number a reader trusts most.
 #
 # 206 at the corpus's first run; none now — and the four that arrived latest of all arrived by being
 # LOOKED AT rather than by breaking. They were refused on `scrollbar-width` and had never run, and

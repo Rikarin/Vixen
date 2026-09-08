@@ -121,6 +121,18 @@ public class TaffyFlexConformanceTests {
         Assert.Equal((ExpectedPassing, ExpectedFailing, ExpectedUnsupported), (passing, failing, unsupported));
     }
 
+    /// <summary>The gaps file's own summary line states those same counts.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The sentence a reader meets first was the only number in this arrangement nothing
+    ///     checked</b>, and <c>GridKnownGaps.txt</c>'s was two batches stale before anybody noticed.
+    ///     See <see cref="TaffyGapsSummary" /> for why the line count is asserted before the digits
+    ///     on it are: a sweep that finds no line agrees with a file the line was deleted out of.
+    /// </remarks>
+    [Fact]
+    public void Summary_line_states_the_counts_the_suite_pins() {
+        TaffyGapsSummary.Check("KnownGaps.txt", ExpectedPassing, ExpectedFailing, ExpectedUnsupported);
+    }
+
     /// <summary>Strips the border-box/content-box and ltr/rtl suffix Taffy appends to every fixture.</summary>
     static string BaseName(string name) {
         var separator = name.IndexOf("__", StringComparison.Ordinal);

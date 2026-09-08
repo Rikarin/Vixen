@@ -18,6 +18,8 @@ Doc 43 § B0. Licence: MIT — see the repository `NOTICE` and ADR-015.
 | `KnownGaps.txt` | The flex fixtures Vixen gets wrong, with a diagnosis each. |
 | `BlockKnownGaps.txt` | The same for block, and the shape of that file is itself the result. |
 | `GridKnownGaps.txt` | The same for grid. |
+| `FloatKnownGaps.txt` | The same for float, and it is empty — read its header for why that is weak. |
+| `TaffyGapsSummary` | Holds each gaps file's `# COUNTS` line to the constants its suite pins. |
 | `UnsupportedFixtures.txt` | The fixtures that assert **nothing**, by reason and by corpus. |
 
 | Category | Fixtures | Pass | Fail | Refused |
@@ -38,7 +40,10 @@ the refused column additionally by `TaffyUnsupportedCensusTests`, which requires
 
 ⚠ **Asserted in the suites, not from this table** — and the difference is that this table had drifted
 by 14 fixtures before anyone noticed, while every suite was green. The numbers are copied here by
-hand; the suites are the record.
+hand; the suites are the record. ⚠ The gaps files no longer have that property and this table still
+does: each of the four now carries one generated `# COUNTS` line that `TaffyGapsSummary` holds to its
+suite's constants, after `GridKnownGaps.txt`'s hand-written summary sat two batches behind them
+(`Rikarin/Vixen#991`). This table is the last count in the directory that nothing contradicts.
 
 ⚠ **The refused column is zero for the first time, and a zero there is the state
 `UnsupportedFixtures.txt` was written to warn about rather than to celebrate.** A census of nothing

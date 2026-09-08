@@ -8,7 +8,12 @@
 # TaffyBlockConformanceTests asserts both that every failure is listed here AND that the totals are
 # exactly the committed counts, so a line cannot quietly widen and a fix cannot quietly land.
 #
-# ALL 884 block fixtures pass, plus ALL 28 blockflex. NONE fails and NONE is refused.
+# COUNTS, generated — VIXEN_REGENERATE=1: 912 fixtures, 912 pass, 0 fail, 0 refused.
+#
+# That is all 884 block fixtures plus all 28 blockflex, and the line is generated rather than
+# written because the same sentence in GridKnownGaps.txt drifted two batches behind the constants
+# the suite asserts — a summary a reader meets first and nothing can contradict.
+# `Summary_line_states_the_counts_the_suite_pins` is what contradicts it now.
 #
 # ⚠ The last 72 refusals closed in three batches, and the last 8 of them were floats:
 # `block_flow_root_avoids_sibling_float` and `block_flow_root_contains_float`, which needed a float
