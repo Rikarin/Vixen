@@ -238,6 +238,42 @@ public sealed class HierarchyTests {
         return found;
     }
 
+    /// <summary>Moving a child to the head of the list it is already in actually moves it.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>SetParentAfter</c> said "already first: SetParent prepends, which is where this
+    ///     wants it", and that was true only of an entity arriving from another parent.</b>
+    ///     <c>SetParent</c> returns without touching anything when the parent already matches — the
+    ///     right early-out for a reparent and exactly wrong for a reorder — so asking to put the
+    ///     third of four children first did nothing at all: no exception, no move, and no way for the
+    ///     caller to tell. It went unnoticed because the only caller was an undo, which always came
+    ///     from somewhere else. Doc 20's "reorder among siblings" is what reached it.
+    /// </remarks>
+    [Fact]
+    public void MovingAChildToTheFrontOfItsOwnParentPutsItThere() {
+        using var world = new World();
+
+        var parent = Hierarchy.CreateTransform(world, LocalTransform.Identity);
+        var first = Hierarchy.CreateTransform(world, LocalTransform.Identity);
+        var second = Hierarchy.CreateTransform(world, LocalTransform.Identity);
+        var third = Hierarchy.CreateTransform(world, LocalTransform.Identity);
+
+        Hierarchy.SetParent(world, first, parent);
+        Hierarchy.SetParent(world, second, parent);
+        Hierarchy.SetParent(world, third, parent);
+
+        // Linking prepends, so the sibling order is the reverse of the creation order.
+        Assert.Equal([third, second, first], Children(world, parent));
+
+        Hierarchy.SetParentAfter(world, first, parent, Entity.Null);
+
+        Assert.Equal([first, third, second], Children(world, parent));
+
+        // And the other direction still works: behind a named neighbour, within one parent.
+        Hierarchy.SetParentAfter(world, first, parent, second);
+
+        Assert.Equal([third, second, first], Children(world, parent));
+    }
+
     static bool IsBelow(Dictionary<Entity, Entity> parentOf, Entity ancestor, Entity entity) {
         for (var walk = entity; !walk.IsNull; walk = parentOf.GetValueOrDefault(walk)) {
             if (walk == ancestor) {

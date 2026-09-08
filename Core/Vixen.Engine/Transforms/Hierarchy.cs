@@ -266,10 +266,24 @@ public static class Hierarchy {
             );
         }
 
+        // ⚠ **Read before the move, because "did the parent change" decides what the null case
+        // means.** `SetParent` returns without touching anything when the parent already matches —
+        // it is the right early-out for a reparent and it is exactly wrong here.
+        var was = ParentOf(world, entity);
+
         SetParent(world, entity, parent);
 
         if (after.IsNull) {
-            // Already first: SetParent prepends, which is where this wants it.
+            // ⚠ **"Already first: SetParent prepends" was true only of an entity arriving from
+            // somewhere else, and this method was only ever called that way.** Asking to put the
+            // third of five children at the head of the list it is already in did nothing at all: no
+            // exception, no move, and a caller with no way to tell. Reordering among siblings is
+            // what found it — see `ReparentCommand`.
+            if (was == parent) {
+                Unlink(world, entity, parent);
+                Link(world, entity, parent);
+            }
+
             return;
         }
 

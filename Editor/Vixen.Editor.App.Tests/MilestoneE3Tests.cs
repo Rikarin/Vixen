@@ -339,9 +339,28 @@ public class MilestoneE3Tests {
     ///     <c>Run</c> settles.</b> The first version of this test ran a command and asserted an
     ///     empty queue, which passes with the whole fix deleted: settling flushes, and a queue that
     ///     has been drained says nothing about what was in it.
+    ///
+    ///     ⚠ <b>Against a control editor rather than against zero, and the premise moved rather than
+    ///     the claim.</b> This asserted an empty queue, which was the panel's own count only while
+    ///     nothing else in the editor watched the stack. Since #430 the application keeps one
+    ///     standing effect on the scene's dirty signal — that is what greys Save without the toolbar
+    ///     being polled every frame — and an undo moves it. A literal zero would now be asserting
+    ///     that nothing else may ever watch the stack, which is a much weaker and much more brittle
+    ///     claim than "the closed panel's rows are not in the queue".
     /// </remarks>
     [Fact]
     public void Closing_the_undo_history_stops_it_following_the_stack() {
+        int baseline;
+
+        using (var control = EditorSession.Start()) {
+            control.Run("scene.create-entity");
+            control.Settle();
+            control.Document.Effects.Flush();
+
+            Assert.True(control.Scene.Stack.Undo());
+            baseline = control.Document.Effects.PendingCount;
+        }
+
         using var fixture = EditorSession.Start();
 
         fixture.Run("scene.create-entity");
@@ -354,7 +373,7 @@ public class MilestoneE3Tests {
         fixture.Document.Effects.Flush();
 
         Assert.True(fixture.Scene.Stack.Undo());
-        Assert.Equal(0, fixture.Document.Effects.PendingCount);
+        Assert.Equal(baseline, fixture.Document.Effects.PendingCount);
     }
 
     /// <summary>Part C's <b>Undo History⋯</b>, and the one operation an undo stack actually supports.</summary>

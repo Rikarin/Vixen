@@ -34,6 +34,7 @@ using Vixen.Ui;
 using Vixen.Ui.Controls;
 using Vixen.Ui.Controls.Advanced;
 using Vixen.Ui.HotReload;
+using Vixen.Ui.Reactive;
 
 // ⚠ Aliased, because this file also names `Vixen.Engine.Scenes.Prefab` — the runtime's captured
 // `World`, which shares a word with the editor's prefab and is not related to it. Doc 47 § 1 opens by
@@ -102,6 +103,13 @@ sealed partial class EditorApplication : IDisposable {
     ///     <see cref="SetActiveScene" />.
     /// </remarks>
     SceneDocument scene;
+
+    /// <summary>What tells the interface that Save has become pressable, or stopped being.</summary>
+    /// <remarks>
+    ///     Held so it can be disposed with the application. An effect that outlived the shell would
+    ///     be one asking a disposed document to invalidate itself.
+    /// </remarks>
+    Effect? saveEnablement;
 
     /// <summary>What the host can do that this cannot ask for itself: pickers, and a browser.</summary>
     readonly EditorServices services;
@@ -778,12 +786,19 @@ sealed partial class EditorApplication : IDisposable {
             },
 
             // ⚠ On the pool. See the property: writing a catalog plans the whole project.
-            Cataloged = () => projectContent.Rebuild(),
-
-            // And its two buttons are greyed while anything is running, which is a fact about the
-            // task rather than about anything the panel did.
-            BusyChanged = RefreshBuildPanel
+            Cataloged = () => projectContent.Rebuild()
         };
+
+        // And its two buttons are greyed while anything is running, which is a fact about the task
+        // rather than about anything the panel did.
+        content.BusyChanged += RefreshBuildPanel;
+
+        // ⚠ And the toolbar, which is the other half of doc 45 step 4. `assets.build`'s enablement
+        // reads `content.IsBusy` — a counter a worker thread moves, with no notification of its own —
+        // and that is one of the two predicates that kept `EditorShell.Tick` polling the strip sixty
+        // times a second. `ContentTasks` was already comparing the flag once a frame and telling the
+        // build panel; this is the same event reaching the thing that greys the button. #430.
+        content.BusyChanged += Shell.Document.InvalidateCommands;
 
         // ⚠ And the bake panel's result list, which is the one surface a finished bake changes that
         // a rescan does not. Assigned after the initializer rather than in it, because the hook
@@ -1427,6 +1442,11 @@ sealed partial class EditorApplication : IDisposable {
         }
 
         plugins.UnloadAll();
+
+        // The dirty watch, which would otherwise be an effect asking a disposed document to
+        // invalidate its commands.
+        saveEnablement?.Dispose();
+        saveEnablement = null;
 
         // ⚠ Before anything else, and it is not tidying. `EditorRegistry.Default` is process-wide —
         // it has to be, because a generated registration has no editor to be handed — so an editor
@@ -2871,6 +2891,24 @@ sealed partial class EditorApplication : IDisposable {
 
         Shell.Keys.SetDefault("file.save", new KeyChord(InputKey.S, ModifierKeys.Control));
 
+        // ⚠ **The other predicate that kept the toolbar polled, and it always had a signal to hang
+        // this on.** `IsDirty` is an `IReadOnlySignal<bool>` on the scene's command stack — the
+        // enablement above reads it — and nothing was watching it, so Save's greyed-ness was kept
+        // right by asking sixty times a second. Reading the value inside the effect is what makes
+        // this a dependency rather than a one-shot; the invalidation is coalesced to one raise per
+        // frame by the document. #430.
+        //
+        // ⚠ On the document's scheduler and not the thread's default, for `UiDocument.Effects`' own
+        // reason: the shell drains its own queue at the bottom of `Tick`, and an effect queued
+        // anywhere else is one nothing here ever flushes.
+        saveEnablement = new Effect(
+            () => {
+                _ = scene.IsDirty.Value;
+                Shell.Document.InvalidateCommands();
+            },
+            Shell.Document.Effects
+        );
+
         // Enabled only while the panel is open, because the browser is what holds the tree — and a
         // rescan with nowhere to show the result is a menu item that appears to do nothing.
         Shell.Commands.Add(
@@ -4217,6 +4255,15 @@ sealed partial class EditorApplication : IDisposable {
     ///         the context menu follows, and for the same reason: dragging one of five selected rows
     ///         and having four of them stay behind is the behaviour nobody means.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Where it landed among its new siblings is read off the tree and passed on, and
+    ///         until it was, half of this gesture did nothing.</b> <c>TreeView</c> has always
+    ///         distinguished a drop <i>on</i> a row from one <i>between</i> two — that is what the
+    ///         drop indicator draws — and this method read only <c>node.Parent</c>, so every drop
+    ///         landed the entity at the head of its new parent's children. Doc 20 § Part D lists
+    ///         "reorder among siblings" beside "reparent by drag" for that reason: the drag was
+    ///         wired, and the position it carried was discarded one call short of the document.
+    ///     </para>
     /// </remarks>
     void Dropped(TreeNode node) {
         if (node.Tag is not Entity moved) {
@@ -4226,8 +4273,26 @@ sealed partial class EditorApplication : IDisposable {
         var parent = node.Parent is { Tag: Entity target } ? target : Entity.Null;
         var entities = scene.Selection.Contains(moved) ? scene.Selection.ToList() : [moved];
 
-        scene.Reparent(entities, parent);
+        scene.Reparent(entities, parent, Preceding(node));
         hierarchyStale = true;
+    }
+
+    /// <summary>The entity a moved row now sits behind, or none when it is first.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read after the tree has moved the node, which is the only moment it is knowable.</b>
+    ///     <c>TreeView.MoveNode</c> raises <c>Moved</c> once the row is where the pointer put it, so
+    ///     the row above it in its new parent is the sibling the document has to land behind — and a
+    ///     <c>DropPosition</c> handed over instead would be a second encoding of the same fact for
+    ///     this method to get wrong.
+    /// </remarks>
+    static Entity Preceding(TreeNode node) {
+        if (node.Parent is not { } parent) {
+            return Entity.Null;
+        }
+
+        var index = parent.IndexOf(node);
+
+        return index > 0 && parent.Children[index - 1].Tag is Entity before ? before : Entity.Null;
     }
 
     void RebuildHierarchy() {

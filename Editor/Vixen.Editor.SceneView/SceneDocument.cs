@@ -742,10 +742,28 @@ public sealed class SceneDocument : EditorDocument {
     ///     carried inside a parent that is also moving — is filtered by the command rather than
     ///     refused, so a drag that was partly meaningless still does the meaningful part.
     /// </remarks>
-    public bool Reparent(IEnumerable<Entity> entities, Entity parent) {
+    public bool Reparent(IEnumerable<Entity> entities, Entity parent) => Reparent(entities, parent, Entity.Null);
+
+    /// <summary>Hangs several entities from one parent, at a chosen place among its children.</summary>
+    /// <param name="entities">The entities to move.</param>
+    /// <param name="parent">Their new parent, or <see cref="Entity.Null" /> to make them roots.</param>
+    /// <param name="after">
+    ///     Which of the parent's children to land behind, or <see cref="Entity.Null" /> to land
+    ///     first.
+    /// </param>
+    /// <returns>Whether anything moved.</returns>
+    /// <remarks>
+    ///     ⚠ <b>This is what makes sibling order reachable, and doc 20 § Part D had it as the second
+    ///     half of one ⛔.</b> <c>Hierarchy.SetParentAfter</c> has always existed and
+    ///     <see cref="ReparentCommand" /> has always used it to <i>undo</i> a move; what nothing could
+    ///     say was where a move should land. A drop <i>on</i> a row means "make a child" and reaches
+    ///     the overload above; a drop <i>between</i> two rows means "put it here among these
+    ///     siblings", which is this and is a move whose parentage may not change at all.
+    /// </remarks>
+    public bool Reparent(IEnumerable<Entity> entities, Entity parent, Entity after) {
         ArgumentNullException.ThrowIfNull(entities);
 
-        var command = new ReparentCommand(this, entities, parent);
+        var command = new ReparentCommand(this, entities, parent, after);
 
         if (command.IsEmpty) {
             return false;
