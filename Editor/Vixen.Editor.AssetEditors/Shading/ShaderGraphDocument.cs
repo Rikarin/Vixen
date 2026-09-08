@@ -117,6 +117,34 @@ public sealed class ShaderGraphDocument : EditorDocument, INodePreviewSource {
     /// </remarks>
     public INodePreviewSource? PreviewSource { get; set; }
 
+    /// <summary>Why one node has no preview thumbnail, or <see langword="null" /> when it has one.</summary>
+    /// <param name="node">The node.</param>
+    /// <returns>The refusal, in a sentence an author can act on.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>ShaderGraphPreviewRenderer.RefusalFor</c> had no caller outside its own device
+    ///         test</b>, so a node declared <c>Preview = true</c> that the renderer refused — which is
+    ///         every <c>Texture/Sample 2D</c>, because a preview binds no resources — drew nothing and
+    ///         explained nothing. <c>INodePreviewSource.TryGet</c> answers <see langword="false" /> and
+    ///         a <see langword="false" /> is the same answer as "this node has no preview to show", so
+    ///         the sentence the renderer had already written could not come back through it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A type test rather than a wider framework interface, and it is the narrow one on
+    ///         purpose.</b> <c>INodePreviewSource</c> is <c>Vixen.Editor.NodeGraph</c>'s and is
+    ///         implemented by the VFX and texture graphs too; a refusal is a fact about <em>this</em>
+    ///         renderer's one-uniform-block compilation, so widening the framework contract for it
+    ///         would put a member on two graphs that have nothing to say through it. Both halves of
+    ///         this test are the shader graph's own.
+    ///     </para>
+    ///     <para>
+    ///         Null headless and in every test: <see cref="PreviewSource" /> is null until the host has
+    ///         a device, and a node the renderer has never been asked about has recorded nothing.
+    ///     </para>
+    /// </remarks>
+    public string? PreviewRefusal(NodeId node) =>
+        PreviewSource is ShaderGraphPreviewRenderer renderer ? renderer.RefusalFor(Graph, node) : null;
+
     /// <summary>What Raven had to say about the source the last <see cref="Compile" /> emitted.</summary>
     /// <remarks>
     ///     Empty when the graph did not compile, because there is no text to have an opinion about —

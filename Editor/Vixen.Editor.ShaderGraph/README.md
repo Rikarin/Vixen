@@ -261,6 +261,12 @@ and a change to one method when it is time to wire it into the engine's clustere
 - **Previews of a node that needs a resource.** A preview binds one uniform block — the two
   transforms every graph declares — and nothing else, so `Texture/Sample 2D` is refused rather than
   drawn against an unbound descriptor. Binding a *material's* textures means knowing which material,
-  which is doc 08's material compiler.
+  which is doc 08's material compiler. ⚠ **The refusal is shown now** — `RefusalFor` had no caller
+  outside its own device test, so a node declaring `Preview = true` and getting none drew nothing and
+  explained nothing. `ShaderGraphDocument.PreviewRefusal` reads it and `ShaderGraphView` prints it
+  under the selected node. ⚠ On *selection* rather than on compile, because the refusal is recorded
+  when `Update` next builds the entry — a note gathered in the panel's `Report`, which runs on
+  `Compiled`, would be one compile behind and would say nothing at all on the compile a graph is
+  opened with.
 
 Licensed under Apache-2.0.
