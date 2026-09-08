@@ -441,23 +441,13 @@ static class LayerStackGraph {
                 return cursor;
             }
 
-            if (layer.Projection != LayerProjection.Uv) {
-                problems.Add(LayerStackProblem.Refusal(
-                    layer.Id,
-                    $"Projection '{layer.Projection}' needs a node that samples an image by a projected world "
-                    + "position, blended by the world normal. ⚠ The two mesh maps it reads — 'position' and "
-                    + "'world' — are bakeable and reachable now, so what is left is the projection node "
-                    + "itself: #815. Only Uv compiles in this build."
-                ));
-
-                return cursor;
-            }
-
             var content = Content(layer, channel, cursor, depth);
 
             if (content is not { } foreground) {
                 return cursor;
             }
+
+            foreground = Project(layer, foreground);
 
             var opacity = Opacity(layer, channel);
             var folded = Folds(layer.Mask, opacity);
@@ -643,6 +633,111 @@ static class LayerStackGraph {
             // read at whatever the bake asked for.
             node.SetText("Space", "Linear");
             node.SetText("Filter", "Bilinear");
+
+            return new(node.Id, "Out");
+        }
+
+        /// <summary>
+        ///     ⚠ Doc 48 § D10's triplanar and planar projections, which were modelled and refused
+        ///     until <a href="https://github.com/Rikarin/Vixen/issues/815">#815</a>.
+        /// </summary>
+        /// <param name="layer">The layer whose projection is being applied.</param>
+        /// <param name="content">What the layer puts on top, in the atlas.</param>
+        /// <returns>The projected content, or <paramref name="content" /> unchanged.</returns>
+        /// <remarks>
+        ///     <para>
+        ///         <b>What a projection is for, because "put the picture on by world position" reads
+        ///         as a novelty until you ask what it buys.</b> A layer projected triplanar covers a
+        ///         mesh whose UVs it was never authored for — which is the whole premise of a shipped
+        ///         smart material. Without it every <c>.vxsmartmat</c> is a material for one atlas,
+        ///         and § D10's member had been there since M7 with a refusal behind it.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>Two <c>Source/Mesh Map</c> nodes rather than anything this class fetches
+        ///         itself.</b> The projection needs the <c>position</c> and <c>world</c> bakes, and
+        ///         the only way a graph asks for one is by usage — the bake decides which mesh a
+        ///         <c>meshmap:position</c> resolves to. So a projected layer's plan carries two more
+        ///         externals, and a host that cannot supply them says so with the same sentence it
+        ///         already uses for a generator's <c>curvature</c>.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>Planar goes down <em>y</em>, and the model has nowhere to say otherwise.</b>
+        ///         <c>LayerProjection.Planar</c> is "one planar projection along an axis" and carries
+        ///         no axis; the node has all four. Y is the world up and the axis a planar fill is
+        ///         nearly always wanted along — dirt, snow, dust — but it is a default this file
+        ///         chose and not one an author asked for, which is
+        ///         <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>A constant fill and a non-fill layer are warned rather than projected.</b> A
+        ///         constant is the same colour at every world position, so projecting it would emit
+        ///         three dispatches to reproduce the number it started with; a paint layer's pixels
+        ///         are authored <em>in the atlas</em>, and a filter reads what is under it. Silently
+        ///         ignoring the member in those cases is the defect this workstream produces most —
+        ///         a mechanism whose caller passes the default — so each one says so by name.
+        ///     </para>
+        /// </remarks>
+        PortRef Project(LayerAsset layer, PortRef content) {
+            if (layer.Projection == LayerProjection.Uv) {
+                return content;
+            }
+
+            if (layer.Kind != LayerKind.Fill) {
+                problems.Add(LayerStackProblem.Warning(
+                    layer.Id,
+                    $"Projection '{layer.Projection}' is set on a {layer.Kind} layer and does nothing there. A "
+                    + "projection decides how a fill covers a surface: a paint layer's pixels are already in the "
+                    + "atlas, a filter reads whatever is under it, and a group is its children. The layer is "
+                    + "composited through its UVs."
+                ));
+
+                return content;
+            }
+
+            if (layer.Fill == LayerFillSource.Constant) {
+                problems.Add(LayerStackProblem.Warning(
+                    layer.Id,
+                    $"Projection '{layer.Projection}' is set on a constant fill and changes nothing — a constant "
+                    + "is the same colour at every world position. Give the layer a texture or a graph, or leave "
+                    + "the projection at Uv; the three dispatches a projection costs would reproduce the number "
+                    + "the layer started with."
+                ));
+
+                return content;
+            }
+
+            var place = Add("Source/Mesh Map");
+            var facing = Add("Source/Mesh Map");
+            var node = Add("Space/Triplanar");
+
+            place.SetText("Map", "position");
+            facing.SetText("Map", "world");
+            node.SetText("Axis", layer.Projection == LayerProjection.Triplanar ? "Triplanar" : "Y");
+
+            graph.Connect(content, new(node.Id, "Input"));
+            graph.Connect(new(place.Id, "Out"), new(node.Id, "Position"));
+            graph.Connect(new(facing.Id, "Out"), new(node.Id, "Normal"));
+
+            // ⚠ The layer's own numbers, by port name — `Adjustment`'s mechanism pointed at a fill
+            // rather than at a filter, and it is here so that a projection is not a mechanism whose
+            // caller always passes the default. A projected layer that could not say how many times
+            // its picture repeats across the mesh would be usable at exactly one mesh size. The home
+            // those numbers deserve is #1032's other half: `LayerAsset.Settings`' own doc comment
+            // says "the filter's numbers", which is now narrower than what reads it.
+            foreach (var (port, value) in layer.Settings) {
+                if (!string.Equals(port, "Scale", StringComparison.Ordinal)
+                    && !string.Equals(port, "Sharpness", StringComparison.Ordinal)) {
+                    problems.Add(LayerStackProblem.Warning(
+                        layer.Id,
+                        $"'{port}' is not a number a projection takes — it takes Scale and Sharpness. The value is "
+                        + "dropped rather than written to a port that might be the image input."
+                    ));
+
+                    continue;
+                }
+
+                node.SetValue(port, value);
+            }
 
             return new(node.Id, "Out");
         }
