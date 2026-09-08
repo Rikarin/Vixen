@@ -154,6 +154,19 @@ Vixen.Net.Engine.NetworkTransformCaptureSystem.PublishedCount.get -> long
 Vixen.Net.Engine.NetworkTransformCaptureSystem.ReframedCount.get -> long
 Vixen.Net.Engine.NetworkTransformCaptureSystem.TeleportCount.get -> long
 Vixen.Net.Engine.NetworkTransformCaptureSystem.UnnameableFrameCount.get -> long
+Vixen.Net.Engine.NetworkTransformInterpolateSystem -> sealed class
+Vixen.Net.Engine.NetworkTransformInterpolateSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Engine.NetworkTransformInterpolateSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Engine.NetworkTransformInterpolateSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Engine.NetworkTransformInterpolateSystem.Advance(Vixen.Ecs.World world) -> void
+Vixen.Net.Engine.NetworkTransformInterpolateSystem.BufferedCount.get -> int
+Vixen.Net.Engine.NetworkTransformInterpolateSystem.Clear() -> void
+Vixen.Net.Engine.NetworkTransformInterpolateSystem.EvictedCount.get -> long
+Vixen.Net.Engine.NetworkTransformInterpolateSystem.NetworkTransformInterpolateSystem(Vixen.Net.Replication.ReplicationClient client, Vixen.Net.Time.TickManager clock, Vixen.Net.Motion.SnapshotBufferOptions? options = null, int capacity = 32) -> void
+Vixen.Net.Engine.NetworkTransformInterpolateSystem.SampledCount.get -> long
+Vixen.Net.Engine.NetworkTransformInterpolateSystem.StarvedCount.get -> long
+Vixen.Net.Engine.NetworkTransformInterpolateSystem.TryGetBuffer(Vixen.Net.Replication.NetworkId id, out Vixen.Net.Motion.SnapshotBuffer? buffer) -> bool
+Vixen.Net.Engine.NetworkTransformInterpolateSystem.UnresolvedFrameCount.get -> long
 Vixen.Net.Engine.Players.LocalPlayerSystem -> sealed class
 Vixen.Net.Engine.Players.LocalPlayerSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Net.Engine.Players.LocalPlayerSystem : Vixen.Ecs.Systems.SystemBase

@@ -8,7 +8,7 @@ api: [T:Vixen.Net.Engine.Players.PlayerMoveInput, T:Vixen.Net.Engine.Players.Pla
 tags: [networking, players, prediction, physics]
 since: 0.1
 status: stable
-related: [engine/players-and-possession, engine/character-movement, engine/networked-prefabs, engine/replicating-behaviour-state]
+related: [engine/players-and-possession, engine/character-movement, engine/networked-prefabs, engine/replicating-behaviour-state, engine/smoothing-received-motion]
 ---
 
 ## What it is
@@ -179,6 +179,8 @@ that goes out more often than a snapshot.
   this puts on a wire.
 - [Character movement](engine/character-movement) — the rules the predicted step runs, and why they
   are a pure function.
+- [Smoothing received motion](engine/smoothing-received-motion) — the complement: everybody *else's*
+  avatar is interpolated backwards rather than predicted forwards.
 
 ⚠ **Two traps worth knowing about, both of which produce a green number measuring nothing.** A
 hand-driven tick must call `World.AdvanceVersion()`, or every `WithChanged` filter in the engine
