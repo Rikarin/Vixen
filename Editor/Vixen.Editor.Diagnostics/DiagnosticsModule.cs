@@ -90,6 +90,15 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     /// </remarks>
     IDeviceDeploy? deployer;
 
+    /// <summary>The provider standing for the machine the editor is on, once it has activated.</summary>
+    /// <remarks>
+    ///     Held so that <see cref="InspectorEndpoint" /> can reach it. Null before
+    ///     <see cref="Activate" />, which is when the manager is given its providers.
+    /// </remarks>
+    LocalDeviceProvider? localDevice;
+
+    string? inspectorEndpoint;
+
     /// <summary>The device the GPU timeline reads, when the host has one.</summary>
     /// <remarks>
     ///     Assigned by the host once Vulkan is up, which is several frames after this object exists —
@@ -115,7 +124,46 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     public Func<FrameCapture>? FrameCaptureSource { get; set; }
 
     /// <summary>Where a standalone play-mode process would listen for an inspector.</summary>
-    public string? InspectorEndpoint { get; set; }
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Null on a bare editor, and that is the honest state</b> — the same shape
+    ///         <see cref="FrameCaptureSource" /> and <see cref="NetworkLedger" /> are in, and it read
+    ///         as an oversight only because it was the one of the three with no remark saying so.
+    ///         Nothing in this tree sets it because nothing in this tree launches a player:
+    ///         <c>EditorParity</c> declares <c>play.mode-standalone</c> as planned — <i>"Launching a
+    ///         standalone player from the editor needs the build settings window. Milestone E6."</i> —
+    ///         and the editor's own remote inspector talks over a <c>LocalTransport</c>, which has no
+    ///         endpoint to report. The producer is E6's, and this is the seam it writes into.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It <em>is</em> read, and the claim that it was not came from a <c>*.cs</c>-only
+    ///         sweep.</b> The value reaches <c>DeviceEntry.Endpoint</c>, which
+    ///         <c>DeviceManagerView.vxml</c> draws as the device grid's Endpoint column — a view's
+    ///         <c>&lt;code&gt;</c> block is production C#, and a grep that reads only <c>.cs</c>
+    ///         reports a gap that is not there.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it no longer has to be set before start-up.</b> This used to be an
+    ///         auto-property read once in <see cref="Activate" />, with a remark warning a host that a
+    ///         later assignment "sets it too late" — a timing hazard on a property no host set at all.
+    ///         The setter pushes the value into the live provider and rediscovers, so a producer that
+    ///         arrives when a play session starts — which is when a standalone player's port is
+    ///         actually known — reaches the panel.
+    ///     </para>
+    /// </remarks>
+    public string? InspectorEndpoint {
+        get => inspectorEndpoint;
+        set {
+            inspectorEndpoint = value;
+
+            if (localDevice is null) {
+                return;
+            }
+
+            localDevice.Endpoint = value;
+            devices.Discover();
+        }
+    }
 
     /// <summary>The bandwidth ledger of whatever session is running, when the host has one.</summary>
     /// <remarks>
@@ -192,7 +240,7 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
         // two readers of a `Collect` that empties them, which is half a capture each.
         profiler.Add(new LocalProfileSource("Editor"));
 
-        devices.Add(new LocalDeviceProvider(InspectorEndpoint));
+        devices.Add(localDevice = new LocalDeviceProvider(inspectorEndpoint));
         devices.Discover();
 
         Panels(context);

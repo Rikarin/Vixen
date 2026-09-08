@@ -539,6 +539,10 @@ shadergraph-side { flex-direction: column; width: 300px; flex-shrink: 0; gap: 6p
 shadergraph-transport { flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0; }
 shadergraph-property { flex-direction: column; gap: 2px; flex-shrink: 0; }
 
+/* The preview refusal, laid out like the property row beside it — an element nothing styles takes
+   the CSS-initial `row` and lays a caption and a sentence side by side in a 300px column. */
+shadergraph-preview { flex-direction: column; gap: 2px; flex-shrink: 0; }
+
 /* ── The VFX editor ─────────────────────────────────────────────────
    The canvas takes the width and the effect takes a fixed column, which is the way round a
    node graph wants: a block chain is wide and a preview of particles reads fine small. */

@@ -80,6 +80,16 @@
         }
     </shadergraph-property>
 
+    <shadergraph-preview ref="@PreviewNote">
+        @if (refused.Value.Length > 0) {
+            <fact-row>
+                <FactName Text="No preview" />
+            </fact-row>
+
+            <node-inspector-summary use="@(cell => cell.Text = refused.Value)" />
+        }
+    </shadergraph-preview>
+
     <analysis-list ref="@Properties">
         @for (var note in declared.Value) {
             <AnalysisRow key="@note" Stage="@note.Stage" Message="@note.Message" />
@@ -112,6 +122,27 @@
 
     /// <summary>And what compiling said.</summary>
     readonly Signal<ImmutableArray<AnalysisNote>> reported = new([]);
+
+    /// <summary>Why the selected node has no preview thumbnail, or empty.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The renderer wrote this sentence and nothing read it.</b>
+    ///         <c>ShaderGraphPreviewRenderer.RefusalFor</c> had no caller outside its own device test,
+    ///         so <c>Texture/Sample 2D</c> — declared <c>Preview = true</c> — showed an author a node
+    ///         that asks for a preview, draws none, and says nothing. Declaring no preview on it would
+    ///         have closed that too and would have thrown the reason away.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Recomputed on selection rather than folded into the diagnostics list, because a
+    ///         refusal is recorded a frame later than a compile.</b> An entry is created the first
+    ///         time the canvas asks for its preview and the refusal is written when
+    ///         <c>ShaderGraphPreviewRenderer.Update</c> next builds it — so a note gathered in
+    ///         <see cref="Report" />, which runs on <c>Compiled</c>, would be one compile behind and
+    ///         would say nothing at all on the compile a graph is opened with. Selecting the node is
+    ///         both the moment an author asks the question and a moment by which the answer exists.
+    ///     </para>
+    /// </remarks>
+    readonly Signal<string> refused = new("");
 
     /// <summary>Which node each row of the diagnostics list is about, by its place in the list.</summary>
     /// <remarks>
@@ -161,6 +192,9 @@
     ///     contract is that it is null when there is nothing to rename.
     /// </remarks>
     public TextBox? PropertyName => box is { IsRemoved: false } ? box : null;
+
+    /// <summary>Where the selected node's preview refusal is shown, when it has one.</summary>
+    public UiElement PreviewNote { get; private set; } = null!;
 
     /// <summary>What the emitted shader declares.</summary>
     public UiElement Properties { get; private set; } = null!;
@@ -234,6 +268,8 @@
 
     /// <summary>Rebuilds the row that renames whatever property node is selected.</summary>
     public void Restate() {
+        Refused();
+
         if (document is not { } shader
             || GraphView.Selection.Count != 1
             || !shader.Graph.TryGet(GraphView.Selection.First(), out var node)
@@ -402,6 +438,28 @@
         GraphView.Frame(selectionOnly: true);
 
         return true;
+    }
+
+    /// <summary>Reads back why the one selected node has no preview, if it asked for one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only for a node whose type declares <c>Preview</c>.</b> The renderer records nothing
+    ///     about a node the canvas never asks about, so the answer would be null for the great
+    ///     majority either way — but reading the definition is what makes the empty case mean "this
+    ///     node has a picture" rather than "nobody has looked". A node that declares no preview is not
+    ///     refused; it never applied.
+    /// </remarks>
+    void Refused() {
+        if (document is not { } shader
+            || GraphView.Selection.Count != 1
+            || !shader.Graph.TryGet(GraphView.Selection.First(), out var node)
+            || !shader.Registry.TryGet(node.Type, out var definition)
+            || !definition.Preview) {
+            refused.Value = "";
+
+            return;
+        }
+
+        refused.Value = shader.PreviewRefusal(node.Id) ?? "";
     }
 
     /// <summary>How a node is named in a sentence: its type's title, and its identity.</summary>

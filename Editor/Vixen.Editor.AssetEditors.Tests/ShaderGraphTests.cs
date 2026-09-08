@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Editor.AssetEditors.Shading;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
+using Vixen.Graphics.Null;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 using Xunit;
@@ -493,5 +494,76 @@ public class ShaderGraphViewTests {
         harness.Ui.Frame();
 
         Assert.Equal([sub.Id], view.GraphView.Selection);
+    }
+
+    /// <summary>A node that asks for a preview and is refused says why, in the panel.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>ShaderGraphPreviewRenderer.RefusalFor</c> had no caller outside its own device
+    ///         test.</b> The renderer writes a specific sentence for a node whose effect reflects a
+    ///         binding it cannot fill — <c>Texture/Sample 2D</c>, every time, because a preview binds
+    ///         no resources — and <c>INodePreviewSource.TryGet</c> can only answer
+    ///         <see langword="false" />, which is the same answer as "this node has no preview". So an
+    ///         author saw a node declared <c>Preview = true</c> draw nothing and explain nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A Null device rather than Vulkan, and the refusal is reachable on one.</b> It is
+    ///         recorded from the loaded effect's reflected bindings, which happens before a target, a
+    ///         pipeline or a descriptor set is made — so this belongs with the panel's other tests
+    ///         rather than on the leg that skips wherever there is no adapter.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ANodeRefusedAPreviewSaysWhy() {
+        using var harness = new ViewHarness();
+        using var device = new NullDevice();
+
+        var view = Open(harness, "Refused.vxshadergraph", out var document);
+
+        using var previews = new ShaderGraphPreviewRenderer(device, document.Registry);
+
+        document.PreviewSource = previews;
+
+        var sample = document.Graph.Add("Texture/Sample 2D", new(240f, 320f));
+
+        // False first: the renderer has not been asked about the node yet, so it has recorded
+        // nothing — and an empty answer here has to mean "not refused" rather than "not asked".
+        view.GraphView.Select([sample.Id]);
+        harness.Ui.Frame();
+
+        Assert.Empty(view.PreviewNote.Children);
+
+        // What the canvas does every frame for a node that declares a preview, and then the build
+        // that the host's frame would run.
+        previews.TryGet(document.Graph, sample, document.Registry.Get(sample.Type), out _);
+
+        device.BeginFrame();
+        previews.Update();
+        device.EndFrame();
+
+        Assert.Equal(1, previews.Refusals);
+
+        // Selecting is what asks the question, and the answer is the renderer's own sentence.
+        view.GraphView.Select([]);
+        harness.Ui.Frame();
+        view.GraphView.Select([sample.Id]);
+        harness.Ui.Frame();
+
+        var said = string.Join(
+            " ",
+            view.PreviewNote.Children.Select(
+                child => child.Text ?? string.Join(" ", child.Children.Select(cell => cell.Text ?? ""))
+            )
+        );
+
+        Assert.Contains("preview binds no resources", said, StringComparison.Ordinal);
+
+        // And it goes again, which is the half a one-shot readout passes: the arm's body never re-runs
+        // for a surviving region, so the sentence has to be read back through the signal rather than
+        // written once when the row appeared.
+        view.GraphView.Select([]);
+        harness.Ui.Frame();
+
+        Assert.Empty(view.PreviewNote.Children);
     }
 }

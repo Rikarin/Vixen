@@ -55,7 +55,18 @@ is the second line of defence.
 | Master | Unlit, Sprite, PBR, **Surface** |
 
 ⚠ **The Master row said three for as long as there were four.** `Master/Surface` landed in
-`5a5e6332` and is documented forty lines below, and this table was not updated with it.
+`5a5e6332` and is documented forty lines below, and this table was not updated with it. It cannot
+drift again silently: `ShaderNodeLibraryTests.The_library_is_the_list_the_readme_prints` writes the
+same list out and fails on a node added or removed without it.
+
+⚠ **And the table is now covered rather than merely listed.**
+`Every_node_in_the_library_reaches_both_backends` was named for the whole library and was a
+hand-written list of node paths, so a node added without a line in it was compiled by nothing —
+which is what happened to the five procedural and UV nodes. It walks `NodeTypeRegistry.Types` now,
+once per master the registry holds, so a new `[Node]` and a fifth master are both covered the day
+they are written. ⚠ It also compiles against the **whole shipped library**, because the emitted text
+can no longer be compiled alone: a graph holding `Procedural/Noise` reports `RVN2010: The name
+'ComputeColor' does not exist` on its own.
 
 **The procedural and UV nodes add no shader code.** Each is a call into
 `Raven/Library/Material/ComputeColor.rvn`, whose procedural and UV sections were written as "the
@@ -250,6 +261,12 @@ and a change to one method when it is time to wire it into the engine's clustere
 - **Previews of a node that needs a resource.** A preview binds one uniform block — the two
   transforms every graph declares — and nothing else, so `Texture/Sample 2D` is refused rather than
   drawn against an unbound descriptor. Binding a *material's* textures means knowing which material,
-  which is doc 08's material compiler.
+  which is doc 08's material compiler. ⚠ **The refusal is shown now** — `RefusalFor` had no caller
+  outside its own device test, so a node declaring `Preview = true` and getting none drew nothing and
+  explained nothing. `ShaderGraphDocument.PreviewRefusal` reads it and `ShaderGraphView` prints it
+  under the selected node. ⚠ On *selection* rather than on compile, because the refusal is recorded
+  when `Update` next builds the entry — a note gathered in the panel's `Report`, which runs on
+  `Compiled`, would be one compile behind and would say nothing at all on the compile a graph is
+  opened with.
 
 Licensed under Apache-2.0.

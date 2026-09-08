@@ -148,8 +148,19 @@ sealed partial class EditorApplication {
 
     /// <summary>Where a standalone play-mode process would listen for an inspector.</summary>
     /// <remarks>
-    ///     ⚠ <b>Read by the module when it activates</b>, so a host that sets it after start-up sets
-    ///     it too late. It is a constructor-time fact about the editor, not a setting.
+    ///     <para>
+    ///         ⚠ <b>This used to say it was read once at activation and that a later assignment "sets
+    ///         it too late" — a timing hazard documented on a property no host set at all.</b> The
+    ///         module pushes the value into the live device provider now, so it can be set whenever a
+    ///         producer knows the port, which for a standalone player is when the session starts and
+    ///         not at start-up.
+    ///     </para>
+    ///     <para>
+    ///         Where it comes out is the device grid's Endpoint column —
+    ///         <c>DeviceManagerView.vxml</c> — and nothing in this tree writes it yet, because
+    ///         launching a standalone player is <c>play.mode-standalone</c>, declared planned against
+    ///         milestone E6.
+    ///     </para>
     /// </remarks>
     public string? InspectorEndpoint {
         get => diagnostics.InspectorEndpoint;

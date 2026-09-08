@@ -191,40 +191,32 @@ public class ShaderGraphCompilerTests {
         Assert.Equal(compiler.Compile(graph).Value.Source, compiler.Compile(graph).Value.Source);
     }
 
-    /// <summary>Every node in the library, in one graph, through both backends.</summary>
+    /// <summary>A wired chain of self-contained nodes, through both backends.</summary>
     /// <remarks>
-    ///     The test that earns the node library its keep: a node whose Raven is subtly wrong compiles
-    ///     nowhere, and one whose emitted expression is the wrong width fails to type-check. Neither
-    ///     shows up in a graph that never uses it.
+    ///     <para>
+    ///         ⚠ <b>This was called <c>Every_node_in_the_library_reaches_both_backends</c> and was a
+    ///         hand-written list of node paths</b>, so a node added without a line in it was compiled
+    ///         by nothing — which is what happened to the five procedural and UV nodes, and exactly
+    ///         what this remark used to say the test existed to prevent. The library walk is
+    ///         <see cref="ShaderNodeLibraryTests.Every_node_in_the_library_reaches_both_backends" />
+    ///         now, and it reads <see cref="NodeTypeRegistry.Types" />.
+    ///     </para>
+    ///     <para>
+    ///         What is left here is the half a registry walk cannot invent: a <em>wired</em> chain,
+    ///         where a conversion happens at every hop and the master reads a value rather than a
+    ///         default. Every node in it is self-contained, which is why it can still go through
+    ///         <see cref="Generates" /> — a compilation over the emitted text alone.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void Every_node_in_the_library_reaches_both_backends() {
+    public void A_wired_chain_reaches_both_backends() {
         var graph = new NodeGraphModel { Name = "Everything" };
         var master = graph.Add("Master/PBR");
-
-        // One of each, wired where wiring proves something and left alone where it does not: an
-        // unconnected input still emits, through its default, which is the path a fresh node takes.
         var uv = graph.Add("Input/UV");
         var tiling = graph.Add("Vector/Tiling and Offset");
         var sample = graph.Add("Texture/Sample 2D");
         var split = graph.Add("Vector/Split");
         var combine = graph.Add("Vector/Combine");
-
-        graph.Add("Input/World Position");
-        graph.Add("Input/World Normal");
-        graph.Add("Input/Vertex Colour");
-        graph.Add("Input/Time");
-        graph.Add("Input/Constant");
-        graph.Add("Input/Colour Property");
-        graph.Add("Input/Float Property");
-
-        foreach (var path in new[] {
-            "Math/Add", "Math/Subtract", "Math/Multiply", "Math/Divide", "Math/Lerp", "Math/Saturate",
-            "Math/One Minus", "Math/Power", "Math/Absolute", "Math/Fraction", "Math/Sine",
-            "Math/Smoothstep", "Math/Dot", "Math/Normalize"
-        }) {
-            graph.Add(path);
-        }
 
         graph.Connect(new(uv.Id, "UV"), new(tiling.Id, "UV"));
         graph.Connect(new(tiling.Id, "Out"), new(sample.Id, "UV"));

@@ -26,6 +26,14 @@
             assembly that owns running frames and reading a resolved box back.
         -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
+
+        <!--
+            ⚠ A device, so that a shader-graph preview's *refusal* is testable without Vulkan. The
+            refusal is recorded from the effect's reflected bindings before a single target or
+            pipeline is made, so the Null device is enough to reach it — which is what keeps the one
+            assertion about a panel saying why a node has no picture off the golden-image leg.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
     </ItemGroup>
 
     <ItemGroup>
