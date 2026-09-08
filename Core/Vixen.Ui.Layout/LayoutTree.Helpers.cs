@@ -817,6 +817,17 @@ public sealed partial class LayoutTree {
         // also restate `Display` — a change to what every unstyled `.vxml` element is, which no
         // amount of arithmetic in `LayoutTree` can settle.
         //
+        // ⚠ <b>AND THAT LINE IS NOW PINNED WHERE IT IS WRITTEN — not because flipping it was free,
+        // but because everything it cost was ANONYMOUS.</b> Measured: setting `CreateCssInitial`'s
+        // `Display` to `Block` turns 36 of `Vixen.Ui.Tests`' 1 496 red, and every one of them is a
+        // geometry or a hit-testing assertion — `TextTests`, `NavigationTests`, `InAppDragTests`,
+        // `FlexShrinkFromCssTests` — that reports a wrong number and says nothing about why the
+        // number moved or what else in the engine was resting on it. None of them mentions this
+        // term, and this project cannot see them. `LayoutStyleBridgeTests.The_display_this_method_
+        // leaves_alone_is_what_a_ceiling_two_projects_away_stands_on` is the 37th and the only one
+        // that names the decision: the pin here records that removing this term is a framework call,
+        // and that one records where the call is actually written down.
+        //
         // ⚠ <b>AND UNTIL NOW NOTHING IN THIS PROJECT SAID SO.</b> With this term deleted the whole
         // layout suite is green — eight corpora and 6 431 tests — and the only red is three
         // `TextWrappingPixelTests` in `Vixen.Ui.Controls.Tests`, a different assembly two layers
