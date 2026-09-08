@@ -2391,318 +2391,253 @@ T:Vixen.Platform.Windows.WindowsDialogs sweep-pending
 T:Vixen.Platform.Windows.WindowsPlatformSupplement sweep-pending
 T:Vixen.Platform.Windows.WindowsPowerInfo sweep-pending
 T:Vixen.Platform.Windows.WindowsProcessorTopology sweep-pending
-T:Vixen.Raven.Artefacts.CompiledEffect sweep-pending
-T:Vixen.Raven.Artefacts.CompiledEffectFormat sweep-pending
-T:Vixen.Raven.Artefacts.CompiledEffectReader sweep-pending
-T:Vixen.Raven.Artefacts.CompiledEffectWriter sweep-pending
-T:Vixen.Raven.Artefacts.CompiledLibrary sweep-pending
-T:Vixen.Raven.Artefacts.CompiledLibraryFormat sweep-pending
-T:Vixen.Raven.Artefacts.CompiledLibraryReader sweep-pending
-T:Vixen.Raven.Artefacts.CompiledLibraryWriter sweep-pending
-T:Vixen.Raven.Artefacts.EffectModule sweep-pending
-T:Vixen.Raven.Artefacts.LibraryBuilder sweep-pending
-T:Vixen.Raven.Artefacts.LibraryField sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIr sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrAccess sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrArgument sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrBinary sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrBlock sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrBreak sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrCall sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrConstant sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrConstruct sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrContinue sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrConvert sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrDiscard sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrExtract sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrField sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrFieldAccess sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrFunction sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrIf sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrIndexAccess sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrIntrinsic sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrLoad sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrLoop sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrPlace sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrReturn sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrSelect sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrStatement sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrStore sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrStruct sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrSwizzleAccess sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrTypeReference sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrUnary sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrValue sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIrVariable sweep-pending
-T:Vixen.Raven.Artefacts.LibraryMethod sweep-pending
-T:Vixen.Raven.Artefacts.LibraryParameter sweep-pending
-T:Vixen.Raven.Artefacts.LibraryProperty sweep-pending
-T:Vixen.Raven.Artefacts.LibraryType sweep-pending
-T:Vixen.Raven.Artefacts.LibraryTypeKind sweep-pending
-T:Vixen.Raven.Artefacts.LibraryTypeParameter sweep-pending
-T:Vixen.Raven.Artefacts.LibraryTypeReference sweep-pending
-T:Vixen.Raven.Artefacts.LibraryValue sweep-pending
-T:Vixen.Raven.Cli.CompileDriver sweep-pending
-T:Vixen.Raven.Cli.CompileRequest sweep-pending
-T:Vixen.Raven.Cli.ExitCode sweep-pending
-T:Vixen.Raven.Cli.RavenCommand sweep-pending
-T:Vixen.Raven.CodeGen.CallGraph sweep-pending
-T:Vixen.Raven.CodeGen.GeneratedSource sweep-pending
-T:Vixen.Raven.CodeGen.ITargetBackend sweep-pending
-T:Vixen.Raven.CodeGen.ShaderStageNames sweep-pending
-T:Vixen.Raven.CodeGen.TargetBackends sweep-pending
-T:Vixen.Raven.Compilation sweep-pending
-T:Vixen.Raven.ComposeBindings sweep-pending
-T:Vixen.Raven.Diagnostics.BackendDiagnostics sweep-pending
-T:Vixen.Raven.Diagnostics.LibraryDiagnostics sweep-pending
-T:Vixen.Raven.Diagnostics.LoweringDiagnostics sweep-pending
-T:Vixen.Raven.Diagnostics.SemanticDiagnostics sweep-pending
-T:Vixen.Raven.Diagnostics.SyntaxDiagnostics sweep-pending
-T:Vixen.Raven.IR.IrAccess sweep-pending
-T:Vixen.Raven.IR.IrArgument sweep-pending
-T:Vixen.Raven.IR.IrArrayLengthInstruction sweep-pending
-T:Vixen.Raven.IR.IrArrayType sweep-pending
-T:Vixen.Raven.IR.IrAtomicInstruction sweep-pending
-T:Vixen.Raven.IR.IrAtomicOp sweep-pending
-T:Vixen.Raven.IR.IrBinaryInstruction sweep-pending
-T:Vixen.Raven.IR.IrBinaryOp sweep-pending
-T:Vixen.Raven.IR.IrBinding sweep-pending
-T:Vixen.Raven.IR.IrBindingKind sweep-pending
-T:Vixen.Raven.IR.IrBlock sweep-pending
-T:Vixen.Raven.IR.IrBreakStatement sweep-pending
-T:Vixen.Raven.IR.IrCallInstruction sweep-pending
-T:Vixen.Raven.IR.IrCapabilities sweep-pending
-T:Vixen.Raven.IR.IrCapability sweep-pending
-T:Vixen.Raven.IR.IrComparisonSamplerType sweep-pending
-T:Vixen.Raven.IR.IrConstantInstruction sweep-pending
-T:Vixen.Raven.IR.IrConstructInstruction sweep-pending
-T:Vixen.Raven.IR.IrContinueStatement sweep-pending
-T:Vixen.Raven.IR.IrConversionKind sweep-pending
-T:Vixen.Raven.IR.IrConvertInstruction sweep-pending
-T:Vixen.Raven.IR.IrDepthTextureType sweep-pending
-T:Vixen.Raven.IR.IrDiscardStatement sweep-pending
-T:Vixen.Raven.IR.IrEntryPoint sweep-pending
-T:Vixen.Raven.IR.IrExtractInstruction sweep-pending
-T:Vixen.Raven.IR.IrField sweep-pending
-T:Vixen.Raven.IR.IrFieldAccess sweep-pending
-T:Vixen.Raven.IR.IrFunction sweep-pending
-T:Vixen.Raven.IR.IrIfStatement sweep-pending
-T:Vixen.Raven.IR.IrIndexAccess sweep-pending
-T:Vixen.Raven.IR.IrInstruction sweep-pending
-T:Vixen.Raven.IR.IrIntrinsic sweep-pending
-T:Vixen.Raven.IR.IrIntrinsicInstruction sweep-pending
-T:Vixen.Raven.IR.IrLoadInstruction sweep-pending
-T:Vixen.Raven.IR.IrLoopStatement sweep-pending
-T:Vixen.Raven.IR.IrMatrixType sweep-pending
-T:Vixen.Raven.IR.IrModule sweep-pending
-T:Vixen.Raven.IR.IrPermutation sweep-pending
-T:Vixen.Raven.IR.IrPlace sweep-pending
-T:Vixen.Raven.IR.IrPrinter sweep-pending
-T:Vixen.Raven.IR.IrReturnStatement sweep-pending
-T:Vixen.Raven.IR.IrSamplerType sweep-pending
-T:Vixen.Raven.IR.IrScalarType sweep-pending
-T:Vixen.Raven.IR.IrSelectInstruction sweep-pending
-T:Vixen.Raven.IR.IrShader sweep-pending
-T:Vixen.Raven.IR.IrSharedVariable sweep-pending
-T:Vixen.Raven.IR.IrStageIo sweep-pending
-T:Vixen.Raven.IR.IrStatement sweep-pending
-T:Vixen.Raven.IR.IrStorageImageType sweep-pending
-T:Vixen.Raven.IR.IrStoreInstruction sweep-pending
-T:Vixen.Raven.IR.IrStream sweep-pending
-T:Vixen.Raven.IR.IrStructType sweep-pending
-T:Vixen.Raven.IR.IrSwizzleAccess sweep-pending
-T:Vixen.Raven.IR.IrTextureDimension sweep-pending
-T:Vixen.Raven.IR.IrTextureType sweep-pending
-T:Vixen.Raven.IR.IrType sweep-pending
-T:Vixen.Raven.IR.IrTypeKind sweep-pending
-T:Vixen.Raven.IR.IrUnaryInstruction sweep-pending
-T:Vixen.Raven.IR.IrUnaryOp sweep-pending
-T:Vixen.Raven.IR.IrValue sweep-pending
-T:Vixen.Raven.IR.IrValueParameter sweep-pending
-T:Vixen.Raven.IR.IrVariable sweep-pending
-T:Vixen.Raven.IR.IrVariableKind sweep-pending
-T:Vixen.Raven.IR.IrVectorType sweep-pending
-T:Vixen.Raven.IR.IrVerifier sweep-pending
-T:Vixen.Raven.Lowering.Lowerer sweep-pending
-T:Vixen.Raven.Lowering.LoweringResult sweep-pending
-T:Vixen.Raven.ParseOptions sweep-pending
-T:Vixen.Raven.PermutationValues sweep-pending
-T:Vixen.Raven.RavenReference sweep-pending
-T:Vixen.Raven.Reflection.BindingInfo sweep-pending
-T:Vixen.Raven.Reflection.BindingPlan sweep-pending
-T:Vixen.Raven.Reflection.DescriptorSetInfo sweep-pending
-T:Vixen.Raven.Reflection.DescriptorType sweep-pending
-T:Vixen.Raven.Reflection.FragmentOutputInfo sweep-pending
-T:Vixen.Raven.Reflection.LayoutRule sweep-pending
-T:Vixen.Raven.Reflection.MemberInfo sweep-pending
-T:Vixen.Raven.Reflection.ParameterInfo sweep-pending
-T:Vixen.Raven.Reflection.PermutationInfo sweep-pending
-T:Vixen.Raven.Reflection.PlannedBinding sweep-pending
-T:Vixen.Raven.Reflection.PlannedStream sweep-pending
-T:Vixen.Raven.Reflection.PushConstantInfo sweep-pending
-T:Vixen.Raven.Reflection.RavenReflection sweep-pending
-T:Vixen.Raven.Reflection.ReflectionBuilder sweep-pending
-T:Vixen.Raven.Reflection.ShaderDataType sweep-pending
-T:Vixen.Raven.Reflection.ShaderLayout sweep-pending
-T:Vixen.Raven.Reflection.ShaderStages sweep-pending
-T:Vixen.Raven.Reflection.SpecConstantInfo sweep-pending
-T:Vixen.Raven.Reflection.StageInterface sweep-pending
-T:Vixen.Raven.Reflection.StreamPlan sweep-pending
-T:Vixen.Raven.Reflection.ValueParameterInfo sweep-pending
-T:Vixen.Raven.Reflection.VertexInputInfo sweep-pending
-T:Vixen.Raven.SemanticModel sweep-pending
-T:Vixen.Raven.SymbolInfo sweep-pending
-T:Vixen.Raven.Symbols.ArrayTypeSymbol sweep-pending
-T:Vixen.Raven.Symbols.BufferTypeSymbol sweep-pending
-T:Vixen.Raven.Symbols.BuiltInNamedTypeSymbol sweep-pending
-T:Vixen.Raven.Symbols.BuiltInTypes sweep-pending
-T:Vixen.Raven.Symbols.ConstructedNamedTypeSymbol sweep-pending
-T:Vixen.Raven.Symbols.Conversion sweep-pending
-T:Vixen.Raven.Symbols.ConversionKind sweep-pending
-T:Vixen.Raven.Symbols.Conversions sweep-pending
-T:Vixen.Raven.Symbols.ErrorTypeSymbol sweep-pending
-T:Vixen.Raven.Symbols.FieldSymbol sweep-pending
-T:Vixen.Raven.Symbols.ImageFormat sweep-pending
-T:Vixen.Raven.Symbols.ImageFormats sweep-pending
-T:Vixen.Raven.Symbols.Intrinsics sweep-pending
-T:Vixen.Raven.Symbols.LocalSymbol sweep-pending
-T:Vixen.Raven.Symbols.MethodKind sweep-pending
-T:Vixen.Raven.Symbols.MethodSymbol sweep-pending
-T:Vixen.Raven.Symbols.NamedTypeSymbol sweep-pending
-T:Vixen.Raven.Symbols.NamespaceSymbol sweep-pending
-T:Vixen.Raven.Symbols.ParameterSymbol sweep-pending
-T:Vixen.Raven.Symbols.PrimitiveTypeSymbol sweep-pending
-T:Vixen.Raven.Symbols.PropertySymbol sweep-pending
-T:Vixen.Raven.Symbols.RefKind sweep-pending
-T:Vixen.Raven.Symbols.ResourceKind sweep-pending
-T:Vixen.Raven.Symbols.ResourceSet sweep-pending
-T:Vixen.Raven.Symbols.SampledTextureTypeSymbol sweep-pending
-T:Vixen.Raven.Symbols.SequenceTypeSymbol sweep-pending
-T:Vixen.Raven.Symbols.ShaderStage sweep-pending
-T:Vixen.Raven.Symbols.SpecialType sweep-pending
-T:Vixen.Raven.Symbols.StageBuiltIn sweep-pending
-T:Vixen.Raven.Symbols.StageBuiltInInfo sweep-pending
-T:Vixen.Raven.Symbols.StageBuiltIns sweep-pending
-T:Vixen.Raven.Symbols.StorageImageTypeSymbol sweep-pending
-T:Vixen.Raven.Symbols.SubstitutedFieldSymbol sweep-pending
-T:Vixen.Raven.Symbols.SubstitutedMethodSymbol sweep-pending
-T:Vixen.Raven.Symbols.SubstitutedParameterSymbol sweep-pending
-T:Vixen.Raven.Symbols.SubstitutedPropertySymbol sweep-pending
-T:Vixen.Raven.Symbols.SubstitutedSymbols sweep-pending
-T:Vixen.Raven.Symbols.Symbol sweep-pending
-T:Vixen.Raven.Symbols.SymbolKind sweep-pending
-T:Vixen.Raven.Symbols.SynthesizedFieldSymbol sweep-pending
-T:Vixen.Raven.Symbols.SynthesizedMethodSymbol sweep-pending
-T:Vixen.Raven.Symbols.SynthesizedParameterSymbol sweep-pending
-T:Vixen.Raven.Symbols.TupleTypeSymbol sweep-pending
-T:Vixen.Raven.Symbols.TypeKind sweep-pending
-T:Vixen.Raven.Symbols.TypeMap sweep-pending
-T:Vixen.Raven.Symbols.TypeParameterSymbol sweep-pending
-T:Vixen.Raven.Symbols.TypeSymbol sweep-pending
-T:Vixen.Raven.Symbols.WorkgroupSize sweep-pending
-T:Vixen.Raven.Syntax.AccessorDeclarationSyntax sweep-pending
-T:Vixen.Raven.Syntax.AccessorListSyntax sweep-pending
-T:Vixen.Raven.Syntax.ArgumentListSyntax sweep-pending
-T:Vixen.Raven.Syntax.ArgumentSyntax sweep-pending
-T:Vixen.Raven.Syntax.ArrayRankSpecifierSyntax sweep-pending
-T:Vixen.Raven.Syntax.ArrayTypeSyntax sweep-pending
-T:Vixen.Raven.Syntax.ArrowExpressionClauseSyntax sweep-pending
-T:Vixen.Raven.Syntax.AssignmentExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.AttributeArgumentListSyntax sweep-pending
-T:Vixen.Raven.Syntax.AttributeArgumentSyntax sweep-pending
-T:Vixen.Raven.Syntax.AttributeListSyntax sweep-pending
-T:Vixen.Raven.Syntax.AttributeSyntax sweep-pending
-T:Vixen.Raven.Syntax.BaseArgumentListSyntax sweep-pending
-T:Vixen.Raven.Syntax.BaseExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.BaseFieldDeclarationSyntax sweep-pending
-T:Vixen.Raven.Syntax.BaseListSyntax sweep-pending
-T:Vixen.Raven.Syntax.BaseTypeSyntax sweep-pending
-T:Vixen.Raven.Syntax.BinaryExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.BlockSyntax sweep-pending
-T:Vixen.Raven.Syntax.BracketedArgumentListSyntax sweep-pending
-T:Vixen.Raven.Syntax.BreakStatementSyntax sweep-pending
-T:Vixen.Raven.Syntax.CaseSwitchLabelSyntax sweep-pending
-T:Vixen.Raven.Syntax.CastExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.CollectionElementSyntax sweep-pending
-T:Vixen.Raven.Syntax.CollectionExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.CompilationUnitSyntax sweep-pending
-T:Vixen.Raven.Syntax.ConditionalExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.ConstructorDeclarationSyntax sweep-pending
-T:Vixen.Raven.Syntax.ContinueStatementSyntax sweep-pending
-T:Vixen.Raven.Syntax.DefaultConstraintSyntax sweep-pending
-T:Vixen.Raven.Syntax.DefaultExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.DefaultSwitchLabelSyntax sweep-pending
-T:Vixen.Raven.Syntax.DiscardStatementSyntax sweep-pending
-T:Vixen.Raven.Syntax.ElementAccessExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.ElseClauseSyntax sweep-pending
-T:Vixen.Raven.Syntax.EmptyStatementSyntax sweep-pending
-T:Vixen.Raven.Syntax.EnumDeclarationSyntax sweep-pending
-T:Vixen.Raven.Syntax.EnumMemberDeclarationSyntax sweep-pending
-T:Vixen.Raven.Syntax.EqualsValueClauseSyntax sweep-pending
-T:Vixen.Raven.Syntax.ExpressionElementSyntax sweep-pending
-T:Vixen.Raven.Syntax.ExpressionStatementSyntax sweep-pending
-T:Vixen.Raven.Syntax.ExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.FieldDeclarationSyntax sweep-pending
-T:Vixen.Raven.Syntax.ForStatementSyntax sweep-pending
-T:Vixen.Raven.Syntax.GenericNameSyntax sweep-pending
-T:Vixen.Raven.Syntax.IdentifierNameSyntax sweep-pending
-T:Vixen.Raven.Syntax.IfStatementSyntax sweep-pending
-T:Vixen.Raven.Syntax.ImportDirectiveSyntax sweep-pending
-T:Vixen.Raven.Syntax.InstanceExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.InvocationExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.LiteralExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.LocalDeclarationStatementSyntax sweep-pending
-T:Vixen.Raven.Syntax.MemberAccessExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.MemberDeclarationSyntax sweep-pending
-T:Vixen.Raven.Syntax.MethodDeclarationSyntax sweep-pending
-T:Vixen.Raven.Syntax.NameColonSyntax sweep-pending
-T:Vixen.Raven.Syntax.NameSyntax sweep-pending
-T:Vixen.Raven.Syntax.OperatorDeclarationSyntax sweep-pending
-T:Vixen.Raven.Syntax.PackageDirectiveSyntax sweep-pending
-T:Vixen.Raven.Syntax.ParameterListSyntax sweep-pending
-T:Vixen.Raven.Syntax.ParameterSyntax sweep-pending
-T:Vixen.Raven.Syntax.ParenthesizedExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.PostfixUnaryExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.PredefinedTypeSyntax sweep-pending
-T:Vixen.Raven.Syntax.PrefixUnaryExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.PropertyDeclarationSyntax sweep-pending
-T:Vixen.Raven.Syntax.ProtocolDeclarationSyntax sweep-pending
-T:Vixen.Raven.Syntax.QualifiedNameSyntax sweep-pending
-T:Vixen.Raven.Syntax.RangeExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.RavenSyntaxExtensions sweep-pending
-T:Vixen.Raven.Syntax.RavenSyntaxNode sweep-pending
-T:Vixen.Raven.Syntax.RepeatStatementSyntax sweep-pending
-T:Vixen.Raven.Syntax.ReturnStatementSyntax sweep-pending
-T:Vixen.Raven.Syntax.SelfExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.ShaderDeclarationSyntax sweep-pending
-T:Vixen.Raven.Syntax.SimpleBaseTypeSyntax sweep-pending
-T:Vixen.Raven.Syntax.SimpleNameSyntax sweep-pending
-T:Vixen.Raven.Syntax.SpreadElementSyntax sweep-pending
-T:Vixen.Raven.Syntax.StatementSyntax sweep-pending
-T:Vixen.Raven.Syntax.StructDeclarationSyntax sweep-pending
-T:Vixen.Raven.Syntax.SwitchLabelSyntax sweep-pending
-T:Vixen.Raven.Syntax.SwitchSectionSyntax sweep-pending
-T:Vixen.Raven.Syntax.SwitchStatementSyntax sweep-pending
-T:Vixen.Raven.Syntax.SyntaxFactory sweep-pending
-T:Vixen.Raven.Syntax.SyntaxFacts sweep-pending
-T:Vixen.Raven.Syntax.SyntaxKind sweep-pending
-T:Vixen.Raven.Syntax.SyntaxRewriter sweep-pending
-T:Vixen.Raven.Syntax.SyntaxTree sweep-pending
-T:Vixen.Raven.Syntax.SyntaxVisitor sweep-pending
-T:Vixen.Raven.Syntax.SyntaxVisitor`1 sweep-pending
-T:Vixen.Raven.Syntax.TupleElementSyntax sweep-pending
-T:Vixen.Raven.Syntax.TupleExpressionSyntax sweep-pending
-T:Vixen.Raven.Syntax.TupleTypeSyntax sweep-pending
-T:Vixen.Raven.Syntax.TypeArgumentListSyntax sweep-pending
-T:Vixen.Raven.Syntax.TypeConstraintSyntax sweep-pending
-T:Vixen.Raven.Syntax.TypeParameterConstraintClauseSyntax sweep-pending
-T:Vixen.Raven.Syntax.TypeParameterConstraintSyntax sweep-pending
-T:Vixen.Raven.Syntax.TypeParameterListSyntax sweep-pending
-T:Vixen.Raven.Syntax.TypeParameterSyntax sweep-pending
-T:Vixen.Raven.Syntax.TypeSyntax sweep-pending
-T:Vixen.Raven.Syntax.VariableDeclarationSyntax sweep-pending
-T:Vixen.Raven.Syntax.WhileStatementSyntax sweep-pending
-T:Vixen.Raven.TypeInfo sweep-pending
+T:Vixen.Raven.Artefacts.LibraryIr one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrAccess one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrArgument one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrBinary one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrBlock one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrBreak one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrCall one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrConstant one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrConstruct one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrContinue one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrConvert one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrDiscard one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrExtract one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrField one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrFieldAccess one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrFunction one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrIf one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrIndexAccess one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrIntrinsic one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrLoad one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrLoop one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrPlace one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrReturn one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrSelect one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrStatement one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrStore one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrStruct one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrSwizzleAccess one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrTypeReference one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrUnary one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrValue one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.Artefacts.LibraryIrVariable one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
+T:Vixen.Raven.IR.IrAccess raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrArgument raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrArrayLengthInstruction raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrArrayType raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrAtomicInstruction raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrAtomicOp raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrBinaryInstruction raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrBinaryOp raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrBinding raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrBindingKind raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrBlock raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrBreakStatement raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrCallInstruction raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrCapabilities raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrCapability raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrComparisonSamplerType raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrConstantInstruction raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrConstructInstruction raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrContinueStatement raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrConversionKind raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrConvertInstruction raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrDepthTextureType raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrDiscardStatement raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrEntryPoint raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrExtractInstruction raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrField raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrFieldAccess raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrFunction raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrIfStatement raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrIndexAccess raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrInstruction raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrIntrinsic raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrIntrinsicInstruction raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrLoadInstruction raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrLoopStatement raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrMatrixType raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrModule raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrPermutation raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrPlace raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrPrinter raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrReturnStatement raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrSamplerType raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrScalarType raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrSelectInstruction raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrShader raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrSharedVariable raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrStageIo raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrStatement raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrStorageImageType raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrStoreInstruction raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrStream raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrStructType raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrSwizzleAccess raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrTextureDimension raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrTextureType raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrType raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrTypeKind raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrUnaryInstruction raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrUnaryOp raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrValue raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrValueParameter raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrVariable raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrVariableKind raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrVectorType raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.IR.IrVerifier raven IR, the model both back ends consume — public for a backend author, documented as one model
+T:Vixen.Raven.Symbols.ArrayTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.BufferTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.BuiltInNamedTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.BuiltInTypes raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.ConstructedNamedTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.Conversion raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.ConversionKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.Conversions raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.ErrorTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.FieldSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.ImageFormat raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.ImageFormats raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.Intrinsics raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.LocalSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.MethodKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.MethodSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.NamedTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.NamespaceSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.ParameterSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.PrimitiveTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.PropertySymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.RefKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.ResourceKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.ResourceSet raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.SampledTextureTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.SequenceTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.ShaderStage raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.SpecialType raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.StageBuiltIn raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.StageBuiltInInfo raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.StageBuiltIns raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.StorageImageTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.SubstitutedFieldSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.SubstitutedMethodSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.SubstitutedParameterSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.SubstitutedPropertySymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.SubstitutedSymbols raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.Symbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.SymbolKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.SynthesizedFieldSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.SynthesizedMethodSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.SynthesizedParameterSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.TupleTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.TypeKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.TypeMap raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.TypeParameterSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.TypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.WorkgroupSize raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Syntax.AccessorDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.AccessorListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ArgumentListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ArgumentSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ArrayRankSpecifierSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ArrayTypeSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ArrowExpressionClauseSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.AssignmentExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.AttributeArgumentListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.AttributeArgumentSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.AttributeListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.AttributeSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.BaseArgumentListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.BaseExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.BaseFieldDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.BaseListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.BaseTypeSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.BinaryExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.BlockSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.BracketedArgumentListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.BreakStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.CaseSwitchLabelSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.CastExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.CollectionElementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.CollectionExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.CompilationUnitSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ConditionalExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ConstructorDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ContinueStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.DefaultConstraintSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.DefaultExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.DefaultSwitchLabelSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.DiscardStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ElementAccessExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ElseClauseSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.EmptyStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.EnumDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.EnumMemberDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.EqualsValueClauseSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ExpressionElementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ExpressionStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.FieldDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ForStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.GenericNameSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.IdentifierNameSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.IfStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ImportDirectiveSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.InstanceExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.InvocationExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.LiteralExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.LocalDeclarationStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.MemberAccessExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.MemberDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.MethodDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.NameColonSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.NameSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.OperatorDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.PackageDirectiveSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ParameterListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ParameterSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ParenthesizedExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.PostfixUnaryExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.PredefinedTypeSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.PrefixUnaryExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.PropertyDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ProtocolDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.QualifiedNameSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.RangeExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.RavenSyntaxExtensions raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.RavenSyntaxNode raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.RepeatStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ReturnStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.SelfExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.ShaderDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.SimpleBaseTypeSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.SimpleNameSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.SpreadElementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.StatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.StructDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.SwitchLabelSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.SwitchSectionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.SwitchStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.SyntaxFactory raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.SyntaxFacts raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.SyntaxKind raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.SyntaxRewriter raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.SyntaxTree raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.SyntaxVisitor raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.SyntaxVisitor`1 raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.TupleElementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.TupleExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.TupleTypeSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.TypeArgumentListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.TypeConstraintSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.TypeParameterConstraintClauseSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.TypeParameterConstraintSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.TypeParameterListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.TypeParameterSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.TypeSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.VariableDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
+T:Vixen.Raven.Syntax.WhileStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
 T:Vixen.Rendering.AnimationChannel sweep-pending
 T:Vixen.Rendering.AnimationClipData sweep-pending
 T:Vixen.Rendering.Barycentrics sweep-pending
