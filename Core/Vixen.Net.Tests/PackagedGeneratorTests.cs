@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Reflection;
 using System.Text;
 using Xunit;
 
@@ -33,6 +34,28 @@ namespace Vixen.Net.Tests;
 ///     </para>
 /// </remarks>
 public sealed class PackagedGeneratorTests : IDisposable {
+    /// <summary>
+    ///     The configuration this test assembly was compiled in, which is the one the tree around it
+    ///     has bin/ directories for. Written by the SDK from <c>$(Configuration)</c>.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This used to be the literal <c>"Debug"</c>, and that is what made master's <c>Test</c>
+    ///     leg red on all three operating systems</b>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/943">#943</a>). The packing targets ask
+    ///     the generator project for <c>GetTargetPath</c> rather than <c>Build</c> — deliberately,
+    ///     since <c>NoBuild</c> is global and asking for <c>Build</c> is NETSDK1085 — so a pack lists
+    ///     a path it does not itself produce. A developer machine defaults to Debug and has built
+    ///     that path already; CI builds Release and only Release, and NuGet refused a
+    ///     <c>bin/Debug/netstandard2.1</c> that was never going to exist. <c>Vixen.Sdk.Tests</c>'
+    ///     <c>PackagedAnalyzerTests</c> was fixed this way and these two were left behind.
+    /// </remarks>
+    static readonly string Configuration =
+        Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration
+        ?? throw new InvalidOperationException(
+            "This assembly carries no AssemblyConfigurationAttribute, so the pack below cannot know which "
+            + "bin/ the generator projects were built into."
+        );
+
     readonly string root = Path.Combine(Path.GetTempPath(), "vixen-net-pack", Guid.NewGuid().ToString("N"));
 
     public void Dispose() {
@@ -87,7 +110,7 @@ public sealed class PackagedGeneratorTests : IDisposable {
             "pack",
             project,
             "-c",
-            "Debug",
+            Configuration,
             "--nologo",
             "-o",
             output

@@ -188,6 +188,14 @@ partial class Build : NukeBuild {
             "DYLD_LIBRARY_PATH",
             string.IsNullOrEmpty(inherited) ? layerDirectories : $"{layerDirectories}:{inherited}"
         );
+
+        // ⚠ The same marker `.runsettings` declares, because this method is what stands in for that
+        // file on the three targets that run under Microsoft.Testing.Platform. It is what lets
+        // `RunSettingsTests` tell "a mechanism applied the run's environment and got it wrong" from
+        // "no mechanism applied one", which is the difference between a defect and a bare
+        // `dotnet test <one project>` — the run the working agreement recommends, and the one that
+        // theory used to fail under for no reason anybody caused (#985).
+        Environment.SetEnvironmentVariable("VIXEN_TEST_SETTINGS_APPLIED", "1");
     }
 
     Target Clean => definition => definition

@@ -726,12 +726,32 @@ public sealed class UiTest : IDisposable {
             }
 
             if (written > 0) {
-                text.AppendLine();
+                text.Append(Newline);
             }
         }
 
         return text.ToString().TrimEnd();
     }
+
+    /// <summary>The line terminator every dump ends a line with, on every platform.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>StringBuilder.AppendLine</c> appends <see cref="Environment.NewLine" />, and
+    ///         what a dump is compared against is a raw string literal in a <c>.cs</c> file that
+    ///         <c>.gitattributes</c> pins to <c>eol=lf</c> on every checkout.</b> A dump built with
+    ///         <c>AppendLine</c> therefore agrees with its expectation on Linux and macOS and differs
+    ///         from it in <i>every line</i> on Windows. That is not a hypothetical: master's
+    ///         <c>test-windows-latest</c> leg reported three <c>DisclosureMarkupTests</c> and one
+    ///         <c>ComponentsViewDumpTests</c> failing on nothing but <c>\n</c> against <c>\r\n</c>,
+    ///         while both other legs passed the same tests.
+    ///     </para>
+    ///     <para>
+    ///         So the terminator is spelled rather than inherited from the machine. A dump is a value
+    ///         a test compares and a <c>.tree</c> fixture stores, not console output — the one place
+    ///         where "whatever this operating system writes" is the wrong answer.
+    ///     </para>
+    /// </remarks>
+    const char Newline = '\n';
 
     /// <summary>
     ///     The nine a tree dump cannot see, in the order somebody reading a panel's state wants them.
@@ -853,7 +873,7 @@ public sealed class UiTest : IDisposable {
             text.Append(" \"").Append(content).Append('"');
         }
 
-        text.AppendLine();
+        text.Append(Newline);
 
         foreach (var child in element.Children) {
             Describe(child, depth + 1, text);

@@ -53,6 +53,27 @@
         keeps the two machines' settings identical.
       -->
       <DYLD_LIBRARY_PATH>/opt/homebrew/lib:/usr/local/lib</DYLD_LIBRARY_PATH>
+
+      <!--
+        The marker that says a run's environment was applied at all, set by both
+        mechanisms that apply one: this file, and `Build.ExportLayerLibraryPath`
+        for the three targets that run under Microsoft.Testing.Platform and
+        therefore never read this file.
+
+        ⚠ It exists so that `RunSettingsTests` can tell "the mechanism ran and
+        did not deliver" from "no mechanism ran". Without it that theory is red
+        under a bare `dotnet test <one project>` — the command CLAUDE.md's
+        working agreement recommends and the one an agent in a worktree is
+        limited to — where nothing ever promised the variable, so the red meant
+        only that the run was the documented one (#985).
+
+        ⚠ And it is what stops an ambient `DYLD_LIBRARY_PATH` from a shell
+        profile passing the theory: a marker nothing but these two mechanisms
+        sets cannot be exported by accident, which is a stronger guard than the
+        exact-value comparison it replaces — and that comparison was itself
+        wrong, because `ExportLayerLibraryPath` PREPENDS to an inherited value.
+      -->
+      <VIXEN_TEST_SETTINGS_APPLIED>1</VIXEN_TEST_SETTINGS_APPLIED>
     </EnvironmentVariables>
   </RunConfiguration>
 

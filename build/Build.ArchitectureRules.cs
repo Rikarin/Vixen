@@ -310,6 +310,29 @@ partial class Build {
 
                 violations.AddRange(PluginReferenceRule.Violations(edges));
 
+                // #1005. A `[DataContract]` in a project that names neither registration generator
+                // compiles, runs, and registers nothing — an analyzer does not flow through a
+                // `ProjectReference`, so the attribute is decoration and no instrument in this tree
+                // could say which projects were in that state. `Vixen.Editor.Terrain` carried eight
+                // (#989) and a runtime roll call in one assembly's own suite is what found them.
+                //
+                // ⚠ The subject set is asserted before the empty violation list is believed, for the
+                // reason the plugin count above is logged: a walk that read no sources would report
+                // "no violations" and mean "I read nothing".
+                var subjects = DataContractGeneratorRule.Subjects(projects.Select(project => project.ToString()));
+
+                Assert.True(
+                    subjects > 0,
+                    "No project applies [DataContract], so the DataContract rule is checking nothing."
+                );
+
+                violations.AddRange(
+                    DataContractGeneratorRule.Violations(
+                        RootDirectory,
+                        projects.Select(project => project.ToString())
+                    )
+                );
+
                 foreach (var violation in violations) {
                     Log.Error("{Violation}", violation);
                 }
@@ -324,9 +347,11 @@ partial class Build {
                 // which references the contract because it hosts plugins — was being counted as one
                 // of them.
                 Log.Information(
-                    "Checked {Count} projects, of which {Plugins} are editor plugins; no violations.",
+                    "Checked {Count} projects, of which {Plugins} are editor plugins and {Subjects} apply "
+                    + "[DataContract]; no violations.",
                     projects.Count,
-                    PluginReferenceRule.Plugins(edges).Count
+                    PluginReferenceRule.Plugins(edges).Count,
+                    subjects
                 );
             }
         );

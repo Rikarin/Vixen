@@ -56,9 +56,15 @@ public sealed class UiTestException : Exception {
         return new(message.ToString());
     }
 
+    /// <remarks>
+    ///     ⚠ Split on <c>'\n'</c> rather than on <see cref="Environment.NewLine" />, because the tree
+    ///     dump this indents is line-fed on every platform on purpose (see <c>UiTest.Newline</c>).
+    ///     Splitting on the machine's terminator returns the whole dump as one line on Windows, and
+    ///     the failure message loses the indentation that separates the interface from the report.
+    /// </remarks>
     static string Indent(string text) =>
         string.Join(
             Environment.NewLine,
-            text.Split(Environment.NewLine).Select(line => line.Length == 0 ? line : "  " + line)
+            text.Split('\n').Select(line => line.Length == 0 ? line : "  " + line.TrimEnd('\r'))
         );
 }
