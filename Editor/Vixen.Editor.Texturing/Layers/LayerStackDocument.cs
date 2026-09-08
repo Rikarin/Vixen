@@ -353,6 +353,41 @@ sealed class LayerStackDocument : EditorDocument {
     /// </remarks>
     public int ModelsRevision { get; private set; } = 1;
 
+    /// <summary>Which texture set the brush paints into, or empty for "whichever is first".</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The paint half of <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>,
+    ///         and the panel half is the same value.</b> <c>LayerStackView</c> writes it when its set
+    ///         picker moves and <c>PaintSurface.Open</c> reads it, so what the artist is looking at is
+    ///         what a stroke lands in. Before this, every path took <c>Sets[0]</c> and every refusal
+    ///         named <c>set.Name</c> — so a multi-set stack painted into the first set and said a
+    ///         sentence that read as though a set had been chosen.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Here and not on <c>PaintTool</c>, which is what this file's neighbours predicted
+    ///         and is the worse of the two.</b> A set name means something only inside one stack, and
+    ///         the tool is the module's — it outlives the document deliberately, so that a closed and
+    ///         reopened panel keeps the brush. A set name on it would be stale the moment a second
+    ///         <c>.vxlayers</c> opened, and stale in the silent direction: two stacks made from
+    ///         <see cref="Starter" /> carry the same set names, so the stroke would land in a
+    ///         plausible set of the wrong stack. The document is the object both the panel and the
+    ///         pane already hold, and <c>PaintSurface.Open</c> already takes it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not saved, and not an undo entry.</b> It is which set is being worked on rather
+    ///         than anything about the material — the same answer <c>LayerStackView.ChooseSet</c>
+    ///         gives about the panel's own copy, for the same reason: an artist who looked at another
+    ///         set and pressed Ctrl+Z means to undo the last thing they changed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A name that no set answers to is a no-op rather than a refusal</b>, because
+    ///         <c>LayerStackEdit.SetFor</c> falls back to the first set — which is what makes this
+    ///         change nothing at all for a single-set stack, and what keeps a stack whose set was
+    ///         renamed openable.
+    ///     </para>
+    /// </remarks>
+    public string PaintSet { get; set; } = "";
+
     /// <inheritdoc />
     /// <remarks>
     ///     <para>

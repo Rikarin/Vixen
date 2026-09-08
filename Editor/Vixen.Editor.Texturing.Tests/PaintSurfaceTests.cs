@@ -83,6 +83,55 @@ public class PaintSurfaceTests : IDisposable {
         Assert.Equal(0, store.Reads);
     }
 
+    /// <summary>
+    ///     ⚠ The brush paints into the set the panel chose, and no longer into <c>Sets[0]</c> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The fixture is the mis-aim the issue describes rather than a convenient one.</b>
+    ///         Both sets carry a paint layer with the id <c>rust</c> — which is what a duplicated
+    ///         material slot really looks like — so aiming by <c>PaintTool.LayerId</c> alone finds a
+    ///         layer in either, and the wrong one is a plausible answer rather than a refusal. What
+    ///         separates them is the <c>.vxpaint</c> each names, so the assertion is about which file
+    ///         a stroke would reach.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because the fallback is what makes this change nothing for a
+    ///         single-set stack.</b> An empty <c>PaintSet</c> has to keep meaning the first set;
+    ///         a test that only set the name could not tell a working resolver from one that had
+    ///         stopped falling back.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_stroke_lands_in_the_set_the_document_chose_and_an_unchosen_one_is_still_the_first() {
+        var document = TwoSets();
+
+        PaintCanvasStore store = new();
+
+        var first = PaintSurface.Open(document, "rust", store, out var refusal);
+
+        Assert.NotNull(first);
+        Assert.Equal("", refusal);
+        Assert.Equal("Body", first.Set.Name);
+        Assert.Equal("Hull.Body.rust.vxpaint", first.Relative);
+
+        document.PaintSet = "Head";
+
+        var chosen = PaintSurface.Open(document, "rust", store, out refusal);
+
+        Assert.NotNull(chosen);
+        Assert.Equal("", refusal);
+        Assert.Equal("Head", chosen.Set.Name);
+        Assert.Equal("Hull.Head.rust.vxpaint", chosen.Relative);
+
+        // ⚠ And a name no set answers to falls back rather than refusing — a stack whose set was
+        // renamed under an open panel has to go on being paintable.
+        document.PaintSet = "Torso";
+
+        Assert.Equal("Body", PaintSurface.Open(document, "rust", store, out _)?.Set.Name);
+    }
+
     /// <summary>A stack with one paint layer whose canvas is named, or not.</summary>
     LayerStackDocument Stack(string name, string paint) {
         var document = new LayerStackDocument(
@@ -95,6 +144,32 @@ public class PaintSurfaceTests : IDisposable {
 
         stack.Sets[0].Layers.Add(new() { Id = "rust", Name = "Rust", Kind = LayerKind.Paint, Paint = paint });
         document.Document = stack;
+
+        return document;
+    }
+
+    /// <summary>Two sets carrying the same layer id and different canvases.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Neither layer names a file, so each resolves to <c>LayerPaint.NameFor</c>'s
+    ///     default</b> — which puts the <em>set's</em> name in it. That is what makes the two
+    ///     distinguishable without writing a byte to the disk, and it is the ordinary state of a
+    ///     paint layer whose first stroke has not happened.
+    /// </remarks>
+    LayerStackDocument TwoSets() {
+        var document = Stack("Hull", "");
+        var stack = document.Document;
+
+        // ⚠ Replaced rather than renamed: `TextureSetAsset.Name` is init-only, and `with` shares the
+        // collection members with the value it copied — which is what keeps the layer added above.
+        stack.Sets[0] = stack.Sets[0] with { Name = "Body" };
+
+        stack.Sets.Add(
+            new() {
+                Name = "Head",
+                Channels = LayerStackDocument.DefaultChannels(),
+                Layers = [new() { Id = "rust", Name = "Rust", Kind = LayerKind.Paint }]
+            }
+        );
 
         return document;
     }

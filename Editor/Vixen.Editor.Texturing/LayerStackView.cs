@@ -438,14 +438,24 @@ sealed class LayerStackView : IDisposable {
     ///         <c>LayerStackEdit.SetFor</c> is that rule; this is the panel's copy of the answer.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What is <em>not</em> wired is the paint half, and it is named here rather than
-    ///         left to be discovered.</b> <c>PaintSurface.Open</c>, <c>LayerStackPreview.Evaluate</c>
-    ///         and two places in <c>TexturingModule</c> still take <c>Sets[0]</c>; the durable home
-    ///         for the choice is <c>PaintTool</c>, beside <c>LayerId</c> and <c>Channel</c>, which is
-    ///         a file this change does not own. Until it is there, the panel <em>refuses a
-    ///         selection</em> on any set but the first — see <see cref="OtherSet" /> — because the
-    ///         alternative is a brush aimed by an id at a different set's layer of the same name,
-    ///         which is silent and wrong.
+    ///         ⚠ <b>The paint half is wired now, and this is the panel's copy rather than the
+    ///         durable one.</b> <c>ChooseSet</c> writes <see cref="LayerStackDocument.PaintSet" />
+    ///         and <c>PaintSurface.Open</c> resolves it, so a row of any set can be selected and the
+    ///         stroke lands where the artist is looking — the disarm and the sentence that used to
+    ///         stand here for that are gone. The choice lives on the <em>document</em> and not on
+    ///         <c>PaintTool</c>, which is what this remark used to predict: a set name means
+    ///         something only inside one stack, and the tool outlives documents.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why an empty one is recovered from the document at the next show.</b>
+    ///         This panel's factory re-runs on any workspace relayout, and a copy that reset while
+    ///         the durable one did not is two answers to one question.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What still takes <c>Sets[0]</c> is <c>TexturingModule.Mesh</c>, and it is a
+    ///         finding rather than a decision</b> — that file belongs to another slice. A stack whose
+    ///         chosen set narrows to a different mesh gets the first set's coverage map, so a stroke
+    ///         outside the shown set's islands is accepted or refused by the wrong geometry.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Empty is a real state and not "not yet initialised".</b> It means the panel has
@@ -613,6 +623,15 @@ sealed class LayerStackView : IDisposable {
             framed = null;
 
             return;
+        }
+
+        // ⚠ Recovered from the document rather than reset, exactly as the layer selection is
+        // recovered from the brush a few lines into `Build` — #927. This panel's factory re-runs
+        // whenever the workspace relays out, so a view that started at "" every time would put the
+        // artist back on the first set while the *brush* stayed on the one they chose; the two would
+        // then disagree, which is the silence the issue is about wearing a different hat.
+        if (SetName.Length == 0 && document.PaintSet.Length > 0) {
+            SetName = document.PaintSet;
         }
 
         var wanted = Shape(document, SetName);
@@ -1068,41 +1087,19 @@ sealed class LayerStackView : IDisposable {
         + "so selecting this row would aim it at whichever paint layer comes first instead. Give the "
         + "layer its own 'id' in the file, and it can be selected.";
 
-    /// <summary>What a row says in place of selecting, when the shown set is not the painted one.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>The honest half of <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>,
-    ///         and it is a holding position with an expiry rather than a design.</b> The panel now
-    ///         chooses a set; <c>PaintSurface.Open</c>, <c>LayerStackPreview.Evaluate</c> and two
-    ///         places in <c>TexturingModule</c> still take <c>Sets[0]</c>, and none of those is this
-    ///         change's to edit.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>What it prevents is a mis-aim rather than an error.</b> The brush is aimed by
-    ///         <c>PaintTool.LayerId</c> alone, so selecting <c>'layer-1'</c> while looking at the
-    ///         <c>Body</c> set would paint into whatever <c>'layer-1'</c> the <em>first</em> set has —
-    ///         two sets copied from one another have exactly those ids. A refusal an artist can read
-    ///         beats a stroke that lands somewhere else.
-    ///     </para>
-    ///     <para>
-    ///         When <c>PaintTool</c> carries the set beside <c>LayerId</c> and <c>Channel</c>, this
-    ///         sentence and the disarm it explains both go.
-    ///     </para>
-    /// </remarks>
-    public const string OtherSet =
-        "The brush is still aimed at this stack's first texture set, so a layer of another set cannot "
-        + "be selected yet — an id both sets carry would send the stroke to the wrong one. Every other "
-        + "control on this row edits the set you are looking at.";
-
     void LayerRow(LayerStackDocument document, TextureSetAsset set, LayerAsset layer, int depth) {
         LayerPath path = new(set.Name, layer.Id);
 
         // ⚠ Decided once, from the layer the row was built for, because an id is structure rather
-        // than a value: `Shape` carries it, so a layer that gained or lost one rebuilt this row. The
-        // same holds of which set is shown, which `Shape` also carries — #927.
+        // than a value: `Shape` carries it, so a layer that gained or lost one rebuilt this row.
+        //
+        // ⚠ And a second condition that used to be here has gone — #927. A row of any set but the
+        // first was disarmed, with `OtherSet` under it, because the brush took `Sets[0]` whatever
+        // the panel was showing and selecting by id alone would have sent the stroke into the wrong
+        // set's layer of the same name. `LayerStackDocument.PaintSet` is now that choice and
+        // `PaintSurface.Open` resolves it, so the shown set *is* the painted set and there is
+        // nothing left to refuse.
         var named = layer.Id.Length > 0;
-        var painted = document.Document.Sets.Count > 0
-            && string.Equals(set.Name, document.Document.Sets[0].Name, StringComparison.Ordinal);
 
         var row = rows.Add("layer-stack-row");
 
@@ -1124,13 +1121,12 @@ sealed class LayerStackView : IDisposable {
         // the model to refuse as well; `ButtonBase.Activate` runs neither the command nor the click
         // when it is disabled, so a second refusal inside `Choose` would be a branch nothing in this
         // file can reach.
-        select.Disabled = !named || !painted;
+        select.Disabled = !named;
 
-        if (!named || !painted) {
+        if (!named) {
             // The same tag an ambiguous row's sentence uses, because it is the same kind of thing in
-            // the same place — a control that is not there, and why. The set's reason is said first
-            // when both apply, because it is the one an artist can act on by changing a picker.
-            row.Add("layer-stack-row-refusal").Text = painted ? Unnamed : OtherSet;
+            // the same place — a control that is not there, and why.
+            row.Add("layer-stack-row-refusal").Text = Unnamed;
         }
 
         var up = row.Add<Button>("layer-stack-move-up");
@@ -1264,7 +1260,7 @@ sealed class LayerStackView : IDisposable {
             // The marker is in the row's own text rather than a style, so what the panel says about
             // which layer the brush is aimed at is something a test can read.
             name.Text = (chosen ? "● " : "") + Line(current, depth);
-            select.Label = named && painted ? chosen ? "Selected" : "Select" : "Cannot select";
+            select.Label = named ? chosen ? "Selected" : "Select" : "Cannot select";
             enabled.IsChecked = current.Enabled;
             blend.Value = current.Blend.ToString();
             opacity.Value = current.Opacity;
@@ -2594,6 +2590,15 @@ sealed class LayerStackView : IDisposable {
 
         SetName = value;
         Selected = null;
+
+        // ⚠ And the brush goes with it — #927. This is the one write that makes the picker mean
+        // anything to a stroke: `PaintSurface.Open` resolves `LayerStackDocument.PaintSet` through
+        // the same `SetFor` this view does, so "the set I am looking at" and "the set I am painting
+        // into" stopped being two answers. Written unconditionally rather than only when the panel
+        // has a brush, because the preview and the pane are two panels and either may be closed.
+        if (Document is { } document) {
+            document.PaintSet = value;
+        }
 
         if (tool is not null) {
             tool.LayerId = "";
