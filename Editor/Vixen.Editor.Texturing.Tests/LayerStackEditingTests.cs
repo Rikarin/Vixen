@@ -1261,14 +1261,14 @@ public class LayerStackEditingTests {
         var document = Open(fixture, TwoChannels());
         var panel = Panel(fixture);
 
-        var greens = Controls<Slider>(panel, "layer-stack-fill-green");
+        var greens = Fields(panel, "layer-stack-fill-green");
 
         // One row per channel of the set, in the set's own order.
         Assert.Equal(2, greens.Count);
-        Assert.Equal(0.25f, greens[0].Value);
-        Assert.Equal(0.5f, greens[1].Value);
+        Assert.Equal(0.25d, greens[0].Number);
+        Assert.Equal(0.5d, greens[1].Number);
 
-        greens[1].Value = 0.125f;
+        greens[1].Number = 0.125d;
 
         Assert.Equal([0.5f, 0.125f, 0.5f, 1f], Only(document).Values["roughness"]);
 
@@ -1279,22 +1279,34 @@ public class LayerStackEditingTests {
         fixture.Shell.Document.Effects.Flush();
 
         Assert.Equal([0.5f, 0.5f, 0.5f, 1f], Only(document).Values["roughness"]);
-        Assert.Equal(0.5f, Controls<Slider>(panel, "layer-stack-fill-green")[1].Value);
+        Assert.Equal(0.5d, Fields(panel, "layer-stack-fill-green")[1].Number);
     }
 
     /// <summary>⚠ A colour the file holds outside 0…1 survives a drag of another component.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The sliders run 0 to 1 and an emissive of 4 cd/m² does not.</b> That is a limit on
-    ///         what this panel can author and it must not become a limit on what it can hold: a row
-    ///         that gathered its four sliders into a colour would write the clamp back over three
-    ///         components nobody dragged, so opening the panel and nudging red would quietly turn a
-    ///         4 into a 1.
+    ///         <b>What the file holds reaches the panel and comes back out of it unchanged.</b> A
+    ///         colour above 1 was a value this panel could hold and not author while the four
+    ///         components were 0…1 sliders; it is now a value it can do both with, and this is the
+    ///         half that says the round trip does not round.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which is why the assertion is on the components that were <em>not</em>
-    ///         dragged.</b> The dragged one is clamped and should be — that is what dragging a 0…1
-    ///         slider means — so an assertion on it could not tell the two designs apart.
+    ///         ⚠ <b>It is no longer the test that refuses a gathering row, and the claim that it was
+    ///         is refuted</b> — <a href="https://github.com/Rikarin/Vixen/issues/1004">#1004</a> says
+    ///         "gathering the sliders turns the 4 into a 1 with nothing else in the suite noticing",
+    ///         which was true of a <em>slider</em> and is false of a field.
+    ///         <c>NumericInput.Number</c> holds what it was given at full precision —
+    ///         <c>Decimals</c> rounds the <em>text</em> and not the number — so a row that gathered
+    ///         its four fields would write back exactly what it read, and this test passes against
+    ///         that row. Sabotage-checked: replacing the per-component write with a gather of the
+    ///         four leaves all 46 tests in this suite green.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why the per-component write is now held by
+    ///         <see cref="A_refused_component_is_not_written_by_an_edit_to_its_neighbour" />
+    ///         instead.</b> A gather is still wrong, for a reason the clamp used to hide: a field
+    ///         that is <em>refusing</em> what it holds has a number, and gathering it writes into the
+    ///         document exactly the value the refusal exists to keep out.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -1316,13 +1328,148 @@ public class LayerStackEditingTests {
 
         var panel = Panel(fixture);
 
-        // The instrument: the slider really did clamp what it was shown, so the wrong design would
-        // really have had a 1 to write back.
-        Assert.Equal(1f, Controls<Slider>(panel, "layer-stack-fill-red")[0].Value);
+        // The instrument: the 4 reaches the field intact rather than arriving clamped, which is what
+        // #1004 bought and what a 0…1 control could not do.
+        Assert.Equal(4d, Fields(panel, "layer-stack-fill-red")[0].Number);
 
-        Controls<Slider>(panel, "layer-stack-fill-green")[0].Value = 0.75f;
+        Fields(panel, "layer-stack-fill-green")[0].Number = 0.75d;
 
         Assert.Equal([4f, 0.75f, 0.25f, 1f], Only(document).Values["baseColor"]);
+    }
+
+    /// <summary>⚠ A component the field is refusing is not written by an edit to another one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The per-component write, now that a clamp no longer stands in for it.</b> A row
+    ///         that gathered its four fields would read <c>Number</c> off a field whose value the
+    ///         row itself has just refused — <see cref="A_negative_component_is_refused_rather_than_written" />
+    ///         — and write it into the document through the neighbour's edit. The refusal would then
+    ///         hold for exactly as long as nobody touched the row again, which is a gate that fails
+    ///         open.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The assertion is on red, which was never dragged.</b> Green is supposed to change
+    ///         and cannot tell the two designs apart; and both numbers have to be in the document at
+    ///         once, because a test that only asserted red would also pass against a row that wrote
+    ///         nothing at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_refused_component_is_not_written_by_an_edit_to_its_neighbour() {
+        using var fixture = new TexturingFixture();
+
+        var document = Open(
+            fixture,
+            Stack(
+                [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+                new LayerAsset {
+                    Id = "l",
+                    Name = "Bright",
+                    Kind = LayerKind.Fill,
+                    Values = { ["baseColor"] = [0.5f, 0.25f, 0.25f, 1f] }
+                }
+            )
+        );
+
+        var panel = Panel(fixture);
+        var red = Fields(panel, "layer-stack-fill-red")[0];
+
+        red.Number = -1d;
+
+        // The instrument: the row really is refusing this one, so a gathering row would really have
+        // a negative to write.
+        Assert.False(red.IsValid);
+        Assert.Equal(-1d, red.Number);
+
+        Fields(panel, "layer-stack-fill-green")[0].Number = 0.75d;
+
+        Assert.Equal([0.5f, 0.75f, 0.25f, 1f], Only(document).Values["baseColor"]);
+    }
+
+    /// <summary>⚠ And a component above 1 can now be <em>authored</em>, which is #1004 itself.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The renderer works in cd/m² and an emissive fill of 4 is an ordinary thing for a
+    ///         <c>.vxlayers</c> to hold</b> — so a panel whose only control was a 0…1 slider could
+    ///         hold that value and could not produce it, and the file had to be opened in a text
+    ///         editor. <a href="https://github.com/Rikarin/Vixen/issues/1004">#1004</a>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The starting value is inside the range the old control could reach, which is
+    ///         what makes this red under it.</b> A fixture that already held a 4 would pass against
+    ///         a slider too, because the assertion would then be about the value surviving rather
+    ///         than about the value being writable. Writing 4 into a control whose maximum is 1
+    ///         leaves it at 1, and the document then holds 1.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the neighbours are asserted unchanged</b>, so a row that answered by
+    ///         widening the write rather than the control cannot pass this either.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_component_above_one_can_be_authored() {
+        using var fixture = new TexturingFixture();
+
+        var document = Open(
+            fixture,
+            Stack(
+                [new() { Usage = "emissive", Default = [0f, 0f, 0f, 1f] }],
+                new LayerAsset {
+                    Id = "l",
+                    Name = "Lamp",
+                    Kind = LayerKind.Fill,
+                    Values = { ["emissive"] = [0.5f, 0.25f, 0.25f, 1f] }
+                }
+            )
+        );
+
+        var panel = Panel(fixture);
+
+        Fields(panel, "layer-stack-fill-red")[0].Number = 4d;
+
+        Assert.Equal([4f, 0.25f, 0.25f, 1f], Only(document).Values["emissive"]);
+
+        // And the file's number comes back to the panel rather than being shown clamped, which is
+        // the half a write-only widening would fail.
+        Assert.True(document.Stack.Undo());
+        fixture.Shell.Document.Effects.Flush();
+
+        Assert.Equal(0.5d, Fields(panel, "layer-stack-fill-red")[0].Number);
+    }
+
+    /// <summary>⚠ A negative component is shown, refused, and not written.</summary>
+    /// <remarks>
+    ///     <b>The floor the field keeps now that it has no ceiling.</b> <c>NumericInput</c> holds and
+    ///     reports an out-of-range number rather than clamping it, so the row has to decide what to
+    ///     do with one — and a negative radiance is not a quantity. It stays in the field where the
+    ///     person can see it and correct it, exactly as <c>PropertyGrid</c>'s numeric rows do, and
+    ///     the document keeps the last value that was allowed. ⚠ Without the <c>IsValid</c> gate the
+    ///     panel writes the negative straight into the <c>.vxlayers</c>.
+    /// </remarks>
+    [Fact]
+    public void A_negative_component_is_refused_rather_than_written() {
+        using var fixture = new TexturingFixture();
+
+        var document = Open(
+            fixture,
+            Stack(
+                [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+                new LayerAsset {
+                    Id = "l",
+                    Name = "Base",
+                    Kind = LayerKind.Fill,
+                    Values = { ["baseColor"] = [0.5f, 0.25f, 0.25f, 1f] }
+                }
+            )
+        );
+
+        var panel = Panel(fixture);
+        var red = Fields(panel, "layer-stack-fill-red")[0];
+
+        red.Number = -1d;
+
+        Assert.False(red.IsValid);
+        Assert.Equal([0.5f, 0.25f, 0.25f, 1f], Only(document).Values["baseColor"]);
     }
 
     /// <summary>A channel a fill says nothing about can be given a colour, and told to stop.</summary>
@@ -2035,6 +2182,35 @@ public class LayerStackEditingTests {
 
     /// <summary>The only layer's mask, for a stack made by <see cref="Masked" />.</summary>
     static MaskAsset Mask(LayerStackDocument document) => document.Document.Sets[0].Layers[^1].Mask;
+
+    /// <summary>Every fill-colour component field the panel drew under that class, in layout order.</summary>
+    /// <remarks>
+    ///     ⚠ <b>By class, where every other finder here walks tags, and the panel is what forced
+    ///     it.</b> The four components of a fill colour are the one place in this view that keeps the
+    ///     control's own tag — <c>numeric-input</c>, so that the field is styled as a field at all —
+    ///     and carries its name as a class instead. A tag walk finds nothing, which is a green
+    ///     assertion about an empty list rather than a failure, so the two forms are not
+    ///     interchangeable and this one is named for the thing it finds.
+    /// </remarks>
+    static List<NumericInput> Fields(UiElement root, string className) {
+        List<NumericInput> found = [];
+
+        Walk(root);
+
+        Assert.NotEmpty(found);
+
+        return found;
+
+        void Walk(UiElement element) {
+            if (element.HasClass(className)) {
+                found.Add(Assert.IsType<NumericInput>(element));
+            }
+
+            foreach (var child in element.Children) {
+                Walk(child);
+            }
+        }
+    }
 
     /// <summary>Every control of one kind the panel drew under that tag, in layout order.</summary>
     static List<T> Controls<T>(UiElement root, string tag) where T : UiElement {
