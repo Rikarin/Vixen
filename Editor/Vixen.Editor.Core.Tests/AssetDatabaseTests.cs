@@ -418,6 +418,69 @@ public sealed class AssetDatabaseTests {
     }
 
     /// <summary>
+    ///     Two thousand files dropped into one folder with no sidecars all reach the index — every
+    ///     one of them, on the scan that mints their sidecars.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The property three issues accused this scan of breaking, held here rather than
+    ///         four hundred seconds away.</b> #748, #751 and #769 all report
+    ///         <c>GridViewTests.A_folder_of_thousands_costs_a_pool_rather_than_thousands_of_elements</c>
+    ///         counting 1 999 of 2 000, and #751's reading is that "the lost entry is inside the scan
+    ///         or inside what the browser keeps". Nothing in this assembly covered the shape that test
+    ///         actually exercises: <see cref="TenThousandAssetsScanWellInsideTheBudget" /> writes every
+    ///         sidecar itself, so its measured scan reuses all ten thousand and never mints one, and
+    ///         the minting path was covered by a single file. This is the minting path at the width
+    ///         the accusation is about, and it costs about two seconds.
+    ///     </para>
+    ///     <para>
+    ///         The claims are counts rather than a clock, and each is a different way for one entry to
+    ///         go missing: the report's own total, the folder's membership read back out of the index,
+    ///         and one <see cref="AssetIssueKind.MetaCreated" /> per asset — which is what says the
+    ///         mint happened rather than that the file was skipped. The second scan then has to find
+    ///         the same number with nothing left to say, because a sidecar this scan wrote and cannot
+    ///         read back is the other way the count could fall.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TwoThousandFilesWithNoSidecarsAllReachTheIndex() {
+        using var project = new ProjectFixture();
+
+        for (var index = 0; index < 2000; index++) {
+            project.AddWithoutMeta(string.Create(CultureInfo.InvariantCulture, $"Assets/Many/file{index:0000}.png"));
+        }
+
+        var database = new AssetDatabase(project.Paths);
+        var minting = database.Scan();
+
+        // The two thousand files and the folder holding them, which is an asset too.
+        Assert.Equal(2001, minting.Assets);
+        Assert.All(minting.Issues, issue => Assert.Equal(AssetIssueKind.MetaCreated, issue.Kind));
+        Assert.Equal(2001, minting.Issues.Count);
+
+        Assert.Equal(
+            2000,
+            database.Entries.Count(entry =>
+                !entry.IsFolder && entry.Path.StartsWith("Assets/Many/", StringComparison.Ordinal)
+            )
+        );
+
+        // ⚠ And the last one by name, because a scan that lost the entry the enumeration handed over
+        // last is the shape the grid test was failing on — it is `file1999.png` that its final
+        // assertion reaches for.
+        Assert.True(database.TryGetByPath("Assets/Many/file1999.png", out _));
+
+        // Read back rather than reused: the minting scan records no stamp for a sidecar it wrote
+        // itself, so this one opens all two thousand and one — and finding the same count with
+        // nothing to report is what says every sidecar it wrote is readable.
+        var settled = database.Scan();
+
+        Assert.Equal(2001, settled.Assets);
+        Assert.Equal(2001, settled.Rescanned);
+        Assert.Empty(settled.Issues);
+    }
+
+    /// <summary>
     ///     The budget [08](../../docs/plan/08-asset-pipeline-and-addressables.md) sets is a hundred
     ///     thousand assets in under ten seconds. Ten thousand is measured here — enough to catch an
     ///     algorithmic regression, few enough that the fixture's own file writes do not dominate the
