@@ -460,7 +460,15 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         // `.vxsmartmat` this assembly embeds and never writes down is content nothing can select.
         // `Install` writes only the names the shelf has not got, so an artist's edited copy survives
         // every later activation and the shipped one stays unreachable behind it.
-        SmartMaterial.Install(project.Paths.Assets);
+        //
+        // ⚠ **And the scan is the half that makes any of that true.** A plugin activates *after* the
+        // project has been indexed, so five files written here are on the disk and not in the asset
+        // database — `project.Selection.Primary` can never name one and `AssetEditorRegistry` can
+        // never open one — until the editor is restarted. Writing them was the visible half of the
+        // work and reaching them was the whole point of it.
+        if (SmartMaterial.Install(project.Paths.Assets).Count > 0) {
+            project.Assets.Scan();
+        }
 
         // ⚠ The host's mesh source, and it is what makes a stack's binding read what the *project*
         // has rather than what the file carries — #934. `EditorApplication` publishes its

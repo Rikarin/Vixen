@@ -30,8 +30,9 @@ namespace Vixen.Cli;
 ///         system, three more backends and a platform layer behind it — none of which a bake needs,
 ///         and one of which is the device that draws nothing. Naming one backend is what makes "no
 ///         fallback" a fact about this assembly's references rather than a flag somebody can pass.
-///         <c>CliGraphicsBackendTests</c> is what holds that: it reads this assembly's own
-///         this one and refuses <c>Vixen.Graphics.Null</c> among them.
+///         <c>TextureCommandTests.The_tool_links_a_real_backend_and_not_the_one_that_draws_nothing</c>
+///         is what holds that: it reads this assembly's own referenced assemblies, requires this one
+///         and refuses <c>Vixen.Graphics.Null</c> among them.
 ///     </para>
 ///     <para>
 ///         <b>Opened per verb and disposed with it.</b> A CLI process runs one command, and a device

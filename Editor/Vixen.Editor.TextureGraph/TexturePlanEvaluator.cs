@@ -340,10 +340,13 @@ public sealed class TexturePlanEvaluator : IDisposable {
     ///         in its top-left corner with no complaint. That is now <em>said</em> rather than
     ///         forgone in silence: the bake carries one warning per op it could not check, which is
     ///         the difference between a caller who chose the shorter call and one who did not know
-    ///         there was a longer one. Every caller of this overload today is a test fixture, and it
-    ///         is the right overload for a suite that dispatches over one uploaded image; a
-    ///         production caller wants <c>TextureUploads.Externals</c>, which declares the size from
-    ///         the value it already remembers.
+    ///         there was a longer one. ⚠ This said "every caller is a test fixture" and there is
+    ///         one in production — <c>TextureGraphPreviews.Rebuild</c>, which reaches it only after
+    ///         refusing every plan that has externals, so the caution can never fire for it. That is
+    ///         a stronger sentence than the false one. It is the right overload for a suite that
+    ///         dispatches over one uploaded image; anything supplying a picture wants
+    ///         <c>TextureUploads.Externals</c>, which declares the size from the value it already
+    ///         remembers.
     ///     </para>
     /// </remarks>
     public TextureBake Evaluate(TexturePlan plan, IReadOnlyDictionary<int, TextureHandle>? externals = null) =>
@@ -740,9 +743,8 @@ public sealed class TexturePlanEvaluator : IDisposable {
                         + $"image {input} the caller supplied without saying how big it is — so whether it is the "
                         + "size this op reads at was not checked. Nothing in IGraphicsDevice can describe a handle "
                         + $"back: {nameof(TextureExternal)}.{nameof(TextureExternal.Size)} is the only answer, and "
-                        + "the Evaluate overload taking bare handles cannot give it. TextureUploads.Externals is "
-                        + "what both production callers use, and it declares the size from the value it already "
-                        + "remembers."
+                        + "the Evaluate overload taking bare handles cannot give it. TextureUploads.Externals "
+                        + "declares the size from the value it already remembers."
                     );
 
                     continue;

@@ -374,11 +374,14 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan>, ISubG
     bool ISubGraphValues.Claims(PortDefinition port, string key) =>
         TextureGraphExpressions.IsExpression(key, out var named)
         && string.Equals(named, port.Name, StringComparison.Ordinal)
-        // ⚠ The same four kinds `Collect` refuses an expression on, and for the same reason: an
-        // expression is one number and there is no number an image port could take. Refused there
-        // and merely declined here, because a port of a *published* graph is not the author's own
-        // node — `Collect` still visits the copy that lands in the flattened graph.
-        && port.Kind is not (PortKind.Image or PortKind.Flow or PortKind.Texture or PortKind.Sampler);
+        // ⚠ **Scalar kinds only, and the exclusion list was the wrong way round.** An expression is
+        // *one number*, so the kinds it can answer are the kinds that hold one. Written as "not an
+        // image, flow, texture or sampler" it also claimed `Float2`, `Float3`, `Float4` and
+        // `Dynamic` — and `Resolve` answers a one-element array which the flattener writes as the
+        // port's *whole* value, so `=Colour` on a Float4 replaced four lanes with one number
+        // splatted across none of them. Named positively, a kind added to `PortKind` is declined
+        // until somebody decides what an expression means for it.
+        && port.Kind is PortKind.Float or PortKind.Int or PortKind.Bool;
 
     /// <inheritdoc />
     /// <remarks>

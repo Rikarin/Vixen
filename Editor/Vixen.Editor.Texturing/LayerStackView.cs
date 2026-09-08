@@ -1542,8 +1542,17 @@ sealed class LayerStackView : IDisposable {
 
         var source = row.Add<Select>(null, null, "layer-stack-filter-source");
 
+        // ⚠ **The chosen source is the row's own state and is not read back off the path.** It was,
+        // and a node path is a field an artist clears with backspace — so the last keystroke made
+        // `FilterNode` empty, the binding decided the layer was a preset again, and the field
+        // vanished from under the caret with the picker snapping to Preset. A row that can only
+        // hold a *non-empty* path is a row nobody can retype.
+        var named = layer.FilterNode.Trim().Length > 0;
+
         source.AddOption(PresetFilter);
         source.AddOption(NodeFilter);
+
+        source.SelectionChanged += (_, chosen) => named = string.Equals(chosen, NodeFilter, StringComparison.Ordinal);
 
         source.SelectionChanged += (_, chosen) => Set(
             document,
@@ -1593,7 +1602,10 @@ sealed class LayerStackView : IDisposable {
                 return;
             }
 
-            var named = current.FilterNode.Trim().Length > 0;
+            // ⚠ Content may turn the field *on* and never off — an undo or an edit made elsewhere
+            // can put a path back while this row is open, and adopting it is right; hiding a field
+            // because it is momentarily empty is the defect above.
+            named |= current.FilterNode.Trim().Length > 0;
 
             source.Value = named ? NodeFilter : PresetFilter;
             kind.Value = current.Filter.ToString();

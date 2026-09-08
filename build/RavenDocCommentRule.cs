@@ -278,6 +278,19 @@ static class RavenDocCommentRule {
     }
 
     /// <summary>Two paragraphs spliced into one block with no separator between them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This measures a missing separator and not a block describing the wrong thing</b>, and
+    ///     the distinction decides how the message has to be worded. Nothing here compares a block's
+    ///     prose with the declaration under it — that would need to understand the prose. What it
+    ///     detects is the *mark a splice leaves*: a line that stops well short of the file's own wrap
+    ///     column and is followed immediately by a new sentence, which is what happens when a member
+    ///     is inserted between a comment and what it documented, or when one block is pasted onto
+    ///     another.
+    ///     ⚠ <b>So the cheap fix silences it without fixing anything</b>, and six of this rule's own
+    ///     first eight findings were exactly that fix, correctly — they really were one paragraph
+    ///     wanting a break. The two that were not are why the message says to read the paragraphs
+    ///     first.
+    /// </remarks>
     /// <param name="file">The name to report against.</param>
     /// <param name="lines">The file's lines.</param>
     /// <param name="run">The block.</param>
@@ -313,8 +326,10 @@ static class RavenDocCommentRule {
                 index + 1,
                 $"`{Trim(current)}` ends a paragraph {wrap - lines[index].TrimEnd().Length} columns short of this "
                 + $"file's wrap column, and `{Trim(following)}` starts a new one on the very next line with no `///` "
-                + "separator. Two blocks have been spliced: one of them describes a declaration that is no longer "
-                + "below it."
+                + "separator. That is what two blocks spliced into one look like. ⚠ Read the two paragraphs "
+                + "against the declaration below before fixing it: if they describe different things, the block "
+                + "that does not belong has to MOVE to its own declaration — inserting the `///` separator makes "
+                + "this message go away and leaves the wrong documentation where it is."
             );
         }
     }

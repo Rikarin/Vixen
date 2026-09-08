@@ -1734,7 +1734,7 @@ public class LayerStackEditingTests {
     public void A_filter_row_shows_the_kind_or_the_path_and_never_both() {
         using var fixture = new TexturingFixture();
 
-        Open(fixture, Filtered());
+        var document = Open(fixture, Filtered());
 
         var panel = Panel(fixture);
 
@@ -1751,6 +1751,29 @@ public class LayerStackEditingTests {
 
         Assert.Equal(0f, Find<Select>(panel, "layer-stack-filter-kind").Width);
         Assert.True(Find<TextBox>(panel, "layer-stack-filter-node").Width > 0f);
+
+        // ⚠ **And the field survives being emptied, which is how a path is retyped.** `ValueChanged`
+        // fires per keystroke, so backspacing a path to nothing wrote an empty `FilterNode` — and a
+        // binding that read "is this a node layer" back off that string took the field off the
+        // screen under the caret and snapped the picker to Preset. The row's own choice is what
+        // decides; the file may turn the field on and never off.
+        var node = Find<TextBox>(panel, "layer-stack-filter-node");
+
+        node.Value = "";
+
+        Laid(fixture);
+
+        Assert.True(
+            Find<TextBox>(panel, "layer-stack-filter-node").Width > 0f,
+            "clearing the path took the field off the screen, so it cannot be retyped."
+        );
+
+        Assert.Equal(LayerStackView.NodeFilter, Find<Select>(panel, "layer-stack-filter-source").Value);
+
+        // Retyping it reaches the document, which is the whole point of the field staying put.
+        Find<TextBox>(panel, "layer-stack-filter-node").Value = "Utility/Highpass";
+
+        Assert.Equal("Utility/Highpass", Layer(document, "adjust").FilterNode);
     }
 
     /// <summary>⚠ A stack with no filter layer has no filter row at all.</summary>

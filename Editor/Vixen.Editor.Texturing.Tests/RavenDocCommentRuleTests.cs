@@ -239,8 +239,11 @@ public class RavenDocCommentRuleTests {
 
     /// <summary>The shapes an over-eager rule reports and this one has to leave alone.</summary>
     /// <remarks>
-    ///     ⚠ <b>The half that decides whether this gate survives.</b> A paragraph whose line ends a
-    ///     sentence <em>at</em> the wrap column ran out of room and continues; a declaration wearing
+    ///     ⚠ <b>The half that decides whether this gate survives, and the fixture had no line for
+    ///     it.</b> A paragraph whose line ends a sentence <em>at</em> the wrap column ran out of room
+    ///     and continues — <c>taps</c>' block is that shape, at 100 columns against a wrap of 116 and
+    ///     a slack of 18, so lowering <see cref="RavenDocCommentRule" />'s slack turns this named
+    ///     case red rather than only the tree sweep. A declaration wearing
     ///     attributes on its own line and on its own is still a declaration; and a <c>&lt;param&gt;</c>
     ///     that names a real parameter is documentation. A rule that reports any of these is a list
     ///     somebody switches off within a week.
@@ -260,6 +263,10 @@ public class RavenDocCommentRuleTests {
 
                     /// The direction the light travels in xyz, and the ambient term in w.
                     stream var light: float4
+
+                    /// The tap count is a power of two, since the reduction halves it on each pass.
+                    /// Sixteen is the ceiling the shared-memory budget allows, and nothing here asks for more.
+                    var taps: int = 8
 
                     /// One tap of the kernel.
                     /// <param name="offset">Where in the neighbourhood, in texels.</param>

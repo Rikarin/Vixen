@@ -97,19 +97,19 @@ predict the same misses again.
 the port's declared default — and **no diagnostic at all**. `SubGraphs.Flatten` reads `node.Values`
 for an unfed interface input and never the expression key.
 
-This is #742's shape one level over and worse in one respect: #742's fix reports an unparseable
-override against the node the author can select, and this reports nothing. Until it is answered, the
-rule this folder follows is **arithmetic lives in the published graph's own parameters, and a
-containing graph's ports carry plain numbers**.
+This was #742's shape one level over and worse in one respect: #742's fix reports an unparseable
+override against the node the author can select, and this reported nothing.
 
-**Half answered: the silence is gone, the fold is not.** `TG0003` now refuses it — an error against
-the sub-graph node and the port, so the graph does not bake with a number the author did not write.
-⚠ It is a *refusal* rather than a fold because the ordering makes folding a seam rather than a line:
-flattening decides what a port is worth and runs before `TextureGraphCompiler.Bind`, which is where
-the parameters an expression is written against are read — and a sub-graph node nested inside a
-compound is written against **that** compound's parameters with **that** expansion's overrides, so
-the flattener would need something that can call Raven, per expansion, mid-walk. The rule above is
-therefore still the rule.
+**Answered, and the rule this folder followed is retired.** ⚠ **An expression on a scalar sub-graph
+port now folds**, against the scope it was written in — so a compound may carry `edge * 0.5f` on a
+nested generator's port and get the number it says. `TG0003` was the intermediate state (a refusal,
+because folding looked like a seam rather than a line) and the id is free again; the diagnostic that
+survives is **`TG0016`**, for an expression naming a port the published graph has not got, or one on
+a port that cannot hold a number.
+
+⚠ **Two things it deliberately does not do.** An expression on a *wired* port is silent, which is the
+universal wire-beats-value rule. And only `Float`, `Int` and `Bool` ports are claimed — an expression
+is one number, and answering a `Float4` with one would splat it across four lanes.
 
 ### 2 · There is no masked composite — [#1059](https://github.com/Rikarin/Vixen/issues/1059)
 

@@ -289,6 +289,23 @@ public class SmartMaterialContentTests {
         fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
 
         Assert.All(Owed, name => Assert.Contains(name, SmartMaterial.Shelf(fixture.Paths.Assets)));
+
+        // ⚠ **The half a directory listing cannot see, and it is the half the whole design rests
+        // on.** `Shelf` reads the file system; every door a `.vxsmartmat` has takes an *asset* —
+        // `ApplySmartMaterial` reads `project.Selection.Primary`, `LayerStackEditorFactory` claims
+        // an extension. A plugin activates after the project has been indexed, so five files
+        // written and not rescanned are on the disk and unreachable until a restart, and the
+        // assertion above is green either way.
+        Assert.All(
+            Owed,
+            name => Assert.True(
+                fixture.Project.Assets.TryGetByPath(
+                    "Assets/" + SmartMaterial.ShelfFolder + "/" + name + SmartMaterial.Extension,
+                    out _
+                ),
+                $"'{name}' is on the shelf and not in the asset database, so nothing can select it."
+            )
+        );
     }
 
     /// <summary>Every layer, mask and child that carries painted texels, one sentence each.</summary>
