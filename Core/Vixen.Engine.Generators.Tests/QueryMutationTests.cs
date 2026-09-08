@@ -44,7 +44,7 @@ public class QueryMutationTests {
 
         Assert.Equal(QueryMutationAnalyzer.DiagnosticId, diagnostic.Id);
         Assert.Equal("world.Destroy(entity)", AnalyzerHarness.Underlined(diagnostic));
-        Assert.Contains("the query body", diagnostic.GetMessage(null), System.StringComparison.Ordinal);
+        Assert.Contains("the query body", diagnostic.GetMessage(null), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class QueryMutationTests {
         var diagnostic = Assert.Single(reported);
 
         Assert.Equal(QueryMutationAnalyzer.DiagnosticId, diagnostic.Id);
-        Assert.Contains("a chunk walk", diagnostic.GetMessage(null), System.StringComparison.Ordinal);
+        Assert.Contains("a chunk walk", diagnostic.GetMessage(null), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -120,7 +120,7 @@ public class QueryMutationTests {
         var diagnostic = Assert.Single(reported);
 
         Assert.Equal(QueryMutationAnalyzer.DiagnosticId, diagnostic.Id);
-        Assert.Contains("a struct visitor", diagnostic.GetMessage(null), System.StringComparison.Ordinal);
+        Assert.Contains("a struct visitor", diagnostic.GetMessage(null), StringComparison.Ordinal);
     }
 
     [Fact]

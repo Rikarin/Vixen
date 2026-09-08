@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Xunit;
 
@@ -16,7 +17,7 @@ namespace Vixen.Engine.Generators.Tests;
 ///     </para>
 /// </remarks>
 public class BehaviorStateTests {
-    static Task<System.Collections.Immutable.ImmutableArray<Diagnostic>> RunAsync(string source) =>
+    static Task<ImmutableArray<Diagnostic>> RunAsync(string source) =>
         AnalyzerHarness.RunAsync(source, new BehaviorStateAnalyzer());
 
     [Fact]
@@ -99,7 +100,7 @@ public class BehaviorStateTests {
 
         Assert.Equal(BehaviorStateAnalyzer.ComponentDiagnosticId, diagnostic.Id);
         Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
-        Assert.Contains("Health", diagnostic.GetMessage(null), System.StringComparison.Ordinal);
+        Assert.Contains("Health", diagnostic.GetMessage(null), StringComparison.Ordinal);
     }
 
     [Fact]
