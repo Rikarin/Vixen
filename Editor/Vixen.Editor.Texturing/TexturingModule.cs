@@ -118,6 +118,26 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     public const string PaintCommand = "texturing.toggle-paint";
 
+    /// <summary>The verb that turns the open <c>.vxtexgraph</c> into a <c>.vxmat</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>docs/plan/48 § M5's first exit word, and this module contained the string
+    ///         <c>bake</c> nowhere until it was added</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1009">#1009</a>. Two documents, three
+    ///         panels and three verbs were registered, every piece of the bake existed and had tests,
+    ///         and <c>new ProjectMaterialBaker</c> had one caller outside tests: a command-line verb
+    ///         that reads a folder of PNGs and evaluates no graph. So a graph an artist authored here
+    ///         could not become a material by any route a person can take.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It bakes the graph on the canvas rather than the selection</b>, which the two
+    ///         Open verbs above do not. What is baked has to be what the preview pane is showing —
+    ///         an artist reads the picture and then asks for it — and the selection in the Project
+    ///         panel is whatever they last clicked, which after a bake is usually one of the maps.
+    ///     </para>
+    /// </remarks>
+    public const string BakeCommand = "texturing.bake-material";
+
     /// <summary>The pane a stroke is made in: doc 48 § D13's 2D UV view.</summary>
     /// <remarks>
     ///     ⚠ <b>Its own panel rather than a mode of the layers pane, and the reason is that both are
@@ -142,6 +162,16 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
     /// <summary>What turns the open graph into pixels, once there is anything to turn it with.</summary>
     TextureGraphPreview? preview;
+
+    /// <summary>What turns the open graph into a material, once there is a device to run it on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Built beside the previews and on the same terms, which is what makes "the bake runs
+    ///     the code the pane runs" a fact rather than an intention.</b> It shares
+    ///     <see cref="evaluator" /> and <see cref="canvases" /> with both panes — so a bake dispatches
+    ///     through the pipelines the preview already compiled, and reads the pixels a stroke has not
+    ///     yet saved, which is what the artist is looking at when they ask for it.
+    /// </remarks>
+    MaterialBakeRoute? baker;
 
     /// <summary>What turns the open stack into pixels.</summary>
     /// <remarks>
@@ -306,6 +336,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         if (graphics is not null) {
             preview = new TextureGraphPreview(graphics, Evaluator, canvases);
             stackPreview = new LayerStackPreview(graphics, Evaluator, canvases);
+            baker = new MaterialBakeRoute(graphics, Evaluator, canvases);
 
             // ⚠ Through the scope rather than in `Deactivate`, because it holds device resources: an
             // evaluator's pipelines and one uploaded image. `Deactivate` runs first and this runs
@@ -445,6 +476,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             TogglePaint
         );
 
+        context.AddCommand(
+            BakeCommand,
+            new StringId("editor.command." + BakeCommand, "Bake Material"),
+            BakeMaterial
+        );
+
         // Where the verb belongs rather than a menu of its own — doc 36, and `PluginContext.FindMenu`
         // says why. A host with no Tools menu gets the command in the palette and the keymap, which
         // is the whole of what a menu entry adds.
@@ -452,7 +489,75 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             context.AddMenuItem(tools, OpenCommand);
             context.AddMenuItem(tools, OpenStackCommand);
             context.AddMenuItem(tools, PaintCommand);
+            context.AddMenuItem(tools, BakeCommand);
         }
+    }
+
+    /// <summary>Turns the graph on the canvas into a material in the project.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The route <a href="https://github.com/Rikarin/Vixen/issues/1009">#1009</a> says did
+    ///         not exist.</b> Everything below the notification is
+    ///         <see cref="MaterialBakeRoute.Bake" />, which is the compile the pane runs, the
+    ///         evaluator both panes share, and the <see cref="ProjectMaterialBaker" /> the command
+    ///         line calls. There is one baker and this is a second caller of it, which is the only
+    ///         arrangement in which "the same code the CLI runs" is a fact.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The material is named after the graph's file and there is no dialog</b>, which is
+    ///         a decision worth stating because it is what an artist will ask about first. A name is
+    ///         the set's file name and not its identity — <c>MaterialBakeRecord.SourceAsset</c> is
+    ///         that, so re-baking the same graph overwrites its own maps and keeps their GUIDs
+    ///         however the file is called. A name control is a panel this verb does not have yet;
+    ///         until it does, the graph's own name is the one answer that cannot silently adopt
+    ///         another graph's set.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Force is not offered and the refusal says so by name</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1019">#1019</a>. A map somebody has
+    ///         painted over stops the bake, which is § D4's whole point; the command line answers
+    ///         that with <c>--force</c> and this verb has no argument to carry one. Saying which file
+    ///         it was, and that replacing it is a deliberate act, is the honest half.
+    ///     </para>
+    /// </remarks>
+    void BakeMaterial() {
+        if (document is null) {
+            shell.Notifications.Show(
+                "No graph is open",
+                NotificationSeverity.Warning,
+                "Bake Material bakes the graph on the Texture Graph canvas. Select a .vxtexgraph and "
+                + "run Open Texture Graph first."
+            );
+
+            return;
+        }
+
+        if (baker is null) {
+            shell.Notifications.Show(
+                "Nothing baked",
+                NotificationSeverity.Warning,
+                TexturePreview.Describe(TexturePreview.Blocking(graphics))
+            );
+
+            return;
+        }
+
+        var outcome = baker.Bake(document, Path.GetFileNameWithoutExtension(document.AssetPath));
+
+        shell.Notifications.Show(
+            outcome.Set is null ? "Nothing baked" : "Baked '" + outcome.Set.Name + "'",
+            outcome.Set is null ? NotificationSeverity.Warning : NotificationSeverity.Info,
+            outcome.Painted
+                ? outcome.Status + " Replacing it is a deliberate act: `vixen texture bake --force` is "
+                + "the only route that offers one, and there is no control for it here yet (#1019)."
+                : outcome.Status
+        );
+
+        // ⚠ The pane too, and not because the picture changed — it did not. `Bake` compiles through
+        // the document, which republishes the compound library; a pane left alone would go on showing
+        // the picture it had while the material on disk was made from a different graph. It is also
+        // what puts the compiler's warnings back under the pane after a bake reported them.
+        Refresh();
     }
 
     /// <summary>Swaps the pointer between selecting and painting.</summary>
@@ -949,6 +1054,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         stackPreview?.Dispose();
         stackPreview = null;
+
+        // ⚠ Dropped rather than disposed, because it owns nothing: the evaluator is lent to it, the
+        // canvases are the module's, and every texture it makes is a `TextureUploads` inside one
+        // call. What it does hold is the host's `IEditorGraphics`, which is exactly what the two
+        // lines above and the `graphics = null` below exist to stop holding.
+        baker = null;
 
         // ⚠ Here and in neither preview — #820. The panes borrow it; freeing it from one of them
         // would destroy the pipelines the other is still dispatching through, which on a device is a

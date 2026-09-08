@@ -51,6 +51,17 @@
             is the defect this workstream keeps finding.
         -->
         <Compile Include="..\Vixen.Editor.TextureGraph.Tests\DeviceRollCall.cs" Link="DeviceRollCall.cs" />
+
+        <!--
+            ⚠ A committed `.vxtexgraph` rather than a graph built in C#, and the difference is what
+            `MaterialBakeRouteDeviceTests` is for. Every other assertion about a bake starts from a
+            `NodeGraphModel` a test wrote, which is the half that was never in doubt; this one starts
+            from bytes on disk, so the YAML reader, `NodeGraphDocument.Load`, the node registry and
+            `TextureGraphDocument`'s own constructor are all inside the claim that an artist can get a
+            material out of the tool. Copied to the output rather than read through
+            `[CallerFilePath]`, because CI's `DeterministicSourcePaths` rewrites that to `/_/`.
+        -->
+        <None Include="Fixtures\*.vxtexgraph" CopyToOutputDirectory="PreserveNewest" Link="Fixtures\%(Filename)%(Extension)" />
     </ItemGroup>
 
     <ItemGroup>
