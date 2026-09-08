@@ -1164,7 +1164,11 @@ actually moved was scored by a glyph nothing compares. And row 11's caveat, toge
 own copy of it, went on describing five files that open a device behind the harness's back for as
 long as [#923](https://github.com/Rikarin/Vixen/issues/923) had been closed. ⚠ **Both are the same
 failure and it is this table's characteristic one: a row is re-read when its subject changes, and a
-row whose subject was *fixed by somebody else* is never re-read at all.**
+row whose subject was *fixed by somebody else* is never re-read at all.** ⚠ **It has now happened in
+three successive batches and is tracked as
+[#1116](https://github.com/Rikarin/Vixen/issues/1116)** — all three drifts were one of exactly three
+shapes (*"nothing calls X"*, *"X does not exist"*, a bare count), which is what makes the cheap half
+of a rule possible.
 
 ⚠ **Six sentences in this file and in doc 48 dated work `2026-09-09` and every commit they describe
 is dated `2026-09-08`** — corrected in both. ⚠ **Three more survived that sweep and were corrected on
