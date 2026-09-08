@@ -7,7 +7,6 @@ using Vixen.Editor.Assets.Textures;
 using Vixen.Editor.Core;
 using Vixen.Editor.TextureGraph;
 using Vixen.Editor.Texturing.Painting;
-using Vixen.Graphics;
 
 namespace Vixen.Editor.Texturing;
 
@@ -39,11 +38,9 @@ namespace Vixen.Editor.Texturing;
 ///         and a decoder that read the file and produced nothing are all the same kind of answer.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Rgba8 only, and it is a real limit rather than an oversight.</b> The plan's external
-///         image for a <c>Source/Bitmap</c> is <c>Rgba8</c> — <c>BitmapNode</c> says why — so a KTX2
-///         or DDS asset that decodes to a block-compressed format has the wrong byte count for the
-///         image it would fill, and <c>TextureUploads.Add</c> would refuse it with a message about a
-///         byte count rather than about a file. Named here instead.
+///         ⚠ <b>Rgba8 only, and it is a real limit rather than an oversight</b> — stated on
+///         <see cref="TextureProjectImages" />, which now owns that refusal along with the rest of
+///         what an asset reference means.
 ///     </para>
 /// </remarks>
 static class TextureExternalImages {
@@ -122,10 +119,30 @@ static class TextureExternalImages {
     /// </param>
     /// <returns>Null when it was uploaded, or the sentence saying why it was not.</returns>
     /// <remarks>
-    ///     ⚠ <b>A mesh map is not a file and is refused as one.</b> A <c>Source/Mesh Map</c> crosses
-    ///     as <c>meshmap:curvature</c> rather than as a path, because what it names is a measurement
-    ///     of a mesh this pane has not been told about; resolving it as a project path would be a
-    ///     missing-file message about a file nobody named.
+    ///     <para>
+    ///         ⚠ <b>A mesh map is not a file and is refused as one.</b> A <c>Source/Mesh Map</c>
+    ///         crosses as <c>meshmap:curvature</c> rather than as a path, because what it names is a
+    ///         measurement of a mesh this pane has not been told about; resolving it as a project
+    ///         path would be a missing-file message about a file nobody named.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only this plugin's own two schemes are here, and the project-asset half is
+    ///         <see cref="TextureProjectImages.Resolve" /> one assembly down</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1087">#1087</a>. It was here, and
+    ///         <c>vixen texture bake --graph</c> therefore refused every graph with a
+    ///         <c>Source/Bitmap</c> pointing at an imported PNG: a second copy in <c>Tools/</c> would
+    ///         have been the copy that forgot a case, and referencing this plugin from there would
+    ///         have dragged the editor shell into a command-line tool. What stayed is what is about a
+    ///         live editor <em>session</em> — a mesh map nobody has baked here, and a canvas whose
+    ///         strokes are still under the pointer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The decode is passed down rather than moved down, and that is what keeps the
+    ///         store in the loop.</b> <c>ImageDecoders</c> is <c>Vixen.Editor.Assets</c>', whose
+    ///         closure is the whole runtime; and the caching this pane needs is
+    ///         <see cref="PaintCanvasStore.Picture" />'s, which the evaluator's assembly has no way
+    ///         to know about. Both live in the callback.
+    ///     </para>
     /// </remarks>
     static string? Resolve(
         EditorProject project,
@@ -147,23 +164,28 @@ static class TextureExternalImages {
             return Painted(documentPath, uploads, plan, entry, reference, pass);
         }
 
-        if (!project.Assets.TryGetByPath(reference, out var asset)) {
-            return $"'{reference}' is not in this project's assets, so there is nothing to read.";
-        }
+        return TextureProjectImages.Resolve(project, uploads, plan, entry, file => Decoded(file, pass));
+    }
 
-        var file = project.Paths.Absolute(asset.Path);
+    /// <summary>Reads one imported picture, through the session's store rather than off the disk.</summary>
+    /// <param name="file">The asset's own file, absolute.</param>
+    /// <param name="pass">This fill's answers, which are asked once a file rather than once a channel.</param>
+    /// <returns>The picture, or the sentence saying why there is none.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Through the store rather than straight off the disk</b> — #885's last bullet — <b>and
+    ///     once per pass rather than once per channel</b>, which is #981. A preview runs on every
+    ///     edit and this decoded the same unchanged PNG once per evaluation; the callback is what a
+    ///     miss costs, and the stamp is taken before it. <c>Picture</c> never holds one it cannot
+    ///     invalidate, so a deleted file is decoded — and refused — every time.
+    /// </remarks>
+    static (TextureData? Picture, string? Unreadable) Decoded(string file, TextureExternalPass pass) {
         var extension = Path.GetExtension(file);
 
         if (ImageDecoders.For(ImageDecoders.BuiltIn, extension) is not { } decoder) {
-            return $"nothing here decodes '{extension}', so '{reference}' cannot be read.";
+            return (null, $"nothing here decodes '{extension}'.");
         }
 
-        // ⚠ Through the store rather than straight off the disk — #885's last bullet — and once per
-        // pass rather than once per channel, which is #981. A preview runs on every edit and this
-        // decoded the same unchanged PNG once per evaluation; the callback is what a miss costs, and
-        // the stamp is taken before it. `Picture` never holds one it cannot invalidate, so a deleted
-        // file is decoded — and refused — every time.
-        var (picture, unreadable) = pass.Picture(
+        return pass.Picture(
             file,
             path => {
                 using var stream = File.OpenRead(path);
@@ -171,24 +193,6 @@ static class TextureExternalImages {
                 return decoder.Decode(stream, extension);
             }
         );
-
-        // The pass answers with a picture or with a message and never with neither.
-        if (picture is not { } decoded) {
-            return $"'{reference}' would not read: {unreadable}";
-        }
-
-        if (decoded.Format != PixelFormat.Rgba8UNorm) {
-            return $"'{reference}' decoded as {decoded.Format} and a graph's imported image is Rgba8, so this "
-                + "pane cannot upload it. Import it as an uncompressed 8-bit picture.";
-        }
-
-        try {
-            uploads.Add(plan, entry.Image, decoded.Width, decoded.Height, decoded.Level(0));
-        } catch (ArgumentException failure) {
-            return $"'{reference}' could not be uploaded: {failure.Message}";
-        }
-
-        return null;
     }
 
     /// <summary>Reads one channel of a paint layer's canvas and uploads it.</summary>

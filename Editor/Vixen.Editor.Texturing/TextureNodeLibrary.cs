@@ -57,7 +57,14 @@ sealed record TextureLibrary(
 /// </remarks>
 static class TextureNodeLibrary {
     /// <summary>Where a project keeps the graphs it publishes as nodes, under <c>Assets/</c>.</summary>
-    public const string CompoundFolder = "Compounds";
+    /// <remarks>
+    ///     ⚠ <b>An alias, and the convention itself is <see cref="TextureCompoundLibrary.Folder" />
+    ///     one assembly down</b> — <a href="https://github.com/Rikarin/Vixen/issues/1088">#1088</a>.
+    ///     It was spelled here, where <c>Tools/Vixen.Cli</c> cannot reach it, so the CLI spelled it
+    ///     again. The name is kept because a dozen call sites read well with it and because this is
+    ///     where a plugin author looks; what is gone is the second string.
+    /// </remarks>
+    public const string CompoundFolder = TextureCompoundLibrary.Folder;
 
     /// <summary>The node that names a baked mesh map, and the setting on it that says which.</summary>
     /// <remarks>
@@ -137,13 +144,12 @@ static class TextureNodeLibrary {
     /// <param name="assets">A project's <c>Assets/</c> folder, or <see langword="null" /> for none.</param>
     /// <returns>The folder, or <see langword="null" /> when there is no project.</returns>
     /// <remarks>
-    ///     ⚠ <b>Here rather than at each caller, because a second spelling of it is a second answer
-    ///     to "did that file change".</b> <c>TextureGraphDocument.Republish</c> asks whether a saved
-    ///     graph is one of these, and a copy of the <c>Path.Combine</c> would be a copy that stops
-    ///     agreeing the day the convention moves.
+    ///     ⚠ <b>The join itself is <see cref="TextureCompoundLibrary.FolderOf" /> one assembly
+    ///     down</b> — <a href="https://github.com/Rikarin/Vixen/issues/1088">#1088</a> — because
+    ///     <c>Tools/Vixen.Cli</c> needs the same three lines and cannot reference this plugin.
+    ///     Kept here as the name this plugin's own callers already use.
     /// </remarks>
-    public static string? FolderOf(string? assets) =>
-        assets is { Length: > 0 } ? Path.Combine(assets, CompoundFolder) : null;
+    public static string? FolderOf(string? assets) => TextureCompoundLibrary.FolderOf(assets);
 
     /// <summary>The mesh-map node's accepted values, or a sentence saying what moved.</summary>
     static IReadOnlyList<string> Declared() {

@@ -64,7 +64,16 @@ bake.Save(3, "Assets/Materials/hull-height.png");
   **closed forms**: a box filter's impulse response is `1/(2r+1)` over exactly `2r+1` texels, a levels
   curve maps three known inputs to three known outputs. `TexturePixels` converts half-floats to bytes
   on the way to a file and is an encoder, not a twin — nothing in a graph does it.
-- **No UI and no project.** Nothing here draws, and no test here needs a panel to check any of it. ⚠
+- **No UI, and no project except one thing that is now named.** Nothing here draws, and no test here
+  needs a panel to check any of it. ⚠ **"No project" stopped being literally true on 2026-09-08**
+  ([#1087](https://github.com/Rikarin/Vixen/issues/1087)): `TextureProjectImages` takes an
+  `EditorProject`, because turning a `Source/Bitmap`'s reference into texels was 313 `internal` lines
+  inside the texturing plugin and `vixen texture bake --graph` therefore refused every graph that
+  read an imported PNG. It costs **nothing** in the closure — `Vixen.Editor.Core` arrives here
+  through `Vixen.Editor.NodeGraph` already, so the `ProjectReference` widens what this compilation
+  may *spell* and not what it loads — and the decode stays out, as a callback, because
+  `ImageDecoders` is `Vixen.Editor.Assets`' and that closure adds twenty-five assemblies including
+  `Vixen.Engine` and `Vixen.Ecs`. ⚠
   The `Vixen.Editor.NodeGraph` reference above means the *assembly closure* is a UI one even so, which
   is the difference [#720](https://github.com/Rikarin/Vixen/issues/720) exists to restore.
   ⚠ **The split is deliberately not being done yet, and the reason is that no consumer would notice.**
@@ -606,9 +615,12 @@ graph containing a `Source/Bitmap` compiles and does not bake"*, and
 [#818](https://github.com/Rikarin/Vixen/issues/818) made it one:
 `LayerStackPreview.Evaluate` walks the owed list, reads each named asset out of the project and
 uploads it, and turns every one it cannot read into a sentence naming all of them at once. A stack's
-texture-fill layers bake. ⚠ The *graph* panel still does not, and that is a different gap — it
-evaluates a fixed checkerboard and never asks the document for its plan
-([#792](https://github.com/Rikarin/Vixen/issues/792)).
+texture-fill layers bake. ⚠ **This used to end "the *graph* panel still does not — it evaluates a
+fixed checkerboard and never asks the document for its plan", and that has been false for several
+batches**: `TextureGraphPreview.Evaluate` runs the same fill. ⚠ **And the host half is no longer the
+editor's alone** ([#1087](https://github.com/Rikarin/Vixen/issues/1087)): the project-asset scheme is
+`TextureProjectImages` here, so `vixen texture bake --graph` fills the same references from a build
+script, and what stayed in the plugin is the two schemes that name a live session.
 
 **⚠ An image at a resolution of its own** ([#733](https://github.com/Rikarin/Vixen/issues/733)).
 `Write` and `Scratch` take a level offset. Before that every image any node allocated was at the

@@ -435,6 +435,140 @@ public sealed class TextureCommandTests : IDisposable {
         Assert.DoesNotContain("Vixen.Graphics.Null.dll", beside);
     }
 
+    /// <summary>⚠ A graph reading an imported picture bakes, and the picture is the project's.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1087">#1087</a>: the whole of what
+    ///         <c>--graph</c> could not do.</b> Every generator, pattern and noise graph baked from
+    ///         the day the verb landed; a graph with one <c>Source/Bitmap</c> pointing at an imported
+    ///         PNG was refused, because the resolver that turns an asset reference into texels was
+    ///         313 <see langword="internal" /> lines inside the texturing plugin.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The assertion is the imported picture's own value and not merely a success
+    ///         code.</b> An exit code cannot tell this apart from a bake that filled the external
+    ///         with black and wrote a plausible material over an artist's; 137 is a number no kernel
+    ///         in this graph could have produced from anywhere else, and it can only have come off
+    ///         the disk.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the scan is what it is really testing, one layer down.</b>
+    ///         <c>AssetDatabase.TryGetByPath</c> reads an index, and an index nothing has scanned is
+    ///         empty — so a run that resolved before scanning would refuse a file that is sitting
+    ///         right there, with a sentence about the project rather than about the order the verb
+    ///         does things in.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task Baking_a_graph_that_reads_an_imported_picture_fills_it_from_the_project() {
+        RequireDevice();
+
+        Imported("Rust.png", 137);
+        BitmapGraph("Rusty.vxtexgraph", "Assets/Rust.png");
+
+        var (code, said, complaint) = await Run(
+            "texture", "bake", "--project", root, "--graph", Path.Combine(root, "Assets", "Rusty.vxtexgraph"),
+            "--name", "Rusty"
+        );
+
+        Assert.Equal(ExitCode.Success, code);
+
+        var picture = PngCodec.Decode(File.ReadAllBytes(BaseColourOf("Rusty")));
+
+        Assert.Equal(137, picture.Pixels[0]);
+        Assert.Contains("baked on", said, StringComparison.Ordinal);
+        Assert.DoesNotContain("1087", complaint, StringComparison.Ordinal);
+    }
+
+    /// <summary>A reference naming a live editor session is named and refused, one sentence.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The other half of #1087, and the half that says the move was a split rather than a
+    ///     copy.</b> <c>meshmap:</c> and <c>vxpaint:</c> stayed in the plugin because what they name
+    ///     is a session — one of them reads strokes that are still under the pointer. A resolver that
+    ///     had taken them too would look them up as project paths and answer with a missing-file
+    ///     message about a file nobody named.
+    /// </remarks>
+    [Fact]
+    public async Task A_graph_reading_a_mesh_map_is_named_and_refused() {
+        RequireDevice();
+
+        MeshMapGraph("Worn.vxtexgraph");
+
+        var (code, _, complaint) = await Run(
+            "texture", "bake", "--project", root, "--graph", Path.Combine(root, "Assets", "Worn.vxtexgraph"),
+            "--name", "Worn"
+        );
+
+        Assert.Equal(ExitCode.Failed, code);
+        Assert.Contains("meshmap:curvature", complaint, StringComparison.Ordinal);
+
+        // ⚠ Not the sentence a missing file gets. That one would send somebody looking in `Assets/`
+        // for a picture called `meshmap:curvature`, which is the failure the split exists to avoid.
+        Assert.DoesNotContain("is not in this project's assets", complaint, StringComparison.Ordinal);
+    }
+
+    /// <summary>⚠ A project's own compound is a node type this route compiles.</summary>
+    /// <remarks>
+    ///     <b><a href="https://github.com/Rikarin/Vixen/issues/1088">#1088</a>, end to end.</b>
+    ///     <c>Assets/Compounds</c> was spelled twice — once in the texturing plugin, which owns the
+    ///     join, and once here because <c>Tools/</c> cannot reference that plugin. Two spellings of
+    ///     one convention is how a project's compounds become visible to one host and invisible to
+    ///     the other: this route would report <c>TG0001</c>, "no node type is registered", which
+    ///     reads as a broken graph rather than as a folder nobody looked in. Nothing but a bake that
+    ///     actually reads the folder can tell the two apart, which is why this is a device test and
+    ///     not a comparison of two constants.
+    /// </remarks>
+    [Fact]
+    public async Task A_projects_own_compound_is_a_node_type_this_route_compiles() {
+        RequireDevice();
+
+        Compound("Tint", 0.75f);
+        UsingCompound("Wall.vxtexgraph", "Tint");
+
+        var (code, _, complaint) = await Run(
+            "texture", "bake", "--project", root, "--graph", Path.Combine(root, "Assets", "Wall.vxtexgraph"),
+            "--name", "Wall"
+        );
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.DoesNotContain("TG0001", complaint, StringComparison.Ordinal);
+
+        // 0.75 linear into an 8-bit map. A compound the registry never saw does not compile at all,
+        // so a wrong number here would have to be a compound that inlined something else.
+        Assert.Equal(191, PngCodec.Decode(File.ReadAllBytes(BaseColourOf("Wall"))).Pixels[0]);
+    }
+
+    /// <summary>⚠ The refusal leads with the driver's own words rather than with this verb's guess.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>It used to read "there is no GPU here: " and then the driver's sentence</b>, and
+    ///         the commonest way for a bake to be refused is not a missing adapter at all:
+    ///         <c>VulkanLoader.TryLoad</c> fails when <c>libvulkan</c> is not on the search path,
+    ///         which is the ordinary state of a <c>dotnet</c> container image on a machine with a
+    ///         perfectly good card in it. The two halves then contradicted each other in one line —
+    ///         "there is no GPU here" immediately followed by "install the loader, it was not on the
+    ///         dynamic linker's search path".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The property is that the driver's sentence comes first, which is falsifiable in
+    ///         both directions.</b> Asserting the absence of the old words would be satisfied by the
+    ///         same commit that deleted them and by nothing else; this fails for any prefix anybody
+    ///         puts back, whatever it says. The second assertion holds the other half — a refusal
+    ///         trimmed to the driver's words alone would stop saying that the fall-back exists and is
+    ///         refused, which is the part the driver cannot know.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_refusal_leads_with_the_drivers_own_cause() {
+        const string Loader = "Vulkan could not be loaded. Silk.NET.Vulkan ships bindings only, so the loader "
+            + "has to come from the system: apt install libvulkan1 mesa-vulkan-drivers (or the equivalent).";
+
+        var said = HeadlessGraphics.Refusal(Loader);
+
+        Assert.StartsWith(Loader, said, StringComparison.Ordinal);
+        Assert.Contains("refuses to run it on the one that draws nothing", said, StringComparison.Ordinal);
+    }
+
     /// <summary>A device, or a loud skip — or, when one was required, a failure.</summary>
     /// <remarks>
     ///     ⚠ Without a real adapter a headless run falls back to the Null device on every platform
@@ -473,6 +607,105 @@ public sealed class TextureCommandTests : IDisposable {
             YamlWriter.Write(YamlSerializer.Serialize(NodeGraphDocument.Save(model)))
         );
     }
+
+    /// <summary>Where a bake of this name put its base-colour map.</summary>
+    string BaseColourOf(string name) =>
+        Path.Combine(
+            root, "Assets", MaterialMapNaming.DefaultFolder,
+            name + "_" + MaterialMapNaming.Suffix(MaterialMapUsage.BaseColor) + MaterialMapNaming.PortableExtension
+        );
+
+    /// <summary>An imported picture in the project's own assets, flat and opaque.</summary>
+    void Imported(string name, byte value) {
+        var pixels = new byte[8 * 8 * 4];
+
+        for (var texel = 0; texel < 8 * 8; texel++) {
+            pixels[texel * 4] = value;
+            pixels[(texel * 4) + 1] = value;
+            pixels[(texel * 4) + 2] = value;
+            pixels[(texel * 4) + 3] = 255;
+        }
+
+        File.WriteAllBytes(Path.Combine(root, "Assets", name), PngCodec.Encode(new(8, 8, pixels)));
+    }
+
+    /// <summary>A graph whose base colour is an imported picture, read point-sampled and linear.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Point and linear, so that the number that comes out is the number that went in.</b>
+    ///     A bilinear read of a flat picture is the same value, but an sRGB one is not — and a test
+    ///     asserting a transfer function would be asserting <c>Bitmap.rvn</c> rather than whether the
+    ///     picture was found.
+    /// </remarks>
+    void BitmapGraph(string file, string reference) {
+        NodeGraphModel model = new();
+
+        var bitmap = model.Add("Source/Bitmap");
+        var output = model.Add("Output/Output");
+
+        bitmap.SetText("Source", reference);
+        bitmap.SetText("Space", "Linear");
+        bitmap.SetText("Filter", "Point");
+        output.SetText("Usage", MaterialMapNaming.Suffix(MaterialMapUsage.BaseColor));
+        model.Connect(new(bitmap.Id, "Out"), new(output.Id, "Input"));
+
+        Write(file, model);
+    }
+
+    /// <summary>A graph whose base colour is a mesh map nothing here has baked.</summary>
+    void MeshMapGraph(string file) {
+        NodeGraphModel model = new();
+
+        var map = model.Add("Source/Mesh Map");
+        var output = model.Add("Output/Output");
+
+        map.SetText("Map", "curvature");
+        output.SetText("Usage", MaterialMapNaming.Suffix(MaterialMapUsage.BaseColor));
+        model.Connect(new(map.Id, "Out"), new(output.Id, "Input"));
+
+        Write(file, model);
+    }
+
+    /// <summary>A one-node compound in the project's own <c>Assets/Compounds</c>.</summary>
+    void Compound(string name, float grey) {
+        var folder = Path.Combine(root, "Assets", TextureCompoundLibrary.Folder);
+
+        Directory.CreateDirectory(folder);
+
+        NodeGraphModel model = new();
+
+        model.Interface.Add(new("Out", PortDirection.Output, PortKind.Image));
+
+        var colour = model.Add("Source/Uniform");
+        var exit = model.Add(SubGraphs.OutputType);
+
+        colour.SetValue("Colour", [grey, grey, grey, 1f]);
+        model.Connect(new(colour.Id, "Out"), new(exit.Id, "Out"));
+
+        File.WriteAllText(
+            Path.Combine(folder, name + TextureCompoundLibrary.Extension),
+            YamlWriter.Write(YamlSerializer.Serialize(NodeGraphDocument.Save(model)))
+        );
+    }
+
+    /// <summary>A graph whose base colour is a published compound's output.</summary>
+    void UsingCompound(string file, string published) {
+        NodeGraphModel model = new();
+
+        var used = model.Add(published);
+        var output = model.Add("Output/Output");
+
+        output.SetText("Usage", MaterialMapNaming.Suffix(MaterialMapUsage.BaseColor));
+        model.Connect(new(used.Id, "Out"), new(output.Id, "Input"));
+
+        Write(file, model);
+    }
+
+    /// <summary>Saves a graph where a project keeps its assets.</summary>
+    void Write(string file, NodeGraphModel model) =>
+        File.WriteAllText(
+            Path.Combine(root, "Assets", file),
+            YamlWriter.Write(YamlSerializer.Serialize(NodeGraphDocument.Save(model)))
+        );
 
     static async Task<(ExitCode Code, string Output, string Error)> Run(params string[] args) {
         var output = new StringWriter { NewLine = "\n" };

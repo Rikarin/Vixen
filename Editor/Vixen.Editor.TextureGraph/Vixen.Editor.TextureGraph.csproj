@@ -206,6 +206,33 @@
         <ProjectReference Include="..\Vixen.Editor.NodeGraph\Vixen.Editor.NodeGraph.csproj" />
 
         <!--
+          And the editor's project model, for `TextureProjectImages` —
+          [#1087](https://github.com/Rikarin/Vixen/issues/1087). An external image naming a project
+          asset is resolved through an `AssetDatabase` and a `ProjectPaths`, and both are
+          `Vixen.Editor.Core`'s.
+
+          ⚠ **This costs nothing at runtime, which is the measurement the issue asked for rather
+          than assumed.** `Vixen.Editor.Core` is already in this assembly's closure through
+          `Vixen.Editor.NodeGraph` above — measured over every `ProjectReference` in the tree on
+          2026-09-08, the closure is 32 assemblies with and without this line. What the line buys is
+          the ability to *spell* `EditorProject`, which `DisableTransitiveProjectReferences` was
+          otherwise withholding.
+
+          ⚠ **And it does not widen the compile surface to the interface framework.** With
+          transitive references disabled, `Vixen.Editor.Core`'s own references — `Vixen.Ui` among
+          them — stay unspellable here, so doc 48 § 4.1's refusal of an `Svg Path` node still rests
+          on what this compilation may name.
+
+          ⚠ **The reference this deliberately does not take is `Vixen.Editor.Assets`**, where
+          `ImageDecoders` lives. Its closure is 54 and adds 25 assemblies to this one, including
+          `Vixen.Engine`, `Vixen.Ecs`, `Vixen.Terrain`, `Vixen.Water`, `Vixen.Navigation` and
+          `Vixen.Editor.VfxGraph`. That is why `TextureProjectImages` takes the decode as a delegate:
+          the file-extension switch is the caller's, and everything that could disagree silently is
+          not.
+        -->
+        <ProjectReference Include="..\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
+
+        <!--
           ⚠ **Doc 48 § 4.6's `Normal → Height` is a grid Poisson, and doc 42 § B1's solver is the
           solver.** `Vixen.Geometry.Uv/Solving` is a general sparse `SparseMatrix` /
           `ConjugateGradient` pair that happens to live behind an unwrapper's front door — warm
