@@ -152,6 +152,7 @@ public class TextureGraphDeviceTests(ITestOutputHelper output) {
                     Output = 0,
                     Parameters = [
                         new("basis", 0f),
+                        new("metric", 0f),
                         new("scale", 6f),
                         new("octaves", 3f),
                         new("lacunarity", 2f),

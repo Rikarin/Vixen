@@ -166,13 +166,13 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
         var ones = OneOp(
             device,
             source,
-            Op("Grayscale", 1, [0], new("weightR", 1f), new("weightG", 1f), new("weightB", 1f))
+            Op("Grayscale", 1, [0], new("weightR", 1f), new("weightG", 1f), new("weightB", 1f), new("normalise", 1f))
         );
 
         var fours = OneOp(
             device,
             source,
-            Op("Grayscale", 1, [0], new("weightR", 4f), new("weightG", 4f), new("weightB", 4f))
+            Op("Grayscale", 1, [0], new("weightR", 4f), new("weightG", 4f), new("weightB", 4f), new("normalise", 1f))
         );
 
         // (60 + 120 + 180) / 3 = 120, and the same for any scaling of (1, 1, 1).
@@ -192,7 +192,7 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
         var picture = OneOp(
             device,
             TextureKernelHarness.Solid(Side, 0, 255, 0, 255),
-            Op("Grayscale", 1, [0], new("weightR", 0.2126f), new("weightG", 0.7152f), new("weightB", 0.0722f))
+            Op("Grayscale", 1, [0], new("weightR", 0.2126f), new("weightG", 0.7152f), new("weightB", 0.0722f), new("normalise", 1f))
         );
 
         // 0.7152 × 255 = 182.4. Rec. 601's 0.587 would be 149.7 — thirty-three steps apart.
@@ -211,10 +211,56 @@ public class TextureColourDeviceTests(ITestOutputHelper output) {
         var picture = OneOp(
             device,
             TextureKernelHarness.Solid(Side, 0, 255, 0, 255),
-            Op("Grayscale", 1, [0], new("weightR", 0f), new("weightG", 0f), new("weightB", 0f))
+            Op("Grayscale", 1, [0], new("weightR", 0f), new("weightG", 0f), new("weightB", 0f), new("normalise", 1f))
         );
 
         Assert.InRange(TextureKernelHarness.At(picture, 10, 10, 0), 180, 185);
+    }
+
+    /// <summary>
+    ///     ⚠ With <c>normalise</c> off a weight set that cancels computes the difference of two
+    ///     channels, which is what it says and what no normalised weight set can express.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1100">#1100</see>. The picture is
+    ///         (60, 120, 180) and the weights are (−1, 1, 0), so the answer is exactly
+    ///         <c>120 − 60 = 60</c> — a number the normalised kernel cannot produce from any triple,
+    ///         because the same weights sum to zero and it takes the Rec. 709 fallback instead.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The same op with the flag on is asserted beside it, and that is the half that
+    ///         makes this a difference rather than a coincidence.</b> A kernel that ignored the flag
+    ///         would draw one picture twice; these two are 60 and 116 apart, so the pair says the
+    ///         branch is real and says which side of it is which.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Grayscale_without_normalisation_computes_a_difference_between_two_channels() {
+        using var device = TextureKernelHarness.Open();
+
+        output.WriteLine($"adapter: {TextureKernelHarness.Adapter(device)}");
+
+        var source = TextureKernelHarness.Solid(Side, 60, 120, 180, 255);
+
+        var raw = OneOp(
+            device,
+            source,
+            Op("Grayscale", 1, [0], new("weightR", -1f), new("weightG", 1f), new("weightB", 0f), new("normalise", 0f))
+        );
+
+        var normalised = OneOp(
+            device,
+            source,
+            Op("Grayscale", 1, [0], new("weightR", -1f), new("weightG", 1f), new("weightB", 0f), new("normalise", 1f))
+        );
+
+        // g − r, in the units the source was uploaded in.
+        Assert.InRange(TextureKernelHarness.At(raw, 30, 30, 0), 58, 62);
+
+        // And the fallback the same triple takes when it is asked for a ratio it has not got:
+        // 0.2126·60 + 0.7152·120 + 0.0722·180 = 111.5.
+        Assert.InRange(TextureKernelHarness.At(normalised, 30, 30, 0), 109, 114);
     }
 
     // --- HSL ------------------------------------------------------------------------------------

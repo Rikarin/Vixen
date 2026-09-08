@@ -48,7 +48,7 @@ parameters:
     default: Wrap
     summary: What the transform reads outside the picture.
     kind: Text
-    accepted: [Wrap, Clamp, Mirror]
+    accepted: [Clamp, Wrap, Mirror]
     group: Safe
   - name: quarters
     default: '0'

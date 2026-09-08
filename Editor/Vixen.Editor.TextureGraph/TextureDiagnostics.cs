@@ -27,10 +27,12 @@ namespace Vixen.Editor.TextureGraph;
 ///         inventing a twenty-second id in passing.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>TG0003</c> and <c>TG0007</c> are both free, and <c>TG0003</c> has been twice.</b>
+///         ⚠ <b><c>TG0003</c> is free and <c>TG0007</c> no longer is</b> —
+///         <see cref="WeightsFoldToNothing" /> took it, which is what a hole in the numbering is for.
 ///         Measured with <c>git log -S</c> over the whole history rather than assumed: the numbering
 ///         had those two holes in it since the ids were first written, so neither was ever a retired
-///         meaning. <c>TG0003</c> was taken for one batch by "an expression on a sub-graph port is
+///         meaning and filling one cannot collide with a sentence an author has read before.
+///         <c>TG0003</c> was taken for one batch by "an expression on a sub-graph port is
 ///         refused" and given back when <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a>
 ///         made that expression fold — what survives of the rule is the complaint
 ///         <see cref="ExpressionOnAPortThatTakesNone" /> already made about an atomic node's port,
@@ -74,6 +76,27 @@ static class TextureDiagnostics {
     ///     them is the map and the graph does not say which.
     /// </summary>
     internal const string TwoOutputsOneUsage = "TG0006";
+
+    /// <summary>
+    ///     A weight set folds to nothing under a normalisation that is still on, so the kernel will
+    ///     quietly take its documented fallback instead of the weights the author typed.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1100">#1100</a>, and it is the loud
+    ///         half of that finding — the other half is the <c>Normalise</c> port itself.
+    ///         <c>Colour/Grayscale</c> divides its three weights by their sum, deliberately, so that a
+    ///         weight set is a <em>ratio</em>; a triple that sums to zero has no ratio, and what the
+    ///         kernel does instead is compute Rec. 709 luminance. That is a completely different
+    ///         picture from a triple that is not invalid in any way the type system could name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It fires only while normalisation is on.</b> With it off a zero sum is exactly
+    ///         what an author asking for a channel <em>difference</em> means, and a warning there
+    ///         would be a warning on the correct spelling of the thing the port exists for.
+    ///     </para>
+    /// </remarks>
+    internal const string WeightsFoldToNothing = "TG0007";
 
     /// <summary>
     ///     A port is wired and whatever feeds it produced no image: the node upstream failed, or its

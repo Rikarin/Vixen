@@ -67,6 +67,21 @@ sealed partial class NoiseNode : TextureNode {
     [Setting(AcceptedFrom = typeof(TextureNoiseBasis))]
     public string Basis = "Value";
 
+    /// <summary>
+    ///     What a cell's shape is: <c>Euclidean</c> — round — <c>Chebyshev</c> — square — or
+    ///     <c>Manhattan</c> — diamond. ⚠ Read by <c>Worley</c> and ignored by the other three.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A setting that three of the four bases ignore, and there is no way for the node to say
+    ///     so</b> — <c>Shape</c>'s <c>Falloff</c> has exactly the same shape, and a setting cannot
+    ///     hide a setting. What it buys is the whole of a cellular pattern library that is not round:
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1101">#1101</a> found it authoring
+    ///     <c>Patterns/Cells</c>, where tile, cracked mud and snake skin all want a metric that was
+    ///     not there.
+    /// </remarks>
+    [Setting(AcceptedFrom = typeof(TextureCellMetric))]
+    public string Metric = "Euclidean";
+
     /// <summary>How many cells across the image at the first octave.</summary>
     [Input]
     public Scalar Scale = 8f;
@@ -110,7 +125,8 @@ sealed partial class NoiseNode : TextureNode {
                 emitter.Integer(nameof(Octaves)),
                 emitter.Number(nameof(Lacunarity)),
                 emitter.Number(nameof(Gain)),
-                emitter.Flag(nameof(Tiling))
+                emitter.Flag(nameof(Tiling)),
+                TextureSettings.Enum(emitter, nameof(Metric), TextureCellMetric.Euclidean)
             )
         );
     }

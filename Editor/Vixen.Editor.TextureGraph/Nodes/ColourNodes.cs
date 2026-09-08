@@ -80,8 +80,14 @@ sealed partial class HslNode : TextureNode {
 ///         mask in the graph, which is the class of defect nobody reports.
 ///     </para>
 ///     <para>
-///         <b>The weights are Rec. 709's and the kernel normalises them</b>, so a triple of ones is a
-///         plain mean rather than a treble-bright image.
+///         <b>The weights are Rec. 709's and the kernel normalises them by default</b>, so a triple of
+///         ones is a plain mean rather than a treble-bright image. ⚠ <b>By <em>default</em>, since
+///         <a href="https://github.com/Rikarin/Vixen/issues/1100">#1100</a>.</b> The ratio rule made a
+///         channel <em>difference</em> unauthorable and said nothing about it: (−1, 1, 0) sums to
+///         zero, so the kernel took its Rec. 709 fallback and drew a completely different picture from
+///         a triple nothing could call invalid. <see cref="Normalise" /> is how an author asks for the
+///         raw weighted sum, and <c>TG0007</c> is what says so when the weights cancel under a
+///         normalisation that is still on.
 ///     </para>
 /// </remarks>
 [Node("Colour/Grayscale", Preview = true, Summary = "Colour to a single channel, under three weights.")]
@@ -102,6 +108,20 @@ sealed partial class GrayscaleNode : TextureNode {
     [Input(Name = "Weight B")]
     public Scalar WeightB = 0.0722f;
 
+    /// <summary>
+    ///     Whether the three weights are divided by their sum, so a weight set is a ratio. Off is the
+    ///     raw weighted sum, which is the only way to spell a difference between two channels.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>On by default, and that is the compatibility statement rather than a preference.</b>
+    ///     Every picture baked before <a href="https://github.com/Rikarin/Vixen/issues/1100">#1100</a>
+    ///     was normalised, and the argument for it stands: an author who types 1, 1, 1 wanting "the
+    ///     average" would otherwise get three times the brightness of the image and notice two ops
+    ///     later at a <c>Levels</c>, which they would then blame.
+    /// </remarks>
+    [Input]
+    public Bool Normalise = true;
+
     /// <summary>The grey.</summary>
     [Output(Name = "Out")]
     public Image Out;
@@ -117,15 +137,37 @@ sealed partial class GrayscaleNode : TextureNode {
             return;
         }
 
+        var red = emitter.Number("Weight R");
+        var green = emitter.Number("Weight G");
+        var blue = emitter.Number("Weight B");
+        var normalise = emitter.Flag(nameof(Normalise));
+
+        // ⚠ The loud half of #1100. A triple summing to zero has no ratio, so the kernel takes its
+        // documented Rec. 709 fallback — a completely different picture, from three numbers nothing
+        // in the type system can call invalid. It is only a surprise while normalisation is on: with
+        // it off a zero sum is precisely what a channel difference is, and the same threshold the
+        // kernel uses is what decides, so the sentence and the branch cannot disagree.
+        if (normalise && Math.Abs(red + green + blue) < 1e-6f) {
+            emitter.Report(
+                TextureDiagnostics.WeightsFoldToNothing,
+                $"The weights ({red}, {green}, {blue}) sum to zero, so there is no ratio to take of "
+                + "them and this will compute Rec. 709 luminance instead. A weight set that cancels "
+                + "is a difference between channels: turn 'Normalise' off to ask for one.",
+                "Normalise",
+                NodeSeverity.Warning
+            );
+        }
+
         emitter.Dispatch(
             new TextureOp {
                 Kernel = TextureColourKernels.Grayscale,
                 Output = target,
                 Inputs = [source],
                 Parameters = [
-                    new("weightR", emitter.Number("Weight R")),
-                    new("weightG", emitter.Number("Weight G")),
-                    new("weightB", emitter.Number("Weight B"))
+                    new("weightR", red),
+                    new("weightG", green),
+                    new("weightB", blue),
+                    new("normalise", normalise ? 1f : 0f)
                 ]
             }
         );
@@ -473,5 +515,71 @@ sealed partial class AutoLevelsNode : TextureNode {
         }
 
         emitter.Dispatch(TextureAdjust.AutoLevels(target, source, scratch.ToImmutable(), size.X, size.Y));
+    }
+}
+
+/// <summary>A named metal's normal-incidence reflectance, as a constant image.</summary>
+/// <remarks>
+///     <para>
+///         <b>Doc 48 § 4.9's Surface row <c>Metal Reflectance ●</c>, "a named-metal lookup", and the
+///         atom under the compound of that name.</b>
+///         <a href="https://github.com/Rikarin/Vixen/issues/1060">#1060</a> called that row the first
+///         § 4.9 entry that could not be authored at all, because a compound could not expose a name;
+///         <a href="https://github.com/Rikarin/Vixen/issues/1096">#1096</a> is the finding that when
+///         it could, the blocker had <em>moved</em> rather than gone — nothing in the atomic set
+///         mapped a metal name to an F0, so there was no setting for a compound to forward. This is
+///         that setting.
+///     </para>
+///     <para>
+///         ⚠ <b>The nearest two things were not it, and the reasons are worth keeping.</b>
+///         <see cref="GradientMapNode" /> needs a ramp <em>asset</em>, which is a different object
+///         from a choice among ten constants; <c>Source/Uniform</c>'s colour is a <c>Float4</c> port,
+///         so a compound could expose it only as four numbers and the <em>name</em> — the whole
+///         content of this node — would be gone.
+///     </para>
+///     <para>
+///         ⚠ <b>Here rather than under <c>Surface/</c>, and that is a collision rather than a
+///         taxonomy.</b> A published compound and a node class share one path namespace, and § 4.9's
+///         row wants <c>Surface/Metal Reflectance</c> for the compound: naming the atom that too is
+///         refused by <c>TextureCompoundLibrary</c> with "Two different node types claim the path" —
+///         measured, not predicted. It is the arrangement <c>Placement/Tile Sampler</c> already has
+///         under <c>Patterns/Tile Random</c>, and this node is a colour constant by shape.
+///     </para>
+///     <para>
+///         ⚠ <b>It reads nothing, and it grows no mask.</b> A masked metal is this node into a
+///         <c>Colour/Mix</c> — the kernel takes no second image deliberately, and its header says why.
+///     </para>
+/// </remarks>
+[Node("Colour/Metal Reflectance", Preview = true, Summary = "A named metal's F0, from measured data.")]
+sealed partial class MetalReflectanceNode : TextureNode {
+    /// <summary>
+    ///     Which metal: <c>Iron</c>, <c>Chromium</c>, <c>Nickel</c>, <c>Titanium</c>,
+    ///     <c>Platinum</c>, <c>Aluminium</c>, <c>Silver</c>, <c>Gold</c>, <c>Copper</c> or
+    ///     <c>Brass</c>.
+    /// </summary>
+    [Setting(AcceptedFrom = typeof(TextureMetal))]
+    public string Metal = "Iron";
+
+    /// <summary>The reflectance, linear, opaque.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var metal = TextureSettings.Enum(emitter, nameof(Metal), TextureMetal.Iron);
+
+        // Colour whatever is downstream: two of the ten are strongly chromatic, so calling this grey
+        // would throw the whole point of the table away at the first thing that read it.
+        var target = emitter.Write("Out", TextureChannels.Colour);
+
+        emitter.Dispatch(
+            new TextureOp {
+                Kernel = TextureColourKernels.MetalReflectance,
+                Output = target,
+                Parameters = [new("metal", (float)metal)]
+            }
+        );
     }
 }

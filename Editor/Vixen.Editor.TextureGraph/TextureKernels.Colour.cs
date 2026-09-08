@@ -44,6 +44,61 @@ enum TextureChannelSource {
     One = 9
 }
 
+/// <summary>Which metal's normal-incidence reflectance a <c>MetalReflectance</c> op writes.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Names and indices, and deliberately not the numbers.</b> The F0 triples are in
+///         <c>Shaders/MetalReflectance.rvn</c> and nowhere else, with the published source they come
+///         from named in its header. A second copy here would be a table nothing compares against: a
+///         plan hands the kernel an index and reads back an image, so a drifted CPU copy would never
+///         be dispatched and never be wrong out loud —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1095">#1095</a>'s defect in a third
+///         costume. <c>TextureColourKernelTests</c> reads the branches out of the kernel and requires
+///         one per member here, in this order.
+///     </para>
+///     <para>
+///         ⚠ <b>The numbers are the kernel's contract</b>, the way <c>TextureShapeKind</c>'s are:
+///         nothing in the compilation would notice a renumbering, because every entry is a plausible
+///         metal colour and a graph asking for gold would simply be brass.
+///     </para>
+///     <para>
+///         <b><see cref="Iron" /> is zero because something has to be.</b> Doc 48's rule is that zero
+///         usually means "off" and a lookup has no "off", so the zero is the entry an author is
+///         likeliest to have meant — and iron is what every "worn metal" graph in § 4.9 starts from.
+///     </para>
+/// </remarks>
+enum TextureMetal {
+    /// <summary>Very slightly blue, and the least chromatic of the greys. The default.</summary>
+    Iron = 0,
+
+    /// <summary>Neutral, a shade darker than iron.</summary>
+    Chromium = 1,
+
+    /// <summary>Warm and dark — what a "dirty steel" graph usually wants.</summary>
+    Nickel = 2,
+
+    /// <summary>The darkest here, and warm.</summary>
+    Titanium = 3,
+
+    /// <summary>Bright and very slightly warm.</summary>
+    Platinum = 4,
+
+    /// <summary>Bright and neutral to a thousandth. ⚠ Not silver, which is warmer.</summary>
+    Aluminium = 5,
+
+    /// <summary>The brightest, and warmer than aluminium.</summary>
+    Silver = 6,
+
+    /// <summary>Saturated: red saturates and blue is a third of it.</summary>
+    Gold = 7,
+
+    /// <summary>Saturated, and redder than gold.</summary>
+    Copper = 8,
+
+    /// <summary>Between gold and aluminium, which is what an alloy of copper and zinc looks like.</summary>
+    Brass = 9
+}
+
 /// <summary>Which way <c>Mirror</c> folds.</summary>
 enum TextureMirrorAxis {
     /// <summary>About a vertical line.</summary>
@@ -100,6 +155,12 @@ enum TextureFilter {
 
 /// <summary>The colour, channel and space kernels of doc 48 § 4.2 and § 4.3, by name.</summary>
 /// <remarks>
+///     <para>
+///         ⚠ <b>And one from § 4.9 — <see cref="MetalReflectance" />.</b> It is a Surface <em>row</em>
+///         rather than a § 4.2 kernel; it is declared here because the node it backs is a colour
+///         constant and the name the row wants belongs to the compound over it, which its own remark
+///         explains.
+///     </para>
 ///     <para>
 ///         <b>Names rather than a registry, because <see cref="TextureKernels" /> already is one.</b>
 ///         A kernel is embedded by the <c>Shaders\*.rvn</c> glob and found by its file name; what is
@@ -173,6 +234,21 @@ static class TextureColourKernels {
     /// <summary>The same picture at the resolution the plan asked for.</summary>
     public const string Resample = "Resample";
 
+    /// <summary>
+    ///     A named metal's F0, as a constant image — doc 48 § 4.9's Surface row, and the one kernel
+    ///     here that reads no input.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The node is <c>Colour/Metal Reflectance</c> and the § 4.9 compound over it is
+    ///     <c>Surface/Metal Reflectance</c>, and the two menus are not a preference.</b> A published
+    ///     compound and a node class share one path namespace, so an atom and the compound that wraps
+    ///     it cannot both be called the row's name — <c>TextureCompoundLibrary</c> refuses the second
+    ///     with "Two different node types claim the path". Same shape as
+    ///     <c>Placement/Tile Sampler</c> under <c>Patterns/Tile Random</c>.
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1096">#1096</a>.
+    /// </remarks>
+    public const string MetalReflectance = "MetalReflectance";
+
     /// <summary>Every one of them, which is what a test enumerates to be sure none was forgotten.</summary>
     public static IReadOnlyList<string> All { get; } = [
         AutoLevels,
@@ -184,6 +260,7 @@ static class TextureColourKernels {
         Hsl,
         Invert,
         Levels,
+        MetalReflectance,
         MinMaxReduce,
         Mirror,
         Resample,

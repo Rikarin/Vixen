@@ -1,0 +1,116 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.Editor.TextureGraph.Shaders
+
+// A named metal's normal-incidence reflectance, as a constant image — doc 48 § 4.9's Surface row
+// `Metal Reflectance ●`, "a named-metal lookup".
+//
+// ## What the numbers are, and why they are not this file's
+//
+// F0 is the fraction of light a surface reflects at normal incidence. For a dielectric it is one
+// number near 0.04 and the engine derives it; for a **conductor** it is three, it is strongly
+// chromatic in two of the ten metals below, and it is not derivable from anything an artist types.
+// So it is measured data, and the table below is transcribed from **Real-Time Rendering, 4th
+// edition, Table 9.5 — "Values for F0 for a few metals"** (Akenine-Möller, Haines, Hoffman), which
+// gives them as linear Rec. 709 triples computed from measured spectral n and k.
+//
+// ⚠ **Getting one of these wrong is invisible.** Every entry is a plausible metal colour, so a
+// mistyped digit produces a picture nobody would call broken and an asset that is subtly wrong
+// everywhere it is used, with nothing to compare it against. That is the whole reason for the
+// citation: the numbers cannot be checked against a formula and can only be checked against a
+// source.
+//
+// ## ⚠ The table lives here and nowhere else
+//
+// `TextureMetal` on the C# side is **names and indices only**. It deliberately does not carry the
+// triples: two transcriptions of one table is this workstream's most-repeated defect, and a second
+// copy on the CPU would be one nothing compares against — the plan hands this kernel an index and
+// reads back an image, so a drifted CPU copy would never be dispatched and never be wrong out loud.
+// `TextureSurfaceKernelTests` reads the branches out of *this file* and checks the enum against
+// them, which is the same direction `TextureKernelLanguageSeamTests` reads the shader library in.
+//
+// ## Linear, and why there is no sRGB knob
+//
+// Everything inside a texture graph is linear (doc 48 § Part 4), and these are reflectances rather
+// than authored colours, so there is no encode to choose. A graph that wants one of these written
+// into an sRGB file gets the encode from the *output* image's format, which is where every other
+// kernel in this folder leaves it too.
+//
+// ## The mask is a `Blend`, deliberately
+//
+// § 4.9's row composites a metal F0 into a base colour under a wear mask. That is
+// `Colour/Blend` in `Multiply` — a node that already exists, whose behaviour is already tested and
+// whose mask semantics are already argued in `Blend.rvn`. Growing a second texture input and an
+// amount here would be a third copy of that arithmetic inside an atom whose whole job is a table
+// lookup, and the compound `Compounds/Surface/Metal Reflectance` is where the two are wired
+// together.
+
+shader MetalReflectance {
+    /// Which metal. The indices are `TextureMetal`'s and the branch order below is the contract.
+    var metal: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// The F0 triple for `metal`, linear Rec. 709.
+    ///
+    /// ⚠ **Iron is index zero and that is a choice about the zero rather than about iron.** A
+    /// `TextureOp` built from a zeroed struct arrives here with `metal` at 0, and doc 48's own note
+    /// is that zero usually means "off" — there is no "off" for a lookup, so the zero is the entry
+    /// an author is likeliest to have meant. It is also the fallback for an index nothing
+    /// recognises: a shader has nowhere to raise from, and `TextureSettings.Enum` has already
+    /// refused an unknown *name* on the CPU with a diagnostic that lists what is accepted.
+    func Reflectance(): float3 {
+        if (metal == 1) {
+            return float3(0.549f, 0.556f, 0.554f)
+        }
+
+        if (metal == 2) {
+            return float3(0.660f, 0.609f, 0.526f)
+        }
+
+        if (metal == 3) {
+            return float3(0.542f, 0.497f, 0.449f)
+        }
+
+        if (metal == 4) {
+            return float3(0.673f, 0.637f, 0.585f)
+        }
+
+        if (metal == 5) {
+            return float3(0.913f, 0.921f, 0.925f)
+        }
+
+        if (metal == 6) {
+            return float3(0.972f, 0.960f, 0.915f)
+        }
+
+        if (metal == 7) {
+            return float3(1f, 0.782f, 0.344f)
+        }
+
+        if (metal == 8) {
+            return float3(0.955f, 0.638f, 0.538f)
+        }
+
+        if (metal == 9) {
+            return float3(0.910f, 0.778f, 0.423f)
+        }
+
+        return float3(0.562f, 0.565f, 0.578f)
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val f0 = Reflectance()
+
+        target.Store(coord, float4(f0.x, f0.y, f0.z, 1f))
+    }
+}

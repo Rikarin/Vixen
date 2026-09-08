@@ -77,13 +77,49 @@ internal enum TextureNoiseBasis {
     White = 3
 }
 
+/// <summary>How a <c>Worley</c> lattice measures the distance to a feature point.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The metric is what a cell's <em>shape</em> is, and it was euclidean and nothing else
+///         until <a href="https://github.com/Rikarin/Vixen/issues/1101">#1101</a>.</b>
+///         <see cref="Chebyshev" /> gives square cells and <see cref="Manhattan" /> diamonds, which
+///         between them are most of what a cellular pattern library is for — tile, cracked mud, snake
+///         skin, hex-ish plate. Round cells were not a decision; they were the only thing
+///         <c>length</c> could say.
+///     </para>
+///     <para>
+///         ⚠ <b>A uniform rather than a <c>[Permutation]</c>, for <see cref="TextureNoiseBasis" />'s
+///         reason and not by analogy with it.</b> There is nowhere in the evaluator for a plan to
+///         name a permutation value, so one here would take its <c>.rvn</c> default in every op for
+///         ever — and twelve modules would become thirty-six, for two branches every invocation in a
+///         dispatch takes the same way.
+///     </para>
+///     <para>
+///         ⚠ <b>The three do not share a range and the kernel does not pretend they do.</b> F1 and F2
+///         are reported in units of two cells under euclidean, which is a fraction of that metric's
+///         own bound on a 3×3 search; chebyshev's bound is smaller and manhattan's is larger, so each
+///         carries its own divisor. Reusing euclidean's would clip manhattan on exactly the channel a
+///         cell border is computed from. <c>Noise.rvn</c>'s <c>Normalisation</c> derives all three.
+///     </para>
+/// </remarks>
+internal enum TextureCellMetric {
+    /// <summary>Straight-line distance. Round cells, and what every worley did before #1101.</summary>
+    Euclidean = 0,
+
+    /// <summary>The larger of the two axis distances. Square cells.</summary>
+    Chebyshev = 1,
+
+    /// <summary>The sum of the two axis distances. Diamond cells.</summary>
+    Manhattan = 2
+}
+
 /// <summary>The eight source kernels of doc 48 § 4.1, as ops a plan can hold.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>Why builders rather than a <c>TextureOp</c> written out at each call site.</b>
 ///         <c>TexturePlanEvaluator.Uniforms</c> refuses an op that does not carry every parameter its
 ///         kernel declares — deliberately, because zero is a valid-looking number for almost all of
-///         them. <c>Shape</c> declares six and <c>Noise</c> seven, so writing one out by hand is six
+///         them. <c>Shape</c> declares six and <c>Noise</c> eight, so writing one out by hand is six
 ///         chances to produce an exception at bake time and, worse, one chance to produce a plausible
 ///         picture by naming the wrong one. Every builder here emits the complete set.
 ///     </para>
@@ -239,6 +275,10 @@ internal static class TextureSources {
     ///     <paramref name="lacunarity" /> are whole numbers — there is no integer period for a lattice
     ///     of 5.5 cells to wrap at, and the kernel rounds rather than refusing.
     /// </param>
+    /// <param name="metric">
+    ///     What a cell's shape is. ⚠ Read by <see cref="TextureNoiseBasis.Worley" /> and by nothing
+    ///     else — the other three bases have no feature point to measure to.
+    /// </param>
     /// <returns>The op. Its <c>seed</c> is supplied by the evaluator from <see cref="TexturePlan.SeedFor" />.</returns>
     public static TextureOp Noise(
         int output,
@@ -247,13 +287,15 @@ internal static class TextureSources {
         int octaves = 1,
         float lacunarity = 2f,
         float gain = 0.5f,
-        bool tiling = false
+        bool tiling = false,
+        TextureCellMetric metric = TextureCellMetric.Euclidean
     ) =>
         new() {
             Kernel = "Noise",
             Output = output,
             Parameters = [
                 new("basis", (float)basis),
+                new("metric", (float)metric),
                 new("scale", scale),
                 new("octaves", octaves),
                 new("lacunarity", lacunarity),

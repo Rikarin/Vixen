@@ -235,7 +235,7 @@ shader Splatter {
             return texel.w
         }
 
-        return dot(texel.xyz, float3(0.2126f, 0.7152f, 0.0722f))
+        return ColorSpaces.Luminance(texel.xyz)
     }
 
     /// One instance folded into the running result. `TileSampler.Accumulate`, and the same order.
