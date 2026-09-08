@@ -499,71 +499,52 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan>, ISubG
         this.graph = graph;
         emitter = new(this);
 
-        Substitute(graph);
         Bind(graph);
     }
 
-    /// <summary>Copies each containing graph's name knobs into the settings that name them.</summary>
-    /// <param name="graph">The flattened graph, whose inlined nodes still hold what they were written with.</param>
+    /// <inheritdoc />
     /// <remarks>
     ///     <para>
-    ///         <b>#1060's cheap half, and it is a rewrite of the flattened graph rather than a seam in
-    ///         the flattener</b> — <a href="https://github.com/Rikarin/Vixen/issues/1060">#1060</a>,
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a>. A name needs no
-    ///         folding, so it needs nothing from mid-walk: <see cref="NodeGraphInlining" /> already
-    ///         says which published graph each inlined node came out of and what that expansion's
-    ///         sub-graph node was given, which is the whole of the join. ⚠ That is why
-    ///         <see cref="ISubGraphValues" /> did not grow a second method — the one it has exists
-    ///         because an <em>expression</em> has to be compiled against parameters that are gone by
-    ///         now, and a substitution does not.
+    ///         <b>#1060's cheap half: a setting may name one of the containing graph's knobs.</b> A
+    ///         value of <c>$Knob</c> is a reference, followed one scope out per nesting hop until a
+    ///         graph declares it; what the node compiles against is the name that knob resolves to.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Before <see cref="Bind" />, and the two do not overlap.</b> An expression is a
-    ///         <see cref="GraphNode.Texts" /> <em>key</em> beginning <c>=</c> and a reference is a
-    ///         <em>value</em> beginning <c>$</c>, so no field is both — see
-    ///         <see cref="TextureGraphParameters.ReferencePrefix" /> for why they could not have
-    ///         shared a spelling.
+    ///         ⚠ <b>A hook rather than a rewrite of the graph, and the difference is an authored
+    ///         file.</b> The first version substituted into <c>node.Texts</c> during <c>Begin</c> —
+    ///         and the model reaching <c>Begin</c> is only a copy when flattening ran, so for a
+    ///         graph with no sub-graph node in it (which is what both shipped compounds using this
+    ///         are) the compiler was writing into the document the panel has open. Opening
+    ///         <c>Safe Transform.vxtexgraph</c> and saving it would have replaced
+    ///         <c>Tiling: $Tiling</c> with <c>Tiling: Wrap</c>, deleting the knob.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A reference that resolves to another reference is followed one scope out.</b> A
-    ///         compound inside a compound may hand its own knob down, and the chain terminates
-    ///         because each hop is one shorter <see cref="SubGraphExpansion.Path" /> than the last.
+    ///         ⚠ <b>An unresolved reference leaves the setting holding its own text, which is a
+    ///         second complaint and deliberately so.</b> The node then reports <c>TG0010</c> about a
+    ///         value it does not accept, and the pair reads as "this knob is missing, and here is the
+    ///         node that wanted it" — where writing the node's declared default instead would leave a
+    ///         picture that is quietly one arrangement rather than another.
     ///     </para>
     /// </remarks>
-    void Substitute(NodeGraphModel graph) {
-        foreach (var node in graph.Nodes) {
-            List<(string Key, string Name)>? references = null;
+    protected override string Setting(GraphNode node, string name, string value) {
+        ArgumentNullException.ThrowIfNull(node);
 
-            foreach (var (key, text) in node.Texts) {
-                if (TextureGraphParameters.IsReference(text, out var named)) {
-                    (references ??= []).Add((key, named));
-                }
-            }
-
-            if (references is null) {
-                continue;
-            }
-
-            // ⚠ Gathered before anything is written, because the substitution replaces entries of the
-            // very dictionary the loop above walks.
-            var expansion = Inlining.TryGet(node.Id, out var origin) ? origin.Expansion : 0;
-
-            foreach (var (key, named) in references) {
-                if (Choose(expansion, named, out var value, out var problem)) {
-                    node.SetText(key, value);
-                }
-
-                if (problem.Length > 0) {
-                    Report(new(
-                        TextureDiagnostics.NameKnobNotResolved,
-                        problem,
-                        node.Id,
-                        key,
-                        NodeSeverity.Warning
-                    ));
-                }
-            }
+        if (!TextureGraphParameters.IsReference(value, out var named)) {
+            return value;
         }
+
+        var expansion = Inlining.TryGet(node.Id, out var origin) ? origin.Expansion : 0;
+        var substitute = Choose(expansion, named, out var chosen, out var problem);
+
+        // ⚠ Two independent answers and not an either/or: `Choose` can substitute a knob's declared
+        // default *and* complain about the value the containing graph passed, which is the case
+        // where an outer graph hands down a name the inner knob does not accept. Folding these into
+        // one branch loses the diagnostic on exactly that path.
+        if (problem.Length > 0) {
+            Report(new(TextureDiagnostics.NameKnobNotResolved, problem, node.Id, name, NodeSeverity.Warning));
+        }
+
+        return substitute ? chosen : value;
     }
 
     /// <summary>Follows one reference out through the scopes that contain it.</summary>

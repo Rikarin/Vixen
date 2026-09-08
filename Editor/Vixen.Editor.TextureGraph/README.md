@@ -4,9 +4,16 @@ Images computed on the GPU from a plan of compute kernels.
 
 This is the evaluator half of [doc 48](../../docs/plan/48-material-authoring.md) — § D1's split, copied
 exactly from [`Vixen.Editor.ShaderGraph`](../Vixen.Editor.ShaderGraph/README.md): **an assembly that
-holds a graphics device and knows nothing about a project, a document or a panel.** A `TexturePlan` is
+holds a graphics device and knows nothing about a document or a panel.** A `TexturePlan` is
 built by hand in a test, by a graph compiler in M4, or by a layer stack in M7, and one evaluator runs
 all three.
+
+⚠ **It knew nothing about a *project* either, until 2026-09-09.** `TextureProjectImages` is the one
+exception and a narrow one: it takes an `EditorProject` to turn an asset *reference* into a path, so
+that the CLI and the editor resolve a `Source/Bitmap` through one piece of code rather than two
+([#1087](https://github.com/Rikarin/Vixen/issues/1087)). The **decode** stayed with the callers as a
+delegate — `ImageDecoders` is in `Vixen.Editor.Assets`, whose closure is 54 projects against this
+one's 32, and moving it would have put the runtime behind an evaluator.
 
 ```csharp
 var plan = new TexturePlan {
@@ -560,10 +567,11 @@ scales smoothly, while a texture graph fills one outline once at whatever size a
 The result goes through `AddCoverage`, and `TextureTextDeviceTests` closes the whole path on an
 adapter in eight bits, texel for texel.
 
-⚠ **It takes a `FontFace` and never a path, which is what keeps this assembly's ignorance intact.**
-The paragraph this replaced was right about the real obstacle: resolving an asset to bytes is the
-project-and-document question this project deliberately knows nothing about. It is still not asked —
-the caller supplies the face, exactly as the caller supplies an external image's texels.
+⚠ **It takes a `FontFace` and never a path.** The paragraph this replaced was right about the real
+obstacle: resolving an asset to bytes is a project question. ⚠ **Half of that question is asked here
+now** — `TextureProjectImages` turns a reference into a path — and the half that matters for a font
+still is not: the *decode* stays with the caller, so the caller supplies the face exactly as it
+supplies an external image's texels.
 
 ⚠ **And there is no `Text` node**, for a reason that has nothing to do with fonts: a node has to
 allocate an *external* image, and `TextureGraphCompiler.Allocate` only ever builds a pooled one. That

@@ -463,4 +463,61 @@ public class TextureGraphNameKnobTests {
         Assert.Contains("states no list", problems[0], StringComparison.Ordinal);
         Assert.Contains("Sideways", problems[1], StringComparison.Ordinal);
     }
+
+    /// <summary>⚠ Compiling a graph does not rewrite the graph.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The case a reviewer found missing, and the defect it covers destroys an authored
+    ///         file.</b> The first version of this feature substituted into <c>node.Texts</c> during
+    ///         <c>Begin</c> — and the model reaching <c>Begin</c> is only a <em>copy</em> when
+    ///         flattening ran. A graph with no sub-graph node in it is the model the panel has open,
+    ///         so every preview compile replaced <c>$Tiling</c> with <c>Wrap</c> and the next save
+    ///         wrote that down.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both shipped compounds that use a name knob are exactly that shape</b> —
+    ///         <c>Patterns/Tile Random</c> and <c>Utility/Safe Transform</c> declare knobs and
+    ///         contain no compound of their own — so the one path with no test was the one the
+    ///         feature shipped on.
+    ///     </para>
+    ///     <para>
+    ///         The assertion is on the <em>model</em> rather than on a saved file, because that is
+    ///         where the damage happens; a round trip through YAML would pass on a model already
+    ///         overwritten in memory.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_compile_leaves_the_authors_own_graph_holding_its_references() {
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        NodeGraphModel graph = new() { Name = "Turned" };
+
+        graph.Parameters.Add(Knob("Fold", "Y"));
+
+        var mirror = graph.Add("Space/Mirror");
+
+        mirror.SetText("Axis", TextureGraphParameters.ReferencePrefix + "Fold");
+
+        TextureGraphCompiler compiler = new(registry) { BaseWidth = 32, BaseHeight = 32, Seed = 7u };
+
+        // The graph has no sub-graph node, so nothing flattens and `Begin` is handed this very model.
+        Assert.DoesNotContain(graph.Nodes, node => node.Type.StartsWith("Library/", StringComparison.Ordinal));
+
+        compiler.Compile(graph);
+
+        Assert.Equal(
+            TextureGraphParameters.ReferencePrefix + "Fold",
+            graph.Nodes.Single(node => node.Id == mirror.Id).Texts["Axis"]
+        );
+
+        // ⚠ And twice, because a rewrite is idempotent and would look stable after the first one.
+        compiler.Compile(graph);
+
+        Assert.Equal(
+            TextureGraphParameters.ReferencePrefix + "Fold",
+            graph.Nodes.Single(node => node.Id == mirror.Id).Texts["Axis"]
+        );
+    }
 }

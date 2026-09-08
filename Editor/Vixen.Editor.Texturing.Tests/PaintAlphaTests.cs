@@ -78,24 +78,67 @@ public class PaintAlphaTests(ITestOutputHelper output) {
         Assert.Null(PaintAlphas.Find("Nothing this build ships"));
         Assert.Null(PaintAlphas.Find(null));
 
+        // ⚠ `Round` resolves to *no mask*, which is what makes it the control: a brush with no mask
+        // is the disc the kernel draws anyway, so it is rotationally symmetric by construction and
+        // there is nothing to sample. Every other name must be a shape a turn would show.
+        Assert.Null(PaintAlphas.Find(PaintAlphas.Round));
+
         foreach (var name in PaintAlphas.Names.Where(name => name != PaintAlphas.Round)) {
             var mask = PaintAlphas.Find(name);
 
             Assert.NotNull(mask);
 
-            // ⚠ Every shipped shape reaches its own corner, and that is not decoration: a mask whose
-            // support fitted inside the inscribed disc would be a shape whose rotation an artist
-            // could not see, which is the state the whole feature was in.
             Assert.True(
                 mask.Sample(new(0.5f, 0.5f)) > 0.5f,
                 $"{name} is empty at its own centre, so it is a brush that paints nothing."
             );
 
+            // ⚠ **The property is that a rotation is visible, and "reaches its own corner" is not
+            // it.** A chisel is a band 0.36 tall across the full width, so its farthest point is
+            // 0.53 from the centre and it never leaves the inscribed disc — yet turning it is
+            // obvious. What separates every shipped shape from `Round` is that it is *not
+            // rotationally symmetric*, which is exactly the thing the old assertion could not see:
+            // it walked the diagonal, and the diagonal passes through the centre, so the centre
+            // assertion above already implied it for all three.
             Assert.True(
-                Enumerable.Range(0, 64).Any(step => mask.Sample(new(step / 64f, step / 64f)) > 0.5f),
-                $"{name} covers none of its own diagonal, so it cannot differ from a disc."
+                Turning(mask) > 0.5f,
+                $"{name} is the same at every angle of some radius, so turning it changes no texel — "
+                + "which is the state the whole feature was in."
             );
         }
+    }
+
+    /// <summary>How much a mask changes when it is turned, as the widest spread on any one ring.</summary>
+    /// <param name="mask">The mask.</param>
+    /// <returns>The largest difference between two samples at one radius from the centre.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Several radii and not one, because no single ring separates all four.</b> A square is
+    ///     constant across every ring that fits inside it and varies only outside 0.5; a chisel is
+    ///     the reverse — it varies at 0.45 and is empty everywhere past 0.54. A test written at one
+    ///     radius would have passed for one shape and failed for another, which is how a fixture
+    ///     ends up asserting the shape it was written against rather than the property.
+    /// </remarks>
+    static float Turning(IBrushMask mask) {
+        var widest = 0f;
+
+        foreach (var radius in new[] { 0.2f, 0.35f, 0.45f, 0.6f, 0.68f }) {
+            var least = float.PositiveInfinity;
+            var most = float.NegativeInfinity;
+
+            for (var step = 0; step < 64; step++) {
+                var angle = step / 64f * MathF.Tau;
+                var sample = mask.Sample(
+                    new(0.5f + (radius * MathF.Cos(angle)), 0.5f + (radius * MathF.Sin(angle)))
+                );
+
+                least = MathF.Min(least, sample);
+                most = MathF.Max(most, sample);
+            }
+
+            widest = MathF.Max(widest, most - least);
+        }
+
+        return widest;
     }
 
     // --- The stamp -----------------------------------------------------------

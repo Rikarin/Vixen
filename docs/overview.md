@@ -1126,7 +1126,7 @@ usually means "true today, with nothing requiring the next node to keep it true"
 | 11 | A device is confirmed **by name** in every GPU test in this area | ✅ | Enumerated rather than conventional: a roll call over the device files in `Vixen.Editor.TextureGraph.Tests`. ⚠ **"In this area" is doing real work** — nineteen golden device files elsewhere in the tree still name no adapter and no gate can scope the rule to them ([#795](https://github.com/Rikarin/Vixen/issues/795)) |
 | 12 | A frame is photographed | 🟢 | `BakedMaterialImageTests` renders through the real `StandardFrame`, and the oracle is a differential against `MetalRoughnessFeature` with a second colour that must **not** agree, so two black frames cannot satisfy it. "Tests pass" is not evidence for a visual defect. ⚠ **This row said the `TexturePlan` is hand-built and no document is opened, and that stopped being true on 2026-09-08** ([#1081](https://github.com/Rikarin/Vixen/issues/1081)): a committed `Fixtures/BakedGraph.vxtexgraph` is parsed, loaded, compiled against the registry `NodeTypes.Register` builds — the one the texturing plugin and `Vixen.Cli` both start from — read back by *usage* off `TextureGraphCompiler.Outputs`, evaluated, packed, encoded and rendered onto the same differential. So the graph front end is in a frame and "textured entirely in the tool" is what runs. ⚠ A second fixture differing **only** in the base-colour `Source/Uniform`'s `Colour` must draw a *different* frame — without it the first is satisfied by a compiler that emitted a fixed plan. ⚠ The picture is **flat**, and deliberately: a differential against a constant surface can only be taken over a constant surface, so this says the document reaches the frame and nothing about what a checker or a noise draws there. ⚠⚠ **The reason this row and the golden's own source gave for the gap was refuted by that source**: it said `TextureGraphOutput` is internal, and it is a `public readonly record struct` that three assemblies outside `Vixen.Editor.TextureGraph` read with no `InternalsVisibleTo` — while `BakedMaterialImageTests` named the type in its own text. ⚠ **This row also cited [#1009](https://github.com/Rikarin/Vixen/issues/1009) and #1009 is closed** — it was about the *editor* having no bake route, which `MaterialBakeRoute` landed |
 
-**Nine met · three partial · none unmeasurable**, re-derived 2026-09-07 and re-checked 2026-09-08
+**Ten met · two partial · none unmeasurable**, re-derived 2026-09-07 and re-checked 2026-09-09
 while settling doc 48's milestone ledger ([#577](https://github.com/Rikarin/Vixen/issues/577)).
 ⚠ **The 09-08 pass moved no mark and corrected one citation**, which is the useful outcome for a
 table a day old: the marks were right and row 12's issue number had gone stale underneath it.
@@ -1143,16 +1143,16 @@ implementation*. A table that quotes a criterion is a second copy of it, and a s
 ⚠ **The previous reading also called 9 a partial in this paragraph while marking it ✅ in the row
 above**, which is the same drift inside one revision.
 
-⚠ **The three that remain partial are partial for three different reasons, and only one of them is
-work on the feature.** 2 is **false as written** and needs a stated scope
+⚠ **The two that remain partial are partial for two different reasons, and neither is work on the
+feature.** 2 is **false as written** and needs a stated scope
 ([#640](https://github.com/Rikarin/Vixen/issues/640)) — a hard-edged source cannot agree at 1K and 4K,
 because the downsample anti-aliases one and not the other. 8 is 🟡 because the criterion names a
 wall-clock budget and this repository will not assert one; what is asserted is the property the budget
-was a proxy for. **12 is the only one owing work**: the photograph is of a hand-built plan, so the
-graph front end has never been in a picture ([#1081](https://github.com/Rikarin/Vixen/issues/1081)) —
-and the blocker the golden cites for that turned out not to exist. ⚠ That citation read #1009 until
-2026-09-08, which had closed on a different subject — the editor's missing bake route — so the one
-row of this table still owing work was pointing at finished work.
+was a proxy for. ⚠ **12 was the third until 2026-09-09** — its photograph was of a hand-built plan, so
+the graph front end had never been in a picture, and the blocker the golden cited for that was
+refuted by the golden's own source file ([#1081](https://github.com/Rikarin/Vixen/issues/1081), and
+before that a citation of #1009, which had closed on a different subject). The golden now compiles a
+committed `.vxtexgraph` through the real front end.
 
 ---
 

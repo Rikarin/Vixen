@@ -153,34 +153,45 @@ public sealed class TextureProjectImagesTests : IDisposable {
         Assert.DoesNotContain("is not in this project's assets", why, StringComparison.Ordinal);
     }
 
-    /// <summary>A relative path is not a scheme, whatever colons it happens to carry.</summary>
+    /// <summary>A colon after a separator is not a scheme, whatever a reference happens to carry.</summary>
     /// <remarks>
-    ///     ⚠ <b>The other half of the scheme rule, and the half a one-sided test would miss.</b> A
-    ///     rule that called everything a scheme would pass every assertion above and refuse every
-    ///     real graph — the failure mode is silent because the sentence looks deliberate.
+    ///     <para>
+    ///         ⚠ <b>The other half of the scheme rule, and the half a one-sided test would miss.</b>
+    ///         A rule that called everything a scheme would pass every assertion above and refuse
+    ///         every real graph — the failure mode is silent because the sentence looks deliberate.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asserted on the reference and not on a folder, because the first version of this
+    ///         case made a directory called <c>Set:A</c> — which Windows refuses, so it threw in its
+    ///         first statement on one of CI's three legs.</b> The property is decided before any
+    ///         file system is involved: <c>SchemeOf</c> stops at the first separator, so a colon
+    ///         after one cannot name a scheme. Going to disk to prove that tested the platform
+    ///         rather than the rule.
+    ///     </para>
     /// </remarks>
-    [Fact]
-    public void A_folder_with_a_colon_in_it_is_still_a_path() {
-        Directory.CreateDirectory(Path.Combine(root, "Assets", "Set:A"));
-        File.WriteAllBytes(Path.Combine(root, "Assets", "Set:A", "Rust.png"), [1, 2, 3, 4]);
-
+    [Theory]
+    [InlineData("Assets/Set A/Rust:1.png")]
+    [InlineData("Assets/Set A/12:34.png")]
+    public void A_colon_after_a_separator_is_still_a_path(string reference) {
         var project = new EditorProject(new(root));
 
         project.Assets.Scan();
-
-        var plan = Plan();
 
         using TextureUploads uploads = new(device);
 
         var why = TextureProjectImages.Resolve(
             project,
             uploads,
-            plan,
-            new(0, default, "Assets/Set:A/Rust.png", 8, 8, []),
+            Plan(),
+            new(0, default, reference, 8, 8, []),
             _ => (Picture(PixelFormat.Rgba8UNorm, 8, 8), null)
         );
 
-        Assert.Null(why);
+        // ⚠ Not `Assert.Null`: the file is not in the project, so a refusal is correct. What this
+        // case is about is *which* refusal — the scheme sentence would mean the rule had claimed a
+        // colon it should have walked past.
+        Assert.NotNull(why);
+        Assert.Contains("is not in this project's assets", why, StringComparison.Ordinal);
     }
 
     /// <summary>A picture in a format the plan's slot cannot hold is refused by name.</summary>
