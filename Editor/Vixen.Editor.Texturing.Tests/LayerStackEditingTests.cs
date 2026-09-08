@@ -2692,10 +2692,16 @@ public class LayerStackEditingTests {
     ///     satisfied by a misspelling — use <see cref="Missing" /> where the absence is the finding.
     /// </remarks>
     static List<string> Texts(UiElement root, string name) {
+        // ⚠ Two things this line does that the walk below cannot — #881. A `layer-stack-message` is a
+        // `@for` row in `LayerStackChrome.vxml` now, so it does not exist until the effect the
+        // assignment queued has run (`Core/Vixen.Ui.Reactive/Effect.cs`: an effect never runs on the
+        // write), and when it does exist its text is a child element rather than its own `Text`.
+        root.Document.Effects.Flush();
+
         List<string> found = [];
 
         foreach (var element in Named(root, name)) {
-            found.Add(element.Text ?? "");
+            found.Add(LayerStackPanelTests.Said(element));
         }
 
         return found;

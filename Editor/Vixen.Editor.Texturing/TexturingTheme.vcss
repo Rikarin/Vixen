@@ -57,11 +57,19 @@ layer-stack-binding { display: flex; flex-direction: row; }
 /* Add a layer, and what kind. */
 layer-stack-actions { display: flex; flex-direction: row; }
 
-/* ⚠ Hidden to begin with and shown by `Show` when there is something to say — a heading with
-   nothing under it reads as "nothing was checked", and the ordinary case is a stack with nothing
-   wrong. ⚠ No `flex-grow`, deliberately: the list of rows keeps the space and this grows only as
-   far as it has messages. */
+/* ⚠ Hidden until there is something to say — a heading with nothing under it reads as "nothing was
+   checked", and the ordinary case is a stack with nothing wrong. ⚠ No `flex-grow`, deliberately:
+   the list of rows keeps the space and this grows only as far as it has messages.
+
+   ⚠ **The one `display` toggle in this panel that is a rule rather than a `SetStyle`, and the port
+   is what made that possible.** The paragraph at the top of this file says a `display` written at
+   run time has to stay inline, because an inline style is a cascade origin above this sheet and the
+   two would argue rather than layer. That is an argument against *writing a style*, not against
+   toggling — and `LayerStackChrome.vxml` writes a class instead, which is in this sheet's own
+   origin. So both states live here and the specificity of the second is what decides. The other
+   thirteen toggles are still `SetStyle`, because the elements they are on are still built in C#. */
 layer-stack-messages { display: none; flex-direction: column; }
+layer-stack-messages.shown { display: flex; }
 
 /* ⚠ A fixed width rather than a fraction. The picture is the thing being judged, so it keeps its
    size when the rows grow — and the brush column beside it keeps the picture's width when it

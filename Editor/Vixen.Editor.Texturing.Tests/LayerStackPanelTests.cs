@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text;
 using Vixen.Core;
 using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Layers;
@@ -438,7 +439,30 @@ public class LayerStackPanelTests {
     static IReadOnlyList<string> Messages(UiElement panel) => Lines(panel, "layer-stack-messages");
 
     /// <summary>The text of every child of one of the view's containers.</summary>
+    /// <param name="panel">The panel to look in.</param>
+    /// <param name="tag">The container's tag.</param>
+    /// <returns>One string per child, in layout order.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The flush is what makes this read the panel rather than the frame before it</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a>. The message block is a
+    ///         <c>@for</c> in <c>LayerStackChrome.vxml</c> now, and a markup binding is an
+    ///         <c>Effect</c>: <c>Core/Vixen.Ui.Reactive/Effect.cs</c> is explicit that an effect never
+    ///         runs on the write, it queues. <c>UiDocument.Update</c> drains the queue before its
+    ///         first pass, so a test that draws a frame needs nothing; these do not, so they ask.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the walk, because markup text is its own element.</b>
+    ///         <c>BuildContext.Text</c> creates a child tagged <c>text</c> and puts the string on
+    ///         that, so a row built from markup leaves its own <c>Text</c> null — an assertion
+    ///         reading the child directly would be empty against every message however right the
+    ///         panel was. <c>MarkupPanelTests</c> in <c>Vixen.Editor.Profiler.Tests</c> records the
+    ///         same trap for the same reason.
+    ///     </para>
+    /// </remarks>
     static IReadOnlyList<string> Lines(UiElement panel, string tag) {
+        panel.Document.Effects.Flush();
+
         if (Find(panel, tag) is not { } container) {
             return [];
         }
@@ -446,10 +470,28 @@ public class LayerStackPanelTests {
         var lines = new List<string>(container.Children.Count);
 
         foreach (var child in container.Children) {
-            lines.Add(child.Text ?? "");
+            lines.Add(Said(child));
         }
 
         return lines;
+    }
+
+    /// <summary>Everything an element and its descendants say, joined.</summary>
+    /// <param name="element">The element.</param>
+    /// <returns>Its text and its descendants', in order.</returns>
+    internal static string Said(UiElement element) {
+        var text = new StringBuilder(element.Text ?? "");
+
+        Walk(element);
+
+        return text.ToString();
+
+        void Walk(UiElement parent) {
+            foreach (var child in parent.Children) {
+                text.Append(child.Text ?? "");
+                Walk(child);
+            }
+        }
     }
 
     /// <summary>The first element in the tree under that name.</summary>
