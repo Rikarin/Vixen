@@ -297,6 +297,30 @@ public class EditorShellBudgetTests {
     ///         for what those bytes are; the fix here is that the warm-up draws unconditionally, so
     ///         that what this measures is the third draw and after.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>"A neighbour moved the counter" is refuted, and the two halves it was one
+    ///         question in are separated instead.</b> #992 saw this red once in a loaded worktree and
+    ///         green alone, and read the byte count as the noisy half —
+    ///         <c>GC.GetAllocatedBytesForCurrentThread</c> "is a thread-local counter that a test
+    ///         class running in parallel beside it can move". It is not: it reports the calling
+    ///         thread's own allocation context, and a test on another thread cannot add a byte to it.
+    ///         Three process-wide channels that <i>could</i> have made these frames do work were
+    ///         probed against this scene and each cost it nothing — ten
+    ///         <see cref="Signal{T}" /> writes interleaved with the ten measured frames (which bump
+    ///         the non-thread-static <c>ReactiveGraph.Epoch</c> every time), ten
+    ///         <c>Strings.Use</c> catalogue swaps, and both together: 0 bytes each.
+    ///         <c>UiDocument.Fonts</c> is per document, <c>EdgePool</c> is <c>[ThreadStatic]</c>, and
+    ///         the Ui stack's only <c>ArrayPool&lt;T&gt;.Shared</c> is in a control this scene does
+    ///         not build.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What was genuinely unproved is that the measured frames were settled at all.</b>
+    ///         <see cref="Shell" /> is a static shared with every other test in this class, the loop
+    ///         discarded what <c>Update</c> returned, and a frame that had work to do allocates for
+    ///         the most ordinary reason there is — so the failure named the draw walk with confidence
+    ///         in a case where the draw walk may be innocent. Both are asserted now: the frames did
+    ///         no work, <i>and</i> they cost nothing. A red says which.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_settled_frame_allocates_nothing() {
@@ -316,14 +340,32 @@ public class EditorShellBudgetTests {
         // microseconds, it never is.
         const int Frames = 10;
 
+        // ⚠ Counted rather than asserted, because the assertion belongs outside the measured region:
+        // an `Assert` that fails allocates its message, and one that passes still has to be a call
+        // this loop can afford to be wrong about. An int is free.
+        var worked = 0;
+
         var before = GC.GetAllocatedBytesForCurrentThread();
 
         for (var i = 0; i < Frames; i++) {
-            Shell.Document.Update();
+            if (Shell.Document.Update()) {
+                worked++;
+            }
+
             Shell.Document.Draw();
         }
 
         var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        // ⚠ First, because it is the premise of the sentence below it. Bytes bought by a frame that
+        // had layout to redo are not this test's subject, and reporting them as the draw walk's is
+        // how a gate comes to name the wrong thing under load.
+        Assert.True(
+            worked == 0,
+            $"{worked} of {Frames} frames reported work to do, so they were not settled frames and "
+            + $"the {allocated} bytes they cost are not this test's claim — something outside the "
+            + "measured loop dirtied the shell"
+        );
 
         Assert.True(
             allocated == 0,
