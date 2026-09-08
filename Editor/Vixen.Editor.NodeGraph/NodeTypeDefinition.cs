@@ -176,18 +176,64 @@ public sealed record SettingDefinition(
     ///         paragraph above is untouched by this.
     ///     </para>
     /// </remarks>
-    public bool Accepts(string value) {
+    public bool Accepts(string value) => Accepted.Length == 0 || Match(value) >= 0;
+
+    /// <summary>The spelling this setting states for a written value.</summary>
+    /// <param name="value">What the author wrote.</param>
+    /// <returns>
+    ///     The entry of <see cref="Accepted" /> that matches ignoring case; <paramref name="value" />
+    ///     itself when the setting states no list; and an empty string when it states one and this is
+    ///     not in it.
+    /// </returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Accepts" /> answers the wrong question, and this is why it had no
+    ///         caller</b> — <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>. The two
+    ///         refusals in this repository that would adopt the predicate — <c>TextureMeshMaps</c>
+    ///         and <c>TextureUsages</c> — each walked the same list themselves, and neither could
+    ///         use a <c>bool</c>: a graph written <c>Multiply</c> and one written <c>multiply</c>
+    ///         have to compile to one thing, so what the caller needs back is the <em>stored</em>
+    ///         spelling. <see cref="Accepts" /> threw that away, which read as a seam nobody had got
+    ///         round to wiring and was a seam of the wrong shape.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two share a walk rather than one calling the other, and the empty-string case
+    ///         is why.</b> Writing <c>Accepts</c> as <c>Canonical(value).Length > 0</c> is right for
+    ///         every list anybody would declare and wrong for one containing <c>""</c> — the two
+    ///         would then disagree about a value the list plainly states. A shared index costs one
+    ///         private member and cannot drift, which is the whole reason #1044 asked for one list.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A setting that states no list answers with the value itself</b>, symmetric with
+    ///         <see cref="Accepts" /> answering true for everything. A caller for which that is
+    ///         wrong — one whose whole purpose is a closed set — should refuse an empty
+    ///         <see cref="Accepted" /> at the point it reads the declaration rather than here; both
+    ///         adopters do, and say so.
+    ///     </para>
+    /// </remarks>
+    public string Canonical(string value) {
         if (Accepted.Length == 0) {
-            return true;
+            return value;
         }
 
-        foreach (var accepted in Accepted) {
-            if (string.Equals(accepted, value, StringComparison.OrdinalIgnoreCase)) {
-                return true;
+        var found = Match(value);
+
+        return found < 0 ? "" : Accepted[found];
+    }
+
+    /// <summary>Where a written value sits in <see cref="Accepted" />, or -1.</summary>
+    /// <remarks>
+    ///     Ordinal and case-insensitive, for the reasons <see cref="Accepts" /> states at length:
+    ///     these are stored names rather than words, and every refusal this mirrors ignores case.
+    /// </remarks>
+    int Match(string value) {
+        for (var index = 0; index < Accepted.Length; index++) {
+            if (string.Equals(Accepted[index], value, StringComparison.OrdinalIgnoreCase)) {
+                return index;
             }
         }
 
-        return false;
+        return -1;
     }
 }
 

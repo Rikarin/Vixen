@@ -60,9 +60,21 @@ static class TextureMeshMaps {
     ///         author's spelling.
     ///     </para>
     /// </remarks>
-    public static IReadOnlyList<string> Known { get; } =
+    public static IReadOnlyList<string> Known => Declared.Accepted;
+
+    /// <summary>The <c>[Setting]</c> the nine are declared on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The declaration itself and no longer just its list, because
+    ///     <see cref="Canonical" /> is now the declaration's own answer</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>. The refusal that reads
+    ///     an empty list as a fault has to stay <em>here</em>: <c>SettingDefinition.Canonical</c>
+    ///     answers a setting that states nothing with the value itself, which is right for a setting
+    ///     that accepts anything and would make every misspelling a mesh map if this class inherited
+    ///     it.
+    /// </remarks>
+    static SettingDefinition Declared { get; } =
         MeshMapInputNode.Definition.Setting(MeshMapInputNode.Setting) is { Accepted.Length: > 0 } declared
-            ? declared.Accepted
+            ? declared
             : throw new InvalidOperationException(
                 $"'{MeshMapInputNode.Setting}' declares no accepted values, so nothing knows what a "
                 + "mesh map may measure. The list lives on the node's [Setting] attribute."
@@ -81,15 +93,15 @@ static class TextureMeshMaps {
     /// <summary>The canonical spelling of a usage, or empty when it is not one of the nine.</summary>
     /// <param name="usage">What the author typed.</param>
     /// <returns>The spelling <see cref="Known" /> holds, or an empty string.</returns>
-    public static string Canonical(string usage) {
-        foreach (var known in Known) {
-            if (string.Equals(known, usage, StringComparison.OrdinalIgnoreCase)) {
-                return known;
-            }
-        }
-
-        return "";
-    }
+    /// <remarks>
+    ///     ⚠ <b>The declaration's own answer since
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>, and it used to be eight
+    ///     lines here and eight more in <c>TextureUsages</c>.</b> Both walked
+    ///     <c>SettingDefinition.Accepted</c> comparing ignoring case, which is what
+    ///     <c>SettingDefinition.Accepts</c> did too — three transcriptions of one rule, of which the
+    ///     public one had no caller because it answered <c>bool</c> where these need the spelling.
+    /// </remarks>
+    public static string Canonical(string usage) => Declared.Canonical(usage);
 
     /// <summary>What a graph writes to ask for one map, whichever mesh the bake turns out to be for.</summary>
     /// <param name="usage">A canonical usage — one of <see cref="Known" />.</param>
