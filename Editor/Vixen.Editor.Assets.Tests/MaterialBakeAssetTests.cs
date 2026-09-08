@@ -581,6 +581,88 @@ public sealed class MaterialBakeAssetTests : IDisposable {
             MaterialMapNaming.FileName(name, target, MaterialMapNaming.PortableExtension)
         );
 
+    /// <summary>A bake that wrote a height map nothing marches says so, and names the second step.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The silence was the whole of it.</b> A height output is written for whatever wants
+    ///         it and <c>MaterialBake.Material</c> composes no feature for it — deliberately, because
+    ///         composing one would march every material any graph ever emitted a height map from. A
+    ///         material that already carries a <see cref="ParallaxOcclusionFeature" /> is preserved
+    ///         and bound; a <em>first</em> bake has no material to read that intent out of, so the
+    ///         route is two steps and nothing said so. See
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>.
+    ///     </para>
+    ///     <para>
+    ///         The warning has to name the step and not the state, so this asserts the feature tag an
+    ///         artist has to type appears in it — a message saying only "nothing samples it" sends
+    ///         somebody to search the tree for what to do.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_height_map_nothing_marches_is_reported_with_the_step_that_marches_it() {
+        var project = Project();
+        var set = new ProjectMaterialBaker(project).Write("ShipHull", WithHeight(), Record());
+
+        Assert.Contains(MaterialMapTarget.Height, set.Maps.Keys);
+
+        var warning = Assert.Single(set.Warnings);
+
+        Assert.Contains("ParallaxOcclusion", warning, StringComparison.Ordinal);
+        Assert.Contains("ShipHull", warning, StringComparison.Ordinal);
+    }
+
+    /// <summary>And a bake that wrote no height map says nothing, which is most bakes.</summary>
+    /// <remarks>
+    ///     ⚠ The half that decides whether the warning is usable. Every bake in this file writes three
+    ///     maps and none of them is a height map, so a condition that fired on the wrong thing would
+    ///     put a sentence about parallax on every material anybody ever baked — and a warning that is
+    ///     always there is one nobody reads by the second week.
+    /// </remarks>
+    [Fact]
+    public void A_bake_with_no_height_map_says_nothing_about_parallax() {
+        var project = Project();
+        var set = new ProjectMaterialBaker(project).Write("ShipHull", Images(), Record());
+
+        Assert.Empty(set.Warnings);
+    }
+
+    /// <summary>And a material that already marches one is fed, so it is not told to add it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Where the warning would be actively wrong.</b> The preservation rule re-seats an
+    ///     author's <see cref="ParallaxOcclusionFeature" /> at the head of the chain and binds this
+    ///     bake's height map to it, so the second bake of a two-step route is the one that must be
+    ///     silent — a message that repeated after the author had done what it asked would read as the
+    ///     step having failed.
+    /// </remarks>
+    [Fact]
+    public void A_material_that_already_marches_its_height_map_is_not_told_to_add_the_feature() {
+        var project = Project();
+        var baker = new ProjectMaterialBaker(project);
+
+        baker.Write("ShipHull", WithHeight(), Record());
+
+        var file = Vxmat(project, "ShipHull");
+        var first = YamlSerializer.Parse<MaterialContent>(File.ReadAllText(file));
+
+        // What the warning asked for, done: the feature at the head of the chain, as an artist would
+        // add it — and through the file rather than through the object, because that is the route.
+        File.WriteAllText(
+            file,
+            YamlSerializer.ToYaml(
+                first with { Features = [new ParallaxOcclusionFeature(), .. first.Features] }
+            )
+        );
+
+        var again = baker.Write("ShipHull", WithHeight(20), Record(), force: true);
+        var written = YamlSerializer.Parse<MaterialContent>(File.ReadAllText(file));
+
+        Assert.Contains(written.Features, feature => feature is ParallaxOcclusionFeature);
+        Assert.DoesNotContain(
+            again.Warnings,
+            warning => warning.Contains("ParallaxOcclusion", StringComparison.Ordinal)
+        );
+    }
+
     EditorProject Project() {
         var directory = Path.Combine(root, Guid.NewGuid().ToString("N")[..8]);
 
@@ -596,6 +678,17 @@ public sealed class MaterialBakeAssetTests : IDisposable {
                 [MaterialMapUsage.BaseColor] = Flat(4, value),
                 [MaterialMapUsage.Roughness] = Flat(4, value),
                 [MaterialMapUsage.Opacity] = Flat(4, value)
+            }
+        );
+
+    /// <summary>The same three and a height map, which is the one output nothing composes for.</summary>
+    static IReadOnlyList<MaterialMapImage> WithHeight(byte value = 10) =>
+        MaterialBake.Encode(
+            new Dictionary<MaterialMapUsage, Bitmap> {
+                [MaterialMapUsage.BaseColor] = Flat(4, value),
+                [MaterialMapUsage.Roughness] = Flat(4, value),
+                [MaterialMapUsage.Opacity] = Flat(4, value),
+                [MaterialMapUsage.Height] = Flat(4, value)
             }
         );
 
