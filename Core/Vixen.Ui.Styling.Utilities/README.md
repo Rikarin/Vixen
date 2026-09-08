@@ -239,6 +239,15 @@ recorded on #282 — the inline axis is horizontal in every configuration this e
 there was a fourth shape: `FloatSide` and `Clear` gained a flow-relative value each and resolve it
 against `direction`, which every algorithm in `Vixen.Ui.Layout` already has in hand.
 
+⚠ **And "the decision recorded on #282" is a premise these four classes rest on, not a closed door.**
+#282 decided that none of its fourteen logical utility roots needed a writing mode, and recorded in
+the same breath that one corpus fixture does; `Rikarin/Vixen#952` is that fixture, filed as an open
+request for a `writing-mode` field on `LayoutStyle`. If it lands, resolving `inline-start` against
+`direction` alone becomes wrong rather than incomplete — in `vertical-lr` the inline axis is vertical
+and `inline-start` is the top — and so does the same sentence in `UtilityFamilies`,
+`LayoutStyleBuilder` and `LayoutTree.ResolveFloatSide`, which is where the arithmetic is.
+[expires-on Vixen.Ui.Layout.LayoutStyle.WritingMode]
+
 ⚠ **The observation that refusal rested on is true and was about the other keywords.** The layout
 corpus does ship RTL variants of ten `float_bfc_*` families whose expectations are identical to their
 LTR twins, which proves `float: left` does **not** flip — and that is precisely why `inline-start` is

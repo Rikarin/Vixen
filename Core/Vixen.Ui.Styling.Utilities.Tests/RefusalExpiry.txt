@@ -66,6 +66,21 @@
 # the class still unregistered. That is `hyphens`' shape, one root over. They anchor on the vertex
 # directly rather than `expires-with perspective-*`, because `expires-with` demands the carrier be
 # refused OUTRIGHT and these two half work. `Rikarin/Vixen#268`.
+#
+# ⚠ AND THREE MORE SHARE `LayoutStyle.WritingMode`, which is the first anchor here that is not a
+# refusal's blocker but a working implementation's PREMISE. `float: inline-start` and
+# `clear: inline-start` resolve against `direction` alone, and that is the whole of the resolution
+# only while the inline axis is horizontal in every configuration this engine can be in.
+# `Rikarin/Vixen#952` asks for exactly the field that ends that, and the day it lands
+# `LayoutTree.ResolveFloatSide` is WRONG rather than incomplete — in `vertical-lr` `inline-start` is
+# the top, which no arm of that switch can return. ⚠ Four files carried the sentence and every one
+# of them attributed it to a decision `#282` did not take: #282 decided its own fourteen logical
+# utility roots needed no writing mode, and named the one corpus fixture that does in the same
+# breath. A premise repeated in four places under a closed issue's number is the most settled-looking
+# thing in this repository and was joined to nothing.
+Core/Vixen.Ui.Layout/LayoutTree.Floats.cs	expires-on	Vixen.Ui.Layout.LayoutStyle.WritingMode
+Core/Vixen.Ui.Styling.Utilities/README.md	expires-on	Vixen.Ui.Layout.LayoutStyle.WritingMode
+Core/Vixen.Ui.Styling.Utilities/UtilityFamilies.cs	expires-on	Vixen.Ui.Layout.LayoutStyle.WritingMode
 Core/Vixen.Ui.Styling.Utilities/UtilityFamilies.cs	expires-on	Vixen.Ui.Text.HyphenMode.Auto
 Core/Vixen.Ui.Styling.Utilities/Variants.cs	expires-on	Vixen.Ui.Controls.Button.IsDefault
 Core/Vixen.Ui.Styling.Utilities/Variants.cs	expires-on	Vixen.Ui.Controls.TextField.Autofilled

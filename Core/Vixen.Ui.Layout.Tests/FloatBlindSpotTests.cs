@@ -272,6 +272,12 @@ public sealed class FloatBlindSpotTests {
     // AND the direction, and with no vertical writing mode the inline axis is horizontal in every
     // configuration this engine can be in — so the whole of the resolution is `direction`.
     //
+    // ⚠ "Never" is this tree's word and not #282's: it decided that none of its fourteen logical
+    // utility roots needed a writing mode and named the one corpus fixture that does, which is open
+    // as `Rikarin/Vixen#952`. Read these four tests as conditional on the field's absence — under
+    // `vertical-lr` `inline-start` is the TOP and none of them would still be stating the rule.
+    // `LayoutTree.ResolveFloatSide` carries the expiry clause that says so.
+    //
     // ⚠ The three tests below have to be read together. Two of them would pass against an
     // implementation that simply aliased `inline-start` onto `Left`, which is the shortcut the
     // refusal was written to avoid; the RTL one is the only one that can tell the two apart, and the
