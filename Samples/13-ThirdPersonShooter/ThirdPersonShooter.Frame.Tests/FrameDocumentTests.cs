@@ -354,7 +354,17 @@ public sealed class FrameDocumentTests : IDisposable {
         // albedo, and that is only the albedo when the feature before it left the split alone.
         Assert.Equal(0f, textured.Metalness);
 
-        foreach (var name in new[] { textured.BaseColorMap, normal.NormalMap, orm.OrmMap }) {
+        // ⚠ Built from the features rather than written down, because the wall grew a fourth. A
+        // literal list here would have to be edited every time a material gains a feature, and the
+        // edit that is forgotten is the one that stops checking — the count below is the half that
+        // catches a texture nothing samples, and it is only as good as this set.
+        var names = new List<string> { textured.BaseColorMap, normal.NormalMap, orm.OrmMap };
+
+        foreach (var parallax in content.Features.OfType<ParallaxOcclusionFeature>()) {
+            names.Add(parallax.HeightMap);
+        }
+
+        foreach (var name in names) {
             var binding = Assert.Single(content.Textures, entry => entry.Parameter == name);
 
             // A reference that does not parse is answered with nothing by AssetTerrainTextures and by
@@ -365,7 +375,67 @@ public sealed class FrameDocumentTests : IDisposable {
 
         // No entry naming a parameter no feature declares: that is a dependency the material carries,
         // the bundle ships and the pool makes resident, and nothing ever samples.
-        Assert.Equal(3, content.Textures.Length);
+        Assert.Equal(names.Count, content.Textures.Length);
+    }
+
+    /// <summary>The wall marches a height field, first in its chain, and is the only one that does.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The production author <c>ParallaxOcclusionFeature</c> did not have</b> — until this
+    ///         landed the only material composing it was a golden fixture's, which is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The position is the assertion that matters and it is not cosmetic.</b> The
+    ///         feature declares <c>MaterialFeatureStage.Coordinate</c> and is the one thing in the
+    ///         library that writes <c>d.uv</c>; listed behind a feature that samples, it displaces a
+    ///         coordinate that feature has already read — half a wall parallaxed, drawn on every
+    ///         device with nothing reported. <c>MaterialCompiler</c> refuses that arrangement, so
+    ///         compiling the file as the content build will is what proves the order rather than an
+    ///         index comparison that would still pass if the rule were deleted.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the map's name is the feature's default</b>, for the reason the test above
+    ///         gives about <c>baseColorMap</c> — with one extra hazard here, since
+    ///         <c>TexturedMaterialLayersFeature</c> also samples something called a height map.
+    ///         Spelling this one <c>heightMap</c> would fill both bindless indices from one texture,
+    ///         which shades and does not fail.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_wall_is_the_one_arena_material_that_marches_a_height_field() {
+        var wall = Material("wall");
+
+        // ⚠ First, because it is the assertion the position rests on. Moving the feature down the
+        // list was tried against this test: it fails here, with `CoordinateFeatureOutOfOrder` naming
+        // ParallaxSurface, which is the rule doing the work rather than an index this test declared.
+        Assert.True(MaterialShading.TryResolve(wall.Shading, out var shading));
+
+        var compilation = MaterialCompiler.Compile(wall.ToDescriptor(shading));
+
+        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(one => one.Message)));
+
+        var parallax = Assert.Single(wall.Features.OfType<ParallaxOcclusionFeature>());
+
+        Assert.Same(parallax, wall.Features[0]);
+        Assert.Equal(new ParallaxOcclusionFeature().HeightMap, parallax.HeightMap);
+
+        // Zero is the feature switched off at the full cost of the march — a surface that pays for
+        // sixty-four samples and displaces nothing, which is indistinguishable from the feature
+        // working in any counter.
+        Assert.True(parallax.HeightScale > 0f, "the wall's parallax displaces nothing");
+
+        // The other four are the held half of the A/B: the pillars and the floor sample the same
+        // concrete albedo, normal and ORM and do not march the height field, so a picture of the
+        // arena attributes any difference to this feature and to nothing else.
+        foreach (var other in new[] { "pillar", "floor", "crate", "ramp" }) {
+            Assert.Empty(Material(other).Features.OfType<ParallaxOcclusionFeature>());
+        }
+
+        static MaterialContent Material(string name) =>
+            YamlSerializer.Parse<MaterialContent>(
+                File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Assets", "Materials", $"{name}.vxmat"))
+            );
     }
 
     /// <summary>The committed heightfield's three layers each name an albedo that parses.</summary>

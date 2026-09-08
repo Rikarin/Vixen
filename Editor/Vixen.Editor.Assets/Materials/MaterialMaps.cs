@@ -69,11 +69,16 @@ public enum MaterialMapUsage {
 ///         this paragraph exists to prevent.
 ///     </para>
 ///     <para>
-///         The readings that would give this map a feature of its own are still open:
-///         <a href="https://github.com/Rikarin/Vixen/issues/1065">#1065</a> (parallax occlusion) and
+///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/1065">#1065</a> has since landed and
+///         <see cref="MaterialMapNaming.Parameter" /> still returns null here, which is a decision
+///         rather than an oversight.</b> <c>ParallaxOcclusionFeature</c> reads exactly this map, but a
+///         name returned unconditionally means one of two wrong things: a texture entry no feature
+///         samples, or — if the bake composed the feature to go with it — a per-pixel march on every
+///         material any graph ever emitted a height output from. So the name is
+///         <see cref="MaterialBake.Material" />'s to supply, and only for a material whose author put
+///         the feature there. See <a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>.
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1067">#1067</a> (displacement, which no
-///         material feature can be). Until one of those lands, a height map remains a file an artist
-///         and a future feature can read and a material cannot.
+///         material feature can be) is still open.
 ///     </para>
 /// </remarks>
 public enum MaterialMapTarget {
@@ -86,7 +91,7 @@ public enum MaterialMapTarget {
     /// <summary>Occlusion, roughness and metalness in R, G and B.</summary>
     Orm,
 
-    /// <summary>The height map. Written, and bound to nothing.</summary>
+    /// <summary>The height map. Written always, and sampled only where the author asked.</summary>
     Height,
 
     /// <summary>The emissive map.</summary>
@@ -258,7 +263,10 @@ public static class MaterialMapNaming {
         MaterialMapTarget.Emissive => new TexturedEmissiveFeature().EmissiveMap,
         MaterialMapTarget.Opacity => new TexturedOpacityFeature().OpacityMap,
 
-        // Both deliberate, and both are files the bake still writes. See MaterialMapTarget.
+        // ⚠ Both deliberate, and both are files the bake still writes — but for different reasons
+        // now. A mask is never a material's; a height map is one only when the material carries a
+        // ParallaxOcclusionFeature, which is the author's and not this table's. See
+        // MaterialMapTarget and MaterialBake.Material.
         MaterialMapTarget.Height or MaterialMapTarget.Mask => null,
         _ => throw new ArgumentOutOfRangeException(nameof(target), target, "There is no such baked map.")
     };

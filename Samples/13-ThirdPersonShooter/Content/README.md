@@ -24,7 +24,7 @@ makes resident and nothing samples.
 
 | Material | Maps | Used by | Read by |
 |---|---|---|---|
-| `concrete` | albedo, normal, orm | Walls, pillars, floor | all three |
+| `concrete` | albedo, normal, orm, height | Walls, pillars, floor | all four — but **height by `wall.vxmat` alone** |
 | `metal-panel` | albedo, normal, orm | Ramps — the one metallic surface | all three |
 | `crate` | albedo, normal, orm | Cover crates | all three |
 | `terrain-grass`, `terrain-rock`, `terrain-dirt` | albedo, orm | The terrain's painted layers | albedo; orm bound, unread |
@@ -37,6 +37,19 @@ makes resident and nothing samples.
 `Core/Vixen.Rendering/Materials/MaterialFeatures.cs`, with a surface each beside
 `TexturedMetalRoughnessSurface` in `Raven/Library/Material/MaterialSurface.rvn`. What used to be
 "kept as the content a normal-map feature would need" is now the content that feature reads.
+
+⚠ **`concrete-height.png` is the fourth map and the only one a single material reads.** It is not a
+new field: it is the array `normal_map` already derives `concrete-normal.png` from, written out as
+grey. `wall.vxmat` marches it with a `!ParallaxOcclusion` feature and the pillars and floor, which
+sample the same albedo, normal and ORM, do not — so the arena carries its own A/B for the feature,
+one surface apart, with the map held identical between them. Regenerating the whole set after this
+change rewrote no existing byte, which is what the determinism claim above is for.
+
+⚠ **The height map is what `MaterialMapTarget.Height` bakes, and its parameter name is not
+`heightMap`.** `TexturedMaterialLayersFeature.HeightMap` is a *four-channel per-layer* bundle and
+this is one material's single channel; the two features spell their material-side names differently
+(`heightMap` and `parallaxHeightMap`) so that one texture cannot fill both bindless indices, which
+would shade a surface and never fail. `wall.vxmat` says the same thing at the feature.
 
 ⚠ **`TexturedOrm` overrides the `roughness` and `metalness` a `.vxmat` sets rather than modulating
 them** — the map's green and blue are the values, and the scalars beside them are multipliers on
