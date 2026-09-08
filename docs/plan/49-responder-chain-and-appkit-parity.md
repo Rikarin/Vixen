@@ -634,6 +634,23 @@ same cast with nobody told — the objection three passes raised, and the pair i
 rather than merely unsafe. Whether a component should publish change notification for its parameters
 is the remaining call; refusing until it does is now legible rather than cryptic.
 
+⚠ **The seventh correction closes the measurement: the seam is the target, and the editor binds now.**
+Four passes asked which of three spellings a converter should take — implicit coercion, an
+`IValueConverter`, or a markup form like `bind:Value:int="…"` — and none of them is needed, because
+`bind:` already accepts an lvalue and **a settable property is an lvalue**. So the seam is a property
+on the panel: its getter is what goes into the control, and its setter is where a conversion, a clamp,
+or (as in the first real case) three consequences of the write are written down where a reader finds
+them. `Editor/Vixen.Editor.App/AddComponentMenu.vxml` is the first product view in the repository to
+bind two-way — `bind:Value="@Query"` over the picker's search box — and what it replaced says why the
+count was thirteen. A `change:` carries a value *out* only, so every place that cleared the query had
+to write `Field.Value` **and** `query.Value` side by side; two of them did, and the two staying in
+step depended on nobody forgetting a line. `ResponderReachTests.Something_the_editor_actually_is_binds_a_property_in_both_directions`
+is the measurement as a gate, and it asserts an *editor* path deliberately: a theory satisfied by
+`Samples/` or by `Markup/BindReachSheet.vxml` would have been green on the day #663 was filed.
+⚠ Its needle carries `="@` because the bare word `bind:` appears in the prose of four editor views,
+each explaining that `change:` is this feature's write-back leg — a sweep for the word would count,
+as uses, the comments saying it was not used.
+
 Four earlier corrections to the paragraph above, from #663 and `BindReachTests`:
 
 - ⚠ **The measurement has moved twice and the conclusion has hardened.** Recounted over the 83

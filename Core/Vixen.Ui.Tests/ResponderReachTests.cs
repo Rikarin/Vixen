@@ -166,6 +166,43 @@ public class ResponderReachTests {
     }
 
     /// <summary>
+    ///     ⚠ <b>Two-way binding was nominally present and practically absent, and the measurement is
+    ///     the whole of issue #663.</b> Across every committed <c>.vxml</c>, <c>bind:</c> appeared
+    ///     thirteen times in exactly two files — one sample gallery and one test fixture — against
+    ///     twenty-six <c>change:</c> attributes spread through thirteen editor panels. Nothing an
+    ///     application actually is bound anything in both directions.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>So this asserts an <i>editor</i> file, and that is the falsifiable half.</b> A
+    ///         theory satisfied by <c>Samples/</c> or by <c>Markup/BindReachSheet.vxml</c> would have
+    ///         been green on the day the issue was filed, which is the shape of a gate that records a
+    ///         defect rather than catching it. <c>AddComponentMenu.vxml</c> is the first product view
+    ///         to bind, and what it binds to is a <i>property</i> — which is also the answer to the
+    ///         converter seam the issue asks for, since <c>bind:</c> wants an lvalue and a settable
+    ///         property is one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The needle carries <c>="@</c> and it must.</b> The bare word <c>bind:</c> appears
+    ///         in the prose of four editor views, each explaining that <c>change:</c> is this
+    ///         feature's write-back leg without the forward one — so a sweep for the word would have
+    ///         counted, as uses, the comments saying it was not used. That is this file's recurring
+    ///         instrument failure in its purest form.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Something_the_editor_actually_is_binds_a_property_in_both_directions() {
+        var callers = ProductionCallers("bind:Value=\"@");
+
+        Assert.NotEmpty(callers);
+
+        Assert.Contains(
+            callers,
+            path => path.Contains(Path.DirectorySeparatorChar + "Editor" + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+        );
+    }
+
+    /// <summary>
     ///     The instrument, checked before the thing it measures: the sweep must be able to tell a
     ///     production file from a test one, or the theory above is green on the test projects alone.
     /// </summary>

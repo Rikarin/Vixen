@@ -470,6 +470,32 @@ is deliberately not something `bind:` does for you: a coercion inside the bindin
 cast with nobody told, and it is lossy in one direction whichever way you write it. It is also the
 shape most real panels end up in anyway, because a real write-back is rarely an assignment.
 
+⚠ **The other place a conversion goes is the target itself, because `bind:` wants an lvalue and a
+property is one.** A `bind:` does not have to name a signal's `.Value`; it can name a property on the
+panel whose getter reads the signal and whose setter does whatever the write means:
+
+```xml
+<SearchBox ref="@Field" Placeholder="Search components…" bind:Value="@Query" />
+```
+
+```csharp no-compile="the panel around it is the point, and it is one of the editor's"
+internal string? Query {
+    get => query.Value;
+    set {
+        query.Value = value ?? string.Empty;
+        opened.Value = null;
+        highlight.Value = 0;
+    }
+}
+```
+
+That is the editor's Add Component picker, and it is worth reading for what it replaced: a
+`change:Value` handler doing the same three lines, plus a `Field.Value = string.Empty` beside every
+`query.Value = string.Empty` in the file, because a `change:` cannot push a value back *into* the
+control. Two assignments kept in step by hand become one, and forgetting either of them was a picker
+showing one query while filtering by another. ⚠ Keep the getter reading a signal — that is what gives
+the forward leg a dependency, and the warning below is what you get if it does not.
+
 ⚠ **A value arriving from the model does not fire it.** A change made while effects are draining came
 from a binding, so reporting it would be an undo entry for something the user never did. A change
 made by input, or by the panel's own code, does fire it.

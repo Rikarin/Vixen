@@ -56,6 +56,14 @@
         register a subscription for an event this panel never wanted, to say something one line
         already says. The click handler also walks the source chain, which is what makes a click on
         a row's own label land on the row.
+
+    ⚠ **The search box is the editor's first `bind:`, and it is bound to a property.** Issue #663
+    measures two-way binding at thirteen attributes in a sample and a test fixture and asks for a
+    converter seam before anything else will use it. The seam is the target: `bind:` wants an
+    *lvalue*, a settable property is one, and `Query`'s setter is where the write-back's three
+    consequences are written down where a reader can see them. What it replaced was a `change:` that
+    could only carry the value *out* — so every place that wanted to clear the box wrote the control
+    and the signal separately, and the two staying in step depended on nobody forgetting a line.
 -->
 @component AddComponentMenu
 @namespace Vixen.Editor.App
@@ -72,7 +80,7 @@
 
 <self on:keydown.capture="@((KeyEvent e) => Keyed(e))" />
 
-<SearchBox ref="@Field" Placeholder="Search components…" change:Value="@(_ => Typed())" />
+<SearchBox ref="@Field" Placeholder="Search components…" bind:Value="@Query" />
 
 <ScrollView tag="add-component-list" ref="@List">
     @for (var row in Lines) {
@@ -136,8 +144,7 @@
     ///     ⚠ <b>A signal beside <c>Field.Value</c> rather than a read of it.</b> A
     ///     <c>SearchBox</c>'s value is a control's state and not a signal, so a <c>@for</c> that
     ///     read it would have no dependency on it and would never re-run — the audit every binding
-    ///     in this file was put through. <c>change:Value</c> is what keeps the two in step, and it
-    ///     hears more than the control's own event does.
+    ///     in this file was put through. <see cref="Query" /> is what keeps the two in step.
     /// </remarks>
     readonly Signal<string> query = new("");
 
@@ -207,14 +214,13 @@
         ArgumentNullException.ThrowIfNull(entries);
 
         offer.Value = [.. entries];
-        opened.Value = null;
-        highlight.Value = 0;
 
         // ⚠ Cleared on every open, for the reason `CommandPalette.OpenPalette` gives: a picker that
         // remembered the last query makes the common case start by deleting somebody else's word.
-        // `change:Value` hears this and clears `query` with it.
-        Field.Value = string.Empty;
-        query.Value = string.Empty;
+        // ⚠ And the field is not cleared beside it any more: `bind:Value` writes the control from
+        // the model, so emptying `Query` empties the box. Two assignments that had to be kept in
+        // step by hand are one, which is the whole of what the second direction buys.
+        Query = string.Empty;
 
         SetStyle("width", anchor.Width.ToString("0.##", CultureInfo.InvariantCulture) + "px");
 
@@ -263,11 +269,10 @@
         }
 
         // ⚠ The query is cleared going into a category rather than kept. There is only ever a
-        // category showing when the query is empty — typing drops the scope, see `Typed` — so this is
+        // category showing when the query is empty — typing drops the scope, see `Query` — so this is
         // the "Back" case, and coming back to a filtered list nobody typed would be a list that is
         // missing things for no visible reason.
-        Field.Value = string.Empty;
-        query.Value = string.Empty;
+        Query = string.Empty;
 
         Show(line.Category.Length == 0 ? null : line.Category);
 
@@ -287,6 +292,51 @@
     }
 
     // ================================================================== What the markup reads
+
+    /// <summary>What has been typed, as the thing the search box is bound to.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The first <c>bind:</c> in the editor, and it is a property rather than a
+    ///         signal's <c>.Value</c> on purpose.</b> Issue #663 asks for a converter seam on
+    ///         <c>bind:</c> and four passes refused to invent a markup spelling for one. There is
+    ///         nothing to invent: <c>bind:</c> needs an <i>lvalue</i>, and a settable property is an
+    ///         lvalue, so the seam is the property — the getter is what goes into the control, the
+    ///         setter is where a conversion, a clamp or, as here, three consequences of the write can
+    ///         be written and <i>read</i>. A coercion rule inside <c>TwoWay</c> would be the same
+    ///         work with nobody told.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why this replaces a <c>change:</c> that was not the whole binding.</b>
+    ///         The box and this signal used to be kept in step by hand in three places, and two of
+    ///         them wrote both of them — <c>Field.Value = ""</c> beside <c>query.Value = ""</c>,
+    ///         because a one-way-out subscription cannot push. Forgetting either line is a picker
+    ///         showing one query and filtering by another, and nothing would have said so.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The getter reads a signal, which is what keeps the forward leg alive.</b>
+    ///         <c>TwoWay</c>'s in-leg is an <c>Effect</c>, so it follows whatever the expression
+    ///         <i>read</i>; a <c>bind:</c> over a plain field would write the control once and then
+    ///         stop, and report itself as <c>CompositionLog.InertBinding</c>. This one has a
+    ///         dependency, so <c>Query = string.Empty</c> from anywhere empties the box.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The category is dropped the moment anything is typed. A search inside "Audio" that
+    ///         silently answered from three components while the name being typed is a physics one is
+    ///         a search box that appears to be broken — and the alternative, a scope somebody has to
+    ///         notice and clear, is a mode. The highlight goes back to the top for the same reason:
+    ///         the list under it is a different list.
+    ///     </para>
+    /// </remarks>
+    internal string? Query {
+        get => query.Value;
+        set {
+            // ⚠ A `TextField.Value` is `string?` and this signal is not. Null is what an emptied box
+            // reads as on the way back, and `Lines` asks a query for its length.
+            query.Value = value ?? string.Empty;
+            opened.Value = null;
+            highlight.Value = 0;
+        }
+    }
 
     /// <summary>What the picker is showing, derived rather than stored.</summary>
     /// <remarks>
@@ -417,17 +467,6 @@
         : name.Contains(typed, StringComparison.CurrentCultureIgnoreCase) ? 1
         : -1;
 
-    /// <remarks>
-    ///     ⚠ The category is dropped the moment anything is typed. A search inside "Audio" that
-    ///     silently answered from three components while the name being typed is a physics one is a
-    ///     search box that appears to be broken — and the alternative, a scope somebody has to notice
-    ///     and clear, is a mode.
-    /// </remarks>
-    void Typed() {
-        query.Value = Field.Value ?? string.Empty;
-        opened.Value = null;
-        highlight.Value = 0;
-    }
 
     partial void OnComposed() {
         IsFocusScope = true;
