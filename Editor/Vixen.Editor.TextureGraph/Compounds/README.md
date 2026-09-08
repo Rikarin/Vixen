@@ -71,6 +71,15 @@ override against the node the author can select, and this reports nothing. Until
 rule this folder follows is **arithmetic lives in the published graph's own parameters, and a
 containing graph's ports carry plain numbers**.
 
+**Half answered: the silence is gone, the fold is not.** `TG0003` now refuses it — an error against
+the sub-graph node and the port, so the graph does not bake with a number the author did not write.
+⚠ It is a *refusal* rather than a fold because the ordering makes folding a seam rather than a line:
+flattening decides what a port is worth and runs before `TextureGraphCompiler.Bind`, which is where
+the parameters an expression is written against are read — and a sub-graph node nested inside a
+compound is written against **that** compound's parameters with **that** expansion's overrides, so
+the flattener would need something that can call Raven, per expansion, mid-walk. The rule above is
+therefore still the rule.
+
 ### 2 · There is no masked composite — [#1059](https://github.com/Rikarin/Vixen/issues/1059)
 
 `Colour/Blend` takes two images and a scalar opacity. A mask is an image, and no port takes one, so
@@ -87,6 +96,13 @@ Colour/Blend  Add        the two
 § M7's" — and that argument is about a **layer**, which is an object with a mask stack of its own. In
 a graph an image is just an image. The two are different questions and the kernel answers only the
 first.
+
+**Answered.** `Colour/Mix` over `Shaders/Mix.rvn` is `Blend` with the opacity read per texel out of a
+third image, and it is a second file rather than a fourth port on `Blend` — so § M7's refusal stands
+exactly as written. The four-node form above is one node and one intermediate. ⚠ `Make It Tile` is
+**not** rewritten to use it in the same change: the twelve compounds are the *measurement* of the
+atomic set, and editing the worked example out of a finding would leave nothing in the tree showing
+what the gap cost.
 
 ### 3 · A compound's knobs are numbers only — [#1060](https://github.com/Rikarin/Vixen/issues/1060)
 

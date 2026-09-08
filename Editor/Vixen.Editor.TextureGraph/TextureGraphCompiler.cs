@@ -495,6 +495,8 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             Report(new(TextureDiagnostics.ParameterOverrideIgnored, problem, NodeId.None, "", NodeSeverity.Warning));
         }
 
+        RefuseExpressionsOnSubGraphPorts();
+
         foreach (var (expansion, scope, expressions) in Collect(graph)) {
             var parameters = scope.Length == 0
                 ? declared
@@ -543,6 +545,74 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
                 if (result.Folded) {
                     folded[(result.Node, result.Port)] = result.Value;
                 }
+            }
+        }
+    }
+
+    /// <summary>Says so when an expression was written on a sub-graph node's own port.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A scalar port takes an expression on an atomic node and is dropped on a sub-graph
+    ///         node, and until this ran there was no diagnostic at all</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1058">#1058</a>.
+    ///         <see cref="SubGraphs.Flatten(NodeGraphModel,ISubGraphSource,out IReadOnlyList{NodeDiagnostic})" />
+    ///         decides what an unfed interface input is worth from
+    ///         <c>node.Values</c> alone, so <c>high.SetText("=Radius", "32f")</c> compiled clean and
+    ///         the inlined <c>Blur</c> ran at the port's declared 8. That is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>'s shape one level over
+    ///         and worse in one respect: #742's field accepted a number and did nothing, and its fix
+    ///         reports an unparseable override; this one accepted <em>Raven</em> and folded nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A refusal and not a fold, and the ordering is why.</b> A sub-graph is inlined
+    ///         rather than called, so what its ports are worth has to be decided <em>during</em>
+    ///         flattening — and flattening runs before <see cref="Bind" />, which is where the
+    ///         parameters an expression is written against are read. Folding it would mean handing
+    ///         the flattener something that can call Raven, per expansion, mid-walk, because a
+    ///         sub-graph node nested inside a compound is written against <em>that</em> compound's
+    ///         parameters with <em>that</em> expansion's overrides. It is a real seam and it is worth
+    ///         building; what it is not is something to leave silent in the meantime. The workaround
+    ///         is a whole one and every shipped compound already follows it: put the arithmetic on
+    ///         the published graph's own parameters, which have folded since #742, and leave the
+    ///         containing graph's ports plain numbers.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Over every expansion and not over the ones <see cref="Collect" /> returns.</b>
+    ///         <c>Collect</c> groups the expressions written <em>inside</em> each compound, so a
+    ///         compound holding none of its own would never be visited — and a compound holding none
+    ///         of its own is exactly the one an author reaches for when they want the arithmetic on
+    ///         the outside.
+    ///     </para>
+    ///     <para>
+    ///         The blame is <see cref="SubGraphExpansion.Source" />, which is the outermost sub-graph
+    ///         node and therefore the one on the author's canvas — the same choice every other
+    ///         complaint about an inlined thing makes, for the reason <see cref="NodeGraphInlining" />
+    ///         states.
+    ///     </para>
+    /// </remarks>
+    void RefuseExpressionsOnSubGraphPorts() {
+        foreach (var expansion in Inlining.Expansions.Keys.Order()) {
+            var inlined = Inlining.Expansions[expansion];
+
+            foreach (var key in inlined.Settings.Keys.Order(StringComparer.Ordinal)) {
+                if (!TextureGraphExpressions.IsExpression(key, out var port)
+                    || string.IsNullOrWhiteSpace(inlined.Settings[key])) {
+                    // An empty field is not an expression here for the reason it is not one in
+                    // `Collect`: clearing the box is how an author goes back to the port's number,
+                    // and a refusal they cannot act on is worse than none.
+                    continue;
+                }
+
+                Report(new(
+                    TextureDiagnostics.ExpressionOnASubGraphPort,
+                    $"'{port}' on '{inlined.Type}' is written as an expression, and a published graph's port "
+                    + "does not take one: a sub-graph is inlined rather than called, so what its ports are "
+                    + "worth is decided before anything is folded. The port keeps the number typed on it. "
+                    + "Write the arithmetic on that graph's own parameters instead, where it is folded "
+                    + "against what this node passes in.",
+                    inlined.Source,
+                    port
+                ));
             }
         }
     }

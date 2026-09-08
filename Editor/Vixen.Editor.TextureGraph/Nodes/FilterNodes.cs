@@ -71,6 +71,105 @@ sealed partial class BlendNode : TextureNode {
     }
 }
 
+/// <summary>Two images composited into one through a per-texel mask.</summary>
+/// <remarks>
+///     <para>
+///         <b><see cref="BlendNode" /> with the opacity read out of an image instead of a
+///         number</b>, which is the one node doc 48 § 4.9's compound library had to spell with four
+///         — <a href="https://github.com/Rikarin/Vixen/issues/1059">#1059</a>.
+///         <c>offset·(1 − m) + original·m</c> authored out of the atomic set is an
+///         <c>Colour/Invert</c> and three <c>Colour/Blend</c>s: three intermediate images, three
+///         round trips through <c>rgba16f</c>, and a summing <c>Add</c> that clamps.
+///     </para>
+///     <para>
+///         ⚠ <b>It does not widen <see cref="BlendNode" />, and that is the whole shape of the
+///         change.</b> <c>Blend.rvn</c> refuses a mask input by name — a <em>layer's</em> mask has a
+///         stack of its own and anchors into other layers, and bolting a third texture onto a blend
+///         would be a shape doc 48 § M7 then has to undo. That argument is about a layer; a graph's
+///         mask is whatever image the author wired, and the two are different questions. So § M7's
+///         refusal stands exactly as written and this is a node beside it.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="Mask" /> is read as a single channel</b> — <c>ReadGrey</c>, so a colour
+///         wired into it is a type error naming the port rather than a silent luminance nobody
+///         agreed on. It is the rule <c>Filters/Slope Blur</c> and <c>Analysis/Distance</c> already
+///         follow for the same reason.
+///     </para>
+///     <para>
+///         <b>The mask multiplies <see cref="Opacity" /> rather than replacing it</b>, so a mask
+///         left white is exactly a <c>Colour/Blend</c> and the opacity goes on meaning what it means
+///         everywhere else.
+///     </para>
+/// </remarks>
+[Node(
+    "Colour/Mix",
+    Preview = true,
+    Summary = "Two images composited through a per-texel mask, under one of sixteen operators."
+)]
+sealed partial class MixNode : TextureNode {
+    /// <summary>Which operator. One of <c>TextureBlendMode</c>'s sixteen names.</summary>
+    [Setting(AcceptedFrom = typeof(TextureBlendMode))]
+    public string Mode = "Copy";
+
+    /// <summary>
+    ///     Whether the foreground arrives on top of the backdrop — <c>Over</c> — or reinterprets it —
+    ///     <c>Atop</c>. One of <c>TextureBlendCoverage</c>'s two names.
+    /// </summary>
+    [Setting(AcceptedFrom = typeof(TextureBlendCoverage))]
+    public string Coverage = "Over";
+
+    /// <summary>What is underneath.</summary>
+    [Input(Name = "Background")]
+    public Image Background;
+
+    /// <summary>What is on top.</summary>
+    [Input(Name = "Foreground")]
+    public Image Foreground;
+
+    /// <summary>How much of the foreground each texel gets. A single channel.</summary>
+    [Input(Name = "Mask")]
+    public Image Mask;
+
+    /// <summary>A scale over the whole mask, before the foreground's own alpha.</summary>
+    [Input]
+    public Scalar Opacity = 1f;
+
+    /// <summary>The composite.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var mode = TextureSettings.Enum(emitter, nameof(Mode), TextureBlendMode.Copy);
+        var coverage = TextureSettings.Enum(emitter, nameof(Coverage), TextureBlendCoverage.Over);
+        var background = emitter.Read("Background");
+        var foreground = emitter.Read("Foreground");
+        var mask = emitter.ReadGrey("Mask");
+        var target = emitter.Write("Out");
+
+        // ⚠ All three, and the mask is not optional. A node whose mask is unwired would composite
+        // through whatever black image the plan happened to leave there, which is "the blend did not
+        // happen" — a picture, produced by a missing wire, with nothing saying so.
+        if (background < 0 || foreground < 0 || mask < 0) {
+            return;
+        }
+
+        emitter.Dispatch(
+            TextureBlend.Masked(
+                target,
+                background,
+                foreground,
+                mask,
+                mode,
+                emitter.Number(nameof(Opacity)),
+                coverage
+            )
+        );
+    }
+}
+
 /// <summary>A box blur.</summary>
 /// <remarks>
 ///     <para>

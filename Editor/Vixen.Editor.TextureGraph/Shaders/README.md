@@ -1,14 +1,21 @@
 # Shaders
 
-The texture graph's atomic kernels, in Raven. **Forty-five `.rvn` files**, which is
-[doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-one adjusted one way — and the
-adjustment is a fact about the catalogue rather than an arithmetic slip:
+The texture graph's atomic kernels, in Raven. **Forty-eight `.rvn` files**, which is
+[doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-one adjusted three ways — and
+every adjustment is a fact about the catalogue rather than an arithmetic slip:
 
 | | | |
 |---|---:|---|
 | § 4.11's compute kernels | **41** | The catalogue's rows, less the three that are not compute shaders |
 | + `MinMaxReduce`, `JumpFlood`, `FloodBounds`, `FloodResidual` | +4 | **Dispatches, not nodes**: three nodes need a chain |
-| = files in this folder | **45** | `TextureKernels.Names` at run time |
+| + `Triplanar`, `ColourSelect` | +2 | § M8's two, which arrived after § 4.11 was counted |
+| + `Mix` | +1 | § M10's, and the only one dogfooding asked for — [#1059](https://github.com/Rikarin/Vixen/issues/1059) |
+| = files in this folder | **48** | `TextureKernels.Names` at run time |
+
+⚠ **This number read forty-five while the folder held forty-seven**, which is the thing the note
+below says a second list always eventually does — `Triplanar` and `ColourSelect` shipped and nobody
+came back here. It is corrected rather than deleted because the *derivation* is what the table is
+for; the count itself is `TextureKernels.Names.Count` and is never worth reading off a file.
 
 ⚠ **This table used to start from forty-four and subtract three, and it double-counted a correction**
 ([#728](https://github.com/Rikarin/Vixen/issues/728)). Forty-four was § 4.11's count of catalogue
@@ -66,6 +73,18 @@ other kernel here. ⚠ And `Blend` is
 **not** the only kernel that reads `w` as coverage, however long this repository said so:
 `TileSampler` and `Splatter` fold overlapping instances under the same rule and carried the same
 premultiply defect because of that sentence ([#864](https://github.com/Rikarin/Vixen/issues/864)).
+
+⚠ **`Mix` is `Blend` with the opacity read per texel out of a third image, and it is a *second file*
+rather than a fourth port** ([#1059](https://github.com/Rikarin/Vixen/issues/1059)). `Blend`'s header
+refuses a mask input by name and the refusal is about a **layer**, which owns a mask stack, anchors
+and generators — doc 48 § M7's object, correctly out of scope for a compositing kernel. A **graph**
+is a different question: an image is an image and the mask is whatever the author wired. So § M7's
+refusal is left exactly as written. ⚠ The cost of the split is that the sixteen operators are
+transcribed twice, which is what `TexturePlanEvaluator`'s missing `referencePaths`
+([#635](https://github.com/Rikarin/Vixen/issues/635)) makes unavoidable — `TextureMixParityTests`
+holds `Combine` to textual equality and `Main` to *exactly one* differing line, and
+`TextureMixDeviceTests` bakes both kernels side by side in all sixteen modes, because a hard light
+copied without moving its selector **is** overlay on every image there is.
 
 **§ 4.3 space — five.** `Transform2D` · `Mirror` · `Tile` · `Crop` · `Resample`. ⚠ **Minification is
 supersampled by hand** in three of them, because the evaluator binds no samplers — there is no
