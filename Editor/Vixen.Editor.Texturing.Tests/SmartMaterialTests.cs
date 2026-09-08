@@ -200,6 +200,62 @@ public class SmartMaterialTests {
         Assert.Equal(0.3f, worn.Values["baseColor"][0]);
     }
 
+    /// <summary>⚠ The extract shares no mutable member of a layer with the stack it came from.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Derived rather than listed, which is the point.</b> <c>SmartMaterial.Portable</c>
+    ///         copies <c>Channels</c>, <c>Values</c>, <c>Textures</c>, <c>Settings</c>,
+    ///         <c>Texts</c>, <c>Mask</c> and <c>Children</c> by name; a record's <c>with</c> is
+    ///         shallow, so a member added to <c>LayerAsset</c> and not to that list is silently the
+    ///         <em>same object</em> in both stacks and the first edit an artist makes to either
+    ///         shows up in the other. Nothing else in this suite can see that: every assertion here
+    ///         reads a value, and a shared reference holds the right value until somebody writes to
+    ///         it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reflection over the record's own properties, so the twenty-first member is
+    ///         covered by this test on the day it is added</b> — which is exactly how
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1079">#1079</a>'s <c>Texts</c>
+    ///         nearly went in shared. Value types and <c>string</c> are skipped because neither can
+    ///         be mutated through a shared reference.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And the instrument first: a walk finding no members at all would pass, so the count
+    ///         is asserted before the identities are.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void No_mutable_member_of_an_extracted_layer_is_the_stacks_own_object() {
+        var stack = Stack();
+        var extract = SmartMaterial.Extract(stack, "Rusted Iron");
+
+        Assert.NotNull(extract.Material);
+
+        var mutable = typeof(LayerAsset)
+            .GetProperties()
+            .Where(property => !property.PropertyType.IsValueType && property.PropertyType != typeof(string))
+            .ToArray();
+
+        Assert.True(mutable.Length >= 6, $"only {mutable.Length} reference members: the walk has lost its subject.");
+
+        foreach (var source in stack.Sets[0].Layers) {
+            var copy = extract.Material.Sets[0].Layers.SingleOrDefault(layer => layer.Id == source.Id);
+
+            if (copy is null) {
+                // A paint layer does not come across at all, which the suite asserts elsewhere.
+                continue;
+            }
+
+            foreach (var property in mutable) {
+                Assert.False(
+                    ReferenceEquals(property.GetValue(source), property.GetValue(copy)),
+                    $"layer '{source.Id}' shares its {property.Name} with the stack it was extracted from, so "
+                    + "an edit to either shows up in the other. Deep-copy it in SmartMaterial.Portable."
+                );
+            }
+        }
+    }
+
     /// <summary>A smart material is a <c>.vxlayers</c>, so the stack's own reader reads it back.</summary>
     /// <remarks>
     ///     ⚠ <b>The point of the format decision, asserted rather than asserted-about.</b> There is

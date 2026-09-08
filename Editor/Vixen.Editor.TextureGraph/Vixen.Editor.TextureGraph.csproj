@@ -77,6 +77,33 @@
         <EmbeddedResource Include="Shaders\*.rvn" />
 
         <!--
+          ⚠ **And the shader library's own sources, verbatim, so that a kernel can `import` instead
+          of transcribing** — [#635](https://github.com/Rikarin/Vixen/issues/635). The issue offers a
+          compiled `.rvnlib` or a prelude this assembly writes; both are answers to a cause that is
+          not the cause. `RavenEffectCompiler.FromSources` takes a *set* of texts and makes them one
+          compilation, and a package's declarations are visible across one compilation — the
+          evaluator was passing one text. So these are the library's files at their own path rather
+          than a copy of them, which is what makes the count of copies zero and not two.
+
+          ⚠ `LogicalName` is load-bearing twice. `TextureKernels` reads every embedded resource under
+          `Vixen.Editor.TextureGraph.Shaders.` ending in `.rvn` and *that set is the kernel list*, so
+          a prelude source landing under that prefix would register as a kernel with no
+          `[ComputeShader]` and no `[Format]`. And a linked file's default resource name is derived
+          from its path relative to this project, which for `..\..\Raven\…` is not a name anybody
+          would predict.
+
+          `Core/Math.rvn` is here because `Core/Random.rvn` spells `Math.SphericalToCartesian` and
+          `Const.TwoPi` — a set that stops at `Random.rvn` fails RVN2010 on *every* kernel, because a
+          library file in the compilation is bound whether the kernel calls that part of it or not.
+        -->
+        <EmbeddedResource Include="..\..\Raven\Library\Core\Math.rvn"
+                          LogicalName="Vixen.Editor.TextureGraph.Prelude.Core.Math.rvn" />
+        <EmbeddedResource Include="..\..\Raven\Library\Core\Random.rvn"
+                          LogicalName="Vixen.Editor.TextureGraph.Prelude.Core.Random.rvn" />
+        <EmbeddedResource Include="..\..\Raven\Library\Material\ComputeColor.rvn"
+                          LogicalName="Vixen.Editor.TextureGraph.Prelude.Material.ComputeColor.rvn" />
+
+        <!--
           And doc 48 § D5's other half: the compounds. § 4.9's catalogue is content rather than code,
           so a `Histogram Scan` is a `.vxtexgraph` beside the kernels rather than a node class — and
           it is embedded for the same reason they are, which is that there is then nothing a

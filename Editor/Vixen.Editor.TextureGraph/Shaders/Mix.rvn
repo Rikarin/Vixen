@@ -1,0 +1,292 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.Editor.TextureGraph.Shaders
+
+import Vixen.Shaders.Material
+
+// `Blend`, with the opacity read per texel out of a third image instead of out of a uniform.
+//
+// **Why this is a second kernel and not a port on `Blend`.** `Blend.rvn` refuses a mask input by
+// name, and the refusal is about a **layer** — "a mask is not a third texture bolted onto a blend:
+// it has a stack of its own, generators under it and anchor points into other layers", which is doc
+// 48 § M7's object and is correctly out of scope for a compositing kernel. A **graph** is a
+// different question: an image is an image, and the thing arriving at this port is whatever the
+// author wired. So § M7's refusal is left exactly as it stands and this is a node beside it —
+// [#1059](https://github.com/Rikarin/Vixen/issues/1059).
+//
+// ⚠ **What it is worth, measured rather than asserted.** Authored out of the atomic set,
+// `offset·(1 − m) + original·m` is `Colour/Invert` plus three `Colour/Blend`s: four dispatches and
+// three intermediate images, so three round trips through `rgba16f` where this is one — and the
+// summing `Add` clamps, which this does not because nothing is ever split into two terms.
+// `Compounds/Utility/Make It Tile.vxtexgraph` is the worked example that paid it.
+//
+// ⚠ **`Combine` and `Main` below are a transcription of `Blend.rvn`, character for character, and
+// one line of `Main` is the whole of the difference.** A texture-graph kernel binds against nothing
+// but itself — there are no `referencePaths` in `TexturePlanEvaluator.VariantFor`, so
+// [#635](https://github.com/Rikarin/Vixen/issues/635) means a shared `Combine` cannot be imported —
+// which is the same bargain the thirteen functions transcribed out of the shader library make.
+// `TextureMixParityTests` is what keeps the copy honest: it reads both functions out of the two
+// embedded sources and holds `Combine` to equality and `Main` to *exactly one* differing line, so a
+// mode fixed in one file and not the other is red rather than a picture. ⚠ A hard light copied from
+// overlay without moving the selector **is** overlay on every image there is — `Blend.rvn` says so
+// about itself, and a second copy of the sixteen is exactly where that happens again.
+//
+// **The mask is read as its red channel**, never as a luminance, for `DirectionalWarp.rvn`'s reason:
+// a mask here is an `R8` image and `Load` gives `(r, 0, 0, 1)` for one, so a luminance would read a
+// third of it. It is clamped to the mask's own edge and sampled at the *target's* coordinate, which
+// is the rule every image in this file already follows.
+
+shader Mix {
+    /// What is underneath — the first wire into the node.
+    var background: Texture2D
+
+    /// What is on top.
+    ///
+    /// ⚠ Its own resolution is whatever image the plan bound; the loop reads by *this* image's
+    /// coordinate clamped into the source, exactly as `Blend` does.
+    var foreground: Texture2D
+
+    /// How much of the foreground each texel gets, in its **red** channel.
+    ///
+    /// ⚠ **This is the uniform `opacity` per texel and not a fourth operand.** The two multiply:
+    /// `opacity` scales the whole mask, so a node with the mask wired and the opacity left at 1
+    /// composites exactly what the mask says, and a mask left white composites exactly what `Blend`
+    /// would. Both halves are on a device in `TextureMixDeviceTests`.
+    var mask: Texture2D
+
+    /// 0 copy · 1 multiply · 2 screen · 3 overlay · 4 add · 5 subtract · 6 darken · 7 lighten ·
+    /// 8 divide · 9 hard light · 10 soft light · 11 difference · 12 exclusion · 13 colour dodge ·
+    /// 14 colour burn · 15 signed add.
+    ///
+    /// ⚠ The numbers are `Blend`'s, because `TextureBlendMode` is one enum and both kernels compare
+    /// against it. A renumbering here would make one node's `Multiply` another node's `Screen`.
+    var mode: int = 0
+
+    /// A scale over the whole mask, before the foreground's own alpha.
+    var opacity: float = 1f
+
+    /// Non-zero to composite the foreground **atop** the backdrop rather than **over** it.
+    ///
+    /// `Blend`'s uniform and `Blend`'s meaning — see its `atop` for the argument. The mask is not a
+    /// second spelling of it: `atop` says what the foreground *is*, and the mask says how much of it
+    /// there is here.
+    var atop: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// One texel of a source, clamped to its edge rather than wrapped.
+    ///
+    /// Clamping is what a compositing operator has to do at a border: a wrap would make the top row
+    /// of a blend read the bottom row of the layer under it, which is a seam nobody authored.
+    func Under(x: int, y: int): float4 {
+        val size = background.GetDimensions(0)
+
+        return background.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    func Over(x: int, y: int): float4 {
+        val size = foreground.GetDimensions(0)
+
+        return foreground.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0))
+    }
+
+    /// How much of the foreground this texel gets: the mask's red, clamped to the mask's own edge.
+    ///
+    /// ⚠ An unwritten mask is **black**, which is the backdrop untouched — so a plan that forgets to
+    /// bind one composites nothing rather than compositing everything. That is the safe direction of
+    /// the two: a node whose mask port is unwired is refused by the compiler before a plan exists,
+    /// and a bug that reached here would be visible as "the blend did not happen" rather than as a
+    /// mask that silently did.
+    func Coverage(x: int, y: int): float {
+        val size = mask.GetDimensions(0)
+
+        return mask.Load(int3(clamp(x, 0, size.x - 1), clamp(y, 0, size.y - 1), 0)).x
+    }
+
+    /// Widens a `float3` operator's answer with the foreground's own coverage.
+    ///
+    /// ⚠ **`Blend.Lift`, and the two agreeing is what `TextureMixParityTests` holds.** The fourth
+    /// lane of `Combine` is dead — `Main` builds alpha out of `a.w`, `b.w` and the mask, never out
+    /// of `Combine`'s — so a mode reaching the shader library's `float3` operators loses nothing by
+    /// widening this way.
+    func Lift(colour: float3, over: float4): float4 => float4(colour.x, colour.y, colour.z, over.w)
+
+    /// The mode applied to two texels.
+    ///
+    /// ⚠ **"alpha left alone" is what this line used to say and it was never true.** Every mode
+    /// operated on all four lanes; what makes the fourth harmless is that nothing reads it — see
+    /// `Lift`.
+    ///
+    /// **Every mode has a neutral foreground, and that is what the suite reads them off.** Copy has
+    /// none by construction; multiply and divide are neutral at white, screen, add, subtract,
+    /// difference, exclusion and colour dodge at black, darken at white, lighten at black, colour
+    /// burn at white, overlay, hard light, soft light and signed add at mid-grey. ⚠ A mode
+    /// implemented with an operand swapped, a factor dropped or a `1 −` missing generally *keeps*
+    /// its distinguishing value at some point and loses its neutral, or the reverse — which is why
+    /// `TextureBlendDeviceTests` asserts both and not either.
+    func Combine(a: float4, b: float4): float4 {
+        val one = float4(1f, 1f, 1f, 1f)
+        val epsilon = float4(0.0001f, 0.0001f, 0.0001f, 0.0001f)
+
+        if (mode == 1) {
+            return a * b
+        }
+
+        if (mode == 2) {
+            return one - (one - a) * (one - b)
+        }
+
+        if (mode == 3) {
+            return Lift(ComputeColor.Overlay(a.xyz, b.xyz), b)
+        }
+
+        if (mode == 4) {
+            return a + b
+        }
+
+        if (mode == 5) {
+            return a - b
+        }
+
+        if (mode == 6) {
+            return min(a, b)
+        }
+
+        if (mode == 7) {
+            return max(a, b)
+        }
+
+        if (mode == 8) {
+            // The backdrop divided by the layer over it, capped at white. ⚠ The `max` is a floor on
+            // the *divisor*, not a `saturate` afterwards: a foreground of zero is a division by zero,
+            // which is an infinity in one target and a NaN in the other, and a NaN stored into an
+            // `rgba16f` intermediate survives every later op unchanged.
+            return min(a / max(b, epsilon), one)
+        }
+
+        if (mode == 9) {
+            // ⚠ Hard light is overlay with the operands **swapped**, and this line is the whole of
+            // that claim now that it is the library's: `ComputeColor.HardLight` is `Overlay(over,
+            // under)`. Written out here it was two symmetric halves and a selector, so a hard light
+            // copied from the overlay case and left reading `a` was *exactly* overlay, on every
+            // image, with no artefact to notice.
+            return Lift(ComputeColor.HardLight(a.xyz, b.xyz), b)
+        }
+
+        if (mode == 10) {
+            // `ComputeColor.SoftLight` — the Photoshop form, where the light half reaches for
+            // `sqrt(a)` rather than the W3C's cubic.
+            return Lift(ComputeColor.SoftLight(a.xyz, b.xyz), b)
+        }
+
+        if (mode == 11) {
+            return abs(a - b)
+        }
+
+        if (mode == 12) {
+            // Difference's smooth twin: the same endpoints, no derivative discontinuity at a == b.
+            return a + b - 2f * a * b
+        }
+
+        if (mode == 13) {
+            return min(a / max(one - b, epsilon), one)
+        }
+
+        if (mode == 14) {
+            return one - min((one - a) / max(b, epsilon), one)
+        }
+
+        if (mode == 15) {
+            // ⚠ **Times two, and that factor is the whole point of the mode.** A signed quantity in
+            // an unorm map is carried as `v * 0.5 + 0.5`, so decoding it is `v * 2 - 1` — doc 48
+            // § 4.4 names exactly this pair as the encoding "the two conventions differ by a factor
+            // of two and a sign" over. Without the two, a mid-grey foreground is still neutral and
+            // every offset is half the height the map says, which looks like a weak effect rather
+            // than a wrong one.
+            return a + (b - float4(0.5f, 0.5f, 0.5f, 0.5f)) * 2f
+        }
+
+        return b
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        // The dispatch is rounded up to whole groups, so the tail invocations have no texel of their
+        // own. Storing outside a storage image is undefined in both targets.
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val a = Under(coord.x, coord.y)
+        val b = Over(coord.x, coord.y)
+        val blended = Combine(a, b)
+
+        // ⚠ The blend's own alpha is what makes an unwritten region of the foreground leave the
+        // backdrop alone. Multiplying the opacity by it here rather than in `Combine` is what keeps
+        // every mode agreeing about what a transparent foreground texel means.
+        val amount = saturate(opacity * Coverage(coord.x, coord.y)) * saturate(b.w)
+        val backdrop = saturate(a.w)
+
+        if (atop != 0) {
+            // ⚠ **The coverage that leaves is the coverage that arrived**, and nothing else in this
+            // kernel can say that. The foreground's alpha is divided by the backdrop's rather than
+            // accumulated with it, because atop reads it as the *fraction of the backdrop* the
+            // adjustment speaks for: a filter passes its input's alpha straight through, so the
+            // quotient is exactly 1 and the adjustment is applied in full — and a mask on the filter
+            // layer, which multiplies that alpha, comes through as the fraction it is.
+            //
+            // No divide by `alpha` afterwards and no `(1 − backdrop)` term: both belong to the over
+            // rule, where the foreground can reach a texel the backdrop does not cover. Atop cannot,
+            // so where `backdrop` is 0 there is nothing to reinterpret and this stores the texel it
+            // was handed, colour and coverage both.
+            //
+            // ⚠ **The guard tests the backdrop; it does not divide by a floored copy of it** —
+            // [#899](https://github.com/Rikarin/Vixen/issues/899). `amount / max(backdrop, 1e-6)` at
+            // `backdrop == 0` is `amount · 10⁶`, which saturates to **1** for every foreground that
+            // covers anything at all — so the branch whose whole contract is "atop covers exactly
+            // what the backdrop covered" wrote the *blended* colour into every texel the backdrop
+            // does not reach. The stored alpha is 0 either way and that is what hid it: a colour at
+            // zero alpha is invisible to a compositor and perfectly visible to this library, where
+            // every image carries a straight colour and an adjustment downstream reads the channel
+            // rather than the coverage. A filter layer under an empty region turned it into the
+            // filter's own output instead of leaving it alone.
+            //
+            // Below `1e-6` and above zero the quotient still saturates and this is the same answer as
+            // before; the whole of the change is the one value where the division has no meaning.
+            var within = 0f
+
+            if (backdrop > 0f) {
+                within = saturate(amount / backdrop)
+            }
+
+            val kept = lerp(a.xyz, blended.xyz, float3(within, within, within))
+
+            target.Store(coord, float4(kept.x, kept.y, kept.z, backdrop))
+
+            return
+        }
+
+        val alpha = backdrop + (1f - backdrop) * amount
+
+        // ⚠ **The operator only means something where there is a backdrop to apply it to.** Where
+        // the backdrop is absent the composite is the foreground's own colour — a multiply against
+        // nothing is not black, it is the thing that was multiplied. This is the term that was
+        // missing: without it a group of half coverage came out half its colour, because `blended`
+        // had already been lerped towards a backdrop of zero.
+        val over = blended.xyz * backdrop + b.xyz * (1f - backdrop)
+
+        // Straight, not premultiplied — the division by the composite's own alpha is what makes it
+        // so, and it is why every other node in this library may read a colour without asking what
+        // its alpha was. ⚠ At `backdrop == 1` every added term is exactly zero or exactly one and
+        // this reduces, bit for bit, to the `lerp(a.xyz, blended.xyz, amount)` it replaced: the
+        // whole of the change is confined to the partially covered backdrop, which nothing but a
+        // group could produce and which a group produced wrongly.
+        val colour = lerp(a.xyz * backdrop, over, float3(amount, amount, amount)) / max(alpha, 0.000001f)
+
+        target.Store(coord, float4(colour.x, colour.y, colour.z, alpha))
+    }
+}

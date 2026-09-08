@@ -1,0 +1,21 @@
+# Raven sources holding a doc comment block that describes a declaration other than the one it is
+# attached to, and that nobody is fixing today.
+#
+# ⚠ This list is empty, and it was empty on the day the rule landed. `CheckDocComments` parses C#
+# (#866), so the 176 committed `.rvn` files were outside every gate in this repository — #1076. The
+# sweep that proved it found eight blocks and all eight were fixed in the same commit, so nothing
+# here has ever been deferred.
+#
+# ⚠ Two of the eight were live staples rather than formatting. `IIrradianceSource`'s block sat above
+# `struct IrradianceSample`, so the protocol was undocumented and the struct was described twice, and
+# `CascadeTile`'s sat above `CascadeContaining` ninety lines from the function it describes. That is
+# `KeyChord.MacFormat`'s defect in a shader, and it is what a `.rvn` gate is for.
+#
+# `nuke CheckDocComments` fails when
+#
+#   * a file not listed here holds a spliced or orphaned block — that is the gate,
+#   * a file listed here no longer holds one: delete the line in the same commit.
+#
+# So this file should only ever shrink, and a commit that grows it is a commit that stapled a
+# comment. `./build.sh CheckDocComments --update-exemptions` rewrites it, and is deliberately a
+# command somebody runs: a gate that wrote its own exemptions would fail on nothing, forever.

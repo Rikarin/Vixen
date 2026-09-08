@@ -129,7 +129,7 @@ public readonly record struct TextureGraphExternal(
 ///         <see cref="PortKind.Dynamic" />'s widening rule reused rather than a second type system.
 ///     </para>
 /// </remarks>
-public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
+public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan>, ISubGraphValues {
     readonly ImmutableArray<TextureImage>.Builder images = ImmutableArray.CreateBuilder<TextureImage>();
     readonly ImmutableArray<TextureOp>.Builder ops = ImmutableArray.CreateBuilder<TextureOp>();
     readonly List<TextureChannels> channels = [];
@@ -360,8 +360,112 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     public int ExpressionCompilations { get; private set; }
 
     /// <inheritdoc />
-    protected override void Begin(NodeGraphModel graph) {
-        this.graph = graph;
+    /// <remarks>
+    ///     ⚠ <b>This compiler answers with itself, which is what makes an expression on a sub-graph
+    ///     node's port mean anything</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1058">#1058</a> through
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a>. The <c>=</c> convention
+    ///     stays here: <see cref="ISubGraphValues.Claims" /> is where this assembly tells the graph model which keys
+    ///     are its, and <c>Vixen.Editor.NodeGraph</c> never learns the character.
+    /// </remarks>
+    protected override ISubGraphValues SubGraphValues => this;
+
+    /// <inheritdoc />
+    bool ISubGraphValues.Claims(PortDefinition port, string key) =>
+        TextureGraphExpressions.IsExpression(key, out var named)
+        && string.Equals(named, port.Name, StringComparison.Ordinal)
+        // ⚠ **Scalar kinds only, and the exclusion list was the wrong way round.** An expression is
+        // *one number*, so the kinds it can answer are the kinds that hold one. Written as "not an
+        // image, flow, texture or sampler" it also claimed `Float2`, `Float3`, `Float4` and
+        // `Dynamic` — and `Resolve` answers a one-element array which the flattener writes as the
+        // port's *whole* value, so `=Colour` on a Float4 replaced four lanes with one number
+        // splatted across none of them. Named positively, a kind added to `PortKind` is declined
+        // until somebody decides what an expression means for it.
+        && port.Kind is PortKind.Float or PortKind.Int or PortKind.Bool;
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         <b>One Raven compilation per sub-graph node that carries an expression</b>, which is
+    ///         the cost <see cref="ExpressionCompilations" /> counts and
+    ///         <c>TextureExpressionCostTests</c> pins. It is charged only for a node with at least one
+    ///         claimed key on an <em>unfed</em> port — the flattener does that filtering, so a
+    ///         compound whose ports are all wired costs nothing however many expression fields it has.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The parameters come from the scope, not from this graph.</b> A sub-graph node
+    ///         written inside a published compound reads that compound's parameters with that
+    ///         expansion's overrides, and a node in the author's own graph reads
+    ///         <see cref="ParameterValues" /> — the same join <see cref="Bind" /> makes for an
+    ///         expression written on an ordinary node, one phase earlier.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An override this scope could not use is not reported here.</b>
+    ///         <see cref="Bind" /> reports those for every expansion that holds an expression of its
+    ///         own, and saying it twice for the ones that do would put two identical warnings on one
+    ///         node.
+    ///     </para>
+    /// </remarks>
+    IReadOnlyDictionary<string, float[]> ISubGraphValues.Resolve(
+        SubGraphScope scope,
+        IReadOnlyDictionary<string, string> claimed
+    ) {
+        ArgumentNullException.ThrowIfNull(scope);
+        ArgumentNullException.ThrowIfNull(claimed);
+
+        var parameters = scope.Type.Length == 0
+            ? declared
+            : (SubGraphSource as ITextureGraphLibrary)?.ParametersOf(scope.Type) ?? [];
+
+        var values = scope.Type.Length == 0
+            ? ParameterValues
+            : TextureGraphParameters.Read(parameters, scope.Settings, out _);
+
+        List<TextureExpression> expressions = [];
+
+        // Sorted, for `Collect`'s reason: the order decides which line of the generated source each
+        // expression lands on, and a line number is what a Raven complaint is mapped back through.
+        foreach (var port in claimed.Keys.Order(StringComparer.Ordinal)) {
+            // ⚠ An empty field is not an expression, which is where `Collect` draws the same line:
+            // clearing the box is how an author goes back to the number typed on the port.
+            if (!string.IsNullOrWhiteSpace(claimed[port])) {
+                expressions.Add(new(scope.Blame, port, claimed[port]));
+            }
+        }
+
+        if (expressions.Count == 0) {
+            return ImmutableDictionary<string, float[]>.Empty;
+        }
+
+        ExpressionCompilations++;
+
+        var results = TextureGraphExpressions.Fold(parameters, values, expressions, out var diagnostics);
+
+        foreach (var diagnostic in diagnostics) {
+            Report(diagnostic);
+        }
+
+        Dictionary<string, float[]> resolved = new(StringComparer.Ordinal);
+
+        foreach (var result in results) {
+            if (result.Folded) {
+                resolved[result.Port] = [result.Value];
+            }
+        }
+
+        return resolved;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Everything a resolution reads, and nothing a walk does.</b> The parameters are read
+    ///     off the author's own graph because <see cref="ISubGraphValues.Resolve" /> is called during
+    ///     inlining, which is before <see cref="Begin" /> — and they are the same either way, because
+    ///     a flattened graph carries the containing graph's own declarations.
+    /// </remarks>
+    protected override void Prepare(NodeGraphModel graph) {
+        ArgumentNullException.ThrowIfNull(graph);
+
         images.Clear();
         ops.Clear();
         channels.Clear();
@@ -386,9 +490,15 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         Kernels = [];
         Externals = [];
 
+        Adopt(graph);
+        Declare();
+    }
+
+    /// <inheritdoc />
+    protected override void Begin(NodeGraphModel graph) {
+        this.graph = graph;
         emitter = new(this);
 
-        Adopt(graph);
         Bind(graph);
     }
 
@@ -446,7 +556,33 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
         );
     }
 
-    /// <summary>Resolves the graph's parameters, and every expression written over them.</summary>
+    /// <summary>Resolves what the graph's own parameters are worth, before anything is inlined.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Split out of <c>Bind</c> and moved into <see cref="Prepare" /></b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a>. An expression written on
+    ///     a sub-graph node's port is folded <em>during</em> inlining, against exactly these values,
+    ///     and inlining runs before the walk — so a parameter list read at the top of the walk is
+    ///     read one phase too late to be the thing that expression is bound against.
+    /// </remarks>
+    void Declare() {
+        foreach (var problem in TextureGraphParameters.Check(declared)) {
+            // Against no node, because a parameter belongs to the graph rather than to any node in
+            // it. There is nothing to select and saying so is better than picking one at random.
+            Report(new(
+                TextureDiagnostics.BuilderRefusedTheNumbers,
+                "This graph's parameters do not hold together: " + problem,
+                NodeId.None
+            ));
+        }
+
+        ParameterValues = TextureGraphParameters.Read(declared, Arguments, out var refused);
+
+        foreach (var problem in refused) {
+            Report(new(TextureDiagnostics.ParameterOverrideIgnored, problem, NodeId.None, "", NodeSeverity.Warning));
+        }
+    }
+
+    /// <summary>Folds every expression written inside the flattened graph, by the scope it was in.</summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Before the walk and not during it, because one compilation folds a whole scope's
@@ -477,23 +613,16 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
     ///         constant. The wrong version of this sentence survived a whole batch on exactly the
     ///         evidence the right one had: none.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A sub-graph node's own ports are folded elsewhere and earlier</b> —
+    ///         <see cref="ISubGraphValues.Resolve" />, during inlining, because by the time this runs
+    ///         the node carrying the expression has been replaced by the graph's contents. That is one
+    ///         further compilation per sub-graph node holding one, on top of the bound above, and
+    ///         <see cref="ExpressionCompilations" /> counts both.
+    ///     </para>
     /// </remarks>
     void Bind(NodeGraphModel graph) {
-        foreach (var problem in TextureGraphParameters.Check(declared)) {
-            // Against no node, because a parameter belongs to the graph rather than to any node in
-            // it. There is nothing to select and saying so is better than picking one at random.
-            Report(new(
-                TextureDiagnostics.BuilderRefusedTheNumbers,
-                "This graph's parameters do not hold together: " + problem,
-                NodeId.None
-            ));
-        }
-
-        ParameterValues = TextureGraphParameters.Read(declared, Arguments, out var refused);
-
-        foreach (var problem in refused) {
-            Report(new(TextureDiagnostics.ParameterOverrideIgnored, problem, NodeId.None, "", NodeSeverity.Warning));
-        }
+        RefuseExpressionsOnSubGraphPorts();
 
         foreach (var (expansion, scope, expressions) in Collect(graph)) {
             var parameters = scope.Length == 0
@@ -542,6 +671,93 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan> {
             foreach (var result in results) {
                 if (result.Folded) {
                     folded[(result.Node, result.Port)] = result.Value;
+                }
+            }
+        }
+    }
+
+    /// <summary>Says so when an expression is written on a sub-graph port that takes no number.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What is left of <c>TG0003</c> once the fold exists</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1058">#1058</a> refused every
+    ///         expression on a sub-graph port because inlining could only read literals, and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a> is that capability.
+    ///         An expression on a scalar port now folds; what still cannot mean anything is one on a
+    ///         port carrying an image, and one naming a port the published graph has not got. Both
+    ///         are the complaint <see cref="Collect" /> makes about an atomic node's port, one level
+    ///         over, so they are reported as the same thing rather than as a sub-graph rule of their
+    ///         own.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An expression on a <em>wired</em> port is deliberately silent.</b> A wire wins
+    ///         over a value written on the port it arrives at — that is true of every port in this
+    ///         system and of the number typed into this one — so a diagnostic here would be a rule
+    ///         sub-graph nodes alone had. <see cref="ISubGraphValues" /> is never even asked about a
+    ///         connected input, which is the same statement one layer down.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Over every expansion and not over the ones <see cref="Collect" /> returns.</b>
+    ///         <c>Collect</c> groups the expressions written <em>inside</em> each compound, so a
+    ///         compound holding none of its own would never be visited — and a compound holding none
+    ///         of its own is exactly the one an author reaches for when they want the arithmetic on
+    ///         the outside.
+    ///     </para>
+    ///     <para>
+    ///         The blame is <see cref="SubGraphExpansion.Source" />, which is the outermost sub-graph
+    ///         node and therefore the one on the author's canvas — the same choice every other
+    ///         complaint about an inlined thing makes, for the reason <see cref="NodeGraphInlining" />
+    ///         states.
+    ///     </para>
+    /// </remarks>
+    void RefuseExpressionsOnSubGraphPorts() {
+        foreach (var expansion in Inlining.Expansions.Keys.Order()) {
+            var inlined = Inlining.Expansions[expansion];
+
+            if (SubGraphSource is not { } source || !source.TryGet(inlined.Type, out var child)) {
+                continue;
+            }
+
+            foreach (var key in inlined.Settings.Keys.Order(StringComparer.Ordinal)) {
+                if (!TextureGraphExpressions.IsExpression(key, out var port)
+                    || string.IsNullOrWhiteSpace(inlined.Settings[key])) {
+                    // An empty field is not an expression here for the reason it is not one in
+                    // `Collect`: clearing the box is how an author goes back to the port's number,
+                    // and a refusal they cannot act on is worse than none.
+                    continue;
+                }
+
+                var taken = default(PortDefinition);
+
+                foreach (var candidate in child.Interface) {
+                    if (candidate.Direction == PortDirection.Input
+                        && string.Equals(candidate.Name, port, StringComparison.Ordinal)) {
+                        taken = candidate;
+
+                        break;
+                    }
+                }
+
+                if (taken is null) {
+                    Report(new(
+                        TextureDiagnostics.ExpressionOnAPortThatTakesNone,
+                        $"An expression is stored for '{port}', which '{inlined.Type}' has no input called. It "
+                        + "was written against a version of that graph that had one.",
+                        inlined.Source,
+                        port
+                    ));
+
+                    continue;
+                }
+
+                if (taken.Kind is PortKind.Image or PortKind.Flow or PortKind.Texture or PortKind.Sampler) {
+                    Report(new(
+                        TextureDiagnostics.ExpressionOnAPortThatTakesNone,
+                        $"'{port}' on '{inlined.Type}' carries a {taken.Kind} and an expression is one number. "
+                        + "A published graph's image inputs are wired, not computed.",
+                        inlined.Source,
+                        port
+                    ));
                 }
             }
         }

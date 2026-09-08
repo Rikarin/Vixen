@@ -101,6 +101,34 @@ sealed class LayerStackDocument : EditorDocument {
     /// <summary>Where the file is, absolute.</summary>
     public string AssetPath { get; }
 
+    /// <summary>Whether the open file is a shelf entry rather than a stack an artist paints on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A <c>.vxsmartmat</c> is a <c>.vxlayers</c> byte for byte</b> — <c>LayerStackYaml</c>
+    ///         reads and writes both, and <c>SmartMaterial.Extract</c> produces one by dropping the
+    ///         model, the meshes and anything painted. So this document opens one perfectly well, and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1070">#1070</a> is what happens next:
+    ///         every verb that reads the module's open stack then applies to it, and two of them
+    ///         should not be offered for a file with no model and no mesh binding.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Derived from the path rather than stored in the file, and that is deliberate.</b>
+    ///         The two formats are identical on purpose — a shelf entry an artist renames to
+    ///         <c>.vxlayers</c> <em>is</em> a stack, and a stack renamed the other way is a shelf
+    ///         entry — so a flag inside the bytes would be a second opinion about which one this is,
+    ///         and the file name is the one the asset database, the factory and the apply verb all
+    ///         already agree on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is not "has no model".</b> A <c>.vxlayers</c> that names no model is an
+    ///         ordinary stack somebody has not bound yet, and the answer to painting on it is the one
+    ///         the paint pane already gives. What this says is what the artist opened, which is what
+    ///         decides whether a verb should have been offered at all.
+    ///     </para>
+    /// </remarks>
+    public bool IsSmartMaterial =>
+        AssetPath.EndsWith(SmartMaterial.Extension, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>The stack.</summary>
     public LayerStackAsset Document { get; set; }
 

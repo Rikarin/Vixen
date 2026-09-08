@@ -466,6 +466,8 @@ public static class MaterialCompiler {
             );
         }
 
+        Ordered(descriptor, diagnostics);
+
         // Always through the chain, even for one feature. The alternative — binding a lone feature
         // straight into `surface` — would name its parameters one way for a material with one
         // feature and another for the same material with two, so adding a normal map would rename
@@ -501,6 +503,69 @@ public static class MaterialCompiler {
 
         material.Parameters.Apply(parameters);
         return new(material, [.. diagnostics]);
+    }
+
+    /// <summary>Refuses a chain whose coordinate is rewritten after something sampled at it.</summary>
+    /// <param name="descriptor">The material, whose feature order this reads.</param>
+    /// <param name="diagnostics">Where a refusal is recorded.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The compiler's only opinion about order, and it exists because the chain's contract
+    ///         has exactly one exception.</b> A feature reads the surface as the previous one left it
+    ///         and writes a channel, so which contribution wins is the author's business and nothing
+    ///         here judges it. A <see cref="MaterialFeatureStage.Coordinate" /> feature writes
+    ///         <c>d.uv</c> — the input every other feature samples at — so the features ahead of it in
+    ///         the list have already read the coordinate it was about to change.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Refused rather than reordered.</b> Moving it would compile a material whose file
+    ///         no longer describes what runs, and the next reader of that file is an artist wondering
+    ///         why slot order stopped mattering. The message names both features, because "this one is
+    ///         in the wrong place" is only actionable beside what it is in the wrong place relative to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Flat, and only the chain.</b> <see cref="BlendFeature" />'s two sides are separate
+    ///         surfaces — <c>BlendSurface</c> hands each of them its own copy of the data and mixes the
+    ///         results — so a coordinate feature nested inside one displaces that side alone, which is
+    ///         a coherent thing to author rather than the half-sampled surface this refuses.
+    ///     </para>
+    /// </remarks>
+    static void Ordered(MaterialDescriptor descriptor, List<MaterialDiagnostic> diagnostics) {
+        IMaterialFeature? ahead = null;
+
+        foreach (var feature in descriptor.Features) {
+            if (feature is null) {
+                continue;
+            }
+
+            if (feature.Stage != MaterialFeatureStage.Coordinate) {
+                ahead ??= feature;
+                continue;
+            }
+
+            if (ahead is null) {
+                continue;
+            }
+
+            // ⚠ The rule is "ahead of everything", not "ahead of everything that samples", and the
+            // message has to say the rule it enforces. There is no way to ask a feature whether it
+            // samples — a `[Sampling]`-shaped flag would be a second thing to forget, and the one
+            // feature in the library that does *not* read `d.uv` is not worth an escape hatch that
+            // can be wrong. So the conservative rule stands and is stated plainly; the first
+            // sentence blamed the feature in front for "having already sampled", which is false of
+            // most of them.
+            diagnostics.Add(
+                new(
+                    MaterialDiagnosticId.CoordinateFeatureOutOfOrder,
+                    $"'{feature.ShaderName}' rewrites the surface coordinate and is listed behind "
+                    + $"'{ahead.ShaderName}'. The chain runs in the order the features are listed, "
+                    + "so every feature ahead of this one reads the coordinate it is about to "
+                    + "replace — half a surface displaced and half not, drawn without an error. A "
+                    + "coordinate feature has to be first in the list.",
+                    IsError: true
+                )
+            );
+        }
     }
 
     /// <summary>Composes one feature into the chain, under the chain's own name.</summary>

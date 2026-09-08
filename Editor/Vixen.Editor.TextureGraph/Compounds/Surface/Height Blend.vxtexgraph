@@ -1,0 +1,74 @@
+version: 1
+name: Height Blend
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Colour/Levels
+    x: -640
+    y: 240
+    values: {}
+    texts:
+      '=Input Black': position - softness * 0.5f - 0.002f
+      '=Input White': position + softness * 0.5f + 0.002f
+  - id: 3
+    type: Colour/Mix
+    x: -320
+    y: 0
+    values: {}
+    texts: { Mode: Copy, Coverage: Over }
+  - id: 4
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Height, toNode: 2, toPort: Input }
+  - { fromNode: 1, fromPort: Lower, toNode: 3, toPort: Background }
+  - { fromNode: 1, fromPort: Upper, toNode: 3, toPort: Foreground }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Mask }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Lower
+    direction: Input
+    kind: Image
+    default: []
+    summary: What shows where the height is below the transition.
+  - name: Upper
+    direction: Input
+    kind: Image
+    default: []
+    summary: What shows where it is above.
+  - name: Height
+    direction: Input
+    kind: Image
+    default: []
+    summary: The height that decides between them. A single channel.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The two, cut into one another along a height contour rather than faded.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: position
+    default: '0.5'
+    summary: Which height the transition sits at.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Transition
+  - name: softness
+    default: '0.08'
+    summary: How wide the transition is, in height. Zero is a hard cut.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Transition

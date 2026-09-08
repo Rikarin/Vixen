@@ -67,15 +67,18 @@ sealed class LayerStackMesh {
     public static IReadOnlyList<string> Extensions { get; } = new ModelImporter().Extensions;
 
     readonly Vector2[] coordinates;
+    readonly Vector3[] points;
 
     PaintCoverage? coverage;
+    PaintProjection? projection;
 
-    LayerStackMesh(string model, string mesh, string named, int triangles, Vector2[] coordinates) {
+    LayerStackMesh(string model, string mesh, string named, int triangles, Vector2[] coordinates, Vector3[] points) {
         Model = model;
         Mesh = mesh;
         Named = named;
         Triangles = triangles;
         this.coordinates = coordinates;
+        this.points = points;
     }
 
     /// <summary>The model's path, relative to the project root.</summary>
@@ -96,6 +99,38 @@ sealed class LayerStackMesh {
     ///     one array behind both, so the outlines and the paintable texels are the same claim.
     /// </remarks>
     public IReadOnlyList<Vector2> Coordinates => coordinates;
+
+    /// <summary>Three vertex positions per triangle, in the mesh's own space, beside the coordinates.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one thing a 3D projection cannot get anywhere else</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1062">#1062</a>. This used to keep only
+    ///     the coordinates, which was right while the consumers were the islands overlay and the
+    ///     coverage map; a raycast needs the geometry those coordinates belong to, and reading the
+    ///     model a second time to get it would be a second opinion about all five of
+    ///     <see cref="Open" />'s refusals — two that disagree the first time an import is stale.
+    ///     ⚠ <b>Parallel to <see cref="Coordinates" />, corner for corner and not vertex for
+    ///     vertex.</b> The two arrays are written by one loop over one index list, so triangle
+    ///     <c>n</c> here is triangle <c>n</c> there by construction rather than by agreement — which
+    ///     is the same property that already makes the outlines an artist aims with and the texels
+    ///     the brush accepts one claim.
+    /// </remarks>
+    public IReadOnlyList<Vector3> Positions => points;
+
+    /// <summary>The mesh as a raycast: what texel is under a ray, for the 3D paint path.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Built once and kept, for <see cref="Coverage" />'s reason one size larger.</b> It is
+    ///     a median-split BVH over every triangle of the model, and the caller is a pointer-down —
+    ///     rebuilding it per stroke would put the mesh's triangle count into the per-stamp path,
+    ///     which is the property doc 48's exit criterion 8 is about.
+    ///     ⚠ <b>Null for a mesh whose triangles carry no layout</b>, which <see cref="Open" /> has
+    ///     already refused: this is reachable only through an instance, and an instance exists only
+    ///     where <see cref="Triangles" /> is positive. It is nullable because
+    ///     <c>PaintProjection.Open</c> is, rather than because a state here can produce one.
+    /// </remarks>
+    public PaintProjection? Projection =>
+        projection ??= points.Length == coordinates.Length && points.Length > 0
+            ? PaintProjection.Over(points, coordinates, [.. Enumerable.Range(0, points.Length)])
+            : null;
 
     /// <summary>Which texels of an atlas this size the mesh's islands cover.</summary>
     /// <param name="width">The atlas width in texels.</param>
@@ -120,20 +155,31 @@ sealed class LayerStackMesh {
     /// <summary>The UV triangles of one mesh, three coordinates at a time.</summary>
     /// <param name="mesh">The mesh.</param>
     /// <param name="into">Where the coordinates go.</param>
+    /// <param name="geometry">
+    ///     Where the matching positions go, or <see langword="null" /> to keep only the layout. When
+    ///     it is given, a triangle reaches <b>both</b> lists or neither.
+    /// </param>
     /// <returns>How many triangles it contributed.</returns>
-    /// <exception cref="ArgumentNullException">Either argument is null.</exception>
+    /// <exception cref="ArgumentNullException">The mesh or the coordinate list is null.</exception>
     /// <remarks>
     ///     ⚠ <b>A triangle whose corners are not all in the coordinate array is dropped rather than
     ///     clamped.</b> <c>MeshData.TexCoords</c> is empty for a mesh with no atlas and may be short
     ///     for a file that lied about its vertex count; a clamp would put every such triangle at
     ///     <c>(0, 0)</c>, which rasterises as a covered texel in the corner of the atlas — a coverage
     ///     map that is wrong in a place an artist would paint.
+    ///     ⚠ <b>And with <paramref name="geometry" /> asked for, a short <c>Positions</c> drops the
+    ///     triangle from the layout too</b> — <a href="https://github.com/Rikarin/Vixen/issues/1062">#1062</a>.
+    ///     Dropping it from one list and not the other is the failure this signature exists to make
+    ///     impossible: the raycast would answer with triangle <c>n</c> of the geometry and the layout
+    ///     would hand back coordinates of a different one, silently, on the meshes a malformed file
+    ///     produces. The two lists are written by one loop for that reason rather than by two calls.
     /// </remarks>
-    public static int Triangulate(MeshData mesh, List<Vector2> into) {
+    public static int Triangulate(MeshData mesh, List<Vector2> into, List<Vector3>? geometry = null) {
         ArgumentNullException.ThrowIfNull(mesh);
         ArgumentNullException.ThrowIfNull(into);
 
         var uvs = mesh.TexCoords;
+        var vertices = mesh.Positions;
         var indices = mesh.Indices;
         var made = 0;
 
@@ -146,9 +192,22 @@ sealed class LayerStackMesh {
                 continue;
             }
 
+            if (geometry is not null
+                && ((uint)a >= (uint)vertices.Length || (uint)b >= (uint)vertices.Length
+                    || (uint)c >= (uint)vertices.Length)) {
+                continue;
+            }
+
             into.Add(uvs[a]);
             into.Add(uvs[b]);
             into.Add(uvs[c]);
+
+            if (geometry is not null) {
+                geometry.Add(vertices[a]);
+                geometry.Add(vertices[b]);
+                geometry.Add(vertices[c]);
+            }
+
             made++;
         }
 
@@ -268,6 +327,7 @@ sealed class LayerStackMesh {
         refusal = "";
 
         List<Vector2> coordinates = [];
+        List<Vector3> points = [];
         List<string> named = [];
         var triangles = 0;
         var matched = 0;
@@ -286,7 +346,7 @@ sealed class LayerStackMesh {
 
             read++;
             named.Add(entry.Name);
-            triangles += Triangulate(mesh, coordinates);
+            triangles += Triangulate(mesh, coordinates, points);
         }
 
         if (matched == 0) {
@@ -311,7 +371,7 @@ sealed class LayerStackMesh {
             return null;
         }
 
-        return new(reference, wanted, string.Join(", ", named), triangles, [.. coordinates]);
+        return new(reference, wanted, string.Join(", ", named), triangles, [.. coordinates], [.. points]);
     }
 
     /// <summary>Reads the model file itself, for a model this project has never imported.</summary>
@@ -358,6 +418,7 @@ sealed class LayerStackMesh {
         }
 
         List<Vector2> coordinates = [];
+        List<Vector3> points = [];
         List<string> named = [];
         var triangles = 0;
         var matched = 0;
@@ -369,7 +430,7 @@ sealed class LayerStackMesh {
 
             matched++;
             named.Add(mesh.Name);
-            triangles += Triangulate(mesh, coordinates);
+            triangles += Triangulate(mesh, coordinates, points);
         }
 
         if (matched == 0) {
@@ -392,6 +453,6 @@ sealed class LayerStackMesh {
             return null;
         }
 
-        return new(reference, wanted, string.Join(", ", named), triangles, [.. coordinates]);
+        return new(reference, wanted, string.Join(", ", named), triangles, [.. coordinates], [.. points]);
     }
 }

@@ -1,0 +1,80 @@
+version: 1
+name: Grunge Smears
+nodes:
+  - id: 1
+    type: Source/Noise
+    x: -1280
+    y: 0
+    values:
+      Scale: [16]
+      Octaves: [3]
+      Tiling: [1]
+    texts: { Basis: Value }
+  - id: 2
+    type: Source/Noise
+    x: -1280
+    y: 300
+    values:
+      Scale: [2]
+      Tiling: [1]
+    texts: { Basis: Gradient }
+  - id: 3
+    type: Filters/Slope Blur
+    x: -960
+    y: 0
+    values:
+      Samples: [16]
+    texts:
+      Mode: Blend
+      '=Intensity': 6f + smear * 26f
+  - id: 4
+    type: Utility/Highpass
+    x: -640
+    y: 0
+    values:
+      Radius: [20]
+    texts: {}
+  - id: 5
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Input Black': 0.5f - 0.5f * detail
+      '=Input White': 0.5f + 0.5f * detail
+  - id: 6
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Slope }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: A wiped surface — a field dragged a long way along a very coarse slope, with the drag's own shading removed.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: smear
+    default: '0.5'
+    summary: How far the wipe travels.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Wipe
+  - name: detail
+    default: '0.35'
+    summary: How much of the wipe's own texture is kept, once its shading is removed.
+    kind: Float
+    minimum: 0.02
+    maximum: 1
+    group: Wipe

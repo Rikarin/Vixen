@@ -1,0 +1,81 @@
+version: 1
+name: Grunge Clouds
+nodes:
+  - id: 1
+    type: Source/Noise
+    x: -1280
+    y: 0
+    values:
+      Scale: [4]
+      Octaves: [6]
+      Lacunarity: [2.1]
+      Tiling: [1]
+    texts:
+      Basis: Gradient
+      '=Gain': 0.3f + roll * 0.35f
+  - id: 2
+    type: Filters/Slope Blur
+    x: -960
+    y: 0
+    values:
+      Samples: [8]
+    texts:
+      Mode: Blend
+      '=Intensity': 0.5f + swirl * 7f
+  - id: 3
+    type: Utility/Contrast Luminosity
+    x: -640
+    y: 0
+    values: {}
+    texts: { contrast: '0.25', luminosity: '0' }
+  - id: 4
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Output Black': lift * 0.4f
+      '=Output White': 1f + lift * 0.4f
+  - id: 5
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Slope }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: A soft billow — a many-octave field dragged along its own slope, so it folds into itself.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: roll
+    default: '0.55'
+    summary: How much of the detail survives into the coarse shape.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Billow
+  - name: swirl
+    default: '0.5'
+    summary: How far the field folds into itself.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Billow
+  - name: lift
+    default: '0'
+    summary: How far the whole billow is raised or lowered, after the fixed contrast inside it.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Global

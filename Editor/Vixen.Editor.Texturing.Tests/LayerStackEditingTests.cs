@@ -1554,6 +1554,251 @@ public class LayerStackEditingTests {
         Assert.Empty(Only(document).Textures);
     }
 
+    /// <summary>⚠ A planar fill's axis is chosen in the panel and it reaches the kernel.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>'s other half.</b>
+    ///         The member is what lets a <c>.vxlayers</c> say which plane a planar fill uses; this
+    ///         row is what lets a person say it. Without it the axis is a file-format feature — the
+    ///         shape the top of this workstream's defect list calls "a mechanism whose caller passes
+    ///         the default", one file along from where #1078 found it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read off the plan's own parameter, and the numbers are
+    ///         <c>TextureProjectionAxis</c>' rather than <c>LayerAxis</c>'</b> — 3 for Z against the
+    ///         member's 2 — so a panel wired to the wrong enum, or to nothing, reads one short.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_planar_fills_axis_is_chosen_in_the_panel_and_reaches_the_kernel() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Projected());
+        var panel = Panel(fixture);
+
+        // 2 is TextureProjectionAxis.Y, which is where a planar layer starts.
+        Assert.Equal(2f, Axis(document));
+
+        Find<Select>(panel, "layer-stack-fill-axis").Value = nameof(LayerAxis.Z);
+
+        Assert.Equal(LayerAxis.Z, Layer(document, "wrap").PlanarAxis);
+        Assert.Equal(3f, Axis(document));
+
+        Assert.True(document.Stack.Undo());
+        Assert.Equal(2f, Axis(document));
+    }
+
+    /// <summary>⚠ Moving a fill off Planar puts the axis back, so no stale value warns.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The panel deciding, where the file deliberately does not.</b> <c>LayerStackYaml</c>
+    ///         writes <c>axis:</c> whatever the projection is, because a hand-written file may carry
+    ///         one and a writer that dropped it would delete a line on a save nobody asked anything
+    ///         of. A panel is the other case: the axis picker is the only way a person can set it,
+    ///         and it is hidden the moment the projection is not planar — so a value left behind
+    ///         makes <c>LayerStackGraph.Project</c> warn about something the artist cannot see.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The warning is the assertion, not the member.</b> Comparing
+    ///         <c>PlanarAxis == Y</c> is satisfied by a panel that never wrote the axis at all; that
+    ///         the compile has nothing to say is what makes this about the state an artist is left in.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Moving_a_fill_off_planar_puts_the_axis_back_to_y() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Projected());
+        var panel = Panel(fixture);
+
+        Find<Select>(panel, "layer-stack-fill-axis").Value = nameof(LayerAxis.X);
+
+        Assert.Equal(LayerAxis.X, Layer(document, "wrap").PlanarAxis);
+
+        Find<Select>(panel, "layer-stack-fill-projection").Value = nameof(LayerProjection.Triplanar);
+
+        Assert.Equal(LayerProjection.Triplanar, Layer(document, "wrap").Projection);
+        Assert.Equal(LayerAxis.Y, Layer(document, "wrap").PlanarAxis);
+
+        var compilation = LayerStackCompiler.Compile(document.Document, document.Document.Sets[0]);
+
+        Assert.NotNull(compilation.Plan);
+        Assert.Empty(compilation.Problems);
+
+        // ⚠ Verify the instrument: the compiler really does warn about the state this avoids, so the
+        // emptiness above is a claim about the edit rather than about a compiler that says nothing.
+        var stale = document.Document.Sets[0].Layers[0] with {
+            Projection = LayerProjection.Triplanar,
+            PlanarAxis = LayerAxis.X
+        };
+
+        var set = document.Document.Sets[0] with { Layers = [stale] };
+
+        Assert.Contains(
+            LayerStackCompiler.Compile(document.Document, set).Problems,
+            problem => problem.Message.Contains("Axis 'X'", StringComparison.Ordinal)
+        );
+    }
+
+    /// <summary>⚠ A filter layer's kind can be chosen in the panel, and the choice compiles.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1078">#1078</a>.</b> The
+    ///         <em>Add layer</em> picker offers every <c>LayerKind</c>, so a filter layer is two
+    ///         clicks away; no row in this panel read <c>LayerFilterKind</c>, so every one an artist
+    ///         added was a <c>Colour/Levels</c> on its defaults for ever. The enum was a
+    ///         file-format feature with no interface.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Compiled rather than compared, because the document is the easy half.</b>
+    ///         Asserting <c>layer.Filter == Blur</c> is satisfied by a picker wired to a member the
+    ///         compiler does not read; the plan is what says the artist's choice reached the node,
+    ///         and the two plans must differ from each other rather than merely from nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_filter_layers_kind_is_chosen_in_the_panel_and_reaches_the_plan() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Filtered());
+        var panel = Panel(fixture);
+
+        var levels = Plan(document);
+
+        Find<Select>(panel, "layer-stack-filter-kind").Value = nameof(LayerFilterKind.Blur);
+
+        Assert.Equal(LayerFilterKind.Blur, Layer(document, "adjust").Filter);
+
+        var blur = Plan(document);
+
+        Assert.NotEqual(levels, blur);
+
+        // And it is on the undo stack like every other edit this panel makes.
+        Assert.True(document.Stack.Undo());
+        Assert.Equal(LayerFilterKind.Levels, Layer(document, "adjust").Filter);
+        Assert.Equal(levels, Plan(document));
+    }
+
+    /// <summary>⚠ Switching a filter to a named node keeps the picture and offers the path.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The two ways of naming a filter are exclusive in the file</b> — a path wins, and
+    ///         <c>LayerFilterKind.Levels</c> is zero — so the panel offers one picker for which of
+    ///         them is in force rather than two controls whose precedence a person has to know.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Seeded with the type the enum already compiled to, and the plan is what says
+    ///         so.</b> Switching to a node with an <em>empty</em> path would leave a model that still
+    ///         reads as a preset, so the picker would snap back on the next bind and the click would
+    ///         do nothing — and seeding it with anything other than the current filter's own type
+    ///         would change the picture on a gesture that only changed how it is spelled. The plan
+    ///         going through <c>LayerStackGraph.Published</c> instead of the enum path and coming out
+    ///         identical is the whole assertion.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Switching_a_filter_to_a_named_node_seeds_the_type_the_kind_already_meant() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Filtered());
+        var panel = Panel(fixture);
+
+        var before = Plan(document);
+
+        Find<Select>(panel, "layer-stack-filter-source").Value = LayerStackView.NodeFilter;
+
+        var named = Layer(document, "adjust");
+
+        Assert.Equal("Colour/Levels", named.FilterNode);
+        Assert.Equal(before, Plan(document));
+
+        // The field is what an artist then edits, and it is a different node when they do.
+        Find<TextBox>(panel, "layer-stack-filter-node").Value = "Utility/Highpass";
+
+        Assert.Equal("Utility/Highpass", Layer(document, "adjust").FilterNode);
+        Assert.NotEqual(before, Plan(document));
+
+        // Back to the five, which is what clearing the path means.
+        Find<Select>(panel, "layer-stack-filter-source").Value = LayerStackView.PresetFilter;
+
+        Assert.Equal("", Layer(document, "adjust").FilterNode);
+        Assert.Equal(before, Plan(document));
+    }
+
+    /// <summary>⚠ Only one of the two is on screen, and no other layer kind grows the row.</summary>
+    /// <remarks>
+    ///     <b>The half that says the exclusivity is visible rather than merely modelled.</b> Both
+    ///     controls exist on every filter row — this panel builds every control and hides the ones
+    ///     the current state does not want, because <c>LayerStackView.Shape</c> does not carry
+    ///     <c>Filter</c> and a row that rebuilt itself from inside its own <c>SelectionChanged</c>
+    ///     would tear down the control being clicked. So "which is in force" is a <c>display</c>, and
+    ///     an artist looking at a filter layer must see exactly one of them.
+    /// </remarks>
+    [Fact]
+    public void A_filter_row_shows_the_kind_or_the_path_and_never_both() {
+        using var fixture = new TexturingFixture();
+
+        var document = Open(fixture, Filtered());
+
+        var panel = Panel(fixture);
+
+        Laid(fixture);
+
+        // ⚠ Geometry after a layout pass rather than the inline `display` this view wrote: an
+        // assertion about the string is true of an element the layout never reached, and `none` is
+        // only worth writing because it takes the control off the screen.
+        Assert.True(Find<Select>(panel, "layer-stack-filter-kind").Width > 0f);
+        Assert.Equal(0f, Find<TextBox>(panel, "layer-stack-filter-node").Width);
+
+        Find<Select>(panel, "layer-stack-filter-source").Value = LayerStackView.NodeFilter;
+        Laid(fixture);
+
+        Assert.Equal(0f, Find<Select>(panel, "layer-stack-filter-kind").Width);
+        Assert.True(Find<TextBox>(panel, "layer-stack-filter-node").Width > 0f);
+
+        // ⚠ **And the field survives being emptied, which is how a path is retyped.** `ValueChanged`
+        // fires per keystroke, so backspacing a path to nothing wrote an empty `FilterNode` — and a
+        // binding that read "is this a node layer" back off that string took the field off the
+        // screen under the caret and snapped the picker to Preset. The row's own choice is what
+        // decides; the file may turn the field on and never off.
+        var node = Find<TextBox>(panel, "layer-stack-filter-node");
+
+        node.Value = "";
+
+        Laid(fixture);
+
+        Assert.True(
+            Find<TextBox>(panel, "layer-stack-filter-node").Width > 0f,
+            "clearing the path took the field off the screen, so it cannot be retyped."
+        );
+
+        Assert.Equal(LayerStackView.NodeFilter, Find<Select>(panel, "layer-stack-filter-source").Value);
+
+        // Retyping it reaches the document, which is the whole point of the field staying put.
+        Find<TextBox>(panel, "layer-stack-filter-node").Value = "Utility/Highpass";
+
+        Assert.Equal("Utility/Highpass", Layer(document, "adjust").FilterNode);
+    }
+
+    /// <summary>⚠ A stack with no filter layer has no filter row at all.</summary>
+    /// <remarks>
+    ///     <b>Verify the instrument.</b> Every assertion above is read off a row the panel drew for a
+    ///     filter layer; a <c>FilterRows</c> that ignored <c>LayerKind</c> would draw one under every
+    ///     fill in the stack and each of those tests would still pass on the first match. This is the
+    ///     differential that says the row belongs to the layer it is under.
+    /// </remarks>
+    [Fact]
+    public void Only_a_filter_layer_gets_a_filter_row() {
+        using var fixture = new TexturingFixture();
+
+        Open(fixture, Filtered());
+
+        // One filter layer over one fill: exactly one row, not two and not none.
+        Assert.Single(All(Panel(fixture), "layer-stack-filter-row"));
+
+        using var fills = new TexturingFixture();
+
+        Open(fills, Two());
+
+        Missing(Panel(fills), Panel(fixture), "layer-stack-filter-row");
+    }
+
     /// <summary>⚠ A row whose id names two layers is listed and carries no controls.</summary>
     /// <remarks>
     ///     <para>
@@ -1569,6 +1814,11 @@ public class LayerStackEditingTests {
     ///         the row would leave an artist with a file whose shape they cannot see, and the shape
     ///         is the thing they have to fix.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And each absence is measured against a second panel that has the control</b>, so
+    ///         that "the view stopped calling it that" cannot satisfy it —
+    ///         <see cref="Missing" /> and <a href="https://github.com/Rikarin/Vixen/issues/1071">#1071</a>.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_row_whose_id_names_two_layers_is_listed_without_controls() {
@@ -1578,16 +1828,24 @@ public class LayerStackEditingTests {
 
         var panel = Panel(fixture);
 
+        // The same panel over a stack the compiler accepts, which is what each name below is proved
+        // against: an `Assert.Empty` alone is green for a control that no longer exists.
+        using var editable = new TexturingFixture();
+
+        Open(editable, Two());
+
+        var armed = Panel(editable);
+
         Assert.Equal(2, Texts(panel, "layer-stack-row-name").Count);
 
         // Not one button, one tick, one slider or one selector between them: every control on this
         // row is addressed by the id that names both layers.
-        Assert.Empty(All(panel, "layer-stack-move-up"));
-        Assert.Empty(All(panel, "layer-stack-move-down"));
-        Assert.Empty(All(panel, "layer-stack-enabled"));
-        Assert.Empty(All(panel, "layer-stack-opacity"));
-        Assert.Empty(All(panel, "layer-stack-blend"));
-        Assert.Empty(All(panel, "layer-stack-select"));
+        Missing(panel, armed, "layer-stack-move-up");
+        Missing(panel, armed, "layer-stack-move-down");
+        Missing(panel, armed, "layer-stack-enabled");
+        Missing(panel, armed, "layer-stack-opacity");
+        Missing(panel, armed, "layer-stack-blend");
+        Missing(panel, armed, "layer-stack-select");
 
         var refusals = Texts(panel, "layer-stack-row-refusal");
 
@@ -1715,6 +1973,29 @@ public class LayerStackEditingTests {
         Assert.Fail("the last blend's foreground is not a uniform");
 
         throw new InvalidOperationException("unreachable");
+    }
+
+    /// <summary>One named layer of the shown set.</summary>
+    static LayerAsset Layer(LayerStackDocument document, string id) =>
+        document.Document.Sets[0].Layers.Single(layer => string.Equals(layer.Id, id, StringComparison.Ordinal));
+
+    /// <summary>The compiled plan as the string two plans are compared by.</summary>
+    static string Plan(LayerStackDocument document) => LayerStackDifferential.Describe(Compile(document));
+
+    /// <summary>The projection op's axis parameter, as <c>TextureProjectionAxis</c> numbers it.</summary>
+    static float Axis(LayerStackDocument document) {
+        var op = Assert.Single(Compile(document).Ops, candidate => candidate.Kernel == "Triplanar");
+        var axis = op.Find("axis");
+
+        Assert.NotNull(axis);
+
+        return axis.Value.Value;
+    }
+
+    /// <summary>A style and layout pass, so an element's geometry is the one on the screen.</summary>
+    static void Laid(TexturingFixture fixture) {
+        fixture.Shell.Document.Update();
+        fixture.Shell.Document.Draw();
     }
 
     static LayerAsset Top(LayerStackDocument document) {
@@ -2047,6 +2328,34 @@ public class LayerStackEditingTests {
     /// <summary>The layer <see cref="TwoChannels" /> makes, read back out of the open document.</summary>
     static LayerAsset Only(LayerStackDocument document) => document.Document.Sets[0].Layers[0];
 
+    /// <summary>A texture fill, which is the one kind a projection means anything on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not a constant.</b> <c>LayerStackGraph.Project</c> warns rather than projecting a
+    ///     constant fill — the same colour at every world position — so a fixture built on
+    ///     <see cref="Fill" /> would compile no <c>Triplanar</c> op at all and every axis assertion
+    ///     would be about an op that is not there.
+    /// </remarks>
+    static LayerStackAsset Projected() =>
+        Stack(
+            [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+            new LayerAsset {
+                Id = "wrap",
+                Name = "Wrap",
+                Kind = LayerKind.Fill,
+                Fill = LayerFillSource.Texture,
+                Projection = LayerProjection.Planar,
+                Textures = { ["baseColor"] = "Assets/Rust.png" }
+            }
+        );
+
+    /// <summary>A constant fill with a filter layer over it, which is #1078's subject.</summary>
+    static LayerStackAsset Filtered() =>
+        Stack(
+            [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+            Fill("bottom", "Bottom", 0.25f),
+            new LayerAsset { Id = "adjust", Name = "Adjust", Kind = LayerKind.Filter }
+        );
+
     static LayerAsset Fill(string id, string name, float grey) =>
         new() {
             Id = id,
@@ -2164,97 +2473,102 @@ public class LayerStackEditingTests {
         return panel;
     }
 
-    static UiElement Element(UiElement root, string tag) {
-        var found = All(root, tag);
+    static UiElement Element(UiElement root, string name) => All(root, name)[0];
 
-        Assert.NotEmpty(found);
-
-        return found[0];
-    }
-
-    static T Find<T>(UiElement root, string tag) where T : UiElement {
-        var found = All(root, tag);
-
-        Assert.NotEmpty(found);
-
-        return Assert.IsType<T>(found[0]);
-    }
+    static T Find<T>(UiElement root, string name) where T : UiElement => Controls<T>(root, name)[0];
 
     /// <summary>The only layer's mask, for a stack made by <see cref="Masked" />.</summary>
     static MaskAsset Mask(LayerStackDocument document) => document.Document.Sets[0].Layers[^1].Mask;
 
     /// <summary>Every fill-colour component field the panel drew under that class, in layout order.</summary>
-    /// <remarks>
-    ///     ⚠ <b>By class, where every other finder here walks tags, and the panel is what forced
-    ///     it.</b> The four components of a fill colour are the one place in this view that keeps the
-    ///     control's own tag — <c>numeric-input</c>, so that the field is styled as a field at all —
-    ///     and carries its name as a class instead. A tag walk finds nothing, which is a green
-    ///     assertion about an empty list rather than a failure, so the two forms are not
-    ///     interchangeable and this one is named for the thing it finds.
-    /// </remarks>
-    static List<NumericInput> Fields(UiElement root, string className) {
-        List<NumericInput> found = [];
+    static List<NumericInput> Fields(UiElement root, string name) => Controls<NumericInput>(root, name);
 
-        Walk(root);
-
-        Assert.NotEmpty(found);
-
-        return found;
-
-        void Walk(UiElement element) {
-            if (element.HasClass(className)) {
-                found.Add(Assert.IsType<NumericInput>(element));
-            }
-
-            foreach (var child in element.Children) {
-                Walk(child);
-            }
-        }
-    }
-
-    /// <summary>Every control of one kind the panel drew under that tag, in layout order.</summary>
-    static List<T> Controls<T>(UiElement root, string tag) where T : UiElement {
+    /// <summary>Every control of one kind the panel drew under that name, in layout order.</summary>
+    static List<T> Controls<T>(UiElement root, string name) where T : UiElement {
         List<T> found = [];
 
-        foreach (var element in All(root, tag)) {
+        foreach (var element in All(root, name)) {
             found.Add(Assert.IsType<T>(element));
         }
 
         return found;
     }
 
-    static List<Button> Buttons(UiElement root, string tag) {
-        List<Button> found = [];
+    static List<Button> Buttons(UiElement root, string name) => Controls<Button>(root, name);
 
-        foreach (var element in All(root, tag)) {
-            found.Add(Assert.IsType<Button>(element));
-        }
+    static List<CheckBox> Ticks(UiElement root, string name) => Controls<CheckBox>(root, name);
 
-        return found;
-    }
-
-    static List<CheckBox> Ticks(UiElement root, string tag) {
-        List<CheckBox> found = [];
-
-        foreach (var element in All(root, tag)) {
-            found.Add(Assert.IsType<CheckBox>(element));
-        }
-
-        return found;
-    }
-
-    static List<string> Texts(UiElement root, string tag) {
+    /// <summary>The text of every element under that name — which may legitimately be none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one finder here that does not insist on a match, and the reason is that its
+    ///     subjects are untyped containers.</b> <c>layer-stack-row-refusal</c> and
+    ///     <c>layer-stack-message</c> are built only when there is something to say, so "no refusals"
+    ///     is an answer several tests want; and being untyped they answer to no
+    ///     <c>ControlTheme</c> rule, so they kept their tags through
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1071">#1071</a> and were never at risk of
+    ///     the silent rename it is about. ⚠ It follows that an <c>Assert.Empty</c> over this is
+    ///     satisfied by a misspelling — use <see cref="Missing" /> where the absence is the finding.
+    /// </remarks>
+    static List<string> Texts(UiElement root, string name) {
         List<string> found = [];
 
-        foreach (var element in All(root, tag)) {
+        foreach (var element in Named(root, name)) {
             found.Add(element.Text ?? "");
         }
 
         return found;
     }
 
-    /// <summary>Every element with that tag, in the order the panel laid them out.</summary>
-    static List<UiElement> All(UiElement root, string tag) {
+    /// <summary>Every element the panel drew under that name, in the order it laid them out.</summary>
+    /// <param name="root">The panel.</param>
+    /// <param name="name">A container's tag, or a control's class.</param>
+    /// <returns>What it found, never empty.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Tag <em>or</em> class, and non-empty is part of the contract</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1071">#1071</a>. Every typed control
+    ///         in the panel now carries its name as a class rather than as a tag, so a walk over
+    ///         <c>element.Tag</c> alone finds nothing for twenty-eight of them; and the way this
+    ///         suite reads an empty list is <c>Buttons(panel, …)[0]</c> in some tests and a passing
+    ///         <c>Assert.Equal(0, …Count)</c> in others. Half the assertions in this file would have
+    ///         gone quietly green, which is why the walk was widened <em>before</em> the panel was
+    ///         renamed rather than after.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So an empty result throws here rather than being handed back.</b> The one place
+    ///         a name legitimately matches nothing is a row the panel refused to build controls for,
+    ///         and that has <see cref="Missing" />, which proves the name against a panel that
+    ///         <em>does</em> build it in the same test.
+    ///     </para>
+    /// </remarks>
+    static List<UiElement> All(UiElement root, string name) {
+        var found = Named(root, name);
+
+        Assert.NotEmpty(found);
+
+        return found;
+    }
+
+    /// <summary>Asserts a name the panel really builds is absent from this tree.</summary>
+    /// <param name="absent">The tree it must not be in.</param>
+    /// <param name="present">A tree it must be in.</param>
+    /// <param name="name">The name.</param>
+    /// <remarks>
+    ///     ⚠ <b>Two trees, because "no element is called that" and "the control is not there" are
+    ///     the same green.</b> An <c>Assert.Empty</c> over one panel passes just as well when the
+    ///     name has been misspelt, renamed in the view, or moved from a tag to a class — which is
+    ///     exactly what <a href="https://github.com/Rikarin/Vixen/issues/1071">#1071</a> did to
+    ///     twenty-eight of them. Naming a panel that must contain it makes the assertion a
+    ///     differential: rename the control in the view and this goes red on the
+    ///     <paramref name="present" /> half.
+    /// </remarks>
+    static void Missing(UiElement absent, UiElement present, string name) {
+        Assert.NotEmpty(Named(present, name));
+        Assert.Empty(Named(absent, name));
+    }
+
+    /// <summary>The raw walk, which may find nothing. Prefer <see cref="All" />.</summary>
+    static List<UiElement> Named(UiElement root, string name) {
         List<UiElement> found = [];
 
         Walk(root);
@@ -2262,7 +2576,7 @@ public class LayerStackEditingTests {
         return found;
 
         void Walk(UiElement element) {
-            if (string.Equals(element.Tag, tag, StringComparison.Ordinal)) {
+            if (string.Equals(element.Tag, name, StringComparison.Ordinal) || element.HasClass(name)) {
                 found.Add(element);
             }
 

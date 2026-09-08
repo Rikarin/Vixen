@@ -419,6 +419,18 @@ shader BlendSurface : IMaterialSurface {
 }
 
 /// The features of one material, in the order they contribute.
+///
+/// ⚠ **The order is the material's feature list and nothing else.** `MaterialCompiler` fills these
+/// eight slots top to bottom from `MaterialDescriptor.Features`, so slot order is authored rather than
+/// canonical — which is right, because a feature reads the surface as the previous one left it and
+/// which contribution wins is the author's business.
+///
+/// ⚠ **One exception, and it is the only one the compiler judges.** A feature that writes `d.uv`
+/// rather than reading it has to run before every feature that samples: placed third it displaces the
+/// coordinate the two before it already sampled at, which is half a parallaxed surface drawn without
+/// an error. `MaterialFeatureStage.Coordinate` is how a feature says so and `MaterialCompiler` refuses
+/// the material rather than reordering it — a slot the compiler moved is a material whose file no
+/// longer says what runs.
 shader CompositeSurface : IMaterialSurface {
     compose val first: IMaterialSurface
     compose val second: IMaterialSurface

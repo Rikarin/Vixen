@@ -661,12 +661,13 @@ static class LayerStackGraph {
         ///         already uses for a generator's <c>curvature</c>.
         ///     </para>
         ///     <para>
-        ///         ⚠ <b>Planar goes down <em>y</em>, and the model has nowhere to say otherwise.</b>
-        ///         <c>LayerProjection.Planar</c> is "one planar projection along an axis" and carries
-        ///         no axis; the node has all four. Y is the world up and the axis a planar fill is
-        ///         nearly always wanted along — dirt, snow, dust — but it is a default this file
-        ///         chose and not one an author asked for, which is
-        ///         <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>.
+        ///         ⚠ <b>Planar goes down <see cref="LayerAsset.PlanarAxis" />, which this file used
+        ///         to choose</b> — <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>.
+        ///         <c>LayerProjection.Planar</c> is "one planar projection along an axis" and had
+        ///         nowhere to put the axis, so every planar layer ever authored went down y: the
+        ///         right default and a default the <em>compiler</em> picked, which on anything
+        ///         box-shaped gives a valid planar projection of the wrong face and no clue why.
+        ///         Y stays the default, so nothing that exists changes picture.
         ///     </para>
         ///     <para>
         ///         ⚠ <b>A constant fill and a non-fill layer are warned rather than projected.</b> A
@@ -678,6 +679,18 @@ static class LayerStackGraph {
         ///     </para>
         /// </remarks>
         PortRef Project(LayerAsset layer, PortRef content) {
+            // ⚠ Before the early return, because a UV layer is one of the two places an axis means
+            // nothing — and Y is not checked here because it is the default: "the author chose y"
+            // and "the author said nothing" are one state, which is why `LayerAxis`' zero is X.
+            if (layer.Projection != LayerProjection.Planar && layer.PlanarAxis != LayerAxis.Y) {
+                problems.Add(LayerStackProblem.Warning(
+                    layer.Id,
+                    $"Axis '{layer.PlanarAxis}' is set on a {layer.Projection} projection and does nothing there. "
+                    + "An axis chooses the single plane a Planar projection uses; Triplanar blends all three by "
+                    + "the world normal, and Uv is the mesh's own atlas."
+                ));
+            }
+
             if (layer.Projection == LayerProjection.Uv) {
                 return content;
             }
@@ -712,7 +725,12 @@ static class LayerStackGraph {
 
             place.SetText("Map", "position");
             facing.SetText("Map", "world");
-            node.SetText("Axis", layer.Projection == LayerProjection.Triplanar ? "Triplanar" : "Y");
+            // ⚠ `LayerAxis`' names are `Space/Triplanar`'s own `Axis` setting, so this is the member
+            // rather than a mapping — a fourth axis is a word in each file and no table. #1032.
+            node.SetText(
+                "Axis",
+                layer.Projection == LayerProjection.Triplanar ? "Triplanar" : layer.PlanarAxis.ToString()
+            );
 
             graph.Connect(content, new(node.Id, "Input"));
             graph.Connect(new(place.Id, "Out"), new(node.Id, "Position"));
@@ -849,7 +867,19 @@ static class LayerStackGraph {
         }
 
         /// <summary>A filter layer's adjustment, reading everything under it.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Two paths, and the second is doc 48 § D10's fourth kind</b> —
+        ///     <a href="https://github.com/Rikarin/Vixen/issues/1068">#1068</a>. A named node type
+        ///     goes through <see cref="Published" />, which is the mask-effect resolution pointed at
+        ///     a layer; the five <c>LayerFilterKind</c> members go through the code below, untouched,
+        ///     because <c>LayerStackExplodeTests</c>' byte-identical differential is what says this
+        ///     change added a kind rather than moved the existing ones.
+        /// </remarks>
         PortRef? Adjustment(LayerAsset layer, PortRef cursor) {
+            if (layer.FilterNode.Trim().Length > 0) {
+                return Published(layer, cursor);
+            }
+
             var (type, ports) = Filter(layer.Filter);
             var node = Add(type);
 
@@ -881,6 +911,106 @@ static class LayerStackGraph {
             }
 
             return new(node.Id, "Out");
+        }
+
+        /// <summary>A filter layer whose adjustment is a node type it names, published or built in.</summary>
+        /// <remarks>
+        ///     <para>
+        ///         <b><c>Effect</c>'s resolution, on a layer instead of on a mask</b> —
+        ///         <a href="https://github.com/Rikarin/Vixen/issues/1068">#1068</a>. The two are the
+        ///         same question: find the type's single <c>Image</c> input and its single
+        ///         <c>Image</c> output, wire what is beneath into the first, and hand the second on.
+        ///         A type with two images in is a composite rather than an adjustment, and which of
+        ///         its inputs the layer beneath would be is not something a stack file can decide.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>The ports are derived from the type rather than listed, and what that is
+        ///         protecting is the image wire.</b> <c>LayerFilterKind</c>'s path above carries a
+        ///         hand-written port list per filter for exactly this reason — a setting called
+        ///         <c>Input</c> written to <c>Colour/Levels</c> would replace everything beneath the
+        ///         layer with a constant, and the picture would be the filter over nothing at all.
+        ///         A compound's ports cannot be listed here, so the check is the one
+        ///         <c>MaskEffectAsset</c>'s remarks specify: not the image input, declared by the
+        ///         type, and not itself an image.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>A refusal rather than a pass-through, unlike a mask effect.</b>
+        ///         <c>Effect</c> answers a bad node by returning the cursor unchanged, because a mask
+        ///         with one broken adjustment is still a mask. A filter layer <em>is</em> its
+        ///         adjustment: returning the cursor would silently delete the layer from the stack
+        ///         and leave a picture that looks like a working file with one layer switched off.
+        ///     </para>
+        /// </remarks>
+        PortRef? Published(LayerAsset layer, PortRef cursor) {
+            var path = layer.FilterNode.Trim();
+
+            if (!Library.TryGet(path, out var type)) {
+                problems.Add(LayerStackProblem.Refusal(
+                    layer.Id,
+                    $"This filter layer names '{path}', which is not a node type this project has. A published "
+                    + "compound is registered under its path in the library folder; a built-in is under its "
+                    + "category, such as 'Colour/Levels'."
+                ));
+
+                return null;
+            }
+
+            var input = OnlyImage(type, PortDirection.Input);
+            var output = OnlyImage(type, PortDirection.Output);
+
+            if (input is null || output is null) {
+                problems.Add(LayerStackProblem.Refusal(
+                    layer.Id,
+                    $"'{path}' is not a single-input graph: doc 48 § D10 says a filter layer's fourth kind is a "
+                    + "graph with one image in and one image out, and this type has "
+                    + $"{Images(type, PortDirection.Input).ToString(CultureInfo.InvariantCulture)} in and "
+                    + $"{Images(type, PortDirection.Output).ToString(CultureInfo.InvariantCulture)} out. "
+                    + "A two-input node is a composite rather than an adjustment, and which of its images the "
+                    + "layers beneath would be is not something this file can decide."
+                ));
+
+                return null;
+            }
+
+            var node = Add(path);
+
+            graph.Connect(cursor, new(node.Id, input.Name));
+
+            foreach (var (port, value) in layer.Settings) {
+                if (string.Equals(port, input.Name, StringComparison.Ordinal)
+                    || type.Port(port, PortDirection.Input) is not { } declared
+                    || declared.Kind == PortKind.Image) {
+                    problems.Add(LayerStackProblem.Warning(
+                        layer.Id,
+                        $"'{port}' is not a number '{path}' takes, so the value is dropped rather than written "
+                        + "to a port that might be the image the filter reads."
+                    ));
+
+                    continue;
+                }
+
+                node.SetValue(port, value);
+            }
+
+            // ⚠ `Effect`'s second loop, and the member it reads did not exist on a layer until
+            // #1079: a compound whose behaviour is chosen by a string setting — which is most of the
+            // ones worth publishing — took that setting's default here, silently. Only on this path,
+            // because the five `LayerFilterKind` members declare no settings at all and must go on
+            // compiling to exactly the ops `LayerStackExplodeTests` photographs.
+            foreach (var (setting, value) in layer.Texts) {
+                if (type.Setting(setting) is null) {
+                    problems.Add(LayerStackProblem.Warning(
+                        layer.Id,
+                        $"'{setting}' is not a setting '{path}' declares, so it is dropped."
+                    ));
+
+                    continue;
+                }
+
+                node.SetText(setting, value);
+            }
+
+            return new(node.Id, output.Name);
         }
 
         /// <summary>The mask multiplied into the foreground's coverage, or the foreground unchanged.</summary>

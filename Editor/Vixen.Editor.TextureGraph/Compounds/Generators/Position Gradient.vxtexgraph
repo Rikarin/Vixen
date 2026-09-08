@@ -1,0 +1,81 @@
+version: 1
+name: Position Gradient
+nodes:
+  - id: 1
+    type: Source/Mesh Map
+    x: -960
+    y: 0
+    values: {}
+    texts: { Map: position }
+  - id: 2
+    type: Colour/Grayscale
+    x: -640
+    y: 0
+    values: {}
+    texts:
+      '=Weight R': across
+      '=Weight G': up
+      '=Weight B': through
+  - id: 3
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Input Black': low
+      '=Input White': high
+  - id: 4
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: A ramp along the model itself — a water line, a dip, a colour that changes with height.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: across
+    default: '0'
+    summary: How much of the ramp runs along the model's first axis.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Axis
+  - name: up
+    default: '1'
+    summary: How much of it runs up the model.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Axis
+  - name: through
+    default: '0'
+    summary: How much of it runs through the model.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Axis
+  - name: low
+    default: '0'
+    summary: Where along the model the ramp starts.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Range
+  - name: high
+    default: '1'
+    summary: Where it finishes.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Range

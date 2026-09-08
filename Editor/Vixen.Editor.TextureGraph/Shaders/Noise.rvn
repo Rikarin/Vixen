@@ -3,6 +3,8 @@
 
 package Vixen.Editor.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // Doc 48 § 4.1's noise: one kernel with four bases — value · gradient · worley · white — under
 // octaves, lacunarity, gain, tiling and a seed. Worley also answers with F1, F2 and a cell index,
 // "which is what a splatter wants and what saves a flood fill downstream".
@@ -18,16 +20,20 @@ package Vixen.Editor.TextureGraph.Shaders
 // and the argument is stronger here — four bases times three output formats is twelve modules for a
 // branch that every invocation in a dispatch takes the same way.
 //
-// ## ⚠ The hash is `Raven/Library/Core/Random.rvn`'s, copied, and that is a reported defect
+// ## ⚠ The hash is `Raven/Library/Core/Random.rvn`'s, called — and this file carried a copy of it
 //
-// `Random.Hash`, `Random.Combine` and `Random.ToFloat01` are exactly the three lines below, and
-// `ComputeColor.ValueNoise` / `ComputeColor.FractalNoise` are very nearly `ValueAt` and `Fractal`.
-// None of them can be reached: a texture-graph kernel is compiled alone —
-// `RavenEffectCompiler.FromSources` is given one tree and no `.rvnlib` — and a package's
-// declarations are visible to another file only within one compilation. So an `import
-// Vixen.Shaders.Core` in this file does not resolve, and the arithmetic is written out with the
-// constants kept identical so that the two cannot drift *silently*: they can only drift, which is
-// worse than sharing and better than a plausible-looking second hash.
+// `Random.Hash`, `Random.Combine` and `Random.ToFloat01` used to be written out here under a header
+// saying they could not be reached, because "a texture-graph kernel is compiled alone —
+// `RavenEffectCompiler.FromSources` is given one tree and no `.rvnlib`". Half of that was true and
+// the half naming a cause was not. `FromSources` takes a *set* of texts and makes them one
+// compilation; the evaluator was passing one text. `TextureKernelPrelude` passes the library beside
+// every kernel now, so the import resolves and there is one hash rather than five — #635.
+//
+// ⚠ **`ComputeColor.ValueNoise` and `ComputeColor.FractalNoise` are still not called**, and that is
+// a choice rather than a leftover: they are very nearly `ValueAt` and `Fractal` and *very nearly* is
+// the problem. Neither takes a period, so neither can tile, which is what this kernel's `tiling`
+// exists for. Widening the library's pair to carry a period is a change to the shader graph's noise
+// and wants its own decision.
 //
 // ## The seed
 //
@@ -74,15 +80,6 @@ shader Noise {
 
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
-    /// The odd constant from PCG's output stage — `Random.Multiplier`.
-    const val Multiplier: uint = 0x2C9277B5u
-
-    /// The golden ratio's reciprocal, which is what makes `Combine` non-commutative.
-    const val Golden: uint = 0x9E3779B9u
-
-    /// 2^-24 — `Random.InvTwo24`.
-    const val InvTwo24: float = 5.9604645e-8f
-
     const val TwoPi: float = 6.2831853f
 
     /// 2D Perlin peaks at √2 / 2, so this is what maps its range onto 0..1.
@@ -94,24 +91,6 @@ shader Noise {
 
     /// The furthest a worley feature point can be, in cells, given a 3×3 search.
     const val WorleyFar: float = 4f
-
-    /// `Random.Hash` — one xorshift, one odd multiply, one xorshift.
-    func Hash(value: uint): uint {
-        var state = value
-        state = state ^ (state >> 16)
-        state = state * Multiplier
-        state = state ^ (state >> 16)
-
-        return state
-    }
-
-    /// `Random.Combine`. The odd multiply on the second operand is what stops (3, 7) and (7, 3)
-    /// hashing alike, which would be a visible diagonal in any lattice.
-    func Combine(a: uint, b: uint): uint => Hash(a ^ (b * Golden))
-
-    /// `Random.ToFloat01`. The top 24 bits, scaled by 2^-24 — a multiply and never a divide, so the
-    /// result is exact on any hardware.
-    func ToFloat01(hash: uint): float => float(hash >> 8) * InvTwo24
 
     /// The seed as the integer the hash wants.
     func Seeded(): uint => uint(int(max(seed, 0f)))
@@ -139,7 +118,7 @@ shader Noise {
     /// expression at all — which `RVN1001` does catch here, and does not catch when the continuation
     /// begins with an operator.
     func CellHash(x: int, y: int, period: int): uint {
-        return Combine(Combine(uint(Fold(x, period)), uint(Fold(y, period))), Seeded())
+        return Random.Combine(Random.Combine(uint(Fold(x, period)), uint(Fold(y, period))), Seeded())
     }
 
     /// Smoothed value noise: a hash per lattice corner, bilinear under a smoothstep.
@@ -150,17 +129,17 @@ shader Noise {
         val x = int(cell.x)
         val y = int(cell.y)
 
-        val c00 = ToFloat01(CellHash(x, y, period))
-        val c10 = ToFloat01(CellHash(x + 1, y, period))
-        val c01 = ToFloat01(CellHash(x, y + 1, period))
-        val c11 = ToFloat01(CellHash(x + 1, y + 1, period))
+        val c00 = Random.ToFloat01(CellHash(x, y, period))
+        val c10 = Random.ToFloat01(CellHash(x + 1, y, period))
+        val c01 = Random.ToFloat01(CellHash(x, y + 1, period))
+        val c11 = Random.ToFloat01(CellHash(x + 1, y + 1, period))
 
         return lerp(lerp(c00, c10, weights.x), lerp(c01, c11, weights.x), weights.y)
     }
 
     /// One corner's gradient dotted with the offset to it.
     func GradientDot(x: int, y: int, period: int, delta: float2): float {
-        val angle = ToFloat01(CellHash(x, y, period)) * TwoPi
+        val angle = Random.ToFloat01(CellHash(x, y, period)) * TwoPi
 
         return delta.x * cos(angle) + delta.y * sin(angle)
     }
@@ -188,7 +167,7 @@ shader Noise {
     func WhiteAt(position: float2, period: int): float {
         val cell = floor(position)
 
-        return ToFloat01(CellHash(int(cell.x), int(cell.y), period))
+        return Random.ToFloat01(CellHash(int(cell.x), int(cell.y), period))
     }
 
     /// Whichever basis a fractal octave is made of.
@@ -254,14 +233,14 @@ shader Noise {
                 val x = int(origin.x) + column
                 val y = int(origin.y) + row
                 val hash = CellHash(x, y, period)
-                val jitter = float2(ToFloat01(hash), ToFloat01(Hash(hash ^ 0x68BC21EBu)))
+                val jitter = float2(Random.ToFloat01(hash), Random.ToFloat01(Random.Hash(hash ^ 0x68BC21EBu)))
                 val point = float2(origin.x + float(column), origin.y + float(row)) + jitter
                 val reach = length(point - position)
 
                 if (reach < f1) {
                     f2 = f1
                     f1 = reach
-                    index = ToFloat01(Hash(hash ^ 0x1B873593u))
+                    index = Random.ToFloat01(Random.Hash(hash ^ 0x1B873593u))
                 } else {
                     if (reach < f2) {
                         f2 = reach

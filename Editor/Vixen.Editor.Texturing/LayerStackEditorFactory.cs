@@ -8,7 +8,7 @@ using Vixen.Ui;
 
 namespace Vixen.Editor.Texturing;
 
-/// <summary>What claims <c>.vxlayers</c>, so a double-click opens one.</summary>
+/// <summary>What claims <c>.vxlayers</c> and <c>.vxsmartmat</c>, so a double-click opens either.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>The second half of <a href="https://github.com/Rikarin/Vixen/issues/806">#806</a>.</b>
@@ -50,7 +50,27 @@ sealed class LayerStackEditorFactory : IAssetEditorFactory {
     public string Name => "Layer Stack";
 
     /// <inheritdoc />
-    public IReadOnlyList<string> Extensions { get; } = [LayerStackDocument.Extension];
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both, and the second is <a href="https://github.com/Rikarin/Vixen/issues/1070">#1070</a>.</b>
+    ///         A <c>.vxsmartmat</c> is a <c>.vxlayers</c> byte for byte, so until this line an artist
+    ///         who wanted to rename a layer inside <c>Rusted Iron</c> — or fix a mask in it — had to
+    ///         apply it to a scratch stack, edit there and save over the shelf entry.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Claiming it is not one line, and the rest of the work is in the verbs.</b> A
+    ///         <c>LayerStackDocument</c> over a shelf entry becomes <c>TexturingModule.stack</c>, and
+    ///         every verb that reads that field then applies to it: <c>Bake Material from Layers</c>
+    ///         and <c>Save as Smart Material</c> now refuse a shelf entry by name rather than doing
+    ///         something confusing, <c>Apply Smart Material</c> deliberately still works — a shelf
+    ///         entry composed of others is a real gesture — and the paint pane's existing "this stack
+    ///         names no model" is the honest answer for a file that by construction has none.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<string> Extensions { get; } = [
+        LayerStackDocument.Extension,
+        SmartMaterial.Extension
+    ];
 
     /// <inheritdoc />
     public EditorDocument Open(AssetEditorRequest request) {

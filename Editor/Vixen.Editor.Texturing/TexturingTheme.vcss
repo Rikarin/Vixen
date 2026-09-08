@@ -18,9 +18,16 @@
    element is its *initial* value, which is what the constructor used to write. The `padding-left`
    that indents a nested row stays too: it is `depth × 12px`, and a rule per depth is not a rule.
 
-   ⚠ **And a stack, so the two mean the same thing.** `rows.Add("layer-stack-row")` builds an
-   element whose *tag* is `layer-stack-row`, so these are type selectors and not class selectors —
-   the same shape `NodeGraphTheme.vcss` uses for `graph-note`. */
+   ⚠ **The containers are tags and every typed control is a class**, which is
+   https://github.com/Rikarin/Vixen/issues/1071. `rows.Add("layer-stack-row")` builds an element
+   whose *tag* is `layer-stack-row` — an element type nothing else styles — so the rules below are
+   type selectors, the same shape `NodeGraphTheme.vcss` uses for `graph-note`. A *control* cannot be
+   named that way: `Add<Slider>("layer-stack-opacity")` renames the element out of `ControlTheme`'s
+   `slider` rule and out of its focus ring, so every `Add<T>` in the view passes its name as a class
+   and keeps the tag the control answers to. ⚠ Nothing in this file changed for that, and the reason
+   is worth writing down: this sheet had **never** selected a control. Every rule here is a flex box
+   on a container, so the twenty-eight renamed elements were invisible to it — the sheet that lost
+   them is `ControlTheme.vcss`, which this plugin does not own. */
 
 /* ⚠ **The ladder, restated.** `ControlTheme.vcss` explains it; the statement has to be here too
    because `CascadeLayers.Declare` fixes a layer's position the first time anything names it, so the
@@ -73,19 +80,17 @@ layer-stack-empty { display: none; }
 layer-stack-row,
 layer-stack-fill-row,
 layer-stack-fill-channel,
+layer-stack-filter-row,
 layer-stack-mask-row { display: flex; flex-direction: row; }
 
 /* One tick per channel of the set, inside the layer's own row. */
 layer-stack-channels { display: flex; flex-direction: row; }
 
 /* ⚠ **Class selectors, and the only ones in this file.** The four components of a fill colour are
-   `NumericInput`s since https://github.com/Rikarin/Vixen/issues/1004 — a slider could hold an
-   emissive of 4 and could not author one — and a field renamed by the `Add<T>(tag)` convention this
-   sheet's header describes would be matched by no `numeric-input` rule at all, losing its border,
-   its padding and the `position: relative` its placeholder is laid out against. So these four are
-   the tagged control plus a class, and the width is all this sheet has to say about them: four
-   unconstrained fields in one row would each ask for their content and push the texture box off the
-   end. */
+   `NumericInput`s since https://github.com/Rikarin/Vixen/issues/1004, and they were the first
+   controls in the panel to be named by class rather than by tag — the convention #1071 then applied
+   to the other twenty-eight. The width is all this sheet has to say about them: four unconstrained
+   fields in one row would each ask for their content and push the texture box off the end. */
 .layer-stack-fill-red,
 .layer-stack-fill-green,
 .layer-stack-fill-blue,

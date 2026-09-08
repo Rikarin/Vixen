@@ -229,12 +229,6 @@ struct IrradianceField {
     }
 }
 
-/// What a pass needs from an irradiance field, whatever is behind it.
-///
-/// A `protocol` rather than a shader a pass hard-codes, for the reason `IDistanceFieldSource` is one: the
-/// slot is resolved at compile time with no dispatch, so a pass that reads indirect light is written once
-/// and a project with no field fills the slot with something that answers "none" — no permutation in the
-/// pass, no branch, and no bindings it does not use.
 /// What a surface receives from a field, as the three separate numbers it actually is.
 ///
 /// Separate because a consumer multiplies each into a different term: the irradiance into the ambient
@@ -257,6 +251,12 @@ struct IrradianceSample {
     var coverage: float
 }
 
+/// What a pass needs from an irradiance field, whatever is behind it.
+///
+/// A `protocol` rather than a shader a pass hard-codes, for the reason `IDistanceFieldSource` is one: the
+/// slot is resolved at compile time with no dispatch, so a pass that reads indirect light is written once
+/// and a project with no field fills the slot with something that answers "none" — no permutation in the
+/// pass, no branch, and no bindings it does not use.
 protocol IIrradianceSource {
     /// Everything a field says about where a surface stands, in one lookup.
     ///

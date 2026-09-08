@@ -1,0 +1,124 @@
+version: 1
+name: Dust
+nodes:
+  - id: 1
+    type: Source/Mesh Map
+    x: -1280
+    y: -220
+    values: {}
+    texts: { Map: world }
+  - id: 2
+    type: Colour/Grayscale
+    x: -960
+    y: -220
+    values:
+      Weight R: [0]
+      Weight G: [1]
+      Weight B: [0]
+    texts: {}
+  - id: 3
+    type: Colour/Levels
+    x: -640
+    y: -220
+    values:
+      Input White: [1]
+    texts:
+      '=Input Black': 0.95f - facing * 0.65f
+  - id: 4
+    type: Source/Mesh Map
+    x: -1280
+    y: 60
+    values: {}
+    texts: { Map: ao }
+  - id: 5
+    type: Colour/Levels
+    x: -960
+    y: 60
+    values:
+      Input Black: [0]
+    texts:
+      '=Input White': 1f - settle * 0.6f
+  - id: 6
+    type: Colour/Blend
+    x: -320
+    y: -100
+    values: {}
+    texts: { Mode: Lighten }
+  - id: 7
+    type: Source/Noise
+    x: -1280
+    y: 340
+    values:
+      Scale: [18]
+      Octaves: [3]
+      Tiling: [1]
+    texts: { Basis: Value }
+  - id: 8
+    type: Colour/Levels
+    x: -960
+    y: 340
+    values:
+      Input White: [1]
+    texts:
+      '=Input Black': 0.9f - breakup * 0.9f
+  - id: 9
+    type: Source/Uniform
+    x: -640
+    y: 340
+    values:
+      Colour: [0, 0, 0, 1]
+    texts: {}
+  - id: 10
+    type: Colour/Mix
+    x: 0
+    y: 0
+    values: {}
+    texts: { Mode: Copy, Coverage: Over }
+  - id: 11
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 6, toPort: Background }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Foreground }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Input }
+  - { fromNode: 6, fromPort: Out, toNode: 10, toPort: Background }
+  - { fromNode: 9, fromPort: Out, toNode: 10, toPort: Foreground }
+  - { fromNode: 8, fromPort: Out, toNode: 10, toPort: Mask }
+  - { fromNode: 10, fromPort: Out, toNode: 11, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: What has settled out of the air — on the up-facing surfaces and in the sheltered ones.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: facing
+    default: '0.5'
+    summary: How far off horizontal a surface may be and still collect dust.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Settling
+  - name: settle
+    default: '0.4'
+    summary: How much also gathers in sheltered places, whichever way they face.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Settling
+  - name: breakup
+    default: '0.4'
+    summary: How patchy the covering is.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Settling

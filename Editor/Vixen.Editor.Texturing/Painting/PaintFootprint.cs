@@ -97,6 +97,29 @@ readonly record struct PaintEye {
         Constant + (PerUnit * MathF.Max(Vector3.Dot(point - Position, Forward), 0f));
 }
 
+/// <summary>What a screen-space brush covers in the atlas: an ellipse, in texels.</summary>
+/// <param name="Radius">Its equal-area radius — the number that goes on <c>PaintBrush.Radius</c>.</param>
+/// <param name="Aspect">
+///     How much longer the long axis is than the short one, one or more. One for a chart that is not
+///     stretched, which is every case the 2D view has.
+/// </param>
+/// <param name="Angle">Which way the long axis points in the atlas, in radians.</param>
+/// <remarks>
+///     ⚠ <b>Three numbers and not one, which is
+///     <a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a>.</b> A circular brush on the
+///     screen covers an ellipse in the atlas wherever the layout is not isometric, and collapsing it
+///     to its equal-area radius paints a chart stretched four to one with a brush twice too wide in
+///     one direction and twice too narrow in the other. ⚠ On a cube that defect is <em>invisible</em>
+///     — every triangle of a box unwrap is conformal — which is how it shipped.
+/// </remarks>
+readonly record struct PaintFootprintShape(float Radius, float Aspect, float Angle) {
+    /// <summary>Nothing measurable to paint with: an unmeasurable triangle, or no brush.</summary>
+    public static PaintFootprintShape None { get; } = new(0f, 1f, 0f);
+
+    /// <summary>Whether there is a brush here at all.</summary>
+    public bool IsMeasurable => Radius > 0f && float.IsFinite(Radius);
+}
+
 /// <summary>The other half of a stroke on a model: how wide the brush is, in texels, where it landed.</summary>
 /// <remarks>
 ///     <para>
@@ -117,6 +140,14 @@ readonly record struct PaintEye {
 ///             own Jacobian, not the chart's average and not a constant.
 ///         </item>
 ///     </list>
+///     <para>
+///         ⚠ <b>And they are one map rather than two multiplies, which is
+///         <a href="https://github.com/Rikarin/Vixen/issues/1075">#1075</a>.</b> The grazing stretch
+///         is a 2×2 in the triangle's tangent plane and the Jacobian is a 2×2 out of it, so
+///         <see cref="PaintDensity.Tilted" /> multiplies them there and this file takes the singular
+///         values of the product. Multiplying the two <em>scalars</em> is right only when the tilt
+///         axis and the chart's stretch axis coincide.
+///     </para>
 ///     <para>
 ///         ⚠ <b>The grazing half is the one that would have been left out.</b> Doc 48's own
 ///         prediction named the density and stopped there, and a conversion without the cosine is
@@ -155,38 +186,75 @@ static class PaintFootprint {
     ///     the floor a *tool* applies to a number an artist typed; this is a measurement, and its
     ///     honest answer for an unmeasurable place is that there is none.
     /// </remarks>
-    public static float Radius(PaintEye eye, Ray ray, PaintHit hit, PaintDensity density, float screenRadius) {
+    public static float Radius(PaintEye eye, Ray ray, PaintHit hit, PaintDensity density, float screenRadius) =>
+        Ellipse(eye, ray, hit, density, screenRadius).Radius;
+
+    /// <summary>The whole footprint: the equal-area radius, and the shape it is really that area of.</summary>
+    /// <param name="eye">The camera the ray came from, which is what sizes a pixel.</param>
+    /// <param name="ray">The ray itself, which is what the surface is tilted with respect to.</param>
+    /// <param name="hit">Where it landed.</param>
+    /// <param name="density">The hit triangle's texel density, and the direction it stretches.</param>
+    /// <param name="screenRadius">How wide the brush is, in render pixels.</param>
+    /// <returns>The ellipse, or <see cref="PaintFootprintShape.None" /> when there is nothing to convert.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both anisotropies, composed as maps rather than multiplied as numbers</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1075">#1075</a>. Two things turn the
+    ///         artist's disc into an ellipse: the hit triangle's Jacobian, which is a property of
+    ///         the atlas (<a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a>), and the
+    ///         grazing tilt, which stretches the disc <em>on the surface</em> along the ray's
+    ///         projection into the tangent plane before the layout ever sees it.
+    ///         <see cref="PaintDensity.Tilted" /> multiplies the two 2×2s in the triangle's own
+    ///         plane basis, so the atlas ellipse is one SVD of the product.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It was <c>surface /= √cos θ</c> here, which kept the tilt ellipse's area and
+    ///         threw its shape away.</b> At 60° off the normal that ellipse is 2:1 — the same order
+    ///         a 4:1 chart contributes — and it is worst at the silhouette, which is where every
+    ///         stroke an artist makes to reach round the far side of a shape is. ⚠ <b>The area is
+    ///         unchanged by the fix</b>: the tilt matrix's determinant is <c>1 / cos θ</c>, so the
+    ///         composed <c>Area</c> is exactly the old <c>Area / √cos θ</c> and every number this
+    ///         file asserts about a brush's <em>size</em> is the same number it was.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The angle is to the ray that struck, and the ray is a parameter rather than the
+    ///         line from the eye to the hit.</b> They are the same under a perspective camera and
+    ///         they are <em>not</em> under an orthographic one, where every ray is parallel to the
+    ///         forward axis however far from the centre of the pane the pointer is — so deriving
+    ///         the direction here would have made an orthographic brush grow towards the corners of
+    ///         the viewport, by a term that has no counterpart in what the artist can see.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the plane is the density's and no longer the hit's.</b> A grazing cosine
+    ///         taken off <c>PaintHit.Normal</c> and a Jacobian taken off a
+    ///         <see cref="PaintDensity" /> are two readings of one triangle that a caller could pair
+    ///         wrongly, and composing them requires them to be the same plane — so there is now one
+    ///         of them, and <c>PaintHit</c> no longer carries a normal at all.
+    ///     </para>
+    /// </remarks>
+    public static PaintFootprintShape Ellipse(
+        PaintEye eye,
+        Ray ray,
+        PaintHit hit,
+        PaintDensity density,
+        float screenRadius
+    ) {
         if (!hit.Found || !density.IsMeasurable || !(screenRadius > 0f) || !float.IsFinite(screenRadius)) {
-            return 0f;
+            return PaintFootprintShape.None;
         }
 
         var perPixel = eye.WorldPerPixel(hit.Point);
 
         if (!(perPixel > 0f)) {
-            return 0f;
+            return PaintFootprintShape.None;
         }
 
         // Step one: the disc on the screen, as a disc on the plane facing the camera.
         var surface = screenRadius * perPixel;
 
-        // …and the tilt, which turns that disc into an ellipse on the surface with axes r and
-        // r / cos θ. Its area-equivalent radius is r / √cos θ, which is the same compromise
-        // `PaintDensity.Area` makes one step later and is made the same way for the same reason.
-        //
-        // ⚠ The angle is to the ray that struck, and the ray is a parameter rather than the line
-        // from the eye to the hit. They are the same under a perspective camera and they are *not*
-        // under an orthographic one, where every ray is parallel to the forward axis however far
-        // from the centre of the pane the pointer is — so deriving the direction here would have
-        // made an orthographic brush grow towards the corners of the viewport, by a term that has
-        // no counterpart in what the artist can see.
-        var along = ray.Direction.Length();
-        var cosine = along > 0f
-            ? MathF.Max(MathF.Abs(Vector3.Dot(ray.Direction / along, hit.Normal)), GrazingFloor)
-            : 1f;
+        // Step two: the tilt and the layout, as one map from that disc to the atlas.
+        var ellipse = density.Tilted(ray.Direction, GrazingFloor);
 
-        surface /= MathF.Sqrt(cosine);
-
-        // Step two: the surface, in texels of this atlas, on this triangle.
-        return surface * density.Area;
+        return new(surface * ellipse.Area, ellipse.Anisotropy, ellipse.Orientation);
     }
 }

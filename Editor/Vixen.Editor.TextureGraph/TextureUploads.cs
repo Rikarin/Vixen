@@ -23,8 +23,9 @@ namespace Vixen.Editor.TextureGraph;
 ///         ⚠ <b>This is what doc 48 § 4.1's <c>Text</c> and <c>Svg Path</c> reach the GPU through,
 ///         and it is why neither is a kernel</b> —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/687">#687</a>. A compute kernel has no
-///         rasteriser, cannot reach a font or a path parser (the evaluator compiles each kernel alone,
-///         with no reference paths), and could not be given one: both of those shapes are filled on
+///         rasteriser and cannot reach a font or a path parser — ⚠ a <c>.rvn</c> cannot call managed
+///         code, which is the reason that survives now that a kernel <em>is</em> compiled with the
+///         library beside it. Nor could it be given one: both of those shapes are filled on
 ///         the CPU, by <c>Vixen.Ui.Text</c>'s <c>GlyphRasterizer</c>, and arrive here as coverage.
 ///         <see cref="AddCoverage" /> is that door.
 ///     </para>

@@ -140,6 +140,60 @@ internal static class TextureBlend {
             ]
         };
 
+    /// <summary>The same composite, with the opacity read per texel out of a third image.</summary>
+    /// <param name="output">The image to write.</param>
+    /// <param name="background">What is underneath.</param>
+    /// <param name="foreground">What is on top.</param>
+    /// <param name="mask">How much of the foreground each texel gets, in its red channel.</param>
+    /// <param name="mode">Which operator.</param>
+    /// <param name="opacity">A scale over the whole mask, before the foreground's own alpha.</param>
+    /// <param name="coverage">Whether the foreground arrives on top of the backdrop or reinterprets it.</param>
+    /// <returns>The op.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A second kernel rather than a fourth image on <see cref="Mix" />, and the reason
+    ///         is <c>Blend.rvn</c>'s own refusal</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1059">#1059</a>. That refusal is
+    ///         about a <em>layer</em>, which owns a mask stack, and doc 48 § M7 is where it belongs;
+    ///         a graph's mask is whatever image the author wired, which is a different question. So
+    ///         the kernel is a sibling and § M7's shape is untouched.
+    ///     </para>
+    ///     <para>
+    ///         <b>Named <c>Masked</c> and not <c>Mix</c> because <see cref="Mix" /> is taken</b> — by
+    ///         the <c>Blend</c> op, which this class has built since M1. The kernel it names is
+    ///         <c>Mix</c>, which is the node's name and the file's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The mask multiplies <paramref name="opacity" />, it does not replace it.</b> A
+    ///         white mask is exactly <see cref="Mix" /> at the same opacity — asserted on a device,
+    ///         because "the two kernels agree where the mask says nothing" is the only thing that
+    ///         makes a second transcription of sixteen operators safe to have.
+    ///     </para>
+    /// </remarks>
+    public static TextureOp Masked(
+        int output,
+        int background,
+        int foreground,
+        int mask,
+        TextureBlendMode mode = TextureBlendMode.Copy,
+        float opacity = 1f,
+        TextureBlendCoverage coverage = TextureBlendCoverage.Over
+    ) =>
+        new() {
+            Kernel = "Mix",
+            Output = output,
+
+            // ⚠ Positional, in the order `Mix.rvn` declares its three `Texture2D`s — the evaluator
+            // binds a sampled texture per declaration and never by name, so a pair swapped here is a
+            // picture rather than an error.
+            Inputs = [background, foreground, mask],
+            Parameters = [
+                new("mode", (float)(int)mode),
+                new("opacity", opacity),
+                new("atop", (float)(int)coverage)
+            ]
+        };
+
     /// <summary>Every op this class can build, for a test that wants to walk them.</summary>
-    public static ImmutableArray<TextureOp> All { get; } = [Mix(0, 1, 2)];
+    public static ImmutableArray<TextureOp> All { get; } = [Mix(0, 1, 2), Masked(0, 1, 2, 3)];
 }

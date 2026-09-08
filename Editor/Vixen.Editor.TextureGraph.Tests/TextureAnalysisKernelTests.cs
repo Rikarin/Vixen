@@ -4,7 +4,6 @@
 using System.Collections.Immutable;
 using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Xunit;
 
@@ -102,20 +101,33 @@ public class TextureAnalysisKernelTests {
         Assert.Equal(inputs, textures);
     }
 
-    /// <summary>No analysis kernel imports, because none of them can.</summary>
+    /// <summary><c>FloodFill</c>'s random value is the shader library's, called rather than copied.</summary>
     /// <remarks>
-    ///     The rule <c>TextureSourceKernelTests.A_standalone_kernel_cannot_reach_the_shader_library</c>
-    ///     guards. ⚠ <c>FloodFill</c> is the one that wants to: its random value is
-    ///     <c>Raven/Library/Core/Random.rvn</c>'s hash, transcribed for the same reported reason
-    ///     <c>Noise</c> carries a copy of it.
+    ///     <para>
+    ///         ⚠ <b>This was <c>An_analysis_kernel_imports_nothing</c>, and the rule it asserted was
+    ///         never a property of a kernel</b> — it was a property of how the evaluator called the
+    ///         compiler, which passed one text.
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/635">#635</see> reads it as a
+    ///         missing <c>.rvnlib</c>; it was neither. <c>TextureKernelPrelude</c> puts
+    ///         <c>Raven/Library/Core/Random.rvn</c> in the compilation, so this kernel calls
+    ///         <c>Random.Combine</c> and <c>Random.ToFloat01</c> and there is no second copy of the
+    ///         hash to drift.
+    ///     </para>
+    ///     <para>
+    ///         <b>The instrument.</b> Naming the functions rather than only the import is what makes
+    ///         this fail on a kernel that imports and then transcribes anyway — an import nothing
+    ///         calls is the one arrangement that satisfies "it imports" and keeps the copy.
+    ///     </para>
     /// </remarks>
-    [Theory]
-    [MemberData(nameof(Kernels))]
-    public void An_analysis_kernel_imports_nothing(string kernel) =>
-        Assert.DoesNotContain(
-            TextureKernels.Source(kernel).Split('\n'),
-            line => line.TrimStart().StartsWith("import", StringComparison.Ordinal)
-        );
+    [Fact]
+    public void The_flood_fill_calls_the_library_hash_rather_than_carrying_one() {
+        var source = TextureKernels.Source("FloodFill");
+
+        Assert.Contains("import Vixen.Shaders.Core", source, StringComparison.Ordinal);
+        Assert.Contains("Random.Combine(", source, StringComparison.Ordinal);
+        Assert.Contains("Random.ToFloat01(", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("func Hash(", source, StringComparison.Ordinal);
+    }
 
     /// <summary>A jump flood is one dispatch per halving of the image's longer side, and no more.</summary>
     /// <remarks>
@@ -412,11 +424,11 @@ public class TextureAnalysisKernelTests {
             : name;
 
     static EffectData Compile(string kernel) {
-        var data = RavenEffectCompiler
-            .FromSources([
-                (TextureKernels.VariantName(kernel, TextureFormat.Rgba16Float),
-                    TextureKernels.Variant(kernel, TextureFormat.Rgba16Float))
-            ])
+        var data = TextureKernelPrelude
+            .Compile(
+                TextureKernels.VariantName(kernel, TextureFormat.Rgba16Float),
+                TextureKernels.Variant(kernel, TextureFormat.Rgba16Float)
+            )
             .TryGet(EffectKey.Of(kernel));
 
         Assert.NotNull(data);

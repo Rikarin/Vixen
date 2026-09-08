@@ -10,12 +10,17 @@ package Vixen.Editor.TextureGraph.Shaders
 // § 4.6 says the convention is "whatever `TexturedNormalMapSurface` samples". Following that through
 // the engine gives one answer and no freedom:
 //
-// - `Raven/Library/Material/MaterialSurface.rvn:428` decodes with `Normals.Decode`, which is
-//   `2v − 1` and nothing else — **no green flip anywhere in the sampling path** — and rotates the
-//   result by `d.tangentFrame`.
+// - `TexturedNormalMapSurface.Compute` in `Raven/Library/Material/MaterialSurface.rvn` decodes with
+//   `Normals.Decode` and rotates the result by `d.tangentFrame`. ⚠ This bullet used to give a line
+//   number, which was four lines out, and to describe `Normals.Decode` as "`2v − 1` and nothing
+//   else"; it is `Math.FromUnorm`, an xy scale by `strength`, and a `SafeNormalize`. The conclusion
+//   survives the correction and is what matters here — **there is no green flip anywhere in the
+//   sampling path**, and a positive scale applied to x and y alike cannot introduce one.
 // - `Normals.Frame` builds that frame with `bitangent = cross(normal, tangent) * handedness`, and
-//   `Core/Vixen.Geometry.Remeshing/Transfer/MapBaker.cs:789` derives the pair by Lengyel's
-//   construction, whose tangent and bitangent are **the directions `u` and `v` increase in**.
+//   `MapBaker.Frame` in `Core/Vixen.Geometry.Remeshing/Transfer/MapBaker.cs` derives the pair by
+//   Lengyel's construction, whose tangent and bitangent are **the directions `u` and `v` increase
+//   in**. ⚠ That citation was a line number too, and by the time it was read it pointed at an
+//   argument list a hundred and eighty lines above the construction.
 // - `v` increases *downwards*: a sampled texture's `v = 0` is its top row, which is what
 //   `Transform.rvn`'s `NdcToUv` was corrected to and what every kernel in this folder already
 //   assumes.

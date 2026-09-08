@@ -85,8 +85,8 @@ public class TexturePixelProcessorTests {
         compiler.Compile(graph);
 
         var kernel = Assert.Single(compiler.Kernels);
-        var data = RavenEffectCompiler
-            .FromSources([(kernel.Kernel + ".rvn", kernel.Source)])
+        var data = TextureKernelPrelude
+            .Compile(kernel.Kernel + ".rvn", kernel.Source)
             .TryGet(EffectKey.Of(kernel.Kernel));
 
         Assert.NotNull(data);
@@ -136,8 +136,8 @@ public class TexturePixelProcessorTests {
         var plan = compiler.Compile(graph).Value;
         var kernel = Assert.Single(compiler.Kernels);
 
-        var data = RavenEffectCompiler
-            .FromSources([(kernel.Kernel + ".rvn", kernel.Source)])
+        var data = TextureKernelPrelude
+            .Compile(kernel.Kernel + ".rvn", kernel.Source)
             .TryGet(EffectKey.Of(kernel.Kernel))!;
 
         var textures = data.Bindings

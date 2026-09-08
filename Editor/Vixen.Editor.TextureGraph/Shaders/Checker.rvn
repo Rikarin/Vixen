@@ -5,12 +5,16 @@ package Vixen.Editor.TextureGraph.Shaders
 
 // A checkerboard, with a scale, a rotation and an offset. Doc 48 § 4.1.
 //
-// ⚠ **`ComputeColor.Checker` already has one, and this is not a call to it.** A texture-graph kernel
-// is compiled on its own — `TexturePlanEvaluator.VariantFor` hands `RavenEffectCompiler.FromSources`
-// exactly one tree and no `.rvnlib` references — and a package's declarations are visible to another
-// file only within one compilation. So `import Vixen.Shaders.Material` here does not resolve, and the
-// two lines of arithmetic are written out. See this folder's `README.md` for what it would take to
-// close that, and `TextureSourceKernelTests` for the tripwire that goes red the day it is closed.
+// ⚠ **`ComputeColor.Checker` already has one, and this is still not a call to it — but no longer
+// because it cannot be.** This header used to say a kernel "is compiled on its own" and that
+// `import Vixen.Shaders.Material` therefore does not resolve. It does now: `TextureKernelPrelude`
+// puts the library in the compilation, and `Hsl` and `Blend` both call into `ComputeColor` (#635).
+// What keeps the fold here is the signature. `ComputeColor.Checker` takes a uv and a scale and
+// nothing else; this kernel rotates about the image centre and offsets in cells first, so the call
+// would be `Checker(turned * scale + offset, 1)` — a use of the library that passes the identity for
+// the only parameter it has, which is not sharing a function, it is calling one to look as though
+// you did. Widening the library's to take a rotation is a change to the shader graph's checker node
+// and wants its own decision.
 //
 // ⚠ `Shaders/Sources.md` was cited here and has never existed. The copy is held instead:
 // `TextureKernelLanguageSeamTests` reads `ComputeColor.Checker`'s return expression out of the

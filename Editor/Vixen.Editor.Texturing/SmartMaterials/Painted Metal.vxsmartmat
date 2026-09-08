@@ -1,0 +1,60 @@
+version: 1
+name: Painted Metal
+baseWidth: 1024
+baseHeight: 1024
+sets:
+  - name: Material
+    channels:
+      - usage: baseColor
+        default: [0.5, 0.5, 0.5, 1]
+      - usage: roughness
+        default: [0.5, 0.5, 0.5, 1]
+      - usage: metalness
+        default: [0, 0, 0, 1]
+    layers:
+      - id: paint
+        name: Paint
+        kind: Fill
+        values:
+          baseColor: [0.11, 0.21, 0.32, 1]
+          roughness: [0.42, 0.42, 0.42, 1]
+          metalness: [0, 0, 0, 1]
+      - id: chipping
+        name: Chipping
+        kind: Fill
+        blend: Copy
+        values:
+          baseColor: [0.02, 0.02, 0.02, 1]
+          roughness: [0.62, 0.62, 0.62, 1]
+          metalness: [0, 0, 0, 1]
+        mask:
+          source: Generator
+          generator: Grunges/Grunge Damage
+          effects:
+            - node: Colour/Levels
+              values:
+                Input Black: [0.62]
+                Input White: [0.86]
+      - id: bare
+        name: Bare Metal
+        kind: Fill
+        blend: Copy
+        values:
+          baseColor: [0.56, 0.57, 0.58, 1]
+          roughness: [0.28, 0.28, 0.28, 1]
+          metalness: [1, 1, 1, 1]
+        mask:
+          source: Generator
+          generator: Generators/Metal Edge Wear
+      - id: grime
+        name: Grime
+        kind: Fill
+        blend: Multiply
+        opacity: 0.65
+        values:
+          baseColor: [0.42, 0.4, 0.36, 1]
+          roughness: [1.15, 1.15, 1.15, 1]
+          metalness: [1, 1, 1, 1]
+        mask:
+          source: Generator
+          generator: Generators/Dirt

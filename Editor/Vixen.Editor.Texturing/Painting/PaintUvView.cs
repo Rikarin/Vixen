@@ -61,6 +61,18 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         it always did.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Shift-click lays a straight stroke from where the last one ended, and it needed no
+///         new arithmetic at all.</b> Doc 48 § D13 lists "curve/path strokes" beside symmetry and
+///         smoothing as stroke-level work that does not touch the kernel, and the straight case
+///         turns out to be nothing whatever: <c>BrushStroke.MoveTo</c> already walks the segment
+///         between two positions laying evenly spaced stamps and carrying the leftover distance, so
+///         a line is two <see cref="PaintSession.MoveAll(ReadOnlySpan{Vector2}, List{PaintRect})" />
+///         calls and one undo entry. ⚠ <b>A <em>curved</em> path is the half that still needs
+///         something</b> — points sampled along the curve, because those two calls interpolate
+///         straight — and there is nowhere in this plugin to author control points, so it is filed
+///         rather than built.
+///     </para>
+///     <para>
 ///         ⚠ <b>What the pane shows during a drag is <see cref="PaintComposite.Result" />, which is
 ///         an approximation whose size is stated.</b> The composite is straight-alpha source-over
 ///         between the two cached halves; a compiled stack composites through <c>Colour/Blend</c>'s
@@ -106,6 +118,18 @@ sealed class PaintUvView {
     bool fitted;
 
     PaintSession? session;
+
+    /// <summary>Where the last stroke ended, in texels, for a shift-click line to start from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Cleared when the atlas changes size, because it is in texels of one.</b> An anchor
+    ///     kept across a resolution change is a point of an atlas that no longer exists, and the
+    ///     line drawn from it would start somewhere the artist never clicked — silently, because a
+    ///     shift-click looks the same either way.
+    /// </remarks>
+    Vector2? anchor;
+
+    /// <summary>Where the stroke in flight last stamped, which becomes the anchor at pointer-up.</summary>
+    Vector2 last;
 
     /// <summary>Builds the pane into a host element.</summary>
     /// <param name="host">Where it goes. A dock panel, or anything inside one.</param>
@@ -237,9 +261,11 @@ sealed class PaintUvView {
         Image.ImageHeight = height;
 
         // A different atlas is a different coordinate space, so the old pan and zoom describe
-        // nothing. `Fit` answers false before the first layout and is asked again on the next show.
+        // nothing — and neither does the anchor a shift-click would draw a line from. `Fit` answers
+        // false before the first layout and is asked again on the next show.
         if (resized) {
             fitted = false;
+            anchor = null;
         }
 
         // ⚠ Never while a stroke is in flight. `Fit` writes both `Zoom` and `Pan`, which are the
@@ -312,24 +338,57 @@ sealed class PaintUvView {
     /// <summary>Puts the brush's ring under a pointer position.</summary>
     /// <param name="at">Where, in texels.</param>
     /// <remarks>
-    ///     ⚠ <b>In texels with a screen-pixel thickness, which is what makes it read as a cursor.</b>
-    ///     A ring whose radius were in screen pixels would be the same size at every zoom and would
-    ///     therefore lie about what the stamp covers — and that lie is invisible until the artist
-    ///     zooms, which is precisely when they are trying to place a small stroke exactly.
+    ///     <para>
+    ///         ⚠ <b>In texels with a screen-pixel thickness, which is what makes it read as a
+    ///         cursor.</b> A ring whose radius were in screen pixels would be the same size at every
+    ///         zoom and would therefore lie about what the stamp covers — and that lie is invisible
+    ///         until the artist zooms, which is precisely when they are trying to place a small
+    ///         stroke exactly.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An ellipse and not a ring, because the stamp is one</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a>. A brush aimed at a
+    ///         stretched chart covers an ellipse in the atlas, and a cursor drawn round over it lies
+    ///         about the stamp in exactly the direction the artist is trying to judge. It is a circle
+    ///         for every stroke made in this pane — <c>PaintBrush.Aspect</c> is one unless a 3D
+    ///         surface measured it — so this is the same picture it always was until something aims
+    ///         at a model.
+    ///     </para>
     /// </remarks>
     public void ShowCursor(Vector2 at) {
         Image.Overlay.RemoveRange(outlines, Image.Overlay.Count - outlines);
 
-        var radius = tool.Brush.Radius;
-        var previous = at + new Vector2(radius, 0f);
+        var brush = tool.Brush;
+
+        // The same two semi-axes `PaintBrush.Circularised` divides by, so the ring is the stamp's own
+        // boundary rather than a second opinion about its shape.
+        var stretch = new PaintStamp(at, 0f, brush.Radius, 1f, brush.Aspect, brush.AspectAngle).Stretch;
+        var half = MathF.Sqrt(stretch);
+        var (sin, cos) = MathF.SinCos(brush.AspectAngle);
+        var previous = Rim(at, brush.Radius * half, brush.Radius / half, sin, cos, 0f);
 
         for (var step = 1; step <= CursorSegments; step++) {
-            var angle = step * (MathF.Tau / CursorSegments);
-            var point = at + new Vector2(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius);
+            var point = Rim(at, brush.Radius * half, brush.Radius / half, sin, cos, step * (MathF.Tau / CursorSegments));
 
             Image.Overlay.Add(new(previous, point));
             previous = point;
         }
+    }
+
+    /// <summary>One point of the stamp's boundary.</summary>
+    /// <param name="at">Where the stamp is, in texels.</param>
+    /// <param name="along">Its long semi-axis, in texels.</param>
+    /// <param name="across">Its short one.</param>
+    /// <param name="sin">The sine of the long axis's angle in the atlas.</param>
+    /// <param name="cos">Its cosine.</param>
+    /// <param name="angle">How far round the boundary, in radians.</param>
+    /// <returns>The point, in texels.</returns>
+    static Vector2 Rim(Vector2 at, float along, float across, float sin, float cos, float angle) {
+        var (y, x) = MathF.SinCos(angle);
+        var u = x * along;
+        var v = y * across;
+
+        return at + new Vector2((u * cos) - (v * sin), (u * sin) + (v * cos));
     }
 
     Vector2 Texels(Vector2 uv) => new(uv.X * Image.ImageWidth, uv.Y * Image.ImageHeight);
@@ -354,7 +413,14 @@ sealed class PaintUvView {
                 return;
 
             case PointerAction.Pressed when session is null && args.Button == PointerButton.Primary:
-                if (Begin() is not { } started) {
+                var line = anchor is not null && (args.Modifiers & ModifierKeys.Shift) != 0;
+
+                // ⚠ A line stroke takes no smoothing whatever the tool's slider says. Smoothing is
+                // a lag on the *input points* — `PaintStroke` lerps towards each one — so a line
+                // laid from two points would stop short of the second by exactly the smoothing
+                // fraction, which is a line that does not reach where the artist clicked and looks
+                // like a broken gesture rather than like a setting.
+                if (Begin(line ? 0f : tool.Smoothing) is not { } started) {
                     // Nothing to paint into. The event is deliberately not handled, so the pane
                     // still pans — a pointer that did nothing at all would read as a frozen panel.
                     return;
@@ -364,6 +430,19 @@ sealed class PaintUvView {
                 Live = started.Composite;
 
                 Image.Document.Focus(Image);
+
+                if (line && anchor is { } from) {
+                    // ⚠ The whole stroke inside the press, and the pointer is never captured. There
+                    // is no drag to follow: `BrushStroke.MoveTo` lays evenly spaced stamps along the
+                    // segment between two positions, so a line is two moves and one undo entry —
+                    // which is why doc 48 § D13 says a path stroke does not touch the kernel.
+                    Stamp(from, false);
+                    Stamp(ToTexels(args.X, args.Y), true);
+                    End();
+
+                    break;
+                }
+
                 Image.Document.CapturePointer(Image);
                 Stamp(args);
 
@@ -391,22 +470,29 @@ sealed class PaintUvView {
         args.Handled = true;
     }
 
-    PaintSession? Begin() {
+    PaintSession? Begin(float smoothing) {
         if (Target?.Invoke() is not { } target) {
             return null;
         }
 
-        return PaintSession.Begin(target, tool.Brush, tool.Colour, tool.Smoothing);
+        return PaintSession.Begin(target, tool.Brush, tool.Colour, smoothing);
     }
 
-    void Stamp(PointerEvent args) {
+    void Stamp(PointerEvent args) => Stamp(ToTexels(args.X, args.Y), true);
+
+    /// <summary>Moves the stroke to a texel, and tells the caller what that dirtied.</summary>
+    /// <param name="at">Where, in texels.</param>
+    /// <param name="cursor">Whether the ring follows — false for a point the pointer was never at.</param>
+    void Stamp(Vector2 at, bool cursor) {
         if (session is null) {
             return;
         }
 
-        var at = ToTexels(args.X, args.Y);
+        last = at;
 
-        ShowCursor(at);
+        if (cursor) {
+            ShowCursor(at);
+        }
 
         Span<Vector2> one = [at];
 
@@ -440,6 +526,7 @@ sealed class PaintUvView {
         var finished = session;
 
         session = null;
+        anchor = last;
 
         // ⚠ Both, and the second is what reaches the disk. This lambda is the command's own
         // callback, so it runs on the execute and on every later undo and redo — the three moments

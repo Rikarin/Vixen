@@ -7,7 +7,6 @@ using System.Text.RegularExpressions;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Xunit;
 
@@ -714,6 +713,16 @@ public class TextureNodeLibraryTests {
         graph.Connect(shuffle, "Out", vectorWarp, "Input");
         graph.Connect(normalCombine, "Out", vectorWarp, "Vectors");
 
+        // ⚠ `Colour/Mix`'s mask is `ReadGrey`, so what feeds it has to be a single channel — the
+        // grayscale above and not the blend beside it. A colour there is a `TG0004` naming the port
+        // rather than a silent luminance, which is the half of the promotion rule this fixture would
+        // otherwise never exercise on a three-image node.
+        var mix = graph.Add("Colour/Mix");
+
+        graph.Connect(invert, "Out", mix, "Background");
+        graph.Connect(blur, "Out", mix, "Foreground");
+        graph.Connect(grayscale, "Out", mix, "Mask");
+
         // ⚠ § M8's selection mask, and it is on the *colour* side deliberately. Its whole subject is
         // a colour, so wiring it downstream of a grey would leave its two colour lanes reading the
         // splat the compiler inserted rather than anything a picture put there — a fixture that
@@ -893,7 +902,7 @@ public class TextureNodeLibraryTests {
 
             var name = TextureKernels.VariantName(kernel, TextureFormat.Rgba16Float);
             var source = TextureKernels.Variant(kernel, TextureFormat.Rgba16Float);
-            var data = RavenEffectCompiler.FromSources([(name, source)]).TryGet(EffectKey.Of(kernel));
+            var data = TextureKernelPrelude.Compile(name, source).TryGet(EffectKey.Of(kernel));
 
             Assert.NotNull(data);
 

@@ -345,11 +345,17 @@ the plan's, so a 1:1 crop is available exactly where the rect is a power of two 
 `LevelOffset` is the only way to size an image. A crop to 37% of the width has nothing to write into.
 See #619, which is reworking that model.
 
-**⚠ A kernel here cannot `import` the Raven library.** `TexturePlanEvaluator` compiles through
-`RavenEffectCompiler.FromSources([…])` with no `referencePaths`, so a kernel binds against nothing but
-itself. `Hsl`'s hue rotation is therefore `Raven/Library/Material/ComputeColor.rvn`'s `HueRotate`,
-transcribed — and the two agreeing matters, because an artist who matches a hue in the shader graph
-and sees it shift here has found a bug.
+**⚠ A kernel here imports the Raven library, and this file said for four batches that it could
+not.** The stated cause — "`FromSources` is passed no `referencePaths`, so a kernel binds against
+nothing but itself" — was wrong: `FromSources` takes a *set of texts* and makes them **one
+compilation**, and a package's declarations are visible across it. What was missing was that the
+evaluator passed a single text. `TextureKernelPrelude` now hands `Core/Math.rvn`, `Core/Random.rvn`
+and `Material/ComputeColor.rvn` to every kernel compilation, so `Hsl` **calls**
+`ComputeColor.HueRotate` rather than transcribing it — and eleven of thirteen transcriptions are
+deleted rather than held to their originals by a gate
+([#635](https://github.com/Rikarin/Vixen/issues/635)). ⚠ **Three copies survive and none is blocked
+on imports**: each is blocked on a library *signature* that takes no period, no rotation, or is a
+parameter default that must be a literal ([#1077](https://github.com/Rikarin/Vixen/issues/1077)).
 
 ## The filters — doc 48 § 4.4
 
@@ -510,10 +516,10 @@ which is the shape `Vixen.Ui.Text`'s `CoverageBitmap.Coverage` already has — a
 `R8` mask.
 
 **⚠ Why an upload rather than a kernel.** Doc 48 § 4.1 lists `Text` and `Svg Path` among its eight
-sources and § 4.11 counts them into the forty-four, and neither can be a compute kernel: a compute
-shader has no rasteriser, and `TexturePlanEvaluator` compiles each kernel alone through
-`RavenEffectCompiler.FromSources` with no reference paths, so no kernel can reach a font, a glyph
-outline or a path parser. What a plan *has* always been able to express is a picture the caller
+sources and § 4.11 counts them into the forty-four, and neither can be a compute kernel, and ⚠ **the reason
+is not the one this paragraph gave**: a kernel *can* reach the shader library now. What a `.rvn`
+cannot do — whatever is in its compilation — is call managed code, and a font, a glyph outline and a
+path parser are all managed. A compute shader also has no rasteriser. What a plan *has* always been able to express is a picture the caller
 supplies — `TextureImage(…, External: true)` — and what was missing was any way in this assembly to
 produce one ([#687](https://github.com/Rikarin/Vixen/issues/687)). That is what this is.
 

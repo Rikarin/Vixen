@@ -48,11 +48,26 @@ sealed class RecordingGraphics(IGraphicsDevice? device) : IEditorGraphics {
     /// </remarks>
     public bool Patches { get; set; } = true;
 
+    /// <summary>Whether this host can make a picture at all.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The state the editor is in on the first frame that has a device, and it was
+    ///     unreachable from any fixture.</b> <c>EditorHost</c> acquires the device in
+    ///     <c>Present()</c> and creates the thumbnail surface in <c>Sync()</c>, both *after*
+    ///     <c>editor.Update</c> — so there is a frame with a device and no surface, where every
+    ///     <see cref="Upload" /> answers null. A preview source that treated that as "drawn" would
+    ///     leave a panel blank until the author typed something, which is exactly what it did.
+    /// </remarks>
+    public bool Surfaces { get; set; } = true;
+
     /// <inheritdoc />
     public IGraphicsDevice? Device => device;
 
     /// <inheritdoc />
     public IEditorImage? Upload(int width, int height, ReadOnlySpan<byte> rgba) {
+        if (!Surfaces) {
+            return null;
+        }
+
         // ⚠ Copied, because the caller owns the span. A recorder holding a reference to somebody
         // else's buffer would assert against whatever was in it by the time the test looked.
         var uploaded = new Uploaded((ulong)Uploads.Count + 1, width, height, rgba.ToArray());

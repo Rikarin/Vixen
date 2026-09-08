@@ -1,0 +1,97 @@
+version: 1
+name: Grunge Scratches
+nodes:
+  - id: 1
+    type: Source/Noise
+    x: -1280
+    y: 0
+    values:
+      Scale: [48]
+      Tiling: [1]
+    texts: { Basis: White }
+  - id: 2
+    type: Space/Transform 2D
+    x: -960
+    y: 0
+    values:
+      Scale Y: [1]
+    texts:
+      Tiling: Wrap
+      Filter: Bilinear
+      '=Rotation': angle
+      '=Scale X': 0.05f + fineness * 0.35f
+  - id: 3
+    type: Source/Noise
+    x: -1280
+    y: 300
+    values:
+      Scale: [3]
+      Tiling: [1]
+    texts: { Basis: Gradient }
+  - id: 4
+    type: Filters/Slope Blur
+    x: -640
+    y: 0
+    values:
+      Samples: [16]
+    texts:
+      Mode: Max
+      '=Intensity': 4f + reach * 20f
+  - id: 5
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values:
+      Input White: [1]
+    texts:
+      '=Input Black': 0.8f - density * 0.7f
+  - id: 6
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Slope }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: Fine scoring — an uncorrelated field squashed to a line, then dilated along a slope.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: angle
+    default: '0.4'
+    summary: Which way the scoring runs, in radians.
+    kind: Float
+    minimum: 0
+    maximum: 3.15
+    group: Scoring
+  - name: fineness
+    default: '0.3'
+    summary: How thin one scratch is.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Scoring
+  - name: reach
+    default: '0.5'
+    summary: How long a scratch runs.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Scoring
+  - name: density
+    default: '0.5'
+    summary: How many of them survive the cut.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Scoring

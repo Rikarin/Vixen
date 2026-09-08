@@ -29,8 +29,44 @@ public readonly record struct CoverageBitmap(int Width, int Height, float[] Cove
     }
 }
 
+/// <summary>Which crossings of a scanline count as inside the shape.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>This is not a preference and the two rules disagree on real input.</b> Where an even
+///         number of same-wound contours overlap, non-zero fills the overlap and even-odd punches a
+///         hole through it. For a glyph that is always the wrong answer — a script that builds a
+///         letter out of stacked strokes comes apart — which is why
+///         <see cref="GlyphRasterizer" /> was non-zero only, deliberately, and says so.
+///     </para>
+///     <para>
+///         <b>What made it a choice rather than a constant is SVG.</b>
+///         <c>fill-rule="evenodd"</c> is a thing a path author writes and means, and doc 48 § 4.1's
+///         <c>Svg Path</c> source lists a fill rule among its parameters; a rasteriser that cannot
+///         express it would silently draw a different shape from the one in the file.
+///         <see href="https://github.com/Rikarin/Vixen/issues/687">#687</see> and
+///         <see href="https://github.com/Rikarin/Vixen/issues/753">#753</see> named exactly this as
+///         the blocker, and named the cost — a public option on the only rasteriser in
+///         <c>Vixen.Ui.Text</c>, for one editor-side caller.
+///     </para>
+///     <para>
+///         ⚠ <b>The other blocker those issues name did not survive a re-measure and this is not it.</b>
+///         "Referencing <c>SvgPath</c> would put the whole UI framework behind a bake" rested on a
+///         closure comparison that is wrong in both columns: <c>Vixen.Ui</c>'s project closure is a
+///         strict subset of <c>Vixen.Editor.TextureGraph</c>'s. What is left of that one is a
+///         compile-surface argument about what an evaluator may <em>spell</em>, which is a decision
+///         about where the node lives and not about this file.
+///     </para>
+/// </remarks>
+public enum FillRule {
+    /// <summary>Inside where the sum of signed crossings is not zero. The default, and what a font wants.</summary>
+    NonZero,
+
+    /// <summary>Inside where an odd number of edges have been crossed. What SVG's <c>evenodd</c> means.</summary>
+    EvenOdd
+}
+
 /// <summary>
-///     Fills a glyph outline into a coverage bitmap, by scanline and non-zero winding.
+///     Fills a glyph outline into a coverage bitmap, by scanline.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -40,10 +76,11 @@ public readonly record struct CoverageBitmap(int Width, int Height, float[] Cove
 ///         than a golden image, which only says the output has not changed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Non-zero winding, not even-odd.</b> A counter in an <c>o</c> is a contour wound the
-///         other way, and every font relies on it; even-odd gives the same answer for one hole and
-///         the wrong one for a glyph whose contours overlap, which happens in scripts that build a
-///         letter out of stacked strokes.
+///         ⚠ <b>Non-zero winding unless a caller says otherwise, and every caller in this assembly
+///         is a font.</b> A counter in an <c>o</c> is a contour wound the other way, and both rules
+///         agree about that; they disagree where two <em>same-wound</em> contours overlap, which
+///         happens in scripts that build a letter out of stacked strokes and where even-odd is
+///         simply wrong. <see cref="FillRule" /> carries why the option exists at all.
 ///     </para>
 /// </remarks>
 public static class GlyphRasterizer {
@@ -61,13 +98,22 @@ public static class GlyphRasterizer {
     /// <param name="height">Its height.</param>
     /// <param name="scale">How many pixels one outline unit becomes.</param>
     /// <param name="origin">The outline-space point that lands on the bitmap's bottom-left corner.</param>
+    /// <param name="rule">Which crossings count as inside. Defaults to what a glyph wants.</param>
     /// <returns>The coverage.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The rule is the last parameter and has a default, so the four call sites in this
+    ///     assembly and the two in the editor are unchanged and still say "a font".</b> A rule
+    ///     threaded through as a required argument would have made every one of them state a choice
+    ///     it does not have — and the one that matters, the distance-field oracle, would then be one
+    ///     edit away from judging a field against a shape the rasteriser filled differently.
+    /// </remarks>
     public static CoverageBitmap Rasterize(
         GlyphOutline outline,
         int width,
         int height,
         float scale,
-        Vector2 origin
+        Vector2 origin,
+        FillRule rule = FillRule.NonZero
     ) {
         ArgumentNullException.ThrowIfNull(outline);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
@@ -107,7 +153,7 @@ public static class GlyphRasterizer {
                 }
 
                 crossings.Sort(static (a, b) => a.X.CompareTo(b.X));
-                Fill(row, crossings, scale, origin.X, width);
+                Fill(row, crossings, scale, origin.X, width, rule);
             }
 
             var offset = y * width;
@@ -139,14 +185,43 @@ public static class GlyphRasterizer {
     }
 
     /// <summary>Adds one sub-scanline's spans to a row, with exact coverage at the ends.</summary>
-    static void Fill(float[] row, List<(float X, int Winding)> crossings, float scale, float originX, int width) {
+    /// <remarks>
+    ///     <para>
+    ///         <b>The two rules differ in one expression and in nothing else.</b> Non-zero asks
+    ///         whether the accumulated signed winding is non-zero; even-odd asks whether an odd
+    ///         number of edges have been crossed. That is what makes an overlap of two same-wound
+    ///         contours solid under the first and a hole under the second.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Counting is written here rather than <c>winding &amp; 1</c>, and the claim that
+    ///         the two could disagree is false.</b> It was written into this remark first and a
+    ///         sabotage refuted it: <see cref="Cross" /> adds ±1 and nothing else, and the parity of
+    ///         a sum of ±1 is the parity of how many there were — so the two spellings are equal for
+    ///         every input this rasteriser can produce, and no test can tell them apart. The count
+    ///         stays because it is the rule's own definition and does not rest on that invariant; a
+    ///         reader who changes <see cref="Cross" /> to add a weight is then changing one
+    ///         expression rather than silently unbinding two.
+    ///     </para>
+    /// </remarks>
+    static void Fill(
+        float[] row,
+        List<(float X, int Winding)> crossings,
+        float scale,
+        float originX,
+        int width,
+        FillRule rule
+    ) {
         var winding = 0;
+        var crossed = 0;
         var spanStart = 0f;
 
         foreach (var (x, direction) in crossings) {
-            var wasInside = winding != 0;
+            var wasInside = rule == FillRule.EvenOdd ? (crossed & 1) != 0 : winding != 0;
+
             winding += direction;
-            var isInside = winding != 0;
+            crossed++;
+
+            var isInside = rule == FillRule.EvenOdd ? (crossed & 1) != 0 : winding != 0;
 
             if (!wasInside && isInside) {
                 spanStart = x;

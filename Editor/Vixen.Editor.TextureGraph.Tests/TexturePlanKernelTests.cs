@@ -5,7 +5,6 @@ using System.Collections.Immutable;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Xunit;
 
@@ -70,8 +69,8 @@ public class TexturePlanKernelTests {
 
         Assert.Contains($"[Format(\"{spelling}\")]", source, StringComparison.Ordinal);
 
-        var data = RavenEffectCompiler
-            .FromSources([(TextureKernels.VariantName(kernel, format), source)])
+        var data = TextureKernelPrelude
+            .Compile(TextureKernels.VariantName(kernel, format), source)
             .TryGet(EffectKey.Of(kernel));
 
         Assert.NotNull(data);

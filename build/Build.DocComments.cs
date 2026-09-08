@@ -48,9 +48,21 @@ using Vixen.Build;
 partial class Build {
     AbsolutePath DocCommentExemptFile => RootDirectory / DocCommentRule.ExemptionsPath;
 
+    AbsolutePath RavenDocCommentExemptFile => RootDirectory / RavenDocCommentRule.ExemptionsPath;
+
     Target CheckDocComments => definition => definition
         .Description("Fails if a doc comment block outside docs/DocCommentExempt.txt describes a member other than the one it is attached to")
-        .Executes(CheckDocCommentPlacement);
+        .Executes(CheckEveryDocCommentPlacement);
+
+    /// <summary>Both halves of this repository's source, in the order they were written.</summary>
+    /// <remarks>
+    ///     ⚠ The C# pass cannot see the Raven one's defect: it parses C#, and 176 committed
+    ///     <c>.rvn</c> files carry 2 349 <c>///</c> blocks between them (#1076).
+    /// </remarks>
+    void CheckEveryDocCommentPlacement() {
+        CheckDocCommentPlacement();
+        CheckRavenDocCommentPlacement();
+    }
 
     /// <summary>Runs the doc comment rule over the whole tree and fails on any file that is not exempt.</summary>
     void CheckDocCommentPlacement() {
@@ -144,6 +156,128 @@ partial class Build {
             /// <param name="entry">The external the compilation could not fill.</param>
             /// <returns>Null when it was uploaded.</returns>
             static string? Resolve(int entry) => null;
+        }
+        """;
+
+    /// <summary>Runs the Raven doc comment rule over every committed shader and fails on any that is not exempt.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>CheckDocComments</c> parses C#, and half this repository's source is not</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1076">#1076</a>). The commit that
+    ///         quoted that blind spot as a warning then inserted a function between
+    ///         <c>Blend.Combine</c>'s doc block and <c>Combine</c> — a defect its own author knew
+    ///         about, was looking for, and still shipped, which is what a gate is for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two of the eight it found on the day it was written were live staples</b>, not
+    ///         formatting: <c>IIrradianceSource</c>'s block sat on <c>struct IrradianceSample</c> and
+    ///         <c>CascadeTile</c>'s on <c>CascadeContaining</c>, each leaving its own declaration
+    ///         undocumented and another described twice. All eight were fixed in the same commit, so
+    ///         the exemption list ships empty and the fixture below is the only thing saying the rule
+    ///         still fires.
+    ///     </para>
+    /// </remarks>
+    void CheckRavenDocCommentPlacement() {
+        var root = RootDirectory.ToString().Replace('\\', '/');
+        var exempt = RavenDocCommentRule.Exemptions(root);
+        var sources = RavenDocCommentRule.Sources(root);
+
+        // ⚠ The instrument, in the two ways it can read nothing and call the tree clean. A glob that
+        // stopped matching finds no files; a run splitter that stopped splitting finds files with no
+        // doc comments in them. Both report success. The tree holds 176 shaders and 2 349 blocks, so
+        // these floors are a third of what is there rather than a hair under it.
+        Assert.True(
+            sources.Count > 120,
+            $"Only {sources.Count} .rvn files were found under {root}, which cannot be this repository. A walk that "
+            + "reads nothing reports a clean tree."
+        );
+
+        List<DocCommentRule.Finding> findings = [];
+        var blocks = 0;
+
+        foreach (var file in sources) {
+            var text = File.ReadAllText(file);
+            blocks += RavenDocCommentRule.Blocks(text);
+            findings.AddRange(RavenDocCommentRule.Check(file[(root.Length + 1)..], text));
+        }
+
+        Assert.True(
+            blocks > 1500,
+            $"Only {blocks} doc comment blocks were read out of {sources.Count} .rvn files. The run splitter is "
+            + "wrong, and a rule that reads no blocks reports no findings."
+        );
+
+        // ⚠ And the third way: a rule that reads every block and checks nothing. This is the pre-fix
+        // text of the staple that prompted #1076, so what says the rule fires is the rule firing on
+        // the defect it exists for rather than on a shape invented to suit it.
+        Assert.True(
+            RavenDocCommentRule.Check("fixture.rvn", SplicedShaderFixture).Count > 0,
+            "The Raven doc comment rule found nothing in the block that `Lift` was inserted into the middle of. The "
+            + "rule did not run — fix that before trusting the clean sweep below."
+        );
+
+        if (UpdateExemptions) {
+            RavenDocCommentExemptFile.WriteAllLines([
+                .. RavenDocCommentExemptFile.ReadAllLines().TakeWhile(line => line.StartsWith('#') || line.Trim().Length == 0),
+                .. findings.Select(finding => finding.File).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)
+            ]);
+
+            Log.Warning(
+                "{File} has been rewritten. Read the diff: this list is supposed to shrink.",
+                RootDirectory.GetRelativePathTo(RavenDocCommentExemptFile).ToUnixRelativePath()
+            );
+
+            return;
+        }
+
+        var (unexpected, stale) = DocCommentRule.Review(findings, exempt);
+
+        Assert.True(
+            unexpected.Count == 0,
+            $"{unexpected.Count} .rvn file(s) hold a doc comment block that describes a declaration other than the "
+            + "one it is attached to:\n"
+            + string.Join('\n', findings.Where(finding => unexpected.Contains(finding.File, StringComparer.Ordinal)))
+        );
+
+        Assert.True(
+            stale.Count == 0,
+            $"{stale.Count} file(s) in {RavenDocCommentExemptFile.Name} no longer hold one. Delete their lines — the "
+            + "list may only shrink: " + string.Join(", ", stale.Take(20))
+        );
+
+        Log.Information(
+            "Raven doc comments: all {Blocks} blocks in {Sources} shaders describe the declaration they are attached "
+            + "to, except in the {Exempt} exempt.",
+            blocks,
+            sources.Count,
+            exempt.Count
+        );
+    }
+
+    /// <summary>The <c>Blend.rvn</c> staple as it stood, so that a run can prove the Raven rule fires.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Verbatim from <c>ef0ee04f^</c>, not a reduction of it.</b> A reduction is a claim
+    ///     about what the defect looked like; this is what it looked like. <c>Combine</c>'s block
+    ///     ends mid-run and <c>Lift</c>'s begins on the next line with no <c>///</c> separator,
+    ///     which is the mark two spliced blocks leave and the only one available in prose.
+    /// </remarks>
+    const string SplicedShaderFixture = """
+        shader Blend {
+            /// The mode applied to two colours, alpha left alone.
+            ///
+            /// **Every mode has a neutral foreground, and that is what the suite reads them off.** Copy has
+            /// none by construction; multiply and divide are neutral at white, screen, add, subtract,
+            /// difference, exclusion and colour dodge at black, darken at white, lighten at black, colour
+            /// burn at white, overlay, hard light, soft light and signed add at mid-grey. ⚠ A mode
+            /// implemented with an operand swapped, a factor dropped or a `1 −` missing generally *keeps*
+            /// its distinguishing value at some point and loses its neutral, or the reverse — which is why
+            /// `TextureBlendDeviceTests` asserts both and not either.
+            /// A three-channel result back in the four lanes `Combine` answers in.
+            ///
+            /// ⚠ **The fourth lane of `Combine` is dead and this is where that is written down.** Both
+            /// `target.Store` calls in `Main` build their alpha out of `a.w`, `b.w` and `opacity` — never
+            /// out of `Combine`'s — and read the colour as `blended.xyz`.
+            func Lift(colour: float3, over: float4): float4 => float4(colour.x, colour.y, colour.z, over.w)
         }
         """;
 

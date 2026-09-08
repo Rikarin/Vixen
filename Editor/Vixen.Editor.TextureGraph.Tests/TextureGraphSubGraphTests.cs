@@ -449,4 +449,331 @@ public class TextureGraphSubGraphTests {
         // produced several.
         Assert.Contains(compiler.NodeImages, written => written.Node == used.Id);
     }
+
+    /// <summary>A published graph whose radius is an interface port with a declared default of 8.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An interface <em>port</em> and not an exposed parameter, which is the whole point.</b>
+    ///     A parameter is read out of the sub-graph node's settings by
+    ///     <c>TextureGraphParameters.Read</c>, and an expression written against one has folded since
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>. A port is decided by
+    ///     <c>SubGraphs.Flatten</c> out of <c>node.Values</c>, one layer below anything that can call
+    ///     Raven — <a href="https://github.com/Rikarin/Vixen/issues/1058">#1058</a>. The two look
+    ///     identical in a node inspector and are not the same mechanism.
+    /// </remarks>
+    static NodeGraphModel PublishedWithAPortForItsRadius() {
+        NodeGraphModel graph = new() { Name = "Highpass" };
+
+        graph.Interface.Add(new("Out", PortDirection.Output, PortKind.Image));
+        graph.Interface.Add(new("Radius", PortDirection.Input, PortKind.Float, [8f], ""));
+
+        // ⚠ Declared and left unwired inside, so that an expression written on it has a port to name
+        // and no number to become. A refusal that could only be provoked by inventing a port name
+        // would not distinguish "this port takes no number" from "this graph has no such port".
+        graph.Interface.Add(new("Source", PortDirection.Input, PortKind.Image));
+
+        var entry = graph.Add(SubGraphs.InputType);
+        var noise = graph.Add("Source/Noise");
+        var blur = graph.Add("Filters/Blur");
+        var exit = graph.Add(SubGraphs.OutputType);
+
+        graph.Connect(new(noise.Id, "Out"), new(blur.Id, "Input"));
+        graph.Connect(new(entry.Id, "Radius"), new(blur.Id, "Radius"));
+        graph.Connect(new(blur.Id, "Out"), new(exit.Id, "Out"));
+
+        return graph;
+    }
+
+    /// <summary>The same graph with a second scalar port, for counting compilations per node.</summary>
+    static NodeGraphModel PublishedWithTwoPorts() {
+        var graph = PublishedWithAPortForItsRadius();
+
+        graph.Interface.Add(new("Second", PortDirection.Input, PortKind.Float, [1f], ""));
+
+        return graph;
+    }
+
+    /// <summary>⚠ An expression on a sub-graph node's own port folds, against the graph it is written in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>This exact graph compiled clean and baked a blur of 8 before
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1058">#1058</a>, and was refused
+    ///         outright after it.</b> Neither was the answer: inlining decided an unfed interface
+    ///         input's value from <c>node.Values</c> alone, so a field that accepted Raven had nowhere
+    ///         to send it — <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a> is the
+    ///         seam that gives it somewhere, and the refusal is gone because the capability replaced
+    ///         it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The expression reads a parameter of the <em>containing</em> graph, and that is
+    ///         what makes this a test of the scope rather than of arithmetic.</b> A literal
+    ///         <c>32f</c> would fold identically under a resolver handed the wrong parameter list,
+    ///         under one handed none, and under a flattener that had learned to parse numbers — so
+    ///         the assertion would be satisfied by three implementations that are all wrong. Half of
+    ///         <c>Amount</c> can only be 32 if the value the containing graph's own knob carries
+    ///         reached the fold.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_expression_on_a_sub_graph_nodes_port_folds_against_the_containing_graphs_parameters() {
+        var (compiler, graph, used) = Containing(PublishedWithAPortForItsRadius());
+
+        compiler.Parameters.Add(new("Amount", TextureGraphParameterKind.Scalar, 64f, 0f, 256f));
+        used.SetText(TextureGraphExpressions.KeyOf("Radius"), "Amount * 0.5f");
+
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        var blur = compilation.Value.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+
+        Assert.Equal(32f, blur.Find("radius")!.Value.Value);
+    }
+
+    /// <summary>And the containing graph's <em>override</em> of that parameter reaches it too.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half that separates "the declarations reached the fold" from "the values did".</b>
+    ///     <see cref="An_expression_on_a_sub_graph_nodes_port_folds_against_the_containing_graphs_parameters" />
+    ///     is satisfied by a resolver that folds against every parameter's <em>default</em>, which is
+    ///     what <c>TextureGraphParameters.Read</c> answers when it is handed no overrides at all — so
+    ///     that test alone cannot see a resolver that never read <c>Arguments</c>.
+    /// </remarks>
+    [Fact]
+    public void A_host_override_of_that_parameter_reaches_the_fold() {
+        var (compiler, graph, used) = Containing(PublishedWithAPortForItsRadius());
+
+        compiler.Parameters.Add(new("Amount", TextureGraphParameterKind.Scalar, 64f, 0f, 256f));
+        compiler.Arguments = new Dictionary<string, string>(StringComparer.Ordinal) { ["Amount"] = "20" };
+        used.SetText(TextureGraphExpressions.KeyOf("Radius"), "Amount * 0.5f");
+
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        var blur = compilation.Value.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+
+        Assert.Equal(10f, blur.Find("radius")!.Value.Value);
+    }
+
+    /// <summary>⚠ A wire beats the expression, silently, exactly as it beats a number on the port.</summary>
+    /// <remarks>
+    ///     <b>The rule this replaces <c>TG0003</c> with.</b> Every port in this system takes its wire
+    ///     over anything written on it, and a diagnostic here would be a rule sub-graph nodes alone
+    ///     had. It is also the cost claim one layer down: the flattener never asks a resolver about a
+    ///     connected input, which is why <c>ExpressionCompilations</c> stays at zero here — a
+    ///     resolver that folded first and filtered afterwards would pass every other assertion in
+    ///     this file and fail this one.
+    /// </remarks>
+    [Fact]
+    public void A_wire_into_the_port_wins_over_the_expression_written_on_it() {
+        var (compiler, graph, used) = Containing(PublishedWithAPortForItsRadius());
+
+        compiler.Parameters.Add(new("Amount", TextureGraphParameterKind.Scalar, 64f, 0f, 256f));
+        used.SetText(TextureGraphExpressions.KeyOf("Radius"), "Amount * 0.5f");
+
+        // ⚠ The same graph twice, and the first half is what stops this being a test of a compiler
+        // that folded nothing at all. Unwired the expression costs one compilation; wired it costs
+        // none, and the difference is the wire.
+        compiler.Compile(graph);
+
+        Assert.Equal(1, compiler.ExpressionCompilations);
+
+        var constant = graph.Add("Source/Uniform");
+
+        graph.Connect(new(constant.Id, "Out"), new(used.Id, "Radius"));
+        compiler.Compile(graph);
+
+        Assert.Equal(0, compiler.ExpressionCompilations);
+    }
+
+    /// <summary>One Raven compilation per sub-graph node carrying an expression, not one per port.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two nodes and one field each is two; one node and two fields is one.</b> The pair is
+    ///     what makes this a claim about the batching rather than a count of something — a resolver
+    ///     asked once per port would answer 2 to both, and one asked once per graph would answer 1 to
+    ///     both. <c>Bind</c>'s own bound is measured by <c>TextureExpressionCostTests</c>; this is the
+    ///     one it does not cover, because these expressions are on nodes that no longer exist by the
+    ///     time <c>Collect</c> runs.
+    /// </remarks>
+    [Fact]
+    public void Each_sub_graph_node_carrying_an_expression_costs_one_compilation() {
+        var (compiler, graph, used) = Containing(PublishedWithTwoPorts());
+
+        compiler.Parameters.Add(new("Amount", TextureGraphParameterKind.Scalar, 64f, 0f, 256f));
+
+        used.SetText(TextureGraphExpressions.KeyOf("Radius"), "Amount * 0.5f");
+        used.SetText(TextureGraphExpressions.KeyOf("Second"), "Amount * 0.25f");
+
+        compiler.Compile(graph);
+
+        Assert.Equal(1, compiler.ExpressionCompilations);
+
+        var second = graph.Add("Library/Grunge");
+        var output = graph.Add("Output/Output");
+
+        graph.Connect(new(second.Id, "Out"), new(output.Id, "Input"));
+        second.SetText(TextureGraphExpressions.KeyOf("Radius"), "Amount * 0.5f");
+
+        compiler.Compile(graph);
+
+        Assert.Equal(2, compiler.ExpressionCompilations);
+    }
+
+    /// <summary>
+    ///     ⚠ A sub-graph node <em>inside</em> a compound folds against that compound's parameters,
+    ///     with that instance's overrides — which is the join nothing but this walk can make.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The reason <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a> is a
+    ///         seam and not a branch.</b> <c>Library/Outer</c> declares <c>Strength</c>, contains a
+    ///         <c>Library/Inner</c> node, and writes <c>Strength * 4f</c> on that node's
+    ///         <c>Radius</c>. The author's own graph declares no parameters at all, so a resolver
+    ///         that folded against the graph being compiled would report an undefined name; one that
+    ///         folded against the published graph's declared <em>defaults</em> would answer 16; only
+    ///         one handed <c>Library/Outer</c>'s parameter list <em>and</em> the settings of the node
+    ///         standing for this instance of it answers 40.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Three wrong implementations are each excluded by a different number here</b>, and
+    ///         that is deliberate: the version of this test that set <c>Strength</c> to its default
+    ///         would be satisfied by a resolver that never read a setting, which is exactly the
+    ///         defect <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a> was.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_sub_graph_node_inside_a_compound_folds_against_that_compounds_scope() {
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        TextureGraphLibrary library = new();
+
+        library.Publish("Library/Inner", PublishedWithAPortForItsRadius(), [], registry);
+
+        NodeGraphModel outer = new() { Name = "Outer" };
+
+        outer.Interface.Add(new("Out", PortDirection.Output, PortKind.Image));
+
+        var inner = outer.Add("Library/Inner");
+        var exit = outer.Add(SubGraphs.OutputType);
+
+        outer.Connect(new(inner.Id, "Out"), new(exit.Id, "Out"));
+        inner.SetText(TextureGraphExpressions.KeyOf("Radius"), "Strength * 4f");
+
+        library.Publish(
+            "Library/Outer",
+            outer,
+            [new("Strength", TextureGraphParameterKind.Scalar, 4f, 0f, 64f)],
+            registry
+        );
+
+        NodeGraphModel graph = new();
+        var used = graph.Add("Library/Outer");
+        var output = graph.Add("Output/Output");
+
+        graph.Connect(new(used.Id, "Out"), new(output.Id, "Input"));
+        used.SetText("Strength", "10");
+
+        TextureGraphCompiler compiler = new(registry) {
+            BaseWidth = 128,
+            BaseHeight = 128,
+            Seed = 9,
+            SubGraphSource = library
+        };
+
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        var blur = compilation.Value.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+
+        Assert.Equal(40f, blur.Find("radius")!.Value.Value);
+    }
+
+    /// <summary>An expression naming a port the published graph has not got is still refused.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What survives of <c>TG0003</c>, reported as <c>TG0016</c> because it is the same
+    ///     complaint <c>Collect</c> makes about an atomic node's port.</b> A field whose value nothing
+    ///     can read should not compile, and two ids for one meaning is what
+    ///     <c>TextureDiagnosticIdTests</c> exists to prevent.
+    /// </remarks>
+    [Fact]
+    public void An_expression_naming_a_port_the_published_graph_has_not_got_is_refused() {
+        var (compiler, graph, used) = Containing(PublishedWithAPortForItsRadius());
+
+        used.SetText(TextureGraphExpressions.KeyOf("Diameter"), "32f");
+
+        var compilation = compiler.Compile(graph);
+
+        var refusal = Assert.Single(
+            compilation.Diagnostics,
+            diagnostic => string.Equals(diagnostic.Id, "TG0016", StringComparison.Ordinal)
+        );
+
+        Assert.Equal(used.Id, refusal.Node);
+        Assert.Equal("Diameter", refusal.Port);
+        Assert.Equal(NodeSeverity.Error, refusal.Severity);
+        Assert.False(compilation.Succeeded);
+    }
+
+    /// <summary>And one on a port that carries an image, which no number could stand for.</summary>
+    [Fact]
+    public void An_expression_on_a_published_graphs_image_port_is_refused() {
+        var (compiler, graph, used) = Containing(PublishedWithAPortForItsRadius());
+
+        used.SetText(TextureGraphExpressions.KeyOf("Source"), "32f");
+
+        var compilation = compiler.Compile(graph);
+
+        var refusal = Assert.Single(
+            compilation.Diagnostics,
+            diagnostic => string.Equals(diagnostic.Id, "TG0016", StringComparison.Ordinal)
+        );
+
+        Assert.Equal("Source", refusal.Port);
+        Assert.Contains("Image", refusal.Message, StringComparison.Ordinal);
+        Assert.False(compilation.Succeeded);
+    }
+
+    /// <summary>
+    ///     The same graph, with a number on the port, bakes it — so the refusal is about the
+    ///     expression and not about the port.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>32 and not 8, which is what says the port itself works.</b> The sub-graph node's
+    ///     <c>Values</c> reach the inlined <c>Blur</c> through <c>SubGraphs.Flatten</c>'s
+    ///     interface-input constant; it is only the <em>expression</em> key beside them that nothing
+    ///     reads. Asserting the declared default here instead would pass over a flattener that had
+    ///     stopped carrying the port at all.
+    /// </remarks>
+    [Fact]
+    public void The_same_graph_bakes_when_the_port_carries_a_number() {
+        var (compiler, graph, used) = Containing(PublishedWithAPortForItsRadius());
+
+        used.SetValue("Radius", 32f);
+
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        var blur = compilation.Value.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+
+        Assert.Equal(32f, blur.Find("radius")!.Value.Value);
+    }
+
+    /// <summary>An empty expression field is not one, so clearing the box is not a refusal.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The failure mode a refusal invites, and <c>Collect</c> already had to answer it.</b>
+    ///     A panel that wrote the empty string back on every edit would turn every cleared field into
+    ///     a complaint asking the author to do the thing they have just done — which is a refusal
+    ///     nobody can act on, and the reason this is an assertion rather than a remark.
+    /// </remarks>
+    [Fact]
+    public void An_empty_expression_field_on_a_sub_graph_node_is_not_refused() {
+        var (compiler, graph, used) = Containing(PublishedWithAPortForItsRadius());
+
+        used.SetText(TextureGraphExpressions.KeyOf("Radius"), "   ");
+
+        Assert.Empty(compiler.Compile(graph).Diagnostics);
+    }
 }

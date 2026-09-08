@@ -37,6 +37,40 @@ public sealed record MaterialBakeRecord {
     /// </remarks>
     public AssetId SourceAsset { get; init; }
 
+    /// <summary>Which of the source's texture sets produced this material, where it has more than one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The one fact that distinguishes two materials baked from one layer stack</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1066">#1066</a>. A stack writes one
+    ///         <c>.vxmat</c> per texture set, and every other member of this record is identical
+    ///         across them: same source, same asset, same adapter, and a stack exposes no parameters.
+    ///         So <c>Hull_Body.vxmat.meta</c> and <c>Hull_Trim.vxmat.meta</c> recorded
+    ///         character-identical blocks, and the only thing telling them apart was the file name —
+    ///         which is exactly the identity <see cref="SourceAsset" /> exists because a file name is
+    ///         <em>not</em> (<a href="https://github.com/Rikarin/Vixen/issues/681">#681</a>).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its own member rather than an entry under <see cref="Parameters" />.</b> That
+    ///         member's documented meaning is the graph's exposed parameters, and a
+    ///         <c>texturing.parameter.textureSet</c> key in a sidecar is a fact nobody reading this
+    ///         type would predict.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Empty is the ordinary answer and does not mean "one set".</b> A graph bake has no
+    ///         texture sets at all and a folder bake has no source to have them; both leave this
+    ///         empty and the key is then absent rather than blank, which is
+    ///         <see cref="Adapter" />'s rule for the same reason — "this bake did not say" and "this
+    ///         bake had no set" must not be the same sidecar.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is deliberately <em>not</em> part of <see cref="MaterialProvenance.KeyOf" />.</b>
+    ///         That key exists to stop a <em>different</em> source adopting a name, and two sets of
+    ///         one stack are the same source — so the shared key is correct rather than a collision,
+    ///         and narrowing it would change which sets a re-bake is allowed to overwrite.
+    ///     </para>
+    /// </remarks>
+    public string Set { get; init; } = string.Empty;
+
     /// <summary>The graph's exposed parameters, as they stood.</summary>
     public IReadOnlyDictionary<string, string> Parameters { get; init; } =
         new Dictionary<string, string>(StringComparer.Ordinal);
@@ -73,6 +107,13 @@ public static class MaterialProvenance {
 
     /// <summary>The key naming the asset that produced them, where there is one.</summary>
     public const string SourceAssetKey = "texturing.sourceAsset";
+
+    /// <summary>The key naming which of the source's texture sets produced this material.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Absent rather than blank where the bake had no set</b> — see
+    ///     <see cref="MaterialBakeRecord.Set" />, and <see cref="AdapterKey" /> for the same rule.
+    /// </remarks>
+    public const string SetKey = "texturing.set";
 
     /// <summary>The key listing which files were written.</summary>
     public const string OutputsKey = "texturing.outputs";
@@ -214,6 +255,13 @@ public static class MaterialProvenance {
 
         if (!record.SourceAsset.IsEmpty) {
             written[SourceAssetKey] = record.SourceAsset.ToString();
+        }
+
+        // ⚠ The same rule, and the same reason — #1066. A graph bake has no texture sets and a folder
+        // bake has no source to have them, so an absent key is "this bake had no set" and a blank one
+        // would be "this bake had a set called nothing".
+        if (record.Set.Length > 0) {
+            written[SetKey] = record.Set;
         }
 
         // ⚠ Written even when it is empty is not the rule here: an adapter nobody recorded is absent

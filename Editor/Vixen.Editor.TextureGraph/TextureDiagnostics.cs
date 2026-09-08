@@ -27,11 +27,15 @@ namespace Vixen.Editor.TextureGraph;
 ///         inventing a twenty-second id in passing.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>TG0003</c> and <c>TG0007</c> have never been used.</b> Measured with
-///         <c>git log -S</c> over the whole history rather than assumed: the numbering has had those
-///         two holes in it since the ids were first written, so neither is a retired meaning and
-///         either may be taken by whatever needs one next. There is deliberately no
-///         <c>TG0022</c>-shaped "next free id" member — a constant somebody has to remember to
+///         ⚠ <b><c>TG0003</c> and <c>TG0007</c> are both free, and <c>TG0003</c> has been twice.</b>
+///         Measured with <c>git log -S</c> over the whole history rather than assumed: the numbering
+///         had those two holes in it since the ids were first written, so neither was ever a retired
+///         meaning. <c>TG0003</c> was taken for one batch by "an expression on a sub-graph port is
+///         refused" and given back when <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a>
+///         made that expression fold — what survives of the rule is the complaint
+///         <see cref="ExpressionOnAPortThatTakesNone" /> already made about an atomic node's port,
+///         and a second id for one meaning is what this file exists to prevent. There is deliberately
+///         no <c>TG0023</c>-shaped "next free id" member — a constant somebody has to remember to
 ///         increment is the defect one level up.
 ///     </para>
 ///     <para>

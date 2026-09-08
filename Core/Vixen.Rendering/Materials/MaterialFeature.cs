@@ -39,8 +39,62 @@ public interface IMaterialFeature {
     /// </remarks>
     string ShaderName { get; }
 
+    /// <summary>Where in the chain this feature has to run for the ones after it to be right.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see cref="MaterialFeatureStage.Surface" /> for every feature that exists today, which
+    ///         is why it has a default: a feature that reads the coordinate and writes a channel is
+    ///         correct wherever the author put it, and the whole chain is written that way on purpose.
+    ///     </para>
+    ///     <para>
+    ///         A property rather than a marker interface because a feature's shader can be
+    ///         <em>data</em> — <see cref="GraphSurfaceFeature" /> takes its name from a graph — so a
+    ///         graph that emits a coordinate transform has to be able to say so without being a
+    ///         different C# type.
+    ///     </para>
+    /// </remarks>
+    MaterialFeatureStage Stage => MaterialFeatureStage.Surface;
+
     /// <summary>Writes this feature's parameters, and fills any slots of its own.</summary>
     void Compile(MaterialCompilationContext context);
+}
+
+/// <summary>
+///     When a feature has to run, relative to the features that read what it writes.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <strong>The chain has exactly one ordering rule and this is it.</strong> Every feature in
+///         the library reads <c>d.uv</c> and writes a channel, so the order they run in is the
+///         author's business and nothing here has an opinion — <c>CompositeSurface</c> calls its eight
+///         slots in the order <see cref="MaterialCompiler" /> filled them, which is the order the
+///         material's <see cref="MaterialDescriptor.Features" /> list happens to be in.
+///     </para>
+///     <para>
+///         ⚠ <b>A feature that writes the coordinate inverts that, and the failure is a plausible
+///         frame.</b> Parallax occlusion reads <c>d.uv</c> and writes it back displaced; placed third,
+///         it displaces the coordinate the two features before it already sampled at, so half the
+///         material is parallaxed and half is not — no device reports anything, and the surface merely
+///         looks wrong in a way that gets blamed on the map. See
+///         <a href="https://github.com/Rikarin/Vixen/issues/1065">#1065</a>, which is the feature this
+///         was written ahead of.
+///     </para>
+///     <para>
+///         <b>Written before the first feature that needs it, deliberately.</b> A rule added after the
+///         feature is a rule the feature was already shipped without.
+///     </para>
+/// </remarks>
+public enum MaterialFeatureStage {
+    /// <summary>Rewrites the coordinate the rest of the chain samples at, so it runs before them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not a hint.</b> <see cref="MaterialCompiler" /> refuses a material that puts one of
+    ///     these behind a <see cref="Surface" /> feature rather than quietly moving it, because a slot
+    ///     the compiler reordered is a material whose file no longer says what runs.
+    /// </remarks>
+    Coordinate,
+
+    /// <summary>Contributes to the surface at the coordinate it was handed. Every feature today.</summary>
+    Surface
 }
 
 /// <summary>
@@ -89,7 +143,18 @@ public enum MaterialDiagnosticId {
     ///     texel and therefore the whole surface after normalisation. See
     ///     <see cref="TexturedMaterialLayersFeature.PaintedChannels" />.
     /// </remarks>
-    UnpaintedLayer
+    UnpaintedLayer,
+
+    /// <summary>A feature that rewrites the coordinate is behind one that samples at it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An error, and the only ordering the compiler has an opinion about.</b> Every other
+    ///     order is the author's — a feature reads the surface as the previous one left it, and which
+    ///     contribution wins is what the list is for. A <see cref="MaterialFeatureStage.Coordinate" />
+    ///     feature is the one shape that cannot be expressed that way: the features before it have
+    ///     already sampled, so what it produces is half a parallaxed surface, on every device, with
+    ///     nothing reported. See <see cref="MaterialFeatureStage" />.
+    /// </remarks>
+    CoordinateFeatureOutOfOrder
 }
 
 /// <summary>One thing the compiler has to say about a material.</summary>

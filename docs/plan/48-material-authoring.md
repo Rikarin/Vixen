@@ -305,6 +305,18 @@ and belongs in `EditorShaders` with its `--source` closure — and the walk's fl
 `EditorSourceFloor`, which exists so a walk that has gone blind fails rather than deriving an empty
 list and printing success.
 
+⚠ **A second gate reaches editor Raven now, and it is the one this document's own kernels tripped.**
+`CheckShaders` answers "did the committed module drift"; nothing answered "does this doc block
+describe the function it sits above", because `CheckDocComments` parses C#
+([#1076](https://github.com/Rikarin/Vixen/issues/1076)). The commit that quoted that blind spot as a
+warning then inserted a function between `Blend.Combine`'s doc block and `Combine` — an author who
+knew about the defect, was looking for it, and shipped it in the same edit. `RavenDocCommentRule`
+closes it for all 176 committed `.rvn`, ⚠ and the rule #1076 asked for was **measured and refused**:
+"a block whose prose names a different `func` in the same file" reports 49 findings on this tree and
+catches one of the three defects it was written for. What replaced it reads where a block *ends*, and
+found eight — two of them library functions whose documentation had been sitting on a neighbour for
+months.
+
 ⚠ **The mesh-map bakers are the exception and they stay in `Core/`** — `MapBaker` is already there, it
 is CPU arithmetic with no device in it, and its own guide says it runs at import time inside a content
 build. Moving it out to keep this document tidy would be the wrong direction.
@@ -698,9 +710,9 @@ Three rules the whole catalogue obeys:
 | **Gradient** | image | linear · radial · angular · reflected, angle, centre, ramp | The ramp is `Vixen.Ui.Controls.Advanced`'s `Gradient`, and ⚠ this is **`GradientEditor`'s first production consumer** — `overview.md:270` records that it has none, and a grep confirms it: the control, its tests and a string table |
 | **Shape** | grey | disc · square · triangle · paraboloid · gaussian · cone · half-bell · gradation, scale, rotation, falloff | The splatter's usual pattern input. Analytic rather than rasterised, so it is exact at every resolution — which is half of D8's scale-invariance criterion passing for free |
 | **Noise** | grey **+ cell id** | basis: value · gradient · worley · white; octaves, lacunarity, gain, **seed**, tiling | ⚠ One kernel with the basis as a **uniform** and a branch — this row said *permutation* from the day the document was written and [#638](https://github.com/Rikarin/Vixen/issues/638) is where the reversal is argued. A texture-graph plan has nowhere to put a permutation value, so one written here would take its `.rvn` default in every op for ever, silently; and the branch is the better answer anyway, because four bases times three storable formats is twelve modules for a branch every invocation in a bandwidth-bound dispatch takes the same way. `TextureKernelLanguageSeamTests` refuses a `[Permutation]` in any kernel, so the decision is held rather than remembered. Worley also outputs F1, F2 and a **cell index** — which is what a splatter wants and what saves a flood fill downstream |
-| **Checker** | grey | scale, rotation, offset | `ComputeColor.Checker` has one already, for the shader graph — and `Checker.rvn` **transcribes** its fold rather than calling it, for [#635](https://github.com/Rikarin/Vixen/issues/635)'s reason. The copy is held: the gate reads `mod(cell.x + cell.y, 2f)` out of the library and requires the kernel to contain it |
+| **Checker** | grey | scale, rotation, offset | `ComputeColor.Checker` has one already, for the shader graph — and `Checker.rvn` **transcribes** its fold rather than calling it, and no longer because it cannot — `ComputeColor.Checker` takes a uv and a scale and has no rotation or offset, so the call would pass the identity for its only parameter ([#1077](https://github.com/Rikarin/Vixen/issues/1077)). The copy is held: the gate reads `mod(cell.x + cell.y, 2f)` out of the library and requires the kernel to contain it |
 | **Text** | grey | string, font, size, alignment, tracking | ⚙️ **Half built.** `TextureText.Rasterize` shapes and fills the string through the `Outlines` path and `TextureUploads.AddCoverage` puts it on the device — closed on an adapter, texel for texel, in `TextureTextDeviceTests`. ⚠ **There is still no node, and the reason recorded here has expired.** It said a node cannot allocate an *external* image ([#732](https://github.com/Rikarin/Vixen/issues/732), shared with `Bitmap`, `Gradient`, `Curve` and `Gradient Map`). That closed: `TextureEmitter.External` exists and all four of those nodes were written on it. So `Text` is now simply **unwritten** rather than blocked, which is a smaller and more actionable thing to say — and worth saying, because a row that keeps citing a closed issue is how work stays unclaimed. ⚠ And it is **not** a kernel — [#687](https://github.com/Rikarin/Vixen/issues/687) — because a compute kernel has no rasteriser and cannot reach a font |
-| **Svg Path** | grey | path data (`d`), fill rule, scale | ⛔ **Refused here, and the reason that was written down first is wrong.** See the measurement below |
+| **Svg Path** | grey | path data (`d`), fill rule, scale | ⛔ **Refused here on one remaining reason of the three first written down.** The closure measurement was wrong, the fill rule is now implemented, and what is left is a compile surface — see below |
 
 ⚠ **`Svg Path`'s refusal, re-derived — and the closure argument it rested on does not survive.**
 Batch 5 refused the node on a measurement: `Core/Vixen.Ui`'s project closure at 20 against
@@ -731,10 +743,21 @@ five-case switch, and `GlyphRasterizer` then fills it exactly as `Text` above is
   `Vixen.Ui` buys `UiElement`, `Signal`, styling, layout and input inside an assembly whose job is a
   compute plan, and [#720](https://github.com/Rikarin/Vixen/issues/720) exists to make this assembly
   *less* of a UI assembly rather than more.
-- **Fill rule.** § 4.1 lists one, and `GlyphRasterizer` is non-zero winding only — deliberately, with
-  a reason about counters in an `o` that fonts depend on. Even-odd means changing the only rasteriser
-  in `Vixen.Ui.Text` to take a rule, which moves a `CheckApi` baseline in a `Core/` assembly to serve
-  one editor caller.
+- ⚠ **Fill rule — decided, and it is no longer a blocker.** This read: *§ 4.1 lists one, and
+  `GlyphRasterizer` is non-zero winding only — deliberately, with a reason about counters in an `o`
+  that fonts depend on. Even-odd means changing the only rasteriser in `Vixen.Ui.Text` to take a
+  rule, which moves a `CheckApi` baseline in a `Core/` assembly to serve one editor caller.* The
+  rasteriser has grown the rule. `GlyphRasterizer.Rasterize` takes a `FillRule` as a trailing
+  parameter defaulting to `NonZero`, so every existing caller is a font and says so by saying
+  nothing, and the `CheckApi` baseline moved by five lines. **The reason for paying that** is that
+  `fill-rule="evenodd"` is a thing a path author writes and means: a rasteriser that cannot express
+  it does not refuse an SVG, it silently draws a different shape. The counters argument was never an
+  argument against the option — both rules agree about a counter exactly, which is why the tests that
+  separate them use two *same-wound* contours and why one of them asserts the agreement.
+  ⚠ And a claim written while doing it was refuted by its own sabotage: even-odd's parity cannot be
+  distinguished from `winding & 1` by any outline, because `Cross` adds ±1 and the parity of such a
+  sum is the parity of its length. So **one** blocker remains on `Svg Path`, not two: the compile
+  surface above.
 - ⚠ **The third reason was [#732](https://github.com/Rikarin/Vixen/issues/732) and it has gone.** It
   read: *until an external image can be allocated by a node, an `Svg Path` rasteriser is a second
   finished thing nothing calls.* A node can allocate one now, so the refusal rests on the two reasons
@@ -756,7 +779,7 @@ the stack. [#753](https://github.com/Rikarin/Vixen/issues/753) carries this.
 | **Levels** | in black / white / gamma, out black / white, per channel | |
 | **Curve** | a spline per channel | `CurveEditor` exists and already has consumers — `AnimationClipView`, the AI views |
 | **Gradient Map** | grey → colour through a ramp | The `Gradient` control again |
-| **HSL** | hue rotate, saturation, lightness | `ComputeColor.HueRotate` has the hue rotation, and `Hsl.rvn` **transcribes** it rather than importing it — a kernel binds against nothing but itself ([#635](https://github.com/Rikarin/Vixen/issues/635)). ⚠ It is one of **thirteen** such copies across five kernels, and the other twelve are `Random.rvn`'s hash in `Noise`, `FloodFill`, `Splatter` and `TileSampler`; `TextureKernelLanguageSeamTests` now compares every one against its original and refuses a sixth kernel that copies without being added to the table |
+| **HSL** | hue rotate, saturation, lightness | `Hsl.rvn` **calls** `ComputeColor.HueRotate`. ⚠ **It transcribed it for four batches and the stated reason was false**: a kernel was thought to bind against nothing but itself, when `RavenEffectCompiler.FromSources` takes a *set* of texts and makes them one compilation — the evaluator was simply passing one. `TextureKernelPrelude` supplies the library to every kernel compilation, and eleven of the thirteen copies were deleted rather than gated ([#635](https://github.com/Rikarin/Vixen/issues/635)). Three survive, each blocked on a library *signature* rather than on imports ([#1077](https://github.com/Rikarin/Vixen/issues/1077)) |
 | **Grayscale Conversion** | weights, default Rec. 709 | ⚠ A weight set that does not sum to one is a brightness change nobody asked for, so the node normalises and says so |
 | **Invert** | per channel | |
 | **Channel Shuffle** | per output channel, a source channel of one of two inputs | |
@@ -1052,11 +1075,18 @@ about.
 evaluates a preview map through `LayerStackPreview` and never reaches `MaterialBake`, and a stack's
 usages come from which channels its layers write rather than from `Output` nodes, so it is work and
 not a second call site ([#1029](https://github.com/Rikarin/Vixen/issues/1029) — ⚠ untracked until
-then, because M7 was closed). And `vixen texture bake --graph` needs a graphics device the CLI does
-not create — a
-refusal, not a Null-device fallback ([#1020](https://github.com/Rikarin/Vixen/issues/1020)). The
-editor verb also cannot force over a painted-over map, because a command handler carries no argument
-([#1019](https://github.com/Rikarin/Vixen/issues/1019)).
+then, because M7 was closed). The editor verb also cannot force over a painted-over map, because a
+command handler carries no argument ([#1019](https://github.com/Rikarin/Vixen/issues/1019)).
+
+⚠ **And the CLI's `--graph` landed 2026-09-08** ([#1020](https://github.com/Rikarin/Vixen/issues/1020)).
+`Tools/Vixen.Cli` references `Vixen.Editor.TextureGraph` and `Vixen.Graphics.Vulkan` and **not**
+`Vixen.Graphics.Null`, which is what makes "a refusal, not a Null-device fallback" a fact about the
+package rather than a branch — a test reads the shipped assemblies and holds it. The bake is asserted
+on a texel and not on an exit code, because the failure this refusal exists to prevent also exits 0.
+What is owed from it is narrower and filed: a `Source/Bitmap` naming a project asset is refused,
+because resolving one is 300 lines inside the texturing plugin and reads a live session's unsaved
+paint canvases ([#1087](https://github.com/Rikarin/Vixen/issues/1087)), and the `Assets/Compounds`
+convention is now spelled in two assemblies ([#1088](https://github.com/Rikarin/Vixen/issues/1088)).
 
 ### M6 — Mesh maps · 1.25 EM
 
@@ -1081,6 +1111,26 @@ name* in `LayerStackGraph`; the refusal and its tripwire test are deleted and `P
 `Space/Triplanar` through two `Source/Mesh Map` reads, with planar the same kernel under one-hot
 weights rather than a second file. [#1010](https://github.com/Rikarin/Vixen/issues/1010) is
 `Analysis/Colour Select` over the `id` bake this doc already had read *nearest* for it.
+
+⚠ **A projection that landed without the knob it needs is not the same as a projection that landed.**
+`LayerProjection.Planar` is "one planar projection along an axis" and the axis was in no file at all,
+so `LayerStackGraph.Project` wrote `Y` for every planar layer ever authored — the right default,
+chosen by the compiler ([#1032](https://github.com/Rikarin/Vixen/issues/1032)). `LayerAsset.PlanarAxis`
+is that member, and it is a member rather than three more enum entries because splitting `Planar`
+renumbers a file people merge. ⚠ Its default is deliberately **not** the enum's zero: `Y` as zero
+makes "the author chose y" and "the author said nothing" one state, so an axis set where it means
+nothing could not be warned about.
+
+⚠ **And the same batch closed the other half of § D10's fourth filter kind.** A filter layer naming a
+published compound could not set that compound's *settings* — `LayerAsset` had the numbers dictionary
+and not the strings one, so a compound whose behaviour is chosen by a string took its default,
+silently ([#1079](https://github.com/Rikarin/Vixen/issues/1079)). `LayerAsset.Texts` is
+`MaskEffectAsset.Texts` on a layer, read on the `FilterNode` path only so the five enum members go on
+compiling to exactly the ops the explode differential photographs. ⚠ The panel had no row for any of
+this at all — no view in the tree read `LayerFilterKind`, so every filter an artist added was a
+`Colour/Levels` on its defaults for ever ([#1078](https://github.com/Rikarin/Vixen/issues/1078)); the
+row is now a picker for which of the two names the filter, and switching to a named node seeds the
+path with the type the enum already compiled to, so the spelling changes and the picture does not.
 
 ⚠ **The selection mask matches a colour rather than an index, and the choice was forced.** `MapBaker`
 paints island *n* with hue `frac(n·φ)` and applies it at the last moment, so the index is not in the
@@ -1506,8 +1556,8 @@ forgotten.
 | Planar symmetry | — | ✅ | ✅ | ● M9 |
 | Radial symmetry | — | ◐ | ✅ 2026 | 🕓 |
 | Stroke smoothing / lazy mouse | — | ✅ | ✅ 2026 | ● M9 |
-| Curve and path strokes | — | ◐ | ✅ 2026 | ● M9 |
-| Brush alphas and presets | — | ✅ | ✅ | ● M9 |
+| Curve and path strokes | — | ◐ | ✅ 2026 | ◐ M9 — the **straight** half landed and cost nothing: `BrushStroke.MoveTo` already walks the segment, so a shift-click line is two `MoveAll` calls and one undo entry. A *curve* needs points sampled along it, and nothing in the plugin authors control points — [#1084](https://github.com/Rikarin/Vixen/issues/1084) |
+| Brush alphas and presets | — | ✅ | ✅ | 🕓 M9 — ⚠ `PaintBrush.Alpha` and `Rotation` exist and **neither has a setter or a control**, and they are one feature: `TerrainBrush.WeightAt` ignores a rotation on a circular kernel, so a rotation knob without a mask moves nothing. There is no production `IBrushMask` anywhere — [#1083](https://github.com/Rikarin/Vixen/issues/1083) |
 | Tablet pressure and tilt | — | ✅ | ✅ | ◐ M9 — pressure needs a platform input path that does not exist; named here rather than assumed |
 | Particle brushes / dynamic strokes | — | ✅ | ? | ✖ a simulation inside a brush; not planned |
 | UV reprojection when the mesh changes | — | ✅ | ✅ | 🕓 **a real gap**, and the one an artist notices on day two of a production |

@@ -34,6 +34,89 @@ public interface ISubGraphSource {
     bool TryGet(string type, [NotNullWhen(true)] out NodeGraphModel? graph);
 }
 
+/// <summary>Which graph a sub-graph node was written in, and what that graph's instance was given.</summary>
+/// <param name="Type">
+///     The node-type path of the graph the sub-graph node is written in, or the empty string for the
+///     author's own graph. It is what a front end looks a parameter list up by.
+/// </param>
+/// <param name="Expansion">
+///     Which expansion that graph is — <see cref="NodeOrigin.Expansion" />'s number — or <c>0</c> for
+///     the author's own.
+/// </param>
+/// <param name="Settings">
+///     What the sub-graph node <em>that</em> graph came out of was given, or empty for the author's
+///     own graph. Two instances of one published graph are two of these.
+/// </param>
+/// <param name="Blame">
+///     The node a complaint about a value resolved in this scope should name: the outermost sub-graph
+///     node, which is the one the author has on their canvas.
+/// </param>
+/// <remarks>
+///     ⚠ <b>The enclosing scope and not the sub-graph being expanded.</b> A value written on a
+///     sub-graph node's port is written where the <em>node</em> is, so what it may read is the
+///     containing graph's parameters with the containing expansion's overrides — which is the join
+///     that made <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a> a seam rather than a
+///     branch: a compound two levels down is neither the author's graph nor a published graph's
+///     declared defaults, and only this walk knows which one it is.
+/// </remarks>
+public sealed record SubGraphScope(
+    string Type,
+    int Expansion,
+    IReadOnlyDictionary<string, string> Settings,
+    NodeId Blame
+);
+
+/// <summary>Who to ask what an unfed sub-graph input is worth, when it is not a literal.</summary>
+/// <remarks>
+///     <para>
+///         <b>Inlining decides a port's value mid-walk, and until this interface that decision could
+///         only read numbers</b> — <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a>.
+///         <see cref="SubGraphs.Flatten(NodeGraphModel,ISubGraphSource,out IReadOnlyList{NodeDiagnostic})" />
+///         took an unfed interface input's value from <c>node.Values</c> or the port's declared
+///         default, so anything a containing graph wanted to <em>compute</em> about that expansion had
+///         nowhere to arrive. Folding could not simply be moved earlier: a sub-graph node nested
+///         inside a compound is written against that compound's parameters with that expansion's
+///         overrides, and both are discovered by this walk.
+///     </para>
+///     <para>
+///         ⚠ <b>The implementation is asked which keys it claims rather than being handed a
+///         spelling.</b> A <c>Texts</c> key beginning <c>=</c> is a Raven expression in
+///         <c>Vixen.Editor.TextureGraph</c> and nowhere else; teaching this assembly that character
+///         would make one front end's convention the graph model's. <see cref="Claims" /> is what
+///         keeps it where it belongs, and what lets a second front end adopt the seam without
+///         agreeing about the character.
+///     </para>
+///     <para>
+///         ⚠ <b>Only unfed inputs are offered.</b> A wire beats a value written on the port, exactly
+///         as it beats a number typed into one, so a port that is connected is never resolved — which
+///         is also what stops an implementation paying to compute a value nothing would read.
+///     </para>
+/// </remarks>
+public interface ISubGraphValues {
+    /// <summary>Whether a key written on a sub-graph node holds a value for one of its inputs.</summary>
+    /// <param name="port">The sub-graph's interface input, as the node draws it.</param>
+    /// <param name="key">One key of the sub-graph node's own <see cref="GraphNode.Texts" />.</param>
+    /// <returns><see langword="true" /> if that key is this port's value.</returns>
+    bool Claims(PortDefinition port, string key);
+
+    /// <summary>What the claimed keys of one sub-graph node are worth.</summary>
+    /// <param name="scope">The graph the sub-graph node is written in — see <see cref="SubGraphScope" />.</param>
+    /// <param name="claimed">The claimed text, by the interface input it belongs to.</param>
+    /// <returns>
+    ///     A value per port that could be resolved. A port left out keeps whatever the inlining would
+    ///     otherwise have given it, which is the number typed on the node or the port's default.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>One call per sub-graph node rather than one per port</b>, because the front end this
+    ///     was built for compiles a Raven source per call and a node with four expression fields on it
+    ///     should be one compilation and not four.
+    /// </remarks>
+    IReadOnlyDictionary<string, float[]> Resolve(
+        SubGraphScope scope,
+        IReadOnlyDictionary<string, string> claimed
+    );
+}
+
 /// <summary>Sub-graphs held in memory, keyed by the node-type path that stands for each.</summary>
 public sealed class SubGraphLibrary : ISubGraphSource {
     readonly Dictionary<string, NodeGraphModel> graphs = new(StringComparer.Ordinal);
@@ -412,12 +495,19 @@ public static class SubGraphs {
     ///         down to every port the entry node fed is what keeps a sub-graph that was dropped in and
     ///         not wired up doing what the graph it stands for does.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And that value is a literal only when nobody is asked for a better one.</b> The
+    ///         overload taking an <see cref="ISubGraphValues" /> offers each unfed input to a front
+    ///         end first, in the scope the sub-graph node was written in — which is what lets an
+    ///         expression on a published graph's port mean something, and is a decision that cannot
+    ///         be made after the walk because the node carrying it is gone by then.
+    ///     </para>
     /// </remarks>
     public static NodeGraphModel Flatten(
         NodeGraphModel graph,
         ISubGraphSource source,
         out IReadOnlyList<NodeDiagnostic> diagnostics
-    ) => Flatten(graph, source, out diagnostics, out _);
+    ) => Flatten(graph, source, null, out diagnostics, out _);
 
     /// <inheritdoc cref="Flatten(NodeGraphModel,ISubGraphSource,out IReadOnlyList{NodeDiagnostic})" />
     /// <param name="graph">The graph.</param>
@@ -429,11 +519,28 @@ public static class SubGraphs {
         ISubGraphSource source,
         out IReadOnlyList<NodeDiagnostic> diagnostics,
         out NodeGraphInlining inlining
+    ) => Flatten(graph, source, null, out diagnostics, out inlining);
+
+    /// <inheritdoc cref="Flatten(NodeGraphModel,ISubGraphSource,out IReadOnlyList{NodeDiagnostic})" />
+    /// <param name="graph">The graph.</param>
+    /// <param name="source">Where sub-graphs are found.</param>
+    /// <param name="values">
+    ///     Who to ask what an unfed interface input is worth, or <see langword="null" /> for the
+    ///     literals-only inlining this had before <see cref="ISubGraphValues" /> existed.
+    /// </param>
+    /// <param name="diagnostics">Everything that had to be dropped, in the order it was found.</param>
+    /// <param name="inlining">Which inlined node came out of which sub-graph node.</param>
+    public static NodeGraphModel Flatten(
+        NodeGraphModel graph,
+        ISubGraphSource source,
+        ISubGraphValues? values,
+        out IReadOnlyList<NodeDiagnostic> diagnostics,
+        out NodeGraphInlining inlining
     ) {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(source);
 
-        var flattener = new Flattener(source);
+        var flattener = new Flattener(source, values);
         var result = flattener.Run(graph);
 
         diagnostics = flattener.Diagnostics;
@@ -646,7 +753,10 @@ public static class SubGraphs {
     }
 
     /// <summary>The inlining, which is one walk per graph with a shared accumulator.</summary>
-    sealed class Flattener(ISubGraphSource source) {
+    sealed class Flattener(ISubGraphSource source, ISubGraphValues? values) {
+        static readonly SubGraphScope Outermost =
+            new("", 0, new Dictionary<string, string>(StringComparer.Ordinal), NodeId.None);
+
         readonly List<NodeDiagnostic> diagnostics = [];
         readonly HashSet<string> open = new(StringComparer.Ordinal);
         readonly Dictionary<NodeId, NodeOrigin> origins = [];
@@ -677,7 +787,7 @@ public static class SubGraphs {
                 next = Math.Max(next, node.Id.Value);
             }
 
-            Expand(graph, default, [], [], preserve: true, depth: 0, NodeId.None, "", expansion: 0, path: []);
+            Expand(graph, default, [], [], preserve: true, depth: 0, NodeId.None, Outermost, path: []);
 
             // Everything the author's own graph is besides its nodes and edges — its furniture, its
             // interface, its settings and its parameters. A group inside a sub-graph describes that
@@ -705,11 +815,11 @@ public static class SubGraphs {
         ///     <see cref="NodeId.None" /> for the author's graph itself. It stays the outermost one
         ///     however deep the nesting goes, because it is the only node the open document has.
         /// </param>
-        /// <param name="type">And the node-type path of the sub-graph being copied, which is the innermost.</param>
-        /// <param name="expansion">
-        ///     Which expansion this walk is, or <c>0</c> for the author's own graph. It is the key
-        ///     every node copied here is stamped with, and what a compiler looks the sub-graph node's
-        ///     settings up by.
+        /// <param name="scope">
+        ///     Which graph this walk is copying, as a resolver sees it: the node-type path of the
+        ///     sub-graph being copied — the innermost — and the expansion number every node copied
+        ///     here is stamped with, which is <c>0</c> for the author's own graph and what a compiler
+        ///     looks the sub-graph node's settings up by.
         /// </param>
         /// <param name="path">
         ///     The sub-graph nodes walked through to get here, outermost first — empty for the
@@ -725,8 +835,7 @@ public static class SubGraphs {
             bool preserve,
             int depth,
             NodeId origin,
-            string type,
-            int expansion,
+            SubGraphScope scope,
             ImmutableArray<NodeId> path
         ) {
             Dictionary<NodeId, NodeId> local = [];
@@ -760,7 +869,7 @@ public static class SubGraphs {
                 }
 
                 if (source.TryGet(node.Type, out var child)) {
-                    nested[node.Id] = Descend(graph, node, child, offset, depth, origin, path, Trace, Held);
+                    nested[node.Id] = Descend(graph, node, child, offset, depth, origin, path, scope, Trace, Held);
 
                     continue;
                 }
@@ -774,7 +883,7 @@ public static class SubGraphs {
                 // line that knows both halves at once, and a synthetic identity that reached a
                 // diagnostic without one names a node on no canvas.
                 if (origin.IsValid) {
-                    origins[id] = new(id, origin, type, node.Id, expansion);
+                    origins[id] = new(id, origin, scope.Type, node.Id, scope.Expansion);
                 }
 
                 foreach (var (port, value) in node.Values) {
@@ -835,6 +944,10 @@ public static class SubGraphs {
         /// <param name="depth">How far in the enclosing walk already is.</param>
         /// <param name="origin">The outermost sub-graph node, or <see cref="NodeId.None" />.</param>
         /// <param name="path">The chain of sub-graph nodes above this one, outermost first.</param>
+        /// <param name="scope">
+        ///     The scope the enclosing walk is copying, which is the one this node is <em>written</em>
+        ///     in — see <see cref="SubGraphScope" />. Not the scope this call is about to make.
+        /// </param>
         /// <param name="trace">Where a wire arriving at this node comes from, in the result.</param>
         /// <param name="held">The constant behind a wire running back to an entry port nobody fed.</param>
         /// <returns>What each of the child graph's outputs became.</returns>
@@ -846,6 +959,7 @@ public static class SubGraphs {
             int depth,
             NodeId origin,
             ImmutableArray<NodeId> path,
+            SubGraphScope scope,
             Func<PortRef, PortRef?> trace,
             Func<PortRef, float[]?> held
         ) {
@@ -896,6 +1010,12 @@ public static class SubGraphs {
                     }
                 }
 
+                // ⚠ After the edges and before the literals, which is the whole of the ordering.
+                // A resolver is offered only the inputs no wire answers, so an expression on a
+                // connected port costs nothing and changes nothing — the wire wins, exactly as it
+                // wins over a number typed into the same port.
+                var resolved = Ask(child, node, inbound, constants, scope with { Blame = blamed });
+
                 foreach (var port in child.Interface) {
                     if (port.Direction != PortDirection.Input
                         || inbound.ContainsKey(port.Name)
@@ -903,9 +1023,11 @@ public static class SubGraphs {
                         continue;
                     }
 
-                    constants[port.Name] = node.Values.TryGetValue(port.Name, out var inline)
-                        ? [.. inline]
-                        : [.. port.Default];
+                    constants[port.Name] = resolved.TryGetValue(port.Name, out var asked)
+                        ? asked
+                        : node.Values.TryGetValue(port.Name, out var inline)
+                            ? [.. inline]
+                            : [.. port.Default];
                 }
 
                 // ⚠ Per expansion and not per type, and the settings are copied rather than held.
@@ -919,13 +1041,9 @@ public static class SubGraphs {
                 // `owner`'s own document, so every element of it is stable under an insertion
                 // anywhere else, which is exactly what `expansion` above is not.
                 var descended = path.Add(node.Id);
+                var settings = new Dictionary<string, string>(node.Texts, StringComparer.Ordinal);
 
-                expansions[expansion] = new(
-                    node.Type,
-                    blamed,
-                    new Dictionary<string, string>(node.Texts, StringComparer.Ordinal),
-                    descended
-                );
+                expansions[expansion] = new(node.Type, blamed, settings, descended);
 
                 return Expand(
                     child,
@@ -935,8 +1053,7 @@ public static class SubGraphs {
                     preserve: false,
                     depth + 1,
                     blamed,
-                    node.Type,
-                    expansion,
+                    new SubGraphScope(node.Type, expansion, settings, blamed),
                     descended
                 );
             } finally {
@@ -944,5 +1061,54 @@ public static class SubGraphs {
             }
         }
 
+        /// <summary>What a resolver makes of the keys it claims on one sub-graph node.</summary>
+        /// <remarks>
+        ///     ⚠ <b>The claimed keys are gathered against the <em>unfed</em> inputs and handed over in
+        ///     one call.</b> Both halves are the cost story: a resolver that compiles something is
+        ///     asked once per node rather than once per port, and never at all about a port whose
+        ///     answer a wire has already given.
+        /// </remarks>
+        Dictionary<string, float[]> Ask(
+            NodeGraphModel child,
+            GraphNode node,
+            Dictionary<string, PortRef> inbound,
+            Dictionary<string, float[]> constants,
+            SubGraphScope scope
+        ) {
+            if (values is null || node.Texts.Count == 0) {
+                return [];
+            }
+
+            Dictionary<string, string> claimed = new(StringComparer.Ordinal);
+
+            foreach (var port in child.Interface) {
+                if (port.Direction != PortDirection.Input
+                    || inbound.ContainsKey(port.Name)
+                    || constants.ContainsKey(port.Name)) {
+                    continue;
+                }
+
+                foreach (var (key, text) in node.Texts) {
+                    if (values.Claims(port, key)) {
+                        claimed[port.Name] = text;
+                    }
+                }
+            }
+
+            if (claimed.Count == 0) {
+                return [];
+            }
+
+            Dictionary<string, float[]> answered = new(StringComparer.Ordinal);
+
+            foreach (var (port, value) in values.Resolve(scope, claimed)) {
+                // ⚠ Copied on the way in as well as on the way out. What comes back crosses an
+                // interface a plugin may implement, and a `float[]` kept by reference is one the
+                // implementation could go on writing to after the graph was flattened.
+                answered[port] = [.. value];
+            }
+
+            return answered;
+        }
     }
 }

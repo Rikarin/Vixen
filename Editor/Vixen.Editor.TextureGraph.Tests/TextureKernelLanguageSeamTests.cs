@@ -4,50 +4,50 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Vixen.Editor.TextureGraph;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Xunit;
 
 namespace Tests;
 
 /// <summary>
-///     The two things a kernel can say that nothing between a plan and Raven can carry.
+///     What a texture-graph kernel can and cannot say, and which half of that is the language's.
 /// </summary>
 /// <remarks>
 ///     <para>
-///         <b>Both are the same shape: a feature of the shader language that a texture-graph kernel
-///         is written in and cannot use.</b> A kernel is compiled by
-///         <c>TexturePlanEvaluator.VariantFor</c> as
-///         <c>RavenEffectCompiler.FromSources([(name, source)])</c> with <c>EffectKey.Of(kernel)</c>
-///         — one source, no <c>referencePaths</c>, no defines. So it cannot <c>import</c>
-///         (<see href="https://github.com/Rikarin/Vixen/issues/635">#635</see>) and it cannot declare
-///         a <c>[Permutation]</c> (<see href="https://github.com/Rikarin/Vixen/issues/638">#638</see>).
+///         <b>A kernel is compiled by <c>TexturePlanEvaluator.VariantFor</c> through
+///         <see cref="TextureKernelPrelude.Compile" />: the kernel, the shader-library sources, one
+///         <c>EffectKey</c>, and no defines.</b> So it <em>can</em> <c>import</c>
+///         (<see href="https://github.com/Rikarin/Vixen/issues/635">#635</see>) and it still cannot
+///         declare a <c>[Permutation]</c>
+///         (<see href="https://github.com/Rikarin/Vixen/issues/638">#638</see>).
 ///     </para>
 ///     <para>
-///         ⚠ <b>Neither failure is a compile error, and that is the whole reason this file exists.</b>
-///         An import that cannot resolve *is* loud. But a permutation the plan cannot name compiles
-///         perfectly and silently takes its <c>.rvn</c> default in every op for ever — this
-///         repository's registered-permutation trap arriving from the side with no key list at all.
-///         And a function transcribed instead of imported compiles perfectly and diverges the first
-///         time one of the two copies is edited.
+///         ⚠ <b>The first half of that sentence was false for eighteen batches and the diagnosis was
+///         the reason.</b> This file, #635, five kernel headers and two suites all said a kernel
+///         "binds against nothing but itself" because <c>FromSources</c> was passed no
+///         <c>referencePaths</c> — and offered a compiled <c>.rvnlib</c> or a hand-written prelude as
+///         the two ways out. Neither was needed. <c>FromSources</c> takes a <em>set</em> of texts and
+///         makes them one compilation, and a package's declarations are visible across one
+///         compilation; the evaluator was passing one text. Thirteen transcriptions were written to
+///         work around a restriction that was a property of the call. They are gone: the four copies
+///         of <c>Random</c>'s hash, the hue rotation, and — with
+///         <see href="https://github.com/Rikarin/Vixen/issues/1033">#1033</see> — <c>Blend</c>'s
+///         overlay, hard light and soft light are all calls now.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The transcription is not one function, it is thirteen copies across five kernels,
-///         and until now one of them was held.</b> <c>Hsl</c> carries <c>ComputeColor.HueRotate</c>;
-///         <c>Noise</c>, <c>FloodFill</c>, <c>Splatter</c> and <c>TileSampler</c> each carry
-///         <c>Random.Hash</c>, <c>Random.Combine</c> (twice under the name <c>Mix</c>) and
-///         <c>Random.ToFloat01</c> together with the three constants they stand on; <c>Checker</c>
-///         carries <c>ComputeColor.Checker</c>'s return expression. <see cref="Parity" /> is the
-///         table and <see cref="Every_transcription_of_the_library_still_matches_its_original" /> is
-///         the gate over all of it.
+///         ⚠ <b>A permutation the plan cannot name is still not a compile error, and that is why the
+///         rest of this file exists.</b> It compiles perfectly and silently takes its <c>.rvn</c>
+///         default in every op for ever — this repository's registered-permutation trap arriving
+///         from the side with no key list at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A table is only a gate while it is complete, so the completeness is asserted too.</b>
-///         <see cref="Every_kernel_that_copies_Random_rvn_is_in_the_parity_table" /> sweeps every
-///         kernel for the three constants <c>Random.rvn</c> declares — read out of
-///         <c>Random.rvn</c> rather than written here — and requires the kernels carrying one to be
-///         exactly the kernels the table names. A sixth kernel copying the hash goes red on the day
-///         it lands rather than on the day the two copies disagree.
+///         ⚠ <b>Three transcriptions survive, for reasons that are not about imports.</b>
+///         <c>Grayscale</c> writes Rec. 709 as three parameter <em>defaults</em>, which must be
+///         literals; <c>Hsl</c>, <c>Splatter</c> and <c>TileSampler</c> write it inline as a
+///         <c>float3</c>; and <c>Checker</c> folds the library's two lines into its own <c>Main</c>
+///         around a rotation the library's has no parameter for. Each has its own gate below, and
+///         <see cref="No_kernel_transcribes_the_library_s_hash_or_hue_rotation" /> refuses the
+///         return of the eleven that went.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>What these assertions would say if they stopped reading anything.</b> Each one first
@@ -329,6 +329,24 @@ public class TextureKernelLanguageSeamTests {
         Assert.NotEqual(0, read);
         Assert.Equal(read, formats);
 
+        // ⚠ And the prelude, which is the half #635 created. Every kernel is now compiled beside
+        // `Raven/Library`'s sources, so a `[Permutation]` in one of *those* takes its default in
+        // every op of every plan — the same defect as a kernel's own, arriving through a file this
+        // assembly did not write and reaching every kernel rather than one. The library is
+        // free to declare permutations for the shader graph, which binds keys; what it may not do
+        // is declare one in a file the texture graph puts in its compilation.
+        Assert.NotEmpty(TextureKernelPrelude.Sources);
+
+        foreach (var (name, source) in TextureKernelPrelude.Sources) {
+            Assert.True(
+                !Declaration.IsMatch(source),
+                $"`{name}` is in every kernel's compilation and declares a `[Permutation]`. Nothing "
+                + "between a plan and the compiler can give one a value, so every kernel would take "
+                + "its default silently — #638. Either the library file comes out of "
+                + "`TextureKernelPrelude`, or the permutation comes out of the library file."
+            );
+        }
+
         // ⚠ The other half of the instrument, and it is the half this test failed on first. A plain
         // `Contains("[Permutation]")` reported three kernels — `Blend`, `Noise` and `Shape` — every
         // one of which mentions the attribute in a *comment* saying why it uses a uniform instead.
@@ -358,9 +376,16 @@ public class TextureKernelLanguageSeamTests {
     ///     <para>
     ///         ⚠ <b>The demonstration behind the refusal above, because a ban whose reason is only
     ///         written down is a ban somebody lifts.</b> This puts a source declaring
-    ///         <c>[Permutation] val Fancy</c> through the *same* call the evaluator makes — one
-    ///         source, no defines — and reads what comes back. It compiles. There is no diagnostic,
-    ///         at any severity. Nothing at this call site could have said which branch it wanted.
+    ///         <c>[Permutation] val Fancy</c> through the *same* call the evaluator makes —
+    ///         <see cref="TextureKernelPrelude.Compile" />, so the library beside it and no defines —
+    ///         and reads what comes back. It compiles. There is no diagnostic, at any severity.
+    ///         Nothing at this call site could have said which branch it wanted.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It went through <c>FromSources</c> directly until #635, and the remark above said
+    ///         "the same call the evaluator makes" while it did.</b> That was true when the evaluator
+    ///         passed one text and stopped being true the moment it passed four — a fixture whose
+    ///         claim to be the production call is written in prose rather than in the call.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And "took the default" is asserted rather than assumed, by compiling the same
@@ -373,7 +398,7 @@ public class TextureKernelLanguageSeamTests {
     /// </remarks>
     [Fact]
     public void A_kernel_that_declares_a_permutation_silently_takes_its_default() {
-        var data = RavenEffectCompiler.FromSources([("Chosen.rvn", Declaring)]).TryGet(EffectKey.Of("Chosen"));
+        var data = TextureKernelPrelude.Compile("Chosen.rvn", Declaring).TryGet(EffectKey.Of("Chosen"));
 
         // ⚠ Not an error, not a warning, not a missing effect. This is the entire finding: the
         // language accepted a switch the layer above has no way to throw.
@@ -384,8 +409,11 @@ public class TextureKernelLanguageSeamTests {
 
         Assert.NotEmpty(chosen.Bytecode);
 
-        var flipped = RavenEffectCompiler
-            .FromSources([("Chosen.rvn", Declaring.Replace("Fancy: bool = false", "Fancy: bool = true", StringComparison.Ordinal))])
+        var flipped = TextureKernelPrelude
+            .Compile(
+                "Chosen.rvn",
+                Declaring.Replace("Fancy: bool = false", "Fancy: bool = true", StringComparison.Ordinal)
+            )
             .TryGet(EffectKey.Of("Chosen"));
 
         Assert.NotNull(flipped);
@@ -433,152 +461,65 @@ public class TextureKernelLanguageSeamTests {
     /// </remarks>
     static readonly Regex Declaration = new(@"^[ \t]*\[Permutation\]", RegexOptions.Multiline);
 
-    /// <summary>One function a kernel transcribed, and the library function it was copied from.</summary>
-    /// <param name="Kernel">The kernel that carries the copy.</param>
-    /// <param name="Copy">What the copy is called there.</param>
-    /// <param name="LibraryFile">The library source under <c>Raven/Library</c>.</param>
-    /// <param name="Original">What the original is called.</param>
-    /// <param name="Numbers">How many non-zero literals the arithmetic has, as the instrument check.</param>
-    /// <remarks>
-    ///     ⚠ <b><see cref="Numbers" /> is the half that stops this being a comparator of two empty
-    ///     strings.</b> Two arithmetics that were both read as nothing are equal, and an extractor
-    ///     pointed at a function that has moved returns exactly that. Every row states the size it
-    ///     expects, so a reader who changes one of these functions has to say what the new size is.
-    /// </remarks>
-    sealed record Transcription(string Kernel, string Copy, string LibraryFile, string Original, int Numbers);
-
-    /// <summary>Every function this assembly transcribed out of the shader library.</summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>Thirteen rows across five kernels, and the reason each exists is
-    ///         <see href="https://github.com/Rikarin/Vixen/issues/635">#635</see>: a kernel binds
-    ///         against nothing but itself.</b> The hue rotation was the first and is the one the
-    ///         issue names; the four copies of <c>Random</c>'s hash are the worse ones, because
-    ///         <c>Random.rvn</c>'s header argues every choice in it from exactness — wrapping 32-bit
-    ///         arithmetic only, no float in the state, a multiply by a power of two rather than a
-    ///         division — so a copy that drifts by one shift is a field that is subtly different on
-    ///         one backend and impossible to attribute.
-    ///     </para>
-    ///     <para>
-    ///         <b>Two kernels call <c>Random.Combine</c> <c>Mix</c></b>, which is why the row carries
-    ///         both names rather than assuming they agree.
-    ///     </para>
-    /// </remarks>
-    public static TheoryData<string, string, string, string, int> Parity =>
-        Rows.Aggregate(
-            new TheoryData<string, string, string, string, int>(),
-            (data, row) => {
-                data.Add(row.Kernel, row.Copy, row.LibraryFile, row.Original, row.Numbers);
-
-                return data;
-            }
-        );
-
-    /// <summary>The same table, in the shape the completeness sweep reads it.</summary>
-    static readonly Transcription[] Rows = [
-        new("Hsl", "HueRotate", "Material/ComputeColor.rvn", "HueRotate", 15),
-        new("Noise", "Hash", "Core/Random.rvn", "Hash", 3),
-        new("Noise", "Combine", "Core/Random.rvn", "Combine", 1),
-        new("Noise", "ToFloat01", "Core/Random.rvn", "ToFloat01", 2),
-        new("FloodFill", "Hash", "Core/Random.rvn", "Hash", 3),
-        new("FloodFill", "Combine", "Core/Random.rvn", "Combine", 1),
-        new("FloodFill", "ToFloat01", "Core/Random.rvn", "ToFloat01", 2),
-        new("Splatter", "Hash", "Core/Random.rvn", "Hash", 3),
-        new("Splatter", "Mix", "Core/Random.rvn", "Combine", 1),
-        new("Splatter", "ToFloat01", "Core/Random.rvn", "ToFloat01", 2),
-        new("TileSampler", "Hash", "Core/Random.rvn", "Hash", 3),
-        new("TileSampler", "Mix", "Core/Random.rvn", "Combine", 1),
-        new("TileSampler", "ToFloat01", "Core/Random.rvn", "ToFloat01", 2)
-    ];
-
     /// <summary>
-    ///     Every transcribed function still computes what the library function it was copied from does.
-    /// </summary>
-    /// <param name="kernel">The kernel carrying the copy.</param>
-    /// <param name="copy">What the copy is called there.</param>
-    /// <param name="libraryFile">The library source, under <c>Raven/Library</c>.</param>
-    /// <param name="original">What the original is called.</param>
-    /// <param name="numbers">How many non-zero literals both are expected to have.</param>
-    /// <remarks>
-    ///     <para>
-    ///         <see href="https://github.com/Rikarin/Vixen/issues/635">#635</see>, widened from the
-    ///         one function the issue names to every copy in the assembly. ⚠ <b>The failure mode is
-    ///         not a compile error, it is a disagreement</b>, and it has no symptom until an artist
-    ///         matches a hue in one editor and watches it shift in the other, or until a noise field
-    ///         baked here stops matching the same noise in a material graph. Nothing would fail when
-    ///         one copy is edited. This is that nothing, filled in — it is not the fix the issue asks
-    ///         for and it is what makes the fix optional rather than urgent.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The prelude the issue's second answer proposes would not remove the need for
-    ///         this.</b> An embedded prelude puts one copy inside the texture graph instead of one
-    ///         per kernel, which is a real improvement to thirteen rows; it is still a second copy
-    ///         of the arithmetic, and the thing that has to exist either way is something that goes
-    ///         red when the two disagree.
-    ///     </para>
-    /// </remarks>
-    [Theory]
-    [MemberData(nameof(Parity))]
-    public void Every_transcription_of_the_library_still_matches_its_original(
-        string kernel,
-        string copy,
-        string libraryFile,
-        string original,
-        int numbers
-    ) {
-        var mine = Reduce(TextureKernels.Source(kernel), copy);
-        var theirs = Reduce(Library(libraryFile.Split('/')), original);
-
-        // The instrument, twice over. Two arithmetics read as nothing are equal, and an extractor
-        // that walked past a `=>` body and returned the next function's block would hand back a
-        // plausible-looking one — so the size is stated by the row rather than inferred from either
-        // file, and both sides are held to it.
-        Assert.Equal(numbers, theirs.Numbers.Length);
-        Assert.Equal(numbers, mine.Numbers.Length);
-        Assert.NotEmpty(theirs.Calls.Concat(theirs.Operators));
-
-        Assert.Equal(theirs.Numbers, mine.Numbers);
-        Assert.Equal(theirs.Operators, mine.Operators);
-        Assert.Equal(theirs.Calls, mine.Calls);
-    }
-
-    /// <summary>
-    ///     The kernels that copy <c>Random.rvn</c> are exactly the kernels the parity table names.
+    ///     No kernel carries its own copy of <c>Random</c>'s hash or <c>ComputeColor</c>'s hue rotation.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>A table of copies is a gate only while it is complete, and nothing else in this
-    ///         repository would notice a sixth kernel reaching for the hash.</b> Four already do —
-    ///         <c>Noise</c> came first, then <c>FloodFill</c>, <c>Splatter</c> and
-    ///         <c>TileSampler</c>, each in a different batch, each with a comment saying it copied
-    ///         because it could not import. A fifth will be written the same way. This is what makes
-    ///         that land red on the day it lands rather than on the day the copies disagree.
+    ///         ⚠ <b>This used to be <c>Every_kernel_that_copies_Random_rvn_is_in_the_parity_table</c>
+    ///         — a completeness check over a table of eleven live copies.</b> The table is gone
+    ///         because the copies are: a kernel is compiled beside the library now, so
+    ///         <c>Random.Hash</c> and <c>ComputeColor.HueRotate</c> are calls. The sweep is the same
+    ///         sweep with the expectation inverted, which is the strictly stronger gate — it says
+    ///         <em>none</em> rather than <em>these, and they still agree</em>, so a sixth kernel
+    ///         reaching for the constants lands red on the day it lands and there is no correct
+    ///         second copy for it to be added beside.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The three constants it looks for are read out of <c>Random.rvn</c>, not written
-    ///         here.</b> A needle written into the test is a fourteenth copy of the thing the test
-    ///         exists to count, and one that would go on matching after the library changed.
+    ///         ⚠ <b>The needles are read out of the library, not written here.</b> A needle written
+    ///         into a test is another copy of the thing the test exists to count, and one that would
+    ///         go on matching after the library changed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Rec. 709 is deliberately not a needle.</b> Four kernels legitimately write those
+    ///         three numbers — a parameter default cannot be a call — so sweeping every constant
+    ///         <c>ComputeColor</c> declares would fail on the one transcription this file still
+    ///         holds a gate for. The needles are the YIQ matrix, which nothing but a copy of
+    ///         <c>HueRotate</c> has a reason to contain.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void Every_kernel_that_copies_Random_rvn_is_in_the_parity_table() {
+    public void No_kernel_transcribes_the_library_s_hash_or_hue_rotation() {
         var random = Library("Core", "Random.rvn");
         var declared = Declared(random);
 
-        // The golden-ratio operand is a bare literal in the library and a named constant in every
-        // kernel, so it is read out of `Combine`'s body rather than out of the declarations.
+        // The golden-ratio operand is a bare literal in the library, so it is read out of
+        // `Combine`'s body rather than out of the declarations.
         var golden = Number.Match(Function(random, "Combine"));
 
         Assert.True(golden.Success, "`Random.Combine` has no literal in it — the library moved under this test");
 
-        string[] needles = [declared["Multiplier"], declared["InvTwo24"], golden.Value];
+        // The six YIQ coefficients of the chroma rotation, less the Rec. 601 luminance triple that
+        // opens `HueRotate` and the two 1s the rotation itself carries.
+        string[] rotation = [
+            .. Reduce(Library("Material", "ComputeColor.rvn"), "HueRotate")
+                .Numbers
+                .Skip(3)
+                .Where(number => number != "1")
+        ];
 
-        // The instrument: three distinct needles, each of which really is in the file they were read
-        // from. A sweep whose needles were empty strings would report every kernel; one whose needles
-        // were nothing would report none, and reporting none is what "no drift" looks like.
-        Assert.Equal(3, needles.Distinct(StringComparer.Ordinal).Count());
+        string[] needles = [declared["Multiplier"], declared["InvTwo24"], golden.Value, .. rotation];
+
+        // The instrument: distinct needles, each of which really is in the file it was read from. A
+        // sweep whose needles were empty strings would report every kernel; one whose needles were
+        // nothing would report none, and reporting none is exactly what "no copies" looks like.
+        Assert.Equal(needles.Length, needles.Distinct(StringComparer.Ordinal).Count());
+        Assert.True(needles.Length > 3, "the hue rotation reduced to nothing — `ComputeColor` moved under this test");
         Assert.All(needles, needle => Assert.NotEmpty(needle));
-        Assert.All(needles, needle => Assert.Contains(needle, random, StringComparison.OrdinalIgnoreCase));
+        Assert.All(
+            needles.Take(3),
+            needle => Assert.Contains(needle, random, StringComparison.OrdinalIgnoreCase)
+        );
 
         string[] copying = [
             .. TextureKernels
@@ -592,23 +533,78 @@ public class TextureKernelLanguageSeamTests {
                 .OrderBy(kernel => kernel, StringComparer.Ordinal)
         ];
 
-        string[] covered = [
-            .. Rows
-                .Where(row => row.LibraryFile.EndsWith("Random.rvn", StringComparison.Ordinal))
-                .Select(row => row.Kernel)
-                .Distinct(StringComparer.Ordinal)
-                .OrderBy(kernel => kernel, StringComparer.Ordinal)
+        Assert.True(
+            copying.Length == 0,
+            $"These kernels carry the library's own constants: {string.Join(", ", copying)}.\n"
+            + "A kernel is compiled beside `Raven/Library` — see `TextureKernelPrelude` — so there is "
+            + "nothing to copy: write `import Vixen.Shaders.Core` or `import Vixen.Shaders.Material` "
+            + "and call `Random.Hash` / `ComputeColor.HueRotate`. #635."
+        );
+    }
+
+    /// <summary>
+    ///     <c>Blend</c>'s overlay, hard light and soft light are the library's, and hard light is
+    ///     still overlay with its operands swapped.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1033">#1033</see>, closed by
+    ///         removal rather than by a table row. Both modes lived inside <c>Combine</c>'s
+    ///         <c>if (mode == N)</c> chain as <c>float4</c> arithmetic where the library is
+    ///         <c>float3</c>, which is why no reduction of numbers, operators and calls could hold
+    ///         them. They are calls now, so what is left to check is that they are the right calls.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The swap is asserted where it now lives, and it is the one thing no sequence
+    ///         comparison could ever have seen.</b> <c>ComputeColor.HardLight</c> is
+    ///         <c>Overlay(over, under)</c>: the two halves of overlay are symmetric in their
+    ///         operands, so a hard light written as <c>Overlay(under, over)</c> is <em>exactly</em>
+    ///         overlay, on every image, with no artefact to notice — identical numbers, identical
+    ///         operators, identical calls. Reading the argument order against the parameter order is
+    ///         the only form that goes red for it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_blend_kernel_calls_the_library_and_hard_light_still_swaps_its_operands() {
+        var kernel = Uncommented(TextureKernels.Source("Blend"));
+
+        Assert.Contains("import Vixen.Shaders.Material", kernel, StringComparison.Ordinal);
+
+        foreach (var mode in (string[])["Overlay", "HardLight", "SoftLight"]) {
+            Assert.Contains($"ComputeColor.{mode}(", kernel, StringComparison.Ordinal);
+        }
+
+        // And the arithmetic is gone rather than sitting beside the call, which is the arrangement
+        // that satisfies every check about the call and keeps the copy.
+        Assert.DoesNotContain("sqrt(max(a,", kernel, StringComparison.Ordinal);
+
+        var library = Uncommented(Library("Material", "ComputeColor.rvn"));
+        var at = library.IndexOf("func HardLight(", StringComparison.Ordinal);
+
+        Assert.True(at >= 0, "`ComputeColor.HardLight` is gone — the library moved under this test");
+
+        var open = library.IndexOf('(', at) + 1;
+        var close = library.IndexOf(')', open);
+
+        string[] parameters = [
+            .. library[open..close].Split(',').Select(part => part.Split(':')[0].Trim())
         ];
 
-        Assert.NotEmpty(covered);
+        // The instrument: two parameters, named, before anything is compared. A parse that came back
+        // with one name or none would make the reversal below vacuous.
+        Assert.Equal(2, parameters.Length);
+        Assert.All(parameters, name => Assert.NotEmpty(name));
 
-        Assert.True(
-            copying.SequenceEqual(covered, StringComparer.Ordinal),
-            $"These kernels carry `Random.rvn`'s constants: {string.Join(", ", copying)}.\n"
-            + $"These are the ones the parity table holds: {string.Join(", ", covered)}.\n"
-            + "A copy nothing compares is a copy that drifts silently — #635. Add the kernel's `Hash`, "
-            + "`Combine`/`Mix` and `ToFloat01` to `Rows`, or make it import once a kernel can."
-        );
+        var body = Function(library, "HardLight");
+        var call = body.IndexOf("Overlay(", StringComparison.Ordinal);
+
+        Assert.True(call >= 0, "`ComputeColor.HardLight` no longer calls `Overlay` — it is a hard light by itself now");
+
+        var args = body[(call + "Overlay(".Length)..];
+
+        string[] passed = [.. args[..args.IndexOf(')')].Split(',').Select(part => part.Trim())];
+
+        Assert.Equal((string[])[parameters[1], parameters[0]], passed);
     }
 
     /// <summary>

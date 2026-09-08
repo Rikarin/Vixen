@@ -320,8 +320,18 @@ rather than through HarfBuzz.
 
 ## Rasterising, and the distance field
 
-`GlyphRasterizer` fills an outline into coverage by scanline and non-zero winding.
-`DistanceField` turns one into the multi-channel signed distance field doc 09 asks for. Both take a
+`GlyphRasterizer` fills an outline into coverage by scanline, under a `FillRule` that defaults to
+non-zero winding. `DistanceField` turns one into the multi-channel signed distance field doc 09 asks
+for.
+
+⚠ **The rule is a parameter and every caller in this assembly still takes the default**, which is the
+only right answer for a glyph: a counter in an `o` is a contour wound the other way and both rules
+agree about it, while two *same-wound* contours overlapping — a script that stacks strokes into a
+letter — are solid under non-zero and a hole under even-odd. What made it an option is SVG:
+`fill-rule="evenodd"` is a thing a path author writes and means, and doc 48 § 4.1's `Svg Path` lists a
+fill rule among its parameters, so a rasteriser that could not express it would silently draw a
+different shape from the one in the file ([#687](https://github.com/Rikarin/Vixen/issues/687),
+[#753](https://github.com/Rikarin/Vixen/issues/753)). Both take a
 scale and an origin, which is where **the decision to keep curves as curves is finally spent**: the
 flattener's tolerance comes from the caller's pixel size, the thing nobody knew until here.
 
@@ -332,9 +342,10 @@ encloses straight from its control points; the integrand for a Bézier is a poly
 Gauss–Legendre evaluates it to the last bit. It shares no code and no reasoning with the scanline
 fill — it never asks where an edge crosses a row.
 
-⚠ **It is compared per contour, not per glyph.** Green's theorem measures *algebraic* area, so a
-region two contours both cover counts twice; a non-zero fill measures *covered* area, so it counts
-once. They part company exactly where contours overlap, which is not exotic — `TestShapeLana` builds
+⚠ **It is compared per contour, not per glyph, and under the default rule.** Green's theorem measures
+*algebraic* area, so a region two contours both cover counts twice; a non-zero fill measures *covered*
+area, so it counts once. (Even-odd measures neither: it counts the overlap zero times, which is why
+the oracle is not widened to it and the two rules are separated by closed-form areas instead.) They part company exactly where contours overlap, which is not exotic — `TestShapeLana` builds
 letters from stacked strokes, and 22 % of one glyph's algebraic area is covered more than once. Per
 contour the multiplicity disappears and the check is exact again.
 

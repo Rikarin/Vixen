@@ -18,6 +18,21 @@
 
     <ItemGroup>
         <!--
+            Doc 48 § M10's five smart materials, embedded for `Compounds\**\*.vxtexgraph`'s reason:
+            content this assembly ships has nothing a deployment can leave behind and no folder
+            anybody has to find. `SmartMaterial.Shipped` is derived from the manifest, so a file that
+            moves out of this folder stops shipping rather than shipping under a wrong name.
+
+            ⚠ **Unlike a compound, an embedded smart material is not yet reachable** — every verb that
+            consumes one consumes a project *asset*, because the apply verb reads the selection.
+            `SmartMaterial.Install` is what writes them onto a project's shelf, and it is called from
+            `TexturingModule.Activate`.
+        -->
+        <EmbeddedResource Include="SmartMaterials\**\*.vxsmartmat" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
             ⚠ **`Vixen.Editor.App` is deliberately absent, and that absence is the claim doc 48 § D14
             makes.** Everything this assembly needs from the host it asks for through
             `PluginServices.Require` — which is the only way a third party could have written it, and
@@ -47,11 +62,14 @@
         <!--
             And the node library, which is the only thing this assembly takes from the evaluator.
 
-            ⚠ **It is the only thing it *can* take.** `TextureGraphCompiler`, `TextureNode` and all
-            eight `[Node]` classes are `internal` and that assembly's `InternalsVisibleTo` names its
-            own test project alone — so the generated `NodeTypes.Register` is the whole of the
-            reachable surface and a plugin cannot compile a graph into a `TexturePlan` at all. See
-            this project's README; it is a finding rather than a decision.
+            ⚠ **It is no longer the only thing it takes, and both widenings went through the public
+            surface on purpose.** `TextureGraphCompiler` has been public since #738 — so a plugin can
+            compile a graph into a `TexturePlan`, which is what `TextureGraphDocument.Compile` does —
+            and `TextureGraphPreviews` with `ITexturePreviewImages` are public as of #1015, for doc 48
+            § M4's per-node swatches. ⚠ **An `InternalsVisibleTo` naming this assembly was tried
+            first and `ModuleReferenceTests` refused it**, which is what that tripwire is for: a
+            friend assembly makes a feature reachable for the plugin this repository ships and for no
+            third party. The `[Node]` classes stay `internal`.
         -->
         <ProjectReference Include="..\Vixen.Editor.TextureGraph\Vixen.Editor.TextureGraph.csproj" />
 

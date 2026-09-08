@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.Yaml;
+using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
@@ -115,6 +116,16 @@ public class MaterialBakeRouteDeviceTests(ITestOutputHelper output) {
 
         Assert.True(MaterialShading.TryResolve(material.Shading, out var shading));
         Assert.False(MaterialCompiler.Compile(material.ToDescriptor(shading)).Failed);
+
+        // ⚠ And no `texturing.set`, which is the other half of #1066's rule. A graph has no texture
+        // sets, so the key is *absent* rather than blank — "this bake did not say" and "this bake had
+        // no set" must not be the same sidecar, which is `texturing.adapter`'s rule one member along.
+        // A route that wrote the material's own name in here would make "which slot did this come
+        // from" answerable with a fact that is not one.
+        var provenance = AssetMetaFile.ReadFile(AssetMetaFile.PathFor(vxmat)).Extensions;
+
+        Assert.True(provenance.ContainsKey(MaterialProvenance.SourceKey), "the block was not written at all");
+        Assert.False(provenance.ContainsKey(MaterialProvenance.SetKey));
     }
 
     /// <summary>The instrument: the baked base colour is the graph's picture and not a constant.</summary>

@@ -151,6 +151,7 @@ shader AmbientCombine {
     var irradiance: Texture2D
 
     /// `!DistanceFieldAo`'s plane: occlusion in `r`, sun visibility in `g`.
+    ///
     /// Stand-in semantics: `useOcclusion` 0 reads both as 1 — fully open, fully lit.
     var occlusion: Texture2D
 

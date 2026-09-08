@@ -117,6 +117,7 @@ struct Ui {
     /// The exact sRGB EOTF for one channel — a decode, `Raven/Library/Core/ColorSpaces.rvn:26`'s.
     ///
     /// ⚠ **Transcribed rather than imported, and this file is *required* to be.**
+    ///
     /// `Build.Shaders.DiscoverEditorSources` refuses a source with committed modules that `import`s a
     /// package, because a package's declarations are visible to a sibling only within one
     /// compilation. So the two copies of these five constants are the price of the modules beside

@@ -3,6 +3,8 @@
 
 package Vixen.Editor.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // The reading half of doc 48 § 4.5's `Flood Fill`: the settled `FloodBounds` record turned into one
 // of the five pictures the node offers.
 //
@@ -38,36 +40,6 @@ shader FloodFill {
 
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
-    /// The odd constant from PCG's output stage — `Random.Multiplier`.
-    ///
-    /// ⚠ Copied, like `Noise.rvn`'s, and for the same reported reason: a texture-graph kernel is
-    /// compiled alone, so `Raven/Library/Core/Random.rvn` cannot be imported from here. The constants
-    /// are kept identical so the two can only drift visibly.
-    const val Multiplier: uint = 0x2C9277B5u
-
-    /// The golden ratio's reciprocal, which is what makes `Combine` non-commutative.
-    const val Golden: uint = 0x9E3779B9u
-
-    /// 2^-24 — `Random.InvTwo24`.
-    const val InvTwo24: float = 5.9604645e-8f
-
-    /// `Random.Hash` — one xorshift, one odd multiply, one xorshift.
-    func Hash(value: uint): uint {
-        var state = value
-        state = state ^ (state >> 16)
-        state = state * Multiplier
-        state = state ^ (state >> 16)
-
-        return state
-    }
-
-    /// `Random.Combine`. The odd multiply on the second operand is what stops (3, 7) and (7, 3)
-    /// hashing alike.
-    func Combine(a: uint, b: uint): uint => Hash(a ^ (b * Golden))
-
-    /// `Random.ToFloat01`. The top 24 bits, scaled by 2^-24 — a multiply and never a divide.
-    func ToFloat01(hash: uint): float => float(hash >> 8) * InvTwo24
-
     /// The **whole** record hashed to one value in 0..1: the island's complete name.
     ///
     /// ⚠ **All four channels and not the corner**, which is the distinction
@@ -79,10 +51,10 @@ shader FloodFill {
     /// routinely, and `TextureAnalysisKernelTests` counts 1 273 such masks in the 65 536 there are at
     /// four by four.
     func Name(record: float4, salt: uint): float {
-        val corner = Combine(uint(int(record.x)), uint(int(record.y)))
-        val far = Combine(uint(int(record.z)), uint(int(record.w)))
+        val corner = Random.Combine(uint(int(record.x)), uint(int(record.y)))
+        val far = Random.Combine(uint(int(record.z)), uint(int(record.w)))
 
-        return ToFloat01(Combine(Combine(corner, far), salt))
+        return Random.ToFloat01(Random.Combine(Random.Combine(corner, far), salt))
     }
 
     [ComputeShader(8, 8, 1)]
