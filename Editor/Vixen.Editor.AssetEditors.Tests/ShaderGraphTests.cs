@@ -557,5 +557,13 @@ public class ShaderGraphViewTests {
         );
 
         Assert.Contains("preview binds no resources", said, StringComparison.Ordinal);
+
+        // And it goes again, which is the half a one-shot readout passes: the arm's body never re-runs
+        // for a surviving region, so the sentence has to be read back through the signal rather than
+        // written once when the row appeared.
+        view.GraphView.Select([]);
+        harness.Ui.Frame();
+
+        Assert.Empty(view.PreviewNote.Children);
     }
 }
