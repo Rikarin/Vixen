@@ -1,4 +1,5 @@
 #nullable enable
+Vixen.Net.Animation.NetworkAnimationSystems -> static class
 Vixen.Net.Animation.NetworkAnimator -> struct
 Vixen.Net.Animation.NetworkAnimator.NetworkAnimator() -> void
 Vixen.Net.Animation.NetworkAnimator.NormalizedTime -> float
@@ -68,6 +69,18 @@ Vixen.Net.Animation.NetworkBonePrecision.this[int slot].get -> int
 Vixen.Net.Animation.NetworkBoneSelection -> struct
 Vixen.Net.Animation.NetworkBoneSelection.Joints -> int[]?
 Vixen.Net.Animation.NetworkBoneSelection.NetworkBoneSelection() -> void
+Vixen.Net.Animation.NetworkBoneSelectionSystem -> sealed class
+Vixen.Net.Animation.NetworkBoneSelectionSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Net.Animation.NetworkBoneSelectionSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Net.Animation.NetworkBoneSelectionSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Net.Animation.NetworkBoneSelectionSystem.JointCount.get -> long
+Vixen.Net.Animation.NetworkBoneSelectionSystem.NetworkBoneSelectionSystem() -> void
+Vixen.Net.Animation.NetworkBoneSelectionSystem.Policy.get -> System.Func<Vixen.Animation.Skeleton, int[]>
+Vixen.Net.Animation.NetworkBoneSelectionSystem.Policy.set -> System.Func<Vixen.Animation.Skeleton, int[]>
+Vixen.Net.Animation.NetworkBoneSelectionSystem.Select(Vixen.Ecs.World world) -> int
+Vixen.Net.Animation.NetworkBoneSelectionSystem.SelectedCount.get -> long
+Vixen.Net.Animation.NetworkBoneSelectionSystem.WaitingCount.get -> long
+Vixen.Net.Animation.NetworkBoneSelector -> static class
 Vixen.Net.Animation.NetworkBones -> struct
 Vixen.Net.Animation.NetworkBones.Count -> byte
 Vixen.Net.Animation.NetworkBones.NetworkBones() -> void
@@ -125,10 +138,15 @@ override Vixen.Net.Animation.NetworkAnimatorApplySystem.Update(in Vixen.Ecs.Syst
 override Vixen.Net.Animation.NetworkAnimatorCaptureSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Animation.NetworkBonesApplySystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 override Vixen.Net.Animation.NetworkBonesCaptureSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
+static Vixen.Net.Animation.NetworkAnimationSystems.AddNetworkAnimation(this Vixen.Ecs.Systems.SystemRunner runner) -> Vixen.Ecs.Systems.SystemRunner
+static Vixen.Net.Animation.NetworkAnimationSystems.AddNetworkAnimation(this Vixen.Engine.Frames.EngineLoop loop) -> Vixen.Engine.Frames.EngineLoop
+static Vixen.Net.Animation.NetworkAnimationSystems.AddNetworkAnimation(this Vixen.Net.Replication.ReplicationRegistry registry, Vixen.Net.Animation.NetworkBonePrecision? precision = null) -> Vixen.Net.Replication.ReplicationRegistry
 static Vixen.Net.Animation.NetworkAnimatorReplicator.SpeedRange.get -> Vixen.Net.Messaging.QuantizeRange
 static Vixen.Net.Animation.NetworkAnimatorReplicator.TimeRange.get -> Vixen.Net.Messaging.QuantizeRange
 static Vixen.Net.Animation.NetworkBonePrecision.For(System.ReadOnlySpan<int> bits) -> Vixen.Net.Animation.NetworkBonePrecision
 static Vixen.Net.Animation.NetworkBonePrecision.Full.get -> Vixen.Net.Animation.NetworkBonePrecision
 static Vixen.Net.Animation.NetworkBonePrecision.Uniform(int bits) -> Vixen.Net.Animation.NetworkBonePrecision
+static Vixen.Net.Animation.NetworkBoneSelector.Named(Vixen.Animation.Skeleton skeleton, System.Collections.Generic.IReadOnlyList<string> names) -> int[]
+static Vixen.Net.Animation.NetworkBoneSelector.Trunk(Vixen.Animation.Skeleton skeleton, int max = 24) -> int[]
 static Vixen.Net.Animation.NetworkBonesReplicator.Narrow(uint packed, int bits) -> uint
 static Vixen.Net.Animation.NetworkBonesReplicator.Widen(uint narrow, int bits) -> uint

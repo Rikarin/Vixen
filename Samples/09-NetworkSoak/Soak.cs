@@ -30,16 +30,23 @@ internal sealed class Soak(SoakSettings settings) : IDisposable {
 
     ReplicationServer? server;
 
+    // Null unless `--interest grid`. The chain is what the soak measures against the slice; the grid
+    // is the source under it, and is what has to be rebuilt once a tick.
+    InterestChain? chain;
+    InterestGrid? grid;
+
+    // What the last tick's connections were told about, added up. Half of the comparison.
+    long lastObserved;
+
     /// <summary>Runs it.</summary>
     /// <returns>Zero if every budget held.</returns>
     public int Run() {
         registry.Register(new NetworkTransformReplicator());
 
-        server = new(registry, new SliceResolver(settings.Observed, settings.SeesEverything)) { Ledger = ledger };
+        server = new(registry, Resolver()) { Ledger = ledger };
 
         Write(
-            $"{settings.Entities:N0} entities, {settings.Clients:N0} connections, "
-            + $"{(settings.SeesEverything ? "everybody sees everything" : $"{settings.Observed:N0} observed each")}, "
+            $"{settings.Entities:N0} entities, {settings.Clients:N0} connections, {Audience()}, "
             + $"{settings.MovingPercent}% moving, {settings.Ticks:N0} ticks at {Rate.TicksPerSecond} Hz "
             + $"({Rate.ToTime(settings.Ticks).TotalMinutes:N1} minutes of match)"
         );
@@ -102,6 +109,27 @@ internal sealed class Soak(SoakSettings settings) : IDisposable {
         );
     }
 
+    IInterestResolver Resolver() {
+        if (!settings.UsesGrid) {
+            return new SliceResolver(settings.Observed, settings.SeesEverything);
+        }
+
+        // A third of the radius, which is what InterestGrid's own remarks ask for. The chain carries
+        // no rules: what is being measured is the source, and a rule in front of it would be
+        // measuring the rule.
+        grid = new() { CellSize = MathF.Max(1f, settings.GridRadius / 3f), Radius = settings.GridRadius };
+        chain = new() { Source = grid };
+
+        return chain;
+    }
+
+    string Audience() =>
+        settings.UsesGrid
+            ? $"a {settings.GridRadius:N0} m grid around each"
+            : settings.SeesEverything
+                ? "everybody sees everything"
+                : $"{settings.Observed:N0} observed each";
+
     void Build() {
         var clock = Stopwatch.StartNew();
 
@@ -120,7 +148,23 @@ internal sealed class Soak(SoakSettings settings) : IDisposable {
         }
 
         for (var i = 1; i <= settings.Clients; i++) {
-            clients.Add(new((uint)i));
+            var player = new PlayerId((uint)i);
+            clients.Add(player);
+
+            // Spread around the same circle the entities are on, so every connection has a
+            // neighbourhood rather than a hundred of them standing on one spot. Set once and never
+            // moved, which is this harness's limitation rather than the grid's: the entities' own
+            // drift is what makes each connection's set change over the run, and viewpoints that
+            // also wandered would make a grid regression indistinguishable from a camera that walked
+            // off the map.
+            grid?.SetViewpoint(
+                player,
+                new(
+                    MathF.Cos(i * MathF.Tau / settings.Clients) * 200f,
+                    0f,
+                    MathF.Sin(i * MathF.Tau / settings.Clients) * 200f
+                )
+            );
         }
 
         Write($"built in {clock.Elapsed.TotalMilliseconds:N0} ms");
@@ -132,14 +176,27 @@ internal sealed class Soak(SoakSettings settings) : IDisposable {
         world.AdvanceVersion();
         Move(tick);
 
+        // Once, before any connection is resolved. This is the pass whose whole purpose is to not be
+        // done per player — a rebuild moved inside the loop below would be a hundred sweeps of five
+        // thousand entities and would still pass every assertion in this file.
+        grid?.Rebuild(world);
+
         server!.Capture(world, at);
         ledger.Advance(Rate.Duration);
+
+        lastObserved = 0;
 
         foreach (var player in clients) {
             if (server.TryWriteSnapshot(world, player, at, buffer, out _)) {
                 // A connection acknowledges some ticks later, which is what a round trip looks like
                 // to the baseline and what decides whether a difference can be measured at all.
                 acknowledging.Enqueue((tick + settings.AcknowledgeLag, player));
+            }
+
+            // Read after the write rather than before it: the chain's counters are per-resolve, and
+            // the resolve happens inside TryWriteSnapshot.
+            if (chain is { } resolved) {
+                lastObserved += resolved.ConsideredCount - resolved.HiddenCount;
             }
         }
 
@@ -174,6 +231,19 @@ internal sealed class Soak(SoakSettings settings) : IDisposable {
         var records = ledger.DeltaCount + ledger.WholeCount;
 
         Write("");
+
+        if (grid is { } bucketed) {
+            // The observed count is half of the comparison and the tick time is the other half: a
+            // grid reporting a quarter of the slice's tick time and a quarter of its observed count
+            // has measured nothing at all.
+            Write(
+                $"grid      {bucketed.PositionedCount:N0} bucketed into {bucketed.CellCount:N0} cells, "
+                + $"{bucketed.UnpositionedCount:N0} placeless, {lastObserved:N0} observed on the last tick "
+                + $"({lastObserved / (double)settings.Clients:N0} a connection), "
+                + $"{bucketed.ViewpointlessCount:N0} queries from nowhere"
+            );
+        }
+
         Write($"records   {records:N0}, {ledger.DeltaCount:N0} as a difference ({(records == 0 ? 0 : ledger.DeltaCount / (double)records):P0})");
         Write($"bandwidth {ledger.TotalBits / 8d / 1024d / 1024d:N1} MiB over {seconds:N0} s — {perClient:N1} kbit/s per client");
         Write($"tick      mean {measured.Mean.TotalMicroseconds:N0} us, p99 {measured.Typical.TotalMicroseconds:N0} us, worst {measured.Worst.TotalMicroseconds:N0} us, budget {Rate.Duration.TotalMicroseconds:N0} us");

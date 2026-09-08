@@ -52,7 +52,18 @@ public sealed class NetworkSpawner {
     /// <summary>The scenes this peer has loaded. Optional; without it spawns belong to no scene.</summary>
     public SceneManager? Scenes { get; set; }
 
-    /// <summary>Which networked scene each local one is. Optional, and needed with <see cref="Scenes" />.</summary>
+    /// <summary>Which networked scene each local one is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Optional, and no longer the difference between a spawn that names its scene and one
+    ///     that does not.</b> Left null, this makes one out of <see cref="Scenes" /> the first time a
+    ///     spawn needs an id — the map is a pure function of the scene names the manager already
+    ///     holds, so there was never anything for a caller to decide. Setting one is for a game that
+    ///     wants to read it, or that tracks scenes some other way; before it did that and also
+    ///     decided whether the scene reached the wire at all. Nothing constructed one in this
+    ///     repository outside a test, so every spawn into a scene travelled as
+    ///     <see cref="NetworkSceneId.None" /> — "wherever the receiver puts it" — with the handle and
+    ///     the name both in hand. That is <see href="https://github.com/Rikarin/Vixen/issues/491" />.
+    /// </remarks>
     public NetworkSceneMap? SceneIds { get; set; }
 
     /// <summary>How many instances have been spawned.</summary>
@@ -160,7 +171,7 @@ public sealed class NetworkSpawner {
 
         Number(world, prefab, instance, first);
 
-        var sceneId = SceneIds is { } map ? map.IdOf(scene) : NetworkSceneId.None;
+        var sceneId = IdOf(scene);
 
         world.Add(
             root,
@@ -183,6 +194,31 @@ public sealed class NetworkSpawner {
         SpawnedCount++;
 
         return root;
+    }
+
+    /// <summary>The networked id of a local scene, tracking it first if nothing has.</summary>
+    /// <param name="scene">The local handle, or default for no scene.</param>
+    /// <returns>Its id, or <see cref="NetworkSceneId.None" /> if this peer cannot name it.</returns>
+    /// <remarks>
+    ///     The reconcile is only paid when a handle is one this map has not seen, so a match spawning
+    ///     into one scene does it once and every spawn after that is a dictionary lookup.
+    /// </remarks>
+    public NetworkSceneId IdOf(SceneHandle scene) {
+        if (!scene.IsValid || (SceneIds is null && Scenes is null)) {
+            return NetworkSceneId.None;
+        }
+
+        SceneIds ??= new();
+
+        var id = SceneIds.IdOf(scene);
+
+        if (id.IsValid || Scenes is not { } manager) {
+            return id;
+        }
+
+        SceneIds.TrackAll(manager);
+
+        return SceneIds.IdOf(scene);
     }
 
     /// <summary>Despawns an instance.</summary>

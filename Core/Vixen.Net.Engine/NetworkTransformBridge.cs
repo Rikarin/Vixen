@@ -282,6 +282,18 @@ public sealed class NetworkTransformCaptureSystem : SystemBase, IDeclaredAccess 
 ///         when both directions run at once.
 ///     </para>
 ///     <para>
+///         ⚠ <b>This is the unsmoothed path, and on its own it is meant to be.</b> The received pose
+///         goes straight into <see cref="LocalTransform" /> with no buffering and no interpolation
+///         delay, so an object moves in the steps the snapshot rate delivers — at 20 Hz on a 60 Hz
+///         display, three frames of stillness and one jump. That is the right default for a
+///         listen-server peer, a headless client, an editor preview and anything whose transform is
+///         read rather than drawn, and it is the wrong one for a game.
+///         <see cref="NetworkTransformInterpolateSystem" /> is the other half: added beside this one
+///         it keeps a <c>SnapshotBuffer</c> per <see cref="NetworkId" /> and overwrites the placement
+///         with the pose at the clock's interpolation tick. The two compose rather than compete —
+///         this one resolves the frames and places what the other has nothing to say about.
+///     </para>
+///     <para>
 ///         <b>Scale is deliberately not touched.</b> <see cref="NetworkTransform" /> carries a
 ///         position and a rotation and no scale, because scale changes rarely and belongs in a
 ///         <c>[Replicated]</c> component of the game's own when it changes at all — putting it on

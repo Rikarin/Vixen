@@ -63,9 +63,12 @@ Apple M-series, .NET 10, Release. Eight players, thirty seconds of play, 30 Hz t
 | Snapshots rejected | 0 | 0 | 0 |
 | Converged | yes | yes | yes |
 
-Eight fighters at 30 Hz for **under 10 kbit/s a client**, and that is with `ReplicateEverything` —
-every player is told about every other one, because interest management is the thing to replace
-first and not the thing to start with.
+Eight fighters at 30 Hz for **under 10 kbit/s a client**. The server resolves interest through an
+`InterestChain` — an `InterestGrid` source with an `ExplicitInterestRule` after it — and at the
+default ninety-six metre radius nothing in a forty-metre arena is ever out of range, so every player
+is still told about every other one. `--interest-radius 20` narrows it and fighters start being
+hidden; the convergence check follows, because it asks the chain what each connection is owed rather
+than assuming the answer is everybody.
 
 Against the same run before delta encoding landed — 82 B, 98 B and 110 B — that is **half the
 bandwidth on a good connection and a third off a bad one**. A `NetworkTransform` costs 88 bits sent
@@ -171,14 +174,20 @@ backwards and an acknowledgement that is lost costs one tick.
 
 ## What is not here
 
-- **Lag compensation**, as above. Deferred within the phase, blocked on Phase 8.
+- **Lag compensation**, as above. ⚠ **Not blocked on Phase 8 any more, and not on the engine at all**: `Vixen.Net.Physics` has the pose ring, the clamp, the rewind scope and a `LagCompensationSystem` that fills the ring off a `LagCompensated` tag ([#515](https://github.com/Rikarin/Vixen/issues/515)). All of it rewinds *colliders*, and this arena has none — a fighter is a `NetworkTransform` and the hit test is a dot product. Wiring it up means giving the arena a `PhysicsScene`, which is a rewrite of the sample rather than a call.
 - **Client-side prediction.** Explicitly not in Phase 9 — see
   [docs/plan/16](../../docs/plan/16-networking.md). The owner's fighter is interpolated like everyone
   else's, so it answers a round trip late; `OwnerSmoothing` is built and this sample does not need
   it, because a bot does not mind.
-- **Interest management.** `ReplicateEverything`, deliberately, because the convergence check wants
-  every client to hold every fighter. A distance resolver is a class and a `--interest` flag away,
-  and the seam it plugs into is `IInterestResolver`.
+- **A rule that can show what the grid never offered.** `ExplicitInterestRule`'s own remarks promise
+  "a quest marker that stays visible at any range", and with an `InterestGrid` under it that is not
+  what happens: `InterestChain.Resolve` asks the *source* for candidates and only then asks the
+  rules, so `Show` can keep something visible that a later rule would have hidden and cannot
+  resurrect an object the grid dropped. This sample uses the override in the direction that works —
+  a player is never told to stop watching their own avatar — and the other direction is
+  [#1042](https://github.com/Rikarin/Vixen/issues/1042).
+- **A `SceneInterestRule`.** There is one scene here and no `SceneTag` on anything, so the rule would
+  return `Undecided` for every object and cost a virtual call to do it.
 - **Anything drawn.** There is an `EngineLoop` here now — it is what runs the behaviours — but no
   renderer and no transform hierarchy: fighters live at a `NetworkTransform` and nothing copies that
   into a `LocalTransform`. `NetworkTransformCaptureSystem` is the system that would, and wiring it

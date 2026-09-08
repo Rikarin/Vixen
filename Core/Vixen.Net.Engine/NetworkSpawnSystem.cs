@@ -55,7 +55,13 @@ public sealed class NetworkSpawnSystem : SystemBase, IDeclaredAccess {
     /// <summary>The scenes this peer has loaded. Optional; without it instances belong to no scene.</summary>
     public SceneManager? Scenes { get; set; }
 
-    /// <summary>Which networked scene each local one is. Needed with <see cref="Scenes" />.</summary>
+    /// <summary>Which networked scene each local one is.</summary>
+    /// <remarks>
+    ///     Optional, and the receiving half of <c>NetworkSpawner.SceneIds</c>'s remarks: left null,
+    ///     this makes one out of <see cref="Scenes" /> and keeps it reconciled against what is
+    ///     loaded, because the id is the hash of a name both peers already agree on and there is
+    ///     nothing for a caller to decide. Set one to read it, or to track scenes some other way.
+    /// </remarks>
     public NetworkSceneMap? SceneIds { get; set; }
 
     /// <summary>Who owns what, kept in step with what the spawns say. Optional.</summary>
@@ -136,7 +142,20 @@ public sealed class NetworkSpawnSystem : SystemBase, IDeclaredAccess {
             // The scene is still loading, or this peer was never told to load it. Either way the
             // instance is not built yet: putting it in the world untagged would leave an object that
             // the scene's unload does not sweep, which outlives the level it belonged to.
-            if (SceneIds is not { } map || !map.TryResolve(new(spawn.Scene), out scene)) {
+            //
+            // ⚠ Reconciled here rather than once, because "not loaded yet" is the normal case and
+            // the map has to notice the frame it stops being true. TrackAll walks the loaded list,
+            // which is a level or two.
+            if (SceneIds is null && Scenes is null) {
+                return false;
+            }
+
+            SceneIds ??= new();
+
+            if (!SceneIds.TryResolve(new(spawn.Scene), out scene)
+                && (Scenes is not { } loaded
+                    || SceneIds.TrackAll(loaded) == 0
+                    || !SceneIds.TryResolve(new(spawn.Scene), out scene))) {
                 return false;
             }
         }

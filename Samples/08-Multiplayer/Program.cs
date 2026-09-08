@@ -44,7 +44,8 @@ public static class Program {
                     SettleTicks = Number(arguments, "--settle", 120),
                     Loss = Math.Clamp(Number(arguments, "--loss", 0) / 100d, 0d, 0.9d),
                     Latency = TimeSpan.FromMilliseconds(Number(arguments, "--latency", 0)),
-                    Seed = (ulong)Number(arguments, "--seed", 20260728)
+                    Seed = (ulong)Number(arguments, "--seed", 20260728),
+                    InterestRadius = Math.Clamp(Number(arguments, "--interest-radius", 96), 1, 4096)
                 }
             ),
             "server" => NetworkMatch.RunServer(
@@ -79,6 +80,10 @@ public static class Program {
             """
             08-Multiplayer — server-authoritative, eight players, movement and shooting.
 
+            The arena is eighty metres across, so the default interest radius sees all of it and
+            nothing is hidden. Narrow it and the interest chain starts refusing fighters — the run
+            still converges, because the check asks the chain what each client is owed.
+
               --mode local    everybody in one process, deterministic, checked at the end (default)
                 --clients N   how many players, 1 to 8            (8)
                 --ticks N     frames of play                      (1800, thirty seconds)
@@ -86,6 +91,7 @@ public static class Program {
                 --loss N      percent of payloads to throw away     (0)
                 --latency N   milliseconds each way, jitter a quarter of it  (0)
                 --seed N      what every random decision comes from  (20260728)
+                --interest-radius N  metres a player is told about      (96)
 
               --mode server   host over UDP
                 --port N      what to listen on                  (7777)

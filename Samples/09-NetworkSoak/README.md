@@ -26,6 +26,13 @@ entity: five hundred thousand records a tick before anything is encoded, which n
 bit-packing rescues. The default gives each connection a slice, which is what any real resolver
 produces.
 
+**And `--interest grid` is a third mode rather than a replacement for the slice.** The slice exists
+because a distance grid makes the measurement depend on how the entities were laid out, which is a
+fair objection to measuring *the pipeline* with one — so it stays the default and stays the
+layout-independent number. What was missing is the other half: `InterestGrid` makes a cost claim that
+nothing here measured. The two modes run against each other, on the same machine at the same sitting,
+are what puts a number on it.
+
 ## What it found
 
 Apple M-series, .NET 10, Release. 5 000 entities, 100 connections, 250 observed each, 20 % moving.
@@ -83,6 +90,23 @@ rather than a softened target. Over a run containing a full collection the worst
 of that collection, so asserting on it measures the garbage collector and calls the pipeline broken
 however fast the pipeline is. The pause is real and is still printed; what keeps it honest is the
 allocation budget, which is its cause.
+
+**The distance grid costs about three times the slice for the same amount seen.** Four runs
+alternating the two modes, 5 000 entities and 100 connections, on a machine with a dozen other builds
+on it — so read the ratio and not the absolute microseconds:
+
+| | slice | grid |
+|---|---|---|
+| Observed per connection | 250 | 282 |
+| Mean tick | 8.4 ms / 4.9 ms | 27.8 ms / 21.9 ms |
+
+That is the honest shape of the claim in `InterestGrid`'s remarks. The grid is not free and is not
+supposed to be: what it buys is that the cost stops being *connections × the whole world*, which is
+what `--interest all` measures. Against a fixed slice — a resolver that already knows the answer and
+does no work to find it — a grid that has to bucket five thousand entities and then walk a
+neighbourhood of cells per connection is three to four times the price for thirteen per cent more
+observed. ⚠ The neighbourhood walk is a cube of cells (`span³`) even when the world is a plane, which
+is where most of that goes; see [#1043](https://github.com/Rikarin/Vixen/issues/1043).
 
 **Bandwidth is per connection, and the interest slice is doing the work.** Two hundred and fifty
 observed entities at 30 Hz is what 75 kbit/s buys. `--interest all` is the same run without an
