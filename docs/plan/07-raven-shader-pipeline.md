@@ -45,7 +45,7 @@ documents. **Criticality**: 🔴 engine-blocking · 🟡 needed for 1.0 · ⚪ m
 | 🔴 | **Extract `Vixen.Core.Syntax`**: lift `GreenNode`, `SyntaxNode`, `SyntaxToken`, `SyntaxTrivia`, `SyntaxList<T>`, `SeparatedSyntaxList`, `SourceText`, the `Diagnostic`/`DiagnosticBag` model, and the `Syntax.xml` → node-classes generator out of Raven into shared `Core/` projects, then retarget Raven onto them. VXML and VCSS then declare their own `Syntax.xml` against the same infrastructure. **This is the single highest-leverage refactor in the plan** — it turns three parser front ends into one tested foundation plus three grammars | ✅ |
 | ⚪ | Raven lands in the **Tooling** MSBuild profile ([02](02-repository-layout.md)): reflection and LINQ permitted, `IsAotCompatible` off. It is a compiler, not runtime code | ✅ |
 | ⚪ | `Vixen.Raven` and `Vixen.Raven.Cli` become shipped NuGet packages ([12](12-build-ci-and-testing.md)); the compiler is useful standalone | ✅ |
-| ⚪ | Relicense to **Apache-2.0** with SPDX headers and NOTICE (ADR-015) | ✅ headers and enforcement. ⚠ `.rvn` is **not** in the gate's scope — one shader of 125 carries a header |
+| ⚪ | Relicense to **Apache-2.0** with SPDX headers and NOTICE (ADR-015) | ✅ headers and enforcement, `.rvn` included |
 
 **Packaging.** Three packages: `Vixen.Core.Syntax`, `Vixen.Raven` (library) and
 `Vixen.Raven.Cli` (a `dotnet tool` exposing `raven`). The generator is `IsPackable=false` —
@@ -56,11 +56,18 @@ are now fixed: `Vixen.Raven.Cli` would have taken the package id `raven` from it
 every consuming project.
 
 **SPDX enforcement landed where ADR-015 put it.** `CheckFormat` fails on any `.cs`, `.g4`,
-`.vxml`, `.vcss` or `.ts` file whose first ten lines do not carry both
+`.vxml`, `.vcss`, `.ts` or `.rvn` file whose first ten lines do not carry both
 `SPDX-FileCopyrightText` and `SPDX-License-Identifier`, and it names every such file rather
-than the first. ⚠ **`.rvn` is outside that scope and this is the document that has to say so**:
-one shader of 125 carries a header, so heading the library is its own change with its own diff
-to read — not something to smuggle in behind a build target.
+than the first.
+
+⚠ **`.rvn` was outside that scope until the headers existed, and the note tracking it was wrong
+in both halves.** It said "one shader of 125 carries a header". The measurement was *zero* of
+114 in `Raven/Library`, and the single headed `.rvn` in the tree was a parser fixture, not a
+library shader — a hand-maintained count is what produced that, so no count is recorded here
+now. The headers were written first and the extension added second, which is what keeps the
+diff readable: one commit of 172 two-line insertions, one commit of one word. Compiled output
+is unaffected, because a comment is trivia the lexer drops and neither back end emits source
+into what it generates.
 
 **How the extraction landed.** Two decisions to know before touching the tree:
 
@@ -888,10 +895,30 @@ function taking five. Two same-named statics with *matching* signatures resolve 
 with no diagnostic at all, produce a shader that compiles and validates, and compute the wrong thing;
 that is the case `CompiledLibraryTests.SameNamedStaticsInTwoLibrariesEachKeepTheirOwnBody` pins.
 
-Structs still cross by name alone, and two packages that each declare a `struct Sampling` would
-unify the same way. That one is deliberately unfixed here: a struct's name is also what a consumer's
-own declaration shadows, so it wants the same treatment on both halves of the artefact rather than
-the IR half only.
+#### ✅ And a struct crossed under a name too, which was the worse half
+
+The paragraph that stood here said structs were "deliberately unfixed", on the reasoning that a
+struct's name is also what a consumer's own declaration shadows. ⚠ That deferral was wrong about the
+severity: two same-named *statics* with matching signatures compute the wrong thing, and two
+same-named *structs* of equal width do the same with the second library's field names still in the
+source — `b.height` lowered to a read of the other library's `drag`, with no diagnostic, no verifier
+complaint and a valid module. Only unequal field counts were loud (`RVN3010`).
+
+`LibraryIrStruct` now carries `Key` beside `Name`, exactly as the function half does: the key is the
+declaring library's name and the struct's, joined by `::`, and it is what
+`LibraryIrTypeReference.Struct` and `LibraryType.IrStruct` record. The name stays bare, so the GLSL
+still says `Shape`.
+
+⚠ **A qualified key is not applied to every struct, and that exemption is load-bearing.** A tuple has
+no declaration to qualify with and none to match on — `Lowerer.LowerTuple` matches an imported one by
+the name derived from its element types, and says in its own remarks that this is necessary rather
+than an optimisation. A monomorphised generic is named the same way. Qualifying those splits a type
+that must stay one, which shows up as `RVN3010: store: Tuple_f32_f32 does not match Tuple_f32_f32#1`
+— which is what the sabotage of the exemption prints, and what
+`CompiledLibraryTests.TuplesFromTwoLibrariesStayOneTypeDespiteTheStructKey` holds down.
+
+The `.rvnlib` format went to **version 4**. Nothing in the tree commits a `.rvnlib`, so no artefact
+had to be regenerated.
 
 ### G. Testing and CI additions
 

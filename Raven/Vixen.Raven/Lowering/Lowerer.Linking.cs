@@ -31,7 +31,7 @@ namespace Vixen.Raven.Lowering;
 public sealed partial class Lowerer {
     readonly Dictionary<IrFunction, string> importedFunctionNames = [];
     readonly HashSet<IrFunction> importedFunctions = [];
-    readonly Dictionary<IrStructType, string> importedStructNames = [];
+    readonly Dictionary<IrStructType, string> importedStructKeys = [];
     readonly HashSet<IrStructType> importedStructs = [];
 
     /// <summary>
@@ -121,7 +121,7 @@ public sealed partial class Lowerer {
             Publish();
 
             foreach (var type in Types()) {
-                if (type.IrStructName is { } name && decoder.Structs.GetValueOrDefault(name) is { } structType) {
+                if (type.IrStructName is { } key && decoder.Structs.GetValueOrDefault(key) is { } structType) {
                     lowerer.structs[type] = structType;
                 }
             }
@@ -150,9 +150,12 @@ public sealed partial class Lowerer {
         ///     artefact key each entity was reached by so a library built here can re-record it.
         /// </summary>
         void Publish() {
-            foreach (var (name, structType) in decoder.Structs) {
+            foreach (var (key, structType) in decoder.Structs) {
                 if (lowerer.importedStructs.Add(structType)) {
-                    lowerer.importedStructNames[structType] = name;
+                    lowerer.importedStructKeys[structType] = key;
+
+                    // By the name it carries here, not by the key: this table is the structural
+                    // match `LowerTuple` uses, and a tuple's name is what identifies it.
                     lowerer.importedStructsByName[structType.Name] = structType;
                     lowerer.module.Add(structType);
                 }

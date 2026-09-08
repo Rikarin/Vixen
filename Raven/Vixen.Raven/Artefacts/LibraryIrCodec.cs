@@ -16,23 +16,30 @@ namespace Vixen.Raven.Artefacts;
 ///         refuses an unknown one rather than dropping it.
 ///     </para>
 ///     <para>
-///         Names, not objects, are what cross the boundary — and specifically the name the
+///         Names, not objects, are what cross the boundary — and specifically the label the
 ///         <em>artefact</em> uses. An entity linked in from another library may have been renamed to
-///         keep the producing module's namespace unambiguous, so the encoder is given the naming
-///         function rather than reading <c>IrStructType.Name</c>: what it writes has to be the name a
+///         keep the producing module's namespace unambiguous, so the encoder is given the labelling
+///         functions rather than reading <c>IrStructType.Name</c>: what it writes has to be what a
 ///         consumer will look up.
 ///     </para>
 ///     <para>
-///         A function crosses under two labels: the <see cref="LibraryIrFunction.Key" /> a reference
-///         resolves by, which is supplied, and the <see cref="LibraryIrFunction.Name" /> it carried,
-///         which is read off the function because that is exactly what it is.
+///         A function and a struct each cross under two labels: the key a reference resolves by,
+///         which is supplied, and the name it carried, which is only what it ends up called. ⚠ The
+///         struct half of that is newer than the function half — a struct crossed by its bare name
+///         until <c>#504</c>, so two libraries' <c>Shape</c> collapsed to one object.
 ///     </para>
 /// </remarks>
 internal sealed class LibraryIrEncoder {
     readonly Func<IrFunction, string> functionKey;
+    readonly Func<IrStructType, string> structKey;
     readonly Func<IrStructType, string> structName;
 
-    LibraryIrEncoder(Func<IrStructType, string> structName, Func<IrFunction, string> functionKey) {
+    LibraryIrEncoder(
+        Func<IrStructType, string> structKey,
+        Func<IrStructType, string> structName,
+        Func<IrFunction, string> functionKey
+    ) {
+        this.structKey = structKey;
         this.structName = structName;
         this.functionKey = functionKey;
     }
@@ -42,9 +49,12 @@ internal sealed class LibraryIrEncoder {
     /// </summary>
     /// <param name="structs">The structs to export.</param>
     /// <param name="functions">The functions to export.</param>
+    /// <param name="structKey">
+    ///     The artefact key for a struct — the one this library is giving it, or the one the
+    ///     library it was linked from already gave it.
+    /// </param>
     /// <param name="structName">
-    ///     The artefact name for a struct — its own, or the name the library it was linked from
-    ///     gave it.
+    ///     The readable name to record for a struct, which is not what a reference resolves by.
     /// </param>
     /// <param name="functionKey">
     ///     The artefact key for a function — the one this library is giving it, or the one the
@@ -58,10 +68,11 @@ internal sealed class LibraryIrEncoder {
     public static LibraryIr Encode(
         IEnumerable<IrStructType> structs,
         IEnumerable<IrFunction> functions,
+        Func<IrStructType, string> structKey,
         Func<IrStructType, string> structName,
         Func<IrFunction, string> functionKey
     ) {
-        var encoder = new LibraryIrEncoder(structName, functionKey);
+        var encoder = new LibraryIrEncoder(structKey, structName, functionKey);
 
         return new() {
             Structs = [.. structs.Select(encoder.EncodeStruct)],
@@ -71,11 +82,12 @@ internal sealed class LibraryIrEncoder {
 
     LibraryIrStruct EncodeStruct(IrStructType structType) =>
         new() {
+            Key = structKey(structType),
             Name = structName(structType),
             Fields = [.. structType.Fields.Select(f => new LibraryIrField(f.Name, EncodeType(f.Type)))]
         };
 
-    /// <summary>Encodes a type. A struct travels as its name, which is its identity.</summary>
+    /// <summary>Encodes a type. A struct travels as its key, which is its identity.</summary>
     LibraryIrTypeReference EncodeType(IrType type) =>
         type switch {
             IrVectorType vector => new() {
@@ -90,7 +102,7 @@ internal sealed class LibraryIrEncoder {
             IrArrayType array => new() {
                 Kind = IrTypeKind.Array, Element = EncodeType(array.Element), Length = array.Length
             },
-            IrStructType aggregate => new() { Kind = IrTypeKind.Struct, Struct = structName(aggregate) },
+            IrStructType aggregate => new() { Kind = IrTypeKind.Struct, Struct = structKey(aggregate) },
             IrTextureType texture => new() {
                 Kind = IrTypeKind.Texture,
                 Dimension = texture.Dimension,
@@ -319,9 +331,11 @@ internal sealed class LibraryIrEncoder {
 ///         namespace, so a name resolves to one entity regardless of which library mentions it, and
 ///         that is what lets <c>Brdf.rvnlib</c> call a function it does not itself contain out of
 ///         <c>Math.rvnlib</c> — and reach the <em>same</em> struct object the consumer's own
-///         variables are typed by, rather than a private copy that would fail the verifier. The
-///         cost is that two libraries exporting the same IR name collapse to the first, which is
-///         the rule the duplicate-reference warning already states.
+///         variables are typed by, rather than a private copy that would fail the verifier.
+///         ⚠ Flat used to mean "by bare name", and two libraries exporting a <c>struct Shape</c>
+///         collapsed to the first; the tables are keyed now, and only a structurally identified
+///         struct — a tuple, a monomorphised generic — still shares by name, which for those is
+///         the identity rather than a collision.
 ///     </para>
 ///     <para>
 ///         Loading is phased because the graph has cycles: every struct shell, then their fields,
@@ -334,11 +348,14 @@ internal sealed class LibraryIrDecoder {
     readonly Func<string, string> nameFor;
     readonly Dictionary<string, IrStructType> structs = new(StringComparer.Ordinal);
 
-    /// <summary>Structs keyed by the name their artefact gave them.</summary>
+    /// <summary>Structs keyed by the artefact key their library gave them.</summary>
     /// <remarks>
-    ///     Keyed by the artefact name, while the object may carry a different one: a linked module
-    ///     has one namespace, so a library entity whose name a consumer already uses gives way.
-    ///     Cross-references inside an artefact are by the original name, so that is the key.
+    ///     ⚠ A key rather than a name, for the reason <see cref="Functions" /> is: the name alone
+    ///     did not separate two libraries that each declared a <c>struct Shape</c>, and the loser's
+    ///     functions returned a value whose members belonged to the winner. At equal field counts
+    ///     not even the verifier noticed. The object may still carry a different <em>name</em> —
+    ///     a linked module has one namespace, so a library entity whose name a consumer already
+    ///     uses gives way.
     /// </remarks>
     public IReadOnlyDictionary<string, IrStructType> Structs => structs;
 
@@ -376,17 +393,19 @@ internal sealed class LibraryIrDecoder {
         loaded.Add(ir);
 
         foreach (var structType in ir.Structs) {
-            // First declaration of a name wins, so a struct two libraries both mention has one
-            // identity across the linked module.
-            if (!structs.ContainsKey(structType.Name)) {
-                structs[structType.Name] = new(nameFor(structType.Name));
+            // Keyed, not named: a key names one declaration in one library, so two libraries'
+            // `Shape` stay two objects — while a tuple's key is bare, which is what keeps two
+            // libraries' `Tuple_f32_f32` one object, as the structural match requires.
+            if (!structs.ContainsKey(structType.Key)) {
+                structs[structType.Key] = new(nameFor(structType.Name));
             }
         }
 
         foreach (var structType in ir.Structs) {
-            var target = structs[structType.Name];
+            var target = structs[structType.Key];
 
-            // Only fill a shell once: a re-declaration of the same name is the loser above.
+            // Only fill a shell once: a re-declaration of the same key is the loser above, and for
+            // a structural key that re-declaration is the same shape by construction.
             if (target.Fields.Count == 0) {
                 target.SetFields([.. structType.Fields.Select(f => new IrField(f.Name, DecodeType(f.Type)))]);
             }
@@ -427,8 +446,8 @@ internal sealed class LibraryIrDecoder {
                 type.Element is { } element ? DecodeType(element) : IrScalarType.Void,
                 type.Length
             ),
-            IrTypeKind.Struct => type.Struct is { } name
-                ? structs.GetValueOrDefault(name) ?? Missing(name)
+            IrTypeKind.Struct => type.Struct is { } key
+                ? structs.GetValueOrDefault(key) ?? Missing(key)
                 : IrScalarType.Void,
             IrTypeKind.Texture => new IrTextureType(
                 type.Dimension,
@@ -462,9 +481,14 @@ internal sealed class LibraryIrDecoder {
     ///     resolve; here the placeholder keeps the IR shape intact so the failure is one diagnostic
     ///     rather than a crash.
     /// </remarks>
-    IrStructType Missing(string name) {
+    IrStructType Missing(string key) {
+        // The key's readable half, because the placeholder's name is what a diagnostic and the
+        // generated source show — `Shape`, not `Physics::Shape`.
+        var separator = key.LastIndexOf("::", StringComparison.Ordinal);
+        var name = separator < 0 ? key : key[(separator + 2)..];
+
         var placeholder = new IrStructType(nameFor(name));
-        structs[name] = placeholder;
+        structs[key] = placeholder;
         return placeholder;
     }
 

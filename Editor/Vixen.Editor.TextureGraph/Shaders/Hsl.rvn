@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 package Vixen.Editor.TextureGraph.Shaders
 
 // Hue, saturation and lightness — doc 48 § 4.2's `HSL`.

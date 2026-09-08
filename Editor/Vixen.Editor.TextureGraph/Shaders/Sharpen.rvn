@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 package Vixen.Editor.TextureGraph.Shaders
 
 // Doc 48 § 4.4's `Sharpen`, as an **unsharp mask**: the image plus a multiple of what a blur of it

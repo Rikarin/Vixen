@@ -448,43 +448,38 @@ public class CompiledLibraryTests {
     }
 
     /// <summary>
-    ///     ⚠ Two libraries that each declare a <em>struct</em> of the same name collapse to the
-    ///     first, and this pins the defect rather than the fix.
+    ///     Two libraries that each declare a <em>struct</em> of the same name keep their own, and
+    ///     the consumer that references both gets two types rather than one.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         The other half of <see cref="SameNamedStaticsInTwoLibrariesEachKeepTheirOwnBody" />,
-    ///         and the half still open. A function crosses a library boundary by its artefact
-    ///         <em>key</em>, derived from the declaration; a struct crosses by its bare IR name. So
-    ///         two libraries' <c>Shape</c>s are one object with the first library's fields, and the
-    ///         second library's function returns a value whose members belong to somebody else.
-    ///         <c>LibraryIrCodec</c>'s decoder says so in its own remarks — "the cost is that two
-    ///         libraries exporting the same IR name collapse to the first" — and nothing executed
-    ///         that sentence until now.
+    ///         The other half of <see cref="SameNamedStaticsInTwoLibrariesEachKeepTheirOwnBody" />.
+    ///         A function crossed a library boundary by its artefact <em>key</em> and a struct by
+    ///         its bare IR name, so two libraries' <c>Shape</c>s were one object with the first
+    ///         library's fields and the second library's function returned a value whose members
+    ///         belonged to somebody else. ⚠ <c>LibraryIrCodec</c>'s decoder stated that as a known
+    ///         cost, in prose, for as long as it was true.
     ///     </para>
     ///     <para>
-    ///         <b>Two fixtures, because the failure has two severities and only one is
-    ///         survivable.</b> Different field counts reach the IR verifier as <c>RVN3010</c>,
-    ///         which is a refusal an author can read. Equal counts do not — see
-    ///         <see cref="SameNamedStructsOfEqualWidthCollapseWithNoDiagnosticAtAll" />.
+    ///         <b>Two fixtures, because the failure had two severities and only one was
+    ///         survivable.</b> Different field counts reached the IR verifier as <c>RVN3010</c>,
+    ///         which is a refusal an author can read. Equal counts did not — see
+    ///         <see cref="SameNamedStructsOfEqualWidthKeepTheirOwnFields" />, which is the fixture
+    ///         that made this worth fixing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Why this is pinned rather than fixed, which is the part worth writing down.</b>
-    ///         Sharing structs by name is not simply wrong, and a fix that qualifies every struct
-    ///         name breaks two things that depend on it. A <em>tuple</em>'s name is derived from its
-    ///         element types, so the name <em>is</em> its structural identity and two libraries'
+    ///         ⚠ <b>The fix is a key beside the name, not a qualified name</b>, because sharing a
+    ///         struct by name is load-bearing in two places. A <em>tuple</em>'s name is derived from
+    ///         its element types, so the name <em>is</em> its structural identity and two libraries'
     ///         <c>Tuple_f32_f32</c> have to stay one type — <c>Lowerer.LowerTuple</c> says in its
-    ///         own remarks that this is necessary and not an optimisation, because a library
-    ///         function returning <c>(float, float)</c> would otherwise return a different type from
-    ///         the one the caller's local holds. A monomorphised generic is named the same way. So
-    ///         the fix is a key beside the name, as functions already have, with structural identity
-    ///         exempted and the decoder routing a reference to the library it came from — which is
-    ///         more than one method. Filed as
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/504">#504</a>.
+    ///         own remarks that this is necessary and not an optimisation. A monomorphised generic
+    ///         is named the same way. Both keep a bare key;
+    ///         <see cref="TuplesFromTwoLibrariesStayOneTypeDespiteTheStructKey" /> holds that half
+    ///         down.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void SameNamedStructsInTwoLibrariesCollapseToTheFirst() {
+    public void SameNamedStructsInTwoLibrariesStayDistinct() {
         var geometry = BuildLibrary(
             "Geometry",
             """
@@ -527,8 +522,9 @@ public class CompiledLibraryTests {
             """
         );
 
-        // ⚠ Loud, and loud is the good case: Physics.Shape became Geometry.Shape, which has one
-        // field, so writing the second is an access the verifier refuses.
+        // ⚠ The old symptom was loud here — Physics.Shape became Geometry.Shape, which has one
+        // field, so writing the second was an access RVN3010 refused. A refusal is what the wrong
+        // answer looked like, so its absence is half of what this asserts.
         var (_, module, diagnostics) = ConsumeWithoutChecking(
             """
             package App
@@ -552,29 +548,34 @@ public class CompiledLibraryTests {
             physics
         );
 
-        Assert.Contains(diagnostics, d => d.Id == "RVN3010");
+        Assert.DoesNotContain(diagnostics, d => d.IsError);
 
-        // And the collapse itself, so the assertion above cannot be satisfied by some other error:
-        // one struct object reached twice, carrying the first library's fields.
+        // Two struct objects, each carrying its own library's fields.
         var shade = Assert.Single(module.AllFunctions, f => f.Name == "Shade");
         var made = CallGraph.Calls(shade.Body).ToArray();
 
         Assert.Equal(2, made.Length);
-        Assert.Same(made[0].ReturnType, made[1].ReturnType);
+        Assert.NotSame(made[0].ReturnType, made[1].ReturnType);
         Assert.Equal(["radius"], Assert.IsType<IrStructType>(made[0].ReturnType).Fields.Select(f => f.Name));
+        Assert.Equal(
+            ["mass", "drag"],
+            Assert.IsType<IrStructType>(made[1].ReturnType).Fields.Select(f => f.Name)
+        );
     }
 
     /// <summary>
-    ///     ⚠ The silent half of <see cref="SameNamedStructsInTwoLibrariesCollapseToTheFirst" />:
-    ///     equal field counts, so nothing complains and the shader reads the wrong member.
+    ///     ⚠ The silent half of <see cref="SameNamedStructsInTwoLibrariesStayDistinct" />: equal
+    ///     field counts, where nothing complained and the shader read the wrong member.
     /// </summary>
     /// <remarks>
-    ///     This is the case that makes the collapse worth fixing rather than documenting. There is
-    ///     no diagnostic, no verifier complaint and no invalid module — <c>b.height</c> lowers to a
-    ///     read of <c>Shape.drag</c>, and the only symptom is a number.
+    ///     This is the case that made the collapse worth fixing rather than documenting, and the
+    ///     reason a green run here proves something. There was no diagnostic, no verifier complaint
+    ///     and no invalid module — <c>b.height</c> lowered to a read of <c>Shape.drag</c> and the
+    ///     only symptom was a number, so an assertion on the diagnostics alone would still pass
+    ///     against the defect. The field names are what separates the two worlds.
     /// </remarks>
     [Fact]
-    public void SameNamedStructsOfEqualWidthCollapseWithNoDiagnosticAtAll() {
+    public void SameNamedStructsOfEqualWidthKeepTheirOwnFields() {
         var physics = BuildLibrary(
             "Physics",
             """
@@ -642,20 +643,111 @@ public class CompiledLibraryTests {
             terrain
         );
 
-        // Nothing at all, which is the finding.
+        // Clean either way — this is the half that had no diagnostic to give.
         Assert.DoesNotContain(diagnostics, d => d.IsError);
 
         var shade = Assert.Single(module.AllFunctions, f => f.Name == "Shade");
         var made = CallGraph.Calls(shade.Body).ToArray();
 
         Assert.Equal(2, made.Length);
-        Assert.Same(made[0].ReturnType, made[1].ReturnType);
+        Assert.NotSame(made[0].ReturnType, made[1].ReturnType);
 
-        // `Plots.Make` returns a Shape whose fields are Physics's, so `b.height` is `drag`.
+        // ⚠ `Plots.Make` used to return a Shape whose fields were Physics's, so `b.height` read
+        // `drag`. Each keeps its own now, which is the only observable difference there is.
         Assert.Equal(
             ["mass", "drag"],
+            Assert.IsType<IrStructType>(made[0].ReturnType).Fields.Select(f => f.Name)
+        );
+
+        Assert.Equal(
+            ["width", "height"],
             Assert.IsType<IrStructType>(made[1].ReturnType).Fields.Select(f => f.Name)
         );
+    }
+
+    /// <summary>
+    ///     ⚠ And the exemption, which is the half a struct key could have broken: two libraries'
+    ///     <c>(float, float)</c> is still <em>one</em> type.
+    /// </summary>
+    /// <remarks>
+    ///     A tuple has no declaration to qualify a key with, and none to match on either — its
+    ///     <c>TupleTypeSymbol</c> is constructed on demand — so <c>Lowerer.LowerTuple</c> matches an
+    ///     imported one by the name lowering derives from its element types, and says in its own
+    ///     remarks that this is necessary rather than an optimisation. Qualifying every struct key
+    ///     would have split <c>Tuple_f32_f32</c> in two and made a library function's return type
+    ///     stop matching the caller's local, which the verifier reports as two structs of one name.
+    ///     So a structurally identified struct keeps a bare key, and this is what holds that down.
+    /// </remarks>
+    [Fact]
+    public void TuplesFromTwoLibrariesStayOneTypeDespiteTheStructKey() {
+        var left = BuildLibrary(
+            "Left",
+            """
+            package Left
+
+            struct Pairs {
+                static func Make(a: float): (float, float) {
+                    return (a, a * 2f)
+                }
+            }
+
+            """
+        );
+
+        var right = BuildLibrary(
+            "Right",
+            """
+            package Right
+
+            struct Couples {
+                static func Make(a: float): (float, float) {
+                    return (a * 3f, a * 4f)
+                }
+            }
+
+            """
+        );
+
+        var (_, module, diagnostics) = Consume(
+            """
+            package App
+
+            import Left
+            import Right
+
+            shader Lit {
+                var amount: float
+
+                [FragmentShader]
+                func Shade(): float4 {
+                    val a = Pairs.Make(amount)
+                    val b = Couples.Make(amount)
+                    return float4(a.Item1, a.Item2, b.Item1, b.Item2)
+                }
+            }
+
+            """,
+            left,
+            right
+        );
+
+        Assert.DoesNotContain(diagnostics, d => d.IsError);
+
+        var shade = Assert.Single(module.AllFunctions, f => f.Name == "Shade");
+        var made = CallGraph.Calls(shade.Body).ToArray();
+
+        Assert.Equal(2, made.Length);
+
+        // The same object, not merely the same shape: the caller's local is typed by whichever one
+        // reached the module, and two would fail the verifier rather than differ quietly.
+        Assert.Same(made[0].ReturnType, made[1].ReturnType);
+        Assert.Equal(
+            ["Item1", "Item2"],
+            Assert.IsType<IrStructType>(made[0].ReturnType).Fields.Select(f => f.Name)
+        );
+
+        // One struct of that shape in the linked module, not two named the same.
+        Assert.Single(module.Structs, structType => structType.Name.StartsWith("Tuple_", StringComparison.Ordinal));
     }
 
     static IrIntrinsic OnlyIntrinsic(IrFunction function) =>

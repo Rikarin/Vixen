@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 package Vixen.Shaders.Pipeline
 
 // One invocation, one slot of a bindless table, one *filtered* texel out — and the number it writes

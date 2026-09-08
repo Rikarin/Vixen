@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 package Vixen.Editor.TextureGraph.Shaders
 
 // One axis of a gaussian blur — doc 48 § 4.4's `Blur HQ`. Two ops make a round one.

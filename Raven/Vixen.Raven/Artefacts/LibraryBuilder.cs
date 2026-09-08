@@ -77,7 +77,8 @@ public static class LibraryBuilder {
             Ir = LibraryIrEncoder.Encode(
                 ownStructs,
                 builder.ExportedFunctions,
-                lowered.ArtefactName,
+                lowered.ArtefactKey,
+                LoweringResult.ArtefactStructName,
                 builder.Key
             ),
             SourceHash = HashSources(compilation)
@@ -256,9 +257,12 @@ public static class LibraryBuilder {
         public LibraryType BuildType(NamedTypeSymbol type) {
             // Null for anything with no storage — a shader, a protocol, an enum — and for a struct
             // whose IR came from a referenced library, which that library exports.
+            // ⚠ The artefact key, not the struct's name: a consumer resolves this against one flat
+            // table holding every referenced library's structs, and a bare `Shape` named whichever
+            // library loaded first.
             var irStruct = lowered.Structs.GetValueOrDefault(type) is { } structType
                 && !lowered.ImportedStructs.Contains(structType)
-                    ? structType.Name
+                    ? lowered.ArtefactKey(structType)
                     : null;
 
             return new() {

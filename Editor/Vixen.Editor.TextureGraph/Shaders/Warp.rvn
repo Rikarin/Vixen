@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 package Vixen.Editor.TextureGraph.Shaders
 
 // Doc 48 § 4.4's `Warp`: displace the source by the **gradient** of a grey input.

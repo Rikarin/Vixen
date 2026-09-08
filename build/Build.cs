@@ -537,24 +537,31 @@ partial class Build : NukeBuild {
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>Five extensions, chosen from what the tree already does rather than from what
-    ///         would be nice.</b> <c>.cs</c>, <c>.g4</c>, <c>.vxml</c>, <c>.vcss</c> and <c>.ts</c>
-    ///         are the authored source languages here, and every one of them was already at or
-    ///         within a rounding error of complete coverage when this gate was written — 4 476 of
-    ///         4 493 C# files, and 100% of the other four types. A gate written to match an existing
+    ///         <b>Extensions chosen from what the tree already does rather than from what would be
+    ///         nice.</b> <c>.cs</c>, <c>.g4</c>, <c>.vxml</c>, <c>.vcss</c> and <c>.ts</c> are the
+    ///         authored source languages here, and every one of them was already at or within a
+    ///         rounding error of complete coverage when this gate was written — 4 476 of 4 493 C#
+    ///         files, and 100% of the other four types. A gate written to match an existing
     ///         convention costs nothing to turn on; a gate that first requires a thousand-file
     ///         rewrite gets turned off instead.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What is deliberately out of scope, and why each is not an oversight.</b>
-    ///         <c>.rvn</c> shaders carry the header in one file of 125 — Raven's library predates the
-    ///         relicence and heading it is a separate change with its own diff to read, not something
-    ///         to smuggle in behind a build target. Project files (<c>.csproj</c>, <c>.props</c>,
-    ///         <c>.targets</c>: 3 of 421) and Markdown (34 of 453) are the same story with weaker
-    ///         motivation — nobody vendors a single <c>.csproj</c>. <c>.frag</c> and <c>.vert</c> are
-    ///         GLSL fixtures, none headed. Binary and asset formats are excluded by not being listed:
-    ///         a header cannot go in a <c>.png</c> or a <c>.spv</c>, which is what <c>NOTICE</c> and
-    ///         the third-party manifest are for.
+    ///         ⚠ <b><c>.rvn</c> is the exception to that rule, and it was carried as a note instead
+    ///         of a gate for exactly as long as the rewrite was outstanding.</b> The note said "one
+    ///         shader of 125 carries a header"; the measurement was <em>zero</em> of 114 in
+    ///         <c>Raven/Library</c>, and the one headed file in the tree was a parser fixture. A
+    ///         hand-maintained count is what produced that, so there is no count here now — the
+    ///         headers were written and the extension added, in that order and in two commits, and
+    ///         this gate is what keeps them. It is a licence obligation rather than tidiness:
+    ///         <c>Vixen.Raven</c> ships as a package and the shader library is meant to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is still deliberately out of scope.</b> Project files (<c>.csproj</c>,
+    ///         <c>.props</c>, <c>.targets</c>: 3 of 421) and Markdown (34 of 453) are the same story
+    ///         with weaker motivation — nobody vendors a single <c>.csproj</c>. <c>.frag</c> and
+    ///         <c>.vert</c> are GLSL fixtures, none headed. Binary and asset formats are excluded by
+    ///         not being listed: a header cannot go in a <c>.png</c> or a <c>.spv</c>, which is what
+    ///         <c>NOTICE</c> and the third-party manifest are for.
     ///     </para>
     /// </remarks>
     static readonly string[] LicenceHeaderRoots = [
@@ -563,7 +570,7 @@ partial class Build : NukeBuild {
     ];
 
     /// <inheritdoc cref="LicenceHeaderRoots" />
-    static readonly string[] LicenceHeaderExtensions = ["cs", "g4", "vxml", "vcss", "ts"];
+    static readonly string[] LicenceHeaderExtensions = ["cs", "g4", "vxml", "vcss", "ts", "rvn"];
 
     /// <summary>
     ///     Fails <see cref="CheckFormat" /> if an authored source file is missing its SPDX header,

@@ -55,8 +55,16 @@ public static class CompiledLibraryFormat {
     ///         take this one's keys for names — which is the collision the split exists to stop,
     ///         reintroduced by the reader.
     ///     </para>
+    ///     <para>
+    ///         4 did the same for a struct: <see cref="LibraryIrStruct.Key" /> is what a reference
+    ///         resolves by. ⚠ A version-3 artefact identifies a struct by its bare name, and two
+    ///         libraries that each declared one of the same name collapsed to whichever loaded
+    ///         first — silently when the field counts matched, so the consumer read the wrong
+    ///         member rather than failing. A version-3 reader given this one's keys would
+    ///         reintroduce exactly that.
+    ///     </para>
     /// </remarks>
-    public const int Version = 3;
+    public const int Version = 4;
 
     /// <summary>The conventional extension, so callers do not spell it themselves.</summary>
     public const string Extension = ".rvnlib";

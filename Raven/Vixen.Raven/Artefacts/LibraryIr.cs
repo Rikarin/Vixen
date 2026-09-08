@@ -32,7 +32,39 @@ public sealed record LibraryIr {
 
 /// <summary>A lowered aggregate.</summary>
 public sealed record LibraryIrStruct {
+    /// <summary>
+    ///     What a reference to this struct resolves by: the declaring library's name and the
+    ///     struct's, joined by <c>::</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The same split, for the same reason, as <see cref="LibraryIrFunction.Key" />. A
+    ///         consumer links every library it references into <em>one</em> module and looked a
+    ///         struct up by its bare name, so two libraries that each declared a <c>struct Shape</c>
+    ///         became one object with the first one's fields — and the second library's function
+    ///         returned a value whose members belonged to somebody else. ⚠ Loud only when the field
+    ///         counts differ (the verifier's <c>RVN3010</c>); at equal widths there was no
+    ///         diagnostic at all and <c>b.height</c> read the other library's <c>drag</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A structurally identified struct keeps a bare key on purpose.</b> A tuple has no
+    ///         declaration to match on — <c>Lowerer.LowerTuple</c>'s remarks say the name matching
+    ///         is necessary rather than an optimisation, because otherwise a library function
+    ///         returning <c>(float, float)</c> returns a different type from the one the caller's
+    ///         local holds — and a monomorphised generic is named the same way. For those the name
+    ///         <em>is</em> the identity, so qualifying it would split a type that must stay one.
+    ///     </para>
+    /// </remarks>
+    public required string Key { get; init; }
+
+    /// <summary>The identifier the struct carried in the module that built it.</summary>
+    /// <remarks>
+    ///     Carried, and kept unqualified, for the reason <see cref="LibraryIrFunction.Name" /> is:
+    ///     it is what a backend emits and what a frame debugger shows. A consumer takes it unless
+    ///     something already holds it.
+    /// </remarks>
     public required string Name { get; init; }
+
     public ImmutableArray<LibraryIrField> Fields { get; init; } = [];
 }
 
@@ -134,7 +166,13 @@ public sealed record LibraryIrTypeReference {
     /// <summary>Element type of an array.</summary>
     public LibraryIrTypeReference? Element { get; init; }
 
-    /// <summary>Name of the struct, for <see cref="IrTypeKind.Struct" />.</summary>
+    /// <summary>
+    ///     <see cref="LibraryIrStruct.Key" /> of the struct, for <see cref="IrTypeKind.Struct" />.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The key, not the name — the two stopped being the same thing when a struct gained one.
+    ///     A reference written as the bare name resolved to whichever library loaded first.
+    /// </remarks>
     public string? Struct { get; init; }
 
     public IrTextureDimension Dimension { get; init; }

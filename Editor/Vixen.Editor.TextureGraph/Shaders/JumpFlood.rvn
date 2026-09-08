@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 package Vixen.Editor.TextureGraph.Shaders
 
 // One ping-ponged step of the jump flood doc 48 § 4.5's `Distance` is built on, and the reason that
