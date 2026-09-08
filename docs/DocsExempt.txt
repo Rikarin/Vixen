@@ -2846,6 +2846,7 @@ T:Vixen.Rendering.Materials.HairShading sweep-pending
 T:Vixen.Rendering.Materials.MaterialCompilationContext sweep-pending
 T:Vixen.Rendering.Materials.MaterialDiagnostic sweep-pending
 T:Vixen.Rendering.Materials.MaterialDiagnosticId sweep-pending
+T:Vixen.Rendering.Materials.MaterialFeatureStage exempt-with-the-material-features — it is a member of IMaterialFeature and means nothing apart from it; every feature in this namespace is exempt on the same terms, and what a coordinate-writing feature is and why MaterialCompiler refuses one out of order is on the enum and on IMaterialSurface in Raven/Library/Material/MaterialSurface.rvn
 T:Vixen.Rendering.Materials.MaterialKeys sweep-pending
 T:Vixen.Rendering.Materials.MaterialLayerValue sweep-pending
 T:Vixen.Rendering.Materials.MaterialLayersFeature sweep-pending

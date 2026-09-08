@@ -135,6 +135,23 @@ struct MaterialData {
 }
 
 /// A material feature: it reads the surface and contributes to it.
+///
+/// ⚠ **Per fragment, on a surface point that already exists.** That is the sentence that decides what
+/// can be a feature at all, and it is the answer to the third reading of "a height map": true
+/// displacement *moves* the surface, so it runs before rasterization — a vertex stage, a tessellation
+/// stage or a mesh-shader amplification — and none of those has a `MaterialData` to contribute to. It
+/// is not an `IMaterialSurface` under any authoring that calls it one. See
+/// `github.com/Rikarin/Vixen/issues/1067`, which carries the three costs: which stage (MoltenVK has no
+/// tessellation), a second binding for the height map because a material's textures are indexed
+/// through a table bound for the *shading* pass, and crack-free seams across UV islands and LODs,
+/// which is most of the work.
+///
+/// ⚠ **And one feature may write `d.uv`, which inverts the contract above.** Parallax occlusion reads
+/// the coordinate and replaces it, so it has to run before every feature that samples — and the order
+/// these are called in is the order the material's feature list happens to be in. That is
+/// `MaterialFeatureStage.Coordinate` on the C# side, and `MaterialCompiler` refuses a material that
+/// puts one behind a sampler; see `github.com/Rikarin/Vixen/issues/1065` for the feature itself, which
+/// also wants a tangent-space view direction this struct does not carry.
 protocol IMaterialSurface {
     func Compute(inout d: MaterialData)
 }
