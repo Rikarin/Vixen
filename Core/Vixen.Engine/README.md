@@ -139,8 +139,12 @@ nothing.
 
 Doc 04 has a generator emit a dispatch method per behaviour type to get that. It is not needed:
 `BehaviorBucket<T>` is closed at the `Add<T>` call site where the concrete type is already known, and
-its loop is the same monomorphic walk over the same contiguous array. The generator is still owed for
-the `[Inspector]` metadata the editor needs, which genuinely cannot be had another way.
+its loop is the same monomorphic walk over the same contiguous array. ⚠ Nor is one owed for
+`[Inspector]` metadata any more: `Vixen.Editor.Inspector.Generator` emits a descriptor per annotated
+type, and a behaviour in a game assembly that references no editor package still gets rows — the
+inspector falls back to the `Vixen.Core.Reflection` descriptor `TypeDescriptorGenerator` already put
+in that assembly. The editor-side attribute buys the metadata a serializer has no reason to know
+(conditions, asset-picker types, headers, explicit order), not the rows themselves.
 
 ## Coroutines
 

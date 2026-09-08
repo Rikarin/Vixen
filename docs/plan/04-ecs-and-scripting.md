@@ -102,10 +102,17 @@ world.Query(query, static (ref Position p, ref Velocity v) => p.Value += v.Value
 >   deciding to remove the same tag is ordinary. A caller that *can* look uses `World` and is told
 >   when it is wrong.
 >
-> **Owed, and named rather than approximated:** world serialisation and the `VIXEN_ECS_EVENTS` hooks.
-> `WorldDigest` covers what the determinism test needed — a canonical hash, ordered by component type
-> *name* because ids are handed out in first-touch order — but writing a world to a stream needs the
-> per-component serialisers of [08](08-asset-pipeline-and-addressables.md).
+> ✅ **World serialisation landed.** `WorldSerializer` has `Capture`/`Restore` and its own
+> per-component column interface, gated by `WorldSerializerTests`. `WorldDigest` still covers what
+> the determinism test needed — a canonical hash, ordered by component type *name* because ids are
+> handed out in first-touch order — and the stream on top of it is what this paragraph said needed
+> [08](08-asset-pipeline-and-addressables.md). ⚠ What it deliberately does **not** solve is a game
+> component holding an `Entity`: `Capture` and `Restore` hand back the entity at each index, which is
+> the raw material for a translation table, and nothing zips them —
+> [#296](https://github.com/Rikarin/Vixen/issues/296).
+>
+> **Owed, and named rather than approximated:** the `VIXEN_ECS_EVENTS` hooks
+> ([#27](https://github.com/Rikarin/Vixen/issues/27)).
 
 ### Structural change safety
 
@@ -180,8 +187,14 @@ public interface ISystem
 >   bodies is owed, and it will emit into `IDeclaredAccess` rather than into attributes for that
 >   reason.
 >
-> **Owed:** the inference generator, and `vixen doctor systems` — the dumps exist, the CLI that
-> prints them is Phase 3.
+> ✅ **`vixen doctor systems` landed** — `Tools/Vixen.Cli/SystemsRunner.cs`, gated by
+> `Tools/Vixen.Cli.Tests/DoctorSystemsTests.cs` against the test assembly's own declared frame. ⚠ It
+> reads `SystemGraph.Plan` rather than building systems, so it reports the *planned* order and says
+> out loud what it therefore cannot know: which systems run concurrently, because that comes from an
+> instance's `IDeclaredAccess`, and whether a service will be registered, because nothing has
+> registered anything yet.
+>
+> **Owed:** the inference generator ([#26](https://github.com/Rikarin/Vixen/issues/26)).
 
 ## Layer 3 — `Behavior`, the MonoBehaviour-shaped API
 
@@ -284,8 +297,18 @@ need throughput. Both are first-class and documented as such.
 >   site, where the concrete type is already known, and its loop is the same monomorphic walk over
 >   the same contiguous array that a generated `Update_PlayerController(Span<…>)` would be. The
 >   enabled behaviours live in a prefix of the array, so `[SkipIfDisabled]` is not an attribute
->   either — there is no reason not to always do it. The generator is still owed for `[Inspector]`
->   metadata.
+>   either — there is no reason not to always do it. ⚠ **The `[Inspector]` generator is built, and it
+>   is not in `Vixen.Ecs.Generators`.** `InspectorDescriptorGenerator`, in
+>   `Editor/Vixen.Editor.Inspector.Generator/`, emits one descriptor per annotated type, registered
+>   by a module initializer — and it lives on the editor side because `[Inspector]` itself does
+>   (`Editor/Vixen.Editor.Inspector/InspectorAttributes.cs`), so a game assembly cannot annotate a
+>   `Behavior` with it without referencing an editor package. **It does not have to.** A game's
+>   behaviour still gets rows without one: `ReflectedDescriptor` builds a descriptor from the
+>   `Vixen.Core.Reflection` type descriptor that `TypeDescriptorGenerator` emits into the game's own
+>   assembly, honouring `[EditorVisible(false)]` because being left out of the file and being left
+>   out of the panel are separate answers. What the editor-side attribute buys on top is the metadata
+>   a serializer has no reason to know — conditions, asset-picker types, headers, explicit order —
+>   and a declared descriptor wins over the reflected one.
 > - **The lifecycle callbacks are `protected`, reached through internal bridges.** `protected
 >   internal` compiles until an assembly with `InternalsVisibleTo` has to write `protected internal
 >   override` while everyone else writes `protected override`.
@@ -296,9 +319,20 @@ need throughput. Both are first-class and documented as such.
 >   distinct archetype. The hierarchy is rebuilt from recorded indices rather than remapped, because
 >   remapping would need to know which fields of which components are entity handles.
 >
-> **Owed:** the drawing half of `DebugDraw`, which needs a renderer; prefab variants/overrides, which
-> this document already schedules explicitly; and the `IWorldCommand` undo/redo vocabulary, which
-> arrives with the editor. The ImGui scaffold is **cut** — see [14](14-roadmap.md) § Phase 2.
+> ✅ **The drawing half of `DebugDraw` landed** — `Core/Vixen.Engine.Renderer/DebugDrawRenderer.cs`
+> drains the accumulator through two `LineRenderer`s (a depth-tested world one and an overlay one
+> that never is), with `Platform/Vixen.Graphics.Golden.Tests/DebugDrawImageTests.cs` as its picture.
+> A subsystem written against the accumulator needed no change to become visible.
+>
+> ✅ **Prefab overrides landed** with [47](47-prefab-overrides-and-nested-prefabs.md) — `PrefabOverrides` and
+> `PrefabReconcile` in `Editor/Vixen.Editor.Core/Scenes/`. ⚠ **Variants did not**: doc 47 scoped them
+> out of its slice while this paragraph kept promising both, which is
+> [#299](https://github.com/Rikarin/Vixen/issues/299).
+>
+> **Owed:** prefab variants ([#299](https://github.com/Rikarin/Vixen/issues/299)); and the
+> `IWorldCommand` undo/redo vocabulary, which did *not* arrive with the editor — what did is a
+> parallel document-level stack, which is [#295](https://github.com/Rikarin/Vixen/issues/295). The
+> ImGui scaffold is **cut** — see [14](14-roadmap.md) § Phase 2.
 >
 > ✅ **The camera façade grew a system.** This document gives a game a `Camera` component and a
 > transform, which is everything it needs and nothing it wants — what gets written on top of it, every
