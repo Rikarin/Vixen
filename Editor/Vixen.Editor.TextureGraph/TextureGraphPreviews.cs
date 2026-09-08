@@ -366,6 +366,24 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
             return;
         }
 
+        // ⚠ A graph that reads a picture this source cannot supply is refused rather than evaluated,
+        // and until #1089 it threw. `Evaluate` is called here with no externals at all — the
+        // bare-handle overload, the one #1014 said had no production caller — so a `Source/Bitmap`
+        // naming an imported image made `ExternalViews` raise `ArgumentException` straight out of
+        // `Update`, which is a plugin's per-frame work, which `PluginHost.Update` answers by
+        // unloading the plugin. A swatch is a convenience and a graph is not a fault; skipping it is
+        // the whole cost.
+        //
+        // ⚠ It refuses the *whole* graph and not the nodes downstream of the picture, which is worse
+        // than it needs to be: `TextureGraphExternals.Upload` would fill every external whose bytes
+        // the compilation carries, leaving only the asset-backed ones owed. That needs a device on
+        // this side rather than an evaluator — see #1089.
+        if (compiler.Externals.Length > 0) {
+            Refusals++;
+
+            return;
+        }
+
         // ⚠ The evaluator is the one asked for at the top of this method rather than one held in a
         // field, which is what "no pane owns an evaluator" means in practice — see the constructor.
         // `PreviewLeaseTests` counts this question for the two panes;

@@ -60,8 +60,10 @@ public static class VixenCommand {
     ///         ⚠ <b>A verb because the read side had no caller.</b>
     ///         <a href="https://github.com/Rikarin/Vixen/issues/702">#702</a>: nine files land in
     ///         <c>Assets/MeshMaps/</c> with a sidecar saying what each measures, and nothing in the
-    ///         repository resolved one by usage. The node that will is § 4.8's Mesh Map Input; this
-    ///         runs the same index, so what the verb prints is what that node would bind.
+    ///         repository resolved one by usage. ⚠ <b>§ 4.8's Mesh Map Input is that node and it is
+    ///         registered</b> — <c>Source/Mesh Map</c> — so this line's "the node that will" is a
+    ///         batch out of date; the verb runs the same index, and what it prints is what that node
+    ///         binds.
     ///     </para>
     ///     <para>
     ///         A subcommand rather than a bare verb, for <see cref="Texture" />'s reason: <c>bake</c>

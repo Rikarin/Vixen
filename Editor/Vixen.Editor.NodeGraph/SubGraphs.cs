@@ -495,6 +495,13 @@ public static class SubGraphs {
     ///         down to every port the entry node fed is what keeps a sub-graph that was dropped in and
     ///         not wired up doing what the graph it stands for does.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And that value is a literal only when nobody is asked for a better one.</b> The
+    ///         overload taking an <see cref="ISubGraphValues" /> offers each unfed input to a front
+    ///         end first, in the scope the sub-graph node was written in — which is what lets an
+    ///         expression on a published graph's port mean something, and is a decision that cannot
+    ///         be made after the walk because the node carrying it is gone by then.
+    ///     </para>
     /// </remarks>
     public static NodeGraphModel Flatten(
         NodeGraphModel graph,
