@@ -1324,7 +1324,10 @@ lives in [#577](https://github.com/Rikarin/Vixen/issues/577); what kind of evide
 fact about the criterion as written, which is what this document is for. The distinction is the whole
 point: **a criterion nobody has measured and a criterion that passes look identical in a status
 table**, and six audits in a row scored criterion 1 without noticing that half of its sentence had
-never been evaluated at all. Re-measured 2026-09-06; the mechanism column names the file, so a row
+never been evaluated at all. Re-measured 2026-09-06 and again 2026-09-08, when **every mechanism
+named below was resolved to a tracked file and all twenty exist** — the two rows that moved (11 and
+12) both moved because somebody else fixed their subject, which is the failure a table of citations
+has and a table of counts does not; the mechanism column names the file, so a row
 that has rotted is a `git grep` away from being caught.
 
 | # | The criterion, short | Evidence | Mechanism | ⚠ What is not measured |
