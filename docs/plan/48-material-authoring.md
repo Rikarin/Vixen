@@ -896,12 +896,30 @@ two-thirds done when it is under a half. ⚠ **And a test quotes these marks as 
 load-bearing rather than decorative: the count in prose is the one thing in this section nothing
 derives, which is why it is now stated as an enumeration instead.
 
+⚠ **A mark and a shipped file are different things, and a folder floor quoting these marks equals the
+file count only on a row where nothing is blocked.** Counted on 2026-09-09: **34 files against 35
+marks** — Utility 8, Patterns 7, Grunges 8, Surface **4**, mask generators 7. Two names are owed, and
+each is owed for a different reason.
+
+- **`Surface/Metal Reflectance` ●** is the one mark with no file, and it is *blocked* rather than
+  unstarted — nothing in the atomic set maps a metal name to an F0, so there is no setting for a
+  compound to forward ([#1096](https://github.com/Rikarin/Vixen/issues/1096)). The Surface floor is
+  therefore 4 against 5 marks, deliberately.
+- **`Utility/Delight`** has no file and no mark of its own, because *Delight / Equalize* is written
+  here as a single ● for two compounds and only Equalize exists
+  ([#1110](https://github.com/Rikarin/Vixen/issues/1110)). Utility's floor is 8 against 8 and stays
+  green with a named compound missing — the only row where a glyph count and a compound count can
+  disagree in silence.
+
+⚠ So a reader deriving M10's remainder from the folder floor is reading a **deletion guard** rather
+than a plan: it says what may not be lost, and the two sentences above are what is left to write.
+
 | | |
 |---|---|
 | **Utility** | Histogram Scan ● · Histogram Range ● · Histogram Select ● · Safe Transform ● · Highpass ● · Contrast/Luminosity ● · **Make It Tile** ● (offset-wrap with an edge mask — doc 40 § D2's first row) · **Delight / Equalize** ● (its second) · Anti-Alias · Dilate · Skew · Quantize · Colour Variation |
 | **Patterns** | Brick ● · Panels ● · Tile Random ● · Rivets ● · Scratches ● · Wood Grain ● · Cells ● · Weave · Hexagon Grid · Bolts · Stitches · Chain · Fibres · Marble Veins · Gravel · Sand · Water Drops · Snow · Moss · Leather · Cloth |
 | **Grunges** | A family of eight ●, which is `Noise` and `Slope Blur` in eight arrangements — and the honest description of most of what a grunge library is |
-| **Surface** | Height Blend ● · **Bevel** ● (`Distance` → `Height → Normal`) · Curvature Smooth ● · Height to AO ● · Metal Reflectance ● (a named-metal lookup) · Normal Sobel · Basecolor/Metallic/Roughness converter |
+| **Surface** | Height Blend ● · **Bevel** ● (`Distance` → `Height → Normal`) · Curvature Smooth ● · Height to AO ● · Metal Reflectance ● (a named-metal lookup — ⚠ **the one ● with no file at all**, and blocked rather than unstarted: [#1096](https://github.com/Rikarin/Vixen/issues/1096), no atomic node maps a metal name to an F0, so there is no setting for a compound to forward) · Normal Sobel · Basecolor/Metallic/Roughness converter |
 | **Mask generators** | Every one reads § D12's maps **by usage**: Dirt ● · Curvature Edge Wear ● · Metal Edge Wear ● · Grunge Rough Dirty ● · Dust ● · Position Gradient ● · **Mask Editor** ● — the big composite with the sliders, which is what most artists actually reach for · Drips · Light · Water Level |
 | **Smart materials** | `.vxsmartmat`: Painted Metal ● · Rusted Iron ● · Worn Wood ● · Concrete ● · Plastic ● · Leather |
 
