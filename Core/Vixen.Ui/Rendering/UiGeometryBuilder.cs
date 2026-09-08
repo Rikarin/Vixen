@@ -596,7 +596,8 @@ public sealed class UiGeometryBuilder {
                     command.Backdrop,
                     new Rectangle(command.X, command.Y, command.Width, command.Height),
                     command.Transform,
-                    command.Blend
+                    command.Blend,
+                    command.Radius
                 )
             );
             return;
@@ -787,6 +788,20 @@ public sealed class UiGeometryBuilder {
             Backdrop = behind,
             BackdropImage = backdropImage,
             BackdropBounds = backdropBounds,
+
+            // ⚠ <b>The unclipped box and the radius travel together, because a rounded rectangle is
+            // the two of them and neither means anything alone.</b> `backdropBounds` above is already
+            // narrowed by the clip and the viewport, so rounding *it* would put a curve wherever the
+            // clip cut — see `UiLayer.BackdropBox`.
+            //
+            // ⚠ <b>Clamped to half the shorter side, which is CSS Backgrounds § 5.5's own rule and
+            // not a safety net.</b> A radius larger than half the box is reduced until the corners
+            // stop overlapping; `BoxDistance` on an unreduced pair produces a shape that is not the
+            // element's, so the backdrop would round differently from the background it sits behind.
+            BackdropBox = open.Box,
+            BackdropRadius = behind is null
+                ? 0f
+                : Math.Clamp(open.Radius, 0f, 0.5f * Math.Min(open.Box.Width, open.Box.Height)),
 
             // ⚠ Carried whole, offset included, even though the offset is already spent on the quad
             // below. Both executors need the blur to produce the surface and neither needs the
@@ -1080,6 +1095,13 @@ public sealed class UiGeometryBuilder {
     ///     border box, so this is the rectangle that has to survive to
     ///     <see cref="UiLayer.BackdropBounds" />.
     /// </remarks>
+    /// <remarks>
+    ///     ⚠ <c>Radius</c> is <c>Box</c>'s uniform corner radius and is read only by the backdrop as
+    ///     well — the pair is a rounded rectangle and neither half means anything alone. It arrives on
+    ///     the <c>LayerPush</c>'s own <see cref="Vixen.Ui.DrawCommand.Radius" />, which carried a hard
+    ///     zero until 2026-09-08: see <see cref="UiLayer.BackdropRadius" /> for why four audits priced
+    ///     that as a shader problem.
+    /// </remarks>
     readonly record struct Opening(
         int Draw,
         int Vertex,
@@ -1093,7 +1115,8 @@ public sealed class UiGeometryBuilder {
         UiBackdrop? Backdrop,
         Rectangle Box,
         UiTransform? Transform,
-        UiBlendMode Blend
+        UiBlendMode Blend,
+        float Radius
     );
 
     /// <summary>Puts every glyph the frame draws into the atlas, before any of it is read back.</summary>

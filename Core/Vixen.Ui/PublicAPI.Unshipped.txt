@@ -1078,9 +1078,13 @@ Vixen.Ui.Rendering.UiLayer.Backdrop.get -> Vixen.Ui.Rendering.UiBackdrop?
 Vixen.Ui.Rendering.UiLayer.Backdrop.init -> Vixen.Ui.Rendering.UiBackdrop?
 Vixen.Ui.Rendering.UiLayer.BackdropBounds.get -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Rendering.UiLayer.BackdropBounds.init -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Rendering.UiLayer.BackdropBox.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.Rendering.UiLayer.BackdropBox.init -> Vixen.Core.Mathematics.Rectangle
 Vixen.Ui.Rendering.UiLayer.BackdropDraw.get -> int
 Vixen.Ui.Rendering.UiLayer.BackdropImage.get -> ulong
 Vixen.Ui.Rendering.UiLayer.BackdropImage.init -> ulong
+Vixen.Ui.Rendering.UiLayer.BackdropRadius.get -> float
+Vixen.Ui.Rendering.UiLayer.BackdropRadius.init -> float
 Vixen.Ui.Rendering.UiLayer.Blend.get -> Vixen.Ui.Rendering.UiBlendMode
 Vixen.Ui.Rendering.UiLayer.Blend.init -> Vixen.Ui.Rendering.UiBlendMode
 Vixen.Ui.Rendering.UiLayer.Blur.get -> float

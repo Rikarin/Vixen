@@ -716,4 +716,107 @@ public class BackdropFilterTests {
 
         Assert.Empty(ui.Geometry.Layers);
     }
+
+    /// <summary>The element's corner radius reaches the layer, and it used to be dropped at the source.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>#229 divergence 1, the half that is a channel.</b> CSS clips a filtered backdrop to
+    ///         the border box <i>including its radius</i>, and <c>rounded-2xl backdrop-blur-md
+    ///         bg-white/30</c> is the canonical use of the feature — so square corners just outside the
+    ///         rounded ones is the divergence anybody meets first.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Four audits priced it as a shader problem and it was a literal <c>0f</c>.</b>
+    ///         "A composite quad carries no <c>UiShape</c>", "the push constants are at Vulkan's
+    ///         guaranteed 128 bytes", "the quad's <c>shape</c> stream has three free lanes where a
+    ///         viewport-relative backdrop needs seven" — every one of those is true and every one is
+    ///         about a fragment. <c>DrawListBuilder</c> passed a hard zero for the <c>LayerPush</c>'s
+    ///         <c>Radius</c>, four hops upstream of any fragment, so there was nothing for a shader to
+    ///         be told even after somebody built the telling.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The box travels with it, and the assertion below is what says which box.</b>
+    ///         <c>BackdropBounds</c> is already narrowed by the clip and the viewport;
+    ///         <c>BackdropBox</c> is the border box before either. Rounding the clipped one would put
+    ///         a curve at the corners of whatever the clip left behind — a panel half-scrolled out of
+    ///         a list would grow a rounded edge in the middle of the list.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_rounded_element_carries_its_radius_and_its_unclipped_box_to_the_backdrop() {
+        using var ui = Glass("border-radius: 8px; backdrop-filter: invert(1);");
+
+        var layer = Assert.Single(ui.Geometry.Layers);
+
+        Assert.NotNull(layer.Backdrop);
+
+        // The border box: 20 by 20 of content plus the fixture's one-pixel border on each side, at
+        // the declared origin. The same rectangle `The_backdrop_is_bounded_by_the_border_box…` pins.
+        Assert.Equal(new Rectangle(20f, 10f, 22f, 22f), layer.BackdropBox);
+        Assert.Equal(layer.BackdropBounds, layer.BackdropBox);
+        Assert.Equal(8f, layer.BackdropRadius, 3);
+    }
+
+    /// <summary>⚠ Four corners that differ have nowhere to ride, so they stay square.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A stated narrowing rather than an oversight, and it is <c>DrawCommand.Radius</c>'s own
+    ///     rule.</b> That scalar is the uniform radius or nothing: a box whose corners differ carries
+    ///     its four radii in the draw list's side buffer, and a <c>LayerPush</c>'s side-buffer range is
+    ///     already spent on its mask list. Putting one corner in the scalar instead would round all
+    ///     four by it, which is a worse picture than the square one and is the exact bug that rule
+    ///     exists to prevent.
+    /// </remarks>
+    [Fact]
+    public void An_element_whose_corners_differ_keeps_a_square_backdrop() {
+        using var ui = Glass("border-radius: 8px 2px 8px 2px; backdrop-filter: invert(1);");
+
+        var layer = Assert.Single(ui.Geometry.Layers);
+
+        Assert.NotNull(layer.Backdrop);
+        Assert.Equal(0f, layer.BackdropRadius);
+    }
+
+    /// <summary>The rounded backdrop's corner shows the wall, not the filtered wall.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The picture, because the field on the layer proves only that a number arrived.</b>
+    ///         A radius carried and never applied is exactly the shape this repository keeps finding —
+    ///         a finished thing nothing calls — and it would pass the two tests above unchanged.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>invert(1)</c> and a saturated wall, so the two answers are far apart in every
+    ///         channel.</b> This file's opening warns that a backdrop filter over a flat field is
+    ///         frequently the identity; the corner pixel here has to be legibly the <i>wall</i> and
+    ///         legibly not the filtered wall, or the test would pass on a backdrop that never ran.
+    ///         The centre pixel is the other half: it must still be filtered, or "the corner shows the
+    ///         wall" would also be satisfied by a rounding that ate the whole quad.
+    ///     </para>
+    ///     <para>
+    ///         The border box is (20, 10) to (42, 32) with a radius of 8, so the top-left corner's
+    ///         circle is centred at (28, 18). The sample at (20.5, 10.5) is 10.6 from that centre and
+    ///         therefore 2.6 outside the curve — clear of the one-pixel coverage band on either side,
+    ///         which is what makes this an equality rather than a range.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Software only, and <c>UiRenderer.SquareBackdrops</c> is the device's half.</b> This
+    ///         is a new divergence between the two executors — the same shape <c>mix-blend-mode</c>
+    ///         has carried since #244 — and it is counted rather than left as a paragraph, for the
+    ///         reason <c>UiRenderer.Unblended</c> gives: a corner of filtered scene against unfiltered
+    ///         scene is often the identity, so no screenshot can report it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_rounded_backdrop_stops_at_the_curve() {
+        using var ui = Glass("border-radius: 8px; backdrop-filter: invert(1);");
+
+        var wall = (R: Level(Wall.R), G: Level(Wall.G), B: Level(Wall.B));
+        var inverted = Expected(UiColorMatrix.Invert(1f));
+
+        // Without this the two assertions below could both hold on a frame where nothing filtered
+        // anything — which is this file's own stated hazard, one fixture down.
+        Assert.NotEqual(wall, inverted);
+
+        Same(At(ui, 20, 10), wall, "the corner outside the curve");
+        Same(At(ui, 30, 20), inverted, "the middle of the panel");
+    }
 }

@@ -349,6 +349,60 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// </remarks>
     public Rectangle BackdropBounds { get; init; }
 
+    /// <summary>
+    ///     The element's border box <b>before</b> the clip, which is what
+    ///     <see cref="BackdropRadius" /> rounds. Meaningless when <see cref="Backdrop" /> is null.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <see cref="BackdropBounds" />, and the difference is the whole reason this is a
+    ///     second rectangle rather than a radius on the first.</b> A rounded rectangle is defined by
+    ///     a box and a radius together; clipping the box moves its corners, so rounding
+    ///     <see cref="BackdropBounds" /> would put a curve at the corners of whatever the clip left
+    ///     behind — a panel half-scrolled out of a list would grow a rounded edge in the middle of
+    ///     the list. The clip belongs to the quad, which already has it, and the shape belongs here.
+    /// </remarks>
+    public Rectangle BackdropBox { get; init; }
+
+    /// <summary>
+    ///     The uniform corner radius <see cref="BackdropBox" /> is rounded by, in document pixels.
+    ///     Zero for square corners. Meaningless when <see cref="Backdrop" /> is null.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>#229 divergence 1, half closed.</b> CSS clips a filtered backdrop to the element's
+    ///         border box <i>including its radius</i>, and until 2026-09-08 nothing carried one:
+    ///         <c>rounded-2xl backdrop-blur-md bg-white/30</c> — the canonical use of the feature —
+    ///         showed square corners just outside the rounded ones on both executors.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Four audits priced that divergence as a shader problem and every one of them was
+    ///         looking below the seam where it actually was.</b> "A composite quad has no
+    ///         <c>UiShape</c>", "the push constants are full", "the <c>shape</c> stream has three free
+    ///         lanes and a backdrop needs seven" — all true, and all about how to tell a fragment
+    ///         something this frame did not know. <c>DrawListBuilder</c> passed a literal <c>0f</c>
+    ///         for the <c>LayerPush</c>'s <see cref="Vixen.Ui.DrawCommand.Radius" />, so the radius
+    ///         was discarded one hop after it was resolved and four hops before any fragment. The
+    ///         slot was there the whole time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So this is honestly half: <c>SoftwareUiRasterizer</c> applies it and
+    ///         <c>UiRenderer</c> does not, which is a NEW divergence between the two executors and
+    ///         the same shape <c>mix-blend-mode</c> has carried since #244.</b> The device half is
+    ///         still what the audits priced — the cheapest channel measured is a fourth
+    ///         <c>MaskEntry</c> shape, which costs routing every rounded backdrop through the mask
+    ///         pipeline. <c>UiRenderer.SquareBackdrops</c> is what counts the divergence rather than
+    ///         leaving it a paragraph; see <c>UiRenderer.Unblended</c> for why a divergence nothing
+    ///         counts is one nobody notices closing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Uniform or zero, which is <c>DrawCommand.Radius</c>'s own rule.</b> A
+    ///         <c>LayerPush</c>'s side-buffer range is spent on its mask list, so four differing
+    ///         corners have nowhere to ride and an element with them keeps the square backdrop it has
+    ///         today. Putting one corner in the scalar would round all four by it.
+    ///     </para>
+    /// </remarks>
+    public float BackdropRadius { get; init; }
+
     /// <summary>The affine this group's <c>rotate</c> and <c>scale</c> place its surface under.</summary>
     /// <remarks>
     ///     <para>

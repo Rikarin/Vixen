@@ -481,16 +481,29 @@ submitted twice and `UiRenderer.Filtered` counts it twice; the same goes for `Ma
 bounded by the layer count any more. That is the price of the feature rather than a bookkeeping
 artefact, and it is what makes the price visible.
 
-⚠ **The filtered backdrop is clipped to the border box and *not* to its corner radius, which is a
-stated divergence.** `UiLayer.Bounds` is the group's *ink* — a child overflowing the element makes it
-bigger — so a rectangle taken from there would put blurred scene outside the panel that asked for it;
-`UiLayer.BackdropBounds` carries the border box instead, which closes that half. The radius is not
-closed: a `UiLayer` carries none, and `rounded-2xl backdrop-blur-md bg-white/30` is the canonical use
-of this feature, so the blurred picture shows square corners just outside the rounded ones. The ten
-`backdrop-*` roots read **partial** in `docs/plan/43` for this reason and this reason alone.
+⚠ **The filtered backdrop is clipped to the border box, and to its corner radius on the software path
+alone.** `UiLayer.Bounds` is the group's *ink* — a child overflowing the element makes it bigger — so
+a rectangle taken from there would put blurred scene outside the panel that asked for it;
+`UiLayer.BackdropBounds` carries the border box instead, which closes that half.
+`UiLayer.BackdropRadius` and `UiLayer.BackdropBox` carry the rounding, and
+`SoftwareUiRasterizer.Composite` multiplies its coverage into the mask's. `UiRenderer` does not, and
+`UiRenderer.SquareBackdrops` counts every quad that went out square — the same shape
+`mix-blend-mode`'s divergence has, and counted for the same reason: a corner of filtered scene against
+unfiltered scene is frequently the identity, so no screenshot can report it. The ten `backdrop-*`
+roots read **partial** in `docs/plan/43` for the device half and for nothing else now.
 
-⚠ **The distance field is the easy half and this used to price only that half.** Measured 2026-09-06:
-there is no way to *tell* a composite fragment where the rounded box is. A composite quad has no
+⚠ **The channel from the document to the layer was a literal `0f`, and four audits of the divergence
+priced only the half below it.** Measured 2026-09-08: `DrawListBuilder` passed a hard zero for the
+`LayerPush`'s own `Radius` — the slot that carries a box's rounding for every other command kind — so
+the radius was discarded one hop after it was resolved and four hops before any fragment. Everything
+in the paragraph below is true and is about a *fragment*; none of it was reachable, because there was
+nothing for a fragment to be told. ⚠ It is uniform-or-zero, which is `DrawCommand.Radius`'s own rule:
+a `LayerPush`'s side-buffer range is spent on its mask list, so an element whose four corners differ
+keeps its square backdrop.
+
+⚠ **The distance field is the easy half of the *device* half, and this used to price only that.**
+Measured 2026-09-06: there is no way to *tell* a composite fragment where the rounded box is. A
+composite quad has no
 `UiShape` — an image descriptor set's storage binding never points at the box buffer. The push
 constants are at the ceiling: `UiMask`'s forty-eight-byte matrix plus the vertex stage's sixteen is
 16 + 112, exactly the 128 bytes Vulkan guarantees on every device, which is why the mask entries went

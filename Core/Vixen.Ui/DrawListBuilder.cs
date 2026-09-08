@@ -824,7 +824,28 @@ public sealed class DrawListBuilder {
             ? into.Count
             : -1;
 
+        // ⚠ <b>The group's own corner radius, and it was a hard zero here until 2026-09-08 — which is
+        // the first half of #229's divergence 1 and the half nobody had looked at.</b> Four audits
+        // priced that divergence as a shader problem: a composite fragment has no `UiShape`, the push
+        // constants are full, and the quad's `shape` stream has too few free lanes. All true, and all
+        // downstream of this line — the radius never left this file, so there was nothing for a
+        // fragment to be told even once somebody built the telling. `DrawCommand.Radius` has been the
+        // slot for it the whole time and is what `UiGeometryBuilder.Layer` now reads into
+        // <c>UiLayer.BackdropRadius</c>.
+        //
+        // ⚠ <b>The uniform radius or nothing, which is `EmitBody`'s rule two hundred lines down and
+        // not a shortcut.</b> A `LayerPush`'s side-buffer range is already spent on its mask list, so
+        // there is nowhere on this command for four differing corners to ride; putting one corner in
+        // the scalar would round all four by it, which is the bug that rule exists to prevent. An
+        // element whose corners differ keeps the square backdrop it has today.
+        //
+        // ⚠ Inside the branch, because `Corners` resolves four lengths against the element and this
+        // runs for every element in the frame — see its own remark on the four hundred allocations a
+        // frame it used to cost. A group is the rare case; `EmitBody` computes it again for the
+        // common one.
         if (group >= 0) {
+            var groupRadius = Corners(element).IsUniformCircular(out var groupUniform) ? groupUniform : 0f;
+
             into.Add(
                 new DrawCommand(
                     DrawCommandKind.LayerPush,
@@ -833,7 +854,7 @@ public sealed class DrawListBuilder {
                     width,
                     height,
                     new Color4(0f, 0f, 0f, own),
-                    0f,
+                    groupRadius,
                     0f
                 ) {
                     Blur = filters.Blur,

@@ -147,7 +147,8 @@ public static class SoftwareUiRasterizer {
         Bounds clip,
         float[]? surface,
         ReadOnlySpan<UiMask> masks,
-        UiBlendMode blend
+        UiBlendMode blend,
+        (Rectangle Box, float Radius)? rounded
     ) {
         var area = Edge(a.Position, b.Position, c.Position);
 
@@ -224,7 +225,7 @@ public static class SoftwareUiRasterizer {
                     // draws nothing, because an image quad's `shape.x` is zero. That is the behaviour
                     // this renderer has always had for images and it is not being changed here.
                     BatchKind.Image when surface is not null =>
-                        Composite(surface, width, height, texture, colour, masks),
+                        Composite(surface, width, height, texture, colour, masks, rounded),
                     _ => Solid(colour, shape)
                 };
 
@@ -730,7 +731,8 @@ public static class SoftwareUiRasterizer {
         int height,
         Vector2 uv,
         Color4 tint,
-        ReadOnlySpan<UiMask> masks
+        ReadOnlySpan<UiMask> masks,
+        (Rectangle Box, float Radius)? rounded
     ) {
         var sampled = SampleSurface(surface, width, height, uv);
 
@@ -754,7 +756,33 @@ public static class SoftwareUiRasterizer {
         // entry and still disagree about the order they combine in — which is a class of divergence
         // `UiCompositingTests` would report as a diff over the whole group with no obvious cause. One
         // method, called by both executors, is what removes the possibility.
-        var coverage = UiMask.Coverage(masks, new Vector2(uv.X * width, uv.Y * height));
+        var point = new Vector2(uv.X * width, uv.Y * height);
+        var coverage = UiMask.Coverage(masks, point);
+
+        // ⚠ <b>The border box's own rounding, and it multiplies the mask's coverage rather than
+        // replacing it.</b> An element may carry a `mask-image` and a radius at once, and CSS applies
+        // both — the mask clips what the group shows and the radius clips where its backdrop is
+        // allowed to be. Neither subsumes the other, so the two scalars multiply, which is also what
+        // a fragment evaluating both would do.
+        //
+        // ⚠ <b>Through the same `BoxDistance` and `Coverage` the element's own background goes
+        // through</b>, so the backdrop's curve is the background's curve to the last texel rather than
+        // an independently written one that agrees on the radius and disagrees on the antialiasing.
+        // That was the point of putting it here and not in a helper of its own: the failure this
+        // avoids is a one-texel light ring between a panel and the glass behind it, which reads as a
+        // rendering bug and is nearly impossible to attribute.
+        //
+        // ⚠ <b>A one-pixel band, hard-coded, where `Box` takes its width from a screen-space
+        // derivative.</b> That is not a shortcut: a composite quad covers bounds `UiGeometryBuilder`
+        // has already rounded out to whole pixels over a surface that is the viewport's size, so the
+        // mapping is one to one — see `SampleSurface`, which relies on the same fact. `fwidth` of this
+        // distance is one by construction, and computing it would measure the constant.
+        if (rounded is { Radius: > 0f } shape) {
+            var half = new Vector2(shape.Box.Width * 0.5f, shape.Box.Height * 0.5f);
+            var centre = new Vector2(shape.Box.X + half.X, shape.Box.Y + half.Y);
+
+            coverage *= Coverage(BoxDistance(point - centre, half, new Vector2(shape.Radius)), 1f);
+        }
 
         // ⚠ <b>All four channels, because the sample is premultiplied.</b> Scaling coverage on
         // premultiplied colour is `(rgb·m, a·m)`; the `(rgb, a·m)` an ordinary straight-alpha image
@@ -855,6 +883,28 @@ public static class SoftwareUiRasterizer {
         /// </remarks>
         readonly Dictionary<ulong, UiBlendMode> blends = [];
 
+        /// <summary>Each rounded group's backdrop box and radius, keyed by its backdrop surface.</summary>
+        /// <remarks>
+        ///     <para>
+        ///         ⚠ <b>#229 divergence 1, and this is the half that runs.</b> CSS clips a filtered
+        ///         backdrop to the element's border box <i>including its radius</i>; both executors
+        ///         drew a square one until 2026-09-08, so <c>rounded-2xl backdrop-blur-md</c> showed
+        ///         square corners just outside the rounded ones. This path can close it because a
+        ///         <see cref="Composite" /> here already evaluates a per-fragment coverage for the
+        ///         mask; <c>UiRenderer</c> cannot, and the divergence that leaves is counted by
+        ///         <c>UiRenderer.SquareBackdrops</c> rather than left as a paragraph.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>Keyed by <c>BackdropImage</c> and never by <c>Image</c>, which is the whole of
+        ///         what makes it the backdrop's clip rather than the group's.</b> A group's own
+        ///         composite quad is bounded by its ink and is not rounded by anything — an element
+        ///         with a radius still paints a square surface, because the rounding is in the box it
+        ///         drew and not in the surface it drew into. Rounding <c>Image</c> here would cut the
+        ///         corners off every child that legitimately overflows a rounded parent.
+        ///     </para>
+        /// </remarks>
+        readonly Dictionary<ulong, (Rectangle Box, float Radius)> rounded = [];
+
         /// <summary>Every mask of the frame, flattened once so a composite can take a span of it.</summary>
         /// <remarks>
         ///     ⚠ <c>UiGeometry.Masks</c> is an <c>IReadOnlyList</c> and a fragment needs a
@@ -916,6 +966,16 @@ public static class SoftwareUiRasterizer {
                         // same reason: a three-row colour matrix cannot scale alpha. Applying it here
                         // as well would square it.
                         surfaces[layer.BackdropImage] = captured;
+
+                        // ⚠ Recorded rather than applied to `captured`, which is the mask's reason one
+                        // level over and is sharper here. The capture is the viewport's size and holds
+                        // the whole frame; the rounding belongs to the *quad* that reads a border box
+                        // out of it, so folding it in would clip a picture that other things also
+                        // read. It is also what keeps this comparable with a device that will
+                        // eventually evaluate the same distance in a fragment.
+                        if (layer.BackdropRadius > 0f) {
+                            rounded[layer.BackdropImage] = (layer.BackdropBox, layer.BackdropRadius);
+                        }
                     }
 
                     // Transparent black, not the background: a group composites *over* what is already
@@ -1184,6 +1244,12 @@ public static class SoftwareUiRasterizer {
                 ? mode
                 : UiBlendMode.Normal;
 
+            // Keyed the same way and for the same reason, and null on every draw in the frame but a
+            // rounded element's backdrop quad.
+            var box = draw.Kind == BatchKind.Image && rounded.TryGetValue(draw.Image, out var shape)
+                ? shape
+                : default((Rectangle Box, float Radius)?);
+
             for (var i = draw.First; i + 2 < draw.First + draw.Count; i += 3) {
                 Triangle(
                     target,
@@ -1198,7 +1264,8 @@ public static class SoftwareUiRasterizer {
                     clip,
                     surface,
                     mask,
-                    blend
+                    blend,
+                    box
                 );
             }
         }
