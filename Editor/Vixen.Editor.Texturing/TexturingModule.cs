@@ -454,6 +454,14 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         // different answer at different moments and is asked each time.
         graphics = context.Services.TryGet<IEditorGraphics>(out var published) ? published : null;
 
+        // ⚠ **The starter shelf, and it is the only route doc 48 § M10's five have into a project.**
+        // Every verb that consumes a smart material consumes an *asset* — `ApplySmartMaterial` reads
+        // `project.Selection.Primary`, and `LayerStackEditorFactory` claims a file extension — so a
+        // `.vxsmartmat` this assembly embeds and never writes down is content nothing can select.
+        // `Install` writes only the names the shelf has not got, so an artist's edited copy survives
+        // every later activation and the shipped one stays unreachable behind it.
+        SmartMaterial.Install(project.Paths.Assets);
+
         // ⚠ The host's mesh source, and it is what makes a stack's binding read what the *project*
         // has rather than what the file carries — #934. `EditorApplication` publishes its
         // `ProjectMeshSource` under this contract, which reads the chunks the last import wrote; a

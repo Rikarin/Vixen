@@ -133,6 +133,108 @@ static class SmartMaterial {
     public static string? FolderOf(string? assets) =>
         assets is { Length: > 0 } ? Path.Combine(assets, ShelfFolder) : null;
 
+    /// <summary>The folder inside this assembly the shipped smart materials are embedded from.</summary>
+    const string Root = "Vixen.Editor.Texturing.SmartMaterials.";
+
+    /// <summary>The names of the smart materials this assembly ships.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 48 § M10's five, and they ship the way <c>TextureCompoundLibrary.Shipped</c>
+    ///         does: embedded, derived from the manifest rather than listed.</b> A smart material
+    ///         exists because a file ships, so a list here would be a second opinion about the folder
+    ///         and the roll call that counts them would be counting the list.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Embedded is where the resemblance to a compound stops, and
+    ///         <see cref="Install" /> is why.</b> A compound is published straight into a node
+    ///         registry, so an embedded one is reachable with no file anywhere. A smart material is
+    ///         reached by <em>selecting an asset</em> — <c>TexturingModule.ApplySmartMaterial</c>
+    ///         reads <c>project.Selection.Primary</c> — and there is no selecting a manifest
+    ///         resource. So the shipped five have to become files in a project before any verb can
+    ///         see them, which is the whole of what <see cref="Install" /> does.
+    ///     </para>
+    /// </remarks>
+    public static ImmutableArray<string> Shipped { get; } = [
+        .. typeof(SmartMaterial).Assembly.GetManifestResourceNames()
+            .Where(name => name.StartsWith(Root, StringComparison.Ordinal)
+                && name.EndsWith(Extension, StringComparison.Ordinal))
+            .Select(name => name[Root.Length..^Extension.Length])
+            .Order(StringComparer.Ordinal)
+    ];
+
+    /// <summary>The text of one shipped smart material.</summary>
+    /// <param name="name">Its name, as <see cref="Shipped" /> holds it.</param>
+    /// <returns>The file, or null when this assembly ships no such smart material.</returns>
+    /// <exception cref="ArgumentException"><paramref name="name" /> is empty.</exception>
+    public static string? Source(string name) {
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        using var stream = typeof(SmartMaterial).Assembly.GetManifestResourceStream(Root + name + Extension);
+
+        if (stream is null) {
+            return null;
+        }
+
+        using StreamReader reader = new(stream);
+
+        return reader.ReadToEnd();
+    }
+
+    /// <summary>Writes every shipped smart material a project's shelf has not got onto it.</summary>
+    /// <param name="assets">A project's <c>Assets/</c> folder, or <see langword="null" /> for none.</param>
+    /// <returns>The names actually written, ordered. Empty when there was nothing to do.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The starter shelf, and it is what makes the shipped five reachable at all.</b> Every
+    ///         verb that consumes a smart material consumes a project <em>asset</em>: the apply verb
+    ///         reads the selection, the editor factory claims a file extension, and the asset database
+    ///         indexes a path. So a smart material this assembly ships and never writes down is five
+    ///         files nothing in the tree can reach — the shape doc 48 § M10's own entry warns about,
+    ///         one level along from the extension that existed in five comments and no type.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It never overwrites, and that is the half that decides whether this is safe to run
+    ///         on every activation.</b> An artist who edits <c>Rusted Iron</c> on the shelf — which
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1070">#1070</a> deliberately made
+    ///         possible — must not find their edit replaced by the shipped copy the next time the
+    ///         editor starts. A name already on the shelf is left exactly as it is, and the shipped
+    ///         version is then unreachable by design: the artist's file won.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An I/O failure is skipped rather than thrown</b>, for
+    ///         <c>TextureCompoundLibrary.Publish</c>'s reason: this runs from a module's
+    ///         <c>Activate</c>, a throw out of one takes the plugin load with it, and a read-only
+    ///         project folder must cost an artist the starter shelf rather than the whole texturing
+    ///         module.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<string> Install(string? assets) {
+        if (FolderOf(assets) is not { } folder) {
+            return [];
+        }
+
+        List<string> written = [];
+
+        foreach (var name in Shipped) {
+            var file = Path.Combine(folder, name + Extension);
+
+            if (File.Exists(file) || Source(name) is not { } text) {
+                continue;
+            }
+
+            try {
+                Directory.CreateDirectory(folder);
+                File.WriteAllText(file, text);
+            } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
+                continue;
+            }
+
+            written.Add(name);
+        }
+
+        return written;
+    }
+
     /// <summary>What the shelf holds, by name, ordered.</summary>
     /// <param name="assets">A project's <c>Assets/</c> folder, or <see langword="null" /> for none.</param>
     /// <returns>The file names without their extension. Empty when the folder does not exist.</returns>
