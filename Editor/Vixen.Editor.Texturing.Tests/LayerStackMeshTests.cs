@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.Mathematics;
 using Vixen.Editor.Texturing.Layers;
+using Vixen.Editor.Texturing.Painting;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -85,6 +87,63 @@ public class LayerStackMeshTests {
         // triangle clips the corner of is marked, which is `PaintCoverage`'s own stated direction.
         // Half of 4096 with one boundary column of slop is the window a correct map lands in.
         Assert.InRange(coverage.CoveredTexels, 64 * 32, 64 * 33);
+    }
+
+    /// <summary>⚠ The raycast and the coverage map are the same triangles, out of one resolution.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1062">#1062</a>.</b> This type used
+    ///         to keep only the coordinates, so a 3D projection had to open the model itself — a
+    ///         second opinion about all five of <c>Open</c>'s refusals, and two that disagree the
+    ///         first time an import is stale. The positions are kept beside the coordinates now, and
+    ///         written by the same loop over the same index list, so triangle <i>n</i> of the raycast
+    ///         is triangle <i>n</i> of the layout by construction.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the assertion is a ray and a texel and not two array lengths.</b> Two arrays
+    ///         of equal length can still be paired wrongly — a triangle dropped from one list and not
+    ///         the other shifts every later corner by three, which is a raycast that answers with the
+    ///         layout of a different triangle and reports nothing at all. The coordinate here is
+    ///         closed-form: this quad's <c>u</c> is its own <c>x</c> and its <c>v</c> is one minus its
+    ///         <c>y</c>, because <c>ModelReader</c> asks Assimp for <c>FlipUVs</c>.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_projection_raycasts_the_same_triangles_the_coverage_map_rasterises() {
+        using var fixture = new TexturingFixture();
+        var stack = Bound(fixture, Quad("hull", 0f, 0.5f), "Hull.obj");
+
+        var mesh = LayerStackMesh.Open(fixture.Project, stack, stack.Sets[0], geometry: null, out var refusal);
+
+        Assert.Equal("", refusal);
+        Assert.NotNull(mesh);
+        Assert.Equal(mesh.Coordinates.Count, mesh.Positions.Count);
+
+        var projection = mesh.Projection;
+
+        Assert.NotNull(projection);
+        Assert.Equal(mesh.Triangles, projection.Triangles);
+
+        // The quad is x ∈ [0, 0.5], y ∈ [0, 1] in the z = 0 plane, so a ray straight down at
+        // (0.25, 0.25) lands on it and the layout puts that at u = 0.25, v = 0.75.
+        Assert.True(projection.TryHit(new Ray(new(0.25f, 0.25f, 10f), new(0f, 0f, -1f)), out var hit));
+        Assert.Equal(0.25f, hit.Coordinate.X, 3);
+        Assert.Equal(0.75f, hit.Coordinate.Y, 3);
+
+        var texel = PaintProjection.Texel(hit.Coordinate, 64, 64);
+        var coverage = mesh.Coverage(64, 64);
+
+        Assert.True(
+            coverage.IsCovered((int)texel.X, (int)texel.Y),
+            $"the ray landed on texel ({texel.X}, {texel.Y}), which the coverage map built from the same "
+            + "triangles calls background."
+        );
+
+        // ⚠ And the other half, which is the one that can fail silently: a ray past the quad's edge
+        // finds nothing, and the map calls the same place background. A projection built over a
+        // different soup would answer here.
+        Assert.False(projection.TryHit(new Ray(new(0.75f, 0.25f, 10f), new(0f, 0f, -1f)), out _));
+        Assert.False(coverage.IsCovered(56, 16));
     }
 
     /// <summary>A quad in the top half of the file's <c>v</c> covers the top rows and not the bottom.</summary>
