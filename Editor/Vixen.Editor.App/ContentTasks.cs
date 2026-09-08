@@ -513,6 +513,18 @@ sealed class ContentTasks {
             Meshes.Invalidate();
             Surfaces.Invalidate();
 
+            // ⚠ And the open documents, which is #1006's second half and which nothing here did.
+            // Every line above hands a rebuilt *thing* to a holder that asked for one: the browser's
+            // index, the viewport's geometry, its materials. A document that wants to hear that an
+            // import happened — rather than to be handed its result — had no way to: `ExternalEdits`
+            // announces what a file *watcher* saw, and an import driven by a version bump or an
+            // import-settings edit rewrites `Library/` and moves nothing under `Assets/`, so the
+            // watcher never fires. Announced with a null path, which is the same "anything may have
+            // changed" a lost-events rescan means and is the only honest answer: what an import
+            // rewrote is a database of its own, and naming one file of it would be a lie the
+            // documents would filter on.
+            project.AnnounceFileChanged(null);
+
             shell.Notifications.Show(result.Title, result.Severity, result.Detail);
         }
 

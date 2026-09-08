@@ -337,14 +337,22 @@ sealed class LayerStackDocument : EditorDocument {
     ///         wired into whoever was clearing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What it still cannot see: an import run from inside the editor.</b> A version
-    ///         bump or an import-settings edit rewrites <c>Library/</c> and moves nothing under
-    ///         <c>Assets/</c>, so the watcher never fires and this never moves. <c>ContentTasks</c>
-    ///         calls <c>ProjectMeshSource.Invalidate</c> and announces its imports to nobody, which
-    ///         is why <a href="https://github.com/Rikarin/Vixen/issues/971">#971</a> was closed by
-    ///         giving the mesh cache key two terms that move on their own rather than by trusting a
-    ///         notification. Anything that needs to <em>hear</em> about an import is still blind, and
-    ///         a revision is the shape that could carry one once something announces it.
+    ///         ⚠ <b>It can now see an import run from inside the editor, and could not</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1006">#1006</a>'s second box. A
+    ///         version bump or an import-settings edit rewrites <c>Library/</c> and moves nothing
+    ///         under <c>Assets/</c>, so the watcher never fires; <c>ContentTasks</c> announced a
+    ///         finished import to the browser, the build panel, the mount and two <c>Invalidate</c>
+    ///         calls and to no open document at all. It calls
+    ///         <c>EditorProject.AnnounceFileChanged(null)</c> from <c>Pump</c> now, so this number
+    ///         moves for an import that touched nothing a watcher watches.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which does not undo how <a href="https://github.com/Rikarin/Vixen/issues/971">#971</a>
+    ///         was closed, and should not.</b> That was closed by giving the mesh cache key two terms
+    ///         that move on their own — the model file's stamp and <c>ProjectMeshSource.Revision</c> —
+    ///         and a key that derives its own staleness is still the stronger answer than a
+    ///         notification that has to be sent. What the announcement buys is the consumers that
+    ///         want to <em>hear</em>, of which the mesh picker's refill is one.
     ///     </para>
     ///     <para>
     ///         Starts at one so that a consumer whose own copy starts at zero refills once before
