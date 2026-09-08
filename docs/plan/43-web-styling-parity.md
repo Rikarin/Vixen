@@ -2932,13 +2932,39 @@ content locales. Unicode-3.0, permissive, and small enough to transcribe by hand
 
 **For ellipsis specifically**, since Parley has nothing: the reference implementation is Chromium's
 `third_party/blink/renderer/core/layout/inline/line_truncator.cc`, and the directory is
-**BSD-3-Clause** with 22 `*_test.cc` files written as `SetBodyInnerHTML(…)` then asserting exact line
-strings — hand-transcribable into C# fixtures. ⚠ **The licence trap is one directory up**:
-`layout/layout_text.cc` and its siblings are **LGPL** (`(C) 1999 Lars Knoll`). Stay inside `inline/`.
-The oracle is **Gecko's 68 `text-overflow` reftests** and 39 `line-breaking` reftests — the best
-corpora found anywhere for these two, with per-test fuzz tolerances in machine-readable
-`reftest.list` manifests, but ⚠ **mixed public-domain and MPL-2.0 per file**, so a translated fixture
-derived from an MPL file is itself MPL and each file needs checking before it is transcribed.
+**BSD-3-Clause**. ⚠ **The licence trap is one directory up**: `layout/layout_text.cc` and its
+siblings are **LGPL** (`(C) 1999 Lars Knoll`). Stay inside `inline/`.
+
+⚠ **This paragraph used to size the ellipsis item at "22 `*_test.cc` files hand-transcribable", and
+that was two claims of which neither survives contact with the directory** (re-read at
+`chromium/main`, 2026-09-08). There is **no `line_truncator_test.cc`**: the directory holds 121 files
+of which 23 end in `_test.cc`, and they are line breaking, cursors, offset mapping, ruby, scoring,
+auto-space and justification — not one of them is about ellipsis, and the count 22 was the
+directory's test files rather than the ellipsis's. And `line_truncator.cc` itself is **not the shape
+`break_overrides.rs` was**. That file transcribed because it was a data table with citations; this one
+is 633 lines of Blink fragment-tree plumbing — hiding an original fragment and inserting a truncated
+one, shifting sibling offsets, and a whole function that "was designed to work only with
+`<input type=file>`". Its transcribable content is the two spec citations it carries
+(css-text-3 forced line breaks, css-ui ellipsing-details), which are the specs and not an oracle.
+
+⚠ **And Gecko's manifests are 36 and 19, not 68 and 39** — `layout/reftests/text-overflow/reftest.list`
+has 36 assertion lines and `layout/reftests/line-breaking/reftest.list` has 19, both read at
+`mozilla-firefox/main` on 2026-09-08. The **licence half is better news than recorded**: every
+`text-overflow` fixture sampled (`marker-basic`, `bidi-simple`, `line-clipping`,
+`ellipsis-font-fallback`) opens with *"Any copyright is dedicated to the Public Domain"*, so the
+per-file MPL check is a real step but is not expected to cost much. ⚠ **What does not survive is
+"transcribe"**: these are reftests — an HTML page against a reference HTML page, compared as pixels,
+several with a bundled `@font-face` (`DejaVuSansMono`) and per-test fuzz tolerances precisely because
+the comparison is a rendering. They oracle a renderer, not a value, which is the same objection this
+section already makes to WPT's reftests two paragraphs up, and it applies here too.
+
+⚠ **One transcribable rule did come out of the reading, and it names a divergence rather than a
+gap.** `ellipsis-font-fallback.html`'s title is *"fallback to three ASCII periods when ellipsis is
+unavailable in the font"*. Vixen does something else: `UiElement` appends U+2026 and lets the
+font-fallback chain find a face that has it — which `TextOverflowTests` pins deliberately, with a
+second face carrying the marker. Whether three periods in the line's own face or one ellipsis in
+another face is the right answer is a decision, not a bug, and it is the sort of thing this item
+exists to surface. It is not filed as a defect on that reading.
 
 **Servo's `components/layout/flow/inline/`** is the best free prose description of a three-phase
 HarfBuzz-shaping inline engine and names Vixen's exact problem shape — atomic inlines,
@@ -2968,8 +2994,8 @@ will be true of Taffy's.
 | **Parley** | Apache-2.0 OR MIT | read `break_overrides.rs` and `inline_box.rs`; possibly commit the two Chrome CSVs | ADR-015 row. A `NOTICE` entry **only if the CSVs are committed** — take Apache-2.0, matching Vixen |
 | **web-platform-tests** | BSD-3-Clause | read; translate the ~1 500 renderer-free `check-layout`/`computed` tests | ⚠ BSD-3 requires the copyright notice **and the disclaimer** to travel with a redistribution, so a `NOTICE` entry is required the moment a translated fixture lands |
 | **ICU4X segmenter tests** | Unicode-3.0 | transcribe ~100 CSS-tailoring assertions | `NOTICE` entry; Unicode-3.0 is MIT-like |
-| **Chromium `layout/inline/`** | BSD-3-Clause | read; transcribe test cases | ADR-015 row. ⚠ Rule: `inline/` only — the parent directory is LGPL |
-| **Gecko `text-overflow` reftests** | mixed public domain / **MPL-2.0** | transcribe, **per-file check first** | ⚠ MPL-2.0 is file-level copyleft: a fixture derived from an MPL file is MPL. Prefer the public-domain ones; record which |
+| **Chromium `layout/inline/`** | BSD-3-Clause | read. ⚠ There is nothing to transcribe for ellipsis: no `line_truncator_test.cc` exists and none of the directory's 23 test files is about one — see § T2 | ADR-015 row. ⚠ Rule: `inline/` only — the parent directory is LGPL |
+| **Gecko `text-overflow` reftests** | ⚠ measured **public domain (CC0)** on every file sampled; MPL-2.0 elsewhere in the tree | transcribe, **per-file check first** | ⚠ MPL-2.0 is file-level copyleft: a fixture derived from an MPL file is MPL. Every `text-overflow` fixture read so far dedicates copyright to the public domain, so the check is cheap; record which |
 | **Servo · Stylo · Blitz's `stylo_taffy`** | **MPL-2.0** | ⛔ read only, never port | ADR-015 row marked read-only, as `stride` already is |
 | **Blitz** | MIT OR Apache-2.0 | read its WPT runner as a blueprint | ADR-015 row if any of it is adapted |
 | **Unicode UCD** | Unicode-3.0 | already used | already in the tree |
@@ -3093,7 +3119,7 @@ conditional-group id since per-surface media landed; see F11. ⚠ The real findi
 | B1 🟢 | **`display: block` — landed.** Block formatting over the existing store: stacking, the inline-axis fill, CSS 2.1 §8.3.1 margin collapsing in full, auto margins, the intrinsic-width probe, RTL, relative insets, `align-content` over the stack. **All 912 `block`+`blockflex` fixtures pass; none fails and none is refused.** The last 72 refusals went in three batches: `scrollbar-width` (64), then `text-align`/`flow-root`/`safe` (24, of which 4 changed bucket rather than converting), then the final 8 with floats. ⚠ That was 768 with 124 refused across four causes, and three of the four are closed: legacy `text-align` (`LegacyTextAlign`, 16), `display: flow-root` (a `Display.FlowRoot` member and one clause in `EstablishesBlockFormattingContext`, 4 of 8) and `align-content: safe end` (`OverflowAlignment`, 4). All 24 pass. The 20 failures that used to be here were in the shared *absolute* path (`aspect-ratio` re-applied after clamping) rather than in block formatting, and closed with CSS Grid §9's auto margins. ⚠ **Still owed under B1**: `sticky`. `inline-block` landed with B3. Floats landed too — all 92 fixtures, including the 4 `block_flow_root_contains_float` families that had joined the bucket when `flow-root` landed — ⚠ and the clause that used to follow — *only for block-level content, so a paragraph beside a float still runs under it* — is stale: §9.5's main clause reached the line walk, and the expectations for it were read out of Chrome 148 case by case precisely because **no fixture in the float corpus has a line box in it**. What is still owed is narrower and is filed in `InlineKnownGaps.txt`: a text leaf breaking around a float's staircase. See Bucket 4 below. | **#25** | 0.35 |
 | B2 🟡 | ⚠ **Grid landed and this row said 🔴 for months after it did.** `Vixen.Ui.Layout`'s README is the state: 2 038 of the 2 120 `grid`, `blockgrid` and `gridflex` fixtures pass, 40 are refused and 42 fail in named buckets, with placement, the bulk of track sizing, baseline alignment, the out-of-flow containing block and `grid-template-areas` all done. 🟡 rather than 🟢 because **named lines written into a track list** are still owed, which is the one part the README also names. The estimate below is what it cost, not what is left. **CSS Grid** — a separate algorithm; `grid-template-*`, `fr`, `minmax`, `repeat`, `auto-flow`, named lines and areas, placement, `justify/align-items/self`. Judged by B0's **2 040** plus WPT's 510 `check-layout` grid tests. ⚠ B0's corpus does **not** cover `grid-template-areas`: Taffy's own XML harness leaves it `Default::default()` and no fixture sets it, so named areas need their own oracle | **#27** | 3.5 |
 | B3 🟡 | **Inline formatting — partially landed.** Line boxes over the existing store: atomic inlines (`inline`, `inline-block`, `inline-flex`), §10.3.9 shrink-to-fit, §9.4.2 line breaking, §10.8.1 baselines including the last-line-box and `overflow` clauses, three of `vertical-align`'s eight values, and **fragmentation**. ⚠ **The boundary used to be one invariant** — every algorithm in the store preserved *one node produces one box*, and a non-replaced `inline` box crossing a line break is fragmented into several. **That invariant has now been relaxed for one arena and three ints** (offset, count and capacity, addressed exactly as `ChildArena` and `TrackArena` are). `FragmentArena` is variable-length *output*, the shape `TrackArena` is on the input side; `FragmentCount == 0` still means "one box, and it is `Position`", so `GetLeft`, the absolute walk and all four of `UiElement`'s rectangle properties were untouched, and a fragmented node's own rectangle is the **union** — which is CSS 2.1 §10.1's containing block for an abspos descendant of an inline box, so the absolute walk needed nothing. The zero-allocation gate holds with a span re-fragmenting every frame. ⚠ **Still owed under B3**: fragmentation of *nested* spans and of spans with an out-of-flow child (both producer scope, not representation); anonymous block boxes and generated boxes — which are the **opposite** direction, a box with *no node*, and are **not** unblocked by the arena; the strut and therefore the five font-relative `vertical-align` values; `text-align`, `white-space`, `text-overflow: ellipsis`, `line-clamp`. ⚠ **Zero fixtures**, confirmed by enumeration — Taffy's `display` attribute takes five values across all eight files and none is inline. Oracle fetched from WPT (`css-flexbox/inline-flex.html`); fragmentation is arithmetic over explicitly sized boxes in `InlineFragmentationTests`. See `InlineKnownGaps.txt`. | **#26** | 2.3 of 3.0 |
-| B3a 🟡 | The inline oracle: ICU4X's CSS line-break tailorings, Parley's 2 048 Chrome break cases, and Gecko's 68 `text-overflow` reftests transcribed | — | 0.5 |
+| B3a 🟡 | The inline oracle: ICU4X's CSS line-break tailorings, Parley's 2 048 Chrome break cases, and Gecko's `text-overflow` reftests transcribed. ⚠ Two of those three are re-sized in § T2: Gecko's manifests are 36 and 19 rather than 68 and 39 and are pixel reftests rather than transcribable values, and Chromium's `inline/` has no ellipsis test file at all | — | 0.5 |
 | B4 🟡 | `display: table` and the four table utilities. ⚠ **Audited five times and not started, and the fifth audit added the one measurement the other four did not take: nothing in this repository asks for it.** Across all 104 committed `.vxml` and `.vcss` files, not one writes `display: table`, `table-layout`, `caption-side`, `border-collapse` or `border-spacing`; the editor's own tabular panels are grid and flex. So this is a parity item rather than a blocked consumer, and the order it lands in is a choice rather than a dependency. ⚠ A `display: table` that is not in `LayoutStyleBuilder`'s eight keywords is dropped by `TryKeyword` and the element keeps the display it had — which is why aliasing it onto `Block` to make the keyword resolve would be worse than the silence: a box that reads as a table and lays out as a block. | — | 1.0 |
 | | | **B total** | **9.4** |
 
