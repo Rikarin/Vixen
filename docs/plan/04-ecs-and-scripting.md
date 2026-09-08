@@ -111,8 +111,15 @@ world.Query(query, static (ref Position p, ref Velocity v) => p.Value += v.Value
 > the raw material for a translation table, and nothing zips them —
 > [#296](https://github.com/Rikarin/Vixen/issues/296).
 >
-> **Owed, and named rather than approximated:** the `VIXEN_ECS_EVENTS` hooks
-> ([#27](https://github.com/Rikarin/Vixen/issues/27)).
+> ✅ **The `VIXEN_ECS_EVENTS` hooks landed too** — five events on `World`, raised through
+> `[Conditional]` so the *call site* vanishes in release rather than the body being an empty method
+> nobody can see is empty, behind `DEBUG || VIXEN_ECS_EVENTS` so a debug build gets them without
+> anyone opting in. ⚠ `Create(Archetype)` announces after the row is written, because the typed
+> `Create<T0>` overloads write their components after allocating and an announcement from inside the
+> allocation handed every listener a zero.
+>
+> **Owed here: nothing.** Both of this note's original Owed items are closed
+> ([#27](https://github.com/Rikarin/Vixen/issues/27) and world serialisation).
 
 ### Structural change safety
 
@@ -213,12 +220,16 @@ public interface ISystem
 > - **A system that declares nothing conflicts with everything.** Not stated above and load-bearing:
 >   the other reading of an undeclared system — that it touches nothing — is silently wrong exactly
 >   when it matters. Over-declaring costs parallelism; under-declaring is a data race.
-> - **Read/write inference is not implemented; the attributes are.** Programmatic declaration via
+> - **Inference emits into `IDeclaredAccess`, not into the attributes.** Programmatic declaration via
 >   `IDeclaredAccess` and `SystemAccess.Declare()` is the path that also *registers* the component
 >   types it names, which an attribute cannot do — an attribute can only look an id up, and there is
->   nothing to look up until something has stored one. The generator that infers access from query
->   bodies is owed, and it will emit into `IDeclaredAccess` rather than into attributes for that
->   reason.
+>   nothing to look up until something has stored one. ⚠ **The generator that infers access from
+>   query bodies has since landed** —
+>   `Core/Vixen.Engine.Generators/SystemAccessInferenceGenerator.cs`, opt-in behind `[InferAccess]`
+>   because a wrong inference is a data race, with `Core/Vixen.Engine.Tests/InferredSystemAccessTests.cs`
+>   asserting the schedule reads it back. The delegate and visitor forms take every component by
+>   `ref` and so cannot tell a read from a write; they are read as writes, and only the chunk form,
+>   where `Values<T>` and `ReadValues<T>` are different calls, is exact.
 >
 > ✅ **`vixen doctor systems` landed** — `Tools/Vixen.Cli/SystemsRunner.cs`, gated by
 > `Tools/Vixen.Cli.Tests/DoctorSystemsTests.cs` against the test assembly's own declared frame. ⚠ It
@@ -227,7 +238,8 @@ public interface ISystem
 > instance's `IDeclaredAccess`, and whether a service will be registered, because nothing has
 > registered anything yet.
 >
-> **Owed:** the inference generator ([#26](https://github.com/Rikarin/Vixen/issues/26)).
+> **Owed here: nothing.** ⚠ Both of this note's original Owed items have landed — the inference
+> generator was [#26](https://github.com/Rikarin/Vixen/issues/26), and it is closed.
 
 ## Layer 3 — `Behavior`, the MonoBehaviour-shaped API
 
