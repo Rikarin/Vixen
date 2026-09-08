@@ -131,6 +131,39 @@ public static class MaterialBake {
     ///         value the albedo has already been split between diffuse and <c>f0</c> by a factor the
     ///         ORM map cannot see, and the map's metalness then multiplies whatever the split left.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Parallax is the one exception to "the features are the bake's", and it is an
+    ///         authoring decision rather than a rendering one.</b> A bake that wrote a height output
+    ///         could compose a <see cref="ParallaxOcclusionFeature" /> for it — and would then put a
+    ///         per-pixel march on <em>every</em> material any graph ever emitted a height map from,
+    ///         which is a picture change and a cost nobody asked for. Writing the file and letting
+    ///         the material ask is the safer half, so a parallax feature already on the material is
+    ///         the author's, like the shading model: it survives the re-bake and is re-pointed at
+    ///         the height map this bake wrote. See
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is re-seated at index 0, which is what makes the material compile.</b>
+    ///         The feature declares <see cref="MaterialFeatureStage.Coordinate" /> and
+    ///         <c>MaterialCompiler</c> refuses one listed behind a feature that samples — so
+    ///         appending the base surface first and the author's feature after it produces a
+    ///         <c>CoordinateFeatureOutOfOrder</c> on a file the bake itself wrote. The ordering rule
+    ///         is doing its job; this is the bake agreeing with it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is dropped when this bake wrote no height map</b>, which is the same rule the
+    ///         emissive feature is under and matters more here: a parallax feature whose map is
+    ///         unbound leaves <c>heightIndex</c> at zero, marches the bindless table's fallback
+    ///         checker as a height field, and the surface swims. Losing the feature is visible;
+    ///         keeping it is not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Exactly this feature, and not "every coordinate-stage feature".</b> The general
+    ///         rule reads better and is the wrong one: it would preserve a future coordinate feature
+    ///         whose own map this bake knows nothing about, into a material naming no texture for it
+    ///         — the silent failure above rather than the visible one. A second sampling feature
+    ///         wanting to survive a bake adds itself here, next to the map it reads.
+    ///     </para>
     /// </remarks>
     public static MaterialContent Material(
         IReadOnlyDictionary<MaterialMapTarget, AssetReference> maps,
@@ -140,6 +173,11 @@ public static class MaterialBake {
 
         var features = new List<IMaterialFeature>();
         var textures = new List<MaterialTexture>();
+        var parallax = Displacement(maps, existing);
+
+        if (parallax is not null) {
+            features.Add(parallax);
+        }
 
         features.Add(
             maps.ContainsKey(MaterialMapTarget.BaseColor)
@@ -164,7 +202,15 @@ public static class MaterialBake {
         }
 
         foreach (var target in MaterialMapNaming.EveryTarget) {
-            if (maps.TryGetValue(target, out var reference) && MaterialMapNaming.Parameter(target) is { } parameter) {
+            // ⚠ The height map's name is conditional and every other one is not, which is why it is
+            // not in `MaterialMapNaming.Parameter`. That answers "what does the feature that samples
+            // this file call it" for the five the bake always composes; whether anything samples the
+            // height file at all is this material's answer, not the target's — see the remarks.
+            var parameter = target == MaterialMapTarget.Height
+                ? parallax?.HeightMap
+                : MaterialMapNaming.Parameter(target);
+
+            if (maps.TryGetValue(target, out var reference) && parameter is not null) {
                 textures.Add(new(parameter, reference));
             }
         }
@@ -175,6 +221,34 @@ public static class MaterialBake {
             Features = [.. features],
             Textures = [.. textures]
         };
+    }
+
+    /// <summary>The author's parallax feature, where this bake can still feed it.</summary>
+    /// <param name="maps">What the bake wrote.</param>
+    /// <param name="existing">The material as it already stood.</param>
+    /// <returns>The feature to put back at the head of the chain, or null.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The instance the author wrote, not a fresh one</b> — <c>HeightScale</c> is in the
+    ///     surface's own UV units and is the one number in the feature a graph cannot know, since the
+    ///     depth that reads correctly depends on how the material tiles its maps. Re-baking with
+    ///     <c>new ParallaxOcclusionFeature()</c> would silently reset an authored relief to the
+    ///     default five hundredths, which is a look change with a bake in front of it.
+    /// </remarks>
+    static ParallaxOcclusionFeature? Displacement(
+        IReadOnlyDictionary<MaterialMapTarget, AssetReference> maps,
+        MaterialContent? existing
+    ) {
+        if (!maps.ContainsKey(MaterialMapTarget.Height)) {
+            return null;
+        }
+
+        foreach (var feature in existing?.Features ?? []) {
+            if (feature is ParallaxOcclusionFeature parallax) {
+                return parallax;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>The one size every output has to agree on.</summary>

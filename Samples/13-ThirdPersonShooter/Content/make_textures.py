@@ -33,9 +33,23 @@ def streaks(size, cells, seed, vertical=True):
     return np.repeat(band[:, :1], size, axis=1) if not vertical else np.repeat(band[:1, :], size, axis=0)
 
 
-def emit(name, colour, height, rough, metal=False, alpha=None, strength=2.0, normal=True):
+def emit(name, colour, height, rough, metal=False, alpha=None, strength=2.0, normal=True, displaced=False):
     files = []
     files.append((f"{name}-albedo.png", rgba(colour, alpha)))
+
+    # ⚠ The *same* field the normal map is derived from, written out rather than recomputed, and that
+    # identity is the whole point of the map. `normal_map` fakes this field's slope and
+    # `ParallaxSurface` marches the field itself; two surfaces whose relief disagreed would light one
+    # way and displace another, which reads as a texture sliding under its own shading. So there is
+    # one array and two encodings of it, and a recipe that regenerated the height for parallax would
+    # be the defect it is trying to demonstrate.
+    #
+    # Grey rather than one channel: the sample's importer settings are `Linear` + BC4 for this map,
+    # and BC4 takes red — but a one-channel PNG samples green and blue as 0, which is a trap
+    # `TexturedOpacitySurface` documents at length. Writing R = G = B costs the PNG and nothing in a
+    # bundle, since the block format is what ships.
+    if displaced:
+        files.append((f"{name}-height.png", rgba(np.repeat(height[..., None], 3, axis=-1))))
 
     # ⚠ `normal=False` for the three terrain layers, and it is not a saving of taste. A terrain
     # layer's normal map has nowhere in the engine to arrive: `TerrainLayerDescription.Normal` is
@@ -74,7 +88,12 @@ def concrete():
     colour = tint(normalise(blotch * 0.6 + speckle * 0.4), (0.26, 0.26, 0.27), (0.62, 0.62, 0.61))
     rough = 0.72 + 0.18 * normalise(speckle)
 
-    emit("concrete", colour, height, np.clip(rough, 0, 1), strength=1.4)
+    # ⚠ The one material in the arena that ships a height map, because it is the one whose uv is
+    # allowed to tile. Every arena mesh is box-projected in metres of world (`boxuv.py`), so the wall
+    # repeats this map thirty-two times across itself — which is wrong for a splat map and exactly
+    # right for a relief map, whose whole job is to be a detail that repeats. `wall.vxmat` marches it
+    # with a `!ParallaxOcclusion` feature; nothing else does, deliberately.
+    emit("concrete", colour, height, np.clip(rough, 0, 1), strength=1.4, displaced=True)
 
 
 def metal_panel():

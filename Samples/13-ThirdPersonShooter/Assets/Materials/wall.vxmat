@@ -9,6 +9,40 @@
 shader: ForwardPlus
 shading: StandardShading
 features:
+  # ⚠ **First in the list, and the compiler refuses it anywhere else.** This is the one feature in
+  # the library that *writes* `d.uv` rather than reading it — `MaterialFeatureStage.Coordinate` —
+  # so every feature behind it samples the coordinate it is about to replace. Listed second the
+  # wall would draw half displaced and half not, on every device, with nothing reported;
+  # `MaterialCompiler` raises `CoordinateFeatureOutOfOrder` instead. See #1065.
+  #
+  # ⚠ **And `heightMap` names `parallaxHeightMap`, which is not a name this material may choose
+  # either.** There are two height maps in the engine and one English word for them:
+  # `TexturedMaterialLayers.heightMap` is a four-channel per-layer bundle and this is one
+  # material's single channel. `WorldRenderer.Paired` keys both off their features' defaults, and
+  # the defaults are spelled differently precisely so that one texture cannot fill both indices —
+  # which would shade, and not fail.
+  #
+  # **Why this wall and nothing else.** `concrete-height.png` is the very field
+  # `concrete-normal.png` was derived from (`Content/make_textures.py`), so the relief the lighting
+  # already fakes is the relief the march now walks. The pillars and the floor sample the same
+  # three maps and do *not* march them, which makes the arena its own A/B: one surface, one added
+  # feature, everything else held.
+  #
+  # **`heightScale` is in UV units, and here that is metres.** Every arena mesh is box-projected in
+  # metres of world (`Content/boxuv.py`), so one uv unit is one metre of wall and 0.004 is four
+  # millimetres of concrete relief. A number in metres would be a coincidence of this projection;
+  # the shader's unit is the material's tiling, which is why the feature cannot derive it.
+  #
+  # ⚠ **The silhouette is not this**, and the wall is the case where that is free: a displaced
+  # coordinate leaving 0..1 samples the map's wrap, which on a surface whose uv *is* a tiling is
+  # the neighbouring tile and therefore correct. A parallaxed cylinder would show the wrap where
+  # its edge should fall away. See #1104.
+  - !ParallaxOcclusion
+    heightMap: parallaxHeightMap
+    heightScale: 0.004
+    minSteps: 8
+    maxSteps: 32
+
   # ⚠ `baseColorMap` is not a name this material may choose. `WorldRenderer.Paired` keys the one
   # entry in `MaterialRenderFeature.TextureIndices` off `new TexturedMetalRoughnessFeature()
   # .BaseColorMap` — the feature's *default* — so a material that renamed its map to `concrete`
@@ -54,3 +88,5 @@ textures:
     texture: vx:9741806c7d834c58bdd5347a050e8758
   - parameter: ormMap
     texture: vx:6d2b8e37a0744f69b8eef36708982e96
+  - parameter: parallaxHeightMap
+    texture: vx:3b41dabc51d247169633e6a2aded3e04

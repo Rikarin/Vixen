@@ -125,6 +125,111 @@ public sealed class MaterialBakeTests {
         Assert.Single(material.Textures);
     }
 
+    /// <summary>An author's parallax feature survives a re-bake, at the head of the chain.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The authoring half of
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>.</b> A bake writes a
+    ///         height file for any graph with a height output; whether anything marches it is the
+    ///         material's answer, because the alternative is a per-pixel cost on every material a
+    ///         height output ever came out of.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The compile is the assertion, not the index.</b>
+    ///         <see cref="MaterialFeatureStage.Coordinate" /> has to be first and
+    ///         <c>MaterialCompiler</c> is what says so; appending the preserved feature after the
+    ///         base surface — which is what the naive re-add does, since the base surface is added
+    ///         first — writes a <c>.vxmat</c> the content build then refuses. Asserting the index
+    ///         alone would pass with the ordering rule deleted.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the author's own <c>HeightScale</c> comes back.</b> It is in the surface's UV
+    ///         units, so it depends on the material's tiling and no graph can know it; a re-bake that
+    ///         handed back a fresh feature would reset an authored relief to the default and look
+    ///         like the bake having changed the maps.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_re_bake_keeps_the_authors_parallax_and_binds_the_height_map_to_it() {
+        var existing = new MaterialContent {
+            Features = [new TexturedMetalRoughnessFeature(), new ParallaxOcclusionFeature { HeightScale = 0.02f }]
+        };
+
+        var material = MaterialBake.Material(
+            new Dictionary<MaterialMapTarget, AssetReference> {
+                [MaterialMapTarget.BaseColor] = Reference(1),
+                [MaterialMapTarget.Normal] = Reference(2),
+                [MaterialMapTarget.Orm] = Reference(3),
+                [MaterialMapTarget.Height] = Reference(4)
+            },
+            existing
+        );
+
+        Assert.True(MaterialShading.TryResolve(material.Shading, out var shading));
+
+        var compilation = MaterialCompiler.Compile(material.ToDescriptor(shading));
+
+        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(one => one.Message)));
+
+        var parallax = Assert.IsType<ParallaxOcclusionFeature>(material.Features[0]);
+
+        Assert.Equal(0.02f, parallax.HeightScale);
+
+        // Named as the feature names it, which is what WorldRenderer.Paired keys the one entry on —
+        // and spelled apart from TexturedMaterialLayersFeature.HeightMap on purpose.
+        var bound = Assert.Single(material.Textures, texture => texture.Parameter == parallax.HeightMap);
+
+        Assert.Equal(Reference(4), bound.Texture);
+        Assert.Equal(4, material.Textures.Length);
+    }
+
+    /// <summary>A material that never asked for parallax does not get it, and keeps its file.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the half of the decision that is easy to lose.</b> Returning a name for
+    ///     <see cref="MaterialMapTarget.Height" /> unconditionally would put a texture entry on every
+    ///     baked material with a height output — bytes the build imports, a bundle carries and a pool
+    ///     makes resident, that no feature in the material samples.
+    /// </remarks>
+    [Fact]
+    public void A_bake_composes_no_parallax_for_a_material_that_did_not_ask() {
+        var material = MaterialBake.Material(
+            new Dictionary<MaterialMapTarget, AssetReference> {
+                [MaterialMapTarget.BaseColor] = Reference(1),
+                [MaterialMapTarget.Height] = Reference(4)
+            }
+        );
+
+        Assert.DoesNotContain(material.Features, feature => feature is ParallaxOcclusionFeature);
+        Assert.Single(material.Textures);
+        Assert.Equal(new TexturedMetalRoughnessFeature().BaseColorMap, material.Textures[0].Parameter);
+    }
+
+    /// <summary>And it goes when the graph stops producing the map it marches.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The same rule the emissive feature is under, and it matters more here.</b> A parallax
+    ///     feature whose map is unbound leaves <c>heightIndex</c> at zero, reads the bindless table's
+    ///     fallback checker as a height field and swims — a wrong picture with nothing to say why.
+    ///     Losing the feature is a look an artist can see and act on.
+    /// </remarks>
+    [Fact]
+    public void A_bake_that_wrote_no_height_map_drops_the_parallax_it_could_not_feed() {
+        var existing = new MaterialContent {
+            Features = [new ParallaxOcclusionFeature()],
+            Textures = [new(new ParallaxOcclusionFeature().HeightMap, Reference(4))]
+        };
+
+        var material = MaterialBake.Material(
+            new Dictionary<MaterialMapTarget, AssetReference> { [MaterialMapTarget.BaseColor] = Reference(1) },
+            existing
+        );
+
+        Assert.DoesNotContain(material.Features, feature => feature is ParallaxOcclusionFeature);
+        Assert.DoesNotContain(
+            material.Textures,
+            texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap
+        );
+    }
+
     /// <summary>Two of the nine usages bind to no feature, and are written anyway.</summary>
     /// <remarks>
     ///     A mask is § 4.10's input to another graph rather than anything a material samples, and a
@@ -139,9 +244,17 @@ public sealed class MaterialBakeTests {
     ///         channel. Two different textures with one English name, which is how a reader who checks
     ///         the old claim finds the layered feature and concludes the assertion below is the stale
     ///         half. It is not: <see cref="MaterialMapNaming.Parameter" /> returning null for
-    ///         <see cref="MaterialMapTarget.Height" /> is still right, and the live consumers are
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1065">#1065</a> and
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1067">#1067</a>.
+    ///         <see cref="MaterialMapTarget.Height" /> is still right.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it stayed right after
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1065">#1065</a> landed a feature that
+    ///         reads exactly this map.</b> A height map binds when the material carries a
+    ///         <see cref="ParallaxOcclusionFeature" /> and not when the bake wrote the file, so the
+    ///         binding lives in <see cref="MaterialBake.Material" /> rather than in the naming table —
+    ///         see <see cref="A_bake_composes_no_parallax_for_a_material_that_did_not_ask" />, which
+    ///         is this test one map along.
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1067">#1067</a> is still open.
     ///     </para>
     /// </remarks>
     [Fact]
