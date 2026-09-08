@@ -108,8 +108,15 @@ message about a file nobody named.
 
 ## Parameters, and the two directions they travel
 
-`TextureGraphParameter` is a knob an author exposed: a name, a `TextureGraphParameterKind`
-(`Scalar`, `Integer` or `Boolean`), a default, a range, and a group.
+`TextureGraphParameter` is a knob an author exposed: a name, a `TextureGraphParameterKind`, a
+default, a range, and a group.
+
+⚠ **There are four kinds and this sentence listed three.** `Scalar`, `Integer` and `Boolean` reach
+`TextureGraphExpressions` as a `const val` an expression inside the published graph may spell;
+`Name` — added 2026-09-08 — never does, because a name is not a number and a source that declared
+one would not parse. What reads a `Name` is `TextureGraphParameters.IsReference`'s convention, one
+level down, against a `[Setting]` on a node *inside* the graph. So a knob's kind decides **which of
+the two directions below it travels**, and only three of the four fold into arithmetic.
 
 They travel both ways, which is what `TextureGraphParameters` is for:
 

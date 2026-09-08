@@ -881,7 +881,17 @@ So `Output` is the one `[Node]` class § 4.8 costs, and the count in
 ### 4.9 The compound library — content, not code
 
 ⚠ **This list is the backlog, not the deliverable.** [M10](#m10--the-library-smart-materials-and-export--10-em)
-ships the two dozen marked ●, authored in the tool, and the rest is how a library grows.
+ships the compounds marked ●, authored in the tool, and the rest is how a library grows.
+
+⚠ **This sentence said "the two dozen marked ●" for nineteen batches and the rows below mark
+thirty-five**, plus five `.vxsmartmat`. Counted: Utility 8 · Patterns 7 · Grunges 8 · Surface 5 ·
+Mask generators 7. **The number was never a summary of the table, and three ledger readings quoted it
+rather than the marks** — `docs/overview.md` scored M10 at "4 of two dozen" and then "sixteen of
+roughly two dozen", each time against a denominator eleven short, which reads a milestone as
+two-thirds done when it is under a half. ⚠ **And a test quotes these marks as a floor**
+(`TextureCompoundLibraryTests.The_shipped_library_is_the_folder_and_not_a_list`), so an ● here is
+load-bearing rather than decorative: the count in prose is the one thing in this section nothing
+derives, which is why it is now stated as an enumeration instead.
 
 | | |
 |---|---|
@@ -1314,7 +1324,10 @@ lives in [#577](https://github.com/Rikarin/Vixen/issues/577); what kind of evide
 fact about the criterion as written, which is what this document is for. The distinction is the whole
 point: **a criterion nobody has measured and a criterion that passes look identical in a status
 table**, and six audits in a row scored criterion 1 without noticing that half of its sentence had
-never been evaluated at all. Re-measured 2026-09-06; the mechanism column names the file, so a row
+never been evaluated at all. Re-measured 2026-09-06 and again 2026-09-08, when **every mechanism
+named below was resolved to a tracked file and all twenty exist** — the two rows that moved (11 and
+12) both moved because somebody else fixed their subject, which is the failure a table of citations
+has and a table of counts does not; the mechanism column names the file, so a row
 that has rotted is a `git grep` away from being caught.
 
 | # | The criterion, short | Evidence | Mechanism | ⚠ What is not measured |
@@ -1329,7 +1342,7 @@ that has rotted is a `git grep` away from being caught.
 | 8 | Paint latency under 16 ms per stamp | **measured as work, recorded as time** | `PaintCostTests` at 4096² with twelve layers: the stamp's work is asserted equal to its own footprint, the milliseconds are printed, and the one time assertion is an absurd ceiling whose message says it is a hang check | The wall-clock number itself is deliberately not gated |
 | 9 | A painted-over output is detected | **measured** | `MaterialBakeAssetTests` — refused, overwritten when forced, and an untouched set not called painted | — |
 | 10 | The plugin loads, activates, unloads, and links the app in no build | **measured, both halves** | `Vixen.Editor.Plugin.Tests/LoadingTests` via `PluginHost.WaitForCollection`; `PluginReferenceRule` called by `CheckArchitecture` and by `PluginReferenceRuleTests` | — |
-| 11 | A device confirmed by name in every GPU test in this area | **measured, both projects** | `DeviceRollCall`, one walk with two callers — `TextureAdapterRollCallTests` and `TexturingAdapterRollCallTests` — plus the harness half: `TextureKernelHarness.Open` and `TexturingDevice.Open` each write the adapter into the running test's output, so a device that goes through a harness cannot be anonymous ([#883](https://github.com/Rikarin/Vixen/issues/883)) | ⚠ The harness half reaches two of the seven device-opening files in `Vixen.Editor.Texturing.Tests`; the other five carry a private `Open()` calling `VulkanDevice.TryCreate` directly, so the *walk* is what holds them and the stronger mechanism does not ([#923](https://github.com/Rikarin/Vixen/issues/923)) |
+| 11 | A device confirmed by name in every GPU test in this area | **measured, both projects** | `DeviceRollCall`, one walk with two callers — `TextureAdapterRollCallTests` and `TexturingAdapterRollCallTests` — plus the harness half: `TextureKernelHarness.Open` and `TexturingDevice.Open` each write the adapter into the running test's output, so a device that goes through a harness cannot be anonymous ([#883](https://github.com/Rikarin/Vixen/issues/883)) | ⚠ **This cell said the harness reaches two of seven files and the other five call `VulkanDevice.TryCreate` directly, and that stopped being true when [#923](https://github.com/Rikarin/Vixen/issues/923) closed.** Re-measured 2026-09-08: `git grep -l VulkanDevice.TryCreate Editor/Vixen.Editor.Texturing.Tests/` returns **one** file, `TexturingDevice.cs`, and eighteen files name `TexturingDevice` — so every device in that project is opened by the harness that writes the adapter into the test's output. ⚠ And that is **enforced rather than observed**: `Only_the_harness_here_creates_a_device` runs `DeviceRollCall.Sole` over the directory, with a negative case proving a second creating file — and a tree with *no* creating file — both go red, so the walk is now the weaker of the two mechanisms rather than the only one. ⚠ What is *not* covered is still "in this area": nineteen golden device files elsewhere name no adapter and no gate can scope the rule to them ([#795](https://github.com/Rikarin/Vixen/issues/795)) |
 | 12 | A frame is photographed | **measured** | `BakedMaterialImageTests` — maps from `TexturePlanEvaluator`, packed by `MaterialBake`, drawn through `StandardFrameAsset`, differenced against `MetalRoughnessFeature`; **and, from 2026-09-08, from a committed `.vxtexgraph` compiled by `TextureGraphCompiler`** ([#1081](https://github.com/Rikarin/Vixen/issues/1081)) | It is a golden-suite file, so it skips without a device; ⚠ eighteen files in that suite *passed* rather than skipped until 2026-08-21. ⚠ **This cell said the plan is hand-built and no document is opened, and that was the whole gap**: `Fixtures/BakedGraph.vxtexgraph` is now parsed, loaded, compiled against `NodeTypes.Register`'s registry, read back by *usage* off `TextureGraphCompiler.Outputs`, evaluated, packed and rendered onto the same oracle. ⚠ A second fixture differing **only** in the base-colour node's `Colour` must draw a different frame, which is what stops the first being satisfied by a compiler that never read the file. ⚠ The picture is still **flat** — a differential against a constant surface can only be taken over one — so nothing here says a checker or a noise reaches a frame correctly; it says the *document* does. ⚠⚠ **The blocker this cell recorded was refuted by the file that gave it**: `TextureGraphOutput` is a `public readonly record struct` (`TextureGraphCompiler.cs:26`) with no `InternalsVisibleTo` anywhere in the chain, and `BakedMaterialImageTests` named the type in its own source while saying it could not see it |
 
 ✅ **Two of the twelve were cited in the tests by the wrong number and one by wording the criterion no
@@ -1556,8 +1569,8 @@ forgotten.
 | Planar symmetry | — | ✅ | ✅ | ● M9 |
 | Radial symmetry | — | ◐ | ✅ 2026 | 🕓 |
 | Stroke smoothing / lazy mouse | — | ✅ | ✅ 2026 | ● M9 |
-| Curve and path strokes | — | ◐ | ✅ 2026 | ◐ M9 — the **straight** half landed and cost nothing: `BrushStroke.MoveTo` already walks the segment, so a shift-click line is two `MoveAll` calls and one undo entry. ⚠ **The pen gesture landed 2026-09-09** — `PaintToolMode.Path` and `PaintPath`, with a preview and one stroke on commit. What is left is that a placed point cannot be moved or inserted, and a 3D path needs a 3D surface ([#1084](https://github.com/Rikarin/Vixen/issues/1084), [#1063](https://github.com/Rikarin/Vixen/issues/1063)) |
-| Brush alphas and presets | — | ✅ | ✅ | ◐ M9 — ⚠ **Landed 2026-09-09, and the blocker was arithmetic rather than wiring**: `TerrainBrush.WeightAt` measured every stamp radially and clipped at the radius whatever the shape, so a mask that was one over its whole square painted *exactly* what a circle painted and a rotation over it moved no texel. An alpha's reach is the Chebyshev distance in the stamp's own turned frame now. `PaintImageMask` is the first production `IBrushMask`; `PaintAlphas` is a four-shape shelf; the two knobs have rows. **Presets and a picker over the project's own textures are still owed** — [#1090](https://github.com/Rikarin/Vixen/issues/1090) |
+| Curve and path strokes | — | ◐ | ✅ 2026 | ◐ M9 — the **straight** half landed and cost nothing: `BrushStroke.MoveTo` already walks the segment, so a shift-click line is two `MoveAll` calls and one undo entry. ⚠ **The pen gesture landed 2026-09-08** — `PaintToolMode.Path` and `PaintPath`, with a preview and one stroke on commit. What is left is that a placed point cannot be moved or inserted, and a 3D path needs a 3D surface ([#1084](https://github.com/Rikarin/Vixen/issues/1084), [#1063](https://github.com/Rikarin/Vixen/issues/1063)) |
+| Brush alphas and presets | — | ✅ | ✅ | ◐ M9 — ⚠ **Landed 2026-09-08, and the blocker was arithmetic rather than wiring**: `TerrainBrush.WeightAt` measured every stamp radially and clipped at the radius whatever the shape, so a mask that was one over its whole square painted *exactly* what a circle painted and a rotation over it moved no texel. An alpha's reach is the Chebyshev distance in the stamp's own turned frame now. `PaintImageMask` is the first production `IBrushMask`; `PaintAlphas` is a four-shape shelf; the two knobs have rows. **Presets and a picker over the project's own textures are still owed** — [#1090](https://github.com/Rikarin/Vixen/issues/1090) |
 | Tablet pressure and tilt | — | ✅ | ✅ | ◐ M9 — pressure needs a platform input path that does not exist; named here rather than assumed |
 | Particle brushes / dynamic strokes | — | ✅ | ? | ✖ a simulation inside a brush; not planned |
 | UV reprojection when the mesh changes | — | ✅ | ✅ | 🕓 **a real gap**, and the one an artist notices on day two of a production |
