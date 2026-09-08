@@ -57,6 +57,25 @@ namespace Vixen.Editor.AssetEditors;
 ///         calls <c>session.Provide</c> instead. Nothing here can see a play session.
 ///         <see href="https://github.com/Rikarin/Vixen/issues/470">#470</see> carries that decision.
 ///     </para>
+///     <para>
+///         ⚠ <b>And the service that decision asks for mostly exists already, which narrows it.</b>
+///         #470 proposes inventing "an <c>IActivePlaySession</c>-shaped service published once and
+///         long-lived, whose <c>Current</c> is null between sessions" — <c>PlayModeController.Session</c>
+///         is public, is exactly that, and is set on Play and nulled on Stop. What is missing is only
+///         that <c>EditorApplication.PlayMode</c> is internal and the controller is not in
+///         <c>PluginServices</c>; the precedent for publishing it is <c>ShownScene</c>, which is a
+///         contract over a moving answer for the same reason. So option 1 is a publish rather than a
+///         design.
+///     </para>
+///     <para>
+///         ⚠ <b>What is genuinely undecided is the <em>producer</em>, and that is not scheduling
+///         either.</b> An <c>AiSystem</c> takes an <c>AgentActionRegistry</c> and a
+///         <c>BlackboardLayout</c>, and a project's actions are registered by that project's own
+///         <c>OnInitialise</c> — which the editor does not run. A <c>PlayAi</c> handing the system an
+///         empty registry would put agents in the debugger whose every action is missing, which
+///         teaches an author something false. Publishing the seam before that is answered would add
+///         a second empty place for these panels to look.
+///     </para>
 /// </remarks>
 public sealed partial class AssetEditorsModule {
     /// <summary>What the agent debugger is registered as.</summary>
