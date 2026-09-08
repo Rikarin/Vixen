@@ -130,6 +130,26 @@ sealed class PaintTool {
     /// <summary>Whether a drag would paint.</summary>
     public bool IsPainting => Mode == PaintToolMode.Paint;
 
+    /// <summary>Which axis the 3D pane mirrors a stroke through, or <c>None</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The name beside the plane, for <see cref="AlphaName" />'s reason exactly.</b>
+    ///     <see cref="Symmetry" /> is a normal and an offset, which a picker cannot compare against
+    ///     — two planes that mirror the same way are equal only if their normals were written the
+    ///     same way round — so this is what says which option is chosen and what a status line reads.
+    /// </remarks>
+    public string SymmetryAxis { get; private set; } = "None";
+
+    /// <summary>The plane a 3D stroke is mirrored through, or null for no symmetry.</summary>
+    /// <remarks>
+    ///     ⚠ <b>On the tool rather than on the 3D pane, and it is deliberately not read by the 2D
+    ///     one.</b> A mirror is a plane in the <em>mesh's</em> space and the atlas has no such thing
+    ///     — <c>PaintSymmetry</c>'s own remarks say why there is no transform of an atlas that
+    ///     performs one — so a 2D stroke cannot honour this and does not pretend to. It lives here
+    ///     because the panel it is set in is rebuilt every time it is reopened, which is the same
+    ///     reason the brush does.
+    /// </remarks>
+    public PaintSymmetry? Symmetry { get; private set; }
+
     /// <summary>Swaps between painting and not.</summary>
     /// <returns>The mode it is now in.</returns>
     public PaintToolMode Toggle() {
@@ -180,6 +200,30 @@ sealed class PaintTool {
 
         AlphaName = mask is null ? PaintAlphas.Round : name!;
         Brush = Brush with { Alpha = mask };
+    }
+
+    /// <summary>Which plane a 3D stroke mirrors through.</summary>
+    /// <param name="axis">
+    ///     <c>X</c>, <c>Y</c> or <c>Z</c> — the plane through the origin facing that way, which is
+    ///     where a model exported down its own axis is symmetric. Anything else, including null, is
+    ///     no symmetry.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>An unrecognised name is <em>off</em> rather than the last plane</b>, which is the
+    ///     opposite of <see cref="SetAlpha" />'s clamp-to-a-default and is right for the same reason
+    ///     that one is: a brush with no shape cannot paint, so it takes a shape, while a stroke with
+    ///     no mirror is an ordinary stroke. Falling back to a plane would paint a second stroke
+    ///     somewhere the artist did not ask for.
+    /// </remarks>
+    public void SetSymmetry(string? axis) {
+        Symmetry = axis switch {
+            "X" => PaintSymmetry.X,
+            "Y" => PaintSymmetry.Y,
+            "Z" => PaintSymmetry.Z,
+            _ => null
+        };
+
+        SymmetryAxis = Symmetry is null ? "None" : axis!;
     }
 
     /// <summary>How the stamps are turned along a stroke.</summary>

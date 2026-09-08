@@ -1,0 +1,236 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+using System.Diagnostics;
+using Vixen.Core.Mathematics;
+using Vixen.Editor.Texturing.Painting;
+using Xunit;
+
+namespace Vixen.Editor.Texturing.Tests;
+
+/// <summary>
+///     Doc 48's exit criterion 8, measured on the hard case through the 3D pane rather than around
+///     it.
+/// </summary>
+/// <remarks>
+///     <para>
+///         <b>The criterion is "a stroke on a 4K texture set with twelve layers under it stays under
+///         16 ms per stamp", and <c>PaintCostTests</c> already gates the atlas half of it.</b> What a
+///         3D view adds to the per-stamp path is the <em>picture</em>: the pointer is over a render
+///         of the model, and every stamp has to put its texels back on that render. A pane that
+///         rasterised the mesh again per pointer move would satisfy every counter that suite has and
+///         would still miss the criterion by an order of magnitude, because the model's triangle
+///         count would be back in the inner loop.
+///     </para>
+///     <para>
+///         ⚠ <b>Three counters and a clock, in that order of authority.</b> The stack is evaluated
+///         twice for the whole drag; the mesh is rasterised once; the pane pixels shaded per stamp
+///         are bounded by the brush's own disc rather than by the pane. All three are exact and none
+///         of them is a wall clock — the milliseconds are reported beside them as evidence, with an
+///         absurd ceiling that is a hang check and says so, which is this repository's rule for a
+///         budget calibrated on an idle machine.
+///     </para>
+///     <para>
+///         ⚠ <b>And the bound is in pane pixels on purpose, because that is the quantity that has to
+///         stop depending on the two axes.</b> A stamp's shaded count here is a function of the
+///         brush's radius on screen and of nothing else: not of the twelve layers, not of the 4096
+///         texels, not of the model's triangle count. Asserting it against a fraction of the pane
+///         would be a weaker claim that a full-pane scan could still satisfy at these sizes.
+///     </para>
+/// </remarks>
+public class PaintMeshCostTests(ITestOutputHelper output) {
+    const uint Opaque = 0xFF0000FFu;
+
+    /// <summary>A projected drag over a 4K set with twelve layers pays for neither the stack nor the mesh.</summary>
+    [Fact]
+    public void A_projected_stamp_on_a_4k_set_with_twelve_layers_redraws_neither_the_stack_nor_the_mesh() {
+        const int Size = 4096;
+        const int Moves = 64;
+        const int Wide = 1280;
+        const int Tall = 720;
+        // ⚠ Five *screen* pixels, and the number is derived rather than chosen. `PaintCostTests`
+        // measures the criterion at a 48-texel brush; on this framing the quad's two world units
+        // cover the 4096-texel atlas and about 409 pane pixels, so one pane pixel is roughly ten
+        // texels — and a 48-pixel brush would be a 480-texel one, which is a tenth of the atlas and
+        // measures a gesture no artist makes. The assertion below states the resulting footprint so
+        // that a change to the framing cannot silently move what is being measured.
+        const float Radius = 5f;
+
+        var mesh = Quad();
+        PaintCamera camera = new();
+
+        camera.Frame(mesh.Bounds);
+
+        PaintMeshRaster raster = new();
+
+        raster.Draw(mesh, camera, Wide, Tall);
+
+        FlatStack stack = new(Size, Size, layers: 12);
+        PaintImage layer = new(Size, Size);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), stack, Gutter: 4);
+
+        raster.Texture(layer);
+
+        Assert.True(raster.Covered > 100_000, $"{raster.Covered} pane pixels covered — the model is not on screen.");
+
+        PaintProjector projector = new(mesh, Size, Size);
+
+        // Straight down the middle of the pane, which on this fixture is the middle of the atlas.
+        var eye = camera.Eye(Tall);
+
+        Assert.True(
+            projector.Begin(eye, camera.Ray(Wide * 0.5f, Tall * 0.5f, Wide, Tall), Radius, out var footprint),
+            "the first ray missed the model."
+        );
+
+        Assert.True(footprint.IsMeasurable, "the footprint is not a brush.");
+        Assert.InRange(footprint.Radius, 30f, 90f);
+
+        var session = PaintSession.Begin(
+            target,
+            PaintStrokeTests.Hard(footprint.Radius) with {
+                Spacing = 1f,
+                Aspect = footprint.Aspect,
+                AspectAngle = footprint.Angle
+            },
+            Opaque
+        );
+
+        var drawn = raster.Renders;
+        var before = raster.Shaded;
+        List<PaintRect> dirtied = [];
+        var started = Stopwatch.GetTimestamp();
+
+        for (var step = 0; step < Moves; step++) {
+            // One brush radius per move, which is what makes a move a stamp — the same relation
+            // `PaintCostTests` uses, in pane pixels rather than in texels.
+            var ray = camera.Ray((Wide * 0.5f) - 160f + (step * Radius), Tall * 0.5f, Wide, Tall);
+
+            session.MoveAll(projector.Resolve(ray), dirtied);
+
+            foreach (var rect in dirtied) {
+                raster.Retexture(session.Composite.Result, rect);
+            }
+        }
+
+        var elapsed = Stopwatch.GetElapsedTime(started);
+        var shaded = raster.Shaded - before;
+
+        // ⚠ The property the 16 ms was a proxy for, on the atlas side — the stack is evaluated in the
+        // session's constructor and never again, so the layer count is not in the per-stamp path.
+        Assert.Equal(2, session.Composite.Evaluations);
+        Assert.Equal(2, stack.Evaluations);
+
+        // ⚠ And on the pane side: sixty-four stamps drew no geometry, so the model's triangle count
+        // is not in the per-stamp path. ⚠ This is an assertion about `Retexture` and not about the
+        // pane, and the difference matters — the loop above calls `Retexture` directly, so a view
+        // that rendered on every pointer move would leave it green. That half is asserted where it
+        // can fail, in `PaintMeshViewTests`, by counting whole-picture uploads across a real drag.
+        Assert.Equal(drawn, raster.Renders);
+
+        // The instrument: a drag that laid one stamp, or a projector that missed the mesh, would
+        // satisfy every bound below for reasons that have nothing to do with either cache.
+        Assert.True(
+            session.StampCount >= Moves - 1,
+            $"{session.StampCount} stamps from {Moves} projected moves — the rays are not reaching the mesh."
+        );
+
+        Assert.True(shaded > 0L, "no pane pixel was reshaded, so the model never showed the stroke.");
+
+        // The closed form, in pane pixels and in nothing else: a stamp covers a disc of the brush's
+        // screen radius, whose bounding square is (2r + 2)². Twice that is the slack for the atlas
+        // rectangle being a square around an ellipse and for the seam gutter around it.
+        var square = (long)((2f * Radius) + 2f) * (long)((2f * Radius) + 2f);
+
+        Assert.True(
+            shaded <= session.StampCount * square * 2L,
+            $"{shaded} pane pixels shaded for {session.StampCount} stamps; {session.StampCount * square * 2L} is "
+            + $"the brush-disc bound. The pane is {Wide * Tall} pixels and the atlas is {Size}²: a number "
+            + "near either of those is a scan rather than a lookup."
+        );
+
+        var perStamp = elapsed.TotalMilliseconds / session.StampCount;
+
+        output.WriteLine(
+            $"4096², 12 layers, {Wide}×{Tall} pane, projected: {perStamp:F3} ms per stamp over "
+            + $"{session.StampCount} stamps at radius {footprint.Radius:F1} texels from {Radius} px, "
+            + $"{shaded} pane pixels reshaded of {raster.Covered} covered. Exit criterion 8 asks for under 16."
+        );
+
+        // A hang check and not a bound — `PaintCostTests`' whole argument, applied here.
+        Assert.True(
+            perStamp < 500d,
+            $"{perStamp:F1} ms per projected stamp is not a slow machine, it is a stamp that stopped being local."
+        );
+    }
+
+    /// <summary>Turning the camera costs one geometry pass and painting costs none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The other half of the same counter, and without it the assertion above could be met
+    ///     by a rasteriser that had stopped drawing.</b> <c>Renders</c> not moving during a drag is
+    ///     only evidence if it moves when the camera does — a <c>Draw</c> that early-returned would
+    ///     make the stroke assertion pass and this one fail.
+    /// </remarks>
+    [Fact]
+    public void The_geometry_pass_runs_when_the_camera_moves_and_only_then() {
+        var mesh = Quad();
+        PaintCamera camera = new();
+
+        camera.Frame(mesh.Bounds);
+
+        PaintMeshRaster raster = new();
+
+        raster.Draw(mesh, camera, 128, 128);
+
+        PaintImage atlas = new(256, 256, 0xFF808080u);
+
+        raster.Texture(atlas);
+
+        Assert.Equal(1, raster.Renders);
+
+        camera.Orbit(40f, 10f, 128);
+        raster.Draw(mesh, camera, 128, 128);
+
+        Assert.Equal(2, raster.Renders);
+
+        raster.Retexture(atlas, new(0, 0, 16, 16));
+        raster.Retexture(atlas, new(64, 64, 16, 16));
+
+        Assert.Equal(2, raster.Renders);
+    }
+
+    /// <summary>A quad in the z = 0 plane whose layout is the whole unit square.</summary>
+    /// <returns>The projection.</returns>
+    static PaintProjection Quad() =>
+        PaintProjection.Over(
+            [new(-1f, -1f, 0f), new(1f, -1f, 0f), new(1f, 1f, 0f), new(-1f, 1f, 0f)],
+            [new(0f, 0f), new(1f, 0f), new(1f, 1f), new(0f, 1f)],
+            [0, 1, 2, 0, 2, 3]
+        );
+
+    /// <summary>A stack whose evaluation costs one pass per layer, and says how many it ran.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its own rather than <c>PaintCostTests</c>', which is private to that class</b> — and
+    ///     deliberately left that way: what a shared one would buy is six lines, and what it would
+    ///     cost is a fixture two suites can silently change under each other.
+    /// </remarks>
+    sealed class FlatStack(int width, int height, int layers) : IPaintStack {
+        /// <summary>How many slices have been asked for.</summary>
+        public int Evaluations { get; private set; }
+
+        /// <summary>How many layer passes those slices cost between them.</summary>
+        public int LayerPasses { get; private set; }
+
+        /// <inheritdoc />
+        public PaintImage Evaluate(PaintStackSlice slice) {
+            Evaluations++;
+            LayerPasses += layers;
+
+            PaintImage image = new(width, height);
+
+            image.Fill(slice == PaintStackSlice.Below ? 0xFF202020u : 0u);
+
+            return image;
+        }
+    }
+}
