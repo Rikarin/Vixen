@@ -445,10 +445,10 @@ than one path, so no 2D stroke pays for it.
   an undo made through the editor's own verb leaves every control in the layers panel showing the
   value it had — the blend mode and the opacity as much as the mesh picker. An edit made *in* a row
   refreshes, which is why this is invisible from inside the panel.
-* **No `.vxml` yet, and no longer any inline styling either.** Doc 36 § P4 makes markup the authoring
-  path, and [#881](https://github.com/Rikarin/Vixen/issues/881) is the debt: `LayerStackView` builds
-  its tree in C#. ⚠ **Half of that has landed.** The layout is `TexturingTheme.vcss` — the flex boxes
-  that were fifty-two `SetStyle` calls are nineteen, and every one of the nineteen is either a
+* **The panel's frame is markup and its rows are not.** Doc 36 § P4 makes markup the authoring path,
+  and [#881](https://github.com/Rikarin/Vixen/issues/881) is the debt: `LayerStackView` built its
+  whole tree in C#. ⚠ **Two thirds of that has landed.** The layout is `TexturingTheme.vcss` — the flex boxes
+  that were fifty-two `SetStyle` calls are twenty-three, and every one of the twenty-three is either a
   runtime toggle (`display` written from `Show`) or a computed length (`depth × 12px`), neither of
   which a stylesheet can express. ⚠ **A plugin installs its own sheet**, which was worth checking
   before assuming otherwise: `EditorApplication` names the editor's five sheets one by one and
@@ -457,13 +457,35 @@ than one path, so no 2D stroke pays for it.
   relayout and `UiDocument.Load` appends. `LayerStackThemeTests` asserts the sheet reaches a real
   panel, by geometry rather than by declaration.
 
-  ⚠ **What is still owed is the harder half**: the tree as markup with a reactive row model. It is
-  not a syntax translation — `Show` rebuilds rows only when a *shape signature* changes, precisely so
-  a slider survives a refresh mid-drag, and a naive `@for` over the layer list re-runs every row body
-  on every evaluation. The `@for` key rule applies: key rows on the layer's `Id`, stable across
-  reorders by construction. ⚠ And the day a `.vxml` appears in this project, its `.csproj` needs
-  `<VixenUi>true</VixenUi>` — the `.vcss` glob it now imports also globs `**/*.vxml`, and the
-  generator is what VX4002 and VX4003 are there to say is missing.
+  ⚠ **The tree is `LayerStackChrome.vxml` now, and the rows are still C#.** The markup is the two
+  columns, the binding row, the actions row, the legend, the diagnostics block and the preview
+  column — everything about the panel that is a *fixed tree*, which is what markup expresses. It is
+  the element itself rather than a box around one (`@inherits Vixen.Ui.UiElement`, `@tag
+  layer-stack`), so no rule in the sheet and no geometry assertion moved a level. One region in it is
+  reactive: the diagnostics block is a `@for` over a `Signal<IReadOnlyList<string>>` and its
+  `display` is a class the sheet has both states of — the only one of the panel's fourteen `display`
+  toggles that stopped being a `SetStyle`, which took the file from twenty-five of them to
+  twenty-three.
+
+  ⚠ **What is still owed is the rows, and it is a model change before it is a markup change.**
+  `BuildContext.For` matches a key, *reuses the region and does not re-run the body*, so a row keyed
+  on `LayerAsset.Id` needs a `Signal<LayerAsset>` per row or a reorder keeps the row and shows the
+  previous layer's values — and `LayerAsset` holds no signal. Keying on the layer's *value* instead
+  is not available either: a row carries a slider an artist is holding, and a value key rebuilds it
+  on the keystroke that changed it. That is the same property `Show`'s shape signature already buys.
+  ⚠ And a second cost, measured: a markup binding is an `Effect`, which never runs on the write, so
+  moving the rows into markup moves the whole panel from synchronous to frame-deferred — six test
+  files and `LayerStackView.Status` read the tree immediately after a `Show`.
+
+  ⚠ **The build note that stood here was wrong, and it is worth reading before the next `.vxml`.** It
+  said the `.csproj` needs `<VixenUi>true</VixenUi>`, which is what VX4002's and VX4003's own message
+  text says. That line does nothing in *this* project: `Directory.Build.targets` conditions the two
+  analyzer references on `_VixenUiWiredByProject != true`, and that flag is set by the project's own
+  `Import` of `Vixen.Ui.targets` — which is the import that makes a `.vxml` compiler input in the
+  first place, so the projects that can reach VX4002 are exactly the ones `VixenUi` skips. Confirmed
+  with `dotnet msbuild -getItem:ProjectReference -p:VixenUi=true`, which lists neither generator. The
+  cure is the other one VX4003 names: reference `Vixen.Ui.Markup.Generators` and `Vixen.Ui.Generators`
+  with `OutputItemType="Analyzer"` from the `.csproj` itself.
 * **No base resolution in the file.** `NodeGraphModel` has nowhere to put one —
   [#719](https://github.com/Rikarin/Vixen/issues/719) — so `TextureGraphDocument.BaseWidth` is held,
   shown and not saved. A sidecar to hold it would be a second file that disagrees with the one #719

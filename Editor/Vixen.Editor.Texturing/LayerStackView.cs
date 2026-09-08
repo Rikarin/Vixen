@@ -109,14 +109,51 @@ readonly record struct MaskSourceEdit(
 ///         on.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Built in C# rather than <c>.vxml</c>, and that is a debt.</b>
-///         <c>TextureGraphView</c>'s reason unchanged: doc 36 § P4 makes markup the authoring path,
-///         and porting is worth doing when the panel grows a form to edit with. It has now grown one,
-///         so the debt is real rather than theoretical — <a
-///         href="https://github.com/Rikarin/Vixen/issues/881">#881</a>. Both directions of the flex
-///         are set explicitly, because <c>flex-direction</c> is <c>row</c> by CSS default and
-///         <c>flex-grow</c> is not — a container that set neither is full width and no height, which
-///         is the shape of "the panel is blank".
+///         ⚠ <b>The frame is <c>LayerStackChrome.vxml</c> and the rows are still built here</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a>, and the split is where it
+///         is for a reason rather than for want of time. Doc 36 § P4 makes markup the authoring
+///         path; what the two columns, the binding row, the actions row and the diagnostics block
+///         have in common is that they are a <em>fixed tree</em>, which is exactly what markup
+///         expresses. A row is not.
+///     </para>
+///     <para>
+///         ⚠ <b>The rows are a model change before they are a markup change, and it is a specific
+///         one.</b> <c>BuildContext.For</c> matches a key, <em>reuses the region and does not re-run
+///         the body</em>, so every binding inside a row closes over the item as it was when that key
+///         first appeared. Keying on <c>LayerAsset.Id</c> — the only stable identity a layer has,
+///         and what the issue asks for — therefore needs the row to take something whose
+///         <em>contents</em> notify, which is a <c>Signal&lt;LayerAsset&gt;</c> per row;
+///         <c>LayerAsset</c> holds no signal, so a reorder would keep the row and show the previous
+///         layer's values. Keying on the layer <em>value</em> instead — <c>StatisticsView</c>'s
+///         answer for an immutable snapshot — is not available either: a row carries a slider and a
+///         dropdown an artist is holding, and a value key rebuilds the row on the keystroke that
+///         changed it.
+///     </para>
+///     <para>
+///         ⚠ <b>Which is the property <see cref="Shape" /> already buys, and is why the port cannot
+///         simply drop it.</b> <c>Shape</c> deliberately omits <c>Mask.Source</c>, <c>Fill</c>,
+///         <c>Filter</c>, <c>FilterNode</c> and <c>Projection</c> so that changing one of them
+///         re-reads the row rather than replacing it — a control that tore its own tree down from
+///         inside its own <c>SelectionChanged</c> is a thing that happened here. A <c>@for</c> over
+///         the layers is the easy half; the hard half is that the <c>bindings</c> closures a row adds
+///         are doing what a signal graph would do, and every one has to become a read whose identity
+///         survives.
+///     </para>
+///     <para>
+///         ⚠ <b>And one cost the port has to buy, measured rather than assumed.</b> A markup binding
+///         is an <c>Effect</c>, and an effect never runs on the write — it queues, and
+///         <c>EffectScheduler.Flush</c> runs it. <see cref="Show" /> is called from
+///         <c>TexturingModule</c> on every evaluation and its result is read synchronously by six
+///         test files and by <see cref="Status" />, so moving the rows into markup moves the whole
+///         panel from synchronous to frame-deferred. That is survivable —
+///         <c>UiDocument.Update</c> drains the queue before its first pass — but it is a change to
+///         what this class promises its callers, and it is why only the message block was moved.
+///     </para>
+///     <para>
+///         Both directions of the flex are set explicitly in the sheet, because
+///         <c>flex-direction</c> is <c>row</c> by CSS default and <c>flex-grow</c> is not — a
+///         container that set neither is full width and no height, which is the shape of "the panel
+///         is blank".
 ///     </para>
 /// </remarks>
 sealed class LayerStackView : IDisposable {
@@ -152,7 +189,9 @@ sealed class LayerStackView : IDisposable {
     /// </remarks>
     public const string EveryMesh = "(all)";
 
-    readonly UiElement messages;
+    /// <summary>The panel's tree, as markup. See <c>LayerStackChrome.vxml</c>.</summary>
+    readonly LayerStackChrome chrome;
+
     readonly UiElement meshStatus;
     readonly UiElement root;
     readonly UiElement rows;
@@ -305,47 +344,37 @@ sealed class LayerStackView : IDisposable {
         // re-runs whenever the workspace relays out.
         TexturingTheme.Install(host.Document);
 
-        root = host.Add("layer-stack");
+        // ⚠ The tree is `LayerStackChrome.vxml` now — #881's second half, for the part of the panel
+        // that is a fixed tree. The element flavour of a markup component *is* the `layer-stack`
+        // element rather than something mounted inside one, so this line replaces
+        // `host.Add("layer-stack")` and nothing below it moved a level: the stylesheet still selects
+        // `layer-stack`, `PaintBrushInspector` still builds a third column into it, and
+        // `layer-stack-empty` is still its sibling. What the markup builds is assigned to its `ref`s
+        // by the time `Add` returns, because `@inherits` compiles the body into `OnCreated`.
+        chrome = host.Add<LayerStackChrome>();
+        root = chrome;
 
         this.tool = tool;
 
-        var left = root.Add("layer-stack-rows");
+        sets = chrome.Sets;
+        model = chrome.Model;
+        part = chrome.Part;
+        meshStatus = chrome.MeshStatus;
+        addKind = chrome.AddKind;
+        rows = chrome.Rows;
+        title = chrome.Title;
+        status = chrome.Status;
 
-        // ⚠ Above the rows and not beside the preview, because what it binds is what every row is
-        // about. A layer paints on a mesh; the pane that has none can draw no islands, build no
-        // coverage map and refuse no texel — #920 — so the binding is the first thing in the column
-        // rather than a setting somewhere else.
-        var binding = left.Add("layer-stack-binding");
+        Channels = chrome.Channels;
+        Preview = chrome.Preview;
 
-        // ⚠ First on the binding row, because it decides what everything to the right of it is about
-        // — the part picker narrows *this* set, and the rows below are this set's layers.
-        binding.Add("layer-stack-binding-label").Text = "Set";
-
-        sets = binding.Add<Select>(null, null, "layer-stack-set");
-
+        // ⚠ The handlers stay here and are deliberately not `on:` attributes in the markup. Every
+        // one of them closes over this view's document, its selection and its `writing` guard — the
+        // state the markup has no view of — and a panel whose tree is markup and whose behaviour is
+        // C# is the split `PluginManagerView` and `StatisticsView` already make.
         sets.SelectionChanged += (_, value) => ChooseSet(value ?? "");
-
-        binding.Add("layer-stack-binding-label").Text = "Mesh";
-
-        model = binding.Add<Select>(null, null, "layer-stack-model");
-
-        // ⚠ Beside the model and not on the set's own row, because the two are one decision read
-        // left to right: which file, and which of the meshes in it. #941's own summary is that a set
-        // narrowed to a mesh is what stops one coverage map covering every island in the model.
-        binding.Add("layer-stack-binding-label").Text = "Part";
-
-        part = binding.Add<Select>(null, null, "layer-stack-set-mesh");
-        meshStatus = binding.Add("layer-stack-binding-status");
-
         model.SelectionChanged += (_, value) => Bind(value ?? "");
         part.SelectionChanged += (_, value) => Narrow(value ?? "");
-
-        // ⚠ Above the rows and not on one, because what it does is put a row where there is none —
-        // an empty set has no row to hang it off, and that is the state a stack whose last layer was
-        // deleted is in. Delete is per row, for the opposite reason: it names the layer it is on.
-        var actions = left.Add("layer-stack-actions");
-
-        addKind = actions.Add<Select>(null, null, "layer-stack-add-kind");
 
         foreach (var value in Enum.GetValues<LayerKind>()) {
             addKind.AddOption(value.ToString());
@@ -353,42 +382,17 @@ sealed class LayerStackView : IDisposable {
 
         addKind.Value = LayerKind.Fill.ToString();
 
-        var add = actions.Add<Button>(null, null, "layer-stack-add");
+        chrome.AddButton.Clicked += _ => AddLayer();
 
-        add.Label = "Add layer";
-        add.Clicked += _ => AddLayer();
+        // ⚠ Written from here rather than spelled in the markup, because it is a `const` two tests
+        // compare against: a copy of the sentence in the `.vxml` would be a second source of truth
+        // that only a reader could tell had drifted.
+        chrome.Legend.Text = ChannelLegend;
 
-        rows = left.Add("layer-stack-list");
-
-        left.Add("layer-stack-legend").Text = ChannelLegend;
-
-        // ⚠ Under the rows and not under the preview, and the reason is what a diagnostic names. A
-        // layer problem names a row that is directly above it and a node diagnostic names a node in
-        // the graph those rows explode into; the 280px preview column is where the *picture* is
-        // explained. `flex-grow` is deliberately left off so the list of rows keeps the space and
-        // this grows only as far as it has messages.
-        messages = left.Add("layer-stack-messages");
-
-        var right = root.Add("layer-stack-preview");
-
-        title = right.Add("world-title");
+        // ⚠ Here rather than as a literal in the markup, for the reason that file gives on the
+        // heading itself: markup text is a child element and an element with children may not also
+        // carry `Text`, so a default written in the `.vxml` would make the first `Show` throw.
         title.Text = "Result";
-
-        // ⚠ Added *before* the viewer and pointed at it *after*, and both halves are deliberate.
-        // `Add` appends, so the strip has to be built first to sit above the picture; and
-        // `ImageViewBar.View` adopts what the viewer already holds, so the assignment must come
-        // after the viewer exists rather than the strip pushing its first segment at construction.
-        Channels = right.Add<ImageViewBar>();
-
-        // ⚠ Inline and not in the sheet, because this element has no tag of its own: a typed
-        // `Add<ImageView>` names none, so there is nothing for a type selector to match and a
-        // `layer-stack-preview > *` rule would also claim the title and the status line.
-        Preview = right.Add<ImageView>();
-        Preview.SetStyle("flex-grow", "1");
-
-        Channels.View = Preview;
-
-        status = right.Add("layer-stack-status");
 
         // ⚠ A third column and not a section of the preview one, and it is last so that the picture
         // keeps its width when the brush is not there. `PaintBrushInspector` builds its own root
@@ -513,8 +517,15 @@ sealed class LayerStackView : IDisposable {
     ///         surface at all until it was folded in here. The two-argument <c>Describe</c> says why
     ///         it leads rather than trails, and why the status line was the wrong home for it.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is the signal the block is drawn from, read back — not a second copy of the
+    ///         answer.</b> <see cref="Show" /> assigns <c>LayerStackChrome.Messages</c> and the
+    ///         <c>@for</c> in the markup is the only thing that draws it, so the paragraph above
+    ///         stays true through the port: a field assigned beside the signal would be exactly the
+    ///         shape #898 found in <c>Rows</c>.
+    ///     </para>
     /// </remarks>
-    public IReadOnlyList<string> Messages { get; private set; } = [];
+    public IReadOnlyList<string> Messages => chrome.Messages.Value;
 
     /// <summary>Told after an edit, so whoever owns the evaluator can re-bake the map.</summary>
     /// <remarks>
@@ -610,19 +621,15 @@ sealed class LayerStackView : IDisposable {
         Empty.SetStyle("display", document is null ? "flex" : "none");
         root.SetStyle("display", document is null ? "none" : "flex");
 
-        foreach (var child in messages.Children.ToArray()) {
-            child.Remove();
-        }
-
-        Messages = Describe(document, picture);
-
-        foreach (var message in Messages) {
-            messages.Add("layer-stack-message").Text = message;
-        }
-
-        // Hidden when it is empty rather than left as an empty box, because a heading with nothing
-        // under it reads as "nothing was checked" and the ordinary case is a stack with nothing wrong.
-        messages.SetStyle("display", Messages.Count == 0 ? "none" : "flex");
+        // ⚠ One assignment where a remove-every-child-then-add loop and a `display` write used to
+        // be. The block is a `@for` in `LayerStackChrome.vxml` keyed on the line and its position,
+        // and hidden by a class rather than by an inline style — so the rule and the toggle layer
+        // instead of arguing. ⚠ The cost is that the rows appear at the next `EffectScheduler.Flush`
+        // rather than inside this call: a markup binding is an `Effect` and an effect never runs on
+        // the write. `UiDocument.Update` drains the queue before its first pass, so a frame is
+        // enough; a test that reads the block without one has to ask for the flush, which is what
+        // the finders in `LayerStackPanelTests` and `LayerStackEditingTests` now do.
+        chrome.Messages.Value = Describe(document, picture);
 
         if (document is null) {
             Clear();
