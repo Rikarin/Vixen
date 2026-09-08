@@ -100,7 +100,8 @@ static class DataContractGeneratorRule {
             }
 
             foreach (var file in files) {
-                if (file.EndsWith(".cs", StringComparison.Ordinal) || file.EndsWith(".vxml", StringComparison.Ordinal)) {
+                if (file.EndsWith(".cs", StringComparison.Ordinal)
+                    || file.EndsWith(".vxml", StringComparison.Ordinal)) {
                     into.Add(file.Replace('\\', '/'));
                 }
             }
