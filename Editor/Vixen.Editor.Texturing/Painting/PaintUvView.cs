@@ -61,6 +61,18 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         it always did.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Shift-click lays a straight stroke from where the last one ended, and it needed no
+///         new arithmetic at all.</b> Doc 48 § D13 lists "curve/path strokes" beside symmetry and
+///         smoothing as stroke-level work that does not touch the kernel, and the straight case
+///         turns out to be nothing whatever: <c>BrushStroke.MoveTo</c> already walks the segment
+///         between two positions laying evenly spaced stamps and carrying the leftover distance, so
+///         a line is two <see cref="PaintSession.MoveAll(ReadOnlySpan{Vector2}, List{PaintRect})" />
+///         calls and one undo entry. ⚠ <b>A <em>curved</em> path is the half that still needs
+///         something</b> — points sampled along the curve, because those two calls interpolate
+///         straight — and there is nowhere in this plugin to author control points, so it is filed
+///         rather than built.
+///     </para>
+///     <para>
 ///         ⚠ <b>What the pane shows during a drag is <see cref="PaintComposite.Result" />, which is
 ///         an approximation whose size is stated.</b> The composite is straight-alpha source-over
 ///         between the two cached halves; a compiled stack composites through <c>Colour/Blend</c>'s
@@ -106,6 +118,18 @@ sealed class PaintUvView {
     bool fitted;
 
     PaintSession? session;
+
+    /// <summary>Where the last stroke ended, in texels, for a shift-click line to start from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Cleared when the atlas changes size, because it is in texels of one.</b> An anchor
+    ///     kept across a resolution change is a point of an atlas that no longer exists, and the
+    ///     line drawn from it would start somewhere the artist never clicked — silently, because a
+    ///     shift-click looks the same either way.
+    /// </remarks>
+    Vector2? anchor;
+
+    /// <summary>Where the stroke in flight last stamped, which becomes the anchor at pointer-up.</summary>
+    Vector2 last;
 
     /// <summary>Builds the pane into a host element.</summary>
     /// <param name="host">Where it goes. A dock panel, or anything inside one.</param>
@@ -237,9 +261,11 @@ sealed class PaintUvView {
         Image.ImageHeight = height;
 
         // A different atlas is a different coordinate space, so the old pan and zoom describe
-        // nothing. `Fit` answers false before the first layout and is asked again on the next show.
+        // nothing — and neither does the anchor a shift-click would draw a line from. `Fit` answers
+        // false before the first layout and is asked again on the next show.
         if (resized) {
             fitted = false;
+            anchor = null;
         }
 
         // ⚠ Never while a stroke is in flight. `Fit` writes both `Zoom` and `Pan`, which are the
@@ -387,7 +413,14 @@ sealed class PaintUvView {
                 return;
 
             case PointerAction.Pressed when session is null && args.Button == PointerButton.Primary:
-                if (Begin() is not { } started) {
+                var line = anchor is not null && (args.Modifiers & ModifierKeys.Shift) != 0;
+
+                // ⚠ A line stroke takes no smoothing whatever the tool's slider says. Smoothing is
+                // a lag on the *input points* — `PaintStroke` lerps towards each one — so a line
+                // laid from two points would stop short of the second by exactly the smoothing
+                // fraction, which is a line that does not reach where the artist clicked and looks
+                // like a broken gesture rather than like a setting.
+                if (Begin(line ? 0f : tool.Smoothing) is not { } started) {
                     // Nothing to paint into. The event is deliberately not handled, so the pane
                     // still pans — a pointer that did nothing at all would read as a frozen panel.
                     return;
@@ -397,6 +430,19 @@ sealed class PaintUvView {
                 Live = started.Composite;
 
                 Image.Document.Focus(Image);
+
+                if (line && anchor is { } from) {
+                    // ⚠ The whole stroke inside the press, and the pointer is never captured. There
+                    // is no drag to follow: `BrushStroke.MoveTo` lays evenly spaced stamps along the
+                    // segment between two positions, so a line is two moves and one undo entry —
+                    // which is why doc 48 § D13 says a path stroke does not touch the kernel.
+                    Stamp(from, false);
+                    Stamp(ToTexels(args.X, args.Y), true);
+                    End();
+
+                    break;
+                }
+
                 Image.Document.CapturePointer(Image);
                 Stamp(args);
 
@@ -424,22 +470,29 @@ sealed class PaintUvView {
         args.Handled = true;
     }
 
-    PaintSession? Begin() {
+    PaintSession? Begin(float smoothing) {
         if (Target?.Invoke() is not { } target) {
             return null;
         }
 
-        return PaintSession.Begin(target, tool.Brush, tool.Colour, tool.Smoothing);
+        return PaintSession.Begin(target, tool.Brush, tool.Colour, smoothing);
     }
 
-    void Stamp(PointerEvent args) {
+    void Stamp(PointerEvent args) => Stamp(ToTexels(args.X, args.Y), true);
+
+    /// <summary>Moves the stroke to a texel, and tells the caller what that dirtied.</summary>
+    /// <param name="at">Where, in texels.</param>
+    /// <param name="cursor">Whether the ring follows — false for a point the pointer was never at.</param>
+    void Stamp(Vector2 at, bool cursor) {
         if (session is null) {
             return;
         }
 
-        var at = ToTexels(args.X, args.Y);
+        last = at;
 
-        ShowCursor(at);
+        if (cursor) {
+            ShowCursor(at);
+        }
 
         Span<Vector2> one = [at];
 
@@ -473,6 +526,7 @@ sealed class PaintUvView {
         var finished = session;
 
         session = null;
+        anchor = last;
 
         // ⚠ Both, and the second is what reaches the disk. This lambda is the command's own
         // callback, so it runs on the execute and on every later undo and redo — the three moments

@@ -68,6 +68,57 @@ public class PaintSeamTests {
         Assert.Equal(1f, MipAlpha(image, 40, 40), 3);
     }
 
+    /// <summary>⚠ A <em>drag</em> across the seam survives mip 3 all the way along it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>#574's third exit line names a stroke and the case above is one stamp.</b> The
+    ///         distinction is not pedantry: the dilation's bookkeeping is <em>shared across the
+    ///         stamps of a stroke</em> — <c>PaintStroke</c> keeps a reach and a four-neighbour
+    ///         distance per texel so that a later stamp can shorten a path an earlier one found, and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/896">#896</a> was a defect in exactly
+    ///         that carry. One stamp exercises none of it. A gutter filled at the first stamp and
+    ///         skipped at the rest is a hairline that is <em>periodic</em> along the stroke, which is
+    ///         the shape of the artefact an artist actually reports.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Four blocks down the seam rather than one, for the same reason.</b> The stroke's
+    ///         stamps are a quarter of its radius apart, so a single block spans several of them and
+    ///         a gap between two stamps' dilations would fall between the blocks a one-row assertion
+    ///         reads. The expected numbers are the same 1 and 0.75 the single stamp gives, and they
+    ///         are computed the same way: columns 24…31 are six covered and two of the gutter, so
+    ///         sixteen of sixty-four texels are unpainted without a dilation.
+    ///     </para>
+    /// </remarks>
+    /// <param name="gutter">How far the stamp is dilated past the island's edge, in texels.</param>
+    /// <param name="expected">What mip 3 reads across the seam.</param>
+    [Theory]
+    [InlineData(4, 1f)]
+    [InlineData(0, 0.75f)]
+    public void A_drag_across_an_island_edge_survives_mip_three_along_its_whole_length(
+        int gutter,
+        float expected
+    ) {
+        PaintImage image = new(64, 64);
+        PaintStroke stroke = new(image, PaintStrokeTests.Islands(64, 64), PaintStrokeTests.Hard(24f), Opaque, gutter);
+
+        // ⚠ The first stamp is at x = 0 so that it reaches no column past 24, five steps short of
+        // the gutter and therefore unable to dilate into it at all. Every gutter texel the blocks
+        // below read was filled by a *later* stamp — which is what makes this a claim about the
+        // stroke rather than about the stamp the case above already covers.
+        stroke.MoveTo(new(0f, 32f));
+        stroke.MoveTo(new(54f, 32f));
+
+        Assert.True(stroke.StampCount > 4, $"{stroke.StampCount} stamps is not a drag.");
+
+        foreach (var row in (int[])[16, 24, 32, 40]) {
+            Assert.Equal(expected, MipAlpha(image, 24, row), 3);
+
+            // The instrument: well inside an island the block is full whichever way the dilation
+            // was set, or the number beside it is a fact about the brush rather than the seam.
+            Assert.Equal(1f, MipAlpha(image, 16, row), 3);
+        }
+    }
+
     /// <summary>The dilation fills the gutter and nothing else.</summary>
     [Fact]
     public void The_dilation_reaches_exactly_the_gutter() {
