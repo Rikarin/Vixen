@@ -533,12 +533,33 @@ tree.** "What is a desktop pull-to-refresh" was treated as one question and is t
   owns. A pull-to-refresh over that is a distance threshold read at `Completed`, which is a number
   and a name — not a mechanism.
 
-So what is left of `.refreshable` is a spelling on the drag path plus a decision about the
-threshold, and a documented refusal on the wheel path. ⚠ Both rows' remaining work is now the same
-sentence: **where the widget goes.** Nothing behind either of them is missing, and the shapes are
-written down — the filter recipe in [`ui/markup-panels`](../guide/ui/markup-panels.md) and the
-re-request in [`ui/async-loading`](../guide/ui/async-loading.md) — which is what a "spelling" needs
-in a project whose thesis is that markup is the authoring path.
+⚠ **The number and the name are written now, so the drag path is a trigger rather than a plan.**
+`ScrollView.PulledToRefresh` is raised at `DragStage.Completed` when the content was being held past
+its **top** by more than `PullToRefreshDistance`. Four things about it are the whole of the design and
+each is a way it could have been wrong:
+
+- **The threshold is read on what the edge *gave*, not on how far the finger travelled.** `Resist` is
+  asymptotic to the viewport's own height, so the same raw pull gives half as much in a view half as
+  tall — a raw threshold would fire at a visibly different place in every view in the application
+  while reading, in the source, as one constant.
+- **The sign is the top/bottom test.** Pulling past the *bottom* is a different verb — "there is
+  more, fetch it" — and answering it with a refresh reloads the list from the beginning at the moment
+  the user has finally reached the end of it.
+- **Completed and never Cancelled.** A gesture the system took away is not a request.
+- **Nothing subscribed is no gesture at all**, which is how it is turned on; a flag beside the event
+  would be two ways of saying one thing and a state in which one of them is wrong.
+
+And ⚠ **it fires for touch and pen, or for a mouse only where `DragToScroll` is on** — so on an
+ordinary desktop it never fires, which is the wheel-path refusal above showing up as behaviour rather
+than as a note. The desktop trigger for the same refresh is a button, a menu item or a key, which is
+what `Markup/RefreshableSheet.vxml` writes, and neither trigger knows the other exists because what a
+refresh *is* belongs to `BuildContext.Load`.
+
+⚠ Both rows' remaining work is now the same sentence, and it is smaller than it was: **where the
+widget goes.** Nothing behind either of them is missing, and the shapes are written down — the filter
+recipe in [`ui/markup-panels`](../guide/ui/markup-panels.md) and the re-request in
+[`ui/async-loading`](../guide/ui/async-loading.md) — which is what a "spelling" needs in a project
+whose thesis is that markup is the authoring path.
 | `.draggable` / `.dropDestination` | `on:dragstart/drag/dragend` exist; **no drop target, no payload type, no `AllowDrop`** | ⚠ half |
 
 For a project whose thesis is *markup is the authoring path*, that ❌ column is the parity claim's

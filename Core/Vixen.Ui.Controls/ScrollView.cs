@@ -728,6 +728,12 @@ public sealed partial class ScrollView : Control {
             case DragStage.Completed when dragging:
                 dragging = false;
 
+                // ⚠ Before the fling and the spring, because both of them are about to take the
+                // stretch away — `StopFling` and `Ended` run in the branches below, and `Spring`
+                // starts unwinding `pulledTop` on the next tick. The release is the only moment at
+                // which how far the content was pulled is still readable.
+                AskForRefresh();
+
                 // ⚠ The snap runs only when there is no fling to run first. A fling that comes to
                 // rest somewhere a snap point does not want is snapped when it stops — see
                 // <see cref="Fling" /> — and snapping now would take the content away from the
@@ -888,6 +894,67 @@ public sealed partial class ScrollView : Control {
 
     /// <summary>The same, horizontally.</summary>
     public float OverscrollLeft => Resist(pulledLeft, Width);
+
+    /// <summary>How far the content must be pulled below its top before a release asks for a refresh.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Measured on what the edge <i>gave</i>, not on what the finger travelled.</b> The
+    ///         two are different numbers by design — <see cref="Resist" /> is asymptotic to the
+    ///         viewport's own height, so the same raw pull gives half as much in a view half as tall.
+    ///         A threshold on the raw distance would therefore fire at a visibly different place in
+    ///         every view in the application while reading, in the source, as one constant.
+    ///     </para>
+    ///     <para>
+    ///         The default is a distance rather than a fraction because the gesture is a thumb's
+    ///         travel, which does not scale with the panel it happens in.
+    ///     </para>
+    /// </remarks>
+    public float PullToRefreshDistance { get; set; } = 64f;
+
+    /// <summary>Raised when the content was pulled past its top and let go.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The gesture does not exist until something subscribes</b>, which is the whole of
+    ///         how it is turned on. A flag as well would be two ways to say the same thing and a
+    ///         state in which one of them is wrong; a view whose refresh nothing listens to is a view
+    ///         that does not refresh, and the rubber band it already had is unchanged.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Past the <i>top</i> and nowhere else.</b> Pulling past the bottom is a different
+    ///         verb — "there is more, fetch it" — and answering it with a refresh would reload the
+    ///         list from the beginning at the moment the user reached the end of it, which is the
+    ///         one place they have spent the most effort getting to.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>On a completed drag and never a cancelled one.</b> A gesture the system took
+    ///         away — a call arriving, a window losing its input — is not a request, and treating it
+    ///         as one makes an application refresh itself for reasons the user cannot see.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this is not is the only trigger.</b> A pull is a touch gesture and this
+    ///         raises it for touch and pen, or for a mouse when <see cref="DragToScroll" /> is on —
+    ///         so on an ordinary desktop it never fires, and the same refresh is asked for by a
+    ///         button, a menu item or a key. That is deliberate: what a refresh *is* — a re-request
+    ///         that supersedes and cancels the one before it — belongs to <c>BuildContext.Load</c>,
+    ///         and this is one way of asking for it rather than the definition of it.
+    ///     </para>
+    /// </remarks>
+    public event Action<ScrollView>? PulledToRefresh;
+
+    /// <summary>Asks for a refresh if this release was a pull past the top and far enough.</summary>
+    void AskForRefresh() {
+        if (PulledToRefresh is not { } handler || PullToRefreshDistance <= 0f) {
+            return;
+        }
+
+        // Negative is above the start. `OverscrollTop`'s own summary says so, and the sign is the
+        // whole of the top/bottom test.
+        if (OverscrollTop > -PullToRefreshDistance) {
+            return;
+        }
+
+        handler(this);
+    }
 
     /// <summary>Whether either axis is being held past its end, or springing back from having been.</summary>
     public bool IsRubberBanding => pulledTop != 0f || pulledLeft != 0f;

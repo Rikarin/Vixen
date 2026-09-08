@@ -309,4 +309,120 @@ public class ScrollRubberBandTests {
         Assert.Equal(Step * 2f, view.ScrollTop);
         Assert.Equal(-Step * 2f, view.Content.OffsetY, 3);
     }
+
+    // ══════════════════════════════════════════════ Pull to refresh, which is the same edge again
+
+    /// <summary>
+    ///     ⚠ <b>A pull-to-refresh is a rubber band with a threshold, and the threshold is the only
+    ///     thing that was missing.</b> Issue #767 records <c>.refreshable</c> as owed with the open
+    ///     question "what is a desktop pull-to-refresh gesture", which is a question about the
+    ///     <i>trigger</i>; what a refresh <i>is</i> has existed since <c>BuildContext.Load</c>. On
+    ///     the wheel path the gesture is refused on measurement — AppKit's momentum arrives as
+    ///     ordinary wheel deltas and <c>SDL_MouseWheelEvent</c> carries no phase, so nothing there
+    ///     can say where a gesture ended. On the <i>drag</i> path both halves were already here:
+    ///     <c>DragStage.Completed</c> is a real end and the spring is a control the view owns.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both halves, and the shallow one is what makes it a threshold.</b> Without a
+    ///         release that does <i>not</i> ask, an implementation that raised on every release past
+    ///         the top would pass — and that is not a pull-to-refresh, it is the rubber band renamed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The threshold is derived from what the edge actually gave rather than written as
+    ///         a number.</b> A constant here would pin the test to <c>RubberBandConstant</c> and to
+    ///         this fixture's height, and would go red the day either was tuned — for a reason that
+    ///         has nothing to do with what this asserts.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_pull_past_the_top_asks_for_a_refresh_only_once_it_is_far_enough() {
+        var (fixture, view) = Tall();
+        using var _ = fixture;
+
+        var (x, y) = Middle(view);
+
+        var refreshes = 0;
+        view.PulledToRefresh += _ => refreshes++;
+
+        var shallow = PullDown(fixture, view, steps: 2)[^1];
+        Assert.True(shallow < 0f, "a downward pull at the top gives a negative overscroll");
+
+        // Set while the gesture is still running: the release is where the decision is made, and the
+        // spring takes the stretch away on the tick after it.
+        view.PullToRefreshDistance = -shallow * 2f;
+        fixture.Release(x, y + (Step * 2));
+
+        Assert.Equal(0, refreshes);
+
+        for (var frame = 0; frame < 120 && view.IsRubberBanding; frame++) {
+            fixture.Advance(Frame);
+        }
+
+        // The curve is concave, so five times the finger's travel is not five times the give — but
+        // it is comfortably more than twice, which is what the threshold above was set to.
+        var deep = PullDown(fixture, view, steps: 6)[^1];
+        Assert.True(deep < shallow * 2f, $"six steps gave {deep} and twice two steps is {shallow * 2f}");
+
+        fixture.Release(x, y + (Step * 6));
+        Assert.Equal(1, refreshes);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>The bottom edge is a different verb.</b> Pulling past the end means "there is more,
+    ///     fetch it"; answering that with a refresh reloads the list from the top at the moment the
+    ///     user has finally reached the end of it. The sign of the overscroll is the whole of the
+    ///     test, which is why <see cref="ScrollView.OverscrollTop" /> keeping its sign matters.
+    /// </summary>
+    [Fact]
+    public void A_pull_past_the_bottom_is_not_a_refresh() {
+        var (fixture, view) = Tall();
+        using var _ = fixture;
+
+        var refreshes = 0;
+        view.PullToRefreshDistance = 1f;
+        view.PulledToRefresh += _ => refreshes++;
+
+        var (x, y) = Middle(view);
+
+        view.ScrollTop = view.MaximumTop;
+        fixture.Update();
+
+        fixture.Press(x, y);
+
+        for (var step = 1; step <= 6; step++) {
+            fixture.MovePointer(x, y - (Step * step));
+            fixture.Advance(Frame);
+        }
+
+        Assert.True(view.OverscrollTop > 0f, "the view should be held past its end");
+
+        fixture.Release(x, y - (Step * 6));
+        Assert.Equal(0, refreshes);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Nothing subscribed is no gesture at all</b>, which is the whole of how the feature is
+    ///     turned on: a flag beside the event would be two ways of saying one thing and a state in
+    ///     which one of them is wrong. The instrument for the two theories above — without it, an
+    ///     implementation that raised unconditionally would still leave a view with no listener
+    ///     behaving exactly as it always did, and nothing would say which of the two was true.
+    /// </summary>
+    [Fact]
+    public void A_view_nothing_listens_to_still_stretches_and_springs_as_it_did() {
+        var (fixture, view) = Tall();
+        using var _ = fixture;
+
+        var (x, y) = Middle(view);
+
+        view.PullToRefreshDistance = 1f;
+
+        var given = PullDown(fixture, view, steps: 6)[^1];
+        Assert.True(given < -1f, "the pull should be well past a threshold of one pixel");
+
+        fixture.Release(x, y + (Step * 6));
+
+        Assert.True(view.IsRubberBanding);
+        Assert.False(view.IsFlinging);
+    }
 }

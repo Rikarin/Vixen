@@ -14,6 +14,13 @@
 
     ⚠ **So this file is `@for` over an async value plus one button**, and the button could be a
     pointer gesture, a menu item or a key without a line here changing.
+
+    ⚠ **And the pointer gesture exists now, which is why this file still has a button.**
+    `ScrollView.PulledToRefresh` is the touch trigger — a drag that holds the content past its top by
+    more than `PullToRefreshDistance` and lets go — and it deliberately never fires on an ordinary
+    desktop, because the drag path runs for touch and pen and the wheel path cannot say where a
+    gesture ended. So a button is not a stand-in for a missing gesture; it is the desktop trigger for
+    the same refresh, and neither trigger knows the other exists.
 -->
 @component RefreshableSheet
 @namespace Vixen.Ui.Controls.Tests
