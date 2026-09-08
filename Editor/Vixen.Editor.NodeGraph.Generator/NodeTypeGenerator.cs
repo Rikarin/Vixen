@@ -76,6 +76,15 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
         true
     );
 
+    static readonly DiagnosticDescriptor AcceptedFromMustBeAnEnum = new(
+        "VXN0105",
+        "A [Setting]'s AcceptedFrom has to name an enum, and not also list Accepted",
+        "{0}",
+        "Vixen.NodeGraph",
+        DiagnosticSeverity.Error,
+        true
+    );
+
     /// <inheritdoc />
     public void Initialize(IncrementalGeneratorInitializationContext context) {
         var nodes = context.SyntaxProvider
@@ -150,7 +159,7 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
                     Named(setting, "Minimum") is float low ? low : float.NegativeInfinity,
                     Named(setting, "Maximum") is float high ? high : float.PositiveInfinity,
                     Named(setting, "Group") as string ?? "",
-                    Accepted(setting)
+                    Accepted(setting, problems, field.Locations.Length > 0 ? field.Locations[0] : location)
                 ));
 
                 continue;
@@ -449,26 +458,111 @@ public sealed class NodeTypeGenerator : IIncrementalGenerator {
     }
 
     /// <summary>The values a setting states it accepts, or empty when it states none.</summary>
+    /// <param name="setting">The <c>[Setting]</c> attribute.</param>
+    /// <param name="problems">Where a declaration that disagrees with itself is reported.</param>
+    /// <param name="location">The field, for a diagnostic to point at.</param>
+    /// <returns>The values, in the order a picker offers them.</returns>
     /// <remarks>
-    ///     ⚠ <b>A null entry is dropped rather than emitted.</b> <c>Accepted = new string?[] { null }</c>
-    ///     compiles, and a generated file containing <c>new("", …, [null])</c> would not — so the one
-    ///     shape an author can write that this cannot spell is discarded here, where the list is read,
-    ///     instead of at the line that writes it.
+    ///     <para>
+    ///         ⚠ <b>A null entry is dropped rather than emitted.</b> <c>Accepted = new string?[] { null }</c>
+    ///         compiles, and a generated file containing <c>new("", …, [null])</c> would not — so the
+    ///         one shape an author can write that this cannot spell is discarded here, where the list
+    ///         is read, instead of at the line that writes it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>AcceptedFrom</c> is read off the enum <em>symbol</em>, which is the whole
+    ///         point of it.</b> A generator cannot call <c>Enum.GetNames</c> on a type it is
+    ///         compiling, and it does not need to: an enum's members are constant fields, and their
+    ///         names in constant order are exactly what that method answers at runtime. So the list
+    ///         a picker offers is the enum, generated, rather than a transcription of it that agrees
+    ///         until someone adds a member.
+    ///     </para>
     /// </remarks>
-    static ImmutableArray<string> Accepted(AttributeData setting) {
-        if (Named(setting, "Accepted") is not ImmutableArray<TypedConstant> values || values.Length == 0) {
+    static ImmutableArray<string> Accepted(
+        AttributeData setting,
+        ImmutableArray<DiagnosticModel>.Builder problems,
+        Location location
+    ) {
+        var listed = Named(setting, "Accepted") as ImmutableArray<TypedConstant>? ?? [];
+        var from = Named(setting, "AcceptedFrom") as INamedTypeSymbol;
+
+        if (from is not null && listed.Length > 0) {
+            problems.Add(Problem(
+                AcceptedFromMustBeAnEnum.Id,
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "A setting states both an Accepted list and AcceptedFrom = typeof({0}). They are two answers to one question, and the day they disagree the picker offers what the compiler refuses. Keep the enum and delete the list.",
+                    from.Name
+                ),
+                location
+            ));
+
             return [];
         }
 
-        var accepted = ImmutableArray.CreateBuilder<string>(values.Length);
+        if (from is not null) {
+            if (from.TypeKind != TypeKind.Enum) {
+                problems.Add(Problem(
+                    AcceptedFromMustBeAnEnum.Id,
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "'{0}' is not an enum, so it has no member names for a picker to offer. AcceptedFrom names the enum a setting holds one member of; for a set of legal names that is not a CLR type, write them out with Accepted.",
+                        from.Name
+                    ),
+                    location
+                ));
 
-        foreach (var value in values) {
+                return [];
+            }
+
+            return Members(from);
+        }
+
+        if (listed.Length == 0) {
+            return [];
+        }
+
+        var accepted = ImmutableArray.CreateBuilder<string>(listed.Length);
+
+        foreach (var value in listed) {
             if (value.Value is string name) {
                 accepted.Add(name);
             }
         }
 
         return accepted.ToImmutable();
+    }
+
+    /// <summary>An enum's member names, in the order they are written.</summary>
+    /// <param name="type">The enum.</param>
+    /// <returns>The names, in declaration order.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Declaration order, and <c>Enum.GetNames</c> is <em>not</em> that order.</b> That
+    ///         method sorts by the underlying value read as <em>unsigned</em>, so a member declared
+    ///         <c>-2</c> comes out last rather than first. <c>TextureResampleSize</c> is written
+    ///         <c>Quadruple = -2 … Quarter = 2</c> — largest picture to smallest, the sign being the
+    ///         mip-level offset itself — and <c>Enum.GetNames</c> answers
+    ///         <c>Same, Half, Quarter, Quadruple, Double</c>. Offering that in a dropdown would be
+    ///         offering an artefact of a bit pattern as if it were an ordering somebody chose.
+    ///     </para>
+    ///     <para>
+    ///         <b>So the two lists are the same set and not the same sequence</b>, which is what the
+    ///         roll call over them asserts. The declaration is the authored order —
+    ///         <c>SettingAttribute.Accepted</c> promises exactly that for a literal list — and this
+    ///         keeps the promise for a generated one.
+    ///     </para>
+    /// </remarks>
+    static ImmutableArray<string> Members(INamedTypeSymbol type) {
+        var names = ImmutableArray.CreateBuilder<string>();
+
+        foreach (var member in type.GetMembers()) {
+            if (member is IFieldSymbol { HasConstantValue: true, IsStatic: true } field) {
+                names.Add(field.Name);
+            }
+        }
+
+        return names.ToImmutable();
     }
 
     /// <summary>The port's default: the attribute's if it has one, else the field's initializer.</summary>

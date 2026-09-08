@@ -3272,6 +3272,7 @@ T:Vixen.Ui.Controls.Advanced.ImageChannels sweep-with-the-advanced-controls — 
 T:Vixen.Ui.Controls.Advanced.ImageColorSpace sweep-with-the-advanced-controls — ImageView's linear-against-sRGB toggle, exempt on the same terms; what it settles is in Vixen.Ui.Controls.Advanced/README.md § ImageView
 T:Vixen.Ui.Controls.Advanced.ImageOverlaySegment sweep-with-the-advanced-controls — one line of ImageView's overlay, in texels; the coordinate space and why it is not UVs is in Vixen.Ui.Controls.Advanced/README.md § ImageView
 T:Vixen.Ui.Controls.Advanced.ImageView sweep-with-the-advanced-controls — a control, and every other control in this assembly is exempt on the same terms; the reasoning is in Vixen.Ui.Controls.Advanced/README.md § ImageView
+T:Vixen.Ui.Controls.Advanced.ImageViewBar sweep-with-the-advanced-controls — the channel and colour-space strip that drives an ImageView, exempt on the terms every control in this assembly is; what it offers and why it is two strips rather than one is in Vixen.Ui.Controls.Advanced/README.md § ImageView
 T:Vixen.Ui.Controls.Advanced.ImageViewRequest sweep-with-the-advanced-controls — the pair a host prepares an ImageView's pixels from; described with the control in Vixen.Ui.Controls.Advanced/README.md § ImageView
 T:Vixen.Ui.Controls.Advanced.NodeCanvas sweep-pending
 T:Vixen.Ui.Controls.Advanced.NodeGraph sweep-pending

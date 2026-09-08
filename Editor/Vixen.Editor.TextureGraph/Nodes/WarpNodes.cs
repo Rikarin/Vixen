@@ -222,7 +222,7 @@ sealed partial class VectorWarpNode : TextureNode {
 [Node("Filters/Slope Blur", Preview = true, Summary = "An erosion, dilation or mean along a slope field.")]
 sealed partial class SlopeBlurNode : TextureNode {
     /// <summary>How the walk accumulates: <c>Blend</c>, <c>Min</c> or <c>Max</c>.</summary>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TextureSlopeMode))]
     public string Mode = "Blend";
 
     /// <summary>What the walk samples.</summary>

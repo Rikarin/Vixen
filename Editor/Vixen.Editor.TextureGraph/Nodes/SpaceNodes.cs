@@ -21,11 +21,11 @@ namespace Vixen.Editor.TextureGraph.Nodes;
 [Node("Space/Mirror", Preview = true, Summary = "One half copied over the other, or the whole image reversed.")]
 sealed partial class MirrorNode : TextureNode {
     /// <summary>Which way it folds: <c>X</c>, <c>Y</c> or <c>Corner</c>.</summary>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TextureMirrorAxis))]
     public string Axis = "X";
 
     /// <summary>What it does with the fold: <c>Reflect</c> or <c>Flip</c>.</summary>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TextureMirrorMode))]
     public string Mode = "Reflect";
 
     /// <summary>What to fold.</summary>
@@ -156,7 +156,7 @@ sealed partial class TileNode : TextureNode {
 [Node("Space/Crop", Preview = true, Summary = "A rectangle of the source, stretched onto the whole target.")]
 sealed partial class CropNode : TextureNode {
     /// <summary>How a sub-sample reads: <c>Point</c> or <c>Bilinear</c>. ⚠ Not <c>Box</c>.</summary>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TextureFilter))]
     public string Filter = "Point";
 
     /// <summary>What to crop.</summary>
@@ -338,7 +338,7 @@ sealed partial class ResampleNode : TextureNode {
     ///     How far to move: <c>Quarter</c>, <c>Half</c>, <c>Same</c>, <c>Double</c> or
     ///     <c>Quadruple</c>, relative to the image arriving.
     /// </summary>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TextureResampleSize))]
     public string Size = "Half";
 
     /// <summary>
@@ -346,7 +346,7 @@ sealed partial class ResampleNode : TextureNode {
     ///     is <c>Auto</c> and not a filter, because the right filter is a function of
     ///     <see cref="Size" /> — see <see cref="TextureResampleFilter" />.
     /// </summary>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TextureResampleFilter))]
     public string Filter = "Auto";
 
     /// <summary>What to resample.</summary>

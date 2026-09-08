@@ -741,6 +741,12 @@ Vixen.Ui.Controls.Advanced.ImageView.ToScreen(Vixen.Core.Mathematics.Vector2 poi
 Vixen.Ui.Controls.Advanced.ImageView.ViewChanged -> System.Action<Vixen.Ui.Controls.Advanced.ImageView>?
 Vixen.Ui.Controls.Advanced.ImageView.Zoom.get -> float
 Vixen.Ui.Controls.Advanced.ImageView.Zoom.set -> float
+Vixen.Ui.Controls.Advanced.ImageViewBar -> sealed class
+Vixen.Ui.Controls.Advanced.ImageViewBar : Vixen.Ui.Controls.Control
+Vixen.Ui.Controls.Advanced.ImageViewBar.ImageViewBar() -> void
+Vixen.Ui.Controls.Advanced.ImageViewBar.Show() -> void
+Vixen.Ui.Controls.Advanced.ImageViewBar.View.get -> Vixen.Ui.Controls.Advanced.ImageView?
+Vixen.Ui.Controls.Advanced.ImageViewBar.View.set -> Vixen.Ui.Controls.Advanced.ImageView?
 Vixen.Ui.Controls.Advanced.ImageViewRequest -> readonly struct
 Vixen.Ui.Controls.Advanced.ImageViewRequest : System.IEquatable<Vixen.Ui.Controls.Advanced.ImageViewRequest>
 Vixen.Ui.Controls.Advanced.ImageViewRequest.Channels.get -> Vixen.Ui.Controls.Advanced.ImageChannels
@@ -1367,6 +1373,10 @@ override Vixen.Ui.Controls.Advanced.ImageView.NativeRole.get -> Vixen.Ui.Accessi
 override Vixen.Ui.Controls.Advanced.ImageView.OnCreated() -> void
 override Vixen.Ui.Controls.Advanced.ImageView.OnDraw(Vixen.Ui.DrawContext context) -> void
 override Vixen.Ui.Controls.Advanced.ImageView.TagName.get -> string
+override Vixen.Ui.Controls.Advanced.ImageViewBar.AcceptsFocus.get -> bool
+override Vixen.Ui.Controls.Advanced.ImageViewBar.NativeRole.get -> Vixen.Ui.AccessibleRole
+override Vixen.Ui.Controls.Advanced.ImageViewBar.OnCreated() -> void
+override Vixen.Ui.Controls.Advanced.ImageViewBar.TagName.get -> string
 override Vixen.Ui.Controls.Advanced.NodeCanvas.AcceptsFocus.get -> bool
 override Vixen.Ui.Controls.Advanced.NodeCanvas.NativeRole.get -> Vixen.Ui.AccessibleRole
 override Vixen.Ui.Controls.Advanced.NodeCanvas.OnCreated() -> void

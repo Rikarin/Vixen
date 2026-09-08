@@ -104,26 +104,10 @@ public sealed class UiImageViewTests {
         using var owned = fixture!;
         var colour = owned.ColourTarget("ui");
 
-        // One texel, repeated: red 128, green 200, blue 32, alpha 64. Four distinct numbers, so
-        // every isolate below has an answer no other isolate shares.
-        var sampled = owned.Sampled("ui view", 1, [Mid, 200, 32, Coverage]);
-
-        var list = new DrawList();
-        list.BeginFrame();
-
-        foreach (var (index, view) in Views()) {
-            list.Add(
-                new DrawCommand(DrawCommandKind.Image, Left(index), Top, Width, Height, Color4.White, 0, 0) {
-                    Image = Texture,
-                    View = view
-                }
-            );
-        }
-
-        list.EndFrame();
+        var sampled = owned.Sampled("ui view", 1, Texel);
 
         var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
-        var geometry = new UiGeometryBuilder().Build(list, cache, Viewport);
+        var geometry = new UiGeometryBuilder().Build(Frame(), cache, Viewport);
 
         var renderer = new UiRenderer(
             owned.Device,
@@ -209,12 +193,51 @@ public sealed class UiImageViewTests {
         );
     }
 
+    /// <summary>The row of quads: one texture, five views, left to right.</summary>
+    /// <returns>A finished draw list.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Internal because a second suite draws it, and that is what
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1016">#1016</a> was about.</b> This file
+    ///     renders it through the hand-written GLSL copy and reads texels against numbers worked out
+    ///     on paper; <c>UiRavenAgreementTests</c> renders the same list through <em>both</em> tables
+    ///     and compares the pictures with each other, which is what puts the two new branches through
+    ///     the module every shipping application draws with. One frame builder rather than two, so
+    ///     the arithmetic proof and the agreement proof cannot be about different pictures.
+    /// </remarks>
+    internal static DrawList Frame() {
+        var list = new DrawList();
+        list.BeginFrame();
+
+        foreach (var (index, view) in Views()) {
+            list.Add(
+                new DrawCommand(DrawCommandKind.Image, Left(index), Top, Width, Height, Color4.White, 0, 0) {
+                    Image = Texture,
+                    View = view
+                }
+            );
+        }
+
+        list.EndFrame();
+
+        return list;
+    }
+
+    /// <summary>The texel every quad samples: red 128, green 200, blue 32, alpha 64.</summary>
+    /// <remarks>
+    ///     Four distinct numbers, so every isolate has an answer no other isolate shares — a grey
+    ///     texel could not tell <c>Red</c> from <c>Green</c> from a shader that ignored the request.
+    /// </remarks>
+    internal static byte[] Texel => [Mid, 200, 32, Coverage];
+
+    /// <summary>The number the draw list names the texture by, which a renderer has to register.</summary>
+    internal static ulong Registered => Texture;
+
     /// <summary>The five views drawn, left to right.</summary>
     /// <remarks>
     ///     A method rather than a field so the indices and the views cannot drift apart: the layout
     ///     below reads the same index this yields.
     /// </remarks>
-    static (int Index, UiImageView View)[] Views() => [
+    internal static (int Index, UiImageView View)[] Views() => [
         (0, default),
         (1, new(UiImageChannel.Red, false)),
         (2, new(UiImageChannel.Green, false)),
