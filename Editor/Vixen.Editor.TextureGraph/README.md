@@ -365,8 +365,8 @@ See #619, which is reworking that model.
 not.** The stated cause — "`FromSources` is passed no `referencePaths`, so a kernel binds against
 nothing but itself" — was wrong: `FromSources` takes a *set of texts* and makes them **one
 compilation**, and a package's declarations are visible across it. What was missing was that the
-evaluator passed a single text. `TextureKernelPrelude` now hands `Core/Math.rvn`, `Core/Random.rvn`
-and `Material/ComputeColor.rvn` to every kernel compilation, so `Hsl` **calls**
+evaluator passed a single text. `TextureKernelPrelude` now hands `Core/Math.rvn`, `Core/Random.rvn`,
+`Core/ColorSpaces.rvn` and `Material/ComputeColor.rvn` to every kernel compilation, so `Hsl` **calls**
 `ComputeColor.HueRotate` rather than transcribing it — and eleven of thirteen transcriptions are
 deleted rather than held to their originals by a gate
 ([#635](https://github.com/Rikarin/Vixen/issues/635)). ⚠ **Three copies survive and none is blocked

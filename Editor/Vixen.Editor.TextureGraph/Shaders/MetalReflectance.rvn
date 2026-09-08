@@ -27,8 +27,9 @@ package Vixen.Editor.TextureGraph.Shaders
 // triples: two transcriptions of one table is this workstream's most-repeated defect, and a second
 // copy on the CPU would be one nothing compares against — the plan hands this kernel an index and
 // reads back an image, so a drifted CPU copy would never be dispatched and never be wrong out loud.
-// `TextureSurfaceKernelTests` reads the branches out of *this file* and checks the enum against
-// them, which is the same direction `TextureKernelLanguageSeamTests` reads the shader library in.
+// `TextureMetalReflectanceTests.Table()` reads the branches out of *this file* and requires one row
+// per enum member in this order, which is the same direction `TextureKernelLanguageSeamTests` reads
+// the shader library in.
 //
 // ## Linear, and why there is no sRGB knob
 //
@@ -37,14 +38,14 @@ package Vixen.Editor.TextureGraph.Shaders
 // into an sRGB file gets the encode from the *output* image's format, which is where every other
 // kernel in this folder leaves it too.
 //
-// ## The mask is a `Blend`, deliberately
+// ## The mask belongs to a node that already exists
 //
-// § 4.9's row composites a metal F0 into a base colour under a wear mask. That is
-// `Colour/Blend` in `Multiply` — a node that already exists, whose behaviour is already tested and
-// whose mask semantics are already argued in `Blend.rvn`. Growing a second texture input and an
-// amount here would be a third copy of that arithmetic inside an atom whose whole job is a table
-// lookup, and the compound `Compounds/Surface/Metal Reflectance` is where the two are wired
-// together.
+// § 4.9's row composites a metal F0 into a base colour under a wear mask. That is `Colour/Mix` in
+// `Copy` with the mask on its opacity — the F0 written wherever the mask is bright, the base kept
+// where it is dark — a node whose behaviour is already tested and whose mask semantics are already
+// argued. Growing a second texture input and an amount here would be a third copy of that
+// arithmetic inside an atom whose whole job is a table lookup, and the compound
+// `Compounds/Surface/Metal Reflectance` is where the two are wired together.
 
 shader MetalReflectance {
     /// Which metal. The indices are `TextureMetal`'s and the branch order below is the contract.

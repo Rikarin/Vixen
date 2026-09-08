@@ -142,17 +142,34 @@ sealed partial class GrayscaleNode : TextureNode {
         var blue = emitter.Number("Weight B");
         var normalise = emitter.Flag(nameof(Normalise));
 
-        // ⚠ The loud half of #1100. A triple summing to zero has no ratio, so the kernel takes its
-        // documented Rec. 709 fallback — a completely different picture, from three numbers nothing
-        // in the type system can call invalid. It is only a surprise while normalisation is on: with
-        // it off a zero sum is precisely what a channel difference is, and the same threshold the
-        // kernel uses is what decides, so the sentence and the branch cannot disagree.
-        if (normalise && Math.Abs(red + green + blue) < 1e-6f) {
+        // ⚠ The loud half of #1100, and it is *two* arms rather than one, because the kernel does two
+        // different things either side of its own threshold. Below 1e-6 the sum has no ratio and the
+        // kernel takes its documented Rec. 709 fallback; above it the division still happens and a
+        // sum of a thousandth multiplies the picture by a thousand. A single warning saying "this
+        // will compute Rec. 709" would therefore have been *false* on the near-zero side — which is
+        // the side the compound README calls worse — and the first draft of this guard, measuring
+        // only the kernel's exact-zero threshold, left that side as silent as it had ever been.
+        // Both arms are only a surprise while normalisation is on: with it off a cancelling triple is
+        // precisely what a channel difference is, and a warning there would be a warning on the fix.
+        var total = red + green + blue;
+        var largest = MathF.Max(MathF.Abs(red), MathF.Max(MathF.Abs(green), MathF.Abs(blue)));
+
+        if (normalise && MathF.Abs(total) < 1e-6f) {
             emitter.Report(
                 TextureDiagnostics.WeightsFoldToNothing,
                 $"The weights ({red}, {green}, {blue}) sum to zero, so there is no ratio to take of "
                 + "them and this will compute Rec. 709 luminance instead. A weight set that cancels "
                 + "is a difference between channels: turn 'Normalise' off to ask for one.",
+                "Normalise",
+                NodeSeverity.Warning
+            );
+        } else if (normalise && MathF.Abs(total) < largest * 1e-2f) {
+            emitter.Report(
+                TextureDiagnostics.WeightsFoldToNothing,
+                $"The weights ({red}, {green}, {blue}) sum to {total}, which is a hundredth of the "
+                + $"largest of them, so normalising divides by it and scales the picture by about "
+                + $"{MathF.Round(largest / MathF.Abs(total))}×. A weight set that nearly cancels is "
+                + "a difference between channels: turn 'Normalise' off to ask for one.",
                 "Normalise",
                 NodeSeverity.Warning
             );

@@ -53,7 +53,7 @@ namespace Vixen.Editor.TextureGraph;
 ///         and the folder that <em>is</em> the kernel list stays the folder it was.
 ///     </para>
 ///     <para>
-///         <b>What it costs.</b> Every variant parses three more files. That is three parses against
+///         <b>What it costs.</b> Every variant parses four more files. That is four parses against
 ///         a lowering, a code generation and a pipeline creation, and it is paid once per
 ///         <c>(kernel, format)</c> because <c>TexturePlanEvaluator</c> caches the variant. What it
 ///         does not cost is module size: a library function no kernel calls is unreferenced and does

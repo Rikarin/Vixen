@@ -53,8 +53,8 @@ enum TextureChannelSource {
 ///         plan hands the kernel an index and reads back an image, so a drifted CPU copy would never
 ///         be dispatched and never be wrong out loud —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1095">#1095</a>'s defect in a third
-///         costume. <c>TextureColourKernelTests</c> reads the branches out of the kernel and requires
-///         one per member here, in this order.
+///         costume. <c>TextureMetalReflectanceTests.Table()</c> reads the branches out of the kernel
+///         and requires one per member here, in this order.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The numbers are the kernel's contract</b>, the way <c>TextureShapeKind</c>'s are:

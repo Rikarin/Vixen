@@ -233,8 +233,12 @@ public class TextureMetalReflectanceTests(ITestOutputHelper output) {
     ///         <b><c>Rgba8</c> is linear unorm here and not sRGB</b> — <c>Source/Uniform</c>'s own
     ///         device test reads 0.25 back as 63 — so the expected byte is the declared reflectance
     ///         times 255. The tolerance is two steps, which is quantisation and the half-float the
-    ///         kernel writes through, and it is far below the smallest gap between two rows of the
-    ///         table (chromium and iron differ by three steps in red).
+    ///         kernel writes through. ⚠ <b>It is not "far below" the gap between two rows, and an
+    ///         earlier version of this remark said so.</b> Chromium and iron are 3.3 steps apart in
+    ///         red and 2.3 in green, so a ±2 window is a margin of about one step and it is red
+    ///         alone that keeps those two distinguishable. That is enough — the ten rows are paired
+    ///         with ten distinct expectations, so a uniform that never arrived is red on every row —
+    ///         but it is a margin and not a chasm.
     ///     </para>
     /// </remarks>
     [Theory]

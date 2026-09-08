@@ -167,9 +167,13 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         //     off this table undercounted by one folder's worth**, which is the whole cost of a
         //     citation that is wrong rather than a number that is.
         //   * `Marked` is § 4.9's ● count, which is the plan's ask and is *not* assertable as a
-        //     floor: `Surface/Metal Reflectance` is marked and refused on #1096 for want of an atomic
-        //     node mapping a metal name to an F0, so flooring Surface at five would be a red test
-        //     about a decision rather than about content that stopped shipping.
+        //     floor in general: a marked compound may be refused for a reason, as
+        //     `Surface/Metal Reflectance` was on #1096 for want of an atomic node mapping a metal
+        //     name to an F0. ⚠ **That refusal ended on 2026-09-09 in the same batch that wrote this
+        //     table, and the ratchet below is what said so**: the node landed on one branch, the
+        //     compound with it, and the floor of four was written on another — the merge went red on
+        //     exactly the cross-branch drift a per-branch run cannot see. All five folders now sit at
+        //     `Least == Marked`.
         //
         // What that buys, beyond an honest sentence, is the reminder the old shape could not give:
         // the moment a folder ships as many as § 4.9 marks, `Least` must be bumped to `Marked` or
@@ -181,8 +185,9 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
                 ("Patterns/", 7, 7, "§ 4.9's Patterns row marks Brick, Panels, Tile Random, Rivets, Scratches, "
                     + "Wood Grain and Cells ● — and the seven are every ● it carries"),
                 ("Grunges/", 8, 8, "§ 4.9 calls the grunges 'a family of eight ●'"),
-                ("Surface/", 4, 5, "§ 4.9's Surface row marks Height Blend, Bevel, Curvature Smooth, Height to AO "
-                    + "and Metal Reflectance ● — five, of which Metal Reflectance is refused on #1096"),
+                ("Surface/", 5, 5, "§ 4.9's Surface row marks Height Blend, Bevel, Curvature Smooth, Height to AO "
+                    + "and Metal Reflectance ● — five, and Metal Reflectance stopped being refused on 2026-09-09 "
+                    + "when #1096's atomic node landed"),
                 ("Generators/", 7, 7, "§ 4.9's mask-generator row marks seven ●")
             },
             expected => {
@@ -198,12 +203,20 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
                 // ⚠ The half that reads the disk *and* the plan at once. A slice that lands the last
                 // ● of a row without bumping the floor leaves a deletion floor that no longer floors
                 // anything, which is how this table came to say four where seven shipped.
+                //
+                // ⚠ **And the condition is about the disk on both sides, which the first draft's was
+                // not.** That one read `shipped < Marked || Least == Marked`, whose second disjunct
+                // is a comparison of two literals in this very table — true for four of the five
+                // rows before anything was read from disk at all, and true for all five once Surface
+                // caught up, at which point the assertion could not fail for any content. This one
+                // is satisfied only by a floor that *is* the shipped count, or by a folder still
+                // short of its marks; a ninth grunge lands red asking for the floor.
                 Assert.True(
-                    shipped < expected.Marked || expected.Least == expected.Marked,
-                    $"'{expected.Folder}' now ships {shipped} compound(s), which is every one of § 4.9's "
-                    + $"{expected.Marked} ● — so the floor in this table must be raised from {expected.Least} to "
-                    + $"{expected.Marked}. A floor left below what ships stops being a deletion floor: "
-                    + $"{shipped - expected.Least} compound(s) could be unembedded with this class still green."
+                    shipped == expected.Least || shipped < expected.Marked,
+                    $"'{expected.Folder}' now ships {shipped} compound(s) against a floor of {expected.Least} and "
+                    + $"§ 4.9's {expected.Marked} ● — so the floor in this table must be raised to {shipped}. A "
+                    + $"floor left below what ships stops being a deletion floor: {shipped - expected.Least} "
+                    + "compound(s) could be unembedded with this class still green."
                 );
             }
         );

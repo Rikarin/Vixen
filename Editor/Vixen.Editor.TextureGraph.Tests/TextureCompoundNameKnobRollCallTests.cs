@@ -44,13 +44,18 @@ namespace Tests;
 public class TextureCompoundNameKnobRollCallTests {
     /// <summary>The name knobs the shipped library declares, and how many are owed.</summary>
     /// <remarks>
-    ///     Three ship today — <c>Patterns/Tile Random</c>'s <c>Accumulation</c>,
-    ///     <c>Patterns/Cells</c>' <c>Metric</c> and <c>Surface/Metal Reflectance</c>'s <c>Metal</c>.
+    ///     Four ship today — <c>Patterns/Tile Random</c>'s <c>Accumulation</c>,
+    ///     <c>Patterns/Cells</c>' <c>Metric</c>, <c>Surface/Metal Reflectance</c>'s <c>Metal</c> and
+    ///     <c>Utility/Safe Transform</c>'s <c>Tiling</c>. ⚠ <b>The enumeration said three and the
+    ///     floor was three, and the one it left out was the knob whose drift this roll call
+    ///     found</b> — a floor set below the shipped count is a roll call one knob can stop
+    ///     forwarding without turning red, which is the instrument failing at exactly the thing it
+    ///     was built for.
     ///     ⚠ A floor rather than an exact count, for the reason five roll calls in this workstream
     ///     have already had to learn: an exact set over a surface every slice grows is red on the
     ///     merge and green on every branch.
     /// </remarks>
-    const int Least = 3;
+    const int Least = 4;
 
     [Fact]
     public void Every_shipped_name_knob_offers_exactly_what_its_inner_setting_accepts() {

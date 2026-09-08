@@ -475,6 +475,52 @@ public class TextureGraphCompilerTests {
         );
     }
 
+    /// <summary>
+    ///     ⚠ A weight set that *nearly* cancels is reported too, and told what it really does.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half the first guard could not see, and the half the compound README calls
+    ///         worse.</b> That guard measured the kernel's own fallback threshold — an absolute
+    ///         <c>1e-6</c> — so <c>(−1, 1, 0.001)</c>, three orders above it, warned about nothing:
+    ///         the division happens, and the picture comes out multiplied by a thousand.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A second sentence and not a wider threshold on the first.</b> The two sides of
+    ///         the kernel's branch do different things, so one message covering both would have been
+    ///         false on one of them — this one may not promise Rec. 709, because Rec. 709 is not what
+    ///         happens here.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_weight_set_that_nearly_cancels_is_reported_as_the_scaling_it_actually_does() {
+        NodeGraphModel graph = new();
+        var source = graph.Add("Source/Uniform");
+        var grey = graph.Add("Colour/Grayscale");
+        var output = graph.Add("Output/Output");
+
+        grey.SetValue("Weight R", -1f);
+        grey.SetValue("Weight G", 1f);
+        grey.SetValue("Weight B", 0.001f);
+        grey.SetValue("Normalise", 1f);
+
+        graph.Connect(new(source.Id, "Out"), new(grey.Id, "Input"));
+        graph.Connect(new(grey.Id, "Out"), new(output.Id, "Input"));
+
+        var compiled = Compiler().Compile(graph);
+        var warning = Assert.Single(compiled.Diagnostics, diagnostic => diagnostic.Id == "TG0007");
+
+        Assert.Equal("Normalise", warning.Port);
+        Assert.Equal(NodeSeverity.Warning, warning.Severity);
+
+        // The sentence has to be the scaling one: the kernel divides here rather than falling back,
+        // so a message naming Rec. 709 would be advice about a branch this graph does not take.
+        Assert.Contains("×", warning.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Rec. 709", warning.Message, StringComparison.Ordinal);
+
+        Assert.NotNull(compiled.Value);
+    }
+
     /// <summary>A graph with no Output node computes nothing anybody can look at, and is told so.</summary>
     [Fact]
     public void A_graph_with_no_output_is_refused() {

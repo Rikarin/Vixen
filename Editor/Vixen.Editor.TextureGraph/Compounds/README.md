@@ -288,9 +288,14 @@ raw weighted sum, where a triple summing to zero is the point rather than a mist
 three-node form is kept written down here rather than deleted: it is what the gap was worth, measured,
 and the paragraph is the reason the port exists.
 
-⚠ **And the silence is gone in the case that was actually silent.** A weight set that folds to nothing
-*while normalisation is on* is `TG0007` at the node, naming the fallback it would otherwise have taken
-without a word. It deliberately does not fire with normalisation off, because there a zero sum is the
+⚠ **And the silence is gone in both the cases that were silent — which is two arms and not one.** A
+weight set that folds to nothing *while normalisation is on* is `TG0007` at the node, naming the
+fallback it would otherwise have taken without a word. ⚠ **A triple that nearly cancels is a second
+`TG0007` with a different sentence**, because the kernel does something different there: above its
+1e-6 threshold the division still happens, so `(−1, 1, 0.001)` is not the Rec. 709 fallback at all,
+it is the picture multiplied by a thousand. A guard measuring only the kernel's threshold — which is
+what this paragraph described for one batch — announced the silence gone while leaving the worse half
+of the finding exactly as silent as before. It deliberately does not fire with normalisation off, because there a zero sum is the
 correct spelling of the thing the port is for — a warning there would be a warning on the fix.
 
 ⚠ **`Filters/Pixel Processor` would have made it `a.g - a.r` and is deliberately not used**, for the
