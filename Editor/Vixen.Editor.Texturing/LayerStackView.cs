@@ -284,28 +284,23 @@ sealed class LayerStackView : IDisposable {
 
         DockPanel.Fills(host);
 
-        root = host.Add("layer-stack");
+        // ⚠ Before the first element, because a sheet loaded after them still restyles them and the
+        // ordering only looks harmless — #881. `TexturingTheme` is guarded against a second load
+        // into the same document, which this constructor really does provoke: a panel's factory
+        // re-runs whenever the workspace relays out.
+        TexturingTheme.Install(host.Document);
 
-        root.SetStyle("display", "flex");
-        root.SetStyle("flex-direction", "row");
-        root.SetStyle("flex-grow", "1");
+        root = host.Add("layer-stack");
 
         this.tool = tool;
 
         var left = root.Add("layer-stack-rows");
-
-        left.SetStyle("display", "flex");
-        left.SetStyle("flex-direction", "column");
-        left.SetStyle("flex-grow", "1");
 
         // ⚠ Above the rows and not beside the preview, because what it binds is what every row is
         // about. A layer paints on a mesh; the pane that has none can draw no islands, build no
         // coverage map and refuse no texel — #920 — so the binding is the first thing in the column
         // rather than a setting somewhere else.
         var binding = left.Add("layer-stack-binding");
-
-        binding.SetStyle("display", "flex");
-        binding.SetStyle("flex-direction", "row");
 
         // ⚠ First on the binding row, because it decides what everything to the right of it is about
         // — the part picker narrows *this* set, and the rows below are this set's layers.
@@ -335,9 +330,6 @@ sealed class LayerStackView : IDisposable {
         // deleted is in. Delete is per row, for the opposite reason: it names the layer it is on.
         var actions = left.Add("layer-stack-actions");
 
-        actions.SetStyle("display", "flex");
-        actions.SetStyle("flex-direction", "row");
-
         addKind = actions.Add<Select>("layer-stack-add-kind");
 
         foreach (var value in Enum.GetValues<LayerKind>()) {
@@ -353,10 +345,6 @@ sealed class LayerStackView : IDisposable {
 
         rows = left.Add("layer-stack-list");
 
-        rows.SetStyle("display", "flex");
-        rows.SetStyle("flex-direction", "column");
-        rows.SetStyle("flex-grow", "1");
-
         left.Add("layer-stack-legend").Text = ChannelLegend;
 
         // ⚠ Under the rows and not under the preview, and the reason is what a diagnostic names. A
@@ -366,18 +354,14 @@ sealed class LayerStackView : IDisposable {
         // this grows only as far as it has messages.
         messages = left.Add("layer-stack-messages");
 
-        messages.SetStyle("display", "none");
-        messages.SetStyle("flex-direction", "column");
-
         var right = root.Add("layer-stack-preview");
-
-        right.SetStyle("display", "flex");
-        right.SetStyle("flex-direction", "column");
-        right.SetStyle("width", "280px");
 
         title = right.Add("world-title");
         title.Text = "Result";
 
+        // ⚠ Inline and not in the sheet, because this element has no tag of its own: a typed
+        // `Add<ImageView>` names none, so there is nothing for a type selector to match and a
+        // `layer-stack-preview > *` rule would also claim the title and the status line.
         Preview = right.Add<ImageView>();
         Preview.SetStyle("flex-grow", "1");
 
@@ -392,7 +376,6 @@ sealed class LayerStackView : IDisposable {
         // hiding that layout — a message inside the thing being hidden is a message nobody sees.
         Empty = host.Add("layer-stack-empty");
         Empty.Text = "No layer stack is open. Select a .vxlayers in the Project panel and run Open Layer Stack.";
-        Empty.SetStyle("display", "none");
     }
 
     /// <summary>Stops following the open document's undo stack.</summary>
@@ -1026,8 +1009,6 @@ sealed class LayerStackView : IDisposable {
     void AmbiguousRow(LayerAsset layer, int depth) {
         var row = rows.Add("layer-stack-row");
 
-        row.SetStyle("display", "flex");
-        row.SetStyle("flex-direction", "row");
         row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
 
         row.Add("layer-stack-row-name").Text = Line(layer, depth);
@@ -1103,8 +1084,6 @@ sealed class LayerStackView : IDisposable {
 
         var row = rows.Add("layer-stack-row");
 
-        row.SetStyle("display", "flex");
-        row.SetStyle("flex-direction", "row");
         row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
 
         // ⚠ First on the row and a button rather than a click on the row itself. Every other control
@@ -1211,9 +1190,6 @@ sealed class LayerStackView : IDisposable {
         );
 
         var channels = row.Add("layer-stack-channels");
-
-        channels.SetStyle("display", "flex");
-        channels.SetStyle("flex-direction", "row");
 
         List<CheckBox> ticks = [];
 
@@ -1354,8 +1330,6 @@ sealed class LayerStackView : IDisposable {
         LayerPath path = new(set.Name, layer.Id);
         var source = rows.Add("layer-stack-fill-row");
 
-        source.SetStyle("display", "flex");
-        source.SetStyle("flex-direction", "row");
         source.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
 
         source.Add("layer-stack-fill-label").Text = "Fill";
@@ -1421,8 +1395,6 @@ sealed class LayerStackView : IDisposable {
         var usage = channel.Usage;
         var row = rows.Add("layer-stack-fill-channel");
 
-        row.SetStyle("display", "flex");
-        row.SetStyle("flex-direction", "row");
         row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
 
         row.Add("layer-stack-fill-usage").Text = usage;
@@ -1714,8 +1686,6 @@ sealed class LayerStackView : IDisposable {
         // off a layer and never put one back. A mask slot on every layer is what both references do.
         var row = rows.Add("layer-stack-mask-row");
 
-        row.SetStyle("display", "flex");
-        row.SetStyle("flex-direction", "row");
         row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
 
         // ⚠ The base has no `Enabled` of its own and therefore no tick, which is a fact about
@@ -2208,8 +2178,6 @@ sealed class LayerStackView : IDisposable {
     ) {
         var row = rows.Add("layer-stack-mask-row");
 
-        row.SetStyle("display", "flex");
-        row.SetStyle("flex-direction", "row");
         row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
 
         var tick = row.Add<CheckBox>("layer-stack-mask-enabled");
