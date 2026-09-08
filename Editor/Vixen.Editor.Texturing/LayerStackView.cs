@@ -1012,6 +1012,7 @@ sealed class LayerStackView : IDisposable {
                 } else {
                     LayerRow(document, set, layer, depth);
                     FillRows(document, set, layer, depth + 1);
+                    FilterRows(document, set, layer, depth + 1);
                     MaskRows(document, set, layer, depth + 1);
                 }
 
@@ -1415,6 +1416,135 @@ sealed class LayerStackView : IDisposable {
         foreach (var channel in set.Channels) {
             ChannelRow(document, set, path, channel, depth + 1);
         }
+    }
+
+    /// <summary>What the filter picker calls one of the five built-in adjustments.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A word rather than an empty <see cref="LayerAsset.FilterNode" />.</b> The two ways of
+    ///     naming a filter are exclusive in the file — a path wins, and <c>LayerFilterKind.Levels</c>
+    ///     is zero, so a layer carrying both would say one thing and compile another — and a picker
+    ///     that showed only the five with a path field beside it would leave "which of these two is
+    ///     in force" to be inferred from whether a box happened to be empty.
+    /// </remarks>
+    public const string PresetFilter = "Preset";
+
+    /// <summary>What the filter picker calls a node type named by path, doc 48 § D10's fourth kind.</summary>
+    public const string NodeFilter = "Node";
+
+    /// <summary>Which adjustment a filter layer applies: one of the five, or a node it names.</summary>
+    /// <param name="document">The stack being edited.</param>
+    /// <param name="set">The texture set the layer is in.</param>
+    /// <param name="layer">The layer.</param>
+    /// <param name="depth">How far in to indent.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1078">#1078</a>: a layer kind an
+    ///         artist could add and could not configure.</b> The <em>Add layer</em> picker offers
+    ///         every <c>LayerKind</c>, so a filter layer is two clicks away; until this row no view
+    ///         in the tree read <c>LayerFilterKind</c> at all — a sweep over <c>*.cs</c> and
+    ///         <c>*.vxml</c> found it in three model files and nowhere else. So every filter an
+    ///         artist added was a <c>Colour/Levels</c> on its defaults for ever, which is worse than
+    ///         the kind not being offered: the gesture succeeds and produces a layer whose effect
+    ///         cannot be explained.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Switching between the two rewrites the layer to the node the other half already
+    ///         meant, so the picture does not move.</b> Choosing <see cref="NodeFilter" /> seeds the
+    ///         path with <c>LayerStackGraph.Filter(current.Filter).Type</c> — the very type the enum
+    ///         compiles to — and choosing <see cref="PresetFilter" /> clears the path, which is what
+    ///         puts the enum back in force. A control that switched to an <em>empty</em> path would
+    ///         be a control whose model still said "preset", and the picker would snap back on the
+    ///         next bind with nothing to show for the click.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every control is created and the binding decides which are shown</b>, which is
+    ///         this panel's rule and a correctness one: <see cref="Shape" /> does not carry
+    ///         <c>Filter</c> or <c>FilterNode</c>, so building only the controls the current choice
+    ///         needs would tear the row down from inside its own <c>SelectionChanged</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The filter's <em>numbers</em> are not here, and that is a limit rather than an
+    ///         omission.</b> <c>LayerAsset.Settings</c> is by port name and a port's declared default
+    ///         lives on the node type — which this view has no registry to ask, by
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>. A field that showed 0
+    ///         for a <c>Levels</c> whose <c>Input White</c> is 1 would be an interface stating
+    ///         something the picture contradicts, so the row says which filter and not how much of
+    ///         it. A mask effect's <c>Values</c> has no row either, for the same reason.
+    ///     </para>
+    /// </remarks>
+    void FilterRows(LayerStackDocument document, TextureSetAsset set, LayerAsset layer, int depth) {
+        if (layer.Kind != LayerKind.Filter) {
+            return;
+        }
+
+        LayerPath path = new(set.Name, layer.Id);
+        var row = rows.Add("layer-stack-filter-row");
+
+        row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
+
+        row.Add("layer-stack-filter-label").Text = "Filter";
+
+        var source = row.Add<Select>(null, null, "layer-stack-filter-source");
+
+        source.AddOption(PresetFilter);
+        source.AddOption(NodeFilter);
+
+        source.SelectionChanged += (_, chosen) => Set(
+            document,
+            path,
+            current => string.Equals(chosen, NodeFilter, StringComparison.Ordinal)
+                ? current.FilterNode.Trim().Length > 0
+                    ? current
+                    : current with { FilterNode = LayerStackGraph.Filter(current.Filter).Type }
+                : current.FilterNode.Length == 0
+                    ? current
+                    : current with { FilterNode = "" },
+            "Set Filter Source"
+        );
+
+        var kind = row.Add<Select>(null, null, "layer-stack-filter-kind");
+
+        foreach (var choice in Enum.GetValues<LayerFilterKind>()) {
+            kind.AddOption(choice.ToString());
+        }
+
+        kind.SelectionChanged += (_, chosen) => {
+            if (!Enum.TryParse<LayerFilterKind>(chosen, out var wanted)) {
+                return;
+            }
+
+            Set(document, path, current => current with { Filter = wanted }, "Set Filter");
+        };
+
+        var node = row.Add<TextBox>(null, null, "layer-stack-filter-node");
+
+        // ⚠ Trimmed nowhere here and trimmed everywhere it is read: `LayerStackGraph` decides that a
+        // layer names a node by `FilterNode.Trim().Length`, so a field holding spaces is a preset —
+        // and a view that trimmed on the way in would silently delete the artist's cursor position
+        // between two keystrokes of a path they are still typing.
+        node.ValueChanged += (_, typed) => Set(
+            document,
+            path,
+            current => current with { FilterNode = typed ?? "" },
+            "Set Filter Node",
+            "filter-node:" + layer.Id
+        );
+
+        node.Submitted += _ => document.Stack.Seal();
+
+        bindings.Add(() => {
+            if (LayerStackEdit.Find(document.Document, path) is not { } current) {
+                return;
+            }
+
+            var named = current.FilterNode.Trim().Length > 0;
+
+            source.Value = named ? NodeFilter : PresetFilter;
+            kind.Value = current.Filter.ToString();
+            kind.SetStyle("display", named ? "none" : "flex");
+            node.Value = current.FilterNode;
+            node.SetStyle("display", named ? "flex" : "none");
+        });
     }
 
     /// <summary>One channel's constant or image, on a fill layer.</summary>

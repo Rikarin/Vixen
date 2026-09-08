@@ -661,12 +661,13 @@ static class LayerStackGraph {
         ///         already uses for a generator's <c>curvature</c>.
         ///     </para>
         ///     <para>
-        ///         ⚠ <b>Planar goes down <em>y</em>, and the model has nowhere to say otherwise.</b>
-        ///         <c>LayerProjection.Planar</c> is "one planar projection along an axis" and carries
-        ///         no axis; the node has all four. Y is the world up and the axis a planar fill is
-        ///         nearly always wanted along — dirt, snow, dust — but it is a default this file
-        ///         chose and not one an author asked for, which is
-        ///         <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>.
+        ///         ⚠ <b>Planar goes down <see cref="LayerAsset.PlanarAxis" />, which this file used
+        ///         to choose</b> — <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>.
+        ///         <c>LayerProjection.Planar</c> is "one planar projection along an axis" and had
+        ///         nowhere to put the axis, so every planar layer ever authored went down y: the
+        ///         right default and a default the <em>compiler</em> picked, which on anything
+        ///         box-shaped gives a valid planar projection of the wrong face and no clue why.
+        ///         Y stays the default, so nothing that exists changes picture.
         ///     </para>
         ///     <para>
         ///         ⚠ <b>A constant fill and a non-fill layer are warned rather than projected.</b> A
@@ -678,6 +679,18 @@ static class LayerStackGraph {
         ///     </para>
         /// </remarks>
         PortRef Project(LayerAsset layer, PortRef content) {
+            // ⚠ Before the early return, because a UV layer is one of the two places an axis means
+            // nothing — and Y is not checked here because it is the default: "the author chose y"
+            // and "the author said nothing" are one state, which is why `LayerAxis`' zero is X.
+            if (layer.Projection != LayerProjection.Planar && layer.PlanarAxis != LayerAxis.Y) {
+                problems.Add(LayerStackProblem.Warning(
+                    layer.Id,
+                    $"Axis '{layer.PlanarAxis}' is set on a {layer.Projection} projection and does nothing there. "
+                    + "An axis chooses the single plane a Planar projection uses; Triplanar blends all three by "
+                    + "the world normal, and Uv is the mesh's own atlas."
+                ));
+            }
+
             if (layer.Projection == LayerProjection.Uv) {
                 return content;
             }
@@ -712,7 +725,12 @@ static class LayerStackGraph {
 
             place.SetText("Map", "position");
             facing.SetText("Map", "world");
-            node.SetText("Axis", layer.Projection == LayerProjection.Triplanar ? "Triplanar" : "Y");
+            // ⚠ `LayerAxis`' names are `Space/Triplanar`'s own `Axis` setting, so this is the member
+            // rather than a mapping — a fourth axis is a word in each file and no table. #1032.
+            node.SetText(
+                "Axis",
+                layer.Projection == LayerProjection.Triplanar ? "Triplanar" : layer.PlanarAxis.ToString()
+            );
 
             graph.Connect(content, new(node.Id, "Input"));
             graph.Connect(new(place.Id, "Out"), new(node.Id, "Position"));
@@ -972,6 +990,24 @@ static class LayerStackGraph {
                 }
 
                 node.SetValue(port, value);
+            }
+
+            // ⚠ `Effect`'s second loop, and the member it reads did not exist on a layer until
+            // #1079: a compound whose behaviour is chosen by a string setting — which is most of the
+            // ones worth publishing — took that setting's default here, silently. Only on this path,
+            // because the five `LayerFilterKind` members declare no settings at all and must go on
+            // compiling to exactly the ops `LayerStackExplodeTests` photographs.
+            foreach (var (setting, value) in layer.Texts) {
+                if (type.Setting(setting) is null) {
+                    problems.Add(LayerStackProblem.Warning(
+                        layer.Id,
+                        $"'{setting}' is not a setting '{path}' declares, so it is dropped."
+                    ));
+
+                    continue;
+                }
+
+                node.SetText(setting, value);
             }
 
             return new(node.Id, output.Name);

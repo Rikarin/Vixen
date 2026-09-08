@@ -30,6 +30,9 @@ public class FilterCompoundTests {
     /// <summary>A shipped compound with one image in and one image out — § D10's own example.</summary>
     const string Highpass = "Utility/Highpass";
 
+    /// <summary>A built-in with one image in, one image out and two settings — see #1079's tests.</summary>
+    const string Mirror = "Space/Mirror";
+
     /// <summary>⚠ A filter layer can be a published compound, and it is that compound that runs.</summary>
     /// <remarks>
     ///     <para>
@@ -179,6 +182,131 @@ public class FilterCompoundTests {
         Assert.Equal(
             LayerStackDifferential.Describe(before.Plan),
             LayerStackDifferential.Describe(wrong.Plan)
+        );
+    }
+
+    /// <summary>⚠ A <em>setting</em> reaches the named node, and one it does not declare is dropped.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1079">#1079</a>, which is the
+    ///         member <c>MaskEffectAsset</c> had and <c>LayerAsset</c> did not.</b> A mask effect
+    ///         carries numbers by port <em>and</em> settings by name, because an effect is any
+    ///         published compound and a compound's behaviour is often chosen by a string.
+    ///         <c>FilterNode</c> made a filter layer the same kind of thing while
+    ///         <c>LayerAsset.Settings</c> was still numbers only, so such a layer took the setting's
+    ///         default and nothing said so.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Space/Mirror</c> rather than a fixture's own type</b>, for the reason the
+    ///         whole file gives: it is a node this project ships, with exactly one image in, one
+    ///         image out and two settings — and its <c>Mode</c> chooses between a reflect and a
+    ///         flip, which are different arithmetic rather than different labels.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because either alone is green for the wrong reason.</b> A build that
+    ///         wrote <em>every</em> key as a setting would satisfy the difference and quietly hand a
+    ///         node a name it never declared; one that wrote none would satisfy the warning and leave
+    ///         the compound on its defaults, which is the state this closes.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_setting_reaches_a_named_nodes_declaration_and_one_it_does_not_declare_does_not() {
+        LayerAsset plain = new() { Id = "f", Kind = LayerKind.Filter, FilterNode = Mirror };
+        LayerAsset flipped = new() { Id = "f", Kind = LayerKind.Filter, FilterNode = Mirror };
+        LayerAsset invented = new() { Id = "f", Kind = LayerKind.Filter, FilterNode = Mirror };
+
+        flipped.Texts["Mode"] = "Flip";
+        invented.Texts["Fold"] = "Flip";
+
+        var before = Compile(plain);
+        var after = Compile(flipped);
+        var wrong = Compile(invented);
+
+        Assert.NotNull(before.Plan);
+        Assert.NotNull(after.Plan);
+        Assert.NotNull(wrong.Plan);
+        Assert.Empty(after.Problems);
+
+        Assert.NotEqual(
+            LayerStackDifferential.Describe(before.Plan),
+            LayerStackDifferential.Describe(after.Plan)
+        );
+
+        var warning = Assert.Single(wrong.Problems);
+
+        Assert.Equal(NodeSeverity.Warning, warning.Severity);
+        Assert.Contains("Fold", warning.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            LayerStackDifferential.Describe(before.Plan),
+            LayerStackDifferential.Describe(wrong.Plan)
+        );
+    }
+
+    /// <summary>⚠ A setting is read on the named-node path and on no other.</summary>
+    /// <remarks>
+    ///     <b>The five <c>LayerFilterKind</c> members must go on compiling to exactly the ops they
+    ///     compile to now</b>, which is what <c>LayerStackExplodeTests</c>' byte-identical
+    ///     differential asserts — so a filter layer that is a <c>Levels</c> and carries a settings
+    ///     dictionary has to be the plan of one that carries none. ⚠ Nothing else in this suite would
+    ///     notice a <c>foreach</c> written one branch too high: the five declare no settings at all,
+    ///     so every key would be dropped with a warning and the picture would be unchanged — which
+    ///     is a diagnostic an artist would then have to explain, over a member that cannot apply.
+    /// </remarks>
+    [Fact]
+    public void A_setting_on_an_enum_filter_changes_nothing_and_says_nothing() {
+        LayerAsset plain = new() { Id = "f", Kind = LayerKind.Filter, Filter = LayerFilterKind.Blur };
+        LayerAsset carrying = new() { Id = "f", Kind = LayerKind.Filter, Filter = LayerFilterKind.Blur };
+
+        carrying.Texts["Mode"] = "Flip";
+
+        var before = Compile(plain);
+        var after = Compile(carrying);
+
+        Assert.NotNull(before.Plan);
+        Assert.NotNull(after.Plan);
+        Assert.Empty(after.Problems);
+        LayerStackDifferential.AssertSamePlan(before.Plan, after.Plan);
+    }
+
+    /// <summary>⚠ A compound filter's settings survive the file.</summary>
+    /// <remarks>
+    ///     <b>A member the writer forgot reads back as its default</b>, and a setting's default is
+    ///     the node's own — so a mirror an artist had set to <c>Flip</c> would silently become a
+    ///     reflect the next time the stack was saved, with no key in the file to show what was lost.
+    ///     The plan differential is what says the value arrived rather than the key surviving.
+    /// </remarks>
+    [Fact]
+    public void A_compound_filters_settings_survive_the_file() {
+        LayerAsset flipped = new() { Id = "f", Kind = LayerKind.Filter, FilterNode = Mirror };
+
+        flipped.Texts["Mode"] = "Flip";
+
+        var stack = Stack(flipped);
+        var text = LayerStackYaml.Write(stack);
+        var read = LayerStackYaml.Read(text);
+        var layer = read.Sets[0].Layers.Single(entry => entry.Id == "f");
+
+        Assert.Equal("Flip", layer.Texts["Mode"]);
+
+        var before = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+        var after = LayerStackCompiler.Compile(read, read.Sets[0]);
+
+        Assert.NotNull(before.Plan);
+        Assert.NotNull(after.Plan);
+        LayerStackDifferential.AssertSamePlan(before.Plan, after.Plan);
+
+        // The instrument: the round trip above is equally true of a writer that dropped the key and a
+        // reader that ignored it, since both ends would then be the node's default. ⚠ Its own set,
+        // not this one's — a `TextureSetAsset` is what holds the layers, so passing `stack.Sets[0]`
+        // here would compile the flipped stack twice and call it a difference of nothing.
+        var without = Stack(flipped with { Texts = [] });
+        var bare = LayerStackCompiler.Compile(without, without.Sets[0]);
+
+        Assert.NotNull(bare.Plan);
+
+        Assert.NotEqual(
+            LayerStackDifferential.Describe(bare.Plan),
+            LayerStackDifferential.Describe(after.Plan)
         );
     }
 

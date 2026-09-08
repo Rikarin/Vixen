@@ -162,6 +162,14 @@ static class LayerStackYaml {
             mapping.Set("projection", Text(layer.Projection.ToString()));
         }
 
+        // ⚠ Written whenever it is not y, whatever the projection is — #1032. Dropping it for a
+        // layer whose projection is Uv would silently delete an author's choice on the round trip
+        // through a panel that changed the projection, and `Project`'s warning is what tells them
+        // the axis is doing nothing rather than this file forgetting it for them.
+        if (layer.PlanarAxis != LayerAxis.Y) {
+            mapping.Set("axis", Text(layer.PlanarAxis.ToString()));
+        }
+
         if (layer.Channels.Count > 0) {
             YamlSequence channels = new() { Style = YamlCollectionStyle.Flow };
 
@@ -219,6 +227,19 @@ static class LayerStackYaml {
             }
 
             mapping.Set("settings", settings);
+        }
+
+        // ⚠ Beside `settings` and not inside it: numbers reach a port and these reach a *setting*,
+        // and `Space/Triplanar` has an `Axis` that is both a setting name and a port name away from
+        // one. `MaskEffectAsset` splits them for the same reason and this is that pair — #1079.
+        if (layer.Texts.Count > 0) {
+            YamlMapping texts = new();
+
+            foreach (var (setting, value) in layer.Texts) {
+                texts.Set(setting, Text(value));
+            }
+
+            mapping.Set("texts", texts);
         }
 
         if (layer.Mask.Source != LayerMaskSource.None
@@ -440,6 +461,7 @@ static class LayerStackYaml {
             Opacity = Single(mapping, "opacity", 1f, path),
             Blend = Choice(mapping, "blend", LayerBlendMode.Copy, path),
             Projection = Choice(mapping, "projection", LayerProjection.Uv, path),
+            PlanarAxis = Choice(mapping, "axis", LayerAxis.Y, path),
             Channels = channels,
             Fill = Choice(mapping, "fill", LayerFillSource.Constant, path),
             Values = Colours(mapping, "values", path),
@@ -448,6 +470,7 @@ static class LayerStackYaml {
             Filter = Choice(mapping, "filter", LayerFilterKind.Levels, path),
             FilterNode = String(mapping, "filterNode", path),
             Settings = Colours(mapping, "settings", path),
+            Texts = Strings(mapping, "texts", path),
             Mask = mapping.TryGet("mask", out var mask) ? ReadMask(mask, $"{path}.mask") : new(),
             Paint = String(mapping, "paint", path),
             Children = children

@@ -97,6 +97,61 @@ public class LayerStackShapeTests {
         Assert.Equal(LayerBlendMode.Overlay, group.Children[0].Blend);
     }
 
+    /// <summary>⚠ A planar layer's axis survives the round trip, and y writes no key.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>.</b> The axis was
+    ///         nowhere in a <c>.vxlayers</c> at all until <c>LayerAsset.PlanarAxis</c>, so this is
+    ///         the half that says an author's choice is still there when the file is opened again —
+    ///         a member the writer forgets reads back as its default, which for this one is the
+    ///         picture the compiler was already producing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The second half is that <see cref="LayerAxis.Y" /> writes nothing</b>, which is
+    ///         this file's own rule: a key under every layer that nobody chose is what the hand
+    ///         mapping exists to avoid, and every <c>.vxlayers</c> that exists is on y.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_planar_axis_survives_the_file_and_y_writes_no_key() {
+        LayerAsset layer = new() {
+            Id = "planar",
+            Kind = LayerKind.Fill,
+            Fill = LayerFillSource.Texture,
+            Projection = LayerProjection.Planar,
+            PlanarAxis = LayerAxis.Z,
+            Textures = { ["baseColor"] = "Assets/Rust.png" }
+        };
+
+        LayerStackAsset stack = new() {
+            Name = "Axes",
+            BaseWidth = 16,
+            BaseHeight = 16,
+            Sets = [
+                new() {
+                    Name = "S",
+                    Channels = [new() { Usage = "baseColor", Default = [0.5f, 0.5f, 0.5f, 1f] }],
+                    Layers = [layer]
+                }
+            ]
+        };
+
+        var text = LayerStackYaml.Write(stack);
+
+        Assert.Contains("axis: Z", text, StringComparison.Ordinal);
+        Assert.Equal(LayerAxis.Z, LayerStackYaml.Read(text).Sets[0].Layers[0].PlanarAxis);
+
+        // ⚠ And the default writes no key, read back as itself. Both halves matter: a writer that
+        // emitted `axis: Y` under every layer would satisfy the round trip above and grow every file
+        // people merge, and one that emitted nothing ever would satisfy this line alone.
+        var bare = LayerStackYaml.Write(stack with {
+            Sets = [stack.Sets[0] with { Layers = [layer with { PlanarAxis = LayerAxis.Y }] }]
+        });
+
+        Assert.DoesNotContain("axis:", bare, StringComparison.Ordinal);
+        Assert.Equal(LayerAxis.Y, LayerStackYaml.Read(bare).Sets[0].Layers[0].PlanarAxis);
+    }
+
     /// <summary>An anchor survives the round trip as the id it names.</summary>
     [Fact]
     public void An_anchor_survives_the_file() {

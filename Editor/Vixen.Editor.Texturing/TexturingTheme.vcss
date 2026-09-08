@@ -80,6 +80,7 @@ layer-stack-empty { display: none; }
 layer-stack-row,
 layer-stack-fill-row,
 layer-stack-fill-channel,
+layer-stack-filter-row,
 layer-stack-mask-row { display: flex; flex-direction: row; }
 
 /* One tick per channel of the set, inside the layer's own row. */

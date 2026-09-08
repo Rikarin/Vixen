@@ -48,10 +48,50 @@ enum LayerProjection {
     Triplanar = 1,
 
     /// <summary>
-    ///     One planar projection along an axis. ⚠ Which axis is not in this file, so the compiler
-    ///     projects down y — <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>.
+    ///     One planar projection along <see cref="LayerAsset.PlanarAxis" /> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>. ⚠ That axis used to be
+    ///     nowhere in the file, so the compiler chose y for every planar layer that has ever been
+    ///     authored: a valid planar projection along the wrong axis, which on anything box-shaped is
+    ///     the same picture rotated and reads as a bug in the fill rather than as a missing member.
     /// </summary>
     Planar = 2
+}
+
+/// <summary>Which world axis a <see cref="LayerProjection.Planar" /> layer projects along.</summary>
+/// <remarks>
+///     <para>
+///         <b>A member on <see cref="LayerAsset" /> rather than three more
+///         <see cref="LayerProjection" /> members</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>. Splitting
+///         <c>Planar</c> into <c>PlanarX</c>/<c>PlanarY</c>/<c>PlanarZ</c> renumbers an enum that
+///         every <c>.vxlayers</c> in every project already writes by name, and the whole reason
+///         those three members exist as they do — kept whole while two of them were refused — was to
+///         avoid rewriting files later. A second member costs one optional key.
+///     </para>
+///     <para>
+///         ⚠ <b>The default is <see cref="Y" /> and it is deliberately <em>not</em> this enum's
+///         zero.</b> Y is what the compiler has always chosen and what a planar fill nearly always
+///         wants — dirt, snow, dust on horizontal faces — so it has to survive as the default; but
+///         writing it as the zero would make "the author said y" and "the author said nothing" the
+///         same state, and that is the shape this repository loses features to. Both readers name
+///         <see cref="Y" /> as their fallback explicitly instead, so an axis of <see cref="X" /> on a
+///         layer that is not planar is a thing <c>LayerStackGraph.Project</c> can see and warn about.
+///     </para>
+///     <para>
+///         The names are <c>Space/Triplanar</c>'s own <c>Axis</c> setting, which already takes
+///         <c>X</c>, <c>Y</c>, <c>Z</c> and <c>Triplanar</c> — so nothing translates between the two
+///         and a fourth axis would be one word in each file rather than a mapping table.
+///     </para>
+/// </remarks>
+enum LayerAxis {
+    /// <summary>Down world x.</summary>
+    X = 0,
+
+    /// <summary>Down world y, the up axis. What every planar layer authored before #1032 has.</summary>
+    Y = 1,
+
+    /// <summary>Down world z.</summary>
+    Z = 2
 }
 
 /// <summary>Where a fill layer's pixels come from.</summary>
@@ -462,6 +502,19 @@ sealed record LayerAsset {
     /// <summary>How a fill is put onto the surface.</summary>
     public LayerProjection Projection { get; init; } = LayerProjection.Uv;
 
+    /// <summary>Which world axis a <see cref="LayerProjection.Planar" /> fill projects along.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read by <see cref="LayerProjection.Planar" /> and by nothing else</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>. A triplanar layer blends
+    ///     all three planes by the world normal and a UV layer is in the atlas, so an axis means
+    ///     nothing on either; <c>LayerStackGraph.Project</c> says so rather than ignoring it, for the
+    ///     reason every other member of this record that can be set where it does nothing says so.
+    ///     ⚠ Except <see cref="LayerAxis.Y" />, which is the default and therefore indistinguishable
+    ///     from an author who said nothing — the one case that cannot be warned about and is stated
+    ///     on <see cref="LayerAxis" /> instead.
+    /// </remarks>
+    public LayerAxis PlanarAxis { get; init; } = LayerAxis.Y;
+
     /// <summary>
     ///     Which of the set's channels this layer writes, by usage. Empty means every one of them.
     /// </summary>
@@ -533,11 +586,11 @@ sealed record LayerAsset {
     ///         before the existing path rather than through it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What it cannot carry is a compound's <em>settings</em>.</b>
-    ///         <see cref="Settings" /> is numbers by port name, so a compound whose behaviour is
-    ///         chosen by a string setting takes that setting's default —
-    ///         <see cref="MaskEffectAsset.Texts" /> is the member a mask effect has for this and a
-    ///         layer does not.
+    ///         ⚠ <b>Its <em>settings</em> are <see cref="Texts" />, which this remark used to say a
+    ///         layer did not have</b> — <a href="https://github.com/Rikarin/Vixen/issues/1079">#1079</a>.
+    ///         <see cref="Settings" /> is numbers by port name, so until that member arrived a
+    ///         compound whose behaviour is chosen by a string took that setting's default here and
+    ///         said nothing about it.
     ///     </para>
     /// </remarks>
     public string FilterNode { get; init; } = "";
@@ -561,6 +614,38 @@ sealed record LayerAsset {
     ///     </para>
     /// </remarks>
     public Dictionary<string, float[]> Settings { get; init; } = [];
+
+    /// <summary>The layer's settings, by the setting name the node declares.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><see cref="MaskEffectAsset.Texts" />, on a layer</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1079">#1079</a>. A mask effect has
+    ///         carried two dictionaries all along — numbers by port and settings by name — because
+    ///         an effect is any published compound and a compound's behaviour is often chosen by a
+    ///         string. <see cref="FilterNode" /> made a filter layer the same kind of thing and this
+    ///         record had only the numbers, so a layer naming such a compound took that setting's
+    ///         default, silently. ⚠ The gap was invisible from this file: the member that was
+    ///         missing is one you had to have read <see cref="MaskEffectAsset" /> to know should be
+    ///         here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read on the <see cref="FilterNode" /> path only</b>, which is not tidiness. The
+    ///         five <see cref="LayerFilterKind" /> members have no settings at all — levels, HSL,
+    ///         blur, invert and grayscale are numbers throughout — so <c>Settings</c> alone was
+    ///         complete for as long as the enum was the only way to name a filter's node, and the
+    ///         five must go on compiling to exactly the ops they compile to now or
+    ///         <c>LayerStackExplodeTests</c>' byte-identical differential becomes a re-blessing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two letters from <see cref="Textures" /> and nothing to do with it.</b> That one
+    ///         is an imported image per <em>channel</em> for a texture fill; this one is a node's
+    ///         settings by name. The name is <see cref="MaskEffectAsset.Texts" />' because the two
+    ///         are the same member read by the same resolution — <c>LayerStackGraph.Published</c> is
+    ///         <c>Effect</c> pointed at a layer — and a third spelling for one concept is worse than
+    ///         a near-collision that is written down.
+    ///     </para>
+    /// </remarks>
+    public Dictionary<string, string> Texts { get; init; } = [];
 
     /// <summary>The mask.</summary>
     public MaskAsset Mask { get; init; } = new();

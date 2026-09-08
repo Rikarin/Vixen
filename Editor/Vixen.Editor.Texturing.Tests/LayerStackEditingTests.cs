@@ -1554,6 +1554,144 @@ public class LayerStackEditingTests {
         Assert.Empty(Only(document).Textures);
     }
 
+    /// <summary>⚠ A filter layer's kind can be chosen in the panel, and the choice compiles.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1078">#1078</a>.</b> The
+    ///         <em>Add layer</em> picker offers every <c>LayerKind</c>, so a filter layer is two
+    ///         clicks away; no row in this panel read <c>LayerFilterKind</c>, so every one an artist
+    ///         added was a <c>Colour/Levels</c> on its defaults for ever. The enum was a
+    ///         file-format feature with no interface.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Compiled rather than compared, because the document is the easy half.</b>
+    ///         Asserting <c>layer.Filter == Blur</c> is satisfied by a picker wired to a member the
+    ///         compiler does not read; the plan is what says the artist's choice reached the node,
+    ///         and the two plans must differ from each other rather than merely from nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_filter_layers_kind_is_chosen_in_the_panel_and_reaches_the_plan() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Filtered());
+        var panel = Panel(fixture);
+
+        var levels = Plan(document);
+
+        Find<Select>(panel, "layer-stack-filter-kind").Value = nameof(LayerFilterKind.Blur);
+
+        Assert.Equal(LayerFilterKind.Blur, Layer(document, "adjust").Filter);
+
+        var blur = Plan(document);
+
+        Assert.NotEqual(levels, blur);
+
+        // And it is on the undo stack like every other edit this panel makes.
+        Assert.True(document.Stack.Undo());
+        Assert.Equal(LayerFilterKind.Levels, Layer(document, "adjust").Filter);
+        Assert.Equal(levels, Plan(document));
+    }
+
+    /// <summary>⚠ Switching a filter to a named node keeps the picture and offers the path.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The two ways of naming a filter are exclusive in the file</b> — a path wins, and
+    ///         <c>LayerFilterKind.Levels</c> is zero — so the panel offers one picker for which of
+    ///         them is in force rather than two controls whose precedence a person has to know.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Seeded with the type the enum already compiled to, and the plan is what says
+    ///         so.</b> Switching to a node with an <em>empty</em> path would leave a model that still
+    ///         reads as a preset, so the picker would snap back on the next bind and the click would
+    ///         do nothing — and seeding it with anything other than the current filter's own type
+    ///         would change the picture on a gesture that only changed how it is spelled. The plan
+    ///         going through <c>LayerStackGraph.Published</c> instead of the enum path and coming out
+    ///         identical is the whole assertion.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Switching_a_filter_to_a_named_node_seeds_the_type_the_kind_already_meant() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Filtered());
+        var panel = Panel(fixture);
+
+        var before = Plan(document);
+
+        Find<Select>(panel, "layer-stack-filter-source").Value = LayerStackView.NodeFilter;
+
+        var named = Layer(document, "adjust");
+
+        Assert.Equal("Colour/Levels", named.FilterNode);
+        Assert.Equal(before, Plan(document));
+
+        // The field is what an artist then edits, and it is a different node when they do.
+        Find<TextBox>(panel, "layer-stack-filter-node").Value = "Utility/Highpass";
+
+        Assert.Equal("Utility/Highpass", Layer(document, "adjust").FilterNode);
+        Assert.NotEqual(before, Plan(document));
+
+        // Back to the five, which is what clearing the path means.
+        Find<Select>(panel, "layer-stack-filter-source").Value = LayerStackView.PresetFilter;
+
+        Assert.Equal("", Layer(document, "adjust").FilterNode);
+        Assert.Equal(before, Plan(document));
+    }
+
+    /// <summary>⚠ Only one of the two is on screen, and no other layer kind grows the row.</summary>
+    /// <remarks>
+    ///     <b>The half that says the exclusivity is visible rather than merely modelled.</b> Both
+    ///     controls exist on every filter row — this panel builds every control and hides the ones
+    ///     the current state does not want, because <c>LayerStackView.Shape</c> does not carry
+    ///     <c>Filter</c> and a row that rebuilt itself from inside its own <c>SelectionChanged</c>
+    ///     would tear down the control being clicked. So "which is in force" is a <c>display</c>, and
+    ///     an artist looking at a filter layer must see exactly one of them.
+    /// </remarks>
+    [Fact]
+    public void A_filter_row_shows_the_kind_or_the_path_and_never_both() {
+        using var fixture = new TexturingFixture();
+
+        Open(fixture, Filtered());
+
+        var panel = Panel(fixture);
+
+        Laid(fixture);
+
+        // ⚠ Geometry after a layout pass rather than the inline `display` this view wrote: an
+        // assertion about the string is true of an element the layout never reached, and `none` is
+        // only worth writing because it takes the control off the screen.
+        Assert.True(Find<Select>(panel, "layer-stack-filter-kind").Width > 0f);
+        Assert.Equal(0f, Find<TextBox>(panel, "layer-stack-filter-node").Width);
+
+        Find<Select>(panel, "layer-stack-filter-source").Value = LayerStackView.NodeFilter;
+        Laid(fixture);
+
+        Assert.Equal(0f, Find<Select>(panel, "layer-stack-filter-kind").Width);
+        Assert.True(Find<TextBox>(panel, "layer-stack-filter-node").Width > 0f);
+    }
+
+    /// <summary>⚠ A stack with no filter layer has no filter row at all.</summary>
+    /// <remarks>
+    ///     <b>Verify the instrument.</b> Every assertion above is read off a row the panel drew for a
+    ///     filter layer; a <c>FilterRows</c> that ignored <c>LayerKind</c> would draw one under every
+    ///     fill in the stack and each of those tests would still pass on the first match. This is the
+    ///     differential that says the row belongs to the layer it is under.
+    /// </remarks>
+    [Fact]
+    public void Only_a_filter_layer_gets_a_filter_row() {
+        using var fixture = new TexturingFixture();
+
+        Open(fixture, Filtered());
+
+        // One filter layer over one fill: exactly one row, not two and not none.
+        Assert.Single(All(Panel(fixture), "layer-stack-filter-row"));
+
+        using var fills = new TexturingFixture();
+
+        Open(fills, Two());
+
+        Missing(Panel(fills), Panel(fixture), "layer-stack-filter-row");
+    }
+
     /// <summary>⚠ A row whose id names two layers is listed and carries no controls.</summary>
     /// <remarks>
     ///     <para>
@@ -1728,6 +1866,19 @@ public class LayerStackEditingTests {
         Assert.Fail("the last blend's foreground is not a uniform");
 
         throw new InvalidOperationException("unreachable");
+    }
+
+    /// <summary>One named layer of the shown set.</summary>
+    static LayerAsset Layer(LayerStackDocument document, string id) =>
+        document.Document.Sets[0].Layers.Single(layer => string.Equals(layer.Id, id, StringComparison.Ordinal));
+
+    /// <summary>The compiled plan as the string two plans are compared by.</summary>
+    static string Plan(LayerStackDocument document) => LayerStackDifferential.Describe(Compile(document));
+
+    /// <summary>A style and layout pass, so an element's geometry is the one on the screen.</summary>
+    static void Laid(TexturingFixture fixture) {
+        fixture.Shell.Document.Update();
+        fixture.Shell.Document.Draw();
     }
 
     static LayerAsset Top(LayerStackDocument document) {
@@ -2059,6 +2210,14 @@ public class LayerStackEditingTests {
 
     /// <summary>The layer <see cref="TwoChannels" /> makes, read back out of the open document.</summary>
     static LayerAsset Only(LayerStackDocument document) => document.Document.Sets[0].Layers[0];
+
+    /// <summary>A constant fill with a filter layer over it, which is #1078's subject.</summary>
+    static LayerStackAsset Filtered() =>
+        Stack(
+            [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+            Fill("bottom", "Bottom", 0.25f),
+            new LayerAsset { Id = "adjust", Name = "Adjust", Kind = LayerKind.Filter }
+        );
 
     static LayerAsset Fill(string id, string name, float grey) =>
         new() {
