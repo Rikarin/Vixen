@@ -105,6 +105,32 @@ public ref struct BitWriter {
     /// <param name="value">The value.</param>
     public void WriteInt32(int value) => Write((uint)value, 32);
 
+    /// <summary>Writes a whole 64-bit value, as two 32-bit halves with the low one first.</summary>
+    /// <param name="value">The value.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Two fixed halves rather than a variable-length integer, and the reason is what
+    ///         64-bit numbers are actually used for.</b> A varint costs one byte for a small number
+    ///         and ten for a large one, and the thing a game puts in a <c>ulong</c> is an account id,
+    ///         a snowflake or a hash — which is to say the large case, every time. Making the
+    ///         documented use 80 bits to save 56 on a case that does not arise is the wrong trade.
+    ///     </para>
+    ///     <para>
+    ///         The halves are what makes it cheap where it matters. Two 32-bit lanes go through
+    ///         <see cref="DeltaCodec" /> as two lanes, so a replicated id that does not move costs
+    ///         two bits a tick and a counter that advances costs seven — which no single 64-bit lane
+    ///         could do, because the codec reads a lane into a <see cref="uint" />.
+    ///     </para>
+    /// </remarks>
+    public void WriteUInt64(ulong value) {
+        Write((uint)value, 32);
+        Write((uint)(value >> 32), 32);
+    }
+
+    /// <summary>Writes a whole 64-bit signed value.</summary>
+    /// <param name="value">The value.</param>
+    public void WriteInt64(long value) => WriteUInt64((ulong)value);
+
     /// <summary>Writes a float by its bits, when it has no declared range to be quantized into.</summary>
     /// <param name="value">The value.</param>
     public void WriteSingle(float value) => Write(BitConverter.SingleToUInt32Bits(value), 32);

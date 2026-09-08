@@ -273,6 +273,22 @@ public sealed class GeneratedWireTests {
             listing.Case($"call/PlayEffect/{name}", Assert.Single(transport.Sent));
         }
 
+        // Sixty-four bit arguments, which are two 32-bit halves with the low one first. A build that
+        // swapped the halves would round-trip against itself and read every id backwards against a
+        // peer, which is exactly the symmetric break only committed bytes catch.
+        foreach (var (name, value) in (ValueTuple<string, ulong>[])[
+            ("zero", 0ul),
+            ("one", 1ul),
+            ("low-half-full", 0xFFFF_FFFFul),
+            ("high-half-only", 0x1_0000_0000ul),
+            ("asymmetric", 0x0123_4567_89AB_CDEFul),
+            ("all-ones", ulong.MaxValue)
+        ]) {
+            transport.Sent.Clear();
+            turret.Rpc.Claim(value, ~value, unchecked((long)value));
+            listing.Case($"call/Claim/{name}", Assert.Single(transport.Sent));
+        }
+
         transport.Sent.Clear();
         turret.Rpc.Salute();
 

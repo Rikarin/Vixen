@@ -233,6 +233,15 @@ public sealed class NetworkRigidBodyCorrectionSystem : SystemBase, IDeclaredAcce
     /// </remarks>
     public long SnappedCount { get; private set; }
 
+    /// <summary>How many were told to stop rather than steered, because the authority says they have settled.</summary>
+    /// <remarks>
+    ///     The counter is here because "did the receiver act on the rest flag" has no other visible
+    ///     answer: a body that is left alone and a body that is being steered by a millimetre of
+    ///     quantisation error look identical for the first few ticks and different for the rest of
+    ///     the match.
+    /// </remarks>
+    public long SettledCount { get; private set; }
+
     /// <inheritdoc />
     public override JobHandle Update(in SystemContext context, JobHandle dependency) {
         Correct(context.World, context.Time.DeltaSeconds);
@@ -273,8 +282,34 @@ public sealed class NetworkRigidBodyCorrectionSystem : SystemBase, IDeclaredAcce
                 var offset = target[index].Position - locals[index].Position;
                 var distance = offset.Length();
 
-                if (distance > settings[index].HardSnapDistance) {
+                // ⚠ The angle half of this was declared, defaulted and never asked (#466): a crate
+                // that ended up on a different face, or a vehicle the client has upside down, was
+                // only ever spun towards the truth by the spring — over however long that took, and
+                // through everything in the way. Same list as the distance, because a body that is
+                // grossly wrong either way wants the same answer.
+                if (distance > settings[index].HardSnapDistance
+                    || AngleBetween(locals[index].Rotation, target[index].Rotation) > settings[index].HardSnapAngle) {
                     snapping.Add(entities[index]);
+
+                    continue;
+                }
+
+                // ⚠ The rest flag crossed the wire and was read by nobody (#465), so a body the
+                // authority had declared asleep was still steered every tick by whatever quantisation
+                // error was left in its position — the creep the flag exists to stop, and exactly
+                // what the component's own remarks promised it prevented. Stopping means writing
+                // zero rather than writing nothing: the body carries the velocity it was last given
+                // until something replaces it.
+                if (bodies[index].IsResting) {
+                    if (world.Has<PhysicsLinearVelocity>(entities[index])) {
+                        world.Get<PhysicsLinearVelocity>(entities[index]).Value = Vector3.Zero;
+                    }
+
+                    if (world.Has<PhysicsAngularVelocity>(entities[index])) {
+                        world.Get<PhysicsAngularVelocity>(entities[index]).Value = Vector3.Zero;
+                    }
+
+                    SettledCount++;
 
                     continue;
                 }
@@ -336,6 +371,37 @@ public sealed class NetworkRigidBodyCorrectionSystem : SystemBase, IDeclaredAcce
     ///     long way and spin most of a revolution to get somewhere it already nearly was.
     /// </remarks>
     static Vector3 AngularError(Quaternion from, Quaternion to, in NetworkRigidBodyCorrection settings) {
+        var axis = Difference(from, to, out var angle);
+
+        return angle <= 0f ? Vector3.Zero : axis * angle * settings.RotationStrength;
+    }
+
+    /// <summary>How far apart two orientations are, in radians, the short way round.</summary>
+    /// <param name="from">Where the body is.</param>
+    /// <param name="to">Where the authority says it is.</param>
+    /// <returns>The angle, in [0, π].</returns>
+    /// <remarks>
+    ///     The same arithmetic <see cref="AngularError" /> does, factored out rather than written
+    ///     twice: a snap threshold measured one way and a correction computed the other is a body
+    ///     that snaps and then spins, or one that never snaps at all.
+    /// </remarks>
+    static float AngleBetween(Quaternion from, Quaternion to) {
+        Difference(from, to, out var angle);
+
+        return angle;
+    }
+
+    /// <summary>The rotation from one orientation to another, as an axis and an angle.</summary>
+    /// <param name="from">Where the body is.</param>
+    /// <param name="to">Where the authority says it is.</param>
+    /// <param name="angle">How far, in radians, in [0, π].</param>
+    /// <returns>The unit axis, or zero when there is no rotation to speak of.</returns>
+    /// <remarks>
+    ///     Taken the short way round — <c>q</c> and <c>-q</c> being the same rotation, without the
+    ///     flip a body a hair past half a turn would be corrected the long way and spin most of a
+    ///     revolution to get somewhere it already nearly was.
+    /// </remarks>
+    static Vector3 Difference(Quaternion from, Quaternion to, out float angle) {
         var shortest = Quaternion.Dot(from, to) < 0f ? new Quaternion(-to.X, -to.Y, -to.Z, -to.W) : to;
         var difference = Quaternion.Normalize(shortest * Quaternion.Conjugate(from));
 
@@ -343,11 +409,13 @@ public sealed class NetworkRigidBodyCorrectionSystem : SystemBase, IDeclaredAcce
         var sine = axis.Length();
 
         if (sine < 1e-6f) {
+            angle = 0f;
+
             return Vector3.Zero;
         }
 
-        var angle = 2f * MathF.Atan2(sine, difference.W);
+        angle = 2f * MathF.Atan2(sine, difference.W);
 
-        return axis / sine * angle * settings.RotationStrength;
+        return axis / sine;
     }
 }

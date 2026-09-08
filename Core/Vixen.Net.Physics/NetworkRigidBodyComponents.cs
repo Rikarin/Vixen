@@ -41,6 +41,13 @@ public struct NetworkRigidBody {
     public Vector3 AngularVelocity;
 
     /// <summary>Whether the body has come to rest and is not being integrated.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read by <c>NetworkRigidBodyCorrectionSystem</c> since #465, and by nobody before
+    ///     it.</b> The paragraph above claimed it was "what the receiver needs in order to stop
+    ///     integrating", and the receiver went on adding a spring correction to a body the authority
+    ///     had declared asleep — which is the creep the flag was added to stop, paid for by one bit
+    ///     a body a tick that bought nothing.
+    /// </remarks>
     public bool IsResting;
 }
 
@@ -67,6 +74,13 @@ public struct NetworkRigidBody {
 ///         is not off by a spring's worth — pulling it there would take seconds and drag it through
 ///         every wall on the way. Past <see cref="HardSnapDistance" /> it is teleported, and that is
 ///         the honest answer rather than a failure of the smoothing.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="HardSnapAngle" /> is the same answer for orientation, and until #466 it
+///         was declared, defaulted and asked by nobody.</b> The paragraph above said "past
+///         <see cref="HardSnapDistance" /> it is teleported" and meant both, while the code tested
+///         only the distance — so a crate that ended up on a different face, or a vehicle the client
+///         has upside down, was spun towards the truth by the spring over however long that took.
 ///     </para>
 /// </remarks>
 [DataContract]

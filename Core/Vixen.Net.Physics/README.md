@@ -109,6 +109,30 @@ packet, and is the shape of a body that slowly drifts to a halt. With no registr
 default `NetworkRules` already states, server-authoritative; note that this is a statement about the
 *object*, so whether **this peer** is that authority still depends on whether it is the server.
 
+## Correcting a body somebody else simulates
+
+A remote body is simulated locally from the velocity it was last sent, and pushed toward the
+authority's pose through the solver as a critically damped spring — never by writing the transform,
+because that is what makes networked physics look like objects teleporting through each other. Past
+`HardSnapDistance` or `HardSnapAngle` it is teleported instead, which is the honest answer for a body
+that respawned or whose owner dropped for a second.
+
+⚠ **Two of those three thresholds were being read, and this section used to describe a system that
+only had one and a half.**
+
+- `HardSnapAngle` was declared, defaulted to π/2 and asked by nobody (#466), while the component's own
+  remarks said a body far out is teleported. So a crate that ended up on a different face, or a
+  vehicle the client had upside down, was spun towards the truth by the spring alone — over however
+  long that took, through everything in the way. The angle now feeds the same snap list as the
+  distance, measured by the same arithmetic the correction uses, so a body cannot snap by one measure
+  and spin by the other.
+- `NetworkRigidBody.IsResting` crossed the wire and was read by nobody (#465). A body the authority
+  had declared asleep still had `offset × PositionStrength` added to its velocity every tick, so it
+  was steered for ever by whatever quantisation error was left in its position — which is precisely
+  the creep the flag exists to stop, paid for at one bit a body a tick. `SettledCount` is how many
+  bodies were told to stop rather than steered; there is no other visible difference between a
+  receiver that reads the flag and one that ignores it until the match has been running a while.
+
 ## Filling the ring
 
 `LagCompensator.Track`, `Forget` and `Capture` are the honest primitives and they take a `BodyHandle`,

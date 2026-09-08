@@ -418,7 +418,13 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         source.AppendLine("    }");
         source.AppendLine();
         source.AppendLine("    /// <summary>One method per handler, each of which sends a packet.</summary>");
-        source.AppendLine($"    public readonly struct RpcSenders(global::{declaringType} target) {{");
+        // ⚠ Every name a sender introduces is one a handler's argument could have had. A
+        // `Claim(ulong shooter, ulong target, long at)` emitted `target.NetworkId` against the
+        // argument: a compile error inside generated code the author cannot open, saying nothing
+        // about the parameter that caused it — and `target`, `router` and `writer` are all ordinary
+        // names for an argument of exactly the calls this generator is for. Hence the prefix, which
+        // is here to be unspeakable rather than to be read.
+        source.AppendLine($"    public readonly struct RpcSenders(global::{declaringType} __target) {{");
 
         for (var i = 0; i < handlers.Count; i++) {
             EmitSender(source, handlers[i], i);
@@ -477,20 +483,20 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         }
 
         source.AppendLine(") {");
-        source.AppendLine("            var router = target.RpcRouter;");
+        source.AppendLine("            var __router = __target.RpcRouter;");
         source.AppendLine();
-        source.AppendLine("            if (router is null) {");
+        source.AppendLine("            if (__router is null) {");
         source.AppendLine("                return;");
         source.AppendLine("            }");
         source.AppendLine();
-        source.AppendLine($"            var method = RpcMethodTable[{index.ToString(CultureInfo.InvariantCulture)}];");
-        source.AppendLine("            var writer = router.BeginCall(method, target.NetworkId);");
+        source.AppendLine($"            var __method = RpcMethodTable[{index.ToString(CultureInfo.InvariantCulture)}];");
+        source.AppendLine("            var __writer = __router.BeginCall(__method, __target.NetworkId);");
 
         foreach (var argument in handler.Arguments) {
             source.AppendLine($"            {Write(handler, argument)}");
         }
 
-        source.AppendLine("            router.EndCall(method, target.NetworkId, ref writer);");
+        source.AppendLine("            __router.EndCall(__method, __target.NetworkId, ref __writer);");
         source.AppendLine("        }");
         source.AppendLine();
     }
@@ -499,7 +505,7 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         WireCodec.Read(in argument, local).Replace(argument.RangeName, RangeName(handler, argument));
 
     static string Write(HandlerModel handler, in WireValue argument) =>
-        WireCodec.Write(in argument, argument.Name).Replace(argument.RangeName, RangeName(handler, argument));
+        WireCodec.Write(in argument, argument.Name, "__writer").Replace(argument.RangeName, RangeName(handler, argument));
 
     static string EmitRegistration(ImmutableArray<string> types) {
         var source = new StringBuilder();
@@ -540,6 +546,8 @@ public sealed class RpcGenerator : IIncrementalGenerator {
             WireKind.UInt16 => "ushort",
             WireKind.Int32 => "int",
             WireKind.UInt32 => "uint",
+            WireKind.Int64 => "long",
+            WireKind.UInt64 => "ulong",
             _ => "float"
         };
 

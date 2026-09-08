@@ -178,6 +178,64 @@ public sealed class ReplicationGeneratorTests {
         Assert.Equal(ReplicationRegistry.HashTypeName(name), Find(typeof(GeneratedTransform)).TypeId);
     }
 
+    /// <summary>A 64-bit field is two lanes, and they are in the order <c>Write</c> produces them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A lane is read into a <see cref="uint" />, so there is no such thing as a 64-bit
+    ///     one</b> — <c>DeltaCodec.TryEncode</c> would simply refuse a layout claiming otherwise, and
+    ///     the component would fall back to whole records forever with nothing said. Two halves are
+    ///     also the better encoding: an id that never moves costs two bits a tick.
+    ///     <c>TheDeclaredLayoutIsTheOneWritten</c> is the runtime half of this; the widths and the
+    ///     order are only visible here.
+    /// </remarks>
+    [Fact]
+    public void A64BitFieldIsTwoLanesInTheOrderItIsWritten() {
+        var (diagnostics, sources) = GeneratorHarness.Run(
+            $$"""
+            {{Preamble}}
+
+            [Replicated]
+            public struct Wide {
+                public ulong Account;
+                public long Offset;
+            }
+            """
+        );
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Severity == DiagnosticSeverity.Error);
+
+        var replicator = Assert.Single(sources, source => source.Contains("WireLane[] Layout", StringComparison.Ordinal));
+
+        Assert.Contains("writer.WriteUInt64(value.Account);", replicator, StringComparison.Ordinal);
+        Assert.Contains("writer.WriteInt64(value.Offset);", replicator, StringComparison.Ordinal);
+        Assert.Contains("reader.TryReadUInt64(out var read0)", replicator, StringComparison.Ordinal);
+        Assert.Contains("reader.TryReadInt64(out var read1)", replicator, StringComparison.Ordinal);
+
+        // Four lanes of thirty-two, low half before high half, each one the delta codec may take a
+        // difference over. Sixty-four unsigned bits with no offset would be a lane the codec throws
+        // the whole component away for.
+        var lanes = replicator[replicator.IndexOf("WireLane[] Layout", StringComparison.Ordinal)..];
+
+        Assert.Contains(
+            """
+            new("Account.Low", 32, true),
+            """,
+            lanes,
+            StringComparison.Ordinal
+        );
+
+        Assert.True(
+            lanes.IndexOf("Account.Low", StringComparison.Ordinal)
+            < lanes.IndexOf("Account.High", StringComparison.Ordinal),
+            "The high half is declared before the low one, which is not the order Write produces."
+        );
+
+        Assert.True(
+            lanes.IndexOf("Account.High", StringComparison.Ordinal)
+            < lanes.IndexOf("Offset.Low", StringComparison.Ordinal),
+            "The two fields' lanes are interleaved."
+        );
+    }
+
     [Fact]
     public void AFieldOfATypeThatCannotBeSent_IsAnError() {
         var (diagnostics, sources) = GeneratorHarness.Run(
