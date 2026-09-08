@@ -211,6 +211,11 @@ zero is a valid-looking value.
   that list that has become clean**. ⚠ Nothing else in this repository can see that defect: a
   duplicated `<summary>` is not a Roslyn diagnostic at any severity, and `GenerateDocumentationFile`
   is off for the whole tooling profile. It parses and loads no workspace, so it is ~20 s for the tree.
+  ⚠ **It now sweeps `.rvn` too**, against `docs/RavenDocCommentExempt.txt` — Raven has the same `///`
+  comments and nothing could see a block stapled to the wrong `func` in one of the 176 committed
+  shaders. That half asks a different question, because prose has no `<summary>` to count: a line
+  finishing a sentence well short of the wrap column with a new sentence on the next line and no
+  `///` separator is two blocks spliced into one.
 - **`CheckArchitecture`** globs directories rather than reading the solution, so it sees the
   out-of-solution mobile/web projects that `Test`, `CheckFormat`, `CheckApi` and `Pack` never evaluate.
 

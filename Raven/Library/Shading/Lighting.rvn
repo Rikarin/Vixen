@@ -210,6 +210,7 @@ struct Lighting {
     /// when its own depth is at least that. `depth <= stored` is the conventional-Z test, and under
     /// reverse-Z it answers backwards: everything occluded tests lit, and the only texels that ever
     /// shadow are the empty ones.
+    ///
     /// `SampleLevel` and not `Sample`, which is not a detail: this is called from compute.
     ///
     /// A shadow atlas has exactly one level, so level 0 is the same texel a derivative-implied lookup

@@ -42,6 +42,15 @@
         <Compile Include="..\..\build\DocCommentRule.cs" Link="DocCommentRule.cs" />
 
         <!--
+            ⚠ And the same rule asked of the other half of this repository's source. `CheckDocComments`
+            parses C#, so a doc block stapled to the wrong `func` in one of the 176 committed `.rvn`
+            files was outside every gate here until #1076 — and the commit that quoted that blind spot
+            as a warning shipped one in the same edit. Linked here so the rule's answer about this
+            tree, and about the two live staples it found, can be read without running a Nuke target.
+        -->
+        <Compile Include="..\..\build\RavenDocCommentRule.cs" Link="RavenDocCommentRule.cs" />
+
+        <!--
             ⚠ And doc 48's exit criterion 11, which is the same shape a third time. The criterion's
             area is two test projects and the roll call that made it mechanical read one of them
             (#883). The walk now takes its directory as a parameter and this project is its second

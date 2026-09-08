@@ -45,6 +45,7 @@ shader Ripples {
     var state: Texture2D
 
     /// Where the advanced field goes, for the compute variant.
+    ///
     /// ⚠ **`rgba16f` and not `rg16f`, and the two spare channels are the price of portability.**
     /// Vulkan's *required* storage-image formats are a short list and two-channel half is not on it —
     /// a device without `StorageImageExtendedFormats` refuses the module outright, which is what the

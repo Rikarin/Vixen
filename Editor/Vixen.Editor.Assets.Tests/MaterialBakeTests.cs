@@ -127,10 +127,22 @@ public sealed class MaterialBakeTests {
 
     /// <summary>Two of the nine usages bind to no feature, and are written anyway.</summary>
     /// <remarks>
-    ///     ⚠ <b>Height has no textured runtime feature</b> —
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/615">#615</a> is that decision — and a
-    ///     mask is § 4.10's input to another graph rather than anything a material samples. A bake
-    ///     that dropped them because nothing binds them would lose the file an artist asked for.
+    ///     A mask is § 4.10's input to another graph rather than anything a material samples, and a
+    ///     bake that dropped it because nothing binds it would lose the file an artist asked for.
+    ///     <para>
+    ///         ⚠ <b>"Height has no textured runtime feature" is what this remark used to say, and it
+    ///         stopped being true without the conclusion changing.</b>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/615">#615</a> closed on height-blended
+    ///         layering, so <c>TexturedMaterialLayersFeature.HeightMap</c> is a textured runtime
+    ///         feature that reads a height map — a <em>four-channel per-layer</em> one, channel
+    ///         <c>i</c> being layer <c>i</c>'s height. What a bake writes is one material's single
+    ///         channel. Two different textures with one English name, which is how a reader who checks
+    ///         the old claim finds the layered feature and concludes the assertion below is the stale
+    ///         half. It is not: <see cref="MaterialMapNaming.Parameter" /> returning null for
+    ///         <see cref="MaterialMapTarget.Height" /> is still right, and the live consumers are
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1065">#1065</a> and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1067">#1067</a>.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void The_two_maps_no_feature_samples_are_still_written() {

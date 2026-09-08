@@ -305,6 +305,18 @@ and belongs in `EditorShaders` with its `--source` closure — and the walk's fl
 `EditorSourceFloor`, which exists so a walk that has gone blind fails rather than deriving an empty
 list and printing success.
 
+⚠ **A second gate reaches editor Raven now, and it is the one this document's own kernels tripped.**
+`CheckShaders` answers "did the committed module drift"; nothing answered "does this doc block
+describe the function it sits above", because `CheckDocComments` parses C#
+([#1076](https://github.com/Rikarin/Vixen/issues/1076)). The commit that quoted that blind spot as a
+warning then inserted a function between `Blend.Combine`'s doc block and `Combine` — an author who
+knew about the defect, was looking for it, and shipped it in the same edit. `RavenDocCommentRule`
+closes it for all 176 committed `.rvn`, ⚠ and the rule #1076 asked for was **measured and refused**:
+"a block whose prose names a different `func` in the same file" reports 49 findings on this tree and
+catches one of the three defects it was written for. What replaced it reads where a block *ends*, and
+found eight — two of them library functions whose documentation had been sitting on a neighbour for
+months.
+
 ⚠ **The mesh-map bakers are the exception and they stay in `Core/`** — `MapBaker` is already there, it
 is CPU arithmetic with no device in it, and its own guide says it runs at import time inside a content
 build. Moving it out to keep this document tidy would be the wrong direction.

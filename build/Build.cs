@@ -407,6 +407,13 @@ partial class Build : NukeBuild {
                 // question and not a Roslyn diagnostic at any severity (#866). See CheckDocComments.
                 CheckDocCommentPlacement();
 
+                // Fifth, and the same argument a fourth time — a folder walk, no workspace, and it
+                // is the only thing in this repository that can see the defect above in a `.rvn`.
+                // ⚠ `CheckDocCommentPlacement` parses C#, so the 176 committed shaders were outside
+                // every gate until #1076; two of the eight blocks it found stapled were library
+                // functions whose own documentation had been on a neighbour for months.
+                CheckRavenDocCommentPlacement();
+
                 // Invoked raw rather than through Nuke's typed settings, whose shape has moved
                 // between versions; the CLI's has not.
                 //

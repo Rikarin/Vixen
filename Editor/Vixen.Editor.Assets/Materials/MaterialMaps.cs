@@ -54,12 +54,27 @@ public enum MaterialMapUsage {
 /// <summary>One file a bake writes, which is not the same list as <see cref="MaterialMapUsage" />.</summary>
 /// <remarks>
 ///     ⚠ <b>Two of these bind to no material feature, and saying so is the point of the type.</b>
-///     <see cref="Height" /> has no textured runtime feature —
-///     <a href="https://github.com/Rikarin/Vixen/issues/615">#615</a> is that decision, and until it
-///     is made a height map is a file an artist and a future feature can read and a material cannot.
 ///     <see cref="Mask" /> is not a material map at all: § 4.10's mask sources read it, and a
 ///     material never does. <see cref="MaterialMapNaming.Parameter" /> returns null for both, and a
 ///     bake writes them without inventing a feature to hang them on.
+///     <para>
+///         ⚠ <b><see cref="Height" /> is the one worth a sentence, because the reason changed and the
+///         conclusion did not.</b> <a href="https://github.com/Rikarin/Vixen/issues/615">#615</a> is
+///         closed, and it resolved to height-blended layering — so a textured runtime feature that
+///         reads a height map now exists, <c>TexturedMaterialLayersFeature.HeightMap</c> under its
+///         <c>HeightBlended</c> permutation. <b>It is not this map.</b> That one is a four-channel
+///         per-layer bundle whose channel <c>i</c> is layer <c>i</c>'s height; a bake writes one
+///         material's single channel. Two different textures with one English name, which is exactly
+///         #615's finding one level along — and wiring a bake's output into that slot is the mistake
+///         this paragraph exists to prevent.
+///     </para>
+///     <para>
+///         The readings that would give this map a feature of its own are still open:
+///         <a href="https://github.com/Rikarin/Vixen/issues/1065">#1065</a> (parallax occlusion) and
+///         <a href="https://github.com/Rikarin/Vixen/issues/1067">#1067</a> (displacement, which no
+///         material feature can be). Until one of those lands, a height map remains a file an artist
+///         and a future feature can read and a material cannot.
+///     </para>
 /// </remarks>
 public enum MaterialMapTarget {
     /// <summary>The albedo map.</summary>

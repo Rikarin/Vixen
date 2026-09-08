@@ -564,14 +564,6 @@ shader ClusteredShading {
     }
 
 
-    /// Where cascade `index` sits in the atlas: its offset in `xy`, its size in `zw`.
-    ///
-    /// `ShadowCascades.AtlasTile`'s arithmetic, in the shader, because the lookup needs the tile's
-    /// *rectangle* and not only the matrix that lands inside it — a projection tells a fragment where
-    /// it would sample and nothing about whether that is still its own tile. Recomputed rather than
-    /// carried in `ShadowCascade`, since it is a function of the index and `CascadeCount` alone and
-    /// both are already here; a field would be a third thing a host has to keep in step with the
-    /// other two.
     /// The finest cascade whose tile actually contains a point, or −1 when none does.
     ///
     /// ⚠ **Containment, not depth**, and that distinction is a defect this file carried for its whole
@@ -676,6 +668,14 @@ shader ClusteredShading {
     }
 
 
+    /// Where cascade `index` sits in the atlas: its offset in `xy`, its size in `zw`.
+    ///
+    /// `ShadowCascades.AtlasTile`'s arithmetic, in the shader, because the lookup needs the tile's
+    /// *rectangle* and not only the matrix that lands inside it — a projection tells a fragment where
+    /// it would sample and nothing about whether that is still its own tile. Recomputed rather than
+    /// carried in `ShadowCascade`, since it is a function of the index and `CascadeCount` alone and
+    /// both are already here; a field would be a third thing a host has to keep in step with the
+    /// other two.
     func CascadeTile(index: int): float4 {
         val columns = CascadeCount <= 1 ? 1 : 2
         val rows = (CascadeCount + columns - 1) / columns
