@@ -4255,6 +4255,15 @@ sealed partial class EditorApplication : IDisposable {
     ///         the context menu follows, and for the same reason: dragging one of five selected rows
     ///         and having four of them stay behind is the behaviour nobody means.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Where it landed among its new siblings is read off the tree and passed on, and
+    ///         until it was, half of this gesture did nothing.</b> <c>TreeView</c> has always
+    ///         distinguished a drop <i>on</i> a row from one <i>between</i> two — that is what the
+    ///         drop indicator draws — and this method read only <c>node.Parent</c>, so every drop
+    ///         landed the entity at the head of its new parent's children. Doc 20 § Part D lists
+    ///         "reorder among siblings" beside "reparent by drag" for that reason: the drag was
+    ///         wired, and the position it carried was discarded one call short of the document.
+    ///     </para>
     /// </remarks>
     void Dropped(TreeNode node) {
         if (node.Tag is not Entity moved) {
@@ -4264,8 +4273,26 @@ sealed partial class EditorApplication : IDisposable {
         var parent = node.Parent is { Tag: Entity target } ? target : Entity.Null;
         var entities = scene.Selection.Contains(moved) ? scene.Selection.ToList() : [moved];
 
-        scene.Reparent(entities, parent);
+        scene.Reparent(entities, parent, Preceding(node));
         hierarchyStale = true;
+    }
+
+    /// <summary>The entity a moved row now sits behind, or none when it is first.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read after the tree has moved the node, which is the only moment it is knowable.</b>
+    ///     <c>TreeView.MoveNode</c> raises <c>Moved</c> once the row is where the pointer put it, so
+    ///     the row above it in its new parent is the sibling the document has to land behind — and a
+    ///     <c>DropPosition</c> handed over instead would be a second encoding of the same fact for
+    ///     this method to get wrong.
+    /// </remarks>
+    static Entity Preceding(TreeNode node) {
+        if (node.Parent is not { } parent) {
+            return Entity.Null;
+        }
+
+        var index = parent.IndexOf(node);
+
+        return index > 0 && parent.Children[index - 1].Tag is Entity before ? before : Entity.Null;
     }
 
     void RebuildHierarchy() {

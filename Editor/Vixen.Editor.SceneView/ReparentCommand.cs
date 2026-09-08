@@ -50,18 +50,46 @@ public sealed class ReparentCommand : IEditorCommand {
     /// <inheritdoc />
     public string Name => moves.Length == 1 ? "Reparent Entity" : "Reparent Entities";
 
+    /// <summary>Where the whole move lands among its new siblings, before anything has happened.</summary>
+    readonly Entity landsAfter;
+
     /// <summary>Describes a move that has not happened yet.</summary>
     /// <param name="document">The scene the entities belong to.</param>
     /// <param name="entities">What to move.</param>
     /// <param name="parent">Their new parent, or <see cref="Entity.Null" /> to make them roots.</param>
+    /// <param name="after">
+    ///     Which of the new parent's children to land behind, or <see cref="Entity.Null" /> to land
+    ///     first.
+    /// </param>
     /// <remarks>
-    ///     ⚠ <b>What cannot move is dropped here rather than refused at execution.</b> An entity
-    ///     already under that parent, one that is dead, and one that is an ancestor of the parent —
-    ///     which would make a cycle the transform pass walks for ever — are all filtered now, so
-    ///     <see cref="IsEmpty" /> is what a caller asks before putting this on the stack. A command
-    ///     that executed to nothing would be an undo step that appears to do nothing.
+    ///     <para>
+    ///         ⚠ <b>What cannot move is dropped here rather than refused at execution.</b> An entity
+    ///         that is dead, one that is an ancestor of the parent — which would make a cycle the
+    ///         transform pass walks for ever — and one already exactly where it is being asked to go
+    ///         are all filtered now, so <see cref="IsEmpty" /> is what a caller asks before putting
+    ///         this on the stack. A command that executed to nothing would be an undo step that
+    ///         appears to do nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>"Already under that parent" stopped being a refusal when <paramref name="after" />
+    ///         arrived, and that is the whole of what makes sibling order reachable.</b> A drop
+    ///         between two rows of one parent is a move whose parentage does not change and whose
+    ///         position does; the old filter dropped exactly those, so the outliner could reparent
+    ///         and could never reorder. What is filtered now is a move that changes neither.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An <paramref name="after" /> that is itself moving is walked back from.</b>
+    ///         Dropping three rows behind a fourth that is in the same drag would otherwise land them
+    ///         behind a sibling that is no longer where it was — <c>Hierarchy.SetParentAfter</c>
+    ///         throws on a neighbour under a different parent, and a drag is not the moment to throw.
+    ///     </para>
     /// </remarks>
-    public ReparentCommand(SceneDocument document, IEnumerable<Entity> entities, Entity parent) {
+    public ReparentCommand(
+        SceneDocument document,
+        IEnumerable<Entity> entities,
+        Entity parent,
+        Entity after = default
+    ) {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(entities);
 
@@ -70,12 +98,10 @@ public sealed class ReparentCommand : IEditorCommand {
         List<Move> planned = [];
         var world = document.World;
 
+        landsAfter = Settled(world, after, parent, entities);
+
         foreach (var entity in entities) {
             if (!world.IsAlive(entity) || entity == parent) {
-                continue;
-            }
-
-            if (Hierarchy.ParentOf(world, entity) == parent) {
                 continue;
             }
 
@@ -101,7 +127,55 @@ public sealed class ReparentCommand : IEditorCommand {
             );
         }
 
-        moves = [.. planned];
+        // ⚠ **The redundancy test is over the chain and not per entity, and doing it per entity is
+        // the bug that looks right.** Each of these lands behind the one before it, so a drag whose
+        // first row is already where it is going still moves the rest — dropping A back where it was
+        // and skipping it would leave B landing in front of A rather than behind it. What is empty
+        // is a move where *every* entity keeps its parent and its neighbour.
+        moves = planned.Count > 0 && Changes(world, planned, parent, landsAfter) ? [.. planned] : [];
+    }
+
+    /// <summary>Whether a planned chain would move anything at all.</summary>
+    static bool Changes(World world, List<Move> planned, Entity parent, Entity after) {
+        var behind = after;
+
+        foreach (var move in planned) {
+            if (move.WasParent != parent || move.WasAfter != behind) {
+                return true;
+            }
+
+            behind = move.Entity;
+        }
+
+        return false;
+    }
+
+    /// <summary>The neighbour to land behind, once the ones that are themselves moving are skipped.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A neighbour that is not a child of the destination is no position at all.</b>
+    ///     <c>Hierarchy.SetParentAfter</c> throws on one, which is right for a primitive and wrong
+    ///     for a drag — so a target that has been dragged away, or that never was a sibling, degrades
+    ///     to "first" here rather than at the bottom of an undo.
+    /// </remarks>
+    static Entity Settled(World world, Entity after, Entity parent, IEnumerable<Entity> moving) {
+        while (!after.IsNull) {
+            var carried = false;
+
+            foreach (var entity in moving) {
+                if (entity == after) {
+                    carried = true;
+                    break;
+                }
+            }
+
+            if (!carried && Hierarchy.ParentOf(world, after) == parent) {
+                return after;
+            }
+
+            after = Hierarchy.PreviousSiblingOf(world, after);
+        }
+
+        return Entity.Null;
     }
 
     /// <summary>Whether there is nothing left to do.</summary>
@@ -111,11 +185,20 @@ public sealed class ReparentCommand : IEditorCommand {
     public int Count => moves.Length;
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Each lands behind the one before it, which is what keeps a multi-row drag in the
+    ///     order it was dragged.</b> Placing every entity behind the same neighbour reverses them,
+    ///     and placing them all first — which is what this did before there was a destination
+    ///     position at all — reverses them and moves them to the head of the list as well.
+    /// </remarks>
     public void Do(EditorContext context) {
         ArgumentNullException.ThrowIfNull(context);
 
+        var behind = landsAfter;
+
         foreach (var move in moves) {
-            Place(move.Entity, move.Parent, Entity.Null);
+            Place(move.Entity, move.Parent, behind);
+            behind = move.Entity;
         }
 
         Done(context);
