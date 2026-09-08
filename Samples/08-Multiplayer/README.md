@@ -174,7 +174,7 @@ backwards and an acknowledgement that is lost costs one tick.
 
 ## What is not here
 
-- **Lag compensation**, as above. Deferred within the phase, blocked on Phase 8.
+- **Lag compensation**, as above. ⚠ **Not blocked on Phase 8 any more, and not on the engine at all**: `Vixen.Net.Physics` has the pose ring, the clamp, the rewind scope and a `LagCompensationSystem` that fills the ring off a `LagCompensated` tag ([#515](https://github.com/Rikarin/Vixen/issues/515)). All of it rewinds *colliders*, and this arena has none — a fighter is a `NetworkTransform` and the hit test is a dot product. Wiring it up means giving the arena a `PhysicsScene`, which is a rewrite of the sample rather than a call.
 - **Client-side prediction.** Explicitly not in Phase 9 — see
   [docs/plan/16](../../docs/plan/16-networking.md). The owner's fighter is interpolated like everyone
   else's, so it answers a round trip late; `OwnerSmoothing` is built and this sample does not need

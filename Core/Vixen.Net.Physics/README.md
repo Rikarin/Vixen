@@ -109,6 +109,31 @@ packet, and is the shape of a body that slowly drifts to a halt. With no registr
 default `NetworkRules` already states, server-authoritative; note that this is a statement about the
 *object*, so whether **this peer** is that authority still depends on whether it is the server.
 
+## Filling the ring
+
+`LagCompensator.Track`, `Forget` and `Capture` are the honest primitives and they take a `BodyHandle`,
+which a game gets out of a component it did not write. ⚠ **So nothing called them.** Until
+[#515](https://github.com/Rikarin/Vixen/issues/515) the only file in the repository that constructed a
+compensator was this package's own test, which means no rewind had ever run in a program and the ring's
+memory shape, `ClampFor`'s clamping and the rewind/restore ordering had never met a frame.
+
+`LagCompensationSystem` is the join. A server adds it once and tags what gets shot at:
+
+```csharp
+loop.Add(new LagCompensationSystem(compensator, session.Clock));
+world.Add<LagCompensated>(pawn);
+```
+
+The system reconciles the ring against the world every tick — a tagged body joins, a body whose tag or
+whose entity went away leaves — and captures after the physics writeback and before the replication
+capture, which is where `Capture`'s own remarks say the history and the snapshot have to agree about
+the instant. What stays the game's is the rewind, because only the game knows what a shot is.
+
+⚠ **A capture during a rewind throws and is not caught.** The mistake is self-reinforcing: the ring
+fills with the historical poses it just installed, and the result is a hit-registration bug that rots
+for weeks. A `RewindScope` left undisposed is a bug in the game's shot code, and that is where the
+stack trace should point.
+
 ## Owed
 
 - **The hit-claim message itself.** This validates a claim; nothing yet defines one. A `[ServerRpc]`
@@ -123,7 +148,14 @@ default `NetworkRules` already states, server-authoritative; note that this is a
   tick beyond the RPC rate limit, and a rewind is more expensive than most calls. The rate limiter is
   the right place; it does not currently know that some calls cost more than others.
 - **Drawing it.** `PhysicsDebugDraw` plus a history is exactly what "show me where the server thought
-  everyone was" needs, and a disputed kill is unanswerable without it.
+  everyone was" needs, and a disputed kill is unanswerable without it. `LagCompensator.TryGetHistory`
+  says in its own doc comment that it is "for a diagnostic that wants to draw it", and its only caller
+  is still a test.
+- **A sample that shoots.** ⚠ `Samples/08-Multiplayer` *does* have a hitscan — `Arena.Resolve` — and
+  #515 said it did not. What it has no trace of is physics: a fighter is a `NetworkTransform` and the
+  hit test is a dot product, so there is nothing for a rewind to move. Wiring the compensator into it
+  means giving the arena a `PhysicsScene` and bodies, which is a rewrite of the sample rather than a
+  call, and the end-to-end behaviour is therefore still unmeasured in a program.
 
 ## Predicted players
 

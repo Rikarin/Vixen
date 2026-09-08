@@ -59,11 +59,18 @@ internal sealed class Fighter {
 ///         against where the fighters are <i>now</i>. The shooter aimed at where they saw them, which
 ///         is their interpolation delay plus half their round trip in the past — so at 100 ms and 6
 ///         m/s a crossing target is about 60 cm from where the shot is judged, and a fast player
-///         misses shots they saw land. Fixing it means keeping a ring of positions keyed by
-///         <see cref="Tick" /> and rewinding to the shooter's tick before the cast, which is Phase 9's
-///         one deferred item: it rewinds colliders, and <c>Vixen.Physics</c> is Phase 8. The tick
-///         history it needs is keyed by a type that already exists, and this method is the one that
-///         would change.
+///         misses shots they saw land.
+///     </para>
+///     <para>
+///         ⚠ <b>It is no longer blocked on the layer, and what it is blocked on is this sample.</b>
+///         <c>Vixen.Net.Physics</c> has the ring, the clamp, the rewind scope and — since
+///         <see href="https://github.com/Rikarin/Vixen/issues/515" /> — a
+///         <c>LagCompensationSystem</c> that fills the ring off a <c>LagCompensated</c> tag. All of it
+///         rewinds <i>colliders</i>, and this arena has none: a fighter here is a
+///         <see cref="NetworkTransform" /> and <see cref="Nearest" /> is a dot product, so wiring the
+///         compensator in would mean giving the arena a <c>PhysicsScene</c> and bodies. That is a
+///         rewrite of the sample rather than a call, and it is the honest reason this is still a
+///         paragraph.
 ///     </para>
 /// </remarks>
 internal sealed class Arena {

@@ -8,7 +8,7 @@ api: [T:Vixen.Net.Engine.Players.PlayerMoveInput, T:Vixen.Net.Engine.Players.Pla
 tags: [networking, players, prediction, physics]
 since: 0.1
 status: stable
-related: [engine/players-and-possession, engine/character-movement, engine/networked-prefabs, engine/replicating-behaviour-state, engine/smoothing-received-motion]
+related: [engine/players-and-possession, engine/character-movement, engine/networked-prefabs, engine/replicating-behaviour-state, engine/smoothing-received-motion, engine/lag-compensation]
 ---
 
 ## What it is
@@ -181,6 +181,8 @@ that goes out more often than a snapshot.
   are a pure function.
 - [Smoothing received motion](engine/smoothing-received-motion) — the complement: everybody *else's*
   avatar is interpolated backwards rather than predicted forwards.
+- [Lag compensation](engine/lag-compensation) — and what the server does about the fact that both of
+  those put the shooter and the target on different clocks.
 
 ⚠ **Two traps worth knowing about, both of which produce a green number measuring nothing.** A
 hand-driven tick must call `World.AdvanceVersion()`, or every `WithChanged` filter in the engine

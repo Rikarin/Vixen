@@ -8,7 +8,7 @@ api: [T:Vixen.Net.Engine.NetworkTransformInterpolateSystem]
 tags: [networking, interpolation, transforms, motion]
 since: 0.1
 status: preview
-related: [engine/networked-players, engine/parent-relative-transforms, engine/round-trip-and-jitter, engine/pose-precision]
+related: [engine/networked-players, engine/parent-relative-transforms, engine/round-trip-and-jitter, engine/pose-precision, engine/lag-compensation]
 ---
 
 ## What it is
@@ -97,3 +97,5 @@ the rider at the middle of the map for as long as the vehicle takes to appear.
 - [Round trip and jitter](round-trip-and-jitter.md) — where the interpolation delay comes from.
 - [Networked players](networked-players.md) — the other half of motion: the object you control is
   predicted forward, not interpolated back.
+- [Lag compensation](lag-compensation.md) — what the server does about the delay this deliberately
+  introduces.
