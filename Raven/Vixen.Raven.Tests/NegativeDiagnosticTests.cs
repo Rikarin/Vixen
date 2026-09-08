@@ -2877,14 +2877,20 @@ public class NegativeDiagnosticTests {
     ///     positions below is refused, including the two where a generic forwards its own type
     ///     parameter to another generic, which is what a container of containers is.
     ///     <para>
-    ///         ⚠ <b>The first widening left this green, and what it found is dead code.</b> Deleting
-    ///         <c>SatisfiesConstraint</c>'s third arm — the one whose comment says "a type parameter
-    ///         passed through satisfies what its own constraints imply" — changes no answer, because
-    ///         <c>TypeParameterSymbol.Interfaces</c> already returns its <c>ConstraintTypes</c>, so
-    ///         <c>IsSubtypeOf</c> walks them one arm earlier and returns first. The arm is reachable
-    ///         only for a constraint that is not a <c>NamedTypeSymbol</c> — a type parameter
-    ///         constrained by another — which nothing here exercises. What does go red is removing
-    ///         the <c>IsSubtypeOf</c> arm, and it reports all four positions.
+    ///         ⚠ <b>The first widening left this green, which said something about this fixture and
+    ///         not about the arm.</b> Deleting <c>SatisfiesConstraint</c>'s third arm — the one whose
+    ///         comment says "a type parameter passed through satisfies what its own constraints
+    ///         imply" — changes no answer <em>here</em>, because
+    ///         <c>TypeParameterSymbol.Interfaces</c> returns its <c>ConstraintTypes</c> filtered to
+    ///         the named ones, so <c>IsSubtypeOf</c> walks them one arm earlier and returns first.
+    ///         What goes red on all four positions below is removing the <c>IsSubtypeOf</c> arm, and
+    ///         that is the widening this fixture records.
+    ///     </para>
+    ///     <para>
+    ///         The arm is not dead: it is reached by a constraint that is <em>not</em> a
+    ///         <c>NamedTypeSymbol</c>, and
+    ///         <see cref="A_type_parameter_constrained_by_another_type_parameter_is_allowed" /> is
+    ///         the fixture that gets there.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -2922,6 +2928,78 @@ public class NegativeDiagnosticTests {
                     [Semantic("SV_Target")]
                     func Fragment(): float4 {
                         return held.direct.item.Tint()
+                    }
+                }
+
+                """
+            )
+        );
+
+    /// <summary>
+    ///     A type parameter whose constraint is another type parameter, forwarded into a generic
+    ///     that wants what the second one guarantees.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This refutes what the fixture above used to say, and #454 with it.</b> The
+    ///         claim was that <c>SatisfiesConstraint</c>'s third arm is unreachable for every
+    ///         constraint Raven can express — an open question left open because nothing in the
+    ///         suite wrote <c>where T : U</c>. It binds, and <c>Relay</c> below reaches the arm:
+    ///         <c>T</c>'s only constraint is <c>U</c>, which is a <c>TypeParameterSymbol</c> and so
+    ///         is filtered out of <c>TypeParameterSymbol.Interfaces</c>
+    ///         (<c>constraintTypes.OfType&lt;NamedTypeSymbol&gt;()</c>) — leaving
+    ///         <c>IsSubtypeOf</c> nothing to walk and the third arm the only one that can answer.
+    ///     </para>
+    ///     <para>
+    ///         Proved by deletion, which is the widening for a rule that only ever says yes:
+    ///         replacing the arm with <c>return false</c> reports
+    ///         <c>RVN2096: Type argument 'T' does not satisfy the constraint 'A.Shaded' on type
+    ///         parameter 'T' of 'Box'</c> here, while
+    ///         <see cref="A_type_argument_satisfying_a_constraint_indirectly_is_allowed" /> stays
+    ///         green. So the arm is load-bearing rather than redundant, and deleting it as dead code
+    ///         would have started refusing a program the language accepts.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it cannot do yet is be instantiated</b>, which is
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1055">#1055</see>:
+    ///         <c>Relay&lt;Leaf, Leaf&gt;</c> is refused, because <c>CheckConstraints</c> compares
+    ///         the argument against the parameter's constraint <em>as declared</em> and never
+    ///         substitutes the argument given for <c>U</c>. That is why nothing here constructs one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_type_parameter_constrained_by_another_type_parameter_is_allowed() =>
+        Silent(
+            "RVN2096",
+            Semantic(
+                """
+                package A
+
+                protocol Shaded {
+                    func Tint(): float4
+                }
+
+                struct Box<T> where T : Shaded {
+                    var item: T
+                }
+
+                struct Leaf : Shaded {
+                    var value: float4
+
+                    func Tint(): float4 => value
+                }
+
+                struct Relay<T, U> where U : Shaded where T : U {
+                    var inner: Box<T>
+                }
+
+                shader S {
+                    var held: Box<Leaf>
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        return held.item.Tint()
                     }
                 }
 
