@@ -90,7 +90,32 @@ nobody can act on.
 ⚠ **What comes back is copied.** The flattening copies each `float[]` on the way in, so a resolver may
 reuse its buffers.
 
-## Related
+## Examples
+
+A resolver that answers one port with a computed number, and declines the rest:
+
+```csharp no-compile="illustrative — a real front end folds through its own expression compiler"
+sealed class Doubler : ISubGraphValues {
+    public bool Claims(PortDefinition port, string key) =>
+        key == "x2:" + port.Name && port.Kind is PortKind.Float;
+
+    public bool Resolve(SubGraphScope scope, PortDefinition port, string key, out float value) {
+        value = port.Default.Length > 0 ? port.Default[0] * 2f : 0f;
+
+        return true;
+    }
+}
+```
+
+⚠ **`Claims` is asked before `Resolve`, and it is what keeps a front end's convention out of the
+graph model.** The flattener knows nothing about `x2:` or about `=`; it asks whether this resolver
+owns the key it found, and offers the port only if the answer is yes.
+
+⚠ **Only scalar kinds are worth claiming.** A resolver answers *one number*, and the flattener writes
+that as the port's whole value — so claiming a `Float4` would splat one lane across four. The texture
+graph's own resolver names `Float`, `Int` and `Bool` positively for that reason.
+
+## See also
 
 - [Compiling a texture graph](texture-graph-compiling.md) — the front end that implements this, and
   the `=` convention it keeps to itself
