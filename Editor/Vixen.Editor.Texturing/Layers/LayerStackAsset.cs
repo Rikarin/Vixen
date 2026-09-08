@@ -63,19 +63,47 @@ enum LayerFillSource {
     Texture = 1,
 
     /// <summary>
-    ///     A published <c>.vxtexgraph</c>, by reference. ⚠ Not compiled in this build — a graph fill
-    ///     is a sub-graph inlined into the stack's graph, which needs the
-    ///     <c>ISubGraphSource</c> a project supplies, and that arrives with M8's generators
-    ///     (<a href="https://github.com/Rikarin/Vixen/issues/573">#573</a>).
+    ///     A published <c>.vxtexgraph</c>, by reference: a sub-graph inlined into the stack's graph.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This said "not compiled in this build" and it has been compiled, on a device, since
+    ///     M8</b> — <a href="https://github.com/Rikarin/Vixen/issues/1045">#1045</a>. The
+    ///     <c>ISubGraphSource</c> the old remark said was missing is what
+    ///     <c>LayerStackCompiler.Library</c> supplies and what both <c>Compile</c> overloads take;
+    ///     <c>LayerStackGraph.Fill</c> has a complete case that resolves the path against the
+    ///     registry and refuses a graph with more than one image output by name; and
+    ///     <c>ProjectCompoundDeviceTests</c> bakes one on a real adapter.
+    ///     ⚠ <b>A doc comment saying a member does not work is read as a decision</b>, which is why
+    ///     this is worth a line rather than a deletion: the next author who wants a graph fill reads
+    ///     it, believes the feature is owed, and builds a second path to it.
+    /// </remarks>
     Graph = 2
 }
 
 /// <summary>Which adjustment a filter layer applies to everything under it.</summary>
 /// <remarks>
-///     Doc 48 § D10 names "levels, HSL, blur, a graph with an <c>Input</c>". The first three are node
-///     types this build has; the fourth is <see cref="LayerFillSource.Graph" />'s question and has the
-///     same answer.
+///     <para>
+///         Doc 48 § D10 names "levels, HSL, blur, a graph with an <c>Input</c>". The first three are
+///         node types this build has.
+///     </para>
+///     <para>
+///         ⚠ <b>The fourth used to be described here as "<see cref="LayerFillSource.Graph" />'s
+///         question, with the same answer", and that answer has been <em>yes</em> since M8</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1045">#1045</a>. A graph fill compiles,
+///         on a device, in two test files; so a reader who took this line to mean "a graph
+///         adjustment is owed for the same reason a graph fill is" was reading a claim that had
+///         stopped being true of either half.
+///     </para>
+///     <para>
+///         ⚠ <b>What is genuinely not expressible is a graph adjustment on a <em>filter layer</em>,
+///         and it is not for the reason the old line gave.</b> <c>LayerStackGraph.Adjustment</c>
+///         takes its node type from this enum and from nothing else, so a filter layer can only be
+///         one of these five. A mask's adjustments have no such limit —
+///         <see cref="MaskEffectAsset.Node" /> names a node type, which is any published compound —
+///         so § D10's fourth is already sayable of a mask and not of a layer. Closing that is
+///         giving <see cref="LayerAsset" /> the member <see cref="MaskEffectAsset" /> already has,
+///         not adding a sixth member here.
+///     </para>
 /// </remarks>
 enum LayerFilterKind {
     /// <summary>An input range remapped through a gamma into an output range.</summary>
