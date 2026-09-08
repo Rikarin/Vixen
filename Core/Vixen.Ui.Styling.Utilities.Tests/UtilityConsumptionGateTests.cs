@@ -508,6 +508,149 @@ public class UtilityConsumptionGateTests {
             StringComparer.Ordinal
         );
 
+    /// <summary>A scene carrying a transition says which properties it may answer for.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The landmine #973 stepped on, disarmed before the next scene rather than after
+    ///         it.</b> <c>UtilityConsumptionProbe.Channels</c> unions its verdict over every scene, so
+    ///         a single scene that reacts to an <i>arbitrary</i> injected declaration makes every
+    ///         property in the ledger read as consumed — and every scene that ever did that carried a
+    ///         running transition. The <c>mask-type</c> canary in <c>ArbitraryPropertyTests</c>
+    ///         catches such a scene once it has landed; this refuses it at the point it is written.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The rule is on the ingredient and not on the symptom, deliberately.</b> A test
+    ///         that asked "does this scene poison the table" would have to measure every property
+    ///         against every scene, which is the whole gate again and the reason the gate is slow. A
+    ///         test that asks "does this scene declare a transition" is a substring, and the honest
+    ///         cost of it being conservative is that a transition scene has to name five properties.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And the scene list is asserted non-empty first: a rule applied to nothing passes
+    ///         vacuously, which is the failure mode this whole file is about.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_scene_carrying_a_transition_says_which_properties_it_may_answer_for() {
+        var scenes = UtilityConsumptionProbe.Scenes;
+
+        Assert.NotEmpty(scenes);
+
+        var transitional = scenes
+            .Where(scene => scene.Css.Contains("transition-property", StringComparison.Ordinal))
+            .ToList();
+
+        // The three that exist today — `animated`, `primed`, `discrete`. Named as a count rather than
+        // by name so the assertion is about the rule having subjects, not about which they are.
+        Assert.NotEmpty(transitional);
+
+        foreach (var scene in transitional) {
+            Assert.True(
+                scene.Observes is { Count: > 0 },
+                $"scene '{scene.Name}' declares a transition and no `Observes` list. A running "
+                + "transition makes a scene's frames depend on more than the declaration under test, "
+                + "and one such scene answers for the whole registry — see #973."
+            );
+        }
+
+        // And nothing else declares one, because a scene whose only moving part IS the injected
+        // declaration is a valid observer for everything and narrowing it would lose real verdicts.
+        foreach (var scene in scenes.Except(transitional)) {
+            Assert.Null(scene.Observes);
+        }
+    }
+
+    /// <summary>The scene from #973 cannot answer for a property it is not an observer for.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The scene is <c>3a4fbef51</c>'s <c>discrete</c> verbatim — <c>visibility</c> under
+    ///         <c>transition-property: all</c>, the arrangement that made every property in the ledger
+    ///         read as consumed and cost a revert. It is held here rather than in the live list
+    ///         because what is being asserted is what the mechanism does to it, and because the
+    ///         acceptance test then survives the live scene being rewritten a third time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It no longer poisons, and that is a measurement rather than an assumption —
+    ///         see <see cref="The_scene_from_973_no_longer_reacts_to_a_property_nothing_reads" />.</b>
+    ///         So the confinement is proved against a reaction the scene demonstrably still has:
+    ///         <c>transition-delay</c> moves this scene's layout and its paint, and the scene is not
+    ///         an observer for it. Unguarded it answers; guarded it does not. That is the same claim
+    ///         the <c>mask-type</c> canary makes, asserted where there is something to confine —
+    ///         asserting it on <c>mask-type</c> today would pass with the whole mechanism deleted.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And the last assertion is the half that stops "observes nothing" being an answer: a
+    ///         scene silenced into uselessness would satisfy every confinement claim above it and
+    ///         take a real verdict with it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_scene_from_973_cannot_reach_a_property_it_does_not_observe() {
+        var unguarded = new ProbeScene("poison-unguarded", PoisonCss);
+
+        var guarded = new ProbeScene(
+            "poison-guarded",
+            PoisonCss,
+            Observes: ["transition-behavior", "transition-duration", "transition-property"]
+        );
+
+        // The reaction, measured. This scene moves under a `transition-delay` and is not one of the
+        // scenes anybody decided should answer about delays.
+        Assert.NotEmpty(UtilityConsumptionProbe.Channels([unguarded], "transition-delay", "75ms"));
+
+        // The same scene, declared the way the rule above requires. Its sensitivity is unchanged and
+        // its reach is not.
+        Assert.Empty(UtilityConsumptionProbe.Channels([guarded], "transition-delay", "75ms"));
+
+        Assert.NotEmpty(UtilityConsumptionProbe.Channels([guarded], "transition-behavior", "allow-discrete"));
+    }
+
+    /// <summary>⚠ The #973 scene does not poison this tree, two days after it did.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Recorded because #990 assumes the opposite, and because a mechanism built against
+    ///         a symptom that has gone is a mechanism nobody can tell is working.</b> On 2026-09-06
+    ///         this scene made <c>Channels</c> answer <c>hit, layout, paint</c> for
+    ///         <c>mask-type</c> — a property no family emits, nothing registers and nothing reads.
+    ///         Against this tree it answers nothing for it, and nothing for <c>user-select</c> or
+    ///         <c>border-inline-start-color</c> either, which are the two allow-list lines the lie
+    ///         told the next reader to delete.
+    ///     </para>
+    ///     <para>
+    ///         So the confinement above is insurance rather than a repair, and this test is what says
+    ///         which of the two it is on any given day. ⚠ If it ever goes red the finding is
+    ///         <i>good</i>: the poison is reproducible again, and
+    ///         <see cref="The_scene_from_973_cannot_reach_a_property_it_does_not_observe" /> should
+    ///         be moved back onto <c>mask-type</c>, which is the sharper subject.
+    ///     </para>
+    ///     <para>
+    ///         What closed it was not looked for and is not claimed here. Fifteen batches merged
+    ///         between the revert and this measurement.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_scene_from_973_no_longer_reacts_to_a_property_nothing_reads() {
+        var scene = new ProbeScene("poison-unguarded", PoisonCss);
+
+        // Not a scene that reacts to nothing — that would make the three claims below vacuous.
+        Assert.NotEmpty(UtilityConsumptionProbe.Channels([scene], "transition-behavior", "allow-discrete"));
+
+        Assert.Empty(UtilityConsumptionProbe.Channels([scene], "mask-type", "luminance"));
+        Assert.Empty(UtilityConsumptionProbe.Channels([scene], "user-select", "none"));
+        Assert.Empty(UtilityConsumptionProbe.Channels([scene], "border-inline-start-color", "#ff0000"));
+    }
+
+    /// <summary>The scene reverted in #973, kept verbatim as the subject of the two tests above.</summary>
+    const string PoisonCss = """
+        #host  { display: flex; flex-direction: row; width: 120px; height: 46px; align-items: stretch; }
+        #probe { display: flex; flex-direction: row; flex-wrap: wrap; width: 44px;
+                 background-color: #204080; color: #e0e0e0; visibility: visible;
+                 transition-property: all; transition-duration: 200ms;
+                 transition-timing-function: linear; }
+        #probe.moved { visibility: hidden; }
+        #after { width: 96px; height: 20px; background-color: #a0a040; }
+        """;
+
     /// <summary>What the run measured, printed whether it passed or not.</summary>
     /// <remarks>
     ///     ⚠ <b>The allow-list is only a deterrent if somebody sees it.</b> A silent pass is how a list
