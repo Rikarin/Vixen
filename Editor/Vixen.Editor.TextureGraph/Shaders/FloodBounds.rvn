@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 package Vixen.Editor.TextureGraph.Shaders
 
 // One iteration of the label propagation doc 48 § 4.5's `Flood Fill` is, and § 4.5 is right that it

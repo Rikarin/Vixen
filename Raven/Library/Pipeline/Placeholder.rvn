@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 package Vixen.Shaders.Pipeline
 
 // What a development build draws with while the shader it actually wants is being compiled.

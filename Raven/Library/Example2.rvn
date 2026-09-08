@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 package Vixen.Test
 
 // A compute shader, end to end: this file parses, binds, lowers, and generates GLSL that

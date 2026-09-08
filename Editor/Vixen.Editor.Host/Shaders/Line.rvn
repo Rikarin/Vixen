@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 package Vixen.Editor.Shaders
 
 // A world-space line segment: the grid, the axis markers, the parent links, the gizmo.

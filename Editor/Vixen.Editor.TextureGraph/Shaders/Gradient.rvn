@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
 package Vixen.Editor.TextureGraph.Shaders
 
 // Doc 48 § 4.1's gradient: linear · radial · angular · reflected, with an angle, a centre and a ramp.
