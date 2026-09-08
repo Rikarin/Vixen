@@ -153,6 +153,68 @@ public class ImportViewTests {
         Assert.Equal(1, raised);
     }
 
+    /// <summary>A row of the ladder is the mip control, and pressing one moves the selection.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>SetMipLevel</c> had no production caller at all</b>, so the level the preview asks
+    ///     for could only ever be zero — the rows drew a chain nobody could point at.
+    ///     <see href="https://github.com/Rikarin/Vixen/issues/610">#610</see>. Pressed through the
+    ///     pointer rather than by calling the method, because the method was never the missing half.
+    /// </remarks>
+    [Fact]
+    public void PressingALadderRowPreviewsThatLevel() {
+        using var harness = new ViewHarness();
+
+        var document = new TextureImportDocument(harness.Project.Project, AssetId.New(), Image(harness.Project));
+        var view = harness.Ui.Document.Root.Add<TextureImportView>();
+
+        view.Show(document);
+        harness.Ui.Frame();
+
+        var rows = Rows(view);
+
+        Assert.True(rows.Count > 2, "a 32×32 source has a chain worth pressing at");
+        Assert.Equal(0, view.MipLevel);
+        Assert.True(rows[0].HasClass("selected"));
+
+        var raised = 0;
+
+        view.ViewChanged += _ => raised++;
+
+        var bounds = rows[2].Bounds;
+
+        harness.Ui.MovePointer(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        harness.Ui.PressPointer();
+        harness.Ui.ReleasePointer();
+        harness.Ui.Frame();
+
+        Assert.Equal(2, view.MipLevel);
+
+        // The event is what a host uploads on, so a press that moved the level silently would leave
+        // the picture on the level before it.
+        Assert.Equal(1, raised);
+
+        // And the selection follows, which is the binding inside the surviving row's body.
+        Assert.True(Rows(view)[2].HasClass("selected"));
+        Assert.False(Rows(view)[0].HasClass("selected"));
+    }
+
+    /// <summary>The ladder's rows, in level order.</summary>
+    static List<UiElement> Rows(TextureImportView view) =>
+        [.. view.Ladder.Children.Where(child => string.Equals(child.Tag, "ladder-row", StringComparison.Ordinal))];
+
+    /// <summary>A real PNG, because the panel's first act is decoding the file it was pointed at.</summary>
+    static string Image(EditorFixture project, int width = 32, int height = 32) {
+        var path = project.Paths.Absolute("Assets/hero.png");
+        var pixels = new byte[width * height * 4];
+
+        Array.Fill(pixels, (byte) 255);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllBytes(path, Assets.Tests.MinimalPng.Write(width, height, pixels));
+
+        return path;
+    }
+
     /// <summary>A model with no import behind it says so rather than showing an empty list.</summary>
     [Fact]
     public void AModelWithNoPartsSaysSo() {

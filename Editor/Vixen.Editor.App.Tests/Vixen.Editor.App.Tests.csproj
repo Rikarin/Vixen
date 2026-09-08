@@ -67,6 +67,16 @@
 
     <ItemGroup>
         <!--
+            The PNG writer, linked rather than copied or referenced, on `Vixen.Editor.AssetEditors.Tests`'
+            own reasoning: the texture editor's preview decodes the file it is pointed at, so a test
+            of what it uploads needs a real image, and a fixture encoded by the library that decodes
+            it agrees with itself by construction.
+        -->
+        <Compile Include="..\Vixen.Editor.Assets.Tests\MinimalPng.cs" Link="MinimalPng.cs" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
             The head itself, which is the thing under test: what is in the panels and what the panels
             are looking at lives there and nowhere else, and a test of the join has to be a test of
             the assembly that makes it.

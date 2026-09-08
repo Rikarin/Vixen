@@ -105,7 +105,17 @@
 
         <texture-ladder ref="@Ladder">
             @for (var level in Rungs) {
-                <ladder-row key="@level" class="@RungClass(level)">
+                <!--
+                    ⚠ The row is the mip control, and until this handler existed there was none:
+                    `SetMipLevel` had no production caller anywhere, so the level the preview shows
+                    could only ever be zero. `on:click` is `TapEvent`, which is what a plain element
+                    hears; the captured `level` is safe precisely because it is the key — a
+                    `TextureMipLevel` is an immutable record struct, so a surviving row is a row
+                    whose value has not changed.
+                -->
+                <ladder-row key="@level"
+                            class="@RungClass(level)"
+                            on:click="@(() => SetMipLevel(level.Level))">
                     <LadderLevel Text="@Number(level.Level)" />
                     <LadderExtent Text="@($"{level.Width}×{level.Height}")" />
                     <LadderBytes Text="@Measure(level.Bytes)" />

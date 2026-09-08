@@ -202,7 +202,12 @@ ladder-row {
     min-height: 20px;
     padding: 0px 4px;
     border-radius: 4px;
+
+    /* A row is what picks the previewed level, so it has to look like something to press. */
+    cursor: pointer;
 }
+
+ladder-row:hover { background-color: var(--surface-raised); }
 
 ladder-row.selected { background-color: var(--accent-deep, var(--surface-raised)); }
 ladder-level { width: 28px; flex-shrink: 0; color: var(--text-muted); }
