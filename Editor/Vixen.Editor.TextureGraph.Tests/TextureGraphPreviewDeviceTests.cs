@@ -3,6 +3,7 @@
 
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
+using Vixen.Graphics;
 using Xunit;
 
 namespace Tests;
@@ -34,6 +35,51 @@ public class TextureGraphPreviewDeviceTests {
         }
 
         public void Release(ulong image) => pictures.Remove(image);
+    }
+
+    /// <summary>The one evaluator for a device, and a count of who asked for it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a host lends, in miniature</b> — <c>TexturingModule.Evaluator</c> is the real
+    ///         one and <c>LentEvaluator</c> in <c>Vixen.Editor.Texturing.Tests</c> is the same idea
+    ///         one assembly over. This assembly cannot reach either, so it has its own.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two counters, for <c>PreviewLeaseTests</c>' reason.</b> <see cref="Built" />
+    ///         catches a lender that quietly builds one per call and cannot catch the opposite: a
+    ///         consumer that stopped asking and built its own leaves <see cref="Built" /> at one and
+    ///         every assertion about it green. <see cref="Asks" /> is the half that sees that, and it
+    ///         is expected exactly rather than as a floor.
+    ///     </para>
+    /// </remarks>
+    sealed class Lease(IGraphicsDevice device) : IDisposable {
+        TexturePlanEvaluator? evaluator;
+
+        /// <summary>How many evaluators this lender has made.</summary>
+        public int Built { get; private set; }
+
+        /// <summary>How many times one was asked for.</summary>
+        public int Asks { get; private set; }
+
+        /// <summary>Hands out the one evaluator for the device it was built on.</summary>
+        /// <param name="asked">The device the caller means. Must be this lender's.</param>
+        /// <returns>The evaluator, which the caller does not own.</returns>
+        public TexturePlanEvaluator Take(IGraphicsDevice asked) {
+            Asks++;
+
+            Assert.Same(device, asked);
+
+            if (evaluator is not null) {
+                return evaluator;
+            }
+
+            Built++;
+
+            return evaluator = new(device);
+        }
+
+        /// <inheritdoc />
+        public void Dispose() => evaluator?.Dispose();
     }
 
     static NodeTypeRegistry Registry() {
@@ -173,7 +219,8 @@ public class TextureGraphPreviewDeviceTests {
         var (graph, source, shaped, _) = Contrasting();
         Kept sink = new();
 
-        using TextureGraphPreviews previews = new(device, () => new(Registry()), sink);
+        using Lease lease = new(device);
+        using TextureGraphPreviews previews = new(device, lease.Take, () => new(Registry()), sink);
 
         var registry = Registry();
 
@@ -205,7 +252,8 @@ public class TextureGraphPreviewDeviceTests {
         var (graph, source, _, _) = Contrasting();
         Kept sink = new();
 
-        using TextureGraphPreviews previews = new(device, () => new(Registry()), sink);
+        using Lease lease = new(device);
+        using TextureGraphPreviews previews = new(device, lease.Take, () => new(Registry()), sink);
 
         var registry = Registry();
         var node = First(graph, source);
@@ -241,7 +289,8 @@ public class TextureGraphPreviewDeviceTests {
         var (graph, source, _, _) = Contrasting();
         Kept sink = new();
 
-        using TextureGraphPreviews previews = new(device, () => new(Registry()), sink);
+        using Lease lease = new(device);
+        using TextureGraphPreviews previews = new(device, lease.Take, () => new(Registry()), sink);
 
         var registry = Registry();
         var node = First(graph, source);
@@ -265,6 +314,69 @@ public class TextureGraphPreviewDeviceTests {
         Assert.Equal(1, previews.Refusals);
         Assert.True(previews.TryGet(graph, node, definition, out var after));
         Assert.Equal(before, after.Image);
+    }
+
+    /// <summary>⚠ The source owns no evaluator: it asks the lease, once per rebuild.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The property that makes <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a>
+    ///         wireable, and it was false.</b> This type built its own <c>TexturePlanEvaluator</c>
+    ///         in its constructor, so constructing one in <c>TexturingModule</c> beside the
+    ///         evaluator both existing panes share would have made a session hold two — a second
+    ///         pipeline and shader module per kernel and output format, arriving through the commit
+    ///         that closed the issue. That is exactly the cost <a
+    ///         href="https://github.com/Rikarin/Vixen/issues/820">#820</a> and <a
+    ///         href="https://github.com/Rikarin/Vixen/issues/988">#988</a> established the lease to
+    ///         prevent, and no test in either assembly could have seen it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both counters, and the asks are exact.</b> <c>Built</c> alone is satisfied by a
+    ///         source that asked once on the way in and cached; <c>Asks</c> alone is satisfied by a
+    ///         lender that builds a fresh evaluator every time. Two rebuilds is the smallest script
+    ///         where "asks every time" and "asked once" differ — <c>PreviewLeaseTests</c> makes the
+    ///         same argument for the two panes one assembly over.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And nothing is asked before the first <c>Update</c>.</b> <c>TryGet</c> runs from
+    ///         a draw and must never touch the device; a source that took its evaluator in the
+    ///         constructor would show a 1 here on a line that has evaluated nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_preview_source_takes_its_evaluator_from_the_lease_on_every_rebuild() {
+        using var device = TextureKernelHarness.Open();
+        var (graph, source, _, _) = Contrasting();
+        Kept sink = new();
+
+        using Lease lease = new(device);
+        using TextureGraphPreviews previews = new(device, lease.Take, () => new(Registry()), sink);
+
+        var registry = Registry();
+        var node = First(graph, source);
+        var definition = Definition(registry, graph, source);
+
+        previews.TryGet(graph, node, definition, out _);
+
+        // The instrument, before the claim: a draw has happened and nothing has been evaluated, so a
+        // source that took an evaluator on the way in is already visible here.
+        Assert.Equal(0, lease.Asks);
+        Assert.Equal(0, lease.Built);
+
+        previews.Update();
+
+        Assert.Equal(1, previews.Bakes);
+        Assert.Equal(1, lease.Asks);
+
+        node.SetValue("Colour", 0.75f, 0.75f, 0.75f, 1f);
+        graph.Touch();
+        previews.Update();
+
+        // ⚠ The half that separates "asked once, and kept it" from "asks every time".
+        Assert.Equal(2, previews.Bakes);
+        Assert.Equal(2, lease.Asks);
+
+        // And the lender made one, which is the whole point of lending.
+        Assert.Equal(1, lease.Built);
     }
 
     static GraphNode First(NodeGraphModel graph, NodeId id) {
