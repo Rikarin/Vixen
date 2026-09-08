@@ -60,14 +60,41 @@ static class HeadlessGraphics {
         }
 
         device = null;
-
-        reason = $"there is no GPU here: {refusal} Evaluating a texture graph is compute on a device, "
-            + "and this verb refuses to run it on the one that draws nothing — a bake that fell back "
-            + "would write black maps and a material that looks valid. A CI image needs a Vulkan "
-            + "driver (lavapipe is enough); bake the maps elsewhere and pass --from to write the "
-            + "material from them.";
+        reason = Refusal(refusal);
 
         return false;
+    }
+
+    /// <summary>Wraps the driver's own refusal in what this verb does about it.</summary>
+    /// <param name="driver">Why <c>VulkanDevice.TryCreate</c> said no. Its words, not a paraphrase.</param>
+    /// <returns>What to print.</returns>
+    /// <exception cref="ArgumentException"><paramref name="driver" /> is null or empty.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The driver's sentence comes first and this verb's diagnosis never precedes it,
+    ///         which is a correction rather than a style.</b> This used to read
+    ///         <c>"there is no GPU here: {refusal}"</c> — and the commonest way for a bake to be
+    ///         refused is not a missing adapter at all. <c>VulkanLoader.TryLoad</c> fails when
+    ///         <c>libvulkan</c> is not on the search path, which is the ordinary state of a
+    ///         <c>dotnet</c> container image on a machine with a perfectly good card in it; the
+    ///         refusal then read "there is no GPU here" immediately followed by the loader's own
+    ///         "install the loader, it was not on the dynamic linker's search path". The first half
+    ///         was this file guessing, the second half was measured, and they disagreed.
+    ///     </para>
+    ///     <para>
+    ///         <b>What this adds is the part the driver cannot know</b>: that the fall-back exists
+    ///         and is refused, and what to do instead. That half is this verb's and belongs after the
+    ///         cause rather than in front of it.
+    ///     </para>
+    /// </remarks>
+    internal static string Refusal(string driver) {
+        ArgumentException.ThrowIfNullOrEmpty(driver);
+
+        return driver.TrimEnd()
+            + " Evaluating a texture graph is compute on a device, and this verb refuses to run it on "
+            + "the one that draws nothing — a bake that fell back would write black maps and a "
+            + "material that looks valid. A CI image needs a Vulkan driver (lavapipe is enough); bake "
+            + "the maps elsewhere and pass --from to write the material from them.";
     }
 
     /// <summary>What to record as the adapter, which is the device's own name and never a claim.</summary>

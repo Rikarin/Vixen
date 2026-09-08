@@ -322,11 +322,22 @@ do. A graph bake ran on the device this process opened, so a typed name would be
 disagreeing with the run that wrote it — and doc 48 § D4 records the adapter without ever comparing
 it, so nothing would catch that.
 
-⚠ **A `Source/Bitmap` naming a project asset is refused rather than skipped.** Resolving one into a
-picture is the editor's job — it also reads unsaved paint canvases — and a second copy of that
+⚠ **A `Source/Bitmap` naming a project asset bakes, and this said until 2026-09-08 that it did not.**
+The claim was that resolving one into a picture is the editor's job and that a second copy of the
 resolver here would be the copy that forgot a case
-([#1087](https://github.com/Rikarin/Vixen/issues/1087)). Every generator, pattern and noise graph
-bakes, and so does every graph built out of the shipped compounds.
+([#1087](https://github.com/Rikarin/Vixen/issues/1087)) — the second half was right and the first was
+a decision about *where the code lives* dressed up as a limit. `TextureProjectImages` is that resolver
+one assembly down, in `Vixen.Editor.TextureGraph`, taking an `EditorProject`; this route hands it the
+decode and nothing else. What genuinely is the editor's stayed there: `meshmap:` names a measurement
+nothing here has baked and `vxpaint:` names strokes that may still be under a pointer, so a graph
+reading either is named and refused, one sentence each.
+
+⚠ **The measurement that decided the split, because the argument for it was a closure argument and
+those keep being wrong here.** `Vixen.Editor.Core`, where `EditorProject` lives, is already in
+`Vixen.Editor.TextureGraph`'s closure through `Vixen.Editor.NodeGraph` — naming it directly costs
+zero assemblies. `Vixen.Editor.Assets`, where `ImageDecoders` lives, would have cost twenty-five,
+`Vixen.Engine` and `Vixen.Ecs` among them. That is why the decode is a callback this file supplies
+rather than a step the resolver takes.
 
 ## Still to come
 
