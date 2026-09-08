@@ -21,6 +21,10 @@ public sealed class TerrainBrushTests {
         public float Sample(Vector2 uv) => value;
     }
 
+    sealed class BandMask(float half) : IBrushMask {
+        public float Sample(Vector2 uv) => MathF.Abs(uv.Y - 0.5f) <= half ? 1f : 0f;
+    }
+
     sealed class RecordingMask : IBrushMask {
         public List<Vector2> Samples { get; } = [];
 
@@ -194,15 +198,64 @@ public sealed class TerrainBrushTests {
         Assert.Equal(new(0.5f, 0.5f), mask.Samples[0]);
 
         mask.Samples.Clear();
-        brush.WeightAt(new(14f, 20f - 4f), new(new(10f, 20f)), mask);
+        brush.WeightAt(new(13.5f, 20f - 3.5f), new(new(10f, 20f)), mask);
 
-        // The corner of the stamp's square, which a disc would never have reached — an alpha's
-        // footprint is the square and not the inscribed circle.
-        Assert.Empty(mask.Samples);
+        // ⚠ The corner of the stamp's square, which a disc would never have reached — an alpha's
+        // footprint is the square and not the inscribed circle. This asserted `Assert.Empty` under
+        // that same sentence until #1083: the arithmetic did clip to the disc, and the assertion had
+        // been written to agree with it rather than with the claim above it.
+        Assert.Equal(new(0.9375f, 0.0625f), mask.Samples[0]);
 
         mask.Samples.Clear();
         brush.WeightAt(new(12f, 22f), new(new(10f, 20f)), mask);
         Assert.Equal(new(0.75f, 0.75f), mask.Samples[0]);
+    }
+
+    /// <summary>An alpha reaches the corners of its square; the disc inside it never does.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Why a rotation control and an alpha are one feature and not two —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.</b> A mask that is one
+    ///     over the whole unit square is what an artist means by a square brush, and while the reach
+    ///     was measured radially it was clipped to the inscribed disc: a square alpha painted exactly
+    ///     what a circle painted, and turning it moved no texel at all. The corner is the only place
+    ///     the two stamps can differ, so the corner is what this asserts.
+    /// </remarks>
+    [Fact]
+    public void AnAlphaReachesTheCornersOfItsSquareAndACircleDoesNot() {
+        var brush = TerrainBrush.Default with {
+            Radius = 4f, Strength = 1f, Falloff = 0f, Shape = BrushShape.Alpha
+        };
+
+        var stamp = new BrushStamp(new(10f, 20f));
+
+        // Offset (3, −3): 4.24 from the centre, so outside the disc, and 3 across the square.
+        var corner = new Vector2(13f, 17f);
+
+        Assert.True(
+            brush.WeightAt(corner, stamp, new ConstantMask(1f)) > 0f,
+            "an alpha clipped to its inscribed disc is a circle brush wearing a mask."
+        );
+
+        Assert.Equal(0f, (brush with { Shape = BrushShape.Circle }).WeightAt(corner, stamp), 5);
+    }
+
+    /// <summary>And turning one moves what it covers, which is the rotation knob's whole point.</summary>
+    [Fact]
+    public void TurningAMaskedStampMovesWhatItCovers() {
+        var brush = TerrainBrush.Default with {
+            Radius = 4f, Strength = 1f, Falloff = 0f, Shape = BrushShape.Alpha
+        };
+
+        // A chisel: a band across the middle of the square, whose support is not radially symmetric.
+        var mask = new BandMask(0.2f);
+        var centre = new Vector2(10f, 20f);
+        var sample = centre + new Vector2(0f, 3f);
+
+        Assert.Equal(0f, brush.WeightAt(sample, new(centre), mask), 5);
+        Assert.True(
+            brush.WeightAt(sample, new(centre, MathF.PI / 2f), mask) > 0f,
+            "a quarter turn did not move the band, so the stamp's rotation reached nothing."
+        );
     }
 
     [Fact]

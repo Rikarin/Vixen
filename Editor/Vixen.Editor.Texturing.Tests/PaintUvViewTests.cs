@@ -510,6 +510,58 @@ public class PaintUvViewTests {
         Assert.Contains(image.Overlay, segment => segment.To == new Vector2(32f, 0f));
     }
 
+    /// <summary>A masked brush's cursor is its square, turned by the angle it will stamp at.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An angle an artist cannot see is an angle they cannot set —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.</b> A masked stamp covers
+    ///     its square and not the disc inside it, so a ring over one is the same picture at every
+    ///     angle: the control moves, the readout changes, and the pane shows nothing. The round
+    ///     brush's ring in the second half is the instrument — it must <em>not</em> move — so this
+    ///     cannot pass by drawing anything that happens to change.
+    /// </remarks>
+    [Fact]
+    public void A_masked_brushs_cursor_is_a_turned_square_and_a_round_ones_is_not() {
+        using var fixture = new TexturingFixture();
+
+        var host = fixture.Shell.Document.Root.Add<UiElement>();
+        PaintTool tool = new() { Mode = PaintToolMode.Paint };
+        PaintUvView view = new(host, tool);
+
+        view.Show(0ul, 64, 64, "");
+        fixture.Shell.Document.Update();
+
+        tool.SetRadius(8f);
+        tool.SetAlpha(PaintAlphas.Square);
+        view.ShowCursor(new Vector2(32f, 32f));
+
+        var upright = view.Image.Overlay.Select(segment => segment.To).ToList();
+
+        Assert.Equal(4, upright.Count);
+
+        // The corners of an eight-texel square: √2 × 8 from the centre, which a ring never reaches.
+        Assert.All(upright, corner => Assert.Equal(8f * MathF.Sqrt(2f), (corner - new Vector2(32f, 32f)).Length(), 3));
+
+        tool.SetAngle(45f);
+        view.ShowCursor(new Vector2(32f, 32f));
+
+        var turned = view.Image.Overlay.Select(segment => segment.To).ToList();
+
+        Assert.Contains(turned, corner => (corner - new Vector2(32f, 43.3f)).Length() < 0.1f);
+        Assert.DoesNotContain(turned, corner => upright.Any(was => (corner - was).Length() < 0.5f));
+
+        // ⚠ The instrument: a round brush's ring is the same picture at every angle, because a disc
+        // turned is a disc. If this moved, what moved above was not the stamp's rotation.
+        tool.SetAlpha(PaintAlphas.Round);
+        view.ShowCursor(new Vector2(32f, 32f));
+
+        var ring = view.Image.Overlay.Select(segment => segment.To).ToList();
+
+        tool.SetAngle(137f);
+        view.ShowCursor(new Vector2(32f, 32f));
+
+        Assert.Equal(ring, view.Image.Overlay.Select(segment => segment.To));
+    }
+
     // ── The harness ─────────────────────────────────────────────────────────────────────────────
 
     /// <summary>Opens a stack with a paint layer in it, small enough for a test to be quick.</summary>

@@ -365,28 +365,73 @@ sealed class PaintUvView {
         var stretch = new PaintStamp(at, 0f, brush.Radius, 1f, brush.Aspect, brush.AspectAngle).Stretch;
         var half = MathF.Sqrt(stretch);
         var (sin, cos) = MathF.SinCos(brush.AspectAngle);
-        var previous = Rim(at, brush.Radius * half, brush.Radius / half, sin, cos, 0f);
+        var along = brush.Radius * half;
+        var across = brush.Radius / half;
 
-        for (var step = 1; step <= CursorSegments; step++) {
-            var point = Rim(at, brush.Radius * half, brush.Radius / half, sin, cos, step * (MathF.Tau / CursorSegments));
+        Span<Vector2> outline = stackalloc Vector2[tool.IsMasked ? 4 : CursorSegments];
+
+        Boundary(outline, tool.IsMasked, tool.IsAngled ? brush.Angle : 0f);
+
+        var previous = Rim(at, along, across, sin, cos, outline[^1]);
+
+        foreach (var unit in outline) {
+            var point = Rim(at, along, across, sin, cos, unit);
 
             Image.Overlay.Add(new(previous, point));
             previous = point;
         }
     }
 
-    /// <summary>One point of the stamp's boundary.</summary>
+    /// <summary>The stamp's boundary, on the unit circle or the unit square.</summary>
+    /// <param name="outline">Where the points go. Its length is how many there are.</param>
+    /// <param name="square">Whether the stamp is a masked one, whose boundary is its square.</param>
+    /// <param name="angle">How far the square is turned, in radians.</param>
+    /// <remarks>
+    ///     ⚠ <b>A square for a masked brush, and it is the difference between a settable angle and
+    ///     an unsettable one</b> — <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.
+    ///     A masked stamp covers its square and not the disc inside it, so a ring drawn over one lies
+    ///     about the stamp by the corners — and, worse, it is the same picture at every angle, which
+    ///     leaves an artist setting a rotation they cannot see. The corners are at <c>(±1, ±1)</c>
+    ///     because that is where <c>TerrainBrush</c>'s alpha uv reaches one.
+    ///     <para>
+    ///         The turn is <see cref="PaintTool.IsAngled" />'s and not the brush's angle outright:
+    ///         under <c>BrushRotation.Random</c> or <c>AlongStroke</c> the next stamp's angle is not
+    ///         known until it is laid, so an upright square is the honest drawing of it.
+    ///     </para>
+    /// </remarks>
+    static void Boundary(Span<Vector2> outline, bool square, float angle) {
+        if (square) {
+            var (sin, cos) = MathF.SinCos(angle);
+
+            ReadOnlySpan<Vector2> corners = [new(1f, 1f), new(-1f, 1f), new(-1f, -1f), new(1f, -1f)];
+
+            for (var corner = 0; corner < outline.Length; corner++) {
+                var (x, y) = (corners[corner].X, corners[corner].Y);
+
+                outline[corner] = new((x * cos) - (y * sin), (x * sin) + (y * cos));
+            }
+
+            return;
+        }
+
+        for (var step = 0; step < outline.Length; step++) {
+            var (y, x) = MathF.SinCos(step * (MathF.Tau / outline.Length));
+
+            outline[step] = new(x, y);
+        }
+    }
+
+    /// <summary>One point of the stamp's boundary, in the atlas.</summary>
     /// <param name="at">Where the stamp is, in texels.</param>
     /// <param name="along">Its long semi-axis, in texels.</param>
     /// <param name="across">Its short one.</param>
     /// <param name="sin">The sine of the long axis's angle in the atlas.</param>
     /// <param name="cos">Its cosine.</param>
-    /// <param name="angle">How far round the boundary, in radians.</param>
+    /// <param name="unit">The point of the boundary, on the unit circle or the unit square.</param>
     /// <returns>The point, in texels.</returns>
-    static Vector2 Rim(Vector2 at, float along, float across, float sin, float cos, float angle) {
-        var (y, x) = MathF.SinCos(angle);
-        var u = x * along;
-        var v = y * across;
+    static Vector2 Rim(Vector2 at, float along, float across, float sin, float cos, Vector2 unit) {
+        var u = unit.X * along;
+        var v = unit.Y * across;
 
         return at + new Vector2((u * cos) - (v * sin), (u * sin) + (v * cos));
     }

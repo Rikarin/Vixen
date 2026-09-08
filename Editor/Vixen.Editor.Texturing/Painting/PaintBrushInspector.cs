@@ -41,11 +41,41 @@ namespace Vixen.Editor.Texturing.Painting;
 ///     </para>
 /// </remarks>
 sealed class PaintBrushInspector {
+    /// <summary>What a row says when it is showing a number nothing downstream reads.</summary>
+    const string Inert = " — a round brush ignores it";
+
     readonly PaintTool tool;
     readonly UiElement root;
     readonly UiElement summary;
     readonly SegmentedControl mode;
-    readonly List<(UiElement Caption, string Label, Func<string> Value)> readouts = [];
+    readonly List<Readout> readouts = [];
+    readonly List<(SegmentedControl Picker, Func<string> Value)> pickers = [];
+
+    /// <summary>
+    ///     ⚠ <b>Set while <see cref="Refresh" /> is writing the controls, and read by every handler
+    ///     that writes the tool.</b> A control and a model that follow each other are a loop: a
+    ///     refresh that sets a slider raises its changed event, which sets the tool, which refreshes.
+    ///     It settles by itself where the value round-trips exactly and does not where a clamp moves
+    ///     it — a radius pushed past the maximum is the case — so the flag is what makes "the panel
+    ///     is writing" distinguishable from "a person is".
+    /// </summary>
+    bool syncing;
+
+    /// <summary>One captioned row: what it says, what it is worth, and the controls showing it.</summary>
+    /// <param name="Caption">The words above the control.</param>
+    /// <param name="Label">What the row is called, without its value.</param>
+    /// <param name="Value">How the value reads.</param>
+    /// <param name="Current">What the value is, for the controls that have to follow it.</param>
+    /// <param name="Slider">The slider.</param>
+    /// <param name="Box">The number beside it, where the range is too wide for a slider alone.</param>
+    readonly record struct Readout(
+        UiElement Caption,
+        string Label,
+        Func<string> Value,
+        Func<float> Current,
+        Slider Slider,
+        NumericInput? Box
+    );
 
     /// <summary>Builds the inspector into a host element.</summary>
     /// <param name="host">Where the column goes.</param>
@@ -77,6 +107,10 @@ sealed class PaintBrushInspector {
         mode.AddSegment(nameof(PaintToolMode.Paint), "Paint");
         mode.Value = tool.Mode.ToString();
         mode.ValueChanged += (_, value) => {
+            if (syncing) {
+                return;
+            }
+
             tool.Mode = string.Equals(value, nameof(PaintToolMode.Paint), StringComparison.Ordinal)
                 ? PaintToolMode.Paint
                 : PaintToolMode.Select;
@@ -86,28 +120,42 @@ sealed class PaintBrushInspector {
 
         summary = root.Add("paint-brush-summary");
 
-        Row("Radius", PaintTool.MinimumRadius, PaintTool.MaximumRadius, tool.Brush.Radius, tool.SetRadius,
-            () => tool.Brush.Radius.ToString("0.#", CultureInfo.InvariantCulture) + " px");
+        // ⚠ The one row with a number beside its slider, and the range is why. Half a texel to five
+        // hundred and twelve over a 220-pixel column is better than two texels a pixel: an artist
+        // who wants 32 cannot hit it, and 32 is the brush they reach for most. Every other setting
+        // here is a fraction over a unit interval, where a slider is the better control and a field
+        // would be four keystrokes for something worth dragging.
+        Row("Radius", PaintTool.MinimumRadius, PaintTool.MaximumRadius, () => tool.Brush.Radius,
+            tool.SetRadius, () => tool.Brush.Radius.ToString("0.#", CultureInfo.InvariantCulture) + " px",
+            typed: true);
 
-        Curve();
+        Picker("Curve", Enum.GetValues<BrushFalloffKind>().Select(curve => curve.ToString()),
+            () => tool.Brush.Curve.ToString(),
+            value => {
+                if (Enum.TryParse<BrushFalloffKind>(value, out var chosen)) {
+                    tool.SetCurve(chosen);
+                }
+            });
 
-        Row("Falloff", 0f, 1f, tool.Brush.Falloff, tool.SetFalloff, () => Percent(tool.Brush.Falloff));
-        Row("Flow", 0f, 1f, tool.Brush.Flow, tool.SetFlow, () => Percent(tool.Brush.Flow));
-        Row("Opacity", 0f, 1f, tool.Brush.Opacity, tool.SetOpacity, () => Percent(tool.Brush.Opacity));
-        Row("Spacing", 0.01f, 2f, tool.Brush.Spacing, tool.SetSpacing, () => Percent(tool.Brush.Spacing));
-        Row("Smoothing", 0f, 0.999f, tool.Smoothing, tool.SetSmoothing, () => Percent(tool.Smoothing));
+        Row("Falloff", 0f, 1f, () => tool.Brush.Falloff, tool.SetFalloff, () => Percent(tool.Brush.Falloff));
+        Row("Flow", 0f, 1f, () => tool.Brush.Flow, tool.SetFlow, () => Percent(tool.Brush.Flow));
+        Row("Opacity", 0f, 1f, () => tool.Brush.Opacity, tool.SetOpacity, () => Percent(tool.Brush.Opacity));
+        Row("Spacing", 0.01f, 2f, () => tool.Brush.Spacing, tool.SetSpacing, () => Percent(tool.Brush.Spacing));
+        Row("Smoothing", 0f, 0.999f, () => tool.Smoothing, tool.SetSmoothing, () => Percent(tool.Smoothing));
+
+        Stamp();
 
         var jitter = root.Add("world-title");
 
         jitter.Text = "Jitter";
 
-        Row("Position", 0f, 1f, tool.Brush.PositionJitter, tool.SetPositionJitter,
+        Row("Position", 0f, 1f, () => tool.Brush.PositionJitter, tool.SetPositionJitter,
             () => Percent(tool.Brush.PositionJitter));
 
-        Row("Angle", 0f, 180f, tool.AngleJitterDegrees, tool.SetAngleJitter,
+        Row("Angle jitter", 0f, 180f, () => tool.AngleJitterDegrees, tool.SetAngleJitter,
             () => tool.AngleJitterDegrees.ToString("0", CultureInfo.InvariantCulture) + "°");
 
-        Row("Size", 0f, 1f, tool.Brush.SizeJitter, tool.SetSizeJitter, () => Percent(tool.Brush.SizeJitter));
+        Row("Size", 0f, 1f, () => tool.Brush.SizeJitter, tool.SetSizeJitter, () => Percent(tool.Brush.SizeJitter));
 
         Refresh();
     }
@@ -126,8 +174,8 @@ sealed class PaintBrushInspector {
         get {
             var lines = new List<string>(readouts.Count);
 
-            foreach (var (caption, _, _) in readouts) {
-                lines.Add(caption.Text ?? string.Empty);
+            foreach (var readout in readouts) {
+                lines.Add(readout.Caption.Text ?? string.Empty);
             }
 
             return lines;
@@ -142,64 +190,173 @@ sealed class PaintBrushInspector {
     ///     is the state the panel is in exactly when they used the shortcut instead.
     /// </remarks>
     public void Refresh() {
-        mode.Value = tool.Mode.ToString();
-        summary.Text = tool.IsPainting
-            ? tool.Describe()
-            : "Not painting — a drag selects and pans. " + tool.Describe();
+        if (syncing) {
+            return;
+        }
 
-        foreach (var (caption, label, value) in readouts) {
-            caption.Text = label + " — " + value();
+        syncing = true;
+
+        try {
+            mode.Value = tool.Mode.ToString();
+            summary.Text = tool.IsPainting
+                ? tool.Describe()
+                : "Not painting — a drag selects and pans. " + tool.Describe();
+
+            foreach (var (caption, label, value, current, slider, box) in readouts) {
+                caption.Text = label + " — " + value();
+
+                // ⚠ The controls follow the model and not only the other way round, which is the
+                // half a push-only wiring gets wrong — the same defect the segmented control above
+                // was fixed for. A radius set by the verb, by a preset, or by this tool's own clamp
+                // left the slider showing what the artist last dragged it to.
+                slider.Value = Math.Clamp(current(), slider.Minimum, slider.Maximum);
+
+                if (box is not null) {
+                    box.Number = current();
+                }
+            }
+
+            foreach (var (picker, value) in pickers) {
+                picker.Value = value();
+            }
+        } finally {
+            syncing = false;
         }
     }
 
     static string Percent(float value) =>
         (value * 100f).ToString("0", CultureInfo.InvariantCulture) + "%";
 
-    /// <summary>The four falloff curves, as a row of buttons.</summary>
+    /// <summary>The alpha and the two rotation settings that only mean anything with one.</summary>
     /// <remarks>
-    ///     Named from the enum rather than from a list here, so a fifth curve in
-    ///     <c>Vixen.Terrain</c> appears without an edit — the same rule the mask sources follow, and
-    ///     the reason <c>LayerStackGraph</c> refuses to keep a second list of anything the terrain
-    ///     assembly already declares.
+    ///     <para>
+    ///         ⚠ <b>One section rather than three settings, because they are one feature —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.</b>
+    ///         <c>PaintBrush.KernelFor</c> picks <c>BrushShape.Circle</c> for a null alpha and
+    ///         <c>TerrainBrush.WeightAt</c> turns nothing about a disc, so an angle shipped without a
+    ///         mask to choose would be a control that drags and changes no texel — which reads as a
+    ///         working setting and is worse than an absent one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the two rotation rows say when they are inert rather than being hidden.</b>
+    ///         <c>TerrainBrushSettings</c> hides its angle behind a <c>[ShowIf]</c>; a row that
+    ///         vanishes leaves an artist looking for a setting they remember, and the reason it went
+    ///         is exactly the thing worth telling them. <see cref="PaintTool.IsMasked" /> and
+    ///         <see cref="PaintTool.IsAngled" /> are the predicates, on the model where a test can
+    ///         reach them.
+    ///     </para>
     /// </remarks>
-    void Curve() {
+    void Stamp() {
+        var title = root.Add("world-title");
+
+        title.Text = "Stamp";
+
+        // The names from the shelf rather than a second list here, for the curve picker's reason: a
+        // fifth alpha appears without an edit to this file.
+        Picker("Alpha", PaintAlphas.Names, () => tool.AlphaName, tool.SetAlpha);
+
+        Picker("Rotation", Enum.GetValues<BrushRotation>().Select(rotation => rotation.ToString()),
+            () => tool.Brush.Rotation.ToString(),
+            value => {
+                if (Enum.TryParse<BrushRotation>(value, out var chosen)) {
+                    tool.SetRotation(chosen);
+                }
+            });
+
+        Row("Angle", 0f, 360f, () => tool.AngleDegrees, tool.SetAngle,
+            () => tool.AngleDegrees.ToString("0", CultureInfo.InvariantCulture) + "°"
+                + (tool.IsAngled ? "" : Inert));
+    }
+
+    /// <summary>One captioned row of buttons, writing through the tool.</summary>
+    /// <param name="label">The caption.</param>
+    /// <param name="segments">What may be chosen.</param>
+    /// <param name="current">Which is chosen, re-read on every <see cref="Refresh" />.</param>
+    /// <param name="set">What choosing one does.</param>
+    void Picker(string label, IEnumerable<string> segments, Func<string> current, Action<string> set) {
         var caption = root.Add("paint-brush-caption");
 
-        caption.Text = "Curve";
+        caption.Text = label;
 
         var picker = root.Add<SegmentedControl>();
 
-        foreach (var curve in Enum.GetValues<BrushFalloffKind>()) {
-            picker.AddSegment(curve.ToString());
+        foreach (var segment in segments) {
+            picker.AddSegment(segment);
         }
 
-        picker.Value = tool.Brush.Curve.ToString();
+        picker.Value = current();
+        picker.AddAccessibleRelation(AccessibleRelation.LabelledBy, caption);
+
         picker.ValueChanged += (_, value) => {
-            if (Enum.TryParse<BrushFalloffKind>(value, out var chosen)) {
-                tool.SetCurve(chosen);
-                Refresh();
+            if (syncing || value is null) {
+                return;
             }
+
+            set(value);
+            Refresh();
         };
+
+        pickers.Add((picker, current));
     }
 
     /// <summary>One captioned slider, writing through the tool.</summary>
-    void Row(string label, float minimum, float maximum, float value, Action<float> set, Func<string> read) {
+    /// <param name="label">The caption, without its value.</param>
+    /// <param name="minimum">The slider's low end.</param>
+    /// <param name="maximum">Its high end.</param>
+    /// <param name="current">What the setting is worth, re-read on every <see cref="Refresh" />.</param>
+    /// <param name="set">What moving the control does.</param>
+    /// <param name="read">How the value reads in the caption.</param>
+    /// <param name="typed">Whether a number goes beside the slider, for a range a slider cannot hit.</param>
+    void Row(
+        string label,
+        float minimum,
+        float maximum,
+        Func<float> current,
+        Action<float> set,
+        Func<string> read,
+        bool typed = false
+    ) {
         var caption = root.Add("paint-brush-caption");
         var slider = root.Add<Slider>();
 
         slider.Minimum = minimum;
         slider.Maximum = maximum;
-        slider.Value = Math.Clamp(value, minimum, maximum);
+        slider.Value = Math.Clamp(current(), minimum, maximum);
 
         // ⚠ The caption is the slider's accessible name and the relation is what says so.
         // `ColorPicker`'s own remark: a slider beside words it is not related to announces nothing.
         slider.AddAccessibleRelation(AccessibleRelation.LabelledBy, caption);
 
         slider.ValueChanged += (_, changed) => {
+            if (syncing) {
+                return;
+            }
+
             set(changed);
             Refresh();
         };
 
-        readouts.Add((caption, label, read));
+        NumericInput? box = null;
+
+        if (typed) {
+            box = root.Add<NumericInput>();
+
+            box.Minimum = minimum;
+            box.Maximum = maximum;
+            box.Decimals = 1;
+            box.Number = current();
+            box.AddAccessibleRelation(AccessibleRelation.LabelledBy, caption);
+
+            box.NumberChanged += (_, changed) => {
+                if (syncing) {
+                    return;
+                }
+
+                set((float)changed);
+                Refresh();
+            };
+        }
+
+        readouts.Add(new(caption, label, read, current, slider, box));
     }
 }

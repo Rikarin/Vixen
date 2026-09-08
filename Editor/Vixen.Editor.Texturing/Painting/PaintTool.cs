@@ -82,6 +82,29 @@ sealed class PaintTool {
     /// </remarks>
     public string LayerId { get; set; } = "";
 
+    /// <summary>Which of <see cref="PaintAlphas" />' shapes the brush stamps.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The name and not only the mask, because a mask cannot be shown in a picker.</b> The
+    ///     brush carries an <c>IBrushMask</c>, which is a function and has no identity a segmented
+    ///     control can compare against; this is what says which segment is lit, and it is what a
+    ///     preset would be written from.
+    /// </remarks>
+    public string AlphaName { get; private set; } = PaintAlphas.Round;
+
+    /// <summary>Whether the brush has an alpha, which is when its rotation reaches anything.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The predicate that keeps a live control from being a dead one</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.
+    ///     <see cref="PaintBrush.KernelFor" /> picks <c>BrushShape.Circle</c> for a null alpha and a
+    ///     disc turned is a disc, so with a round brush the rotation mode and the angle move no
+    ///     texel whatever they are set to. The inspector says so rather than offering a slider that
+    ///     drags and does nothing.
+    /// </remarks>
+    public bool IsMasked => Brush.Alpha is not null;
+
+    /// <summary>Whether <see cref="AngleDegrees" /> applies: a masked brush turned by hand.</summary>
+    public bool IsAngled => IsMasked && Brush.Rotation == BrushRotation.Fixed;
+
     /// <summary>How much the stroke's path lags the pointer, 0…1.</summary>
     /// <remarks>
     ///     On the tool rather than on the brush because it is a filter on the <em>input points</em>
@@ -127,6 +150,48 @@ sealed class PaintTool {
     /// <summary>Which falloff curve.</summary>
     public void SetCurve(BrushFalloffKind curve) => Brush = Brush with { Curve = curve };
 
+    /// <summary>Which of the shipped alphas the brush stamps.</summary>
+    /// <param name="name">
+    ///     The name, from <see cref="PaintAlphas.Names" />. <see cref="PaintAlphas.Round" /> — and a
+    ///     name the shelf does not carry — is a plain disc.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b><see cref="AlphaName" /> takes the name that was <em>settled on</em> rather than the
+    ///     one that arrived</b>, which is this file's clamping rule applied to a string: a picker, a
+    ///     preset and a restored file all land on the same brush, and a name from a later build
+    ///     reads back as Round rather than lighting no segment at all.
+    /// </remarks>
+    public void SetAlpha(string? name) {
+        var mask = PaintAlphas.Find(name);
+
+        AlphaName = mask is null ? PaintAlphas.Round : name!;
+        Brush = Brush with { Alpha = mask };
+    }
+
+    /// <summary>How the stamps are turned along a stroke.</summary>
+    /// <param name="rotation">Which rule. An undeclared value is <see cref="BrushRotation.Fixed" />.</param>
+    public void SetRotation(BrushRotation rotation) =>
+        Brush = Brush with { Rotation = Enum.IsDefined(rotation) ? rotation : BrushRotation.Fixed };
+
+    /// <summary>The brush's own angle, in <b>degrees</b>, for <see cref="BrushRotation.Fixed" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Wrapped rather than clamped, because an angle is cyclic and every other setting here
+    ///     is not.</b> A clamp would make a dial dragged past 360° stick at 360° — and 361° and 1°
+    ///     are the same stamp, so there is nothing to defend a stroke against. Degrees on this side
+    ///     and radians on the brush, for <see cref="SetAngleJitter" />'s reason.
+    /// </remarks>
+    public void SetAngle(float degrees) {
+        // ⚠ Finite and not merely not-a-number: an infinity survives `Safe`, and `∞ % 360` is a NaN
+        // — so the one guard this file already has would have produced exactly what it exists to
+        // stop, one operator later.
+        var wrapped = (float.IsFinite(degrees) ? degrees : 0f) % 360f;
+
+        Brush = Brush with { Angle = (wrapped < 0f ? wrapped + 360f : wrapped) * (MathF.PI / 180f) };
+    }
+
+    /// <summary>The brush's own angle as a person reads it, 0…360.</summary>
+    public float AngleDegrees => Brush.Angle * (180f / MathF.PI);
+
     /// <summary>How far a stamp may wander off the path, as a fraction of the radius.</summary>
     public void SetPositionJitter(float fraction) => Brush = Brush with { PositionJitter = Unit(fraction) };
 
@@ -155,12 +220,27 @@ sealed class PaintTool {
     public float AngleJitterDegrees => Brush.AngleJitter * (180f / MathF.PI);
 
     /// <summary>How the brush reads in one line, for the inspector's heading.</summary>
-    public string Describe() =>
-        string.Create(
+    /// <remarks>
+    ///     ⚠ The alpha appears only when there is one, and with its angle beside it: a heading that
+    ///     read "Round 0°" would put a number on the line for a setting that reaches no texel.
+    /// </remarks>
+    public string Describe() {
+        var line = string.Create(
             CultureInfo.InvariantCulture,
             $"{Brush.Radius:0.#} px · {Brush.Curve} {Brush.Falloff * 100f:0}% · flow {Brush.Flow * 100f:0}% · "
             + $"opacity {Brush.Opacity * 100f:0}%"
         );
+
+        if (!IsMasked) {
+            return line;
+        }
+
+        var turn = Brush.Rotation == BrushRotation.Fixed
+            ? string.Create(CultureInfo.InvariantCulture, $"{AngleDegrees:0}°")
+            : Brush.Rotation.ToString();
+
+        return line + " · " + AlphaName + " " + turn;
+    }
 
     /// <summary>A 0…1 setting, with a not-a-number treated as zero rather than propagated.</summary>
     /// <remarks>
