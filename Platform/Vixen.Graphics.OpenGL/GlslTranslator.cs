@@ -28,6 +28,16 @@ readonly record struct TranslatedShader(string Source, IReadOnlyList<GlNamedBind
 ///         agree about where things bind and which way up the world is.
 ///     </para>
 ///     <para>
+///         ⚠ <b>What it therefore cannot take.</b> Raven's own GLSL is <em>Vulkan</em> GLSL, and one
+///         thing in it is not a qualifier: a texture and a sampler declared apart, sampled through
+///         <c>sampler2D(albedo, albedoSampler)</c> at every use. Combining them is a rewrite of the
+///         use sites and a question about the module — one texture read through two samplers is two
+///         combined uniforms — so it belongs to <c>Vixen.Raven.Transpile</c>, offline, through
+///         SPIRV-Cross. This refuses such a source by name rather than handing the driver a syntax
+///         error. Until the content build carries an <c>essl</c> variant, that refusal is what the
+///         GL and WebGL2 backends do with most of the shipped library.
+///     </para>
+///     <para>
 ///         <b>Two jobs, and both of them are places the RHI's Vulkan shape shows through.</b>
 ///     </para>
 ///     <para>
@@ -90,6 +100,8 @@ static partial class GlslTranslator {
         var named = new List<GlNamedBinding>();
         var body = StripVersion(source);
 
+        RefuseSeparateTextureAndSampler(body);
+
         body = QualifierPattern().Replace(
             body,
             match => Rewrite(match, profile, plan, slotOf, named)
@@ -97,6 +109,18 @@ static partial class GlslTranslator {
 
         var builder = new StringBuilder();
         builder.AppendLine(profile.ShaderVersion());
+
+        // ⚠ GLSL ES has no default precision for `float` in a fragment or compute stage, so a source
+        // that declares none is "'float' : type requires declaration of default precision qualifier"
+        // — on the first declaration, which is nowhere near the cause. Raven emits none: it emits
+        // Vulkan GLSL, where precision qualifiers are accepted and ignored. `highp` rather than
+        // `mediump` because the engine's world-space maths is metres in a float and mediump is ten
+        // bits of mantissa on a phone; a renderer that quietly halved its precision on GLES would
+        // show up as z-fighting rather than as a message.
+        if (profile < GlProfile.Core45) {
+            builder.AppendLine("precision highp float;");
+            builder.AppendLine("precision highp int;");
+        }
 
         if (plan.PushConstantVectors > 0) {
             builder.AppendLine(
@@ -147,22 +171,38 @@ static partial class GlslTranslator {
         DescriptorSetSlot fallback,
         List<GlNamedBinding> named
     ) {
-        var slot = match.Groups["set"].Success
-            ? (DescriptorSetSlot)int.Parse(match.Groups["set"].Value)
-            : fallback;
-
-        var binding = uint.Parse(match.Groups["binding"].Value);
         var declaration = match.Groups["declaration"].Value;
 
-        var resolved = plan.Resolve(slot, binding)
+        // ⚠ Everything in the qualifier list that is neither `set` nor `binding` is kept, and the
+        // list is read rather than matched in order. Raven writes `layout(std140, set = 2,
+        // binding = 0)`; a pattern that required the list to *begin* with `set` or `binding` matched
+        // none of the engine's uniform blocks, left `set = 2` in the source — "'descriptor set' :
+        // only allowed when using GLSL for Vulkan" on every profile — and never folded the block's
+        // binding or reported its name. And `std140` is not decoration: dropping it leaves the block
+        // at GLSL's `shared` layout, which the host's std140-packed upload does not match.
+        var (set, binding, kept) = Qualifiers(match.Groups["qualifiers"].Value);
+
+        // A layout carrying no binding at all — `layout(location = 0) in vec3 normal;` — is not this
+        // rewriter's business and is passed through exactly as written.
+        if (binding is not { } index) {
+            return match.Value;
+        }
+
+        var slot = set is { } declared ? (DescriptorSetSlot)declared : fallback;
+
+        var resolved = plan.Resolve(slot, index)
             ?? throw new InvalidOperationException(
-                $"A shader declares (set = {(int)slot}, binding = {binding}) and the pipeline layout it "
+                $"A shader declares (set = {(int)slot}, binding = {index}) and the pipeline layout it "
                 + "was compiled against does not. The layout and the shader come from one BindingPlan in "
                 + "Raven (docs/plan/07 § C), so this means they have drifted apart."
             );
 
         if (profile.HasExplicitBindings()) {
-            return $"layout(binding = {resolved.Index}) {declaration}";
+            var qualifiers = kept.Count == 0
+                ? $"binding = {resolved.Index}"
+                : $"{string.Join(", ", kept)}, binding = {resolved.Index}";
+
+            return $"layout({qualifiers}) {declaration}";
         }
 
         // No explicit bindings: the qualifier has to go, and the name has to be kept so the binding
@@ -176,7 +216,84 @@ static partial class GlslTranslator {
             );
 
         named.Add(new(name, resolved.Kind, resolved.Index));
-        return declaration;
+
+        // The binding goes and the packing stays. `std140` is what the host's upload assumes and
+        // GLSL's default without it is `shared`, whose offsets the driver is free to choose — so a
+        // block that lost the qualifier along with the binding reads its own fields from the wrong
+        // bytes, which is the sort of wrong that looks like bad content rather than like a bug.
+        return kept.Count == 0 ? declaration : $"layout({string.Join(", ", kept)}) {declaration}";
+    }
+
+    /// <summary>Reads a layout qualifier list, whatever order it is written in.</summary>
+    /// <returns>The set and binding it named, and every other qualifier, in source order.</returns>
+    static (int? Set, uint? Binding, List<string> Kept) Qualifiers(string list) {
+        int? set = null;
+        uint? binding = null;
+        List<string> kept = [];
+
+        foreach (var raw in list.Split(',')) {
+            var qualifier = raw.Trim();
+
+            if (qualifier.Length == 0) {
+                continue;
+            }
+
+            var pair = KeyValuePattern().Match(qualifier);
+
+            switch (pair.Success ? pair.Groups["key"].Value : null) {
+                case "set":
+                    set = int.Parse(pair.Groups["value"].Value);
+                    break;
+
+                case "binding":
+                    binding = uint.Parse(pair.Groups["value"].Value);
+                    break;
+
+                default:
+                    kept.Add(qualifier);
+                    break;
+            }
+        }
+
+        return (set, binding, kept);
+    }
+
+    /// <summary>
+    ///     Refuses the one shape of Raven's GLSL no re-headering can carry to GL.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A separate texture and sampler is a syntax error on every GL profile, not a
+    ///         dialect wrinkle.</b> Raven emits Vulkan GLSL — <c>uniform texture2D albedo;</c>,
+    ///         <c>uniform sampler albedoSampler;</c>, and
+    ///         <c>texture(sampler2D(albedo, albedoSampler), uv)</c> at every use — which is
+    ///         <c>GL_KHR_vulkan_glsl</c>. GL has only the combined object, so combining the pair is a
+    ///         rewrite of every use site and of the declaration together, and which pairs exist is a
+    ///         fact about the module rather than about the text: one texture sampled through two
+    ///         samplers is two combined uniforms.
+    ///     </para>
+    ///     <para>
+    ///         That is <c>Vixen.Raven.Transpile</c>'s job, offline, through SPIRV-Cross — and it is
+    ///         deliberately not this one's. What this does is refuse the input by name rather than
+    ///         hand the driver a shader whose first error is <c>syntax error, unexpected
+    ///         IDENTIFIER</c> several declarations away from the cause, which is what happened to
+    ///         every Raven shader with a texture in it before this check existed.
+    ///     </para>
+    /// </remarks>
+    static void RefuseSeparateTextureAndSampler(string body) {
+        var vulkan = VulkanOpaquePattern().Match(body);
+
+        if (!vulkan.Success) {
+            return;
+        }
+
+        throw new NotSupportedException(
+            $"'{vulkan.Value.Trim()}' is Vulkan GLSL: a texture and a sampler declared apart. GL has "
+            + "no such type at any profile, and combining the pair is a rewrite of every use site "
+            + "rather than of the declaration, so this translator cannot do it and does not pretend "
+            + "to. Cross-compile the shader with Vixen.Raven.Transpile (the compiler's 'essl' "
+            + "target) and hand this backend the combined GLSL instead."
+        );
     }
 
     /// <summary>The GLSL identifier a declaration binds by.</summary>
@@ -198,14 +315,39 @@ static partial class GlslTranslator {
     }
 
     /// <summary>
-    ///     A Vulkan-style binding qualifier and the declaration it introduces, up to the opening
-    ///     brace or the semicolon.
+    ///     A layout qualifier list and the declaration it introduces, up to the opening brace or the
+    ///     semicolon.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ The whole list is captured and read in <see cref="Qualifiers" /> rather than being
+    ///     matched key by key. A pattern that spelled out the order it expected — <c>set</c> then
+    ///     <c>binding</c> — silently matched nothing at all in the source Raven actually emits,
+    ///     which begins <c>layout(std140, …</c>.
+    /// </remarks>
     [GeneratedRegex(
-        @"layout\s*\(\s*(?:set\s*=\s*(?<set>\d+)\s*,\s*)?binding\s*=\s*(?<binding>\d+)\s*(?:,[^)]*)?\)\s*(?<declaration>[^;{]*[;{])",
+        @"layout\s*\(\s*(?<qualifiers>[^)]*)\)\s*(?<declaration>[^;{]*[;{])",
         RegexOptions.CultureInvariant
     )]
     private static partial Regex QualifierPattern();
+
+    /// <summary>One <c>key = value</c> of a layout qualifier list.</summary>
+    [GeneratedRegex(@"^(?<key>[A-Za-z_]\w*)\s*=\s*(?<value>\d+)$", RegexOptions.CultureInvariant)]
+    private static partial Regex KeyValuePattern();
+
+    /// <summary>
+    ///     A Vulkan-GLSL opaque declaration — a bare <c>sampler</c>, or a <c>texture…</c> type with
+    ///     no sampler of its own.
+    /// </summary>
+    /// <remarks>
+    ///     <c>sampler</c> and <c>samplerShadow</c> only: <c>sampler2D</c> is GL's combined object and
+    ///     is exactly what this backend wants, so the word boundary after <c>sampler</c> is the whole
+    ///     distinction and dropping it would refuse every shader instead of the Vulkan-shaped ones.
+    /// </remarks>
+    [GeneratedRegex(
+        @"\buniform\s+(?:(?:high|medium|low)p\s+)?(?:[iu]?texture(?:1D|2D|3D|Cube|Buffer|2DMS)(?:Array)?|sampler(?:Shadow)?\b)\s+[A-Za-z_]\w*\s*(?:\[[^\]]*\])?\s*;",
+        RegexOptions.CultureInvariant
+    )]
+    private static partial Regex VulkanOpaquePattern();
 
     /// <summary>A version directive, wherever the source put it.</summary>
     [GeneratedRegex(@"^[ \t]*#version[^\r\n]*\r?\n?", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
