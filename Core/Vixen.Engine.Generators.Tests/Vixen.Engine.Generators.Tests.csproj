@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            A reference and deliberately NOT an analyzer. Every generator here is constructed
+            directly and driven over a string of C# through CSharpGeneratorDriver, which is the only
+            way to read a diagnostic back rather than have it fail the build — and warnings are
+            errors repo-wide (Directory.Build.props), so a fixture that tripped one of these rules
+            inside this assembly could not be observed at all. That is the whole reason
+            Vixen.Engine.Tests cannot host these tests and this project exists.
+        -->
+        <ProjectReference Include="..\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj" />
+
+        <!--
+            ⚠ The real assemblies, not a preamble of stubs. Vixen.Ui.Generators.Tests declares its
+            own `Vixen.Ui.StringId` because one record shape is the whole contract there; here the
+            contract is a dozen ECS methods whose names and owners the inference generator switches
+            on, and a hand-written double of `World`, `Chunk`, `CommandBuffer` and
+            `WorldQueryExtensions` would be a double more permissive than the runtime — the trap
+            this repository keeps recording. Binding against the shipped surface is what makes a
+            renamed method fail here rather than silently stop being inferred.
+        -->
+        <ProjectReference Include="..\Vixen.Ecs\Vixen.Ecs.csproj" />
+        <ProjectReference Include="..\Vixen.Engine\Vixen.Engine.csproj" />
+    </ItemGroup>
+</Project>
