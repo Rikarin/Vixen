@@ -250,6 +250,107 @@ public class PaintCostTests(ITestOutputHelper output) {
         );
     }
 
+    /// <summary>⚠ The criterion's own size, driven by rays rather than by texel positions.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 48's exit criterion 8 asks for a stamp under 16 ms on a 4K set with twelve
+    ///         layers under it, and every measurement of it until now was of the 2D path.</b> That is
+    ///         not the same claim: the 3D path adds a raycast per path per pointer move, converts a
+    ///         screen radius through the hit triangle's Jacobian, and — this is the part that could
+    ///         have gone wrong — could plausibly have rebuilt the session, and therefore the
+    ///         composite, per move. <c>PaintComposite.Evaluations</c> is what says it does not, and it
+    ///         is asserted rather than argued.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two is once, and the two are the slices rather than the strokes.</b>
+    ///         <c>PaintComposite</c> evaluates the stack above the painted layer and the stack below
+    ///         it, once each, in its constructor. A drag of sixty-four stamps that read three would
+    ///         have paid for twelve layers of a 4096² atlas somewhere in the middle of a pointer
+    ///         move.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The atlas is the criterion's and so is the layer count, and neither may appear in
+    ///         the bound.</b> The closed form below is the sibling of the one at the top of this file,
+    ///         with the footprint measured off the radius the <em>projection</em> chose rather than
+    ///         off a number the test picked — which is the whole difference between measuring this
+    ///         path and measuring the other one with a 3D-sounding name.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_projected_stamp_on_a_4k_set_with_twelve_layers_pays_for_the_stack_once() {
+        const int Size = 4096;
+        const int Moves = 64;
+
+        // One unit of view over `Size` pixels, and the fixture is a plane whose layout is its own
+        // coordinates — so a render pixel is a texel and a 48-pixel brush is the radius the top of
+        // this file measures at. The conversion is deliberately the identity here: what is being
+        // measured is the drag, and `PaintFootprintTests` is where the conversion is the subject.
+        var projection = PaintProjectionTests.Plane();
+        PaintProjector projector = new(projection, Size, Size);
+        var eye = PaintEye.Orthographic(new(0.5f, 0.5f, 10f), new(0f, 0f, -1f), 1f, Size);
+
+        FlatStack stack = new(Size, Size, layers: 12);
+        PaintImage layer = new(Size, Size);
+        PaintTarget target = new(layer, PaintCoverage.Everywhere(Size, Size), stack, Gutter: 4);
+
+        Assert.True(projector.Begin(eye, PaintProjectionTests.Down(0.25f, 0.5f), 48f, out var footprint));
+        Assert.Equal(48f, footprint.Radius, 2);
+
+        var started = Stopwatch.GetTimestamp();
+        var session = PaintSession.Begin(
+            target,
+            PaintStrokeTests.Hard(footprint.Radius) with { Spacing = 1f, Aspect = footprint.Aspect, AspectAngle = footprint.Angle },
+            Opaque
+        );
+
+        var opened = Stopwatch.GetElapsedTime(started);
+        var stamping = Stopwatch.GetTimestamp();
+
+        for (var step = 0; step < Moves; step++) {
+            session.MoveAll(projector.Resolve(PaintProjectionTests.Down(0.25f + (step * 48f / Size), 0.5f)));
+        }
+
+        var elapsed = Stopwatch.GetElapsedTime(stamping);
+
+        // ⚠ The property, and it is the one the 16 ms was a proxy for: the stack is evaluated in the
+        // session's constructor and never again, so the layer count is not in the per-stamp path.
+        Assert.Equal(2, session.Composite.Evaluations);
+        Assert.Equal(2, stack.Evaluations);
+
+        // The instrument: a drag that laid one stamp would satisfy that for a reason that has
+        // nothing to do with the cache, and a projector that missed the mesh would lay none.
+        Assert.True(
+            session.StampCount >= Moves - 1,
+            $"{session.StampCount} stamps from {Moves} projected moves — the rays are not reaching the mesh."
+        );
+
+        const int Radius = 48;
+        const int Gutter = 4;
+
+        var square = (long)((2 * Radius) + 2) * ((2 * Radius) + 2);
+        var dilated = (long)((2 * Radius) + 2 + (2 * Gutter)) * ((2 * Radius) + 2 + (2 * Gutter));
+
+        Assert.True(
+            session.TexelsScanned <= session.StampCount * (square + (Gutter * dilated)),
+            $"{session.TexelsScanned} texels scanned for {session.StampCount} projected stamps; "
+            + $"{session.StampCount * (square + (Gutter * dilated))} is the footprint-plus-dilation bound."
+        );
+
+        var perStamp = elapsed.TotalMilliseconds / session.StampCount;
+
+        output.WriteLine(
+            $"4096², 12 layers, projected: stroke start {opened.TotalMilliseconds:F1} ms, "
+            + $"{perStamp:F3} ms per stamp over {session.StampCount} stamps at radius {footprint.Radius:F1}. "
+            + "Exit criterion 8 asks for under 16."
+        );
+
+        // A hang check and not a bound — this file's whole argument.
+        Assert.True(
+            perStamp < 500d,
+            $"{perStamp:F1} ms per projected stamp is not a slow machine, it is a stamp that stopped being local."
+        );
+    }
+
     /// <summary>⚠ Pointer-down does not composite the atlas, which is #853's 1.9 seconds.</summary>
     /// <remarks>
     ///     <b>A counter, for this file's whole argument.</b> The measurement in #853 is a wall clock

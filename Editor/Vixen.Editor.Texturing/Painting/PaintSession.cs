@@ -94,6 +94,14 @@ sealed class PaintSession {
     readonly float smoothing;
     readonly uint seed;
 
+    /// <summary>What the drag found before any of its paths painted, or null for a single path.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The undo record of a <em>drag</em>, which is not its strokes' records put together</b>
+    ///     — see <see cref="PaintOriginal" />. Latched with the strokes, at the first move, because
+    ///     that is the moment the path count is fixed.
+    /// </remarks>
+    PaintOriginal? original;
+
     PaintSession(PaintTarget target, PaintBrush brush, uint colour, float smoothing, uint seed) {
         this.target = target;
         this.brush = brush;
@@ -210,6 +218,12 @@ sealed class PaintSession {
         }
 
         if (strokes.Count == 0) {
+            // ⚠ Only for a drag that has mirrors, and `PaintOriginal`'s remarks are the whole
+            // argument: two paths that overlap in the atlas cannot be undone by undoing their
+            // records in any order, and one path cannot overlap itself. A single-path drag — every
+            // stroke the 2D pane makes — allocates nothing here.
+            original = positions.Length > 1 ? new(target.Layer) : null;
+
             for (var index = 0; index < positions.Length; index++) {
                 // ⚠ A different seed per mirror. Sharing one would make a mirrored stroke's jitter
                 // identical to its sibling's, so a symmetric drag would paint a picture that is
@@ -221,7 +235,8 @@ sealed class PaintSession {
                     colour,
                     target.Gutter,
                     smoothing,
-                    seed + ((uint)index * 0x85EBCA6Bu)
+                    seed + ((uint)index * 0x85EBCA6Bu),
+                    original
                 ));
             }
         } else if (strokes.Count != positions.Length) {
@@ -302,7 +317,8 @@ sealed class PaintSession {
             rect => {
                 Composite.Resolve(rect);
                 changed?.Invoke(rect);
-            }
+            },
+            original
         );
     }
 }

@@ -312,24 +312,57 @@ sealed class PaintUvView {
     /// <summary>Puts the brush's ring under a pointer position.</summary>
     /// <param name="at">Where, in texels.</param>
     /// <remarks>
-    ///     ⚠ <b>In texels with a screen-pixel thickness, which is what makes it read as a cursor.</b>
-    ///     A ring whose radius were in screen pixels would be the same size at every zoom and would
-    ///     therefore lie about what the stamp covers — and that lie is invisible until the artist
-    ///     zooms, which is precisely when they are trying to place a small stroke exactly.
+    ///     <para>
+    ///         ⚠ <b>In texels with a screen-pixel thickness, which is what makes it read as a
+    ///         cursor.</b> A ring whose radius were in screen pixels would be the same size at every
+    ///         zoom and would therefore lie about what the stamp covers — and that lie is invisible
+    ///         until the artist zooms, which is precisely when they are trying to place a small
+    ///         stroke exactly.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An ellipse and not a ring, because the stamp is one</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a>. A brush aimed at a
+    ///         stretched chart covers an ellipse in the atlas, and a cursor drawn round over it lies
+    ///         about the stamp in exactly the direction the artist is trying to judge. It is a circle
+    ///         for every stroke made in this pane — <c>PaintBrush.Aspect</c> is one unless a 3D
+    ///         surface measured it — so this is the same picture it always was until something aims
+    ///         at a model.
+    ///     </para>
     /// </remarks>
     public void ShowCursor(Vector2 at) {
         Image.Overlay.RemoveRange(outlines, Image.Overlay.Count - outlines);
 
-        var radius = tool.Brush.Radius;
-        var previous = at + new Vector2(radius, 0f);
+        var brush = tool.Brush;
+
+        // The same two semi-axes `PaintBrush.Circularised` divides by, so the ring is the stamp's own
+        // boundary rather than a second opinion about its shape.
+        var stretch = new PaintStamp(at, 0f, brush.Radius, 1f, brush.Aspect, brush.AspectAngle).Stretch;
+        var half = MathF.Sqrt(stretch);
+        var (sin, cos) = MathF.SinCos(brush.AspectAngle);
+        var previous = Rim(at, brush.Radius * half, brush.Radius / half, sin, cos, 0f);
 
         for (var step = 1; step <= CursorSegments; step++) {
-            var angle = step * (MathF.Tau / CursorSegments);
-            var point = at + new Vector2(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius);
+            var point = Rim(at, brush.Radius * half, brush.Radius / half, sin, cos, step * (MathF.Tau / CursorSegments));
 
             Image.Overlay.Add(new(previous, point));
             previous = point;
         }
+    }
+
+    /// <summary>One point of the stamp's boundary.</summary>
+    /// <param name="at">Where the stamp is, in texels.</param>
+    /// <param name="along">Its long semi-axis, in texels.</param>
+    /// <param name="across">Its short one.</param>
+    /// <param name="sin">The sine of the long axis's angle in the atlas.</param>
+    /// <param name="cos">Its cosine.</param>
+    /// <param name="angle">How far round the boundary, in radians.</param>
+    /// <returns>The point, in texels.</returns>
+    static Vector2 Rim(Vector2 at, float along, float across, float sin, float cos, float angle) {
+        var (y, x) = MathF.SinCos(angle);
+        var u = x * along;
+        var v = y * across;
+
+        return at + new Vector2((u * cos) - (v * sin), (u * sin) + (v * cos));
     }
 
     Vector2 Texels(Vector2 uv) => new(uv.X * Image.ImageWidth, uv.Y * Image.ImageHeight);

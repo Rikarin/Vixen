@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Painting;
 using Xunit;
 
@@ -33,6 +34,9 @@ public class PaintProjectorTests {
     /// <summary>The atlas these cases paint into.</summary>
     const int Size = 64;
 
+    /// <summary>An undo entry's <c>Do</c> and <c>Undo</c> read no context, and this says so.</summary>
+    static readonly EditorContext NoContext = null!;
+
     /// <summary>A camera set so that one render pixel is exactly one texel.</summary>
     /// <remarks>
     ///     ⚠ <b>Chosen so the conversion is the identity, which is what makes every radius below
@@ -59,12 +63,24 @@ public class PaintProjectorTests {
         );
     }
 
-    /// <summary>A drag across the model is one undo entry, mirrors or not.</summary>
+    /// <summary>A drag across the model is one undo entry, and undoing it takes back every mirror.</summary>
     /// <remarks>
-    ///     ⚠ <b>Doc 48 § M9's second exit criterion, asked of the 3D path.</b> The single entry is
-    ///     <c>PaintSession</c>'s and is asserted there too; what is new here is that symmetry — which
-    ///     is two strokes — is still one, because it is the one place a mirrored path could
-    ///     plausibly have been given its own command.
+    ///     <para>
+    ///         ⚠ <b>Doc 48 § M9's second exit criterion, asked of the 3D path.</b> The single entry is
+    ///         <c>PaintSession</c>'s and is asserted there too; what is new here is that symmetry —
+    ///         which is two strokes — is still one, because it is the one place a mirrored path could
+    ///         plausibly have been given its own command.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The count is not the property, and the first version of this case asserted
+    ///         nothing else.</b> It ended with <c>Assert.NotNull(session.End(…))</c> on the line after
+    ///         <c>Assert.False(session.IsEmpty)</c> — and <c>PaintSession.End</c> returns null exactly
+    ///         when <c>IsEmpty</c>, so that assertion could not fail. What a mirrored undo can
+    ///         actually get wrong is <em>which</em> strokes it takes back: an entry built from the
+    ///         primary stroke alone, or one whose rectangle spans the two, looks identical here and
+    ///         leaves the far side of the model painted after the artist presses Ctrl+Z. So the
+    ///         assertion is the two halves of the atlas, before, after and after a redo.
+    ///     </para>
     /// </remarks>
     [Theory]
     [InlineData(false, 1)]
@@ -77,11 +93,11 @@ public class PaintProjectorTests {
             Symmetry = mirrored ? PaintSymmetry.Across(new(1f, 0f, 0f), new(0.5f, 0f, 0f)) : null
         };
 
-        Assert.True(projector.Begin(Eye(), PaintProjectionTests.Down(0.2f, 0.5f), 8f, out var radius));
-        Assert.True(radius > 0f);
+        Assert.True(projector.Begin(Eye(), PaintProjectionTests.Down(0.2f, 0.5f), 8f, out var footprint));
+        Assert.True(footprint.IsMeasurable);
         Assert.Equal(paths, projector.Paths);
 
-        var session = Session(radius, out _);
+        var session = Session(footprint.Radius, out var image);
 
         for (var step = 0; step <= 10; step++) {
             session.MoveAll(projector.Resolve(PaintProjectionTests.Down(0.2f + (step * 0.02f), 0.5f)));
@@ -93,6 +109,49 @@ public class PaintProjectorTests {
         var command = session.End("Paint");
 
         Assert.NotNull(command);
+
+        // The drag runs from u = 0.2 to u = 0.4, so the primary path sweeps texels 12.8…25.6 and its
+        // mirror — 1 − u, from 0.8 down to 0.6 — sweeps 51.2…38.4. At the radius this camera gives
+        // (8 texels) the two reach 33.6 and 30.4, so they overlap in the middle and neither reaches
+        // the other's far end: columns under 26 belong to the primary and columns from 38 up belong
+        // to the mirror, whatever the two do between them.
+        var left = Painted(image, 0, 26);
+        var right = Painted(image, 38, Size);
+
+        Assert.True(left > 0, "the primary path painted nothing, so nothing below proves anything.");
+        Assert.Equal(mirrored, right > 0);
+
+        // ⚠ The whole atlas, and this is the assertion that found the defect. Two mirrored paths
+        // overlap around the middle here, so the second one's undo record holds the first one's
+        // paint — and undoing the strokes in order restored the original and then put the sibling's
+        // colour back over four texels of it. See `PaintOriginal`.
+        command.Undo(NoContext);
+
+        Assert.Equal(0, Painted(image, 0, Size));
+
+        command.Do(NoContext);
+
+        Assert.Equal(left, Painted(image, 0, 26));
+        Assert.Equal(right, Painted(image, 38, Size));
+    }
+
+    /// <summary>How many texels of a column range carry any colour at all.</summary>
+    /// <param name="image">The layer.</param>
+    /// <param name="from">The first column.</param>
+    /// <param name="to">One past the last.</param>
+    /// <returns>The count.</returns>
+    static int Painted(PaintImage image, int from, int to) {
+        var painted = 0;
+
+        for (var y = 0; y < Size; y++) {
+            for (var x = from; x < to; x++) {
+                if (image[(y * Size) + x] != 0u) {
+                    painted++;
+                }
+            }
+        }
+
+        return painted;
     }
 
     /// <summary>⚠ Clearing symmetry mid-drag does not freeze the mirror, and moving it does not aim it.</summary>
@@ -275,12 +334,14 @@ public class PaintProjectorTests {
     public void A_projected_drag_evaluates_the_stack_once() {
         PaintProjector projector = new(PaintProjectionTests.Plane(), Size, Size);
 
-        Assert.True(projector.Begin(Eye(), PaintProjectionTests.Down(0.2f, 0.5f), 4f, out var radius));
+        Assert.True(projector.Begin(Eye(), PaintProjectionTests.Down(0.2f, 0.5f), 4f, out var footprint));
 
-        // The identity conversion, spelled out: four screen pixels is four texels.
-        Assert.Equal(4f, radius, 3);
+        // The identity conversion, spelled out: four screen pixels is four texels — and a plane whose
+        // layout is its own coordinates is isometric, so the ellipse is a circle.
+        Assert.Equal(4f, footprint.Radius, 3);
+        Assert.Equal(1f, footprint.Aspect, 3);
 
-        var session = Session(radius, out _);
+        var session = Session(footprint.Radius, out _);
 
         for (var step = 0; step < 20; step++) {
             session.MoveAll(projector.Resolve(PaintProjectionTests.Down(0.2f + (step * 0.02f), 0.5f)));
@@ -304,8 +365,8 @@ public class PaintProjectorTests {
     public void A_pointer_down_that_misses_the_mesh_starts_no_paths() {
         PaintProjector projector = new(PaintProjectionTests.Plane(), Size, Size);
 
-        Assert.False(projector.Begin(Eye(), new(new(0.5f, 0.5f, 10f), new(0f, 0f, 1f)), 8f, out var radius));
-        Assert.Equal(0f, radius);
+        Assert.False(projector.Begin(Eye(), new(new(0.5f, 0.5f, 10f), new(0f, 0f, 1f)), 8f, out var footprint));
+        Assert.False(footprint.IsMeasurable);
         Assert.Equal(0, projector.Paths);
         Assert.True(projector.Resolve(PaintProjectionTests.Down(0.5f, 0.5f)).IsEmpty);
     }
