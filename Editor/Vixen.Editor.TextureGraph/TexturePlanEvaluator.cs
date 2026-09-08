@@ -321,12 +321,30 @@ public sealed class TexturePlanEvaluator : IDisposable {
     /// <exception cref="ObjectDisposedException">The evaluator has been disposed.</exception>
     /// <exception cref="InvalidOperationException">The device already has a frame open.</exception>
     /// <remarks>
-    ///     ⚠ <b>A bare handle declares <see cref="TextureUsage.Sampled" /> and nothing else</b>, which
-    ///     is the whole of what a dispatch needs and is <em>not</em> enough for a
-    ///     <see cref="TextureOp.Cpu" /> op, which copies out of the image it reads. A plan with one of
-    ///     those over an external image is refused here rather than run — pass
-    ///     <see cref="Evaluate(TexturePlan, IReadOnlyDictionary{int, TextureExternal})" /> and say what
-    ///     the texture was created with.
+    ///     <para>
+    ///         ⚠ <b>A bare handle declares <see cref="TextureUsage.Sampled" /> and nothing else</b>,
+    ///         which is the whole of what a dispatch needs and is <em>not</em> enough for a
+    ///         <see cref="TextureOp.Cpu" /> op, which copies out of the image it reads. A plan with
+    ///         one of those over an external image is refused here rather than run — pass
+    ///         <see cref="Evaluate(TexturePlan, IReadOnlyDictionary{int, TextureExternal})" /> and say
+    ///         what the texture was created with.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it declares no <see cref="TextureExternal.Size" />, which is the half that
+    ///         used to be invisible</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1014">#1014</a>. There is no size to
+    ///         put here: the overload's whole convenience is a dictionary of handles, and a handle is
+    ///         an opaque number. So the extent guard
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/632">#632</a>) has nothing to compare
+    ///         a supplied picture against, and a plan run through this overload gets a picture drawn
+    ///         in its top-left corner with no complaint. That is now <em>said</em> rather than
+    ///         forgone in silence: the bake carries one warning per op it could not check, which is
+    ///         the difference between a caller who chose the shorter call and one who did not know
+    ///         there was a longer one. Every caller of this overload today is a test fixture, and it
+    ///         is the right overload for a suite that dispatches over one uploaded image; a
+    ///         production caller wants <c>TextureUploads.Externals</c>, which declares the size from
+    ///         the value it already remembers.
+    ///     </para>
     /// </remarks>
     public TextureBake Evaluate(TexturePlan plan, IReadOnlyDictionary<int, TextureHandle>? externals = null) =>
         Evaluate(
@@ -707,10 +725,30 @@ public sealed class TexturePlanEvaluator : IDisposable {
                     continue;
                 }
 
-                if (TexturePlan.Declared(op, input)
-                    || !externals.TryGetValue(input, out var supplied)
-                    || !supplied.HasSize
-                    || supplied.Size == size) {
+                if (TexturePlan.Declared(op, input) || !externals.TryGetValue(input, out var supplied)) {
+                    continue;
+                }
+
+                if (!supplied.HasSize) {
+                    // ⚠ #1014: the silence this guard used to answer an undeclared size with. There
+                    // is nothing to compare, so nothing can be checked — and a check that cannot run
+                    // reporting nothing is the shape this repository keeps shipping. Said once per
+                    // op that would have been checked, so a plan reading no supplied picture, or one
+                    // whose ops all mean another extent, stays quiet.
+                    cautions.Add(
+                        $"Op {index} runs '{op.Kernel}', writes a {size.X}×{size.Y} image {op.Output} and reads "
+                        + $"image {input} the caller supplied without saying how big it is — so whether it is the "
+                        + "size this op reads at was not checked. Nothing in IGraphicsDevice can describe a handle "
+                        + $"back: {nameof(TextureExternal)}.{nameof(TextureExternal.Size)} is the only answer, and "
+                        + "the Evaluate overload taking bare handles cannot give it. TextureUploads.Externals is "
+                        + "what both production callers use, and it declares the size from the value it already "
+                        + "remembers."
+                    );
+
+                    continue;
+                }
+
+                if (supplied.Size == size) {
                     continue;
                 }
 
@@ -1248,9 +1286,47 @@ public sealed class TexturePlanEvaluator : IDisposable {
     ///         <see cref="EffectKey" /> and not reaching the key would put two ops with different
     ///         permutations on one pipeline and the second would draw the first one's picture.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The library <see cref="TextureKernelPrelude" /> prepends does <em>not</em> widen
+    ///         what a variant is, which was worth checking rather than assuming</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/635">#635</a> put three more sources
+    ///         into every compilation, and a key that had become incomplete would be invisible.
+    ///         <see cref="TextureKernelPrelude.Sources" /> is one process-wide list read from this
+    ///         assembly's own embedded resources, so it is the same for every kernel and every plan,
+    ///         and contributes nothing that could vary.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What <em>is</em> not covered by the key is a kernel the plan carries</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1080">#1080</a>.
+    ///         <see cref="TexturePlan.Kernels" /> is a public property, so two plans may spell one
+    ///         name two ways; <see cref="VariantFor" /> refuses the second rather than serving it the
+    ///         first one's module.
+    ///     </para>
     /// </remarks>
     Variant VariantFor(TexturePlan plan, string kernel, TextureFormat output) {
+        var authored = plan.Kernels.GetValueOrDefault(kernel);
+
         if (variants.TryGetValue((kernel, output), out var existing)) {
+            // ⚠ The one way `(kernel, output)` is not enough, and it is not hypothetical — #1080.
+            // An *embedded* kernel's source is a function of its name, so the key identifies the
+            // module; a kernel the plan carries is whatever the caller put in `Kernels`, and
+            // `TexturePlan.Source`'s own remarks answer this with a convention — "names an
+            // authoring front end generates carry a hash of their own source". `Kernels` is a
+            // public init property and the convention is enforced nowhere, so two plans through one
+            // evaluator can spell one name two ways and the second silently draws the first one's
+            // picture. Compared rather than folded into the key, because a name that means two
+            // things is an authoring mistake and not a variant.
+            if (!string.Equals(authored, existing.Authored, StringComparison.Ordinal)) {
+                throw new ArgumentException(
+                    $"A kernel called '{kernel}' has already been compiled by this evaluator from different "
+                    + "source. A compiled module is cached by name and output format across every plan an "
+                    + "evaluator runs, so one name is one kernel: the second plan would take the first one's "
+                    + "module and draw the first one's picture. Name a generated kernel after a digest of its "
+                    + "own source, which is what TexturePixelProcessor does.",
+                    nameof(plan)
+                );
+            }
+
             return existing;
         }
 
@@ -1283,6 +1359,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
         var module = device.CreateShader(ShaderStage.Compute, stage.Bytecode.AsSpan(), name);
 
         var variant = new Variant {
+            Authored = authored,
             Data = data,
             Effect = effect,
             Module = module,
@@ -1297,6 +1374,14 @@ public sealed class TexturePlanEvaluator : IDisposable {
     }
 
     sealed class Variant {
+        /// <summary>The plan's own text for this kernel, or null where the assembly ships it.</summary>
+        /// <remarks>
+        ///     ⚠ Kept so the cache key can be <em>checked</em> rather than only trusted. An embedded
+        ///     kernel needs nothing here: its source is a function of its name, so two plans naming it
+        ///     mean the same module by construction.
+        /// </remarks>
+        public required string? Authored { get; init; }
+
         public required EffectData Data { get; init; }
         public required Effect Effect { get; init; }
         public required ShaderHandle Module { get; init; }
