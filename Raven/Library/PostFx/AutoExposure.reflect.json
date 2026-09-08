@@ -276,7 +276,7 @@
         },
         {
           "Binding": 6,
-          "Name": "average",
+          "Name": "meanLuminance",
           "Type": "StorageImage",
           "Count": 1,
           "Stages": "Compute",

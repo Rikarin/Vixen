@@ -58,7 +58,7 @@ public class AutoExposureTests : IDisposable {
             new(AutoExposureKeys.ExposureBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute),
             new(AutoExposureKeys.HistogramBinding, DescriptorKind.StorageBuffer, ShaderStage.Compute),
             new(AutoExposureKeys.TargetBinding, DescriptorKind.StorageTexture, ShaderStage.Compute),
-            new(AutoExposureKeys.AverageBinding, DescriptorKind.StorageTexture, ShaderStage.Compute)
+            new(AutoExposureKeys.MeanLuminanceBinding, DescriptorKind.StorageTexture, ShaderStage.Compute)
         );
 
         effects.AddProvider(new AlwaysCompiles(layouts));
