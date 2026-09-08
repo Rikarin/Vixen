@@ -45,7 +45,7 @@ documents. **Criticality**: 🔴 engine-blocking · 🟡 needed for 1.0 · ⚪ m
 | 🔴 | **Extract `Vixen.Core.Syntax`**: lift `GreenNode`, `SyntaxNode`, `SyntaxToken`, `SyntaxTrivia`, `SyntaxList<T>`, `SeparatedSyntaxList`, `SourceText`, the `Diagnostic`/`DiagnosticBag` model, and the `Syntax.xml` → node-classes generator out of Raven into shared `Core/` projects, then retarget Raven onto them. VXML and VCSS then declare their own `Syntax.xml` against the same infrastructure. **This is the single highest-leverage refactor in the plan** — it turns three parser front ends into one tested foundation plus three grammars | ✅ |
 | ⚪ | Raven lands in the **Tooling** MSBuild profile ([02](02-repository-layout.md)): reflection and LINQ permitted, `IsAotCompatible` off. It is a compiler, not runtime code | ✅ |
 | ⚪ | `Vixen.Raven` and `Vixen.Raven.Cli` become shipped NuGet packages ([12](12-build-ci-and-testing.md)); the compiler is useful standalone | ✅ |
-| ⚪ | Relicense to **Apache-2.0** with SPDX headers and NOTICE (ADR-015) | ✅ headers and enforcement. ⚠ `.rvn` is **not** in the gate's scope — one shader of 125 carries a header |
+| ⚪ | Relicense to **Apache-2.0** with SPDX headers and NOTICE (ADR-015) | ✅ headers and enforcement, `.rvn` included |
 
 **Packaging.** Three packages: `Vixen.Core.Syntax`, `Vixen.Raven` (library) and
 `Vixen.Raven.Cli` (a `dotnet tool` exposing `raven`). The generator is `IsPackable=false` —
@@ -56,11 +56,18 @@ are now fixed: `Vixen.Raven.Cli` would have taken the package id `raven` from it
 every consuming project.
 
 **SPDX enforcement landed where ADR-015 put it.** `CheckFormat` fails on any `.cs`, `.g4`,
-`.vxml`, `.vcss` or `.ts` file whose first ten lines do not carry both
+`.vxml`, `.vcss`, `.ts` or `.rvn` file whose first ten lines do not carry both
 `SPDX-FileCopyrightText` and `SPDX-License-Identifier`, and it names every such file rather
-than the first. ⚠ **`.rvn` is outside that scope and this is the document that has to say so**:
-one shader of 125 carries a header, so heading the library is its own change with its own diff
-to read — not something to smuggle in behind a build target.
+than the first.
+
+⚠ **`.rvn` was outside that scope until the headers existed, and the note tracking it was wrong
+in both halves.** It said "one shader of 125 carries a header". The measurement was *zero* of
+114 in `Raven/Library`, and the single headed `.rvn` in the tree was a parser fixture, not a
+library shader — a hand-maintained count is what produced that, so no count is recorded here
+now. The headers were written first and the extension added second, which is what keeps the
+diff readable: one commit of 172 two-line insertions, one commit of one word. Compiled output
+is unaffected, because a comment is trivia the lexer drops and neither back end emits source
+into what it generates.
 
 **How the extraction landed.** Two decisions to know before touching the tree:
 
