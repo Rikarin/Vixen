@@ -75,9 +75,15 @@ interface ITexturePreviewImages {
 ///         makes that affordable and why the size is not the graph's.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing in the editor builds one of these yet.</b> It is the seam doc 48 § M4 asks
-///         for and § D5 says results arrive back through; the panel that would own it is the same
-///         batch's other half. Said here rather than discovered later.
+///         ⚠ <b>Nothing in the editor builds one of these yet, and the obstacle was not the panel</b>
+///         — <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a>. This type constructed
+///         its own <c>TexturePlanEvaluator</c>, so wiring it into <c>TexturingModule</c> would have
+///         put a third evaluator into a session that goes to some length to hold one; the
+///         constructor says what that costs. It takes a lease now, which is what
+///         <c>LayerStackPreview</c> and <c>TextureGraphPreview</c> take, so the remaining wiring is
+///         a construction beside those two, an <c>ITexturePreviewImages</c> over the host's
+///         renderer, and <c>view.Canvas.PreviewSource = previews</c> — the same three the shader
+///         graph's <c>EditorApplication.ShaderGraphPreviews</c> does.
 ///     </para>
 /// </remarks>
 sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
@@ -90,15 +96,18 @@ sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
 
     readonly Func<TextureGraphCompiler> compilers;
     readonly ITexturePreviewImages? images;
-    readonly TexturePlanEvaluator evaluator;
+    readonly Func<TexturePlanEvaluator?> evaluators;
     readonly Dictionary<(NodeGraphModel Graph, NodeId Node), ulong> registered = [];
     readonly HashSet<NodeGraphModel> watched = [];
     readonly List<NodeGraphModel> dirty = [];
 
     bool disposed;
 
-    /// <summary>Builds a preview source on a device.</summary>
-    /// <param name="device">Where the images are evaluated.</param>
+    /// <summary>Builds a preview source over an evaluator somebody else owns.</summary>
+    /// <param name="evaluators">
+    ///     Answers the one evaluator for the host's <em>current</em> device, or <see langword="null" />
+    ///     when there is none. Asked on every rebuild rather than once.
+    /// </param>
     /// <param name="compilers">
     ///     Makes a compiler over the node library the graphs are edited against, with whatever
     ///     parameters, arguments and sub-graph library the host has. Its resolution and its
@@ -109,19 +118,43 @@ sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
     ///     source whose pictures nobody shows — which is what a test has and what a headless editor
     ///     has.
     /// </param>
-    /// <exception cref="ArgumentNullException"><paramref name="device" /> or <paramref name="compilers" /> is null.</exception>
+    /// <exception cref="ArgumentNullException">Any of the first three is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It used to build its own <c>TexturePlanEvaluator</c> from the device, and that is
+    ///         the reason <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a> was not
+    ///         one line.</b> The host's rule is that no pane owns an evaluator —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>,
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/988">#988</a>, and
+    ///         <c>PreviewLeaseTests</c> counts both the builds and the asks so that neither
+    ///         direction can hide — because an evaluator is a pipeline and a shader module per
+    ///         kernel and output format. A third one, per session, for the swatches under the nodes,
+    ///         would have been the cost that rule exists to prevent, arriving through the wiring
+    ///         commit that closed the issue.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asked on every rebuild rather than held, and the <em>device</em> goes with
+    ///         it.</b> The first version of this took an <c>IGraphicsDevice</c> as well and cached
+    ///         it in a field, which is only half of the shape <c>LayerStackPreview</c> and
+    ///         <c>TextureGraphPreview</c> have: they both re-read <c>graphics.Device</c> at the top
+    ///         of every use. Holding the device and asking for its evaluator per rebuild would have
+    ///         asked the lease for the evaluator of a device that is <em>gone</em> — the one
+    ///         question the lease cannot answer safely, arriving from the only pane whose device
+    ///         nothing re-reads. So this takes one delegate that answers both, and
+    ///         <see langword="null" /> means there is nothing to draw on yet.
+    ///     </para>
+    /// </remarks>
     public TextureGraphPreviews(
-        IGraphicsDevice device,
+        Func<TexturePlanEvaluator?> evaluators,
         Func<TextureGraphCompiler> compilers,
         ITexturePreviewImages? images = null
     ) {
-        ArgumentNullException.ThrowIfNull(device);
+        ArgumentNullException.ThrowIfNull(evaluators);
         ArgumentNullException.ThrowIfNull(compilers);
 
+        this.evaluators = evaluators;
         this.compilers = compilers;
         this.images = images;
-
-        evaluator = new(device);
     }
 
     /// <summary>How many times a graph has been compiled to a plan — the cheap tier.</summary>
@@ -232,7 +265,11 @@ sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
         registered.Clear();
         watched.Clear();
         dirty.Clear();
-        evaluator.Dispose();
+
+        // ⚠ The evaluator is *not* disposed, because this does not own one. Disposing a lent
+        // evaluator would call `WaitIdle` and `Destroy` on pipelines two other panes are still
+        // holding — which is the use-after-free the lender's own device guard exists to avoid,
+        // reached from the one place nothing would think to look.
     }
 
     void Rebuild(NodeGraphModel graph) {
@@ -248,6 +285,19 @@ sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
         Compilations++;
 
         if (compilation.Artefact is not { } plan || compilation.HasErrors) {
+            Refusals++;
+
+            return;
+        }
+
+        // ⚠ Asked here rather than held in a field, which is what "no pane owns an evaluator" means
+        // in practice — see the constructor. `PreviewLeaseTests` counts this question for the two
+        // panes; `A_preview_source_takes_its_evaluator_from_the_lease_on_every_rebuild` counts it
+        // for this one, because a source that asked once on the way in leaves every count about the
+        // lender's own builds green.
+        if (evaluators() is not { } evaluator) {
+            // No device, which is an ordinary state rather than a fault — the host has not finished
+            // starting, or it has just lost one. A rebuild that cannot draw leaves the graph dirty.
             Refusals++;
 
             return;

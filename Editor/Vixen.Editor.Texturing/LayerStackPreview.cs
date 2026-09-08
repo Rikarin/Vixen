@@ -173,7 +173,7 @@ sealed class LayerStackPreview : IDisposable {
         // window coming up showed a stack in silence, and it is the state the editor starts in.
         //
         // ⚠ The project's compounds are the whole of #924, and leaving them out was not a smaller
-        // version of the same behaviour: the compiler's default is the four this build ships, so a
+        // version of the same behaviour: the compiler's default is the compounds this build ships, so a
         // graph fill or a mask effect naming a compound out of `Assets/Compounds` refused here while
         // compiling in the graph panel next door. The parameter existed for a batch and nothing
         // production passed it, which is #858's fix reaching nobody.

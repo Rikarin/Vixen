@@ -1,0 +1,28 @@
+version: 1
+name: Bake Stack
+baseWidth: 64
+baseHeight: 64
+sets:
+  - name: Body
+    channels:
+      - usage: baseColor
+        default: [0, 0, 0, 1]
+      - usage: roughness
+        default: [0, 0, 0, 1]
+    layers:
+      - id: base
+        name: Base
+        kind: Fill
+        values:
+          baseColor: [0.25, 0.5, 0.75, 1]
+          roughness: [0.8, 0.8, 0.8, 1]
+  - name: Trim
+    channels:
+      - usage: baseColor
+        default: [0, 0, 0, 1]
+    layers:
+      - id: base
+        name: Base
+        kind: Fill
+        values:
+          baseColor: [0.75, 0.5, 0.25, 1]

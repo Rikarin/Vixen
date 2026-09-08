@@ -145,28 +145,41 @@ path with a phantom folder in it.
 | Path | What it is |
 |---|---|
 | `Utility/Histogram Scan` | A `Colour/Levels` behind two threshold ports — § 4.5's "Histogram Scan is a compound over Levels" |
+| `Utility/Histogram Range` · `Histogram Select` | The other two of § 4.5's histogram family |
+| `Utility/Contrast Luminosity` · `Highpass` · `Equalize` | Tone, detail and doc 40 § D2's *Delight / Equalize* row |
+| `Utility/Safe Transform` · `Make It Tile` | doc 40 § D2's first row: an offset-wrap behind an edge mask |
+| `Patterns/Brick` · `Panels` · `Tile Random` · `Rivets` | Four of § 4.9's pattern row, all over `Placement/Tile Sampler` |
 | `Generators/Dirt` | Curvature's cavities multiplied by occlusion's enclosure |
 | `Generators/Curvature Edge Wear` | Curvature's convex half, broken up by a noise |
 | `Generators/Grunge Rough Dirty` | A noise slope-blurred against itself, darkened by occlusion |
+| `Generators/Mask Editor` | The composite with the sliders, and § D9's parameters end to end |
 
-Four, against the two dozen doc 48 marks for M10 and the several hundred the references ship. That gap
-is real and named in doc 48 § A.9; it is content authoring rather than engineering.
+**Sixteen**, against the two dozen doc 48 marks for M10 and the several hundred the references ship.
+That remaining gap is real and named in doc 48 § A.9; it is content authoring rather than engineering.
+⚠ **The measurement M10 exists to make is written up beside the content itself**, in
+`Editor/Vixen.Editor.TextureGraph/Compounds/README.md`: what could *not* be authored out of the
+atomic set, which is the standing test of whether M2 and M3 got that set right.
 
 ⚠ **`Histogram Scan`'s knobs are a black and a white point, not the reference's position and
-contrast**, and the reason is worth knowing before authoring the next compound: a graph cannot do
-arithmetic on a scalar port. `position ± contrast/2` would have to be an *expression*, expressions
-bind against a graph's `TextureGraphParameter`s, and a parameter's override does not survive inlining
-— see below. So the two numbers a compound exposes are the two numbers a node underneath it takes,
-until [#742](https://github.com/Rikarin/Vixen/issues/742).
+contrast.** That was because a compound's knob could only be a port, and a port cannot be arithmetic;
+it is no longer a constraint (see below) and the node keeps the two numbers it was authored with.
 
-### Why a compound's knobs are ports and not parameters
+### A compound's knobs may be ports *or* parameters
 
-⚠ A published graph can declare `TextureGraphParameter`s **or** put scalar ports on its interface, and
-only the second works today. `SubGraphs.Flatten` replaces the sub-graph node with the graph's contents,
-and the node — which is where a parameter override is stored — is then gone, so an expression inside a
-published graph folds against that graph's own declared default and turning the knob changes nothing
-until [#742](https://github.com/Rikarin/Vixen/issues/742). A port survives inlining because it is an
-edge. So every knob on a shipped compound is an interface port.
+⚠ **This section said until 2026-09-08 that only ports work, and
+[#742](https://github.com/Rikarin/Vixen/issues/742) closed that.** `SubGraphs.Flatten` replaces the
+sub-graph node with the graph's contents, and the node is where a parameter override is stored — so
+before #742 an expression inside a published graph folded against that graph's own declared default
+and turning the knob changed nothing. `NodeGraphInlining` now carries each expansion's settings and
+the compiler reads them, so **seven of the sixteen shipped compounds declare parameters and drive
+node ports through folded expressions**.
+
+Which to reach for is now a real choice rather than a workaround:
+
+* a **port** is an edge, so it can take a whole image and can be wired from another node;
+* a **parameter** is a number with a range and a group, so it can be arithmetic — `position ±
+  contrast/2` is expressible — and it appears in the node inspector as a knob rather than as a
+  dangling input.
 
 ### What this does not do yet
 

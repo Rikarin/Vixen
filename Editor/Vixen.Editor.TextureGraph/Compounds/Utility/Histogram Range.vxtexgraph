@@ -1,0 +1,55 @@
+version: 1
+name: Histogram Range
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Colour/Levels
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      '=Output Black': position - range * 0.5f
+      '=Output White': position + range * 0.5f
+  - id: 3
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Input, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: The grey to compress.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The same picture inside a narrower band of values.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: position
+    default: '0.5'
+    summary: Where the compressed band sits. 0.5 keeps it centred.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Range
+  - name: range
+    default: '1'
+    summary: How wide the band is. 1 is the identity; 0 is a flat fill at position.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Range

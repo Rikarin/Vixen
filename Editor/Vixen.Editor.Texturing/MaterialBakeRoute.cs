@@ -9,6 +9,7 @@ using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.Plugin;
 using Vixen.Editor.TextureGraph;
+using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Graphics;
 
@@ -162,10 +163,181 @@ sealed class MaterialBakeRoute {
             return Said("Nothing baked: " + TexturePreview.Describe(TexturePreview.Blocking(graphics)));
         }
 
+        return Write(
+            document.Project,
+            document.AssetPath,
+            device,
+            plan,
+            compilation.Outputs,
+            compilation.Externals,
+            compilation.Diagnostics,
+            Record(document, device),
+            name,
+            folder,
+            force
+        );
+    }
+
+    /// <summary>Compiles a layer stack, evaluates every map its channels name, and puts them in the project.</summary>
+    /// <param name="document">The stack in the layers panel.</param>
+    /// <param name="name">What the material should be called. One per texture set; see below.</param>
+    /// <param name="folder">Which folder under <c>Assets/</c> to write into.</param>
+    /// <param name="force">Overwrite outputs somebody has painted over.</param>
+    /// <returns>One outcome per texture set, in the stack's own order. Never empty.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="document" /> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name" /> is empty.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 48 § M7's exit word, which was owed one document after
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1009">#1009</a> closed the graph's</b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/1029">#1029</a>. Both material-bake
+    ///         callers read a graph, so an artist who built a layer stack — the whole of M7 and M9 —
+    ///         could not turn it into a material by any route a person can take, which is what makes
+    ///         a smart material worth applying: somebody who applies one wants a material out.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A stack's usages come from its channels and they are already
+    ///         <c>TextureGraphOutput</c>s by the time this sees them, which is the half of #1029's
+    ///         framing that turned out not to be owed.</b> That issue reads "nothing walks the
+    ///         stack's outputs … the stack half is compile once per usage, or teach the compiler to
+    ///         emit them together" — but <c>LayerStackGraph.Build</c> already emits one
+    ///         <c>Output/Output</c> node per channel of the set and <c>LayerStackCompilation.Outputs</c>
+    ///         already carries all of them. What was missing was a caller: <c>LayerStackPreview</c>
+    ///         searches that list for <em>one</em> usage and shows it, and nothing read the rest.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One material per texture set, and not one for <c>Sets[0]</c></b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>. A stack's sets are the
+    ///         material slots of one model, so a bake that wrote the first one would leave every
+    ///         other slot of the mesh with no material at all and say nothing about it. A single-set
+    ///         stack takes <paramref name="name" /> unchanged; a stack with two or more suffixes each
+    ///         with its set's name, because the alternative — <c>Hull_Default</c> for the ordinary
+    ///         one-slot case — is a name nobody would have chosen.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Outside the host's own frame</b>, which is <see cref="Bake(TextureGraphDocument,
+    ///         string, string, bool)" />'s rule and holds for the same reason: the evaluator drives
+    ///         <c>BeginFrame</c> and <c>EndFrame</c> on the device itself.
+    ///     </para>
+    /// </remarks>
+    public ImmutableArray<MaterialBakeOutcome> Bake(
+        LayerStackDocument document,
+        string name,
+        string folder = MaterialMapNaming.DefaultFolder,
+        bool force = false
+    ) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        var stack = document.Document;
+
+        if (stack.Sets.Count == 0) {
+            return [new(null, "Nothing baked: this stack has no texture set, so there is no map to bake.")];
+        }
+
+        // ⚠ Republished before the compile and not after it, which is `LayerStackPreview.Evaluate`'s
+        // order and is what stops a bake compiling against a node library that predates the compound
+        // the artist saved a minute ago.
+        document.Republish();
+
+        var outcomes = ImmutableArray.CreateBuilder<MaterialBakeOutcome>(stack.Sets.Count);
+        var names = Names(stack, name);
+
+        for (var index = 0; index < stack.Sets.Count; index++) {
+            var set = stack.Sets[index];
+            var compilation = LayerStackCompiler.Compile(stack, set, document.Library);
+            var material = names[index];
+
+            MaterialBakeOutcome Said(string status) =>
+                new(null, $"'{set.Name}': " + status) { Diagnostics = compilation.Diagnostics };
+
+            // ⚠ Before the device, for the pane's reason: a stack that does not compile does not
+            // compile on any host, and answering an author's mistake with a message about the window
+            // not being up yet is what asking the other way round produces.
+            if (compilation.Plan is not { } stackPlan) {
+                outcomes.Add(Said("nothing baked: " + Refused(compilation)));
+
+                continue;
+            }
+
+            if (compilation.Outputs.Length == 0) {
+                outcomes.Add(
+                    Said(
+                        "nothing baked: this texture set declares no channel, and a channel is what "
+                        + "names a usage and makes a file the bake writes."
+                    )
+                );
+
+                continue;
+            }
+
+            if (graphics.Device is not { } stackDevice) {
+                outcomes.Add(Said("nothing baked: " + TexturePreview.Describe(TexturePreview.Blocking(graphics))));
+
+                continue;
+            }
+
+            outcomes.Add(
+                Write(
+                    document.Project,
+                    document.AssetPath,
+                    stackDevice,
+                    stackPlan,
+                    compilation.Outputs,
+                    compilation.Externals,
+                    compilation.Diagnostics,
+                    Record(document, stackDevice),
+                    material,
+                    folder,
+                    force
+                )
+            );
+        }
+
+        return outcomes.ToImmutable();
+    }
+
+    /// <summary>Evaluates a compiled plan's every output and writes the set into the project.</summary>
+    /// <param name="project">The project the files go into.</param>
+    /// <param name="assetPath">The document the plan came from, for the externals it names.</param>
+    /// <param name="device">The device to run it on.</param>
+    /// <param name="plan">The plan.</param>
+    /// <param name="outputs">Which image is which map.</param>
+    /// <param name="externals">The imported images the plan needs supplied.</param>
+    /// <param name="diagnostics">What the compile had to say, carried onto every answer.</param>
+    /// <param name="record">The provenance block.</param>
+    /// <param name="name">What the material should be called.</param>
+    /// <param name="folder">Which folder under <c>Assets/</c>.</param>
+    /// <param name="force">Overwrite outputs somebody has painted over.</param>
+    /// <returns>What happened, and what to say about it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Shared by the graph route and the stack route rather than copied, and the copy is the
+    ///     defect it exists to prevent.</b> Everything after "there is a plan and a device" is the
+    ///     same eight steps — resolve the externals, evaluate, read every output, encode, write,
+    ///     and turn each of the four refusals into a sentence — and the one that gets forgotten in a
+    ///     second copy is the <see cref="MaterialBakeOutcome.Painted" /> flag, which is the whole of
+    ///     what makes a force control reachable
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1019">#1019</a>).
+    /// </remarks>
+    MaterialBakeOutcome Write(
+        EditorProject project,
+        string assetPath,
+        IGraphicsDevice device,
+        TexturePlan plan,
+        ImmutableArray<TextureGraphOutput> outputs,
+        ImmutableArray<TextureGraphExternal> externals,
+        ImmutableArray<NodeDiagnostic> diagnostics,
+        MaterialBakeRecord record,
+        string name,
+        string folder,
+        bool force
+    ) {
+        MaterialBakeOutcome Said(string status) => new(null, status) { Diagnostics = diagnostics };
+
         var wanted = new Dictionary<MaterialMapUsage, TextureGraphOutput>();
         var unknown = new List<string>();
 
-        foreach (var output in compilation.Outputs) {
+        foreach (var output in outputs) {
             // ⚠ Two lists in two assemblies, and this is where they meet. `TextureUsages.Known` is
             // the nine an Output node accepts and `MaterialMapNaming.Every` is the nine a bake can
             // write; the compiler canonicalises against the first, so today every output parses.
@@ -210,11 +382,11 @@ sealed class MaterialBakeRoute {
         // names a project asset, and a second copy of this resolve here would be the copy that
         // forgot a case.
         var unresolved = TextureExternalImages.Fill(
-            document.Project,
-            document.AssetPath,
+            project,
+            assetPath,
             uploads,
             plan,
-            compilation.Externals,
+            externals,
             canvases
         );
 
@@ -234,10 +406,10 @@ sealed class MaterialBakeRoute {
         MaterialBakeSet set;
 
         try {
-            set = new ProjectMaterialBaker(document.Project, folder).Write(
+            set = new ProjectMaterialBaker(project, folder).Write(
                 name,
                 MaterialBake.Encode(pictures),
-                Record(document, device),
+                record,
                 force
             );
         } catch (ArgumentException failure) {
@@ -251,7 +423,7 @@ sealed class MaterialBakeRoute {
             // file, and force answers neither. Flagging those was sending an artist to a control
             // that changes nothing, which is the sentence `Painted` exists to avoid.
             return new MaterialBakeOutcome(null, "Nothing baked: " + failure.Message) {
-                Diagnostics = compilation.Diagnostics,
+                Diagnostics = diagnostics,
                 Painted = failure.Message.EndsWith(ProjectMaterialBaker.Overpaint, StringComparison.Ordinal)
             };
         } catch (InvalidOperationException failure) {
@@ -273,8 +445,48 @@ sealed class MaterialBakeRoute {
             : "";
 
         return new MaterialBakeOutcome(set, Reported(set) + dropped + cautions + warnings) {
-            Diagnostics = compilation.Diagnostics
+            Diagnostics = diagnostics
         };
+    }
+
+    /// <summary>One material name per texture set, all of them distinct.</summary>
+    /// <param name="stack">The stack.</param>
+    /// <param name="name">The stack's own name, which a single-set stack keeps unchanged.</param>
+    /// <returns>The names, in the sets' order.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The obvious spelling — <c>name + "_" + set.Name</c> per set — loses a set's whole
+    ///     bake silently.</b> <c>TextureSetAsset.Name</c> defaults to the empty string, so a stack
+    ///     with two unnamed sets sent both through the writer under one name: the second overwrote
+    ///     the first's maps, and because the first write had just recorded its digest the overpaint
+    ///     guard saw bytes that matched and raised nothing. Both sets were then reported as baked
+    ///     and one of them was not on the disk.
+    ///     ⚠ <b>A collision falls back to the set's index rather than refusing</b>, because the
+    ///     artist's fix — naming the sets — is one they can only make after seeing what was baked,
+    ///     and a refusal on a `.vxlayers` that was fine yesterday is worse than a name with a 1 in
+    ///     it. The notification names the set either way.
+    /// </remarks>
+    static ImmutableArray<string> Names(LayerStackAsset stack, string name) {
+        if (stack.Sets.Count == 1) {
+            return [name];
+        }
+
+        var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var names = ImmutableArray.CreateBuilder<string>(stack.Sets.Count);
+
+        for (var index = 0; index < stack.Sets.Count; index++) {
+            var wanted = stack.Sets[index].Name.Length == 0
+                ? name + "_" + index.ToString(CultureInfo.InvariantCulture)
+                : name + "_" + stack.Sets[index].Name;
+
+            if (!taken.Add(wanted)) {
+                wanted += "_" + index.ToString(CultureInfo.InvariantCulture);
+                taken.Add(wanted);
+            }
+
+            names.Add(wanted);
+        }
+
+        return names.DrainToImmutable();
     }
 
     /// <summary>What the artist is told when it worked.</summary>
@@ -329,6 +541,40 @@ sealed class MaterialBakeRoute {
         )
     };
 
+    /// <summary>The provenance block a stack's bake writes into each material's sidecar.</summary>
+    /// <param name="document">The stack that produced the maps.</param>
+    /// <param name="device">The device that ran it.</param>
+    /// <returns>The record.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The graph overload's three decisions, unchanged and for its reasons</b> — the asset
+    ///         is the identity rather than the file name, the adapter is recorded and never asserted,
+    ///         and the path is measured from the project so that a provenance block is not a fact
+    ///         about somebody's machine.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A stack exposes no parameters, so the mapping is empty rather than absent</b> —
+    ///         which is what the graph overload does for a graph that exposes none, and the two have
+    ///         to agree or a reader of the block would take a missing key for a bake by an older
+    ///         build.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every texture set of one stack records the <em>same</em> source, and what tells
+    ///         two of them apart is only the material's name.</b> That is correct as far as
+    ///         <c>ProjectMaterialBaker</c> is concerned — the key stops a <em>different</em> source
+    ///         adopting a name, and two sets of one stack are the same source — but it does mean a
+    ///         reader of the sidecar cannot say which slot a material came from. A field for it
+    ///         belongs on <see cref="MaterialBakeRecord" /> and is a change to a written format, so
+    ///         it is filed rather than smuggled in under <see cref="MaterialBakeRecord.Parameters" />,
+    ///         whose documented meaning is the graph's exposed parameters.
+    ///     </para>
+    /// </remarks>
+    static MaterialBakeRecord Record(LayerStackDocument document, IGraphicsDevice device) => new() {
+        Source = Relative(document.Project, document.AssetPath),
+        SourceAsset = document.Asset,
+        Adapter = device.Adapter.Name
+    };
+
     /// <summary>A path measured from the project where it is inside one, and left alone where it is not.</summary>
     /// <param name="project">The project.</param>
     /// <param name="path">The absolute path.</param>
@@ -365,6 +611,30 @@ sealed class MaterialBakeRoute {
 
         return problems.Length == 0
             ? "this graph did not compile, and nothing said why — which is a compiler bug rather than yours."
+            : string.Join(" · ", problems);
+    }
+
+    /// <summary>What to say when a texture set's stack refused.</summary>
+    /// <param name="compilation">It.</param>
+    /// <returns>The sentence.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Both lists, which is <c>LayerStackPreview.Refused</c>'s decision and is the one thing
+    ///     the graph overload above cannot be reused for.</b> A <c>LayerStackProblem</c> names a layer
+    ///     an artist can select in the layers panel and a <c>NodeDiagnostic</c> names a node in a
+    ///     graph nobody has exploded — so a bake that reported only the second would be silent on
+    ///     every mistake an artist can actually make in the panel they are standing in.
+    /// </remarks>
+    static string Refused(LayerStackCompilation compilation) {
+        var problems = compilation.Problems.Select(problem => problem.Message)
+            .Concat(
+                compilation.Diagnostics
+                    .Where(one => one.Severity == NodeSeverity.Error)
+                    .Select(one => one.Id + ": " + one.Message)
+            )
+            .ToArray();
+
+        return problems.Length == 0
+            ? "this stack did not compile, and nothing said why — which is a compiler bug rather than yours."
             : string.Join(" · ", problems);
     }
 }

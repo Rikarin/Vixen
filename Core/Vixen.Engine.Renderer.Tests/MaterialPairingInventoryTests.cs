@@ -49,6 +49,19 @@ public class MaterialPairingInventoryTests {
         RegexOptions.ExplicitCapture | RegexOptions.CultureInvariant
     );
 
+    /// <summary>A slot a sampling shader indexes the table with.</summary>
+    /// <remarks>
+    ///     ⚠ <c>var</c> rather than any occurrence of the type, so a <c>func</c> parameter called
+    ///     <c>clusterIndex: uint</c> — the library has several — is not read as a table slot. The
+    ///     library's convention is that every one of these is named <c>&lt;something&gt;Index</c> and
+    ///     initialised to <c>0u</c>, which is the fallback slot; the pattern requires the name and not
+    ///     the initialiser, so a slot declared without one is still seen.
+    /// </remarks>
+    static readonly Regex Slot = new(
+        @"^var\s+(?<name>\w+Index)\s*:\s*uint\b",
+        RegexOptions.ExplicitCapture | RegexOptions.CultureInvariant
+    );
+
     /// <summary>What the shading pass is called, as the constructor pairs it.</summary>
     const string Shader = "ForwardPlus";
 
@@ -63,15 +76,7 @@ public class MaterialPairingInventoryTests {
     ///     that is one level deep.
     /// </remarks>
     static string[] Sampling() {
-        var root = Path.Combine(AppContext.BaseDirectory, "Shaders");
-
-        // Not a skip. The shaders are copied by this project's own .csproj, so their absence is a build
-        // that did not happen rather than an environment this cannot run in — and a test that skipped
-        // would report success on the day it stopped reading anything at all.
-        Assert.True(Directory.Exists(root), $"the shipped shaders were not copied to {root}");
-
-        var sampling = Directory
-            .EnumerateFiles(root, "*.rvn", SearchOption.AllDirectories)
+        var sampling = Shipped()
             .SelectMany(File.ReadAllLines)
             .Select(line => Declaration.Match(line.Trim()))
             .Where(match => match.Success)
@@ -89,6 +94,82 @@ public class MaterialPairingInventoryTests {
         Assert.NotEmpty(sampling);
 
         return sampling;
+    }
+
+    /// <summary>Every <c>.rvn</c> of the shipped library, as this assembly's own build copied them.</summary>
+    /// <remarks>
+    ///     Not a skip when they are missing. The shaders are copied by this project's own
+    ///     <c>.csproj</c>, so their absence is a build that did not happen rather than an environment
+    ///     this cannot run in — and a test that skipped would report success on the day it stopped
+    ///     reading anything at all.
+    /// </remarks>
+    static string[] Shipped() {
+        var root = Path.Combine(AppContext.BaseDirectory, "Shaders");
+
+        Assert.True(Directory.Exists(root), $"the shipped shaders were not copied to {root}");
+
+        return Directory.EnumerateFiles(root, "*.rvn", SearchOption.AllDirectories).ToArray();
+    }
+
+    /// <summary>
+    ///     Every table slot the shipped library declares, as <c>shader.parameter</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The unit that has to be paired is a slot and not a shader</b>, and reading shaders
+    ///         is what the inventory below this one does. <c>TexturedMaterialLayersSurface</c> samples
+    ///         two maps — a splat map and, since doc 48 § B1's height feature, a height map — so a
+    ///         check that reads back which <em>shader</em> each pairing entry names is satisfied by
+    ///         either one of them alone. The second map could have been left unpaired with every
+    ///         assertion in this file green, which is the failure this file exists to make impossible.
+    ///     </para>
+    ///     <para>
+    ///         File by file and in order, because the shader a <c>var</c> belongs to is the last one
+    ///         declared above it: a flat concatenation would attribute one file's leading lines to the
+    ///         previous file's last shader.
+    ///     </para>
+    /// </remarks>
+    static string[] SamplingSlots() {
+        var slots = new List<string>();
+
+        foreach (var file in Shipped()) {
+            var shader = string.Empty;
+            var samples = false;
+
+            foreach (var raw in File.ReadAllLines(file)) {
+                var line = raw.Trim();
+
+                if (line.StartsWith("shader ", StringComparison.Ordinal)) {
+                    var declaration = Declaration.Match(line);
+
+                    shader = declaration.Success ? declaration.Groups["name"].Value : string.Empty;
+
+                    // ⚠ Reset on every declaration, including one with no base list at all — which is
+                    // `MaterialTextures` itself. Leaving the flag set would attribute the next
+                    // shader's slots to the previous one, and the previous one is the table.
+                    samples = declaration.Success
+                        && declaration.Groups["bases"].Value
+                            .Split(',')
+                            .Select(name => name.Trim())
+                            .Contains("MaterialTextures", StringComparer.Ordinal);
+
+                    continue;
+                }
+
+                // A shader that does not inherit the table declares no slot into it, so the state
+                // machine is two flags rather than a brace count: `shader` at column zero is the only
+                // thing that opens a body in this language.
+                if (samples && Slot.Match(line) is { Success: true } slot) {
+                    slots.Add($"{shader}.{slot.Groups["name"].Value}");
+                }
+            }
+        }
+
+        // The instrument, for Sampling()'s reason: an empty inventory is a pattern that stopped
+        // matching, and it satisfies every assertion below while checking nothing.
+        Assert.NotEmpty(slots);
+
+        return [.. slots];
     }
 
     /// <summary>Which shader each pairing entry names, read back off the keys it wrote.</summary>
@@ -109,6 +190,24 @@ public class MaterialPairingInventoryTests {
             .ToHashSet(StringComparer.Ordinal);
     }
 
+    /// <summary>Which slot each pairing entry names, read back off the keys it wrote.</summary>
+    /// <remarks>
+    ///     <c>Pairs</c> one segment finer. A key is the pass, the chain shader, the feature's shader
+    ///     and the parameter, so the slot is the last two segments joined — and joining them is what
+    ///     makes an entry naming <c>splatIdx</c> distinguishable from one naming <c>splatIndex</c>,
+    ///     which the shader-level read cannot be.
+    /// </remarks>
+    static HashSet<string> PairedSlots() {
+        using var materials = new MaterialRenderFeature();
+
+        WorldRenderer.Paired(materials, Shader);
+
+        return materials.TextureIndices.Keys
+            .Select(key => key.Name.Split('.'))
+            .Select(segments => $"{segments[^2]}.{segments[^1]}")
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
     [Fact]
     public void EverySamplingShaderTheLibraryDeclaresHasAPairingEntry() {
         var paired = Pairs();
@@ -121,6 +220,62 @@ public class MaterialPairingInventoryTests {
                 $"'{shader}' inherits MaterialTextures and WorldRenderer.Paired names nothing for it — "
                 + "its index is never written, so it stays zero, so its map is read from slot zero and "
                 + "the surface is shaded by the fallback checker, on every device, with nothing reported"
+            );
+        }
+    }
+
+    /// <summary>
+    ///     And one entry per <em>slot</em>, which is the check a two-map shader needs.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The inventory above reads shaders, and a shader can sample twice.</b>
+    ///         <c>TexturedMaterialLayersSurface</c> now declares <c>splatIndex</c> and
+    ///         <c>heightIndex</c>; with only the shader-level check, pairing the splat map and
+    ///         forgetting the height map leaves every assertion in this file green and the height map
+    ///         read from slot zero — the magenta checker, whose channels are not zero, biasing the
+    ///         layer weights of every material that asked for the feature.
+    ///     </para>
+    ///     <para>
+    ///         Which is exactly the failure the shader-level check was written to make impossible, one
+    ///         level down. It was written when every sampling shader had exactly one map, so the two
+    ///         inventories were the same inventory; the second map is what separated them, and this is
+    ///         the finer of the two rather than a duplicate of it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void EverySamplingSlotTheLibraryDeclaresHasAPairingEntry() {
+        var paired = PairedSlots();
+
+        Assert.NotEmpty(paired);
+
+        foreach (var slot in SamplingSlots()) {
+            Assert.True(
+                paired.Contains(slot),
+                $"'{slot}' indexes the material table and WorldRenderer.Paired names nothing for it — "
+                + "its index is never written, so it stays zero, so its map is read from slot zero and "
+                + "the surface is shaded by the fallback checker, on every device, with nothing reported"
+            );
+        }
+    }
+
+    /// <summary>And the slot-level other direction, which is where a renamed parameter lands.</summary>
+    /// <remarks>
+    ///     A pairing entry whose parameter the shader does not declare writes an index nothing reads —
+    ///     as silent as writing none, and reachable by renaming a slot in the <c>.rvn</c> without
+    ///     touching <c>Paired</c>. The shader-level pass of this is still green in that case, because
+    ///     the shader still exists.
+    /// </remarks>
+    [Fact]
+    public void EveryPairingEntryNamesASamplingSlotTheLibraryDeclares() {
+        var slots = SamplingSlots().ToHashSet(StringComparer.Ordinal);
+
+        foreach (var slot in PairedSlots()) {
+            Assert.True(
+                slots.Contains(slot),
+                $"WorldRenderer.Paired names '{slot}' and no sampling shader in the shipped library "
+                + "declares that slot — the index it writes reaches no parameter, which is exactly as "
+                + "silent as writing none"
             );
         }
     }
@@ -175,11 +330,16 @@ public class MaterialPairingInventoryTests {
         Assert.Contains(MaterialKeys.LayerCount(Shader), materials.PermutationKeys[Shader]);
         Assert.Contains(existing, materials.PermutationKeys[Shader]);
 
+        // And the height blend, whose unregistered failure is the quieter one: the variant stays at
+        // the shader's `false` and the height map a material paid for is simply never sampled, so the
+        // old blend is drawn and nothing anywhere says the feature did not run.
+        Assert.Contains(MaterialKeys.HeightBlended(Shader), materials.PermutationKeys[Shader]);
+
         // And twice is once, because a host that builds two renderers on one feature would otherwise
         // grow the key list by a duplicate that splits the cache for nothing.
         WorldRenderer.Permuted(materials, Shader);
 
-        Assert.Equal(2, materials.PermutationKeys[Shader].Count);
+        Assert.Equal(3, materials.PermutationKeys[Shader].Count);
     }
 
     /// <summary>
@@ -200,6 +360,7 @@ public class MaterialPairingInventoryTests {
         WorldRenderer.Permuted(materials, Shader);
 
         Assert.False(materials.Permutations.Has(MaterialKeys.LayerCount(Shader)));
+        Assert.False(materials.Permutations.Has(MaterialKeys.HeightBlended(Shader)));
     }
 
     /// <summary>

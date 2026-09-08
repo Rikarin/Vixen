@@ -40,7 +40,9 @@ enum PaintToolMode {
 ///         <see cref="PaintBrush.Radius" />'s own remarks say why: a brush measured in UV changes
 ///         size when the set's resolution changes, which is the setting most likely to change after
 ///         the art is made. A 3D surface converts a screen radius into texels through
-///         <c>UvDensity</c>; that conversion is the surface's and this number is what it produces.
+///         <c>PaintFootprint.Radius</c> — the camera's projection at the hit's depth, the grazing
+///         angle, and the hit triangle's own texel density — and this number is what that produces.
+///         ⚠ <b>Not <c>UvDensity</c>, which this said and which answers per <em>chart</em>.</b>
 ///     </para>
 /// </remarks>
 sealed class PaintTool {

@@ -26,17 +26,88 @@ and `Vixen.Editor.TextureGraph`, and it **does not reference `Vixen.Editor.App`*
 | `TexturePreview` | Whether the preview pane can show anything, as a value a test can assert. |
 | `TextureGraphPreview` | Evaluates a plan on the host's device and hands the pane a picture. |
 | `TextureGraphEditorFactory` | Claims `.vxtexgraph`, inside the module's registration scope. |
-| `MaterialBakeRoute` | The open `.vxtexgraph` to a `.vxmat`, behind the *Bake Material* verb. |
+| `MaterialBakeRoute` | The open `.vxtexgraph` **or** `.vxlayers` to a `.vxmat`, behind two verbs. |
+| `Layers/SmartMaterial` | A `.vxsmartmat`: one texture set's layers, with the mesh binding taken out. |
 
 ⚠ **This README said "No bake" until 2026-09-08, and it was the reason nobody looked**
 ([#1009](https://github.com/Rikarin/Vixen/issues/1009)). The bake *itself* is still
 `Vixen.Editor.Assets/Materials`' — what lives here is the route to it: compile, refuse before asking
 for a device, fill the externals, dispatch through the evaluator both panes already share, read
-**every** output rather than the first, and hand `ProjectMaterialBaker` the pictures. Three narrower
-routes stay owed and are filed rather than described here: the CLI's `--graph`
-([#1020](https://github.com/Rikarin/Vixen/issues/1020)), a `.vxlayers` bake
-([#1029](https://github.com/Rikarin/Vixen/issues/1029)) and a force control
-([#1019](https://github.com/Rikarin/Vixen/issues/1019)).
+**every** output rather than the first, and hand `ProjectMaterialBaker` the pictures. Of the three narrower routes that
+were owed beside it, two landed on 2026-09-08 and are below; the CLI's `--graph`
+([#1020](https://github.com/Rikarin/Vixen/issues/1020)) is the one that stays owed.
+
+### A stack bakes too, one material per texture set
+
+[#1029](https://github.com/Rikarin/Vixen/issues/1029). *Bake Material from Layers* takes the open
+`.vxlayers` to a `.vxmat` per texture set. ⚠ **Half of that issue's framing turned out not to be
+owed**: it reads "nothing walks the stack's outputs … teach the compiler to emit them together", and
+`LayerStackGraph.Build` has emitted one `Output/Output` node per channel of the set since M7 —
+`LayerStackCompilation.Outputs` already carried every one of them. What was missing was a *reader*.
+`LayerStackPreview` searches that list for one usage and shows it, and nothing read the rest, which
+is this repository's commonest defect wearing a compiler question.
+
+The set question ([#927](https://github.com/Rikarin/Vixen/issues/927)) is answered here rather than
+deferred: a stack's sets are the material slots of one model, so a bake that took `Sets[0]` would
+leave every other slot with no material and say nothing. One set takes the stack's name; two or more
+suffix each with the set's, because `Hull_Default` for the ordinary one-slot case is a name nobody
+would have chosen.
+
+### And a force control, which is one verb rather than two
+
+[#1019](https://github.com/Rikarin/Vixen/issues/1019). § D4's digest refuses to overwrite a map
+somebody painted over, `force` is how a person says they meant it, and a command handler takes no
+argument — so every editor bake was called with the default. ⚠ **The obvious shape is a forced twin
+of each bake verb, and it was rejected**: that is four verbs, two of which are a control that
+overwrites an artist's paint whenever somebody reaches for it out of order. *Bake Material (Force)*
+instead **repeats the bake that was refused** — same document, same name, same folder. It is armed
+only by `MaterialBakeOutcome.Painted`, which is the one refusal force answers, and it disarms by
+running. So it cannot touch anything the artist has not just been told about.
+
+## `.vxsmartmat` — a stack without its meshes
+
+[#575](https://github.com/Rikarin/Vixen/issues/575), doc 48 § M10. Until 2026-09-08 the extension
+appeared in the plan, in `docs/overview.md` and in five `.cs` **comments**, and in no type, no
+constant, no reader and no verb — which is exactly the shape that reads as a feature to anybody who
+greps for the word.
+
+⚠ **The file *is* a `.vxlayers`, byte for byte.** `LayerStackYaml` reads and writes it, so there is
+no second serialiser to drift and no second set of refusals for a blend mode this build does not
+know. What makes it a smart material is three invariants `Extract` establishes and `Prepare`
+re-establishes: **no model, no mesh, nothing painted.**
+
+**What travels and what does not** is decided by one question — does the thing survive a change of
+model? A mask driven by a `curvature` bake does: `Source/Mesh Map` names no image at all, so the same
+mask reads the next mesh's own bakes with no rewiring, which is § D10's claim and the whole reason a
+generator is worth authoring. A mask driven by a hand-painted canvas does not: a `.vxpaint` is texels
+in *this* model's atlas. So bakes, generators, anchors, imported textures and graph fills all come;
+paint does not.
+
+**A paint layer is dropped and named, not refused.** Both answers are defensible and one had to be
+chosen out loud. Refusing the whole save was rejected because M9 makes a paint layer ordinary rather
+than exotic — a rule that a stack containing one can never become a smart material would make the
+feature unreachable for most real stacks, and the artist's workaround would be to delete the layer by
+hand, which is the same drop with no record of what went. Every dropped thing is one sentence in
+`SmartMaterialExtract.Dropped` and in the notification.
+
+⚠ **A dropped paint *mask* becomes a constant zero and never `LayerMaskSource.None`.** `None` does
+not mean "no coverage", it means *no mask* — the layer then writes everywhere. So the obvious
+spelling of "remove the mask I cannot carry" turns a layer that painted a rust patch into one that
+covers the whole model, and dropping coverage would have **increased** it. A mask *entry* is switched
+off rather than zeroed, because an entry composites with its own operator and zero is neutral under
+`Add` and total under `Copy`.
+
+The shelf is `Assets/SmartMaterials/`, which is `TextureNodeLibrary.CompoundFolder`'s convention one
+kind along: a named folder somebody can read, rather than a walk that would offer every stack
+fragment anybody ever saved. *Save as Smart Material* writes onto it and *Apply Smart Material* puts
+the selected one on top of the open stack's chosen set, as **one** undo entry — ids re-minted only
+where they would collide, and the material's own anchors rewritten to follow them, because applying
+the same smart material twice into one stack is the ordinary case.
+
+⚠ **What is deliberately not here**: no *Create ▸* entry, because an empty `.vxsmartmat` is a file
+the apply verb refuses — a smart material is *produced* from a stack, not authored blank; and
+`LayerStackEditorFactory` does not claim the extension, so a shelf entry cannot yet be opened and
+edited in the layers panel.
 
 ## The three things a plugin could not do. Two of them it can now
 
@@ -251,6 +322,50 @@ because a session writes texels in memory and does not touch the file until save
 It is still written at pointer-up, and since format version 2 it is Deflated per channel at `Fastest`
 — a stroked 4K channel is 4.09 MB rather than 64 MiB, for the same wall clock, because the raw write
 it replaces is I/O-bound ([#850](https://github.com/Rikarin/Vixen/issues/850)).
+
+### The 3D projection: the mechanism is here and the viewport is not
+
+`PaintProjection`, `PaintFootprint`, `PaintSymmetry` and `PaintProjector` are § D13's **first** front
+end — the ray, the coordinate under it, the screen-radius conversion and the mirrors. `PaintProjector`
+is the whole of what a viewport calls: `Begin(eye, ray, screenRadius, out radius)` at pointer-down and
+`Resolve(ray)` per move, whose span is exactly what `PaintSession.MoveAll` takes.
+
+⚠ **Nothing calls it yet, and the reason is a viewport rather than more arithmetic** —
+[#1063](https://github.com/Rikarin/Vixen/issues/1063). No pane in this editor shows a `.vxlayers`'
+model: the scene viewport shows the *scene*, and a stack names a model **asset path** that nothing
+maps to an entity, while a pane of the plugin's own cannot draw geometry because `IEditorGraphics`
+lends a device and `Upload` takes pixels. The other half of the chain is
+[#1062](https://github.com/Rikarin/Vixen/issues/1062): `LayerStackMesh` resolves the model and keeps
+only the coordinates, so the positions a raycast needs are read and discarded.
+
+Three things are worth knowing before that is wired.
+
+1. ⚠ **No raycaster was written.** `TriangleTree` in `Vixen.Core.Mathematics` already answers with the
+   triangle, the barycentric weights and the distance. ⚠ **Its `Raycast` bounds the search at the
+   *length of the direction*** — right for a bake, whose radius is a fraction of the model's diagonal,
+   and a trap for a picking ray: passing a viewport's unit direction straight through finds nothing
+   further off than one unit, which works on a model the size of a room and misses one the size of a
+   house with no error anywhere.
+2. ⚠ **The screen-to-texel conversion is three steps and [#574](https://github.com/Rikarin/Vixen/issues/574)
+   names one and a half of them.** `UvDensity` is not the second half either: it answers texels per
+   square metre *per island*, and what a brush wants is the **hit triangle's** own Jacobian —
+   `PaintProjection.Density`, as its two singular values. The step neither doc 48 nor the issue
+   mentions is the **grazing stretch**: a disc on the screen lands on a tilted surface as an ellipse,
+   so a conversion without the cosine is exactly right face-on — which is how anybody testing by hand
+   holds the model — and wrong at every silhouette. ⚠ The angle is the **ray's**, not the line from
+   the eye to the hit; they agree under perspective and do not under an orthographic camera, where
+   every ray is parallel to the forward axis.
+3. ⚠ **The stamp is a disc and the footprint is an ellipse, so a stretched chart is painted wrong in
+   one direction** — [#1064](https://github.com/Rikarin/Vixen/issues/1064). `PaintDensity.Area` is the
+   geometric mean, which is wrong by the square root either way and preserves the painted area; sizing
+   by the major axis paints past where the artist swept and by the minor leaves a sliver. The fix is
+   an elliptical stamp and it is not here.
+
+⚠ **And symmetry is the ray's, which is why `MoveAll` takes a set.** A mirrored ray that misses the
+mesh cannot be skipped for one move — the session refuses a changed path count, correctly, because a
+mirror with no record leaves the one undo entry restoring half the drag — so a missed path **holds its
+last position**, which costs nothing: `BrushStroke.MoveTo` lays a stamp only for a movement with a
+length.
 
 ## What is not here
 

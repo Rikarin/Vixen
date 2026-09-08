@@ -359,11 +359,19 @@ sealed class LayerStackView : IDisposable {
         title = right.Add("world-title");
         title.Text = "Result";
 
+        // ⚠ Added *before* the viewer and pointed at it *after*, and both halves are deliberate.
+        // `Add` appends, so the strip has to be built first to sit above the picture; and
+        // `ImageViewBar.View` adopts what the viewer already holds, so the assignment must come
+        // after the viewer exists rather than the strip pushing its first segment at construction.
+        Channels = right.Add<ImageViewBar>();
+
         // ⚠ Inline and not in the sheet, because this element has no tag of its own: a typed
         // `Add<ImageView>` names none, so there is nothing for a type selector to match and a
         // `layer-stack-preview > *` rule would also claim the title and the status line.
         Preview = right.Add<ImageView>();
         Preview.SetStyle("flex-grow", "1");
+
+        Channels.View = Preview;
 
         status = right.Add("layer-stack-status");
 
@@ -401,6 +409,16 @@ sealed class LayerStackView : IDisposable {
 
     /// <summary>The pane the baked map is shown in.</summary>
     public ImageView Preview { get; }
+
+    /// <summary>The channel and transfer-function pickers over that pane.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The panel that most needs it, because a layer stack bakes a <em>set</em> of maps and
+    ///     four of them are not colours</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1012">#1012</a>. A roughness shown
+    ///     through an sRGB curve and a normal map shown through one look like different bugs and are
+    ///     the same misreading; the strip is what settles it without leaving the panel.
+    /// </remarks>
+    public ImageViewBar Channels { get; }
 
     /// <summary>What is shown when no stack is open.</summary>
     public UiElement Empty { get; }
@@ -1420,43 +1438,83 @@ sealed class LayerStackView : IDisposable {
             on ? "Give Channel a Colour" : "Clear Channel's Colour"
         );
 
-        List<Slider> components = [];
+        List<NumericInput> components = [];
 
         for (var index = 0; index < 4; index++) {
             var component = index;
-            var slider = row.Add<Slider>(ComponentTags[index]);
+            // ⚠ A class, where every other row in this panel names a tag, and the difference is
+            // `ImageViewBar`'s recorded one: `Add<T>(string)` takes the *tag*, so the slider this
+            // replaces was called `layer-stack-fill-red` and was therefore matched by no `slider`
+            // rule in any sheet. A `Slider` survives that because it draws its own track; a field
+            // does not — `numeric-input`'s rule carries the border, the padding and the
+            // `position: relative` the placeholder is laid out against, and an element renamed out
+            // of it puts its placeholder at the left edge of the *window*.
+            var field = row.Add<NumericInput>(null, null, ComponentTags[index]);
 
-            slider.Minimum = 0f;
-            slider.Maximum = 1f;
+            // ⚠ A floor and no ceiling, and that is the whole of
+            // <a href="https://github.com/Rikarin/Vixen/issues/1004">#1004</a>. The renderer works
+            // in cd/m² and an emissive fill of 4 is an ordinary thing for a `.vxlayers` to hold, so
+            // a control whose top end is 1 can hold that value and cannot produce it. Nought is a
+            // real floor rather than a matching guess: a negative radiance is not a quantity, and a
+            // field that reports it out of range is what the arrow keys stop at.
+            field.Minimum = 0d;
 
-            slider.ValueChanged += (_, value) => Set(
-                document,
-                path,
+            // Three places, matching `PropertyGrid`'s non-integral fields. ⚠ Not the default, which
+            // is *nought*: the text a `Decimals = 0` field writes for 0.25 is "0", and the next
+            // submit reads that back — so the panel would quietly round every colour it displayed
+            // to an integer the first time anybody pressed Return in it.
+            field.Decimals = 3;
 
-                // ⚠ Read out of the document and rewrite one component, rather than gathering the
-                // four sliders. A colour the file holds outside 0…1 arrives at a slider clamped, so
-                // collecting what the controls show would write the clamp back over three components
-                // nobody touched — an emissive of 4 becoming 1 because somebody nudged red.
-                current => {
-                    if (!current.Values.TryGetValue(usage, out var colour)
-                        || colour.Length != 4
-                        || colour[component] == value) {
-                        return current;
-                    }
+            // A hundredth, because `Step` is also the floor of the scrub rate and a step of one —
+            // the default — is the whole of a 0…1 channel per arrow press.
+            field.Step = 0.01d;
 
-                    var next = (float[])colour.Clone();
+            field.NumberChanged += (typed, value) => {
+                // ⚠ Gated on the field's own verdict, exactly as `PropertyGrid`'s numeric rows are
+                // and for the same reason: this control holds and reports an out-of-range number
+                // rather than clamping it, so an ungated write would put a negative component into
+                // the document. A refused value stays in the field, ringed, where it can be
+                // corrected.
+                if (!typed.IsValid) {
+                    return;
+                }
 
-                    next[component] = value;
+                Set(
+                    document,
+                    path,
 
-                    return current with { Values = Valued(current, usage, next) };
-                },
-                "Set Fill Colour",
-                $"fill-colour:{path.Id}:{usage}:{component.ToString(CultureInfo.InvariantCulture)}"
-            );
+                    // ⚠ Read out of the document and rewrite one component, rather than gathering
+                    // the four fields. It was load-bearing while these were sliders — a 4 arrived at
+                    // a 0…1 control as a 1 — and it stays load-bearing for a *different* reason
+                    // now, which is worth writing down because #1004's own account of it is wrong:
+                    // a field does not clamp and `Decimals` rounds only the text, so gathering the
+                    // four would write back exactly what it read and every value-preserving
+                    // assertion in the suite stays green (checked by sabotage). What a gather would
+                    // break is the refusal below — a field holding a number this row has just
+                    // refused still has that number, and gathering it puts the negative into the
+                    // document through the neighbour's edit.
+                    current => {
+                        if (!current.Values.TryGetValue(usage, out var colour)
+                            || colour.Length != 4
+                            || colour[component] == (float)value) {
+                            return current;
+                        }
 
-            // The slider's own reason, unchanged from the opacity row: a drag is one undo entry and
-            // the release is what ends it, and `handledEventsToo` is what makes this run at all.
-            slider.AddHandler<PointerEvent>(
+                        var next = (float[])colour.Clone();
+
+                        next[component] = (float)value;
+
+                        return current with { Values = Valued(current, usage, next) };
+                    },
+                    "Set Fill Colour",
+                    $"fill-colour:{path.Id}:{usage}:{component.ToString(CultureInfo.InvariantCulture)}"
+                );
+            };
+
+            // The slider's own reason, unchanged from the opacity row and still true of a field that
+            // scrubs: a drag is one undo entry and the release is what ends it, and
+            // `handledEventsToo` is what makes this run at all.
+            field.AddHandler<PointerEvent>(
                 (_, args) => {
                     if (args.Action == PointerAction.Released) {
                         document.Stack.Seal();
@@ -1466,7 +1524,13 @@ sealed class LayerStackView : IDisposable {
                 handledEventsToo: true
             );
 
-            components.Add(slider);
+            // ⚠ And the seal a slider never needed: a number that is *typed* ends on Return rather
+            // than on a pointer release, so without this the next keystroke in the next field would
+            // coalesce into the same undo entry under a different key — or, worse, not coalesce and
+            // leave the entry open until something else sealed it.
+            field.Submitted += _ => document.Stack.Seal();
+
+            components.Add(field);
         }
 
         var image = row.Add<TextBox>("layer-stack-fill-texture");
@@ -1504,7 +1568,7 @@ sealed class LayerStackView : IDisposable {
                 components[index].SetStyle("display", constant && colour is not null ? "flex" : "none");
 
                 if (colour is not null) {
-                    components[index].Value = colour[index];
+                    components[index].Number = colour[index];
                 }
             }
 
@@ -1513,10 +1577,11 @@ sealed class LayerStackView : IDisposable {
         });
     }
 
-    /// <summary>What each of a colour's four sliders is called on the tree.</summary>
+    /// <summary>What each of a colour's four fields is classed on the tree.</summary>
     /// <remarks>
-    ///     Written out rather than indexed into a single tag, because a test reading "the red slider"
-    ///     off the panel should be naming red rather than counting.
+    ///     Written out rather than indexed into a single name, because a test reading "the red field"
+    ///     off the panel should be naming red rather than counting. ⚠ These are <em>classes</em> and
+    ///     every other name in this panel is a tag — see the call site for the rule that forced it.
     /// </remarks>
     static readonly string[] ComponentTags = [
         "layer-stack-fill-red",

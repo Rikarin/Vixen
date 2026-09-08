@@ -35,9 +35,11 @@ sealed record PaintTarget(
 /// <remarks>
 ///     <para>
 ///         <b>⚠ This is the whole of what a surface has to call, and saying so precisely is half of
-///         what doc 48 § M9 owes.</b> Neither surface exists yet — doc 48 § D13's two front ends, the
-///         3D projection path and the 2D UV view, are viewports and this slice is deliberately not
-///         one. What each of them has to do is exactly three things:
+///         what doc 48 § M9 owes.</b> Doc 48 § D13's two front ends are viewports and this slice is
+///         deliberately not one: <c>PaintUvView</c> is the 2D one, and <see cref="PaintProjector" />
+///         is what a 3D one drives — though nothing shows a stack's model yet, which is
+///         <a href="https://github.com/Rikarin/Vixen/issues/1063">#1063</a>. What each of them has to
+///         do is exactly three things:
 ///     </para>
 ///     <list type="number">
 ///         <item>
@@ -49,8 +51,13 @@ sealed record PaintTarget(
 ///         <item>
 ///             <b>Turn a screen-space brush size into a radius in texels.</b> ⚠ The one conversion
 ///             that has no counterpart in the terrain tool, because a heightfield's samples per metre
-///             is a constant and an atlas's texels per metre is not: it is the hit triangle's texel
-///             density, which is <c>UvDensity</c>'s answer. A 2D view's is the zoom.
+///             is a constant and an atlas's texels per metre is not. A 2D view's is the zoom;
+///             <see cref="PaintFootprint" /> is the 3D one. ⚠ <b>This paragraph used to say the
+///             answer was <c>UvDensity</c>'s and it is not</b> — that type answers texels per square
+///             unit <em>per chart</em>, so a chart stretched at one end has one number and two
+///             answers, and it says nothing at all about the two conversions in front of it: the
+///             camera's projection at the hit's depth, and the grazing angle. The density that is
+///             wanted is the hit triangle's own Jacobian, <see cref="PaintProjection.Density" />.
 ///         </item>
 ///         <item>
 ///             <b>Supply the mirrors.</b> ⚠ <b>Planar symmetry cannot be computed here and finding

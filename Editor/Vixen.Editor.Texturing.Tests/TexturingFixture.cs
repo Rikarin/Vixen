@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Editor.AssetEditors;
 using Vixen.Editor.Core;
 using Vixen.Editor.Plugin;
+using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Ui;
 using Vixen.Graphics;
 using Xunit;
@@ -83,8 +84,27 @@ sealed class TexturingFixture : IDisposable {
     /// <param name="name">What to call it, without the extension.</param>
     /// <param name="contents">What is in it. Empty is the ordinary new one.</param>
     /// <returns>Its id.</returns>
-    public AssetId AddGraph(string name, string contents = "") {
-        var relative = "Assets/" + name + TextureGraphDocument.Extension;
+    public AssetId AddGraph(string name, string contents = "") => AddAsset(name, TextureGraphDocument.Extension, contents);
+
+    /// <summary>Writes a <c>.vxlayers</c> and its sidecar, and scans it in.</summary>
+    /// <param name="name">What to call it, without the extension.</param>
+    /// <param name="contents">What is in it. Empty is the ordinary new one.</param>
+    /// <returns>Its id.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Its own method rather than a second extension parameter on <see cref="AddGraph" />,
+    ///     because the two are asked for by name at forty call sites.</b> Both go through
+    ///     <see cref="AddAsset" />, so the scan and the issue assertion are one copy.
+    /// </remarks>
+    public AssetId AddStack(string name, string contents = "") =>
+        AddAsset(name, LayerStackDocument.Extension, contents);
+
+    /// <summary>Writes a file under <c>Assets/</c> and scans it in.</summary>
+    /// <param name="name">What to call it, without the extension.</param>
+    /// <param name="extension">The extension, dot and all.</param>
+    /// <param name="contents">What is in it.</param>
+    /// <returns>Its id.</returns>
+    public AssetId AddAsset(string name, string extension, string contents) {
+        var relative = "Assets/" + name + extension;
         var absolute = Paths.Absolute(relative);
 
         File.WriteAllText(absolute, contents);
@@ -95,7 +115,7 @@ sealed class TexturingFixture : IDisposable {
         // database sees a file, so a fixture that demanded no issues would be one that could never
         // add an asset. Anything else is a fixture that has gone wrong and must not be silent.
         Assert.DoesNotContain(report.Issues, issue => issue.Kind != AssetIssueKind.MetaCreated);
-        Assert.True(Project.Assets.TryGetByPath(relative, out var entry), "the scan did not pick the graph up");
+        Assert.True(Project.Assets.TryGetByPath(relative, out var entry), "the scan did not pick " + relative + " up");
 
         return entry.Guid;
     }

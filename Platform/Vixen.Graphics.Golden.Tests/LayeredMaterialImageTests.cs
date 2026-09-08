@@ -200,6 +200,95 @@ public class LayeredMaterialImageTests {
         }
     }
 
+    /// <summary>⚠ A height map decides which of two equally-painted layers is on top.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The picture the height slice said could not exist</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/615">#615</a>. Its report gave
+    ///         "there is no material anywhere that carries a <c>TexturedMaterialLayersFeature</c> to
+    ///         render" as the reason there was no GPU verification, and this file had been
+    ///         constructing one and photographing it through the real frame since 2026-09-07. ⚠ The
+    ///         claim was about the <em>production</em> tree and was written as though it were about
+    ///         the whole of it — which is how a feature ships with its arithmetic unmeasured.
+    ///     </para>
+    ///     <para>
+    ///         <b>The oracle is closed-form and comes out on a layer this suite can already draw
+    ///         alone.</b> Two layers, weights 1, splat <c>(0.5, 0.5)</c> — so without a height map
+    ///         the keys tie at 0.5, the floor is 0, and the surface is a half-and-half blend of two
+    ///         colours that is <em>neither</em> of them. Add a height map of <c>(0, 1)</c>: the keys
+    ///         become 0.5 and 0.5 + 0.25·1 = 0.75, the peak is 0.75, the floor is
+    ///         0.75 − 0.1 = 0.65, layer 0's weight clamps to <b>zero</b> and layer 1 survives alone.
+    ///         So the frame must equal the library's own untextured layer 1, exactly.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the tie is asserted first, because it is the instrument.</b> A feature that
+    ///         ignored the splat map, or a permutation that never turned on, would draw layer 1
+    ///         whatever it was handed — so "the blended frame is layer 1" alone is satisfied by
+    ///         several broken shaders. The pair — a tie that is not layer 1, and the same tie broken
+    ///         by height that is — is what says the height map is the thing deciding.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_height_map_lifts_one_of_two_tied_layers_clear_of_the_transition() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using (fixture) {
+            var splat = Split();
+            var layerOne = Render(fixture!, _ => Library(Layers[1]));
+            var tied = Render(fixture!, scene => Stack(scene, splat, 2, 2));
+
+            var tieIsNotLayerOne = GoldenImage.Compare(layerOne, tied, Tolerance.Shaded);
+
+            Assert.False(
+                tieIsNotLayerOne.Matches,
+                $"Two layers painted 0.5 each drew layer 1 alone on {Adapter(fixture!)}, so the "
+                + "splat map is not deciding anything and the height comparison below would be "
+                + "satisfied by a shader that ignored both maps."
+            );
+
+            var lifted = Render(fixture!, scene => Stack(scene, splat, 2, 2, Height()));
+            var liftedIsLayerOne = GoldenImage.Compare(layerOne, lifted, Tolerance.Shaded);
+
+            Assert.True(
+                liftedIsLayerOne.Matches,
+                $"A height map lifting layer 1 by 0.25 over a transition of 0.1 drew something other "
+                + $"than layer 1 alone on {Adapter(fixture!)}: {liftedIsLayerOne.DifferingPixels} of "
+                + $"{liftedIsLayerOne.TotalPixels} pixels differ, worst channel "
+                + $"{liftedIsLayerOne.WorstChannel} at {liftedIsLayerOne.WorstAt}, mean "
+                + $"{liftedIsLayerOne.MeanChannel:F3}."
+            );
+        }
+    }
+
+    /// <summary>A splat map painting R and G equally, so two layers tie.</summary>
+    /// <returns>The texels, RGBA, row-major.</returns>
+    static byte[] Split() {
+        var texels = new byte[Side * Side * 4];
+
+        for (var texel = 0; texel < Side * Side; texel++) {
+            texels[texel * 4] = 128;
+            texels[(texel * 4) + 1] = 128;
+            texels[(texel * 4) + 3] = 255;
+        }
+
+        return texels;
+    }
+
+    /// <summary>A height map that is zero for layer 0 and one for layer 1.</summary>
+    /// <returns>The texels, RGBA, row-major.</returns>
+    static byte[] Height() {
+        var texels = new byte[Side * Side * 4];
+
+        for (var texel = 0; texel < Side * Side; texel++) {
+            texels[(texel * 4) + 1] = 255;
+            texels[(texel * 4) + 3] = 255;
+        }
+
+        return texels;
+    }
+
     /// <summary>A constant splat map, painted in one channel and zero in the others.</summary>
     /// <param name="channel">Which of R, G, B carries the paint.</param>
     /// <remarks>
@@ -230,14 +319,23 @@ public class LayeredMaterialImageTests {
     ///     0-or-1 map is invisible, and for a real painted mask is a blend curve nobody authored.
     ///     Uploading it correctly here is what stops this file from teaching the wrong thing.
     /// </remarks>
-    static Material Stack(TierScene scene, byte[] splat, int layers, int painted) {
+    /// <param name="height">A height map, or null for the unblended variant.</param>
+    static Material Stack(TierScene scene, byte[] splat, int layers, int painted, byte[]? height = null) {
         var feature = new TexturedMaterialLayersFeature {
             PaintedChannels = painted,
+            HeightBlended = height is not null,
             Layers = [.. Layers.Take(layers).Select(colour => new MaterialLayerValue(colour, 0f, Roughness, 1f))]
         };
 
-        var view = scene.Map($"Splat.{painted}", Side, splat, PixelFormat.Rgba8UNorm);
+        var view = scene.Map($"Splat.{painted}.{layers}", Side, splat, PixelFormat.Rgba8UNorm);
         var material = Compiled(new() { ShaderName = "ForwardPlus", Features = [feature] });
+
+        if (height is not null) {
+            material.Parameters.Set(
+                ParameterKeys.New<TextureViewHandle>(feature.HeightMap),
+                scene.Map($"Height.{layers}", Side, height, PixelFormat.Rgba8UNorm)
+            );
+        }
 
         // The pairing the renderer completes: the feature names its map, the host puts the view under
         // that name, and `MaterialRenderFeature` turns it into the slot the shader indexes. ⚠ Without

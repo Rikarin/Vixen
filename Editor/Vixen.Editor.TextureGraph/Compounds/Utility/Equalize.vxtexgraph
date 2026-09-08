@@ -1,0 +1,52 @@
+version: 1
+name: Equalize
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Utility/Highpass
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+  - id: 3
+    type: Utility/Contrast Luminosity
+    x: 320
+    y: 0
+    values: {}
+    texts: { contrast: '0.5' }
+  - id: 4
+    type: Sub-graph/Output
+    x: 640
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Input, toNode: 2, toPort: Input }
+  - { fromNode: 1, fromPort: Radius, toNode: 2, toPort: Radius }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: A photographed surface with the light of the room still in it.
+  - name: Radius
+    direction: Input
+    kind: Float
+    default: [64]
+    summary: How coarse the lighting is. Big enough that no surface detail is inside it.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The same surface, evenly lit.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters: []

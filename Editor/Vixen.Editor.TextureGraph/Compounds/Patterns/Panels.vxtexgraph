@@ -1,0 +1,85 @@
+version: 1
+name: Panels
+nodes:
+  - id: 1
+    type: Source/Shape
+    x: -640
+    y: 0
+    values:
+      Falloff: [0.001]
+    texts:
+      Kind: Square
+      '=Scale': 1f - gap
+  - id: 2
+    type: Space/Tile
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 3
+    type: Filters/Blur
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      '=Radius': bevel
+  - id: 4
+    type: Colour/Levels
+    x: 320
+    y: 0
+    values:
+      Input White: [0.98]
+    texts: {}
+  - id: 5
+    type: Sub-graph/Output
+    x: 640
+    y: 0
+    values: {}
+    texts: {}
+  - id: 6
+    type: Sub-graph/Input
+    x: -640
+    y: 260
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 6, fromPort: Columns, toNode: 2, toPort: Repeat X }
+  - { fromNode: 6, fromPort: Rows, toNode: 2, toPort: Repeat Y }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Columns
+    direction: Input
+    kind: Int
+    default: [3]
+    summary: How many panels across.
+  - name: Rows
+    direction: Input
+    kind: Int
+    default: [3]
+    summary: How many down. Unlike a brick bond, the rows line up.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The panelling, as a height with a rounded edge.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: gap
+    default: '0.06'
+    summary: How much of a cell the gap between panels takes.
+    kind: Float
+    minimum: 0
+    maximum: 0.5
+    group: Panel
+  - name: bevel
+    default: '12'
+    summary: How far the edge is rounded, in texels at the base resolution.
+    kind: Float
+    minimum: 0
+    maximum: 128
+    group: Panel

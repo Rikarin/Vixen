@@ -871,6 +871,20 @@ viewport-gizmo.hidden { display: none; }
    Every one of these is copied from `viewport`, which is the same shape of control, and the
    symptom of dropping any of them is "the panel is blank" or "the interface is a strip down the
    left" rather than an error. */
+/* ⚠ `flex-shrink: 0` is the whole rule, and the symptom of dropping it is the one `image-view`
+   above warns about one element over: the viewer beside it declares `flex-grow: 1` with a
+   `flex-basis` of nought, so in a short column the only item with anything to give up is this
+   strip — the pickers squash to nothing and a panel that grew a toolbar appears not to have. The
+   row direction and the gap are what make it a strip rather than two stacked pickers, and the
+   padding keeps the joined border off the pane's edge. */
+image-view-bar {
+    flex-direction: row;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0px;
+}
+
 image-view {
     position: relative;
     flex-grow: 1;

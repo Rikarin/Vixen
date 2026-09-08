@@ -1145,6 +1145,13 @@ public sealed class WorldRenderer : IDisposable {
         Pair(TexturedOpacityFeature.OpacityIndexParameter(Under(opacity)), opacity.OpacityMap);
         Pair(TexturedMaterialLayersFeature.SplatIndexParameter(Under(layers)), layers.SplatMap);
 
+        // ⚠ Two entries for one shader, which is the shape the completeness test above did not have.
+        // TexturedMaterialLayersSurface samples a splat map and a height map, and an inventory that
+        // reads back the *shader* each key names is satisfied by either one of them — so the height
+        // map could have been left unpaired with every assertion green. MaterialPairingInventoryTests
+        // now reads the library's `var …Index: uint` declarations instead.
+        Pair(TexturedMaterialLayersFeature.HeightIndexParameter(Under(layers)), layers.HeightMap);
+
         string Under(IMaterialFeature feature) => prefix + feature.ShaderName + ".";
 
         void Pair(string index, string map) =>
@@ -1186,8 +1193,15 @@ public sealed class WorldRenderer : IDisposable {
     ///         sixth host being asked to remember to append.
     ///     </para>
     /// </remarks>
-    internal static void Permuted(MaterialRenderFeature materials, string shader) =>
+    internal static void Permuted(MaterialRenderFeature materials, string shader) {
         materials.PermutationKeys.Register(shader, MaterialKeys.LayerCount(shader));
+
+        // ⚠ And the height blend, whose unregistered failure is the quieter of the two: an
+        // unregistered LayerCount draws the wrong number of layers, where an unregistered
+        // HeightBlended leaves the variant at the shader's false and the material's height map is
+        // never sampled — the old blend, drawn plausibly, with nothing saying the feature did not run.
+        materials.PermutationKeys.Register(shader, MaterialKeys.HeightBlended(shader));
+    }
 
     /// <summary>What the table's filter is called in a shading pass's set 0.</summary>
     /// <remarks>

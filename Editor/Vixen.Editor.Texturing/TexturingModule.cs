@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Globalization;
+using Vixen.Core.Yaml;
 using Vixen.Editor.AssetEditors;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
@@ -138,6 +139,74 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     public const string BakeCommand = "texturing.bake-material";
 
+    /// <summary>The verb that turns the open <c>.vxlayers</c> into one <c>.vxmat</c> per texture set.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 48 § M7's exit word, owed one document after
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1009">#1009</a> closed the graph's</b>
+    ///         — <a href="https://github.com/Rikarin/Vixen/issues/1029">#1029</a>. Both material-bake
+    ///         callers read a graph, so an artist who built a layer stack could not turn it into a
+    ///         material by any route a person can take. It is what makes a smart material worth
+    ///         applying: somebody who applies one wants a material out.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A second verb rather than <see cref="BakeCommand" /> baking whichever document is
+    ///         open.</b> Both can be open at once — that is the point of two panels — so one verb
+    ///         would have to guess, and the guess is wrong exactly when an artist has a graph open
+    ///         beside the stack they are looking at. Two verbs each say what they bake in their own
+    ///         name.
+    ///     </para>
+    /// </remarks>
+    public const string BakeStackCommand = "texturing.bake-stack-material";
+
+    /// <summary>The verb that re-runs the last bake a painted-over map refused.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1019">#1019</a>: § D4's refusal
+    ///         was a dead end in the editor.</b> <c>ProjectMaterialBaker.Write</c> refuses an output
+    ///         whose bytes are no longer what the last bake wrote, which is the whole point of the
+    ///         digest — and <c>force</c> is how a person says they meant it. The command line carries
+    ///         one; a command handler takes no argument, so every editor bake was called with the
+    ///         default and the notification could only send the artist away.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It repeats the refused bake rather than forcing a fresh one, and that is what
+    ///         makes one verb enough for two.</b> The obvious shape is a forced twin of each bake
+    ///         verb — four verbs, two of which are a loaded gun on the Tools menu. This one is armed
+    ///         only by a refusal that force answers (<see cref="MaterialBakeOutcome.Painted" />), it
+    ///         repeats <em>that</em> bake with the same document, name and folder, and it disarms
+    ///         afterwards. So it cannot overwrite anything the artist has not just been told about,
+    ///         which a plain force verb can.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The three other refusals do not arm it.</b> A graph that does not compile, a host
+    ///         with no device and a file the asset database did not pick up are all things force
+    ///         cannot help with — <c>MaterialBakeOutcome.Painted</c> is the flag that tells them
+    ///         apart, and offering the control for all four would send an artist to something that
+    ///         changes nothing.
+    ///     </para>
+    /// </remarks>
+    public const string ForceBakeCommand = "texturing.bake-material-force";
+
+    /// <summary>The verb that saves the open stack's chosen texture set as a <c>.vxsmartmat</c>.</summary>
+    /// <remarks>
+    ///     <b>Doc 48 § M10, and until <see cref="SmartMaterial" /> the extension existed in the plan,
+    ///     in <c>docs/overview.md</c> and in five <c>.cs</c> comments and in no type at all</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/575">#575</a>. It writes onto the shelf
+    ///     (<see cref="SmartMaterial.ShelfFolder" />) rather than beside the stack, because a smart
+    ///     material's whole point is that it is applied to something else.
+    /// </remarks>
+    public const string SaveSmartCommand = "texturing.save-smart-material";
+
+    /// <summary>The verb that puts the selected <c>.vxsmartmat</c> on top of the open stack's set.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The selection and not the canvas, unlike <see cref="BakeCommand" />.</b> What is
+    ///     applied is a file an artist picks out of the shelf and what it is applied <em>to</em> is
+    ///     the stack they are looking at, so the two halves come from the two places an artist is
+    ///     already pointing.
+    /// </remarks>
+    public const string ApplySmartCommand = "texturing.apply-smart-material";
+
     /// <summary>The pane a stroke is made in: doc 48 § D13's 2D UV view.</summary>
     /// <remarks>
     ///     ⚠ <b>Its own panel rather than a mode of the layers pane, and the reason is that both are
@@ -162,6 +231,26 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
     /// <summary>What turns the open graph into pixels, once there is anything to turn it with.</summary>
     TextureGraphPreview? preview;
+
+    /// <summary>What the force verb says to run, appended to every refusal force can answer.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only on <see cref="MaterialBakeOutcome.Painted" />.</b> The other three refusals are
+    ///     things force cannot help with, and a sentence offering it for them would send an artist to
+    ///     a control that changes nothing — which is the whole reason that flag exists rather than
+    ///     the caller matching on the message.
+    /// </remarks>
+    const string ForceAdvice =
+        "Replacing it is a deliberate act: run Bake Material (Force) to repeat exactly this bake "
+        + "over it. That verb does nothing until a bake has been refused for this reason.";
+
+    /// <summary>How to re-run the last bake a painted-over map refused, or null when there was none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A closure and not a flag, because the refusal can have come from either document</b>
+    ///     — <a href="https://github.com/Rikarin/Vixen/issues/1019">#1019</a>. What has to be repeated
+    ///     is the bake that was refused, with the document, the name and the folder it had; a boolean
+    ///     read by whichever bake verb ran next would force a bake of whatever happened to be open.
+    /// </remarks>
+    Action? forced;
 
     /// <summary>What turns the open graph into a material, once there is a device to run it on.</summary>
     /// <remarks>
@@ -482,6 +571,30 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             BakeMaterial
         );
 
+        context.AddCommand(
+            BakeStackCommand,
+            new StringId("editor.command." + BakeStackCommand, "Bake Material from Layers"),
+            BakeStackMaterial
+        );
+
+        context.AddCommand(
+            ForceBakeCommand,
+            new StringId("editor.command." + ForceBakeCommand, "Bake Material (Force)"),
+            BakeForced
+        );
+
+        context.AddCommand(
+            SaveSmartCommand,
+            new StringId("editor.command." + SaveSmartCommand, "Save as Smart Material"),
+            SaveSmartMaterial
+        );
+
+        context.AddCommand(
+            ApplySmartCommand,
+            new StringId("editor.command." + ApplySmartCommand, "Apply Smart Material"),
+            ApplySmartMaterial
+        );
+
         // Where the verb belongs rather than a menu of its own — doc 36, and `PluginContext.FindMenu`
         // says why. A host with no Tools menu gets the command in the palette and the keymap, which
         // is the whole of what a menu entry adds.
@@ -490,6 +603,13 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             context.AddMenuItem(tools, OpenStackCommand);
             context.AddMenuItem(tools, PaintCommand);
             context.AddMenuItem(tools, BakeCommand);
+            context.AddMenuItem(tools, BakeStackCommand);
+
+            // ⚠ Under the two it answers, which is where #1019 asks for it: an artist reads a refusal
+            // naming a file they painted over and looks for the control in the menu they just used.
+            context.AddMenuItem(tools, ForceBakeCommand);
+            context.AddMenuItem(tools, SaveSmartCommand);
+            context.AddMenuItem(tools, ApplySmartCommand);
         }
     }
 
@@ -513,19 +633,40 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     ///         another graph's set.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Force is not offered, and the refusal must not name a route that cannot take
-    ///         this graph</b> — <a href="https://github.com/Rikarin/Vixen/issues/1019">#1019</a>. A
-    ///         map somebody has painted over stops the bake, which is § D4's whole point, and a
-    ///         command handler carries no argument to force with. ⚠ <b>The sentence used to send the
-    ///         artist to <c>vixen texture bake --force</c> and that verb cannot re-bake a
-    ///         graph</b>: its <c>--from</c> is required and reads a folder of maps
+    ///         ⚠ <b>Force is now offered, and it is a second verb rather than an argument</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1019">#1019</a>. A map somebody has
+    ///         painted over stops the bake, which is § D4's whole point, and a command handler
+    ///         carries no argument to force with. ⚠ <b>The sentence here used to send the artist to
+    ///         <c>vixen texture bake --force</c> and that verb cannot re-bake a graph</b>: its
+    ///         <c>--from</c> is required and reads a folder of maps
     ///         (<a href="https://github.com/Rikarin/Vixen/issues/1020">#1020</a>), so running it
     ///         would have written a <em>second</em> set beside the painted one rather than replacing
-    ///         anything. Naming the file and saying there is no control here yet is the honest half.
+    ///         anything. <see cref="ForceBakeCommand" /> repeats <em>this</em> bake instead.
     ///     </para>
     /// </remarks>
-    void BakeMaterial() {
-        if (document is null) {
+    void BakeMaterial() => BakeGraph(document, force: false);
+
+    /// <summary>Turns the graph on the canvas into a material, forcing or not.</summary>
+    /// <param name="subject">The document to bake.</param>
+    /// <param name="force">Whether to overwrite outputs somebody has painted over.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The forced run is a closure this arms rather than a flag the verb reads</b>, so
+    ///         that <see cref="ForceBakeCommand" /> can answer a refusal from either document with
+    ///         one handler and cannot force a bake nobody asked about. See <see cref="Refused" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the document is a <em>parameter</em> rather than the field, which is the
+    ///         whole of what makes that closure safe.</b> Reading <c>document</c> inside the forced
+    ///         run would force-bake whatever happened to be open when the artist reached for the
+    ///         verb — and the ordinary way to meet a painted-over refusal is to go and look at the
+    ///         file that was painted, which means opening something else first. Capturing the
+    ///         subject is what stops a verb whose whole purpose is overwriting somebody's work from
+    ///         overwriting the <em>wrong</em> work.
+    ///     </para>
+    /// </remarks>
+    void BakeGraph(TextureGraphDocument? subject, bool force) {
+        if (subject is null) {
             shell.Notifications.Show(
                 "No graph is open",
                 NotificationSeverity.Warning,
@@ -546,15 +687,14 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return;
         }
 
-        var outcome = baker.Bake(document, Path.GetFileNameWithoutExtension(document.AssetPath));
+        var outcome = baker.Bake(subject, Path.GetFileNameWithoutExtension(subject.AssetPath), force: force);
+
+        Refused(outcome.Painted ? () => BakeGraph(subject, force: true) : null);
 
         shell.Notifications.Show(
             outcome.Set is null ? "Nothing baked" : "Baked '" + outcome.Set.Name + "'",
             outcome.Set is null ? NotificationSeverity.Warning : NotificationSeverity.Info,
-            outcome.Painted
-                ? outcome.Status + " Replacing it is a deliberate act and there is no control for it "
-                + "here yet (#1019); until there is, move or delete the file the sentence above names."
-                : outcome.Status
+            outcome.Painted ? outcome.Status + " " + ForceAdvice : outcome.Status
         );
 
         // ⚠ The pane too, and not because the picture changed — it did not. `Bake` compiles through
@@ -562,6 +702,279 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         // the picture it had while the material on disk was made from a different graph. It is also
         // what puts the compiler's warnings back under the pane after a bake reported them.
         Refresh();
+    }
+
+    /// <summary>Turns the open layer stack into one material per texture set.</summary>
+    /// <remarks>
+    ///     <b><a href="https://github.com/Rikarin/Vixen/issues/1029">#1029</a>'s editor half.</b>
+    ///     Everything below the notification is <see cref="MaterialBakeRoute" />, which is the
+    ///     compile the layers pane runs, the evaluator both panes share and the
+    ///     <see cref="ProjectMaterialBaker" /> the command line calls.
+    /// </remarks>
+    void BakeStackMaterial() => BakeStack(stack, force: false);
+
+    /// <summary>Turns the open layer stack into materials, forcing or not.</summary>
+    /// <param name="subject">The stack to bake.</param>
+    /// <param name="force">Whether to overwrite outputs somebody has painted over.</param>
+    /// <remarks>
+    ///     ⚠ <b>The stack is a parameter and not the field, for <see cref="BakeGraph" />'s
+    ///     reason</b>: the closure <see cref="Refused" /> arms must repeat the bake that was
+    ///     refused, not whatever is open when somebody presses the verb.
+    ///     ⚠ <b>One notification for the whole stack rather than one per set.</b> A set that refused
+    ///     and a set that wrote are both facts about the same gesture, and an artist reading two
+    ///     notifications has to work out which of them was the answer to what they pressed. Every
+    ///     set's own sentence is in the detail, named by its set.
+    /// </remarks>
+    void BakeStack(LayerStackDocument? subject, bool force) {
+        if (subject is null) {
+            shell.Notifications.Show(
+                "No layer stack is open",
+                NotificationSeverity.Warning,
+                "Bake Material from Layers bakes the stack in the Layer Stack panel. Select a "
+                + ".vxlayers and run Open Layer Stack first."
+            );
+
+            return;
+        }
+
+        if (baker is null) {
+            shell.Notifications.Show(
+                "Nothing baked",
+                NotificationSeverity.Warning,
+                TexturePreview.Describe(TexturePreview.Blocking(graphics))
+            );
+
+            return;
+        }
+
+        var outcomes = baker.Bake(subject, Path.GetFileNameWithoutExtension(subject.AssetPath), force: force);
+        var written = outcomes.Count(one => one.Set is not null);
+        var painted = outcomes.Any(one => one.Painted);
+
+        Refused(painted ? () => BakeStack(subject, force: true) : null);
+
+        var detail = string.Join(" · ", outcomes.Select(one => one.Status));
+
+        shell.Notifications.Show(
+            written == 0
+                ? "Nothing baked"
+                : $"Baked {written.ToString(CultureInfo.InvariantCulture)} of "
+                + $"{outcomes.Length.ToString(CultureInfo.InvariantCulture)}",
+            written == 0 ? NotificationSeverity.Warning : NotificationSeverity.Info,
+            painted ? detail + " " + ForceAdvice : detail
+        );
+
+        RefreshStack();
+    }
+
+    /// <summary>Re-runs the last bake a painted-over map refused.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It is armed by a refusal and disarmed by running, which is what makes one verb safe
+    ///     enough to sit on the Tools menu</b> — <a href="https://github.com/Rikarin/Vixen/issues/1019">#1019</a>.
+    ///     A plain "bake forced" verb is a control that overwrites an artist's paint whenever
+    ///     somebody reaches for it out of order; this one does nothing at all until a bake has been
+    ///     refused for the one reason force answers, and it repeats <em>that</em> bake — same
+    ///     document, same name, same folder — rather than starting a new one from whatever happens to
+    ///     be open now.
+    /// </remarks>
+    void BakeForced() {
+        if (forced is not { } repeat) {
+            shell.Notifications.Show(
+                "Nothing to force",
+                NotificationSeverity.Warning,
+                "Bake Material (Force) repeats a bake that was refused because one of its maps had "
+                + "been painted over, and no bake has been refused for that reason. Run Bake Material "
+                + "or Bake Material from Layers first."
+            );
+
+            return;
+        }
+
+        // ⚠ Cleared before the run and not after it. The repeat arms this again if it is refused
+        // again — for a *second* painted file, say — and clearing afterwards would throw that away.
+        forced = null;
+
+        repeat();
+    }
+
+    /// <summary>Remembers, or forgets, the bake a force verb would repeat.</summary>
+    /// <param name="repeat">How to re-run it forced, or null when nothing force answers was refused.</param>
+    /// <remarks>
+    ///     ⚠ <b>Called on every bake, including the ones that worked, and the null half is the load
+    ///     bearing one.</b> An arming that were never cleared would leave the force verb pointing at
+    ///     a refusal the artist has since resolved by hand — so pressing it would overwrite a file
+    ///     that had stopped being the one they were told about.
+    /// </remarks>
+    void Refused(Action? repeat) => forced = repeat;
+
+    /// <summary>Saves the open stack's chosen texture set onto the shelf as a <c>.vxsmartmat</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 48 § M10's file, given the one thing a file format needs to stop being a
+    ///         plan: somebody who makes one</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/575">#575</a>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Named after the stack's file with no dialog</b>, which is
+    ///         <see cref="BakeMaterial" />'s decision and is taken here for its reason: a name control
+    ///         is a panel this verb does not have, and the stack's own name is the one answer that
+    ///         cannot silently adopt another stack's shelf entry.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An existing shelf entry of that name is replaced, and the notification says so.</b>
+    ///         The alternative — writing <c>Hull_2</c> beside it — makes the ordinary case, which is
+    ///         re-saving after an edit, litter the shelf with every draft; and a shelf a third party
+    ///         reads is exactly where a pile of near-identical names is expensive.
+    ///     </para>
+    /// </remarks>
+    void SaveSmartMaterial() {
+        if (stack is null) {
+            shell.Notifications.Show(
+                "No layer stack is open",
+                NotificationSeverity.Warning,
+                "Save as Smart Material takes the layers out of the stack in the Layer Stack panel. "
+                + "Select a .vxlayers and run Open Layer Stack first."
+            );
+
+            return;
+        }
+
+        var name = Path.GetFileNameWithoutExtension(stack.AssetPath);
+        var extract = SmartMaterial.Extract(stack.Document, name, stack.PaintSet);
+
+        if (extract.Material is not { } material) {
+            shell.Notifications.Show("Nothing saved", NotificationSeverity.Warning, extract.Status);
+
+            return;
+        }
+
+        if (SmartMaterial.FolderOf(project.Paths.Assets) is not { } shelf) {
+            shell.Notifications.Show(
+                "Nothing saved",
+                NotificationSeverity.Warning,
+                "This project publishes no assets folder, so there is no shelf to save onto."
+            );
+
+            return;
+        }
+
+        var file = Path.Combine(shelf, SmartMaterial.Safe(name) + SmartMaterial.Extension);
+        var replaced = File.Exists(file);
+
+        try {
+            Directory.CreateDirectory(shelf);
+            File.WriteAllText(file, LayerStackYaml.Write(material));
+        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
+            // ⚠ A sentence rather than an exception, which is this module's rule for every route that
+            // runs from a command handler: a throw out of one takes the editor's frame with it.
+            shell.Notifications.Show("Nothing saved", NotificationSeverity.Warning, failure.Message);
+
+            return;
+        }
+
+        // The shelf is a folder under `Assets/`, so what lands in it is an asset — and a scan is what
+        // puts it in the Project panel the artist will select it from to apply it.
+        project.Assets.Scan();
+
+        shell.Notifications.Show(
+            "Saved '" + name + "'",
+            NotificationSeverity.Info,
+            extract.Status
+            + $" It is on the shelf at Assets/{SmartMaterial.ShelfFolder}/, ready to apply to another "
+            + "stack."
+            + (replaced ? " ⚠ It replaced the entry of that name that was already there." : "")
+        );
+    }
+
+    /// <summary>Puts the selected <c>.vxsmartmat</c> on top of the open stack's chosen texture set.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Through the document's command stack, as one undo entry.</b> A verb that mutated
+    ///         <c>TextureSetAsset.Layers</c> directly would put ten layers into a stack the artist
+    ///         could not take back out except by hand — and it would leave <c>CommandStack.Depth</c>
+    ///         unmoved, which is the edge <c>LayerStackView</c> follows to notice that the document
+    ///         changed (<a href="https://github.com/Rikarin/Vixen/issues/933">#933</a>), so the rows
+    ///         would not even redraw.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The refusal names what the shelf holds.</b> "No smart material is selected"
+    ///         leaves an artist unable to tell an empty shelf from a wrong selection, and those two
+    ///         have different next steps.
+    ///     </para>
+    /// </remarks>
+    void ApplySmartMaterial() {
+        if (stack is null) {
+            shell.Notifications.Show(
+                "No layer stack is open",
+                NotificationSeverity.Warning,
+                "Apply Smart Material puts a .vxsmartmat on top of the stack in the Layer Stack "
+                + "panel. Select a .vxlayers and run Open Layer Stack first."
+            );
+
+            return;
+        }
+
+        var asset = project.Selection.Primary;
+
+        // ⚠ `Primary` on an empty selection is `AssetId.Empty` rather than null — it is a struct — so
+        // the emptiness is asked about by name, which is `Open`'s finding one verb over.
+        if (asset.IsEmpty
+            || !project.Assets.TryGetByGuid(asset, out var entry)
+            || !entry.Path.EndsWith(SmartMaterial.Extension, StringComparison.OrdinalIgnoreCase)) {
+            var shelf = SmartMaterial.Shelf(project.Paths.Assets);
+
+            shell.Notifications.Show(
+                "Select a .vxsmartmat first",
+                NotificationSeverity.Warning,
+                "Apply Smart Material applies whatever is selected in the Project panel. "
+                + (shelf.Count > 0
+                    ? $"This project's shelf holds {string.Join(", ", shelf)}."
+                    : $"This project's shelf (Assets/{SmartMaterial.ShelfFolder}/) is empty — run Save "
+                    + "as Smart Material on a stack to put one there.")
+            );
+
+            return;
+        }
+
+        LayerStackAsset material;
+
+        try {
+            material = LayerStackYaml.Read(File.ReadAllText(project.Paths.Absolute(entry.Path)));
+        } catch (Exception failure) when (failure is YamlBindingException or YamlParseException
+            or NotSupportedException or IOException) {
+            shell.Notifications.Show("Nothing applied", NotificationSeverity.Warning, failure.Message);
+
+            return;
+        }
+
+        // ⚠ The set the panel is showing and not `Sets[0]` — #927. `SetFor` falls back to the first
+        // set for a name nothing matches, which is what an empty `PaintSet` means, and answers null
+        // only for a stack with no set at all.
+        if (LayerStackEdit.SetFor(stack.Document, stack.PaintSet) is not { } target) {
+            shell.Notifications.Show(
+                "Nothing applied",
+                NotificationSeverity.Warning,
+                "This stack has no texture set, so there is nothing to apply a smart material to."
+            );
+
+            return;
+        }
+
+        var applied = SmartMaterial.Prepare(target, material);
+
+        if (applied.Layers.IsDefaultOrEmpty) {
+            shell.Notifications.Show("Nothing applied", NotificationSeverity.Warning, applied.Status);
+
+            return;
+        }
+
+        stack.Stack.Execute(
+            new ApplySmartMaterialCommand(stack, target.Name, applied.Layers, "Apply Smart Material")
+        );
+
+        shell.Notifications.Show("Applied '" + material.Name + "'", NotificationSeverity.Info, applied.Status);
+
+        RefreshStack();
     }
 
     /// <summary>Swaps the pointer between selecting and painting.</summary>

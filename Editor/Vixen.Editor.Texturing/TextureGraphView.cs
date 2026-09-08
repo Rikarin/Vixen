@@ -132,8 +132,16 @@ sealed class TextureGraphView {
         title = right.Add("world-title");
         title.Text = "Result";
 
+        // ⚠ Added *before* the viewer and pointed at it *after*, and both halves are deliberate.
+        // `Add` appends, so the strip has to be built first to sit above the picture; and
+        // `ImageViewBar.View` adopts what the viewer already holds, so the assignment must come
+        // after the viewer exists rather than the strip pushing its first segment at construction.
+        Channels = right.Add<ImageViewBar>();
+
         Preview = right.Add<ImageView>();
         Preview.SetStyle("flex-grow", "1");
+
+        Channels.View = Preview;
 
         status = right.Add("texture-graph-status");
 
@@ -152,6 +160,19 @@ sealed class TextureGraphView {
 
     /// <summary>The pane the baked result would be shown in.</summary>
     public ImageView Preview { get; }
+
+    /// <summary>The channel and transfer-function pickers over that pane.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held rather than built and forgotten, because
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1012">#1012</a> is about the strip being
+    ///     reachable and a test has to be able to click it.</b> The strip writes
+    ///     <see cref="ImageView.Channels" /> and <see cref="ImageView.ColorSpace" /> on
+    ///     <see cref="Preview" /> and reads nothing back, so this panel neither stores nor restores
+    ///     the choice: it is a way of looking at the picture rather than a property of the graph, and
+    ///     a `.vxtexgraph` that remembered which channel was last isolated would be a document
+    ///     changed by looking at it.
+    /// </remarks>
+    public ImageViewBar Channels { get; }
 
     /// <summary>What is shown when no graph is open.</summary>
     public UiElement Empty { get; }
