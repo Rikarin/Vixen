@@ -884,46 +884,52 @@ So `Output` is the one `[Node]` class § 4.8 costs, and the count in
 ships the compounds marked ●, authored in the tool, and the rest is how a library grows.
 
 ⚠ **This sentence said "the two dozen marked ●" for nineteen batches and the rows below ask for
-thirty-five compounds**, plus five `.vxsmartmat`. ⚠ **Twenty-eight ● standing for thirty-five**,
-because the Grunges row carries one mark for a family of eight — so a *glyph* count and a *compound*
-count are different numbers and § 4.11 quotes one of them. Counted: Utility 8 · Patterns 7 ·
-Grunges 8 · Surface 5 ·
-Mask generators 7. **The number was never a summary of the table, and three ledger readings quoted it
+thirty-five compounds**, plus five `.vxsmartmat`. It then said "twenty-eight ● standing for
+thirty-five", because the Grunges row carried one mark for a family of eight — so a *glyph* count and
+a *compound* count were different numbers and § 4.11 quoted one of them. **Every mark below is now
+one compound**: the Grunges row names its eight, and no other row folds two files onto one glyph. So
+a glyph count and a compound count are the same number here for the first time, which is what makes
+the ● assertable at all. Counted: Utility 8 · Patterns 7 · Grunges 8 · Surface 5 · Mask generators 7 —
+**35**. **The number was never a summary of the table, and three ledger readings quoted it
 rather than the marks** — `docs/overview.md` scored M10 at "4 of two dozen" and then "sixteen of
 roughly two dozen", each time against a denominator eleven short, which reads a milestone as
-two-thirds done when it is under a half. ⚠ **And a test carries these marks beside a floor that is the shipped count**
-(`TextureCompoundLibraryTests.The_shipped_library_is_the_folder_and_not_a_list`), which are two
-different questions and were one for three batches. The floor is what refuses a compound that has
-stopped being embedded; the ● count is this document's ask, and it is not assertable on its own,
-because a marked compound may be refused for a reason. What keeps an ● load-bearing is the ratchet
-between them: the moment a folder ships as many as it marks, the floor has to follow, or the test is
-red. So the count in prose is still the one thing in this section nothing derives — which is why it
-is stated as an enumeration — and it is now a number a test will come and ask about.
+two-thirds done when it is under a half.
 
-⚠ **A mark and a shipped file are different things, and a folder floor quoting these marks equals the
-file count only on a row where nothing is blocked.** Counted on 2026-09-09: **34 files against 35
-marks** — Utility 8, Patterns 7, Grunges 8, Surface **4**, mask generators 7. Two names are owed, and
-each is owed for a different reason.
+⚠ **And a test now reconciles these marks with the folder by name rather than by count**
+(`TextureCompoundLibraryTests.The_shipped_library_is_the_folder_and_not_a_list`). It used to carry a
+deletion floor beside the ● count and ratchet one against the other, and that arithmetic is blind to
+exactly one thing: **what a glyph stands for**. A row of the test now spells the files a row here
+marks, so a marked name with no file is red, and a shipped file no row marks is red asking this
+document for its ●. ⚠ **A count could not have caught a mark that counts wrong, and did not** —
+[#1110](https://github.com/Rikarin/Vixen/issues/1110) was filed against a Utility row that read 8
+files against 8 marks while one of the marks appeared to name two compounds; the arithmetic was green
+either way, and only writing the names down settled it.
 
-- **`Surface/Metal Reflectance` ●** is the one mark with no file, and it is *blocked* rather than
-  unstarted — nothing in the atomic set maps a metal name to an F0, so there is no setting for a
-  compound to forward ([#1096](https://github.com/Rikarin/Vixen/issues/1096)). The Surface floor is
-  therefore 4 against 5 marks, deliberately.
-- **`Utility/Delight`** has no file and no mark of its own, because *Delight / Equalize* is written
-  here as a single ● for two compounds and only Equalize exists
-  ([#1110](https://github.com/Rikarin/Vixen/issues/1110)). Utility's floor is 8 against 8 and stays
-  green with a named compound missing — the only row where a glyph count and a compound count can
-  disagree in silence.
+⚠ **The remainder, derived rather than remembered, 2026-09-09: 35 files against 35 marks. M10's
+compound remainder is zero**, and both of the names the paragraph here used to owe are answered:
 
-⚠ So a reader deriving M10's remainder from the folder floor is reading a **deletion guard** rather
-than a plan: it says what may not be lost, and the two sentences above are what is left to write.
+- **`Surface/Metal Reflectance` ●** was the one mark with no file, *blocked* rather than unstarted —
+  nothing in the atomic set mapped a metal name to an F0
+  ([#1096](https://github.com/Rikarin/Vixen/issues/1096)). The atomic node landed on 2026-09-09 and
+  the compound with it.
+- **`Utility/Delight` is not a compound and never was**, which refutes
+  [#1110](https://github.com/Rikarin/Vixen/issues/1110)'s premise. *Delight / Equalize* is one ● for
+  one compound: doc 40 § D2's second row reads *"Delight / equalize — high-pass over a large-radius
+  blur"*, one technique under two names, and § A.5's neighbouring row spells the same construction
+  unambiguously — *Make-it-tile / smart auto-tile* is one ● and ships as the single file
+  `Utility/Make It Tile`. `Utility/Equalize` is the delight; its own interface says so ("a
+  photographed surface with the light of the room still in it" → "the same surface, evenly lit"). ⚠ A
+  slash in these rows is an **alias**, not an enumeration, and the row below now says which.
+
+⚠ So a reader deriving M10's remainder from the test is reading the plan and the folder at once: it
+says what may not be lost *and* what is still owed, because the two sides are the same list of names.
 
 | | |
 |---|---|
-| **Utility** | Histogram Scan ● · Histogram Range ● · Histogram Select ● · Safe Transform ● · Highpass ● · Contrast/Luminosity ● · **Make It Tile** ● (offset-wrap with an edge mask — doc 40 § D2's first row) · **Delight / Equalize** ● (its second) · Anti-Alias · Dilate · Skew · Quantize · Colour Variation |
+| **Utility** | Histogram Scan ● · Histogram Range ● · Histogram Select ● · Safe Transform ● · Highpass ● · Contrast/Luminosity ● · **Make It Tile** ● (offset-wrap with an edge mask — doc 40 § D2's first row, whose slash is an alias: *make-it-tile* and *smart auto-tile* are the one compound) · **Equalize** ● (its second row, whose slash is the same alias — *delight* and *equalize* name one high-pass over a large-radius blur, and `Utility/Equalize` is it) · Anti-Alias · Dilate · Skew · Quantize · Colour Variation |
 | **Patterns** | Brick ● · Panels ● · Tile Random ● · Rivets ● · Scratches ● · Wood Grain ● · Cells ● · Weave · Hexagon Grid · Bolts · Stitches · Chain · Fibres · Marble Veins · Gravel · Sand · Water Drops · Snow · Moss · Leather · Cloth |
-| **Grunges** | A family of eight ●, which is `Noise` and `Slope Blur` in eight arrangements — and the honest description of most of what a grunge library is |
-| **Surface** | Height Blend ● · **Bevel** ● (`Distance` → `Height → Normal`) · Curvature Smooth ● · Height to AO ● · Metal Reflectance ● (a named-metal lookup — ⚠ **the one ● with no file at all**, and blocked rather than unstarted: [#1096](https://github.com/Rikarin/Vixen/issues/1096), no atomic node maps a metal name to an F0, so there is no setting for a compound to forward) · Normal Sobel · Basecolor/Metallic/Roughness converter |
+| **Grunges** | `Noise` and `Slope Blur` in eight arrangements — the honest description of most of what a grunge library is. ⚠ **Named rather than counted**, because this row was one ● for eight files and is the reason a glyph count and a compound count could disagree: Grunge Clouds ● · Grunge Concrete ● · Grunge Damage ● · Grunge Fibres ● · Grunge Leaks ● · Grunge Rust ● · Grunge Scratches ● · Grunge Smears ● |
+| **Surface** | Height Blend ● · **Bevel** ● (`Distance` → `Height → Normal`) · Curvature Smooth ● · Height to AO ● · Metal Reflectance ● (a named-metal lookup, and it was the one ● with no file — blocked rather than unstarted on [#1096](https://github.com/Rikarin/Vixen/issues/1096) until the atomic node landed on 2026-09-09) · Normal Sobel · Basecolor/Metallic/Roughness converter |
 | **Mask generators** | Every one reads § D12's maps **by usage**: Dirt ● · Curvature Edge Wear ● · Metal Edge Wear ● · Grunge Rough Dirty ● · Dust ● · Position Gradient ● · **Mask Editor** ● — the big composite with the sliders, which is what most artists actually reach for · Drips · Light · Water Level |
 | **Smart materials** | `.vxsmartmat`: Painted Metal ● · Rusted Iron ● · Worn Wood ● · Concrete ● · Plastic ● · Leather |
 
@@ -950,7 +956,7 @@ The same catalogue question for the other front end (§ D10), listed here so it 
 | Not a kernel | One: `Normal → Height`, on the CPU, by exception — **built**, and declared in `TextureKernels.Cpu.cs` so that the roll calls can name the category rather than reading it as a kernel whose `.rvn` went missing |
 | Not a kernel and not an op | One: `Text`, which is CPU pixels *uploaded* rather than an op of any kind — `TextureText` + `TextureUploads.AddCoverage`. ⚠ It has no node, and no longer for a reason: [#732](https://github.com/Rikarin/Vixen/issues/732) closed and § 4.1's row says what is left |
 | Not a kernel and not built | One: `Svg Path`, refused — the measurement is under [4.1](#41-sources--6-kernels-and-two-that-cannot-be) and [#753](https://github.com/Rikarin/Vixen/issues/753) carries where it should live instead |
-| Shipped compounds | ⚠ **Also deleted, and for a sharper version of the same reason.** This cell read **24 ●** while [§ 4.9](#49-the-compound-library--content-not-code) carries **34** ● marks — one of which ("a family of eight ●") stands for eight, and five of which are `.vxsmartmat` smart materials rather than compounds. So the cell and the list it summarised could not both be read the same way by anybody, and no single number was ever right for both. The ● in § 4.9 is the mark, [M10](#m10--the-library-smart-materials-and-export--10-em) is the phase that ships them, and what is in the tree on any given day is `TextureCompoundLibrary`'s and [`docs/overview.md`](../overview.md)'s |
+| Shipped compounds | ⚠ **Also deleted, and for a sharper version of the same reason.** This cell read **24 ●** while [§ 4.9](#49-the-compound-library--content-not-code) carried **34** ● marks — one of which ("a family of eight ●") stood for eight, and five of which are `.vxsmartmat` smart materials rather than compounds. So the cell and the list it summarised could not both be read the same way by anybody, and no single number was ever right for both. ⚠ **The list has since been made countable and the cell still does not come back**: § 4.9 names its grunges, so its marks and its compounds are the same 35 — but a number written here would be a fourth reading of a list three readings already got wrong, and `TextureCompoundLibraryTests` asks § 4.9 for the names rather than this table for a total. The ● in § 4.9 is the mark, [M10](#m10--the-library-smart-materials-and-export--10-em) is the phase that ships them, and what is in the tree on any given day is `TextureCompoundLibrary`'s and [`docs/overview.md`](../overview.md)'s |
 
 ⚠ **And the numbers above are the plan's, not the tree's — deliberately, and they will not agree.**
 Two structural reasons, neither of which is a shortfall:
@@ -1619,7 +1625,7 @@ forgotten.
 | | SD | SP | IM | Here |
 |---|---|---|---|---|
 | Make-it-tile / smart auto-tile | ✅ | — | ✅ | ● M10 compound — doc 40 § D2's first row |
-| Delight / colour equalizer | ✅ | — | ✅ | ● M10 compound — its second |
+| Delight / colour equalizer | ✅ | — | ✅ | ● M10 compound — its second. ⚠ **The slash is an alias, exactly as the row above it**: one compound under two names, shipped as `Utility/Equalize` ([#1110](https://github.com/Rikarin/Vixen/issues/1110)) |
 | Crop tool | ✅ | — | ✅ | ● § 4.3 |
 | Multi-angle → albedo / normal | ✅ | — | ✅ | 🕓 needs a capture rig, not a node |
 | Smart patch clone | ✅ | — | ✅ | 🕓 |

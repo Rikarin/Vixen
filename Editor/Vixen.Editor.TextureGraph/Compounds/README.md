@@ -22,7 +22,7 @@ authored, and what it cost to author the things that could**.
 | | Histogram Select | two `Levels` and a `Darken`, then a contrast curve |
 | | Contrast Luminosity | one `Levels`, all four handles from two knobs |
 | | Highpass | `Blur` → `Invert` → `Blend Copy` at half opacity |
-| | Equalize | `Highpass` at a coarse radius, then `Contrast Luminosity` |
+| | Equalize | `Highpass` at a coarse radius, then `Contrast Luminosity`. ⚠ **This is § 4.9's *Delight / Equalize* ●, and the slash there is an alias rather than an enumeration** — doc 40 § D2's second row names one technique ("high-pass over a large-radius blur") twice, exactly as its neighbour names one compound *make-it-tile / smart auto-tile*. There is no second file owed ([#1110](https://github.com/Rikarin/Vixen/issues/1110)) |
 | | Safe Transform | `Transform 2D` under `Wrap`, quarter turns and whole tile counts |
 | | Make It Tile | offset-wrap, a mirrored `Gradation` cross for the seam mask, a masked composite |
 | `Patterns` | Brick | `Shape Square` → `Tile` with a half-tile row offset |
@@ -42,6 +42,7 @@ authored, and what it cost to author the things that could**.
 | | Bevel | `Distance` inside → `Levels` for the profile → `Height to Normal` |
 | | Curvature Smooth | `Blur HQ` → `Height to Normal` → `Curvature` |
 | | Height to AO | `Ambient Occlusion` → `Blur` → `Levels` |
+| | Metal Reflectance | `Colour/Metal Reflectance` on a `Metal` name port, mixed over a base by a mask through `Colour/Mix` — the row that was blocked on [#1096](https://github.com/Rikarin/Vixen/issues/1096) until the atomic node landed |
 
 The five `.vxsmartmat` smart materials live one assembly over, in
 `Vixen.Editor.Texturing/SmartMaterials/`, and `Leather` — § 4.9's sixth, listed there without a ● —
@@ -56,10 +57,18 @@ a property rather than a look.
 reading before trusting either.** The library's read `>= 4` and the bake's read `>= 12` while sixteen
 compounds shipped — a floor written by the batch that authored the first four and never re-derived —
 so twelve compounds could have stopped being embedded with every assertion in both files green. The
-library's floor is now **per folder and quoted from § 4.9's own ● marks** rather than counted off the
-tree, which is a claim the document makes and can therefore be checked by reading it rather than by
-remembering to bump a number. Removing four grunges turns it red where the old whole-library floor
-passed.
+library's check is now **per folder and by name** — it spells the files § 4.9's ● marks stand for,
+so a marked name with no file is red and a shipped file no ● names is red asking the document for
+one. Removing four grunges turns it red where the old whole-library floor passed.
+
+⚠ **And it is names rather than counts because a count cannot see a mark that counts wrong** —
+[#1110](https://github.com/Rikarin/Vixen/issues/1110). The version before this carried a deletion
+floor beside § 4.9's ● *count* and ratcheted the two, which is sound arithmetic over a row of glyphs
+and says nothing about what a glyph stands for: the Grunges row was one ● for eight files, and the
+table wrote 8 beside it by hand. #1110 was filed believing another row's single ● covered two
+compounds with one missing; the arithmetic was green either way, and only writing the names down
+settled it — as a refutation, in that case. **A row that has to spell the file it expects cannot be
+filled in without discovering a mark's arity.**
 
 ⚠ **The bake roll call ran at 64×64 while every file here declares `baseWidth: 1024`, and now runs at 1024** —
 [#1085](https://github.com/Rikarin/Vixen/issues/1085). § D8 makes a filter's numbers *texels at the
