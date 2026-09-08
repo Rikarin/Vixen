@@ -1057,6 +1057,22 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
 ///         the material, which knows nothing about the mesh it is put on; see
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1104">#1104</a>.
 ///     </para>
+///     <para>
+///         ⚠ <b>And the silhouette is decided rather than owed, because a <c>discard</c> in the
+///         shading pass would not produce one.</b> Coverage for this surface is settled in more
+///         passes than the one that shades it: a depth prepass and every shadow caster rasterise it
+///         too, and <c>DepthOnly</c> and <c>ShadowCaster</c> <em>deliberately</em> compose no
+///         material chain — <see cref="Compositor.RenderStageAsset.ComposeFromMaterial" /> is
+///         false for both, because handing them a material's features splits their variant cache
+///         once per material for shaders that compile to the same bytes. So a forward pass that cut
+///         the silhouette away would leave the prepass's depth written across the hole and the
+///         shadow uncut: a notch that occludes what is behind it and still shades nothing. Fixing it
+///         properly means making those two passes material-composed and marching the height field
+///         two more times per frame per light, in the two passes whose whole purpose is to be cheap.
+///         That is the cost, and it buys a case no shipped material is in — the artefact needs a
+///         genuine silhouette <em>and</em> a single 0..1 island, and this feature's carrier is a
+///         box-projected wall.
+///     </para>
 /// </remarks>
 [DataContract("ParallaxOcclusion")]
 public sealed record ParallaxOcclusionFeature : IMaterialFeature {
