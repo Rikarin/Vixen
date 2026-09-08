@@ -38,6 +38,10 @@ readonly record struct PaintHit(
 /// <summary>How many texels of the atlas one unit of surface is worth, along each of its two axes.</summary>
 /// <param name="Major">The stretched direction: the most texels a unit of surface buys.</param>
 /// <param name="Minor">The squashed one: the fewest.</param>
+/// <param name="Orientation">
+///     Which way <paramref name="Major" /> points <b>in the atlas</b>, in radians anticlockwise from
+///     its first axis. Zero for an isometric map, where there is no stretched direction.
+/// </param>
 /// <remarks>
 ///     <para>
 ///         <b>⚠ Two numbers and not one, and that is the whole finding of doc 48 § M9's second
@@ -56,17 +60,16 @@ readonly record struct PaintHit(
 ///         the triangle's own Jacobian, so the answer moves as the pointer crosses the chart.
 ///     </para>
 /// </remarks>
-readonly record struct PaintDensity(float Major, float Minor) {
+readonly record struct PaintDensity(float Major, float Minor, float Orientation = 0f) {
     /// <summary>The radius of the disc with the same area as the ellipse, per unit of surface.</summary>
     /// <remarks>
-    ///     ⚠ <b>The geometric mean, which is a compromise stated rather than hidden.</b> The stamp
-    ///     kernel is a disc — <c>TerrainBrush.WeightAt</c> takes one radius — so a stamp on a
-    ///     stretched chart must be wrong in one direction. Sizing by <see cref="Major" /> paints
-    ///     past where the artist swept, by <see cref="Anisotropy" />, in the squashed direction;
-    ///     sizing by <see cref="Minor" /> leaves a sliver the artist cannot see and cannot fix
-    ///     without a second pass. The mean is wrong by the square root either way and preserves the
-    ///     painted area, which is the same choice a mip selector makes for the same reason. The
-    ///     actual fix is an elliptical stamp and it is <b>not</b> here — see the project README.
+    ///     ⚠ <b>The geometric mean, and it is now the ellipse's <em>size</em> rather than a
+    ///     compromise about its shape.</b> It used to be both: the stamp kernel was a disc, so a
+    ///     stamp on a chart stretched four to one was twice too wide in one direction and twice too
+    ///     narrow in the other — <a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a>.
+    ///     <c>PaintBrush.Aspect</c> now carries the shape and this carries the area, which is what
+    ///     makes the pair exact: the mean is the radius of the equal-area disc, and
+    ///     <see cref="Anisotropy" /> and <see cref="Orientation" /> put it back into an ellipse.
     /// </remarks>
     public float Area => MathF.Sqrt(Major * Minor);
 
@@ -303,7 +306,7 @@ sealed class PaintProjection {
 
         Singular(first, second, out var major, out var minor);
 
-        return new(major, minor);
+        return new(major, minor, Principal(first, second));
     }
 
     /// <summary>The mesh, as the triangles that carry both geometry and a layout.</summary>
@@ -431,6 +434,39 @@ sealed class PaintProjection {
 
         major = MathF.Sqrt(MathF.Max((norm + root) * 0.5f, 0f));
         minor = MathF.Sqrt(MathF.Max((norm - root) * 0.5f, 0f));
+    }
+
+    /// <summary>Which way the long axis of the ellipse points, in the atlas.</summary>
+    /// <param name="first">The matrix's first column.</param>
+    /// <param name="second">Its second.</param>
+    /// <returns>The angle in radians anticlockwise from the atlas's first axis.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The <em>left</em> singular vector, and issue
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a> said the right one —
+    ///         which is the wrong half and would have shipped a brush whose long axis pointed
+    ///         somewhere unrelated on every non-conformal chart.</b> Write the map as
+    ///         <c>M = UΣVᵀ</c>. The right singular vectors are directions on the <em>surface</em>:
+    ///         which way to walk to be stretched most. The ellipse a screen disc becomes lives in
+    ///         the atlas, and its axes are the <em>images</em> of those directions — the columns of
+    ///         <c>U</c>. They agree only when <c>M</c> is symmetric, which a texture layout has no
+    ///         reason to be, and a fixture whose stretch is axis-aligned cannot tell them apart
+    ///         because both come out at zero.
+    ///     </para>
+    ///     <para>
+    ///         <c>U</c>'s columns are the eigenvectors of <c>MMᵀ</c>, which is 2×2 and symmetric, so
+    ///         the principal angle is a single <c>atan2</c> off its three entries and nothing here
+    ///         can fail to converge. A map with no stretch answers zero, which is the honest reading
+    ///         of "there is no long axis" rather than a guard: <see cref="PaintDensity.Anisotropy" />
+    ///         is one there, so the angle multiplies nothing.
+    ///     </para>
+    /// </remarks>
+    static float Principal(Vector2 first, Vector2 second) {
+        var xx = (first.X * first.X) + (second.X * second.X);
+        var yy = (first.Y * first.Y) + (second.Y * second.Y);
+        var xy = (first.X * first.Y) + (second.X * second.Y);
+
+        return 0.5f * MathF.Atan2(2f * xy, xx - yy);
     }
 
     void Corners(int triangle, out Vector3 a, out Vector3 b, out Vector3 c) {

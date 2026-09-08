@@ -6,6 +6,64 @@ using Vixen.Terrain;
 
 namespace Vixen.Editor.Texturing.Painting;
 
+/// <summary>What the texels of one drag held before <em>any</em> of its paths touched them.</summary>
+/// <remarks>
+///     <para>
+///         <b>⚠ A drag's undo record cannot be its strokes' records concatenated, and a mirrored
+///         stroke is where that stops being an implementation detail.</b> Each
+///         <see cref="PaintStroke" /> remembers what a texel held before <em>it</em> first wrote
+///         there, which is what <c>PaintImage.Mix</c> has to blend from. Where two paths of one drag
+///         overlap in the atlas — two mirrors whose islands the packer put next to each other, which
+///         is the ordinary case for a symmetric model — the second one's record holds the <em>first
+///         one's paint</em>. Undoing them in any fixed order therefore leaves some of that paint
+///         behind: forward order restores the original and then puts the sibling's colour back on
+///         top, and reverse order fails the mirror-image interleaving. There is no order that works,
+///         because the strokes interleave per pointer move and a texel's first writer can be either
+///         of them.
+///     </para>
+///     <para>
+///         ⚠ <b>So the drag keeps one map beside them, and it is the <em>first</em> value anybody
+///         saw.</b> <see cref="Remember" /> is called from the same place the per-stroke record is
+///         written and before the texel is, so whichever path arrives first wins and every later
+///         claim is dropped. Restoring from it is exact whatever the order was.
+///     </para>
+///     <para>
+///         ⚠ <b>Made only for a drag with more than one path.</b> It is the union of the strokes'
+///         records, so it is a third copy of the undo record — the size
+///         <a href="https://github.com/Rikarin/Vixen/issues/850">#850</a> is already about — and a
+///         single-path drag cannot have the defect it exists for. Every stroke the 2D pane makes is
+///         a single path, so nothing there pays for this.
+///     </para>
+/// </remarks>
+sealed class PaintOriginal {
+    readonly PaintImage image;
+    readonly Dictionary<int, uint> texels = [];
+
+    /// <summary>Remembers a layer's texels for the length of one drag.</summary>
+    /// <param name="image">The layer.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="image" /> is null.</exception>
+    public PaintOriginal(PaintImage image) {
+        ArgumentNullException.ThrowIfNull(image);
+
+        this.image = image;
+    }
+
+    /// <summary>How many texels the drag has claimed.</summary>
+    public int Count => texels.Count;
+
+    /// <summary>Notes what a texel holds, if nothing has noted it yet.</summary>
+    /// <param name="index">Which texel.</param>
+    /// <remarks>⚠ Before the write, or what is remembered is what the stamp just put there.</remarks>
+    public void Remember(int index) => texels.TryAdd(index, image[index]);
+
+    /// <summary>Puts every claimed texel back the way the drag found it.</summary>
+    public void Restore() {
+        foreach (var (texel, value) in texels) {
+            image[texel] = value;
+        }
+    }
+}
+
 /// <summary>
 ///     One drag on a paint layer: stamps into the atlas, dilated across the seam, recorded so it can
 ///     be undone once.
@@ -53,6 +111,7 @@ sealed class PaintStroke {
     readonly List<(int Texel, float Reach)> pending = [];
     readonly Dictionary<int, uint> before = [];
     readonly Dictionary<int, float> reached = [];
+    readonly PaintOriginal? original;
 
     /// <summary>How many four-neighbour steps from coverage each dilated texel is.</summary>
     /// <remarks>
@@ -99,7 +158,8 @@ sealed class PaintStroke {
         uint colour,
         int gutter = 4,
         float smoothing = 0f,
-        uint seed = 0x9E3779B9u
+        uint seed = 0x9E3779B9u,
+        PaintOriginal? original = null
     ) {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(coverage);
@@ -120,6 +180,7 @@ sealed class PaintStroke {
         this.colour = colour;
         this.gutter = gutter;
         this.seed = seed;
+        this.original = original;
         this.smoothing = Math.Clamp(smoothing, 0f, 0.999f);
 
         path = new(brush.Kernel, seed);
@@ -275,7 +336,18 @@ sealed class PaintStroke {
             centre += new Vector2(cos, sin) * distance;
         }
 
-        return new(centre, angle, MathF.Max(radius, 1e-3f), Math.Clamp(brush.Flow, 0f, 1f) * stamp.Flow);
+        // ⚠ The shape travels with every stamp, jittered or not — #1064. It is the brush's for the
+        // whole stroke (the hit triangle at pointer-down is what measured it, and re-measuring per
+        // stamp would be a brush that changed shape as the artist crossed a chart), and it is on the
+        // stamp because the footprint, the undo record and the dilation are all sized from there.
+        return new(
+            centre,
+            angle,
+            MathF.Max(radius, 1e-3f),
+            Math.Clamp(brush.Flow, 0f, 1f) * stamp.Flow,
+            brush.Aspect,
+            brush.AspectAngle
+        );
     }
 
     /// <summary>Composites one stamp into the layer and dilates it past the seam.</summary>
@@ -506,7 +578,13 @@ sealed class PaintStroke {
     ///     crossing would make undo restore the middle of the stroke — and, here, would also make
     ///     <see cref="PaintImage.Mix" /> composite onto its own output.
     /// </remarks>
-    void Record(int index) => before.TryAdd(index, image[index]);
+    void Record(int index) {
+        // ⚠ The drag's map first, and both read `image[index]` before the stamp writes it. They are
+        // not the same claim: `before` is this stroke's blend base and is written once per stroke,
+        // and the drag's is written once per texel across every path — see `PaintOriginal`.
+        original?.Remember(index);
+        before.TryAdd(index, image[index]);
+    }
 
     /// <summary>A 0…1 number from the stroke's seed, a stamp's index and a stream.</summary>
     float Unit(int index, uint stream) {

@@ -23,8 +23,9 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         simplification: a radius recomputed per stamp would be a brush that changed size as the
 ///         artist dragged across a chart boundary, which reads as a broken brush rather than as a
 ///         correct density. <see cref="Begin" /> is therefore where the conversion happens, and the
-///         number it returns is what a caller puts on <c>PaintBrush.Radius</c> before beginning the
-///         session.
+///         <see cref="PaintFootprintShape" /> it returns is what a caller puts on
+///         <c>PaintBrush.Radius</c>, <c>PaintBrush.Aspect</c> and <c>PaintBrush.AspectAngle</c>
+///         before beginning the session.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The number of paths is fixed at pointer-down too, and <c>PaintSession.MoveAll</c>
@@ -97,17 +98,32 @@ sealed class PaintProjector {
     /// <param name="eye">The camera the ray came from.</param>
     /// <param name="ray">The ray under the pointer, in the mesh's own space.</param>
     /// <param name="screenRadius">How wide the brush is, in render pixels.</param>
-    /// <param name="radius">The radius in texels, or zero when there is nothing to paint.</param>
+    /// <param name="footprint">
+    ///     What the brush covers in the atlas — the radius, and the ellipse that radius is the
+    ///     equal-area disc of. <see cref="PaintFootprintShape.None" /> when there is nothing to paint.
+    /// </param>
     /// <returns>Whether the ray found the mesh.</returns>
     /// <remarks>
-    ///     ⚠ <b>The radius comes off the <em>primary</em> hit and both paths get it.</b> A mirror
-    ///     landing on a chart of a different density would otherwise paint a different size on the
-    ///     two sides of a symmetric model, which is the one thing a symmetric stroke exists not to
-    ///     do — and the session could not express it anyway, since a brush belongs to a session and
-    ///     not to a stroke.
+    ///     <para>
+    ///         ⚠ <b>The footprint comes off the <em>primary</em> hit and both paths get it.</b> A
+    ///         mirror landing on a chart of a different density would otherwise paint a different
+    ///         size on the two sides of a symmetric model, which is the one thing a symmetric stroke
+    ///         exists not to do — and the session could not express it anyway, since a brush belongs
+    ///         to a session and not to a stroke.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And that now carries the mirrored path's <em>shape</em> too, which is a real
+    ///         approximation rather than the same sentence again</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a>. A symmetric model's
+    ///         two halves are usually mirrored in the atlas as well, in which case the mirrored chart
+    ///         stretches the same amount along an axis reflected with it; a packer that rotated one
+    ///         island and not the other would leave the mirror's ellipse turned the wrong way. Taking
+    ///         one shape for both is still right about the size, and a per-path shape is a brush per
+    ///         path, which <c>PaintSession</c> has no room for.
+    ///     </para>
     /// </remarks>
-    public bool Begin(PaintEye eye, Ray ray, float screenRadius, out float radius) {
-        radius = 0f;
+    public bool Begin(PaintEye eye, Ray ray, float screenRadius, out PaintFootprintShape footprint) {
+        footprint = PaintFootprintShape.None;
         started = false;
         paths = 0;
         Hit = PaintHit.None;
@@ -117,7 +133,7 @@ sealed class PaintProjector {
         }
 
         Hit = hit;
-        radius = PaintFootprint.Radius(eye, ray, hit, projection.Density(hit.Triangle, width, height), screenRadius);
+        footprint = PaintFootprint.Ellipse(eye, ray, hit, projection.Density(hit.Triangle, width, height), screenRadius);
         held[paths++] = PaintProjection.Texel(hit.Coordinate, width, height);
 
         mirror = Symmetry;

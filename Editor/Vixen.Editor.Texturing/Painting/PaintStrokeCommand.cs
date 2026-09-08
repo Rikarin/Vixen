@@ -59,6 +59,7 @@ sealed class PaintStrokeCommand : IEditorCommand {
     readonly IReadOnlyList<PaintStroke> strokes;
     readonly List<PaintStrokeRedo> redo;
     readonly Action<PaintRect>? changed;
+    readonly PaintOriginal? original;
 
     /// <summary>What the last <see cref="Do" /> or <see cref="Undo" /> moved, one entry per stroke.</summary>
     readonly List<PaintRect> moved = [];
@@ -70,8 +71,17 @@ sealed class PaintStrokeCommand : IEditorCommand {
     ///     Told which texels moved, on undo and on redo — <b>once per stroke</b>, not once per call.
     ///     Where a re-upload and a recomposite hang.
     /// </param>
+    /// <param name="original">
+    ///     What the drag found before any of its paths painted, or <see langword="null" /> for a
+    ///     single-path drag — see <see cref="PaintOriginal" /> for why a multi-path one needs it.
+    /// </param>
     /// <exception cref="ArgumentException">Every stroke touched nothing.</exception>
-    public PaintStrokeCommand(IReadOnlyList<PaintStroke> strokes, string name, Action<PaintRect>? changed = null) {
+    public PaintStrokeCommand(
+        IReadOnlyList<PaintStroke> strokes,
+        string name,
+        Action<PaintRect>? changed = null,
+        PaintOriginal? original = null
+    ) {
         ArgumentNullException.ThrowIfNull(strokes);
 
         var touched = false;
@@ -89,6 +99,7 @@ sealed class PaintStrokeCommand : IEditorCommand {
 
         this.strokes = strokes;
         this.changed = changed;
+        this.original = original;
 
         // ⚠ Now, not on the first undo. A capture taken later reads whatever the strokes after this
         // one left, which is `TerrainStrokeCommand`'s remark and the same trap.
@@ -146,12 +157,22 @@ sealed class PaintStrokeCommand : IEditorCommand {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The strokes' own records, and then the drag's over the top of them.</b> Two paths
+    ///     that overlap in the atlas record each other's paint, so undoing them in any order leaves
+    ///     some of it behind — <see cref="PaintOriginal" /> carries the argument and the fixture is
+    ///     <c>PaintProjectorTests</c>' mirrored drag, which found four texels of a mirror surviving
+    ///     its own undo. The second pass is over a superset of every texel the first touched, so what
+    ///     it writes is the whole answer; the first is what reports the rectangles.
+    /// </remarks>
     public void Undo(EditorContext context) {
         moved.Clear();
 
         foreach (var stroke in strokes) {
             moved.Add(stroke.Undo());
         }
+
+        original?.Restore();
 
         Announce();
     }

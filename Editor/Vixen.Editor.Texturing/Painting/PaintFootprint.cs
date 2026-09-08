@@ -97,6 +97,29 @@ readonly record struct PaintEye {
         Constant + (PerUnit * MathF.Max(Vector3.Dot(point - Position, Forward), 0f));
 }
 
+/// <summary>What a screen-space brush covers in the atlas: an ellipse, in texels.</summary>
+/// <param name="Radius">Its equal-area radius — the number that goes on <c>PaintBrush.Radius</c>.</param>
+/// <param name="Aspect">
+///     How much longer the long axis is than the short one, one or more. One for a chart that is not
+///     stretched, which is every case the 2D view has.
+/// </param>
+/// <param name="Angle">Which way the long axis points in the atlas, in radians.</param>
+/// <remarks>
+///     ⚠ <b>Three numbers and not one, which is
+///     <a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a>.</b> A circular brush on the
+///     screen covers an ellipse in the atlas wherever the layout is not isometric, and collapsing it
+///     to its equal-area radius paints a chart stretched four to one with a brush twice too wide in
+///     one direction and twice too narrow in the other. ⚠ On a cube that defect is <em>invisible</em>
+///     — every triangle of a box unwrap is conformal — which is how it shipped.
+/// </remarks>
+readonly record struct PaintFootprintShape(float Radius, float Aspect, float Angle) {
+    /// <summary>Nothing measurable to paint with: an unmeasurable triangle, or no brush.</summary>
+    public static PaintFootprintShape None { get; } = new(0f, 1f, 0f);
+
+    /// <summary>Whether there is a brush here at all.</summary>
+    public bool IsMeasurable => Radius > 0f && float.IsFinite(Radius);
+}
+
 /// <summary>The other half of a stroke on a model: how wide the brush is, in texels, where it landed.</summary>
 /// <remarks>
 ///     <para>
@@ -155,15 +178,50 @@ static class PaintFootprint {
     ///     the floor a *tool* applies to a number an artist typed; this is a measurement, and its
     ///     honest answer for an unmeasurable place is that there is none.
     /// </remarks>
-    public static float Radius(PaintEye eye, Ray ray, PaintHit hit, PaintDensity density, float screenRadius) {
+    public static float Radius(PaintEye eye, Ray ray, PaintHit hit, PaintDensity density, float screenRadius) =>
+        Ellipse(eye, ray, hit, density, screenRadius).Radius;
+
+    /// <summary>The whole footprint: the equal-area radius, and the shape it is really that area of.</summary>
+    /// <param name="eye">The camera the ray came from, which is what sizes a pixel.</param>
+    /// <param name="ray">The ray itself, which is what the surface is tilted with respect to.</param>
+    /// <param name="hit">Where it landed.</param>
+    /// <param name="density">The hit triangle's texel density, and the direction it stretches.</param>
+    /// <param name="screenRadius">How wide the brush is, in render pixels.</param>
+    /// <returns>The ellipse, or <see cref="PaintFootprintShape.None" /> when there is nothing to convert.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The <em>layout's</em> anisotropy, and not the tilt's.</b> Two things turn the
+    ///         artist's disc into an ellipse and only one of them is here. This one — the hit
+    ///         triangle's Jacobian — is a property of the atlas and is what
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1064">#1064</a> is about. The other
+    ///         is the grazing tilt, which stretches the disc <em>on the surface</em> along the view
+    ///         direction's projection into the tangent plane before the layout ever sees it, and it
+    ///         is still collapsed to the area factor below.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That second collapse is of the same order as the first and it is stated rather
+    ///         than implied.</b> At 60° off the normal the tilt ellipse is 2:1, which is the same
+    ///         factor a 4:1 chart contributes; composing the two exactly means carrying the
+    ///         triangle's plane basis out of <c>PaintProjection.Density</c> so the two 2×2 maps can
+    ///         be multiplied before the singular values are taken, and that is a change to what
+    ///         <see cref="PaintDensity" /> is rather than an extra multiply here. It is filed.
+    ///     </para>
+    /// </remarks>
+    public static PaintFootprintShape Ellipse(
+        PaintEye eye,
+        Ray ray,
+        PaintHit hit,
+        PaintDensity density,
+        float screenRadius
+    ) {
         if (!hit.Found || !density.IsMeasurable || !(screenRadius > 0f) || !float.IsFinite(screenRadius)) {
-            return 0f;
+            return PaintFootprintShape.None;
         }
 
         var perPixel = eye.WorldPerPixel(hit.Point);
 
         if (!(perPixel > 0f)) {
-            return 0f;
+            return PaintFootprintShape.None;
         }
 
         // Step one: the disc on the screen, as a disc on the plane facing the camera.
@@ -187,6 +245,6 @@ static class PaintFootprint {
         surface /= MathF.Sqrt(cosine);
 
         // Step two: the surface, in texels of this atlas, on this triangle.
-        return surface * density.Area;
+        return new(surface * density.Area, density.Anisotropy, density.Orientation);
     }
 }
