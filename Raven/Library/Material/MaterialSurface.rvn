@@ -173,7 +173,8 @@ struct MaterialData {
 /// these are called in is the order the material's feature list happens to be in. That is
 /// `MaterialFeatureStage.Coordinate` on the C# side, and `MaterialCompiler` refuses a material that
 /// puts one behind a sampler; see `github.com/Rikarin/Vixen/issues/1065` for the feature itself, which
-/// also wants a tangent-space view direction this struct does not carry.
+/// also wants a tangent-space view direction — which this struct now carries as `viewTS`, seeded by
+/// `MaterialDefaults.Begin`, since the feature that needed it was built.
 protocol IMaterialSurface {
     func Compute(inout d: MaterialData)
 }

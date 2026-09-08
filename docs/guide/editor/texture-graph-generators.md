@@ -204,9 +204,12 @@ Which to reach for is now a real choice rather than a workaround:
 
 - ⚠ **This bullet said no host calls `TextureCompoundLibrary.Publish`, so the shipped compounds were
   "not in the panel's search" and a `Source/Mesh Map` graph "compiles and does not bake" — and every
-  clause of it is false, re-measured 2026-09-08.** `Publish` has three production callers:
-  `TextureNodeLibrary.Create` (`Editor/Vixen.Editor.Texturing/TextureNodeLibrary.cs:138`), which both
-  documents and the smart-material shelf start from, and `Tools/Vixen.Cli/TextureGraphRunner.cs:105`.
+  clause of it is false, re-measured 2026-09-08.** `TextureCompoundLibrary.Publish` has two production
+  callers: `TextureNodeLibrary.Publish` (`Editor/Vixen.Editor.Texturing/TextureNodeLibrary.cs:138`),
+  which both documents, the compound watch and the layer-stack compiler start from, and
+  `Tools/Vixen.Cli/TextureGraphRunner.cs:105`. ⚠ **Not `TextureNodeLibrary.Create`** — the two are
+  different methods and `Create` registers the generated node types and deliberately publishes no
+  compounds, which is a distinction worth keeping rather than blurring.
   A mesh map resolves as a `meshmap:` external through `TextureExternalImages` and bakes on a device.
   ⚠ **A guide page telling an artist that the library they can see in the search is unreachable is a
   worse defect than the gap it described**, and it survived two batches of the fix because nothing

@@ -464,15 +464,19 @@ shader ParallaxSurface : MaterialTextures, IMaterialSurface {
     func Compute(inout d: MaterialData) {
         val view = Math.SafeNormalize(d.viewTS)
 
-        if (view.z <= MinCosine) {
-            return
-        }
-
         // ⚠ Read once, before the loop. Inside it the coordinate is different on every lane and the
         // control flow is not uniform, so implicit derivatives are neither this surface's footprint
         // nor defined at all. See `MaterialTextures.SurfaceDdx`.
+        // ⚠ **Above the bail and not below it**, which is the whole of what the paragraph
+        // above is about: `ddx` and `ddy` compare a value across a quad, so a lane that has
+        // already returned contributes nothing and the two that remain read a derivative of
+        // a partly-uninitialised quad. The first version read them after the return.
         val ddxUv = SurfaceDdx(d)
         val ddyUv = SurfaceDdy(d)
+
+        if (view.z <= MinCosine) {
+            return
+        }
 
         val sweep = (view.xy / view.z) * heightScale
 

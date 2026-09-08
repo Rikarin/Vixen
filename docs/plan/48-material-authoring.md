@@ -883,8 +883,11 @@ So `Output` is the one `[Node]` class § 4.8 costs, and the count in
 ⚠ **This list is the backlog, not the deliverable.** [M10](#m10--the-library-smart-materials-and-export--10-em)
 ships the compounds marked ●, authored in the tool, and the rest is how a library grows.
 
-⚠ **This sentence said "the two dozen marked ●" for nineteen batches and the rows below mark
-thirty-five**, plus five `.vxsmartmat`. Counted: Utility 8 · Patterns 7 · Grunges 8 · Surface 5 ·
+⚠ **This sentence said "the two dozen marked ●" for nineteen batches and the rows below ask for
+thirty-five compounds**, plus five `.vxsmartmat`. ⚠ **Twenty-eight ● standing for thirty-five**,
+because the Grunges row carries one mark for a family of eight — so a *glyph* count and a *compound*
+count are different numbers and § 4.11 quotes one of them. Counted: Utility 8 · Patterns 7 ·
+Grunges 8 · Surface 5 ·
 Mask generators 7. **The number was never a summary of the table, and three ledger readings quoted it
 rather than the marks** — `docs/overview.md` scored M10 at "4 of two dozen" and then "sixteen of
 roughly two dozen", each time against a denominator eleven short, which reads a milestone as

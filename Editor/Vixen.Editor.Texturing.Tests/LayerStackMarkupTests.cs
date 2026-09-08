@@ -109,6 +109,27 @@ public class LayerStackMarkupTests {
 
         Assert.Empty(block.Children);
         Assert.Equal(0f, block.Width);
+
+        // ⚠ **The state neither assertion above reaches, and it is the only one that tests the
+        // class.** `Show(null)` puts `display: none` on the panel's whole *root*, so a block whose
+        // own `shown` class was stuck on measures zero anyway — both hidden assertions above are
+        // entailed by the root and say nothing about `layer-stack-messages`. A document that loads
+        // cleanly is the arrangement where the root is visible and the block must not be.
+        var clean = new LayerStackDocument(
+            fixture.Project,
+            LayerStackPanelTests.AddStack(fixture, "Plain"),
+            Path.Combine(fixture.Paths.Assets, "Plain" + LayerStackDocument.Extension)
+        );
+
+        Assert.Empty(clean.LoadDiagnostics);
+
+        view.Show(clean);
+        Settle(fixture);
+
+        Assert.True(view.Root.Width > 0f, "the panel is hidden, so the block below proves nothing.");
+        Assert.Empty(block.Children);
+
+        Assert.Equal(0f, block.Width);
     }
 
     /// <summary>⚠ The markup's element <em>is</em> the panel's, rather than a box inside one.</summary>

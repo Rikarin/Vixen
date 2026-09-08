@@ -381,6 +381,13 @@ sealed class PaintMeshView {
     ///     would land somewhere else besides.
     /// </remarks>
     void Wheeled(WheelEvent args) {
+        // ⚠ Handled before the bail, not after it. The handler is on the capture leg because
+        // `ImageView` marks its own pointer events handled — so a wheel this pane declines to
+        // act on falls through to `ImageView.Wheeled`, which zooms and pans the *picture*. The
+        // pointer-up path never re-fits, so a wheel mid-stroke left the model at a scale and
+        // offset nothing puts back.
+        args.Handled = true;
+
         if (session is not null) {
             return;
         }
@@ -388,8 +395,6 @@ sealed class PaintMeshView {
         Camera.Zoom(-args.DeltaY);
         Render();
         Say(Describe());
-
-        args.Handled = true;
     }
 
     /// <summary>The pointer, on the capture leg, before <c>ImageView</c>'s pan sees it.</summary>
