@@ -48,6 +48,13 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
     ///     The exit criterion for this phase: SPIR-V the reference validator accepts,
     ///     under Vulkan's rules rather than the looser universal ones.
     /// </summary>
+    /// <param name="name">The fixture.</param>
+    /// <remarks>
+    ///     ⚠ The count is part of the assertion. A <c>foreach</c> whose body holds the only
+    ///     <c>Assert</c> passes on an empty sequence, and a back end that generated no stages at all
+    ///     is exactly the failure an exit criterion exists to name — so it would have been reported
+    ///     as its absence. <see cref="Stages" /> refuses that before the loop runs.
+    /// </remarks>
     [Theory]
     [InlineData("lambert")]
     public void Passes_spirv_val(string name) {
@@ -56,7 +63,7 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
             "spirv-val was not found. Install SPIR-V Tools (brew install spirv-tools)."
         );
 
-        foreach (var unit in Compile(name)) {
+        foreach (var unit in Stages(name)) {
             SpirvTestBase.Validate(unit);
             output.WriteLine($"{unit.Name}: valid ({unit.Binary!.Length} bytes)");
         }
@@ -68,6 +75,12 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
     ///     the listing claims — which is the one thing a hand-written encoder can
     ///     plausibly get wrong without anything else noticing.
     /// </summary>
+    /// <param name="name">The fixture.</param>
+    /// <remarks>
+    ///     ⚠ The missing-tool path <em>skips</em>, which is honest, and the empty-sequence path did
+    ///     not — it passed. <see cref="Stages" /> makes the count an assertion, so "no stages were
+    ///     generated" can no longer arrive here dressed as "every stage agreed".
+    /// </remarks>
     [Theory]
     [InlineData("lambert")]
     public async Task The_listing_agrees_with_a_real_disassembler(string name) {
@@ -79,7 +92,7 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
             + "listing was not cross-checked against a real disassembler."
         );
 
-        foreach (var unit in Compile(name)) {
+        foreach (var unit in Stages(name)) {
             // The guid is not decoration. Without it the name is a pure function of the theory's
             // arguments, so every process running this test picks the same path in one shared
             // temporary directory — and the `finally` below deletes it. Two runs at once (a second
@@ -128,6 +141,27 @@ public partial class GoldenSpirvTests(ITestOutputHelper output) {
 
     [GeneratedRegex(@"\b(Op[A-Za-z0-9]+)")]
     private static partial Regex OpcodePattern();
+
+    /// <summary>Every stage <see cref="Compile" /> generated, refusing a compile that generated none.</summary>
+    /// <param name="name">The fixture.</param>
+    /// <returns>At least one <see cref="GeneratedSource" />.</returns>
+    /// <remarks>
+    ///     The counterpart of <see cref="GoldenFile.Set.Done" /> for the loops that are not comparing
+    ///     goldens. It is deliberately not folded into <see cref="Compile" />: the refusal belongs to
+    ///     the tests that iterate, and keeping it out of the helper is what lets a sabotage of
+    ///     <see cref="Compile" /> prove that the refusal fires.
+    /// </remarks>
+    static IReadOnlyList<GeneratedSource> Stages(string name) {
+        var generated = Compile(name);
+
+        Assert.True(
+            generated.Count > 0,
+            $"Compiling '{name}' generated no stages, so the loop over them asserts nothing and the "
+            + "test reports a pass. An empty result is the failure this test exists to name."
+        );
+
+        return generated;
+    }
 
     static IReadOnlyList<GeneratedSource> Compile(string name) {
         var source = File.ReadAllText(FixturePath(name + ".rvn"));

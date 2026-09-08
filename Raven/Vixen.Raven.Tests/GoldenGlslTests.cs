@@ -49,24 +49,49 @@ public class GoldenGlslTests(ITestOutputHelper output) {
     ///     thing as not having the check at all; <c>ci.yml</c> installs shaderc on all three legs
     ///     now.
     /// </summary>
+    /// <param name="name">The fixture.</param>
     /// <remarks>
     ///     Compiling rather than only validating, because the target is Vulkan GLSL and a
     ///     Vulkan target is what makes <c>layout(set = …)</c> and the separate
     ///     <c>texture2D</c>/<c>sampler</c> types legal in the first place.
     ///     <see cref="SpirvDifferentialTests" /> goes on to diff the result against Raven's own
     ///     SPIR-V; this asserts the weaker half on the golden fixture.
+    ///     ⚠ The count is asserted before the loop. Every <c>Assert</c> here lives inside the
+    ///     <c>foreach</c>, so a back end that emitted no GLSL at all compiled nothing, accepted
+    ///     nothing, and reported that a reference compiler had accepted the golden.
     /// </remarks>
     [Theory]
     [InlineData("lambert")]
     public void A_reference_compiler_accepts_the_golden_glsl(string name) {
         Assert.SkipUnless(ReferenceCompiler.Glslc is not null, ReferenceCompiler.HowToInstall);
 
-        foreach (var unit in Compile(name)) {
+        foreach (var unit in Stages(name)) {
             var module = ReferenceCompiler.GlslToSpirv(unit.Code, unit.Stage);
             output.WriteLine($"{unit.Name}: {module.Length} bytes of SPIR-V");
 
             Assert.NotEmpty(module);
         }
+    }
+
+    /// <summary>Every stage <see cref="Compile" /> generated, refusing a compile that generated none.</summary>
+    /// <param name="name">The fixture.</param>
+    /// <returns>At least one <see cref="GeneratedSource" />.</returns>
+    /// <remarks>
+    ///     What <see cref="GoldenFile.Set.Done" /> does for <see cref="Matches_golden" />, for the
+    ///     loop that is not comparing goldens. Deliberately not folded into <see cref="Compile" />:
+    ///     the refusal belongs to the test that iterates, and keeping it out of the helper is what
+    ///     lets a sabotage of <see cref="Compile" /> prove that the refusal fires.
+    /// </remarks>
+    static IReadOnlyList<GeneratedSource> Stages(string name) {
+        var generated = Compile(name);
+
+        Assert.True(
+            generated.Count > 0,
+            $"Compiling '{name}' generated no stages, so the loop over them asserts nothing and the "
+            + "test reports a pass. An empty result is the failure this test exists to name."
+        );
+
+        return generated;
     }
 
     static IReadOnlyList<GeneratedSource> Compile(string name) {
