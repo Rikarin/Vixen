@@ -3,6 +3,8 @@
 
 package Vixen.Editor.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
+
 // Doc 48 § 4.7's `Tile Sampler`: a grid of cells, one instance of a pattern in each, with the
 // position, rotation, scale, colour and pattern index of every instance drawn from the op's seed.
 //
@@ -159,41 +161,10 @@ shader TileSampler {
     /// this kernel already runs its whole instance search once per sub-sample.
     const val MaxSamples: int = 4
 
-    /// The odd constant from PCG's output stage — `Random.Multiplier`.
-    ///
-    /// ⚠ Copied, along with the two below and the three functions under them, because a texture-graph
-    /// kernel cannot reach `Raven/Library/Core/Random.rvn`: `TexturePlanEvaluator.VariantFor` hands
-    /// `RavenEffectCompiler.FromSources` one tree and no references. `Noise.rvn` says the same thing
-    /// at greater length and `TextureSourceKernelTests` holds the tripwire that goes red the day the
-    /// evaluator learns to bind the library.
-    const val Multiplier: uint = 0x2C9277B5u
-
-    /// The golden ratio's reciprocal, which is what makes `Combine` non-commutative.
-    const val Golden: uint = 0x9E3779B9u
-
-    /// 2^-24 — `Random.InvTwo24`.
-    const val InvTwo24: float = 5.9604645e-8f
-
     /// Half the diagonal of a unit square: how far a corner of an unrotated instance reaches once it
     /// is turned. The search radius is derived from this rather than from `scale` alone, because a
     /// rotated square is wider than it is.
     const val HalfDiagonal: float = 0.70710678f
-
-    /// `Random.Hash` — one xorshift, one odd multiply, one xorshift.
-    func Hash(value: uint): uint {
-        var state = value
-        state = state ^ (state >> 16)
-        state = state * Multiplier
-        state = state ^ (state >> 16)
-
-        return state
-    }
-
-    /// `Random.Combine`.
-    func Mix(a: uint, b: uint): uint => Hash(a ^ (b * Golden))
-
-    /// `Random.ToFloat01`.
-    func ToFloat01(hash: uint): float => float(hash >> 8) * InvTwo24
 
     /// The seed as the integer the hash wants.
     func Seeded(): uint => uint(int(max(seed, 0f)))
@@ -216,10 +187,10 @@ shader TileSampler {
     /// `lane` is what keeps the position, the rotation, the scale, the tint and the pattern index
     /// of one instance uncorrelated — a single hash reused for all five would put big instances only
     /// where the rotation was also large, which reads as a pattern nobody authored.
-    func Draw(cell: uint, lane: uint): float => ToFloat01(Mix(Mix(cell, lane), Seeded()))
+    func Draw(cell: uint, lane: uint): float => Random.ToFloat01(Random.Combine(Random.Combine(cell, lane), Seeded()))
 
     /// The identity of one cell, folded so that the border repeats rather than inventing.
-    func CellOf(x: int, y: int): uint => Mix(uint(Fold(x, gridX) + 1), uint(Fold(y, gridY) + 1))
+    func CellOf(x: int, y: int): uint => Random.Combine(uint(Fold(x, gridX) + 1), uint(Fold(y, gridY) + 1))
 
     /// One texel of a source, clamped to **that source's** dimensions.
     ///

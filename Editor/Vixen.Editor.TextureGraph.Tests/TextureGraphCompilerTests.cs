@@ -6,7 +6,6 @@ using Vixen.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Xunit;
 
@@ -739,7 +738,7 @@ public class TextureGraphCompilerTests {
 
             var name = TextureKernels.VariantName(kernel, TextureFormat.Rgba16Float);
             var source = TextureKernels.Variant(kernel, TextureFormat.Rgba16Float);
-            var data = RavenEffectCompiler.FromSources([(name, source)]).TryGet(EffectKey.Of(kernel));
+            var data = TextureKernelPrelude.Compile(name, source).TryGet(EffectKey.Of(kernel));
 
             Assert.NotNull(data);
 

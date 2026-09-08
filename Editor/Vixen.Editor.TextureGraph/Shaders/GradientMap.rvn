@@ -4,8 +4,17 @@
 package Vixen.Editor.TextureGraph.Shaders
 
 // Grey through a colour ramp — doc 48 § 4.2's `Gradient Map`, and § 4.1's note that this is
-// **`GradientEditor`'s first production consumer**: `overview.md:270` records that the control has
-// none, and a grep confirms it — the control, its tests and a string table.
+// **`GradientEditor`'s first production consumer**.
+//
+// ⚠ **That claim used to cite `overview.md:270`, and that line now says something else entirely.**
+// The row there is "Undo inside controls", and what it records about `GradientEditor` is the
+// opposite of a control with no consumer: `Samples/02-HelloUi/Panels/Gallery.vxml` builds one, and
+// wiring the control into *this* editor is a recorded refusal — there is no gradient asset, and
+// `Vixen.Editor.TextureGraph` deliberately does not reference `Vixen.Ui.Controls.Advanced`
+// ([#59](https://github.com/Rikarin/Vixen/issues/59),
+// [#469](https://github.com/Rikarin/Vixen/issues/469)). A line number into a generated table is a
+// citation that rots on the next regeneration; this kernel's own claim stands without one, because
+// what it consumes is a **baked strip** rather than the control.
 //
 // ⚠ **The ramp arrives as a baked table and not as a list of stops**, for the reason `Curve.rvn`
 // spells out at length: `Vixen.Ui.Controls.Advanced`'s `Gradient` already decides what a stop list

@@ -19,9 +19,12 @@ cancelling two errors. The three are still worth naming, and this is what they a
 ([#687](https://github.com/Rikarin/Vixen/issues/687)), and `Normal → Height` is a **CPU Poisson
 solve** by doc 48's own exception ([#688](https://github.com/Rikarin/Vixen/issues/688)).
 
-**Why the first two cannot be kernels.** A compute shader has no rasteriser, and
-`TexturePlanEvaluator` compiles each kernel alone through `RavenEffectCompiler.FromSources` with no
-reference paths — so no kernel can reach a font, a glyph outline or a path parser. Both shapes are
+**Why the first two cannot be kernels.** A compute shader has no rasteriser, and a kernel reaches
+only the Raven sources `TextureKernelPrelude` puts in its compilation — three library files — so no
+kernel can reach a font, a glyph outline or a path parser. ⚠ This paragraph used to give the reason
+as "compiles each kernel alone … with no reference paths", which stopped being true with
+[#635](https://github.com/Rikarin/Vixen/issues/635) and was never the reason anyway: a `.rvn` cannot
+call into managed code whatever is in the compilation. Both shapes are
 filled on the CPU and enter a plan as an **external image**; `TextureUploads` is the seam, and the
 assembly README says where the two nodes themselves have to live. `TextureSurfaceKernelTests` asserts
 `NormalToHeight`'s absence **by name**, so "nobody has built it" and "somebody built it as a kernel"
@@ -192,45 +195,46 @@ to agree about what a half-resolution image is.
 
 ## What a kernel cannot say, and what now notices
 
-Both of these are the same shape — a feature of the language a kernel is *written in* that a kernel
-cannot use — because `TexturePlanEvaluator.VariantFor` compiles one source with no `referencePaths`
-and no defines. `TextureKernelLanguageSeamTests` is where each is held.
+⚠ **This section used to say two things and one of them was wrong.** It read that a kernel can
+neither `import` nor declare a `[Permutation]`, "because `TexturePlanEvaluator.VariantFor` compiles
+one source with no `referencePaths` and no defines". The defines half stands. The `referencePaths`
+half named the wrong cause: `RavenEffectCompiler.FromSources` takes a *set* of texts and makes them
+one compilation, and a package's declarations are visible across one compilation, so what refused an
+`import` was the evaluator passing one text — not the absence of a compiled `.rvnlib`.
+`TextureKernelLanguageSeamTests` is still where each is held.
 
-⚠ **A kernel cannot `import`, so `Hsl.rvn` transcribes `ComputeColor.rvn`'s hue rotation**
-([#635](https://github.com/Rikarin/Vixen/issues/635)). Fifteen constants, in two files, chosen as a
-YIQ chroma rotation over a convert-rotate-convert precisely so that a material graph and a texture
-graph agree about what a hue is. **The failure mode is not a compile error, it is a disagreement**:
-an artist matches a hue in the shader graph's node preview and watches it shift here, and nothing
-fails when one copy is edited.
+**A kernel imports, and `TextureKernelPrelude` is what it imports from**
+([#635](https://github.com/Rikarin/Vixen/issues/635)). Three library sources are embedded from
+`Raven/Library` at their own path — `Core/Math.rvn`, `Core/Random.rvn`, `Material/ComputeColor.rvn`
+— and handed to the compiler beside every kernel. ⚠ `Math.rvn` is there because `Random.rvn` spells
+`Math.SphericalToCartesian` and `Const.TwoPi`: a set that stops at `Random.rvn` fails RVN2010 on
+*every* kernel at once, because a library file in the compilation is bound whether the kernel calls
+that part of it or not.
 
-⚠ **And it is not one copy, it is thirteen across five kernels — which is why the gate is a table
-and not a test.** `Noise`, `FloodFill`, `Splatter` and `TileSampler` each carry `Random.Hash`,
-`Random.Combine` (twice under the name `Mix`) and `Random.ToFloat01` together with the three
-constants they stand on; `Checker` carries `ComputeColor.Checker`'s return expression. The
-`Random.rvn` copies are the worse ones, because that file's header argues every choice in it from
+⚠ **Thirteen transcriptions went, and the count of copies is zero rather than two.** `Hsl` called
+`ComputeColor.HueRotate`'s fifteen constants its own; `Noise`, `FloodFill`, `Splatter` and
+`TileSampler` each carried `Random.Hash`, `Random.Combine` (twice under the name `Mix`) and
+`Random.ToFloat01` with the three constants they stand on; and `Blend` wrote out overlay, hard light
+and soft light ([#1033](https://github.com/Rikarin/Vixen/issues/1033)). All of them call now. The
+`Random.rvn` ones were the worst, because that file's header argues every choice in it from
 *exactness* — wrapping 32-bit arithmetic only, no float in the state, a multiply by a power of two
-rather than a division — so a copy that drifts by one shift is a field that is subtly different on
-one backend and impossible to attribute.
+rather than a division — so a copy that drifted by one shift would have been a field subtly
+different on one backend and impossible to attribute.
 
-`TextureKernelLanguageSeamTests` reduces each copy and each original to three sequences — its
-numbers, its operators and the names it calls — and compares all three. ⚠ **The three together are
-the arithmetic and each one alone is not**: numbers cannot see `>>` become `<<`, and neither can see
-`max` become `min`, which the previous single-function version of this test admitted it could not.
-Two kernels call `Random.Combine` `Mix` and the library's helpers are `static` where a kernel's are
-not, so a text diff would be red on the day it was written; three sequences are what make the
-comparison about the arithmetic rather than about the spelling.
+⚠ **The parity table that held them is gone and what replaced it is stricter.** A table of copies is
+a gate only while it is complete, and it also concedes that a correct copy exists. The sweep is the
+same sweep with the expectation inverted: every kernel is read for `Random.rvn`'s three constants
+and `ComputeColor.HueRotate`'s six YIQ coefficients — *read out of the library*, never written into
+the test — and **none** may carry one. A sixth kernel reaching for the hash lands red on the day it
+lands, and there is no correct second copy for it to be added beside.
 
-⚠ **A table of copies is a gate only while it is complete**, and four kernels copied the hash in four
-separate batches, each with a comment saying it copied because it could not import. A fifth will be
-written the same way — so a second test sweeps every kernel for the three constants *read out of
-`Random.rvn`*, and requires the set that carries one to be exactly the set the table names. It goes
-red on the day the copy lands rather than on the day the two disagree.
-
-None of this is the fix the issue asks for — it is what makes the fix optional rather than urgent.
-⚠ **The embedded prelude the issue proposes would not remove the need for it**: a prelude puts one
-copy inside the texture graph instead of one per kernel, which is a real improvement to thirteen
-rows, and it is still a second copy of the arithmetic. Something that goes red when the two disagree
-has to exist either way.
+**Three transcriptions survive, for reasons that are not about imports.** `Grayscale` writes Rec. 709
+as three parameter *defaults*, which must be literals; `Hsl`, `Splatter` and `TileSampler` write the
+same triple inline as a `float3`; and `Checker` folds `ComputeColor.Checker`'s two lines into its own
+`Main` around a rotation and an offset the library's has no parameter for. Each has its own gate,
+comparing against numbers read out of the library. ⚠ `Noise` likewise still writes its own value and
+fractal noise rather than calling `ComputeColor.ValueNoise` / `FractalNoise`: neither takes a period,
+so neither can tile, which is what `Noise`'s `tiling` is for.
 
 ⚠ **A kernel cannot declare a `[Permutation]`, and the compiler will not say so**
 ([#638](https://github.com/Rikarin/Vixen/issues/638)). `TextureOp` carries no permutation value and

@@ -4,7 +4,7 @@ slug: editor/texture-graph-evaluation
 kind: guide
 area: Editor
 summary: The plan of compute kernels a texture graph and a layer stack both compile to, the image pool that runs it, and the resolution rule that keeps a graph the same material at every size.
-api: [T:Vixen.Editor.TextureGraph.TexturePlan, T:Vixen.Editor.TextureGraph.TextureOp, T:Vixen.Editor.TextureGraph.TextureImage, T:Vixen.Editor.TextureGraph.TextureParameter, T:Vixen.Editor.TextureGraph.TextureParameterUnit, T:Vixen.Editor.TextureGraph.TextureFormat, T:Vixen.Editor.TextureGraph.TextureFormats, T:Vixen.Editor.TextureGraph.TexturePoolSlot, T:Vixen.Editor.TextureGraph.TexturePoolSchedule, T:Vixen.Editor.TextureGraph.TextureKernels, T:Vixen.Editor.TextureGraph.TexturePlanEvaluator, T:Vixen.Editor.TextureGraph.TextureBake, T:Vixen.Editor.TextureGraph.TextureProblem, T:Vixen.Editor.TextureGraph.TextureProblemSeverity, T:Vixen.Editor.TextureGraph.ITextureCpuOperation, T:Vixen.Editor.TextureGraph.TextureCpuImage, T:Vixen.Editor.TextureGraph.TextureCpuInvocation, T:Vixen.Editor.TextureGraph.TextureUploads, T:Vixen.Editor.TextureGraph.TextureExternal]
+api: [T:Vixen.Editor.TextureGraph.TexturePlan, T:Vixen.Editor.TextureGraph.TextureOp, T:Vixen.Editor.TextureGraph.TextureImage, T:Vixen.Editor.TextureGraph.TextureParameter, T:Vixen.Editor.TextureGraph.TextureParameterUnit, T:Vixen.Editor.TextureGraph.TextureFormat, T:Vixen.Editor.TextureGraph.TextureFormats, T:Vixen.Editor.TextureGraph.TexturePoolSlot, T:Vixen.Editor.TextureGraph.TexturePoolSchedule, T:Vixen.Editor.TextureGraph.TextureKernels, T:Vixen.Editor.TextureGraph.TextureKernelPrelude, T:Vixen.Editor.TextureGraph.TexturePlanEvaluator, T:Vixen.Editor.TextureGraph.TextureBake, T:Vixen.Editor.TextureGraph.TextureProblem, T:Vixen.Editor.TextureGraph.TextureProblemSeverity, T:Vixen.Editor.TextureGraph.ITextureCpuOperation, T:Vixen.Editor.TextureGraph.TextureCpuImage, T:Vixen.Editor.TextureGraph.TextureCpuInvocation, T:Vixen.Editor.TextureGraph.TextureUploads, T:Vixen.Editor.TextureGraph.TextureExternal]
 tags: [editor, texture-graph, material-authoring, compute, raven, baking]
 since: 0.1
 status: preview
@@ -223,6 +223,32 @@ written to once.
 > `Rgba16Float` intermediate at 4K is 128 MiB and `Rgba32Float` is 256 MiB. § 4.5's two
 > position-carrying records are the case for widening it to `rgba32f`
 > ([#690](https://github.com/Rikarin/Vixen/issues/690)); a colour never is.
+
+## What a kernel is compiled against
+
+A kernel is one Raven source, but it is not compiled alone. `TextureKernelPrelude.Compile` hands the
+compiler the kernel **and** three of the shader library's own files — `Core/Math.rvn`,
+`Core/Random.rvn` and `Material/ComputeColor.rvn`, embedded from `Raven/Library` at their own path —
+as one compilation. So a kernel may write `import Vixen.Shaders.Core` and call `Random.Hash`, or
+`import Vixen.Shaders.Material` and call `ComputeColor.HueRotate`, and get the same arithmetic the
+shader graph gets from the same file.
+
+> ⚠ **This is why a hue matched in the shader graph does not shift in a texture graph.** Five kernels
+> used to transcribe those functions — four copies of the PCG hash, the YIQ rotation, and `Blend`'s
+> overlay, hard light and soft light — under headers saying an `import` could not resolve because the
+> evaluator passed no `referencePaths`. That named the wrong cause: what refused the import was the
+> compilation holding one text, not the absence of a compiled `.rvnlib`. There is one copy of each
+> function now, in the library, and a test refuses a kernel that grows a second.
+
+> ⚠ **A library file in the compilation is bound whether the kernel calls it or not.** That is why
+> `Math.rvn` is in the set even though no kernel names it: `Random.rvn` spells
+> `Math.SphericalToCartesian`, and a prelude that stopped at `Random.rvn` failed `RVN2010` on every
+> kernel at once. It is also why a `[Permutation]` in one of these three files would be a defect in
+> all forty-five — a plan has no way to name a permutation value, so every kernel would take the
+> library's default silently. A test refuses that too.
+
+Nothing else is reachable. A kernel cannot see a font, a glyph outline or any managed code, which is
+why doc 48 § 4.1's `Text` and `Svg Path` arrive as external images rather than as kernels.
 
 ## Pixels the caller supplies
 

@@ -6,7 +6,6 @@ using System.Text.RegularExpressions;
 using Vixen.Core.Curves;
 using Vixen.Editor.TextureGraph;
 using Vixen.Graphics;
-using Vixen.ShaderCompiler;
 using Vixen.Shaders;
 using Xunit;
 
@@ -359,7 +358,7 @@ public class TextureColourKernelTests {
     static EffectData Compile(string kernel) {
         var name = TextureKernels.VariantName(kernel, TextureFormat.Rgba8);
         var source = TextureKernels.Variant(kernel, TextureFormat.Rgba8);
-        var data = RavenEffectCompiler.FromSources([(name, source)]).TryGet(EffectKey.Of(kernel));
+        var data = TextureKernelPrelude.Compile(name, source).TryGet(EffectKey.Of(kernel));
 
         Assert.NotNull(data);
 

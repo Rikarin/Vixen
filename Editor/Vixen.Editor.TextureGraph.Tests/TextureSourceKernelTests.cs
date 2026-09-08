@@ -122,30 +122,31 @@ public class TextureSourceKernelTests {
     }
 
     /// <summary>
-    ///     ⚠ A texture-graph kernel cannot reach the shader library, which is why <c>Noise</c> carries
-    ///     a copy of <c>Random</c>'s hash and <c>Checker</c> a copy of <c>ComputeColor</c>'s two lines.
+    ///     A kernel reaches the shader library through the compilation it is in, and never on its own.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The finding, executably.</b> <c>Raven/Library/Core/Random.rvn</c> already holds the
-    ///         PCG hash, and <c>Raven/Library/Material/ComputeColor.rvn</c> already holds value noise,
-    ///         fractal noise and a checkerboard — for the shader graph. None of them is reachable from
-    ///         here: <c>TexturePlanEvaluator.VariantFor</c> hands
-    ///         <c>RavenEffectCompiler.FromSources</c> exactly one tree and no <c>.rvnlib</c>
-    ///         references, and a package's declarations are visible to another file only within one
-    ///         compilation. <c>build/Build.Shaders.cs</c> says the same thing from the other end: a
-    ///         shader that imports has to be compiled as its whole import closure, which is what
-    ///         <c>raven --source</c> is for.
+    ///         ⚠ <b>This test used to assert only the first half and called it a tripwire against a
+    ///         day that had already arrived.</b> Its remarks said a kernel "cannot reach the shader
+    ///         library" and that the fix would be a reference path or a compiled closure —
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/635">#635</see> says the same. Both
+    ///         describe the compiler wrongly. <c>RavenEffectCompiler.FromSources</c> takes a
+    ///         <em>set</em> of texts and makes them one compilation, a package's declarations are
+    ///         visible across one compilation, and nothing about a <c>.rvnlib</c> was ever load
+    ///         bearing. What was true is the sentence with the subject corrected: a kernel compiled
+    ///         <em>alone</em> cannot reach it.
     ///     </para>
     ///     <para>
-    ///         <b>This is a tripwire and it is meant to go red.</b> The day the evaluator gains a way
-    ///         to bind the library — a reference path, or the closure compiled in — this test fails,
-    ///         and the right response is to delete it and make <c>Noise</c> import
-    ///         <c>Vixen.Shaders.Core</c> instead of carrying the constants.
+    ///         <b>So both halves are asserted, and each is the other's instrument.</b> The same
+    ///         source fails when it is the only text and compiles when
+    ///         <see cref="TextureKernelPrelude" /> supplies the library beside it. A prelude that
+    ///         stopped shipping its sources leaves the second half red; a compiler that resolved
+    ///         imports out of thin air leaves the first half red. Neither half alone can tell those
+    ///         apart from success.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_standalone_kernel_cannot_reach_the_shader_library() {
+    public void A_kernel_reaches_the_library_through_its_compilation_and_not_alone() {
         const string Source = """
             package Vixen.Editor.TextureGraph.Shaders
 
@@ -163,28 +164,86 @@ public class TextureSourceKernelTests {
             }
             """;
 
-        var failure = Record.Exception(
+        var alone = Record.Exception(
             () => RavenEffectCompiler.FromSources([("Reach.rvn", Source)]).TryGet(EffectKey.Of("Reach"))
         );
 
-        Assert.NotNull(failure);
+        Assert.NotNull(alone);
 
         // Not the message, which is the compiler's to word — only that the library did not resolve.
-        Assert.Contains("Random", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("Random", alone.Message, StringComparison.Ordinal);
+
+        var beside = TextureKernelPrelude.Compile("Reach.rvn", Source).TryGet(EffectKey.Of("Reach"));
+
+        Assert.NotNull(beside);
+        Assert.NotEmpty(Assert.Single(beside.Stages).Bytecode);
     }
 
-    /// <summary>No source kernel imports, because none of them can. The rule the tripwire above guards.</summary>
-    [Theory]
-    [MemberData(nameof(Sources))]
-    public void A_source_kernel_imports_nothing(string kernel) {
-        var imports = TextureKernels
-            .Source(kernel)
+    /// <summary>Every <c>import</c> any kernel writes names a package the prelude supplies.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This test used to be <c>A_source_kernel_imports_nothing</c>, and the rule it
+    ///         guarded is gone</b> — five kernels import today. What replaces it is the rule that
+    ///         actually holds: an <c>import</c> resolves only because
+    ///         <see cref="TextureKernelPrelude.Sources" /> is in the compilation, so a kernel may
+    ///         name a package one of those files declares and no other.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The packages are read out of the prelude's own texts rather than listed here.</b>
+    ///         A list here is a second copy of the prelude that would go on matching after the
+    ///         prelude changed — and it would let an import of a package nobody supplies pass, which
+    ///         is the failure this exists to catch: a kernel that imports a package no source
+    ///         declares does not fail to parse, it fails to bind, at bake time, on a device.
+    ///     </para>
+    ///     <para>
+    ///         <b>The instrument.</b> The sweep proves it found imports at all and that it found
+    ///         packages at all before it compares them, because an empty set is a subset of
+    ///         everything.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_import_a_kernel_writes_names_a_package_the_prelude_supplies() {
+        string[] supplied = [
+            .. TextureKernelPrelude
+                .Sources
+                .SelectMany(source => Declarations(source.Text, "package"))
+                .Distinct(StringComparer.Ordinal)
+        ];
+
+        Assert.NotEmpty(supplied);
+
+        var imports = 0;
+
+        foreach (var kernel in TextureKernels.Names) {
+            foreach (var package in Declarations(TextureKernels.Source(kernel), "import")) {
+                imports++;
+
+                Assert.True(
+                    supplied.Contains(package, StringComparer.Ordinal),
+                    $"`{kernel}.rvn` imports `{package}`, which no prelude source declares. A kernel is "
+                    + "compiled with `TextureKernelPrelude.Sources` beside it and nothing else, so an "
+                    + "import of anything else binds against nothing — add the library file to the "
+                    + "prelude, or transcribe and give the copy a parity row."
+                );
+            }
+        }
+
+        Assert.NotEqual(0, imports);
+    }
+
+    /// <summary>Every <c>package</c> or <c>import</c> a Raven source declares.</summary>
+    /// <param name="source">The text to read.</param>
+    /// <param name="keyword">Which of the two.</param>
+    /// <returns>The names, in order.</returns>
+    /// <remarks>
+    ///     Anchored at the start of a line, so that a header discussing an import in prose — which
+    ///     five of these kernels do at length — is not read as one.
+    /// </remarks>
+    static IEnumerable<string> Declarations(string source, string keyword) =>
+        source
             .Split('\n')
-            .Where(line => line.TrimStart().StartsWith("import", StringComparison.Ordinal))
-            .ToArray();
-
-        Assert.Empty(imports);
-    }
+            .Where(line => line.StartsWith(keyword + " ", StringComparison.Ordinal))
+            .Select(line => line[(keyword.Length + 1)..].Trim());
 
     static string Unqualified(string name, string shader) =>
         name.Length > shader.Length + 1
@@ -194,9 +253,11 @@ public class TextureSourceKernelTests {
             : name;
 
     static EffectData Compile(string kernel) {
-        var data = RavenEffectCompiler
-            .FromSources([(TextureKernels.VariantName(kernel, TextureFormat.Rgba8),
-                TextureKernels.Variant(kernel, TextureFormat.Rgba8))])
+        var data = TextureKernelPrelude
+            .Compile(
+                TextureKernels.VariantName(kernel, TextureFormat.Rgba8),
+                TextureKernels.Variant(kernel, TextureFormat.Rgba8)
+            )
             .TryGet(EffectKey.Of(kernel));
 
         Assert.NotNull(data);
