@@ -11,13 +11,23 @@ namespace Tests;
 ///     in the tree already gives — #1017.
 /// </summary>
 /// <remarks>
-///     ⚠ <b><see cref="SettingDefinition.Accepts" /> has no production caller, and this suite is not
-///     an argument that it does.</b> It is here because the predicate was exact-case while every
-///     refusal it was built to mirror is not: <c>TextureSettings.Enum</c> parses with
-///     <c>ignoreCase: true</c>, and the two nodes that walk a list of their own compare with
-///     <see cref="StringComparison.OrdinalIgnoreCase" />. A graph holding <c>multiply</c> compiles.
-///     So the reason nothing could adopt this predicate was that adopting it would have refused
-///     graphs that compile — a fact worth pinning before somebody adopts it anyway.
+///     <para>
+///         ⚠ <b>The remark this replaces said <see cref="SettingDefinition.Accepts" /> has no
+///         production caller and that this suite was not an argument that it does. It has one
+///         now</b> — <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>. The predicate
+///         was never going to acquire one in that shape: the two refusals that would adopt it need
+///         the <em>canonical spelling</em> back, because a graph written <c>Multiply</c> and one
+///         written <c>multiply</c> have to compile to one thing, and a <c>bool</c> throws that away.
+///         <see cref="SettingDefinition.Canonical" /> answers it, both eight-line walks collapsed
+///         into it, and <see cref="SettingDefinition.Accepts" /> shares its index.
+///     </para>
+///     <para>
+///         The case rule is what the rest of this suite pins, and it is still the reason nothing
+///         could adopt the predicate before: it was exact-case while every refusal it mirrors is
+///         not — <c>TextureSettings.Enum</c> parses with <c>ignoreCase: true</c>, and both nodes
+///         compared with <see cref="StringComparison.OrdinalIgnoreCase" />. A graph holding
+///         <c>multiply</c> compiles, so an exact-case predicate would have refused graphs that do.
+///     </para>
 /// </remarks>
 public class SettingAcceptanceTests {
     static SettingDefinition Mode { get; } =
@@ -68,5 +78,75 @@ public class SettingAcceptanceTests {
         Assert.True(free.Accepts("anything at all"));
         Assert.True(free.Accepts(""));
         Assert.False(free.IsChoice);
+    }
+
+    /// <summary>⚠ A name written in another case comes back in the case the setting states.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The answer the two refusals needed and <see cref="SettingDefinition.Accepts" />
+    ///         could not give</b> — <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>.
+    ///         A graph written <c>multiply</c> and one written <c>Multiply</c> have to compile to one
+    ///         thing, and what makes that true is that the compiler stores the declaration's
+    ///         spelling rather than the author's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asserted with <c>Ordinal</c>, which is the whole test.</b> xunit's default string
+    ///         comparison is ordinal too, but saying so here is the difference between an assertion
+    ///         about the spelling and one that would pass on any answer differing only in case —
+    ///         which is precisely the failure this method exists to prevent.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("multiply")]
+    [InlineData("MULTIPLY")]
+    [InlineData("Multiply")]
+    public void A_name_comes_back_in_the_case_the_setting_states(string written) =>
+        Assert.Equal("Multiply", Mode.Canonical(written), StringComparer.Ordinal);
+
+    /// <summary>A name nothing declares canonicalises to nothing, so a caller can tell.</summary>
+    /// <remarks>
+    ///     Empty rather than the value itself, which is the one thing a caller with a closed set
+    ///     cannot be given: <c>TextureUsages.Canonical</c>'s refusal is written as "the answer was
+    ///     empty", and a method that echoed the misspelling back would make every typo a usage.
+    /// </remarks>
+    [Theory]
+    [InlineData("mulitply")]
+    [InlineData("Multiplyy")]
+    [InlineData("")]
+    public void A_name_nothing_declares_canonicalises_to_nothing(string written) =>
+        Assert.Equal("", Mode.Canonical(written), StringComparer.Ordinal);
+
+    /// <summary>⚠ And a setting that states no list answers with the value, not with nothing.</summary>
+    /// <remarks>
+    ///     <b>The trap #1044 names, and the reason the two methods share an index rather than one
+    ///     calling the other.</b> <c>Canonical("")</c> on a setting with no list has to answer
+    ///     <c>""</c> <em>and</em> <c>Accepts("")</c> has to stay true — so
+    ///     <c>Accepts(v) == Canonical(v).Length > 0</c> is not an identity, and writing one as the
+    ///     other would have made a free-text setting refuse the empty string it plainly accepts.
+    /// </remarks>
+    [Fact]
+    public void A_setting_that_declares_no_list_canonicalises_to_what_it_was_given() {
+        SettingDefinition free = new("Ramp", "");
+
+        Assert.Equal("anything at all", free.Canonical("anything at all"), StringComparer.Ordinal);
+        Assert.Equal("", free.Canonical(""), StringComparer.Ordinal);
+        Assert.True(free.Accepts(""));
+    }
+
+    /// <summary>⚠ And a list that states the empty string accepts it, which the shared index buys.</summary>
+    /// <remarks>
+    ///     <b>The case the shorthand gets wrong.</b> Nothing in the tree declares such a list today
+    ///     — it would be a setting whose "unset" is a stated member — but it is expressible, and
+    ///     <c>Accepts</c> written as <c>Canonical(value).Length > 0</c> would refuse the one value
+    ///     the declaration most plainly states. Held here so that a later simplification of the two
+    ///     into one expression goes red rather than quiet.
+    /// </remarks>
+    [Fact]
+    public void A_list_that_states_the_empty_string_accepts_it() {
+        SettingDefinition optional = new("Ramp", "", Accepted: ["", "Linear", "Smooth"]);
+
+        Assert.True(optional.Accepts(""));
+        Assert.Equal("", optional.Canonical(""), StringComparer.Ordinal);
+        Assert.False(optional.Accepts("Bezier"));
     }
 }

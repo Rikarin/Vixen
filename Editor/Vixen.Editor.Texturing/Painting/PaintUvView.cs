@@ -129,7 +129,16 @@ sealed class PaintUvView {
 
         title.Text = "Paint (UV)";
 
+        // ⚠ Added *before* the viewer and pointed at it *after*, and both halves are deliberate.
+        // `Add` appends, so the strip has to be built first to sit above the picture; and
+        // `ImageViewBar.View` adopts what the viewer already holds, so the assignment must come
+        // after the viewer exists rather than the strip pushing its first segment at construction.
+        Channels = root.Add<ImageViewBar>();
+
         Image = root.Add<ImageView>();
+
+        Channels.View = Image;
+
         status = root.Add("paint-uv-status");
 
         // ⚠ Capture, not Bubble. See the type's remarks: `ImageView` marks its own pointer events
@@ -145,6 +154,16 @@ sealed class PaintUvView {
 
     /// <summary>The atlas at zoom, with the islands over it.</summary>
     public ImageView Image { get; }
+
+    /// <summary>The channel and transfer-function pickers over that atlas.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The isolate is what a paint pane is <em>for</em>, more than either other panel</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1012">#1012</a>. A stroke's coverage
+    ///     lives in alpha, and a composite drawn as RGB shows an artist the colour they painted and
+    ///     not how much of it landed; the alpha segment is the only way to see a mask's own edge, and
+    ///     the islands overlay draws over whichever answer is chosen.
+    /// </remarks>
+    public ImageViewBar Channels { get; }
 
     /// <summary>What the line under the pane says.</summary>
     public string Status { get; private set; }

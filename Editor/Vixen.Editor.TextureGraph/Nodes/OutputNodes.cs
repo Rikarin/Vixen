@@ -36,9 +36,18 @@ static class TextureUsages {
     ///         to compile with a message about the author's spelling.
     ///     </para>
     /// </remarks>
-    public static IReadOnlyList<string> Known { get; } =
+    public static IReadOnlyList<string> Known => Declared.Accepted;
+
+    /// <summary>The <c>[Setting]</c> the nine are declared on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The declaration itself and no longer just its list</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>, and see
+    ///     <see cref="TextureMeshMaps.Declared" /> for why the empty-list refusal stays here rather
+    ///     than moving into <c>SettingDefinition</c> with the walk.
+    /// </remarks>
+    static SettingDefinition Declared { get; } =
         OutputNode.Definition.Setting(OutputNode.Setting) is { Accepted.Length: > 0 } declared
-            ? declared.Accepted
+            ? declared
             : throw new InvalidOperationException(
                 $"'{OutputNode.Setting}' declares no accepted values, so nothing knows what an output "
                 + "may be for. The list lives on the node's [Setting] attribute."
@@ -47,15 +56,13 @@ static class TextureUsages {
     /// <summary>The canonical spelling of a usage, or empty when it is not one of the nine.</summary>
     /// <param name="usage">What the author typed.</param>
     /// <returns>The spelling <see cref="Known" /> holds, or an empty string.</returns>
-    public static string Canonical(string usage) {
-        foreach (var known in Known) {
-            if (string.Equals(known, usage, StringComparison.OrdinalIgnoreCase)) {
-                return known;
-            }
-        }
-
-        return "";
-    }
+    /// <remarks>
+    ///     The declaration's own answer since
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>; this and
+    ///     <see cref="TextureMeshMaps.Canonical" /> were the same eight lines over two different
+    ///     lists.
+    /// </remarks>
+    public static string Canonical(string usage) => Declared.Canonical(usage);
 }
 
 /// <summary>One map the graph produces.</summary>

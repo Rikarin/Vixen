@@ -78,4 +78,17 @@ layer-stack-mask-row { display: flex; flex-direction: row; }
 /* One tick per channel of the set, inside the layer's own row. */
 layer-stack-channels { display: flex; flex-direction: row; }
 
+/* ⚠ **Class selectors, and the only ones in this file.** The four components of a fill colour are
+   `NumericInput`s since https://github.com/Rikarin/Vixen/issues/1004 — a slider could hold an
+   emissive of 4 and could not author one — and a field renamed by the `Add<T>(tag)` convention this
+   sheet's header describes would be matched by no `numeric-input` rule at all, losing its border,
+   its padding and the `position: relative` its placeholder is laid out against. So these four are
+   the tagged control plus a class, and the width is all this sheet has to say about them: four
+   unconstrained fields in one row would each ask for their content and push the texture box off the
+   end. */
+.layer-stack-fill-red,
+.layer-stack-fill-green,
+.layer-stack-fill-blue,
+.layer-stack-fill-alpha { width: 56px; flex-shrink: 0; }
+
 }
