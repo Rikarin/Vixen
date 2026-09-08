@@ -606,6 +606,95 @@ public class PaintUvViewTests {
         }
     }
 
+    /// <summary>⚠ Shift-click lays a straight stroke from where the last one ended.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 48 § D13's "curve/path strokes", in the half that has a gesture.</b> The
+    ///         assertion is the <em>middle</em> of the segment and not either end, because both ends
+    ///         are painted by a plain click too — a pane that ignored the modifier entirely would
+    ///         pass any assertion made where the artist clicked. The midpoint is 148 texels from
+    ///         both, which is four brush radii.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the plain click in the middle of it is the instrument.</b> It moves the
+    ///         anchor and paints, so the shift-click after it is drawing a line the previous click
+    ///         did not, and the midpoint being clean between the two is what says the line came from
+    ///         the modifier rather than from either stroke's own footprint.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_shift_click_lays_a_line_from_where_the_last_stroke_ended() {
+        const int Side = 512;
+
+        using var fixture = new TexturingFixture(graphics: true);
+
+        OpenPaintable(fixture, "Hull", side: Side);
+
+        var image = ImageIn(OpenPaintPane(fixture));
+
+        // A short drag, so the pane has an anchor: the texel the release left it on.
+        Drag(fixture, image, new Vector2(100f, 100f), new Vector2(104f, 104f));
+
+        // A plain click at the far end. It paints there and moves the anchor, and it must leave the
+        // ground between the two alone.
+        Click(fixture, image, new Vector2(400f, 400f), ModifierKeys.None);
+
+        Assert.NotEqual(0u, Sample(fixture, 400, 400) >> 24);
+        Assert.Equal(0u, Sample(fixture, 252, 252) >> 24);
+
+        Click(fixture, image, new Vector2(104f, 104f), ModifierKeys.Shift);
+
+        Assert.NotEqual(0u, Sample(fixture, 252, 252) >> 24);
+    }
+
+    /// <summary>A press and a release at one point, with modifiers, in texels of the atlas.</summary>
+    /// <param name="fixture">The shell.</param>
+    /// <param name="image">The pane's viewer, for the texel-to-screen conversion.</param>
+    /// <param name="at">Where, in texels.</param>
+    /// <param name="modifiers">What is held down.</param>
+    static void Click(TexturingFixture fixture, ImageView image, Vector2 at, ModifierKeys modifiers) {
+        var point = image.ToScreen(at);
+
+        fixture.Shell.Document.Dispatch(
+            new PointerEvent {
+                X = point.X,
+                Y = point.Y,
+                Action = PointerAction.Pressed,
+                Button = PointerButton.Primary,
+                Modifiers = modifiers
+            }
+        );
+
+        fixture.Shell.Document.Dispatch(
+            new PointerEvent {
+                X = point.X,
+                Y = point.Y,
+                Action = PointerAction.Released,
+                Button = PointerButton.Primary,
+                Modifiers = modifiers
+            }
+        );
+    }
+
+    /// <summary>One texel of the picture the pane last uploaded, packed <c>0xAABBGGRR</c>.</summary>
+    /// <param name="fixture">The shell.</param>
+    /// <param name="x">Which column.</param>
+    /// <param name="y">Which row.</param>
+    /// <returns>The texel.</returns>
+    static uint Sample(TexturingFixture fixture, int x, int y) {
+        var uploads = fixture.Graphics!.Uploads;
+
+        Assert.NotEmpty(uploads);
+
+        var last = uploads[^1];
+        var index = (((y * last.Width) + x) * 4);
+
+        return last.Pixels[index]
+            | ((uint)last.Pixels[index + 1] << 8)
+            | ((uint)last.Pixels[index + 2] << 16)
+            | ((uint)last.Pixels[index + 3] << 24);
+    }
+
     /// <summary>A press, some moves and a release, in texels of the atlas.</summary>
     /// <returns>The texel the drag started on, after the drag.</returns>
     static uint Drag(TexturingFixture fixture, ImageView image, Vector2 from, Vector2 to) {

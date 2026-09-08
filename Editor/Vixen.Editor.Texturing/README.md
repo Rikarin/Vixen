@@ -229,6 +229,29 @@ a pointer position into a texel. `TexturingModule` registers it as `texturing.pa
    *object* space and the mirrored point lands on a different triangle in a different island. Only a
    surface holding the mesh can supply one.
 
+⚠ **A straight path stroke needed no arithmetic at all, and finding that out is the result.**
+Doc 48 § D13 lists curve and path strokes beside symmetry and smoothing as stroke-level work — but
+`BrushStroke.MoveTo` already walks the segment between two positions laying evenly spaced stamps and
+carrying the leftover distance across pointer events, so a **shift-click line** is two
+`PaintSession.MoveAll` calls inside one press: one stroke, one undo entry, no pointer capture, no
+sampler. `PaintUvView` keeps the texel the last stroke ended on and draws from there, and drops that
+anchor when the atlas resizes because it is in texels of one. ⚠ **The line session takes no
+smoothing whatever the slider says**: smoothing lags the *input points*, so a two-point line stops
+short of the click by exactly the smoothing fraction — a line that misses where the artist clicked
+reads as a broken gesture rather than as a setting. A *curved* path is the half that still needs
+sampling, and the blocker is the front end rather than the sampler:
+[#1084](https://github.com/Rikarin/Vixen/issues/1084).
+
+⚠ **Two of the seven brush settings § M9 names have no control and are one feature.**
+`PaintBrush.Rotation` and `PaintBrush.Alpha` are declared, defaulted and never written: `PaintTool`
+has no setter for either and `PaintBrushInspector` has no row. They cannot be split, because
+`KernelFor` picks `BrushShape.Circle` for a null mask and `TerrainBrush.WeightAt` ignores a stamp's
+rotation on a circular kernel — so a rotation slider without a mask is a control that moves and
+changes no texel. There is no production `IBrushMask` anywhere in the tree.
+[#1083](https://github.com/Rikarin/Vixen/issues/1083). ⚠ Note that `PaintBrush.AspectAngle` is *not*
+this rotation: it is the chart's stretch direction, written by the 3D surface and read by
+`Circularised`.
+
 ⚠ **The pointer handler is on the capture leg and the ordinary registration could not have worked.**
 `UiElement.AddHandler` defaults to `handledEventsToo: false`, and `ImageView` marks every pointer
 event handled on its way to panning — so a `Bubble` handler is registered, reads correctly, compiles,
@@ -355,7 +378,7 @@ Three things are worth knowing before that is wired.
 2. ⚠ **The screen-to-texel conversion is three steps and [#574](https://github.com/Rikarin/Vixen/issues/574)
    names one and a half of them.** `UvDensity` is not the second half either: it answers texels per
    square metre *per island*, and what a brush wants is the **hit triangle's** own Jacobian —
-   `PaintProjection.Density`, as its two singular values. The step neither doc 48 nor the issue
+   `PaintProjection.Density`, as the 2×2 it is. The step neither doc 48 nor the issue
    mentions is the **grazing stretch**: a disc on the screen lands on a tilted surface as an ellipse,
    so a conversion without the cosine is exactly right face-on — which is how anybody testing by hand
    holds the model — and wrong at every silhouette. ⚠ The angle is the **ray's**, not the line from
@@ -371,8 +394,24 @@ Three things are worth knowing before that is wired.
    issue asked for the right one — those are directions on the *surface*, and the two agree only for a
    symmetric map. Every axis-aligned fixture reports both as zero, so only a chart stretched along a
    *rotated* axis can tell them apart.
-   ⚠ **The grazing tilt is still collapsed to its area factor**, which is a second ellipse of the same
-   order (2:1 at 60° off the normal) — [#1075](https://github.com/Rikarin/Vixen/issues/1075).
+   ⚠ **And the grazing tilt composes with it as a *map*, which is
+   [#1075](https://github.com/Rikarin/Vixen/issues/1075).** It was collapsed to `surface /= √cos θ`,
+   which keeps that ellipse's area and throws its shape away — 2:1 at 60° off the normal, the same
+   order a 4:1 chart contributes, and worst at the silhouette where every stroke reaching round a
+   shape is made. The two multiply exactly because both are 2×2 **in the triangle's own tangent
+   plane**, so `PaintDensity` is now that matrix and the basis it is written in rather than three
+   scalars off it, `Tilted` is the multiply, and there is one SVD instead of two. ⚠ **The area is
+   unchanged by the composition**: the tilt matrix's determinant is `1 / cos θ`, so every number
+   `PaintFootprintTests` asserts about a brush's *size* is the number it always was — which is also
+   why that file could never have seen the defect. ⚠ **Multiplying the two aspects as scalars is the
+   near miss**, and it is right whenever the tilt axis and the chart's stretch axis coincide, which
+   is every fixture whose tilt runs down a coordinate axis of the layout.
+   ⚠ **`PaintHit` no longer carries a normal.** `PaintFootprint` was its only reader, and two
+   spellings of one triangle's plane is exactly what made the halves impossible to compose — a caller
+   could pair a hit on one triangle with a density from another and nothing could tell. The
+   absolute-epsilon trap it guarded (`Vector3.Normalize` gives up below 1e-6 and a cross product
+   falls as the *square* of the model) moved with it: `Density`'s basis is built from edges divided
+   by their own lengths before anything is crossed.
 
 ⚠ **And symmetry is the ray's, which is why `MoveAll` takes a set.** A mirrored ray that misses the
 mesh cannot be skipped for one move — the session refuses a changed path count, correctly, because a

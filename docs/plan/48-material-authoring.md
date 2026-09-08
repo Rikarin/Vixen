@@ -1517,8 +1517,8 @@ forgotten.
 | Planar symmetry | — | ✅ | ✅ | ● M9 |
 | Radial symmetry | — | ◐ | ✅ 2026 | 🕓 |
 | Stroke smoothing / lazy mouse | — | ✅ | ✅ 2026 | ● M9 |
-| Curve and path strokes | — | ◐ | ✅ 2026 | ● M9 |
-| Brush alphas and presets | — | ✅ | ✅ | ● M9 |
+| Curve and path strokes | — | ◐ | ✅ 2026 | ◐ M9 — the **straight** half landed and cost nothing: `BrushStroke.MoveTo` already walks the segment, so a shift-click line is two `MoveAll` calls and one undo entry. A *curve* needs points sampled along it, and nothing in the plugin authors control points — [#1084](https://github.com/Rikarin/Vixen/issues/1084) |
+| Brush alphas and presets | — | ✅ | ✅ | 🕓 M9 — ⚠ `PaintBrush.Alpha` and `Rotation` exist and **neither has a setter or a control**, and they are one feature: `TerrainBrush.WeightAt` ignores a rotation on a circular kernel, so a rotation knob without a mask moves nothing. There is no production `IBrushMask` anywhere — [#1083](https://github.com/Rikarin/Vixen/issues/1083) |
 | Tablet pressure and tilt | — | ✅ | ✅ | ◐ M9 — pressure needs a platform input path that does not exist; named here rather than assumed |
 | Particle brushes / dynamic strokes | — | ✅ | ? | ✖ a simulation inside a brush; not planned |
 | UV reprojection when the mesh changes | — | ✅ | ✅ | 🕓 **a real gap**, and the one an artist notices on day two of a production |
