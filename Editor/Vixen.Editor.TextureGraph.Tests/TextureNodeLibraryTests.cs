@@ -714,6 +714,14 @@ public class TextureNodeLibraryTests {
         graph.Connect(shuffle, "Out", vectorWarp, "Input");
         graph.Connect(normalCombine, "Out", vectorWarp, "Vectors");
 
+        // ⚠ § M8's selection mask, and it is on the *colour* side deliberately. Its whole subject is
+        // a colour, so wiring it downstream of a grey would leave its two colour lanes reading the
+        // splat the compiler inserted rather than anything a picture put there — a fixture that
+        // could not tell a kernel comparing three channels from one comparing red.
+        var colourSelect = graph.Add("Analysis/Colour Select");
+
+        graph.Connect(invert, "Out", colourSelect, "Input");
+
         // The placement pair, with every map port left unwired — which is the arrangement the
         // library's own remarks say is the common one, so it is the one the fixture proves compiles.
         var sampler = graph.Add("Placement/Tile Sampler");

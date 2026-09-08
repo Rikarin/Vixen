@@ -41,6 +41,24 @@
              pixel; a Null-device test that did would be proving that a black image equals a black
              image. -->
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
+
+        <!--
+            ⚠ **`MapBaker.IdColour`, and only so that a fixture stops being three numbers somebody
+            chose.** Doc 48 § M8's colour selection exists for the `id` bake, and that map's whole
+            character is its palette: a golden-angle hue sweep in which index distance and colour
+            distance are *unrelated*. `TextureSelectionDeviceTests` turns on exactly that property —
+            ids 0 and 1 are a third of the circle apart and ids 0 and 89 five thousandths of it — so
+            transcribing the formula into the test would be asserting against a second copy of the
+            thing under test, which is the shape this repository refuses everywhere else.
+
+            Measured rather than assumed: `Vixen.Geometry.Remeshing` names `Vixen.Geometry`,
+            `Vixen.Geometry.Uv`, `Vixen.Core.Mathematics` and `Vixen.Core.Threading`, all four of
+            which are already in this assembly's closure through `Vixen.Editor.TextureGraph`. So it
+            adds one file to the output directory. ⚠ It is a *test* reference and must stay one: the
+            evaluator itself may not reference a mesh baker, which is what keeps a graph from being
+            able to name the mesh it is for.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Geometry.Remeshing\Vixen.Geometry.Remeshing.csproj" />
     </ItemGroup>
 
     <ItemGroup>

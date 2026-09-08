@@ -1,0 +1,100 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § M8's colour / ID selection mask: one colour of an image becomes a grey mask.
+//
+// ## ⚠ The comparison is in colour space, and that is the whole design
+//
+// The map this exists for is § D12's `id`, and an id map does **not** store an index.
+// `MapBaker.IdColour` paints island `n` with the hue `frac(n · φ) · 360°` at a fixed saturation and
+// value, and `MeshMapBake.Identifiers` writes that colour into the PNG — so what reaches a graph is
+// a hue and the index is gone. There is nothing here to decode and nothing to compare an index
+// against, which is why this kernel takes a **colour** and a **tolerance in colour space** rather
+// than a number and a `±`.
+//
+// ⚠ **An implementation that decoded the hue back to an index and matched `id ± tolerance` would be
+// wrong in the way that looks right**: ids are nominal, so ±1 on an index selects an island that
+// merely happens to be numbered next door, and the golden-angle palette guarantees that island is
+// the one whose colour is *furthest* away. `TextureSelectionDeviceTests` fixes both directions of
+// that — two islands one index apart and a whole hue apart, and two islands eighty-nine indices
+// apart and a hundredth of a hue apart.
+//
+// ## What the tolerance costs, stated because an artist cannot see it
+//
+// The palette is a golden-angle sweep, so the *nearest* colour to island `n` belongs to a Fibonacci-
+// distant island: 0 and 89 differ by 0.005 of a turn, which at this saturation and value is a
+// Euclidean distance of about 0.019 in linear RGB. A tolerance above that stops being able to tell
+// the two apart — so the default is 0.02, which separates the first eighty-nine islands, and a mesh
+// with more parts than that needs a smaller one. That is a real ceiling and not a taste.
+//
+// ## Nearest, never filtered — § D12's own sentence
+//
+// The source is read with `Load` at the texel this one maps to and never interpolated, for the
+// reason `MeshMapInputNode` samples the id map nearest: the average of two labels is a third label,
+// so a bilinear read along a chart border would produce colours no island has and a mask with a
+// hairline of nothing in it. The node behind this kernel is a mask node rather than a filter for the
+// same reason.
+//
+// **Softness is a second radius and not a curve knob.** At zero the mask is a hard step, which is
+// what an index map needs; above it the mask falls from one at `tolerance` to zero at
+// `tolerance + softness`, which is what a *photograph* needs when the thing being selected is a
+// range of near-identical colours. Both are the same comparison, so no graph has to choose a node.
+
+shader ColourSelect {
+    /// The picture to select out of. Read nearest, never interpolated.
+    var source: Texture2D
+
+    /// The colour to match, red channel, linear.
+    var red: float = 1f
+
+    /// Its green.
+    var green: float = 0f
+
+    /// Its blue.
+    var blue: float = 0f
+
+    /// How far from that colour still counts, as a Euclidean distance in linear RGB.
+    var tolerance: float = 0.02f
+
+    /// How much further the mask takes to reach zero. At zero the edge is a hard step.
+    var softness: float = 0f
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        // The source's own texel for this one, floored rather than interpolated. `Warp.rvn`'s
+        // mapping without its bilinear half — see the header for why the half is missing.
+        val extent = source.GetDimensions(0)
+        val sx = int(floor((float(coord.x) + 0.5f) * float(extent.x) / float(size.x)))
+        val sy = int(floor((float(coord.y) + 0.5f) * float(extent.y) / float(size.y)))
+        val texel = source.Load(int3(clamp(sx, 0, extent.x - 1), clamp(sy, 0, extent.y - 1), 0))
+
+        val delta = float3(texel.x - red, texel.y - green, texel.z - blue)
+        val distance = sqrt(dot(delta, delta))
+
+        val inner = max(tolerance, 0f)
+        val outer = inner + max(softness, 0f)
+
+        // ⚠ The hard step is the `outer <= inner` branch and not a `softness == 0` test, because a
+        // negative softness must mean the same thing as none rather than inverting the ramp.
+        var value = 0f
+
+        if (distance <= inner) {
+            value = 1f
+        } else if (outer > inner) {
+            value = saturate(1f - (distance - inner) / (outer - inner))
+        }
+
+        // Splatted and opaque: doc 48 § Part 4's rule is that a grey image read as a colour has to
+        // already be grey, and a mask with the source's alpha in it would be a coverage nobody asked
+        // for — the id map's alpha is the bake's gutter, not this selection's.
+        target.Store(coord, float4(value, value, value, 1f))
+    }
+}
