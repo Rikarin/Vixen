@@ -44,6 +44,22 @@ Outside test projects, the **only** files in the repository that mention `AddCom
 `CommandScope` or `AccessKey` are their own definitions plus `Core/Vixen.Ui.Controls/ButtonBase.cs`.
 Not one sample, not one application, and — this is the load-bearing part — **not the editor either**.
 
+⚠ **Six of the seven rows are retired, and the last one of them says why the whole table was
+possible.** `MoveFocus(NavigationDirection)` had no caller for an honest reason rather than an
+oversight: every control that wants the arrows owns them over its own items, so a document-wide
+answer to an arrow key would take them away, and there is nowhere in a *control* for spatial
+navigation to live. What wants it is the space **between** the controls —
+`Samples/02-HelloUi/Shell.vxml` takes Ctrl-Alt-arrow on its own host and steps between three panels
+whose left-of/right-of relationship is decided by a docking host and changes when a splitter is
+dragged, which is precisely the question no `TabOrder` can answer. ⚠ It runs *after* the route and
+only on a press nothing else wanted, exactly as `UiDocument.Dispatch`'s Tab and access-key legs do
+(`NavigationTests.An_arrow_nothing_wanted_can_be_answered_above_everything_that_did_not_want_it`
+asserts both halves; the falsifiable one is that a control which marks the press handled keeps its
+focus). The modifier is load-bearing too: a bare arrow that escaped a panel would mean a keyboard
+user in a list loses their place the moment the list runs out. `RemoveCommandHandler` is the one row
+still at zero, and `EditorShell.Context` → `CommandScope` remains refused for the reason recorded on
+the field itself.
+
 So `CommandRoute.Resolve` (`Commands.cs:394-416`) in production is: a loop over parents that finds
 nothing, followed by one dictionary lookup in `ApplicationCommandResponder`. Every property the
 design is *about* is inert.
