@@ -951,6 +951,18 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
 ///         <c>discard</c>, and <c>IMaterialSurface.Compute</c> contributes to a struct while the pass
 ///         owns coverage. Walls, floors and roads are what this is for.
 ///     </para>
+///     <para>
+///         ⚠ <b>"The wrap" is two artefacts and only one of them is about the silhouette.</b> At a
+///         genuine silhouette — a cylinder's edge — the surface should fall away and instead more
+///         surface arrives, which is the paragraph above and is not fixable from here. The other is at
+///         the boundary of an unwrap, where the wrap is the <em>far side of the same island</em>
+///         landing in the seam. ⚠ That second one does not exist on a material whose map tiles: there
+///         the neighbouring tile really is what is next to this one. Which is why a box-projected wall
+///         — <c>Samples/13-ThirdPersonShooter</c>'s, in metres of world — carries this feature with no
+///         seam, and a hero prop on a single 0..1 unwrap would not. Neither half is diagnosable from
+///         the material, which knows nothing about the mesh it is put on; see
+///         <a href="https://github.com/Rikarin/Vixen/issues/1104">#1104</a>.
+///     </para>
 /// </remarks>
 [DataContract("ParallaxOcclusion")]
 public sealed record ParallaxOcclusionFeature : IMaterialFeature {
