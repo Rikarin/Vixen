@@ -80,6 +80,7 @@ sealed partial class EditorApplication {
         EditingCommands();
         AssetCommands();
         EntityCommands();
+        SelectionAndTransformCommands();
         PlayCommands();
         BuildAndToolCommands();
         HelpCommands();
@@ -1169,6 +1170,12 @@ sealed partial class EditorApplication {
             .Add("entity.group", "entity.ungroup", "entity.set-parent", "entity.clear-parent")
             .AddSeparator()
             .Add("entity.align-with-view", "entity.move-to-view", "entity.snap-to-floor")
+            .AddSeparator()
+
+            // Part D § Transform, which listed these without a ✅ while everything around them had
+            // one — and had no line for any of them.
+            .Add("entity.reset-transform", "entity.copy-transform", "entity.paste-transform")
+            .Add("entity.align", "entity.distribute", "entity.relative-transform")
             .AddSeparator()
             .Add("scene.focus")
             .AddSeparator()

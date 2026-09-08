@@ -903,6 +903,15 @@ public sealed class EditorShell : IDisposable {
             .AddSeparator()
             .Add("edit.select-all", "edit.deselect-all", "edit.invert-selection")
             .Add("edit.select-children", "edit.select-parent")
+
+            // ⚠ Part D's four selection verbs, which had no line anywhere until they were written —
+            // and a verb with no line is one a reader concludes the editor cannot do. Named here
+            // beside the other selection lines even though the shell does not own them: an entry
+            // whose command nothing registered is skipped in silence, which is exactly what lets
+            // this menu name an application's verbs.
+            .Add("edit.select-by-name", "edit.select-by-type")
+            .Add("edit.isolate")
+            .Add("edit.save-selection-set", "edit.recall-selection-set")
             .AddSeparator()
             .Add("edit.search-everywhere", "edit.find-references")
             .AddSeparator()
