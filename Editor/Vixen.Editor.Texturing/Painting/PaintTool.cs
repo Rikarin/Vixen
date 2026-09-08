@@ -12,7 +12,21 @@ enum PaintToolMode {
     Select = 0,
 
     /// <summary>A drag lays a stroke into the selected paint layer.</summary>
-    Paint = 1
+    Paint = 1,
+
+    /// <summary>
+    ///     Clicks place the points of a curve, and one right-click lays the whole thing as a single
+    ///     stroke.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Its own mode rather than a modifier on <see cref="Paint" />, because the gesture is a
+    ///     different shape</b> — <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>. A
+    ///     paint drag is one press, some moves and a release; a path is several presses that paint
+    ///     nothing, and then one that paints everything. The shift-click line already inside
+    ///     <c>PaintUvView</c> is as far as that arrangement stretches with two points; anything with
+    ///     a curve in it needs the points to survive between presses, which is a mode.
+    /// </remarks>
+    Path = 2
 }
 
 /// <summary>

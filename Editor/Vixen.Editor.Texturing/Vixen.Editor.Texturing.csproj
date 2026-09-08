@@ -113,6 +113,15 @@
         <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
 
         <!--
+            ⚠ And `InputKey`, for one switch: `PaintUvView.Keyed` answers Enter, Escape and
+            Backspace while a pen path is half placed — #1084. It arrives transitively through
+            `Vixen.Ui`, whose `KeyEvent` carries one, and it is named for the reason every other
+            transitive reference in this file is: the day somebody narrows that one is the day this
+            file stops compiling for a reason nothing states.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Input\Vixen.Input.csproj" />
+
+        <!--
             ⚠ The slider and the segmented control the brush inspector is, named rather than taken
             transitively through the line above. It arrives either way — `Vixen.Ui.Controls.Advanced`
             references it — and a reference this assembly *uses* is written down, for the same reason

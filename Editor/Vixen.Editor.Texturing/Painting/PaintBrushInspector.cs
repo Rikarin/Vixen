@@ -103,17 +103,20 @@ sealed class PaintBrushInspector {
         // other state does.
         mode = root.Add<SegmentedControl>();
 
-        mode.AddSegment(nameof(PaintToolMode.Select), "Select");
-        mode.AddSegment(nameof(PaintToolMode.Paint), "Paint");
+        // ⚠ Named from the enum rather than listed here, the curve picker's rule — and it is not
+        // decoration: `PaintToolMode.Path` was added for #1084 and a hand-written list is how a mode
+        // ships with nothing to select it, which is the defect this whole workstream keeps finding.
+        foreach (var kind in Enum.GetValues<PaintToolMode>()) {
+            mode.AddSegment(kind.ToString());
+        }
+
         mode.Value = tool.Mode.ToString();
         mode.ValueChanged += (_, value) => {
             if (syncing) {
                 return;
             }
 
-            tool.Mode = string.Equals(value, nameof(PaintToolMode.Paint), StringComparison.Ordinal)
-                ? PaintToolMode.Paint
-                : PaintToolMode.Select;
+            tool.Mode = Enum.TryParse<PaintToolMode>(value, out var chosen) ? chosen : PaintToolMode.Select;
 
             Refresh();
         };
@@ -198,9 +201,16 @@ sealed class PaintBrushInspector {
 
         try {
             mode.Value = tool.Mode.ToString();
-            summary.Text = tool.IsPainting
-                ? tool.Describe()
-                : "Not painting — a drag selects and pans. " + tool.Describe();
+
+            // ⚠ Three modes and therefore three sentences. While this read "painting or not" a Path
+            // artist was told a drag selects and pans, which is what a drag does in Select and not
+            // what a click does here.
+            summary.Text = tool.Mode switch {
+                PaintToolMode.Paint => tool.Describe(),
+                PaintToolMode.Path => "Click to place the curve, Enter or right-click to lay it. "
+                    + tool.Describe(),
+                _ => "Not painting — a drag selects and pans. " + tool.Describe()
+            };
 
             foreach (var (caption, label, value, current, slider, box) in readouts) {
                 caption.Text = label + " — " + value();
