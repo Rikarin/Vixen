@@ -375,6 +375,35 @@ the single list ended up here.
 them, linear is what light does, Oklab is what looks like the fade they drew — and they disagree
 visibly, so a gradient that did not record which one it meant could not be reproduced.
 
+⚠ **It has no editor consumer, and that is now a decision rather than a gap.** The only thing outside
+this assembly's own tests that builds one is `Samples/02-HelloUi/Panels/Gallery.vxml`, so it is a
+framework offering an application other than this editor can take — which is a different sentence
+from "unfinished". Wiring it into *this* editor is refused for three reasons that are all outside the
+control:
+
+- **There is no gradient asset.** `Gradient` has no serialiser and there is no `.vxgradient`;
+  nothing under `Editor/Vixen.Editor.Assets` mentions it. So there is nothing for a
+  `Gradient`-typed member to point at and nothing for a drawer to load.
+- **The consumer doc 48 predicted shipped and is not one.** § M2's `Source/Gradient` node landed
+  with `RampAsset` as a free-text `string` that `TextureTables.Ramp` resolves to an *external
+  image* — a texture, not a gradient. ⚠ Its own remarks already credit `Gradient` with deciding
+  what a ramp means, and the default strip is still baked from a lambda rather than from a
+  `Gradient`, because there is no gradient to bake. Two gaps hold it, not one: that, and a
+  `[Setting]` typed `string` getting a text box, which is
+  [#730](https://github.com/Rikarin/Vixen/issues/730) and
+  [#964](https://github.com/Rikarin/Vixen/issues/964).
+- ⚠ **And the obvious host cannot see this assembly.** `Vixen.Editor.TextureGraph` sets
+  `DisableTransitiveProjectReferences` and names its closure deliberately — its own `.csproj`
+  records the count — and `Vixen.Ui.Controls.Advanced` is not in it. Baking a `Gradient` there
+  would widen a closure that was narrowed on purpose, which is a cost worth naming before anybody
+  calls the wiring small.
+
+What would change the decision is a gradient *asset*: a serialised `Gradient` with an importer, at
+which point a `GradientDrawer : PropertyDrawer<Gradient, GradientEditor>` beside `CurveDrawer` is the
+rest of it — with `CurveDrawer`'s two decisions carried over, because a gradient is a reference type
+with no value equality: `EditProperty.Read` calls every multi-selection mixed, and a single `Write`
+aliases one gradient across every selected object, so `WriteEach` plus a per-object copy is the shape.
+
 ### ImageView
 
 A raster at zoom: pan, a zoom about the pointer, fit-to-view, a chequerboard under the alpha, an
@@ -529,9 +558,12 @@ Said out loud rather than left to be discovered:
   - `NodeGraph.Changed` is subscribed only by `NodeCanvas` reprojecting itself. The editor's
     *editable* graph is `NodeGraphModel`, a different type with a `CommandStack` of its own; this one
     is reached in production only by the two read-only AI projections.
-  - ⚠ `Gradient.Changed` is the one real gap, and it is one layer up from undo: **`GradientEditor` has
-    no production consumer at all** and no type in the engine has a `Gradient`-typed member, so
-    nothing in the editor can edit a gradient, undoably or otherwise.
+  - ⚠ `Gradient.Changed` is the one that is not subscribed, and it is one layer up from undo: no
+    type in the engine has a `Gradient`-typed member, so nothing in the editor can edit a gradient,
+    undoably or otherwise. ⚠ **"No production consumer at all" is too strong** —
+    `Samples/02-HelloUi/Panels/Gallery.vxml` builds one — and it is now a recorded refusal rather
+    than an open gap: see *GradientEditor* above for the three reasons, of which the load-bearing
+    one is that there is no gradient asset to point a drawer at.
 - ~~**`Viewport` draws a placeholder.**~~ It draws `RenderTarget` through the draw list's image
   command, and falls back to the placeholder colour only when nothing has been rendered into it yet.
   ⚠ `FlipVertically` is **off** by default, and used to be on for a reason that was already handled
