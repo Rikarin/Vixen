@@ -3424,6 +3424,7 @@ Vixen.Rendering.Materials.HairShading.ShaderName.get -> string
 Vixen.Rendering.Materials.IMaterialFeature -> interface
 Vixen.Rendering.Materials.IMaterialFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
 Vixen.Rendering.Materials.IMaterialFeature.ShaderName.get -> string
+Vixen.Rendering.Materials.IMaterialFeature.Stage.get -> Vixen.Rendering.Materials.MaterialFeatureStage
 Vixen.Rendering.Materials.IMaterialShading -> interface
 Vixen.Rendering.Materials.IMaterialShading.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
 Vixen.Rendering.Materials.IMaterialShading.ShaderName.get -> string
@@ -3478,12 +3479,17 @@ Vixen.Rendering.Materials.MaterialDiagnostic.MaterialDiagnostic(Vixen.Rendering.
 Vixen.Rendering.Materials.MaterialDiagnostic.Message.get -> string
 Vixen.Rendering.Materials.MaterialDiagnostic.Message.init -> string
 Vixen.Rendering.Materials.MaterialDiagnosticId -> enum : int
+Vixen.Rendering.Materials.MaterialDiagnosticId.CoordinateFeatureOutOfOrder = 5 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialDiagnosticId.DuplicateFeature = 0 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialDiagnosticId.MaterialDiagnosticId() -> void
 Vixen.Rendering.Materials.MaterialDiagnosticId.NoFeatures = 2 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialDiagnosticId.TooManyFeatures = 1 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialDiagnosticId.UnnamedShader = 3 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialDiagnosticId.UnpaintedLayer = 4 -> Vixen.Rendering.Materials.MaterialDiagnosticId
+Vixen.Rendering.Materials.MaterialFeatureStage -> enum : int
+Vixen.Rendering.Materials.MaterialFeatureStage.Coordinate = 0 -> Vixen.Rendering.Materials.MaterialFeatureStage
+Vixen.Rendering.Materials.MaterialFeatureStage.MaterialFeatureStage() -> void
+Vixen.Rendering.Materials.MaterialFeatureStage.Surface = 1 -> Vixen.Rendering.Materials.MaterialFeatureStage
 Vixen.Rendering.Materials.MaterialKeys -> static class
 Vixen.Rendering.Materials.MaterialLayerValue -> readonly struct
 Vixen.Rendering.Materials.MaterialLayerValue : System.IEquatable<Vixen.Rendering.Materials.MaterialLayerValue>
