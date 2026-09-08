@@ -156,7 +156,8 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         Assert.All(
             new (string Folder, int Least, string Why)[] {
                 ("Utility/", 8, "§ 4.9's Utility row marks eight ●"),
-                ("Patterns/", 4, "§ 4.9's Patterns row marks Brick, Panels, Tile Random and Rivets ●"),
+                ("Patterns/", 7, "§ 4.9's Patterns row marks Brick, Panels, Tile Random, Rivets, Scratches, "
+                    + "Wood Grain and Cells ● — and the seven are every ● it carries"),
                 ("Grunges/", 8, "§ 4.9 calls the grunges 'a family of eight ●'"),
                 ("Surface/", 4, "§ 4.9's Surface row marks Height Blend, Bevel, Curvature Smooth and Height to AO ●"),
                 ("Generators/", 7, "§ 4.9's mask-generator row marks seven ●")

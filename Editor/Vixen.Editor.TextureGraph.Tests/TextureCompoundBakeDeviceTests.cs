@@ -48,8 +48,8 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     /// <summary>How wide and tall the roll call bakes, in texels.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The extent every shipped compound declares</b> — <c>baseWidth: 1024</c> in all
-    ///         thirty-one — and doc 48 § D8's whole point is that a filter's numbers are texels at the
+    ///         <b>The extent every shipped compound declares</b> — <c>baseWidth: 1024</c> in every one
+    ///         of them — and doc 48 § D8's whole point is that a filter's numbers are texels at the
     ///         base resolution. A roll call at 64 measured the library at one sixteenth of the scale
     ///         it was authored for (<a href="https://github.com/Rikarin/Vixen/issues/1085">#1085</a>).
     ///     </para>
@@ -109,8 +109,11 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     ///         here ends in one, so a flat fill comes back as <em>two</em> values. Measured:
     ///         <c>Utility/Histogram Range</c> with its <c>range</c> collapsed to zero draws 2, and
     ///         the least varied compound that is doing its job — <c>Patterns/Brick</c>, which is
-    ///         nearly binary — draws 6 at 64 and 21 at <see cref="RollCallSide" />. Every other one
-    ///         of the thirty-one draws more than forty there, so the bar is not close.
+    ///         nearly binary — draws 6 at 64 and 21 at <see cref="RollCallSide" />. Every other
+    ///         shipped compound draws more than a hundred there, so the bar is not close: the second
+    ///         and third least varied are <c>Grunges/Grunge Smears</c> at 111 and
+    ///         <c>Grunges/Grunge Rust</c> at 112, and the three <c>Patterns/</c> rows this batch added
+    ///         draw 125, 252 and 256.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The mesh maps are supplied here rather than skipped, and that is what lets the
@@ -160,7 +163,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         // embedded with this case green: the equality above compares the loop with `Shipped`, and
         // `Shipped` is the manifest, so a glob that narrowed takes both sides down together. This is
         // the only number here that is independent of the assembly's own idea of what it ships.
-        Assert.True(baked >= 31, $"only {baked} compounds were baked, and thirty-one ship.");
+        Assert.True(baked >= 34, $"only {baked} compounds were baked, and thirty-four ship.");
     }
 
     /// <summary>

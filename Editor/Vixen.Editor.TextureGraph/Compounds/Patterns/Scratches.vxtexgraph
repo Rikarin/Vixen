@@ -1,0 +1,115 @@
+version: 1
+name: Scratches
+nodes:
+  - id: 1
+    type: Source/Shape
+    x: -960
+    y: 0
+    values:
+      Falloff: [0.45]
+    texts:
+      Kind: Disc
+      '=Scale': 0.004f + thickness * 0.03f
+  - id: 2
+    type: Space/Transform 2D
+    x: -640
+    y: 0
+    values:
+      Scale X: [40]
+      Scale Y: [1]
+    texts:
+      Tiling: Clamp
+      Filter: Bilinear
+  - id: 3
+    type: Placement/Splatter
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      Accumulation: Max
+      '=Scale': 0.1f + length * 0.6f
+      '=Scale Jitter': vary
+      '=Rotation': angle
+      '=Rotation Jitter': spread
+  - id: 4
+    type: Colour/Levels
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      '=Input White': 1f - bite * 0.45f
+  - id: 5
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 6
+    type: Sub-graph/Input
+    x: -640
+    y: 280
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Pattern }
+  - { fromNode: 6, fromPort: Count, toNode: 3, toPort: Count }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Count
+    direction: Input
+    kind: Int
+    default: [24]
+    summary: How many scratches. The kernel refuses more than 256.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: Straight scoring — a stretched disc scattered at a preferred angle.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: thickness
+    default: '0.3'
+    summary: How thick one scratch is, as a fraction of its own length.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Scratch
+  - name: length
+    default: '0.45'
+    summary: How far one scratch runs, as a fraction of the image.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Scratch
+  - name: vary
+    default: '0.55'
+    summary: How much they differ in length from one another.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Scratch
+  - name: angle
+    default: '0.6'
+    summary: Which way the scoring runs, in radians.
+    kind: Float
+    minimum: 0
+    maximum: 3.15
+    group: Direction
+  - name: spread
+    default: '1.2'
+    summary: How far off that direction one scratch may turn, in radians. 6.28 is a free turn.
+    kind: Float
+    minimum: 0
+    maximum: 6.2831855
+    group: Direction
+  - name: bite
+    default: '0.35'
+    summary: How hard the scoring cuts.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Scratch
