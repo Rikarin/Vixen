@@ -1,0 +1,65 @@
+version: 1
+name: Tile Random
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Placement/Tile Sampler
+    x: 0
+    y: 0
+    values:
+      Scale: [0.9]
+    texts: { Accumulation: Max }
+  - id: 3
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Pattern, toNode: 2, toPort: Pattern }
+  - { fromNode: 1, fromPort: Grid, toNode: 2, toPort: Grid X }
+  - { fromNode: 1, fromPort: Grid, toNode: 2, toPort: Grid Y }
+  - { fromNode: 1, fromPort: Size, toNode: 2, toPort: Scale Jitter }
+  - { fromNode: 1, fromPort: Turn, toNode: 2, toPort: Rotation Jitter }
+  - { fromNode: 1, fromPort: Shift, toNode: 2, toPort: Position Jitter }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Pattern
+    direction: Input
+    kind: Image
+    default: []
+    summary: The stamp put in every cell.
+  - name: Grid
+    direction: Input
+    kind: Int
+    default: [8]
+    summary: Cells across and down.
+  - name: Size
+    direction: Input
+    kind: Float
+    default: [0.4]
+    summary: How much an instance's size may differ from its neighbours'.
+  - name: Turn
+    direction: Input
+    kind: Float
+    default: [1]
+    summary: How far an instance may be turned, as a fraction of a whole turn.
+  - name: Shift
+    direction: Input
+    kind: Float
+    default: [0.3]
+    summary: How far an instance may wander inside its own cell.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The grid, with every instance different.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters: []

@@ -354,19 +354,31 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
     }
 
     /// <summary>
-    ///     A compound's scalar interface ports are knobs a containing graph turns, and its parameters
-    ///     are not.
+    ///     A compound's scalar interface ports are knobs a containing graph turns.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Which is why <c>Histogram Scan</c>'s two knobs are ports and not
-    ///     <c>TextureGraphParameter</c>s, and it is worth saying because § D9 reads as though either
-    ///     would do.</b> <c>SubGraphs.Flatten</c> replaces the sub-graph node with the graph's
-    ///     contents and the node — which is where a parameter override is stored — is then gone, so
-    ///     an expression inside a published graph folds against that graph's declared default and
-    ///     turning the knob changes nothing until
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>. A port survives inlining
-    ///     because it is an edge. So the shipped compounds put every knob on the interface, and this
-    ///     is what says the difference is real rather than a preference.
+    ///     <para>
+    ///         ⚠ <b>This used to end "and its parameters are not", and that half is now false.</b>
+    ///         <c>SubGraphs.Flatten</c> replaces the sub-graph node with the graph's contents and the
+    ///         node — which is where a parameter override is stored — is then gone, so an expression
+    ///         inside a published graph folded against that graph's <em>declared</em> default and
+    ///         turning the knob changed nothing.
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a> closed that:
+    ///         <c>NodeGraphInlining</c> carries the sub-graph node's settings per expansion, and
+    ///         <see cref="An_expression_in_a_shipped_compound_folds_and_an_override_moves_it" /> is
+    ///         the case that reads them through a file this assembly ships. Both kinds of knob work,
+    ///         and which one a compound uses is now a design decision rather than the only thing
+    ///         that functioned.
+    ///     </para>
+    ///     <para>
+    ///         <b>A port is still the cheaper of the two and is what a compound reaches for first.</b>
+    ///         It survives inlining because it is an edge, it costs no Raven compilation, and it can
+    ///         be <em>driven</em> by another node — which a parameter, being a number an author
+    ///         types, cannot. A parameter earns its place exactly where arithmetic does:
+    ///         <c>Utility/Contrast Luminosity</c> turns one <c>contrast</c> into an input range's two
+    ///         ends, and there is no node in the atomic set that could have computed that from a
+    ///         port.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_compounds_scalar_port_is_a_knob_a_containing_graph_turns() {
@@ -401,6 +413,85 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         // And the port's own default is what an untouched knob is worth, rather than the Levels
         // node's — so the compound decides its own defaults, which is what makes it a node.
         Assert.Equal(0.55f, Assert.Single(levels.Parameters, parameter => parameter.Name == "inputWhite").Value);
+    }
+
+    /// <summary>
+    ///     ⚠ A shipped compound's expression folds against its declared parameters, and an override
+    ///     on the containing node moves the number the kernel is dispatched with.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>'s fix, read through
+    ///         a file this assembly ships.</b> Its closing note says plainly that "none of the four
+    ///         shipped compounds declares <c>parameters</c>, so this bug was not live in shipped
+    ///         content" — which also means the fix had no shipped content standing on it.
+    ///         <c>Utility/Histogram Select</c> now does: its band's two ends are
+    ///         <c>position - range</c> and <c>position</c>, folded by the real Raven compiler, and
+    ///         there is no node in the atomic set that could have computed them from a port.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The declared-default half alone would be a weak case and the override half is
+    ///         what carries this.</b> Ask what these assertions say if expressions did nothing at
+    ///         all: a <c>Levels</c> whose expressions were dropped falls back to the node's own
+    ///         defaults of 0 and 1 — so the pair asserted first, 0.25 and 0.5, is already a claim
+    ///         that folding happened, and the second block is a claim that the folding read the
+    ///         containing graph rather than the file. Neither number is a <c>Levels</c> default and
+    ///         neither is written anywhere in the compound as a literal.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_expression_in_a_shipped_compound_folds_and_an_override_moves_it() {
+        var registry = Registry();
+        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+
+        NodeGraphModel graph = new();
+        var noise = graph.Add("Source/Noise");
+        var select = graph.Add("Utility/Histogram Select");
+        var output = graph.Add("Output/Output");
+
+        graph.Connect(new(noise.Id, "Out"), new(select.Id, "Input"));
+        graph.Connect(new(select.Id, "Out"), new(output.Id, "Input"));
+
+        TextureGraphCompiler compiler = new(registry) {
+            BaseWidth = 64,
+            BaseHeight = 64,
+            SubGraphSource = library
+        };
+
+        // position 0.5 and range 0.25 as the file declares them: the rising edge runs 0.25 → 0.5.
+        Assert.Contains(Curves(compiler.Compile(graph)), curve => curve == (0.25f, 0.5f));
+
+        select.SetText("range", "0.1");
+
+        var narrowed = Curves(compiler.Compile(graph));
+
+        Assert.Contains(narrowed, curve => curve == (0.4f, 0.5f));
+
+        // And the file's own number is gone rather than sitting beside the override, which is what a
+        // second expansion reading a stale table would look like.
+        Assert.DoesNotContain(narrowed, curve => curve == (0.25f, 0.5f));
+    }
+
+    /// <summary>Every Levels op's input range in a compilation, in op order.</summary>
+    /// <param name="compilation">The compilation.</param>
+    /// <returns>One pair per Levels op.</returns>
+    static (float Black, float White)[] Curves(NodeGraphCompilation<TexturePlan> compilation) {
+        Assert.Empty(compilation.Diagnostics);
+
+        var curves = compilation.Value.Ops
+            .Where(op => op.Kernel == "Levels")
+            .Select(op => (
+                Assert.Single(op.Parameters, parameter => parameter.Name == "inputBlack").Value,
+                Assert.Single(op.Parameters, parameter => parameter.Name == "inputWhite").Value
+            ))
+            .ToArray();
+
+        // The instrument: a `Contains` over an empty list is a failure rather than a pass, but the
+        // message it prints says nothing about why — and a compound that stopped emitting a Levels
+        // at all is a likelier cause than the number being wrong.
+        Assert.NotEmpty(curves);
+
+        return curves;
     }
 
     /// <summary>A project's own compounds sit in the same menu as the shipped ones.</summary>

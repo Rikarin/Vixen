@@ -1,0 +1,122 @@
+version: 1
+name: Mask Editor
+nodes:
+  - id: 1
+    type: Source/Mesh Map
+    x: -960
+    y: -220
+    values: {}
+    texts: { Map: curvature }
+  - id: 2
+    type: Colour/Levels
+    x: -640
+    y: -220
+    values: {}
+    texts:
+      '=Input Black': 0.72f - edges * 0.3f
+      '=Input White': 0.86f - edges * 0.3f
+  - id: 3
+    type: Source/Mesh Map
+    x: -960
+    y: 40
+    values: {}
+    texts: { Map: ao }
+  - id: 4
+    type: Colour/Levels
+    x: -640
+    y: 40
+    values:
+      Input White: [0.25]
+    texts:
+      '=Input Black': 0.95f - cavities * 0.5f
+  - id: 5
+    type: Source/Noise
+    x: -960
+    y: 300
+    values:
+      Scale: [12]
+      Octaves: [4]
+      Tiling: [1]
+    texts: { Basis: Gradient }
+  - id: 6
+    type: Colour/Levels
+    x: -640
+    y: 300
+    values:
+      Input White: [1]
+    texts:
+      '=Input Black': 0.5f - grunge * 0.5f
+  - id: 7
+    type: Colour/Blend
+    x: -320
+    y: -100
+    values: {}
+    texts: { Mode: Lighten }
+  - id: 8
+    type: Colour/Blend
+    x: 0
+    y: 0
+    values: {}
+    texts: { Mode: Multiply }
+  - id: 9
+    type: Colour/Levels
+    x: 320
+    y: 0
+    values: {}
+    texts:
+      '=Input Black': contrast * 0.4f
+      '=Input White': 1f - contrast * 0.4f
+  - id: 10
+    type: Sub-graph/Output
+    x: 640
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 7, toPort: Background }
+  - { fromNode: 4, fromPort: Out, toNode: 7, toPort: Foreground }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Background }
+  - { fromNode: 6, fromPort: Out, toNode: 8, toPort: Foreground }
+  - { fromNode: 8, fromPort: Out, toNode: 9, toPort: Input }
+  - { fromNode: 9, fromPort: Out, toNode: 10, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The mask.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: edges
+    default: '0.5'
+    summary: How far down the convex edges the wear reaches.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Edges
+  - name: cavities
+    default: '0.5'
+    summary: How far out of the cavities the dirt creeps.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Cavities
+  - name: grunge
+    default: '0.3'
+    summary: How much of the mask the noise breaks away.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Grunge
+  - name: contrast
+    default: '0'
+    summary: How hard the mask's own edge is, applied after everything else.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Global

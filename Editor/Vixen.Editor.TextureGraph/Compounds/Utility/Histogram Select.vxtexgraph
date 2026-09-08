@@ -1,0 +1,88 @@
+version: 1
+name: Histogram Select
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -640
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Colour/Levels
+    x: -320
+    y: -140
+    values: {}
+    texts:
+      '=Input Black': position - range
+      '=Input White': position
+  - id: 3
+    type: Colour/Levels
+    x: -320
+    y: 140
+    values: {}
+    texts:
+      '=Input Black': position + range
+      '=Input White': position
+  - id: 4
+    type: Colour/Blend
+    x: 0
+    y: 0
+    values: {}
+    texts: { Mode: Darken }
+  - id: 5
+    type: Colour/Levels
+    x: 320
+    y: 0
+    values: {}
+    texts:
+      '=Input Black': contrast * 0.5f
+      '=Input White': 1f - contrast * 0.5f
+  - id: 6
+    type: Sub-graph/Output
+    x: 640
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Input, toNode: 2, toPort: Input }
+  - { fromNode: 1, fromPort: Input, toNode: 3, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 4, toPort: Background }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Foreground }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: The grey to select a band out of.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: One where the input was near position, zero where it was not.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: position
+    default: '0.5'
+    summary: The value the band is centred on.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Band
+  - name: range
+    default: '0.25'
+    summary: How far either side of position still reads as selected.
+    kind: Float
+    minimum: 0.001
+    maximum: 1
+    group: Band
+  - name: contrast
+    default: '0'
+    summary: How hard the band's own edges are. Zero leaves the tent shape alone.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Band

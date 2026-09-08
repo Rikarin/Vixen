@@ -1,0 +1,123 @@
+version: 1
+name: Make It Tile
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Space/Transform 2D
+    x: -640
+    y: -180
+    values:
+      Offset X: [0.5]
+      Offset Y: [0.5]
+    texts: { Tiling: Wrap, Filter: Bilinear }
+  - id: 3
+    type: Source/Shape
+    x: -960
+    y: 240
+    values: {}
+    texts: { Kind: Gradation }
+  - id: 4
+    type: Space/Mirror
+    x: -640
+    y: 240
+    values: {}
+    texts: { Axis: X, Mode: Reflect }
+  - id: 5
+    type: Source/Shape
+    x: -960
+    y: 440
+    values:
+      Rotation: [1.5707964]
+    texts: { Kind: Gradation }
+  - id: 6
+    type: Space/Mirror
+    x: -640
+    y: 440
+    values: {}
+    texts: { Axis: 'Y', Mode: Reflect }
+  - id: 7
+    type: Colour/Blend
+    x: -320
+    y: 340
+    values: {}
+    texts: { Mode: Lighten }
+  - id: 8
+    type: Colour/Levels
+    x: 0
+    y: 340
+    values:
+      Input White: [0.5]
+    texts:
+      '=Input Black': 0.5f - blend * 0.5f
+  - id: 9
+    type: Colour/Invert
+    x: 320
+    y: 480
+    values: {}
+    texts: {}
+  - id: 10
+    type: Colour/Blend
+    x: 640
+    y: -180
+    values: {}
+    texts: { Mode: Multiply }
+  - id: 11
+    type: Colour/Blend
+    x: 640
+    y: 120
+    values: {}
+    texts: { Mode: Multiply }
+  - id: 12
+    type: Colour/Blend
+    x: 960
+    y: 0
+    values: {}
+    texts: { Mode: Add }
+  - id: 13
+    type: Sub-graph/Output
+    x: 1280
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Input, toNode: 2, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 7, toPort: Background }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: Foreground }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Input }
+  - { fromNode: 8, fromPort: Out, toNode: 9, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 10, toPort: Background }
+  - { fromNode: 9, fromPort: Out, toNode: 10, toPort: Foreground }
+  - { fromNode: 1, fromPort: Input, toNode: 11, toPort: Background }
+  - { fromNode: 8, fromPort: Out, toNode: 11, toPort: Foreground }
+  - { fromNode: 10, fromPort: Out, toNode: 12, toPort: Background }
+  - { fromNode: 11, fromPort: Out, toNode: 12, toPort: Foreground }
+  - { fromNode: 12, fromPort: Out, toNode: 13, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: A picture that does not tile.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: One that does — its left column is its right column, exactly.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: blend
+    default: '0.4'
+    summary: How wide the band that hides the seam is, as a fraction of the image.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Seam
