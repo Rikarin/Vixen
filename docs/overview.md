@@ -527,8 +527,7 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 > "sixteen of roughly two dozen") rather than the marks. Owed is **four** marks — Patterns'
 > Scratches · Wood Grain · Cells, and `Surface/Metal Reflectance` — plus the unshipped half of one
 > shared row, since § 4.9 writes *"Delight / Equalize"* as a single ● and only Equalize exists.
-> ⚠ Metal Reflectance stays refused
-> on [#1096](https://github.com/Rikarin/Vixen/issues/1096) now that
+> ⚠ Metal Reflectance stays refused on [#1096](https://github.com/Rikarin/Vixen/issues/1096) now that
 > [#1060](https://github.com/Rikarin/Vixen/issues/1060)'s name knob exists and no atomic node maps a
 > metal name to an F0. Twenty-five of the 31 declare parameters, so § D9's knobs are the norm here
 > and not the exception.
