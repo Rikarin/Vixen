@@ -449,6 +449,95 @@ public class TexturedMaterialTests {
         );
     }
 
+    /// <summary>
+    ///     A height-blended stack names a second map, its own permutation and two scalars.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 48 § B1's height map, in the one of its three readings that is a surface
+    ///         feature</b> — see <see cref="TexturedMaterialLayersFeature.HeightBlended" /> and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/615">#615</a>, which separated them.
+    ///     </para>
+    ///     <para>
+    ///         Three separate ways for it to be a finished thing that does nothing, and each is
+    ///         asserted: the height slot has to be named by the composition path so a host can pair it,
+    ///         the permutation has to be set under the <em>pass</em>'s name rather than the feature's,
+    ///         and the two scalars have to reach the block at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_height_blended_layer_stack_names_a_second_map_and_its_own_permutation() {
+        var material = Compiled(
+            new TexturedMaterialLayersFeature {
+                HeightBlended = true,
+                HeightContrast = 0.4f,
+                HeightTransition = 0.05f,
+                Layers = [
+                    new(Vector3.One, 0f, 0.8f, Weight: 1f),
+                    new(new(0.2f, 0.4f, 0.2f), 0f, 0.6f, Weight: 1f),
+                    new(new(0.9f, 0.9f, 0.9f), 0f, 0.3f, Weight: 1f)
+                ]
+            }
+        );
+
+        const string path = "ForwardPlus.CompositeSurface.TexturedMaterialLayersSurface.";
+
+        Assert.Equal(path + "heightIndex", TexturedMaterialLayersFeature.HeightIndexParameter(path));
+
+        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+
+        Assert.Contains(path + "heightIndex", names);
+        Assert.Contains(path + "heightContrast", names);
+        Assert.Contains(path + "heightTransition", names);
+
+        Assert.Equal(0.4f, material.Parameters.Get(ParameterKeys.New<float>(path + "heightContrast")));
+        Assert.Equal(0.05f, material.Parameters.Get(ParameterKeys.New<float>(path + "heightTransition")));
+
+        // The pass's name and not the feature's, for the reason LayerCount is: Raven resolves a
+        // permutation across the whole compilation.
+        Assert.True(material.Parameters.Get(MaterialKeys.HeightBlended("ForwardPlus")));
+
+        // And the map name is its own, so the pairing cannot fill it from the splat map.
+        Assert.Equal("heightMap", new TexturedMaterialLayersFeature().HeightMap);
+        Assert.NotEqual(new TexturedMaterialLayersFeature().SplatMap, new TexturedMaterialLayersFeature().HeightMap);
+    }
+
+    /// <summary>
+    ///     And a stack that is not height-blended declares no height slot at all.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half that makes the assertion above mean something</b>, and it is not
+    ///         cosmetic. <c>MaterialRenderFeature.Index</c> writes a table slot onto a material that
+    ///         already declared the parameter and counts one that declared it and got no texture, so a
+    ///         feature that set <c>heightIndex</c> unconditionally would report a missing height map
+    ///         for every layered material that never wanted one — and <c>UnresolvedTextureCount</c> is
+    ///         the number a host watches to know its tables filled.
+    ///     </para>
+    ///     <para>
+    ///         The permutation is asserted false rather than absent, because a key interned with a
+    ///         <c>false</c> default reads back false whether it was written or not — so this half of
+    ///         the pair is the weaker one and the parameter names are what carry it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_layer_stack_that_is_not_height_blended_declares_no_height_slot() {
+        var material = Compiled(
+            new TexturedMaterialLayersFeature {
+                Layers = [new(Vector3.One, 0f, 0.8f, 1f), new(Vector3.One, 0f, 0.6f, 1f)]
+            }
+        );
+
+        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+
+        Assert.Contains("ForwardPlus.CompositeSurface.TexturedMaterialLayersSurface.splatIndex", names);
+
+        Assert.DoesNotContain("ForwardPlus.CompositeSurface.TexturedMaterialLayersSurface.heightIndex", names);
+        Assert.DoesNotContain("ForwardPlus.CompositeSurface.TexturedMaterialLayersSurface.heightContrast", names);
+
+        Assert.False(material.Parameters.Get(MaterialKeys.HeightBlended("ForwardPlus")));
+    }
+
     static Material Compiled(params IMaterialFeature[] features) {
         var compilation = MaterialCompiler.Compile(new() { Features = features });
 

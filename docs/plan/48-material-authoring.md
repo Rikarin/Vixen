@@ -157,12 +157,39 @@ material's textures never reach the table at all,
 > that except height: `TexturedMaterialLayersFeature` takes its weights from a splat map,
 > `TexturedEmissiveFeature` and `TexturedOpacityFeature` exist, `MaterialPairingInventoryTests` reads
 > `Raven/Library` for every shader inheriting `MaterialTextures` and asserts a pairing entry for each,
-> and `AssetMaterialSource.Pair` adds a graph's own `Maps`. **Height is deliberately not built** —
-> parallax, height-blending and true displacement are three different features wearing one name and
-> only the middle one is small, [#615](https://github.com/Rikarin/Vixen/issues/615). ⚠ And a second
+> and `AssetMaterialSource.Pair` adds a graph's own `Maps`. ⚠ And a second
 > defect came out with it: nothing registered `MaterialKeys.LayerCount` in
 > `MaterialRenderFeature.PermutationKeys`, so a three-layer material had always resolved the variant
 > compiled for two.
+>
+> ⚠ **Height is now built, and the decision [#615](https://github.com/Rikarin/Vixen/issues/615) asked
+> for is that § B1 meant the layering reading of it.** Parallax occlusion, height-blended layering and
+> true displacement are three different features wearing one name, and the argument that settles which
+> one this sentence meant is that **§ B1 is about layering** — it names height in the same breath as
+> "a layer stack cannot ship as a live layered material", and the middle reading is the only one of
+> the three that is a surface feature at all. Parallax inverts the chain's contract (it writes `d.uv`
+> before every other feature reads it, which composition order does not guarantee) and needs a
+> tangent-space view vector `MaterialData` does not carry; displacement is a vertex or tessellation
+> stage. Both are separate tasks and are filed as such, **not** smuggled in here.
+>
+> So `TexturedMaterialLayersSurface` takes a **second four-channel map** whose channel `i` is layer
+> `i`'s height, and the height biases that layer's splat weight: the layers are keyed by
+> `weight + heightContrast × height`, the peak key less `heightTransition` is a floor, and what
+> survives the floor is normalised as before. Gravel shows through sand in the gaps between the stones
+> instead of the two averaging to mud. ⚠ **It is a permutation and off by default, and that is the
+> guard rather than a nicety**: an unpaired `heightIndex` is slot zero, which is the magenta checker,
+> whose channels are emphatically not zero — a height sample left in the unblended variant would bias
+> every layered material in the frame. With `HeightBlended` off the sample, the peak and the bias all
+> fold away, and what is left computes the weights the shader computed before the map existed: the
+> floor stays at zero, the key folds to the painted weight, and `max(w - 0, 0)` is `max(w, 0)` for
+> every float there is.
+>
+> ⚠ **And the completeness test #371 asked for could not see any of this.** It reads back which
+> *shader* each pairing entry names, and one entry per shader satisfied it — so the moment a sampling
+> shader had two maps, the second could be left unpaired with every assertion green. It now reads the
+> library's `var …Index: uint` declarations and asserts one pairing entry per **slot**. The instrument
+> was honest when it was written, when every sampling shader had exactly one map; a second map is what
+> separated the two inventories.
 
 **None of that blocks the authoring tool**, because the tool writes files. It blocks the *optional*
 last phase, [M11](#m11--the-runtime-layering-gap--075-em--optional-and-separable), and it is named
@@ -1082,8 +1109,11 @@ weights come from a splat map; the completeness test for `WorldRenderer.Paired` 
 [#493](https://github.com/Rikarin/Vixen/issues/493)'s missing wiring. ⚠ **This is owed by doc 06 and
 doc 23 rather than by this document**, it belongs to the renderer, and nothing above it depends on it.
 
-⚠ **Landed, less height** — see the note under [B1](#b1-a-layer-stack-cannot-ship-as-a-live-layered-material--for-the-runtime-path-only).
-Height is [#615](https://github.com/Rikarin/Vixen/issues/615) and is a decision before it is work.
+⚠ **Landed, height included** — see the note under [B1](#b1-a-layer-stack-cannot-ship-as-a-live-layered-material--for-the-runtime-path-only).
+[#615](https://github.com/Rikarin/Vixen/issues/615) was a decision before it was work, and the
+decision is that § B1's height map means **height-blended layering**: a second map on
+`TexturedMaterialLayersSurface`, under a permutation that is off by default. Parallax occlusion and
+true displacement are separate features and separate tasks.
 
 ⚠ **"Landed" is a statement about the code and it should not be read as "a splat-mapped layered
 material renders".** B1's finding survives one level along, inside the feature added to answer it: the
@@ -1093,8 +1123,13 @@ the pairing table. No material carries one, `MaterialBake` composes the textured
 and not this, and **no frame has been drawn through it**. The textured half of B1 that *is* fed is
 emissive and opacity; the layered half is a feature waiting for a caller, which is the shape this
 document warns about in [D14](#d14-it-is-a-plugin-and-that-is-the-test) and the whole reason B1 was
-written as a blocker. [#622](https://github.com/Rikarin/Vixen/issues/622) is a live bug in it —
-`splat.a` is 1 everywhere on a three-channel splat map.
+written as a blocker. ⚠ **The height map lands into that same gap and does not close it**: it is a
+second map on a feature nothing constructs, so the honest reading of it is "the renderer can now
+express a height-blended stack", not "one has been drawn".
+[#622](https://github.com/Rikarin/Vixen/issues/622) — `splat.a` is 1 everywhere on a three-channel
+splat map — was a live bug in it and is **fixed and closed**: `paintedChannels` gates the alpha, and
+the same gate now serves the height map, so the two maps cannot disagree about which channel a layer
+is.
 
 ### Cost
 
