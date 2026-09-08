@@ -1,0 +1,47 @@
+version: 1
+name: Bake Route
+nodes:
+  - id: 1
+    type: Source/Checker
+    x: 0
+    y: 0
+    values: { Scale X: [4], Scale Y: [4] }
+    texts: {}
+  - id: 2
+    type: Output/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: { Usage: baseColor }
+  - id: 3
+    type: Source/Uniform
+    x: 0
+    y: 160
+    values: { Colour: [0.25, 0.25, 0.25, 1] }
+    texts: {}
+  - id: 4
+    type: Output/Output
+    x: 320
+    y: 160
+    values: {}
+    texts: { Usage: roughness }
+  - id: 5
+    type: Source/Uniform
+    x: 0
+    y: 320
+    values: { Colour: [0.75, 0.75, 0.75, 1] }
+    texts: {}
+  - id: 6
+    type: Output/Output
+    x: 320
+    y: 320
+    values: {}
+    texts: { Usage: metalness }
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Input }
+groups: []
+comments: []
+settings: {}
+parameters: []
