@@ -131,3 +131,23 @@ property-grid {
 }
 
 }
+
+/*
+    ⚠ The drag image, and `position: absolute` on a child of `root` is what makes the document root
+    an overlay layer. It is removed from its parent's flow entirely — nothing else moves when it
+    appears — and positioned against the root's own box, which is the window. `pointer-events: none`
+    matters more than it looks: a ghost that hit-tested would be the element under the pointer for
+    the whole drag, so the drop would land on the picture of the thing being dropped.
+*/
+drag-ghost {
+    position: absolute;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: var(--border);
+    background-color: var(--surface);
+    color: var(--text);
+    font-size: 12px;
+    opacity: 0.85;
+    pointer-events: none;
+}

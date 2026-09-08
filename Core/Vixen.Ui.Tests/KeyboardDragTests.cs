@@ -110,6 +110,40 @@ public class KeyboardDragTests {
         Assert.Equal(pane.AbsoluteTop + (pane.Height / 2f), seen.Y, 3);
     }
 
+    /// <summary>A drag with no pointer in it still says where it is, and that is the whole argument.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A source can watch its own pointer stream — it holds the capture — so a ghost drawn
+    ///     that way works for the drag the source is driving and for no other.</b> Here there is no
+    ///     pointer at all: the drag moves because the focus moved, so a picture positioned from
+    ///     pointer events would sit wherever the press happened while the drag walked the interface.
+    ///     <see cref="DragSession.X" /> is written by the one place both drivers meet, so it is the
+    ///     same number whichever moved it.
+    /// </remarks>
+    [Fact]
+    public void A_drag_driven_by_the_focus_reports_the_position_it_moved_to() {
+        using var document = Laid();
+
+        var source = document.Root.Add("div", classNames: "pane");
+        source.Focusable = true;
+
+        var first = Pane(document);
+        var second = Pane(document);
+        document.Update();
+
+        document.Focus(source);
+        document.BeginDrag(source, Row("alpha"));
+
+        document.Focus(first);
+        Assert.Equal(first.AbsoluteLeft + (first.Width / 2f), document.CurrentDrag!.X, 3);
+        Assert.Equal(first.AbsoluteTop + (first.Height / 2f), document.CurrentDrag!.Y, 3);
+
+        // The panes are laid out in a row, so moving on is a different x and the same y — which is
+        // also what says the position followed the focus rather than being written once.
+        document.Focus(second);
+        Assert.Equal(second.AbsoluteLeft + (second.Width / 2f), document.CurrentDrag!.X, 3);
+        Assert.NotEqual(first.AbsoluteLeft, second.AbsoluteLeft);
+    }
+
     /// <summary>Tabbing off the last target and pressing Enter drops nowhere, and the drag survives.</summary>
     /// <remarks>
     ///     ⚠ Both halves matter. A session that kept pointing at the target two stops back would drop

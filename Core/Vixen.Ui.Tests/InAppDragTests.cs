@@ -180,6 +180,44 @@ public class InAppDragTests {
         Assert.Same(pane, document.CurrentDrag?.Target);
     }
 
+    /// <summary>The session says where the drag is, including where there is nothing under it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half a drag image needs and the session did not carry.</b>
+    ///         <c>drag-and-drop.md</c> said a source draws its own ghost from
+    ///         <see cref="UiDocument.CurrentDrag" />, which reported what was being dragged, what
+    ///         would happen to it and where it would land — and not where it <i>was</i>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The second move is the assertion, and the first is only the setup.</b> Over empty
+    ///         space there is no target and <c>TrackDragTo</c> returns early, so a position written
+    ///         after that return would be a ghost that froze on the last thing the drag crossed and
+    ///         came back to life when it found the next — which is precisely while the user is
+    ///         looking for somewhere to put the thing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_session_reports_where_the_drag_is_even_over_nothing() {
+        using var document = Laid();
+        var source = document.Root.Add("div", classNames: "pane");
+        var pane = document.Root.Add("div", classNames: "pane");
+        pane.AllowDrop = true;
+        document.Update();
+
+        document.BeginDrag(source, Row("ghost"));
+
+        document.Dispatch(At(PointerAction.Moved, 150f, 50f));
+        Assert.Same(pane, document.CurrentDrag?.Target);
+        Assert.Equal(150f, document.CurrentDrag!.X);
+        Assert.Equal(50f, document.CurrentDrag!.Y);
+
+        // Past the second pane and over the root, which takes no drops.
+        document.Dispatch(At(PointerAction.Moved, 320f, 210f));
+        Assert.Null(document.CurrentDrag?.Target);
+        Assert.Equal(320f, document.CurrentDrag!.X);
+        Assert.Equal(210f, document.CurrentDrag!.Y);
+    }
+
     /// <summary>Cancelling tells the target it lost the drag, and drops nothing.</summary>
     [Fact]
     public void Cancelling_leaves_the_target_and_drops_nothing() {

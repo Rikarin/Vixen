@@ -253,6 +253,31 @@ public sealed class DragSession {
     ///     refused this payload — which are the same thing to a cursor and to the drop.
     /// </remarks>
     public DropEffect Effect { get; internal set; }
+
+    /// <summary>Where the drag is, in surface coordinates.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one thing a drag image needs, and the session did not carry it.</b> The guide
+    ///         said a source draws its own ghost from <see cref="UiDocument.CurrentDrag" /> — which
+    ///         reported what was being dragged, what would happen to it and where it would land, and
+    ///         not where it <i>was</i>. A source can watch its own pointer stream instead, because it
+    ///         holds the capture; what it cannot do that way is follow a drag it is not driving.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is the argument, and it is the keyboard.</b> A keyboard drag has no pointer
+    ///         at all — <c>Give</c> moves it by the focus and drops it at the target's centre — so a
+    ///         ghost drawn from pointer events sits still while the drag walks the interface. This is
+    ///         written by the one place both drivers meet, so it is the same number either way.
+    ///     </para>
+    ///     <para>
+    ///         Before the first move it is the origin, which is a position no drag was started from
+    ///         and the reason a ghost is worth showing only once there is somewhere to show it.
+    ///     </para>
+    /// </remarks>
+    public float X { get; internal set; }
+
+    /// <summary>The other half of <see cref="X" />.</summary>
+    public float Y { get; internal set; }
 }
 
 public sealed partial class UiDocument {
@@ -351,6 +376,13 @@ public sealed partial class UiDocument {
     ///     of the two moved.
     /// </remarks>
     static void TrackDragTo(DragSession session, UiElement? over, float x, float y) {
+        // ⚠ Written before the early returns below, not after them. Where the drag is does not
+        // depend on whether anything is under it — a ghost over empty space still has to follow the
+        // pointer, and a position that stopped updating the moment the drag left a target would
+        // freeze exactly when the user is looking for somewhere to put the thing.
+        session.X = x;
+        session.Y = y;
+
         if (!ReferenceEquals(over, session.Target)) {
             Leave(session);
             session.Target = over;

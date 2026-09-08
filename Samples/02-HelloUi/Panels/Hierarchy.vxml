@@ -131,7 +131,70 @@
         data.SetText(string.Join(Environment.NewLine, tree.SelectedNodes.Select(node => node.Text)));
 
         Root.Document.BeginDrag(tree, data, DropEffect.Copy);
+        Carry(tree.SelectedNodes.Length);
     }
+
+    /// <summary>The picture under the pointer while the rows are being carried.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An element at the <i>document root</i>, which is the overlay layer this framework was
+    ///     said not to have.</b> The drag image was recorded as owed because "carrying a picture
+    ///     would need an overlay layer, and <c>Core/Vixen.Ui</c> has none". The root is one: it is
+    ///     the containing block for an absolutely-positioned child, it is above every panel because
+    ///     it is above everything, and <c>ToastHost</c> — a sibling of the shell frame in
+    ///     <c>Shell.vxml</c> — has been using it that way all along. What was actually missing is one
+    ///     number, below.
+    /// </remarks>
+    UiElement? ghost;
+
+    /// <summary>Puts a ghost up and lets it follow the drag until the drag is over.</summary>
+    /// <param name="rows">How many rows are being carried, which is all the ghost says.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Positioned from <c>DragSession.X</c> and not from the pointer.</b> A source holds
+    ///         the capture, so it could follow its own pointer moves — and that ghost would sit still
+    ///         through a keyboard drag, which has no pointer at all and moves because the focus
+    ///         moved. The session is where the two drivers meet, and until this it did not carry a
+    ///         position: <c>CurrentDrag</c> said what was being dragged, what would happen to it and
+    ///         where it would land, and not where it <i>was</i>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Driven off the document's tick rather than off a drag event, for the same
+    ///         reason.</b> A <c>dragover</c> arrives only while the drag is over a target that takes
+    ///         drops, so a ghost moved by one would freeze over the gaps between the panels — which
+    ///         is exactly where a user hesitates.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the tick is what takes it down, rather than a <c>dragend</c>.</b> Escape
+    ///         cancels the session while the button is still held, and the recogniser's
+    ///         <c>dragend</c> does not arrive until the release — so a ghost removed there would
+    ///         hang over the window after the drag it belongs to had been abandoned.
+    ///     </para>
+    /// </remarks>
+    void Carry(int rows) {
+        ghost ??= Root.Document.Root.Add("drag-ghost");
+        ghost.Text = rows == 1 ? "1 node" : $"{rows} nodes";
+
+        Root.Document.Ticked -= Follow;
+        Root.Document.Ticked += Follow;
+    }
+
+    void Follow(UiDocument document, TimeSpan now) {
+        if (document.CurrentDrag is not { } session) {
+            document.Ticked -= Follow;
+            ghost?.Remove();
+            ghost = null;
+
+            return;
+        }
+
+        // A little below and right of the point, so the ghost never covers the thing being pointed
+        // at — which on a three-zone target is the whole of what the user is aiming with.
+        ghost?.SetStyle("left", Px(session.X + 12f));
+        ghost?.SetStyle("top", Px(session.Y + 12f));
+    }
+
+    static string Px(float value) =>
+        string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{value:0.##}px");
 
     /// <summary>Takes files dragged in from the desktop and puts a row in for each.</summary>
     /// <remarks>

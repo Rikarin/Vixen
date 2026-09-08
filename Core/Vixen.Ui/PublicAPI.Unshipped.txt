@@ -360,6 +360,8 @@ Vixen.Ui.DragSession.Data.get -> Vixen.Ui.DataObject
 Vixen.Ui.DragSession.Effect.get -> Vixen.Ui.DropEffect
 Vixen.Ui.DragSession.Source.get -> Vixen.Ui.UiElement
 Vixen.Ui.DragSession.Target.get -> Vixen.Ui.UiElement?
+Vixen.Ui.DragSession.X.get -> float
+Vixen.Ui.DragSession.Y.get -> float
 Vixen.Ui.DragStage -> enum : byte
 Vixen.Ui.DragStage.Cancelled = 3 -> Vixen.Ui.DragStage
 Vixen.Ui.DragStage.Completed = 2 -> Vixen.Ui.DragStage

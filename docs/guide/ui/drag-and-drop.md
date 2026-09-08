@@ -235,8 +235,32 @@ there and nowhere else compiles, runs on every move, and never sees the beginnin
 Finder needs the platform's own drag session and a promise the receiving application resolves, and
 neither the seam nor a backend exists.
 
-**A drag image.** A source draws its own ghost from `UiDocument.CurrentDrag` and `UiElement.OffsetX/Y`;
-nothing carries a picture for it.
+⚠ **A drag image is no longer missing, and two things this entry said were wrong.** It used to read
+"a source draws its own ghost from `UiDocument.CurrentDrag` and `UiElement.OffsetX/Y`; nothing carries
+a picture for it", and the reason recorded elsewhere for not building one was that a picture needs an
+overlay layer and `Core/Vixen.Ui` has none.
+
+The first correction is that **the document root is the overlay layer**. An absolutely-positioned
+child of `root` is removed from its parent's flow, positioned against the window, and above every
+panel because it is above everything — which is how `ToastHost` has always sat over the interface.
+The second is that `CurrentDrag` could not have driven a ghost as the entry claimed: it reported what
+was being dragged, what would happen to it and where it would land, and **not where it was**. That is
+`DragSession.X`/`Y` now, written by `TrackDragTo` — the one place the pointer and the focus both
+arrive — and written *before* the early return for "nothing under the drag", because a ghost has to
+follow the pointer across the gaps between panels most of all.
+
+⚠ **A source could follow its own pointer stream instead, and that ghost only works for a mouse.** A
+keyboard drag has no pointer at all: it moves because the focus moved, and drops at the target's
+centre. `Samples/02-HelloUi`'s Hierarchy puts an element on the document root and moves it on the
+document's *tick* — not on `dragover`, which arrives only over a target that takes drops, and not
+removed on `dragend`, which does not arrive until the button is released and would leave a ghost
+hanging over the window after Escape had already abandoned the drag. `pointer-events: none` on it
+matters more than it looks: a ghost that hit-tested would be the element under the pointer for the
+whole drag, and the drop would land on the picture of the thing being dropped.
+
+**What is still missing is a picture.** The ghost is an element the source builds and styles, so a
+source that wants a thumbnail of the thing it is carrying draws one; nothing hands a rendered image
+of the dragged rows to the platform, which is the other half of a cross-process drag out.
 
 ⚠ **Both halves have a consumer now, and the in-app one had never had a producer at all.**
 `UiDocument.BeginDrag` is what fills a `DataObject` and starts a session, and outside its own tests
