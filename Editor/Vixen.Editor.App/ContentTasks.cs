@@ -559,8 +559,16 @@ sealed class ContentTasks {
     ///     there are four ways out of a task — finished, failed, refused, cancelled — of which
     ///     cancellation produces no result at all. A bool compared once a frame catches every one of
     ///     them and cannot be forgotten by a fifth way out being added later.
+    ///     <para>
+    ///         ⚠ <b>An event and not a settable delegate, because there are two listeners now.</b>
+    ///         The build panel's buttons were the first; the second is <c>assets.build</c>'s own
+    ///         enablement, which reads <see cref="IsBusy" /> — a <c>Volatile.Read</c> over a counter a
+    ///         worker thread moves, with nothing to hang an invalidation on. A property would have
+    ///         made the second assignment silently drop the first, which is the shape of half the
+    ///         "that used to work" reports in this repository.
+    ///     </para>
     /// </remarks>
-    public Action? BusyChanged { get; set; }
+    public event Action? BusyChanged;
 
     /// <summary>Runs one piece of content work, and tells the caller how it went.</summary>
     /// <param name="title">What the task centre calls it.</param>

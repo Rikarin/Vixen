@@ -243,6 +243,22 @@ public sealed class EditorShell : IDisposable {
         // told to invalidate a disposed document is a bug whether or not anything leaks.
         Commands.Changed += OnCommandsChanged;
 
+        // ⚠ **Running a command is a change to what the other commands say, and nothing said so.**
+        // Every radio group on a mode's tool strip — Blockout's element kinds, Terrain's brush
+        // categories — moves its `Checked` when a tool command runs, and a command that toggles a
+        // preference flips its own tick. None of that touches a signal, so the strips were kept
+        // right by `Tick` polling them sixty times a second. One raise per command run replaces the
+        // poll for every one of those, and it is coalesced to one raise per frame by the document.
+        Commands.Executed += OnCommandExecuted;
+
+        // ⚠ **And this is what lets the poll go.** A bound `ButtonBase` follows the invalidation on
+        // its own, but a `SegmentedControl` in a toolbar group cannot: what it shows is one value
+        // across several ids, so somebody has to ask every member and write *which* said yes — see
+        // `ToolbarPresenter.Refresh`. Following the invalidation here asks exactly the buttons on
+        // these two strips, which is what the tick did, on the frames when something changed rather
+        // than on all of them.
+        Document.CommandsInvalidated += RefreshStrips;
+
         Dispatcher = new CommandDispatcher(Commands, Keys);
         Dispatcher.Attach(Document);
         // ⚠ The command's own reason where it has one. "Not available right now" is the honest answer
@@ -775,31 +791,14 @@ public sealed class EditorShell : IDisposable {
         // awaiting a dialog is entitled to change both, and before `Effects.Flush` at the bottom, so
         // a signal it writes is drained on this frame. See `DialogService.Pump`.
         //
-        // ⚠ **Still polled, and doc 45 step 4 expected this line to go.** Every button on both
-        // strips is now bound to its id, so each one follows `UiDocument.CommandsInvalidated` by
-        // itself — which is the whole point of step 5 and does make the poll unnecessary for a
-        // command whose state says it changed. Two of the editor's own do not say so. `file.save`
-        // reads a scene's dirty signal and `assets.build` reads a content build's busy flag —
-        // `Volatile.Read` over a counter a worker thread moves — and neither has any notification
-        // to hang an invalidation on. Deleting this would leave Save greyed after the first edit
-        // and Build enabled through a build, with nothing failing anywhere, which is worse than a
-        // poll.
-        //
-        // ⚠ And it asks *these buttons*, not the document. `Document.InvalidateCommands()` here
-        // would be the same poll spelled correctly and would wake every bound `MenuItem` on the bar
-        // as well — two hundred lines that are not on screen, asked sixty times a second, in place
-        // of ten that are. See #430.
-        Toolbar.Refresh();
-
-        // ⚠ Only when there is one, and for the mode's *tools* rather than for the mode buttons.
-        // Entering a mode raises `Modes.Changed`, which rebuilds this strip outright — so which
-        // mode you are in is drawn without any help from here. What is left is the strip the active
-        // mode contributes: Blockout's element kinds and Terrain's brush categories are radio groups
-        // whose `Checked` moves when a tool command runs, and a command running invalidates nothing.
-        if (Modes.Modes.Count > 0) {
-            ModeBar.Refresh();
-        }
-
+        // ⚠ **The two strips are no longer polled here, and what closed it was three notifications
+        // rather than a cleverer refresh.** `Commands.Executed` covers every predicate that only
+        // moves when a command runs — a mode's tool radio group, a preference's own tick, the
+        // transport; the scene's `IsDirty` signal covers `file.save`; and `ContentTasks.BusyChanged`,
+        // which was already being raised for the build panel, covers `assets.build`. See
+        // `RefreshStrips`, which follows `CommandsInvalidated` and asks *these buttons* rather than
+        // the document — invalidating from a tick would have been the same poll spelled correctly,
+        // waking every `MenuItem` on the bar as well. #430.
         Measure(delta);
         RefreshStatus();
 
@@ -845,6 +844,8 @@ public sealed class EditorShell : IDisposable {
         // rebuilding its shell around one — must not find the old shell still listening.
         // `Document.Dispose` below drops the other direction, the registry the document was pointed at.
         Commands.Changed -= OnCommandsChanged;
+        Commands.Executed -= OnCommandExecuted;
+        Document.CommandsInvalidated -= RefreshStrips;
 
         // ⚠ Before the document, and it answers rather than drops. A command awaiting a dialog is a
         // continuation holding whatever it was in the middle of — the save-on-close prompt is the
@@ -870,6 +871,25 @@ public sealed class EditorShell : IDisposable {
     ///     unsubscribed, which is the ordinary way this kind of subscription becomes permanent.
     /// </remarks>
     void OnCommandsChanged(CommandRegistry registry) => Document.InvalidateCommands();
+
+    /// <summary>What a command having run means for every other command's state.</summary>
+    void OnCommandExecuted(EditorCommand command) => Document.InvalidateCommands();
+
+    /// <summary>Asks the two strips this shell owns for their state, when something says it moved.</summary>
+    /// <remarks>
+    ///     ⚠ <b>These buttons, not the document, and the distinction is what stops this being the
+    ///     poll spelled differently.</b> The subscription is to the invalidation rather than to the
+    ///     frame, so on a quiet frame nothing is asked at all; when something does invalidate, the
+    ///     bound `MenuItem`s wake themselves and this covers the two things a binding cannot — a
+    ///     segmented group, whose appearance is one value across several ids.
+    /// </remarks>
+    void RefreshStrips(UiDocument document) {
+        Toolbar.Refresh();
+
+        if (Modes.Modes.Count > 0) {
+            ModeBar.Refresh();
+        }
+    }
 
     /// <summary>The menus the editor ships with.</summary>
     /// <remarks>
