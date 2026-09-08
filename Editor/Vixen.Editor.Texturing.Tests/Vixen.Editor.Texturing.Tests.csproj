@@ -62,6 +62,17 @@
             `[CallerFilePath]`, because CI's `DeterministicSourcePaths` rewrites that to `/_/`.
         -->
         <None Include="Fixtures\*.vxtexgraph" CopyToOutputDirectory="PreserveNewest" Link="Fixtures\%(Filename)%(Extension)" />
+
+        <!--
+            ⚠ And a committed `.vxlayers`, for the same reason one document along —
+            `LayerStackBakeRouteDeviceTests` (#1029). Every other assertion about a stack starts from
+            a `LayerStackAsset` a test wrote, which is the half that was never in doubt; this one
+            starts from bytes, so `LayerStackYaml.Read`, the two texture sets in it and
+            `LayerStackDocument`'s own constructor are inside the claim that an artist can get
+            materials out of a stack. It also fixes the base resolution at 64², which a
+            `.vxtexgraph` cannot carry (#719) and a `.vxlayers` can.
+        -->
+        <None Include="Fixtures\*.vxlayers" CopyToOutputDirectory="PreserveNewest" Link="Fixtures\%(Filename)%(Extension)" />
     </ItemGroup>
 
     <ItemGroup>
