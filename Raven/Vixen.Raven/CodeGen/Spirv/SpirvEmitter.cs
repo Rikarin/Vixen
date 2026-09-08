@@ -700,11 +700,14 @@ sealed partial class SpirvEmitter {
             // so an opaque parameter keeps its value and reads of it resolve to that directly.
             // The one opaque type that *does* live in function storage is the ray query the
             // emitter synthesizes below — it is no parameter and no Raven value at all.
-            if (parameter.Type is IrTextureType
-                or IrSamplerType
-                or IrAccelerationStructureType
-                or IrDepthTextureType
-                or IrComparisonSamplerType) {
+            //
+            // ⚠ IrType.IsOpaque rather than a list spelled out here. The list that used to be here
+            // was missing IrStorageImageType, so `func Clear(image: RWTexture2D<float4>, …)` fell
+            // through to DeclareLocal and emitted an OpVariable of OpTypeImage in Function storage —
+            // "Cannot store to OpTypeImage" from spirv-val, and green in every test, because the
+            // only case covering it asked the backend for diagnostics rather than the validator for
+            // a verdict.
+            if (parameter.Type.IsOpaque) {
                 opaqueParameters[parameter] = parameterIds[i];
                 continue;
             }

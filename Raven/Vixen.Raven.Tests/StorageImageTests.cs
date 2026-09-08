@@ -221,6 +221,49 @@ public class StorageImageTests {
         );
     }
 
+    /// <summary>
+    ///     ⚠ And the SPIR-V it emits for that is a module <c>spirv-val</c> accepts.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The case above proved nothing about the module.</b> <c>GenerateClean</c> asks the
+    ///         backend for diagnostics and stops there; a binary format gives no other signal, and a
+    ///         listing that reads plausibly can still be a module no driver would load. So the
+    ///         <c>spirv</c> half of it was green over an <em>illegal</em> module for as long as it
+    ///         existed.
+    ///     </para>
+    ///     <para>
+    ///         What was wrong: <c>SpirvEmitter</c>'s opaque-parameter arm listed <c>IrTextureType</c>,
+    ///         <c>IrSamplerType</c>, <c>IrAccelerationStructureType</c> and the two comparison types
+    ///         and <em>not</em> <c>IrStorageImageType</c>, so a storage-image parameter fell through
+    ///         to the ordinary path and was given an <c>OpVariable</c> in <c>Function</c> storage —
+    ///         which is what the arm's own comment says cannot be done. ⚠ A missing arm in a type
+    ///         pattern does not fail to build; it silently never matches, and this one had a
+    ///         same-shaped list in <c>GlslEmitter</c> two directories away that did include it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_image_passed_to_a_function_emits_a_module_the_validator_accepts() =>
+        SpirvTestBase.One(
+            """
+            package A
+
+            shader S {
+                [Format("rgba16f")] var target: RWTexture2D<float4>
+
+                func Clear([Format("rgba16f")] image: RWTexture2D<float4>, at: int2) {
+                    image.Store(at, float4(0, 0, 0, 1))
+                }
+
+                [ComputeShader(8, 8)]
+                func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+                    Clear(target, int2(int(id.x), int(id.y)))
+                }
+            }
+
+            """
+        );
+
     [Fact]
     public void An_image_is_still_not_assignable_as_a_whole() {
         Assert.Contains(

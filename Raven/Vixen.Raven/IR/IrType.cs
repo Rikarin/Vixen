@@ -85,6 +85,35 @@ public abstract class IrType {
     /// <summary>Whether this scalar is 64 bits wide: eight bytes of layout, and a capability.</summary>
     public bool Is64Bit => Kind is IrTypeKind.Int64 or IrTypeKind.UInt64 or IrTypeKind.Double;
 
+    /// <summary>
+    ///     A handle to something the driver owns — an image, a sampler, an acceleration structure.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What every opaque type has in common is what a backend needs to know:</b> it has no
+    ///         value representation, so it cannot be copied, cannot be assigned, and cannot live in
+    ///         function storage. Both emitters keep a list of these kinds for exactly that reason,
+    ///         and ⚠ the lists had already drifted: <c>SpirvEmitter</c>'s opaque-parameter arm was
+    ///         missing <c>StorageImage</c>, so a <c>func</c> taking an <c>RWTexture2D</c> emitted an
+    ///         <c>OpVariable</c> of <c>OpTypeImage</c> in <c>Function</c> storage — a module
+    ///         <c>spirv-val</c> refuses — while <c>GlslEmitter</c>'s same-shaped list two directories
+    ///         away included it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A missing arm in a type pattern does not fail to build; it silently never matches.
+    ///         So the list lives here, once, and a new opaque kind is added to the enum and to this
+    ///         property rather than remembered in two places — which is how <c>DepthTexture2D</c>
+    ///         nearly shipped as <c>texture2D _0 = shadowMap;</c>, rejected by every GLSL front end.
+    ///     </para>
+    /// </remarks>
+    public bool IsOpaque =>
+        Kind is IrTypeKind.Texture
+            or IrTypeKind.Sampler
+            or IrTypeKind.StorageImage
+            or IrTypeKind.AccelerationStructure
+            or IrTypeKind.DepthTexture
+            or IrTypeKind.ComparisonSampler;
+
     /// <summary>Scalar, vector or matrix — the types arithmetic applies to.</summary>
     public bool IsNumeric =>
         (IsScalar && Kind != IrTypeKind.Bool)
