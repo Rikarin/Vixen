@@ -274,6 +274,7 @@ struct DistanceField {
 /// slot is resolved at compile time with no dispatch, so a pass that traces is written once and a
 /// project that has no clipmap fills the slot with something that answers "nothing is near" — no
 /// permutation in the pass, no branch, and no bindings it does not use.
+///
 /// The marches are on the protocol rather than left to the pass, and that is the load-bearing choice.
 /// Every one of them is written in terms of `SampleField` and nothing else, so a pass *could* implement
 /// them — and then every pass that traces would carry its own copy of a loop whose step scale, threshold
@@ -329,6 +330,7 @@ shader GlobalDistanceField : IDistanceFieldSource {
     /// compiler surfaces a pass's own permutations and not those of the shaders composed into it, so
     /// nothing outside this file can set it — and a clipmap built with a different level count would
     /// bind the wrong number of descriptors, which nothing currently catches.
+    ///
     /// `DistanceFieldDeviceTests.OnlyThePassesOwnPermutationsAreSelectable` asserts that, so it fails
     /// the day it stops being true.
     [Permutation] val LevelCount: int = 4
