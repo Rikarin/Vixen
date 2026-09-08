@@ -94,6 +94,31 @@ public ref struct BitReader {
         return read;
     }
 
+    /// <summary>Reads a whole 64-bit value written as two 32-bit halves.</summary>
+    /// <param name="value">The value, or zero.</param>
+    /// <returns>Whether both halves were there.</returns>
+    public bool TryReadUInt64(out ulong value) {
+        value = 0;
+
+        if (!TryRead(32, out var low) || !TryRead(32, out var high)) {
+            return false;
+        }
+
+        value = ((ulong)high << 32) | low;
+
+        return true;
+    }
+
+    /// <summary>Reads a whole 64-bit signed value.</summary>
+    /// <param name="value">The value, or zero.</param>
+    /// <returns>Whether it was there.</returns>
+    public bool TryReadInt64(out long value) {
+        var read = TryReadUInt64(out var raw);
+        value = (long)raw;
+
+        return read;
+    }
+
     /// <summary>Reads a float written by its bits.</summary>
     /// <param name="value">The value, or zero.</param>
     /// <returns>Whether it was there.</returns>

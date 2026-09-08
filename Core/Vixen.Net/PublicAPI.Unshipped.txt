@@ -116,9 +116,11 @@ Vixen.Net.Messaging.BitReader.TryReadBitsOver(int count) -> bool
 Vixen.Net.Messaging.BitReader.TryReadBool(out bool value) -> bool
 Vixen.Net.Messaging.BitReader.TryReadBytes(int count, out System.ReadOnlySpan<byte> bytes) -> bool
 Vixen.Net.Messaging.BitReader.TryReadInt32(out int value) -> bool
+Vixen.Net.Messaging.BitReader.TryReadInt64(out long value) -> bool
 Vixen.Net.Messaging.BitReader.TryReadQuantized(in Vixen.Net.Messaging.QuantizeRange range, out float value) -> bool
 Vixen.Net.Messaging.BitReader.TryReadSingle(out float value) -> bool
 Vixen.Net.Messaging.BitReader.TryReadUInt32(out uint value) -> bool
+Vixen.Net.Messaging.BitReader.TryReadUInt64(out ulong value) -> bool
 Vixen.Net.Messaging.BitReader.TryReadVariable(out uint value) -> bool
 Vixen.Net.Messaging.BitWriter -> ref struct
 Vixen.Net.Messaging.BitWriter.Align() -> void
@@ -130,9 +132,11 @@ Vixen.Net.Messaging.BitWriter.WriteBitsFrom(System.ReadOnlySpan<byte> source, in
 Vixen.Net.Messaging.BitWriter.WriteBool(bool value) -> void
 Vixen.Net.Messaging.BitWriter.WriteBytes(System.ReadOnlySpan<byte> bytes) -> void
 Vixen.Net.Messaging.BitWriter.WriteInt32(int value) -> void
+Vixen.Net.Messaging.BitWriter.WriteInt64(long value) -> void
 Vixen.Net.Messaging.BitWriter.WriteQuantized(float value, in Vixen.Net.Messaging.QuantizeRange range) -> void
 Vixen.Net.Messaging.BitWriter.WriteSingle(float value) -> void
 Vixen.Net.Messaging.BitWriter.WriteUInt32(uint value) -> void
+Vixen.Net.Messaging.BitWriter.WriteUInt64(ulong value) -> void
 Vixen.Net.Messaging.BitWriter.WriteVariable(uint value) -> void
 Vixen.Net.Messaging.BroadcastLimits -> sealed record
 Vixen.Net.Messaging.BroadcastLimits : System.IEquatable<Vixen.Net.Messaging.BroadcastLimits>

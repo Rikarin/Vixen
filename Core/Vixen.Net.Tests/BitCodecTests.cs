@@ -176,6 +176,71 @@ public sealed class BitCodecTests {
     }
 
     [Fact]
+    public void A64BitValueIsTwoHalvesWithTheLowOneFirst() {
+        Span<byte> buffer = stackalloc byte[16];
+        var writer = new BitWriter(buffer);
+
+        writer.WriteUInt64(0x0123_4567_89AB_CDEFul);
+
+        Assert.Equal(64, writer.BitsWritten);
+        Assert.True(writer.TryFinish(out var packet));
+
+        // Low half first, and each half low-to-high within its bytes, which is what the rest of this
+        // writer does. Stated as bytes rather than derived, because the order is the wire format:
+        // two peers that disagree about it read every id backwards and nothing throws.
+        Assert.Equal([0xEF, 0xCD, 0xAB, 0x89, 0x67, 0x45, 0x23, 0x01], packet.ToArray());
+
+        var reader = new BitReader(packet);
+
+        Assert.True(reader.TryReadUInt64(out var read));
+        Assert.Equal(0x0123_4567_89AB_CDEFul, read);
+    }
+
+    [Theory]
+    [InlineData(0ul)]
+    [InlineData(1ul)]
+    [InlineData(0xFFFF_FFFFul)]
+    [InlineData(0x1_0000_0000ul)]
+    [InlineData(ulong.MaxValue)]
+    public void A64BitValueRoundTripsOffAByteBoundary(ulong value) {
+        // Three bits and two sixty-four bit fields is 131, which sixteen bytes is not.
+        Span<byte> buffer = stackalloc byte[24];
+        var writer = new BitWriter(buffer);
+
+        writer.Write(1, 3); // knock it off the byte boundary first
+        writer.WriteUInt64(value);
+        writer.WriteInt64(unchecked((long)value));
+
+        Assert.True(writer.TryFinish(out var packet));
+
+        var reader = new BitReader(packet);
+
+        Assert.True(reader.TryRead(3, out _));
+        Assert.True(reader.TryReadUInt64(out var unsigned));
+        Assert.True(reader.TryReadInt64(out var signed));
+        Assert.Equal(value, unsigned);
+        Assert.Equal(unchecked((long)value), signed);
+    }
+
+    [Fact]
+    public void A64BitValueWithOnlyItsFirstHalfPresent_Fails() {
+        // The half a truncated packet does contain must not read back as a whole value. Thirty-two
+        // bits of room and a sixty-four bit field: the first Write fits, the second does not.
+        Span<byte> buffer = stackalloc byte[4];
+        var writer = new BitWriter(buffer);
+
+        writer.WriteUInt64(ulong.MaxValue);
+
+        Assert.True(writer.Overflowed);
+
+        var reader = new BitReader(stackalloc byte[4] { 0xFF, 0xFF, 0xFF, 0xFF });
+
+        Assert.False(reader.TryReadUInt64(out var value));
+        Assert.Equal(0ul, value);
+        Assert.True(reader.Failed);
+    }
+
+    [Fact]
     public void AQuantizedValueComesBackWithinItsStatedError() {
         var range = new QuantizeRange(-1000f, 1000f, 16);
         var random = new DeterministicRandom(1234);

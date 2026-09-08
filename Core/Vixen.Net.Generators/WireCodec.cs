@@ -16,6 +16,8 @@ enum WireKind {
     UInt16,
     Int32,
     UInt32,
+    Int64,
+    UInt64,
     Single,
     QuantizedSingle,
     Vector3,
@@ -59,6 +61,8 @@ static class WireCodec {
             SpecialType.System_UInt16 => WireKind.UInt16,
             SpecialType.System_Int32 => WireKind.Int32,
             SpecialType.System_UInt32 => WireKind.UInt32,
+            SpecialType.System_Int64 => WireKind.Int64,
+            SpecialType.System_UInt64 => WireKind.UInt64,
             SpecialType.System_Single => quantized ? WireKind.QuantizedSingle : WireKind.Single,
             _ => WireKind.Unsupported
         };
@@ -87,24 +91,33 @@ static class WireCodec {
     /// <summary>The statement that writes a value.</summary>
     /// <param name="value">The value.</param>
     /// <param name="expression">The C# that reads it.</param>
+    /// <param name="writer">What the <c>BitWriter</c> in scope is called.</param>
     /// <returns>The statement.</returns>
-    public static string Write(in WireValue value, string expression) =>
+    /// <remarks>
+    ///     ⚠ The stream's name is a parameter because an RPC sender's own locals share a scope with
+    ///     the handler's argument names, and a handler is entitled to call an argument
+    ///     <c>writer</c>. The replication generator writes into a parameter of its own and passes
+    ///     nothing.
+    /// </remarks>
+    public static string Write(in WireValue value, string expression, string writer = "writer") =>
         value.Kind switch {
-            WireKind.QuantizedSingle => $"writer.WriteQuantized({expression}, {value.RangeName});",
+            WireKind.QuantizedSingle => $"{writer}.WriteQuantized({expression}, {value.RangeName});",
             // Called statically rather than as extension methods: generated code qualifies
             // everything, and an extension call cannot be qualified at the receiver — it would
             // depend on a `using` that the file has no other reason to carry.
-            WireKind.QuantizedVector3 => $"{Codec}.WriteVector3(ref writer, {expression}, {value.RangeName});",
-            WireKind.Vector3 => $"{Codec}.WriteVector3(ref writer, {expression});",
-            WireKind.Rotation => $"{Codec}.WriteRotation(ref writer, {expression});",
-            WireKind.Single => $"writer.WriteSingle({expression});",
-            WireKind.Boolean => $"writer.WriteBool({expression});",
-            WireKind.Byte => $"writer.Write({expression}, 8);",
-            WireKind.SByte => $"writer.Write((uint)(byte){expression}, 8);",
-            WireKind.Int16 => $"writer.Write((uint)(ushort){expression}, 16);",
-            WireKind.UInt16 => $"writer.Write({expression}, 16);",
-            WireKind.Int32 => $"writer.WriteInt32({expression});",
-            _ => $"writer.WriteUInt32({expression});"
+            WireKind.QuantizedVector3 => $"{Codec}.WriteVector3(ref {writer}, {expression}, {value.RangeName});",
+            WireKind.Vector3 => $"{Codec}.WriteVector3(ref {writer}, {expression});",
+            WireKind.Rotation => $"{Codec}.WriteRotation(ref {writer}, {expression});",
+            WireKind.Single => $"{writer}.WriteSingle({expression});",
+            WireKind.Boolean => $"{writer}.WriteBool({expression});",
+            WireKind.Byte => $"{writer}.Write({expression}, 8);",
+            WireKind.SByte => $"{writer}.Write((uint)(byte){expression}, 8);",
+            WireKind.Int16 => $"{writer}.Write((uint)(ushort){expression}, 16);",
+            WireKind.UInt16 => $"{writer}.Write({expression}, 16);",
+            WireKind.Int32 => $"{writer}.WriteInt32({expression});",
+            WireKind.Int64 => $"{writer}.WriteInt64({expression});",
+            WireKind.UInt64 => $"{writer}.WriteUInt64({expression});",
+            _ => $"{writer}.WriteUInt32({expression});"
         };
 
     /// <summary>The condition that reads a value into a local.</summary>
@@ -122,6 +135,8 @@ static class WireCodec {
             WireKind.Byte or WireKind.SByte => $"reader.TryRead(8, out var {local})",
             WireKind.Int16 or WireKind.UInt16 => $"reader.TryRead(16, out var {local})",
             WireKind.Int32 => $"reader.TryReadInt32(out var {local})",
+            WireKind.Int64 => $"reader.TryReadInt64(out var {local})",
+            WireKind.UInt64 => $"reader.TryReadUInt64(out var {local})",
             _ => $"reader.TryReadUInt32(out var {local})"
         };
 
@@ -176,6 +191,16 @@ static class WireCodec {
 
             case WireKind.Int32 or WireKind.UInt32:
                 lanes.Add(Lane(value.Name, 32, offset: true));
+
+                return true;
+
+            // Two lanes, in the order WriteUInt64 writes them, because a lane is read into a uint
+            // and there is no such thing as a 64-bit one. Which is the better answer anyway: an id
+            // that never changes costs one bit for its high half and one for its low, and a counter
+            // that advances leaves the high half alone.
+            case WireKind.Int64 or WireKind.UInt64:
+                lanes.Add(Lane($"{value.Name}.Low", 32, offset: true));
+                lanes.Add(Lane($"{value.Name}.High", 32, offset: true));
 
                 return true;
 

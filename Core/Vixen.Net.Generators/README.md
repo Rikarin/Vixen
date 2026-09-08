@@ -66,9 +66,46 @@ table is sorted by hashed id at build time, so two builds number the calls the s
 agree on declaration order — and a peer that has not been rebuilt fails the manifest hash at the
 handshake rather than routing an old index to a new handler.
 
+⚠ **Every local a sender introduces is prefixed `__`, and that is not style.** The sender used to
+read `target.NetworkId` off a primary-constructor parameter called `target`, so a handler with an
+argument of that name — `Claim(ulong shooter, ulong target, long at)`, the obvious spelling of doc
+28's hit claim — resolved it against the argument and failed to compile *inside generated code the
+author cannot open*, with a message that never mentions the parameter. `router`, `method` and
+`writer` were the same. Found while adding the 64-bit kind, because the motivating call is exactly
+the one that collides.
+
 A handler may take an `in RpcContext` as its first parameter. It is not read from the wire; the router
 fills it in from the connection the bytes arrived on, which is the difference between knowing who
 called and asking them.
+
+## What may cross the wire
+
+`WireCodec` is the one table, shared by both generators: `bool`, `byte`, `sbyte`, `short`, `ushort`,
+`int`, `uint`, `long`, `ulong`, `float`, `Vector3` and `Quaternion`. Anything else is `VXNET1001` on a
+replicated field and `VXNET2001` on an RPC argument.
+
+⚠ **`long` and `ulong` are recent, and their absence read as a rule rather than a gap** (#514). The
+message a caller got was "cannot be put on the wire", which is what a `string` gets — so a hit-claim
+message identifying players the width `Vixen.Gameplay.PlayerId` is could not be an `[ServerRpc]`, and
+nothing said the codec simply had no 64-bit kind.
+
+**Fixed width, as two 32-bit halves with the low one first, and not a varint.** A varint costs one
+byte for a small number and ten for a large one, and what a game puts in a `ulong` is an account id,
+a snowflake or a hash — the large case, every time; making the documented use 80 bits to save 56 on a
+case that does not arise is the wrong trade. The halves are also what makes it cheap where it
+matters: they are two `WireLane`s, so an id that does not move costs two bits a tick through
+`DeltaCodec`, which no single 64-bit lane could do — a lane is read into a `uint`.
+
+`double` is still refused, and deliberately: the engine's mathematics is `float` throughout,
+`[Quantize]` has nothing to say about a double, and eight bytes of one is what a float and a declared
+range do in two.
+
+⚠ **The two `PlayerId` types are not a duplication and reconciling them would be wrong.**
+`Vixen.Net.Sessions.PlayerId` (`uint`) is who is holding a session — minted by the session, dense,
+and meaningful only for as long as the server is up. `Vixen.Gameplay.PlayerId` (`ulong`) is who
+somebody *is* — a database row or an account hash a game mints and this engine never does. A game
+maps one to the other; merging them would either make a session number persistent or make an account
+id fit in 32 bits.
 
 ## Diagnostics
 
