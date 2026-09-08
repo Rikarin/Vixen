@@ -561,12 +561,17 @@ public partial class SharedUiShaderTests {
         // the same failure the per-file anchor below is about one level up.
         Assert.NotEqual(0, Code(body!).Trim().Length);
 
-        // ⚠ <b>And the per-file anchor is that the file was READ, not that it held a number.</b>
-        // `ui-image.frag` samples a texture and holds no arithmetic constant at all once the
-        // `layout(…)` qualifiers are dropped, so an empty set is its right answer and is trivially
-        // contained — while an empty set arrived at by an extractor that stopped working is the
+        // ⚠ <b>And the per-file anchor is that the file was READ, not that it held a number.</b> An
+        // empty set is contained in everything, so a shader that genuinely holds no arithmetic
+        // constant and an extractor that has stopped working produce the same green — the
         // "comparator that called three empty manifests identical" this repository has shipped once.
         // What separates the two is whether there was any code to read.
+        //
+        // ⚠ `ui-image.frag` was the example this remark named, and it stopped being one: #611's
+        // channel isolate and colour-space decode gave it sRGB's five and the four channel indices,
+        // so the file that was cited as holding nothing now holds ten numbers and this comparison is
+        // load-bearing for it. The anchor stays because the argument does not depend on which file
+        // is currently empty — see #1016, which is where the stale sentence was noticed.
         Assert.NotEqual(0, Code(text).Trim().Length);
 
         // ⚠ Almost unconditional, and the exceptions are respellings and not tolerances. The

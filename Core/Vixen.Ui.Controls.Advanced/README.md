@@ -454,10 +454,31 @@ pixels, because an island outline is a label on the picture rather than part of 
 
 ⚠ **The overlay still has no production caller, and the control itself now does.** The texture
 graph's panel builds an `ImageView` — `TextureGraphPanelTests` calls itself its first production
-caller — and the paint view is the second. What nothing yet drives is the *toggles*: no panel binds
-`Channels` or `ColorSpace` to a control an artist can reach, so the picker works and there is
-nowhere to click it. That is stated here rather than discovered, because a finished thing nothing
-calls is this repository's commonest defect and #611 closed only the half below the panel.
+caller — and the paint view is the second.
+
+**`ImageViewBar` is the strip that offers the toggles**, and it exists because
+[#1012](https://github.com/Rikarin/Vixen/issues/1012) found the picker working and unreachable: a
+sweep of `.cs` *and* `.vxml` named `ImageChannels` and `ImageColorSpace` nowhere outside the control
+and its tests. Five segments for the channel and two for the transfer function — two questions, not
+one seven-way picker, because "the alpha, as stored" needs both answers at once and it is the
+request a texturing tool is actually asked for.
+
+⚠ **Assigning `View` adopts what the viewer already holds rather than imposing the strip's first
+segment.** A pane restored from a saved layout carries the author's last choice, and a strip that
+pushed `Rgb`/`Srgb` on attachment would discard it — the "a mechanism whose caller passes the
+default" failure, arriving the moment a panel adopts the control rather than at the line that
+introduced it.
+
+⚠ **`ImageViewBarTests` reads the *draw command's* `View` and never the property back**, which is
+what #1012 asked to be insisted on: the two are the same assertion only until somebody stops passing
+`view:` at the `DrawImage` call, and the property read-back stays green through that whole
+regression. Sabotaged exactly that way, four of its five cases go red.
+
+⚠ **What is still owed is three lines in `Vixen.Editor.Texturing`.** `TextureGraphView.Preview`,
+`LayerStackView.Preview` and `PaintUvView` each build an `ImageView` and none builds a bar beside it,
+so the toggles are reachable from a control library and not yet from the editor. Stated here rather
+than left to be discovered, because a finished thing nothing calls is this repository's commonest
+defect and #611 closed only the half below the panel.
 
 ### Timeline
 

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
-using System.Globalization;
 
 namespace Vixen.Editor.TextureGraph;
 
@@ -111,46 +110,6 @@ static class TextureFilters {
         Warp,
         DirectionalWarp
     ];
-
-    /// <summary>
-    ///     What each looping kernel's own ceiling is, in the texels of the image it writes.
-    /// </summary>
-    /// <remarks>
-    ///     <para>
-    ///         ⚠ <b>These are the constants in the <c>.rvn</c> files, and a plan past one of them is
-    ///         silently clamped by the kernel.</b> The ceilings exist for a reason no artist can see
-    ///         — a radius arriving as a NaN is a loop no invocation leaves, which on a GPU is a
-    ///         device loss rather than a slow bake — but a silent clamp is
-    ///         <see href="https://github.com/Rikarin/Vixen/issues/678">#678</see>: a graph that fits
-    ///         at the resolution it was authored at stops being the same material at four times the
-    ///         size, because <c>TexturePlan.Resolve</c> has multiplied the radius by four and the
-    ///         kernel has quietly put it back.
-    ///     </para>
-    ///     <para>
-    ///         <b><see cref="Verify" /> is the refusal that replaces the silence</b>, and it is the
-    ///         only place that can be: a shader cannot raise, and <c>TexturePlan.Validate</c> knows
-    ///         nothing about what a kernel's loop bound is. It is the
-    ///         <see href="https://github.com/Rikarin/Vixen/issues/692">#692</see> table, built here
-    ///         rather than on the plan because this batch does not own <c>TexturePlan.cs</c>.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b><c>Blur</c> is deliberately not in this table, and the reason is the more
-    ///         interesting half of #678's answer.</b> That kernel's constant is a budget on the
-    ///         number of <em>taps</em> rather than a ceiling on the width: past it the same width is
-    ///         covered by the same number of taps spaced further apart, so the box thins rather than
-    ///         narrowing and the width the plan resolved is always the width the picture has. There
-    ///         is nothing to report, because nothing is clipped. The five entries below are the
-    ///         kernels that do clip — and a future slice that gives one of them a tap budget should
-    ///         take its line out of here rather than raise the number.
-    ///     </para>
-    /// </remarks>
-    static readonly ImmutableDictionary<(string Kernel, string Parameter), float> Ceilings =
-        new Dictionary<(string, string), float> {
-            [(BlurHq, "sigma")] = 64f / 3f,
-            [(DirectionalBlur, "length")] = 64f,
-            [(NonUniformBlur, "maxRadius")] = 12f,
-            [(Sharpen, "radius")] = 8f
-        }.ToImmutableDictionary();
 
     /// <summary>A gaussian blur along one axis.</summary>
     /// <param name="output">The image to write.</param>
@@ -344,62 +303,19 @@ static class TextureFilters {
         };
 
     /// <summary>
-    ///     Every op in a plan whose resolved radius is past the kernel's own loop ceiling.
+    ///     Every op in a plan whose resolved length is past the kernel's own loop ceiling.
     /// </summary>
     /// <param name="plan">The plan to walk.</param>
     /// <returns>One line per offending op, empty when there is nothing to say.</returns>
     /// <remarks>
-    ///     <para>
-    ///         ⚠ <b><see href="https://github.com/Rikarin/Vixen/issues/678">#678</see>, and the
-    ///         reason it needs a walk of its own rather than a line in <c>TexturePlan.Validate</c>.
-    ///         </b> A kernel that clamps its radius to a constant breaks doc 48 § D8's invariant at a
-    ///         large bake: 20 texels at a 1K base is 80 at a 4K bake, and a ceiling of 64 quietly
-    ///         gives back a 64-texel blur — the same graph, a different material, and no message
-    ///         anywhere. The number that has to be checked is therefore the <em>resolved</em> one,
-    ///         which depends on <see cref="TexturePlan.BakeLevelOffset" /> and on the image the op
-    ///         writes. Neither the plan nor the kernel knows both halves; this does.
-    ///     </para>
-    ///     <para>
-    ///         <b>It reports rather than throws</b>, matching <c>TexturePlan.Validate</c>'s shape, so
-    ///         a caller can put the lines in front of an artist beside the resolution they chose —
-    ///         which is the decision that actually caused it.
-    ///     </para>
+    ///     ⚠ <b>The table this walks is no longer here, and the move is
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1011">#1011</a>.</b> A kernel's loop bound
+    ///     is not a property of the Filters family: <c>Curvature</c>, <c>HeightToNormal</c> and
+    ///     <c>EdgeDetect</c> clip the same way and were outside a table that lived on this class only
+    ///     because <a href="https://github.com/Rikarin/Vixen/issues/678">#678</a>'s batch did not own
+    ///     <c>TexturePlan.cs</c>. <see cref="TextureKernelCeilings" /> holds all seven and the sweep
+    ///     that keeps them whole; this stays as the name <c>TexturePlan.Validate</c> and the filter
+    ///     suites already call, because two spellings of one walk is what the move was avoiding.
     /// </remarks>
-    public static ImmutableArray<string> Verify(TexturePlan plan) {
-        ArgumentNullException.ThrowIfNull(plan);
-
-        var problems = ImmutableArray.CreateBuilder<string>();
-
-        for (var index = 0; index < plan.Ops.Length; index++) {
-            var op = plan.Ops[index];
-
-            foreach (var ((kernel, parameter), ceiling) in Ceilings) {
-                if (!string.Equals(op.Kernel, kernel, StringComparison.Ordinal)) {
-                    continue;
-                }
-
-                if (op.Find(parameter) is not { } authored) {
-                    continue;
-                }
-
-                var resolved = plan.Resolve(index, authored);
-
-                if (resolved <= ceiling) {
-                    continue;
-                }
-
-                problems.Add(
-                    string.Create(
-                        CultureInfo.InvariantCulture,
-                        $"Op {index} runs '{kernel}' with {parameter} {authored.Value}, which is {resolved} at the "
-                        + $"resolution it writes — past the {ceiling} the kernel loops to. It would be clamped, "
-                        + $"silently, so the graph is a different material at this bake than at the one it was "
-                        + $"authored for. Lower the {parameter} or bake smaller."
-                    )
-                );
-            }
-        }
-
-        return problems.ToImmutable();
-    }
+    public static ImmutableArray<string> Verify(TexturePlan plan) => TextureKernelCeilings.Verify(plan);
 }

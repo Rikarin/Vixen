@@ -24,21 +24,33 @@ enum LayerKind {
 
 /// <summary>How a fill layer's source is put onto the surface.</summary>
 /// <remarks>
-///     ⚠ <b>Modelled, and only <see cref="Uv" /> compiles in this build.</b> Triplanar and planar are
-///     a projection of a <em>world</em> position onto a UV atlas, so they need the position mesh map
-///     § D12 bakes and a node that reads it — which is M8's
-///     <a href="https://github.com/Rikarin/Vixen/issues/573">#573</a>. The field exists here because
-///     a <c>.vxlayers</c> is a file people merge and adding a member to it later rewrites every one
-///     that exists; refusing the two values is a message rather than a silent UV projection.
+///     <para>
+///         <b>All three compile</b> — <a href="https://github.com/Rikarin/Vixen/issues/815">#815</a>.
+///         Triplanar and planar are a projection of a <em>world</em> position onto the UV atlas, so
+///         they need the <c>position</c> and <c>world</c> mesh maps § D12 bakes and a node that reads
+///         them; <c>Space/Triplanar</c> is that node and <c>LayerStackGraph.Project</c> is the
+///         wiring. ⚠ These three members were modelled and two of them refused for two milestones,
+///         which this remark used to say: keeping the enum whole while the compiler said no was what
+///         let them land without rewriting every <c>.vxlayers</c> that exists.
+///     </para>
+///     <para>
+///         ⚠ <b>A projection means something only on a <see cref="LayerKind.Fill" /> that is not a
+///         constant</b>, and <c>LayerStackGraph.Project</c> warns rather than ignoring it anywhere
+///         else: a paint layer's pixels are authored in the atlas, a filter reads whatever is under
+///         it, and a constant is the same colour at every world position.
+///     </para>
 /// </remarks>
 enum LayerProjection {
     /// <summary>The mesh's own UVs — the atlas, one to one.</summary>
     Uv = 0,
 
-    /// <summary>Three planar projections blended by the world normal. M8.</summary>
+    /// <summary>Three planar projections blended by the world normal.</summary>
     Triplanar = 1,
 
-    /// <summary>One planar projection along an axis. M8.</summary>
+    /// <summary>
+    ///     One planar projection along an axis. ⚠ Which axis is not in this file, so the compiler
+    ///     projects down y — <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>.
+    /// </summary>
     Planar = 2
 }
 
@@ -159,10 +171,20 @@ enum LayerMaskSource {
 ///     </para>
 ///     <para>
 ///         <b>So the agreement is derived rather than declared.</b>
-///         <c>LayerBlendModeTests</c> reflects the real enum out of the evaluator assembly and
-///         compares both directions, and a second test compiles one layer per mode and asserts the
-///         compiler reported nothing — because reflection proves the names match and only a
-///         compilation proves the name is the one the node reads.
+///         <c>LayerStackCompileTests</c> reflects the real enum out of the evaluator assembly and
+///         compares both directions, and a second test there compiles one layer per mode and asserts
+///         the compiler reported nothing — because reflection proves the names match and only a
+///         compilation proves the name is the one the node reads. ⚠ This paragraph named a
+///         <c>LayerBlendModeTests</c>, which does not exist and never has: the tests are real and the
+///         class they are in is not the one that was written down.
+///     </para>
+///     <para>
+///         ⚠ <b>A third list is kept beside those two and it records a divergence rather than an
+///         agreement</b> — <c>PaintComposite.Reproduces</c> and <c>PaintComposite.Diverges</c>,
+///         which partition this enum. The live paint composite reproduces exactly <c>Copy</c>, so
+///         what an artist watches under the brush is not what the bake produces for the other
+///         fifteen: <a href="https://github.com/Rikarin/Vixen/issues/849">#849</a>, and the partition
+///         is what stops a seventeenth operator widening that silently.
 ///     </para>
 /// </remarks>
 enum LayerBlendMode {
@@ -443,13 +465,23 @@ sealed record LayerAsset {
     /// <summary>Which adjustment a <see cref="LayerKind.Filter" /> layer applies.</summary>
     public LayerFilterKind Filter { get; init; } = LayerFilterKind.Levels;
 
-    /// <summary>The filter's numbers, by the port name the node declares.</summary>
+    /// <summary>The layer's numbers, by the port name the node declares.</summary>
     /// <remarks>
-    ///     ⚠ <b>By port name rather than as a typed record per filter.</b> Five filters with five
-    ///     records is five more shapes in a file format, and the node the number reaches already
-    ///     names its own ports — so a wrong name is a compiler diagnostic against the node rather
-    ///     than a silently ignored member. <c>LayerStackGraph</c> writes only the ports the chosen
-    ///     filter declares and reports the rest.
+    ///     <para>
+    ///         ⚠ <b>By port name rather than as a typed record per filter.</b> Five filters with
+    ///         five records is five more shapes in a file format, and the node the number reaches
+    ///         already names its own ports — so a wrong name is a compiler diagnostic against the
+    ///         node rather than a silently ignored member. <c>LayerStackGraph</c> writes only the
+    ///         ports the chosen filter declares and reports the rest.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two readers, and this said "the filter's" while a second one arrived</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>. A filter layer's
+    ///         ports are read by <c>LayerStackGraph.Adjustment</c>; a <em>projected</em> layer's
+    ///         <c>Scale</c> and <c>Sharpness</c> are read by <c>LayerStackGraph.Project</c>, on a
+    ///         fill layer, which the old sentence excluded by name. Both warn on a key no port
+    ///         answers to, so the dictionary is still checked rather than open.
+    ///     </para>
     /// </remarks>
     public Dictionary<string, float[]> Settings { get; init; } = [];
 

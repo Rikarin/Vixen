@@ -20,13 +20,25 @@ namespace Vixen.Cli;
 ///         is a fact rather than an intention.
 ///     </para>
 ///     <para>
-///         ⚠ <b>It reads maps from a folder and does not evaluate a graph, and that is a real
-///         limitation rather than a simplification.</b> A <c>.vxtexgraph</c> is M4's document and
-///         does not exist yet; a verb that took one and apologised is what
-///         <see cref="VixenCommand" />'s own header refuses. What this does is the half that is
-///         finished and is independently useful — a build script with a folder of authored or
-///         externally generated maps gets a packed, mipped, compressed, provenanced material out of
-///         it — and the graph arrives as a second way of filling the same dictionary.
+///         ⚠ <b>It reads maps from a folder and does not evaluate a graph, and the reason this file
+///         used to give for that had become a stale claim that argued against fixing it</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1009">#1009</a>. It said a
+///         <c>.vxtexgraph</c> "is M4's document and does not exist yet". It exists:
+///         <c>TextureCompoundLibrary.Extension</c> is that extension, <c>TextureGraphEditorFactory</c>
+///         opens one, and <c>TexturingModule</c>'s <c>Bake Material</c> verb now evaluates one and
+///         writes a material through <see cref="ProjectMaterialBaker" /> — this type's own baker,
+///         called from the editor as a second caller rather than copied.
+///     </para>
+///     <para>
+///         ⚠ <b>What keeps <c>--graph</c> off this verb is a device and not a document.</b>
+///         Evaluating a graph means <c>TexturePlanEvaluator</c>, which dispatches compute on an
+///         <c>IGraphicsDevice</c>; nothing in this CLI creates one, and a command-line bake that
+///         silently produced a black picture on a machine with no adapter is the failure doc 48 § D3
+///         is about. That is a real piece of work with a real decision in it —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1020">#1020</a> — and not a paragraph.
+///         What is here is independently useful without one: a build script with a folder of authored
+///         or externally generated maps gets a packed, mipped, compressed, provenanced material out of
+///         it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The inputs are named by <i>usage</i> and the outputs by <i>file</i>, which are not

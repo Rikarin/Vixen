@@ -29,6 +29,12 @@ public class TexturingModuleTests {
         // second place to forget the fourth.
         Assert.NotNull(fixture.Shell.Commands[TexturingModule.PaintCommand]);
 
+        // ⚠ The fourth verb, on the same list for the reason the third is — #887 — and it is the one
+        // whose absence was doc 48 § M5's whole gap: this module registered two documents, three
+        // panels and three verbs and mentioned a bake nowhere, so a graph could not become a
+        // material by any route a person can take (#1009).
+        Assert.NotNull(fixture.Shell.Commands[TexturingModule.BakeCommand]);
+
         Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.GraphPanel);
         Assert.Contains(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.StackPanel);
 
@@ -76,6 +82,7 @@ public class TexturingModuleTests {
         Assert.Null(fixture.Shell.Commands[TexturingModule.OpenCommand]);
         Assert.Null(fixture.Shell.Commands[TexturingModule.OpenStackCommand]);
         Assert.Null(fixture.Shell.Commands[TexturingModule.PaintCommand]);
+        Assert.Null(fixture.Shell.Commands[TexturingModule.BakeCommand]);
         Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.GraphPanel);
         Assert.DoesNotContain(fixture.Shell.Workspace.Panels, panel => panel.Id == TexturingModule.StackPanel);
         Assert.Empty(fixture.Extensions.All<NewAssetKind>());

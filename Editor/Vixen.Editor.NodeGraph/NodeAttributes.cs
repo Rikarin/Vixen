@@ -165,6 +165,43 @@ public sealed class SettingAttribute : Attribute {
 #pragma warning disable CA1819 // Properties should not return arrays: an attribute argument can be no other shape.
     public string[] Accepted { get; init; } = [];
 #pragma warning restore CA1819
+
+    /// <summary>The enum whose member names are every value this setting may hold.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The declaration that costs nothing to keep in step, and
+    ///         <see cref="Accepted" /> is the one that does.</b> Twenty-three settings in the texture
+    ///         graph name one member of a real C# enum, and every one of them is read back by
+    ///         <c>TextureSettings.Enum&lt;T&gt;</c>, whose refusal enumerates <c>Enum.GetNames</c>.
+    ///         Writing those names again in an attribute argument is a second transcription of a set
+    ///         the compiler already holds — and the failure it invites is silent in the direction
+    ///         nobody looks: a member added to the enum is a value the picker cannot reach, which is
+    ///         worse than the text box it replaced, because the text box could.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read at generation time, so the list in the definition is the enum's.</b> The
+    ///         generator enumerates the type's members off the symbol; there is no reflection at
+    ///         runtime and no list to maintain. Adding a member to the enum adds an option to every
+    ///         picker over it, with no edit anywhere else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Declaration order, which is <em>not</em> what
+    ///         <see cref="System.Enum.GetNames{T}()" /> answers.</b> That method sorts by the
+    ///         underlying value read as unsigned, so <c>TextureResampleSize</c> — written
+    ///         <c>Quadruple = -2</c> through <c>Quarter = 2</c>, largest picture first — comes back
+    ///         from it as <c>Same, Half, Quarter, Quadruple, Double</c>. The refusal a setting is
+    ///         read back by prints that; a picker offers the order somebody wrote. So the offered
+    ///         list and the refused list are the same <em>set</em>, and that is what holds them
+    ///         together.
+    ///     </para>
+    ///     <para>
+    ///         <b>Exclusive with <see cref="Accepted" />.</b> A setting whose legal names are not a
+    ///         CLR type — a menu path, a bake's own vocabulary — states them literally; one whose
+    ///         names are an enum's names states the enum. Stating both is a declaration that
+    ///         disagrees with itself and the generator refuses it.
+    ///     </para>
+    /// </remarks>
+    public Type? AcceptedFrom { get; init; }
 }
 
 /// <summary>Marks a field as an output port.</summary>

@@ -35,7 +35,14 @@ struct ComputeColor {
         return lerp(multiply, screen, step(float3(0.5f), under))
     }
 
-    /// Overlay with the operands swapped, which is what "soft light" means in most tools.
+    /// Photoshop's soft light: the darkening half is a quadratic, the lightening half reaches for
+    /// `sqrt(under)` rather than the W3C's cubic, and the two differ visibly on a dark backdrop.
+    ///
+    /// ⚠ This summary read "overlay with the operands swapped" for the whole of this file's history,
+    /// which is what `HardLight` below *is* — one line down, spelled `Overlay(over, under)`. The
+    /// body here has never been that, so the sentence described the next function. Nothing in this
+    /// repository can see a doc comment stapled to the wrong member in a `.rvn`: `CheckDocComments`
+    /// parses C#.
     static func SoftLight(under: float3, over: float3): float3 {
         val darken = under - (1f - 2f * over) * under * (1f - under)
         val lighten = under + (2f * over - 1f) * (sqrt(max(under, float3(0f))) - under)

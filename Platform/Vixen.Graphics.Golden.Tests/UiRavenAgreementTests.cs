@@ -300,6 +300,123 @@ public sealed class UiRavenAgreementTests {
     }
 
     /// <summary>
+    ///     The channel isolate and the colour-space decode, drawn through both sources and compared.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>#611's two new branches had never executed in the module every application draws
+    ///         with — <a href="https://github.com/Rikarin/Vixen/issues/1016">#1016</a>.</b>
+    ///         <see cref="UiImageViewTests" /> proves them against arithmetic worked out on paper and
+    ///         binds <c>Shaders/ui-image.frag.spv</c> to do it, which is this suite's hand-written
+    ///         GLSL twin; production binds <c>Ui.rvn</c>'s <c>UiImage</c> through
+    ///         <see cref="UiShaderLibrary.Load" />. Two copies agreeing is the entire reason for
+    ///         having both, and a proof that only ever runs one of them cannot see them disagree.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The compositing case binds <c>Image</c> and still does not reach this.</b> A
+    ///         group's composite draw carries a default <see cref="UiImageView" /> — no isolate, no
+    ///         decode — so it runs the stage down the branch it took before #611 existed. What
+    ///         separates the two fixtures is the <em>views</em>, which is why they are asserted below
+    ///         rather than assumed: a frame whose commands all carried <c>default</c> would compare
+    ///         two identical unswizzled pictures and pass.
+    ///     </para>
+    ///     <para>
+    ///         <b>The frame is <see cref="UiImageViewTests" />' own</b>, for the reason the other two
+    ///         cases borrow theirs: five quads over one texture whose four bytes are four different
+    ///         numbers, so an isolate that read the wrong component is a different picture rather
+    ///         than the same one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheGlslCopyAndTheRavenIsolateTheSameChannels() {
+        if (!TryOpen(out var opened, out _)) {
+            return;
+        }
+
+        using var owned = opened!;
+
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var geometry = new UiGeometryBuilder().Build(UiImageViewTests.Frame(), cache, Viewport);
+
+        // ⚠ The instrument. Without a view that asks for something, both arms run the pre-#611 path
+        // and agree about a picture neither of the new branches produced — which is exactly the state
+        // #1016 describes and is indistinguishable from a pass.
+        Assert.Contains(UiImageViewTests.Views(), entry => entry.View.Channel != UiImageChannel.All);
+        Assert.Contains(UiImageViewTests.Views(), entry => entry.View.ShowStoredValues);
+        Assert.NotEmpty(geometry.Draws);
+
+        var glsl = new UiShaders(
+            owned.Shader("ui.vert.spv", ShaderStage.Vertex),
+            owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+            owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+            owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+        ) {
+            Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment)
+        };
+
+        var raven = UiShaderLibrary.Load(owned.Device);
+
+        owned.Owns(() => Destroy(owned, raven));
+
+        var sampled = owned.Sampled("ui view agreement", 1, UiImageViewTests.Texel);
+
+        var one = Declare(owned, geometry, glsl, "ui-raven-view-glsl");
+        var two = Declare(owned, geometry, raven, "ui-raven-view-rvn");
+
+        // ⚠ Registered on both, and the id is the draw list's rather than a second constant. A
+        // renderer that was never told about the texture draws nothing where the quads are — on both
+        // arms, identically, which a differential cannot report.
+        one.Renderer.RegisterImage(UiImageViewTests.Registered, sampled.View);
+        two.Renderer.RegisterImage(UiImageViewTests.Registered, sampled.View);
+
+        // The staging copy is on the first frame only: the texture keeps its contents across the
+        // second run of the graph, and a second copy would need the state transitioned back.
+        var copied = false;
+
+        void Frame(ICommandList commands) {
+            one.Renderer.Upload(commands, geometry, cache.Atlas);
+            two.Renderer.Upload(commands, geometry, cache.Atlas);
+
+            if (copied) {
+                return;
+            }
+
+            copied = true;
+
+            commands.Barrier(
+                new([], [new(sampled.Texture, ResourceState.Undefined, ResourceState.CopyDestination)])
+            );
+
+            commands.CopyBufferToTexture(sampled.Staging, 0, new(sampled.Texture), new(1, 1, 1));
+
+            commands.Barrier(
+                new([], [new(sampled.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)])
+            );
+        }
+
+        var copy = owned.Render(one.Target, Frame);
+        var source = owned.Render(two.Target, Frame);
+
+        // ⚠ Per arm, and it is the count that says the image pipeline was bound at all. A table whose
+        // `Image` was null falls back to the box stage, which draws a flat rectangle — and would do so
+        // on both arms.
+        foreach (var renderer in new[] { one.Renderer, two.Renderer }) {
+            Assert.Equal(geometry.Draws.Count, renderer.Draws);
+        }
+
+        var comparison = ImageComparer.Compare(copy, source, Agreement);
+
+        Assert.True(
+            comparison.Matches,
+            "'Shaders/ui-image.frag' and `shader UiImage` in "
+            + "'Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn' isolate a channel or decode a transfer curve "
+            + $"differently, and the shipping applications draw through the second: {comparison}. These "
+            + "are #611's two branches, and until this case existed they had only ever been proved "
+            + "through the copy."
+        );
+    }
+
+    /// <summary>
     ///     The two arms are two different pipelines, which is what stops the comparison above being
     ///     a picture compared with itself.
     /// </summary>

@@ -220,19 +220,19 @@ sealed partial class InvertNode : TextureNode {
 [Node("Colour/Channel Shuffle", Preview = true, Summary = "Each output channel taken from a channel of one of two inputs.")]
 sealed partial class ChannelShuffleNode : TextureNode {
     /// <summary>Where red comes from. One of <see cref="TextureChannelSource" />'s ten names.</summary>
-    [Setting(Name = "Red From")]
+    [Setting(Name = "Red From", AcceptedFrom = typeof(TextureChannelSource))]
     public string SourceR = "FirstRed";
 
     /// <summary>Where green comes from.</summary>
-    [Setting(Name = "Green From")]
+    [Setting(Name = "Green From", AcceptedFrom = typeof(TextureChannelSource))]
     public string SourceG = "FirstGreen";
 
     /// <summary>Where blue comes from.</summary>
-    [Setting(Name = "Blue From")]
+    [Setting(Name = "Blue From", AcceptedFrom = typeof(TextureChannelSource))]
     public string SourceB = "FirstBlue";
 
     /// <summary>Where alpha comes from.</summary>
-    [Setting(Name = "Alpha From")]
+    [Setting(Name = "Alpha From", AcceptedFrom = typeof(TextureChannelSource))]
     public string SourceA = "FirstAlpha";
 
     /// <summary>The image the <c>First…</c> selectors read.</summary>

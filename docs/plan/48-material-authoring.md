@@ -430,6 +430,15 @@ questions have one answer.
 them to agree within a small tolerance. A node that fails that has a resolution bug and no other test
 in this plan would have found it.
 
+⚠ **The tolerance holds for a kernel whose output is band-limited at the lower resolution, and for a
+hard-edged one the comparison is the interior and the covered area instead** —
+[#640](https://github.com/Rikarin/Vixen/issues/640). A zero-falloff disc, a checker and a
+nearest-filtered resample disagree by a full step along every boundary because the 4K bake is
+anti-aliased by the downsample and the 1K one is not; that is the picture and not the kernel. ⚠ **The
+scope is stated rather than the tolerance widened**, because 2/255-except-at-edges would delete the
+bug this criterion exists to catch: an edge is exactly where a radius stored in absolute texels goes
+wrong. See § Exit criteria 2 for the measured table.
+
 ⚠ **Two nodes do not keep this promise, and the plan now says so rather than baking them wrong.** A
 node whose op *count* depends on the baked extent — [4.5](#45-analysis--3-kernels)'s `Distance`
 (`log2(n)` ping-ponged dispatches) and `Flood Fill` (a budget chosen against the mask's size), plus
@@ -661,8 +670,8 @@ Three rules the whole catalogue obeys:
 | **Bitmap** | image | asset, filter, **colour space** | ⚠ An sRGB texture decoded as linear and then blended is the commonest wrong-looking graph there is. The node decodes on the asset's declared space and the port carries it |
 | **Gradient** | image | linear · radial · angular · reflected, angle, centre, ramp | The ramp is `Vixen.Ui.Controls.Advanced`'s `Gradient`, and ⚠ this is **`GradientEditor`'s first production consumer** — `overview.md:270` records that it has none, and a grep confirms it: the control, its tests and a string table |
 | **Shape** | grey | disc · square · triangle · paraboloid · gaussian · cone · half-bell · gradation, scale, rotation, falloff | The splatter's usual pattern input. Analytic rather than rasterised, so it is exact at every resolution — which is half of D8's scale-invariance criterion passing for free |
-| **Noise** | grey **+ cell id** | basis: value · gradient · worley · white; octaves, lacunarity, gain, **seed**, tiling | ⚠ One kernel with a **permutation**, because that is how this engine already varies a shader. Worley also outputs F1, F2 and a **cell index** — which is what a splatter wants and what saves a flood fill downstream |
-| **Checker** | grey | scale, rotation, offset | `ComputeColor.rvn:169` has one already, for the shader graph |
+| **Noise** | grey **+ cell id** | basis: value · gradient · worley · white; octaves, lacunarity, gain, **seed**, tiling | ⚠ One kernel with the basis as a **uniform** and a branch — this row said *permutation* from the day the document was written and [#638](https://github.com/Rikarin/Vixen/issues/638) is where the reversal is argued. A texture-graph plan has nowhere to put a permutation value, so one written here would take its `.rvn` default in every op for ever, silently; and the branch is the better answer anyway, because four bases times three storable formats is twelve modules for a branch every invocation in a bandwidth-bound dispatch takes the same way. `TextureKernelLanguageSeamTests` refuses a `[Permutation]` in any kernel, so the decision is held rather than remembered. Worley also outputs F1, F2 and a **cell index** — which is what a splatter wants and what saves a flood fill downstream |
+| **Checker** | grey | scale, rotation, offset | `ComputeColor.Checker` has one already, for the shader graph — and `Checker.rvn` **transcribes** its fold rather than calling it, for [#635](https://github.com/Rikarin/Vixen/issues/635)'s reason. The copy is held: the gate reads `mod(cell.x + cell.y, 2f)` out of the library and requires the kernel to contain it |
 | **Text** | grey | string, font, size, alignment, tracking | ⚙️ **Half built.** `TextureText.Rasterize` shapes and fills the string through the `Outlines` path and `TextureUploads.AddCoverage` puts it on the device — closed on an adapter, texel for texel, in `TextureTextDeviceTests`. ⚠ **There is still no node, and the reason recorded here has expired.** It said a node cannot allocate an *external* image ([#732](https://github.com/Rikarin/Vixen/issues/732), shared with `Bitmap`, `Gradient`, `Curve` and `Gradient Map`). That closed: `TextureEmitter.External` exists and all four of those nodes were written on it. So `Text` is now simply **unwritten** rather than blocked, which is a smaller and more actionable thing to say — and worth saying, because a row that keeps citing a closed issue is how work stays unclaimed. ⚠ And it is **not** a kernel — [#687](https://github.com/Rikarin/Vixen/issues/687) — because a compute kernel has no rasteriser and cannot reach a font |
 | **Svg Path** | grey | path data (`d`), fill rule, scale | ⛔ **Refused here, and the reason that was written down first is wrong.** See the measurement below |
 
@@ -720,7 +729,7 @@ the stack. [#753](https://github.com/Rikarin/Vixen/issues/753) carries this.
 | **Levels** | in black / white / gamma, out black / white, per channel | |
 | **Curve** | a spline per channel | `CurveEditor` exists and already has consumers — `AnimationClipView`, the AI views |
 | **Gradient Map** | grey → colour through a ramp | The `Gradient` control again |
-| **HSL** | hue rotate, saturation, lightness | `ComputeColor.rvn:78` has the hue rotation |
+| **HSL** | hue rotate, saturation, lightness | `ComputeColor.HueRotate` has the hue rotation, and `Hsl.rvn` **transcribes** it rather than importing it — a kernel binds against nothing but itself ([#635](https://github.com/Rikarin/Vixen/issues/635)). ⚠ It is one of **thirteen** such copies across five kernels, and the other twelve are `Random.rvn`'s hash in `Noise`, `FloodFill`, `Splatter` and `TileSampler`; `TextureKernelLanguageSeamTests` now compares every one against its original and refuses a sixth kernel that copies without being added to the table |
 | **Grayscale Conversion** | weights, default Rec. 709 | ⚠ A weight set that does not sum to one is a brightness change nobody asked for, so the node normalises and says so |
 | **Invert** | per channel | |
 | **Channel Shuffle** | per output channel, a source channel of one of two inputs | |
@@ -943,9 +952,11 @@ behave.** No graph, no UI, no node classes.
 ### M1 — `Vixen.Editor.TextureGraph`: the plan, the evaluator and its shader gate · 1.25 EM
 
 `TexturePlan`, `TextureOp`, the image pool with liveness-based reuse, the dispatcher, the format rules
-(R8 / RG8 / RGBA8 / R16F / RGBA16F), the resolution rules of D8, and the seed.
+(**three storable — RGBA8 / R16F / RGBA16F — and two readable-only, R8 and RG8**), the resolution
+rules of D8, and the seed.
 
-⚠ **Two of those five format rows were wrong and the ban on 32-bit float is narrower than it reads.**
+⚠ **That line listed all five as though a kernel could write any of them, and the ban on 32-bit
+float is narrower than it reads.**
 R8 and RG8 cannot be *written*: `Raven/Vixen.Raven/Symbols/ImageFormats.cs` admits sixteen
 storage-image formats and neither is among them, and Vulkan requires neither for `STORAGE_IMAGE`
 either — so `TextureFormats.IsStorable` admits three, and a plan takes an R8 bitmap **in** and
@@ -993,14 +1004,32 @@ This is the first phase with a picture an artist can use.
 Outputs with usages, channel packing to ORM, mip and block-compression through `Vixen.Core.Imaging`,
 the `.vxmat` write, the scan-then-read-back GUID dance, and the provenance block with its digest check.
 
-⚠ **Every one of those is built and the phase's first exit word is not: a graph does not bake.**
-`new ProjectMaterialBaker` has exactly one caller outside tests — `Tools/Vixen.Cli/TextureRunner.cs` —
-and that verb reads a folder of PNGs and evaluates no graph, while `TexturingModule` registers two
-documents, three panels and three verbs and mentions a bake nowhere. So neither a `.vxtexgraph` nor a
-`.vxlayers` can become a `.vxmat` by any route a person can take
-([#1009](https://github.com/Rikarin/Vixen/issues/1009)). ⚠ **And the verb's own reason for it has
-become a stale claim** — its remarks say "a `.vxtexgraph` is M4's document and does not exist yet",
-which was true when written and now argues against closing the gap.
+⚠ **The phase's first exit word — "a graph bakes" — was the last thing in it to be true, and for
+four batches it was not.** `new ProjectMaterialBaker` had exactly one caller outside tests,
+`Tools/Vixen.Cli/TextureRunner.cs`, which reads a folder of PNGs and evaluates no graph; meanwhile
+`TexturingModule` registered two documents, three panels and three verbs and contained the string
+`bake` nowhere, so no `.vxtexgraph` could become a `.vxmat` by any route a person can take
+([#1009](https://github.com/Rikarin/Vixen/issues/1009)). ⚠ **And the verb's own reason for that had
+become a stale claim that argued against closing it** — its remarks said "a `.vxtexgraph` is M4's
+document and does not exist yet", which was true when written and had not been for three milestones.
+
+**Closed for the graph.** `TexturingModule`'s *Bake Material* verb compiles the open document,
+evaluates every `Output` node through the evaluator both panes already share, and writes the set
+through the same `ProjectMaterialBaker` the CLI calls — one baker, two callers, which is the only
+arrangement in which "the same code the panel runs" is a fact rather than an intention.
+`MaterialBakeRouteDeviceTests` starts at a committed `.vxtexgraph` and ends at a `.vxmat` whose
+textures resolve, which is the half `BakedMaterialImageTests` — a plan built by hand — is silent
+about.
+
+⚠ **Two halves stay owed and are not this phase's shape.** A `.vxlayers` still cannot bake: its pane
+evaluates a preview map through `LayerStackPreview` and never reaches `MaterialBake`, and a stack's
+usages come from which channels its layers write rather than from `Output` nodes, so it is work and
+not a second call site ([#1029](https://github.com/Rikarin/Vixen/issues/1029) — ⚠ untracked until
+then, because M7 was closed). And `vixen texture bake --graph` needs a graphics device the CLI does
+not create — a
+refusal, not a Null-device fallback ([#1020](https://github.com/Rikarin/Vixen/issues/1020)). The
+editor verb also cannot force over a painted-over map, because a command handler carries no argument
+([#1019](https://github.com/Rikarin/Vixen/issues/1019)).
 
 ### M6 — Mesh maps · 1.25 EM
 
@@ -1018,11 +1047,21 @@ exploded graph bake byte-identical outputs.
 The mask stack, generators as shipped `.vxtexgraph`s reading the mesh maps by usage, anchors as DAG
 edges, and the cycle refusal proved by a test that tries to make one.
 
-⚠ **Two of the four scope rows are owed, and one of them had no issue for four batches** — a phase
-comment naming something as still owed is not a tracker entry, which is how this happens.
-[#815](https://github.com/Rikarin/Vixen/issues/815) is triplanar and planar projection, refused by
-name in `LayerStackGraph`; [#1010](https://github.com/Rikarin/Vixen/issues/1010) is the colour/ID
-selection mask, and the `id` bake is already read and already sampled *nearest* for it.
+⚠ **The last two scope rows landed 2026-09-08, and one of them had no issue for four batches** — a
+phase comment naming something as still owed is not a tracker entry, which is how that happens.
+[#815](https://github.com/Rikarin/Vixen/issues/815) was triplanar and planar projection, *refused by
+name* in `LayerStackGraph`; the refusal and its tripwire test are deleted and `Project` wires
+`Space/Triplanar` through two `Source/Mesh Map` reads, with planar the same kernel under one-hot
+weights rather than a second file. [#1010](https://github.com/Rikarin/Vixen/issues/1010) is
+`Analysis/Colour Select` over the `id` bake this doc already had read *nearest* for it.
+
+⚠ **The selection mask matches a colour rather than an index, and the choice was forced.** `MapBaker`
+paints island *n* with hue `frac(n·φ)` and applies it at the last moment, so the index is not in the
+file — there is no space in which a `± tolerance` on a number could be compared. Nor could a plugin
+be asked which ids a bake produced: a graph names no mesh by design, so at the moment the setting is
+edited there is no bake to ask. ⚠ **And a tolerance over an index map is a trap the test carries**:
+ids are nominal rather than ordinal, so the discriminating fixture is two islands whose ids differ by
+one and whose colours differ a lot, which inverts under a comparison written in index space.
 
 ### M9 — Painting · 2.0 EM
 
@@ -1106,7 +1145,20 @@ plugin host and the asset write already exist, and every one of them would other
    twice, because the variant cache is an instance field — it now lends one to both panes
    ([#820](https://github.com/Rikarin/Vixen/issues/820)).
 2. **Scale invariance.** Every atomic node, baked at 1K and at 4K, agrees within 2/255 after
-   downsampling. ⚠ A node that fails this has D8's bug and no other test finds it.
+   downsampling — **for every kernel whose output is band-limited at the lower resolution.** A kernel
+   with a hard edge — a zero-falloff shape, a checker, a nearest-filtered resample — is compared in
+   its **interior** and by its **covered area** instead; the boundary disagreement is the
+   downsample's anti-aliasing and is not a resolution bug. ⚠ A node that fails this has D8's bug and
+   no other test finds it.
+
+   ⚠ **The scope is the fix and a wider tolerance is not** —
+   [#640](https://github.com/Rikarin/Vixen/issues/640), measured. Replacing `float(size.x)` with a
+   literal in `Shape.rvn` turns
+   `TextureSourceDeviceTests.A_source_kernel_bakes_the_same_picture_at_both_resolutions` red and turns
+   **nothing else** red — not the area oracle, not the profile probes, not the falloff test — so this
+   is the only assertion in the plan that catches a resolution-dependent kernel, and a
+   2/255-except-at-edges tolerance would delete it. The disagreement it must keep catching is
+   everywhere; the one it must stop reporting is along boundaries only.
 3. **Every node is covered by an assertion that would notice its picture changing, and the library is
    read rather than listed.** The enumeration is the shipped surface — the embedded `Shaders/*.rvn`,
    the assembly's `ITextureCpuOperation` types, and the node registry's own paths — so a node or a
@@ -1271,19 +1323,21 @@ for.
 - **11, a device confirmed by name in every GPU test.** Every device file does it, through one
   harness, by convention. Nothing enumerates the device files and requires the next one to.
 
-⚠ **And 2 is false as written, which no reading of the criteria predicted.** "Every atomic node,
-baked at 1K and at 4K, agrees within 2/255 after downsampling" cannot hold for a **hard-edged** source
-and the reason is a property of the picture rather than a defect in any kernel: the 4K bake is
-anti-aliased by the downsample and the 1K one is not, so a falloff-zero disc or a checkerboard
-disagrees by a full step all the way round every boundary while agreeing *exactly* everywhere else.
-The comparison is meaningful for a field band-limited at the **lower** resolution — a soft-edged
-shape, a gradient, a noise — and that is where the suites make it. The criterion needs a stated scope
-rather than a wider tolerance ([#640](https://github.com/Rikarin/Vixen/issues/640)); widening it to
-2/255-except-at-edges would delete the D8 bug it exists to catch. ⚠ And "every atomic node" is the
-same unenumerated shape 3, 4 and 11 had — it is checked for the nodes somebody wrote a case for, and
-it is now the **last** of the four to be, because the other three were made mechanical and this one
-cannot be until its scope is stated. That order is backwards: a criterion that is false as written
-should be fixed before the three that were merely unenforced.
+⚠ **2 was false as written, which no reading of the criteria predicted, and the scope above is the
+correction.** "Every atomic node, baked at 1K and at 4K, agrees within 2/255 after downsampling"
+cannot hold for a **hard-edged** source, and the reason is a property of the picture rather than a
+defect in any kernel: the 4K bake is anti-aliased by the downsample and the 1K one is not, so a
+falloff-zero disc or a checkerboard disagrees by a full step all the way round every boundary while
+agreeing *exactly* everywhere else. Measured on an M1 Max with the § 4.1 sources: a disc at falloff
+0.5, a linear gradient and a value noise are inside 2/255; a disc at falloff 0, a checker and white
+noise are not, and white noise cannot be — it is a hash per cell, so nothing about it is band-limited
+([#640](https://github.com/Rikarin/Vixen/issues/640)). The comparison is meaningful for a field
+band-limited at the **lower** resolution, which is where the suites already make it —
+`Editor/Vixen.Editor.TextureGraph.Tests/TextureSourceDeviceTests.cs` implements the scope and says so
+in its remarks, so this document was the half that disagreed with the tree rather than the other way
+round. ⚠ And "every atomic node" is the same unenumerated shape 3, 4 and 11 had — it is checked for
+the nodes somebody wrote a case for. That half is still owed, and it is now the only half: the scope
+it was blocked behind is stated.
 
 ⚠ **And 1 was a threshold nothing gates**: the timing is recorded and printed, and what is asserted is
 a hang check. That is the right call for a wall-clock budget in this repository — a number calibrated

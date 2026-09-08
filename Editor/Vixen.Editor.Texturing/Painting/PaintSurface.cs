@@ -132,8 +132,8 @@ sealed class PaintSurface {
     /// </remarks>
     public bool NeedsNaming => Layer.Paint.Trim().Length == 0;
 
-    /// <summary>The first paint layer of a stack's first set, or nothing with a reason.</summary>
-    /// <param name="document">The open stack.</param>
+    /// <summary>A paint layer of the stack's chosen set, or nothing with a reason.</summary>
+    /// <param name="document">The open stack, whose <see cref="LayerStackDocument.PaintSet" /> says which set.</param>
     /// <param name="layerId">Which layer, or empty for the first paint layer there is.</param>
     /// <param name="canvases">The session's open canvases, which this consults before the disk.</param>
     /// <param name="refusal">Why there is none, or empty.</param>
@@ -144,6 +144,15 @@ sealed class PaintSurface {
     ///         ⚠ <b>Every refusal is a returned sentence and none is an exception</b>, for
     ///         <c>LayerStackPreview.Evaluate</c>'s reason: this runs from a pointer-down, and a throw
     ///         out of one takes the editor's frame with it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The set is the one the artist chose and no longer <c>Sets[0]</c></b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/927">#927</a>. It comes off the
+    ///         document rather than through a parameter on purpose: a parameter would have had to be
+    ///         passed by <c>TexturingModule</c>, and this workstream's commonest defect is a
+    ///         mechanism every caller feeds the default. <c>LayerStackEdit.SetFor</c> is the same one
+    ///         function the panel and the preview resolve through, so there is one rule and not
+    ///         three, and its fallback is why a single-set stack cannot tell the difference.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The canvas comes from the store rather than from the disk, and the store is a
@@ -184,13 +193,11 @@ sealed class PaintSurface {
 
         var stack = document.Document;
 
-        if (stack.Sets.Count == 0) {
+        if (LayerStackEdit.SetFor(stack, document.PaintSet) is not { } set) {
             refusal = "This stack has no texture set, so there is no layer to paint into.";
 
             return null;
         }
-
-        var set = stack.Sets[0];
 
         if (Find(set, layerId) is not { } layer) {
             refusal = layerId.Length > 0

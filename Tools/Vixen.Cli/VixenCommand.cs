@@ -111,13 +111,17 @@ public static class VixenCommand {
     /// <summary>`vixen texture bake` — docs/plan/48 § M5's CLI row.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>It bakes a folder of maps and does not evaluate a graph, and the missing half is
-    ///         named rather than stubbed.</b> A <c>.vxtexgraph</c> is M4's document and does not exist
-    ///         yet, so <c>--graph</c> would be the apologising flag this file's header refuses — the
-    ///         same reason <c>remesh</c> has no <c>--bake</c>. What is here is the packing, the mip
-    ///         chain, the compression, the GUID dance and the provenance block, all of it the code a
-    ///         panel will call, and it is independently useful to a build script with a folder of
-    ///         authored maps.
+    ///         ⚠ <b>It bakes a folder of maps and does not evaluate a graph, and the reason is a
+    ///         device rather than a missing document.</b> This said a <c>.vxtexgraph</c> "does not
+    ///         exist yet"; it does, and <c>TexturingModule</c>'s <c>Bake Material</c> verb evaluates
+    ///         one through the same <c>ProjectMaterialBaker</c> this verb calls
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1009">#1009</a>). What <c>--graph</c>
+    ///         needs here is a graphics device, which nothing in this CLI creates —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1020">#1020</a>, where the refusal a
+    ///         headless run must give instead of a black picture is the decision. What is here is the
+    ///         packing, the mip chain, the compression, the GUID dance and the provenance block, all
+    ///         of it the code the editor calls, and it is independently useful to a build script with
+    ///         a folder of authored maps.
     ///     </para>
     ///     <para>
     ///         A subcommand rather than a verb of its own, because <c>texture</c> is where the graph

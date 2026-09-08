@@ -17,7 +17,7 @@ namespace Vixen.Editor.TextureGraph.Nodes;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Past a sigma of about 21 the kernel clamps and the picture stops being the graph's
-///         </b> — <c>TextureFilters.Ceilings</c> holds the number and <c>TexturePlan.Check</c>
+///         </b> — <c>TextureKernelCeilings.Ceilings</c> holds the number and <c>TexturePlan.Check</c>
 ///         reports it as a warning against the <em>resolved</em> radius, which is the one that
 ///         depends on the bake. Nothing is repeated here: a second ceiling in a node is a second
 ///         thing to keep in step with a shader.

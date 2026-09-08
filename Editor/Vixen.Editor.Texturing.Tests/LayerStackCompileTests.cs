@@ -614,27 +614,179 @@ public class LayerStackCompileTests {
         Assert.Equal("Body.paint.vxpaint", layer.Paint);
     }
 
-    /// <summary>The one shape M8 modelled and did not build is refused, by name and by issue.</summary>
+    /// <summary>
+    ///     A triplanar texture fill compiles, and what it compiles to reads the two mesh maps by usage.
+    /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A tripwire, and it has already fired twice.</b> It covered three shapes — a generator
-    ///     mask, a graph fill and a projection — all refused with "which is M8 (#573)". M8 built the
-    ///     first two, so the test went red on the change that answered it and the two cases came out.
-    ///     What is left is projection, which needs a node nothing has written; the message names
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/815">#815</a> rather than the issue that
-    ///     is about to close, and when that one lands this test goes red again and should be deleted.
+    ///     <para>
+    ///         <b>The tripwire this replaces had fired twice and is gone.</b>
+    ///         <c>What_M8_modelled_and_did_not_build_is_refused_and_says_so</c> asserted that a
+    ///         projection was refused by name; the three shapes it covered have all landed now, so
+    ///         what stands in its place is the positive claim —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/815">#815</a>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The externals are the assertion and the op count is not.</b> A projection that
+    ///         emitted the right number of dispatches while reading the <em>tangent-space</em> normal
+    ///         map, or reading no mesh map at all, would produce a picture — and this repository's
+    ///         commonest defect is exactly the finished thing whose input is not what it says. What a
+    ///         projected layer must ask the bake for is <c>meshmap:position</c> and
+    ///         <c>meshmap:world</c>, by usage, and nothing else in this stack asks for either.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void What_M8_modelled_and_did_not_build_is_refused_and_says_so() {
+    public void A_triplanar_fill_projects_through_the_position_and_world_bakes() {
         var stack = One(new() {
             Id = "l",
             Kind = LayerKind.Fill,
-            Values = { ["baseColor"] = Opaque },
+            Fill = LayerFillSource.Texture,
+            Textures = { ["baseColor"] = "Assets/Rust.png" },
             Projection = LayerProjection.Triplanar
         });
+
         var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
 
-        Assert.Null(compilation.Plan);
-        Assert.Contains(compilation.Problems, problem => problem.Message.Contains("#815", StringComparison.Ordinal));
+        Assert.Empty(compilation.Problems);
+        Assert.NotNull(compilation.Plan);
+        Assert.Equal(1, Count(compilation.Plan, "Triplanar"));
+
+        var asked = compilation.Externals
+            .Select(external => external.Asset)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(["Assets/Rust.png", "meshmap:position", "meshmap:world"], asked);
+    }
+
+    /// <summary>⚠ A planar fill is the same node with one axis, and the axis reaches the plan.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The axis is checked against the op's own parameter, not against the node's setting.</b>
+    ///     <c>LayerStackGraph</c> writes the word <c>Y</c> and <c>TextureSettings.Enum</c> turns it
+    ///     into the number the kernel compares — two steps, either of which can silently take the
+    ///     default. A planar fill along the wrong axis is, on anything box-shaped, the same picture
+    ///     rotated, so nothing downstream would say so. ⚠ That the axis is <c>Y</c> at all is a
+    ///     default this build chose and not one an author asked for:
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>.
+    /// </remarks>
+    [Fact]
+    public void A_planar_fill_reaches_the_kernel_as_one_axis_rather_than_a_blend() {
+        var stack = One(new() {
+            Id = "l",
+            Kind = LayerKind.Fill,
+            Fill = LayerFillSource.Texture,
+            Textures = { ["baseColor"] = "Assets/Rust.png" },
+            Projection = LayerProjection.Planar
+        });
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.Empty(compilation.Problems);
+        Assert.NotNull(compilation.Plan);
+
+        var op = Assert.Single(compilation.Plan.Ops, candidate => candidate.Kernel == "Triplanar");
+        var axis = op.Find("axis");
+
+        Assert.NotNull(axis);
+
+        // 2 is TextureProjectionAxis.Y. The instrument: the blend is 0, so a projection that had
+        // quietly taken the enum's default would read 0 here and this would be red.
+        Assert.Equal(2f, axis.Value.Value);
+    }
+
+    /// <summary>
+    ///     ⚠ A projection an author set where it cannot mean anything is warned about, not ignored.
+    /// </summary>
+    /// <remarks>
+    ///     <b>The defect this closes is a mechanism whose caller passes the default.</b> A constant
+    ///     fill is the same colour at every world position and a paint layer's pixels are already in
+    ///     the atlas, so there is nothing for a projection to do in either — and doing nothing
+    ///     silently is how a member stays modelled and unbuilt for a second time. Both keep
+    ///     compiling, because a refusal would take the whole stack's plan with it and stop every
+    ///     other layer previewing.
+    /// </remarks>
+    /// <param name="paint">
+    ///     Whether the layer is a paint layer rather than a constant fill. ⚠ A <c>bool</c> rather
+    ///     than the kind itself, because <c>LayerKind</c> is internal and a theory's parameter type
+    ///     cannot be less accessible than the public test method.
+    /// </param>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_projection_that_cannot_mean_anything_is_a_warning(bool paint) {
+        var stack = One(new() {
+            Id = "l",
+            Kind = paint ? LayerKind.Paint : LayerKind.Fill,
+            Values = { ["baseColor"] = Opaque },
+            Paint = "Body.paint.vxpaint",
+            Projection = LayerProjection.Triplanar
+        });
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.NotNull(compilation.Plan);
+        Assert.Equal(0, Count(compilation.Plan, "Triplanar"));
+
+        Assert.Contains(
+            compilation.Problems,
+            problem => problem.Message.Contains("Triplanar", StringComparison.Ordinal)
+        );
+    }
+
+    /// <summary>The projection's numbers come off the layer rather than off the node's defaults.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the assertion that would have caught the shape this workstream produces most
+    ///     often: a mechanism nothing ever passes anything but the default to.</b> The node has a
+    ///     <c>Scale</c> and a <c>Sharpness</c>; if the stack could not write either, a projected layer
+    ///     would be usable at exactly one mesh size and every test above would still pass.
+    /// </remarks>
+    [Fact]
+    public void A_projected_layer_writes_its_own_scale_and_sharpness() {
+        var stack = One(new() {
+            Id = "l",
+            Kind = LayerKind.Fill,
+            Fill = LayerFillSource.Texture,
+            Textures = { ["baseColor"] = "Assets/Rust.png" },
+            Projection = LayerProjection.Triplanar,
+            Settings = { ["Scale"] = [3f], ["Sharpness"] = [8f] }
+        });
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.Empty(compilation.Problems);
+        Assert.NotNull(compilation.Plan);
+
+        var op = Assert.Single(compilation.Plan.Ops, candidate => candidate.Kernel == "Triplanar");
+
+        Assert.Equal(3f, op.Find("scale")!.Value.Value);
+        Assert.Equal(8f, op.Find("sharpness")!.Value.Value);
+    }
+
+    /// <summary>A number no projection port answers to is dropped with a sentence.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Verify the instrument: without this, the test above could not tell a stack that wrote
+    ///     the two ports from one that wrote every key it had into whatever port matched first.</b>
+    ///     The ports a projection takes are two, and a name that is neither must not reach the node —
+    ///     <c>Adjustment</c>'s own reason, which is that the port it might land on is the image input.
+    /// </remarks>
+    [Fact]
+    public void A_number_no_projection_port_answers_to_is_dropped_and_reported() {
+        var stack = One(new() {
+            Id = "l",
+            Kind = LayerKind.Fill,
+            Fill = LayerFillSource.Texture,
+            Textures = { ["baseColor"] = "Assets/Rust.png" },
+            Projection = LayerProjection.Triplanar,
+            Settings = { ["Radius"] = [3f] }
+        });
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.NotNull(compilation.Plan);
+
+        Assert.Contains(
+            compilation.Problems,
+            problem => problem.Message.Contains("Radius", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>A texture fill becomes an external the caller supplies.</summary>

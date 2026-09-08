@@ -714,6 +714,14 @@ public class TextureNodeLibraryTests {
         graph.Connect(shuffle, "Out", vectorWarp, "Input");
         graph.Connect(normalCombine, "Out", vectorWarp, "Vectors");
 
+        // ⚠ § M8's selection mask, and it is on the *colour* side deliberately. Its whole subject is
+        // a colour, so wiring it downstream of a grey would leave its two colour lanes reading the
+        // splat the compiler inserted rather than anything a picture put there — a fixture that
+        // could not tell a kernel comparing three channels from one comparing red.
+        var colourSelect = graph.Add("Analysis/Colour Select");
+
+        graph.Connect(invert, "Out", colourSelect, "Input");
+
         // The placement pair, with every map port left unwired — which is the arrangement the
         // library's own remarks say is the common one, so it is the one the fixture proves compiles.
         var sampler = graph.Add("Placement/Tile Sampler");
@@ -751,6 +759,21 @@ public class TextureNodeLibraryTests {
         // has run, and its *op* is still in the plan — which is what this file reads.
         graph.Connect(bitmap, "Out", resample, "Input");
         graph.Connect(meshMap, "Out", wear, "Input");
+
+        // ⚠ § D10's projection, wired to a *world* normal and not to the tangent-space one this
+        // fixture has plenty of. The two ports take different bakes and the node's remarks say a
+        // tangent normal here compiles and produces a plausibly wrong picture, so the fixture is
+        // built the way the layer stack builds it: two mesh maps, by usage.
+        var place = graph.Add("Source/Mesh Map");
+        var facing = graph.Add("Source/Mesh Map");
+        var triplanar = graph.Add("Space/Triplanar");
+
+        place.SetText("Map", "position");
+        facing.SetText("Map", "world");
+
+        graph.Connect(hsl, "Out", triplanar, "Input");
+        graph.Connect(place, "Out", triplanar, "Position");
+        graph.Connect(facing, "Out", triplanar, "Normal");
         graph.Connect(gradient, "Out", curve, "Input");
 
         // Grey into the ladder and out through the ramp, because Gradient Map measures rather than

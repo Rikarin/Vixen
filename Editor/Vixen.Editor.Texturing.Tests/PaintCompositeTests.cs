@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
+using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
 using Xunit;
 
@@ -195,6 +196,106 @@ public class PaintCompositeTests {
         session.Move(new(size / 2f, size / 2f));
 
         return (session.WeightsEvaluated, session.Composite.TexelsResolved - start);
+    }
+
+    /// <summary>
+    ///     ⚠ The live composite's operator list and the bake's cannot drift apart without this going
+    ///     red — <a href="https://github.com/Rikarin/Vixen/issues/849">#849</a>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The divergence is deliberate and it is the <em>silent</em> half that is the
+    ///         hazard.</b> A seventeenth operator appended to <c>LayerBlendMode</c> — whose two
+    ///         directions against <c>TextureBlendMode</c> are already roll-called, so the bake's own
+    ///         lists cannot drift — would widen the gap between the pane and the bake by one, in a
+    ///         file nobody adding an operator has any reason to open.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A partition rather than two counts.</b> Counting sixteen would pass a list that
+    ///         named <c>Copy</c> twice and left an operator out; asserting each enum member appears
+    ///         in exactly one of the two is the shape that cannot.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_blend_operator_of_a_compiled_stack_is_declared_reproduced_or_diverged_exactly_once() {
+        foreach (var mode in Enum.GetValues<LayerBlendMode>()) {
+            var reproduced = PaintComposite.Reproduces.Contains(mode);
+            var diverged = PaintComposite.Diverges.Contains(mode);
+
+            Assert.True(
+                reproduced != diverged,
+                $"LayerBlendMode.{mode} is in {(reproduced ? "both" : "neither")} of PaintComposite.Reproduces "
+                + "and PaintComposite.Diverges. The live paint composite reproduces one of the bake's "
+                + "operators and diverges from the rest; an operator in neither list is a divergence "
+                + "nobody has decided about, and this project's README says otherwise."
+            );
+        }
+
+        Assert.Equal(
+            Enum.GetValues<LayerBlendMode>().Length,
+            PaintComposite.Reproduces.Count + PaintComposite.Diverges.Count
+        );
+    }
+
+    /// <summary>The one operator the pane reproduces is <c>Copy</c>, asserted rather than said.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Copy's definition is what <c>PaintComposite.Over</c> does at full foreground alpha:
+    ///     the foreground, whatever the backdrop was.</b> A composite that grew a second operator
+    ///     without moving it out of <c>Diverges</c> would leave the partition green, so the partition
+    ///     alone is not enough — this pins which side of it the arithmetic is on.
+    /// </remarks>
+    [Fact]
+    public void Source_over_with_an_opaque_foreground_is_the_foreground_which_is_what_Copy_means() {
+        Assert.Equal([LayerBlendMode.Copy], PaintComposite.Reproduces);
+
+        uint[] backdrops = [0x00000000u, 0xFF000000u, 0xFF7F3F1Fu, 0xFFFFFFFFu, 0x80102030u];
+
+        foreach (var backdrop in backdrops) {
+            Assert.Equal(0xFF204060u, PaintComposite.Over(backdrop, 0xFF204060u));
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ Why the fifteen are not implemented here: over two transparent halves they would change
+    ///     nothing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The measurement behind <c>PaintComposite.Diverges</c>' remarks, as a test rather
+    ///         than as a claim.</b> Every production caller supplies <c>PaintStackImages.Empty</c>,
+    ///         and every separable blend operator degenerates to the foreground over a fully
+    ///         transparent backdrop — so sixteen operators over these halves are one operator, and
+    ///         implementing them would move zero texels for any stack anybody can currently open.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is the halves that make this true and not the join</b> — so the claim rests
+    ///         on <em>what production supplies</em>, which this case does not read: it builds its
+    ///         own <c>PaintStackImages.Empty</c>, so <c>PaintSurface.Target</c> could start handing
+    ///         out real slices and this would stay green for ever.
+    ///         <c>PaintSurfaceTests.The_surface_supplies_two_blank_halves_which_is_what_makes_the_degeneracy_a_claim</c>
+    ///         is the assertion about the supply, and it is the one that goes red on the day the
+    ///         fifteen stop being unobservable.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Over_two_empty_halves_the_join_is_the_painted_layer_so_no_operator_could_change_a_texel() {
+        PaintImage layer = new(8, 8);
+
+        // ⚠ Partial alphas included, not only opaque texels. `Over` divides the mixed colour by the
+        // resulting alpha, so a half-covered texel is the one that would expose a rounding error in
+        // the round trip through the packed bytes — and it is the case a real stroke's edge is made
+        // of.
+        for (var index = 0; index < layer.Width * layer.Height; index++) {
+            layer[index] = (uint)(((index * 4) % 256) << 24) | (uint)(index * 0x00030507);
+        }
+
+        PaintComposite composite = new(PaintStackImages.Empty(8, 8), layer);
+
+        composite.ResolveAll();
+
+        for (var index = 0; index < layer.Width * layer.Height; index++) {
+            Assert.Equal(layer[index], composite.Result[index]);
+        }
     }
 
     /// <summary>A stack that says how much work it was asked for.</summary>

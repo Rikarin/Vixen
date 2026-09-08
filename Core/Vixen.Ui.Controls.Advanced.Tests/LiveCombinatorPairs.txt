@@ -31,6 +31,7 @@ dock-tabstrip > icon-button
 expander > expander-header
 expander-header > label
 scroll-view > scroll-content
+segmented-control > segment
 split-view > split-bar
 status-bar > status-trailing
 tabs > tab-panels

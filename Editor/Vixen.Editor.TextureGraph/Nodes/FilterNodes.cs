@@ -17,7 +17,7 @@ namespace Vixen.Editor.TextureGraph.Nodes;
 [Node("Colour/Blend", Preview = true, Summary = "Two images composited under one of sixteen operators.")]
 sealed partial class BlendNode : TextureNode {
     /// <summary>Which operator. One of <c>TextureBlendMode</c>'s sixteen names.</summary>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TextureBlendMode))]
     public string Mode = "Copy";
 
     /// <summary>
@@ -32,7 +32,7 @@ sealed partial class BlendNode : TextureNode {
     ///     coverage and would have the adjustment cover more than the thing it adjusts. A layer stack
     ///     sets it on every filter layer's blend.
     /// </remarks>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TextureBlendCoverage))]
     public string Coverage = "Over";
 
     /// <summary>What is underneath.</summary>
@@ -242,11 +242,19 @@ sealed partial class LevelsNode : TextureNode {
 [Node("Space/Transform 2D", Preview = true, Summary = "Rotate, scale, offset and shear, with a mip-correct minification.")]
 sealed partial class Transform2DNode : TextureNode {
     /// <summary>What is read outside the source: <c>Clamp</c>, <c>Wrap</c> or <c>Mirror</c>.</summary>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TextureTiling))]
     public string Tiling = "Wrap";
 
     /// <summary>How a sub-sample reads: <c>Point</c> or <c>Bilinear</c>. ⚠ Not <c>Box</c>.</summary>
-    [Setting]
+    /// <remarks>
+    ///     ⚠ <b>Listed rather than <c>AcceptedFrom = typeof(TextureFilter)</c>, because this node
+    ///     refuses the enum's third member.</b> A picker generated off the whole enum would offer
+    ///     <c>Box</c> and the compiler would then refuse it — which is the defect
+    ///     <c>[Setting(Accepted = …)]</c> exists to remove, arriving from the other side.
+    ///     <c>TextureSettingChoiceTests</c> holds the narrowing to a real refusal rather than to an
+    ///     opinion, so this list cannot quietly drop a value the node would have accepted.
+    /// </remarks>
+    [Setting(Accepted = ["Point", "Bilinear"])]
     public string Filter = "Bilinear";
 
     /// <summary>What to transform.</summary>
@@ -359,7 +367,7 @@ sealed partial class Transform2DNode : TextureNode {
 [Node("Analysis/Distance", Preview = true, Summary = "A distance field from a mask, by jump flood.")]
 sealed partial class DistanceNode : TextureNode {
     /// <summary>Which side is measured: <c>Outside</c>, <c>Inside</c> or <c>Both</c>.</summary>
-    [Setting]
+    [Setting(AcceptedFrom = typeof(TextureDistanceMode))]
     public string Mode = "Outside";
 
     /// <summary>The mask to measure from. A single channel.</summary>

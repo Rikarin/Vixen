@@ -224,6 +224,52 @@ public sealed class EditorProject {
         return saved;
     }
 
+    /// <summary>Tells every open document that a file in the project changed.</summary>
+    /// <param name="path">
+    ///     The project-relative path that moved, or <see langword="null" /> for "something changed and
+    ///     no path can be named".
+    /// </param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Here rather than inside <c>ExternalEdits</c>, because a watcher is not the only
+    ///         thing that changes files</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1006">#1006</a>. An import run from
+    ///         inside the editor rewrites <c>Library/</c> and moves nothing under <c>Assets/</c>, so
+    ///         the watcher never fires and every open document is told nothing. <c>ContentTasks</c>
+    ///         is that second caller; <c>ExternalEdits</c> resolves a watched path to a
+    ///         project-relative one and then calls this, which is the whole of what it used to do
+    ///         privately.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Over a snapshot and inside a try.</b> An override belongs to a deriving type — a
+    ///         plugin's, in the case this exists for — and one that throws would take the frame down
+    ///         over somebody else's text editor pressing Ctrl+S, or over a finished import. A
+    ///         document that cannot cope with a notification keeps whatever it had, and the next
+    ///         change tries again.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>On the thread that owns the documents.</b> Both callers arrange that — one
+    ///         drains a watcher on the frame, the other drains a finished task from
+    ///         <c>ContentTasks.Pump</c> — and nothing here can check it.
+    ///     </para>
+    /// </remarks>
+    public void AnnounceFileChanged(string? path) {
+        var snapshot = documents.ToArray();
+
+        for (var index = 0; index < snapshot.Length; index++) {
+            try {
+                snapshot[index].OnProjectFileChanged(path);
+            } catch (Exception failure)
+                when (failure is IOException
+                    or UnauthorizedAccessException
+                    or InvalidOperationException
+                    or NotSupportedException) {
+                // Kept, on `ExternalEdits.TryReload`'s argument: a document that could not take the
+                // news keeps what it has.
+            }
+        }
+    }
+
     internal void OnDocumentSaving(EditorDocument document) => DocumentSaving?.Invoke(document);
 
     internal void Register(EditorDocument document) {

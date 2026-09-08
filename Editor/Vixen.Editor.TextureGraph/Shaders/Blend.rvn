@@ -167,7 +167,7 @@ shader Blend {
         }
 
         if (mode == 9) {
-            // ⚠ Hard light is overlay with the operands **swapped** — `ComputeColor.rvn:42` says so
+            // ⚠ Hard light is overlay with the operands **swapped** — `ComputeColor.HardLight` says so
             // in one line — and the whole of the swap is which operand the `step` reads. The two
             // halves are symmetric in a and b, so a hard light written by copying the overlay case
             // and forgetting to move the selector is *exactly* overlay, on every image, with no

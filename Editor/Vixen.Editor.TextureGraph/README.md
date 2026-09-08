@@ -341,9 +341,9 @@ See #619, which is reworking that model.
 
 **⚠ A kernel here cannot `import` the Raven library.** `TexturePlanEvaluator` compiles through
 `RavenEffectCompiler.FromSources([…])` with no `referencePaths`, so a kernel binds against nothing but
-itself. `Hsl`'s hue rotation is therefore `Raven/Library/Material/ComputeColor.rvn:78`'s, transcribed
-— and the two agreeing matters, because an artist who matches a hue in the shader graph and sees it
-shift here has found a bug.
+itself. `Hsl`'s hue rotation is therefore `Raven/Library/Material/ComputeColor.rvn`'s `HueRotate`,
+transcribed — and the two agreeing matters, because an artist who matches a hue in the shader graph
+and sees it shift here has found a bug.
 
 ## The filters — doc 48 § 4.4
 

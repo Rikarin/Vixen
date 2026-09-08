@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Editor.Texturing.Layers;
+
 namespace Vixen.Editor.Texturing.Painting;
 
 /// <summary>Which half of the stack a composite slice is.</summary>
@@ -76,8 +78,74 @@ interface IPaintStack {
 ///         down, and the bake is what they get. Making the two agree means evaluating the slices
 ///         through the plan, which is #849.
 ///     </para>
+///     <para>
+///         ⚠ <b>The divergence is now a declared pair of lists rather than a sentence</b> —
+///         <see cref="Reproduces" /> and <see cref="Diverges" />, which partition
+///         <see cref="LayerBlendMode" />. A prose remark cannot go red, and the way this becomes
+///         permanently wrong is a seventeenth operator appended to the bake's enum by somebody who
+///         never opens this file. The README says the same thing where an artist reads it.
+///     </para>
 /// </remarks>
 sealed class PaintComposite {
+    /// <summary>The operators of a compiled stack that this composite reproduces exactly.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One of sixteen, and the list is declared rather than inferred so that a
+    ///         seventeenth cannot be added on one side alone</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/849">#849</a>.
+    ///         <see cref="Resolve(PaintRect)" /> is straight-alpha source-over, which is exactly
+    ///         <see cref="LayerBlendMode.Copy" /> at full opacity: an opaque foreground replaces the
+    ///         backdrop and a transparent one leaves it. Every other operator of
+    ///         <c>Colour/Blend</c> disagrees with that somewhere, by construction — each has a
+    ///         <em>neutral</em> foreground that is not transparency.
+    ///     </para>
+    ///     <para>
+    ///         <b>This and <see cref="Diverges" /> partition <see cref="LayerBlendMode" />, and
+    ///         <c>PaintCompositeTests</c> asserts the partition.</b> The cheapest way this file
+    ///         becomes permanently and silently wrong is an operator appended to the bake's enum
+    ///         with nothing here to notice; a partition over the enum's own members is the one shape
+    ///         that cannot miss it.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<LayerBlendMode> Reproduces { get; } = [LayerBlendMode.Copy];
+
+    /// <summary>The operators a bake applies and this composite does not.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Fifteen of sixteen, and this is the divergence
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/849">#849</a> is about</b>: what an
+    ///         artist watches under the brush is source-over, and what the bake produces is the
+    ///         painted layer's own operator, its per-channel enables and its mask.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Listing them is not a step towards implementing them, and the reason is
+    ///         measured.</b> With both halves <see cref="PaintStackImages.Empty" /> — which is what
+    ///         every production caller supplies — an operator here would change <em>zero</em>
+    ///         texels: every separable blend degenerates to the foreground over a fully transparent
+    ///         backdrop, so sixteen operators over two transparent halves are one operator. Making
+    ///         the halves real is what would make them observable, and that forces
+    ///         <see cref="ResolveAll" /> onto the pointer-down path — 2712 ms at 4096² in Debug,
+    ///         measured twice on two machines and corroborated by #853's 1878 ms on a third.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<LayerBlendMode> Diverges { get; } = [
+        LayerBlendMode.Multiply,
+        LayerBlendMode.Screen,
+        LayerBlendMode.Overlay,
+        LayerBlendMode.Add,
+        LayerBlendMode.Subtract,
+        LayerBlendMode.Darken,
+        LayerBlendMode.Lighten,
+        LayerBlendMode.Divide,
+        LayerBlendMode.HardLight,
+        LayerBlendMode.SoftLight,
+        LayerBlendMode.Difference,
+        LayerBlendMode.Exclusion,
+        LayerBlendMode.ColourDodge,
+        LayerBlendMode.ColourBurn,
+        LayerBlendMode.SignedAdd
+    ];
+
     readonly PaintImage layer;
 
     /// <summary>Evaluates both halves of the stack, now, and never again.</summary>
