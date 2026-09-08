@@ -105,14 +105,47 @@
     declares a `[UiProperty]` or owns a `.vxml` is the one that has to name them.
     `Vixen.Ui.Generators` turns a `[UiProperty]` into a property the style system can see;
     `Vixen.Ui.Markup.Generators` is the VXML compiler.
-  -->
-  <ItemGroup Condition="'$(VixenUi)' == 'true' AND '$(_VixenUiWiredByProject)' != 'true'">
-    <ProjectReference Include="$(VixenRepositoryRoot)Core/Vixen.Ui.Generators/Vixen.Ui.Generators.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false"
-                      PrivateAssets="all" />
 
-    <ProjectReference Include="$(VixenRepositoryRoot)Core/Vixen.Ui.Markup.Generators/Vixen.Ui.Markup.Generators.csproj"
+    ================================================================================================
+    ⚠ **This used to carry `_VixenUiWiredByProject` too, and that made `VixenUi=true` a no-op in
+    exactly the projects that need it most** — [#1102](https://github.com/Rikarin/Vixen/issues/1102).
+
+    That flag is `$(VixenUiBuildImported)`, which `Vixen.Ui.targets` sets when it is imported. A
+    project that names that file at the bottom of its own body therefore sets it before this file is
+    evaluated, and the guard then skipped the import (correctly, it has already happened) **and** the
+    two references below (which was the bug). But naming the `.targets` by hand is also the only way
+    a `.vxml` becomes `AdditionalFiles` with no generator behind it, which is precisely the state
+    VX4002 exists to report — so a project that could hit VX4002 was a project VX4002's own advice
+    could not help, and three separate comments in this tree had already propagated that advice.
+
+    Measured on `Core/Vixen.Ui.Controls.Advanced`, which self-imports and names only the property
+    generator, with `dotnet msbuild <project> -getItem:ProjectReference -p:VixenUi=true`: before this
+    change the markup compiler was absent from the list; after it, it is there.
+
+    **The two guards do not have to be the same guard, and this is why they are not.** The flag
+    exists to stop the *globs* being declared twice, which is a duplicate-item failure. An analyzer
+    reference declared twice is one too — so rather than reinstating the guard, the duplicate is
+    removed here, using the same full-path comparison `VX4001` below makes and for the same reason:
+    a project's own reference is spelled relative, this file's is spelled from the repository root,
+    and an `Exclude` over identities would compare two notations for one file.
+    ================================================================================================
+  -->
+  <ItemGroup Condition="'$(VixenUi)' == 'true'">
+    <_VixenGeneratorWanted Include="$(VixenRepositoryRoot)Core/Vixen.Ui.Generators/Vixen.Ui.Generators.csproj" />
+
+    <_VixenGeneratorWanted
+      Include="$(VixenRepositoryRoot)Core/Vixen.Ui.Markup.Generators/Vixen.Ui.Markup.Generators.csproj" />
+
+    <!--
+      Whatever the project itself named. This file is imported after the project's body, so by the
+      item pass `@(ProjectReference)` holds every reference the project wrote — including the ones a
+      hand-wired project declares beside its own `Import`.
+    -->
+    <_VixenGeneratorNamed Include="@(ProjectReference->'%(FullPath)')" />
+
+    <_VixenGeneratorOwed Include="@(_VixenGeneratorWanted->'%(FullPath)')" Exclude="@(_VixenGeneratorNamed)" />
+
+    <ProjectReference Include="@(_VixenGeneratorOwed)"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all" />

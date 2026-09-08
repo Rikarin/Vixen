@@ -341,10 +341,16 @@ rather than a step the resolver takes.
 
 ## Still to come
 
-Also owed: the GPU and driver checks. ⚠ This said they "would put a graphics dependency in a tool that
-today needs none", which stopped being true when `texture bake --graph` landed
-([#1020](https://github.com/Rikarin/Vixen/issues/1020)) — `Vixen.Graphics.Vulkan` is referenced, so
-what is left is the loader probe itself rather than a decision about the dependency.
+⚠ **The GPU and driver check is no longer owed** ([#1094](https://github.com/Rikarin/Vixen/issues/1094)).
+`doctor` opens a surfaceless device through `HeadlessGraphics` and prints the adapter's own name, or
+the driver's own refusal when none opens — the two are different sentences deliberately, because a
+machine with no adapter and a machine with no `libvulkan` on the search path are different problems
+with different fixes and the bake's refusal used to flatten them into one.
+
+⚠ **It is reported below `broken`, so a machine with no device still exits `0`.** `doctor`'s contract
+is `0` did what was asked, `1` the project is wrong, `2` the invocation was wrong — and a container
+image with no adapter is not a wrong project. Reporting it as a fault would make the verb useless in
+CI, which is the place the question is most often asked.
 
 Licensed under Apache-2.0.
 

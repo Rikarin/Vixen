@@ -15,6 +15,14 @@
         explicit `Import` of this file at the bottom of a `.csproj`. A project that already names
         this file therefore sets the flag first, and the automatic wiring stays out of its way rather
         than declaring the two globs below a second time and failing on a duplicate item.
+
+        ⚠ **It guards the globs and it no longer guards the generators** —
+        [#1102](https://github.com/Rikarin/Vixen/issues/1102). It used to guard both, which made
+        `VixenUi=true` a no-op for exactly the projects that import this file by hand — the projects
+        VX4002 below can fire in, and the ones its old message told to set that property. The two
+        needed different guards: a glob declared twice is a duplicate item and an analyzer reference
+        declared twice is removed by a full-path comparison. `Directory.Build.targets` carries both
+        halves and the measurement.
     -->
     <PropertyGroup>
         <VixenUiBuildImported>true</VixenUiBuildImported>
@@ -126,7 +134,7 @@
         <Error Condition="'@(_VixenMarkupInput)' != '' AND '@(_VixenMarkupCompiler)' == ''"
                Code="VX4002"
                File="$(MSBuildProjectFullPath)"
-               Text="Vixen: this project hands @(_VixenMarkupInput->Count()) .vxml file(s) to the compiler — @(_VixenMarkupInput->'%(Identity)', ', ') — and the VXML compiler is not loaded, so nothing reads them and the classes they declare will not exist. Vixen.Ui.targets is imported here, which is what made them AdditionalFiles, but nothing in this compilation's analyzer list is Vixen.Ui.Markup.Generators.dll. Inside the Vixen repository the one line that fixes it is &lt;VixenUi&gt;true&lt;/VixenUi&gt; in this project's first PropertyGroup, which brings the item types and both generators; outside it, a PackageReference to Vixen.Ui carries the generator in analyzers/dotnet/cs and nothing needs saying. If markup here is deliberately not compiled, set &lt;VixenUiMarkupCheck&gt;false&lt;/VixenUiMarkupCheck&gt; and write down why." />
+               Text="Vixen: this project hands @(_VixenMarkupInput->Count()) .vxml file(s) to the compiler — @(_VixenMarkupInput->'%(Identity)', ', ') — and the VXML compiler is not loaded, so nothing reads them and the classes they declare will not exist. Vixen.Ui.targets is imported here, which is what made them AdditionalFiles, but nothing in this compilation's analyzer list is Vixen.Ui.Markup.Generators.dll. This project imports Vixen.Ui.targets by name, so the fix is to name the generators the same way: add ProjectReferences to Core/Vixen.Ui.Markup.Generators/Vixen.Ui.Markup.Generators.csproj and Core/Vixen.Ui.Generators/Vixen.Ui.Generators.csproj with OutputItemType=&quot;Analyzer&quot; ReferenceOutputAssembly=&quot;false&quot;. Setting &lt;VixenUi&gt;true&lt;/VixenUi&gt; instead also works now and did not before #1102: the repository's Directory.Build.targets adds whichever of the two this project has not already named. Outside the Vixen repository a PackageReference to Vixen.Ui carries the generator in analyzers/dotnet/cs and nothing needs saying. If markup here is deliberately not compiled, set &lt;VixenUiMarkupCheck&gt;false&lt;/VixenUiMarkupCheck&gt; and write down why." />
     </Target>
 
     <!--
@@ -170,7 +178,7 @@
         <Error Condition="'@(_VixenComponentInput)' != '' AND '@(_VixenPropertyGenerator)' == ''"
                Code="VX4003"
                File="$(MSBuildProjectFullPath)"
-               Text="Vixen: this project compiles @(_VixenComponentInput->Count()) .vxml file(s) and Vixen.Ui.Generators is not loaded, so any [UiProperty] declared here generates nothing and is invisible to the style system, and VXS0320 — the analyzer that catches a component parameter written as a plain property — never runs. There are two generators and this project names only the VXML compiler. Inside the Vixen repository the one line that fixes it is &lt;VixenUi&gt;true&lt;/VixenUi&gt; in this project's first PropertyGroup, which brings both; a project that wires itself by hand adds a second ProjectReference to Core/Vixen.Ui.Generators/Vixen.Ui.Generators.csproj with OutputItemType=&quot;Analyzer&quot; beside the one it already has. Outside it, a PackageReference to Vixen.Ui carries both in analyzers/dotnet/cs and nothing needs saying. If markup here is deliberately not compiled, set &lt;VixenUiMarkupCheck&gt;false&lt;/VixenUiMarkupCheck&gt; and write down why." />
+               Text="Vixen: this project compiles @(_VixenComponentInput->Count()) .vxml file(s) and Vixen.Ui.Generators is not loaded, so any [UiProperty] declared here generates nothing and is invisible to the style system, and VXS0320 — the analyzer that catches a component parameter written as a plain property — never runs. There are two generators and this project names only the VXML compiler. The fix is the second ProjectReference beside the one it already has: Core/Vixen.Ui.Generators/Vixen.Ui.Generators.csproj with OutputItemType=&quot;Analyzer&quot; ReferenceOutputAssembly=&quot;false&quot;. Setting &lt;VixenUi&gt;true&lt;/VixenUi&gt; instead also works now and did not before #1102 for a project that imports Vixen.Ui.targets by hand: the repository's Directory.Build.targets adds whichever of the two this project has not already named. Outside it, a PackageReference to Vixen.Ui carries both in analyzers/dotnet/cs and nothing needs saying. If markup here is deliberately not compiled, set &lt;VixenUiMarkupCheck&gt;false&lt;/VixenUiMarkupCheck&gt; and write down why." />
     </Target>
 
 </Project>

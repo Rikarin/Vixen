@@ -275,6 +275,16 @@ public sealed class TextureBake : IDisposable {
 ///         "a plan of forty ops compiles three shaders" is a claim about that number and nothing
 ///         else.
 ///     </para>
+///     <para>
+///         ⚠ <b>"Kept" is true of an embedded kernel and bounded for an authored one</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1091">#1091</a>. A kernel the plan carries
+///         is named after a digest of its own source, so a front end that recompiles per edit — which
+///         <c>TextureGraphPreviews</c> is — produces a distinct key per keystroke. Those are held
+///         least-recently-used up to <see cref="AuthoredVariantCeiling" /> and destroyed past it;
+///         embedded variants are never evicted, because the library bounds them. <see cref="Variants" />
+///         is what a test reads to tell a cache that evicts from one that only ever grows, and
+///         <see cref="Compilations" /> cannot: it counts what was built and never what is held.
+///     </para>
 /// </remarks>
 public sealed class TexturePlanEvaluator : IDisposable {
     /// <summary>The workgroup size every kernel in <c>Shaders/</c> declares.</summary>
@@ -289,6 +299,16 @@ public sealed class TexturePlanEvaluator : IDisposable {
     readonly IGraphicsDevice device;
     readonly EffectLoader loader;
     readonly Dictionary<(string Kernel, TextureFormat Output), Variant> variants = [];
+
+    /// <summary>The authored keys in <see cref="variants" />, least recently used first.</summary>
+    /// <remarks>
+    ///     ⚠ Authored only, and the asymmetry is the whole of the fix. An embedded kernel's set is the
+    ///     forty-odd names this assembly ships times a handful of output formats, so that half of the
+    ///     dictionary is bounded by the library and evicting from it would only make a panel recompile
+    ///     what it is about to want again. An authored kernel's name carries a digest of its own
+    ///     source, so its half is bounded by nothing.
+    /// </remarks>
+    readonly List<(string Kernel, TextureFormat Output)> authoredOrder = [];
 
     bool disposed;
 
@@ -320,6 +340,45 @@ public sealed class TexturePlanEvaluator : IDisposable {
 
     /// <summary>How many dispatches have been recorded, across every evaluation.</summary>
     public int Dispatches { get; private set; }
+
+    /// <summary>How many compiled variants are held right now — modules and pipelines on the device.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The counter that did not exist, and its absence is why
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1091">#1091</a> was a reasoned claim
+    ///     rather than a measured one.</b> <see cref="Compilations" /> counts what has been
+    ///     <em>built</em> and only ever rises; nothing counted what was still <em>held</em>, so a
+    ///     cache that never evicted and a cache that evicted perfectly printed the same numbers.
+    /// </remarks>
+    public int Variants => variants.Count;
+
+    /// <summary>How many authored variants have been destroyed to stay under the ceiling.</summary>
+    public int Evictions { get; private set; }
+
+    /// <summary>How many authored variants this evaluator keeps before it starts destroying them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Only authored ones are counted against it</b> — see <see cref="AuthoredCount" />.
+    ///         The default is a session's worth of one author's undo range and not a memory budget:
+    ///         what is being bounded is an <em>unbounded</em> thing, so the difference between eight
+    ///         and eighty is a preference and the difference between eighty and none is the defect.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Raising it does not cost only memory.</b> Each held variant is a
+    ///         <see cref="ShaderHandle" />, a <see cref="PipelineHandle" /> and the pipeline layout
+    ///         its <c>Effect</c> was loaded with, and a driver's pipeline cache is not free of them.
+    ///     </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The ceiling is not positive.</exception>
+    public int AuthoredVariantCeiling {
+        get;
+        set {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
+            field = value;
+        }
+    } = 8;
+
+    /// <summary>How many of the held variants came from a kernel the plan carried.</summary>
+    public int AuthoredCount => authoredOrder.Count;
 
     /// <summary>Evaluates a plan whose external images are only ever sampled.</summary>
     /// <param name="plan">What to run.</param>
@@ -418,6 +477,7 @@ public sealed class TexturePlanEvaluator : IDisposable {
         ArgumentNullException.ThrowIfNull(externals);
 
         RefuseInsideAFrame();
+        EvictAuthored(plan);
 
         var problems = plan.Check();
         var refusals = problems
@@ -500,11 +560,90 @@ public sealed class TexturePlanEvaluator : IDisposable {
         device.WaitIdle();
 
         foreach (var variant in variants.Values) {
-            device.Destroy(variant.Pipeline);
-            device.Destroy(variant.Module);
+            Destroy(variant);
         }
 
         variants.Clear();
+        authoredOrder.Clear();
+    }
+
+    /// <summary>
+    ///     Destroys the authored variants that are over the ceiling, oldest use first.
+    /// </summary>
+    /// <param name="plan">The plan about to be evaluated, whose own kernels are never evicted.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1091">#1091</a>, and the reason it
+    ///         costs nothing is a refutation of the reason it was filed rather than fixed.</b> That
+    ///         issue says an eviction "needs the same <c>WaitIdle</c> <see cref="Dispose" /> does — an
+    ///         eviction on the interactive path is a device stall". ⚠ <b>There is no stall, because
+    ///         the wait has already happened.</b> <c>Run</c> ends
+    ///         <c>device.EndFrame(); device.WaitIdle();</c> on both of its exits — the ordinary one and
+    ///         the one a <see cref="TextureOp.Cpu" /> op takes — so an <c>Evaluate</c> returns with the
+    ///         device idle, and <c>TextureBake.Read</c> waits again for its own copy. Nothing but this
+    ///         class ever binds these pipelines. So at the top of an evaluation no pipeline in the
+    ///         dictionary can be in flight, and destroying one there needs no wait of its own.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is also why it is called there and nowhere else.</b> Evicting inside
+    ///         <c>Run</c> — or from <see cref="VariantFor" />, which is the obvious place — would be
+    ///         destroying a pipeline while this evaluation's command list is open, and the one it
+    ///         chose to destroy could be one that list has already bound.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Least recently <em>used</em> and not least recently built</b>, which
+    ///         <see cref="VariantFor" /> maintains on the cache-hit path too. An author who types an
+    ///         expression, undoes to an earlier one and carries on from there is the ordinary
+    ///         interaction, and insertion order would evict exactly the variant that is about to be
+    ///         asked for again.
+    ///     </para>
+    /// </remarks>
+    void EvictAuthored(TexturePlan plan) {
+        var index = 0;
+
+        while (authoredOrder.Count > AuthoredVariantCeiling && index < authoredOrder.Count) {
+            var key = authoredOrder[index];
+
+            if (plan.Kernels.ContainsKey(key.Kernel)) {
+                // ⚠ Skipped rather than evicted, which makes the ceiling a bound on *history* and
+                // not on one graph. Without this a graph carrying more authored kernels than the
+                // ceiling would evict some of its own on the way into every bake and recompile them
+                // moments later — a Raven front end per surplus kernel per rebuild, which is the
+                // interactive path this whole change is about and would be a worse regression than
+                // the leak. So the ceiling is soft: one plan's own kernels may exceed it.
+                index++;
+
+                continue;
+            }
+
+            authoredOrder.RemoveAt(index);
+
+            if (!variants.Remove(key, out var variant)) {
+                continue;
+            }
+
+            Destroy(variant);
+            Evictions++;
+        }
+    }
+
+    /// <summary>Gives one variant's device objects back.</summary>
+    /// <param name="variant">The variant, which must not be reachable from <see cref="variants" />.</param>
+    /// <remarks>
+    ///     ⚠ <b>The pipeline layout is destroyed here and was not destroyed anywhere before</b>, which
+    ///     is a leak <a href="https://github.com/Rikarin/Vixen/issues/1091">#1091</a> does not name and
+    ///     which outlived even <see cref="Dispose" />. <c>EffectLoader.Load</c> creates a fresh
+    ///     <c>PipelineLayoutHandle</c> per call and caches nothing about it, so one belongs to each
+    ///     variant and only this class can free it. Every other object in an <c>Effect</c> is either
+    ///     managed or shared: ⚠ <b>the descriptor set layouts must not be destroyed here</b> — the
+    ///     loader caches those by binding <em>shape</em> rather than by shader name, so every pixel
+    ///     processor an author has ever typed shares one set of them with every other, and destroying
+    ///     one variant's would take out the next variant's too.
+    /// </remarks>
+    void Destroy(Variant variant) {
+        device.Destroy(variant.Pipeline);
+        device.Destroy(variant.Module);
+        device.Destroy(variant.Effect.Layout);
     }
 
     /// <summary>Refuses a caller who is already inside a frame of their own.</summary>
@@ -1337,22 +1476,23 @@ public sealed class TexturePlanEvaluator : IDisposable {
     ///         the message names the fix.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What the refusal costs, and it is not one bake.</b> Nothing is ever evicted from
-    ///         this dictionary — <see cref="Dispose" /> is the only thing that empties it — and an
-    ///         evaluator is lent per host rather than per document. So a front end that spelled one
-    ///         name two ways would not fail once: it would fail every bake of that kernel for the
-    ///         rest of the session, with a message about a plan the author has since corrected. That
-    ///         is a tolerable price for one authoring mistake and it would not be one for a mechanism.
+    ///         ⚠ <b>What the refusal costs, and it is not one bake.</b> An authored variant now
+    ///         survives only until <see cref="AuthoredVariantCeiling" /> newer ones have displaced it,
+    ///         and an evaluator is lent per host rather than per document. So a front end that spelled
+    ///         one name two ways would fail every bake of that kernel until the name aged out of the
+    ///         queue, with a message about a plan the author has since corrected. That is a tolerable
+    ///         price for one authoring mistake and it would not be one for a mechanism.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the convention that makes the refusal unnecessary is what makes this
-    ///         dictionary unbounded.</b> <c>TexturePixelProcessor</c> names its shader after a digest
-    ///         of the expression, so <em>every distinct expression an author types</em> is a new key,
-    ///         a new <see cref="ShaderHandle" /> and a new <see cref="PipelineHandle" /> that live
-    ///         until the host's evaluator is disposed — and <c>TextureGraphPreviews</c> re-evaluates
-    ///         on every graph change, which is per keystroke. Hashing is the right convention and
-    ///         eviction is the thing it owes;
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1091">#1091</a>.
+    ///         ⚠ <b>And the convention that makes the refusal unnecessary is what made this dictionary
+    ///         unbounded</b> — <a href="https://github.com/Rikarin/Vixen/issues/1091">#1091</a>.
+    ///         <c>TexturePixelProcessor</c> names its shader after a digest of the expression, so
+    ///         <em>every distinct expression an author types</em> was a new key, a new
+    ///         <see cref="ShaderHandle" />, a new <see cref="PipelineHandle" /> and a new pipeline
+    ///         layout that lived until the host's evaluator went — and <c>TextureGraphPreviews</c>
+    ///         re-evaluates on every graph change, which is per keystroke. Hashing is the right
+    ///         convention and eviction was the thing it owed; <see cref="EvictAuthored" /> is that,
+    ///         and its remarks carry why it is free rather than the device stall the issue expected.
     ///     </para>
     /// </remarks>
     Variant VariantFor(TexturePlan plan, string kernel, TextureFormat output) {
@@ -1377,6 +1517,13 @@ public sealed class TexturePlanEvaluator : IDisposable {
                     + "own source, which is what TexturePixelProcessor does.",
                     nameof(plan)
                 );
+            }
+
+            if (authoredOrder.Remove((kernel, output))) {
+                // Used, so it goes to the back of the eviction queue. `Remove` is what says it was an
+                // authored key in the first place, so an embedded kernel costs one failed list search
+                // per op and never enters the queue.
+                authoredOrder.Add((kernel, output));
             }
 
             return existing;
@@ -1420,6 +1567,14 @@ public sealed class TexturePlanEvaluator : IDisposable {
         };
 
         variants[(kernel, output)] = variant;
+
+        if (variant.Authored is not null) {
+            // The plan carried this kernel's text, so its name is a digest and the next distinct
+            // expression is a distinct key. This is the half of the dictionary that is bounded by
+            // nothing, and the queue is what bounds it.
+            authoredOrder.Add((kernel, output));
+        }
+
         Compilations++;
 
         return variant;

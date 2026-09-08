@@ -27,11 +27,18 @@ namespace Tests;
 ///         <see cref="Every_shipped_compound_publishes_and_compiles" /> would then iterate an empty
 ///         list and pass, which is the shape of a green suite over no work at all — so
 ///         <see cref="The_shipped_library_is_the_folder_and_not_a_list" /> holds a floor per folder,
-///         quoted from doc 48 § 4.9's own ● marks, and it is the first thing to read when something
-///         here goes quiet. ⚠ <b>That floor was a single <c>4</c> for three batches while
-///         thirty-one compounds shipped</b>, which is the same defect one step along: an instrument
-///         that cannot fail, because the number it compares against stopped being re-derived when
-///         content landed.
+///         and it is the first thing to read when something here goes quiet. ⚠ <b>That floor was a
+///         single <c>4</c> for three batches while thirty-one compounds shipped</b>, which is the
+///         same defect one step along: an instrument that cannot fail, because the number it compares
+///         against stopped being re-derived when content landed.
+///     </para>
+///     <para>
+///         ⚠ <b>And the floor is the shipped count, not doc 48 § 4.9's ● marks — this said it was the
+///         marks and for two of the five folders it was not</b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/1099">#1099</a>). The marks are carried
+///         beside the floors now rather than instead of them, because they answer a different
+///         question: a floor says what may not be deleted and a mark says what M10 still owes, and a
+///         reader taking the remainder off a floor that claimed to be the marks undercounted.
 ///     </para>
 /// </remarks>
 public sealed class TextureCompoundLibraryTests : IDisposable {
@@ -148,27 +155,57 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         // floor that is not re-derived when content lands measures the batch that wrote it and
         // nothing since.
         //
-        // So the floors are **per folder and quoted from doc 48 § 4.9**, which is a claim the
-        // document makes rather than a snapshot of the tree: the grunges are "a family of eight", the
-        // Surface row names four, and the mask generators read their maps by usage. A folder that
-        // loses content goes red against the sentence that asked for it, and a slice that adds a
-        // ninth grunge is covered without editing this.
+        // So the floors are **per folder**, and there are two numbers per folder rather than one
+        // because the two questions are different — which is the correction #1099 is:
+        //
+        //   * `Least` is a **deletion floor and is the shipped count**. It is not derived from doc 48
+        //     § 4.9 and this comment used to say it was ("quoted from § 4.9, which is a claim the
+        //     document makes rather than a snapshot of the tree"). For Patterns and Surface it was
+        //     the snapshot, and the sentence beside Surface — "the Surface row names four" — was
+        //     simply false: § 4.9's Surface row is *Height Blend ● · Bevel ● · Curvature Smooth ● ·
+        //     Height to AO ● · Metal Reflectance ●*, five marks. ⚠ **A reader taking M10's remainder
+        //     off this table undercounted by one folder's worth**, which is the whole cost of a
+        //     citation that is wrong rather than a number that is.
+        //   * `Marked` is § 4.9's ● count, which is the plan's ask and is *not* assertable as a
+        //     floor: `Surface/Metal Reflectance` is marked and refused on #1096 for want of an atomic
+        //     node mapping a metal name to an F0, so flooring Surface at five would be a red test
+        //     about a decision rather than about content that stopped shipping.
+        //
+        // What that buys, beyond an honest sentence, is the reminder the old shape could not give:
+        // the moment a folder ships as many as § 4.9 marks, `Least` must be bumped to `Marked` or
+        // this goes red. So the last compound of a row cannot land without the floor following it,
+        // which is exactly how Patterns came to sit at four while seven shipped.
         Assert.All(
-            new (string Folder, int Least, string Why)[] {
-                ("Utility/", 8, "§ 4.9's Utility row marks eight ●"),
-                ("Patterns/", 7, "§ 4.9's Patterns row marks Brick, Panels, Tile Random, Rivets, Scratches, "
+            new (string Folder, int Least, int Marked, string Why)[] {
+                ("Utility/", 8, 8, "§ 4.9's Utility row marks eight ●"),
+                ("Patterns/", 7, 7, "§ 4.9's Patterns row marks Brick, Panels, Tile Random, Rivets, Scratches, "
                     + "Wood Grain and Cells ● — and the seven are every ● it carries"),
-                ("Grunges/", 8, "§ 4.9 calls the grunges 'a family of eight ●'"),
-                ("Surface/", 4, "§ 4.9's Surface row marks Height Blend, Bevel, Curvature Smooth and Height to AO ●"),
-                ("Generators/", 7, "§ 4.9's mask-generator row marks seven ●")
+                ("Grunges/", 8, 8, "§ 4.9 calls the grunges 'a family of eight ●'"),
+                ("Surface/", 4, 5, "§ 4.9's Surface row marks Height Blend, Bevel, Curvature Smooth, Height to AO "
+                    + "and Metal Reflectance ● — five, of which Metal Reflectance is refused on #1096"),
+                ("Generators/", 7, 7, "§ 4.9's mask-generator row marks seven ●")
             },
-            expected => Assert.True(
-                onDisk.Count(path => path.StartsWith(expected.Folder, StringComparison.Ordinal)) >= expected.Least,
-                $"'{folder}' holds "
-                + $"{onDisk.Count(path => path.StartsWith(expected.Folder, StringComparison.Ordinal))} compound(s) "
-                + $"under '{expected.Folder}' and {expected.Least} are owed: {expected.Why}. A walk that found "
-                + "fewer is a pass over content that has stopped shipping rather than a clean library."
-            )
+            expected => {
+                var shipped = onDisk.Count(path => path.StartsWith(expected.Folder, StringComparison.Ordinal));
+
+                Assert.True(
+                    shipped >= expected.Least,
+                    $"'{folder}' holds {shipped} compound(s) under '{expected.Folder}' and {expected.Least} ship "
+                    + $"today, against § 4.9's {expected.Marked} ●: {expected.Why}. A walk that found fewer is a "
+                    + "pass over content that has stopped shipping rather than a clean library."
+                );
+
+                // ⚠ The half that reads the disk *and* the plan at once. A slice that lands the last
+                // ● of a row without bumping the floor leaves a deletion floor that no longer floors
+                // anything, which is how this table came to say four where seven shipped.
+                Assert.True(
+                    shipped < expected.Marked || expected.Least == expected.Marked,
+                    $"'{expected.Folder}' now ships {shipped} compound(s), which is every one of § 4.9's "
+                    + $"{expected.Marked} ● — so the floor in this table must be raised from {expected.Least} to "
+                    + $"{expected.Marked}. A floor left below what ships stops being a deletion floor: "
+                    + $"{shipped - expected.Least} compound(s) could be unembedded with this class still green."
+                );
+            }
         );
 
         Assert.Equal(onDisk, TextureCompoundLibrary.Shipped);
