@@ -122,6 +122,25 @@ sealed class PaintUvView {
     /// <summary>Where the path's curve goes, kept rather than allocated per pointer move.</summary>
     readonly List<Vector2> sampled = [];
 
+    /// <summary>Which placed point the pointer is dragging, or -1.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An index and not the point itself, because the drag has to survive the list moving
+    ///     under it.</b> Inserting a point is followed straight away by dragging the one that was
+    ///     just inserted, which is one gesture from the artist's side — so what the drag holds is a
+    ///     place in the order rather than a value that would go stale the moment anything shifted.
+    /// </remarks>
+    int held = -1;
+
+    /// <summary>Where the pointer last was, in texels, whether or not anything was painted.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside <see cref="last" /> rather than instead of it, because they answer different
+    ///     questions.</b> <see cref="last" /> is where the last <em>stamp</em> went and is what a
+    ///     shift-click line starts from; this is where the pointer is, which is what a key pressed
+    ///     over a placed point has to be measured against. Using the stamp for that would delete a
+    ///     point near wherever the previous stroke happened to end.
+    /// </remarks>
+    Vector2 hovered;
+
     /// <summary>How many overlay segments belong to the islands rather than to the cursor.</summary>
     /// <remarks>
     ///     ⚠ <b>One list for both, split by an index, because <c>ImageView.Overlay</c> is one list.</b>
@@ -301,6 +320,8 @@ sealed class PaintUvView {
             anchor = null;
 
             path.Clear();
+
+            held = -1;
         }
 
         // ⚠ Never while a stroke is in flight. `Fit` writes both `Zoom` and `Pan`, which are the
@@ -419,6 +440,16 @@ sealed class PaintUvView {
         }
     }
 
+    /// <summary>How near a placed point or the curve a click counts as aiming at it, in texels.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Eight pixels on screen converted into texels, and never eight texels.</b> A grab
+    ///     radius in texels is a target the size of a fingernail on an atlas viewed at 800% and a
+    ///     target smaller than the cursor at 12%, so an artist zoomed out could not pick up a point
+    ///     at all — which is the scale trap this repository keeps shipping, in the one place where a
+    ///     zoom rather than a model puts three orders of magnitude between the two ends.
+    /// </remarks>
+    float Grab() => Image.Zoom > 0f ? 8f / Image.Zoom : 8f;
+
     /// <summary>The curve being placed, drawn under the cursor.</summary>
     /// <remarks>
     ///     <para>
@@ -474,15 +505,37 @@ sealed class PaintUvView {
 
             case InputKey.Escape when args.Has(ModifierKeys.None):
                 path.Clear();
+
+                held = -1;
+
                 Say("Path cleared.");
-                ShowCursor(last);
+                ShowCursor(hovered);
 
                 break;
 
             case InputKey.Backspace when args.Has(ModifierKeys.None):
                 path.Undo();
-                Say($"{path.Points.Count} point(s). Enter or right-click lays the curve.");
-                ShowCursor(last);
+                Say(Placed());
+                ShowCursor(hovered);
+
+                break;
+
+            // ⚠ A different key from Backspace and deliberately so — #1084's remainder. Backspace
+            // takes the *last* point back, which is the pen gesture every tool has and is what an
+            // artist reaches for while still placing; this takes the point they are pointing at,
+            // which is what they reach for having seen the curve. One key doing both would have to
+            // guess which, and would guess wrong exactly when the pointer happened to be near the
+            // end of the path.
+            case InputKey.Delete when args.Has(ModifierKeys.None):
+                if (path.Nearest(hovered, Grab()) is var picked && picked < 0) {
+                    // Not over a point. Left unhandled, so Delete goes on meaning whatever it means
+                    // to whatever else has the focus.
+                    return;
+                }
+
+                path.RemoveAt(picked);
+                Say(Placed());
+                ShowCursor(hovered);
 
                 break;
 
@@ -492,6 +545,19 @@ sealed class PaintUvView {
 
         args.Handled = true;
     }
+
+    /// <summary>What the status line says while a path is being placed.</summary>
+    /// <returns>The sentence.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The verbs an artist cannot see are the ones worth naming.</b> Placing a point is
+    ///     discoverable — it is the click they already made — while dragging one, inserting into the
+    ///     curve and deleting the one under the pointer are three gestures with nothing on screen to
+    ///     announce them. A path tool whose corrections are undiscoverable is #1084's own complaint
+    ///     one level up: the artist does not know the path <em>can</em> be corrected.
+    /// </remarks>
+    string Placed() =>
+        $"{path.Points.Count} point(s). Drag one to move it, click the curve to add one, Delete "
+        + "takes the one under the pointer, Backspace the last. Enter or right-click lays the curve.";
 
     /// <summary>Lays the placed curve as one stroke, and forgets it.</summary>
     /// <remarks>
@@ -514,6 +580,11 @@ sealed class PaintUvView {
     ///     </para>
     /// </remarks>
     void StrokePath() {
+        // ⚠ Enter reaches `Keyed` while a point is still being dragged — the pointer is down and the
+        // keyboard is not — so the drag is ended here rather than left holding an index into a list
+        // this method is about to clear.
+        held = -1;
+
         if (!path.IsStrokeable) {
             path.Clear();
             Say("A path needs two points before it is a stroke.");
@@ -613,9 +684,31 @@ sealed class PaintUvView {
         }
 
         switch (args.Action) {
+            // ⚠ Before the hover case, which returns rather than breaking — a moved point that fell
+            // through to it would redraw the ring and leave the point where it was, which reads as a
+            // handle that cannot be picked up rather than as a missing case.
+            case PointerAction.Moved when held >= 0:
+                hovered = ToTexels(args.X, args.Y);
+
+                path.Move(held, hovered);
+                ShowCursor(hovered);
+
+                break;
+
+            case PointerAction.Released when held >= 0:
+                Image.Document.ReleasePointer();
+
+                held = -1;
+
+                Say(Placed());
+
+                break;
+
             case PointerAction.Moved when session is null:
                 // Hover: the ring follows, and the event is left alone so nothing else changes.
-                ShowCursor(ToTexels(args.X, args.Y));
+                hovered = ToTexels(args.X, args.Y);
+
+                ShowCursor(hovered);
 
                 return;
 
@@ -627,15 +720,15 @@ sealed class PaintUvView {
             case PointerAction.Pressed when session is null && tool.Mode == PaintToolMode.Path:
                 switch (args.Button) {
                     case PointerButton.Primary:
-                        path.Add(ToTexels(args.X, args.Y));
+                        hovered = ToTexels(args.X, args.Y);
 
-                        // So that Enter, Escape and Backspace reach `Keyed`. Taken on the first
-                        // point rather than at build, because a pane that stole the focus when it
-                        // opened would take it off whatever the artist was typing in.
+                        // So that Enter, Escape, Backspace and Delete reach `Keyed`. Taken on the
+                        // first point rather than at build, because a pane that stole the focus when
+                        // it opened would take it off whatever the artist was typing in.
                         Image.Document.Focus(Image);
-
-                        ShowCursor(ToTexels(args.X, args.Y));
-                        Say($"{path.Points.Count} point(s). Enter or right-click lays the curve.");
+                        Pick(hovered);
+                        ShowCursor(hovered);
+                        Say(Placed());
 
                         break;
 
@@ -706,6 +799,53 @@ sealed class PaintUvView {
         }
 
         args.Handled = true;
+    }
+
+    /// <summary>What a primary press in the path mode means: move a point, insert one, or add one.</summary>
+    /// <param name="at">Where the press was, in texels.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Three meanings for one gesture and no modifier between them, which is what every
+    ///         pen tool does and is the only shape that fits this pane.</b> #1084 records that the
+    ///         2D pane is one pointer handler on the capture leg; a correction verb behind a
+    ///         modifier is a verb an artist has to be told about, and the alternative — a second
+    ///         tool mode for editing — would put the artist in a mode where placing a point no
+    ///         longer works.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The order is the whole of it: a point first, then the curve, then the
+    ///         canvas.</b> A placed point is <em>on</em> the curve, so a test that asked about the
+    ///         curve first would answer "insert" for every click on an existing point and the path
+    ///         would grow a duplicate point each time an artist tried to correct one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An insert is followed by a drag of the point it inserted</b>, so placing one and
+    ///         putting it where it belongs is one press rather than two. That is why the drag holds
+    ///         an index: the list has just moved underneath it.
+    ///     </para>
+    /// </remarks>
+    void Pick(Vector2 at) {
+        var grab = Grab();
+
+        if (path.Nearest(at, grab) is var point && point >= 0) {
+            held = point;
+
+            Image.Document.CapturePointer(Image);
+
+            return;
+        }
+
+        if (path.Nearest(at, grab, out var on) is var segment && segment >= 0) {
+            path.Insert(segment + 1, on);
+
+            held = segment + 1;
+
+            Image.Document.CapturePointer(Image);
+
+            return;
+        }
+
+        path.Add(at);
     }
 
     PaintSession? Begin(float smoothing) {

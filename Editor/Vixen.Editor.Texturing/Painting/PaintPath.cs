@@ -63,6 +63,14 @@ sealed class PaintPath {
 
     readonly List<Vector2> points = [];
 
+    /// <summary>One segment's own polyline, for the hit tests. Reused rather than allocated.</summary>
+    /// <remarks>
+    ///     A hit test runs on every pointer move in the path mode, and the curve it walks is the
+    ///     same one <see cref="Sample" /> builds — so allocating a list per move would be the defect
+    ///     <c>PaintUvView.dirtied</c> exists to avoid, on the hover path rather than the drag one.
+    /// </remarks>
+    readonly List<Vector2> piece = [];
+
     /// <summary>The points an artist has placed, in texels of the atlas.</summary>
     public IReadOnlyList<Vector2> Points => points;
 
@@ -72,6 +80,140 @@ sealed class PaintPath {
     /// <summary>Places a point at the end.</summary>
     /// <param name="at">Where, in texels.</param>
     public void Add(Vector2 at) => points.Add(at);
+
+    /// <summary>Moves a placed point.</summary>
+    /// <param name="index">Which one.</param>
+    /// <param name="at">Where it goes, in texels.</param>
+    /// <returns>Whether there was a point there.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The correction half of
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>, and the reason it is
+    ///     owed rather than optional: a path an artist cannot correct is a path they will not
+    ///     use.</b> The curve passes <em>through</em> its points, so moving one is the whole editing
+    ///     model — there are no tangent handles to shape, by that issue's own choice.
+    /// </remarks>
+    public bool Move(int index, Vector2 at) {
+        if (index < 0 || index >= points.Count) {
+            return false;
+        }
+
+        points[index] = at;
+
+        return true;
+    }
+
+    /// <summary>Puts a point between two that are already placed.</summary>
+    /// <param name="index">Where in the order it goes; the point already there moves along.</param>
+    /// <param name="at">Where it is, in texels.</param>
+    /// <returns>Whether the index named a place in the path.</returns>
+    /// <remarks>
+    ///     ⚠ <b>An index and not a position to search from, because the caller has already decided
+    ///     which segment was clicked.</b> A path that doubles back — a hook, a spiral, anything an
+    ///     artist draws around a form — has two segments near one texel, and a model that picked one
+    ///     of them itself would insert into whichever it happened to test first.
+    /// </remarks>
+    public bool Insert(int index, Vector2 at) {
+        if (index < 0 || index > points.Count) {
+            return false;
+        }
+
+        points.Insert(index, at);
+
+        return true;
+    }
+
+    /// <summary>Takes one placed point back off, wherever it is in the order.</summary>
+    /// <param name="index">Which one.</param>
+    /// <returns>Whether there was a point there.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Beside <see cref="Undo" /> rather than instead of it.</b> Backspace taking the last
+    ///     point back is the pen gesture every tool has and is what an artist reaches for while
+    ///     still placing; this is what they reach for afterwards, having seen the curve. The two
+    ///     are different verbs and the keys say so.
+    /// </remarks>
+    public bool RemoveAt(int index) {
+        if (index < 0 || index >= points.Count) {
+            return false;
+        }
+
+        points.RemoveAt(index);
+
+        return true;
+    }
+
+    /// <summary>Which placed point a position is nearest, if any is close enough.</summary>
+    /// <param name="at">Where, in texels.</param>
+    /// <param name="within">How far away still counts, in texels.</param>
+    /// <returns>The point's index, or -1.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The <em>last</em> of two equally near points wins, and that is what makes a doubled
+    ///     click correctable.</b> Two points in the same texel are what an artist produces by
+    ///     double-clicking, and the one they mean to drag away is the one they placed last — a
+    ///     search that stopped at the first match would leave the second permanently under it.
+    /// </remarks>
+    public int Nearest(Vector2 at, float within) {
+        var best = within;
+        var found = -1;
+
+        for (var index = 0; index < points.Count; index++) {
+            var distance = (points[index] - at).Length();
+
+            if (distance <= best) {
+                best = distance;
+                found = index;
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>Which segment of the drawn curve a position is nearest, if any is close enough.</summary>
+    /// <param name="at">Where, in texels.</param>
+    /// <param name="within">How far from the curve still counts, in texels.</param>
+    /// <param name="on">The place on the curve it answers for, or <paramref name="at" /> for none.</param>
+    /// <returns>The segment's index — the point it starts at — or -1.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Against the sampled curve and not against the chord between two points, which is
+    ///         the difference between a hit test and a near miss.</b> The curve bows away from its
+    ///         chord by design — that is the whole reason a curved stroke is not two
+    ///         <c>MoveTo</c> calls — so a test against chords would refuse a click made on the line
+    ///         the artist can see, in exactly the places the curve is most curved.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>At <see cref="Tolerance" /> and not at the caller's, so the thing tested is the
+    ///         thing drawn.</b> <c>PaintUvView</c> previews the path at this tolerance and lays the
+    ///         stroke at it too; a hit test sampled coarser would answer against a polyline nobody
+    ///         has ever seen.
+    ///     </para>
+    /// </remarks>
+    public int Nearest(Vector2 at, float within, out Vector2 on) {
+        on = at;
+
+        var best = within;
+        var found = -1;
+
+        for (var segment = 0; segment + 1 < points.Count; segment++) {
+            piece.Clear();
+            piece.Add(points[segment]);
+            Fill(piece, segment, Tolerance);
+            piece.Add(points[segment + 1]);
+
+            for (var step = 1; step < piece.Count; step++) {
+                var distance = Closest(at, piece[step - 1], piece[step], out var closest);
+
+                if (distance > best) {
+                    continue;
+                }
+
+                best = distance;
+                found = segment;
+                on = closest;
+            }
+        }
+
+        return found;
+    }
 
     /// <summary>Takes the last point back off.</summary>
     /// <returns>Whether there was one.</returns>
@@ -116,18 +258,28 @@ sealed class PaintPath {
         into.Add(points[0]);
 
         for (var segment = 0; segment + 1 < points.Count; segment++) {
-            // ⚠ The ends are doubled rather than extrapolated. A phantom control point placed by
-            // reflecting the second through the first makes the curve leave the first point in a
-            // direction nobody clicked, and an artist's first click is the one they placed most
-            // deliberately.
-            var before = points[Math.Max(segment - 1, 0)];
-            var start = points[segment];
-            var end = points[segment + 1];
-            var after = points[Math.Min(segment + 2, points.Count - 1)];
-
-            Split(into, before, start, end, after, 0f, 1f, start, end, limit, 0);
-            into.Add(end);
+            Fill(into, segment, limit);
+            into.Add(points[segment + 1]);
         }
+    }
+
+    /// <summary>Puts one segment's interior points into a list, without either of its ends.</summary>
+    /// <param name="into">Where they go, appended.</param>
+    /// <param name="segment">Which segment: the one starting at that point.</param>
+    /// <param name="tolerance">How far the polyline may sit from the curve, in texels.</param>
+    /// <remarks>
+    ///     ⚠ The ends are doubled rather than extrapolated. A phantom control point placed by
+    ///     reflecting the second through the first makes the curve leave the first point in a
+    ///     direction nobody clicked, and an artist's first click is the one they placed most
+    ///     deliberately.
+    /// </remarks>
+    void Fill(List<Vector2> into, int segment, float tolerance) {
+        var before = points[Math.Max(segment - 1, 0)];
+        var start = points[segment];
+        var end = points[segment + 1];
+        var after = points[Math.Min(segment + 2, points.Count - 1)];
+
+        Split(into, before, start, end, after, 0f, 1f, start, end, tolerance, 0);
     }
 
     /// <summary>Halves a stretch of one segment until its chord is inside the tolerance.</summary>
@@ -190,17 +342,35 @@ sealed class PaintPath {
     /// <param name="from">Where the chord starts.</param>
     /// <param name="until">Where it ends.</param>
     /// <returns>The distance, in texels.</returns>
-    static float Deviation(Vector2 point, Vector2 from, Vector2 until) {
+    static float Deviation(Vector2 point, Vector2 from, Vector2 until) => Closest(point, from, until, out _);
+
+    /// <summary>How far a point is from a segment, and which place on it is nearest.</summary>
+    /// <param name="point">The point.</param>
+    /// <param name="from">Where the segment starts.</param>
+    /// <param name="until">Where it ends.</param>
+    /// <param name="on">The nearest place on the segment, ends included.</param>
+    /// <returns>The distance, in texels.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Clamped to the segment rather than to its infinite line, which is what makes it a
+    ///     hit test as well as a deviation.</b> An unclamped projection answers a distance of nought
+    ///     for a click a long way past the end of a stretch of curve, which would insert a point
+    ///     into a segment the artist was nowhere near.
+    /// </remarks>
+    static float Closest(Vector2 point, Vector2 from, Vector2 until, out Vector2 on) {
         var span = until - from;
         var length = span.LengthSquared();
 
         if (!(length > 0f)) {
+            on = from;
+
             return (point - from).Length();
         }
 
         var t = Math.Clamp(Vector2.Dot(point - from, span) / length, 0f, 1f);
 
-        return (point - (from + (span * t))).Length();
+        on = from + (span * t);
+
+        return (point - on).Length();
     }
 
     /// <summary>One point of the centripetal Catmull-Rom spline through four control points.</summary>

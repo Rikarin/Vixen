@@ -685,6 +685,225 @@ public class PaintUvViewTests {
         Assert.True(Painted(layer, new Vector2(30f, 30f)), "Enter did not lay the path.");
     }
 
+    /// <summary>A placed point can be picked up and moved, and the curve follows it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>'s remainder: the
+    ///         pen gesture landed and a placed point could not be corrected.</b> A path an artist
+    ///         cannot correct is a path they will not use — every point after a mistake has to be
+    ///         taken off with Backspace and placed again.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The count is the assertion that says "moved" rather than "added".</b> Without a
+    ///         hit test a press on a placed point is just another press, so the path would grow a
+    ///         fourth point in the same texel as the second — which paints an almost identical curve
+    ///         and would satisfy any assertion about where the paint went.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_placed_point_can_be_dragged_and_the_curve_follows_it() {
+        using var fixture = new TexturingFixture();
+        var view = Pen(fixture, out var layer, out var entries);
+
+        Place(fixture, view.Image, new Vector2(20f, 100f));
+        Place(fixture, view.Image, new Vector2(64f, 100f));
+        Place(fixture, view.Image, new Vector2(108f, 100f));
+
+        Assert.Contains("3 point(s)", view.Status, StringComparison.Ordinal);
+
+        Pull(fixture, view.Image, new Vector2(64f, 100f), new Vector2(64f, 30f));
+
+        Assert.Contains(
+            "3 point(s)",
+            view.Status,
+            StringComparison.Ordinal
+        );
+
+        Commit(fixture, view.Image, new Vector2(108f, 100f));
+
+        Assert.Single(entries);
+
+        Assert.True(
+            Painted(layer, new Vector2(64f, 31f)),
+            "the curve does not pass through where the middle point was dragged to."
+        );
+
+        // ⚠ And it no longer passes through where that point was, which is what says the point moved
+        // rather than the path gaining a second apex.
+        Assert.False(
+            Painted(layer, new Vector2(64f, 100f)),
+            "the curve still passes through where the middle point started."
+        );
+    }
+
+    /// <summary>A click on the curve inserts a point there rather than at the end of the path.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Where the point goes in the <em>order</em> is the whole assertion, and a count cannot
+    ///     see it.</b> Appending gives three points too; what it gives is a path that runs to the far
+    ///     end and doubles back, so the curve stays along the line between the first two and the new
+    ///     point is a tail. The two are told apart by asking whether the paint is still on that line.
+    /// </remarks>
+    [Fact]
+    public void A_click_on_the_curve_inserts_a_point_there_rather_than_at_the_end() {
+        using var fixture = new TexturingFixture();
+        var view = Pen(fixture, out var layer, out var entries);
+
+        Place(fixture, view.Image, new Vector2(20f, 64f));
+        Place(fixture, view.Image, new Vector2(108f, 64f));
+
+        Assert.Contains("2 point(s)", view.Status, StringComparison.Ordinal);
+
+        // On the curve, a long way from either end — and the same press drags the point it inserted,
+        // which is one gesture rather than two.
+        Pull(fixture, view.Image, new Vector2(64f, 64f), new Vector2(64f, 20f));
+
+        Assert.Contains("3 point(s)", view.Status, StringComparison.Ordinal);
+
+        Commit(fixture, view.Image, new Vector2(108f, 64f));
+
+        Assert.Single(entries);
+        Assert.True(Painted(layer, new Vector2(64f, 21f)), "the curve does not reach the inserted point.");
+
+        // ⚠ The discriminator. A point appended instead of inserted leaves the path running
+        // (20,64) → (108,64) → (64,20), whose first segment paints straight along y = 64.
+        Assert.False(
+            Painted(layer, new Vector2(64f, 64f)),
+            "the curve still runs straight between the first two points, so the third was appended "
+            + "rather than inserted between them."
+        );
+    }
+
+    /// <summary>Delete takes the point under the pointer; Backspace goes on taking the last.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two keys because they are two verbs, and a count cannot tell them apart.</b>
+    ///         Three points becoming two is true whichever point went, so each half is asserted by
+    ///         laying the curve that is left and asking which of the three it still passes through.
+    ///         The apex is the middle point and the one Backspace would never take, which is what
+    ///         makes this fixture able to distinguish them at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the case a pane gets wrong by being helpful: Delete over nothing is left
+    ///         alone.</b> A pane that swallowed Delete whenever it held a path would take it off
+    ///         whatever else in the editor wanted it, which is the judgement <c>Keyed</c> already
+    ///         makes for Enter and Escape with no path placed.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Delete_takes_the_point_under_the_pointer_and_backspace_takes_the_last() {
+        using var fixture = new TexturingFixture();
+        var view = Pen(fixture, out var layer, out _);
+
+        Place(fixture, view.Image, new Vector2(20f, 100f));
+        Place(fixture, view.Image, new Vector2(64f, 30f));
+        Place(fixture, view.Image, new Vector2(108f, 100f));
+
+        // Over nothing: the key routes on, and the path keeps all three.
+        Hover(fixture, view.Image, new Vector2(10f, 10f));
+
+        var idle = new KeyEvent { Key = InputKey.Delete, Action = KeyAction.Pressed };
+
+        fixture.Shell.Document.Dispatch(idle);
+
+        Assert.False(idle.Handled, "the pane swallowed Delete with the pointer over no point of the path.");
+        Assert.Contains("3 point(s)", view.Status, StringComparison.Ordinal);
+
+        // Over the apex: that one goes, and it is the one in the middle.
+        Hover(fixture, view.Image, new Vector2(64f, 30f));
+        fixture.Shell.Document.Dispatch(new KeyEvent { Key = InputKey.Delete, Action = KeyAction.Pressed });
+
+        Assert.Contains("2 point(s)", view.Status, StringComparison.Ordinal);
+
+        Commit(fixture, view.Image, new Vector2(108f, 100f));
+
+        Assert.True(Painted(layer, new Vector2(20f, 100f)), "the first point is gone as well.");
+        Assert.True(Painted(layer, new Vector2(108f, 100f)), "the last point is gone, so Delete took that one.");
+
+        Assert.False(
+            Painted(layer, new Vector2(64f, 31f)),
+            "the curve still reaches the apex, so Delete took a point that was not under the pointer."
+        );
+
+        layer.Fill(0u);
+
+        // And Backspace, on a path placed the same way, takes the other end.
+        Place(fixture, view.Image, new Vector2(20f, 100f));
+        Place(fixture, view.Image, new Vector2(64f, 30f));
+        Place(fixture, view.Image, new Vector2(108f, 100f));
+        fixture.Shell.Document.Dispatch(new KeyEvent { Key = InputKey.Backspace, Action = KeyAction.Pressed });
+
+        Assert.Contains("2 point(s)", view.Status, StringComparison.Ordinal);
+
+        Commit(fixture, view.Image, new Vector2(64f, 30f));
+
+        Assert.True(Painted(layer, new Vector2(64f, 31f)), "Backspace took the apex rather than the last point.");
+
+        Assert.False(
+            Painted(layer, new Vector2(108f, 100f)),
+            "the curve still reaches the last point, so Backspace took something else."
+        );
+    }
+
+    /// <summary>A pen view over a 128² layer, with the path mode on.</summary>
+    /// <param name="fixture">The host.</param>
+    /// <param name="layer">The canvas a laid path paints into.</param>
+    /// <param name="entries">Where a laid path's undo entry goes.</param>
+    /// <returns>The view.</returns>
+    static PaintUvView Pen(TexturingFixture fixture, out PaintImage layer, out List<IEditorCommand> entries) {
+        var host = fixture.Shell.Document.Root.Add<UiElement>();
+        PaintTool tool = new() { Mode = PaintToolMode.Path };
+        PaintUvView view = new(host, tool);
+
+        PaintImage canvas = new(128, 128);
+        List<IEditorCommand> laid = [];
+
+        tool.SetRadius(3f);
+        view.Target = () => new(canvas, PaintCoverage.Everywhere(128, 128), new EmptyStack(128), Gutter: 0);
+        view.Finished = laid.Add;
+        view.Show(0ul, 128, 128, "");
+        fixture.Shell.Document.Update();
+
+        layer = canvas;
+        entries = laid;
+
+        return view;
+    }
+
+    /// <summary>Moves the pointer over a texel without pressing anything.</summary>
+    /// <param name="fixture">The host.</param>
+    /// <param name="image">The pane's viewer.</param>
+    /// <param name="texel">Where, in texels.</param>
+    static void Hover(TexturingFixture fixture, ImageView image, Vector2 texel) {
+        var at = image.ToScreen(texel);
+
+        fixture.Shell.Document.Dispatch(new PointerEvent { X = at.X, Y = at.Y, Action = PointerAction.Moved });
+    }
+
+    /// <summary>Presses on a texel, drags to another and releases.</summary>
+    /// <param name="fixture">The host.</param>
+    /// <param name="image">The pane's viewer.</param>
+    /// <param name="from">Where the press is, in texels.</param>
+    /// <param name="to">Where the release is.</param>
+    /// <remarks>
+    ///     ⚠ Its own rather than <c>Drag</c>, which samples the pane's last upload and needs a
+    ///     fixture with graphics published; a pen test has no picture and asserts against the
+    ///     canvas.
+    /// </remarks>
+    static void Pull(TexturingFixture fixture, ImageView image, Vector2 from, Vector2 to) {
+        var start = image.ToScreen(from);
+        var end = image.ToScreen(to);
+
+        fixture.Shell.Document.Dispatch(
+            new PointerEvent { X = start.X, Y = start.Y, Action = PointerAction.Pressed, Button = PointerButton.Primary }
+        );
+
+        fixture.Shell.Document.Dispatch(new PointerEvent { X = end.X, Y = end.Y, Action = PointerAction.Moved });
+
+        fixture.Shell.Document.Dispatch(
+            new PointerEvent { X = end.X, Y = end.Y, Action = PointerAction.Released, Button = PointerButton.Primary }
+        );
+    }
+
     static void Place(TexturingFixture fixture, ImageView image, Vector2 texel) {
         var at = image.ToScreen(texel);
 
