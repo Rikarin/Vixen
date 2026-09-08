@@ -739,6 +739,12 @@ sealed partial class EditorApplication : IDisposable {
 
         thumbnails = new ThumbnailCache(project);
 
+        // ⚠ The surface is read through a lambda rather than handed over, because there is none yet:
+        // the window has to be up before a Vulkan surface exists, so the host sets it after this
+        // constructor has run — and a texture editor opened by a session restore is opened before
+        // that. See `ThumbnailSurface`, which restates the open ones when it arrives.
+        texturePreviews = new TexturePreviewImages(() => thumbnails.Surface);
+
         // ⚠ 80–95 ms of a session, measured on this machine, and it is the platform's rather than
         // ours: `FileSystemWatcher.EnableRaisingEvents = true` starts an FSEvents stream. A test
         // that never edits a file behind the editor's back pays it anyway, 344 times over in
@@ -999,6 +1005,9 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     readonly AssetEditorsModule? assetEditors;
 
+    /// <summary>What puts pixels in an open texture editor's preview. See <see cref="TexturePreviewImages" />.</summary>
+    readonly TexturePreviewImages texturePreviews;
+
     /// <summary>What this editor put in <see cref="Extensions" />, so shutting down takes it back out.</summary>
     readonly List<IDisposable> contributions = [];
 
@@ -1034,7 +1043,14 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     public IThumbnailSurface? ThumbnailSurface {
         get => thumbnails.Surface;
-        set => thumbnails.Surface = value;
+        set {
+            thumbnails.Surface = value;
+
+            // ⚠ And every texture editor already open, which on a session restore is all of them:
+            // documents are reopened before the first frame, so the previews that matter most were
+            // drawn while there was nothing to draw them with.
+            texturePreviews.Restate();
+        }
     }
 
     /// <summary>The pane a command acts on, or <see langword="null" /> while the panel is closed.</summary>
@@ -1468,7 +1484,9 @@ sealed partial class EditorApplication : IDisposable {
         contributions.Clear();
 
         // Before the shell, because the images it releases are registered with the renderer the
-        // shell's document draws through.
+        // shell's document draws through. The texture editors' previews go first, since they are
+        // registered with the same renderer and released through the same surface.
+        texturePreviews.Release();
         thumbnails.Dispose();
 
         // ⚠ Early, so that nothing arrives during the rest of this. A watcher left running holds a
@@ -2470,7 +2488,7 @@ sealed partial class EditorApplication : IDisposable {
                 panel => {
                     if (project.TryGetDocument(asset, out var open)
                         && editors.TryGetForFile(project.Assets.TryGetByGuid(asset, out var entry) ? entry.Path : title, out var editor)) {
-                        Joined(editor.CreateView(open, panel));
+                        Joined(editor.CreateView(open, panel), open);
                     }
                 }
             );
@@ -2519,6 +2537,7 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>Connects an asset editor's view to the things only this assembly can answer.</summary>
     /// <param name="view">Whatever the factory built.</param>
+    /// <param name="document">The document it was built over.</param>
     /// <remarks>
     ///     ⚠ <b>Here rather than in the factory, because the request is for another document.</b> A
     ///     material's "Open shader graph" carries an <c>AssetId</c> and stops —
@@ -2527,9 +2546,17 @@ sealed partial class EditorApplication : IDisposable {
     ///     graph editor existed to open. Every asset editor's factory runs again on a reopen, so this
     ///     runs again with it and subscribes the new view rather than a dead one.
     /// </remarks>
-    void Joined(UiElement view) {
+    void Joined(UiElement view, EditorDocument document) {
         if (view is AssetEditors.Materials.MaterialView material) {
             material.OpenGraphRequested += (_, graph) => Open(graph);
+        }
+
+        // ⚠ And the texture editor's preview, which had no picture in it at all — `Image.Texture` is
+        // a number only this assembly can hand out, so the panel's four channel buttons and its mip
+        // ladder moved state nothing turned into pixels. See `TexturePreviewImages`.
+        if (view is AssetEditors.Importing.TextureImportView texture
+            && document is AssetEditors.Importing.TextureImportDocument imported) {
+            texturePreviews.Follow(texture, imported);
         }
 
         // ⚠ And the three AI editors, whose `Follow` methods had no non-test caller at all. The

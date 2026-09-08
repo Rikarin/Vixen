@@ -153,6 +153,68 @@ public class ImportViewTests {
         Assert.Equal(1, raised);
     }
 
+    /// <summary>A row of the ladder is the mip control, and pressing one moves the selection.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>SetMipLevel</c> had no production caller at all</b>, so the level the preview asks
+    ///     for could only ever be zero — the rows drew a chain nobody could point at.
+    ///     <see href="https://github.com/Rikarin/Vixen/issues/610">#610</see>. Pressed through the
+    ///     pointer rather than by calling the method, because the method was never the missing half.
+    /// </remarks>
+    [Fact]
+    public void PressingALadderRowPreviewsThatLevel() {
+        using var harness = new ViewHarness();
+
+        var document = new TextureImportDocument(harness.Project.Project, AssetId.New(), Image(harness.Project));
+        var view = harness.Ui.Document.Root.Add<TextureImportView>();
+
+        view.Show(document);
+        harness.Ui.Frame();
+
+        var rows = Rows(view);
+
+        Assert.True(rows.Count > 2, "a 32×32 source has a chain worth pressing at");
+        Assert.Equal(0, view.MipLevel);
+        Assert.True(rows[0].HasClass("selected"));
+
+        var raised = 0;
+
+        view.ViewChanged += _ => raised++;
+
+        var bounds = rows[2].Bounds;
+
+        harness.Ui.MovePointer(bounds.X + (bounds.Width * 0.5f), bounds.Y + (bounds.Height * 0.5f));
+        harness.Ui.PressPointer();
+        harness.Ui.ReleasePointer();
+        harness.Ui.Frame();
+
+        Assert.Equal(2, view.MipLevel);
+
+        // The event is what a host uploads on, so a press that moved the level silently would leave
+        // the picture on the level before it.
+        Assert.Equal(1, raised);
+
+        // And the selection follows, which is the binding inside the surviving row's body.
+        Assert.True(Rows(view)[2].HasClass("selected"));
+        Assert.False(Rows(view)[0].HasClass("selected"));
+    }
+
+    /// <summary>The ladder's rows, in level order.</summary>
+    static List<UiElement> Rows(TextureImportView view) =>
+        [.. view.Ladder.Children.Where(child => string.Equals(child.Tag, "ladder-row", StringComparison.Ordinal))];
+
+    /// <summary>A real PNG, because the panel's first act is decoding the file it was pointed at.</summary>
+    static string Image(EditorFixture project, int width = 32, int height = 32) {
+        var path = project.Paths.Absolute("Assets/hero.png");
+        var pixels = new byte[width * height * 4];
+
+        Array.Fill(pixels, (byte) 255);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllBytes(path, Assets.Tests.MinimalPng.Write(width, height, pixels));
+
+        return path;
+    }
+
     /// <summary>A model with no import behind it says so rather than showing an empty list.</summary>
     [Fact]
     public void AModelWithNoPartsSaysSo() {
@@ -285,6 +347,82 @@ public class EditorViewTests {
 
         Assert.True(view.ElementCount > 0);
         Assert.Equal("Live cascade over the sample tree below.", view.Status.Text);
+    }
+
+    /// <summary>The code pane's toggle is what turns <c>CodeEditor.WordWrap</c> on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted as rows and not as the flag.</b> <c>WordWrap</c> being true is a property
+    ///     echoing back what the handler wrote and would stay true if the control had stopped
+    ///     wrapping; a line too long for the viewport occupying more than one entry of
+    ///     <c>Rows</c> is the work the setting exists to cause. The unwrapped count is read first so
+    ///     the claim is a change rather than a number.
+    /// </remarks>
+    [Fact]
+    public void TheWrapToggleWrapsTheEditor() {
+        using var harness = new ViewHarness();
+
+        // No spaces, so the break is at the column and the row count does not depend on where the
+        // words fall — a wrap of a 600-character line into a 1200px pane is several rows on any
+        // font the theme could pick.
+        var path = harness.Project.Write("Assets/long.rvn", new string('x', 600) + "\n");
+
+        var view = harness.Ui.Document.Root.Add<CodeEditorView>();
+
+        view.Show(new ShaderDocument(harness.Project.Project, AssetId.New(), path));
+        harness.Ui.Frame();
+
+        Assert.False(view.Editor.WordWrap);
+
+        var unwrapped = view.Editor.Rows.Count;
+
+        Assert.True(unwrapped > 0, "the editor built no rows at all, so this proves nothing");
+
+        // The button, not the property: what shipped without a caller is the wiring between them.
+        view.Wrap.IsChecked = true;
+        harness.Ui.Frame();
+
+        Assert.True(view.Editor.WordWrap);
+        Assert.True(
+            view.Editor.Rows.Count > unwrapped,
+            $"the long line still occupies {view.Editor.Rows.Count} rows, as it did unwrapped"
+        );
+
+        view.Wrap.IsChecked = false;
+        harness.Ui.Frame();
+
+        Assert.False(view.Editor.WordWrap);
+        Assert.Equal(unwrapped, view.Editor.Rows.Count);
+    }
+
+    /// <summary>The bar is above the editor, and the setting is the view's rather than the file's.</summary>
+    [Fact]
+    public void TheChromeIsAboveTheEditor() {
+        using var harness = new ViewHarness();
+        var path = harness.Project.Write("Assets/hero.rvn", "shader Hero {\n}\n");
+
+        var view = harness.Ui.Document.Root.Add<CodeEditorView>();
+
+        view.Show(new ShaderDocument(harness.Project.Project, AssetId.New(), path));
+        harness.Ui.Frame();
+
+        Assert.Same(view.Chrome.Parent, view.Editor.Parent);
+
+        var column = view.Chrome.Parent!;
+
+        // The bar has to be drawn above the editor, not below it.
+        Assert.Same(view.Chrome, column.Children[0]);
+        Assert.Same(view.Editor, column.Children[1]);
+
+        // Two panes over the same document wrap independently: the setting is on the control.
+        var second = harness.Ui.Document.Root.Add<CodeEditorView>();
+
+        second.Show(new ShaderDocument(harness.Project.Project, AssetId.New(), path));
+        second.Wrapped = true;
+        harness.Ui.Frame();
+
+        Assert.True(second.Editor.WordWrap);
+        Assert.True(second.Wrap.IsChecked);
+        Assert.False(view.Editor.WordWrap);
     }
 
     /// <summary>The group list is the project's group files, ordered by path.</summary>

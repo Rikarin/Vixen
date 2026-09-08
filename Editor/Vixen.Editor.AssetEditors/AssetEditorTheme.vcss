@@ -202,7 +202,12 @@ ladder-row {
     min-height: 20px;
     padding: 0px 4px;
     border-radius: 4px;
+
+    /* A row is what picks the previewed level, so it has to look like something to press. */
+    cursor: pointer;
 }
+
+ladder-row:hover { background-color: var(--surface-raised); }
 
 ladder-row.selected { background-color: var(--accent-deep, var(--surface-raised)); }
 ladder-level { width: 28px; flex-shrink: 0; color: var(--text-muted); }
@@ -309,7 +314,9 @@ material-bar > textbox { flex-grow: 1; min-width: 0; }
 
 /* ── The code editors ───────────────────────────────────────────────── */
 code-editor-pane { flex-direction: row; gap: 6px; padding: 0px; }
-code-editor-pane > code-editor { flex-grow: 1; flex-basis: 0px; min-width: 0; }
+code-editor-pane > code-column { flex-grow: 1; flex-basis: 0px; min-width: 0; flex-direction: column; }
+code-column > code-editor { flex-grow: 1; min-height: 0; }
+code-chrome { flex-direction: row; align-items: center; gap: 4px; flex-shrink: 0; padding: 2px 0px; }
 
 preview-pane {
     flex-direction: column;

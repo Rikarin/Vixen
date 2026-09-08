@@ -4,10 +4,21 @@
 
     Doc 36 § F7 wave 8. The code editor pane: a `CodeEditor`, and a document behind it.
 
-    ⚠ **One element of chrome, and that is the honest size of this row.** The panel ledger paired
-    this file with three graph editors under "port the chrome"; here the chrome is a single part, and
-    what the port buys is not brevity but that the tree is declared where the panel is read. The four
-    elements worth declaring are in `PreviewCodeEditorView.vxml` beside this, which derives from it.
+    ⚠ **The chrome is one bar with one toggle, and the toggle is the whole reason the bar exists.**
+    `CodeEditor.WordWrap` shipped with no caller anywhere in the editor, so a long line in a `.rvn`,
+    a `.vcss` or a `.vxml` scrolled sideways and nothing could ask it not to. It is a *view* setting
+    — it lives on this control instance and not on the document — so two panes over the same file
+    wrap independently, which is what every editor that has the setting does.
+
+    ⚠ **The editor is inside `code-column` rather than being a direct child of the pane.** The pane
+    is a `row` (the preview sits beside it), so a bar above the editor needs a column of its own.
+    `PreviewCodeEditorView` still appends its pane after this whole column, which keeps the order
+    `ChromeDumpTests` asserts: the editor before the preview.
+
+    ⚠ **The other four settings do not need a caller.** `TabSize` (4), `AutoIndent` and `AutoFold`
+    default to what a code editor wants, so "nothing sets them" is not a defect — and `ReadOnly`
+    *does* have a production caller, `ShaderGraphView.vxml`'s generated-Raven pane. A sweep that read
+    only `.cs` could not see it.
 
     ⚠ **`CodeEditor` is fed by properties with hand-written setters rather than by `[UiProperty]`,
     and they are assigned in an order that matters** — the tokenizer before the buffer, because
@@ -24,9 +35,21 @@
 @namespace Vixen.Editor.AssetEditors.Code
 @inherits Vixen.Ui.Controls.Control
 @tag code-editor-pane
+@using Vixen.Ui
+@using Vixen.Ui.Controls
 @using Vixen.Ui.Controls.Advanced
 
-<CodeEditor ref="@Editor" />
+<code-column>
+    <code-chrome ref="@Chrome">
+        <!-- ⚠ No `IsChecked` literal here, and it is not an oversight: a literal would run the
+             change handler while the scaffold is still building this bar, which is before the
+             `CodeEditor` below it exists and before `Editor` is assigned. Off is also what the
+             control starts as, so the two agree without anybody stating it twice. -->
+        <ToggleButton ref="@Wrap" Label="Wrap" change:IsChecked="@(on => Editor.WordWrap = on)" />
+    </code-chrome>
+
+    <CodeEditor ref="@Editor" />
+</code-column>
 
 @code {
     CodeDocument? document;
@@ -36,6 +59,35 @@
 
     /// <summary>The editor.</summary>
     public CodeEditor Editor { get; private set; } = null!;
+
+    /// <summary>The bar above the editor.</summary>
+    public UiElement Chrome { get; private set; } = null!;
+
+    /// <summary>The word-wrap toggle.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The toggle is the setting.</b> Nothing mirrors it into a field, so
+    ///     <c>Wrap.IsChecked</c> and <see cref="CodeEditor.WordWrap" /> cannot drift — flipping the
+    ///     property from code without the button would leave a bar that lies, which is why
+    ///     <see cref="Wrapped" /> exists and writes both.
+    /// </remarks>
+    public ToggleButton Wrap { get; private set; } = null!;
+
+    /// <summary>Whether long lines are broken across rows.</summary>
+    /// <remarks>
+    ///     The view's own setting rather than the document's: two panes over one file wrap
+    ///     independently, which is what <see cref="CodeEditor.WordWrap" /> being on the control
+    ///     already means.
+    /// </remarks>
+    public bool Wrapped {
+        get => Editor.WordWrap;
+        set {
+            // The button first: assigning `IsChecked` runs the `change:` handler, which is what puts
+            // the value on the editor. Doing it the other way round would work too and would leave
+            // the second write to set a property to what it already holds.
+            Wrap.IsChecked = value;
+            Editor.WordWrap = value;
+        }
+    }
 
     /// <summary>The document being edited, or <see langword="null" />.</summary>
     public CodeDocument? Edited => document;
