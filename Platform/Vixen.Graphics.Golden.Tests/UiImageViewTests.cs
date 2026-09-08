@@ -258,6 +258,13 @@ public sealed class UiImageViewTests {
             Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device opened: {reason}");
         }
 
+        // ⚠ Skip rather than return false, which is what `DeviceGuardTests` has been failing about on
+        // all three of master's CI legs. Returning false made the caller `return`, and a test that
+        // returns is a test that PASSED — so on a runner with no device this class reported a green
+        // picture it had never drawn. That is the eighteen-passing-goldens failure, and this door was
+        // the one class in the project still holding it open.
+        Assert.Skip(reason ?? "no Vulkan");
+
         return false;
     }
 }
