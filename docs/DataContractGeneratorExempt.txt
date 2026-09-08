@@ -1,0 +1,19 @@
+# Projects that apply [DataContract] and name neither registration generator, on purpose or pending
+# a decision. One project name per line; everything after the first space is why.
+#
+# ⚠ This list can only SHRINK. `CheckArchitecture` fails on a project that is here and has become
+# clean, exactly as `docs/WhitespaceExempt.txt` and `docs/DocCommentExempt.txt` do — so a line that
+# has done its job cannot sit here hiding the next project to break the same way.
+#
+# ⚠ What being on this list means: the attribute in that project registers NOTHING. The type is
+# absent from TypeRegistry and from SerializerRegistry under the name it states, at compile time, at
+# run time and in every test — see #989, where eight of them sat in Vixen.Editor.Terrain until a
+# runtime roll call went looking.
+
+Vixen.Core Its four contracts (GameTime, ObjectId, AssetId, AssetReference) are serialised by hand in Core/Vixen.Core.Serialization/BuiltInSerializers.cs, which is where a type the serialiser itself is built out of has to be.
+Vixen.Core.Collections Handle<T> is an open generic, which the generator has nothing to emit for; the attribute is documentation of intent here.
+Vixen.Core.Diagnostics ProfilingKey is an interned id, not a persisted value — unexamined, and the attribute is a candidate for removal rather than for a generator reference.
+Vixen.Core.Tests AnnotationTests declares a fixture type to test the attribute's own shape, not to register one.
+Vixen.Editor.Scripts.Tests EditorScriptTests declares importer fixtures inside the test assembly, which nothing loads by name.
+Vixen.Editor.Blockout ⚠ Three settings contracts, unexamined, and the same shape as #989's eight — see the issue this list was landed with.
+Vixen.Editor.Water ⚠ Two settings contracts, unexamined, and the same shape as #989's eight — see the issue this list was landed with.

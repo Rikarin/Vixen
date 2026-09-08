@@ -53,6 +53,18 @@
              unreachable on a real machine — a removable worktree is one nobody has — so without a
              linked fixture the only way anyone has ever seen that branch is by sabotage (#561). -->
         <Compile Include="..\..\build\WorktreeSafety.cs" Link="WorktreeSafety.cs" />
+
+        <!--
+            ⚠ And the rule that refuses a `[DataContract]` in a project naming neither registration
+            generator (#1005). The defect it catches is invisible everywhere else — the attribute
+            compiles, the assembly runs, and the type is simply absent from both registries — so a
+            rule that has never produced an answer is exactly the wrong thing to ship it as.
+            `DataContractGeneratorRuleTests` runs this same source over the repository and over
+            synthetic fixtures both ways. `PluginReferenceRule` comes with it because that is where
+            the subject set lives, and #872 is the issue about copying one.
+        -->
+        <Compile Include="..\..\build\DataContractGeneratorRule.cs" Link="DataContractGeneratorRule.cs" />
+        <Compile Include="..\..\build\PluginReferenceRule.cs" Link="PluginReferenceRule.cs" />
     </ItemGroup>
 
     <!--
