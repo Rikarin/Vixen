@@ -137,6 +137,19 @@ public sealed record GraphParameterAsset {
 
     /// <summary>Which section of an inspector it belongs to.</summary>
     public string Group { get; init; } = string.Empty;
+
+    /// <summary>Every value it may hold, or empty when it may hold any name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The member <see cref="SettingDefinition.Accepted" /> has had since
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/964">#964</a> and this shape had not, so
+    ///     a graph's own knob could not be a choice however the model spelled it.</b> A
+    ///     <see cref="SettingKind.Text" /> parameter with a list is what a published texture graph
+    ///     declares to expose an inner node's setting
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1060">#1060</a>); one without a list is
+    ///     what every file written before this member has, which is why the two mean different
+    ///     things and the list rather than the kind is what says so.
+    /// </remarks>
+    public string[] Accepted { get; init; } = [];
 }
 
 /// <summary>
@@ -276,7 +289,8 @@ public static class NodeGraphDocument {
                 Kind = parameter.Kind,
                 Minimum = parameter.Minimum,
                 Maximum = parameter.Maximum,
-                Group = parameter.Group
+                Group = parameter.Group,
+                Accepted = [.. parameter.Accepted]
             });
         }
 
@@ -354,7 +368,16 @@ public static class NodeGraphDocument {
             }
 
             graph.Parameters.Add(
-                new(entry.Name, entry.Default, entry.Summary, entry.Kind, entry.Minimum, entry.Maximum, entry.Group)
+                new(
+                    entry.Name,
+                    entry.Default,
+                    entry.Summary,
+                    entry.Kind,
+                    entry.Minimum,
+                    entry.Maximum,
+                    entry.Group,
+                    [.. entry.Accepted]
+                )
             );
         }
 

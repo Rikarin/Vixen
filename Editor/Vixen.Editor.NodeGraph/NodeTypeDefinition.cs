@@ -125,12 +125,27 @@ public sealed record SettingDefinition(
 ) {
     /// <summary>Every value this setting may hold, in declaration order, or empty for any name.</summary>
     /// <remarks>
-    ///     ⚠ <b>Normalised out of <c>default</c>, for <see cref="NodeTypeDefinition.Settings" />'s
-    ///     reason.</b> An <see cref="ImmutableArray{T}" /> parameter with no argument is not an empty
-    ///     array but an uninitialised one, and every member on it throws — so a consumer asking a
-    ///     setting that declares nothing what it accepts would fault rather than be told "anything".
+    ///     <para>
+    ///         ⚠ <b>Normalised out of <c>default</c>, for <see cref="NodeTypeDefinition.Settings" />'s
+    ///         reason.</b> An <see cref="ImmutableArray{T}" /> parameter with no argument is not an
+    ///         empty array but an uninitialised one, and every member on it throws — so a consumer
+    ///         asking a setting that declares nothing what it accepts would fault rather than be told
+    ///         "anything".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And out of <em>empty</em> as well, which is record equality rather than
+    ///         tidiness.</b> <see cref="ImmutableArray{T}" /> compares by the identity of the array it
+    ///         wraps, so two settings that both accept nothing are unequal whenever their empty arrays
+    ///         were built differently — which is exactly what a round trip through
+    ///         <c>GraphParameterAsset</c> does, one side spreading a zero-length <c>string[]</c> and
+    ///         the other taking the collection-expression default. ⚠ The symptom is a record equality
+    ///         failing over two lines that print character for character the same, which is a bad
+    ///         hour: <c>GraphDeclarationTests</c> produced exactly that the day the list started
+    ///         crossing the file.
+    ///     </para>
     /// </remarks>
-    public ImmutableArray<string> Accepted { get; } = Accepted.IsDefault ? [] : Accepted;
+    public ImmutableArray<string> Accepted { get; } =
+        Accepted.IsDefaultOrEmpty ? ImmutableArray<string>.Empty : Accepted;
 
     /// <summary>Whether this setting is edited between two stated numbers.</summary>
     /// <remarks>

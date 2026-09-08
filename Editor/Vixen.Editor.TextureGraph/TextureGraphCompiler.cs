@@ -499,7 +499,170 @@ public sealed class TextureGraphCompiler : NodeGraphCompiler<TexturePlan>, ISubG
         this.graph = graph;
         emitter = new(this);
 
+        Substitute(graph);
         Bind(graph);
+    }
+
+    /// <summary>Copies each containing graph's name knobs into the settings that name them.</summary>
+    /// <param name="graph">The flattened graph, whose inlined nodes still hold what they were written with.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>#1060's cheap half, and it is a rewrite of the flattened graph rather than a seam in
+    ///         the flattener</b> — <a href="https://github.com/Rikarin/Vixen/issues/1060">#1060</a>,
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1074">#1074</a>. A name needs no
+    ///         folding, so it needs nothing from mid-walk: <see cref="NodeGraphInlining" /> already
+    ///         says which published graph each inlined node came out of and what that expansion's
+    ///         sub-graph node was given, which is the whole of the join. ⚠ That is why
+    ///         <see cref="ISubGraphValues" /> did not grow a second method — the one it has exists
+    ///         because an <em>expression</em> has to be compiled against parameters that are gone by
+    ///         now, and a substitution does not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Before <see cref="Bind" />, and the two do not overlap.</b> An expression is a
+    ///         <see cref="GraphNode.Texts" /> <em>key</em> beginning <c>=</c> and a reference is a
+    ///         <em>value</em> beginning <c>$</c>, so no field is both — see
+    ///         <see cref="TextureGraphParameters.ReferencePrefix" /> for why they could not have
+    ///         shared a spelling.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A reference that resolves to another reference is followed one scope out.</b> A
+    ///         compound inside a compound may hand its own knob down, and the chain terminates
+    ///         because each hop is one shorter <see cref="SubGraphExpansion.Path" /> than the last.
+    ///     </para>
+    /// </remarks>
+    void Substitute(NodeGraphModel graph) {
+        foreach (var node in graph.Nodes) {
+            List<(string Key, string Name)>? references = null;
+
+            foreach (var (key, text) in node.Texts) {
+                if (TextureGraphParameters.IsReference(text, out var named)) {
+                    (references ??= []).Add((key, named));
+                }
+            }
+
+            if (references is null) {
+                continue;
+            }
+
+            // ⚠ Gathered before anything is written, because the substitution replaces entries of the
+            // very dictionary the loop above walks.
+            var expansion = Inlining.TryGet(node.Id, out var origin) ? origin.Expansion : 0;
+
+            foreach (var (key, named) in references) {
+                if (Choose(expansion, named, out var value, out var problem)) {
+                    node.SetText(key, value);
+                }
+
+                if (problem.Length > 0) {
+                    Report(new(
+                        TextureDiagnostics.NameKnobNotResolved,
+                        problem,
+                        node.Id,
+                        key,
+                        NodeSeverity.Warning
+                    ));
+                }
+            }
+        }
+    }
+
+    /// <summary>Follows one reference out through the scopes that contain it.</summary>
+    /// <param name="expansion">Which expansion the setting is in, or zero for the author's own graph.</param>
+    /// <param name="name">The knob named.</param>
+    /// <param name="value">The name to substitute, when there is one.</param>
+    /// <param name="problem">What to say, or empty.</param>
+    /// <returns><see langword="true" /> when <paramref name="value" /> should replace the setting.</returns>
+    /// <remarks>
+    ///     ⚠ <b>An unresolved reference leaves the setting holding its own text, which is a second
+    ///     complaint and deliberately so.</b> The node then reports <c>TG0010</c> about a value it
+    ///     does not accept, and the pair reads as "this knob is missing, and here is the node that
+    ///     wanted it" — where writing the node's declared default instead would leave a picture that
+    ///     is quietly one arrangement rather than another.
+    /// </remarks>
+    bool Choose(int expansion, string name, out string value, out string problem) {
+        value = "";
+        problem = "";
+
+        // A belt rather than the argument: `Parent` strictly shortens the path, so the chain is at
+        // most as deep as the nesting the flattener already refused to exceed.
+        for (var hop = 0; hop <= SubGraphs.MaximumDepth; hop++) {
+            var parameters = expansion == 0
+                ? declared
+                : (SubGraphSource as ITextureGraphLibrary)?.ParametersOf(Scope(expansion)) ?? [];
+
+            var overrides = expansion == 0 ? Arguments : Overrides(expansion);
+
+            if (!TextureGraphParameters.TryChoose(parameters, overrides, name, out value, out problem)) {
+                problem =
+                    $"'{TextureGraphParameters.ReferencePrefix}{name}' names a knob of the graph this node is "
+                    + "written in, and that graph declares no name knob called that. The setting keeps the text "
+                    + "it holds.";
+
+                return false;
+            }
+
+            if (problem.Length > 0 || !TextureGraphParameters.IsReference(value, out var outer)) {
+                return true;
+            }
+
+            if (expansion == 0) {
+                problem =
+                    $"'{TextureGraphParameters.ReferencePrefix}{outer}' was passed into '{name}' from outside this "
+                    + "graph, and nothing contains this graph. The setting keeps the text it holds.";
+                value = "";
+
+                return false;
+            }
+
+            name = outer;
+            expansion = Parent(expansion);
+        }
+
+        return true;
+    }
+
+    /// <summary>The node-type path of one expansion, or empty when there is no such expansion.</summary>
+    string Scope(int expansion) =>
+        Inlining.Expansions.TryGetValue(expansion, out var inlined) ? inlined.Type : "";
+
+    /// <summary>What the sub-graph node one expansion came out of was given.</summary>
+    IReadOnlyDictionary<string, string>? Overrides(int expansion) =>
+        Inlining.Expansions.TryGetValue(expansion, out var inlined) ? inlined.Settings : null;
+
+    /// <summary>Which expansion contains one expansion, or zero for one in the author's own graph.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Recovered from <see cref="SubGraphExpansion.Path" /> rather than recorded, and the
+    ///     path is what makes that sound.</b> An expansion's path is the chain of sub-graph node
+    ///     identities walked to reach it, each one an identity in its own document — so two
+    ///     expansions of equal depth differ in their first differing element, and the chain minus its
+    ///     last element names exactly one enclosing expansion.
+    /// </remarks>
+    int Parent(int expansion) {
+        if (!Inlining.Expansions.TryGetValue(expansion, out var inlined) || inlined.Path.Length <= 1) {
+            return 0;
+        }
+
+        foreach (var (number, other) in Inlining.Expansions) {
+            if (other.Path.Length != inlined.Path.Length - 1) {
+                continue;
+            }
+
+            var same = true;
+
+            for (var at = 0; at < other.Path.Length; at++) {
+                if (other.Path[at] != inlined.Path[at]) {
+                    same = false;
+
+                    break;
+                }
+            }
+
+            if (same) {
+                return number;
+            }
+        }
+
+        return 0;
     }
 
     /// <summary>Takes what the graph declares about itself over what the host guessed.</summary>

@@ -151,6 +151,15 @@ static class TextureGraphExpressions {
         Write($"shader {TypeName} {{");
 
         foreach (var parameter in parameters) {
+            if (parameter.Kind == TextureGraphParameterKind.Name) {
+                // ⚠ Left out rather than declared as a zero of some type. A name knob has no number
+                // behind it, and a `const val Metal: float = 0f` would make `Metal * 2f` fold to
+                // zero — an expression that is not an error, not a wrong number, but a plausible one
+                // computed from a knob the author is watching say `Gold`. Left out, the same
+                // expression is "undefined name", which is what it is.
+                continue;
+            }
+
             Write($"    const val {parameter.Name}: {Spelling(parameter.Kind)} = "
                   + $"{parameter.RavenLiteral(values.GetValueOrDefault(parameter.Name, parameter.Default))}");
         }

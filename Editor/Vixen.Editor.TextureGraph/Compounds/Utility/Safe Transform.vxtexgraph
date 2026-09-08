@@ -13,7 +13,7 @@ nodes:
     y: 0
     values: {}
     texts:
-      Tiling: Wrap
+      Tiling: $Tiling
       Filter: Bilinear
       '=Rotation': quarters * 1.5707964f
       '=Scale X': 1f / tiles
@@ -44,6 +44,12 @@ interface:
     summary: The same picture, moved, and still tiling.
 settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
 parameters:
+  - name: Tiling
+    default: Wrap
+    summary: What the transform reads outside the picture.
+    kind: Text
+    accepted: [Wrap, Clamp, Mirror]
+    group: Safe
   - name: quarters
     default: '0'
     summary: Quarter turns. Only whole numbers keep a tiling picture tiling.

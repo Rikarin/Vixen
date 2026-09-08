@@ -9,12 +9,22 @@ namespace Vixen.Editor.TextureGraph;
 
 /// <summary>What one exposed parameter holds.</summary>
 /// <remarks>
-///     ⚠ <b>Three, and not one per <see cref="PortKind" />.</b> A parameter is a number an author
-///     types and an expression reads, and Raven has exactly three spellings of that —
-///     <c>float</c>, <c>int</c>, <c>bool</c>. A colour parameter would be four numbers under one
-///     name and there is no <c>const val</c> of a vector that
-///     <see cref="TextureGraphExpressions" /> could fold, so it is left out rather than declared and
-///     refused at the point of use.
+///     <para>
+///         <b>Three numbers and one name, and the line between them is folding versus
+///         substitution.</b> The first three are numbers an author types and an <em>expression</em>
+///         reads, and Raven has exactly three spellings of that — <c>float</c>, <c>int</c>,
+///         <c>bool</c>. <see cref="Name" /> is none of them and is never folded: it is copied into an
+///         inner node's setting before the walk begins, which is what lets it exist with no
+///         <c>const val</c> behind it.
+///     </para>
+///     <para>
+///         ⚠ <b>A colour is still not a fourth</b>, for the reason the first paragraph gives: it would
+///         be four numbers under one name and there is no <c>const val</c> of a vector that
+///         <see cref="TextureGraphExpressions" /> could fold. It is left out rather than declared and
+///         refused at the point of use, and
+///         <a href="https://github.com/Rikarin/Vixen/issues/1060">#1060</a> is where that half stays
+///         open.
+///     </para>
 /// </remarks>
 public enum TextureGraphParameterKind {
     /// <summary>A <c>float</c>.</summary>
@@ -24,7 +34,17 @@ public enum TextureGraphParameterKind {
     Integer,
 
     /// <summary>A <c>bool</c>, carried as zero or one.</summary>
-    Boolean
+    Boolean,
+
+    /// <summary>A name, substituted into an inner node's setting rather than folded into arithmetic.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one kind an expression cannot read.</b> Every other member reaches
+    ///     <see cref="TextureGraphExpressions" /> as a <c>const val</c> an expression may spell; this
+    ///     one never does, because a name is not a number and a source that declared one would not
+    ///     parse. What reads it is <see cref="TextureGraphParameters.IsReference" />'s convention, one
+    ///     level down, on a <c>[Setting]</c> of a node <em>inside</em> the published graph.
+    /// </remarks>
+    Name
 }
 
 /// <summary>One knob a published graph has: doc 48 § D9's <c>[Setting]</c>-shaped parameter.</summary>
@@ -38,6 +58,15 @@ public enum TextureGraphParameterKind {
 /// <param name="Maximum">The top of it.</param>
 /// <param name="Group">Which group of the inspector it belongs to, or empty for the ungrouped ones.</param>
 /// <param name="Summary">One line saying what it means.</param>
+/// <param name="Choice">
+///     What a <see cref="TextureGraphParameterKind.Name" /> parameter is worth when nobody overrides
+///     it. Ignored by every other kind, which defaults through <paramref name="Default" />.
+/// </param>
+/// <param name="Accepted">
+///     Every name a <see cref="TextureGraphParameterKind.Name" /> parameter may hold, or empty for
+///     any. It is what draws a picker and what <see cref="TextureGraphParameters.TryChoose" />
+///     refuses an override against.
+/// </param>
 /// <remarks>
 ///     <para>
 ///         <b>A name, a type, a default, a range and a group — doc 48 § D9's list exactly.</b> The
@@ -56,6 +85,15 @@ public enum TextureGraphParameterKind {
 ///         is still what <em>enforces</em> the range, because refusing a value is a compiler's job
 ///         and a slider's bounds are a courtesy.
 ///     </para>
+///     <para>
+///         ⚠ <b>Two defaults, one per half of <see cref="TextureGraphParameterKind" />, and that is
+///         a shape worth being uncomfortable about.</b> <see cref="Default" /> is a number and
+///         <see cref="Choice" /> is a name; a <see cref="TextureGraphParameterKind.Name" /> parameter
+///         reads the second and every other kind reads the first. Folding them into one member would
+///         mean parsing a name out of a float or a float out of a name at every use, and
+///         <see cref="TextureGraphParameters.Check" /> is what stops the unread one from being set to
+///         something that reads as a disagreement.
+///     </para>
 /// </remarks>
 public sealed record TextureGraphParameter(
     string Name,
@@ -64,8 +102,59 @@ public sealed record TextureGraphParameter(
     float Minimum = float.NegativeInfinity,
     float Maximum = float.PositiveInfinity,
     string Group = "",
-    string Summary = ""
+    string Summary = "",
+    string Choice = "",
+    ImmutableArray<string> Accepted = default
 ) {
+    /// <summary>Every name this parameter may hold, in declaration order, or empty for any.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Normalised out of <c>default</c> <em>and</em> out of empty, both for
+    ///     <see cref="SettingDefinition.Accepted" />'s reasons.</b> An
+    ///     <see cref="ImmutableArray{T}" /> parameter with no argument is an uninitialised array
+    ///     rather than an empty one and every member on it throws; and two empty ones built
+    ///     differently are unequal, because the type compares by the identity of the array it wraps —
+    ///     which makes two records that state the same thing compare unequal.
+    /// </remarks>
+    public ImmutableArray<string> Accepted { get; } =
+        Accepted.IsDefaultOrEmpty ? ImmutableArray<string>.Empty : Accepted;
+
+    /// <summary>Whether this parameter is a name chosen from a stated list rather than typed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A name kind <em>and</em> a non-empty list</b>, which is
+    ///     <see cref="SettingDefinition.IsChoice" />'s shape and reaches it unchanged: a list on a
+    ///     numeric parameter is a declaration that disagrees with itself, and a dropdown drawn over
+    ///     one would write a label where a number is parsed.
+    /// </remarks>
+    public bool IsChoice => Kind == TextureGraphParameterKind.Name && Accepted.Length > 0;
+
+    /// <summary>The spelling this parameter states for a written name.</summary>
+    /// <param name="value">What the author wrote.</param>
+    /// <returns>
+    ///     The entry of <see cref="Accepted" /> that matches ignoring case; <paramref name="value" />
+    ///     itself when the parameter states no list; and an empty string when it states one and this
+    ///     is not in it.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>The stored spelling and not a <see cref="bool" />, which is
+    ///     <see cref="SettingDefinition.Canonical" />'s shape and is taken for its reason</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1044">#1044</a>. What this answer is
+    ///     written into is an inner node's setting, read by <c>TextureSettings.Enum</c> with
+    ///     <c>ignoreCase: true</c>: a predicate would let <c>blend</c> through and leave <c>blend</c>
+    ///     in the file, so the graph and the picker would then disagree about a value both accept.
+    /// </remarks>
+    public string Canonical(string value) {
+        if (Accepted.Length == 0) {
+            return value;
+        }
+
+        foreach (var accepted in Accepted) {
+            if (string.Equals(accepted, value, StringComparison.OrdinalIgnoreCase)) {
+                return accepted;
+            }
+        }
+
+        return "";
+    }
     /// <summary>Whether a value is inside the declared range.</summary>
     /// <param name="value">The value.</param>
     /// <returns><see langword="true" /> if it is.</returns>
@@ -173,6 +262,35 @@ public static class TextureGraphParameters {
                 continue;
             }
 
+            if (parameter.Kind == TextureGraphParameterKind.Name) {
+                // ⚠ A name parameter is checked against its own list and against nothing numeric.
+                // `Default`, `Minimum` and `Maximum` are members it does not read, and running the
+                // range checks below over one would refuse every name knob whose author left the
+                // numbers alone — which is all of them.
+                if (parameter.Accepted.Length == 0) {
+                    // ⚠ Refused rather than allowed as a free-text knob, and `Declared`'s note is
+                    // why: an empty list is what every parameter written before this kind existed
+                    // has, so a name knob without one would be indistinguishable from a scalar knob
+                    // saved by an older build.
+                    problems.Add(
+                        $"'{parameter.Name}' is a name and states no list of names. A name knob is forwarded "
+                        + "into a setting inside the graph, and the list is both what draws its picker and what "
+                        + "tells a scalar knob saved by an older build apart from this."
+                    );
+
+                    continue;
+                }
+
+                if (parameter.Choice.Length == 0 || parameter.Canonical(parameter.Choice).Length == 0) {
+                    problems.Add(
+                        $"'{parameter.Name}' defaults to '{parameter.Choice}', which is not one of the names it "
+                        + $"accepts ({string.Join(", ", parameter.Accepted)})."
+                    );
+                }
+
+                continue;
+            }
+
             if (!float.IsFinite(parameter.Default)) {
                 // ⚠ A parameter's default is written into a generated Raven source as a literal, and
                 // there is no literal for a NaN. Left alone it would be an unparseable file and a
@@ -253,12 +371,15 @@ public static class TextureGraphParameters {
             settings.Add(
                 new(
                     parameter.Name,
-                    parameter.Text(parameter.Default),
+                    parameter.Kind == TextureGraphParameterKind.Name
+                        ? parameter.Choice
+                        : parameter.Text(parameter.Default),
                     parameter.Summary,
                     Kind(parameter.Kind),
                     parameter.Minimum,
                     parameter.Maximum,
-                    parameter.Group
+                    parameter.Group,
+                    parameter.Accepted
                 )
             );
         }
@@ -291,9 +412,20 @@ public static class TextureGraphParameters {
         List<TextureGraphParameter> parameters = [];
 
         foreach (var setting in settings) {
+            // ⚠ `SettingKind.Text` used to arrive here as a `Scalar` whose default was parsed out of
+            // a name — which is where #1060's cheap half was thrown away, at exactly this line.
+            //
+            // ⚠ And it is the *list* that says so rather than the kind alone, which is a
+            // compatibility statement and not a heuristic. `SettingKind`'s zero is `Text`, and the
+            // shipped compounds declare `default: '0.5'` with no `kind:` key at all — so reading
+            // every text-kind parameter as a name would turn `Generators/Dust`'s `facing` into a
+            // choice whose default is the string "0.5", in eleven files that already exist. Every
+            // one of them predates `Accepted`, so an empty list is exactly the set of declarations
+            // written before this kind existed.
             var kind = setting.Kind switch {
                 SettingKind.Int => TextureGraphParameterKind.Integer,
                 SettingKind.Bool => TextureGraphParameterKind.Boolean,
+                SettingKind.Text when setting.Accepted.Length > 0 => TextureGraphParameterKind.Name,
                 _ => TextureGraphParameterKind.Scalar
             };
 
@@ -301,11 +433,13 @@ public static class TextureGraphParameters {
                 new(
                     setting.Name,
                     kind,
-                    Number(setting.Default),
+                    kind == TextureGraphParameterKind.Name ? 0f : Number(setting.Default),
                     setting.Minimum,
                     setting.Maximum,
                     setting.Group,
-                    setting.Summary
+                    setting.Summary,
+                    kind == TextureGraphParameterKind.Name ? setting.Default : "",
+                    setting.Accepted
                 )
             );
         }
@@ -333,8 +467,130 @@ public static class TextureGraphParameters {
         kind switch {
             TextureGraphParameterKind.Integer => SettingKind.Int,
             TextureGraphParameterKind.Boolean => SettingKind.Bool,
+            TextureGraphParameterKind.Name => SettingKind.Text,
             _ => SettingKind.Float
         };
+
+    /// <summary>What a setting written as one of the graph's own name knobs is spelled with.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A prefix on the <em>value</em>, where the expression convention is a prefix on the
+    ///     <em>key</em>, and the two could not have shared one.</b> An expression is stored under
+    ///     <c>=Port</c> beside the number it overrides, because a port has a number as well; a
+    ///     setting has only its text, so a reference has to be written where the name would be. It
+    ///     also could not have been spelled <c>=</c>: <c>TextureGraphCompiler.Collect</c> reports
+    ///     every <c>=X</c> key whose <c>X</c> is not an input port, so a setting written that way
+    ///     would draw a diagnostic before anything read it.
+    /// </remarks>
+    public const string ReferencePrefix = "$";
+
+    /// <summary>Whether a setting's text names one of the containing graph's name parameters.</summary>
+    /// <param name="text">What the setting holds.</param>
+    /// <param name="name">The parameter named, when it does.</param>
+    /// <returns><see langword="true" /> if it is a reference.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="text" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The tail has to be a Raven identifier, and that is what keeps an ordinary value that
+    ///     happens to begin with a dollar readable as itself.</b> A setting is a name, a path or an
+    ///     enum member; <c>$</c> followed by anything that is not an identifier — a separator, a
+    ///     digit, a second <c>$</c> — is left exactly alone rather than turned into a complaint about
+    ///     a parameter nobody declared.
+    /// </remarks>
+    public static bool IsReference(string text, out string name) {
+        ArgumentNullException.ThrowIfNull(text);
+
+        if (text.StartsWith(ReferencePrefix, StringComparison.Ordinal) && IsIdentifier(text[1..])) {
+            name = text[1..];
+
+            return true;
+        }
+
+        name = "";
+
+        return false;
+    }
+
+    /// <summary>What one name parameter is worth, given a set of overrides.</summary>
+    /// <param name="parameters">The declared parameters of the graph the reference was written in.</param>
+    /// <param name="overrides">
+    ///     What the node standing for that graph was given, by parameter name — a sub-graph node's
+    ///     <see cref="GraphNode.Texts" />. Null for the author's own graph with nothing over it.
+    /// </param>
+    /// <param name="name">The parameter named.</param>
+    /// <param name="value">
+    ///     The name to substitute. ⚠ It may itself be a reference — a published graph's knob set to
+    ///     one of its <em>container's</em> knobs — so a caller resolves it again one scope out.
+    /// </param>
+    /// <param name="problem">What to say when something was refused, or empty.</param>
+    /// <returns>
+    ///     <see langword="false" /> when no name parameter of that name is declared, which is the one
+    ///     case with no value at all.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="parameters" /> or <paramref name="name" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>A refused override keeps the declared choice and says so</b>, which is
+    ///     <see cref="Read" />'s bargain one kind over. Substituting the refused name would put a
+    ///     value the inner node does not accept into its setting, where it becomes that node's
+    ///     <c>TG0010</c> — a second complaint, about a node the author never wrote, naming a name
+    ///     they never typed.
+    /// </remarks>
+    public static bool TryChoose(
+        IReadOnlyList<TextureGraphParameter> parameters,
+        IReadOnlyDictionary<string, string>? overrides,
+        string name,
+        out string value,
+        out string problem
+    ) {
+        ArgumentNullException.ThrowIfNull(parameters);
+        ArgumentNullException.ThrowIfNull(name);
+
+        problem = "";
+        value = "";
+
+        TextureGraphParameter? declared = null;
+
+        foreach (var parameter in parameters) {
+            if (parameter.Kind == TextureGraphParameterKind.Name
+                && string.Equals(parameter.Name, name, StringComparison.Ordinal)) {
+                declared = parameter;
+
+                break;
+            }
+        }
+
+        if (declared is null) {
+            return false;
+        }
+
+        value = declared.Choice;
+
+        if (overrides is null
+            || !overrides.TryGetValue(name, out var written)
+            || string.IsNullOrWhiteSpace(written)) {
+            return true;
+        }
+
+        var trimmed = written.Trim();
+
+        // A knob set to one of the container's knobs, which this call cannot resolve: the parameters
+        // it would be read against are one scope further out and only the walk knows which.
+        if (IsReference(trimmed, out _)) {
+            value = trimmed;
+
+            return true;
+        }
+
+        if (declared.Canonical(trimmed) is not { Length: > 0 } canonical) {
+            problem =
+                $"'{name}' was given '{trimmed}', which is not one of {string.Join(", ", declared.Accepted)}. "
+                + $"It keeps its default of '{declared.Choice}'.";
+
+            return true;
+        }
+
+        value = canonical;
+
+        return true;
+    }
 
     // ⚠ `Describe` is deleted rather than left behind. It folded a parameter's group and range into
     // its summary because a `SettingDefinition` had nowhere else to put them — a workaround that read
@@ -368,6 +624,14 @@ public static class TextureGraphParameters {
         var refused = ImmutableArray.CreateBuilder<string>();
 
         foreach (var parameter in parameters) {
+            if (parameter.Kind == TextureGraphParameterKind.Name) {
+                // ⚠ Skipped rather than parsed as zero, and left out of the dictionary rather than
+                // entered as zero. A name is not a number, so the first thing the loop below would do
+                // with `Metal` set to `Gold` is refuse it — one warning per compile, about the knob
+                // working exactly as declared. What reads a name is `TryChoose`.
+                continue;
+            }
+
             values[parameter.Name] = parameter.Default;
 
             if (overrides is null
