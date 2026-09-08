@@ -807,6 +807,25 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return;
         }
 
+        // ⚠ Before the device, and it is the verb's answer to #1070 rather than a guard against a
+        // crash. A shelf entry bakes *something* — it is a stack — and what it bakes is wrong twice
+        // over: a smart material has no model, so every mesh-map mask in it refuses and the artist
+        // reads a wall of diagnostics; and the materials it does write land in the project named
+        // after a shelf entry nothing in a scene refers to. The gesture should not have been offered,
+        // so the answer names the file that should have been baked instead.
+        if (subject.IsSmartMaterial) {
+            shell.Notifications.Show(
+                "Nothing baked",
+                NotificationSeverity.Warning,
+                $"'{Path.GetFileName(subject.AssetPath)}' is a smart material, which is a stack "
+                + "fragment with no model and no meshes — so its mesh-map masks have nothing to "
+                + "measure and its materials would belong to no asset. Apply it to a .vxlayers and "
+                + "bake that."
+            );
+
+            return;
+        }
+
         if (baker is null) {
             shell.Notifications.Show(
                 "Nothing baked",
@@ -909,6 +928,23 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return;
         }
 
+        // ⚠ The second half of #1070's verb list. Extracting a shelf entry from a shelf entry writes
+        // it back onto the shelf under its own name — harmless, and confusing in the way that costs
+        // an artist ten minutes: the file it replaced is the file they were editing, and the
+        // notification would say it had been saved as something new. What they want is the ordinary
+        // save, which the document already does.
+        if (stack.IsSmartMaterial) {
+            shell.Notifications.Show(
+                "Nothing saved",
+                NotificationSeverity.Warning,
+                $"'{Path.GetFileName(stack.AssetPath)}' is already a smart material. Save the "
+                + "document to write your edits back onto the shelf; Save as Smart Material is for "
+                + "taking the layers out of a .vxlayers."
+            );
+
+            return;
+        }
+
         var name = Path.GetFileNameWithoutExtension(stack.AssetPath);
         var extract = SmartMaterial.Extract(stack.Document, name, stack.PaintSet);
 
@@ -958,6 +994,15 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
     /// <summary>Puts the selected <c>.vxsmartmat</c> on top of the open stack's chosen texture set.</summary>
     /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The open stack may itself be a shelf entry, and that is allowed rather than
+    ///         overlooked</b> — <a href="https://github.com/Rikarin/Vixen/issues/1070">#1070</a>. Its
+    ///         two neighbours refuse a <c>.vxsmartmat</c> in the panel and this one does not: a shelf
+    ///         entry composed of two others — rust over panel wear — is a real thing to author, and
+    ///         <see cref="SmartMaterial.Prepare" /> already drops everything a fragment must not
+    ///         carry, so the result is a fragment either way. What it needs is no code: the
+    ///         difference between the three verbs is only which of them should have been offered.
+    ///     </para>
     ///     <para>
     ///         ⚠ <b>Through the document's command stack, as one undo entry.</b> A verb that mutated
     ///         <c>TextureSetAsset.Layers</c> directly would put ten layers into a stack the artist
@@ -1889,13 +1934,18 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     void OpenStack() {
         var asset = project.Selection.Primary;
 
+        // ⚠ Either extension — #1070. A `.vxsmartmat` is a `.vxlayers` byte for byte and this is the
+        // verb half of the claim `LayerStackEditorFactory` makes for the double-click; a verb that
+        // took only one of the two would leave the shelf openable by mouse and not by command.
         if (asset.IsEmpty
             || !project.Assets.TryGetByGuid(asset, out var entry)
-            || !entry.Path.EndsWith(LayerStackDocument.Extension, StringComparison.OrdinalIgnoreCase)) {
+            || !(entry.Path.EndsWith(LayerStackDocument.Extension, StringComparison.OrdinalIgnoreCase)
+                || entry.Path.EndsWith(SmartMaterial.Extension, StringComparison.OrdinalIgnoreCase))) {
             shell.Notifications.Show(
-                "Select a .vxlayers first",
+                "Select a .vxlayers or a .vxsmartmat first",
                 NotificationSeverity.Warning,
-                "Open Layer Stack opens whatever is selected in the Project panel."
+                "Open Layer Stack opens whatever is selected in the Project panel. A shelf entry "
+                + "opens in the same rows: it is a stack with no model and nothing painted."
             );
 
             return;

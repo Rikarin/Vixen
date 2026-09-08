@@ -32,6 +32,36 @@ public class TexturingClaimTests {
         Assert.True(fixture.Editors.TryGetForFile("Assets/Hull" + Layers.LayerStackDocument.Extension, out var stack));
         Assert.Equal("Layer Stack", stack.Name);
 
+        // ⚠ The third claim, argued in #1070 and asserted here: a shelf entry opens in the same rows,
+        // because a `.vxsmartmat` is a `.vxlayers` byte for byte and an artist who wants to rename a
+        // layer inside one had to apply it to a scratch stack, edit there and save over it.
+        Assert.True(
+            fixture.Editors.TryGetForFile(
+                "Assets/" + Layers.SmartMaterial.ShelfFolder + "/Rust" + Layers.SmartMaterial.Extension,
+                out var shelf
+            )
+        );
+
+        Assert.Equal("Layer Stack", shelf.Name);
+
+        // ⚠ **The roll call over what this module claims, and it is new because the old tripwire did
+        // not cover this list.** The two `TryGetForFile` probes above name the extensions somebody
+        // thought of; #1070 added a third and every assertion in this file stayed green, because
+        // nothing here read a factory's own `Extensions`. A claim is a promise the host cannot take
+        // back except through the module's scope, so a fourth has to be argued for by editing this
+        // line — which is what the `NewAssetKind` roll call below already does for the Create ▸ menu.
+        Assert.Equal(
+            [
+                Layers.LayerStackDocument.Extension,
+                Layers.SmartMaterial.Extension,
+                TextureGraphDocument.Extension
+            ],
+            fixture.Editors.Editors
+                .SelectMany(editor => editor.Extensions)
+                .Order(StringComparer.Ordinal)
+                .ToArray()
+        );
+
         Assert.Equal(
             [Layers.LayerStackDocument.Extension, TextureGraphDocument.Extension],
             fixture.Extensions.All<NewAssetKind>().Select(kind => kind.Extension).Order(StringComparer.Ordinal)
