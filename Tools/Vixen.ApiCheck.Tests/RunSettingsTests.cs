@@ -33,6 +33,16 @@ namespace Vixen.ApiCheck.Tests;
 ///         accepted it would be green in precisely the case it exists to catch.
 ///     </para>
 ///     <para>
+///         ⚠ <b>The paragraph above is the history and not the arrangement, and the difference cost
+///         an issue.</b> <c>RunSettingsFilePath</c> made <c>dotnet test &lt;one project&gt;</c> read
+///         the file for exactly as long as the runs went through VSTest. #560 moved <c>Test</c>,
+///         <c>GoldenImages</c> and <c>AffectedTests</c> onto Microsoft.Testing.Platform, which reads
+///         no settings file and downgrades the property to an MTP0001 warning — so what carries the
+///         variable now is <c>Build.ExportLayerLibraryPath</c>, and <c>Coverage</c> is the one caller
+///         the file is still kept for. Anything that reasons "it passes under the gate, so the gate
+///         passed it the file" is reasoning from a mechanism that has been gone since #560.
+///     </para>
+///     <para>
 ///         Here for the reason <see cref="TestParallelismTests" /> is: this is the assembly that
 ///         already asks what the build actually reads, and this is the same failure one file over —
 ///         a committed settings file that changes nothing and reports success by looking present.
@@ -72,13 +82,67 @@ public sealed class RunSettingsTests {
         }
     }
 
+    /// <summary>The marker both mechanisms set, and nothing else does.</summary>
+    /// <remarks>
+    ///     ⚠ A run's environment reaches this process by one of two routes and they are not the same
+    ///     route: <c>.runsettings</c> through VSTest, which only <c>Coverage</c> still uses, and
+    ///     <c>Build.ExportLayerLibraryPath</c> for <c>Test</c>, <c>GoldenImages</c> and
+    ///     <c>AffectedTests</c>, which run under Microsoft.Testing.Platform and read no settings file
+    ///     at all (#560). Both set this; a shell profile does not.
+    /// </remarks>
+    const string Marker = "VIXEN_TEST_SETTINGS_APPLIED";
+
     /// <summary>
-    ///     Every variable the file declares reached this test host, with the value the file declares.
+    ///     Every variable the run's environment declares is at the front of what this test host has —
+    ///     or no mechanism applied one, and the theory says so instead of failing.
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Skipped rather than failed when <see cref="Marker" /> is absent, and gated on the
+    ///         marker rather than on the variable under test.</b> A bare
+    ///         <c>dotnet test &lt;one project&gt;</c> — the command the working agreement recommends,
+    ///         and the only one an agent in a worktree may run — applies no run environment at all,
+    ///         so this theory was red on every such run for a reason nobody caused, wearing the
+    ///         meaning "something you did broke the API-coverage suite" (#985). Gating on the marker
+    ///         and not on the individual variable is what keeps it from going quiet in CI: a
+    ///         mechanism that runs and forgets <c>DYLD_LIBRARY_PATH</c> still fails here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A prefix and not an equality, and the equality it replaces was wrong rather than
+    ///         strict.</b> <c>ExportLayerLibraryPath</c> <i>prepends</i> to an inherited value on
+    ///         purpose — an export somebody made for another reason should survive a test run — so
+    ///         the host's value under <c>./build.sh Test</c> is the declared one <em>plus whatever
+    ///         the shell had</em>. Equality was green in CI only because a runner has no ambient
+    ///         <c>DYLD_LIBRARY_PATH</c>, and red under the gate itself for any developer who does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the old equality was defending is defended better by the marker.</b> The
+    ///         worry was that <c>DYLD_LIBRARY_PATH</c> exported from a shell profile would make this
+    ///         green while the settings did nothing. Nothing exports <see cref="Marker" /> by
+    ///         accident, so an ambient value now reaches a <em>skip</em> rather than a pass.
+    ///     </para>
+    /// </remarks>
     [Theory]
     [MemberData(nameof(Declared))]
     public void TheRunSettingsReachedThisProcess(string name, string value) {
-        Assert.Equal(value, Environment.GetEnvironmentVariable(name));
+        Assert.SkipWhen(
+            Environment.GetEnvironmentVariable(Marker) is null,
+            $"Nothing applied a run environment to this process ({Marker} is unset), so there is "
+            + "nothing here to be right or wrong. That is what a bare `dotnet test <one project>` "
+            + "does: Microsoft.Testing.Platform reads no .runsettings, and `Build."
+            + "ExportLayerLibraryPath` runs only under `./build.sh Test`, `GoldenImages` and "
+            + "`AffectedTests`. ⚠ On macOS that means the Vulkan suites in this run are unvalidated."
+        );
+
+        var reached = Environment.GetEnvironmentVariable(name);
+
+        Assert.NotNull(reached);
+
+        Assert.StartsWith(
+            value,
+            reached,
+            StringComparison.Ordinal
+        );
     }
 
     /// <summary>
