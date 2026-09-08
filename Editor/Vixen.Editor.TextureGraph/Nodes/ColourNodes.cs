@@ -80,8 +80,14 @@ sealed partial class HslNode : TextureNode {
 ///         mask in the graph, which is the class of defect nobody reports.
 ///     </para>
 ///     <para>
-///         <b>The weights are Rec. 709's and the kernel normalises them</b>, so a triple of ones is a
-///         plain mean rather than a treble-bright image.
+///         <b>The weights are Rec. 709's and the kernel normalises them by default</b>, so a triple of
+///         ones is a plain mean rather than a treble-bright image. ⚠ <b>By <em>default</em>, since
+///         <a href="https://github.com/Rikarin/Vixen/issues/1100">#1100</a>.</b> The ratio rule made a
+///         channel <em>difference</em> unauthorable and said nothing about it: (−1, 1, 0) sums to
+///         zero, so the kernel took its Rec. 709 fallback and drew a completely different picture from
+///         a triple nothing could call invalid. <see cref="Normalise" /> is how an author asks for the
+///         raw weighted sum, and <c>TG0007</c> is what says so when the weights cancel under a
+///         normalisation that is still on.
 ///     </para>
 /// </remarks>
 [Node("Colour/Grayscale", Preview = true, Summary = "Colour to a single channel, under three weights.")]
@@ -102,6 +108,20 @@ sealed partial class GrayscaleNode : TextureNode {
     [Input(Name = "Weight B")]
     public Scalar WeightB = 0.0722f;
 
+    /// <summary>
+    ///     Whether the three weights are divided by their sum, so a weight set is a ratio. Off is the
+    ///     raw weighted sum, which is the only way to spell a difference between two channels.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>On by default, and that is the compatibility statement rather than a preference.</b>
+    ///     Every picture baked before <a href="https://github.com/Rikarin/Vixen/issues/1100">#1100</a>
+    ///     was normalised, and the argument for it stands: an author who types 1, 1, 1 wanting "the
+    ///     average" would otherwise get three times the brightness of the image and notice two ops
+    ///     later at a <c>Levels</c>, which they would then blame.
+    /// </remarks>
+    [Input]
+    public Bool Normalise = true;
+
     /// <summary>The grey.</summary>
     [Output(Name = "Out")]
     public Image Out;
@@ -117,15 +137,37 @@ sealed partial class GrayscaleNode : TextureNode {
             return;
         }
 
+        var red = emitter.Number("Weight R");
+        var green = emitter.Number("Weight G");
+        var blue = emitter.Number("Weight B");
+        var normalise = emitter.Flag(nameof(Normalise));
+
+        // ⚠ The loud half of #1100. A triple summing to zero has no ratio, so the kernel takes its
+        // documented Rec. 709 fallback — a completely different picture, from three numbers nothing
+        // in the type system can call invalid. It is only a surprise while normalisation is on: with
+        // it off a zero sum is precisely what a channel difference is, and the same threshold the
+        // kernel uses is what decides, so the sentence and the branch cannot disagree.
+        if (normalise && Math.Abs(red + green + blue) < 1e-6f) {
+            emitter.Report(
+                TextureDiagnostics.WeightsFoldToNothing,
+                $"The weights ({red}, {green}, {blue}) sum to zero, so there is no ratio to take of "
+                + "them and this will compute Rec. 709 luminance instead. A weight set that cancels "
+                + "is a difference between channels: turn 'Normalise' off to ask for one.",
+                "Normalise",
+                NodeSeverity.Warning
+            );
+        }
+
         emitter.Dispatch(
             new TextureOp {
                 Kernel = TextureColourKernels.Grayscale,
                 Output = target,
                 Inputs = [source],
                 Parameters = [
-                    new("weightR", emitter.Number("Weight R")),
-                    new("weightG", emitter.Number("Weight G")),
-                    new("weightB", emitter.Number("Weight B"))
+                    new("weightR", red),
+                    new("weightG", green),
+                    new("weightB", blue),
+                    new("normalise", normalise ? 1f : 0f)
                 ]
             }
         );

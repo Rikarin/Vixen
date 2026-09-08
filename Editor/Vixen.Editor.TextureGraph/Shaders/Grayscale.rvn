@@ -27,6 +27,21 @@ package Vixen.Editor.TextureGraph.Shaders
 // **A sum of zero falls back to the default rather than dividing by it.** Three zeroed weights is
 // what a plan built from a zeroed struct hands over, and doc 48's own note is that zero usually
 // means "off" — a NaN written into a baked file is permanent.
+//
+// ## ⚠ `normalise`, and why the ratio rule above is still right
+//
+// The paragraph at the top is a good argument and it made **a channel difference unauthorable**
+// (#1100). A weight triple like (−1, 1, 0) sums to zero, so it took the fallback and computed
+// Rec. 709 luminance — a completely different picture, from a triple that is not invalid in any way
+// a diagnostic could name. `Patterns/Cells` pays for that in three nodes and two intermediate images
+// where one weight set would have done, because F2 − F1 is a difference of two lanes and the atomic
+// set could *select* a lane and not *combine* two.
+//
+// So both are true: `normalise` is **on by default**, every picture already baked is unchanged, and
+// the artist who types 1, 1, 1 still gets a ratio. Turning it off asks for the raw weighted sum,
+// where a zero sum is the point rather than a mistake — and `Colour/Grayscale`'s node reports
+// `TG0007` when the weights fold to nothing *while normalisation is on*, which is the only
+// arrangement in which the fallback is a surprise.
 
 shader Grayscale {
     var source: Texture2D
@@ -36,6 +51,13 @@ shader Grayscale {
     var weightG: float = 0.7152f
 
     var weightB: float = 0.0722f
+
+    /// Non-zero to divide the three weights by their sum, so that a weight set is a ratio.
+    ///
+    /// ⚠ **One is the default and that is the compatibility statement, not a preference.** Every
+    /// picture baked before #1100 was normalised; a zero here is an author asking for the raw
+    /// weighted sum, which is the only way to spell a *difference* between two channels.
+    var normalise: int = 1
 
     [Format("rgba16f")] var target: RWTexture2D<float4>
 
@@ -54,15 +76,23 @@ shader Grayscale {
         var weights = float3(weightR, weightG, weightB)
         val total = weights.x + weights.y + weights.z
 
-        // ⚠ Normalisation, and the reason it is not optional. Without this line a weight set of
+        // ⚠ Normalisation, and the reason it is on by default. Without this a weight set of
         // (1, 1, 1) is three times as bright as the image it was taken from — a brightness change
-        // nobody asked for, made at a node whose name says nothing about brightness.
-        if (abs(total) < 0.000001f) {
-            weights = float3(0.2126f, 0.7152f, 0.0722f)
-        } else {
-            weights = weights / total
+        // nobody asked for, made at a node whose name says nothing about brightness. ⚠ It is a
+        // *default* and no longer unconditional: a difference between two lanes is a weight set that
+        // sums to zero, and there is no ratio to take of one (#1100).
+        if (normalise != 0) {
+            if (abs(total) < 0.000001f) {
+                weights = float3(0.2126f, 0.7152f, 0.0722f)
+            } else {
+                weights = weights / total
+            }
         }
 
+        // ⚠ Signed when `normalise` is off, which is the whole point of turning it off — and a
+        // negative grey is clamped away by an unorm output format rather than by this line. A graph
+        // taking a difference either writes into a float format or follows with a `Levels`, exactly
+        // as it would for any other signed intermediate.
         val grey = dot(float3(texel.x, texel.y, texel.z), weights)
 
         // Splatted rather than written to red alone: doc 48 § 4's rule is that grey and colour are

@@ -141,6 +141,85 @@ public class TextureMetalReflectanceTests(ITestOutputHelper output) {
         );
     }
 
+    /// <summary>Each row is the metal it is named after, judged by properties the table does not state.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Written because the sabotage caught this file being useless at exactly the thing
+    ///         it claimed.</b> Swapping gold's and copper's rows in the kernel left every other
+    ///         assertion here green — necessarily, since both the expectation and the picture come
+    ///         out of the same file. "This index bakes the row declared for this index" cannot see a
+    ///         table whose rows are in the wrong order, which is the commonest way a printed table is
+    ///         transcribed wrong.
+    ///     </para>
+    ///     <para>
+    ///         <b>So the oracle here is physics rather than the table.</b> Seven of the ten are
+    ///         near-neutral greys and three are strongly coloured; gold is the yellowest metal there
+    ///         is, which is to say it has the least blue relative to its red of anything in the list;
+    ///         copper is the reddest relative to its green; silver is the brightest and titanium the
+    ///         darkest. None of that is a number read off the source — it is what the metals look
+    ///         like — and every one of the statements is false of a table with two rows exchanged.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Ratios and orderings, deliberately, and no absolute value anywhere.</b> An
+    ///         assertion naming a digit would be the second transcription this whole arrangement
+    ///         exists to avoid, and it would go on agreeing with a kernel that had drifted from the
+    ///         published source in the direction the test was written from.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Each_row_looks_like_the_metal_it_is_named_after() {
+        var table = Table();
+
+        static float Ratio(float[] row, int over, int under) => row[over] / row[under];
+        static float Mean(float[] row) => (row[0] + row[1] + row[2]) / 3f;
+
+        int[] chromatic = [(int)TextureMetal.Gold, (int)TextureMetal.Copper, (int)TextureMetal.Brass];
+
+        for (var metal = 0; metal < table.Length; metal++) {
+            var row = table[metal];
+            var spread = row.Max() / row.Min();
+
+            if (chromatic.Contains(metal)) {
+                Assert.True(
+                    row[0] > row[1] && row[1] > row[2] && spread > 1.7f,
+                    $"{(TextureMetal)metal} is one of the three coloured metals and its row {Show(row)} "
+                    + "is not warm — red above green above blue, by a wide margin"
+                );
+            } else {
+                Assert.True(
+                    spread < 1.35f,
+                    $"{(TextureMetal)metal} is a grey metal and its row {Show(row)} is coloured"
+                );
+            }
+        }
+
+        // Gold is the yellowest metal there is: nothing else reflects so much less blue than red.
+        Assert.Equal(
+            TextureMetal.Gold,
+            (TextureMetal)Ordered(table, row => Ratio(row, 0, 2))[^1]
+        );
+
+        // And copper is the reddest: nothing else reflects so much less green than red. ⚠ This is
+        // the pair that tells the two apart, and swapping their rows is what this test was written
+        // for — the ratio above alone would still name whichever row sat at gold's index.
+        Assert.Equal(
+            TextureMetal.Copper,
+            (TextureMetal)Ordered(table, row => Ratio(row, 0, 1))[^1]
+        );
+
+        Assert.Equal(TextureMetal.Silver, (TextureMetal)Ordered(table, Mean)[^1]);
+        Assert.Equal(TextureMetal.Titanium, (TextureMetal)Ordered(table, Mean)[0]);
+    }
+
+    /// <summary>The table's indices, ordered by some measure of their row.</summary>
+    static int[] Ordered(IReadOnlyList<float[]> table, Func<float[], float> measure) => [
+        .. Enumerable.Range(0, table.Count).OrderBy(metal => measure(table[metal]))
+    ];
+
+    /// <summary>One row, for a failure message.</summary>
+    static string Show(float[] row) =>
+        "(" + string.Join(", ", row.Select(channel => channel.ToString("0.###", CultureInfo.InvariantCulture))) + ")";
+
     /// <summary>Each name bakes the row the kernel declares for it, on a real device.</summary>
     /// <remarks>
     ///     <para>

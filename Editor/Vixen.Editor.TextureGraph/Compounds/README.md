@@ -176,13 +176,27 @@ flattening ran — so a compound with no sub-graph node of its own (which is wha
 had its `$Knob` overwritten by every preview compile, and the next save wrote that down.
 
 **Still owed**: a **colour** knob, for the reason the issue gives — there is no `const val` of a
-vector for `TextureGraphExpressions` to fold. And **Metal Reflectance** still cannot be authored,
-though the blocker moved rather than went: no atomic node maps a metal name to an F0, so there is no
-setting for a compound to forward ([#1096](https://github.com/Rikarin/Vixen/issues/1096)).
-⚠ **Re-checked in the third round and unchanged**: nothing under `Nodes/` names a metal, an F0 or a
-reflectance, so the row is still a compound with nothing to wrap. It stays **refused** rather than
-half-built, because a named-metal lookup with the metal hard-wired is § 4.9's row with the row's
-whole purpose removed — and building it needs a kernel, which is the one thing § M10 may not add.
+vector for `TextureGraphExpressions` to fold.
+
+✅ **Metal Reflectance ships — [#1096](https://github.com/Rikarin/Vixen/issues/1096).** The blocker
+had moved rather than gone: nothing under `Nodes/` mapped a metal *name* to an F0, so there was no
+setting for a compound to forward, and the row stayed refused for three rounds rather than being
+half-built. `Colour/Metal Reflectance` is that setting — ten measured triples, cited in the kernel —
+and `Surface/Metal Reflectance` is the § 4.9 row over it. ⚠ **The two menus are not a preference:** a
+published compound and a node class share one path namespace, so naming the atom `Surface/…` too is
+refused with *"Two different node types claim the path"*. `Placement/Tile Sampler` under
+`Patterns/Tile Random` is the same arrangement one row up.
+
+⚠ **A name knob repeats the accepted list the inner setting already declares, in a different file, and
+one of the four had already drifted** ([#1095](https://github.com/Rikarin/Vixen/issues/1095)).
+`Utility/Safe Transform` offered `[Wrap, Clamp, Mirror]` where `TextureTiling` declares
+`Clamp, Wrap, Mirror` — the same three in a different order, so the picker disagreed with the
+declaration in the one direction an author cannot see, silently, from the batch that landed the knob.
+`TextureCompoundNameKnobRollCallTests` is what noticed, and it found this on its first run.
+⚠ **It is the interim and not the fix.** The fix is a knob that states no list and inherits the
+setting's, and that is blocked on a file-format decision: `Declared` uses "a text parameter *with* a
+list" to tell a name knob from a scalar knob saved before the kind existed, and eleven shipped
+compounds declare `default: '0.5'` with no `kind:` key.
 
 ⚠ **Narrowed by the second round, and the line is not where "no name, no choice, no colour"
 puts it.** A *choice among channels* is authorable, because some nodes spell that choice as **numbers**
@@ -260,21 +274,40 @@ finding 3 says a compound can expose a `Scalar`, `Int` or `Bool` **port** and no
 > picture, with no diagnostic anywhere, because nothing about the weight triple is invalid.
 > `(−1, 1, 0.001)` is worse: the sum is 0.001, so the weights are scaled by a thousand.
 
-`Patterns/Cells` pays it. Worley reports F1 in red and F2 in green and the cell border is `F2 − F1`,
-which is **three nodes and two intermediate images** — a `Grayscale` per channel and a
+`Patterns/Cells` paid it. Worley reports F1 in red and F2 in green and the cell border is `F2 − F1`,
+which was **three nodes and two intermediate images** — a `Grayscale` per channel and a
 `Blend Subtract` — where one weight triple would have been one node. It is finding 2's shape one
-level down: the atomic set can select and it cannot combine, and the combination it is missing is one
-subtraction between two lanes of the *same* image.
+level down: the atomic set could select and could not combine, and the combination it was missing is
+one subtraction between two lanes of the *same* image.
+
+✅ **Closed — [#1100](https://github.com/Rikarin/Vixen/issues/1100).** `Colour/Grayscale` has a
+`Normalise` port now, **on by default**, so every picture already baked is unchanged and the ratio
+argument above still holds for every author who does not think about it. Turning it off asks for the
+raw weighted sum, where a triple summing to zero is the point rather than a mistake — and
+`Patterns/Cells` is now **one node**, `(−1, 1, 0)` with `Normalise` off, instead of three. ⚠ The
+three-node form is kept written down here rather than deleted: it is what the gap was worth, measured,
+and the paragraph is the reason the port exists.
+
+⚠ **And the silence is gone in the case that was actually silent.** A weight set that folds to nothing
+*while normalisation is on* is `TG0007` at the node, naming the fallback it would otherwise have taken
+without a word. It deliberately does not fire with normalisation off, because there a zero sum is the
+correct spelling of the thing the port is for — a warning there would be a warning on the fix.
 
 ⚠ **`Filters/Pixel Processor` would have made it `a.g - a.r` and is deliberately not used**, for the
 reason its own remarks give: an escape hatch inside § 4.9's library would hide exactly the gap this
 paragraph is. No `.vxtexgraph` under `Compounds/` names that node, and that is still true.
 
-**What Cells wants that no node has at all** is a **distance metric** — Chebyshev and Manhattan
-Worley are the two other cell shapes a pattern library needs, and `Source/Noise` has neither a port
-nor a setting for one. That is a kernel gap rather than an authoring one, so it is not this folder's
+**What Cells wanted that no node had at all** was a **distance metric** — Chebyshev and Manhattan
+Worley are the two other cell shapes a pattern library needs, and `Source/Noise` had neither a port
+nor a setting for one. That was a kernel gap rather than an authoring one, so it was not this folder's
 finding; it is recorded here because "Cells is the row most likely to want something that is not
 there" turned out to be true of the *kernel* and false of the compound vocabulary.
+
+✅ **Closed — [#1101](https://github.com/Rikarin/Vixen/issues/1101).** `Source/Noise` carries a
+`Metric` setting, and `Patterns/Cells` forwards it as a name knob, so the same compound draws round,
+square or diamond cells. ⚠ **The three metrics do not share a range and reusing euclidean's scale
+would have clipped manhattan** on exactly the channel the border above is computed from: each has its
+own normalisation, derived from that metric's bound over the 3×3 search rather than tuned.
 
 ### 7 · Two things the third round nearly got wrong
 

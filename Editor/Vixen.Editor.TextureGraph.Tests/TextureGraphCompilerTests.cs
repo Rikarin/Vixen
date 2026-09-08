@@ -420,6 +420,61 @@ public class TextureGraphCompilerTests {
         Assert.Contains("Multiply", refusal.Message, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     A weight set that cancels is a warning while normalisation is on, and silence with it off.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1100">#1100</see>, whose whole
+    ///         finding was that <c>(−1, 1, 0)</c> is a *different picture* and says nothing: the sum
+    ///         is zero, so <c>Grayscale.rvn</c> takes its documented Rec. 709 fallback, and no part of
+    ///         the triple is invalid in a way anything could name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves in one case, because a warning that fired on the fix would be worse
+    ///         than the silence.</b> With <c>Normalise</c> off the same triple is exactly what an
+    ///         author asking for a channel difference means, so the second half of this is a
+    ///         <c>DoesNotContain</c> — and it is the assertion that would go red on a check written
+    ///         against the weights alone rather than against the weights <em>and</em> the flag.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_weight_set_that_cancels_is_reported_only_while_it_is_being_normalised() {
+        static NodeGraphModel Difference(bool normalise) {
+            NodeGraphModel graph = new();
+            var source = graph.Add("Source/Uniform");
+            var grey = graph.Add("Colour/Grayscale");
+            var output = graph.Add("Output/Output");
+
+            grey.SetValue("Weight R", -1f);
+            grey.SetValue("Weight G", 1f);
+            grey.SetValue("Weight B", 0f);
+            grey.SetValue("Normalise", normalise ? 1f : 0f);
+
+            graph.Connect(new(source.Id, "Out"), new(grey.Id, "Input"));
+            graph.Connect(new(grey.Id, "Out"), new(output.Id, "Input"));
+
+            return graph;
+        }
+
+        var normalised = Compiler().Compile(Difference(normalise: true));
+        var warning = Assert.Single(normalised.Diagnostics, diagnostic => diagnostic.Id == "TG0007");
+
+        Assert.Equal("Normalise", warning.Port);
+        Assert.Equal(NodeSeverity.Warning, warning.Severity);
+        Assert.Contains("Normalise", warning.Message, StringComparison.Ordinal);
+
+        // ⚠ And a bake still happens: the fallback is a picture, so this is advice rather than a
+        // refusal. A compilation that produced no plan would make the assertion above true for the
+        // wrong reason.
+        Assert.NotNull(normalised.Value);
+
+        Assert.DoesNotContain(
+            Compiler().Compile(Difference(normalise: false)).Diagnostics,
+            diagnostic => diagnostic.Id == "TG0007"
+        );
+    }
+
     /// <summary>A graph with no Output node computes nothing anybody can look at, and is told so.</summary>
     [Fact]
     public void A_graph_with_no_output_is_refused() {
