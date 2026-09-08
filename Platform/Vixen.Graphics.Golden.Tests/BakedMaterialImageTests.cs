@@ -4,8 +4,10 @@
 using Vixen.Core;
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Yaml;
 using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Assets.Textures;
+using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
@@ -258,6 +260,109 @@ public class BakedMaterialImageTests {
         }
     }
 
+    /// <summary>
+    ///     A material baked from a <em>compiled graph</em> draws the surface the graph describes.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 48 § M5's exit criterion 12 says "textured entirely in the tool", and until
+    ///         this the tool in the picture was the evaluator.</b> Every other assertion in this file
+    ///         starts from a <see cref="TexturePlan" /> the test wrote, so all of them stay green in
+    ///         a world where <c>TextureGraphCompiler</c> emits nothing anybody can bake — the graph
+    ///         front end had never been in a frame at all
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1081">#1081</a>). What is in this
+    ///         one is a committed <c>.vxtexgraph</c>: the document is parsed, loaded, compiled
+    ///         against the node registry the editor and the CLI both build, its outputs are read by
+    ///         <em>usage</em> off <c>TextureGraphCompiler.Outputs</c>, and the plan that falls out is
+    ///         evaluated, packed, encoded and rendered.
+    ///     </para>
+    ///     <para>
+    ///         <b>The oracle is the same one, deliberately.</b> The graph is five
+    ///         <c>Source/Uniform</c> nodes at the same stored levels <see cref="Bake" /> fills by
+    ///         hand, so the frame it produces has to be the frame
+    ///         <see cref="MetalRoughnessFeature" /> spells with three numbers. A compiler that
+    ///         allocated the wrong image, ordered the ORM channels differently or mapped
+    ///         <c>roughness</c> to the wrong usage lands somewhere else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Flat, and that is a limit worth stating rather than a weakness to hide.</b> A
+    ///         differential against a constant surface can only be taken over a constant surface, so
+    ///         nothing here says a checker or a noise reaches the frame correctly. It says the
+    ///         <em>document</em> does.
+    ///         <see cref="Two_graphs_differing_in_one_node_bake_two_pictures" /> is what stops that
+    ///         being satisfied by a compiler that ignored the file.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_material_baked_from_a_compiled_graph_draws_the_surface_the_graph_describes() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using (fixture) {
+            var baked = Graph(fixture!, "BakedGraph.vxtexgraph");
+            var handWritten = Library(Linear(Colour), Level(RoughnessLevel));
+
+            // The same instrument check the hand-built run makes, and it is not redundant: it is what
+            // separates "the graph's surface agrees" from "this scene is a picture of the room".
+            var constant = Render(fixture!, _ => handWritten);
+            var different = Render(fixture!, _ => Library(Linear(Other), Level(RoughnessLevel)));
+
+            Assert.False(
+                GoldenImage.Compare(constant, different, Tolerance.Shaded).Matches,
+                $"Two materials of different colours produced the same frame on {Adapter(fixture!)}, so this "
+                + "scene is not a picture of its material and nothing below it means anything."
+            );
+
+            var textured = Render(fixture!, scene => Material(scene, baked));
+            var comparison = GoldenImage.Compare(constant, textured, Tolerance.Shaded);
+
+            Assert.True(
+                comparison.Matches,
+                "A material baked from a compiled .vxtexgraph drew differently from the constant surface the "
+                + $"graph describes on {Adapter(fixture!)}: {comparison.DifferingPixels} of "
+                + $"{comparison.TotalPixels} pixels differ, worst channel {comparison.WorstChannel} at "
+                + $"{comparison.WorstAt}, mean {comparison.MeanChannel:F3}."
+            );
+        }
+    }
+
+    /// <summary>
+    ///     Two graphs that differ in one node's value bake two pictures.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The half that can be false, and the reason the test above is not an instrument that
+    ///     cannot fail.</b> A compiler that never read the document — one that emitted a fixed plan,
+    ///     or that took the node's declared default rather than the value in the file — would satisfy
+    ///     "the baked surface equals the constant one" for as long as the fixed thing happened to be
+    ///     that constant. The two fixtures here are the same five nodes, the same five edges and the
+    ///     same five usages, differing only in the base-colour <c>Source/Uniform</c>'s
+    ///     <c>Colour</c>; so the frames differing says that a number typed into a node reached a
+    ///     texel, through the document, the compiler, the plan, the bake and the frame.
+    /// </remarks>
+    [Fact]
+    public void Two_graphs_differing_in_one_node_bake_two_pictures() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using (fixture) {
+            var one = Graph(fixture!, "BakedGraph.vxtexgraph");
+            var two = Graph(fixture!, "BakedGraphOther.vxtexgraph");
+
+            var first = Render(fixture!, scene => Material(scene, one));
+            var second = Render(fixture!, scene => Material(scene, two));
+
+            var comparison = GoldenImage.Compare(first, second, Tolerance.Shaded);
+
+            Assert.False(
+                comparison.Matches,
+                "Two graphs whose base-colour node carries different colours baked the same frame on "
+                + $"{Adapter(fixture!)}, so what reached the plan was not what the document says."
+            );
+        }
+    }
+
     /// <summary>One material's worth of encoded files, as the bake writes them.</summary>
     /// <param name="Images">What <see cref="MaterialBake.Encode" /> produced, one per target.</param>
     readonly record struct Baked(IReadOnlyList<MaterialMapImage> Images);
@@ -272,14 +377,21 @@ public class BakedMaterialImageTests {
     /// <param name="normalX">The stored level of the normal map's x.</param>
     /// <remarks>
     ///     <para>
-    ///         <b>The plan is hand-built, and that is not a shortcut.</b> <c>TexturePlan</c>'s own
-    ///         remarks say a plan is the artefact both front ends compile to and that building one by
-    ///         hand is a requirement — but here it is also the only option:
-    ///         ⚠ <c>TextureGraphCompiler.Outputs</c> is a public property whose element type
-    ///         <c>TextureGraphOutput</c> is <b>internal</b>, so no assembly outside
-    ///         <c>Vixen.Editor.TextureGraph</c> can ask a compiled graph which of its images is the
-    ///         base colour. The graph half of § M4 therefore cannot be driven from here at all, and
-    ///         this file covers the evaluator and the bake rather than the compiler.
+    ///         <b>The plan is hand-built here, and that is not a shortcut.</b> <c>TexturePlan</c>'s
+    ///         own remarks say a plan is the artefact both front ends compile to and that building
+    ///         one by hand is a requirement, so this is the spelling that photographs the evaluator
+    ///         and the bake with no document in the way. <see cref="Graph" /> — the graph
+    ///         spelling — is the other half, and the two land on the same oracle.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This paragraph used to give a reason that was false, in a file that disproves
+    ///         it</b> (<a href="https://github.com/Rikarin/Vixen/issues/1081">#1081</a>): it said
+    ///         <c>TextureGraphOutput</c> is internal and that the graph half of § M4 therefore could
+    ///         not be driven from here at all. <c>TextureGraphCompiler.cs</c> declares it
+    ///         <c>public readonly record struct</c>, there is no <c>InternalsVisibleTo</c> in the
+    ///         chain, three assemblies outside <c>Vixen.Editor.TextureGraph</c> already read it —
+    ///         and this file named the type in its own source while saying it could not see it. A
+    ///         blocker nobody re-measures is how a criterion stays open for four batches.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Every value is written as a level over 255 and read back as one.</b> The plan's
@@ -324,6 +436,97 @@ public class BakedMaterialImageTests {
             // would make the control assertion above fail rather than this one, from a message about
             // colours. One dispatch per op is what the evaluator promises.
             Assert.Equal(wanted.Length, bake.Dispatches);
+        }
+
+        return new(MaterialBake.Encode(outputs));
+    }
+
+    /// <summary>
+    ///     Runs the tool from the front: a committed graph, compiled, evaluated and encoded.
+    /// </summary>
+    /// <param name="fixture">The device the kernels dispatch on.</param>
+    /// <param name="file">Which fixture under <c>Fixtures/</c>.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The registry is built the way the two shipping hosts build it.</b>
+    ///         <c>NodeTypes.Register</c> is the generated roll of every node
+    ///         <c>Vixen.Editor.TextureGraph</c> declares, and it is what the texturing plugin and
+    ///         <c>Vixen.Cli</c>'s <c>TextureGraphRunner</c> both start from — so a node that stopped
+    ///         registering is a compile error about a missing type here rather than a graph that
+    ///         quietly loses one map. No compound library is published, because these fixtures use
+    ///         none: a compound that failed to read is a diagnostic elsewhere and would be noise in
+    ///         a picture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The resolution is the host's, and the graph's own declaration would win over
+    ///         it.</b> These fixtures declare none, so <see cref="Side" /> is what
+    ///         <c>TextureGraphCompiler.BaseWidth</c> supplies — which is also what
+    ///         <see cref="Material" /> asserts the decoded PNG is, so a graph that started declaring
+    ///         its own size fails there loudly instead of resampling silently.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The outputs are read by usage rather than by index.</b>
+    ///         <c>TexturePlan.Outputs</c> is a list of image indices with no names on it —
+    ///         <see cref="TextureGraphOutput" />'s own remarks say the join between "an image
+    ///         survived" and "it is the roughness map" lives on the compiler — so reading them
+    ///         positionally would pass whatever order the compiler emitted them in and shade a
+    ///         dielectric as a conductor when it changed.
+    ///     </para>
+    /// </remarks>
+    static Baked Graph(Fixture fixture, string file) {
+        var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", file);
+
+        Assert.True(File.Exists(path), $"'{path}' is not beside the assembly, so this suite tested nothing.");
+
+        var stored = YamlSerializer.Parse<NodeGraphAsset>(File.ReadAllText(path));
+        var model = NodeGraphDocument.Load(stored, out var repairs);
+
+        // ⚠ A repair is the reader deciding what a file meant. One here is a fixture that no longer
+        // says what it is read as, which is exactly the drift a committed document exists to pin.
+        Assert.Empty(repairs);
+
+        NodeTypeRegistry registry = new();
+
+        NodeTypes.Register(registry);
+
+        var compiler = new TextureGraphCompiler(registry) { BaseWidth = Side, BaseHeight = Side };
+        var compilation = compiler.Compile(model);
+
+        Assert.Empty(compilation.Diagnostics.Where(diagnostic => diagnostic.Severity == NodeSeverity.Error));
+        Assert.NotNull(compilation.Value);
+
+        var plan = compilation.Value!;
+        var wanted = new Dictionary<MaterialMapUsage, int>();
+
+        foreach (var written in compiler.Outputs) {
+            Assert.True(
+                MaterialMapNaming.TryParseSuffix(written.Usage, out var usage),
+                $"'{file}' writes a map called '{written.Usage}', which is not a usage a bake writes."
+            );
+
+            wanted[usage] = written.Image;
+        }
+
+        // ⚠ Not a formality, and not a second list either: the oracle below is a surface with a base
+        // colour, a normal, an occlusion, a roughness and a metalness, and a graph that lost one of
+        // the five bakes a material missing a feature — which still draws, plausibly, in the
+        // material's own defaults. The number is the arity of the comparison rather than a count of
+        // anything in the folder.
+        Assert.Equal(5, wanted.Count);
+
+        var outputs = new Dictionary<MaterialMapUsage, Bitmap>();
+
+        using (var evaluator = new TexturePlanEvaluator(fixture.Device)) {
+            using var bake = evaluator.Evaluate(plan);
+
+            foreach (var (usage, image) in wanted) {
+                outputs[usage] = bake.Read(image);
+            }
+
+            // The evaluator's promise, and the same guard the hand-built run makes: a plan that
+            // dispatched nothing hands back whatever the allocator left in five images.
+            Assert.Equal(plan.Ops.Length, bake.Dispatches);
+            Assert.NotEqual(0, bake.Dispatches);
         }
 
         return new(MaterialBake.Encode(outputs));

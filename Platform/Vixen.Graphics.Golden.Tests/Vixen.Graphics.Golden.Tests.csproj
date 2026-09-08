@@ -152,5 +152,12 @@
         -->
         <None Include="References\**" CopyToOutputDirectory="PreserveNewest" />
         <None Include="Shaders\**" CopyToOutputDirectory="PreserveNewest" />
+
+        <!--
+            And the authored graphs `BakedMaterialImageTests` compiles, for the same reason: a
+            `.vxtexgraph` a human can open beside the picture it produced is the whole of what makes
+            a failure readable.
+        -->
+        <None Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 </Project>

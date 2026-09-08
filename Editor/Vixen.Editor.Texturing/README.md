@@ -2,7 +2,7 @@
 
 Doc 48's texture graph, as a plugin — and the plugin is the point.
 
-`Vixen.Editor.TextureGraph` is a plan, an evaluator and forty-five compute kernels. Until this
+`Vixen.Editor.TextureGraph` is a plan, an evaluator and a folder of compute kernels. Until this
 assembly existed **none of it was reachable from the editor**: nothing registered a document, nothing
 registered a panel, nothing registered a command. Doc 48 § D14 says the whole document exists to
 prove one claim —

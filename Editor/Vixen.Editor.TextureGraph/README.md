@@ -674,7 +674,7 @@ the real `Compilation` binds, and the value read back is what `ConstantEvaluator
   reach them — [#742](https://github.com/Rikarin/Vixen/issues/742).
 
 The **Pixel Processor** is the same idea one layer down: its setting is a Raven expression compiled
-into a whole generated kernel of the same shape as the forty-five committed ones, and its complaints
+into a whole generated kernel of the same shape as every committed one, and its complaints
 are Raven's own, carrying Raven's ids, addressed to the node and the setting.
 ⚠ **The op it emits used to name a kernel nothing could resolve** — the evaluator read every name
 through this assembly's *embedded* sources, so a graph that looked complete threw at bake time about

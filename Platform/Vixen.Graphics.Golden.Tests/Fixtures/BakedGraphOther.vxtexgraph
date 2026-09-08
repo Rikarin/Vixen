@@ -1,0 +1,94 @@
+# The graph half of doc 48's exit criterion 12: a document, compiled, baked and photographed.
+#
+# Five flat maps, because the oracle on the other side of the comparison is a constant surface
+# spelled with `MetalRoughnessFeature` — a graph that drew a pattern could not be compared against
+# three numbers at all. What is under test here is not what the kernels can draw — the kernel
+# suites are — but that a `.vxtexgraph` reaches a frame at all: document -> node registry ->
+# compiler -> outputs by usage -> plan -> evaluator -> bake -> the real `StandardFrame`.
+#
+# Every colour is a stored level over 255, so the half-float image the compiler allocates rounds
+# back to exactly the level `BakedMaterialImageTests` names, and the agreement asserted there is
+# between two numbers rather than between two roundings. The C# constants are the source of truth:
+# if these drift from them the frames stop agreeing, loudly, which is the point of duplicating them
+# here rather than deriving them from this file.
+version: 1
+name: Baked Graph Other
+nodes:
+  - id: 1
+    type: Source/Uniform
+    x: 0
+    y: 0
+    values: { Colour: [0.109803922, 0.211764706, 0.823529412, 1] }
+    texts: {}
+  - id: 2
+    type: Output/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: { Usage: baseColor }
+
+  # A flat tangent-space normal, stored: 128/255 in x and y, one in z.
+  - id: 3
+    type: Source/Uniform
+    x: 0
+    y: 160
+    values: { Colour: [0.501960784, 0.501960784, 1, 1] }
+    texts: {}
+  - id: 4
+    type: Output/Output
+    x: 320
+    y: 160
+    values: {}
+    texts: { Usage: normal }
+
+  # Fully lit, so the ORM map's red is the identity and the untextured spelling — which carries no
+  # occlusion at all — is the same surface.
+  - id: 5
+    type: Source/Uniform
+    x: 0
+    y: 320
+    values: { Colour: [1, 1, 1, 1] }
+    texts: {}
+  - id: 6
+    type: Output/Output
+    x: 320
+    y: 320
+    values: {}
+    texts: { Usage: occlusion }
+
+  # 115/255.
+  - id: 7
+    type: Source/Uniform
+    x: 0
+    y: 480
+    values: { Colour: [0.450980392, 0.450980392, 0.450980392, 1] }
+    texts: {}
+  - id: 8
+    type: Output/Output
+    x: 320
+    y: 480
+    values: {}
+    texts: { Usage: roughness }
+
+  - id: 9
+    type: Source/Uniform
+    x: 0
+    y: 640
+    values: { Colour: [0, 0, 0, 1] }
+    texts: {}
+  - id: 10
+    type: Output/Output
+    x: 320
+    y: 640
+    values: {}
+    texts: { Usage: metalness }
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Input }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Input }
+  - { fromNode: 9, fromPort: Out, toNode: 10, toPort: Input }
+groups: []
+comments: []
+settings: {}
+parameters: []

@@ -28,7 +28,7 @@ readonly record struct TexturePixelProblem(string Message, NodeSpan Span);
 /// <remarks>
 ///     <para>
 ///         <b>The whole node is a string and a compilation.</b> What an author types is dropped into
-///         a generated kernel of exactly the shape the other forty-five have — one storage image,
+///         a generated kernel of exactly the shape every other kernel in <c>Shaders/</c> has — one
 ///         its taps clamped to the <em>source's</em> dimensions, an <c>8×8</c> workgroup and a bounds
 ///         guard — and the result goes through <see cref="Compilation" />. Every type error, every
 ///         unknown name and every arity mistake is Raven's own, phrased Raven's way, and mapped back

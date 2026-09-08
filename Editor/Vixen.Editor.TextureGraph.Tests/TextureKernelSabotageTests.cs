@@ -31,15 +31,24 @@ namespace Tests;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The perturbation is generated from the kernel's own source, and that is what makes it
-///         a roll call rather than forty-five hand-written tests.</b> Every kernel in
-///         <c>Shaders/</c> writes through <c>target.Store(</c> — sixty-four call sites across
-///         forty-five files, and nothing else stores anywhere — so <see cref="Perturb" /> renames the
-///         shader, redirects every store through a function of its own, and puts a bounded
-///         perturbation in that function. The plan then carries the result as an
-///         <em>authored</em> kernel, which is the seam
+///         a roll call rather than one hand-written test per kernel.</b> Every kernel in
+///         <c>Shaders/</c> writes through <c>target.Store(</c> and nothing else stores anywhere — so
+///         <see cref="Perturb" /> renames the shader, redirects every store through a function of its
+///         own, and puts a bounded perturbation in that function. The plan then carries the result as
+///         an <em>authored</em> kernel, which is the seam
 ///         <a href="https://github.com/Rikarin/Vixen/issues/729">#729</a> added for the Pixel
 ///         Processor: a name a plan brings with it, compiled by the same evaluator through the same
 ///         Raven front end as an embedded one.
+///     </para>
+///     <para>
+///         ⚠ <b>That sentence used to end "sixty-four call sites across forty-five files", and both
+///         numbers were stale</b> — 74 and 48 the day anyone counted
+///         (<a href="https://github.com/Rikarin/Vixen/issues/1082">#1082</a>). A denominator is the
+///         more dangerous half of a wrong count, because it is what a reader checks a completeness
+///         claim against, and this file's completeness claim never rested on it:
+///         <see cref="Every_shipped_kernel_is_sabotaged_or_has_a_written_reason_not_to" /> requires
+///         <see cref="Shipped" />, the covered set and the written exemptions to be one list, so the
+///         roll call is complete by construction rather than by arithmetic anybody typed.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>What this proves and what it does not.</b> It proves that for every shipped kernel
