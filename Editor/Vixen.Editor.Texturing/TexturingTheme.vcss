@@ -1,9 +1,11 @@
 /* SPDX-FileCopyrightText: Copyright (c) Rikarin
    SPDX-License-Identifier: Apache-2.0
 
-   The layer stack panel's layout, as a stylesheet on disk rather than as fifty-two `SetStyle` calls
-   in the middle of the code that builds the tree — the first half of
-   https://github.com/Rikarin/Vixen/issues/881, which is doc 36 § P4's markup debt.
+   This plugin's panels' layout, as a stylesheet on disk rather than as `SetStyle` calls in the
+   middle of the code that builds the tree — the first half of
+   https://github.com/Rikarin/Vixen/issues/881, which is doc 36 § P4's markup debt. The layer stack
+   panel's fifty-two came first; the two paint panes' and the brush column's nine followed with
+   https://github.com/Rikarin/Vixen/issues/1106, and are the last block in this file.
 
    ⚠ **Layout only, and every colour is somebody else's.** `ControlTheme`, `AdvancedTheme` and
    `EditorTheme` are already in the editor's document and already style every control this panel is
@@ -111,5 +113,50 @@ layer-stack-channels { display: flex; flex-direction: row; }
    unconstrained numeric fields in one row each ask for their content. */
 .layer-stack-knob-label { width: 96px; flex-shrink: 0; }
 .layer-stack-knob-value { width: 56px; flex-shrink: 0; }
+
+/* ── The paint panes ────────────────────────────────────────────────── */
+
+/* ⚠ **Both panes and the brush column, in one pass, because it was one gap and not three.**
+   https://github.com/Rikarin/Vixen/issues/1106 says the 2D pane's status line was already themed
+   while the 3D pane's was not; ⚠ that is wrong and worth recording, because it is the kind of claim
+   a fix gets written around. **No** `.vcss` in this repository named a `paint-` anything before
+   this block: both panes and `PaintBrushInspector` styled their own hosts with `SetStyle`, and the
+   three of them are here together.
+
+   ⚠ **The three declarations on a pane's root are the ones from
+   https://github.com/Rikarin/Vixen/issues/886**, and only two of them do anything. An element no
+   stylesheet mentions takes CSS's initial `flex-direction: row`, so the *column* is what decides
+   that the title sits above the picture rather than beside it — and `flex-grow` is what gives the
+   viewer inside a height at all, since `image-view { flex-grow: 1 }` in `AdvancedTheme.vcss` can
+   only grow inside a parent that has room. A root without them is the strip-down-the-left that
+   issue's memory names. `display: flex` is stated for the same reason the layers panel states it:
+   it is what the constructor wrote, and this file's job is to be able to say what it was. */
+paint-mesh,
+paint-uv { display: flex; flex-direction: column; flex-grow: 1; }
+
+/* The symmetry picker and its label, above the picture. ⚠ `flex-shrink: 0` is the whole of why this
+   is a rule rather than nothing at all, and it is `image-view-bar`'s reason exactly: the viewer
+   below declares `flex-grow: 1` on a `flex-basis` of nought, so in a short pane the only thing with
+   anything to give up is this strip — the picker squashes to nothing and a pane that grew a control
+   appears not to have. `flex-direction: row` is the initial value and is stated rather than
+   relied on. */
+paint-mesh-bar { display: flex; flex-direction: row; align-items: center; flex-shrink: 0; gap: 6px; }
+
+/* Fixed, so the picker beside it starts in the same place whatever the word is in — the reason the
+   knob rows above give, one panel across, and the reason it matters more here is that
+   `Strings` can change the word without the panel being rebuilt. */
+.paint-mesh-symmetry { flex-shrink: 0; }
+paint-mesh-symmetry-label { width: 72px; flex-shrink: 0; }
+
+/* The sentence under each picture. ⚠ `flex-shrink: 0` for the bar's reason and not for the text's:
+   a status line that wrapped to two lines in a short pane would be squashed to one and a half by
+   the viewer's `flex-grow`, and half a line of text is unreadable rather than merely small. */
+paint-mesh-status,
+paint-uv-status { flex-shrink: 0; }
+
+/* ⚠ The brush column's fixed width, for `layer-stack-preview`'s reason: it is added last, into the
+   layers panel's own root, and a column that took a fraction would change the width of the picture
+   beside it every time the paint verb was toggled. */
+paint-brush { display: flex; flex-direction: column; width: 220px; }
 
 }

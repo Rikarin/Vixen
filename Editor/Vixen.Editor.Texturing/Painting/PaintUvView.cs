@@ -165,12 +165,17 @@ sealed class PaintUvView {
 
         DockPanel.Fills(host);
 
+        // ⚠ Here as well as in `LayerStackView`, and finding out why is what #1106 cost. The sheet
+        // was installed by the layers panel alone, which was invisible while these panes styled
+        // their own hosts inline — and became a pane laid out as a strip the moment the layout moved
+        // into the sheet. A docked workspace restoring this panel without the layers one is a real
+        // state, and `Install` is idempotent per document, so the honest fix is for every view that
+        // depends on the sheet to ask for it.
+        TexturingTheme.Install(host.Document);
+
+        // ⚠ Styled by `TexturingTheme.vcss` and not from here — #1106. See `PaintMeshView`: the
+        // two panes were in the same position and are fixed on the same pass.
         var root = host.Add("paint-uv");
-
-        root.SetStyle("display", "flex");
-        root.SetStyle("flex-direction", "column");
-        root.SetStyle("flex-grow", "1");
-
         var title = root.Add("world-title");
 
         title.Text = "Paint (UV)";

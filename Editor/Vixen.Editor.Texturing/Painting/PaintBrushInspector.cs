@@ -87,11 +87,9 @@ sealed class PaintBrushInspector {
 
         this.tool = tool;
 
+        // ⚠ Styled by `TexturingTheme.vcss` and not from here — #1106 named the two panes and this
+        // column was in the same position, width and all.
         root = host.Add("paint-brush");
-
-        root.SetStyle("display", "flex");
-        root.SetStyle("flex-direction", "column");
-        root.SetStyle("width", "220px");
 
         var title = root.Add("world-title");
 
