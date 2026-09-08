@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Vixen.Core.Mathematics;
 using Vixen.Graphics.Null;
@@ -370,6 +371,208 @@ public class MaterialCompilerTests {
         );
 
         Assert.Equal("SheenSurface", material.Composition.Resolve("CompositeSurface.eighth"));
+    }
+
+    // --- The one string a material may not choose --------------------------
+
+    /// <summary>Every map name a shipped feature carries is refused when it is renamed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The failure is a picture and nothing reports it.</b> A host pairs a sampling
+    ///         shader's <c>uint</c> slot with a material-side texture name keyed off the feature's
+    ///         <em>default</em> — one static table for the whole frame — so a material that renames
+    ///         its map resolves no entry, keeps the index at zero and samples slot zero: the fallback
+    ///         checker. Eight map-name remarks say the name is not the author's and, until this,
+    ///         nothing enforced any of them. See
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/371">#371</a>.
+    ///     </para>
+    ///     <para>
+    ///         <b>Every name rather than an example</b>, and found rather than listed: a feature that
+    ///         forgets to check its own name is the failure this is written against, and a test that
+    ///         renamed the seven names somebody remembered would be green for the eighth.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ARenamedMapIsRefusedForEveryNameAFeatureCarries() {
+        var names = MapNames();
+
+        // ⚠ The instrument. An empty inventory is reflection that stopped finding features, and it
+        // satisfies the loop below while examining nothing. What is *in* it is asserted separately,
+        // by TheInventoryIsTheEightMapNamesAndNothingElse.
+        Assert.NotEmpty(names);
+
+        foreach (var (type, property, paired) in names) {
+            var renamed = (IMaterialFeature)Activator.CreateInstance(type)!;
+
+            // ⚠ Reflection reaches an `init` accessor — the modreq that stops C# is not a runtime
+            // rule — which is what lets this rename a name no list here spells out.
+            property.SetValue(renamed, "mine");
+
+            var compilation = MaterialCompiler.Compile(Standard(renamed));
+
+            Assert.True(
+                compilation.Failed,
+                $"{type.Name}.{property.Name} was renamed from '{paired}' to 'mine' and the material "
+                + "compiled. A host pairs that map under the default, so the index stays zero and the "
+                + "surface samples the fallback checker with nothing reported."
+            );
+
+            var diagnostic = Assert.Single(
+                compilation.Errors,
+                error => error.Id == MaterialDiagnosticId.RenamedTextureMap
+            );
+
+            // Both names, because "this is wrong" is only actionable beside what it should have been.
+            Assert.Contains("mine", diagnostic.Message, StringComparison.Ordinal);
+            Assert.Contains(paired, diagnostic.Message, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>Every map name the shipped features carry, found rather than listed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The reflection lives here because it cannot live in the feature.</b>
+    ///         <c>Vixen.Rendering</c> is trim annotated, so <c>Type.GetProperties</c> on a type
+    ///         reached through <see cref="IMaterialFeature" /> is <c>IL2070</c> — and suppressing that
+    ///         would leave a check that trimming removes from the shipping build it was written to
+    ///         protect. So each feature states its own name, and this reads the assembly to find the
+    ///         one that did not.
+    ///     </para>
+    ///     <para>
+    ///         A <c>string</c> with a non-empty default <em>is</em> a map name on every feature in the
+    ///         library: <see cref="IMaterialFeature.ShaderName" /> has no setter and is not reached,
+    ///         and <see cref="OcclusionFeature.OcclusionMap" /> is a <c>float</c> wearing the word.
+    ///         ⚠ An empty default is the exemption and it is a rule rather than a case —
+    ///         <see cref="GraphSurfaceFeature.Shader" /> is a name its graph supplies, so there is
+    ///         nothing to be renamed away from.
+    ///     </para>
+    /// </remarks>
+    static List<(Type Type, PropertyInfo Property, string Paired)> MapNames() {
+        List<(Type, PropertyInfo, string)> names = [];
+
+        var features = typeof(IMaterialFeature).Assembly.GetTypes()
+            .Where(type => type.IsClass && !type.IsAbstract && typeof(IMaterialFeature).IsAssignableFrom(type))
+            .Where(type => type.GetConstructor(Type.EmptyTypes) is not null);
+
+        foreach (var type in features) {
+            var fresh = Activator.CreateInstance(type);
+
+            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance)) {
+                if (property.PropertyType != typeof(string) || !property.CanWrite) {
+                    continue;
+                }
+
+                if (property.GetValue(fresh) is string paired && paired.Length > 0) {
+                    names.Add((type, property, paired));
+                }
+            }
+        }
+
+        return names;
+    }
+
+    /// <summary>
+    ///     And the inventory is exactly the eight, which is where two claims about it are decidable.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Written after noticing that the two obvious tests could not fail.</b> "A graph
+    ///         feature is exempt" and "a <c>float</c> called a map is left alone" read as assertions
+    ///         about the compiler and are not: nothing asks either of those features to check a name,
+    ///         so a <c>DoesNotContain</c> over a compilation of one holds however the rule is written,
+    ///         including when it is written wrongly. The place both claims are decidable is the
+    ///         <em>inventory</em>, because an entry here is a name the test above demands a feature
+    ///         refuse.
+    ///     </para>
+    ///     <para>
+    ///         So: <see cref="GraphSurfaceFeature.Shader" /> is a <c>string</c> every graph material
+    ///         sets, and an inventory listing it would demand a refusal that rejects every
+    ///         shader-graph material in the tree. <see cref="OcclusionFeature.OcclusionMap" /> is a
+    ///         <c>float</c> wearing the word, and an inventory keyed on the property's <em>name</em>
+    ///         rather than its type would list it. Neither is here, and this is where that is a fact
+    ///         rather than a hope.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheInventoryIsTheEightMapNamesAndNothingElse() {
+        string[] expected = [
+            $"{nameof(ParallaxOcclusionFeature)}.{nameof(ParallaxOcclusionFeature.HeightMap)}",
+            $"{nameof(TexturedEmissiveFeature)}.{nameof(TexturedEmissiveFeature.EmissiveMap)}",
+            $"{nameof(TexturedMaterialLayersFeature)}.{nameof(TexturedMaterialLayersFeature.HeightMap)}",
+            $"{nameof(TexturedMaterialLayersFeature)}.{nameof(TexturedMaterialLayersFeature.SplatMap)}",
+            $"{nameof(TexturedMetalRoughnessFeature)}.{nameof(TexturedMetalRoughnessFeature.BaseColorMap)}",
+            $"{nameof(TexturedNormalMapFeature)}.{nameof(TexturedNormalMapFeature.NormalMap)}",
+            $"{nameof(TexturedOpacityFeature)}.{nameof(TexturedOpacityFeature.OpacityMap)}",
+            $"{nameof(TexturedOrmFeature)}.{nameof(TexturedOrmFeature.OrmMap)}"
+        ];
+
+        var found = MapNames()
+            .Select(name => $"{name.Type.Name}.{name.Property.Name}")
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.Equal(expected, found);
+    }
+
+    /// <summary>And the two maps called "height" are refused for each other's name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The case that already happened, and the reason this is an error rather than a
+    ///     warning.</b> A re-bake copied its own texture entry's name onto a preserved
+    ///     <see cref="ParallaxOcclusionFeature" />, which bound a real single-channel texture under
+    ///     <c>heightMap</c> — the <em>layered</em> feature's four-channel per-layer bundle — leaving
+    ///     the parallax index at zero and marching the checker as a height field. Both spellings
+    ///     exist, both are paired, and neither is the other's.
+    /// </remarks>
+    [Fact]
+    public void TheTwoHeightMapsAreRefusedForEachOthersName() {
+        var parallax = MaterialCompiler.Compile(
+            Standard(new ParallaxOcclusionFeature { HeightMap = "heightMap" })
+        );
+
+        var layered = MaterialCompiler.Compile(
+            Standard(new TexturedMaterialLayersFeature { HeightMap = "parallaxHeightMap" })
+        );
+
+        Assert.Contains(parallax.Errors, error => error.Id == MaterialDiagnosticId.RenamedTextureMap);
+        Assert.Contains(layered.Errors, error => error.Id == MaterialDiagnosticId.RenamedTextureMap);
+    }
+
+    /// <summary>A map set to nothing at all is refused too, rather than falling out unexamined.</summary>
+    /// <remarks>
+    ///     ⚠ A null name resolves exactly as little as a wrong one, and a check that pattern-matched
+    ///     the value to <c>string</c> would skip it — the silent half of this failure reached by the
+    ///     one input a reader assumes cannot occur.
+    /// </remarks>
+    [Fact]
+    public void AMapNamedNothingIsRefused() {
+        var compilation = MaterialCompiler.Compile(
+            Standard(new TexturedNormalMapFeature { NormalMap = null! })
+        );
+
+        Assert.Contains(compilation.Errors, error => error.Id == MaterialDiagnosticId.RenamedTextureMap);
+    }
+
+    /// <summary>The names the features ship with compile, which is the half that must not be loud.</summary>
+    /// <remarks>
+    ///     What the arena's nine <c>.vxmat</c> files are: every one of them spells its maps the
+    ///     feature's way, so a check that refused a correct material would refuse the shipped level.
+    /// </remarks>
+    [Fact]
+    public void TheDefaultNamesCompileWithNothingSaid() {
+        var compilation = MaterialCompiler.Compile(
+            Standard(
+                new ParallaxOcclusionFeature(),
+                new TexturedMetalRoughnessFeature(),
+                new TexturedNormalMapFeature(),
+                new TexturedOrmFeature()
+            )
+        );
+
+        Assert.False(compilation.Failed);
+        Assert.DoesNotContain(
+            compilation.Diagnostics,
+            diagnostic => diagnostic.Id == MaterialDiagnosticId.RenamedTextureMap
+        );
     }
 
     // --- What the composition is for ---------------------------------------
