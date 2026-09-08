@@ -481,11 +481,13 @@ public class TextureKernelLanguageSeamTests {
     ///         go on matching after the library changed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Rec. 709 is deliberately not a needle.</b> Four kernels legitimately write those
-    ///         three numbers — a parameter default cannot be a call — so sweeping every constant
-    ///         <c>ComputeColor</c> declares would fail on the one transcription this file still
-    ///         holds a gate for. The needles are the YIQ matrix, which nothing but a copy of
-    ///         <c>HueRotate</c> has a reason to contain.
+    ///         ⚠ <b>Rec. 709 is deliberately not a needle here.</b> <c>Grayscale</c> legitimately
+    ///         writes those three numbers — a parameter default cannot be a call — so sweeping every
+    ///         constant <c>ComputeColor</c> declares would fail on the one transcription this file
+    ///         still holds a gate for. The needles are the YIQ matrix, which nothing but a copy of
+    ///         <c>HueRotate</c> has a reason to contain. Rec. 709 gets its own sweep, with that one
+    ///         exclusion named:
+    ///         <see cref="Only_the_kernel_whose_weights_are_defaults_still_transcribes_the_library_s_luminance" />.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -647,23 +649,32 @@ public class TextureKernelLanguageSeamTests {
     /// <param name="declaration">What the weights look like where that kernel writes them.</param>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The third shape a transcription takes, and the one that reads least like a
-    ///         copy.</b> <c>Grayscale.rvn</c> writes Rec. 709 as three separate parameter
-    ///         *defaults* and <c>Hsl.rvn</c> writes it as a <c>float3</c> inside <c>Main</c> —
-    ///         neither is a function, so neither can be a row of <see cref="Parity" />, and both
-    ///         carry a header saying in as many words that they use these three numbers "so a graph
-    ///         and a shader graph agree about what grey is". Three numbers agreeing is the whole of
-    ///         that claim, so three numbers is what is checked.
+    ///         ⚠ <b>One row, and it used to be four.</b> <c>Hsl</c>, <c>Splatter</c> and
+    ///         <c>TileSampler</c> wrote the triple inline in a body; all three call
+    ///         <c>ColorSpaces.Luminance</c> now — <see cref="Three_kernels_read_their_luminance_out_of_the_library" />
+    ///         is what holds that, and this is the one copy that stays.
+    ///         <c>Grayscale.rvn</c> writes Rec. 709 as three separate parameter *defaults*, which is
+    ///         not a function, so it can be neither a row of <see cref="Parity" /> nor a call: ⚠ a
+    ///         parameter default has to be a literal. Its header says it uses these three numbers "so
+    ///         a graph and a shader graph agree about what grey is". Three numbers agreeing is the
+    ///         whole of that claim, so three numbers is what is checked.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Each row carries the pattern that finds the weights, and the first version of
-    ///         this test did not — which is why it is written this way.</b> It asked only whether
-    ///         the three literals appeared anywhere in the file, and drifting
-    ///         <c>Grayscale</c>'s <c>weightG</c> default left it green: the kernel writes the same
-    ///         triple a second time as the fallback for a zero-sum weight set, and a search over the
-    ///         whole file cannot tell the declaration from the fallback. So the pattern names where
-    ///         the weights are declared, and every number it finds has to be the library's, in
-    ///         order.
+    ///         ⚠ <b>The library half is <c>ColorSpaces.Luminance</c> and it used to be
+    ///         <c>ComputeColor.Saturation</c>'s body.</b> Both hold the same triple, and the second
+    ///         has <em>no callers</em>: no <c>.rvn</c> in the tree calls it and no shader-graph node
+    ///         emits it — <c>Tonemap.rvn</c> grades saturation with an implementation of its own. So
+    ///         this test pinned a kernel against numbers no shader in the engine reads, which is the
+    ///         weaker of the two anchors even where the numbers agree
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1093">#1093</a>).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The pattern names where the weights are declared, and the first version of this
+    ///         test did not — which is why it is written this way.</b> It asked only whether the
+    ///         three literals appeared anywhere in the file, and drifting <c>Grayscale</c>'s
+    ///         <c>weightG</c> default left it green: the kernel writes the same triple a second time
+    ///         as the fallback for a zero-sum weight set, and a search over the whole file cannot
+    ///         tell the declaration from the fallback.
     ///     </para>
     ///     <para>
     ///         ⚠ Rec. 601's 0.299 / 0.587 / 0.114 is the other common answer and differs by up to 6%
@@ -674,17 +685,10 @@ public class TextureKernelLanguageSeamTests {
     /// </remarks>
     [Theory]
     [InlineData("Grayscale", @"var weight[RGB]: float = \S+")]
-    [InlineData("Hsl", @"dot\(rotated, float3\([^)]*\)")]
-    // ⚠ Found by a reviewer, not by the sweep. The completeness check next door keys on
-    // `Random.rvn`'s three constants only, so two live copies of the library's luminance sat in
-    // `Coverage` bodies with nothing holding them — the theory's summary claimed the class and
-    // covered two of four.
-    [InlineData("Splatter", @"dot\(texel\.xyz, float3\([^)]*\)")]
-    [InlineData("TileSampler", @"dot\(texel\.xyz, float3\([^)]*\)")]
     public void The_luminance_weights_are_still_the_library_s(string kernel, string declaration) {
-        var luminance = Reduce(Library("Material", "ComputeColor.rvn"), "Saturation").Numbers;
+        var luminance = Reduce(Library("Core", "ColorSpaces.rvn"), "Luminance").Numbers;
 
-        // The instrument, one half. A `Saturation` that moved would reduce to nothing, and two empty
+        // The instrument, one half. A `Luminance` that moved would reduce to nothing, and two empty
         // sequences are equal.
         Assert.Equal(3, luminance.Length);
 
@@ -702,5 +706,112 @@ public class TextureKernelLanguageSeamTests {
         ];
 
         Assert.Equal(luminance, declared);
+    }
+
+    /// <summary>
+    ///     The three kernels that weight a luminance in a body call the library rather than
+    ///     transcribing it, and no kernel but <c>Grayscale</c> carries the triple at all.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1093">#1093</see>, and it is the
+    ///         same inversion <see cref="No_kernel_transcribes_the_library_s_hash_or_hue_rotation" />
+    ///         made: a sweep saying <em>none</em> rather than a table saying <em>these three, and
+    ///         they still agree</em>. A fourth kernel reaching for the constants lands red on the day
+    ///         it lands.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Grayscale</c> is the one exception and it is a structural one rather than a
+    ///         grandfathered one.</b> Its three weights are parameter <em>defaults</em> and a default
+    ///         has to be a literal, so it is the one place in this assembly where the numbers cannot
+    ///         become a call whatever the library grows.
+    ///         <see cref="The_luminance_weights_are_still_the_library_s" /> is what holds those.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The needle is read out of <c>ColorSpaces.rvn</c> and then checked against
+    ///         <c>Grayscale</c> before the sweep runs.</b> A pattern that matched nothing would report
+    ///         no copies, and "no copies" is exactly what this test says on the day it passes — so the
+    ///         detector has to be shown finding the copy that is supposed to be there. That is the
+    ///         instrument this file's own remarks keep asking for.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Only_the_kernel_whose_weights_are_defaults_still_transcribes_the_library_s_luminance() {
+        var luminance = Reduce(Library("Core", "ColorSpaces.rvn"), "Luminance").Numbers;
+
+        // The instrument, one half: a `Luminance` that moved reduces to nothing, and a needle built
+        // from nothing matches every `float3()` in the assembly or none of them.
+        Assert.Equal(3, luminance.Length);
+
+        var triple = new Regex(
+            @"float3\(\s*" + string.Join(@"f?\s*,\s*", luminance.Select(Regex.Escape)) + @"f?\s*\)"
+        );
+
+        // The other half. `Grayscale` writes the triple as the fallback for a zero-sum weight set,
+        // so the detector has a known positive in the tree and a run where it stopped matching says
+        // so here rather than by reporting a clean sweep.
+        Assert.Matches(triple, Uncommented(TextureKernels.Source("Grayscale")));
+
+        string[] copying = [
+            .. TextureKernels
+                .Names
+                .Where(kernel => !string.Equals(kernel, "Grayscale", StringComparison.Ordinal))
+                .Where(kernel => triple.IsMatch(Uncommented(TextureKernels.Source(kernel))))
+                .OrderBy(kernel => kernel, StringComparer.Ordinal)
+        ];
+
+        Assert.True(
+            copying.Length == 0,
+            $"These kernels write Rec. 709 out rather than calling it: {string.Join(", ", copying)}.\n"
+            + "`Core/ColorSpaces.rvn` is in `TextureKernelPrelude.Sources`, so a kernel writes "
+            + "`import Vixen.Shaders.Core` and calls `ColorSpaces.Luminance`. #1093."
+        );
+    }
+
+    /// <summary>
+    ///     <c>Core/ColorSpaces.rvn</c> is in what a kernel binds against, verbatim, and the three
+    ///     kernels that want a luminance call it.
+    /// </summary>
+    /// <param name="kernel">The kernel whose body weighs a luminance.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The whole of <see href="https://github.com/Rikarin/Vixen/issues/1093">#1093</see>
+    ///         was this list, and the claim that hid it was a claim about the wrong set.</b> Five
+    ///         kernel headers and #1077 said the shader library had no
+    ///         <c>Luminance(colour: float3): float</c> to call. It has had one at
+    ///         <c>Core/ColorSpaces.rvn</c> since long before any of them — in the same package
+    ///         <c>Vixen.Shaders.Core</c> the prelude already carried. "The library does not have it"
+    ///         was a measurement of <see cref="TextureKernelPrelude.Sources" /> written as though it
+    ///         were a measurement of <c>Raven/Library</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Byte-equal with the file on disk, which is the prelude's own claim and nothing
+    ///         checked it.</b> The <c>EmbeddedResource</c> points at <c>Raven/Library/**</c> so that
+    ///         editing the library edits what a kernel compiles against; a copy taken into this
+    ///         assembly would satisfy every other assertion here and would drift silently.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Hsl")]
+    [InlineData("Splatter")]
+    [InlineData("TileSampler")]
+    public void The_kernels_that_weigh_a_luminance_call_the_library_s(string kernel) {
+        var library = Library("Core", "ColorSpaces.rvn");
+
+        Assert.Contains("func Luminance(", library, StringComparison.Ordinal);
+
+        var embedded = Assert.Single(
+            TextureKernelPrelude.Sources.Where(source =>
+                string.Equals(source.Name, "Core.ColorSpaces.rvn", StringComparison.Ordinal)
+            )
+        );
+
+        Assert.Equal(library.ReplaceLineEndings("\n"), embedded.Text.ReplaceLineEndings("\n"));
+
+        Assert.Contains(
+            "ColorSpaces.Luminance(",
+            Uncommented(TextureKernels.Source(kernel)),
+            StringComparison.Ordinal
+        );
     }
 }

@@ -95,7 +95,15 @@
           `Core/Math.rvn` is here because `Core/Random.rvn` spells `Math.SphericalToCartesian` and
           `Const.TwoPi` — a set that stops at `Random.rvn` fails RVN2010 on *every* kernel, because a
           library file in the compilation is bound whether the kernel calls that part of it or not.
+
+          `Core/ColorSpaces.rvn` is here for `Luminance` — #1093. Three kernels wrote Rec. 709 out as
+          a `dot` against a literal triple under a header saying the library had no such signature;
+          it has had one all along and the file was simply not in this list. It imports nothing and
+          spells `Const.Epsilon`, which `Core/Math.rvn` above already brings, so the set does not
+          grow past it.
         -->
+        <EmbeddedResource Include="..\..\Raven\Library\Core\ColorSpaces.rvn"
+                          LogicalName="Vixen.Editor.TextureGraph.Prelude.Core.ColorSpaces.rvn" />
         <EmbeddedResource Include="..\..\Raven\Library\Core\Math.rvn"
                           LogicalName="Vixen.Editor.TextureGraph.Prelude.Core.Math.rvn" />
         <EmbeddedResource Include="..\..\Raven\Library\Core\Random.rvn"

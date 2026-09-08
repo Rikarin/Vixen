@@ -1,0 +1,67 @@
+version: 1
+name: Metal Reflectance
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -640
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Colour/Metal Reflectance
+    x: -320
+    y: 160
+    values: {}
+    texts: { Metal: $Metal }
+  - id: 3
+    type: Colour/Mix
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Mode: Copy
+      Coverage: Over
+      '=Opacity': amount
+  - id: 4
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Base, toNode: 3, toPort: Background }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Foreground }
+  - { fromNode: 1, fromPort: Mask, toNode: 3, toPort: Mask }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Base
+    direction: Input
+    kind: Image
+    default: []
+    summary: The non-metal colour underneath.
+  - name: Mask
+    direction: Input
+    kind: Image
+    default: []
+    summary: Where the metal shows, as a grey.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The base colour with the metal's F0 written wherever the mask is bright.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: Metal
+    default: Iron
+    summary: Which metal's reflectance. Measured data — see the kernel's header for the source.
+    kind: Text
+    accepted: [Iron, Chromium, Nickel, Titanium, Platinum, Aluminium, Silver, Gold, Copper, Brass]
+  - name: amount
+    default: '1'
+    summary: How much of the metal the mask is allowed to bring through.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Metal

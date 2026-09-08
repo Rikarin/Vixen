@@ -23,14 +23,26 @@ namespace Vixen.Editor.TextureGraph;
 ///         <c>.rvn</c> files, embedded verbatim, in the same list.
 ///     </para>
 ///     <para>
-///         <b>Which sources, and why exactly these three.</b> <c>Material/ComputeColor.rvn</c> is
-///         what doc 48 § 4.2's colour kernels want — the YIQ hue rotation, the Rec. 709 luminance,
-///         the blend modes. It <c>import</c>s <c>Vixen.Shaders.Core</c>, and <c>Core/Random.rvn</c>
+///         <b>Which sources, and why exactly these four.</b> <c>Material/ComputeColor.rvn</c> is
+///         what doc 48 § 4.2's colour kernels want — the YIQ hue rotation, the blend modes. It
+///         <c>import</c>s <c>Vixen.Shaders.Core</c>, and <c>Core/Random.rvn</c>
 ///         in turn spells <c>Math.SphericalToCartesian</c> and <c>Const.TwoPi</c>, so
 ///         <c>Core/Math.rvn</c> comes with it. ⚠ That last edge is the one worth writing down: a
 ///         set that stops at <c>Random.rvn</c> fails with <c>RVN2010: The name 'Math' does not
 ///         exist</c> on <em>every</em> kernel at once, because the library file is bound whether the
 ///         kernel calls into that part of it or not.
+///     </para>
+///     <para>
+///         ⚠ <b><c>Core/ColorSpaces.rvn</c> is the fourth, and adding it is what closed
+///         <a href="https://github.com/Rikarin/Vixen/issues/1093">#1093</a>.</b> Three kernels wrote
+///         Rec. 709 out as a <c>dot</c> against a literal triple under headers saying the library had
+///         no <c>Luminance(linear: float3): float</c> to call. It has had one all along — the obstacle
+///         was never a signature, a package or an <c>import</c>, it was this list. ⚠ The lesson
+///         generalises past luminance: "the library does not have it" is a claim about
+///         <em>these entries</em> written as though it were a claim about <c>Raven/Library</c>, and
+///         the two are different sets. <c>ColorSpaces.rvn</c> imports nothing and spells
+///         <c>Const.Epsilon</c>, which <c>Core/Math.rvn</c> already supplies, so the closure does not
+///         grow past it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Embedded from the library's own path, not copied into this assembly.</b> The

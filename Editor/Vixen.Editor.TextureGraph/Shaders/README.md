@@ -1,7 +1,7 @@
 # Shaders
 
-The texture graph's atomic kernels, in Raven. **Forty-eight `.rvn` files**, which is
-[doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-one adjusted three ways — and
+The texture graph's atomic kernels, in Raven. **Forty-nine `.rvn` files**, which is
+[doc 48 § 4.11](../../../docs/plan/48-material-authoring.md)'s forty-one adjusted four ways — and
 every adjustment is a fact about the catalogue rather than an arithmetic slip:
 
 | | | |
@@ -10,7 +10,8 @@ every adjustment is a fact about the catalogue rather than an arithmetic slip:
 | + `MinMaxReduce`, `JumpFlood`, `FloodBounds`, `FloodResidual` | +4 | **Dispatches, not nodes**: three nodes need a chain |
 | + `Triplanar`, `ColourSelect` | +2 | § M8's two late scope rows, which arrived after § 4.11 was counted — [#815](https://github.com/Rikarin/Vixen/issues/815) and [#1010](https://github.com/Rikarin/Vixen/issues/1010) |
 | + `Mix` | +1 | § M10's, and the only one dogfooding asked for — [#1059](https://github.com/Rikarin/Vixen/issues/1059) |
-| = files in this folder | **48** | `TextureKernels.Names` at run time |
+| + `MetalReflectance` | +1 | § M10's second: a § 4.9 *compound* row that no atom could express, because nothing mapped a metal name to an F0 — [#1096](https://github.com/Rikarin/Vixen/issues/1096) |
+| = files in this folder | **49** | `TextureKernels.Names` at run time |
 
 ⚠ **This number read forty-five while the folder held forty-seven, and it is the third time a count
 here has fallen behind the directory.** `Triplanar` and `ColourSelect` shipped and nobody came back.
@@ -90,6 +91,17 @@ transcribed twice, which is what `TexturePlanEvaluator`'s missing `referencePath
 holds `Combine` to textual equality and `Main` to *exactly one* differing line, and
 `TextureMixDeviceTests` bakes both kernels side by side in all sixteen modes, because a hard light
 copied without moving its selector **is** overlay on every image there is.
+
+⚠ **`MetalReflectance` is declared with the § 4.2 colour kernels and is a § 4.9 row**
+([#1096](https://github.com/Rikarin/Vixen/issues/1096)). It writes one of ten measured F0 triples and
+reads no input at all, which makes it the only source-shaped kernel outside § 4.1 — and the node over
+it is `Colour/Metal Reflectance` rather than `Surface/…` because a **published compound and a node
+class share one path namespace**, so the atom and the § 4.9 compound that wraps it cannot both be
+called the row's name. ⚠ **The table is in the `.rvn` and nowhere else.** `TextureMetal` on the C#
+side is names and indices; a second copy of the numbers would be one nothing ever dispatches, and F0
+is measured data with no formula to check it against — which is why the kernel's header cites its
+source and `TextureMetalReflectanceTests` bakes each name against the row the kernel declares for it
+rather than against a table of its own.
 
 **§ 4.3 space — five.** `Transform2D` · `Mirror` · `Tile` · `Crop` · `Resample`. ⚠ **Minification is
 supersampled by hand** in three of them, because the evaluator binds no samplers — there is no

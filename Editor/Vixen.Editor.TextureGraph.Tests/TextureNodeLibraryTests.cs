@@ -731,6 +731,13 @@ public class TextureNodeLibraryTests {
 
         graph.Connect(invert, "Out", colourSelect, "Input");
 
+        // ⚠ § 4.9's named-metal lookup, placed and wired to nothing, because it *reads* nothing: it
+        // is the one node in the library with no input port at all. An op still reaches the plan
+        // from a node whose output nobody consumes — `mix` and `colourSelect` above are the same
+        // shape — so what this proves is the same thing they prove, which is that the node compiles
+        // and its kernel is reachable from a graph.
+        graph.Add("Colour/Metal Reflectance");
+
         // The placement pair, with every map port left unwired — which is the arrangement the
         // library's own remarks say is the common one, so it is the one the fixture proves compiles.
         var sampler = graph.Add("Placement/Tile Sampler");

@@ -475,3 +475,69 @@ sealed partial class AutoLevelsNode : TextureNode {
         emitter.Dispatch(TextureAdjust.AutoLevels(target, source, scratch.ToImmutable(), size.X, size.Y));
     }
 }
+
+/// <summary>A named metal's normal-incidence reflectance, as a constant image.</summary>
+/// <remarks>
+///     <para>
+///         <b>Doc 48 § 4.9's Surface row <c>Metal Reflectance ●</c>, "a named-metal lookup", and the
+///         atom under the compound of that name.</b>
+///         <a href="https://github.com/Rikarin/Vixen/issues/1060">#1060</a> called that row the first
+///         § 4.9 entry that could not be authored at all, because a compound could not expose a name;
+///         <a href="https://github.com/Rikarin/Vixen/issues/1096">#1096</a> is the finding that when
+///         it could, the blocker had <em>moved</em> rather than gone — nothing in the atomic set
+///         mapped a metal name to an F0, so there was no setting for a compound to forward. This is
+///         that setting.
+///     </para>
+///     <para>
+///         ⚠ <b>The nearest two things were not it, and the reasons are worth keeping.</b>
+///         <see cref="GradientMapNode" /> needs a ramp <em>asset</em>, which is a different object
+///         from a choice among ten constants; <c>Source/Uniform</c>'s colour is a <c>Float4</c> port,
+///         so a compound could expose it only as four numbers and the <em>name</em> — the whole
+///         content of this node — would be gone.
+///     </para>
+///     <para>
+///         ⚠ <b>Here rather than under <c>Surface/</c>, and that is a collision rather than a
+///         taxonomy.</b> A published compound and a node class share one path namespace, and § 4.9's
+///         row wants <c>Surface/Metal Reflectance</c> for the compound: naming the atom that too is
+///         refused by <c>TextureCompoundLibrary</c> with "Two different node types claim the path" —
+///         measured, not predicted. It is the arrangement <c>Placement/Tile Sampler</c> already has
+///         under <c>Patterns/Tile Random</c>, and this node is a colour constant by shape.
+///     </para>
+///     <para>
+///         ⚠ <b>It reads nothing, and it grows no mask.</b> A masked metal is this node into a
+///         <c>Colour/Mix</c> — the kernel takes no second image deliberately, and its header says why.
+///     </para>
+/// </remarks>
+[Node("Colour/Metal Reflectance", Preview = true, Summary = "A named metal's F0, from measured data.")]
+sealed partial class MetalReflectanceNode : TextureNode {
+    /// <summary>
+    ///     Which metal: <c>Iron</c>, <c>Chromium</c>, <c>Nickel</c>, <c>Titanium</c>,
+    ///     <c>Platinum</c>, <c>Aluminium</c>, <c>Silver</c>, <c>Gold</c>, <c>Copper</c> or
+    ///     <c>Brass</c>.
+    /// </summary>
+    [Setting(AcceptedFrom = typeof(TextureMetal))]
+    public string Metal = "Iron";
+
+    /// <summary>The reflectance, linear, opaque.</summary>
+    [Output(Name = "Out")]
+    public Image Out;
+
+    /// <inheritdoc />
+    protected internal override void Compile(TextureEmitter emitter) {
+        ArgumentNullException.ThrowIfNull(emitter);
+
+        var metal = TextureSettings.Enum(emitter, nameof(Metal), TextureMetal.Iron);
+
+        // Colour whatever is downstream: two of the ten are strongly chromatic, so calling this grey
+        // would throw the whole point of the table away at the first thing that read it.
+        var target = emitter.Write("Out", TextureChannels.Colour);
+
+        emitter.Dispatch(
+            new TextureOp {
+                Kernel = TextureColourKernels.MetalReflectance,
+                Output = target,
+                Parameters = [new("metal", (float)metal)]
+            }
+        );
+    }
+}

@@ -15,12 +15,12 @@ package Vixen.Editor.TextureGraph.Shaders
 // **The default is Rec. 709** — 0.2126, 0.7152, 0.0722 — the same luminance
 // `ComputeColor.rvn`'s `Saturation` uses, so a graph and a shader graph agree about what grey is.
 // ⚠ **These three can never be a call, whatever the library grows**: a parameter default has to be a
-// literal. That is this kernel's own answer to #1077 and it is not the answer for `Hsl`, `Splatter`
-// and `TileSampler`, which write the triple inline in a *body* — ⚠ and those three are not blocked
-// on a library signature either, which is what #1077 says. `Core/ColorSpaces.rvn` already declares
-// `Luminance(linear: float3): float`; it is simply not one of the three files
-// `TextureKernelPrelude` puts in a kernel's compilation, so the name a kernel would call is not in
-// the set it binds against — #1093.
+// literal. That is this kernel's own answer to #1077 and it was never the answer for `Hsl`,
+// `Splatter` and `TileSampler`, which wrote the triple inline in a *body* — ⚠ and those three were
+// not blocked on a library signature either, which is what #1077 said. `Core/ColorSpaces.rvn` has
+// always declared `Luminance(linear: float3): float`; it was simply not one of the files
+// `TextureKernelPrelude` puts in a kernel's compilation. It is now, and all three call it — #1093.
+// This kernel is the last copy of the triple in the assembly and the only one that cannot go.
 // ⚠ Rec. 601's 0.299/0.587/0.114 is the *other* common answer and differs by up to 6% on saturated
 // green; a node that did not say which it used could not be reproduced.
 //

@@ -3,6 +3,7 @@
 
 package Vixen.Editor.TextureGraph.Shaders
 
+import Vixen.Shaders.Core
 import Vixen.Shaders.Material
 
 // Hue, saturation and lightness — doc 48 § 4.2's `HSL`.
@@ -58,7 +59,7 @@ shader Hsl {
         val texel = source.Load(int3(clamp(coord.x, 0, extent.x - 1), clamp(coord.y, 0, extent.y - 1), 0))
 
         val rotated = ComputeColor.HueRotate(float3(texel.x, texel.y, texel.z), hue * Tau)
-        val luma = dot(rotated, float3(0.2126f, 0.7152f, 0.0722f))
+        val luma = ColorSpaces.Luminance(rotated)
         val saturated = lerp(float3(luma, luma, luma), rotated, float3(max(saturation, 0f), max(saturation, 0f), max(saturation, 0f)))
 
         // Toward white above zero and toward black below it, so that 0 is exactly the input and the
