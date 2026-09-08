@@ -287,6 +287,82 @@ public class EditorViewTests {
         Assert.Equal("Live cascade over the sample tree below.", view.Status.Text);
     }
 
+    /// <summary>The code pane's toggle is what turns <c>CodeEditor.WordWrap</c> on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted as rows and not as the flag.</b> <c>WordWrap</c> being true is a property
+    ///     echoing back what the handler wrote and would stay true if the control had stopped
+    ///     wrapping; a line too long for the viewport occupying more than one entry of
+    ///     <c>Rows</c> is the work the setting exists to cause. The unwrapped count is read first so
+    ///     the claim is a change rather than a number.
+    /// </remarks>
+    [Fact]
+    public void TheWrapToggleWrapsTheEditor() {
+        using var harness = new ViewHarness();
+
+        // No spaces, so the break is at the column and the row count does not depend on where the
+        // words fall — a wrap of a 600-character line into a 1200px pane is several rows on any
+        // font the theme could pick.
+        var path = harness.Project.Write("Assets/long.rvn", new string('x', 600) + "\n");
+
+        var view = harness.Ui.Document.Root.Add<CodeEditorView>();
+
+        view.Show(new ShaderDocument(harness.Project.Project, AssetId.New(), path));
+        harness.Ui.Frame();
+
+        Assert.False(view.Editor.WordWrap);
+
+        var unwrapped = view.Editor.Rows.Count;
+
+        Assert.True(unwrapped > 0, "the editor built no rows at all, so this proves nothing");
+
+        // The button, not the property: what shipped without a caller is the wiring between them.
+        view.Wrap.IsChecked = true;
+        harness.Ui.Frame();
+
+        Assert.True(view.Editor.WordWrap);
+        Assert.True(
+            view.Editor.Rows.Count > unwrapped,
+            $"the long line still occupies {view.Editor.Rows.Count} rows, as it did unwrapped"
+        );
+
+        view.Wrap.IsChecked = false;
+        harness.Ui.Frame();
+
+        Assert.False(view.Editor.WordWrap);
+        Assert.Equal(unwrapped, view.Editor.Rows.Count);
+    }
+
+    /// <summary>The bar is above the editor, and the setting is the view's rather than the file's.</summary>
+    [Fact]
+    public void TheChromeIsAboveTheEditor() {
+        using var harness = new ViewHarness();
+        var path = harness.Project.Write("Assets/hero.rvn", "shader Hero {\n}\n");
+
+        var view = harness.Ui.Document.Root.Add<CodeEditorView>();
+
+        view.Show(new ShaderDocument(harness.Project.Project, AssetId.New(), path));
+        harness.Ui.Frame();
+
+        Assert.Same(view.Chrome.Parent, view.Editor.Parent);
+
+        var column = view.Chrome.Parent!;
+
+        // The bar has to be drawn above the editor, not below it.
+        Assert.Same(view.Chrome, column.Children[0]);
+        Assert.Same(view.Editor, column.Children[1]);
+
+        // Two panes over the same document wrap independently: the setting is on the control.
+        var second = harness.Ui.Document.Root.Add<CodeEditorView>();
+
+        second.Show(new ShaderDocument(harness.Project.Project, AssetId.New(), path));
+        second.Wrapped = true;
+        harness.Ui.Frame();
+
+        Assert.True(second.Editor.WordWrap);
+        Assert.True(second.Wrap.IsChecked);
+        Assert.False(view.Editor.WordWrap);
+    }
+
     /// <summary>The group list is the project's group files, ordered by path.</summary>
     [Fact]
     public void TheGroupListIsTheProjectsGroups() {

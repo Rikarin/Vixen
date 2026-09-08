@@ -40,7 +40,8 @@ behaviortree-body > node-canvas	Editor/Vixen.Editor.AssetEditors/AssetEditorThem
 browser-filters > search-box	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
 browser-filters > select	Editor/Vixen.Editor.Inspector/BrowserTheme.vcss
 choice-list > button	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
-code-editor-pane > code-editor	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+code-column > code-editor	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
+code-editor-pane > code-column	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 color-input > color-swatch	Core/Vixen.Ui.Controls.Advanced/AdvancedTheme.vcss
 compiled-scene-diagnostic > compiled-scene-severity	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 compositor-editor > node-graph	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
