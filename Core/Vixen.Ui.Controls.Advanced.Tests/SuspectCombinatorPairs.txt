@@ -1,0 +1,38 @@
+# The `A > B` pairings a committed stylesheet declares, whose parent this sweep BUILT, and whose
+# child never appeared under it.
+#
+#     <parent> > <child>  <why it is not a dead rule, or `unexplained`>
+#
+# Held against the computed set by
+# `LiveCombinatorPairTests.Every_rule_whose_parent_was_built_is_proved_or_explained`, EXACTLY and in
+# both directions. Derived: re-run that test with VIXEN_REGENERATE=1 to write this back — the reason
+# column is carried across for a row that stays and written as `unexplained` for one that arrives,
+# and an `unexplained` row is itself a failure, so a new suspect cannot be regenerated past.
+#
+# ⚠ THIS IS THE ONLY FILE IN THIS QUESTION THAT MAKES A NEGATIVE CLAIM, and it is narrow on purpose.
+# `LiveCombinatorPairs.txt` beside it holds proofs and says nothing about the rest of the domain;
+# `Core/Vixen.Ui.Styling.Tests/CombinatorPairs.txt` holds the domain and says nothing about anybody
+# being alive. Neither can catch `compositor-editor > node-canvas` — a rule whose two tags were both
+# real, whose pairing never occurred, and which drew the compositor's graph at zero width. This can,
+# for the part of the domain a runtime oracle reaches: if the sweep constructed an element with the
+# parent tag and watched it assemble its own children, then a child the sheet names and the element
+# never built is a claim that wants a person.
+#
+# ⚠ The suspicion is bounded by the same sentence. A parent tag the sweep never built is NOT here and
+# is not suspected of anything — that is most of the domain, and every editor tag. Being absent from
+# this file means unjudged in exactly the way it does in the file beside it.
+#
+# ⚠ A row ARRIVING is the loud direction here, and it is the mirror of a row leaving the proofs. It
+# means a control that used to build a part has stopped while the rule for it still stands — which is
+# the defect this issue was opened for, and the moment it is catchable. Read the diff; do not
+# regenerate past it.
+#
+# The reasons are findings and not exemptions. Each says what the control does instead, which is a
+# statement somebody checked once: a part built only when the control has an item, a child arriving
+# from a data template, a rule the sheet writes for a state the bare control is not in. If a reason
+# ever has to be "the model is blind", the row does not belong here — the sweep saw the parent build
+# its parts, so blindness is not available as an answer.
+#
+# See `Rikarin/Vixen#531`.
+radial-item > icon	`RadialItem` is a `ButtonBase`, and `ButtonBase.LeadingIcon` builds the `icon` part on first access (ButtonBase.cs:260) — a wedge nobody gave an icon has none. The rule styles the wedges of a menu whose items carry one.
+segment > icon	`Segment` is a `ToggleBase` and so a `ButtonBase`, same lazy `LeadingIcon` — and the one sheet that writes this rule writes it for the mode bar's first segmented control (EditorTheme.vcss:253), whose segments are given icons by `ToolbarPresenter` (ToolbarPresenter.cs:316).

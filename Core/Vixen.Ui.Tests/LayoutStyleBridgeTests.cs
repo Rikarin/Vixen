@@ -34,6 +34,40 @@ public class LayoutStyleBridgeTests {
         Assert.NotEqual(LayoutStyle.Default.PositionType, style.PositionType);
     }
 
+    [Fact]
+    public void The_display_this_method_leaves_alone_is_what_a_ceiling_two_projects_away_stands_on() {
+        // ⚠ <b>A PIN ON A PREMISE RATHER THAN ON A BEHAVIOUR, and the thing that depends on it is
+        // not in this project.</b> `LayoutTree.MeasuredContentCeiling` holds CSS Flexbox §4.5's
+        // automatic minimum under the size an item's contents were measured at. Chrome does not —
+        // that was measured, and the table is in `Vixen.Ui.Layout.Tests/Taffy/KnownGaps.txt` — and
+        // the entire reason the term stays is the line below: a browser's initial `display` is
+        // `block`, so a plain element there is not a flex item and has no §4.5 floor at all, while a
+        // plain element built through this bridge is a row flex item and gets one. Removing the
+        // ceiling would be right about Chrome and wrong about the markup an author believes they
+        // wrote. `Rikarin/Vixen#265` and `#682` are open on that one call and on nothing else.
+        //
+        // ⚠ <b>So the loud direction here is a FAILURE, and what it means is "go and re-take those
+        // two issues" — which was not free before, but was ANONYMOUS.</b> Measured: setting
+        // `CreateCssInitial`'s `Display` to `Block` reddens 36 of this project's 1 496 tests, and
+        // every one of them is a geometry or hit-testing assertion (`TextTests`, `NavigationTests`,
+        // `InAppDragTests`, `FlexShrinkFromCssTests`) reporting a number that moved, with nothing
+        // said about what else was resting on the value that moved it. This is the 37th and the
+        // only one that names the decision. `CreateCssInitial` restates four fields away from
+        // `LayoutStyle.Default` and leaves this one alone, so the choice leaves no trace at the
+        // place it is made; and the ceiling's own evidence lives entirely inside `Vixen.Ui.Layout`,
+        // which cannot see this method. The pin in that project
+        // (`AutomaticMinimumSizeTests.An_item_whose_content_refuses_to_shrink_is_still_floored_at_
+        // what_it_was_measured_at`) records that the term is a framework call; this one records
+        // where the call is written down.
+        Assert.Equal(Display.Flex, LayoutStyleBuilder.CssInitial.Display);
+        Assert.Equal(Display.Flex, new BridgeFixture().Build("color: red").Display);
+
+        // ⚠ And it is a CHOSEN default rather than a missing feature — `block` is a value this
+        // bridge maps and this engine lays out, so the call is available to be taken. That is the
+        // half that turns "we cannot" into "we have not", which is a different kind of entry.
+        Assert.Equal(Display.Block, new BridgeFixture().Build("display: block").Display);
+    }
+
     [Theory]
     [InlineData("width: 42px", 42f)]
     [InlineData("width: 2em", 32f)]

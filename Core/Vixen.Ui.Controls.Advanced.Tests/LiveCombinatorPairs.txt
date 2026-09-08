@@ -15,6 +15,12 @@
 # arrives with the first item is not here; nor is any pairing whose parent belongs to an assembly
 # `Vixen.Ui.Controls.Advanced.Tests` cannot see, which is every editor tag.
 #
+# ⚠ ONE CLASS OF ABSENCE IS NO LONGER UNJUDGED, and it is in `SuspectCombinatorPairs.txt` beside
+# this file rather than here. Where the sweep DID build the parent and watch it assemble its
+# children, a child the sheet names and the element never built is a question with a written answer
+# — two of them today, both the lazily-built `icon` part. The two files divide on exactly one thing:
+# whether the parent tag was ever constructed. Eleven of the 88 were; nine of those are here.
+#
 # ⚠ A row LEAVING this file is the loud direction. It means the control stopped building that part,
 # and the sheet's rule went dead in the same moment — which is what `compositor-editor > node-canvas`
 # was, drawn at zero width with both of its tags real and every reach test green. See

@@ -122,6 +122,19 @@ public sealed partial class LayoutTree {
     ///     fourth: resolve it, which needs the direction and nothing else, because with no vertical
     ///     writing mode the inline axis is horizontal in every configuration the engine can be in.
     ///     <para>
+    ///         ⚠ <b>That last clause is a PREMISE and not a property of this method, and #282 did not
+    ///         decide it for ever.</b> What #282 settled is that none of its fourteen logical utility
+    ///         roots needed a writing mode; it recorded in the same breath that one corpus fixture
+    ///         does, and <c>Rikarin/Vixen#952</c> is that fixture filed as an open request for a
+    ///         field on <c>LayoutStyle</c>. The day it lands, this method is wrong rather than
+    ///         incomplete — under <c>vertical-lr</c> the inline axis is vertical and
+    ///         <c>inline-start</c> is the TOP, which no arm of this switch can return — and so is
+    ///         every site that repeats the sentence: <c>UtilityFamilies</c>' <c>float</c> and
+    ///         <c>clear</c> keyword tables, <c>LayoutStyleBuilder</c>'s beside them, and
+    ///         <c>Vixen.Ui.Styling.Utilities/README.md</c>. Nothing joined those to the field's
+    ///         absence until this clause did. [expires-on Vixen.Ui.Layout.LayoutStyle.WritingMode]
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>The resolved side is what goes into the exclusion list, not the authored one.</b>
     ///         Everything downstream — <see cref="ClearancePoint" />, <see cref="FloatBandAt" />,
     ///         <see cref="AvoidFloats" /> — reasons about physical left and right, and a

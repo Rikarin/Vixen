@@ -366,6 +366,15 @@ public static class UtilityFamilies {
         // is `direction` alone, `FloatSide` and `Clear` gained a flow-relative pair each, and there
         // was a fourth shape all along.
         //
+        // ⚠ <b>"The decision #282 recorded" is narrower than it reads, and these four classes are
+        // what would rot if it were taken as settled.</b> #282 decided that none of its fourteen
+        // logical utility roots needed a writing mode, and recorded in the same breath that one
+        // corpus fixture does; `Rikarin/Vixen#952` is that fixture filed as a request for the field.
+        // If it lands, `direction` alone stops being the whole of the resolution — under
+        // `vertical-lr` `inline-start` is the TOP — and these two keyword tables emit a value
+        // `LayoutTree.ResolveFloatSide` can only answer horizontally. The clause is what carries
+        // that across. [expires-on Vixen.Ui.Layout.LayoutStyle.WritingMode]
+        //
         // ⚠ <b>The float corpus observation was true and was about the other keywords.</b> Ten
         // `float_bfc_*` families do ship RTL variants with identical expectations, which proves
         // `float: left` does not flip — and that is the reason `inline-start` is a separate value

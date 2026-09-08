@@ -1550,7 +1550,9 @@ public sealed class LayoutStyleBuilder {
             // ⚠ <b>The two LOGICAL keywords are here now, and what used to keep them out was a
             // conflation rather than a limit.</b> This table said Tailwind v4's
             // <c>float: inline-start</c> "resolves against the writing mode", concluded that a store
-            // which had decided never to gain one (#282) could only alias it onto
+            // which had decided never to gain one (#282 — ⚠ which decided no such thing: it decided
+            // its own fourteen logical utility roots needed none, and named the one corpus fixture
+            // that does, now open as <c>Rikarin/Vixen#952</c>) could only alias it onto
             // <see cref="FloatSide.Left" /> — right in LTR and wrong in RTL inside one declaration —
             // or accept it and drop it, and recorded both roots as `partial`. CSS Logical Properties
             // resolves <c>inline-start</c> against the writing mode <i>and the direction</i>, and
