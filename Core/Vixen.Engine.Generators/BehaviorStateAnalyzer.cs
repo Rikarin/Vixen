@@ -141,7 +141,7 @@ public sealed class BehaviorStateAnalyzer : DiagnosticAnalyzer {
         INamedTypeSymbol? componentAttribute,
         INamedTypeSymbol? tagComponent
     ) {
-        var type = (INamedTypeSymbol) context.Symbol;
+        var type = (INamedTypeSymbol)context.Symbol;
 
         // The root itself is exempt and has to be: `Behavior.Entity` is the entity the behaviour is
         // on, which is the one handle the design does hand out.
@@ -194,10 +194,10 @@ public sealed class BehaviorStateAnalyzer : DiagnosticAnalyzer {
     ///     assigning one into a member of the behaviour is the copy.
     /// </remarks>
     static void Cached(OperationAnalysisContext context, INamedTypeSymbol behavior, INamedTypeSymbol? world) {
-        var assignment = (ISimpleAssignmentOperation) context.Operation;
+        var assignment = (ISimpleAssignmentOperation)context.Operation;
 
         var (member, instance) = assignment.Target switch {
-            IFieldReferenceOperation field => ((ISymbol) field.Field, field.Instance),
+            IFieldReferenceOperation field => ((ISymbol)field.Field, field.Instance),
             IPropertyReferenceOperation property => (property.Property, property.Instance),
             _ => (null, null)
         };
