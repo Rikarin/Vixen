@@ -396,6 +396,132 @@ shader TexturedMaterialLayersSurface : MaterialTextures, IMaterialSurface {
     }
 }
 
+/// Parallax occlusion: a height map read as depth, and the coordinate moved to where the eye sees.
+///
+/// ⚠ **The first feature in the library that writes `d.uv` rather than reading it**, which is the
+/// whole reason `MaterialFeatureStage.Coordinate` and `MaterialCompiler.Ordered` exist. Placed behind
+/// a feature that samples, it displaces the coordinate that feature already read — half a parallaxed
+/// surface, drawn on every device with nothing reported. The compiler refuses that arrangement; see
+/// `CompositeSurface` below and `github.com/Rikarin/Vixen/issues/1065`.
+///
+/// ⚠ **This is the *first* of the three readings of "a height map" and not the one `#615` shipped.**
+/// `TexturedMaterialLayersSurface` above blends layers by a *four-channel per-layer* bundle; this
+/// samples one material's single channel, which is what a bake's `height` file holds. Same English
+/// name, different textures, and pairing them would be a plausible wrong picture rather than an error
+/// — so the two features name different maps and `NoTwoSamplingFeaturesShareAMapName` says so.
+///
+/// **The march.** The height field is a depth field: 1 is the original surface and 0 is the floor,
+/// `heightScale` deep. The eye's ray enters at `d.uv` and leaves the volume at `d.uv - sweep`, where
+/// `sweep = viewTS.xy / viewTS.z * heightScale`; the coordinate wanted is where that ray first passes
+/// under the field. Steep parallax walks the ray in equal depth steps until a sample is above it, and
+/// the occlusion refinement then intersects the two straight lines the last two samples define rather
+/// than snapping to the step boundary.
+///
+/// ⚠ **That refinement is what makes a constant field exact at any step count**, which is a property
+/// rather than an impression: with the field flat at depth `D`, the crossing solves to `sweep · D`
+/// whether the walk took one step or sixty-four. `ParallaxMaterialImageTests` photographs exactly
+/// that, because "it drew something different" is what a broken march also does.
+///
+/// ⚠ **The budget is steps and never milliseconds.** A wall-clock budget is this repository's largest
+/// flake source and it would also be a different picture on every machine. `minSteps` and `maxSteps`
+/// are the count head-on and the count edge-on; the surface is sampled more finely exactly where the
+/// ray travels furthest across it, which is where a coarse walk steps over a ridge.
+///
+/// **What it does not do is the silhouette.** A displaced coordinate that leaves 0..1 samples the
+/// map's wrap rather than showing the surface's edge falling away, and the fix for that is a discard
+/// a *feature* cannot issue — `IMaterialSurface.Compute` contributes to a struct and the pass owns
+/// coverage. So this is the flat-surface case: a wall, a floor, a road, where the silhouette is a
+/// straight line the geometry already draws correctly.
+shader ParallaxSurface : MaterialTextures, IMaterialSurface {
+    /// Which slot of the frame's table holds this material's single-channel height map.
+    ///
+    /// Red, and only red. ⚠ A one-channel texture samples green and blue as 0 and alpha as 1 — the
+    /// hazard `TexturedOpacitySurface` documents — so a march reading anything else would read a
+    /// constant on the very format a height bake writes.
+    var heightIndex: uint = 0u
+
+    /// How deep the floor of the height field is, in the surface's own UV units.
+    ///
+    /// ⚠ **UV units and not metres**, which is what makes it an authored number rather than a derived
+    /// one: the depth that looks right depends on how the map is tiled, and the tiling is the
+    /// material's. A value of 0 is the feature switched off, and costs the march.
+    var heightScale: float = 0.05f
+
+    /// How many steps the march takes when the eye is straight on.
+    var minSteps: float = 8f
+
+    /// And when it is edge-on, where the ray crosses the most surface per unit of depth.
+    var maxSteps: float = 32f
+
+    /// The shallowest cosine the sweep is still finite at.
+    ///
+    /// ⚠ A cosine is dimensionless and unit-length bounded, so this absolute threshold does not scale
+    /// with the model the way a length epsilon would. `viewTS.z` at or below it is an eye in the
+    /// surface's own plane, where `xy / z` is unbounded and the honest answer is to displace nothing.
+    /// It is also what excludes a back-facing fragment, whose `z` is negative.
+    const val MinCosine = 0.02f
+
+    func Compute(inout d: MaterialData) {
+        val view = Math.SafeNormalize(d.viewTS)
+
+        if (view.z <= MinCosine) {
+            return
+        }
+
+        // ⚠ Read once, before the loop. Inside it the coordinate is different on every lane and the
+        // control flow is not uniform, so implicit derivatives are neither this surface's footprint
+        // nor defined at all. See `MaterialTextures.SurfaceDdx`.
+        val ddxUv = SurfaceDdx(d)
+        val ddyUv = SurfaceDdy(d)
+
+        val sweep = (view.xy / view.z) * heightScale
+
+        // More steps as the ray flattens out. Clamped below at one because zero steps is a loop that
+        // never runs and a `resolved` nothing wrote, and above at a count whose layer thickness stays
+        // far clear of `Const.Epsilon` — the refinement divides by that thickness.
+        val count = clamp(int(lerp(maxSteps, minSteps, view.z)), 1, 256)
+        val steps = float(count)
+
+        var previousDepth = 0f
+        var previousSampled = 1f - SampleMapGrad(heightIndex, d.uv, ddxUv, ddyUv).r
+
+        // No crossing at all is the floor: the ray left the volume without ever passing under the
+        // field, which is the field at 0 everywhere. Full sweep is the answer there, not zero.
+        var resolved = 1f
+
+        for (i in 0 .. count - 1) {
+            // ⚠ Divided rather than accumulated, so the last step is exactly 1. Adding `1 / n` to
+            // itself `n` times lands a rounding below it, and a field at depth 1 would then never be
+            // crossed — the deepest texel of every height map, taking the fallback above.
+            val depth = float(i + 1) / steps
+            val sampled = 1f - SampleMapGrad(heightIndex, d.uv - sweep * depth, ddxUv, ddyUv).r
+
+            if (sampled <= depth) {
+                // The occlusion refinement. Two straight lines: the ray, whose depth is `depth`, and
+                // the field between the two samples. `after` is how far the ray is past the field now
+                // and `before` is how far short it was one step ago, so the crossing is `after` of the
+                // way back — which for a flat field is the exact answer at any `count`.
+                val after = sampled - depth
+                val before = previousSampled - previousDepth
+
+                // Negative by construction: `after` is at most zero and `before` is above it, or the
+                // step before this one would have been the crossing. The floor is against the one
+                // degenerate case, a field that is already at the ray's depth at the very first step.
+                val gap = min(after - before, -Const.Epsilon)
+                val weight = saturate(after / gap)
+
+                resolved = previousDepth * weight + depth * (1f - weight)
+                break
+            }
+
+            previousDepth = depth
+            previousSampled = sampled
+        }
+
+        d.uv = d.uv - sweep * resolved
+    }
+}
+
 /// Two surfaces, mixed by a weight.
 shader BlendSurface : IMaterialSurface {
     compose val under: IMaterialSurface = IdentitySurface

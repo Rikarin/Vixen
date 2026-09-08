@@ -3565,6 +3565,21 @@ Vixen.Rendering.Materials.OcclusionFeature.OcclusionMap.init -> float
 Vixen.Rendering.Materials.OcclusionFeature.ShaderName.get -> string
 Vixen.Rendering.Materials.OcclusionFeature.Strength.get -> float
 Vixen.Rendering.Materials.OcclusionFeature.Strength.init -> float
+Vixen.Rendering.Materials.ParallaxOcclusionFeature -> sealed record
+Vixen.Rendering.Materials.ParallaxOcclusionFeature : System.IEquatable<Vixen.Rendering.Materials.ParallaxOcclusionFeature>
+Vixen.Rendering.Materials.ParallaxOcclusionFeature : Vixen.Rendering.Materials.IMaterialFeature
+Vixen.Rendering.Materials.ParallaxOcclusionFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.ParallaxOcclusionFeature.HeightMap.get -> string
+Vixen.Rendering.Materials.ParallaxOcclusionFeature.HeightMap.init -> string
+Vixen.Rendering.Materials.ParallaxOcclusionFeature.HeightScale.get -> float
+Vixen.Rendering.Materials.ParallaxOcclusionFeature.HeightScale.init -> float
+Vixen.Rendering.Materials.ParallaxOcclusionFeature.MaxSteps.get -> int
+Vixen.Rendering.Materials.ParallaxOcclusionFeature.MaxSteps.init -> int
+Vixen.Rendering.Materials.ParallaxOcclusionFeature.MinSteps.get -> int
+Vixen.Rendering.Materials.ParallaxOcclusionFeature.MinSteps.init -> int
+Vixen.Rendering.Materials.ParallaxOcclusionFeature.ParallaxOcclusionFeature() -> void
+Vixen.Rendering.Materials.ParallaxOcclusionFeature.ShaderName.get -> string
+Vixen.Rendering.Materials.ParallaxOcclusionFeature.Stage.get -> Vixen.Rendering.Materials.MaterialFeatureStage
 Vixen.Rendering.Materials.SheenFeature -> sealed record
 Vixen.Rendering.Materials.SheenFeature : System.IEquatable<Vixen.Rendering.Materials.SheenFeature>
 Vixen.Rendering.Materials.SheenFeature : Vixen.Rendering.Materials.IMaterialFeature
@@ -5516,6 +5531,7 @@ const Vixen.Rendering.Materials.MaterialCompiler.VirtualShadowShader = "VirtualS
 const Vixen.Rendering.Materials.MaterialContent.Current = 1 -> int
 const Vixen.Rendering.Materials.MaterialKeys.DefaultLayerCount = 2 -> int
 const Vixen.Rendering.Materials.MaterialSurface.DielectricF0 = 0.04 -> float
+const Vixen.Rendering.Materials.ParallaxOcclusionFeature.StepCeiling = 256 -> int
 const Vixen.Rendering.MeshPrimitives.DefaultRings = 16 -> int
 const Vixen.Rendering.MeshPrimitives.DefaultSegments = 32 -> int
 const Vixen.Rendering.MeshPrimitives.MinimumSegments = 3 -> int
@@ -6705,6 +6721,7 @@ static Vixen.Rendering.Materials.MaterialShading.TryResolve(string? name, out Vi
 static Vixen.Rendering.Materials.MaterialSurface.Default.get -> Vixen.Rendering.Materials.MaterialSurface
 static Vixen.Rendering.Materials.MaterialSurface.Of(System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.IMaterialFeature>? features) -> Vixen.Rendering.Materials.MaterialSurface
 static Vixen.Rendering.Materials.MaterialSurface.Of(Vixen.Rendering.Materials.MaterialContent? content) -> Vixen.Rendering.Materials.MaterialSurface
+static Vixen.Rendering.Materials.ParallaxOcclusionFeature.HeightIndexParameter(string path) -> string
 static Vixen.Rendering.Materials.TexturedEmissiveFeature.EmissiveIndexParameter(string path) -> string
 static Vixen.Rendering.Materials.TexturedMaterialLayersFeature.HeightIndexParameter(string path) -> string
 static Vixen.Rendering.Materials.TexturedMaterialLayersFeature.SplatIndexParameter(string path) -> string

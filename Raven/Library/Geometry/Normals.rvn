@@ -63,6 +63,23 @@ struct Normals {
         return Math.SafeNormalize(x + y + frame.normal * tangentNormal.z)
     }
 
+    /// Rotates a world-space direction into tangent space — `ToWorld` the other way round.
+    ///
+    /// The frame is orthonormal, so its inverse is its transpose and the three dot products are the
+    /// whole rotation. What it is for is a *direction* rather than a normal: a parallax march walks
+    /// along the view ray in the surface's own space, and the ray has to be expressed in the space
+    /// the height field is authored in before its slope means anything.
+    ///
+    /// ⚠ **The length is preserved rather than restored, and that is not an omission.** `ToWorld`
+    /// normalises because what comes out of it is a shading normal and a shading normal that is not
+    /// unit length is a lobe too bright by the length it lost. Nothing here is a normal — and a march
+    /// reads `xy / z` out of the result, which is a ratio and therefore the same whatever the caller
+    /// scaled its input by. Normalising a zero vector would also invent a direction, where handing
+    /// back zero lets the caller see that it was given nothing.
+    static func ToTangent(frame: TangentFrame, world: float3): float3 {
+        return float3(dot(world, frame.tangent), dot(world, frame.bitangent), dot(world, frame.normal))
+    }
+
     /// Decodes a three-channel tangent-space normal map sample.
     static func Decode(sample: float3, strength: float): float3 {
         val n = Math.FromUnorm(sample)
