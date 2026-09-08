@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Imaging;
+using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Texturing.Layers;
 using Xunit;
@@ -144,6 +145,60 @@ public class LayerStackBakeRouteDeviceTests(ITestOutputHelper output) {
         );
     }
 
+    /// <summary>⚠ The two materials record which texture set produced each, and everything else matches.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1066">#1066</a>.</b> A stack writes
+    ///         one <c>.vxmat</c> per texture set and every other member of the provenance record is
+    ///         identical across them — same source, same asset, same adapter, and a stack exposes no
+    ///         parameters. So the two sidecars were character-identical and the only thing telling
+    ///         them apart was the material's file name, which is exactly the identity
+    ///         <c>MaterialBakeRecord.SourceAsset</c> exists because a file name is <em>not</em>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/681">#681</a>).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, and the second is the one that could have been broken by the fix.</b>
+    ///         The sets differ — which is the finding — <em>and</em> the source keys still agree, which
+    ///         is what stops a re-bake of one set adopting the other's files. Narrowing
+    ///         <c>MaterialProvenance.KeyOf</c> to include the set would pass the first assertion and
+    ///         change which sets a re-bake is allowed to overwrite, silently.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read off the written sidecars rather than off the records</b>, because the record
+    ///         is an object this test could construct and the sidecar is the format the issue is about.
+    ///         A member filled in and never written is the shape this workstream ships most often.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Each_material_records_which_texture_set_produced_it() {
+        using var device = TexturingDevice.Open();
+        var adapter = TexturingDevice.Adapter(device);
+
+        using var fixture = new TexturingFixture(device);
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+        Open(fixture);
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.BakeStackCommand), $"{adapter}: {Say(fixture)}");
+
+        var body = Provenance(fixture, Name + "_Body");
+        var trim = Provenance(fixture, Name + "_Trim");
+
+        output.WriteLine(
+            $"{adapter}: Body set '{body.GetValueOrDefault(MaterialProvenance.SetKey)}', "
+            + $"Trim set '{trim.GetValueOrDefault(MaterialProvenance.SetKey)}'"
+        );
+
+        Assert.Equal("Body", body[MaterialProvenance.SetKey]);
+        Assert.Equal("Trim", trim[MaterialProvenance.SetKey]);
+
+        // ⚠ And the sets are the *only* thing that differs about where they came from. Two sets of one
+        // stack are one source, and the key that stops a different source adopting a name has to keep
+        // saying so.
+        Assert.Equal(MaterialProvenance.KeyIn(body), MaterialProvenance.KeyIn(trim));
+        Assert.Equal(body[MaterialProvenance.SourceKey], trim[MaterialProvenance.SourceKey]);
+    }
+
     /// <summary>A stack that does not compile bakes nothing and does not throw.</summary>
     /// <remarks>
     ///     ⚠ <b>Device-free deliberately, and it is the half that says the refusal comes back as a
@@ -233,6 +288,22 @@ public class LayerStackBakeRouteDeviceTests(ITestOutputHelper output) {
         var picture = PngCodec.Decode(File.ReadAllBytes(file));
 
         return (picture.Pixels[0], picture.Pixels[1], picture.Pixels[2]);
+    }
+
+    /// <summary>The provenance block a baked material's sidecar carries.</summary>
+    /// <param name="fixture">The host.</param>
+    /// <param name="name">The material's file name, without the extension.</param>
+    /// <returns>Its sidecar's extensions.</returns>
+    static IReadOnlyDictionary<string, string> Provenance(TexturingFixture fixture, string name) {
+        var file = Path.Combine(
+            fixture.Paths.Assets,
+            MaterialMapNaming.DefaultFolder,
+            name + MaterialImporter.Extension
+        );
+
+        Assert.True(File.Exists(file), $"no material was written at {file}: {Say(fixture)}");
+
+        return AssetMetaFile.ReadFile(AssetMetaFile.PathFor(file)).Extensions;
     }
 
     /// <summary>The text of a committed stack, from beside the test assembly.</summary>

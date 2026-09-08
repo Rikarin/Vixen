@@ -286,7 +286,7 @@ sealed class MaterialBakeRoute {
                     compilation.Outputs,
                     compilation.Externals,
                     compilation.Diagnostics,
-                    Record(document, stackDevice),
+                    Record(document, stackDevice, set.Name),
                     material,
                     folder,
                     force
@@ -544,6 +544,7 @@ sealed class MaterialBakeRoute {
     /// <summary>The provenance block a stack's bake writes into each material's sidecar.</summary>
     /// <param name="document">The stack that produced the maps.</param>
     /// <param name="device">The device that ran it.</param>
+    /// <param name="set">Which texture set of the stack this material is.</param>
     /// <returns>The record.</returns>
     /// <remarks>
     ///     <para>
@@ -559,20 +560,27 @@ sealed class MaterialBakeRoute {
     ///         build.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Every texture set of one stack records the <em>same</em> source, and what tells
-    ///         two of them apart is only the material's name.</b> That is correct as far as
-    ///         <c>ProjectMaterialBaker</c> is concerned — the key stops a <em>different</em> source
-    ///         adopting a name, and two sets of one stack are the same source — but it does mean a
-    ///         reader of the sidecar cannot say which slot a material came from. A field for it
-    ///         belongs on <see cref="MaterialBakeRecord" /> and is a change to a written format, so
-    ///         it is filed rather than smuggled in under <see cref="MaterialBakeRecord.Parameters" />,
-    ///         whose documented meaning is the graph's exposed parameters.
+    ///         ⚠ <b>Every texture set of one stack records the same source, and what tells two of
+    ///         them apart is <see cref="MaterialBakeRecord.Set" /></b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1066">#1066</a>. Without it
+    ///         <c>Hull_Body.vxmat.meta</c> and <c>Hull_Trim.vxmat.meta</c> carried
+    ///         character-identical blocks and the only thing telling them apart was the file name,
+    ///         which is exactly the identity <c>SourceAsset</c> exists because a file name is not.
+    ///         ⚠ <b>It is not part of <c>MaterialProvenance.KeyOf</c> and must not become one</b>:
+    ///         that key stops a <em>different</em> source adopting a name, and two sets of one stack
+    ///         are the same source, so the shared key is correct rather than a collision.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The graph overload leaves it empty rather than writing the material's name into
+    ///         it.</b> A graph has no texture sets, and a set named after the file would make
+    ///         "which slot did this come from" answerable with a fact that is not one.
     ///     </para>
     /// </remarks>
-    static MaterialBakeRecord Record(LayerStackDocument document, IGraphicsDevice device) => new() {
+    static MaterialBakeRecord Record(LayerStackDocument document, IGraphicsDevice device, string set) => new() {
         Source = Relative(document.Project, document.AssetPath),
         SourceAsset = document.Asset,
-        Adapter = device.Adapter.Name
+        Adapter = device.Adapter.Name,
+        Set = set
     };
 
     /// <summary>A path measured from the project where it is inside one, and left alone where it is not.</summary>
