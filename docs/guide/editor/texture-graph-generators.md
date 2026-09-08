@@ -156,10 +156,9 @@ path with a phantom folder in it.
 
 **Sixteen**, against the two dozen doc 48 marks for M10 and the several hundred the references ship.
 That remaining gap is real and named in doc 48 § A.9; it is content authoring rather than engineering.
-⚠ **The measurement M10 exists to make is in
-[`Compounds/README.md`](../../../Editor/Vixen.Editor.TextureGraph/Compounds/README.md)** — what could
-*not* be authored out of the atomic set, which is the standing test of whether M2 and M3 got that set
-right.
+⚠ **The measurement M10 exists to make is written up beside the content itself**, in
+`Editor/Vixen.Editor.TextureGraph/Compounds/README.md`: what could *not* be authored out of the
+atomic set, which is the standing test of whether M2 and M3 got that set right.
 
 ⚠ **`Histogram Scan`'s knobs are a black and a white point, not the reference's position and
 contrast.** That was because a compound's knob could only be a port, and a port cannot be arithmetic;
