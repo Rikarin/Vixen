@@ -1,0 +1,172 @@
+package Vixen.Editor.TextureGraph.Shaders
+
+// Doc 48 § D10's layer projection: a picture sampled by a **world position** rather than by the
+// atlas's own UVs, and — for the triplanar case — blended between three planes by the world normal.
+//
+// ## Why this is a node at all, and what it is for
+//
+// A layer whose projection is `Triplanar` covers a surface whose UVs it was never authored for.
+// That is § D10's reason for having the member: a smart material dropped onto somebody else's mesh
+// has no idea what its charts look like, and a triplanar fill does not need to know. `LayerProjection`
+// modelled the three and only `Uv` compiled until this kernel existed —
+// [#815](https://github.com/Rikarin/Vixen/issues/815).
+//
+// ## ⚠ The two maps, and the encodings they arrive in
+//
+// `position` is § D12's `position` bake, written **unsigned**: `MeshMapBake.Vector` stores it as it
+// is, so the texel is already 0..1 across the mesh's own bounds and needs no decode. `world` is the
+// `world` bake, written **signed** — `0.5 + 0.5·n` — so it is decoded here. It is deliberately *not*
+// renormalised: the weights below are a ratio, so a short normal gives the same three numbers, and
+// `normalize` of a cancelled one is where a NaN would come from.
+// ⚠ Getting either backwards produces a plausible picture: an undecoded normal is a vector in the
+// positive octant, whose triplanar weights are all positive and merely *wrong*, so the fill still
+// covers the mesh and merely looks like the wrong scale. `TextureProjectionDeviceTests` pins the
+// decode by driving a normal down each axis in turn and requiring exactly one plane to be selected.
+//
+// ## The blend, and why the weights are normalised in the kernel
+//
+// `w = |n|^sharpness`, divided by its own sum. Without the division a sharpness of 1 on a 45° normal
+// sums to 1.41 and the fill comes out half as bright again as the picture it was made from — an
+// error nobody attributes to a projection, because it looks like an exposure. ⚠ And a sum of zero
+// falls back to equal thirds rather than dividing: a texel the bake never wrote decodes to a normal
+// that can cancel, and a NaN written into a baked file is permanent.
+//
+// **Planar is the same kernel with one-hot weights**, not a second one. § D10 offers `Planar` as a
+// projection along *an axis*, so `axis` selects it: 0 blends all three, and 1, 2 and 3 take the
+// plane facing x, y and z alone. One kernel because the sampling, the wrap and the scale are the
+// same question three times and a second file would be the same arithmetic twice.
+//
+// ## The three planes
+//
+// The plane facing **x** is sampled by `(z, y)`, the one facing **y** by `(x, z)`, and the one
+// facing **z** by `(x, y)`. That is the ordinary convention and it is written down because the
+// alternative — each plane taking the two axes in index order — differs only by a transpose on the
+// x plane, which reads as a rotated decal rather than as a bug.
+
+shader Triplanar {
+    /// The picture to project. Sampled bilinearly and **wrapped**, so it tiles across the mesh.
+    var source: Texture2D
+
+    /// The world-position map, § D12's `position` bake. Unsigned: already 0..1 over the mesh's bounds.
+    var position: Texture2D
+
+    /// The world-normal map, § D12's `world` bake. Signed: `0.5 + 0.5·n`.
+    var world: Texture2D
+
+    /// How many times the picture repeats across the position range.
+    var scale: float = 1f
+
+    /// The exponent the blend weights are raised to. Higher is a harder seam between planes.
+    var sharpness: float = 4f
+
+    /// Which projection: 0 blends the three planes, 1, 2 and 3 take x, y and z alone.
+    var axis: int = 0
+
+    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+    /// One texel of the source, **wrapped** rather than clamped — a projection tiles by construction.
+    ///
+    /// ⚠ Clamping would smear the source's edge row across every part of the mesh past one repeat,
+    /// which is a picture that looks like a stretched decal and not like a broken address mode.
+    func Tap(x: int, y: int): float4 {
+        val extent = source.GetDimensions(0)
+        val wx = int(float(x) - float(extent.x) * floor(float(x) / float(extent.x)))
+        val wy = int(float(y) - float(extent.y) * floor(float(y) / float(extent.y)))
+
+        return source.Load(int3(clamp(wx, 0, extent.x - 1), clamp(wy, 0, extent.y - 1), 0))
+    }
+
+    /// The source at a projected coordinate in turns, bilinearly.
+    func At(u: float, v: float): float4 {
+        val extent = source.GetDimensions(0)
+        val px = u * float(extent.x) - 0.5f
+        val py = v * float(extent.y) - 0.5f
+
+        val x0 = int(floor(px))
+        val y0 = int(floor(py))
+        val tx = px - float(x0)
+        val ty = py - float(y0)
+
+        val top = lerp(Tap(x0, y0), Tap(x0 + 1, y0), float4(tx, tx, tx, tx))
+        val bottom = lerp(Tap(x0, y0 + 1), Tap(x0 + 1, y0 + 1), float4(tx, tx, tx, tx))
+
+        return lerp(top, bottom, float4(ty, ty, ty, ty))
+    }
+
+    /// One texel of a map that may be a different size from the image being written.
+    func Read(map: Texture2D, coord: int2, size: int2): float4 {
+        val extent = map.GetDimensions(0)
+        val x = int(floor((float(coord.x) + 0.5f) * float(extent.x) / float(size.x)))
+        val y = int(floor((float(coord.y) + 0.5f) * float(extent.y) / float(size.y)))
+
+        return map.Load(int3(clamp(x, 0, extent.x - 1), clamp(y, 0, extent.y - 1), 0))
+    }
+
+    [ComputeShader(8, 8, 1)]
+    func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+        val coord = int2(int(id.x), int(id.y))
+        val size = target.GetDimensions()
+
+        if (coord.x >= size.x || coord.y >= size.y) {
+            return
+        }
+
+        val place = Read(position, coord, size)
+        val encoded = Read(world, coord, size)
+
+        val p = float3(place.x * scale, place.y * scale, place.z * scale)
+
+        // ⚠ Decoded, because the bake wrote `0.5 + 0.5·n`. Not renormalised through `normalize`: the
+        // weights below are a ratio, so a normal that arrived short produces the same three numbers
+        // as one that did not, and `normalize` of a cancelled normal is where a NaN would come from.
+        val n = float3(encoded.x * 2f - 1f, encoded.y * 2f - 1f, encoded.z * 2f - 1f)
+
+        val onX = At(p.z, p.y)
+        val onY = At(p.x, p.z)
+        val onZ = At(p.x, p.y)
+
+        if (axis == 1) {
+            target.Store(coord, onX)
+
+            return
+        }
+
+        if (axis == 2) {
+            target.Store(coord, onY)
+
+            return
+        }
+
+        if (axis == 3) {
+            target.Store(coord, onZ)
+
+            return
+        }
+
+        val power = max(sharpness, 0f)
+        var weights = float3(
+            pow(abs(n.x), power),
+            pow(abs(n.y), power),
+            pow(abs(n.z), power)
+        )
+
+        val total = weights.x + weights.y + weights.z
+
+        // A normal that cancelled, or a map nothing wrote. Equal thirds rather than a division: a
+        // NaN baked into a file is permanent, and doc 48's own note is that zero usually means "off".
+        if (total < 0.000001f) {
+            weights = float3(1f / 3f, 1f / 3f, 1f / 3f)
+        } else {
+            weights = weights / total
+        }
+
+        val blended = float4(
+            onX.x * weights.x + onY.x * weights.y + onZ.x * weights.z,
+            onX.y * weights.x + onY.y * weights.y + onZ.y * weights.z,
+            onX.z * weights.x + onY.z * weights.y + onZ.z * weights.z,
+            onX.w * weights.x + onY.w * weights.y + onZ.w * weights.z
+        )
+
+        target.Store(coord, blended)
+    }
+}
