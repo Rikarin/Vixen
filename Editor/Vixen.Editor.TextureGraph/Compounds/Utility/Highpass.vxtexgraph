@@ -1,0 +1,61 @@
+version: 1
+name: Highpass
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -640
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Filters/Blur
+    x: -320
+    y: 160
+    values: {}
+    texts: {}
+  - id: 3
+    type: Colour/Invert
+    x: 0
+    y: 160
+    values: {}
+    texts: {}
+  - id: 4
+    type: Colour/Blend
+    x: 320
+    y: 0
+    values:
+      Opacity: [0.5]
+    texts: { Mode: Copy }
+  - id: 5
+    type: Sub-graph/Output
+    x: 640
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Input, toNode: 2, toPort: Input }
+  - { fromNode: 1, fromPort: Radius, toNode: 2, toPort: Radius }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 1, fromPort: Input, toNode: 4, toPort: Background }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Foreground }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: The picture to keep only the detail of.
+  - name: Radius
+    direction: Input
+    kind: Float
+    default: [8]
+    summary: How coarse the removed part is, in texels at the base resolution.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The detail, about a mid grey. A flat region comes back exactly one half.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters: []

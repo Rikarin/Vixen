@@ -1,0 +1,70 @@
+version: 1
+name: Brick
+nodes:
+  - id: 1
+    type: Source/Shape
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      Kind: Square
+      '=Scale': 1f - mortar
+      '=Falloff': bevel
+  - id: 2
+    type: Space/Tile
+    x: 0
+    y: 0
+    values:
+      Offset X: [0.5]
+    texts: {}
+  - id: 3
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 4
+    type: Sub-graph/Input
+    x: -320
+    y: 240
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 4, fromPort: Columns, toNode: 2, toPort: Repeat X }
+  - { fromNode: 4, fromPort: Rows, toNode: 2, toPort: Repeat Y }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Columns
+    direction: Input
+    kind: Int
+    default: [4]
+    summary: How many bricks across.
+  - name: Rows
+    direction: Input
+    kind: Int
+    default: [8]
+    summary: How many courses down. Every other course is shifted half a brick.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The bond, as a height — one inside a brick, zero in the mortar.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: mortar
+    default: '0.1'
+    summary: How much of a cell the joint takes.
+    kind: Float
+    minimum: 0
+    maximum: 0.5
+    group: Bond
+  - name: bevel
+    default: '0.06'
+    summary: How soft a brick's edge is, in units of its half width.
+    kind: Float
+    minimum: 0.001
+    maximum: 1
+    group: Bond

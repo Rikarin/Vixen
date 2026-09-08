@@ -1,0 +1,69 @@
+version: 1
+name: Rivets
+nodes:
+  - id: 1
+    type: Source/Shape
+    x: -640
+    y: 0
+    values: {}
+    texts: { Kind: Paraboloid }
+  - id: 2
+    type: Placement/Tile Sampler
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      Accumulation: Max
+      '=Scale': head
+      '=Scale Jitter': vary
+  - id: 3
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+  - id: 4
+    type: Sub-graph/Input
+    x: -640
+    y: 260
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Pattern }
+  - { fromNode: 4, fromPort: Across, toNode: 2, toPort: Grid X }
+  - { fromNode: 4, fromPort: Down, toNode: 2, toPort: Grid Y }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Across
+    direction: Input
+    kind: Int
+    default: [8]
+    summary: How many rivets across.
+  - name: Down
+    direction: Input
+    kind: Int
+    default: [8]
+    summary: How many down.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The rivet heads, as a height — a dome per cell, zero between them.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: head
+    default: '0.45'
+    summary: How much of its cell one rivet head fills.
+    kind: Float
+    minimum: 0.01
+    maximum: 1
+    group: Rivet
+  - name: vary
+    default: '0.15'
+    summary: How much the heads differ in size from one another.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Rivet

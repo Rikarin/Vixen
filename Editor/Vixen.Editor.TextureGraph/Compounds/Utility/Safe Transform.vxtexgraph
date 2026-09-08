@@ -1,0 +1,74 @@
+version: 1
+name: Safe Transform
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Space/Transform 2D
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      Tiling: Wrap
+      Filter: Bilinear
+      '=Rotation': quarters * 1.5707964f
+      '=Scale X': 1f / tiles
+      '=Scale Y': 1f / tiles
+      '=Offset X': offsetX
+      '=Offset Y': offsetY
+  - id: 3
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Input, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: The tiling picture to move.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The same picture, moved, and still tiling.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: quarters
+    default: '0'
+    summary: Quarter turns. Only whole numbers keep a tiling picture tiling.
+    kind: Int
+    minimum: 0
+    maximum: 3
+    group: Safe
+  - name: tiles
+    default: '1'
+    summary: How many times the picture repeats across. Only whole numbers keep it tiling.
+    kind: Int
+    minimum: 1
+    maximum: 16
+    group: Safe
+  - name: offsetX
+    default: '0'
+    summary: A shift along x, in fractions of the image. Any value is safe under a wrap.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Shift
+  - name: offsetY
+    default: '0'
+    summary: A shift along y.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Shift

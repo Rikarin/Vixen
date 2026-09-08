@@ -1,0 +1,57 @@
+version: 1
+name: Contrast Luminosity
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Colour/Levels
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      '=Input Black': contrast * 0.5f
+      '=Input White': 1f - contrast * 0.5f
+      '=Output Black': luminosity
+      '=Output White': 1f + luminosity
+  - id: 3
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Input, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Input
+    direction: Input
+    kind: Image
+    default: []
+    summary: The picture to adjust.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The adjusted picture.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: contrast
+    default: '0'
+    summary: Above zero pulls the input range in about mid-grey; below zero pushes it out.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Tone
+  - name: luminosity
+    default: '0'
+    summary: Shifts the whole output range, so it lifts blacks and whites together.
+    kind: Float
+    minimum: -1
+    maximum: 1
+    group: Tone
