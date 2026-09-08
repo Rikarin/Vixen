@@ -244,6 +244,41 @@ public class DiagnosticsPanelTests {
         Assert.NotEmpty(view.Devices.Items);
     }
 
+    /// <summary>An inspector endpoint a host sets after start-up reaches the device grid.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The end a "no consumer" claim about <c>DeviceEntry.Endpoint</c> could not see.</b>
+    ///         The reader is <c>DeviceManagerView.vxml</c>'s Endpoint column and a view's
+    ///         <c>&lt;code&gt;</c> block is production C#, so a <c>*.cs</c>-only grep finds the
+    ///         declaration, the clear-on-unreachable, and nothing else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is set <em>after</em> the session is running on purpose.</b>
+    ///         <c>DiagnosticsModule.InspectorEndpoint</c> was an auto-property read once in
+    ///         <c>Activate</c>: assigning it afterwards changed nothing, which is what its own remark
+    ///         called setting it too late. A player's port is known when the player starts, so the
+    ///         only assignment that could ever be useful is this one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_endpoint_set_after_start_up_reaches_the_device_grid() {
+        using var session = EditorSession.Start();
+
+        var before = Find<DeviceManagerView>(session, "devices");
+
+        // False first: nothing in this tree launches a player, so the column reads nothing until a
+        // host says otherwise. `play.mode-standalone` is the producer, and it is declared planned.
+        Assert.All(before.Devices.Items.Cast<DeviceEntry>(), device => Assert.Null(device.Endpoint));
+
+        session.Editor.InspectorEndpoint = "127.0.0.1:34567";
+        session.Frames(2);
+
+        Assert.Contains(
+            before.Devices.Items.Cast<DeviceEntry>(),
+            device => string.Equals(device.Endpoint, "127.0.0.1:34567", StringComparison.Ordinal)
+        );
+    }
+
     static T Find<T>(EditorSession session, string panel) where T : UiElement {
         session.Open(panel);
         session.Frames(2);
