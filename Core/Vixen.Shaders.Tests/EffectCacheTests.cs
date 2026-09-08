@@ -228,6 +228,114 @@ public class EffectCacheTests {
         Assert.All(effect.SetLayouts, layout => Assert.True(layout.IsValid));
     }
 
+    /// <summary>
+    ///     ⚠ Two effects over the same descriptors and the same pushes share one pipeline layout, and
+    ///     the second one costs the device nothing at all.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1111">#1111</a>. Until this, the
+    ///         sibling of <see cref="Two_effects_with_the_same_set_share_one_layout" /> was false: the
+    ///         set layouts were cached and the pipeline layout was minted per <c>Load</c>, owned by
+    ///         nobody, and destroyed by one caller in the tree. So an editor session compiling a
+    ///         variant per keystroke grew the device's object count for the life of the process, with
+    ///         no dictionary anywhere holding the evidence.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The device's tally is the half that makes it a leak test rather than an identity
+    ///         test.</b> Handle equality alone is satisfied by a device that hands out one value for
+    ///         everything, and <c>LiveResourceCount</c> is satisfied by a loader that created nothing
+    ///         — which is why the first load is asserted to <em>cost</em> something before the rest
+    ///         are asserted to cost nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Two_effects_with_the_same_shape_share_one_pipeline_layout() {
+        using var device = new NullDevice();
+        var loader = new EffectLoader(device);
+
+        var before = device.LiveResourceCount;
+        var first = loader.Load(Variant("Lighting", hash: "one"));
+        var settled = device.LiveResourceCount;
+
+        Assert.True(settled > before, "the first load took nothing from the device, so this proves nothing");
+
+        // Five more distinct variants — distinct keys, distinct source hashes, the same bindings and
+        // the same pushes. This is the keystroke shape: a name carrying a digest of the author's own
+        // text, over descriptors that never change.
+        foreach (var hash in (string[])["two", "three", "four", "five", "six"]) {
+            var next = loader.Load(Variant("Lighting", hash: hash));
+
+            Assert.Equal(first.Layout, next.Layout);
+        }
+
+        Assert.Equal(1, loader.PipelineLayoutCount);
+        Assert.Equal(4, loader.LayoutCount);
+        Assert.Equal(settled, device.LiveResourceCount);
+    }
+
+    /// <summary>
+    ///     A variant that pushes a different range does not get handed the other one's layout.
+    /// </summary>
+    /// <remarks>
+    ///     The half that decides whether the cache above has a key at all: one that returned the first
+    ///     layout for everything would satisfy every assertion in the previous case, and the damage is
+    ///     the one <c>EffectLoader.Pushed</c> already tells — a push against a layout that declares no
+    ///     range is refused by the validation layers and silently dropped by a release driver, so
+    ///     every object in the frame draws at the origin.
+    /// </remarks>
+    [Fact]
+    public void A_different_push_range_is_a_different_pipeline_layout() {
+        using var device = new NullDevice();
+        var loader = new EffectLoader(device);
+
+        var plain = loader.Load(Variant());
+        var pushing = loader.Load(Variant() with { PushConstants = [new(ShaderStage.Vertex, 0, 64)] });
+        var wider = loader.Load(Variant() with { PushConstants = [new(ShaderStage.Vertex, 0, 128)] });
+
+        Assert.NotEqual(plain.Layout, pushing.Layout);
+        Assert.NotEqual(pushing.Layout, wider.Layout);
+        Assert.Equal(3, loader.PipelineLayoutCount);
+
+        // And the set layouts are shared across all three, so what differed is the ranges alone.
+        Assert.Equal(4, loader.LayoutCount);
+    }
+
+    /// <summary>
+    ///     A released loader gives every layout back, and the device is where it started.
+    /// </summary>
+    /// <remarks>
+    ///     The other half of #1111: sharing bounds the count, and something still has to free it when
+    ///     the loader is finished on a device that is still there. ⚠ Both kinds — the descriptor set
+    ///     layouts were never freed by anything either, which <c>Clear</c>'s own summary says out
+    ///     loud ("without destroying anything") for the device-loss case it was written for.
+    /// </remarks>
+    [Fact]
+    public void A_released_loader_gives_every_layout_back() {
+        using var device = new NullDevice();
+        var loader = new EffectLoader(device);
+
+        var before = device.LiveResourceCount;
+
+        loader.Load(Variant(shadows: true));
+        loader.Load(Variant(shadows: false));
+        loader.Load(Variant() with { PushConstants = [new(ShaderStage.Vertex, 0, 64)] });
+
+        Assert.True(device.LiveResourceCount > before, "nothing was created, so nothing is being freed");
+
+        loader.Release();
+
+        Assert.Equal(before, device.LiveResourceCount);
+        Assert.Equal(0, loader.LayoutCount);
+        Assert.Equal(0, loader.PipelineLayoutCount);
+
+        // And it is a teardown rather than a poisoning: the same loader still works, on the same
+        // device, and starts its caches again.
+        loader.Load(Variant());
+
+        Assert.Equal(1, loader.PipelineLayoutCount);
+    }
+
     // --- The disk cache -----------------------------------------------------
 
     /// <summary>A miss is compiled once and read from disk thereafter.</summary>

@@ -27,6 +27,13 @@ namespace Vixen.Shaders;
 ///         set allocated against one cannot be used with the other. Caching by shape means a
 ///         per-frame set is allocated once and bound to every pipeline in the frame.
 ///     </para>
+///     <para>
+///         ⚠ <strong>And so is the pipeline layout, which for a long time was not.</strong> It is a
+///         function of the set layouts and the push-constant ranges and of nothing else, so it caches
+///         by exactly the same argument — see <see cref="PipelineLayoutOf" />. Until
+///         <a href="https://github.com/Rikarin/Vixen/issues/1111">#1111</a> a fresh one was created
+///         per <see cref="Load" />, owned by nobody, and freed by one caller out of five.
+///     </para>
 /// </remarks>
 public sealed class EffectLoader(IGraphicsDevice device) {
     /// <summary>How many descriptor sets a pipeline layout has. See the convention in docs/plan/05.</summary>
@@ -44,6 +51,7 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     const int BindlessSetCount = 5;
 
     readonly Dictionary<string, DescriptorSetLayoutHandle> layouts = new(StringComparer.Ordinal);
+    readonly Dictionary<string, PipelineLayoutHandle> pipelineLayouts = new(StringComparer.Ordinal);
 
     /// <summary>The device these effects are created on.</summary>
     public IGraphicsDevice Device { get; } = device;
@@ -51,6 +59,16 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     /// <summary>How many distinct set layouts have been created.</summary>
     /// <remarks>Observable so a test can assert the sharing above actually happens.</remarks>
     public int LayoutCount => layouts.Count;
+
+    /// <summary>How many distinct pipeline layouts have been created.</summary>
+    /// <remarks>
+    ///     The sibling counter <see cref="LayoutCount" /> had and
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1111">#1111</a> asked for, and the only
+    ///     thing anywhere that can tell a loader sharing pipeline layouts from one minting a fresh
+    ///     handle per <see cref="Load" />: an <see cref="Effect" /> looks identical either way, and
+    ///     the difference is only visible as a device's tally rising for the life of the process.
+    /// </remarks>
+    public int PipelineLayoutCount => pipelineLayouts.Count;
 
     /// <summary>
     ///     How many descriptors an unbounded binding holds.
@@ -131,7 +149,7 @@ public sealed class EffectLoader(IGraphicsDevice device) {
             Key = key,
             Stages = stages.ToImmutable(),
             SetLayouts = [.. sets],
-            Layout = Device.CreatePipelineLayout(new(sets, [.. Pushed(data)], key.ShaderName)),
+            Layout = PipelineLayoutOf(sets, [.. Pushed(data)], key.ShaderName),
             ConstantBufferSize = data.ConstantBufferSize,
             Parameters = parameters.ToImmutable(),
             Bindings = bindings.ToImmutable(),
@@ -184,9 +202,41 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     /// <summary>Forgets every cached layout, without destroying anything.</summary>
     /// <remarks>
     ///     For a device that has gone away. The handles belonged to it and went with it; keeping them
-    ///     would hand a new device something the old one made.
+    ///     would hand a new device something the old one made. ⚠ Both caches, since
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1111">#1111</a>: a pipeline layout is as
+    ///     dead as a set layout when the device is, and one kept across a device change is a handle
+    ///     into another device's table — which is not a leak but a use-after-free.
     /// </remarks>
-    public void Clear() => layouts.Clear();
+    public void Clear() {
+        layouts.Clear();
+        pipelineLayouts.Clear();
+    }
+
+    /// <summary>Destroys every layout this loader created, and forgets them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         What <see cref="Clear" /> is for a device that is <em>still there</em>, and the half
+    ///         that did not exist: the loader is the only thing that knows how many distinct layouts
+    ///         it made, so it is the only thing that can give them back.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every effect this loader has produced is dead afterwards</b>, and so is every
+    ///         pipeline built from one — destroy those first, and after the device is idle. This is
+    ///         a teardown, not an eviction: there is no reference counting here and a caller that
+    ///         calls it while a variant is still bound has freed a layout the frame is using.
+    ///     </para>
+    /// </remarks>
+    public void Release() {
+        foreach (var layout in pipelineLayouts.Values) {
+            Device.Destroy(layout);
+        }
+
+        foreach (var layout in layouts.Values) {
+            Device.Destroy(layout);
+        }
+
+        Clear();
+    }
 
     /// <summary>
     ///     How many descriptors one variant's unbounded bindings each get: the ask, clamped to fit
@@ -282,6 +332,76 @@ public sealed class EffectLoader(IGraphicsDevice device) {
         var created = Device.CreateDescriptorSetLayout(description);
         layouts[shape] = created;
         return created;
+    }
+
+    /// <summary>
+    ///     The pipeline layout for one variant, created once per distinct shape.
+    /// </summary>
+    /// <param name="sets">The set layouts, already shared by <see cref="LayoutOf" />.</param>
+    /// <param name="pushed">The push-constant ranges the layout declares.</param>
+    /// <param name="shaderName">What to call it, for a capture and the validation layers.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Shared for the same reason the set layouts are, and unshared it was a leak
+    ///         rather than an economy</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1111">#1111</a>. A
+    ///         <c>PipelineLayoutHandle</c> minted per <see cref="Load" /> is owned by nobody: an
+    ///         <see cref="Effect" /> is a plain record with no disposal, every caller in the tree
+    ///         held one without freeing it, and a long editor session that compiles a variant per
+    ///         keystroke therefore grew the device's object count for the life of the process. The
+    ///         alternative — distributing a <c>Destroy</c> to every caller — makes an ownership rule
+    ///         out of a field whose existence is not obvious from the record.
+    ///     </para>
+    ///     <para>
+    ///         <b>A pipeline layout is a function of exactly two things</b>, the set layouts and the
+    ///         push-constant ranges, so two variants that agree on both are interchangeable in the
+    ///         only sense a driver cares about: a descriptor set allocated against one, and a
+    ///         pipeline built from the other, are compatible because the layouts are compatible.
+    ///         The set handles can go in the key <em>as handles</em> because they are already shared
+    ///         by shape — two variants describing the same per-frame set have the same handle by the
+    ///         time they reach here, so the key does not have to re-derive the shape.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The name belongs to whichever variant needed the shape first</b>, which is the
+    ///         one thing sharing costs: a capture shows <c>ForwardPlus</c> against a layout that
+    ///         forty shaders are using. The set layouts already made that trade under
+    ///         <c>$"{shaderName}.{slot}"</c> and it has never cost a diagnosis.
+    ///     </para>
+    /// </remarks>
+    PipelineLayoutHandle PipelineLayoutOf(DescriptorSetLayoutHandle[] sets, PushConstantRange[] pushed, string shaderName) {
+        var shape = PipelineShape(sets, pushed);
+
+        if (pipelineLayouts.TryGetValue(shape, out var existing)) {
+            return existing;
+        }
+
+        var created = Device.CreatePipelineLayout(new(sets, pushed, shaderName));
+        pipelineLayouts[shape] = created;
+        return created;
+    }
+
+    /// <summary>The cache key for a pipeline layout: the set handles and the ranges, and nothing else.</summary>
+    /// <param name="sets">The set layouts, in slot order — order is part of the key, because it is a layout.</param>
+    /// <param name="pushed">The push-constant ranges.</param>
+    /// <remarks>
+    ///     ⚠ The ranges are in the key and leaving them out would be silent: two variants over one
+    ///     set of descriptors, one pushing a world matrix and one pushing nothing, would share the
+    ///     first one's layout — and a push against a layout that declares no range is dropped by a
+    ///     release driver, which is <see cref="Pushed" />'s own story of every object drawing at the
+    ///     origin, arriving by way of a cache instead.
+    /// </remarks>
+    internal static string PipelineShape(DescriptorSetLayoutHandle[] sets, PushConstantRange[] pushed) {
+        var builder = new StringBuilder();
+
+        foreach (var set in sets) {
+            builder.Append(set.Value).Append('|');
+        }
+
+        foreach (var range in pushed) {
+            builder.Append('#').Append((int)range.Stages).Append(':').Append(range.Offset).Append(':').Append(range.Size);
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>

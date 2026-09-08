@@ -563,6 +563,11 @@ public sealed class TexturePlanEvaluator : IDisposable {
             Destroy(variant);
         }
 
+        // ⚠ After the pipelines and only here: the loader's layouts are shared by shape across every
+        // variant it ever produced, so this is the one moment at which "nothing is using them" is
+        // true. #1111 — before it, the set layouts outlived the device entirely.
+        loader.Release();
+
         variants.Clear();
         authoredOrder.Clear();
     }
@@ -630,20 +635,18 @@ public sealed class TexturePlanEvaluator : IDisposable {
     /// <summary>Gives one variant's device objects back.</summary>
     /// <param name="variant">The variant, which must not be reachable from <see cref="variants" />.</param>
     /// <remarks>
-    ///     ⚠ <b>The pipeline layout is destroyed here and was not destroyed anywhere before</b>, which
-    ///     is a leak <a href="https://github.com/Rikarin/Vixen/issues/1091">#1091</a> does not name and
-    ///     which outlived even <see cref="Dispose" />. <c>EffectLoader.Load</c> creates a fresh
-    ///     <c>PipelineLayoutHandle</c> per call and caches nothing about it, so one belongs to each
-    ///     variant and only this class can free it. Every other object in an <c>Effect</c> is either
-    ///     managed or shared: ⚠ <b>the descriptor set layouts must not be destroyed here</b> — the
-    ///     loader caches those by binding <em>shape</em> rather than by shader name, so every pixel
-    ///     processor an author has ever typed shares one set of them with every other, and destroying
-    ///     one variant's would take out the next variant's too.
+    ///     ⚠ <b>The module and the pipeline, and deliberately not a layout of either kind.</b> Both
+    ///     of an effect's layouts are the loader's, shared by <em>shape</em> across every pixel
+    ///     processor an author has ever typed, and destroying one variant's would take out the next
+    ///     variant's too. That was true of the descriptor set layouts from the start and it became
+    ///     true of the pipeline layout in
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1111">#1111</a> — ⚠ so this method used
+    ///     to destroy <c>Effect.Layout</c> and must not any more; the loader gives both back in
+    ///     <see cref="Dispose" />, where "this evaluator is finished" is a thing that can be said.
     /// </remarks>
     void Destroy(Variant variant) {
         device.Destroy(variant.Pipeline);
         device.Destroy(variant.Module);
-        device.Destroy(variant.Effect.Layout);
     }
 
     /// <summary>Refuses a caller who is already inside a frame of their own.</summary>
