@@ -245,9 +245,10 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
 
         output.WriteLine(
             $"{mesh.Triangles} triangles, best of {Repeats}: 1280×720 draw {docked:F1} ms "
-            + $"({small} covered), 3840×2160 draw {maximised:F1} ms ({large} covered) — "
-            + $"{maximised / Math.Max(docked, 1e-3d):F1}× for 9× the pixels. An orbit pays this per "
-            + "pointer move, on one thread."
+            + $"({small} covered, {PaintMeshRaster.BandCount(1280, 720)} bands), 3840×2160 draw "
+            + $"{maximised:F1} ms ({large} covered, {PaintMeshRaster.BandCount(3840, 2160)} bands) — "
+            + $"{maximised / Math.Max(docked, 1e-3d):F1}× for 9× the pixels, on "
+            + $"{Environment.ProcessorCount} processors. An orbit pays this per pointer move."
         );
 
         // ⚠ The claim as work and not as a clock: what makes a 4K pane expensive is that the pass
@@ -266,6 +267,98 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
         Assert.True(maximised < 5_000d, $"{maximised:F0} ms for one geometry pass is a hang, not a slow machine.");
     }
 
+    /// <summary>What the row bands buy, as a differential taken on one machine in one second.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a>'s second answer,
+    ///         reported rather than asserted.</b> The two draws are the same mesh, the same camera
+    ///         and the same pane, differing only in the band count — so the load that would inflate
+    ///         one inflates the other, which is the only honest way to put a wall clock near a
+    ///         parallel raster on a developer machine running four other agents.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing here asserts a speed-up, and that is deliberate.</b> A ratio of "at least
+    ///         two" would be this repository's largest flake source measured on a box whose cores are
+    ///         already spoken for, and it would go red on a single-core runner where
+    ///         <c>BandCount</c> correctly answers one. What is asserted is the property the bands
+    ///         exist to preserve — that the two pictures are the same bytes — which is exact, and the
+    ///         milliseconds are printed beside it as evidence.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_banded_orbit_frame_costs_less_than_a_serial_one_and_draws_the_same_picture() {
+        const int Repeats = 3;
+        const int Wide = 1600;
+        const int Tall = 900;
+
+        var mesh = Grid(96);
+        PaintImage atlas = new(2048, 2048, 0xFF808080u);
+
+        var bands = PaintMeshRaster.BandCount(Wide, Tall);
+
+        var serial = Split(mesh, atlas, Wide, Tall, Repeats, 1, out var one);
+        var banded = Split(mesh, atlas, Wide, Tall, Repeats, bands, out var many);
+
+        output.WriteLine(
+            $"{mesh.Triangles} triangles at {Wide}×{Tall}, best of {Repeats} on "
+            + $"{Environment.ProcessorCount} processors: 1 band {serial:F1} ms, {bands} bands "
+            + $"{banded:F1} ms — {serial / Math.Max(banded, 1e-3d):F2}× . This is the cap "
+            + $"{PaintMeshView.RasterLimit} puts a maximised pane at, paid per pointer move."
+        );
+
+        // The instrument: two draws of an empty pane would agree for a reason that is not the bands.
+        Assert.True(one.Length > 0 && many.Length == one.Length, "the two draws are not the same pane.");
+
+        Assert.Equal(one, many);
+    }
+
+    /// <summary>The best of several combined draws at one size and one band count.</summary>
+    /// <param name="mesh">The model.</param>
+    /// <param name="atlas">What it wears.</param>
+    /// <param name="width">How wide the pane is.</param>
+    /// <param name="height">How tall.</param>
+    /// <param name="repeats">How many times to draw it.</param>
+    /// <param name="bands">How many row bands to split the fill across.</param>
+    /// <param name="picture">The last picture drawn, copied.</param>
+    /// <returns>The fastest of the passes, in milliseconds.</returns>
+    static double Split(
+        PaintProjection mesh,
+        PaintImage atlas,
+        int width,
+        int height,
+        int repeats,
+        int bands,
+        out uint[] picture
+    ) {
+        PaintMeshRaster raster = new();
+        PaintCamera camera = new();
+
+        camera.Frame(mesh.Bounds);
+        raster.Draw(mesh, camera, width, height, atlas, bands);
+
+        var best = double.MaxValue;
+
+        for (var pass = 0; pass < repeats; pass++) {
+            camera.Orbit(3f, 1f, height);
+
+            var started = Stopwatch.GetTimestamp();
+
+            raster.Draw(mesh, camera, width, height, atlas, bands);
+
+            best = Math.Min(best, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+        }
+
+        var drawn = raster.Picture!;
+
+        picture = new uint[drawn.Width * drawn.Height];
+
+        for (var index = 0; index < picture.Length; index++) {
+            picture[index] = drawn[index];
+        }
+
+        return best;
+    }
+
     /// <summary>The best of several whole-pane draws at one size, in milliseconds.</summary>
     /// <param name="mesh">The model.</param>
     /// <param name="atlas">What it wears.</param>
@@ -278,16 +371,22 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
     ///     ⚠ <b>The best and not the mean, and the buffers are allocated outside the timing.</b> A
     ///     mean over three passes on a machine running four other agents measures the machine; the
     ///     minimum is the closest thing to the work itself that a wall clock can report. The first
-    ///     draw at a size also allocates five buffers and a picture, which an orbit's second frame
-    ///     never pays — so it is drawn once before the clock starts.
+    ///     draw at a size also allocates five buffers, a picture and the fragment list, which an
+    ///     orbit's second frame never pays — so it is drawn once before the clock starts.
+    ///     <para>
+    ///         ⚠ <b>One combined pass, because that is what <c>PaintMeshView.Render</c> calls.</b> A
+    ///         <c>Draw</c> followed by a <c>Texture</c> measures a full-pane shade that
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1115">#1115</a> removed, so a helper
+    ///         that kept the two-call shape would go on reporting the cost of a route production no
+    ///         longer takes — the commonest way a cost case stops measuring anything.
+    ///     </para>
     /// </remarks>
     static double Cost(PaintProjection mesh, PaintImage atlas, int width, int height, int repeats, out int covered) {
         PaintMeshRaster raster = new();
         PaintCamera camera = new();
 
         camera.Frame(mesh.Bounds);
-        raster.Draw(mesh, camera, width, height);
-        raster.Texture(atlas);
+        raster.Draw(mesh, camera, width, height, atlas);
 
         var best = double.MaxValue;
 
@@ -298,8 +397,7 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
 
             var started = Stopwatch.GetTimestamp();
 
-            raster.Draw(mesh, camera, width, height);
-            raster.Texture(atlas);
+            raster.Draw(mesh, camera, width, height, atlas);
 
             best = Math.Min(best, Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         }

@@ -83,8 +83,8 @@ sealed class PaintMeshView {
     ///         measured rather than chosen.</b> <c>PaintMeshCostTests</c> times one geometry pass at
     ///         both sizes on the same machine in the same second: a maximised 4K pane costs about
     ///         two and a half times what a 1280×720 one does over an eighteen-thousand-triangle
-    ///         model, and an orbit pays that <em>per pointer move</em> on one thread. A cap at 1600
-    ///         across is most of that difference back.
+    ///         model, and an orbit pays that <em>per pointer move</em>. A cap at 1600 across is most
+    ///         of that difference back.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A softness and not a lie, which is the whole reason a cap is allowed here at
@@ -94,10 +94,12 @@ sealed class PaintMeshView {
     ///         else. It would not be allowed one pane across.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What it is <em>not</em> is the whole answer.</b> Even at the cap a geometry pass
-    ///         is tens of milliseconds on a model-sized mesh, which is a visibly coarse orbit; the
-    ///         issue's other two options — a parallel raster and a reduced draw while a gesture is in
-    ///         flight — are still owed, and the measurement above is what decides between them.
+    ///         ⚠ <b>What it is <em>not</em> is the whole answer.</b> The cap is one of #1107's three;
+    ///         the second is <c>PaintMeshRaster</c>'s row bands, which spend the same pane over every
+    ///         core rather than one. The third — a coarser draw while a gesture is in flight — is
+    ///         still owed, and ⚠ it is the one that interacts with this constant rather than adding
+    ///         to it: <see cref="Scale" /> would then move <em>during</em> a gesture, and
+    ///         <see cref="Begin" /> converts the brush's authored radius through it at pointer-down.
     ///     </para>
     /// </remarks>
     public const int RasterLimit = 1600;
@@ -427,11 +429,11 @@ sealed class PaintMeshView {
             return;
         }
 
-        raster.Draw(mesh, Camera, width, height);
-
-        if (atlas is not null) {
-            raster.Texture(atlas);
-        }
+        // ⚠ The atlas goes *into* the geometry pass rather than following it — #1115. The pane pixel
+        // count is shaded once and not twice: a `Draw` that wrote the clay picture and a `Texture`
+        // that overwrote every pixel of it was a whole discarded full-pane shade per pointer move,
+        // in the ordinary state where the stack has a paint layer to texture with.
+        raster.Draw(mesh, Camera, width, height, atlas);
 
         if (raster.Picture is not { } picture) {
             return;

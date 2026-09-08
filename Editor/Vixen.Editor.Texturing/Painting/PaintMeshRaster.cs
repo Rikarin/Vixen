@@ -34,9 +34,19 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         A pass over every pane pixel asking whether its coordinate is in the stamp is
 ///         <em>also</em> independent of the layer count and of the atlas size, so a counter that
 ///         only measured those two would call it local and be satisfied by the thing the criterion
-///         is about. <see cref="Draw" /> therefore buckets each covered pixel by which cell of the
-///         atlas it reads, and <see cref="Shaded" /> counts the pixels a stamp actually visits — so
-///         the assertion is against the stamp's own footprint and not against the pane.
+///         is about. Each covered pixel is therefore bucketed by which cell of the atlas it reads,
+///         and <see cref="Shaded" /> counts the pixels a stamp actually visits — so the assertion is
+///         against the stamp's own footprint and not against the pane.
+///     </para>
+///     <para>
+///         ⚠ <b>And the bucketing itself is on the <em>stamp</em> path rather than the camera one,
+///         which is the largest single number
+///         <a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a> turned up and not the
+///         one it went looking for.</b> The counting sort is two scattered passes over the pane; at
+///         1600×900 over an eighteen-thousand-triangle model it was about eight of a thirteen-
+///         millisecond pass, more than the projection, the fill and the shade together. Its only
+///         reader is <see cref="Retexture" />, so an orbit was rebuilding an index it never looked
+///         in. <see cref="Draw" /> now marks it stale and the first stamp of a stroke pays for it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Perspective-correct, because the alternative is invisible on a test fixture and
@@ -66,6 +76,25 @@ sealed class PaintMeshRaster {
     /// <summary>How much of a surface facing away from the light is still lit.</summary>
     const float Ambient = 0.25f;
 
+    /// <summary>How few pane pixels are still worth rasterising on one thread.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A floor and not a switch, so that the banded path is the only path.</b> A pane below
+    ///     it is drawn as a single band by the same two methods a maximised one is drawn by — what
+    ///     changes is the dispatch and nothing else, which is what stops the two from being two
+    ///     rasterisers that can disagree. 256² is the smallest pane on which one <c>Parallel.For</c>
+    ///     is worth its own scheduling on this repository's machines.
+    /// </remarks>
+    const int ParallelFloor = 256 * 256;
+
+    /// <summary>The fewest rows a band may own.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Rows and not a fraction, because a band's cost is its rows and its overhead is not.</b>
+    ///     Bands of one row on a 2160-pixel pane would be two thousand work items over a scan of the
+    ///     fragment list each, which is the shape that makes a parallel raster slower than the serial
+    ///     one it replaced.
+    /// </remarks>
+    const int MinimumBandRows = 16;
+
     /// <summary>Which triangle each pane pixel shows, or -1.</summary>
     int[] triangles = [];
 
@@ -84,11 +113,50 @@ sealed class PaintMeshRaster {
     /// <summary>Where each cell's run starts in <see cref="ordered" />, with a tail entry.</summary>
     readonly int[] starts = new int[(Cells * Cells) + 1];
 
-    /// <summary>What atlas width the index was bucketed for, or zero for none.</summary>
+    /// <summary>Every projected, clipped triangle piece the pane can see, with its setup spent.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What makes a banded raster affordable, and the trap
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a> names by name.</b> The
+    ///     obvious scanline-band raster re-runs each triangle's setup once <em>per band</em> — the
+    ///     view transform, the near clip, the shade, the projection and the pane intersection — and
+    ///     that setup is not negligible: #1107's own measurement found the camera basis dominating a
+    ///     redraw on a model-sized mesh, ahead of every pixel. Spending it once into this and letting
+    ///     the bands read it is what stops sixteen threads from doing sixteen times the setup.
+    /// </remarks>
+    Fragment[] fragments = [];
+
+    /// <summary>Each fragment's first and last pane row, two entries per fragment.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside <see cref="fragments" /> rather than read out of it, and the reason is
+    ///     bandwidth.</b> Every band asks every fragment whether it reaches its rows; over forty
+    ///     bands that is forty passes, and a pass over the fragments themselves streams eighty-odd
+    ///     bytes each where a pass over this streams eight. On an eighteen-thousand-triangle model
+    ///     that is the difference between a rejection test that costs nothing and one that costs
+    ///     more than the pixels it saves.
+    /// </remarks>
+    int[] spans = [];
+
+    /// <summary>How many entries of <see cref="fragments" /> the last projection filled.</summary>
+    int fragmentCount;
+
+    /// <summary>What atlas width the index describes, or zero for none.</summary>
     int indexedWidth;
 
     /// <summary>And its height.</summary>
     int indexedHeight;
+
+    /// <summary>Whether the buckets describe geometry that has since moved.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What makes the index lazy, which is
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a>'s largest single number
+    ///     and not where the issue expected to find it.</b> Measured at 1600×900 over an
+    ///     eighteen-thousand-triangle model: the whole pass is about 13 ms and the counting sort is
+    ///     about 8 of them — more than the fill, the shade and the projection together. And the only
+    ///     reader of the buckets is <see cref="Retexture" />, which runs per <em>stamp</em>: an orbit
+    ///     rebuilds an index it never looks in. So <see cref="Draw" /> marks it stale and the first
+    ///     stamp of a stroke pays for it once.
+    /// </remarks>
+    bool indexStale = true;
 
     /// <summary>The picture, or null before the first <see cref="Draw" />.</summary>
     /// <remarks>
@@ -136,6 +204,63 @@ sealed class PaintMeshRaster {
     /// </remarks>
     public long Examined { get; private set; }
 
+    /// <summary>How many row bands the last geometry pass was split across. One is serial.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What the pass actually ran with, so that "it went parallel" is a reading rather than
+    ///     an assumption.</b> A comparison of a banded picture against a serial one is satisfied by a
+    ///     <see cref="BandCount" /> that has quietly started answering one everywhere — the two sides
+    ///     are then the same code — and nothing in the picture would say so.
+    /// </remarks>
+    public int Bands { get; private set; }
+
+    /// <summary>How many times the atlas index has been bucketed, over every pass.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The counter that says the counting sort is off the camera path, and it is not a
+    ///     restatement of <see cref="Renders" />.</b> An orbit is many draws and no stamps; a stroke
+    ///     is many stamps and no draws. Only a count of the <em>bucketings</em> can tell "the index
+    ///     is built when a stamp needs it" from "the index is built when the geometry moves", and
+    ///     the two are eight milliseconds a pointer move apart at a docked pane's size.
+    /// </remarks>
+    public int Indexings { get; private set; }
+
+    /// <summary>How many row bands a pane of a size is worth splitting into.</summary>
+    /// <param name="width">How wide the pane is, in pixels.</param>
+    /// <param name="height">How tall.</param>
+    /// <returns>The band count, never below one.</returns>
+    public static int BandCount(int width, int height) {
+        var workers = Environment.ProcessorCount;
+
+        if (workers <= 1 || (long)width * height < ParallelFloor) {
+            return 1;
+        }
+
+        // Four bands a worker rather than one, because a band's cost is the triangles that reach its
+        // rows and a model does not spread itself evenly down the pane — a silhouette puts most of
+        // the fill in the middle third, and one band per core would leave the outer cores idle for
+        // most of the pass.
+        return Math.Clamp(height / MinimumBandRows, 1, workers * 4);
+    }
+
+    /// <summary>Which rows one band of a pane owns.</summary>
+    /// <param name="band">Which band, from zero.</param>
+    /// <param name="bands">How many there are.</param>
+    /// <param name="height">How tall the pane is, in pixels.</param>
+    /// <returns>Its first and last row, inclusive. The last is under the first for an empty band.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Every row belongs to exactly one band, and that is the property rather than a
+    ///     consequence.</b> A partition that dropped a row would leave a horizontal seam of the
+    ///     previous frame across the pane, and one that shared a row between two bands would be two
+    ///     threads writing one depth slot — a race whose symptom is a few wrong pixels on some frames
+    ///     and not others. Both are invisible in a picture and neither is a crash, so
+    ///     <c>PaintMeshRasterTests</c> asserts the partition itself over many sizes rather than
+    ///     hoping a rendered frame shows it.
+    /// </remarks>
+    public static (int Low, int High) Rows(int band, int bands, int height) {
+        var count = Math.Max(bands, 1);
+
+        return ((int)((long)band * height / count), (int)((long)(band + 1) * height / count) - 1);
+    }
+
     /// <summary>Draws the mesh's geometry into the pane's buffers, at a size.</summary>
     /// <param name="mesh">The mesh, in its own space.</param>
     /// <param name="camera">Where it is seen from.</param>
@@ -151,102 +276,127 @@ sealed class PaintMeshRaster {
     ///     layer yet shows, and it is <a href="https://github.com/Rikarin/Vixen/issues/1063">#1063</a>'s
     ///     first milestone: a picture, before anything textures it.
     /// </remarks>
-    public void Draw(PaintProjection mesh, PaintCamera camera, int width, int height) {
+    public void Draw(PaintProjection mesh, PaintCamera camera, int width, int height) =>
+        Draw(mesh, camera, width, height, null);
+
+    /// <summary>Draws the mesh's geometry and shades it, at a size, in one pass over the pane.</summary>
+    /// <param name="mesh">The mesh, in its own space.</param>
+    /// <param name="camera">Where it is seen from.</param>
+    /// <param name="width">How wide the pane is, in pixels.</param>
+    /// <param name="height">How tall.</param>
+    /// <param name="atlas">What to put on it, or null for the clay picture.</param>
+    /// <exception cref="ArgumentNullException">The mesh or the camera is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The pane has no area.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1115">#1115</a>: a
+    ///         <c>Draw</c> followed by a <see cref="Texture" /> shaded the whole pane twice and threw
+    ///         the first away.</b> The clay pass writes a colour at every pane pixel and the texture
+    ///         pass overwrites every one of them, so an orbit over a stack that has anything to
+    ///         texture with — which is every state after the first paint layer, the ordinary one —
+    ///         paid a full-pane shade for nothing. <see cref="Shaded" /> is the instrument: it was
+    ///         twice the pane per camera move and is now once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An overload rather than a <c>Draw</c> that stopped writing the picture, because
+    ///         the clay pass is not dead code.</b> A stack with a model bound and no paint layer has
+    ///         no atlas at all, and the flat grey model is what says the binding worked —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1063">#1063</a>'s first milestone. It
+    ///         is what a null <paramref name="atlas" /> still draws. ⚠ And <see cref="Texture" /> is
+    ///         untouched on purpose: <see cref="Retexture" /> is measured against it by
+    ///         <c>PaintMeshRasterTests.A_partial_retexture_leaves_the_picture_a_whole_one_would_have_made</c>,
+    ///         and a <c>Draw</c> that had stopped writing the picture would have left both sides of
+    ///         that comparison equally wrong.
+    ///     </para>
+    /// </remarks>
+    public void Draw(PaintProjection mesh, PaintCamera camera, int width, int height, PaintImage? atlas) =>
+        Draw(mesh, camera, width, height, atlas, BandCount(width, height));
+
+    /// <summary>Draws and shades the mesh across a given number of row bands.</summary>
+    /// <param name="mesh">The mesh, in its own space.</param>
+    /// <param name="camera">Where it is seen from.</param>
+    /// <param name="width">How wide the pane is, in pixels.</param>
+    /// <param name="height">How tall.</param>
+    /// <param name="atlas">What to put on it, or null for the clay picture.</param>
+    /// <param name="bands">How many row bands to split the fill across. One is serial.</param>
+    /// <exception cref="ArgumentNullException">The mesh or the camera is null.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">The pane has no area, or the band count is under one.</exception>
+    /// <remarks>
+    ///     ⚠ <b>The band count is a parameter so that the property can be <em>asserted</em> rather
+    ///     than argued.</b> A banded draw and a serial one are meant to be the same bytes — that is
+    ///     the whole claim a parallel raster makes — and there is no way to check it if the count is
+    ///     decided privately from <c>Environment.ProcessorCount</c> and the pane's area: a test could
+    ///     only compare a draw against itself. ⚠ This is <em>not</em> a mechanism whose caller passes
+    ///     the default: the overload above computes <see cref="BandCount" /> and passes it, and that
+    ///     is the only production route in.
+    /// </remarks>
+    public void Draw(
+        PaintProjection mesh,
+        PaintCamera camera,
+        int width,
+        int height,
+        PaintImage? atlas,
+        int bands
+    ) {
         ArgumentNullException.ThrowIfNull(mesh);
         ArgumentNullException.ThrowIfNull(camera);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(bands);
 
         Resize(width, height);
 
         Array.Fill(triangles, -1);
         Array.Clear(depths);
 
-        Examined = 0;
+        Project(mesh, camera, width, height);
 
-        var forward = camera.Forward;
-        var near = camera.Near;
+        var covered = 0;
 
-        // ⚠ Once, and not once per corner. See `PaintCamera.Basis`: the camera's four axes are
-        // computed properties over `MathF.SinCos`, and reading them inside this loop was the
-        // dominant cost of a redraw on a model-sized mesh — #1107.
-        var basis = camera.Basis;
+        Bands = bands;
 
-        Span<Vector3> corners = stackalloc Vector3[4];
-        Span<Vector2> layout = stackalloc Vector2[4];
-        Span<Vector2> pane = stackalloc Vector2[4];
+        if (bands <= 1) {
+            Rasterise(0, height - 1);
+            covered = Colour(atlas, 0, height - 1);
+        } else {
+            Parallel.For(
+                0,
+                bands,
+                band => {
+                    var (low, high) = Rows(band, bands, height);
 
-        for (var triangle = 0; triangle < mesh.Triangles; triangle++) {
-            mesh.Triangle(triangle, out var a, out var b, out var c, out var ua, out var ub, out var uc);
-
-            corners[0] = basis.Of(a);
-            corners[1] = basis.Of(b);
-            corners[2] = basis.Of(c);
-            layout[0] = ua;
-            layout[1] = ub;
-            layout[2] = uc;
-
-            var count = Clip(corners, layout, near);
-
-            if (count < 3) {
-                // Wholly behind the eye. A cut triangle keeps at least three corners, so this is the
-                // only case in which nothing is drawn at all.
-                continue;
-            }
-
-            var shade = Shade(a, b, c, forward);
-
-            for (var corner = 0; corner < count; corner++) {
-                pane[corner] = PaintCamera.ToPane(corners[corner], width, height);
-            }
-
-            // ⚠ A fan and not a strip, and the shade is the *unclipped* triangle's. Flat shading
-            // reads the plane the three original corners lie in, which is the plane every piece of
-            // the cut polygon is still in — so the two or three pieces cannot disagree about how lit
-            // one triangle is, which is what a shade recomputed per piece would risk at a sliver.
-            for (var corner = 1; corner + 1 < count; corner++) {
-                Fill(
-                    triangle,
-                    shade,
-                    pane[0],
-                    pane[corner],
-                    pane[corner + 1],
-                    corners[0].Z,
-                    corners[corner].Z,
-                    corners[corner + 1].Z,
-                    layout[0],
-                    layout[corner],
-                    layout[corner + 1]
-                );
-            }
-        }
-
-        Covered = 0;
-
-        // ⚠ A flat picture and not an empty one, which is the difference between a milestone and a
-        // black pane. A stack with a model bound and no paint layer yet has nothing to texture with
-        // — and that is the state an artist is in immediately before they add the layer they mean to
-        // paint on, so it is the state in which the pane has to prove the binding worked.
-        for (var pixel = 0; pixel < triangles.Length; pixel++) {
-            if (triangles[pixel] < 0) {
-                Picture![pixel] = Background;
-
-                continue;
-            }
-
-            Picture![pixel] = PaintImage.Pack(
-                PaintImage.Channel(Untextured, 0) * shades[pixel],
-                PaintImage.Channel(Untextured, 1) * shades[pixel],
-                PaintImage.Channel(Untextured, 2) * shades[pixel],
-                1f
+                    Rasterise(low, high);
+                }
             );
 
-            Covered++;
+            // ⚠ Two dispatches and not one, because the shade of a pixel is not decided until every
+            // band has finished filling. A band's rows are its own, but a *triangle* is not: one
+            // that straddles the boundary is filled by both, so a thread that shaded its own rows on
+            // the way past would read a depth slot its neighbour had not yet won.
+            Parallel.For(
+                0,
+                bands,
+                band => {
+                    var (low, high) = Rows(band, bands, height);
+
+                    Interlocked.Add(ref covered, Colour(atlas, low, high));
+                }
+            );
         }
 
+        Covered = covered;
         Shaded += triangles.Length;
         Renders++;
-        Index();
+
+        if (atlas is not null) {
+            // What the picture wears now, so that a stamp against this atlas is a partial repaint
+            // rather than a whole one — the buckets for it are built when something asks.
+            indexedWidth = atlas.Width;
+            indexedHeight = atlas.Height;
+        }
+
+        // The geometry has moved, so every covered pixel reads a different texel.
+        indexStale = true;
     }
 
     /// <summary>Puts an atlas on the drawn geometry, everywhere.</summary>
@@ -254,11 +404,12 @@ sealed class PaintMeshRaster {
     /// <returns>The whole pane, as a rectangle, or empty when nothing has been drawn.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="atlas" /> is null.</exception>
     /// <remarks>
-    ///     ⚠ <b>Also where the index is rebuilt when the atlas changes size.</b> A cell is decided by
-    ///     the <em>texel</em> a pixel reads rather than by its coordinate, so that the bucket a stamp
-    ///     looks in and the texel it compares against cannot round differently — and that makes the
-    ///     index a function of the resolution. A stack edited to a different base size therefore
-    ///     re-buckets here, on the pass that was already going to touch every pixel.
+    ///     ⚠ <b>Also where a change of atlas size is <em>noticed</em>, though no longer where it is
+    ///     acted on.</b> A cell is decided by the <em>texel</em> a pixel reads rather than by its
+    ///     coordinate, so that the bucket a stamp looks in and the texel it compares against cannot
+    ///     round differently — and that makes the index a function of the resolution. A stack edited
+    ///     to a different base size therefore marks the buckets stale here, and the first
+    ///     <see cref="Retexture" /> against the new size rebuilds them.
     /// </remarks>
     public PaintRect Texture(PaintImage atlas) {
         ArgumentNullException.ThrowIfNull(atlas);
@@ -268,7 +419,9 @@ sealed class PaintMeshRaster {
         }
 
         if (atlas.Width != indexedWidth || atlas.Height != indexedHeight) {
-            Index(atlas.Width, atlas.Height);
+            indexedWidth = atlas.Width;
+            indexedHeight = atlas.Height;
+            indexStale = true;
         }
 
         for (var pixel = 0; pixel < triangles.Length; pixel++) {
@@ -308,6 +461,13 @@ sealed class PaintMeshRaster {
 
         if (atlas.Width != indexedWidth || atlas.Height != indexedHeight) {
             return Texture(atlas);
+        }
+
+        if (indexStale) {
+            // The first stamp after a camera move, a resize or a new mesh. Every later one in the
+            // stroke finds the buckets already built — which is what keeps the counting sort out of
+            // the per-stamp path that doc 48's exit criterion 8 is about.
+            Index(indexedWidth, indexedHeight);
         }
 
         var rect = region.Clip(atlas.Width, atlas.Height);
@@ -404,6 +564,7 @@ sealed class PaintMeshRaster {
         // The index describes buffers that have just been replaced, so it describes nothing.
         indexedWidth = 0;
         indexedHeight = 0;
+        indexStale = true;
     }
 
     /// <summary>The pane pixels a projected triangle can cover, as a box.</summary>
@@ -650,7 +811,89 @@ sealed class PaintMeshRaster {
         return Ambient + ((1f - Ambient) * MathF.Abs(Vector3.Dot(normal / length, forward)));
     }
 
-    /// <summary>Fills one projected triangle into the buffers, depth-tested.</summary>
+    /// <summary>Projects, clips and shades every triangle into <see cref="fragments" />.</summary>
+    /// <param name="mesh">The mesh, in its own space.</param>
+    /// <param name="camera">Where it is seen from.</param>
+    /// <param name="width">How wide the pane is, in pixels.</param>
+    /// <param name="height">How tall.</param>
+    /// <remarks>
+    ///     ⚠ <b>Serial, and deliberately so.</b> It is one pass over the triangles, it appends in
+    ///     order and the order is what makes the fill deterministic — two fragments at the same depth
+    ///     resolve by which was projected first, so a projection that raced would give a different
+    ///     picture on some frames and not others at every coplanar seam.
+    /// </remarks>
+    void Project(PaintProjection mesh, PaintCamera camera, int width, int height) {
+        Examined = 0;
+        fragmentCount = 0;
+
+        // Two per triangle is the most a near-plane cut can produce: `Clip` answers three or four
+        // corners, and a four-corner polygon fans into two.
+        var capacity = (int)Math.Min((long)mesh.Triangles * 2L, int.MaxValue);
+
+        if (fragments.Length < capacity) {
+            fragments = new Fragment[capacity];
+            spans = new int[capacity * 2];
+        }
+
+        var forward = camera.Forward;
+        var near = camera.Near;
+
+        // ⚠ Once, and not once per corner. See `PaintCamera.Basis`: the camera's four axes are
+        // computed properties over `MathF.SinCos`, and reading them inside this loop was the
+        // dominant cost of a redraw on a model-sized mesh — #1107.
+        var basis = camera.Basis;
+
+        Span<Vector3> corners = stackalloc Vector3[4];
+        Span<Vector2> layout = stackalloc Vector2[4];
+        Span<Vector2> pane = stackalloc Vector2[4];
+
+        for (var triangle = 0; triangle < mesh.Triangles; triangle++) {
+            mesh.Triangle(triangle, out var a, out var b, out var c, out var ua, out var ub, out var uc);
+
+            corners[0] = basis.Of(a);
+            corners[1] = basis.Of(b);
+            corners[2] = basis.Of(c);
+            layout[0] = ua;
+            layout[1] = ub;
+            layout[2] = uc;
+
+            var count = Clip(corners, layout, near);
+
+            if (count < 3) {
+                // Wholly behind the eye. A cut triangle keeps at least three corners, so this is the
+                // only case in which nothing is drawn at all.
+                continue;
+            }
+
+            var shade = Shade(a, b, c, forward);
+
+            for (var corner = 0; corner < count; corner++) {
+                pane[corner] = PaintCamera.ToPane(corners[corner], width, height);
+            }
+
+            // ⚠ A fan and not a strip, and the shade is the *unclipped* triangle's. Flat shading
+            // reads the plane the three original corners lie in, which is the plane every piece of
+            // the cut polygon is still in — so the two or three pieces cannot disagree about how lit
+            // one triangle is, which is what a shade recomputed per piece would risk at a sliver.
+            for (var corner = 1; corner + 1 < count; corner++) {
+                Accept(
+                    triangle,
+                    shade,
+                    pane[0],
+                    pane[corner],
+                    pane[corner + 1],
+                    corners[0].Z,
+                    corners[corner].Z,
+                    corners[corner + 1].Z,
+                    layout[0],
+                    layout[corner],
+                    layout[corner + 1]
+                );
+            }
+        }
+    }
+
+    /// <summary>Keeps one projected triangle piece, with its per-triangle setup spent.</summary>
     /// <param name="triangle">Which triangle it is.</param>
     /// <param name="shade">How lit it is.</param>
     /// <param name="pa">Its first corner on the pane.</param>
@@ -663,13 +906,13 @@ sealed class PaintMeshRaster {
     /// <param name="ub">The second's.</param>
     /// <param name="uc">The third's.</param>
     /// <remarks>
-    ///     ⚠ <b>The sample point of pixel <c>n</c> is <c>n</c> exactly, and not <c>n + ½</c>.</b>
-    ///     <c>PaintCamera.Ray</c> casts through a pixel's centre and <c>PaintCamera.ToPane</c> is
-    ///     its exact inverse, so the projected frame is already centre-based — adding a half here
-    ///     would offset the picture from the brush by half a pixel, which is invisible everywhere
-    ///     except the silhouette and at the seam between two islands.
+    ///     ⚠ <b><see cref="Examined" /> is added here and not in <see cref="Fill" />, which is what
+    ///     keeps it the number it was.</b> It counts the pixels the pass <em>asks about</em> — the
+    ///     instrument that can see <see cref="Bounds" /> stop bounding — and a band that clipped the
+    ///     box to its own rows would count the same triangle once per band it reaches, so the same
+    ///     picture would report a different figure at a different band count.
     /// </remarks>
-    void Fill(
+    void Accept(
         int triangle,
         float shade,
         Vector2 pa,
@@ -694,13 +937,79 @@ sealed class PaintMeshRaster {
 
         Examined += (long)(highX - lowX + 1) * (highY - lowY + 1);
 
-        var inverse = 1f / area;
-        var invA = 1f / za;
-        var invB = 1f / zb;
-        var invC = 1f / zc;
+        fragments[fragmentCount] = new() {
+            A = pa,
+            B = pb,
+            C = pc,
+            Ua = ua,
+            Ub = ub,
+            Uc = uc,
+            InvA = 1f / za,
+            InvB = 1f / zb,
+            InvC = 1f / zc,
+            Inverse = 1f / area,
+            Shade = shade,
+            Triangle = triangle,
+            LowX = lowX,
+            HighX = highX
+        };
 
-        for (var y = lowY; y <= highY; y++) {
-            for (var x = lowX; x <= highX; x++) {
+        spans[fragmentCount * 2] = lowY;
+        spans[(fragmentCount * 2) + 1] = highY;
+        fragmentCount++;
+    }
+
+    /// <summary>Fills every fragment that reaches a band of rows, depth-tested.</summary>
+    /// <param name="lowRow">The band's first row.</param>
+    /// <param name="highRow">Its last, inclusive.</param>
+    /// <remarks>
+    ///     ⚠ <b>What makes this safe to run on several threads is that a band owns its rows and every
+    ///     buffer here is addressed by <c>row × Width + column</c>.</b> No two bands can reach one
+    ///     slot of <c>depths</c>, <c>triangles</c>, <c>shades</c> or <c>coordinates</c>, so there is
+    ///     nothing to interlock and nothing to tear — and the fragments are read-only by now. ⚠ It is
+    ///     also <em>deterministic</em>: fragments are visited in projection order within a band, so a
+    ///     depth tie resolves the same way it did serially and the picture is the same bytes at every
+    ///     band count.
+    /// </remarks>
+    void Rasterise(int lowRow, int highRow) {
+        if (highRow < lowRow) {
+            return;
+        }
+
+        for (var index = 0; index < fragmentCount; index++) {
+            var top = spans[index * 2];
+            var bottom = spans[(index * 2) + 1];
+
+            if (bottom < lowRow || top > highRow) {
+                continue;
+            }
+
+            Fill(in fragments[index], Math.Max(top, lowRow), Math.Min(bottom, highRow));
+        }
+    }
+
+    /// <summary>Fills one fragment across a range of rows.</summary>
+    /// <param name="fragment">The projected triangle piece.</param>
+    /// <param name="fromRow">The first row to write.</param>
+    /// <param name="toRow">The last, inclusive.</param>
+    /// <remarks>
+    ///     ⚠ <b>The sample point of pixel <c>n</c> is <c>n</c> exactly, and not <c>n + ½</c>.</b>
+    ///     <c>PaintCamera.Ray</c> casts through a pixel's centre and <c>PaintCamera.ToPane</c> is
+    ///     its exact inverse, so the projected frame is already centre-based — adding a half here
+    ///     would offset the picture from the brush by half a pixel, which is invisible everywhere
+    ///     except the silhouette and at the seam between two islands.
+    /// </remarks>
+    void Fill(in Fragment fragment, int fromRow, int toRow) {
+        var pa = fragment.A;
+        var pb = fragment.B;
+        var pc = fragment.C;
+        var inverse = fragment.Inverse;
+        var invA = fragment.InvA;
+        var invB = fragment.InvB;
+        var invC = fragment.InvC;
+
+        for (var y = fromRow; y <= toRow; y++) {
+            for (var x = fragment.LowX; x <= fragment.HighX; x++) {
                 var weightA = (((pb.X - x) * (pc.Y - y)) - ((pb.Y - y) * (pc.X - x))) * inverse;
                 var weightB = (((pc.X - x) * (pa.Y - y)) - ((pc.Y - y) * (pa.X - x))) * inverse;
                 var weightC = 1f - weightA - weightB;
@@ -719,12 +1028,64 @@ sealed class PaintMeshRaster {
                 }
 
                 depths[slot] = reciprocal;
-                triangles[slot] = triangle;
-                shades[slot] = shade;
+                triangles[slot] = fragment.Triangle;
+                shades[slot] = fragment.Shade;
+
                 coordinates[slot] =
-                    ((ua * weightA * invA) + (ub * weightB * invB) + (uc * weightC * invC)) / reciprocal;
+                    ((fragment.Ua * weightA * invA)
+                        + (fragment.Ub * weightB * invB)
+                        + (fragment.Uc * weightC * invC))
+                    / reciprocal;
             }
         }
+    }
+
+    /// <summary>Writes the picture for a band of rows, from an atlas or as clay.</summary>
+    /// <param name="atlas">What the model wears, or null for the clay picture.</param>
+    /// <param name="lowRow">The band's first row.</param>
+    /// <param name="highRow">Its last, inclusive.</param>
+    /// <returns>How many of those rows' pixels show a triangle.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A flat picture and not an empty one when there is no atlas</b>, which is the
+    ///     difference between a milestone and a black pane. A stack with a model bound and no paint
+    ///     layer yet has nothing to texture with — and that is the state an artist is in immediately
+    ///     before they add the layer they mean to paint on, so it is the state in which the pane has
+    ///     to prove the binding worked.
+    /// </remarks>
+    int Colour(PaintImage? atlas, int lowRow, int highRow) {
+        if (highRow < lowRow || Picture is not { } picture) {
+            return 0;
+        }
+
+        var covered = 0;
+        var last = ((highRow + 1) * Width) - 1;
+
+        for (var pixel = lowRow * Width; pixel <= last; pixel++) {
+            if (triangles[pixel] < 0) {
+                picture[pixel] = Background;
+
+                continue;
+            }
+
+            picture[pixel] = atlas is null ? Clay(pixel) : Sample(atlas, pixel);
+            covered++;
+        }
+
+        return covered;
+    }
+
+    /// <summary>One pane pixel's colour with no atlas on the model: clay, at the shade it is lit.</summary>
+    /// <param name="pixel">The pane pixel, row-major.</param>
+    /// <returns>The colour, opaque.</returns>
+    uint Clay(int pixel) {
+        var shade = shades[pixel];
+
+        return PaintImage.Pack(
+            PaintImage.Channel(Untextured, 0) * shade,
+            PaintImage.Channel(Untextured, 1) * shade,
+            PaintImage.Channel(Untextured, 2) * shade,
+            1f
+        );
     }
 
     /// <summary>Buckets the covered pixels by which cell of the atlas they read.</summary>
@@ -739,6 +1100,8 @@ sealed class PaintMeshRaster {
 
         indexedWidth = atlasWidth;
         indexedHeight = atlasHeight;
+        indexStale = false;
+        Indexings++;
 
         for (var pixel = 0; pixel < triangles.Length; pixel++) {
             if (triangles[pixel] < 0) {
@@ -766,18 +1129,6 @@ sealed class PaintMeshRaster {
             Texel(pixel, atlasWidth, atlasHeight, out var x, out var y);
 
             ordered[cursor[(Cell(y, atlasHeight) * Cells) + Cell(x, atlasWidth)]++] = pixel;
-        }
-    }
-
-    /// <summary>Re-buckets for whatever atlas the index was last built against.</summary>
-    /// <remarks>
-    ///     ⚠ <b>Nothing at all when no atlas has been applied yet</b>, which is the state right after
-    ///     the first <see cref="Draw" />: <see cref="Texture" /> is what learns the resolution, and
-    ///     bucketing against a guessed one would be an index a later call silently trusted.
-    /// </remarks>
-    void Index() {
-        if (indexedWidth > 0 && indexedHeight > 0) {
-            Index(indexedWidth, indexedHeight);
         }
     }
 
@@ -829,5 +1180,57 @@ sealed class PaintMeshRaster {
             * shade;
 
         return PaintImage.Pack(r, g, b, 1f);
+    }
+
+    /// <summary>One projected triangle piece, with everything the fill needs already computed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A struct in a pre-sized array rather than a record in a list, and the reason is that
+    ///     an orbit is a frame loop.</b> A pane redraw happens per pointer move; a model-sized mesh
+    ///     produces tens of thousands of these, and an allocation each would be the defect
+    ///     <c>Picture</c>'s own remark exists to avoid, one dimension smaller and one order more
+    ///     often. The array is grown to the mesh's worst case once and reused.
+    /// </remarks>
+    struct Fragment {
+        /// <summary>Its first corner, in pane pixels.</summary>
+        public Vector2 A;
+
+        /// <summary>Its second.</summary>
+        public Vector2 B;
+
+        /// <summary>Its third.</summary>
+        public Vector2 C;
+
+        /// <summary>The first corner's coordinate, in the unit square.</summary>
+        public Vector2 Ua;
+
+        /// <summary>The second's.</summary>
+        public Vector2 Ub;
+
+        /// <summary>The third's.</summary>
+        public Vector2 Uc;
+
+        /// <summary>The first corner's reciprocal depth.</summary>
+        public float InvA;
+
+        /// <summary>The second's.</summary>
+        public float InvB;
+
+        /// <summary>The third's.</summary>
+        public float InvC;
+
+        /// <summary>One over the projected area, which the barycentric weights divide by.</summary>
+        public float Inverse;
+
+        /// <summary>How lit the whole triangle is, 0…1.</summary>
+        public float Shade;
+
+        /// <summary>Which triangle of the mesh it is a piece of.</summary>
+        public int Triangle;
+
+        /// <summary>The leftmost pane pixel it can reach.</summary>
+        public int LowX;
+
+        /// <summary>The rightmost.</summary>
+        public int HighX;
     }
 }
