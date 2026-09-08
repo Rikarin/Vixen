@@ -7,6 +7,7 @@ using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
+using Vixen.Graphics;
 
 namespace Vixen.Cli;
 
@@ -170,7 +171,7 @@ static class TextureGraphRunner {
     static ExitCode Run(
         EditorProject editor,
         Project project,
-        Vixen.Graphics.IGraphicsDevice device,
+        IGraphicsDevice device,
         TexturePlan plan,
         Dictionary<MaterialMapUsage, TextureGraphOutput> wanted,
         TextureGraphCompiler compiler,
@@ -197,7 +198,13 @@ static class TextureGraphRunner {
             return ExitCode.Failed;
         }
 
-        using var bake = new TexturePlanEvaluator(device).Evaluate(plan, uploads.Externals);
+        // ⚠ Disposed, and the ordering matters more here than in a panel: an evaluator owns compiled
+        // pipelines and shader modules on this device, `device` goes at the end of the enclosing
+        // `using`, and destroying a device that still has objects on it is a validation error rather
+        // than a leak. A CLI process exiting would hide it; a `dotnet tool` run under the layers
+        // would not.
+        using TexturePlanEvaluator evaluator = new(device);
+        using var bake = evaluator.Evaluate(plan, uploads.Externals);
 
         var pictures = new Dictionary<MaterialMapUsage, Bitmap>();
 
@@ -264,7 +271,7 @@ static class TextureGraphRunner {
         Project project,
         string graph,
         NodeGraphModel model,
-        Vixen.Graphics.IGraphicsDevice device
+        IGraphicsDevice device
     ) {
         var relative = Relative(project, graph);
 
