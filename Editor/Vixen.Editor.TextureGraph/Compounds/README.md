@@ -88,6 +88,13 @@ Colour/Blend  Add        the two
 a graph an image is just an image. The two are different questions and the kernel answers only the
 first.
 
+**Answered.** `Colour/Mix` over `Shaders/Mix.rvn` is `Blend` with the opacity read per texel out of a
+third image, and it is a second file rather than a fourth port on `Blend` — so § M7's refusal stands
+exactly as written. The four-node form above is one node and one intermediate. ⚠ `Make It Tile` is
+**not** rewritten to use it in the same change: the twelve compounds are the *measurement* of the
+atomic set, and editing the worked example out of a finding would leave nothing in the tree showing
+what the gap cost.
+
 ### 3 · A compound's knobs are numbers only — [#1060](https://github.com/Rikarin/Vixen/issues/1060)
 
 No name, no choice, no colour. `TextureGraphParameterKind` is `Scalar`, `Integer`, `Boolean`, and a

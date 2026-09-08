@@ -23,12 +23,29 @@ namespace Vixen.Editor.TextureGraph.Nodes;
 ///         It answers with a <c>float4</c>.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The op it emits does not evaluate yet, and that is disclosed rather than
-///         discovered.</b> A plan's op names a kernel and the evaluator resolves that name through
-///         this assembly's <em>embedded</em> sources; an authored kernel is not embedded and never
-///         can be. The source is on <c>TextureGraphCompiler.Kernels</c> and the last wire is
-///         <a href="https://github.com/Rikarin/Vixen/issues/729">#729</a>. Everything § D6 is
-///         actually about — the real compiler, the diagnostics, the mapping — is here and tested.
+///         <b>The op it emits bakes, through the plan and not through this assembly's resources.</b>
+///         <c>TextureGraphCompiler.Finish</c> copies every authored kernel onto
+///         <c>TexturePlan.Kernels</c>, <c>TexturePlan.Source</c> prefers that entry over
+///         <see cref="TextureKernels.Source" />, and <c>TexturePlanEvaluator</c> compiles
+///         <c>TextureKernels.Variant(kernel, plan.Source(kernel), output)</c> — the same format
+///         rewrite every embedded kernel gets, over text the plan carries.
+///     </para>
+///     <para>
+///         ⚠ <b>This paragraph used to say the op "does not evaluate yet" and that an authored
+///         kernel "is not embedded and never can be", and the second half was wrong about the design
+///         rather than about the schedule</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1061">#1061</a>. It survived
+///         <a href="https://github.com/Rikarin/Vixen/issues/729">#729</a>'s close because it reads
+///         as a settled disclosure, and it is the only sentence in the tree that says whether a
+///         Pixel Processor bakes: a compound author building doc 48 § 4.9's library wrote a
+///         five-node mask on the strength of it when one expression would have done.
+///     </para>
+///     <para>
+///         ⚠ <b>That no shipped compound uses this node is a claim about the library, not about the
+///         node.</b> § 4.9's twelve are the measurement of whether the atomic set is complete, and an
+///         escape hatch in one of them would have hidden the two gaps they found —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1059">#1059</a> and
+///         <a href="https://github.com/Rikarin/Vixen/issues/1060">#1060</a>.
 ///     </para>
 /// </remarks>
 [Node(
