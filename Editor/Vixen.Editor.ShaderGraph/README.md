@@ -55,7 +55,18 @@ is the second line of defence.
 | Master | Unlit, Sprite, PBR, **Surface** |
 
 ⚠ **The Master row said three for as long as there were four.** `Master/Surface` landed in
-`5a5e6332` and is documented forty lines below, and this table was not updated with it.
+`5a5e6332` and is documented forty lines below, and this table was not updated with it. It cannot
+drift again silently: `ShaderNodeLibraryTests.The_library_is_the_list_the_readme_prints` writes the
+same list out and fails on a node added or removed without it.
+
+⚠ **And the table is now covered rather than merely listed.**
+`Every_node_in_the_library_reaches_both_backends` was named for the whole library and was a
+hand-written list of node paths, so a node added without a line in it was compiled by nothing —
+which is what happened to the five procedural and UV nodes. It walks `NodeTypeRegistry.Types` now,
+once per master the registry holds, so a new `[Node]` and a fifth master are both covered the day
+they are written. ⚠ It also compiles against the **whole shipped library**, because the emitted text
+can no longer be compiled alone: a graph holding `Procedural/Noise` reports `RVN2010: The name
+'ComputeColor' does not exist` on its own.
 
 **The procedural and UV nodes add no shader code.** Each is a call into
 `Raven/Library/Material/ComputeColor.rvn`, whose procedural and UV sections were written as "the
