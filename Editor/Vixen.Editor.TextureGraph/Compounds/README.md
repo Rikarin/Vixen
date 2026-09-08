@@ -71,6 +71,15 @@ override against the node the author can select, and this reports nothing. Until
 rule this folder follows is **arithmetic lives in the published graph's own parameters, and a
 containing graph's ports carry plain numbers**.
 
+**Half answered: the silence is gone, the fold is not.** `TG0003` now refuses it — an error against
+the sub-graph node and the port, so the graph does not bake with a number the author did not write.
+⚠ It is a *refusal* rather than a fold because the ordering makes folding a seam rather than a line:
+flattening decides what a port is worth and runs before `TextureGraphCompiler.Bind`, which is where
+the parameters an expression is written against are read — and a sub-graph node nested inside a
+compound is written against **that** compound's parameters with **that** expansion's overrides, so
+the flattener would need something that can call Raven, per expansion, mid-walk. The rule above is
+therefore still the rule.
+
 ### 2 · There is no masked composite — [#1059](https://github.com/Rikarin/Vixen/issues/1059)
 
 `Colour/Blend` takes two images and a scalar opacity. A mask is an image, and no port takes one, so

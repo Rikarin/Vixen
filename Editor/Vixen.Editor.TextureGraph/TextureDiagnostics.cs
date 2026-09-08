@@ -27,12 +27,13 @@ namespace Vixen.Editor.TextureGraph;
 ///         inventing a twenty-second id in passing.
 ///     </para>
 ///     <para>
-///         ⚠ <b><c>TG0003</c> and <c>TG0007</c> have never been used.</b> Measured with
-///         <c>git log -S</c> over the whole history rather than assumed: the numbering has had those
-///         two holes in it since the ids were first written, so neither is a retired meaning and
-///         either may be taken by whatever needs one next. There is deliberately no
-///         <c>TG0022</c>-shaped "next free id" member — a constant somebody has to remember to
-///         increment is the defect one level up.
+///         ⚠ <b><c>TG0003</c> and <c>TG0007</c> had never been used, and <c>TG0003</c> now is.</b>
+///         Measured with <c>git log -S</c> over the whole history rather than assumed: the numbering
+///         had those two holes in it since the ids were first written, so neither was a retired
+///         meaning and either could be taken by whatever needed one next —
+///         <see cref="ExpressionOnASubGraphPort" /> took the first, and <c>TG0007</c> is still free.
+///         There is deliberately no <c>TG0023</c>-shaped "next free id" member — a constant somebody
+///         has to remember to increment is the defect one level up.
 ///     </para>
 ///     <para>
 ///         Internal, like every other type here. A host that wants to filter on one of these spells
@@ -46,6 +47,13 @@ static class TextureDiagnostics {
     ///     or an entry that is not a texture node at all.
     /// </summary>
     internal const string NothingToCompile = "TG0001";
+
+    /// <summary>
+    ///     A port of a <em>sub-graph</em> node carries a Raven expression. A published graph is
+    ///     inlined rather than called, so what its ports are worth is decided before anything is
+    ///     folded — the arithmetic belongs on the published graph's own parameters.
+    /// </summary>
+    internal const string ExpressionOnASubGraphPort = "TG0003";
 
     /// <summary>
     ///     A node needs an image and has none — an unwired input, or a source node whose asset

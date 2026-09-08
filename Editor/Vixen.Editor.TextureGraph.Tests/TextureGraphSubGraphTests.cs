@@ -449,4 +449,120 @@ public class TextureGraphSubGraphTests {
         // produced several.
         Assert.Contains(compiler.NodeImages, written => written.Node == used.Id);
     }
+
+    /// <summary>A published graph whose radius is an interface port with a declared default of 8.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An interface <em>port</em> and not an exposed parameter, which is the whole point.</b>
+    ///     A parameter is read out of the sub-graph node's settings by
+    ///     <c>TextureGraphParameters.Read</c>, and an expression written against one has folded since
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>. A port is decided by
+    ///     <c>SubGraphs.Flatten</c> out of <c>node.Values</c>, one layer below anything that can call
+    ///     Raven — <a href="https://github.com/Rikarin/Vixen/issues/1058">#1058</a>. The two look
+    ///     identical in a node inspector and are not the same mechanism.
+    /// </remarks>
+    static NodeGraphModel PublishedWithAPortForItsRadius() {
+        NodeGraphModel graph = new() { Name = "Highpass" };
+
+        graph.Interface.Add(new("Out", PortDirection.Output, PortKind.Image));
+        graph.Interface.Add(new("Radius", PortDirection.Input, PortKind.Float, [8f], ""));
+
+        var entry = graph.Add(SubGraphs.InputType);
+        var noise = graph.Add("Source/Noise");
+        var blur = graph.Add("Filters/Blur");
+        var exit = graph.Add(SubGraphs.OutputType);
+
+        graph.Connect(new(noise.Id, "Out"), new(blur.Id, "Input"));
+        graph.Connect(new(entry.Id, "Radius"), new(blur.Id, "Radius"));
+        graph.Connect(new(blur.Id, "Out"), new(exit.Id, "Out"));
+
+        return graph;
+    }
+
+    /// <summary>⚠ An expression on a sub-graph node's own port is refused rather than dropped.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Before <a href="https://github.com/Rikarin/Vixen/issues/1058">#1058</a> this exact
+    ///         graph compiled clean and baked a blur of 8.</b> The field accepted Raven, folded
+    ///         nothing, and said nothing — which is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/742">#742</a>'s shape one level over,
+    ///         and worse in the one respect that #742's fix reports its override as <c>TG0015</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An error and not a warning, so the graph does not bake.</b> A warning would leave
+    ///         the picture exactly as wrong as the silence did, with a line in a list beside it; a
+    ///         refusal stops the bake until the author moves the arithmetic onto the published
+    ///         graph's own parameters, which is where it folds. That is the same call
+    ///         <c>ExpressionOnAPortThatTakesNone</c> makes about an expression on an image port, for
+    ///         the same reason: a field whose value nothing reads should not compile.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="The_same_graph_bakes_when_the_port_carries_a_number" /> is the other
+    ///         half</b>, and without it this is a test of a message: a compiler that refused every
+    ///         graph with an interface port in it would satisfy every assertion here.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_expression_on_a_sub_graph_nodes_port_is_refused() {
+        var (compiler, graph, used) = Containing(PublishedWithAPortForItsRadius());
+
+        used.SetText(TextureGraphExpressions.KeyOf("Radius"), "32f");
+
+        var compilation = compiler.Compile(graph);
+
+        var refusal = Assert.Single(
+            compilation.Diagnostics,
+            diagnostic => string.Equals(diagnostic.Id, "TG0003", StringComparison.Ordinal)
+        );
+
+        Assert.Equal(used.Id, refusal.Node);
+        Assert.Equal("Radius", refusal.Port);
+        Assert.Contains("Library/Grunge", refusal.Message, StringComparison.Ordinal);
+        Assert.Equal(NodeSeverity.Error, refusal.Severity);
+
+        // And the graph does not bake, which is what "refused" means. A plan produced beside the
+        // complaint would be a plan carrying the number the author did not write.
+        Assert.False(compilation.Succeeded);
+    }
+
+    /// <summary>
+    ///     The same graph, with a number on the port, bakes it — so the refusal is about the
+    ///     expression and not about the port.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>32 and not 8, which is what says the port itself works.</b> The sub-graph node's
+    ///     <c>Values</c> reach the inlined <c>Blur</c> through <c>SubGraphs.Flatten</c>'s
+    ///     interface-input constant; it is only the <em>expression</em> key beside them that nothing
+    ///     reads. Asserting the declared default here instead would pass over a flattener that had
+    ///     stopped carrying the port at all.
+    /// </remarks>
+    [Fact]
+    public void The_same_graph_bakes_when_the_port_carries_a_number() {
+        var (compiler, graph, used) = Containing(PublishedWithAPortForItsRadius());
+
+        used.SetValue("Radius", 32f);
+
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        var blur = compilation.Value.Ops.First(op => string.Equals(op.Kernel, "Blur", StringComparison.Ordinal));
+
+        Assert.Equal(32f, blur.Find("radius")!.Value.Value);
+    }
+
+    /// <summary>An empty expression field is not one, so clearing the box is not a refusal.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The failure mode a refusal invites, and <c>Collect</c> already had to answer it.</b>
+    ///     A panel that wrote the empty string back on every edit would turn every cleared field into
+    ///     a complaint asking the author to do the thing they have just done — which is a refusal
+    ///     nobody can act on, and the reason this is an assertion rather than a remark.
+    /// </remarks>
+    [Fact]
+    public void An_empty_expression_field_on_a_sub_graph_node_is_not_refused() {
+        var (compiler, graph, used) = Containing(PublishedWithAPortForItsRadius());
+
+        used.SetText(TextureGraphExpressions.KeyOf("Radius"), "   ");
+
+        Assert.Empty(compiler.Compile(graph).Diagnostics);
+    }
 }
