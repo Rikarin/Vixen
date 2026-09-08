@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Editor.Texturing.Painting;
 using Vixen.Editor.Ui;
+using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 using Xunit;
@@ -508,6 +510,202 @@ public class PaintUvViewTests {
 
         Assert.True(image.Overlay.Count > 3, "the cursor ring replaced the islands instead of following them");
         Assert.Contains(image.Overlay, segment => segment.To == new Vector2(32f, 0f));
+    }
+
+    /// <summary>A masked brush's cursor is its square, turned by the angle it will stamp at.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An angle an artist cannot see is an angle they cannot set —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.</b> A masked stamp covers
+    ///     its square and not the disc inside it, so a ring over one is the same picture at every
+    ///     angle: the control moves, the readout changes, and the pane shows nothing. The round
+    ///     brush's ring in the second half is the instrument — it must <em>not</em> move — so this
+    ///     cannot pass by drawing anything that happens to change.
+    /// </remarks>
+    [Fact]
+    public void A_masked_brushs_cursor_is_a_turned_square_and_a_round_ones_is_not() {
+        using var fixture = new TexturingFixture();
+
+        var host = fixture.Shell.Document.Root.Add<UiElement>();
+        PaintTool tool = new() { Mode = PaintToolMode.Paint };
+        PaintUvView view = new(host, tool);
+
+        view.Show(0ul, 64, 64, "");
+        fixture.Shell.Document.Update();
+
+        tool.SetRadius(8f);
+        tool.SetAlpha(PaintAlphas.Square);
+        view.ShowCursor(new Vector2(32f, 32f));
+
+        var upright = view.Image.Overlay.Select(segment => segment.To).ToList();
+
+        Assert.Equal(4, upright.Count);
+
+        // The corners of an eight-texel square: √2 × 8 from the centre, which a ring never reaches.
+        Assert.All(upright, corner => Assert.Equal(8f * MathF.Sqrt(2f), (corner - new Vector2(32f, 32f)).Length(), 3));
+
+        tool.SetAngle(45f);
+        view.ShowCursor(new Vector2(32f, 32f));
+
+        var turned = view.Image.Overlay.Select(segment => segment.To).ToList();
+
+        Assert.Contains(turned, corner => (corner - new Vector2(32f, 43.3f)).Length() < 0.1f);
+        Assert.DoesNotContain(turned, corner => upright.Any(was => (corner - was).Length() < 0.5f));
+
+        // ⚠ The instrument: a round brush's ring is the same picture at every angle, because a disc
+        // turned is a disc. If this moved, what moved above was not the stamp's rotation.
+        tool.SetAlpha(PaintAlphas.Round);
+        view.ShowCursor(new Vector2(32f, 32f));
+
+        var ring = view.Image.Overlay.Select(segment => segment.To).ToList();
+
+        tool.SetAngle(137f);
+        view.ShowCursor(new Vector2(32f, 32f));
+
+        Assert.Equal(ring, view.Image.Overlay.Select(segment => segment.To));
+    }
+
+    /// <summary>Clicked points make a curve, and the curve paints where its chord does not.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>, and the assertion
+    ///         is the whole of what that issue is about.</b> <c>BrushStroke.MoveTo</c> interpolates
+    ///         straight, so a curve fed to it as its two endpoints paints its <em>chord</em> — which
+    ///         is a stroke that looks right in the pane and lands somewhere else. The straight line
+    ///         through the same two ends is therefore the instrument: it must miss the texel the
+    ///         curve hits, or this test would pass against a path tool that painted chords.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And one undo entry for the whole path however many positions it was sampled
+    ///         at</b>, which is doc 48 § M9's exit criterion applied to the gesture that most looks
+    ///         like several strokes.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_placed_path_paints_its_curve_rather_than_its_chord_in_one_entry() {
+        using var fixture = new TexturingFixture();
+
+        var host = fixture.Shell.Document.Root.Add<UiElement>();
+        PaintTool tool = new() { Mode = PaintToolMode.Path };
+        PaintUvView view = new(host, tool);
+
+        PaintImage layer = new(128, 128);
+        List<IEditorCommand> entries = [];
+
+        tool.SetRadius(3f);
+        view.Target = () => new(layer, PaintCoverage.Everywhere(128, 128), new EmptyStack(128), Gutter: 0);
+        view.Finished = entries.Add;
+        view.Show(0ul, 128, 128, "");
+        fixture.Shell.Document.Update();
+
+        // A corner: the curve through the middle point bows well away from the chord between the
+        // two ends, which is the only arrangement where the two strokes can be told apart.
+        Place(fixture, view.Image, new Vector2(20f, 100f));
+        Place(fixture, view.Image, new Vector2(64f, 24f));
+        Place(fixture, view.Image, new Vector2(108f, 100f));
+
+        Assert.Contains("3 point(s)", view.Status, StringComparison.Ordinal);
+
+        Commit(fixture, view.Image, new Vector2(108f, 100f));
+
+        var command = Assert.Single(entries);
+
+        Assert.True(Painted(layer, new Vector2(20f, 100f)), "the path painted nothing at all.");
+        Assert.True(
+            Painted(layer, new Vector2(64f, 25f)),
+            "the path missed its own apex, so it painted something other than the curve."
+        );
+
+        // ⚠ The instrument: the chord between the same two ends runs sixty texels below the apex, so
+        // a path tool that interpolated straight would leave it untouched.
+        PaintImage chord = new(128, 128);
+        PaintStroke straight = new(chord, PaintCoverage.Everywhere(128, 128), tool.Brush, 0xFF0000FFu, gutter: 0);
+
+        straight.MoveTo(new(20f, 100f));
+        straight.MoveTo(new(108f, 100f));
+
+        Assert.False(
+            Painted(chord, new Vector2(64f, 25f)),
+            "the straight line reached the apex too, so this test cannot tell a curve from a chord."
+        );
+
+        // And one entry undoes the whole thing.
+        command.Undo(null!);
+
+        Assert.False(Painted(layer, new Vector2(64f, 25f)));
+        Assert.False(Painted(layer, new Vector2(20f, 100f)), "one undo left the start of the path behind.");
+
+        // The preview's ticks are gone — the ring the cursor draws is what is left.
+        Assert.DoesNotContain(view.Image.Overlay, segment => segment.To == new Vector2(23f, 100f));
+    }
+
+    /// <summary>Escape drops a half-placed path, and Enter lays one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The keys are handled only while there is a path.</b> Enter, Escape and Backspace all
+    ///     belong to something else in an editor, so a pane that took them whenever it had the focus
+    ///     would break a dialog — which is why the second half asserts an unhandled Escape.
+    /// </remarks>
+    [Fact]
+    public void Enter_lays_the_path_and_escape_drops_it() {
+        using var fixture = new TexturingFixture();
+
+        var host = fixture.Shell.Document.Root.Add<UiElement>();
+        PaintTool tool = new() { Mode = PaintToolMode.Path };
+        PaintUvView view = new(host, tool);
+
+        PaintImage layer = new(64, 64);
+        List<IEditorCommand> entries = [];
+
+        tool.SetRadius(2f);
+        view.Target = () => new(layer, PaintCoverage.Everywhere(64, 64), new EmptyStack(64), Gutter: 0);
+        view.Finished = entries.Add;
+        view.Show(0ul, 64, 64, "");
+        fixture.Shell.Document.Update();
+
+        // Nothing placed: the key is left alone, so whatever else wanted it still gets it.
+        var idle = new KeyEvent { Key = InputKey.Escape, Action = KeyAction.Pressed };
+
+        fixture.Shell.Document.Dispatch(idle);
+
+        Assert.False(idle.Handled, "an empty pane swallowed Escape, which belongs to a dialog.");
+
+        Place(fixture, view.Image, new Vector2(10f, 10f));
+        Place(fixture, view.Image, new Vector2(50f, 50f));
+
+        fixture.Shell.Document.Dispatch(new KeyEvent { Key = InputKey.Escape, Action = KeyAction.Pressed });
+
+        Assert.Empty(entries);
+        Assert.DoesNotContain(view.Image.Overlay, segment => segment.To == new Vector2(13f, 10f));
+
+        Place(fixture, view.Image, new Vector2(10f, 10f));
+        Place(fixture, view.Image, new Vector2(50f, 50f));
+
+        fixture.Shell.Document.Dispatch(new KeyEvent { Key = InputKey.Enter, Action = KeyAction.Pressed });
+
+        Assert.Single(entries);
+        Assert.True(Painted(layer, new Vector2(30f, 30f)), "Enter did not lay the path.");
+    }
+
+    static void Place(TexturingFixture fixture, ImageView image, Vector2 texel) {
+        var at = image.ToScreen(texel);
+
+        fixture.Shell.Document.Dispatch(
+            new PointerEvent { X = at.X, Y = at.Y, Action = PointerAction.Pressed, Button = PointerButton.Primary }
+        );
+    }
+
+    static void Commit(TexturingFixture fixture, ImageView image, Vector2 texel) {
+        var at = image.ToScreen(texel);
+
+        fixture.Shell.Document.Dispatch(
+            new PointerEvent { X = at.X, Y = at.Y, Action = PointerAction.Pressed, Button = PointerButton.Secondary }
+        );
+    }
+
+    static bool Painted(PaintImage image, Vector2 texel) => image.At((int)texel.X, (int)texel.Y) >> 24 != 0u;
+
+    /// <summary>A stack with nothing under or over the layer, which is what a pane test wants.</summary>
+    sealed class EmptyStack(int size) : IPaintStack {
+        public PaintImage Evaluate(PaintStackSlice slice) => new(size, size);
     }
 
     // ── The harness ─────────────────────────────────────────────────────────────────────────────

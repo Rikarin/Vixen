@@ -20,7 +20,7 @@ namespace Tests;
 ///     <see cref="The_generated_kernel_compiles_to_a_compute_stage" /> asks
 ///     <c>RavenEffectCompiler</c> for SPIR-V. A generator that emitted plausible-looking nonsense
 ///     would pass every plan-shaped assertion in this file and fail that one, which is the same
-///     bargain <c>TextureKernelTests</c> makes for the forty-five committed kernels.
+///     bargain <c>TextureKernelTests</c> makes for the committed kernels.
 /// </remarks>
 public class TexturePixelProcessorTests {
     static NodeTypeRegistry Registry() {

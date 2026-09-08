@@ -29,6 +29,9 @@ authored, and what it cost to author the things that could**.
 | | Panels | `Shape Square` → `Tile` → `Blur` for the bevel |
 | | Tile Random | `Tile Sampler`, jitter on size, turn and position |
 | | Rivets | `Shape Paraboloid` → `Tile Sampler` |
+| | Scratches | a `Shape Disc` stretched forty times by `Transform 2D`, scattered by `Splatter` |
+| | Wood Grain | `Gradient` → `Mirror` → `Tile` for the rings, `Warp` for the wander, `Directional Warp` for the fibre |
+| | Cells | one `Worley` noise read three times: F1, F2 and the cell index |
 | `Generators` | Dirt · Curvature Edge Wear · Grunge Rough Dirty | mesh maps, by usage |
 | | Mask Editor | curvature, occlusion and noise under four sliders |
 | | Metal Edge Wear | curvature, broken away by a noise through `Colour/Mix`, gated by occlusion |
@@ -39,6 +42,10 @@ authored, and what it cost to author the things that could**.
 | | Bevel | `Distance` inside → `Levels` for the profile → `Height to Normal` |
 | | Curvature Smooth | `Blur HQ` → `Height to Normal` → `Curvature` |
 | | Height to AO | `Ambient Occlusion` → `Blur` → `Levels` |
+
+The five `.vxsmartmat` smart materials live one assembly over, in
+`Vixen.Editor.Texturing/SmartMaterials/`, and `Leather` — § 4.9's sixth, listed there without a ● —
+joined them in the second round, with its pebble grain masked by `Patterns/Cells`.
 
 `TextureCompoundLibraryTests` proves each of these parses, publishes, names only ports that exist and
 produces a plan; `TextureCompoundBakeDeviceTests` bakes every one of them on a device and refuses a
@@ -54,7 +61,7 @@ tree, which is a claim the document makes and can therefore be checked by readin
 remembering to bump a number. Removing four grunges turns it red where the old whole-library floor
 passed.
 
-⚠ **And the bake roll call runs at 64×64 while every file here declares `baseWidth: 1024`** —
+⚠ **The bake roll call ran at 64×64 while every file here declares `baseWidth: 1024`, and now runs at 1024** —
 [#1085](https://github.com/Rikarin/Vixen/issues/1085). § D8 makes a filter's numbers *texels at the
 base resolution*, so the roll call measures the library at one sixteenth of the scale it is authored
 for: `Grunge Rust`'s 7.75-texel erosion bites into 73-texel cells at 1024 and wipes 4.5-texel ones at
@@ -84,12 +91,14 @@ compounds that then shipped declared `parameters`, so the fix had no shipped rea
 
 Five findings, each measured rather than reasoned, and each filed.
 
-⚠ **Written over two rounds and the second one is where the arithmetic gets checked.** The first round
-authored twelve compounds and predicted three gaps; the second authored fifteen more — the grunge
-family of eight, the Surface row, the last three mask generators — against an atomic set that had
-gained `Colour/Mix` in the meantime. **Two of the first round's predicted gaps turned out not to be
-gaps**, which is recorded below beside what did, because a round that only writes down its hits will
-predict the same misses again.
+⚠ **Written over three rounds and each later one is where the previous one's arithmetic gets
+checked.** The first round authored twelve compounds and predicted three gaps; the second authored
+fifteen more — the grunge family of eight, the Surface row, the last three mask generators — against
+an atomic set that had gained `Colour/Mix` in the meantime; the third authored § 4.9's last three
+`Patterns` rows against one that had also gained the name knob. **Two of the first round's predicted
+gaps turned out not to be gaps and three of the third round's would have been**, which is recorded
+below beside what did, because a round that only writes down its hits will predict the same misses
+again.
 
 ### 1 · An expression on a sub-graph node's port is dropped, silently — [#1058](https://github.com/Rikarin/Vixen/issues/1058)
 
@@ -153,15 +162,27 @@ a grunge says, that way; `Surface/Height Blend` is one `Levels` and one `Mix` an
 been one `Levels` and four. ⚠ **Nothing else in the fifteen wanted a node that does not exist.** The
 masked composite really was the missing one.
 
-### 3 · A compound's knobs are numbers only — [#1060](https://github.com/Rikarin/Vixen/issues/1060)
+### 3 · A compound's knobs were numbers only — [#1060](https://github.com/Rikarin/Vixen/issues/1060)
 
-No name, no choice, no colour. `TextureGraphParameterKind` is `Scalar`, `Integer`, `Boolean`, and a
-node's *setting* — `Placement/Tile Sampler`'s `Accumulation`, `Space/Transform 2D`'s `Tiling`, a
-noise's `Basis` — is `Texts` on a node inside the graph that the interface cannot reach.
+⚠ **A compound can expose a *name* as of 2026-09-09.** `TextureGraphParameterKind.Name` is a knob
+with an `Accepted` list; a setting inside the graph written as `$Knob` resolves to it, one scope out
+per nesting hop. `Patterns/Tile Random` exposes `Placement/Tile Sampler`'s `Accumulation` and
+`Utility/Safe Transform` exposes `Space/Transform 2D`'s `Tiling` — both defaulting to what they
+previously hard-wired, so no shipped picture moved.
 
-Consequences in § 4.9's own list: **Metal Reflectance** ("a named-metal lookup") cannot be authored at
-all, and the `.vxsmartmat` family whose whole difference is a tint has nowhere to put the tint. Every
-compound here hard-wires its settings, which is why none of them offers a mode.
+⚠ **The reference is resolved into the node's *binding* and never into the graph.** The first version
+substituted into `node.Texts` during `Begin`, and the model reaching `Begin` is only a copy when
+flattening ran — so a compound with no sub-graph node of its own (which is what both of these are)
+had its `$Knob` overwritten by every preview compile, and the next save wrote that down.
+
+**Still owed**: a **colour** knob, for the reason the issue gives — there is no `const val` of a
+vector for `TextureGraphExpressions` to fold. And **Metal Reflectance** still cannot be authored,
+though the blocker moved rather than went: no atomic node maps a metal name to an F0, so there is no
+setting for a compound to forward ([#1096](https://github.com/Rikarin/Vixen/issues/1096)).
+⚠ **Re-checked in the third round and unchanged**: nothing under `Nodes/` names a metal, an F0 or a
+reflectance, so the row is still a compound with nothing to wrap. It stays **refused** rather than
+half-built, because a named-metal lookup with the metal hard-wired is § 4.9's row with the row's
+whole purpose removed — and building it needs a kernel, which is the one thing § M10 may not add.
 
 ⚠ **Narrowed by the second round, and the line is not where "no name, no choice, no colour"
 puts it.** A *choice among channels* is authorable, because some nodes spell that choice as **numbers**
@@ -189,100 +210,94 @@ unavailable, and a compound that wants one expresses it **structurally**: `Histo
 say plainly it is the price of not writing a second evaluator. Quantisation is *not* affected — a
 parameter declared `Integer` is already whole, which is how `Safe Transform` keeps its tile count safe.
 
-### 5 · The roll call measures the library at a sixteenth of its own extent — [#1085](https://github.com/Rikarin/Vixen/issues/1085)
+### 5 · The roll call measured the library at a sixteenth of its own extent — closed
 
-Every file here declares `baseWidth: 1024` and `TextureCompoundBakeDeviceTests` bakes at **64**. § D8
-makes a filter's numbers *texels at the base resolution*, so a compound whose knobs are texel-valued
-is measured at a sixteenth of the scale it was authored for — in both directions. `Grunge Rust` is the
-worked case: a Worley field at scale 14 eroded 7.75 texels bites into 73-texel cells at 1024 and wipes
-4.5-texel ones at 64, where it baked **four** distinct values against a flat-fill bar of three.
+Every file here declares `baseWidth: 1024` and `TextureCompoundBakeDeviceTests` baked at **64**. It
+bakes at `RollCallSide = 1024` now, with a stimulus scaled in texels so a generator's cell count
+tracks the extent.
 
-⚠ **The dangerous direction is the other one.** A compound that saturates at 1024 — a `Blur` wider
-than the picture, a `Distance` whose `Max Distance` covers everything — is invisible at 64 and passes,
-which is exactly the class § D8 exists to prevent. This is not covered by exit criterion 2's scale
-invariance: that one walks the **atomic** nodes and never a compound.
+⚠ **And the ranking in the original issue was backwards, measured.** It said a compound broken at
+1024 could be accidentally fine at 64, and that a radius saturating the image is invisible at the
+smaller extent. A knob is in *texels* and absolute; a generator's `Scale` is cells across the image
+and is not — so at 64 every radius is sixteen times larger relative to what it acts on, and a radius
+that wipes the picture wipes it at 64 **first**. What 64 could not see is the opposite: a knob that
+is a no-op at 1024. That direction passes its input through, which is still a picture, so the "not
+flat" bar sees it only by luck.
 
-## What did **not** turn out to be a gap
+⚠ **A second extent was considered and rejected with evidence**: with the texel-scaled stimulus it is
+the same experiment twice, and without one it fails good compounds — which is exactly how
+`Utility/Highpass` went red.
 
-Worth recording, because four of these were predicted to be — and **two of the first round's three
-predictions were wrong**, which is the number that should make the next round slower to predict.
+### 6 · The third round: three patterns, and the two new mechanisms neither of them wanted
 
-- **Per-instance variation.** `Tile Random` and `Rivets` were expected to expose a hole.
-  `Placement/Tile Sampler` covers them completely: size, rotation, position and colour jitter are all
-  ports, and the seed comes from the plan, so the same file is the same picture on every machine.
-- **A brick bond.** `Space/Tile`'s per-row offset is exactly a running bond — `Tile.rvn` says so, and
-  `Brick` is one `Shape` and one `Tile`.
-- **Make It Tile**, which #575 flagged as the highest-value finding if it could not be authored. It
-  can. An offset-wrap under `Transform 2D` is exactly periodic at the border by construction, and the
-  seam mask is a `Shape Gradation` mirrored about the centre on each axis, combined with `Lighten`.
-  Measured on an M1 Max: the wrap seam of a non-tiling gradient noise falls from 21.5 to 6.8 while an
-  ordinary neighbouring step stays at 4.6.
-- **The escape hatch, which exists and was deliberately not used.** `Filters/Pixel Processor` compiles
-  a Raven expression into a real kernel, and since [#729](https://github.com/Rikarin/Vixen/issues/729)
-  a plan carries that kernel's source, so it bakes. One expression would have replaced five of
-  `Make It Tile`'s nodes. It is avoided here on purpose: a library that reaches for it stops being a
-  measurement of the atomic set. ⚠ `PixelProcessorNode`'s own remarks still say the op does not
-  evaluate — [#1061](https://github.com/Rikarin/Vixen/issues/1061).
+`Patterns/Scratches`, `Patterns/Wood Grain` and `Patterns/Cells` are the last three ● in § 4.9's
+Patterns row. They were authored *after* both of round two's answers landed, which makes them the
+first honest test of whether those answers were the ones the library needed.
 
-The second round's four, which are the ones a third round should not re-predict:
+⚠ **Neither of them was used, and that is the measurement rather than an oversight.** Not one of the
+three wanted a **name** knob — every choice they make is a shape kind, a blend mode or a mirror axis
+the compound has decided *for* the artist, and what is left over is arithmetic. And not one wanted
+`Colour/Mix`: a pattern generator composites nothing, because it has no backdrop. The two answers
+were both right for the rows that asked for them — masks and mask generators — and neither is what a
+pattern is short of.
 
-- **A grunge library needs a grunge kernel.** It does not. § 4.9's own description — "`Noise` and
-  `Slope Blur` in eight arrangements" — turned out to be exact rather than dismissive: eight files,
-  three to five nodes each, and the only thing they share is that the *slope* field is a second noise
-  chosen to disagree with the first. What distinguishes them is the slope mode (`Min` erodes into a
-  pit, `Max` dilates into a streak, `Blend` smears), which is a `[Setting]` and therefore hard-wired —
-  #1060 again, and the reason the family is eight files rather than one with a knob.
-- **A bevel needs a distance transform with a profile.** `Analysis/Distance` in `Inside` mode is a
-  height field already, and the profile is a `Colour/Levels` gamma. `Surface/Bevel` is three nodes.
-- **A height blend needs a comparison the atomic set has not got.** It does not: the comparison is a
-  `Colour/Levels` on the deciding height with the two handles folded off `position ± softness/2`, and
-  the cut is one `Colour/Mix`. Two nodes, and the sharp transition a height blend is *for* comes from
-  the handles being close together rather than from anything special.
-- **Reading a world normal's up axis needs a swizzle node.** `Colour/Grayscale` is the swizzle — see
-  finding 3 — and `Generators/Dust` takes the up axis out of a world normal with weights `(0, 1, 0)`.
+**Three gaps this rule would have predicted, and none of them is one.** The rule at the end of
+finding 3 says a compound can expose a `Scalar`, `Int` or `Bool` **port** and nothing spelled as a
+`[Setting]`. Applied ahead of authoring it predicts:
 
-⚠ **And one thing that is neither a gap nor free: a Worley basis writes three different things into
-three channels** (F1, F2 and a cell index), so a cell field used as a `Slope Blur` slope is `TG0004`
-and costs a `Colour/Grayscale`. `Grunge Concrete` and `Grunge Damage` both pay one node for it. The
-diagnostic names the port and says what to do, so this is the atomic set working rather than failing —
-but it is the one thing in the fifteen that a first draft got wrong twice.
+| Predicted | Measured |
+|---|---|
+| No absolute value, so a wood ring's **triangle wave** is `Invert` + `Blend Darken` + a `Levels` to undo the halving | ⚠ **One node.** `Space/Mirror` in `Reflect` at offset 0.5 turns the `Gradient` ramp into a triangle before `Space/Tile` ever sees it. The halving is real — the peak is 0.5, not 1 — and the final `Levels` was going to be there anyway, so it costs nothing |
+| No **anisotropic stamp**, so a scratch needs a bar `Source/Shape` has not got | ⚠ **One node.** `Space/Transform 2D` at `Scale X` 40 under `Clamp` magnifies a `Disc` into a full-width capsule. ⚠ And the sign is the trap: the kernel's parameters are **forward** — "below 1 minifies" — so `Grunge Scratches`' `Scale X` of 0.05 is a *twentyfold minification whose supersample* produces its streaks, and copying that number here would have produced twenty thin bars rather than one long one |
+| No way to pick **one channel of a colour image**, so Worley's F1 needs a `Channel Shuffle` per lane | ⚠ **Not a gap, and it is round two's claim reaching production for the first time.** `Colour/Grayscale` with weights `(1, 0, 0)` *is* "the red channel", and `Patterns/Cells` uses three of them |
 
-## Who reads them, and the edge that is a string
+**And one that is** — the sharp version of the row above, found by trying it:
 
-Two consumers, and they fail differently.
+> ⚠ **A channel *choice* is authorable and a channel *difference* is not, and it fails silently.**
+> `Grayscale.rvn` normalises its three weights **by their sum**, deliberately and for a good reason
+> that is written out there. So `(−1, 1, 0)` does not compute `g − r`: the sum is zero, the kernel
+> takes its documented fallback and the node computes **Rec. 709 luminance** — a completely different
+> picture, with no diagnostic anywhere, because nothing about the weight triple is invalid.
+> `(−1, 1, 0.001)` is worse: the sum is 0.001, so the weights are scaled by a thousand.
 
-- **A graph** contains a compound as a node. The path is a node *type*, so a compound that stopped
-  shipping is a node type the registry has not got and `NodeGraphDocument.Load` says so when the
-  document opens.
-- **A layer stack's mask** names a compound as `MaskAsset.Generator` — "the published compound's
-  node-type path", carried as **text**. ⚠ Nothing resolves it until `LayerStackGraph` compiles the
-  stack, so a compound renamed or moved between folders leaves a mask that refuses **at bake time, on
-  somebody else's machine**, with a sentence about a node type rather than about the material.
+`Patterns/Cells` pays it. Worley reports F1 in red and F2 in green and the cell border is `F2 − F1`,
+which is **three nodes and two intermediate images** — a `Grayscale` per channel and a
+`Blend Subtract` — where one weight triple would have been one node. It is finding 2's shape one
+level down: the atomic set can select and it cannot combine, and the combination it is missing is one
+subtraction between two lanes of the *same* image.
 
-That second one is the only edge between this folder and `Vixen.Editor.Texturing`'s content, and it is
-the one a rename breaks silently. Doc 48 § M10's five `.vxsmartmat` smart materials — `Painted Metal`,
-`Rusted Iron`, `Worn Wood`, `Concrete`, `Plastic`, under `Vixen.Editor.Texturing/SmartMaterials/` —
-are built almost entirely out of masks from this folder, so
-`SmartMaterialContentTests.Every_generator_a_shipped_smart_material_names_is_a_compound_that_ships`
-resolves every one of those strings against the registry the compounds are published into. It counts
-them as well as checking them: five smart materials whose masks were all constants would satisfy the
-loop and prove nothing, and a stack of constant-masked fills is exactly what a half-authored one is.
+⚠ **`Filters/Pixel Processor` would have made it `a.g - a.r` and is deliberately not used**, for the
+reason its own remarks give: an escape hatch inside § 4.9's library would hide exactly the gap this
+paragraph is. No `.vxtexgraph` under `Compounds/` names that node, and that is still true.
 
-⚠ **A compound retired from this folder is therefore a breaking change to content in another
-assembly**, which is a stronger claim than "a node type vanishes from a menu" and is why the roll
-call's named list is a deliberate edit rather than a snapshot.
+**What Cells wants that no node has at all** is a **distance metric** — Chebyshev and Manhattan
+Worley are the two other cell shapes a pattern library needs, and `Source/Noise` has neither a port
+nor a setting for one. That is a kernel gap rather than an authoring one, so it is not this folder's
+finding; it is recorded here because "Cells is the row most likely to want something that is not
+there" turned out to be true of the *kernel* and false of the compound vocabulary.
 
-## Adding one
+### 7 · Two things the third round nearly got wrong
 
-Drop a `.vxtexgraph` under a folder here and it ships — `Compounds\**\*.vxtexgraph` is an
-`EmbeddedResource` glob, and `TextureCompoundLibrary.Shipped` is derived from the manifest rather than
-from a list. Both test files then cover it with no edit.
+⚠ **A compound containing `Source/Gradient` makes its containing plan carry an external image, even
+with no ramp asset.** `TextureTables.Ramp` bakes the black-to-white strip and hands it to
+`emitter.External(…, texels)`, so the plan has an external whose bytes it carries — and a host that
+evaluates without calling `TextureGraphExternals.Upload` gets *"Image 0 is external and no texture was
+supplied for it"* rather than a picture. `Wood Grain` is the first shipped compound to reach a table
+node, so this was worth checking rather than assuming: all four evaluation paths in the tree do call
+it — `TextureGraphPreviews`, `TextureExternalImages` (the layer-stack and material-bake routes) and
+`Vixen.Cli`'s `TextureGraphRunner`.
 
-Three rules the tests hold you to:
+⚠ **`Worn Wood`'s grime layer reads `roughness: 1.2` and `metalness: 1`, and neither is a bug.** That
+layer's `blend` is `Multiply`, whose neutral is **white** — `LayerStackGraph` writes the layer's blend
+straight onto a `Colour/Blend` `Mode` — so its `values` are *factors*: 1.2 is "20% rougher" and 1 is
+"leave metalness alone". A reader checking a smart material's channels against 0…1 will file an issue
+about both, and it will be wrong. The range a layer's value is in is decided by its blend mode and
+nowhere else.
 
-- ⚠ **No dot in the file name.** A manifest resource name cannot tell a folder separator from one, so
-  `Grunge v2.vxtexgraph` publishes under a path with a phantom folder in it.
-- **A `Generators/` compound reads its maps by usage and names no mesh.** Every external it asks for
-  is a `meshmap:` reference, which is what makes one generator work on every mesh.
-- **One `Sub-graph/Output` and no `Output/Output`.** Inlining carries a second output into the
-  containing graph, and two nodes writing `baseColor` is `TG0006`.
+### What a compound costs the roll call
+
+Thirty-four compounds bake at 1024² in **4 s** end to end on an Apple M1 Max, and the three added by
+the third round moved that by about 0.3 s — a tenth of a second each, which is one compile, one submit
+and one `WaitIdle`. The extent is not what the roll call spends its time on, which is the same
+measurement finding 5 made from the other side. So the answer to "what would fifteen more cost" is
+about a second and a half, and the reason to be careful about adding fifteen is not the roll call.

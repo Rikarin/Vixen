@@ -104,6 +104,28 @@ struct MaterialData {
     /// a zero vector.
     var tangentFrame: TangentFrame
 
+    /// The direction from this point toward the eye, in the tangent frame above.
+    ///
+    /// **What a feature that walks along the view ray needs and cannot derive.** `tangentFrame` makes
+    /// the rotation possible, but the vector to rotate is the pass's: it is the eye's position minus
+    /// this point's, and `MaterialData` carries neither. So the pass supplies it, once, through the
+    /// one thing every feature is handed — `uv`'s argument exactly, one channel over.
+    ///
+    /// Tangent space rather than world, because that is the space a height field is authored in: the
+    /// map's texels lie in the `xy` plane and its depth runs along `-z`, so the sweep a parallax march
+    /// takes across the surface is `xy / z` and no further basis is needed at the point of use. A
+    /// world-space vector here would make every consumer rotate it again by the frame beside it.
+    ///
+    /// ⚠ **`MaterialDefaults.Reset` leaves it `(0, 0, 1)` — straight down the surface — and that is the
+    /// value that means "no parallax".** A march whose sweep is `xy / z` displaces by nothing when
+    /// `xy` is zero, so a pass that fills this with nothing draws the undisplaced surface rather than
+    /// a diagonal smear. Zero would have been the other kind of default: `xy / z` is `0 / 0`.
+    ///
+    /// Not renormalised by anything that copies it. `Normals.ToTangent` preserves length and every
+    /// pass hands it a unit vector, so `z` is the cosine between the eye and the surface — which is
+    /// what a step count scaled by obliqueness reads.
+    var viewTS: float3
+
     /// The interpolated texture coordinate at this point, as the pass carried it.
     ///
     /// Geometry rather than material, for the same reason `tangentFrame` is — and here for a reason
@@ -151,7 +173,8 @@ struct MaterialData {
 /// these are called in is the order the material's feature list happens to be in. That is
 /// `MaterialFeatureStage.Coordinate` on the C# side, and `MaterialCompiler` refuses a material that
 /// puts one behind a sampler; see `github.com/Rikarin/Vixen/issues/1065` for the feature itself, which
-/// also wants a tangent-space view direction this struct does not carry.
+/// also wants a tangent-space view direction — which this struct now carries as `viewTS`, seeded by
+/// `MaterialDefaults.Begin`, since the feature that needed it was built.
 protocol IMaterialSurface {
     func Compute(inout d: MaterialData)
 }
@@ -189,8 +212,11 @@ struct MaterialBlend {
         d.clearCoatNormalWS = Math.SafeNormalize(lerp(under.clearCoatNormalWS, over.clearCoatNormalWS, w))
 
         // The tangent frame belongs to the mesh and the pass, not to either layer, so it is taken
-        // rather than blended — both layers were seeded with the same one.
+        // rather than blended — both layers were seeded with the same one. The view direction rides
+        // with it for the same reason and one step further: it is the frame applied to the eye, so a
+        // blend of two copies of one vector is that vector with rounding.
         d.tangentFrame = under.tangentFrame
+        d.viewTS = under.viewTS
 
         // Likewise the coordinate: both layers were seeded with the same one, and interpolating a
         // coordinate between two layers would sample somewhere neither layer asked for.
@@ -229,6 +255,11 @@ struct MaterialDefaults {
         d.uvDdx = float2(0f, 0f)
         d.uvDdy = float2(0f, 0f)
 
+        // ⚠ Straight down the surface, which is the "no parallax" value rather than the zero one. A
+        // march sweeps by `viewTS.xy / viewTS.z`, so this displaces by exactly nothing; a zeroed
+        // vector would be `0 / 0` on a pass that forgot to seed it. See `MaterialData.viewTS`.
+        d.viewTS = float3(0f, 0f, 1f)
+
         // The identity frame, so `Normals.ToWorld` is a no-op until a pass supplies a real one. A
         // zeroed frame would be worse than useless — it maps every normal to zero, and `SafeNormalize`
         // would hand back a plausible-looking unit vector pointing nowhere in particular.
@@ -242,11 +273,22 @@ struct MaterialDefaults {
     /// What every pass with a tangent channel calls instead of `Reset`. The shading normal starts as
     /// the *geometric* one, so a material with no normal-map feature is already correct, and a
     /// feature that replaces it is replacing something meaningful rather than filling in a blank.
-    static func Begin(inout d: MaterialData, normalWS: float3, tangentWS: float4, uv: float2) {
+    ///
+    /// ⚠ **`viewWS` is a parameter rather than a second call a pass makes afterwards, and that is the
+    /// whole safeguard.** A `Look(d, v)` beside this would be a line every pass has to remember, and a
+    /// pass that forgot it draws the undisplaced surface — a plausible frame that no counter reports,
+    /// which is the failure `MaterialFeatureStage` exists against one level up. As a parameter, a pass
+    /// that has not been told about the view does not compile.
+    ///
+    /// It is the direction from the surface *toward the eye*, the same `v` every pass already computes
+    /// for its BRDF — passed in rather than derived here because deriving it needs the eye's position
+    /// and this struct has never carried one.
+    static func Begin(inout d: MaterialData, normalWS: float3, tangentWS: float4, uv: float2, viewWS: float3) {
         Reset(d)
         d.tangentFrame = Normals.Frame(normalWS, tangentWS.xyz, tangentWS.w)
         d.normalWS = d.tangentFrame.normal
         d.uv = uv
+        d.viewTS = Normals.ToTangent(d.tangentFrame, viewWS)
 
         // The coat starts on the geometric normal rather than following the base's, so a normal-map
         // feature later in the chain bends the base and leaves the coat flat — which is what a
@@ -342,6 +384,45 @@ shader MaterialTextures {
         }
 
         return materialTextures[int(index)].Sample(materialSampler, d.uv)
+    }
+
+    /// How `uv` changes across one pixel in x, however this pass is able to say.
+    ///
+    /// **What a feature that samples somewhere other than `d.uv` has to have.** `SampleSurface` folds
+    /// the gradients away for a fragment stage because the quad supplies them — which is true right up
+    /// to the moment a feature computes its own coordinate inside a loop. Implicit derivatives of a
+    /// value that is different on every lane are not the surface's footprint, and inside non-uniform
+    /// control flow they are undefined outright. So a march reads its footprint here, once, before the
+    /// loop, and passes it to `SampleMapGrad` for every step.
+    ///
+    /// ⚠ The permutation branch is the same one `SampleSurface` has and is dead code in both variants:
+    /// `ddx` is illegal in a compute stage exactly as `Sample` is, and it is a `[Permutation]` rather
+    /// than a uniform so that the branch it is not is gone by lowering.
+    func SurfaceDdx(d: MaterialData): float2 {
+        if (UseAnalyticGradients) {
+            return d.uvDdx
+        }
+
+        return ddx(d.uv)
+    }
+
+    /// And in y.
+    func SurfaceDdy(d: MaterialData): float2 {
+        if (UseAnalyticGradients) {
+            return d.uvDdy
+        }
+
+        return ddy(d.uv)
+    }
+
+    /// One map, at a coordinate a feature computed, with a footprint it computed separately.
+    ///
+    /// `SampleSurface`'s other half: that one samples where the surface is and picks the mip the pass
+    /// can, this one samples where a feature says and is *told* the mip. Always `SampleGrad`, in both
+    /// variants — the coordinate is not the interpolated one, so there is no variant in which the quad
+    /// would have answered correctly.
+    func SampleMapGrad(index: uint, uv: float2, ddxUv: float2, ddyUv: float2): float4 {
+        return materialTextures[int(index)].SampleGrad(materialSampler, uv, ddxUv, ddyUv)
     }
 }
 

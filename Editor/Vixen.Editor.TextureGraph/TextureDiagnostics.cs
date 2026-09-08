@@ -172,6 +172,20 @@ static class TextureDiagnostics {
     /// </remarks>
     internal const string OutputResampledToTheGraphsMaps = "TG0022";
 
+    /// <summary>
+    ///     A setting inside a published graph names one of that graph's knobs and the knob is not
+    ///     there, or the name it was given is not one the knob accepts.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Separate from <see cref="SettingNotAccepted" /> even though both are "that is not one
+    ///     of the names".</b> <c>TG0010</c> is a node refusing what its own setting holds; this is the
+    ///     forwarding refusing to put it there, one phase earlier, and the two carry different advice:
+    ///     one is fixed on the node and the other on the knob of the graph that contains it. Reporting
+    ///     both under one id would leave an author with a sentence naming a node they never wrote and
+    ///     no way to tell which of the two situations they are in.
+    /// </remarks>
+    internal const string NameKnobNotResolved = "TG0023";
+
     /// <summary>Every id declared above, read off the declarations rather than listed again.</summary>
     /// <remarks>
     ///     ⚠ <b>This is what makes a collision findable at all.</b> Two members holding the same

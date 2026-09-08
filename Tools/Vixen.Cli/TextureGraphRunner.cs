@@ -4,6 +4,7 @@
 using Vixen.Core.Imaging;
 using Vixen.Core.Yaml;
 using Vixen.Editor.Assets.Materials;
+using Vixen.Editor.Assets.Textures;
 using Vixen.Editor.Core;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.TextureGraph;
@@ -39,15 +40,22 @@ namespace Vixen.Cli;
 ///         has three callers.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What it deliberately cannot do is resolve a <c>Source/Bitmap</c> that names a
-///         project asset</b>, which <see cref="TextureGraphExternals.Upload" /> hands back rather
-///         than skipping for exactly this reason: "a host without one can see, before it starts,
-///         that this graph is not one it can bake". The editor's resolver is 300 lines in the
-///         texturing plugin and reads paint canvases the CLI has none of; a second copy here would be
-///         the copy that forgot a case. So such a graph is named and refused —
-///         <a href="https://github.com/Rikarin/Vixen/issues/1087">#1087</a> — and everything whose
-///         pictures the compilation carries, which is every generator, pattern and noise graph and
-///         every shipped compound, bakes.
+///         ⚠ <b>A <c>Source/Bitmap</c> naming a project asset is filled here now, and the resolver
+///         that fills it is not this file's</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1087">#1087</a>.
+///         <see cref="TextureGraphExternals.Upload" /> hands such an entry back rather than skipping
+///         it, so that a host with no asset database can see before it starts that this graph is not
+///         one it can bake; <see cref="TextureProjectImages" /> is what a host that <em>has</em> one
+///         then calls, and it lives one assembly down precisely so that this is not a second copy of
+///         the editor's — the copy that forgets a case. All this route supplies is
+///         <see cref="Decoded" />: which decoder reads a <c>.png</c>, which is
+///         <c>Vixen.Editor.Assets</c>' question and whose closure is the whole runtime.
+///     </para>
+///     <para>
+///         ⚠ <b>What it still cannot fill is a reference naming a live editor session</b> — a
+///         <c>meshmap:</c> measurement nothing here has baked, or a <c>vxpaint:</c> canvas whose
+///         strokes are in an editor's memory. Those are named and refused, one sentence each, and
+///         everything else bakes.
 ///     </para>
 /// </remarks>
 static class TextureGraphRunner {
@@ -90,12 +98,13 @@ static class TextureGraphRunner {
 
         NodeTypes.Register(registry);
 
-        // ⚠ `Assets/Compounds` spelled here as well as in `TextureNodeLibrary.CompoundFolder`, which
-        // is in the texturing plugin and cannot be referenced from Tools/ without dragging the whole
-        // editor shell in. It is the one thing this route duplicates rather than calls — #1088.
+        // ⚠ `Assets/Compounds` is `TextureCompoundLibrary.Folder`'s spelling and no longer this
+        // file's — #1088. It was written out here because the join lived in the texturing plugin,
+        // which Tools/ cannot reference without dragging the whole editor shell in; the join is one
+        // assembly below both hosts now and both ask it.
         var compounds = TextureCompoundLibrary.Publish(
             registry,
-            Path.Combine(project.Paths.Assets, "Compounds"),
+            TextureCompoundLibrary.FolderOf(project.Paths.Assets),
             out var unreadable
         );
 
@@ -187,13 +196,20 @@ static class TextureGraphRunner {
 
         var owed = TextureGraphExternals.Upload(uploads, plan, compiler.Externals);
 
-        if (owed.Length > 0) {
-            error.WriteLine(
-                "Nothing baked: this graph reads "
-                + string.Join(", ", owed.Select(one => "'" + one.Asset + "'"))
-                + ", and resolving a project asset into a picture is the editor's job — see #1087. "
-                + "Everything else compiled."
-            );
+        // ⚠ Before the lookup and not after it. `TryGetByPath` reads an index, and an index nothing
+        // has scanned is empty — so without this every `Source/Bitmap` in the graph would be refused
+        // as "not in this project's assets" on a project where the file is sitting right there.
+        // `Record` used to be what scanned, and it runs after the bake.
+        editor.Assets.Scan();
+
+        var unresolved = TextureProjectImages.Fill(editor, uploads, plan, owed, Decoded);
+
+        if (unresolved.Count > 0) {
+            error.WriteLine("Nothing baked: this graph reads pictures this run could not supply.");
+
+            foreach (var why in unresolved) {
+                error.WriteLine("  " + why);
+            }
 
             return ExitCode.Failed;
         }
@@ -257,14 +273,60 @@ static class TextureGraphRunner {
         return ExitCode.Success;
     }
 
+    /// <summary>Reads one imported picture off the disk, or says why it could not be read.</summary>
+    /// <param name="file">The asset's own file, absolute — <see cref="TextureProjectImages" /> resolved it.</param>
+    /// <returns>The picture, or the sentence saying why there is none.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The whole of what this route supplies to the resolver, and the reason the split is
+    ///         where it is.</b> <c>ImageDecoders</c> is <c>Vixen.Editor.Assets</c>', whose closure
+    ///         adds twenty-five assemblies — <c>Vixen.Engine</c>, <c>Vixen.Ecs</c>,
+    ///         <c>Vixen.Terrain</c> among them — to <c>Vixen.Editor.TextureGraph</c>'s. Both hosts
+    ///         already have it; the evaluator must not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No cache, deliberately, and that is a difference from the editor's version.</b>
+    ///         There the same callback answers out of a <c>PaintCanvasStore</c>, because a preview
+    ///         re-evaluates on every edit and a 4K PNG decoded per edit is what
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/885">#885</a> was about. A CLI
+    ///         process bakes once and exits; a cache here would hold bytes nothing asks for twice.
+    ///     </para>
+    /// </remarks>
+    static (TextureData? Picture, string? Unreadable) Decoded(string file) {
+        var extension = Path.GetExtension(file);
+
+        if (ImageDecoders.For(ImageDecoders.BuiltIn, extension) is not { } decoder) {
+            return (null, $"nothing here decodes '{extension}'.");
+        }
+
+        try {
+            using var stream = File.OpenRead(file);
+
+            return (decoder.Decode(stream, extension), null);
+        } catch (Exception failure) when (failure is IOException
+            or InvalidDataException or NotSupportedException or ArgumentException
+            or UnauthorizedAccessException) {
+            // A returned sentence rather than a throw, for the resolver's own rule: every way of not
+            // reading a picture is the same kind of answer, so that a graph reading four of them
+            // names all four rather than the first.
+            return (null, failure.Message);
+        }
+    }
+
     /// <summary>The provenance block this bake writes into the material's sidecar.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="MaterialBakeRecord.SourceAsset" /> and not only the path, and the scan is
-    ///     what it costs.</b> A material's set is keyed on the source asset where there is one and on
-    ///     the path where there is not — <c>MaterialProvenance.KeyOf</c> — so a CLI bake that left the
-    ///     id empty would key on a path while the editor's bake of the same graph keys on the id, and
-    ///     the two would read as different sources under one name: new GUIDs on every alternating
-    ///     run. The folder bake has no asset to name and takes the fallback honestly; this one has.
+    ///     ⚠ <b><see cref="MaterialBakeRecord.SourceAsset" /> and not only the path.</b> A material's
+    ///     set is keyed on the source asset where there is one and on the path where there is not —
+    ///     <c>MaterialProvenance.KeyOf</c> — so a CLI bake that left the id empty would key on a path
+    ///     while the editor's bake of the same graph keys on the id, and the two would read as
+    ///     different sources under one name: new GUIDs on every alternating run. The folder bake has
+    ///     no asset to name and takes the fallback honestly; this one has.
+    ///     <para>
+    ///         ⚠ <b>The scan this used to do is <see cref="Run" />'s now</b>, because the external
+    ///         resolver reads the same index and reads it first. Two scans would have been one walk
+    ///         wasted; none would have been an empty index and a graph refused for a file that is
+    ///         there.
+    ///     </para>
     /// </remarks>
     static MaterialBakeRecord Record(
         EditorProject editor,
@@ -274,9 +336,6 @@ static class TextureGraphRunner {
         IGraphicsDevice device
     ) {
         var relative = Relative(project, graph);
-
-        editor.Assets.Scan();
-
         var asset = editor.Assets.TryGetByPath(relative, out var entry) ? entry.Guid : default;
 
         return new() {

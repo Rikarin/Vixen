@@ -91,7 +91,7 @@ public class PluginDeviceLossTests {
     /// <remarks>
     ///     The instrument check. A raise that fired on every write would tell a plugin to give back
     ///     resources it is about to need, on the frame the editor's window came up — which reads as
-    ///     a working notification and is a preview pane that rebuilds forty-five kernels per assign.
+    ///     a working notification and is a preview pane that rebuilds every kernel per assign.
     /// </remarks>
     [Fact]
     public void Gaining_a_device_and_re_publishing_the_same_one_announce_nothing() {

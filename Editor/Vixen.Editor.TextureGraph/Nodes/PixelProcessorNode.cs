@@ -11,7 +11,8 @@ namespace Vixen.Editor.TextureGraph.Nodes;
 ///     <para>
 ///         <b>Doc 48 § D6's escape hatch, and the shape of it is the point.</b> The setting is a
 ///         Raven <em>expression</em>, compiled by the real Raven compiler into a kernel of exactly
-///         the shape the other forty-five have, with the complaints mapped back to this node. It is
+///         the shape every other kernel in <c>Shaders/</c> has, with the complaints mapped back to
+///         this node. It is
 ///         not a hand-rolled evaluator, not a scripting language, and not a nested function graph of
 ///         forty tiny nodes — Designer's answer, which § D6 refuses by name.
 ///     </para>
@@ -42,10 +43,12 @@ namespace Vixen.Editor.TextureGraph.Nodes;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>That no shipped compound uses this node is a claim about the library, not about the
-///         node.</b> § 4.9's twelve are the measurement of whether the atomic set is complete, and an
-///         escape hatch in one of them would have hidden the two gaps they found —
+///         node.</b> § 4.9's thirty-one are the measurement of whether the atomic set is complete, and
+///         an escape hatch in one of them would have hidden the two gaps they found —
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1059">#1059</a> and
-///         <a href="https://github.com/Rikarin/Vixen/issues/1060">#1060</a>.
+///         <a href="https://github.com/Rikarin/Vixen/issues/1060">#1060</a>. Counted rather than
+///         repeated: the sentence said twelve while thirty-one shipped, and no <c>.vxtexgraph</c>
+///         under <c>Compounds/</c> names this node.
 ///     </para>
 /// </remarks>
 [Node(

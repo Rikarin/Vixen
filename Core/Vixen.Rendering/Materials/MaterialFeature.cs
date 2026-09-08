@@ -42,9 +42,12 @@ public interface IMaterialFeature {
     /// <summary>Where in the chain this feature has to run for the ones after it to be right.</summary>
     /// <remarks>
     ///     <para>
-    ///         <see cref="MaterialFeatureStage.Surface" /> for every feature that exists today, which
-    ///         is why it has a default: a feature that reads the coordinate and writes a channel is
-    ///         correct wherever the author put it, and the whole chain is written that way on purpose.
+    ///         <see cref="MaterialFeatureStage.Surface" /> for every feature but one, which is why it
+    ///         has a default: a feature that reads the coordinate and writes a channel is correct
+    ///         wherever the author put it, and the whole chain is written that way on purpose.
+    ///         ⚠ <b>The exception is <c>ParallaxOcclusionFeature</c></b>, the first
+    ///         <see cref="MaterialFeatureStage.Coordinate" /> feature the engine has — so this
+    ///         paragraph read "every feature that exists today" until one did not.
     ///     </para>
     ///     <para>
     ///         A property rather than a marker interface because a feature's shader can be
@@ -65,8 +68,8 @@ public interface IMaterialFeature {
 /// <remarks>
 ///     <para>
 ///         <strong>The chain has exactly one ordering rule and this is it.</strong> Every feature in
-///         the library reads <c>d.uv</c> and writes a channel, so the order they run in is the
-///         author's business and nothing here has an opinion — <c>CompositeSurface</c> calls its eight
+///         the library but one reads <c>d.uv</c> and writes a channel, so the order those run in is
+///         the author's business and nothing here has an opinion — <c>CompositeSurface</c> calls its eight
 ///         slots in the order <see cref="MaterialCompiler" /> filled them, which is the order the
 ///         material's <see cref="MaterialDescriptor.Features" /> list happens to be in.
 ///     </para>

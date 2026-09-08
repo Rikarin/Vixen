@@ -9,8 +9,8 @@ using Xunit;
 namespace Vixen.Editor.Texturing.Tests;
 
 /// <summary>
-///     Doc 48 § M10's five smart materials, as content: they read, they are portable, every generator
-///     they name ships, and something puts them where a verb can reach them.
+///     Doc 48 § M10's smart materials, as content: they read, they are portable, every generator they
+///     name ships, and something puts them where a verb can reach them.
 /// </summary>
 /// <remarks>
 ///     <para>
@@ -25,7 +25,7 @@ namespace Vixen.Editor.Texturing.Tests;
 ///         first is a loop over <see cref="SmartMaterial.Shipped" />, and an empty <c>Shipped</c>
 ///         satisfies all of them — the vacuous-roll-call shape this workstream has now shipped
 ///         several times. <see cref="The_shelf_this_assembly_ships_is_the_folder_and_not_a_list" /> is
-///         the instrument: it names the five § M10 asks for and compares the manifest with the disk.
+///         the instrument: it names the ones § 4.9 lists and compares the manifest with the disk.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>And the joining case is
@@ -37,21 +37,29 @@ namespace Vixen.Editor.Texturing.Tests;
 ///     </para>
 /// </remarks>
 public class SmartMaterialContentTests {
-    /// <summary>The five doc 48 § M10 asks for, by name.</summary>
-    static readonly string[] Owed = ["Concrete", "Painted Metal", "Plastic", "Rusted Iron", "Worn Wood"];
+    /// <summary>The five doc 48 § M10 asks for, and the sixth § 4.9's row names without a ●.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Leather</c> is here on a weaker warrant than the other five and it is worth saying
+    ///     which.</b> § 4.9's smart-material row marks five ● and lists <c>Leather</c> unmarked — the
+    ///     document's own "the rest is how a library grows". So nothing owes it; what this line claims
+    ///     is only that having shipped it, retiring it is a deliberate edit rather than a glob that
+    ///     quietly stopped matching.
+    /// </remarks>
+    static readonly string[] Owed =
+        ["Concrete", "Leather", "Painted Metal", "Plastic", "Rusted Iron", "Worn Wood"];
 
-    /// <summary>⚠ The shipped shelf is the folder, and the folder holds § M10's five.</summary>
+    /// <summary>⚠ The shipped shelf is the folder, and the folder holds every name § 4.9 lists.</summary>
     /// <remarks>
     ///     <para>
     ///         <b>Two independent sides.</b> <see cref="SmartMaterial.Shipped" /> comes from
     ///         <c>GetManifestResourceNames</c> — what the build put <em>into the assembly</em> — and
-    ///         the expectation is the five names § M10 lists. A glob narrowed in the csproj takes the
+    ///         the expectation is the names § 4.9 lists. A glob narrowed in the csproj takes the
     ///         first side down and leaves the second standing, which is the point.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Membership rather than equality</b>, for <c>TextureCompoundLibraryTests</c>'
-    ///         reason: a sixth smart material is somebody's work, not this file's failure. Retiring
-    ///         one of these five, on the other hand, is a deliberate edit here.
+    ///         reason: a seventh smart material is somebody's work, not this file's failure. Retiring
+    ///         one of these, on the other hand, is a deliberate edit here.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -221,10 +229,10 @@ public class SmartMaterialContentTests {
         }
     }
 
-    /// <summary>⚠ Installing writes the shipped five onto a project's shelf, and never twice.</summary>
+    /// <summary>⚠ Installing writes the shipped smart materials onto a project's shelf, and never twice.</summary>
     /// <remarks>
     ///     <para>
-    ///         <b>The reachability half, and without it the five are content nothing can select.</b>
+    ///         <b>The reachability half, and without it they are content nothing can select.</b>
     ///         <c>TexturingModule.ApplySmartMaterial</c> reads <c>project.Selection.Primary</c> and the
     ///         editor factory claims a file extension, so both doors take an asset with a path — there
     ///         is no selecting a manifest resource. <see cref="SmartMaterial.Install" /> is the only
@@ -293,7 +301,7 @@ public class SmartMaterialContentTests {
         // ⚠ **The half a directory listing cannot see, and it is the half the whole design rests
         // on.** `Shelf` reads the file system; every door a `.vxsmartmat` has takes an *asset* —
         // `ApplySmartMaterial` reads `project.Selection.Primary`, `LayerStackEditorFactory` claims
-        // an extension. A plugin activates after the project has been indexed, so five files
+        // an extension. A plugin activates after the project has been indexed, so the files
         // written and not rescanned are on the disk and unreachable until a restart, and the
         // assertion above is green either way.
         Assert.All(

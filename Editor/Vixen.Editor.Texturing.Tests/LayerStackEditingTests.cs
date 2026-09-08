@@ -1799,6 +1799,188 @@ public class LayerStackEditingTests {
         Missing(Panel(fills), Panel(fixture), "layer-stack-filter-row");
     }
 
+    /// <summary>The knob field of one named port, off the row the panel drew.</summary>
+    /// <param name="panel">The panel.</param>
+    /// <param name="port">The port's name, which is what the row's label says.</param>
+    /// <returns>The field.</returns>
+    static NumericInput Knob(UiElement panel, string port) {
+        foreach (var row in All(panel, "layer-stack-knob-row")) {
+            foreach (var label in All(row, "layer-stack-knob-label")) {
+                if (string.Equals(label.Text, port, StringComparison.Ordinal)) {
+                    return Assert.IsType<NumericInput>(All(row, "layer-stack-knob-value").Single());
+                }
+            }
+        }
+
+        throw new InvalidOperationException($"the panel drew no knob row for '{port}'");
+    }
+
+    /// <summary>
+    ///     ⚠ A filter layer's numbers open at the <em>node type's</em> declared defaults, not at
+    ///     zero.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1086">#1086</a>, and this is the
+    ///         assertion the whole issue is about.</b> <c>Colour/Levels</c> uses an
+    ///         <c>Input White</c> of <b>1</b>; a field that opened at 0 would be an interface the
+    ///         picture contradicts, and an artist who read it would believe the level was at zero and
+    ///         have no way to explain the render. So the number is the load-bearing half and the
+    ///         field existing is not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is <c>1</c> rather than "whatever the port says", checked against a second
+    ///         port that declares <c>0</c>.</b> A pair, because a row that read every default as one
+    ///         constant would satisfy either assertion alone — and <c>Input Black</c> at 0 is
+    ///         indistinguishable from the zeroed field this exists to refuse unless <c>Input
+    ///         White</c> is beside it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_filters_fields_open_at_the_node_types_own_defaults() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Filtered());
+        var panel = Panel(fixture);
+
+        Assert.Equal(1d, Knob(panel, "Input White").Number);
+        Assert.Equal(0d, Knob(panel, "Input Black").Number);
+
+        // ⚠ And nothing was written to get there. A row that "defaulted" by storing the declared
+        // numbers would pin them: a node type that improved one would leave every stack ever opened
+        // holding the old value, with nothing anywhere saying why.
+        Assert.Empty(Layer(document, "adjust").Settings);
+    }
+
+    /// <summary>⚠ A filter layer's numbers are edited in the panel and reach the plan.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Compiled rather than compared, for
+    ///     <see cref="A_filter_layers_kind_is_chosen_in_the_panel_and_reaches_the_plan" />'s
+    ///     reason.</b> <c>LayerAsset.Settings</c> holding the number is satisfied by a field wired to
+    ///     a member the compiler drops — which is exactly what <c>LayerStackGraph.Published</c> does
+    ///     to a value whose port the type has not got, with a warning nobody reads.
+    /// </remarks>
+    [Fact]
+    public void A_filters_numbers_are_edited_in_the_panel_and_reach_the_plan() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, Filtered());
+        var opened = Plan(document);
+
+        Knob(Panel(fixture), "Input White").Number = 0.5d;
+
+        Assert.Equal([0.5f], Layer(document, "adjust").Settings["Input White"]);
+        Assert.NotEqual(opened, Plan(document));
+
+        Assert.True(document.Stack.Undo());
+        Assert.Equal(opened, Plan(document));
+    }
+
+    /// <summary>⚠ A mask effect's numbers are edited in the panel and reach the plan.</summary>
+    /// <remarks>
+    ///     <b>The other half of #1086, and it is the same row shape one level apart.</b>
+    ///     <c>LayerStackGraph.Effect</c> and <c>Published</c> are the same two loops over the same
+    ///     two members, so doing the layer alone would leave a mask effect that can name
+    ///     <c>Filters/Blur</c> and cannot say how wide.
+    /// </remarks>
+    [Fact]
+    public void A_mask_effects_numbers_are_edited_in_the_panel_and_reach_the_plan() {
+        using var fixture = new TexturingFixture();
+
+        var stack = Stack(
+            [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+            Fill("bottom", "Bottom", 0.25f),
+            new LayerAsset {
+                Id = "top",
+                Name = "Top",
+                Kind = LayerKind.Fill,
+                Values = { ["baseColor"] = [1f, 1f, 1f, 1f] },
+                Mask = new() {
+                    Source = LayerMaskSource.Constant,
+                    Value = 1f,
+                    Effects = [new() { Node = "Filters/Blur", Enabled = true }]
+                }
+            }
+        );
+
+        var document = Open(fixture, stack);
+        var opened = Plan(document);
+
+        Knob(Panel(fixture), "Radius").Number = 6d;
+
+        Assert.Equal([6f], Layer(document, "top").Mask.Effects[0].Values["Radius"]);
+        Assert.NotEqual(opened, Plan(document));
+    }
+
+    /// <summary>⚠ A setting the type states a list for is a picker, and the choice reaches the plan.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A dropdown when the type says what it accepts and a box when it does not</b>, which
+    ///         is <c>NodeSettingMember</c>'s own rule: a free-text field over a setting with a stated
+    ///         list is where <c>ture</c> becomes a value.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Space/Mirror</c>'s <c>Mode</c> is different arithmetic rather than a different
+    ///         label</b> — a reflect and a flip — so the plan differing is a statement about the
+    ///         kernel and not about the string. <c>LayerAsset.Texts</c> is the member
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1079">#1079</a> added and nothing in
+    ///         a view wrote until now.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_filters_setting_is_chosen_from_the_types_own_list() {
+        using var fixture = new TexturingFixture();
+
+        var document = Open(
+            fixture,
+            Stack(
+                [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+                Fill("bottom", "Bottom", 0.25f),
+                new LayerAsset { Id = "adjust", Name = "Adjust", Kind = LayerKind.Filter, FilterNode = "Space/Mirror" }
+            )
+        );
+
+        var panel = Panel(fixture);
+        var opened = Plan(document);
+
+        var mode = All(panel, "layer-stack-knob-choice")
+            .Select(element => Assert.IsType<Select>(element))
+            .Single(choice => choice.Options.Any(option => option.Value == "Flip"));
+
+        Assert.Equal("Reflect", mode.Value);
+
+        mode.Value = "Flip";
+
+        Assert.Equal("Flip", Layer(document, "adjust").Texts["Mode"]);
+        Assert.NotEqual(opened, Plan(document));
+    }
+
+    /// <summary>⚠ A layer whose filter names no node type this project has gets no knob rows.</summary>
+    /// <remarks>
+    ///     <b>Verify the instrument.</b> Every assertion above reads a row built from a resolved node
+    ///     type; a <c>KnobRows</c> that drew a row per member of some list it invented would satisfy
+    ///     them and would also draw rows for a path that is not a node at all — fields whose numbers
+    ///     the compiler never sees, under a layer it is already refusing. The panel draws none, and
+    ///     the fill stack beside it says the rows are not simply missing everywhere.
+    /// </remarks>
+    [Fact]
+    public void A_filter_naming_no_node_type_gets_no_knob_rows() {
+        using var fixture = new TexturingFixture();
+
+        Open(fixture, Filtered());
+
+        using var unknown = new TexturingFixture();
+
+        Open(
+            unknown,
+            Stack(
+                [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+                Fill("bottom", "Bottom", 0.25f),
+                new LayerAsset { Id = "adjust", Name = "Adjust", Kind = LayerKind.Filter, FilterNode = "Nowhere/None" }
+            )
+        );
+
+        Missing(Panel(unknown), Panel(fixture), "layer-stack-knob-row");
+    }
+
     /// <summary>⚠ A row whose id names two layers is listed and carries no controls.</summary>
     /// <remarks>
     ///     <para>
@@ -2510,10 +2692,16 @@ public class LayerStackEditingTests {
     ///     satisfied by a misspelling — use <see cref="Missing" /> where the absence is the finding.
     /// </remarks>
     static List<string> Texts(UiElement root, string name) {
+        // ⚠ Two things this line does that the walk below cannot — #881. A `layer-stack-message` is a
+        // `@for` row in `LayerStackChrome.vxml` now, so it does not exist until the effect the
+        // assignment queued has run (`Core/Vixen.Ui.Reactive/Effect.cs`: an effect never runs on the
+        // write), and when it does exist its text is a child element rather than its own `Text`.
+        root.Document.Effects.Flush();
+
         List<string> found = [];
 
         foreach (var element in Named(root, name)) {
-            found.Add(element.Text ?? "");
+            found.Add(LayerStackPanelTests.Said(element));
         }
 
         return found;

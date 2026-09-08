@@ -54,8 +54,8 @@ sealed record TextureGraphPicture(IEditorImage? Image, string Status) {
 /// <remarks>
 ///     <para>
 ///         <b>The first thing outside a test that dispatches a texture kernel, and the first
-///         production caller <c>ImageView</c> has had.</b> Four batches built an evaluator and
-///         forty-five kernels; this is where the editor runs one. It is also what proves
+///         production caller <c>ImageView</c> has had.</b> Four batches built an evaluator and a
+///         folder of kernels; this is where the editor runs one. It is also what proves
 ///         <see cref="IEditorGraphics" /> is sufficient rather than merely published — a contract no
 ///         plugin can draw through is the same gap doc 36 § F2 was written to find, one layer along.
 ///     </para>

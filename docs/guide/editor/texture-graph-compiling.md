@@ -4,7 +4,7 @@ slug: editor/texture-graph-compiling
 kind: guide
 area: Editor
 summary: The compiler that turns a node graph into a texture plan, and the four things it hands back besides the plan — the outputs by usage, the pictures a host still owes it, the parameters an author exposed, and the per-node images a preview draws.
-api: [T:Vixen.Editor.TextureGraph.TextureGraphCompiler, T:Vixen.Editor.TextureGraph.TextureGraphOutput, T:Vixen.Editor.TextureGraph.TextureGraphExternal, T:Vixen.Editor.TextureGraph.TextureGraphExternals, T:Vixen.Editor.TextureGraph.TextureGraphKernel, T:Vixen.Editor.TextureGraph.TextureGraphNodeImage, T:Vixen.Editor.TextureGraph.TextureGraphParameter, T:Vixen.Editor.TextureGraph.TextureGraphParameters, T:Vixen.Editor.TextureGraph.TextureGraphParameterKind, T:Vixen.Editor.TextureGraph.TextureGraphSettings]
+api: [T:Vixen.Editor.TextureGraph.TextureGraphCompiler, T:Vixen.Editor.TextureGraph.TextureGraphOutput, T:Vixen.Editor.TextureGraph.TextureGraphExternal, T:Vixen.Editor.TextureGraph.TextureGraphExternals, T:Vixen.Editor.TextureGraph.TextureProjectImages, T:Vixen.Editor.TextureGraph.TextureGraphKernel, T:Vixen.Editor.TextureGraph.TextureGraphNodeImage, T:Vixen.Editor.TextureGraph.TextureGraphParameter, T:Vixen.Editor.TextureGraph.TextureGraphParameters, T:Vixen.Editor.TextureGraph.TextureGraphParameterKind, T:Vixen.Editor.TextureGraph.TextureGraphSettings]
 tags: [editor, texture-graph, material-authoring, node-graph, compiler]
 since: 0.1
 status: preview
@@ -82,10 +82,41 @@ foreach (var entry in owed) {
 ⚠ **A caller that ignores `owed` bakes a black image rather than failing.** An external nothing filled
 is an image with no texels, and a kernel sampling it reads zero.
 
+### Filling one from a project
+
+`TextureProjectImages` is the second half, for a host that has an `EditorProject`. It resolves an
+asset reference through the project's own asset database, refuses a picture the plan's slot cannot
+hold, and uploads the rest — one sentence per entry it could not fill, in the order the plan names
+them:
+
+```csharp no-compile="illustrative — `uploads`, `plan` and `project` come from a live host"
+var unresolved = TextureProjectImages.Fill(project, uploads, plan, owed, Decoded);
+```
+
+⚠ **The read is a callback and not something this does for you**, which is the one thing to know
+before calling it. Choosing a decoder for a file extension belongs to the assemblies that own image
+formats, and reaching them from here would put the whole runtime behind a bake — so a host hands in a
+`Func<string, (TextureData? Picture, string? Unreadable)>` that opens the file it is given. That is
+also where a cache goes: the editor answers out of the store holding the session's live pixels, so a
+preview re-evaluating on every edit does not re-decode a 4K PNG, and a build script simply opens the
+file.
+
+⚠ **A reference carrying a scheme is refused rather than looked up as a path.** `meshmap:curvature`
+and `vxpaint:…` name something a live editor session supplies; a host that can fill one claims it
+*before* calling this, and one that cannot gets a sentence saying so rather than a missing-file
+message about a file nobody named.
+
 ## Parameters, and the two directions they travel
 
-`TextureGraphParameter` is a knob an author exposed: a name, a `TextureGraphParameterKind`
-(`Scalar`, `Integer` or `Boolean`), a default, a range, and a group.
+`TextureGraphParameter` is a knob an author exposed: a name, a `TextureGraphParameterKind`, a
+default, a range, and a group.
+
+⚠ **There are four kinds and this sentence listed three.** `Scalar`, `Integer` and `Boolean` reach
+`TextureGraphExpressions` as a `const val` an expression inside the published graph may spell;
+`Name` — added 2026-09-08 — never does, because a name is not a number and a source that declared
+one would not parse. What reads a `Name` is `TextureGraphParameters.IsReference`'s convention, one
+level down, against a `[Setting]` on a node *inside* the graph. So a knob's kind decides **which of
+the two directions below it travels**, and only three of the four fold into arithmetic.
 
 They travel both ways, which is what `TextureGraphParameters` is for:
 

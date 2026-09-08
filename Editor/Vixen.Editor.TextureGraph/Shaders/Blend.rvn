@@ -7,7 +7,7 @@ import Vixen.Shaders.Material
 
 // Two images composited into one, under a mode and an opacity.
 //
-// **The model, stated once, because two front ends and forty-five other kernels depend on it.** An
+// **The model, stated once, because two front ends and every other kernel in this folder depend on it.** An
 // image here is a *straight* colour and a coverage: `xyz` is what the texel looks like where it is
 // covered at all, and `w` is how much of it there is. This kernel composites source-over — the
 // foreground's coverage times the opacity decides how much of the operator's answer replaces the

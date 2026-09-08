@@ -3,7 +3,7 @@ title: The texture graph plugin
 slug: editor/texture-graph-plugin
 kind: guide
 area: Editor
-summary: The .vxtexgraph document, the panel that edits one, and the module that registers both through the plugin contract — plus the three things a plugin still cannot do, each named with the change that would close it.
+summary: The .vxtexgraph document, the panel that edits one, and the module that registers both through the plugin contract — plus the three things a plugin could not do when this module was written, each with the change that closed it.
 api: [T:Vixen.Editor.Texturing.TexturingModule, T:Vixen.Editor.Texturing.TextureGraphDocument]
 tags: [editor, plugin, texture-graph, material-authoring, node-graph]
 since: 0.1
@@ -65,12 +65,13 @@ document.Save();
 ⚠ **A file this build cannot read opens anyway**, with the reason in `LoadDiagnostics` — the panel
 that could show the problem is only reachable if the document opens.
 
-## Three things a plugin could not do. Two of them it can now
+## Three things a plugin could not do. All three it can now
 
 Doc 48 § D14 predicted two of these and said finding out was the point. All three were confirmed, and
 none of them was worked around — a panel that reached past the plugin contract would have made the
-gap invisible, which is the one thing this module exists not to do. ⚠ **All three are now closed in
-the editor; the third is not yet *used* here**, and the difference is the section below.
+gap invisible, which is the one thing this module exists not to do. ⚠ **All three are closed, and
+all three are used here** — the heading said "two of them" and the paragraph under it said the third
+was closed but unused, which was two answers in four lines and both behind the tree.
 
 **A graphics device — closed.** `EditorApplication.PluginPoints` publishes `IEditorGraphics`: the
 editor's device to allocate on and dispatch over, and an upload that turns pixels into the number an
@@ -94,16 +95,19 @@ so the generated `NodeTypes.Register` crossed the plugin boundary and the thing 
 into a `TexturePlan` did not — the panel could draw the node library and not compile it.
 [#738](https://github.com/Rikarin/Vixen/issues/738) made the type `public`.
 
-⚠ **What the pane shows is still the graph's base layer**, and its status line gave the old reason
-for a further batch until [#816](https://github.com/Rikarin/Vixen/issues/816) — it now names
-[#792](https://github.com/Rikarin/Vixen/issues/792), the gap that is actually open. A visibility that
-is fixed and a gap that is closed have come apart, which is worth reading as the more general lesson
-here, because it is this repository's commonest defect wearing the clothes of a fix: the plugin does
-compile a canvas through the public compiler in two places — `TextureGraphDocument.Compile` and the
-layer stack's `LayerStackCompiler`, which bakes a real map — and the graph pane is simply the one
-caller nobody wired.
-[#792](https://github.com/Rikarin/Vixen/issues/792) is that, and the sentence under the preview now
-names it rather than the visibility that was closed.
+⚠ **This section said "what the pane shows is still the graph's base layer" and named
+[#792](https://github.com/Rikarin/Vixen/issues/792) as the open gap; both were stale by
+2026-09-08.** `TextureGraphPreview.Evaluate` compiles the open document
+(`TextureGraphDocument.Compile`), refuses before asking for a device when it does not compile, takes
+the first `Output` by usage and evaluates *that* plan — `Base(width, height)` is the empty
+document's picture, not the pane's answer. And #792 was never this gap: it was
+"six places still say `TextureGraphCompiler` is internal", closed with
+[#816](https://github.com/Rikarin/Vixen/issues/816)'s corrections.
+
+⚠ **A citation is the part of a page that rots without reading wrong**, which is the general lesson
+worth keeping from the paragraph this replaces: a number stays put while what it points at closes,
+and a reader who trusts it inherits a gap that no longer exists. Resolve every issue number against
+`gh issue view` before repeating it.
 
 **An asset-editor registration could not be undone — closed.** `AssetEditorRegistry.Add` hands back
 an `IDisposable` now, the way `IEditorRegistry.Add` already did, and it gives up the editor's name
@@ -121,21 +125,28 @@ host published a registry rather than declared.
 The canvas is real and complete: the graph, the document's own `CommandStack` behind every gesture,
 and the node library in the search popup.
 
-The preview pane carries a real picture in a host with a device: a one-op `TexturePlan` at the
-document's resolution, dispatched by `TexturePlanEvaluator` and uploaded through
-`IEditorGraphics.Upload`. The extent is the document's either way, so the zoom, the fit and the
-pointer readout are in the texels an author is authoring — and the line under it says the picture is
-the graph's **base layer** rather than the wired graph, or, in a host with no device, which of the
-two reasons the pane is empty.
+The preview pane carries a real picture in a host with a device: `TextureGraphPreview.Evaluate`
+compiles the open document, refuses **before** asking for a device when it does not compile, takes
+the first `Output` the compilation names, and dispatches that plan through `TexturePlanEvaluator`,
+uploading through `IEditorGraphics.Upload`. The extent is the document's either way, so the zoom,
+the fit and the pointer readout are in the texels an author is authoring. ⚠ **This paragraph said
+the pane draws "a one-op `TexturePlan`" and that its status line says the picture is the graph's
+base layer; both were behind the tree.** `TextureGraphPreview.Base` is the plan for a document with
+nothing wired, and the statuses an empty pane shows are a compile refusal, a missing device, or a
+graph with no `Output` node — each in its own sentence.
 
 ⚠ **Every route into the evaluation is outside the host's own frame.**
 `TexturePlanEvaluator.Evaluate` drives `BeginFrame`, `EndFrame` and `WaitIdle` on the device itself,
 so a call from inside `EditorHost.Present`'s pair would reset a command pool with work still
 executing in it. A command handler and a panel build both run from `EditorApplication.Update`.
 
-⚠ **The base resolution is held rather than saved.** `NodeGraphModel` carries a name, a node list and
-an interface, with nowhere to put a number — the same gap `TextureGraphCompiler.BaseWidth` records —
-so a `.vxtexgraph` does not round-trip its authoring size yet.
+⚠ **This section said the base resolution is held rather than saved, because `NodeGraphModel` had
+nowhere to put a number. It has one.** `TextureGraphSettings.Declare` writes `baseWidth`,
+`baseHeight` and `seed` into `NodeGraphModel.Settings`, and every shipped compound carries the line
+— `settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }`. What deliberately stays *out* of
+the file is what the bake decides rather than what the graph declares: `BakeLevelOffset`, a
+`.vxsmartmat`'s overrides and the panel's preview-every-node tick, each of which in the file would be
+a bake somebody saved by accident.
 
 ## See also
 

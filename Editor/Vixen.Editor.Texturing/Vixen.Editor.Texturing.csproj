@@ -113,6 +113,15 @@
         <ProjectReference Include="..\..\Core\Vixen.Ui.Controls.Advanced\Vixen.Ui.Controls.Advanced.csproj" />
 
         <!--
+            ⚠ And `InputKey`, for one switch: `PaintUvView.Keyed` answers Enter, Escape and
+            Backspace while a pen path is half placed — #1084. It arrives transitively through
+            `Vixen.Ui`, whose `KeyEvent` carries one, and it is named for the reason every other
+            transitive reference in this file is: the day somebody narrows that one is the day this
+            file stops compiling for a reason nothing states.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Input\Vixen.Input.csproj" />
+
+        <!--
             ⚠ The slider and the segmented control the brush inspector is, named rather than taken
             transitively through the line above. It arrives either way — `Vixen.Ui.Controls.Advanced`
             references it — and a reference this assembly *uses* is written down, for the same reason
@@ -181,15 +190,45 @@
 
         At the bottom of the file, because the glob has to run after DefaultItemExcludes is final.
 
-        ⚠ **There is no `.vxml` in this project, so the other half of the .targets is inert here** —
-        the `**/*.vxml` glob produces no items and VX4002 and VX4003 are both conditioned on it
-        finding some. That is the state `Vixen.Editor.NodeGraph` was in, and its own comment records
-        what happens on the day it stops being true: the glob makes a `.vxml` an `AdditionalFiles`,
-        no analyzer reads it, and the build fails with "does not contain a definition for" on every
-        member the markup declares. The two errors above exist to catch exactly that; the line that
-        fixes it is `<VixenUi>true</VixenUi>` in the first PropertyGroup. The second half of #881 —
-        the panel as markup — is what would bring a `.vxml` here.
+        ⚠ **And for the `**/*.vxml` glob, which stopped being inert with `LayerStackChrome.vxml`** —
+        #881's second half. The comment that used to stand here predicted the day a `.vxml` appeared
+        and named the wrong cure: it said, as VX4002's and VX4003's own message text still does, that
+        "the one line that fixes it is `<VixenUi>true</VixenUi>`". ⚠ **That line does nothing in
+        *this* project, and it cannot.** `Directory.Build.targets` conditions the two analyzer
+        references on `'$(_VixenUiWiredByProject)' != 'true'`, and `_VixenUiWiredByProject` is the
+        flag *this very import* sets — so a project that names the .targets by hand is exactly the
+        project `VixenUi` skips, and it is also exactly the set of projects that can reach VX4002 at
+        all. Confirmed by asking a real evaluation: `-getItem:ProjectReference -p:VixenUi=true` on
+        this file lists neither generator. The cure for a hand-wired project is the one VX4003's
+        message describes second — name both generators here, which is what the ItemGroup below does.
     -->
     <Import Project="..\..\Core\Vixen.Ui\build\Vixen.Ui.targets" />
+
+    <ItemGroup>
+        <!--
+            ⚠ **The VXML compiler, and it has to be named here because analyzers are not transitive
+            through a `ProjectReference`.** `OutputItemType="Analyzer"` contributes one DLL and
+            nothing else; without it the `.vxml` above is `AdditionalFiles` that nothing reads, and
+            the build fails with "does not contain a definition for" on every member the markup
+            declares — blaming a hand-written file that is correct. VX4002 is the check that catches
+            that state and names this line.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Markup.Generators\Vixen.Ui.Markup.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false"
+                          PrivateAssets="all" />
+
+        <!--
+            ⚠ **And the other one, which is the half seven projects reached master without.**
+            `Vixen.Ui.Generators` turns a `[UiProperty]` into a property the style system can see and
+            carries `ComponentParameterAnalyzer` (VXS0320) — the analyzer that tells a component
+            author a plain property is not a parameter. Both consequences of its absence are silence
+            rather than an error, which is why VX4003 exists to fail the build instead.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Generators\Vixen.Ui.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false"
+                          PrivateAssets="all" />
+    </ItemGroup>
 
 </Project>

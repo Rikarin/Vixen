@@ -1,0 +1,139 @@
+version: 1
+name: Wood Grain
+nodes:
+  - id: 1
+    type: Source/Gradient
+    x: -1600
+    y: 0
+    values: {}
+    texts: { Kind: Linear }
+  - id: 2
+    type: Space/Mirror
+    x: -1280
+    y: 0
+    values:
+      Offset: [0.5]
+    texts:
+      Axis: X
+      Mode: Reflect
+  - id: 3
+    type: Space/Tile
+    x: -960
+    y: 0
+    values:
+      Repeat Y: [1]
+    texts: {}
+  - id: 4
+    type: Source/Noise
+    x: -1280
+    y: 300
+    values:
+      Scale: [2.5]
+      Octaves: [2]
+      Tiling: [1]
+    texts: { Basis: Gradient }
+  - id: 5
+    type: Filters/Warp
+    x: -640
+    y: 0
+    values: {}
+    texts:
+      '=Intensity': wander * 26f
+  - id: 6
+    type: Source/Noise
+    x: -1280
+    y: 560
+    values:
+      Scale: [48]
+      Tiling: [1]
+    texts: { Basis: Value }
+  - id: 7
+    type: Filters/Directional Blur
+    x: -960
+    y: 560
+    values:
+      Angle: [1.5707964]
+      Length: [24]
+    texts: {}
+  - id: 8
+    type: Colour/Auto Levels
+    x: -640
+    y: 560
+    values: {}
+    texts: {}
+  - id: 9
+    type: Filters/Directional Warp
+    x: -320
+    y: 0
+    values:
+      Angle: [0]
+    texts:
+      '=Intensity': fibre * 40f
+  - id: 10
+    type: Colour/Levels
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      '=Input White': 0.5f
+      '=Gamma': 1f + ring * 3f
+  - id: 11
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+  - id: 12
+    type: Sub-graph/Input
+    x: -1600
+    y: 300
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 12, fromPort: Rings, toNode: 3, toPort: Repeat X }
+  - { fromNode: 3, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Warp }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: Input }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 9, toPort: Input }
+  - { fromNode: 8, fromPort: Out, toNode: 9, toPort: Warp }
+  - { fromNode: 9, fromPort: Out, toNode: 10, toPort: Input }
+  - { fromNode: 10, fromPort: Out, toNode: 11, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Rings
+    direction: Input
+    kind: Int
+    default: [6]
+    summary: How many growth rings across the board.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The grain, as a height — a mirrored ramp tiled into rings, wandered, then fibred.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: wander
+    default: '0.5'
+    summary: How far a ring bends away from straight.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Grain
+  - name: fibre
+    default: '0.45'
+    summary: How coarse the fibres running along the grain are.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Grain
+  - name: ring
+    default: '0.4'
+    summary: How sharply the latewood band stands out from the earlywood.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Grain

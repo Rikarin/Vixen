@@ -43,6 +43,22 @@ shader GBufferPass {
     var world: mat4
     var worldViewProjection: mat4
 
+    /// Where the eye is, so the material chain can be handed the direction toward it.
+    ///
+    /// ⚠ **A binding this pass did not need until a material feature could displace the coordinate.**
+    /// A G-buffer pass shades nothing, so it never wanted a view vector — but it *samples*, and a
+    /// parallax feature decides where to sample by walking along the ray toward the eye. Deferred
+    /// materials would otherwise be the one path on which that feature silently did nothing, which is
+    /// the failure `MaterialFeatureStage` was written against in the chain and would be the same
+    /// failure between passes.
+    ///
+    /// `[PerView]` because that is what it is: one value for the whole pass, the same one
+    /// `ClusteredShading` and `MotionVectors` declare under this name. ⚠ **And nothing fills it
+    /// today** — no host in the repository binds `GBufferPass` at all; it is the library's statement
+    /// of the deferred half rather than a pass anything draws. The day one does, this is a binding it
+    /// has to write, exactly as `ForwardPlus` already requires.
+    [PerView] var viewPosition: float3
+
     var alphaCutoff: float = 0.5f
 
     /// The bone palette, sized by the same constant every skinned pass uses.
@@ -105,7 +121,7 @@ shader GBufferPass {
     [FragmentShader]
     func Fragment(): GBufferTargets {
         var d: MaterialData
-        MaterialDefaults.Begin(d, normalWS, tangentWS, uv)
+        MaterialDefaults.Begin(d, normalWS, tangentWS, uv, Math.SafeNormalize(viewPosition - positionWS))
         surface.Compute(d)
 
         if (AlphaTested) {

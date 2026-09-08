@@ -3,6 +3,7 @@
 
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
+using Vixen.Input;
 using Vixen.Ui;
 using Vixen.Ui.Controls.Advanced;
 
@@ -67,10 +68,18 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         turns out to be nothing whatever: <c>BrushStroke.MoveTo</c> already walks the segment
 ///         between two positions laying evenly spaced stamps and carrying the leftover distance, so
 ///         a line is two <see cref="PaintSession.MoveAll(ReadOnlySpan{Vector2}, List{PaintRect})" />
-///         calls and one undo entry. ⚠ <b>A <em>curved</em> path is the half that still needs
-///         something</b> — points sampled along the curve, because those two calls interpolate
-///         straight — and there is nowhere in this plugin to author control points, so it is filed
-///         rather than built.
+///         calls and one undo entry.
+///     </para>
+///     <para>
+///         ⚠ <b>A <em>curved</em> path needed a front end and not a sampler, which is what
+///         <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a> found.</b> Those two
+///         calls interpolate straight, so a curve fed to them as its endpoints paints its chord —
+///         and a sampler built before there was anywhere to author control points would have been a
+///         finished thing nothing called. <see cref="PaintToolMode.Path" /> is that somewhere: left
+///         click places a point, Enter or a right click lays the whole curve as one stroke, Escape
+///         drops it and Backspace takes a point back. <see cref="PaintPath" /> is the curve, and
+///         <see cref="StrokePath" /> is the six lines that hand its positions to the same
+///         <c>MoveAll</c> a drag uses.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>What the pane shows during a drag is <see cref="PaintComposite.Result" />, which is
@@ -99,6 +108,19 @@ sealed class PaintUvView {
     ///     artist is dragging, and the list is at most one rectangle per stamp the move earned.
     /// </remarks>
     readonly List<PaintRect> dirtied = [];
+
+    /// <summary>The curve an artist is placing, in <see cref="PaintToolMode.Path" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>On the view and not on the tool, because its points are texels of <em>this</em>
+    ///     atlas.</b> The tool survives the panel being closed and is shared with whatever 3D surface
+    ///     arrives; a half-placed path is a gesture in one pane at one resolution, and carrying it
+    ///     across either would be a curve through points nobody clicked. It is the same argument
+    ///     <see cref="anchor" /> already makes, which is why both are cleared together.
+    /// </remarks>
+    readonly PaintPath path = new();
+
+    /// <summary>Where the path's curve goes, kept rather than allocated per pointer move.</summary>
+    readonly List<Vector2> sampled = [];
 
     /// <summary>How many overlay segments belong to the islands rather than to the cursor.</summary>
     /// <remarks>
@@ -172,6 +194,11 @@ sealed class PaintUvView {
             (_, args) => Pointed(args),
             RoutingStrategy.Capture
         );
+
+        // ⚠ Bubble and not Capture, unlike the pointer above, and the asymmetry is the point.
+        // `ImageView` does not handle key events, so the ordinary registration runs; taking them on
+        // the capture leg would take Enter off anything the pane ever comes to contain.
+        Image.AddHandler<KeyEvent>((_, args) => Keyed(args));
 
         Status = "";
     }
@@ -261,11 +288,14 @@ sealed class PaintUvView {
         Image.ImageHeight = height;
 
         // A different atlas is a different coordinate space, so the old pan and zoom describe
-        // nothing — and neither does the anchor a shift-click would draw a line from. `Fit` answers
-        // false before the first layout and is asked again on the next show.
+        // nothing — and neither does the anchor a shift-click would draw a line from, nor the path a
+        // pen gesture has half placed. `Fit` answers false before the first layout and is asked
+        // again on the next show.
         if (resized) {
             fitted = false;
             anchor = null;
+
+            path.Clear();
         }
 
         // ⚠ Never while a stroke is in flight. `Fit` writes both `Zoom` and `Pan`, which are the
@@ -358,6 +388,8 @@ sealed class PaintUvView {
     public void ShowCursor(Vector2 at) {
         Image.Overlay.RemoveRange(outlines, Image.Overlay.Count - outlines);
 
+        ShowPath();
+
         var brush = tool.Brush;
 
         // The same two semi-axes `PaintBrush.Circularised` divides by, so the ring is the stamp's own
@@ -365,28 +397,198 @@ sealed class PaintUvView {
         var stretch = new PaintStamp(at, 0f, brush.Radius, 1f, brush.Aspect, brush.AspectAngle).Stretch;
         var half = MathF.Sqrt(stretch);
         var (sin, cos) = MathF.SinCos(brush.AspectAngle);
-        var previous = Rim(at, brush.Radius * half, brush.Radius / half, sin, cos, 0f);
+        var along = brush.Radius * half;
+        var across = brush.Radius / half;
 
-        for (var step = 1; step <= CursorSegments; step++) {
-            var point = Rim(at, brush.Radius * half, brush.Radius / half, sin, cos, step * (MathF.Tau / CursorSegments));
+        Span<Vector2> outline = stackalloc Vector2[tool.IsMasked ? 4 : CursorSegments];
+
+        Boundary(outline, tool.IsMasked, tool.IsAngled ? brush.Angle : 0f);
+
+        var previous = Rim(at, along, across, sin, cos, outline[^1]);
+
+        foreach (var unit in outline) {
+            var point = Rim(at, along, across, sin, cos, unit);
 
             Image.Overlay.Add(new(previous, point));
             previous = point;
         }
     }
 
-    /// <summary>One point of the stamp's boundary.</summary>
+    /// <summary>The curve being placed, drawn under the cursor.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Sampled at the same tolerance the stroke will be laid at, so the preview is the
+    ///         stroke's own path and not a smoother drawing of it</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1084">#1084</a>. A preview drawn from
+    ///         a second sampler is how a curve comes to look right in the pane and paint faceted,
+    ///         which is a defect an artist can only find by painting.
+    ///     </para>
+    ///     <para>
+    ///         Drawn from inside <see cref="ShowCursor" /> because that method owns the overlay's
+    ///         tail — the islands are the head — so one call rewrites both and neither can take the
+    ///         other off.
+    ///     </para>
+    /// </remarks>
+    void ShowPath() {
+        if (path.Points.Count == 0) {
+            return;
+        }
+
+        path.Sample(sampled);
+
+        for (var step = 1; step < sampled.Count; step++) {
+            Image.Overlay.Add(new(sampled[step - 1], sampled[step]));
+        }
+
+        // A tick at each placed point, so an artist can tell a point they clicked from the curve
+        // through it — which is what says whether the next click will extend or correct.
+        foreach (var point in path.Points) {
+            Image.Overlay.Add(new(point - new Vector2(3f, 0f), point + new Vector2(3f, 0f)));
+            Image.Overlay.Add(new(point - new Vector2(0f, 3f), point + new Vector2(0f, 3f)));
+        }
+    }
+
+    /// <summary>The keys a half-placed path answers to.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only while there is a path, and that is what keeps them out of everybody's way.</b>
+    ///     Enter, Escape and Backspace all belong to something else in an editor — a dialog, a
+    ///     field, a dock — and a pane that swallowed them whenever it had the focus would break
+    ///     those. With no points placed nothing here is handled, so the keys route on exactly as
+    ///     they did before this existed.
+    /// </remarks>
+    void Keyed(KeyEvent args) {
+        if (args.Action != KeyAction.Pressed || path.Points.Count == 0) {
+            return;
+        }
+
+        switch (args.Key) {
+            case InputKey.Enter when args.Has(ModifierKeys.None):
+                StrokePath();
+
+                break;
+
+            case InputKey.Escape when args.Has(ModifierKeys.None):
+                path.Clear();
+                Say("Path cleared.");
+                ShowCursor(last);
+
+                break;
+
+            case InputKey.Backspace when args.Has(ModifierKeys.None):
+                path.Undo();
+                Say($"{path.Points.Count} point(s). Enter or right-click lays the curve.");
+                ShowCursor(last);
+
+                break;
+
+            default:
+                return;
+        }
+
+        args.Handled = true;
+    }
+
+    /// <summary>Lays the placed curve as one stroke, and forgets it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>At zero smoothing whatever the tool's slider says, for the shift-click line's
+    ///         reason</b> — <c>PaintStroke</c> lags the input points, so a path laid from sampled
+    ///         positions would be pulled off the curve by exactly the smoothing fraction, and the
+    ///         painting would miss the drawing the artist was looking at. #1084 names this half
+    ///         explicitly.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One session and therefore one undo entry</b>, however many positions the curve
+    ///         was sampled at: the tolerance decides how often the stroke is told where the pointer
+    ///         is and not how many stamps it lays, which is <c>BrushStroke</c>'s spacing's job.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A path that cannot be painted is kept rather than dropped.</b> Pointer-down fails
+    ///         when no stack is open or no layer is selected, and an artist who has clicked eleven
+    ///         points would lose all of them to one refusal they can fix and retry.
+    ///     </para>
+    /// </remarks>
+    void StrokePath() {
+        if (!path.IsStrokeable) {
+            path.Clear();
+            Say("A path needs two points before it is a stroke.");
+
+            return;
+        }
+
+        if (Begin(0f) is not { } started) {
+            return;
+        }
+
+        session = started;
+        Live = started.Composite;
+
+        // ⚠ Its own list rather than the preview's. `Stamp` can redraw the cursor, which resamples
+        // into `sampled` — so walking that one here would be mutating the collection being walked,
+        // for a saving of one allocation per commit gesture.
+        List<Vector2> positions = [];
+
+        path.Sample(positions);
+
+        foreach (var at in positions) {
+            Stamp(at, false);
+        }
+
+        End();
+        path.Clear();
+        ShowCursor(last);
+    }
+
+    /// <summary>The stamp's boundary, on the unit circle or the unit square.</summary>
+    /// <param name="outline">Where the points go. Its length is how many there are.</param>
+    /// <param name="square">Whether the stamp is a masked one, whose boundary is its square.</param>
+    /// <param name="angle">How far the square is turned, in radians.</param>
+    /// <remarks>
+    ///     ⚠ <b>A square for a masked brush, and it is the difference between a settable angle and
+    ///     an unsettable one</b> — <a href="https://github.com/Rikarin/Vixen/issues/1083">#1083</a>.
+    ///     A masked stamp covers its square and not the disc inside it, so a ring drawn over one lies
+    ///     about the stamp by the corners — and, worse, it is the same picture at every angle, which
+    ///     leaves an artist setting a rotation they cannot see. The corners are at <c>(±1, ±1)</c>
+    ///     because that is where <c>TerrainBrush</c>'s alpha uv reaches one.
+    ///     <para>
+    ///         The turn is <see cref="PaintTool.IsAngled" />'s and not the brush's angle outright:
+    ///         under <c>BrushRotation.Random</c> or <c>AlongStroke</c> the next stamp's angle is not
+    ///         known until it is laid, so an upright square is the honest drawing of it.
+    ///     </para>
+    /// </remarks>
+    static void Boundary(Span<Vector2> outline, bool square, float angle) {
+        if (square) {
+            var (sin, cos) = MathF.SinCos(angle);
+
+            ReadOnlySpan<Vector2> corners = [new(1f, 1f), new(-1f, 1f), new(-1f, -1f), new(1f, -1f)];
+
+            for (var corner = 0; corner < outline.Length; corner++) {
+                var (x, y) = (corners[corner].X, corners[corner].Y);
+
+                outline[corner] = new((x * cos) - (y * sin), (x * sin) + (y * cos));
+            }
+
+            return;
+        }
+
+        for (var step = 0; step < outline.Length; step++) {
+            var (y, x) = MathF.SinCos(step * (MathF.Tau / outline.Length));
+
+            outline[step] = new(x, y);
+        }
+    }
+
+    /// <summary>One point of the stamp's boundary, in the atlas.</summary>
     /// <param name="at">Where the stamp is, in texels.</param>
     /// <param name="along">Its long semi-axis, in texels.</param>
     /// <param name="across">Its short one.</param>
     /// <param name="sin">The sine of the long axis's angle in the atlas.</param>
     /// <param name="cos">Its cosine.</param>
-    /// <param name="angle">How far round the boundary, in radians.</param>
+    /// <param name="unit">The point of the boundary, on the unit circle or the unit square.</param>
     /// <returns>The point, in texels.</returns>
-    static Vector2 Rim(Vector2 at, float along, float across, float sin, float cos, float angle) {
-        var (y, x) = MathF.SinCos(angle);
-        var u = x * along;
-        var v = y * across;
+    static Vector2 Rim(Vector2 at, float along, float across, float sin, float cos, Vector2 unit) {
+        var u = unit.X * along;
+        var v = unit.Y * across;
 
         return at + new Vector2((u * cos) - (v * sin), (u * sin) + (v * cos));
     }
@@ -401,7 +603,7 @@ sealed class PaintUvView {
     ///     be on the canvas with nothing on the undo stack to take it off.
     /// </remarks>
     void Pointed(PointerEvent args) {
-        if (session is null && !tool.IsPainting) {
+        if (session is null && tool.Mode == PaintToolMode.Select) {
             return;
         }
 
@@ -411,6 +613,37 @@ sealed class PaintUvView {
                 ShowCursor(ToTexels(args.X, args.Y));
 
                 return;
+
+            // ⚠ Before the painting cases, because a press in `Path` mode is not a stroke and the
+            // case below it would swallow one. Left places a point and right lays the curve: the
+            // pen gesture every polygon tool uses. Enter does it too — see `Keyed` — and the two are
+            // both here because the keyboard one needs the pane to hold the focus and a pointer
+            // gesture never does.
+            case PointerAction.Pressed when session is null && tool.Mode == PaintToolMode.Path:
+                switch (args.Button) {
+                    case PointerButton.Primary:
+                        path.Add(ToTexels(args.X, args.Y));
+
+                        // So that Enter, Escape and Backspace reach `Keyed`. Taken on the first
+                        // point rather than at build, because a pane that stole the focus when it
+                        // opened would take it off whatever the artist was typing in.
+                        Image.Document.Focus(Image);
+
+                        ShowCursor(ToTexels(args.X, args.Y));
+                        Say($"{path.Points.Count} point(s). Enter or right-click lays the curve.");
+
+                        break;
+
+                    case PointerButton.Secondary:
+                        StrokePath();
+
+                        break;
+
+                    default:
+                        return;
+                }
+
+                break;
 
             case PointerAction.Pressed when session is null && args.Button == PointerButton.Primary:
                 var line = anchor is not null && (args.Modifiers & ModifierKeys.Shift) != 0;

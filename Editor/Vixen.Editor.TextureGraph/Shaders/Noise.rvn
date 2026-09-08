@@ -32,8 +32,16 @@ import Vixen.Shaders.Core
 // ⚠ **`ComputeColor.ValueNoise` and `ComputeColor.FractalNoise` are still not called**, and that is
 // a choice rather than a leftover: they are very nearly `ValueAt` and `Fractal` and *very nearly* is
 // the problem. Neither takes a period, so neither can tile, which is what this kernel's `tiling`
-// exists for. Widening the library's pair to carry a period is a change to the shader graph's noise
-// and wants its own decision.
+// exists for.
+//
+// ⚠ **That decision was taken on 2026-09-08 and the answer is no** (#1077). The blast radius is one
+// node each — `ProceduralNodes.NoiseNode` and `FractalNoiseNode` are the only production callers of
+// `ComputeColor.ValueNoise` and `FractalNoise` in the tree — so the refusal is not about cost. It is
+// that a wrapping lattice is exact only when the scale and the lacunarity are whole numbers of
+// cells, and the paragraph below says this kernel *rounds* them rather than refusing, because a bake
+// is offline and a seam is worse than a rounded frequency. A material sampling per fragment has no
+// such licence, so a period on the library's pair would be a parameter that is silently wrong at
+// every non-integer scale in the one place it would be exposed.
 //
 // ## The seed
 //

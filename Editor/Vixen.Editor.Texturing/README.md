@@ -2,7 +2,7 @@
 
 Doc 48's texture graph, as a plugin — and the plugin is the point.
 
-`Vixen.Editor.TextureGraph` is a plan, an evaluator and forty-five compute kernels. Until this
+`Vixen.Editor.TextureGraph` is a plan, an evaluator and a folder of compute kernels. Until this
 assembly existed **none of it was reachable from the editor**: nothing registered a document, nothing
 registered a panel, nothing registered a command. Doc 48 § D14 says the whole document exists to
 prove one claim —
@@ -346,28 +346,47 @@ It is still written at pointer-up, and since format version 2 it is Deflated per
 — a stroked 4K channel is 4.09 MB rather than 64 MiB, for the same wall clock, because the raw write
 it replaces is I/O-bound ([#850](https://github.com/Rikarin/Vixen/issues/850)).
 
-### The 3D projection: the mechanism is here and the viewport is not
+### The 3D projection, and the pane it now has
 
 `PaintProjection`, `PaintFootprint`, `PaintSymmetry` and `PaintProjector` are § D13's **first** front
 end — the ray, the coordinate under it, the screen-radius conversion and the mirrors. `PaintProjector`
 is the whole of what a viewport calls: `Begin(eye, ray, screenRadius, out footprint)` at pointer-down
 and `Resolve(ray)` per move, whose span is exactly what `PaintSession.MoveAll` takes.
 
-⚠ **Nothing calls it yet, and the reason is a viewport rather than more arithmetic** —
-[#1063](https://github.com/Rikarin/Vixen/issues/1063). No pane in this editor shows a `.vxlayers`'
-model: the scene viewport shows the *scene*, and a stack names a model **asset path** that nothing
-maps to an entity, while a pane of the plugin's own cannot draw geometry because `IEditorGraphics`
-lends a device and `Upload` takes pixels.
+⚠ **For two batches nothing called any of it, and the gap was a viewport rather than more
+arithmetic** — [#1063](https://github.com/Rikarin/Vixen/issues/1063). `texturing.paint-3d` is that
+viewport: `PaintCamera` (orbit, pan, dolly, and a ray per pane pixel), `PaintMeshRaster` (a
+depth-buffered CPU rasteriser of the stack's own mesh) and `PaintMeshView` (the pane), wired by
+`TexturingModule` — which is where the mesh, the upload and the panel registration all live, and is
+therefore the only place the three could have been joined.
 
-The other half of that chain is done: `LayerStackMesh` keeps the positions beside the coordinates and
-hands back a `PaintProjection` built from both ([#1062](https://github.com/Rikarin/Vixen/issues/1062)).
-One resolution, five refusals, and a raycast that cannot disagree with the coverage map about which
-triangle is which — the two arrays are written by one loop over one index list, so a triangle reaches
-both or neither. ⚠ **What is left is entirely the host**, and the host is `TexturingModule`: it is
-what holds the resolved mesh, what holds the `IEditorGraphics` an upload goes through, and what builds
-the paint panel. A pane cannot reach any of the three from inside `Painting/`.
+⚠ **The plugin's own pane and deliberately not the scene viewport**, which is the issue's
+recommendation and its reasons stand: a stack names a model **asset path** that nothing maps to an
+entity, the scene's ray comes back in *world* space while `PaintProjection` works in the mesh's own,
+and what an artist would be looking at there is the entity's material rather than the stack's
+composite — so the stroke would be invisible until a bake. Here every pixel of the pane is the atlas
+the brush writes.
 
-Three things are worth knowing before that is wired.
+⚠ **A CPU rasteriser is what § D14's third bullet leaves as the only option**: `IEditorGraphics`
+lends a device and `Upload` takes *pixels*, so a plugin pane can present an image and nothing else.
+Two passes, and the split is exit criterion 8 rather than a structure — `Draw` is the geometry, run
+when the camera or the pane moves, and `Retexture` is the shading of one dirtied atlas rectangle, run
+per stamp against a bucketing of pane pixels by the atlas cell they read. ⚠ **A scan over every pane
+pixel would also be independent of the layer count and of the atlas size**, so a counter measuring
+only those two would call it local; `PaintMeshRaster.Shaded` counts the pixels a stamp actually
+visits and `Renders` counts the geometry passes, which is what makes the claim checkable.
+
+⚠ **The brush radius means pane *pixels* here and atlas *texels* in `PaintUvView`**, which is the
+difference between the two front ends rather than an inconsistency: a 3D view has a disc on the
+screen, and the texels it covers are a property of the chart under it.
+
+The other half of that chain landed first: `LayerStackMesh` keeps the positions beside the
+coordinates and hands back a `PaintProjection` built from both
+([#1062](https://github.com/Rikarin/Vixen/issues/1062)). One resolution, five refusals, and a raycast
+that cannot disagree with the coverage map about which triangle is which — the two arrays are written
+by one loop over one index list, so a triangle reaches both or neither.
+
+Three things are worth knowing about the conversion the pane drives.
 
 1. ⚠ **No raycaster was written.** `TriangleTree` in `Vixen.Core.Mathematics` already answers with the
    triangle, the barycentric weights and the distance. ⚠ **Its `Raycast` bounds the search at the
@@ -445,10 +464,10 @@ than one path, so no 2D stroke pays for it.
   an undo made through the editor's own verb leaves every control in the layers panel showing the
   value it had — the blend mode and the opacity as much as the mesh picker. An edit made *in* a row
   refreshes, which is why this is invisible from inside the panel.
-* **No `.vxml` yet, and no longer any inline styling either.** Doc 36 § P4 makes markup the authoring
-  path, and [#881](https://github.com/Rikarin/Vixen/issues/881) is the debt: `LayerStackView` builds
-  its tree in C#. ⚠ **Half of that has landed.** The layout is `TexturingTheme.vcss` — the flex boxes
-  that were fifty-two `SetStyle` calls are nineteen, and every one of the nineteen is either a
+* **The panel's frame is markup and its rows are not.** Doc 36 § P4 makes markup the authoring path,
+  and [#881](https://github.com/Rikarin/Vixen/issues/881) is the debt: `LayerStackView` built its
+  whole tree in C#. ⚠ **Two thirds of that has landed.** The layout is `TexturingTheme.vcss` — the flex boxes
+  that were fifty-two `SetStyle` calls are twenty-three, and every one of the twenty-three is either a
   runtime toggle (`display` written from `Show`) or a computed length (`depth × 12px`), neither of
   which a stylesheet can express. ⚠ **A plugin installs its own sheet**, which was worth checking
   before assuming otherwise: `EditorApplication` names the editor's five sheets one by one and
@@ -457,13 +476,35 @@ than one path, so no 2D stroke pays for it.
   relayout and `UiDocument.Load` appends. `LayerStackThemeTests` asserts the sheet reaches a real
   panel, by geometry rather than by declaration.
 
-  ⚠ **What is still owed is the harder half**: the tree as markup with a reactive row model. It is
-  not a syntax translation — `Show` rebuilds rows only when a *shape signature* changes, precisely so
-  a slider survives a refresh mid-drag, and a naive `@for` over the layer list re-runs every row body
-  on every evaluation. The `@for` key rule applies: key rows on the layer's `Id`, stable across
-  reorders by construction. ⚠ And the day a `.vxml` appears in this project, its `.csproj` needs
-  `<VixenUi>true</VixenUi>` — the `.vcss` glob it now imports also globs `**/*.vxml`, and the
-  generator is what VX4002 and VX4003 are there to say is missing.
+  ⚠ **The tree is `LayerStackChrome.vxml` now, and the rows are still C#.** The markup is the two
+  columns, the binding row, the actions row, the legend, the diagnostics block and the preview
+  column — everything about the panel that is a *fixed tree*, which is what markup expresses. It is
+  the element itself rather than a box around one (`@inherits Vixen.Ui.UiElement`, `@tag
+  layer-stack`), so no rule in the sheet and no geometry assertion moved a level. One region in it is
+  reactive: the diagnostics block is a `@for` over a `Signal<IReadOnlyList<string>>` and its
+  `display` is a class the sheet has both states of — the only one of the panel's fourteen `display`
+  toggles that stopped being a `SetStyle`, which took the file from twenty-five of them to
+  twenty-three.
+
+  ⚠ **What is still owed is the rows, and it is a model change before it is a markup change.**
+  `BuildContext.For` matches a key, *reuses the region and does not re-run the body*, so a row keyed
+  on `LayerAsset.Id` needs a `Signal<LayerAsset>` per row or a reorder keeps the row and shows the
+  previous layer's values — and `LayerAsset` holds no signal. Keying on the layer's *value* instead
+  is not available either: a row carries a slider an artist is holding, and a value key rebuilds it
+  on the keystroke that changed it. That is the same property `Show`'s shape signature already buys.
+  ⚠ And a second cost, measured: a markup binding is an `Effect`, which never runs on the write, so
+  moving the rows into markup moves the whole panel from synchronous to frame-deferred — six test
+  files and `LayerStackView.Status` read the tree immediately after a `Show`.
+
+  ⚠ **The build note that stood here was wrong, and it is worth reading before the next `.vxml`.** It
+  said the `.csproj` needs `<VixenUi>true</VixenUi>`, which is what VX4002's and VX4003's own message
+  text says. That line does nothing in *this* project: `Directory.Build.targets` conditions the two
+  analyzer references on `_VixenUiWiredByProject != true`, and that flag is set by the project's own
+  `Import` of `Vixen.Ui.targets` — which is the import that makes a `.vxml` compiler input in the
+  first place, so the projects that can reach VX4002 are exactly the ones `VixenUi` skips. Confirmed
+  with `dotnet msbuild -getItem:ProjectReference -p:VixenUi=true`, which lists neither generator. The
+  cure is the other one VX4003 names: reference `Vixen.Ui.Markup.Generators` and `Vixen.Ui.Generators`
+  with `OutputItemType="Analyzer"` from the `.csproj` itself.
 * **No base resolution in the file.** `NodeGraphModel` has nowhere to put one —
   [#719](https://github.com/Rikarin/Vixen/issues/719) — so `TextureGraphDocument.BaseWidth` is held,
   shown and not saved. A sidecar to hold it would be a second file that disagrees with the one #719

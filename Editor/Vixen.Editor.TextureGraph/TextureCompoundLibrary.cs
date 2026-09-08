@@ -59,6 +59,40 @@ public static class TextureCompoundLibrary {
     /// <summary>What a compound is written as.</summary>
     public const string Extension = ".vxtexgraph";
 
+    /// <summary>Where a project keeps the graphs it publishes as node types, under <c>Assets/</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Here rather than in the plugin, because two hosts spelling it are two answers to
+    ///     "is this project's compound a node type"</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1088">#1088</a>. The convention was
+    ///     <c>TextureNodeLibrary.CompoundFolder</c> in <c>Vixen.Editor.Texturing</c>, which
+    ///     <c>Tools/Vixen.Cli</c> cannot reference without dragging the editor shell into a
+    ///     command-line tool, so the CLI spelled <c>"Compounds"</c> a second time. The two agreed;
+    ///     the failure they were one edit away from is a graph that compiles in the panel and comes
+    ///     back <c>TG0001</c> — "no node type is registered" — from a build script, which reads as a
+    ///     broken graph rather than as a folder nobody looked in.
+    ///     <para>
+    ///         ⚠ <b>A project's compounds live here and nowhere else.</b> Walking the project for
+    ///         every <c>.vxtexgraph</c> would make every material's own graph a node type in every
+    ///         other material's menu, and the recursion refusal would be the only thing between an
+    ///         author and a graph that contains itself. A named folder is a convention somebody can
+    ///         read; the folder not existing is the ordinary case and publishes the shipped
+    ///         compounds alone.
+    ///     </para>
+    /// </remarks>
+    public const string Folder = "Compounds";
+
+    /// <summary>Which folder a project's compounds are read from.</summary>
+    /// <param name="assets">A project's <c>Assets/</c> folder, or <see langword="null" /> for none.</param>
+    /// <returns>The folder to pass <see cref="Publish" />, or <see langword="null" /> when there is no project.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Here rather than at each caller, because a second spelling of the join is a second
+    ///     answer to "did that file change".</b> <c>TextureGraphDocument.Republish</c> asks whether
+    ///     a saved graph is one of these, and a copy of the <c>Path.Combine</c> would be a copy that
+    ///     stops agreeing the day the convention moves.
+    /// </remarks>
+    public static string? FolderOf(string? assets) =>
+        assets is { Length: > 0 } ? Path.Combine(assets, Folder) : null;
+
     /// <summary>The folder inside this assembly the shipped compounds are embedded from.</summary>
     const string Root = "Vixen.Editor.TextureGraph.Compounds.";
 

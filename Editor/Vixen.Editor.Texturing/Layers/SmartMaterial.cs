@@ -69,6 +69,37 @@ sealed record SmartMaterialApplied(ImmutableArray<LayerAsset> Layers, string Sta
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/1072">#1072</a>).
 ///     </para>
 ///     <para>
+///         ⚠ <b>And the decision that issue was waiting for: applying a smart material is a
+///         <em>paste</em>, not a live instance, so there is no link and the anchor question does not
+///         arise.</b> #1072's preferred answer records which shelf entry a <em>group</em> came from,
+///         and there is no group: <see cref="Prepare" /> returns a flat array and
+///         <see cref="ApplySmartMaterialCommand" /> appends it after renaming, so nothing in the file
+///         says those layers arrived together. The two ways to make one both cost more than the
+///         feature — wrapping in a group is not neutral in this compiler, where a group isolates a
+///         chain and its alpha <em>is</em> its coverage, and keying on the renamed ids leaves a link
+///         every later edit can invalidate.
+///     </para>
+///     <para>
+///         ⚠ <b>What made that trade look otherwise was a panel that could not edit the layers a
+///         paste leaves behind, and that changed</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1086">#1086</a>. The issue's own case is
+///         "the rust is heavier on the hull than on the hatch", and its stated workaround —
+///         saving three smart materials — was forced by there being nothing in the panel that could
+///         retune the seven layers an apply produces. A filter's numbers and settings and a mask
+///         effect's are editable there now, so one shelf entry over three assets with three sets of
+///         numbers is a workflow rather than a pile of near-identical files.
+///     </para>
+///     <para>
+///         ⚠ <b>What is still owed is smaller than the issue states, and is a shortcut rather than a
+///         capability.</b> A <c>.vxsmartmat</c> could declare knobs of its own and let its layers
+///         name them, so that the apply verb can offer three numbers instead of asking an artist to
+///         find seven layers. That needs a dialog on the apply verb, which today applies whatever is
+///         selected with no prompt at all — so building the substitution first would be a mechanism
+///         whose only caller passes the default, which is this workstream's commonest defect. The
+///         format line's first clause should be read as those declared knobs, and the line itself is
+///         worth correcting where it reads as a per-application record.
+///     </para>
+///     <para>
 ///         ⚠ <b>The file <em>is</em> a <c>.vxlayers</c>, byte for byte, and that is the design rather
 ///         than an economy.</b> <see cref="LayerStackYaml" /> reads and writes it, so there is no
 ///         second serialiser to drift, no second set of refusals for an unknown blend mode, and the

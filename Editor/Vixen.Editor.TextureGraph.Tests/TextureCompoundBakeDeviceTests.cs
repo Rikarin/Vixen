@@ -37,8 +37,60 @@ namespace Tests;
 ///     </para>
 /// </remarks>
 public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
-    /// <summary>How wide and tall every bake here is, in texels.</summary>
+    /// <summary>How wide and tall the focused cases below bake, in texels.</summary>
+    /// <remarks>
+    ///     Each of those has an oracle of its own — a seam ratio, a count of moved texels — that is a
+    ///     property of the arrangement rather than of the extent, so 64 buys them speed and costs
+    ///     nothing. <see cref="RollCallSide" /> is the number the library-wide claim needs.
+    /// </remarks>
     const int Side = 64;
+
+    /// <summary>How wide and tall the roll call bakes, in texels.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The extent every shipped compound declares</b> — <c>baseWidth: 1024</c> in every one
+    ///         of them — and doc 48 § D8's whole point is that a filter's numbers are texels at the
+    ///         base resolution. A roll call at 64 measured the library at one sixteenth of the scale
+    ///         it was authored for (<a href="https://github.com/Rikarin/Vixen/issues/1085">#1085</a>).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>#1085 called it a budget question and the budget is not the obstacle.</b> Measured
+    ///         as a differential on one Apple M1 Max in one process, alternating extents so the
+    ///         pipelines are warm for both: thirty-one compounds cost 936 ms at 64 and 2810 ms at
+    ///         1024, and over three such pairs the gap ran between 0.4 s and 1.9 s. It is 256× the
+    ///         texels for under two seconds, because a roll call is one compile, one submit and one
+    ///         <c>WaitIdle</c> per compound and almost none of that is texels.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the extent buys is the second of #1085's two consequences and not the
+    ///         first, which is backwards.</b> That issue ranks "a compound broken at 1024 and
+    ///         accidentally fine at 64" above "good at 1024 and degenerate at 64", and names a
+    ///         saturating radius as invisible at the smaller extent. It is the more visible one
+    ///         there: a knob is texels and is <em>absolute</em>, while a generator's <c>Scale</c> is
+    ///         cells across the image and is not, so at 64 every radius is sixteen times bigger
+    ///         relative to what it acts on. A radius that wipes the picture wipes it at 64 first.
+    ///         What 64 could not see is a knob that is a <em>no-op</em> at 1024 — and a no-op passes
+    ///         its input through, which is a picture, so this bar cannot see it at either extent.
+    ///     </para>
+    ///     <para>
+    ///         <b>So the reason to be here is the consequence #1085 ranks second, and it had already
+    ///         happened before the library was committed.</b> That issue records
+    ///         <c>Grunges/Grunge Rust</c> baking <b>four</b> values at 64 — its erosion is 7.75 texels
+    ///         and its Worley cells are 4.5 there — and the file being softened until it read at both
+    ///         extents. That is good content changed to suit an extent nothing bakes at, and at the
+    ///         extent the file declares the pressure is gone.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What one extent still cannot see</b>, named rather than implied: a compound that
+    ///         draws at 1024 and degenerates at the size an author previews it at, and anything whose
+    ///         <em>chain length</em> is a function of the extent — a jump flood is one dispatch per
+    ///         halving and a reduction one per level, so those run a different op list here than in a
+    ///         256 thumbnail. Baking at two extents would see the first and was rejected: with
+    ///         <see cref="Stimulus" /> it is the same experiment twice, and without it the second
+    ///         extent fails good compounds.
+    ///     </para>
+    /// </remarks>
+    const int RollCallSide = 1024;
 
     /// <summary>Every shipped compound, inside a graph, evaluated, and none of them is a flat fill.</summary>
     /// <remarks>
@@ -57,7 +109,11 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     ///         here ends in one, so a flat fill comes back as <em>two</em> values. Measured:
     ///         <c>Utility/Histogram Range</c> with its <c>range</c> collapsed to zero draws 2, and
     ///         the least varied compound that is doing its job — <c>Patterns/Brick</c>, which is
-    ///         nearly binary — draws 6.
+    ///         nearly binary — draws 6 at 64 and 21 at <see cref="RollCallSide" />. Every other
+    ///         shipped compound draws more than a hundred there, so the bar is not close: the second
+    ///         and third least varied are <c>Grunges/Grunge Smears</c> at 111 and
+    ///         <c>Grunges/Grunge Rust</c> at 112, and the three <c>Patterns/</c> rows this batch added
+    ///         draw 125, 252 and 256.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The mesh maps are supplied here rather than skipped, and that is what lets the
@@ -83,16 +139,16 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         var baked = 0;
 
         foreach (var path in TextureCompoundLibrary.Shipped) {
-            var picture = Bake(device, evaluator, library, registry, path, Wired);
+            var picture = Bake(device, evaluator, library, registry, path, Wired, RollCallSide);
             var distinct = Distinct(picture);
 
-            output.WriteLine($"{adapter}: {path} → {distinct} distinct values over {Side}×{Side}");
+            output.WriteLine($"{adapter}: {path} → {distinct} distinct values over {RollCallSide}×{RollCallSide}");
 
             Assert.True(
                 distinct > 3,
-                $"{adapter}: '{path}' baked to {distinct} distinct values over {Side}×{Side}, which is a flat "
-                + "fill plus a levels node's dither. A compound is an arrangement of nodes that has to "
-                + "compute something."
+                $"{adapter}: '{path}' baked to {distinct} distinct values over {RollCallSide}×{RollCallSide}, "
+                + "which is a flat fill plus a levels node's dither. A compound is an arrangement of nodes "
+                + "that has to compute something."
             );
 
             baked++;
@@ -107,7 +163,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         // embedded with this case green: the equality above compares the loop with `Shipped`, and
         // `Shipped` is the manifest, so a glob that narrowed takes both sides down together. This is
         // the only number here that is independent of the assembly's own idea of what it ships.
-        Assert.True(baked >= 31, $"only {baked} compounds were baked, and thirty-one ship.");
+        Assert.True(baked >= 34, $"only {baked} compounds were baked, and thirty-four ship.");
     }
 
     /// <summary>
@@ -579,6 +635,37 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     /// <summary>What a compound's image inputs are wired to in the roll call.</summary>
     const string Wired = "Source/Noise";
 
+    /// <summary>How many texels across one feature of the picture a compound is fed measures.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The stimulus has to be measured in texels, because the knobs are</b> — and this is
+    ///         the half of <a href="https://github.com/Rikarin/Vixen/issues/1085">#1085</a> the issue
+    ///         did not predict. <c>Source/Noise</c>'s <c>Scale</c> is <em>cells across the image</em>,
+    ///         so its default of 8 is scale-invariant: at 64 a cell is 8 texels and at 1024 it is 128.
+    ///         A compound's radius is texels at the base resolution. So the two only meet at one
+    ///         extent, and moving the roll call to 1024 with the default stimulus made
+    ///         <c>Utility/Highpass</c> bake <b>2 distinct values</b> — a flat fill, below the bar.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And <c>Utility/Highpass</c> is not broken.</b> It is <c>0.5·in + 0.5·(1 −
+    ///         blur(in))</c>, which is exactly one half wherever the blur returns its input; its
+    ///         default radius is 8 texels, and against features 128 texels across there is genuinely
+    ///         no detail for it to keep. Tuning that file until the roll call was happy would have
+    ///         been tuning content to an instrument, which is the second failure #1085 names. Fixing
+    ///         the <em>stimulus</em> instead — <c>Scale = side / Stimulus</c>, so a feature is this
+    ///         many texels at every extent — puts every one of the thirty-one back above the bar,
+    ///         Highpass at a comfortable margin.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is also self-instrumenting, which is why the setting is not spelled twice.</b>
+    ///         If <c>SetValue</c> ever stopped naming a real input — a renamed port, a typo — the
+    ///         node would fall back to its scale-invariant default and <c>Utility/Highpass</c> would
+    ///         go flat again at 1024. The roll call goes red rather than quietly measuring something
+    ///         else.
+    ///     </para>
+    /// </remarks>
+    const int Stimulus = 8;
+
     /// <summary>Compiles one compound inside a graph, supplies its mesh maps and evaluates it.</summary>
     /// <param name="device">The device the mesh maps are uploaded on.</param>
     /// <param name="evaluator">The evaluator.</param>
@@ -586,6 +673,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
     /// <param name="registry">The registry they were published into.</param>
     /// <param name="path">The compound's node-type path.</param>
     /// <param name="source">The node type wired into each of its image inputs.</param>
+    /// <param name="side">How wide and tall to bake, in texels. The stimulus scales with it.</param>
     /// <returns>What it drew.</returns>
     static Bitmap Bake(
         IGraphicsDevice device,
@@ -593,7 +681,8 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         ISubGraphSource library,
         NodeTypeRegistry registry,
         string path,
-        string source
+        string source,
+        int side
     ) {
         NodeGraphModel graph = new();
         var used = graph.Add(path);
@@ -603,13 +692,20 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
 
         foreach (var port in registry.Types.Single(type => type.Path == path).Ports) {
             if (port is { Direction: PortDirection.Input, Kind: PortKind.Image }) {
-                graph.Connect(new(graph.Add(source).Id, "Out"), new(used.Id, port.Name));
+                var fed = graph.Add(source);
+
+                // ⚠ In texels, because the knobs downstream of it are — see `Stimulus`. The node's
+                // own default is cells across the image, which is scale-invariant, and a
+                // scale-invariant stimulus against a texel-valued radius is an experiment that only
+                // means anything at one extent.
+                fed.SetValue("Scale", side / (float)Stimulus);
+                graph.Connect(new(fed.Id, "Out"), new(used.Id, port.Name));
             }
         }
 
         TextureGraphCompiler compiler = new(registry) {
-            BaseWidth = Side,
-            BaseHeight = Side,
+            BaseWidth = side,
+            BaseHeight = side,
             Seed = 7717,
             SubGraphSource = library
         };
@@ -631,7 +727,7 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
             // an asset carries no size, because the size is the *picture's* and the compiler has not
             // seen it — doc 48 § D8's one absolute size, and `Bitmap.rvn` resamples whatever arrives
             // into the image the op writes. A run that read the field would upload nothing at all.
-            uploads.Add(plan, owed.Image, Side, Side, Ramp(Side, Side));
+            uploads.Add(plan, owed.Image, side, side, Ramp(side, side));
         }
 
         using var bake = evaluator.Evaluate(plan, uploads.Externals);

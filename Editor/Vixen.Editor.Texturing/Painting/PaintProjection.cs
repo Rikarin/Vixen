@@ -386,6 +386,40 @@ sealed class PaintProjection {
         return true;
     }
 
+    /// <summary>One triangle's three corners and the coordinates they carry.</summary>
+    /// <param name="triangle">Which triangle, as <see cref="PaintHit.Triangle" /> reports it.</param>
+    /// <param name="a">Its first corner, in the mesh's own space.</param>
+    /// <param name="b">Its second.</param>
+    /// <param name="c">Its third.</param>
+    /// <param name="ua">The first corner's coordinate, in the unit square.</param>
+    /// <param name="ub">The second's.</param>
+    /// <param name="uc">The third's.</param>
+    /// <exception cref="ArgumentOutOfRangeException">There is no such triangle.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Both halves in one call, and that is the point of it rather than a convenience.</b>
+    ///     The two arrays are parallel over one index list — this type's own remarks say why — and a
+    ///     drawer that read the geometry through one accessor and the layout through another could
+    ///     pair a corner with a coordinate belonging to a different triangle, which is the failure
+    ///     <c>LayerStackMesh.Triangulate</c>'s single loop already exists to make impossible one
+    ///     level up. <c>PaintMeshRaster</c> is the caller: what it draws has to be the same triangle
+    ///     <see cref="TryHit" /> answers with, or the picture and the brush disagree about the model.
+    /// </remarks>
+    public void Triangle(
+        int triangle,
+        out Vector3 a,
+        out Vector3 b,
+        out Vector3 c,
+        out Vector2 ua,
+        out Vector2 ub,
+        out Vector2 uc
+    ) {
+        ArgumentOutOfRangeException.ThrowIfNegative(triangle);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(triangle, Triangles);
+
+        Corners(triangle, out a, out b, out c);
+        Layout(triangle, out ua, out ub, out uc);
+    }
+
     /// <summary>Where a coordinate lands in an atlas of a size.</summary>
     /// <param name="coordinate">The coordinate, in the unit square.</param>
     /// <param name="width">The atlas width in texels.</param>

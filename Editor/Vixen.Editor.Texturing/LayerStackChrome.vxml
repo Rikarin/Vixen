@@ -1,0 +1,239 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    The layers panel's frame, as markup — the second half of
+    https://github.com/Rikarin/Vixen/issues/881 and doc 36 § P4's debt, for the part of the panel
+    that is a fixed tree.
+
+    ⚠ **`@inherits Vixen.Ui.UiElement` and `@tag layer-stack`, so this file adds no element.** A
+    `Component` mounts inside a host element of its own, and one more box between the panel and
+    `layer-stack` would have moved every rule in `TexturingTheme.vcss` up a level and every geometry
+    assertion in `LayerStackThemeTests` with it. The element flavour *is* the `layer-stack` element:
+    `LayerStackView` writes `host.Add<LayerStackChrome>()` where it wrote `host.Add("layer-stack")`,
+    and the stylesheet, the tests and `PaintBrushInspector`'s third column are all untouched.
+    `Vixen.Ui.UiElement` and not `Control`, for `FactBlock`'s reason — a `Control` gives itself
+    focus behaviour this container has no use for.
+
+    ⚠ **What is deliberately NOT here: the rows.** `LayerStackView.Build` still writes them, into
+    the `layer-stack-list` this file hands back. The issue's remaining half is a *model* change
+    before it is a markup one — `LayerStackView.Shape` rebuilds a row only when its shape signature
+    changes so that a slider survives a refresh mid-drag, and the `@for` key rule then wants a
+    `Signal<LayerAsset>` per row, which `LayerAsset` is not. This file is the half that could be
+    landed and verified; the account of the other half is in `LayerStackView`'s own remarks.
+
+    ⚠ **One reactive region, and it is the diagnostics list.** Everything else here is a `ref` the
+    view fills exactly as it did before, because a markup binding is an `Effect` and
+    `Core/Vixen.Ui.Reactive/Effect.cs` is explicit that an effect never runs on the write — it
+    queues, and `EffectScheduler.Flush` runs it. `LayerStackView.Show` is called from
+    `TexturingModule` on every evaluation and read synchronously by six test files immediately
+    afterwards, so binding the whole panel would have moved it from synchronous to frame-deferred in
+    one step. The message list is the one place that pays for itself: it replaces a
+    remove-every-child-then-add loop and a `display` written through `SetStyle`.
+-->
+@component LayerStackChrome
+@namespace Vixen.Editor.Texturing
+@inherits Vixen.Ui.UiElement
+@tag layer-stack
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Controls.Advanced
+@using Vixen.Ui.Reactive
+
+<layer-stack-rows>
+    <!--
+        ⚠ Above the rows and not beside the preview, because what it binds is what every row is
+        about. A layer paints on a mesh; the pane that has none can draw no islands, build no
+        coverage map and refuse no texel — #920.
+
+        ⚠ The set picker is first, because it decides what everything to the right of it is about:
+        the part picker narrows *this* set, and the rows below are this set's layers.
+    -->
+    <layer-stack-binding>
+        <layer-stack-binding-label>Set</layer-stack-binding-label>
+        <Select ref="@Sets" class="layer-stack-set" />
+
+        <layer-stack-binding-label>Mesh</layer-stack-binding-label>
+        <Select ref="@Model" class="layer-stack-model" />
+
+        <!--
+            ⚠ Beside the model and not on the set's own row, because the two are one decision read
+            left to right: which file, and which of the meshes in it. #941's own summary is that a
+            set narrowed to a mesh is what stops one coverage map covering every island in the model.
+        -->
+        <layer-stack-binding-label>Part</layer-stack-binding-label>
+        <Select ref="@Part" class="layer-stack-set-mesh" />
+
+        <layer-stack-binding-status ref="@MeshStatus" />
+    </layer-stack-binding>
+
+    <!--
+        ⚠ Above the rows and not on one, because what it does is put a row where there is none — an
+        empty set has no row to hang it off, and that is the state a stack whose last layer was
+        deleted is in. Delete is per row, for the opposite reason: it names the layer it is on.
+    -->
+    <layer-stack-actions>
+        <Select ref="@AddKind" class="layer-stack-add-kind" />
+        <Button ref="@AddButton" class="layer-stack-add" Label="Add layer" />
+    </layer-stack-actions>
+
+    <layer-stack-list ref="@Rows" />
+
+    <layer-stack-legend ref="@Legend" />
+
+    <!--
+        ⚠ Under the rows and not under the preview, and the reason is what a diagnostic names. A
+        layer problem names a row directly above it and a node diagnostic names a node in the graph
+        those rows explode into; the 280px preview column is where the *picture* is explained.
+
+        ⚠ **A class rather than a `display` written through `SetStyle`, and that is the one styling
+        decision this port actually moves.** An inline style is a cascade origin above the sheet, so
+        the toggle and the rule would have been arguing rather than layering — which is what
+        `TexturingTheme.vcss` says about every `display` the panel writes at run time. A class is in
+        the sheet's own origin, so `layer-stack-messages` can carry its hidden state as the rule and
+        its shown state as a second rule, and nothing outranks anything.
+
+        ⚠ **Present-and-empty rather than absent**, unlike `StatisticsView`'s warnings block: two
+        test files read this container's *children* to say what the panel reported, and
+        `LayerStackPanelTests.Lines` hands back an empty list when the container is missing — so an
+        `@if` here would make "the panel said nothing" and "the panel is not there" the same green.
+    -->
+    <layer-stack-messages class="@Shown">
+        <!--
+            ⚠ **Keyed on a record carrying the position, not on the string.** The key rule wants the
+            item's *value* for immutable data, and a message is exactly that — but
+            `LayerStackView.Describe(document, picture)` prepends the file's own load failures to a
+            list the picture half deduplicates, so two identical lines are reachable and two rows
+            under one key are not. The index makes the pair unique without making it an index key:
+            `Line` is a record, so a message that moves up the list is a different value and its row
+            is rebuilt, which is right for a row that is one piece of static text.
+        -->
+        @for (var line in Lines) {
+            <layer-stack-message key="@line">@line.Text</layer-stack-message>
+        }
+    </layer-stack-messages>
+</layer-stack-rows>
+
+<!--
+    ⚠ A fixed width rather than a fraction — `TexturingTheme.vcss` — because the picture is the
+    thing being judged and keeps its size when the rows grow.
+-->
+<layer-stack-preview>
+    <!--
+        ⚠ **Empty here and filled from C#, and that is not a preference.** Markup text is its own
+        element — `BuildContext.Text` creates a child tagged `text` and puts the string on that — and
+        `UiElement` refuses to be both: `LayoutTree.SetMeasureFunction` throws *"has children and
+        cannot also measure itself"* the moment something assigns `Text` to an element that has any.
+        `Show` writes this heading on every refresh, so a literal in the markup here is not a default
+        that gets overwritten, it is a crash on the first stack opened. The same applies to the
+        legend, the status line and the binding status below.
+    -->
+    <world-title ref="@Title" />
+
+    <!--
+        ⚠ The strip is *above* the viewer in the markup and pointed at it from `OnComposed`, and
+        both halves are deliberate. `ImageViewBar.View` adopts what the viewer already holds, so the
+        assignment has to come after the viewer exists rather than the strip pushing its first
+        segment at construction; markup order gives the first half for free and the hook gives the
+        second.
+    -->
+    <ImageViewBar ref="@Channels" />
+
+    <!--
+        ⚠ Inline and not in the sheet, because this element has no tag of its own: a typed
+        `ImageView` names none, so there is nothing for a type selector to match and a
+        `layer-stack-preview > *` rule would also claim the title and the status line.
+    -->
+    <ImageView ref="@Preview" style="flex-grow: 1" />
+
+    <layer-stack-status ref="@Status" />
+</layer-stack-preview>
+
+@code {
+    /// <summary>One line of the diagnostics block: what it says, and where in the list it says it.</summary>
+    /// <param name="Index">Its position, which is what makes two identical lines two keys.</param>
+    /// <param name="Text">The sentence.</param>
+    /// <remarks>
+    ///     ⚠ <b>A record and not the bare string, for <c>@for</c>'s key rule.</b> A surviving key
+    ///     keeps its region and never re-runs the body, so the key has to identify the row; two
+    ///     equal strings in one list are one key and therefore one row. Value equality then does the
+    ///     rest — a list whose second line changed rebuilds one row and leaves the first alone.
+    /// </remarks>
+    internal readonly record struct Line(int Index, string Text);
+
+    /// <summary>Everything the compile had to say, in the order it said it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One signal holding the whole snapshot, which is the shape a view that is handed an
+    ///     immutable reading wants</b> — <c>StatisticsView</c>'s, and the first of the three cases in
+    ///     the porting note. <c>LayerStackView.Show</c> computes the list and assigns it; there is
+    ///     nothing here that mutates in place, so there is nothing a revision counter would stand in
+    ///     for. Assigning a plain field instead would draw the first compile's messages for ever.
+    /// </remarks>
+    public Signal<IReadOnlyList<string>> Messages { get; } = new([]);
+
+    /// <summary>The set picker. Its options are the stack's texture sets.</summary>
+    public Select Sets { get; private set; } = null!;
+
+    /// <summary>The mesh picker. Its options are the project's models.</summary>
+    public Select Model { get; private set; } = null!;
+
+    /// <summary>Which of the model's meshes the shown set is narrowed to.</summary>
+    public Select Part { get; private set; } = null!;
+
+    /// <summary>What the binding row says about the model it resolved.</summary>
+    public UiElement MeshStatus { get; private set; } = null!;
+
+    /// <summary>Which of the four kinds the <em>Add layer</em> button makes.</summary>
+    public Select AddKind { get; private set; } = null!;
+
+    /// <summary>The button that makes one.</summary>
+    public Button AddButton { get; private set; } = null!;
+
+    /// <summary>Where the rows go. Still written from C# — see this file's header.</summary>
+    public UiElement Rows { get; private set; } = null!;
+
+    /// <summary>The sentence under the rows about what an unticked channel means.</summary>
+    public UiElement Legend { get; private set; } = null!;
+
+    /// <summary>The heading over the baked picture.</summary>
+    public UiElement Title { get; private set; } = null!;
+
+    /// <summary>The channel and transfer-function pickers over the pane.</summary>
+    public ImageViewBar Channels { get; private set; } = null!;
+
+    /// <summary>The pane the baked map is shown in.</summary>
+    public ImageView Preview { get; private set; } = null!;
+
+    /// <summary>The status line under it.</summary>
+    public UiElement Status { get; private set; } = null!;
+
+    /// <summary>The class that shows the message block, or nothing when there is nothing to say.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A member rather than the conditional written into the attribute, and that is not
+    ///     only taste.</b> A `class="@(… ? "shown" : "")"` puts a double quote inside a
+    ///     double-quoted attribute value: it is the lexer's C# balancer that has to carry it, and
+    ///     what came out was an element with no class and a block that stayed <c>display: none</c>
+    ///     with a message in it — no diagnostic, and the only symptom was a height of zero.
+    /// </remarks>
+    string Shown => Messages.Value.Count > 0 ? "shown" : "";
+
+    /// <summary>The messages as rows, which is the model the loop above iterates.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read inside the loop's own effect.</b> The enumeration touches
+    ///     <see cref="Messages" /> as it runs, so the region subscribes to it and a new list rebuilds
+    ///     the block; a property that snapshotted the signal into a field first would subscribe to
+    ///     nothing and draw the first compile's messages for ever.
+    /// </remarks>
+    IEnumerable<Line> Lines {
+        get {
+            var messages = Messages.Value;
+
+            for (var index = 0; index < messages.Count; index++) {
+                yield return new(index, messages[index]);
+            }
+        }
+    }
+
+    /// <summary>Points the channel strip at the viewer, once both exist.</summary>
+    partial void OnComposed() => Channels.View = Preview;
+}

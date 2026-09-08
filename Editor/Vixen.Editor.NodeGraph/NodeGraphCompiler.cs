@@ -271,6 +271,20 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
         return port.Kind == PortKind.Dynamic ? Resolve(graph, node, definition) : port.Kind;
     }
 
+    /// <summary>Rewrites one setting's value on the way into a node's binding.</summary>
+    /// <param name="node">The node the setting is on.</param>
+    /// <param name="name">The setting's name.</param>
+    /// <param name="value">What the node carries, or the type's declared default.</param>
+    /// <returns>What the node should compile against. The default answers <paramref name="value" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b>For a front end whose settings can name something the graph resolves</b> — the
+    ///     texture graph's name knobs are the case this exists for. It is a hook rather than a pass
+    ///     over the model because the model may be the author's own document: see the call site.
+    ///     ⚠ <b>Called once per setting per node, during the ordered walk</b>, so a diagnostic
+    ///     reported from here names a node the author can select and is reported once.
+    /// </remarks>
+    protected virtual string Setting(GraphNode node, string name, string value) => value;
+
     /// <summary>Assembles what every port of one node carries.</summary>
     NodeBinding Bind(NodeGraphModel graph, GraphNode node, NodeTypeDefinition definition, PortKind resolved) {
         Dictionary<string, string> inputs = new(StringComparer.Ordinal);
@@ -287,6 +301,16 @@ public abstract class NodeGraphCompiler<TArtefact> where TArtefact : class {
             if (setting.Default.Length > 0) {
                 texts.TryAdd(setting.Name, setting.Default);
             }
+        }
+
+        // ⚠ **The one place a front end may rewrite a setting, and it exists because the obvious
+        // place was catastrophic.** A compiler that substituted into `node.Texts` would be writing
+        // into the author's *live document* — the model reaching `Begin` is only a copy when
+        // flattening ran, so a graph with no sub-graph node in it is the one the panel is showing,
+        // and the next save would persist whatever the compile resolved. This dictionary is already
+        // a per-node copy, so a rewrite here reaches the compile and nothing else.
+        foreach (var key in texts.Keys.ToArray()) {
+            texts[key] = Setting(node, key, texts[key]);
         }
 
         foreach (var port in definition.Ports) {

@@ -538,6 +538,111 @@ public class TexturedMaterialTests {
         Assert.False(material.Parameters.Get(MaterialKeys.HeightBlended("ForwardPlus")));
     }
 
+    /// <summary>
+    ///     ⚠ The parallax feature's height slot is a different parameter from the layered feature's,
+    ///     and its map is a different name.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Two textures wearing one English word.</b>
+    ///         <c>TexturedMaterialLayersSurface.heightIndex</c> is a four-channel per-layer bundle;
+    ///         <c>ParallaxSurface.heightIndex</c> is one material's single channel, which is what
+    ///         <c>MaterialMapTarget.Height</c> bakes. The shader-side names collide and the composition
+    ///         path is what keeps them apart — so this asserts the whole qualified names rather than
+    ///         the suffix, because the suffix is the same on purpose.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The material-side names must not collide at all</b>, and there the path does not
+    ///         save anything: <c>MaterialRenderFeature.TextureIndices</c> is keyed by the shader name
+    ///         and valued by the material's, so one map name would fill both indices from one texture.
+    ///         A layered stack blended by a parallax depth map shades, and is wrong.
+    ///         <c>NoTwoSamplingFeaturesShareAMapName</c> is the same claim asked of the pairing table.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_parallax_height_slot_is_not_the_layered_features() {
+        var material = Compiled(new ParallaxOcclusionFeature());
+        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+
+        Assert.Contains("ForwardPlus.CompositeSurface.ParallaxSurface.heightIndex", names);
+        Assert.DoesNotContain("ForwardPlus.CompositeSurface.TexturedMaterialLayersSurface.heightIndex", names);
+
+        Assert.Equal(
+            "ForwardPlus.CompositeSurface.ParallaxSurface.heightIndex",
+            ParallaxOcclusionFeature.HeightIndexParameter("ForwardPlus.CompositeSurface.ParallaxSurface.")
+        );
+
+        Assert.NotEqual(
+            new TexturedMaterialLayersFeature().HeightMap,
+            new ParallaxOcclusionFeature().HeightMap,
+            StringComparer.Ordinal
+        );
+    }
+
+    /// <summary>
+    ///     A march's step count is clamped where the material carries it, not only in the shader.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Zero steps is the interesting end and it is not "no parallax".</b> The shader's
+    ///         loop runs <c>count</c> times and its fallback for a ray that never crosses the field is
+    ///         the <em>full</em> sweep — so a count of zero displaces every texel by the whole depth,
+    ///         which reads as a texture that slid rather than as a step count of nothing. The zero
+    ///         whose zero looks valid, once more.
+    ///     </para>
+    ///     <para>
+    ///         The ceiling is the occlusion refinement's rather than a performance preference: the
+    ///         refinement divides by one layer's thickness and is floored at <c>Const.Epsilon</c>, so
+    ///         past <see cref="ParallaxOcclusionFeature.StepCeiling" /> the floor would start deciding
+    ///         the answer instead of guarding it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_step_count_outside_the_marchs_range_is_clamped_on_the_material() {
+        var material = Compiled(new ParallaxOcclusionFeature { MinSteps = 0, MaxSteps = 4096 });
+
+        Assert.Equal(
+            1f,
+            material.Parameters.Get(
+                ParameterKeys.New<float>("ForwardPlus.CompositeSurface.ParallaxSurface.minSteps")
+            )
+        );
+
+        Assert.Equal(
+            (float)ParallaxOcclusionFeature.StepCeiling,
+            material.Parameters.Get(
+                ParameterKeys.New<float>("ForwardPlus.CompositeSurface.ParallaxSurface.maxSteps")
+            )
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ And the feature is refused behind one that samples, which is the whole of its stage.
+    /// </summary>
+    /// <remarks>
+    ///     <c>MaterialFeatureOrderTests</c> proves the rule against a local stand-in, deliberately —
+    ///     it was written before any shipped feature declared the stage. This is the same claim made
+    ///     of the <em>shipped</em> feature, which is the half that a rename of
+    ///     <see cref="ParallaxOcclusionFeature.Stage" /> back to the default would break and that one
+    ///     would not.
+    /// </remarks>
+    [Fact]
+    public void A_parallax_feature_behind_a_sampler_is_refused() {
+        var behind = MaterialCompiler.Compile(
+            new() { Features = [new TexturedMetalRoughnessFeature(), new ParallaxOcclusionFeature()] }
+        );
+
+        Assert.True(behind.Failed);
+        Assert.Equal(MaterialDiagnosticId.CoordinateFeatureOutOfOrder, Assert.Single(behind.Errors).Id);
+
+        var ahead = MaterialCompiler.Compile(
+            new() { Features = [new ParallaxOcclusionFeature(), new TexturedMetalRoughnessFeature()] }
+        );
+
+        Assert.False(ahead.Failed);
+        Assert.Equal("ParallaxSurface", ahead.Material!.Composition.Resolve("CompositeSurface.first"));
+    }
+
     static Material Compiled(params IMaterialFeature[] features) {
         var compilation = MaterialCompiler.Compile(new() { Features = features });
 

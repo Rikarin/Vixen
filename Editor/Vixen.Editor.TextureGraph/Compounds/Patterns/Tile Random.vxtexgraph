@@ -13,7 +13,7 @@ nodes:
     y: 0
     values:
       Scale: [0.9]
-    texts: { Accumulation: Max }
+    texts: { Accumulation: $Accumulation }
   - id: 3
     type: Sub-graph/Output
     x: 320
@@ -62,4 +62,9 @@ interface:
     default: []
     summary: The grid, with every instance different.
 settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
-parameters: []
+parameters:
+  - name: Accumulation
+    default: Max
+    summary: How overlapping instances combine.
+    kind: Text
+    accepted: [Max, Add, Blend]
