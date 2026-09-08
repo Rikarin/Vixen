@@ -664,9 +664,10 @@ public class LayerStackCompileTests {
     ///     <c>LayerStackGraph</c> writes the word <c>Y</c> and <c>TextureSettings.Enum</c> turns it
     ///     into the number the kernel compares — two steps, either of which can silently take the
     ///     default. A planar fill along the wrong axis is, on anything box-shaped, the same picture
-    ///     rotated, so nothing downstream would say so. ⚠ That the axis is <c>Y</c> at all is a
-    ///     default this build chose and not one an author asked for:
-    ///     <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>.
+    ///     rotated, so nothing downstream would say so. ⚠ <c>Y</c> is still the default and is now
+    ///     the <em>layer's</em> default rather than the compiler's —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>, and the theory below is
+    ///     the half that says an author can choose otherwise.
     /// </remarks>
     [Fact]
     public void A_planar_fill_reaches_the_kernel_as_one_axis_rather_than_a_blend() {
@@ -691,6 +692,96 @@ public class LayerStackCompileTests {
         // 2 is TextureProjectionAxis.Y. The instrument: the blend is 0, so a projection that had
         // quietly taken the enum's default would read 0 here and this would be red.
         Assert.Equal(2f, axis.Value.Value);
+    }
+
+    /// <summary>⚠ A planar layer's axis is the author's, and all three reach the kernel.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1032">#1032</a>.</b> Until
+    ///         <c>LayerAsset.PlanarAxis</c> there was nowhere in a <c>.vxlayers</c> to say which
+    ///         plane a planar fill uses, so <c>LayerStackGraph.Project</c> wrote <c>Y</c> for every
+    ///         one that has ever been authored — the right default, chosen by the wrong file.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Three cases and not one, because y is the default.</b> A test that set
+    ///         <c>PlanarAxis = Y</c> and read 2 back would be green against a compiler that ignores
+    ///         the member entirely, which is exactly the state this closes. X and Z are the two
+    ///         values a stack cannot produce without the member being read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And the numbers are <c>TextureProjectionAxis</c>' rather than
+    ///         <c>LayerAxis</c>' — 1, 2, 3 against 0, 1, 2 — so a pass-through that handed the layer's
+    ///         enum straight to the kernel would read one short on every row.
+    ///     </para>
+    /// </remarks>
+    /// <param name="axis">The axis, by name, since <c>LayerAxis</c> is internal.</param>
+    /// <param name="expected">What <c>TextureProjectionAxis</c> calls it.</param>
+    [Theory]
+    [InlineData("X", 1f)]
+    [InlineData("Y", 2f)]
+    [InlineData("Z", 3f)]
+    public void A_planar_layer_projects_along_the_axis_it_names(string axis, float expected) {
+        var stack = One(new() {
+            Id = "l",
+            Kind = LayerKind.Fill,
+            Fill = LayerFillSource.Texture,
+            Textures = { ["baseColor"] = "Assets/Rust.png" },
+            Projection = LayerProjection.Planar,
+            PlanarAxis = Enum.Parse<LayerAxis>(axis)
+        });
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        Assert.Empty(compilation.Problems);
+        Assert.NotNull(compilation.Plan);
+
+        var op = Assert.Single(compilation.Plan.Ops, candidate => candidate.Kernel == "Triplanar");
+
+        Assert.Equal(expected, op.Find("axis")!.Value.Value);
+    }
+
+    /// <summary>⚠ An axis set where it cannot mean anything is warned about, not ignored.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>Project</c>'s existing sentence for a projection on a constant fill, one member
+    ///         out. A triplanar layer blends all three planes by the world normal and a UV layer is
+    ///         in the atlas, so neither has a plane to choose — and a member that can be set where
+    ///         it does nothing, silently, is the shape this workstream ships wrong most often.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>LayerAxis.Y</c> is exempt and cannot be otherwise.</b> It is the default, so
+    ///         "the author chose y" and "the author said nothing" are one state in the file; warning
+    ///         on it would fire for every UV layer in every stack that exists. That is why
+    ///         <c>LayerAxis</c>' zero is <c>X</c> — see its remarks — and why this theory names X
+    ///         and Z.
+    ///     </para>
+    /// </remarks>
+    /// <param name="triplanar">Whether the layer is triplanar rather than UV.</param>
+    /// <param name="axis">The axis, by name, since <c>LayerAxis</c> is internal.</param>
+    [Theory]
+    [InlineData(false, "X")]
+    [InlineData(false, "Z")]
+    [InlineData(true, "X")]
+    [InlineData(true, "Z")]
+    public void An_axis_that_cannot_mean_anything_is_a_warning(bool triplanar, string axis) {
+        var stack = One(new() {
+            Id = "l",
+            Kind = LayerKind.Fill,
+            Fill = LayerFillSource.Texture,
+            Textures = { ["baseColor"] = "Assets/Rust.png" },
+            Projection = triplanar ? LayerProjection.Triplanar : LayerProjection.Uv,
+            PlanarAxis = Enum.Parse<LayerAxis>(axis)
+        });
+
+        var compilation = LayerStackCompiler.Compile(stack, stack.Sets[0]);
+
+        // Still compiles: a refusal here would take every other layer's preview with it.
+        Assert.NotNull(compilation.Plan);
+
+        Assert.Contains(
+            compilation.Problems,
+            problem => problem.Message.Contains($"Axis '{axis}'", StringComparison.Ordinal)
+        );
     }
 
     /// <summary>

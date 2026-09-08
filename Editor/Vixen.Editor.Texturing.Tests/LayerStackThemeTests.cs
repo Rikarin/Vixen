@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Editor.Texturing.Layers;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -94,6 +95,90 @@ public class LayerStackThemeTests {
         Assert.True(TexturingTheme.Install(second.Shell.Document));
     }
 
+    /// <summary>⚠ No typed control in the panel is renamed out of the theme that styles it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1071">#1071</a>.</b>
+    ///         <c>UiElement.Add&lt;T&gt;(string)</c>'s first parameter is the <em>tag</em>, so
+    ///         <c>row.Add&lt;Slider&gt;("layer-stack-opacity")</c> — the convention twenty-eight
+    ///         controls in this panel were built with — produced an element that
+    ///         <c>ControlTheme.vcss</c>'s <c>slider</c>, <c>button</c>, <c>checkbox</c>,
+    ///         <c>select</c> and <c>textbox</c> rules no longer matched.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Derived rather than listed, which is what makes it hold for the twenty-ninth
+    ///         control.</b> A plain <c>Add(string)</c> container is exactly a
+    ///         <see cref="UiElement" />; anything else is a control and carries a tag of its own that
+    ///         a stylesheet is written against. So the rule is "a subclass may not answer to a
+    ///         <c>layer-stack-</c> name", and no roll call of the twenty-eight has to be maintained
+    ///         beside the view.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And a measurement, because the sentence above is satisfied by a panel that draws
+    ///         no controls at all.</b> <c>slider { height: 20px; min-width: 80px }</c> in
+    ///         <c>ControlTheme.vcss</c>, narrowed to 18 by <c>EditorTheme.vcss</c>, are both type
+    ///         selectors with no other source — so a renamed slider stretches to its row instead,
+    ///         which measures 30 here. That height, read after a layout pass, is the theme arriving
+    ///         rather than the theme being declared.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void No_typed_control_in_the_panel_answers_to_a_layer_stack_tag() {
+        using var fixture = new TexturingFixture();
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+        fixture.Project.Selection.Set(LayerStackPanelTests.AddStack(fixture, "Hull"));
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
+
+        var panel = fixture.Shell.Workspace.Open(TexturingModule.StackPanel);
+
+        Assert.NotNull(panel);
+
+        fixture.Shell.Document.Update();
+        fixture.Shell.Document.Draw();
+
+        List<string> renamed = [];
+        var controls = 0;
+
+        Walk(panel);
+
+        // The instrument first: a panel that built nothing would satisfy the emptiness below.
+        Assert.True(controls > 20, $"the panel drew {controls} controls, so the check below is vacuous.");
+
+        Assert.True(
+            renamed.Count == 0,
+            $"these controls answer to a tag of their own naming — {string.Join(", ", renamed)} — so every "
+            + "type selector in ControlTheme.vcss stops matching them. Pass the name as a class instead: "
+            + "Add<T>(null, null, \"layer-stack-…\"). #1071."
+        );
+
+        // ⚠ The half that is geometry rather than a name. `slider { height: 20px; min-width: 80px }`
+        // is ControlTheme.vcss and `slider { height: 18px }` is EditorTheme.vcss narrowing it — both
+        // type selectors, and neither has any other source, so a renamed slider takes its height and
+        // its width from nothing at all. 18 rather than 20 because the editor's sheet wins, which is
+        // itself worth asserting: this reads the document the panel is really in.
+        var opacity = Assert.IsType<Slider>(Only(panel, "layer-stack-opacity"));
+
+        Assert.Equal(18f, opacity.Height);
+        Assert.True(opacity.Width >= 80f, $"the opacity slider is {opacity.Width} wide, under the 80px minimum.");
+
+        void Walk(UiElement element) {
+            if (element.GetType() != typeof(UiElement)) {
+                controls++;
+
+                if (element.Tag.StartsWith("layer-stack-", StringComparison.Ordinal)) {
+                    renamed.Add($"{element.GetType().Name} as '{element.Tag}'");
+                }
+            }
+
+            foreach (var child in element.Children) {
+                Walk(child);
+            }
+        }
+    }
+
+    /// <summary>The only element under that name — its tag, or its class.</summary>
     static UiElement Only(UiElement root, string tag) {
         List<UiElement> found = [];
 
@@ -102,7 +187,7 @@ public class LayerStackThemeTests {
         return Assert.Single(found);
 
         void Walk(UiElement element) {
-            if (string.Equals(element.Tag, tag, StringComparison.Ordinal)) {
+            if (string.Equals(element.Tag, tag, StringComparison.Ordinal) || element.HasClass(tag)) {
                 found.Add(element);
             }
 

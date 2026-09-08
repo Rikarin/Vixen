@@ -392,6 +392,15 @@ static class SmartMaterial {
                             StringComparer.Ordinal
                         ),
 
+                        // ⚠ #1079's member, and it has to be here for the reason the remark above
+                        // gives: a filter layer's settings are a mutable dictionary, so a `with`
+                        // that left it out would hand the smart material the live stack's own — and
+                        // an artist changing a compound's mode in one would change it in the other.
+                        // The list of members this method deep-copies is the one thing here a new
+                        // member on `LayerAsset` silently falls out of, which is why
+                        // `SmartMaterialTests` walks the record by reflection rather than by name.
+                        Texts = new Dictionary<string, string>(layer.Texts, StringComparer.Ordinal),
+
                         // ⚠ A paint layer's own `Paint` is gone with the layer, but a *filter* or a
                         // *group* can carry a stale one off a hand-written file — and a reference to
                         // a `.vxpaint` that names another stack is the thing this whole pass is for.

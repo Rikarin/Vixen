@@ -1093,6 +1093,26 @@ name* in `LayerStackGraph`; the refusal and its tripwire test are deleted and `P
 weights rather than a second file. [#1010](https://github.com/Rikarin/Vixen/issues/1010) is
 `Analysis/Colour Select` over the `id` bake this doc already had read *nearest* for it.
 
+⚠ **A projection that landed without the knob it needs is not the same as a projection that landed.**
+`LayerProjection.Planar` is "one planar projection along an axis" and the axis was in no file at all,
+so `LayerStackGraph.Project` wrote `Y` for every planar layer ever authored — the right default,
+chosen by the compiler ([#1032](https://github.com/Rikarin/Vixen/issues/1032)). `LayerAsset.PlanarAxis`
+is that member, and it is a member rather than three more enum entries because splitting `Planar`
+renumbers a file people merge. ⚠ Its default is deliberately **not** the enum's zero: `Y` as zero
+makes "the author chose y" and "the author said nothing" one state, so an axis set where it means
+nothing could not be warned about.
+
+⚠ **And the same batch closed the other half of § D10's fourth filter kind.** A filter layer naming a
+published compound could not set that compound's *settings* — `LayerAsset` had the numbers dictionary
+and not the strings one, so a compound whose behaviour is chosen by a string took its default,
+silently ([#1079](https://github.com/Rikarin/Vixen/issues/1079)). `LayerAsset.Texts` is
+`MaskEffectAsset.Texts` on a layer, read on the `FilterNode` path only so the five enum members go on
+compiling to exactly the ops the explode differential photographs. ⚠ The panel had no row for any of
+this at all — no view in the tree read `LayerFilterKind`, so every filter an artist added was a
+`Colour/Levels` on its defaults for ever ([#1078](https://github.com/Rikarin/Vixen/issues/1078)); the
+row is now a picker for which of the two names the filter, and switching to a named node seeds the
+path with the type the enum already compiled to, so the spelling changes and the picture does not.
+
 ⚠ **The selection mask matches a colour rather than an index, and the choice was forced.** `MapBaker`
 paints island *n* with hue `frac(n·φ)` and applies it at the last moment, so the index is not in the
 file — there is no space in which a `± tolerance` on a number could be compared. Nor could a plugin

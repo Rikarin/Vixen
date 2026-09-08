@@ -929,15 +929,23 @@ public class LayerStackBindingTests {
         return text;
     }
 
-    static T Find<T>(UiElement root, string tag) where T : UiElement {
-        var found = All(root, tag);
+    static T Find<T>(UiElement root, string name) where T : UiElement {
+        var found = All(root, name);
 
         Assert.NotEmpty(found);
 
         return Assert.IsType<T>(found[0]);
     }
 
-    static List<UiElement> All(UiElement root, string tag) {
+    /// <summary>Every element under that name — a container's tag, or a control's class.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Tag <em>or</em> class</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1071">#1071</a>. <c>layer-stack-model</c>,
+    ///     <c>layer-stack-set-mesh</c> and <c>layer-stack-select</c> are typed controls and are
+    ///     therefore classes now; a walk over <c>element.Tag</c> alone finds none of them, and the
+    ///     loops in this file that read what it returns would simply not run.
+    /// </remarks>
+    static List<UiElement> All(UiElement root, string name) {
         List<UiElement> found = [];
 
         Walk(root);
@@ -945,7 +953,7 @@ public class LayerStackBindingTests {
         return found;
 
         void Walk(UiElement element) {
-            if (string.Equals(element.Tag, tag, StringComparison.Ordinal)) {
+            if (string.Equals(element.Tag, name, StringComparison.Ordinal) || element.HasClass(name)) {
                 found.Add(element);
             }
 
