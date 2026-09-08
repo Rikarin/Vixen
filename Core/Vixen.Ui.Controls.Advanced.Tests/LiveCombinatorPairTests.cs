@@ -44,6 +44,16 @@ namespace Vixen.Ui.Controls.Advanced.Tests;
 ///         committed file is a set of proofs, not a verdict on the rest of the domain.
 ///     </para>
 ///     <para>
+///         ⚠ <b>With one bounded exception, which is the verdict half and lives in a second file.</b>
+///         Where the sweep constructed an element with a rule's parent tag and watched it assemble
+///         its children, a child the sheet names and the element never built is not unjudged — it is
+///         a question, and <see cref="Every_rule_whose_parent_was_built_is_proved_or_explained" /> is
+///         where it must be answered in writing. Eleven of the 88 pairings are in that reach and
+///         nine are proved; the two that are not have the same answer, a lazily-built
+///         <c>icon</c> part. Everything else stays unjudged, and the whole of the difference between
+///         the two files is whether the parent was built.
+///     </para>
+///     <para>
 ///         <b>Bare controls, deliberately.</b> Seeding each type — a tab, a row, an option — would
 ///         raise the count and make every row depend on a fixture decision that nothing else states.
 ///         What a control builds with nothing done to it is a property of the control; what it builds
@@ -58,6 +68,12 @@ public class LiveCombinatorPairTests {
 
     /// <summary>The proofs: the subset of that domain the controls actually build.</summary>
     const string CensusFile = "Core/Vixen.Ui.Controls.Advanced.Tests/LiveCombinatorPairs.txt";
+
+    /// <summary>The suspicions: rules whose parent was built and whose child never turned up.</summary>
+    const string SuspectFile = "Core/Vixen.Ui.Controls.Advanced.Tests/SuspectCombinatorPairs.txt";
+
+    /// <summary>What a regenerated row says until somebody explains it.</summary>
+    const string Unexplained = "unexplained";
 
     /// <summary>Set <c>VIXEN_REGENERATE=1</c> to write the census back instead of asserting it.</summary>
     static bool Regenerating =>
@@ -170,6 +186,101 @@ public class LiveCombinatorPairTests {
         );
     }
 
+    /// <summary>
+    ///     A rule whose parent this sweep watched assemble its parts either has its child among them
+    ///     or has a written reason why not.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The verdict half of <c>Rikarin/Vixen#531</c>, and the only negative claim in the
+    ///         three files.</b> The domain census says what the sheets declare; the census beside
+    ///         this one says which of those a control was seen to build. Neither can say a rule is
+    ///         dead, which is what <c>compositor-editor &gt; node-canvas</c> needed somebody to say —
+    ///         both tags real, the pairing never occurring, the compositor's graph drawn at zero
+    ///         width. This says it, for exactly the pairings where the runtime has standing to: the
+    ///         sweep constructed an element with the parent tag and read the children it built, so a
+    ///         child the sheet names and the element never built is a real question rather than a
+    ///         gap in a model.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why this is not the source-reading gate five audits abandoned.</b>
+    ///         Those needed an exemption per pairing the model could not explain, and the reason on
+    ///         every one of them would have been "this is live, the model is blind" — a list nobody
+    ///         can keep honest. Blindness is not available here: a parent tag the sweep never built
+    ///         is not in this file at all and is suspected of nothing. The reasons on the rows that
+    ///         are here are findings about controls — a part built only once there is an item, a
+    ///         child that arrives from a template — and each is a sentence somebody checked.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An arriving row is the loud direction, and it is the same event as a row leaving
+    ///         the proofs.</b> A control that stops building a part while the sheet still styles it
+    ///         is the defect; here it shows up as a new suspicion with no reason on it, and an
+    ///         <c>unexplained</c> row fails on its own so that regenerating cannot quietly accept
+    ///         one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_rule_whose_parent_was_built_is_proved_or_explained() {
+        var root = Root();
+        var path = Path.Combine(root, SuspectFile);
+        var domain = Domain(Path.Combine(root, DomainFile));
+        var parents = Observed.Select(static pair => pair.Split(" > ")[0]).ToHashSet(StringComparer.Ordinal);
+
+        var reachable = domain.Where(pair => parents.Contains(pair.Split(" > ")[0])).ToList();
+        var suspect = reachable.Where(pair => !Observed.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+
+        // The sweep's own guard is `The_control_sweep_actually_ran`; this is the guard for the JOIN,
+        // which has a second way of coming out empty. If the domain's parent tags and the observed
+        // ones stop overlapping — a sweep that built nothing, a domain file read as a header, a tag
+        // renamed on both sides — then `reachable` is empty, every set below is empty, and this test
+        // agrees with an empty census exactly. There are 11 today, nine of them proved.
+        Assert.True(
+            reachable.Count >= 8,
+            $"only {reachable.Count} of the {domain.Count} declared pairings have a parent this sweep built, "
+            + "against 11 measured — the domain and the observation are no longer talking about the same tags."
+        );
+
+        var reasons = SuspectReasons(path);
+
+        if (Regenerating) {
+            WriteSuspects(path, suspect.Select(pair => (pair, reasons.GetValueOrDefault(pair, Unexplained))));
+            reasons = SuspectReasons(path);
+        }
+
+        var arrived = suspect.Where(pair => !reasons.ContainsKey(pair)).ToList();
+        var departed = reasons.Keys.Where(pair => !suspect.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+
+        Assert.True(
+            arrived.Count == 0 && departed.Count == 0,
+            $"""
+             The census of rules whose parent was built without their child is out of date.
+
+             Newly suspected — the control builds this parent and no longer builds this child:
+             {Lines(arrived)}
+
+             In {SuspectFile} and no longer suspected — the control builds it now, or the rule is gone:
+             {Lines(departed)}
+
+             ⚠ An arriving row is the loud one, and it is what `compositor-editor > node-canvas` would
+             have looked like the day it broke. Read the diff before regenerating.
+             """
+        );
+
+        var silent = reasons.Where(entry => entry.Value == Unexplained).Select(entry => entry.Key).Order(StringComparer.Ordinal).ToList();
+
+        Assert.True(
+            silent.Count == 0,
+            $"""
+             These rows say `{Unexplained}`, which is what regeneration writes and not an answer:
+             {Lines(silent)}
+
+             The sweep built the parent and watched it assemble its children, so "the model is blind"
+             is not available. Either the control builds this part only in some state the sweep does
+             not put it in — say which — or the rule is dead and wants deleting.
+             """
+        );
+    }
+
     /// <summary>Builds every element type in the two control assemblies and reads the trees.</summary>
     /// <remarks>
     ///     ⚠ <b>A fixture apiece.</b> A control that has been laid out once beside a dozen others is
@@ -230,6 +341,25 @@ public class LiveCombinatorPairTests {
 
     static HashSet<string> Census(string path) => Rows(path, CensusFile).ToHashSet(StringComparer.Ordinal);
 
+    /// <summary>The suspected pairings and the reason written beside each.</summary>
+    /// <remarks>
+    ///     ⚠ A row with no second column reads as <see cref="Unexplained" /> rather than as an empty
+    ///     reason, so deleting the text off a row is the same failure as adding a row without one.
+    /// </remarks>
+    static Dictionary<string, string> SuspectReasons(string path) {
+        var reasons = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var row in Rows(path, SuspectFile)) {
+            var tab = row.IndexOf('\t');
+            var pair = (tab < 0 ? row : row[..tab]).Trim();
+            var reason = tab < 0 ? string.Empty : row[(tab + 1)..].Trim();
+
+            reasons[pair] = reason.Length == 0 ? Unexplained : reason;
+        }
+
+        return reasons;
+    }
+
     static List<string> Rows(string path, string name) {
         var lines = File.ReadAllLines(path);
 
@@ -266,6 +396,25 @@ public class LiveCombinatorPairTests {
 
         foreach (var row in rows) {
             text.AppendLine(row);
+        }
+
+        File.WriteAllText(path, text.ToString());
+    }
+
+    /// <summary>Writes the suspicions back, keeping each row's reason and the file's header.</summary>
+    static void WriteSuspects(string path, IEnumerable<(string Pair, string Reason)> rows) {
+        var text = new StringBuilder();
+
+        foreach (var line in File.ReadLines(path)) {
+            if (!line.StartsWith('#') && line.Trim().Length != 0) {
+                break;
+            }
+
+            text.AppendLine(line);
+        }
+
+        foreach (var (pair, reason) in rows) {
+            text.Append(pair).Append('\t').AppendLine(reason);
         }
 
         File.WriteAllText(path, text.ToString());
