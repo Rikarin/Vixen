@@ -365,6 +365,12 @@ public sealed partial class LayoutTree {
             return;
         }
 
+        // ⚠ And a span inside one of this container's anonymous inline runs is a containing block
+        // whose own layout never ran, so the walk below stops at it and no walk starts inside it.
+        // §9.2.1.1's anonymous box does not change that — the run was flattened by the same code the
+        // inline path uses, so it needs the same repair.
+        LayoutFlattenedInlineAbsolutes(index, widthSizingMode, direction, currentDepth);
+
         // Absolute descendants last, from the containing block down — the same call and the same
         // condition the flex path ends on.
         if (EstablishesAbsoluteContainingBlock(index) || currentDepth == 1) {

@@ -270,6 +270,8 @@ public sealed partial class LayoutTree {
             return;
         }
 
+        LayoutFlattenedInlineAbsolutes(index, widthSizingMode, direction, currentDepth);
+
         if (EstablishesAbsoluteContainingBlock(index) || currentDepth == 1) {
             LayoutAbsoluteDescendants(
                 index,
@@ -282,6 +284,71 @@ public sealed partial class LayoutTree {
                 innerWidth,
                 float.IsNaN(innerHeightForPercentages) ? MathF.Max(0f, outerHeight - insetColumn) : innerHeightForPercentages
             );
+        }
+    }
+
+    /// <summary>
+    ///     Starts the absolute walk inside every non-atomic inline box this container flattened,
+    ///     because nothing else will.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A flattened box is a containing block whose own layout never ran, and that pair is
+    ///         what made an out-of-flow child of a span vanish.</b> The absolute walk is started by
+    ///         <c>CalculateLayoutImpl</c> and descends only through children that are <i>not</i>
+    ///         containing blocks; this store's default <see cref="PositionType" /> is
+    ///         <see cref="PositionType.Relative" />, Yoga's rather than CSS's <c>static</c>, so a span
+    ///         is one and the container's walk stops at it — while the span's own
+    ///         <c>CalculateLayoutImpl</c> never runs, so no walk starts there either. The child was
+    ///         sized, given a static position, and positioned by nobody. Refusing to flatten such a
+    ///         box was the previous answer, and it cost every span with an absolute child its
+    ///         fragmentation.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Run from here rather than from the commit, because a commit happens mid-walk.</b>
+    ///         The union is final when the box closes, but the container's own geometry is not, and an
+    ///         absolute child resolving a percentage against a rectangle that is still being decided
+    ///         is a value that changes depending on which line the box happened to end on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Unconditional, and the recursion is not the same question as the call.</b> A span
+    ///         that is <i>not</i> a containing block needs no call — the container's walk descends
+    ///         through it and finds the child — but it can still hold a nested span that is one, and
+    ///         that walk stops there. So every flattened box is descended into whether or not it was
+    ///         itself worth a call.
+    ///     </para>
+    /// </remarks>
+    /// <param name="container">The node whose children were flattened.</param>
+    /// <param name="widthSizingMode">The container's width sizing mode, threaded to the child walk.</param>
+    /// <param name="direction">The container's resolved inline direction.</param>
+    /// <param name="currentDepth">The recursion guard's depth.</param>
+    void LayoutFlattenedInlineAbsolutes(int container, SizingMode widthSizingMode, Direction direction, int currentDepth) {
+        foreach (var child in ChildIds(container)) {
+            // The cheap half of this test is the first thing it does — a child that is not
+            // `display: inline` leaves without the child scan the rest of the predicate runs.
+            if (!IsNonAtomicInline(child)) {
+                continue;
+            }
+
+            var childDirection = StyleResolution.ResolveDirection(in styles[child], direction);
+
+            if (EstablishesAbsoluteContainingBlock(child)) {
+                var box = PaddingBoxOf(child);
+
+                LayoutAbsoluteDescendants(
+                    child,
+                    child,
+                    widthSizingMode,
+                    childDirection,
+                    currentDepth + 1,
+                    0f,
+                    0f,
+                    box.Width,
+                    box.Height
+                );
+            }
+
+            LayoutFlattenedInlineAbsolutes(child, widthSizingMode, childDirection, currentDepth + 1);
         }
     }
 

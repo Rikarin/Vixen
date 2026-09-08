@@ -219,9 +219,14 @@ every ordinary node.
 
 ⚠ Fragmentation used to be one level deep and now recurses: a `span` inside a `span` inside a `span`
 splits at every depth, and each one draws its own two edges at the two ends of its own content while a
-continuation line carries neither. What is still laid out atomically is a span with an **out-of-flow
-child**, which is a limit of the walk rather than of the representation and is written up in
-`Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt`.
+continuation line carries neither. A span with an **out-of-flow child** splits now too: such a child
+is positioned by a walk started from the container once every union is final, because a flattened box
+is a containing block whose own layout never runs and nothing else would start one there. ⚠ Its
+containing block is the union, per §10.1; what it does *not* get is §10.6.4's static position, which
+`LayoutAbsoluteChild` reads only for a `block` or `flow-root` parent — so an un-inset child lands at
+the union's inline start rather than after its in-flow siblings. What is still laid out atomically is
+a span with a **floated child**, which is a limit of the walk rather than of the representation and is
+written up in `Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt`.
 
 Also absent, each with its reason in the same file: generated `::before`/`::after` boxes, the strut,
 `white-space`, `text-overflow: ellipsis`, `line-clamp` and bidirectional reordering.

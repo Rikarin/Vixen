@@ -41,8 +41,12 @@ so `StrutMetrics` is a computed value the layer with the `FontRegistry` writes d
 that depends on one is arithmetic. ⚠ **And so are nested spans**, which this sentence listed as owed
 until the blocker was read rather than repeated: it was never the rebasing of a union inside a union,
 which was already free — it was one box's fragments being a contiguous slice of a shared scratch,
-which two boxes open at the same line's end cannot both have. What is still owed is generated boxes,
-a span with an out-of-flow child, and a span's own strut. See
+which two boxes open at the same line's end cannot both have. ⚠ **A span with an out-of-flow child is
+gone from this sentence too**, and its blocker was half wrong in the other direction: the missing
+absolute walk was real and is `LayoutFlattenedInlineAbsolutes`, but the rebase of the static position
+the row insisted had to land beside it turned out to be dead code — `LayoutAbsoluteChild` reads
+`BlockStaticLeft` only for a `block` or `flow-root` parent, and an inline box is neither. What is
+still owed is generated boxes, a span with a FLOATED child, and a span's own strut. See
 [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down) and
 `InlineKnownGaps.txt`.
 

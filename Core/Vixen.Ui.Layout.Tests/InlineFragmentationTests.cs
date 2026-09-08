@@ -577,45 +577,193 @@ public class InlineFragmentationTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>A span with an out-of-flow child is refused, and the child is the reason.</b>
+    ///     ⚠ <b>A span with an out-of-flow child fragments, and its child is still placed.</b>
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         The absolute walk descends from the node it was called on and recurses only through
-    ///         <see cref="PositionType.Static" /> children — and this store's default is
-    ///         <see cref="PositionType.Relative" />, which is Yoga's default and not CSS's. So a
-    ///         flattened span, whose own <c>CalculateLayoutImpl</c> never runs, is exactly where that
-    ///         walk stops.
+    ///         ⚠ <b>This test was the refusal and is now its inversion, and what it asserted was
+    ///         true of the code rather than of CSS.</b> The absolute walk descends only through
+    ///         children that are not containing blocks — and this store's default
+    ///         <see cref="PositionType" /> is <see cref="PositionType.Relative" />, Yoga's rather
+    ///         than CSS's <c>static</c> — so a span is one and the container's walk stopped at it,
+    ///         while a flattened span's own <c>CalculateLayoutImpl</c> never runs and started no walk
+    ///         either. The child was sized, given a static position, and positioned by nobody, so the
+    ///         span stayed atomic. <c>LayoutFlattenedInlineAbsolutes</c> is the walk that was missing.
     ///     </para>
     ///     <para>
-    ///         ⚠ The assertion that matters is the second one. Refusing to flatten leaves a span
-    ///         un-split, which is a visible imperfection; flattening it anyway leaves the
-    ///         absolutely positioned child sized, given a static position, and then positioned by
-    ///         nobody — at whatever coordinates the previous pass left on it. A child that quietly
-    ///         does not move is worse than a box that quietly does not split.
+    ///         Chrome 148.0.7778.280, on this fixture with the span made a containing block — which
+    ///         this store's default position type makes it anyway: the span has <b>two</b> rectangles
+    ///         and the child sits at the union's origin plus its own insets. §10.1 is why the union
+    ///         is the rectangle to offset from — the containing block of an absolutely positioned
+    ///         descendant of an inline box IS the bounding box of its first and last fragments.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_span_with_an_out_of_flow_child_is_not_flattened_and_the_child_is_still_placed() {
+    public void A_span_with_an_out_of_flow_child_fragments_and_the_child_is_still_placed() {
         using var tree = new LayoutTree();
-        var root = PaddedRoot(tree, width: 100f, padding: 0f);
+        var root = PaddedRoot(tree, width: 100f, padding: 10f);
         var span = Span(tree, root);
 
         Item(tree, span, 40f, 20f);
         Item(tree, span, 40f, 20f);
         Item(tree, span, 40f, 20f);
 
-        var floating = Item(tree, span, 10f, 10f);
-        tree.SetPositionType(floating, PositionType.Absolute);
-        tree.SetPosition(floating, Edge.Left, StyleLength.Points(5f));
-        tree.SetPosition(floating, Edge.Top, StyleLength.Points(7f));
+        var inset = Item(tree, span, 10f, 10f);
+        tree.SetPositionType(inset, PositionType.Absolute);
+        tree.SetPosition(inset, Edge.Left, StyleLength.Points(5f));
+        tree.SetPosition(inset, Edge.Top, StyleLength.Points(7f));
 
         tree.CalculateLayout(root, 100f, float.NaN, Direction.Ltr);
 
-        Assert.Equal(1, tree.GetFragmentCount(span));
+        // The whole of what the refusal cost: two lines, two boxes. 80 wide then 40, exactly what the
+        // same three children give with no absolute one beside them.
+        Assert.Equal(2, tree.GetFragmentCount(span));
+        Assert.Equal(80f, tree.GetFragment(span, 0).Width, Tolerance);
+        Assert.Equal(40f, tree.GetFragment(span, 1).Width, Tolerance);
 
-        Assert.Equal(5f, tree.GetLeft(floating), Tolerance);
-        Assert.Equal(7f, tree.GetTop(floating), Tolerance);
+        // The union is at the container's padding origin, and the child's insets are measured from
+        // it — a position in this store is parent-relative and the child's parent is the span.
+        Assert.Equal(10f, tree.GetLeft(span), Tolerance);
+        Assert.Equal(10f, tree.GetTop(span), Tolerance);
+        Assert.Equal(5f, tree.GetLeft(inset), Tolerance);
+        Assert.Equal(7f, tree.GetTop(inset), Tolerance);
+    }
+
+    /// <summary>
+    ///     An out-of-flow child of a fragmented span lands at the union's inline start on the axis
+    ///     it gave no inset for.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One inset is given and the other is not, deliberately.</b> The vertical answer
+    ///         proves the walk ran at all — <c>Position</c> is never written for a child nobody
+    ///         positions, so a test that gave no inset on either axis would expect (0, 0), which is
+    ///         exactly what a vanished child reads.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the horizontal answer is NOT §10.6.4's static position, which is the finding
+    ///         this case exists to record rather than an expectation it endorses.</b>
+    ///         <c>HideAndPositionOutOfFlow</c> does write a <c>BlockStaticLeft</c> for this child, and
+    ///         <c>LayoutAbsoluteChild</c> reads that pair only when the parent's <c>display</c> is
+    ///         <c>block</c> or <c>flow-root</c> — an inline box is neither, so an un-inset child of
+    ///         one falls through to the alignment branch and lands at the union's inline start. That
+    ///         is true of an ATOMIC span at HEAD as well, so it is older than fragmentation, and
+    ///         rebasing the recorded static position onto the union — the repair that looks
+    ///         obligatory — is dead code, verified by sabotage: removing the rebase left all of these
+    ///         green.
+    ///     </para>
+    ///     <para>
+    ///         Chrome 148.0.7778.280 on the equivalent fixture answers neither: it puts an un-inset
+    ///         child where its hypothetical box would have gone, after the last in-flow item, at
+    ///         (40, 20) in the container. Filed as its own issue.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_out_of_flow_child_with_no_inset_on_an_axis_lands_at_the_unions_start_edge() {
+        using var tree = new LayoutTree();
+        var root = PaddedRoot(tree, width: 100f, padding: 10f);
+        var span = Span(tree, root);
+
+        Item(tree, span, 40f, 20f);
+        Item(tree, span, 40f, 20f);
+        Item(tree, span, 40f, 20f);
+
+        var loose = Item(tree, span, 10f, 10f);
+        tree.SetPositionType(loose, PositionType.Absolute);
+        tree.SetPosition(loose, Edge.Top, StyleLength.Points(7f));
+
+        tree.CalculateLayout(root, 100f, float.NaN, Direction.Ltr);
+
+        Assert.Equal(2, tree.GetFragmentCount(span));
+        Assert.Equal(10f, tree.GetLeft(span), Tolerance);
+        Assert.Equal(10f, tree.GetTop(span), Tolerance);
+
+        Assert.Equal(0f, tree.GetLeft(loose), Tolerance);
+        Assert.Equal(7f, tree.GetTop(loose), Tolerance);
+    }
+
+    /// <summary>
+    ///     The rectangle such a child resolves its insets against is the span's union, not the
+    ///     container's content box — and a span inside an anonymous block box is walked too.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The two rectangles are the same size in every other fixture in this file, which
+    ///         is why this one has a block-level sibling.</b> A span holding three 40-wide items in a
+    ///         100-wide container has a union exactly as wide and as tall as the container's content
+    ///         box, so a trailing inset resolved against the wrong one of the two answers correctly.
+    ///         The 30-tall sibling below takes the container's content height to 70 and leaves the
+    ///         union at 40, and the two answers separate: 40 − 4 − 10 = 26 against the union and
+    ///         70 − 4 − 10 = 56 against the container.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the sibling is what makes the container run §9.2.1.1's anonymous block box</b>,
+    ///         so this is the BLOCK path's copy of the walk rather than the inline one's. The two call
+    ///         sites are separate lines in separate files and an implementation that adds one passes
+    ///         every other case here.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_containing_block_of_such_a_child_is_the_union_and_the_block_path_walks_it_too() {
+        using var tree = new LayoutTree();
+        var root = PaddedRoot(tree, width: 100f, padding: 10f);
+        var span = Span(tree, root);
+
+        Item(tree, span, 40f, 20f);
+        Item(tree, span, 40f, 20f);
+        Item(tree, span, 40f, 20f);
+
+        var trailing = Item(tree, span, 10f, 10f);
+        tree.SetPositionType(trailing, PositionType.Absolute);
+        tree.SetPosition(trailing, Edge.Right, StyleLength.Points(6f));
+        tree.SetPosition(trailing, Edge.Bottom, StyleLength.Points(4f));
+
+        BlockBox(tree, root, 100f, 30f);
+
+        tree.CalculateLayout(root, 100f, float.NaN, Direction.Ltr);
+
+        // The union is unchanged by the sibling: two lines of 20, 80 wide.
+        Assert.Equal(2, tree.GetFragmentCount(span));
+        Assert.Equal(80f, tree.GetWidth(span), Tolerance);
+        Assert.Equal(40f, tree.GetHeight(span), Tolerance);
+
+        // 80 − 6 − 10 and 40 − 4 − 10, both measured from the union.
+        Assert.Equal(64f, tree.GetLeft(trailing), Tolerance);
+        Assert.Equal(26f, tree.GetTop(trailing), Tolerance);
+    }
+
+    /// <summary>An out-of-flow child of a span nested inside another span is placed too.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The case the container's own walk cannot reach even once the outer one is fixed.</b>
+    ///     Both spans are containing blocks, so the container's walk stops at the outer and the
+    ///     outer's walk stops at the inner. Descending into every flattened box — rather than only
+    ///     into the ones that were themselves worth a call — is what covers it, and an implementation
+    ///     that starts a walk per flattened box without recursing passes the two cases above and
+    ///     leaves this child positioned by nobody.
+    /// </remarks>
+    [Fact]
+    public void An_out_of_flow_child_of_a_nested_span_is_placed_by_the_nested_spans_own_walk() {
+        using var tree = new LayoutTree();
+        var root = PaddedRoot(tree, width: 100f, padding: 0f);
+        var outer = Span(tree, root);
+        var inner = Span(tree, outer);
+
+        Item(tree, inner, 40f, 20f);
+        Item(tree, inner, 40f, 20f);
+        Item(tree, inner, 40f, 20f);
+
+        var nested = Item(tree, inner, 10f, 10f);
+        tree.SetPositionType(nested, PositionType.Absolute);
+        tree.SetPosition(nested, Edge.Left, StyleLength.Points(3f));
+        tree.SetPosition(nested, Edge.Top, StyleLength.Points(4f));
+
+        tree.CalculateLayout(root, 100f, float.NaN, Direction.Ltr);
+
+        Assert.Equal(2, tree.GetFragmentCount(outer));
+        Assert.Equal(2, tree.GetFragmentCount(inner));
+
+        Assert.Equal(3f, tree.GetLeft(nested), Tolerance);
+        Assert.Equal(4f, tree.GetTop(nested), Tolerance);
     }
 
     /// <summary>A span's own <c>position: relative</c> offset moves it and everything inside it.</summary>
