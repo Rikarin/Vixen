@@ -344,10 +344,11 @@ need throughput. Both are first-class and documented as such.
 > out of its slice while this paragraph kept promising both, which is
 > [#299](https://github.com/Rikarin/Vixen/issues/299).
 >
-> **Owed:** prefab variants ([#299](https://github.com/Rikarin/Vixen/issues/299)); and the
-> `IWorldCommand` undo/redo vocabulary, which did *not* arrive with the editor — what did is a
-> parallel document-level stack, which is [#295](https://github.com/Rikarin/Vixen/issues/295). The
-> ImGui scaffold is **cut** — see [14](14-roadmap.md) § Phase 2.
+> **Owed:** prefab variants ([#299](https://github.com/Rikarin/Vixen/issues/299)). ⚠ The
+> `IWorldCommand` undo/redo vocabulary is **withdrawn, not owed** — see § Scenes, prefabs, and the
+> editor seam: the editor's stack is a document-level concern and the command buffer is a world-level
+> one, and they deliberately do not meet. The ImGui scaffold is **cut** — see [14](14-roadmap.md)
+> § Phase 2.
 >
 > ✅ **The camera façade grew a system.** This document gives a game a `Camera` component and a
 > transform, which is everything it needs and nothing it wants — what gets written on top of it, every
@@ -481,8 +482,31 @@ struct HierarchyDepth  { short Value; }         // tag component; archetype-spli
 - **Prefab variants/overrides** follow Unity's model: an instance stores a sparse override list
   (property path → value) against its source prefab, so editing the prefab propagates. This is
   genuinely hard and is scheduled explicitly in the roadmap rather than assumed.
-- Editor mutations go through `IWorldCommand` objects on the undo/redo stack, so the editor's
-  entity manipulation and the runtime's `CommandBuffer` share the same mutation vocabulary.
+- Editor mutations go through reversible command objects on the undo/redo stack.
+
+> ⚠ **Amended: the two stacks deliberately do not meet, and `IWorldCommand` is withdrawn rather than
+> owed.** This line used to say the editor's entity manipulation and the runtime's `CommandBuffer`
+> would "share the same mutation vocabulary". What was built is `IEditorCommand` and
+> `Editor/Vixen.Editor.Core/CommandStack.cs`, with `SetValuesCommand`, `SetPropertyCommand`,
+> `DelegateCommand`, `CompositeCommand` and `TransformTargetsCommand`. It is not an unfinished
+> version of the shared thing — the two answer different questions, and the shapes say so:
+>
+> - **`IEditorCommand` is `Do` + `Undo` + `TryMergeWith` over an `EditorContext`.** It has to be
+>   reversible, repeatable, and mergeable — that last is what makes a slider drag one undo step
+>   rather than three hundred — and what it edits is a **document**, which includes edits a world has
+>   no notion of: renaming an asset and updating four hundred references in files nobody opened.
+> - **`CommandBuffer` is a flat record of `(Kind, Entity, ComponentTypeId, Slot, SortKey, Sequence,
+>   Channel)`, and it is not reversible at all.** It cannot be: it is recorded *during* iteration by
+>   a recorder that is forbidden to look at the world, which is the same reason it is lenient where
+>   `World` is strict. Making it reversible means storing the previous value of every structural
+>   change on the frame path, to serve an undo nothing in a running game asks for.
+>
+> A single vocabulary would therefore either tax the frame with undo state or take merging and
+> asset-scope edits away from the editor. ⚠ **And the cost this section's gap was said to have has
+> since been examined and refuted**: [#123](https://github.com/Rikarin/Vixen/issues/123) —
+> `EntityGizmoTarget.Record` building a `TransformTargetsCommand` directly — was closed by finding
+> that the direct construction is *correct*, and that what the gizmo and the inspector genuinely
+> share is `PrefabInstances`, one layer down. The seam that turned out to be needed was not this one.
 
 ## Tests
 
