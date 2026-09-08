@@ -112,7 +112,7 @@ sealed class PaintProjector {
         }
 
         Hit = hit;
-        radius = PaintFootprint.Radius(eye, hit, projection.Density(hit.Triangle, width, height), screenRadius);
+        radius = PaintFootprint.Radius(eye, ray, hit, projection.Density(hit.Triangle, width, height), screenRadius);
         held[paths++] = PaintProjection.Texel(hit.Coordinate, width, height);
 
         if (Symmetry is { } plane && projection.TryHit(plane.Mirror(ray), out var mirrored)) {

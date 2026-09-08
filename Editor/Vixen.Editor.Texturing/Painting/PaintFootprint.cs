@@ -142,7 +142,8 @@ static class PaintFootprint {
     public const float GrazingFloor = 0.1f;
 
     /// <summary>The brush's radius in texels, where the ray landed.</summary>
-    /// <param name="eye">The camera the ray came from.</param>
+    /// <param name="eye">The camera the ray came from, which is what sizes a pixel.</param>
+    /// <param name="ray">The ray itself, which is what the surface is tilted with respect to.</param>
     /// <param name="hit">Where it landed.</param>
     /// <param name="density">The hit triangle's texel density.</param>
     /// <param name="screenRadius">How wide the brush is, in render pixels.</param>
@@ -154,7 +155,7 @@ static class PaintFootprint {
     ///     the floor a *tool* applies to a number an artist typed; this is a measurement, and its
     ///     honest answer for an unmeasurable place is that there is none.
     /// </remarks>
-    public static float Radius(PaintEye eye, PaintHit hit, PaintDensity density, float screenRadius) {
+    public static float Radius(PaintEye eye, Ray ray, PaintHit hit, PaintDensity density, float screenRadius) {
         if (!hit.Found || !density.IsMeasurable || !(screenRadius > 0f) || !float.IsFinite(screenRadius)) {
             return 0f;
         }
@@ -172,13 +173,15 @@ static class PaintFootprint {
         // r / cos θ. Its area-equivalent radius is r / √cos θ, which is the same compromise
         // `PaintDensity.Area` makes one step later and is made the same way for the same reason.
         //
-        // ⚠ The angle is to the ray that struck, not to the camera's forward axis. Forward is what
-        // sizes a pixel — that is a depth — and the ray is what the disc is projected along, so a
-        // stroke near the edge of a wide viewport is tilted with respect to one and not the other.
-        var toward = hit.Point - eye.Position;
-        var reach = toward.Length();
-        var cosine = reach > 0f
-            ? MathF.Max(MathF.Abs(Vector3.Dot(toward / reach, hit.Normal)), GrazingFloor)
+        // ⚠ The angle is to the ray that struck, and the ray is a parameter rather than the line
+        // from the eye to the hit. They are the same under a perspective camera and they are *not*
+        // under an orthographic one, where every ray is parallel to the forward axis however far
+        // from the centre of the pane the pointer is — so deriving the direction here would have
+        // made an orthographic brush grow towards the corners of the viewport, by a term that has
+        // no counterpart in what the artist can see.
+        var along = ray.Direction.Length();
+        var cosine = along > 0f
+            ? MathF.Max(MathF.Abs(Vector3.Dot(ray.Direction / along, hit.Normal)), GrazingFloor)
             : 1f;
 
         surface /= MathF.Sqrt(cosine);
