@@ -155,6 +155,35 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///         behaviour before the family.
 ///     </para>
 /// </param>
+/// <param name="Observes">
+///     The properties this scene is a valid observer for, or <see langword="null" /> for all of them.
+///     <para>
+///         ⚠ <b>The verdict is a union over every scene, so ONE scene that reacts to an arbitrary
+///         injected declaration makes every property in the ledger read as consumed.</b> That is not
+///         hypothetical and it is not cheap: on 2026-09-06 a <c>discrete</c> scene transitioning
+///         <c>visibility</c> under <c>transition-property: all</c> did exactly that, and the gate
+///         began answering <c>hit, layout, paint</c> for <c>mask-type</c> — a property nothing
+///         registers and nothing reads. Three further tests then reported the same lie wearing a
+///         useful face, each telling the next reader to delete a line recording a real gap. It cost
+///         a revert (#973).
+///     </para>
+///     <para>
+///         ⚠ <b>And narrowing the offending scene does not fix it</b> — measured in #973:
+///         <c>transition-property: visibility</c> left the arbitrary-property control red just the
+///         same. The leak is structural, so the answer is: a scene whose paint is sensitive to
+///         something other than the declaration under test says which properties it may answer for,
+///         and <see cref="UtilityConsumptionProbe.Channels(string, string)" /> does not union its
+///         verdict into any other. A scene that names nothing keeps the old behaviour, which is
+///         right for the twenty-odd scenes whose only moving part IS the injected declaration.
+///     </para>
+///     <para>
+///         ⚠ <b>A transition is the one ingredient known to leak, and
+///         <c>UtilityConsumptionGateTests.A_scene_carrying_a_transition_says_which_properties_it_may_answer_for</c>
+///         is what makes the rule a gate rather than a convention.</b> It refuses a scene that
+///         declares <c>transition-property</c> and leaves this null — which is what disarms the next
+///         one BEFORE it lands, where the <c>mask-type</c> canary only catches it after.
+///     </para>
+/// </param>
 sealed record ProbeScene(
     string Name,
     string Css,
@@ -167,7 +196,8 @@ sealed record ProbeScene(
     bool Tabbed = false,
     bool Hyphenated = false,
     bool Pictured = false,
-    bool Forced = false
+    bool Forced = false,
+    IReadOnlyList<string>? Observes = null
 );
 
 /// <summary>Runs a declaration past the engine and reports what moved.</summary>
@@ -268,7 +298,24 @@ static class UtilityConsumptionProbe {
         icon { width: 14px; height: 14px; }
         """;
 
-    static readonly ProbeScene[] Scenes = [
+    /// <summary>Everything the family table can put on an element that the animator reads.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The observer set of every scene that declares a transition, and the reason those
+    ///     scenes need one at all.</b> A running transition makes a scene's frames depend on more than
+    ///     the declaration under test — #973 measured that and the mechanism was never pinned down,
+    ///     only reverted — so the three scenes carrying one answer for these five properties and for
+    ///     nothing else. Every other property they could have answered for is answerable in
+    ///     <c>tight</c>, which is the geometry all three are variations of.
+    /// </remarks>
+    static readonly string[] TransitionProperties = [
+        "transition-behavior",
+        "transition-delay",
+        "transition-duration",
+        "transition-property",
+        "transition-timing-function"
+    ];
+
+    internal static readonly ProbeScene[] Scenes = [
         // Tight. Nothing fits: the probe overflows its host and its children overflow it, so
         // shrinking, wrapping, clipping and every box-model longhand has something to move.
         new(
@@ -406,7 +453,8 @@ static class UtilityConsumptionProbe {
                      transition-property: all; transition-duration: 200ms;
                      transition-timing-function: linear; }
             #after { width: 96px; height: 20px; background-color: #a0a040; }
-            """
+            """,
+            Observes: TransitionProperties
         ),
 
         // ⚠ <b>Primed: a duration and a timing function, aimed at a property the mutation does not
@@ -438,7 +486,8 @@ static class UtilityConsumptionProbe {
                      transition-property: color; transition-duration: 200ms;
                      transition-timing-function: linear; }
             #after { width: 96px; height: 20px; background-color: #a0a040; }
-            """
+            """,
+            Observes: TransitionProperties
         ),
 
         // ⚠ <b>Gridded, and it is the only scene in which a grid property can move anything at all.</b>
@@ -1212,7 +1261,8 @@ static class UtilityConsumptionProbe {
                      transition-timing-function: linear; }
             #probe.moved { align-items: flex-end; }
             #after { width: 40px; height: 20px; background-color: #a0a040; }
-            """
+            """,
+            Observes: TransitionProperties
         )
     ];
 
@@ -1220,10 +1270,15 @@ static class UtilityConsumptionProbe {
     static readonly Dictionary<string, IReadOnlyList<string>> Verdicts = new(StringComparer.Ordinal);
     static readonly Lock Gate = new();
 
-    /// <summary>Which observables a declaration moves, over every scene.</summary>
+    /// <summary>Which observables a declaration moves, over every scene that may answer for it.</summary>
     /// <param name="property">The CSS property.</param>
     /// <param name="value">The value a utility gives it.</param>
     /// <returns>The channel names, ordered. Empty means nothing in the engine acts on it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A scene with an <see cref="ProbeScene.Observes" /> list is skipped for every property
+    ///     outside it.</b> Without that, one scene sensitive to any injected declaration answers for
+    ///     the whole registry — see that parameter's remark and #973.
+    /// </remarks>
     public static IReadOnlyList<string> Channels(string property, string value) {
         var key = $"{property}:{value}";
 
@@ -1232,30 +1287,68 @@ static class UtilityConsumptionProbe {
                 return cached;
             }
 
-            var channels = new List<string>();
+            var channels = Measure(Scenes, Baselines, property, value);
 
-            foreach (var scene in Scenes) {
-                if (!Baselines.TryGetValue(scene.Name, out var plain)) {
-                    plain = Run(scene, null);
-                    Baselines[scene.Name] = plain;
-                }
-
-                var probed = Run(scene, $"{property}: {value};");
-
-                Note(channels, "layout", plain.Layout, probed.Layout);
-                Note(channels, "paint", plain.Paint, probed.Paint);
-                Note(channels, "cursor", plain.Cursor, probed.Cursor);
-                Note(channels, "hit", plain.Hit, probed.Hit);
-
-                if (channels.Count == 4) {
-                    break;
-                }
-            }
-
-            channels.Sort(StringComparer.Ordinal);
             Verdicts[key] = channels;
             return channels;
         }
+    }
+
+    /// <summary>The same measurement over a scene list supplied by the caller.</summary>
+    /// <param name="scenes">The scenes to measure in.</param>
+    /// <param name="property">The CSS property.</param>
+    /// <param name="value">The value a utility gives it.</param>
+    /// <returns>The channel names, ordered.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Uncached, and with baselines of its own.</b> The verdict cache is keyed by the pair
+    ///     alone and the baseline cache by scene name, so a caller's scene sharing a name with a real
+    ///     one would otherwise be measured against the real one's frames — the instrument answering
+    ///     about a scene it was not given. This exists so that
+    ///     <c>UtilityConsumptionGateTests</c> can hold a known-poisonous scene up to the mechanism and
+    ///     show it both poisoning without a declared observer set and not poisoning with one; a test
+    ///     that could only assert the second half would pass on a mechanism that does nothing.
+    /// </remarks>
+    public static IReadOnlyList<string> Channels(IReadOnlyList<ProbeScene> scenes, string property, string value) {
+        lock (Gate) {
+            return Measure(scenes, new Dictionary<string, SceneSignature>(StringComparer.Ordinal), property, value);
+        }
+    }
+
+    static List<string> Measure(
+        IReadOnlyList<ProbeScene> scenes,
+        Dictionary<string, SceneSignature> baselines,
+        string property,
+        string value
+    ) {
+        var channels = new List<string>();
+
+        foreach (var scene in scenes) {
+            // The whole of the fix for #973. A scene that named its properties is not consulted about
+            // any other, so its sensitivity — whatever the sensitivity turns out to be — is confined
+            // to the properties somebody decided it was a valid observer for.
+            if (scene.Observes is not null && !scene.Observes.Contains(property, StringComparer.Ordinal)) {
+                continue;
+            }
+
+            if (!baselines.TryGetValue(scene.Name, out var plain)) {
+                plain = Run(scene, null);
+                baselines[scene.Name] = plain;
+            }
+
+            var probed = Run(scene, $"{property}: {value};");
+
+            Note(channels, "layout", plain.Layout, probed.Layout);
+            Note(channels, "paint", plain.Paint, probed.Paint);
+            Note(channels, "cursor", plain.Cursor, probed.Cursor);
+            Note(channels, "hit", plain.Hit, probed.Hit);
+
+            if (channels.Count == 4) {
+                break;
+            }
+        }
+
+        channels.Sort(StringComparer.Ordinal);
+        return channels;
     }
 
     /// <summary>The properties an element ends up holding when given one declaration.</summary>

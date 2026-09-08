@@ -400,6 +400,19 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     readonly HashSet<ulong> layerBlends = [];
 
+    /// <summary>Each rounded group's backdrop surface number, so <see cref="SquareBackdrops" /> can count it.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="layerBlends" />'s twin, added for the same reason and against a divergence
+    ///     that is one week old rather than one release old.</b> CSS clips a filtered backdrop to the
+    ///     element's border box <i>including its radius</i>; <c>SoftwareUiRasterizer</c> now does, and
+    ///     this renderer does not, because a composite fragment is told nothing about the box — see
+    ///     <see cref="UiLayer.BackdropRadius" />, which prices what the telling costs. Filled
+    ///     unconditionally and gating nothing, exactly as <see cref="layerBlends" /> is: the draw is
+    ///     the same draw either way and the entry exists so that <see cref="SubmitDraw" /> can say the
+    ///     corners went out square.
+    /// </remarks>
+    readonly HashSet<ulong> layerSquares = [];
+
     /// <summary>What an image set's storage binding points at, and it is never the box buffer.</summary>
     /// <remarks>
     ///     <para>
@@ -611,6 +624,8 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     int filtered;
     int unblended;
+
+    int squareBackdrops;
 
     /// <summary>How many composite draws the last <see cref="Record" /> put a mask through.</summary>
     /// <remarks>
@@ -937,6 +952,36 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     public int Unblended => unblended;
 
+    /// <summary>How many backdrop quads went out with square corners despite the group being rounded.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Unblended" />'s twin, and the second counter on this class that counts
+    ///         something the renderer failed to do.</b> CSS clips a filtered backdrop to the element's
+    ///         border box <i>including its radius</i>, so <c>rounded-2xl backdrop-blur-md
+    ///         bg-white/30</c> — the canonical use of the feature — must show a curve where the panel
+    ///         has one. <c>SoftwareUiRasterizer</c> draws that curve as of 2026-09-08; this renderer
+    ///         draws a rectangle, because a composite fragment is told nothing about the box it is
+    ///         filling.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the divergence costs to close is a channel and not a distance function</b>,
+    ///         which four audits of #229 priced and one of them got the seam wrong: a composite quad
+    ///         carries no <c>UiShape</c>, the push constants are at Vulkan's guaranteed 128 bytes, and
+    ///         the quad's <c>shape</c> stream has three free lanes where a viewport-relative backdrop
+    ///         needs seven. The cheapest measured channel is a fourth <c>MaskEntry</c> shape, whose
+    ///         price is routing every rounded backdrop through the mask pipeline. See
+    ///         <see cref="UiLayer.BackdropRadius" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Non-zero is a claim about this renderer rather than about the frame, and it exists
+    ///         because a picture cannot make the claim on its own.</b> A backdrop's corner is the
+    ///         filtered scene against the unfiltered scene, which over a flat background is the
+    ///         identity — the same trap <see cref="Unblended" /> and <see cref="Backdropped" /> both
+    ///         record. A fixture that could not tell would pass either way.
+    ///     </para>
+    /// </remarks>
+    public int SquareBackdrops => squareBackdrops;
+
     /// <summary>How many composite draws the last <see cref="Record" /> put a mask through.</summary>
     /// <remarks>
     ///     ⚠ <b>Counted separately from <see cref="Filtered" /> even though one pipeline serves
@@ -1147,6 +1192,7 @@ public sealed class UiRenderer : IDisposable {
         filtered = 0;
         masked = 0;
         unblended = 0;
+        squareBackdrops = 0;
 
         // ⚠ Cleared here and not where it is filled, so that every early return below leaves the map
         // empty rather than holding the *previous* frame's answers keyed by numbers this frame's
@@ -1155,6 +1201,7 @@ public sealed class UiRenderer : IDisposable {
         layerFilters.Clear();
         layerMasks.Clear();
         layerBlends.Clear();
+        layerSquares.Clear();
 
         if (geometry.Layers.Count == 0 || geometry.Indices.Count == 0) {
             return;
@@ -1241,6 +1288,13 @@ public sealed class UiRenderer : IDisposable {
         foreach (var layer in geometry.Layers) {
             if (layer.Blend != UiBlendMode.Normal) {
                 layerBlends.Add(layer.Image);
+            }
+
+            // ⚠ Keyed by the BACKDROP's surface and not the group's, because the square corners are on
+            // the backdrop quad. A rounded group's own composite is not rounded by anything and never
+            // was — the rounding lives in the boxes the group drew.
+            if (layer is { Backdrop: not null, BackdropRadius: > 0f }) {
+                layerSquares.Add(layer.BackdropImage);
             }
         }
 
@@ -2417,6 +2471,11 @@ public sealed class UiRenderer : IDisposable {
         // which is what makes it worth having. See `Unblended`.
         if (layerBlends.Count > 0 && draw.Kind == BatchKind.Image && layerBlends.Contains(draw.Image)) {
             unblended++;
+        }
+
+        // The same shape, one divergence over. See `SquareBackdrops`.
+        if (layerSquares.Count > 0 && draw.Kind == BatchKind.Image && layerSquares.Contains(draw.Image)) {
+            squareBackdrops++;
         }
     }
 

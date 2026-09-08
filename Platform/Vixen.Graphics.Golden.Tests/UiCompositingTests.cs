@@ -841,6 +841,120 @@ public sealed class UiCompositingTests {
         Assert.Equal((255, 0, 0), Middle(software));
     }
 
+    /// <summary>A rounded group's backdrop goes out square on the device, and it is counted.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="ADeclaredBlendRunsOnTheSoftwarePathAndGoesOutSourceOverOnTheDevice" />'s
+    ///         sibling, and it exists for the sentence that test's own remarks make: a counter that
+    ///         says what a renderer failed to do is worth exactly what asks it.</b>
+    ///         <c>UiRenderer.Unblended</c> had no reader anywhere in the repository for a release, so
+    ///         the divergence was a paragraph rather than a measurement and neither a regression in it
+    ///         nor the day it closed would have been noticed. <c>UiRenderer.SquareBackdrops</c> is one
+    ///         week old and is read here rather than in a release's time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Counters and not pixels, deliberately, and this is the one case in this file where
+    ///         that is the stronger assertion.</b> The corner of a filtered backdrop is the filtered
+    ///         scene against the unfiltered scene — over the flat field this fixture paints, an
+    ///         <c>invert</c> of it and a copy of it differ, but the difference sits in four corner
+    ///         texels of a 128-pixel frame and a comparison of the two executors would report it as a
+    ///         diff with no obvious cause. The corner's *picture* is asserted where it can be read to
+    ///         the level: <c>BackdropFilterTests.A_rounded_backdrop_stops_at_the_curve</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Written to be inverted when #229 divergence 1 lands</b>, exactly as its sibling is:
+    ///         <see cref="UiRenderer.SquareBackdrops" /> becomes zero and the two frames are compared
+    ///         with the agreement every other case here uses.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ARoundedBackdropIsClippedOnTheSoftwarePathAndGoesOutSquareOnTheDevice() {
+        if (!TryOpen(out var fixture, out _)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var colour = owned.ColourTarget("ui-rounded-backdrop");
+
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var geometry = new UiGeometryBuilder().Build(RoundedBackdrop(), cache, Viewport);
+
+        // The instrument, both halves: a group was opened, it asked for a backdrop, and the radius
+        // survived the trip. Without the third the counter below would be zero for the wrong reason.
+        var layer = Assert.Single(geometry.Layers);
+
+        Assert.NotNull(layer.Backdrop);
+        Assert.Equal(16f, layer.BackdropRadius, 3);
+
+        var renderer = new UiRenderer(
+            owned.Device,
+            new(
+                owned.Shader("ui.vert.spv", ShaderStage.Vertex),
+                owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+            ) {
+                Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment),
+                Blur = owned.Shader("ui-blur.frag.spv", ShaderStage.Fragment),
+                Colour = owned.Shader("ui-colour.frag.spv", ShaderStage.Fragment),
+                Mask = owned.Shader("ui-mask.frag.spv", ShaderStage.Fragment)
+            },
+            new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
+        );
+
+        owned.Owns(renderer.Dispose);
+
+        owned.Graph.AddPass("ui-rounded-backdrop", pass => {
+            pass.ColourAttachment(colour, LoadAction.Clear, Background);
+            pass.SideEffect();
+            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
+        });
+
+        owned.Render(
+            colour,
+            commands => {
+                renderer.Upload(commands, geometry, cache.Atlas);
+                renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+            }
+        );
+
+        // The capture ran — otherwise the backdrop quad is drawing nothing and the count below would
+        // be a claim about an empty picture.
+        Assert.Equal(1, renderer.Backdropped);
+
+        // The claim: the geometry asked for a rounded backdrop and the quad went out square.
+        Assert.Equal(1, renderer.SquareBackdrops);
+    }
+
+    /// <summary>A field with a rounded, inverting glass panel over the middle of it.</summary>
+    /// <remarks>
+    ///     ⚠ The field is a draw rather than the clear colour for <see cref="Blended" />'s reason: a
+    ///     backdrop is whatever is in the buffer the capture replays into, and a fixture whose backdrop
+    ///     was the clear would be asserting about the render pass.
+    /// </remarks>
+    static DrawList RoundedBackdrop() {
+        var list = new DrawList();
+        list.BeginFrame();
+
+        list.Add(new(DrawCommandKind.Rectangle, 0, 0, Side, Side, new Color4(1f, 0f, 1f, 1f), 0, 0));
+
+        // ⚠ The radius rides the `LayerPush`'s own `Radius`, which carried a hard zero from
+        // `DrawListBuilder` until 2026-09-08 — see `UiLayer.BackdropRadius`. Sixteen against an eighty
+        // point box, so the curve is a quarter of the side and no clamp is involved.
+        list.Add(
+            new DrawCommand(DrawCommandKind.LayerPush, 24, 24, 80, 80, Color4.White, 16, 0) {
+                Backdrop = new UiBackdrop(0f, 1f, UiColorMatrix.Invert(1f))
+            }
+        );
+
+        list.Add(new(DrawCommandKind.Rectangle, 24, 24, 80, 80, new Color4(1f, 1f, 1f, 0.25f), 16, 0));
+        list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+
+        list.EndFrame();
+
+        return list;
+    }
+
     /// <summary>A magenta field with a blended yellow group over it, centred on the fixture.</summary>
     /// <remarks>
     ///     ⚠ The field is painted by a draw of its own rather than by the clear colour, because what a

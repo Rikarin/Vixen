@@ -616,14 +616,36 @@ sharp original instead of replacing it. `docs/guide/ui/compositing.md` § *`back
 whole of it.
 
 ⚠ **They read `partial` rather than `works`, and the gap is a fidelity one rather than a consumption
-one.** CSS clips the filtered backdrop to the element's border box *including its radius*, and a
-`UiLayer` carries no radius — so `rounded-2xl backdrop-blur-md bg-white/30`, which is the canonical
-use of the feature, shows square corners just outside the rounded ones. The border box itself *is*
-honoured: `UiLayer.BackdropBounds` carries it separately from the group's ink, because the ink is
-grown by any child that overflows the element and filtering the backdrop over that would put blurred
-scene outside the panel that asked for it. Closing the radius needs a rounded-rect signed distance in
-three shipped fragment modules and their software transcription. That is now the whole of the owed
-half: the radius alone.
+one.** CSS clips the filtered backdrop to the element's border box *including its radius*. The border
+box itself *is* honoured: `UiLayer.BackdropBounds` carries it separately from the group's ink, because
+the ink is grown by any child that overflows the element and filtering the backdrop over that would
+put blurred scene outside the panel that asked for it.
+
+⚠ **The radius is half closed as of 2026-09-08, and the half that had never been looked at was not a
+shader.** This paragraph priced it four times as "a rounded-rect signed distance in three shipped
+fragment modules and their software transcription", and the audits under #229 sharpened that to "the
+missing piece is a *channel* to tell a composite fragment where the box is". Both were about the hop
+below the one that was broken: `DrawListBuilder` passed a literal `0f` for the `LayerPush`'s own
+`Radius` — the slot every other command kind carries a box's rounding in — so the radius was discarded
+one hop after it was resolved and four hops before any fragment, and there was nothing for a shader to
+be told even once somebody built the telling. `UiLayer.BackdropRadius` and `UiLayer.BackdropBox` carry
+it now; `SoftwareUiRasterizer.Composite` multiplies the rounded coverage into the mask's, through the
+same `BoxDistance` the element's own background goes through so the two curves cannot disagree.
+
+⚠ **The device half is what keeps the ten rows `partial`, and it is now a counted divergence rather
+than a paragraph.** `UiRenderer` still draws a rectangle, for the reason the audits established — a
+composite quad has no `UiShape`, the push constants are at Vulkan's guaranteed 128 bytes, and the
+quad's `shape` stream has three free lanes where a viewport-relative backdrop needs seven; the
+cheapest measured channel is a fourth `MaskEntry` shape, whose price is routing every rounded backdrop
+through the mask pipeline. `UiRenderer.SquareBackdrops` counts every quad that goes out square and is
+read by `UiCompositingTests.ARoundedBackdropIsClippedOnTheSoftwarePathAndGoesOutSquareOnTheDevice`,
+which is `mix-blend-mode`'s arrangement word for word and exists because a corner of filtered scene
+against unfiltered scene is frequently the identity — no screenshot can report it.
+
+⚠ **And it is the uniform radius or none**, which is `DrawCommand.Radius`'s own rule: a `LayerPush`'s
+side-buffer range is already spent on its mask list, so four differing corners have nowhere to ride
+and such an element keeps the square backdrop it had. Putting one corner in the scalar would round all
+four by it.
 
 ⚠ **The second divergence closed on 2026-09-05 under #229, and it closed by the premise being
 wrong rather than by the work being done.** An element that painted nothing of its own opened no
