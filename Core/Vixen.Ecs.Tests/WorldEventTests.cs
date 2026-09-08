@@ -38,9 +38,16 @@ public sealed class WorldEventTests {
 
         var made = world.Create(new Position(1, 2, 3), new Velocity(4, 5, 6));
 
+        // ⚠ The entity first, then its components in SOME order. Which of the two components is
+        // announced first is a fact about the order their `Component<T>` statics happened to be
+        // initialised in — `beforefieldinit` lets the runtime run a type's initialiser at any point
+        // before its first field access, so it depends on which test in the process touched
+        // `Position` or `Velocity` first. Asserting it pinned an accident, and the assembly failed
+        // about one process in fifteen when it ran beside the whole suite (#857).
+        Assert.Equal($"created {made.Id}", log[0]);
         Assert.Equal(
-            [$"created {made.Id}", $"added Position to {made.Id}", $"added Velocity to {made.Id}"],
-            log
+            [$"added Position to {made.Id}", $"added Velocity to {made.Id}"],
+            log.Skip(1).Order(StringComparer.Ordinal)
         );
     }
 
@@ -100,7 +107,11 @@ public sealed class WorldEventTests {
 
         world.Destroy(entity);
 
-        Assert.Equal(["removed Position", "removed Velocity", "destroyed"], log);
+        // Both components before the entity, which is what this test is named for; the order of the
+        // two between themselves is the `beforefieldinit` accident described on the creation test
+        // above, and pinning it is what made this assembly flake (#857).
+        Assert.Equal("destroyed", log[^1]);
+        Assert.Equal(["removed Position", "removed Velocity"], log[..^1].Order(StringComparer.Ordinal));
     }
 
     [Fact]
