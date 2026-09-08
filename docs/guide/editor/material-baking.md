@@ -171,6 +171,7 @@ The material's sidecar carries what doc 48 § D4 asks for:
 extensions:
   texturing.source: Assets/Materials/ship-hull.vxtexgraph
   texturing.sourceAsset: 6f1e…
+  texturing.set: Body
   texturing.outputs: baseColor, normal, orm
   texturing.resolution: 2048
   texturing.parameter.rust: 0.6
@@ -183,6 +184,18 @@ extensions:
 ⚠ **Flat dotted keys rather than § D4's nested mapping.** A sidecar's extensions are a
 `Dictionary<string, string>`, which is what `meshMap.usage` and every other extension in the tree
 writes into. What the sketch is about is which facts are recorded, and all of them are.
+
+⚠ **`texturing.set` says which texture set of the source produced this material, and it is absent
+rather than blank when there was none.** A layer stack writes one `.vxmat` per texture set and every
+other fact in the block is identical across them — same source, same asset, same adapter, and a stack
+exposes no parameters — so without it `Hull_Body` and `Hull_Trim` recorded character-identical blocks
+and the only thing telling them apart was the file name. A graph bake and a folder bake have no
+texture sets and write no key, so "this bake did not say" and "this bake had no set" are not the same
+sidecar.
+
+⚠ **It is not part of the key a re-bake matches on.** That key exists to stop a *different* source
+adopting a name, and two sets of one stack are the same source — so their shared key is correct
+rather than a collision, and narrowing it would change which files a re-bake is allowed to overwrite.
 
 ⚠ **The adapter is recorded and never compared.** A re-bake on the same machine is byte-identical and
 that *is* asserted; a re-bake on a different card is not, and pretending otherwise would make the

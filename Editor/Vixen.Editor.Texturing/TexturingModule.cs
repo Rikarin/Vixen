@@ -232,6 +232,47 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// <summary>What turns the open graph into pixels, once there is anything to turn it with.</summary>
     TextureGraphPreview? preview;
 
+    /// <summary>The swatch under every node of the open graph: doc 48 § M4's per-node previews.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The assignment <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a> is
+    ///         about.</b> <c>TextureGraphPreviews</c> had device tests and no production caller for
+    ///         four batches — the shader graph wires its equivalent through
+    ///         <c>EditorApplication.ShaderGraphPreviews</c> and the texture graph wired nothing, so
+    ///         the swatch under a node that asked for one was never drawn. Every part of it existed;
+    ///         the four lines that make it appear are the construction here,
+    ///         <c>view.Canvas.PreviewSource</c> in the graph panel's factory,
+    ///         <see cref="PluginContext.OnUpdate" /> and <see cref="Release" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A third pane and not a third evaluator</b>, which is the whole reason this could
+    ///         be wired at all — <a href="https://github.com/Rikarin/Vixen/issues/820">#820</a>,
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/988">#988</a>. It takes the same
+    ///         <see cref="Evaluator" /> lease <see cref="preview" /> and <see cref="stackPreview" />
+    ///         take, asked per rebuild rather than held, so a session with the graph panel open pays
+    ///         one pipeline cache and not two.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The compiler comes off the <em>canvas</em> and not off <see cref="document" />,
+    ///         and the difference is a descent.</b> An author who has double-clicked into a published
+    ///         compound is looking at the library's model rather than the document's graph, and
+    ///         <c>TextureGraphView.Show</c> keeps <c>Canvas.Registry</c> and
+    ///         <c>Canvas.SubGraphSource</c> pointed at whatever is on screen. Compiling the graph the
+    ///         canvas is drawing against the document's library would resolve a published node type
+    ///         through the wrong one.
+    ///     </para>
+    /// </remarks>
+    TextureGraphPreviews? nodePreviews;
+
+    /// <summary>Where those swatches' pixels become numbers the canvas can draw.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held so it can be disposed, and for nothing else.</b> Each picture is a texture and a
+    ///     descriptor set of the host's, and <see cref="Release" />'s own remark — "a picture left
+    ///     behind is a texture the renderer holds for the rest of the session" — is about exactly one
+    ///     of these per node of every graph that has been open.
+    /// </remarks>
+    TexturePreviewImages? previewImages;
+
     /// <summary>What the force verb says to run, appended to every refusal force can answer.</summary>
     /// <remarks>
     ///     ⚠ <b>Only on <see cref="MaterialBakeOutcome.Painted" />.</b> The other three refusals are
@@ -427,6 +468,29 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             stackPreview = new LayerStackPreview(graphics, Evaluator, canvases);
             baker = new MaterialBakeRoute(graphics, Evaluator, canvases);
 
+            // ⚠ #1015, and the two delegates are what make it a third *pane* rather than a third
+            // evaluator. The first answers the one evaluator for whatever device the host has right
+            // now — asked per rebuild, so a device that has gone is never handed back to the lease —
+            // and the second reads the node library off the canvas, which is the graph that is
+            // actually being drawn. Both may answer null, which is an ordinary state: the editor
+            // publishes graphics before it has a device, and the panel may not be open.
+            previewImages = new TexturePreviewImages(graphics);
+            nodePreviews = new TextureGraphPreviews(
+                () => graphics?.Device is { } ready ? Evaluator(ready) : null,
+                () => view?.Canvas is { } canvas
+                    ? new TextureGraphCompiler(canvas.Registry) { SubGraphSource = canvas.SubGraphSource }
+                    : null,
+                previewImages
+            );
+
+            // ⚠ The per-frame half, and without it the swatches would be assigned and never drawn:
+            // `TryGet` runs from the canvas's draw and deliberately never evaluates, so something
+            // outside a draw has to run the expensive tier. `PluginContext.OnUpdate` is that
+            // something — the same door `TerrainModule` follows a selection through — and it is
+            // rationed to one graph per frame inside `Update` for `ShaderGraphPreviewRenderer`'s
+            // reason.
+            context.OnUpdate(_ => nodePreviews?.Update());
+
             // ⚠ Through the scope rather than in `Deactivate`, because it holds device resources: an
             // evaluator's pipelines and one uploaded image. `Deactivate` runs first and this runs
             // whatever happens to it, which is the difference that matters for a throw.
@@ -493,6 +557,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             new StringId("editor.panel.texture-graph", "Texture Graph"),
             panel => {
                 view = new TextureGraphView(panel);
+
+                // ⚠ The line #1015 is, and it is assigned on every build of the panel rather than
+                // once: a dock panel's factory runs again on reopen, and the canvas it made last
+                // time went with the elements. A source left unassigned is the state the issue
+                // describes — every node's picture computed and none of them drawn.
+                view.Canvas.PreviewSource = nodePreviews;
 
                 // ⚠ The graph pane's half of #819, which was worth nothing until #792. A canvas edit
                 // now changes the map, and without this line it changed the map only the next time
@@ -737,6 +807,25 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return;
         }
 
+        // ⚠ Before the device, and it is the verb's answer to #1070 rather than a guard against a
+        // crash. A shelf entry bakes *something* — it is a stack — and what it bakes is wrong twice
+        // over: a smart material has no model, so every mesh-map mask in it refuses and the artist
+        // reads a wall of diagnostics; and the materials it does write land in the project named
+        // after a shelf entry nothing in a scene refers to. The gesture should not have been offered,
+        // so the answer names the file that should have been baked instead.
+        if (subject.IsSmartMaterial) {
+            shell.Notifications.Show(
+                "Nothing baked",
+                NotificationSeverity.Warning,
+                $"'{Path.GetFileName(subject.AssetPath)}' is a smart material, which is a stack "
+                + "fragment with no model and no meshes — so its mesh-map masks have nothing to "
+                + "measure and its materials would belong to no asset. Apply it to a .vxlayers and "
+                + "bake that."
+            );
+
+            return;
+        }
+
         if (baker is null) {
             shell.Notifications.Show(
                 "Nothing baked",
@@ -839,6 +928,23 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return;
         }
 
+        // ⚠ The second half of #1070's verb list. Extracting a shelf entry from a shelf entry writes
+        // it back onto the shelf under its own name — harmless, and confusing in the way that costs
+        // an artist ten minutes: the file it replaced is the file they were editing, and the
+        // notification would say it had been saved as something new. What they want is the ordinary
+        // save, which the document already does.
+        if (stack.IsSmartMaterial) {
+            shell.Notifications.Show(
+                "Nothing saved",
+                NotificationSeverity.Warning,
+                $"'{Path.GetFileName(stack.AssetPath)}' is already a smart material. Save the "
+                + "document to write your edits back onto the shelf; Save as Smart Material is for "
+                + "taking the layers out of a .vxlayers."
+            );
+
+            return;
+        }
+
         var name = Path.GetFileNameWithoutExtension(stack.AssetPath);
         var extract = SmartMaterial.Extract(stack.Document, name, stack.PaintSet);
 
@@ -888,6 +994,15 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
     /// <summary>Puts the selected <c>.vxsmartmat</c> on top of the open stack's chosen texture set.</summary>
     /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The open stack may itself be a shelf entry, and that is allowed rather than
+    ///         overlooked</b> — <a href="https://github.com/Rikarin/Vixen/issues/1070">#1070</a>. Its
+    ///         two neighbours refuse a <c>.vxsmartmat</c> in the panel and this one does not: a shelf
+    ///         entry composed of two others — rust over panel wear — is a real thing to author, and
+    ///         <see cref="SmartMaterial.Prepare" /> already drops everything a fragment must not
+    ///         carry, so the result is a fragment either way. What it needs is no code: the
+    ///         difference between the three verbs is only which of them should have been offered.
+    ///     </para>
     ///     <para>
     ///         ⚠ <b>Through the document's command stack, as one undo entry.</b> A verb that mutated
     ///         <c>TextureSetAsset.Layers</c> directly would put ten layers into a stack the artist
@@ -1481,6 +1596,17 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         stackPreview?.Dispose();
         stackPreview = null;
 
+        // ⚠ The source before the sink, and not the other way round. Disposing the source releases
+        // every number it handed out, which is what empties the sink; disposing the sink first would
+        // leave the source releasing numbers nothing holds any more — correct today because
+        // `TexturePreviewImages.Release` ignores what it does not know, and the kind of order that
+        // stops being correct the moment either side keeps a count.
+        nodePreviews?.Dispose();
+        nodePreviews = null;
+
+        previewImages?.Dispose();
+        previewImages = null;
+
         // ⚠ Dropped rather than disposed, because it owns nothing: the evaluator is lent to it, the
         // canvases are the module's, and every texture it makes is a `TextureUploads` inside one
         // call. What it does hold is the host's `IEditorGraphics`, which is exactly what the two
@@ -1541,6 +1667,15 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         evaluator.Dispose();
         evaluator = null;
         evaluatorDevice = null;
+
+        // ⚠ And the swatches, which are the one thing here that survives into the next device.
+        // `Drop` gives the pictures back and marks every watched graph dirty rather than disposing
+        // the source: the canvas is still holding it as its `PreviewSource`, and a disposed source
+        // throws from `Update` — which is this module's per-frame work, which `PluginHost.Update`
+        // answers by unloading the plugin. The numbers themselves name textures the host made on the
+        // device that is going, so keeping them would draw a swatch through a handle whose texture
+        // has been destroyed.
+        nodePreviews?.Drop();
     }
 
     /// <summary>How many evaluators this module has built over its life.</summary>
@@ -1799,13 +1934,18 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     void OpenStack() {
         var asset = project.Selection.Primary;
 
+        // ⚠ Either extension — #1070. A `.vxsmartmat` is a `.vxlayers` byte for byte and this is the
+        // verb half of the claim `LayerStackEditorFactory` makes for the double-click; a verb that
+        // took only one of the two would leave the shelf openable by mouse and not by command.
         if (asset.IsEmpty
             || !project.Assets.TryGetByGuid(asset, out var entry)
-            || !entry.Path.EndsWith(LayerStackDocument.Extension, StringComparison.OrdinalIgnoreCase)) {
+            || !(entry.Path.EndsWith(LayerStackDocument.Extension, StringComparison.OrdinalIgnoreCase)
+                || entry.Path.EndsWith(SmartMaterial.Extension, StringComparison.OrdinalIgnoreCase))) {
             shell.Notifications.Show(
-                "Select a .vxlayers first",
+                "Select a .vxlayers or a .vxsmartmat first",
                 NotificationSeverity.Warning,
-                "Open Layer Stack opens whatever is selected in the Project panel."
+                "Open Layer Stack opens whatever is selected in the Project panel. A shelf entry "
+                + "opens in the same rows: it is a stack with no model and nothing painted."
             );
 
             return;

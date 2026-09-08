@@ -100,9 +100,15 @@ enum LayerFillSource {
 ///         takes its node type from this enum and from nothing else, so a filter layer can only be
 ///         one of these five. A mask's adjustments have no such limit —
 ///         <see cref="MaskEffectAsset.Node" /> names a node type, which is any published compound —
-///         so § D10's fourth is already sayable of a mask and not of a layer. Closing that is
-///         giving <see cref="LayerAsset" /> the member <see cref="MaskEffectAsset" /> already has,
-///         not adding a sixth member here.
+///         so § D10's fourth was already sayable of a mask and not of a layer.
+///     </para>
+///     <para>
+///         <b>Closed by <see cref="LayerAsset.FilterNode" />, which is the member
+///         <see cref="MaskEffectAsset" /> already had</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1068">#1068</a>. Not a sixth member
+///         here: an enum has to grow one per effect and still cannot reach a published compound.
+///         These five stay exactly what they are, and compile to exactly what they compiled to,
+///         because a differential in <c>LayerStackExplodeTests</c> is asserting that byte for byte.
 ///     </para>
 /// </remarks>
 enum LayerFilterKind {
@@ -491,7 +497,50 @@ sealed record LayerAsset {
     public string Graph { get; init; } = "";
 
     /// <summary>Which adjustment a <see cref="LayerKind.Filter" /> layer applies.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read only when <see cref="FilterNode" /> is empty</b>, which is what makes doc 48
+    ///     § D10's fourth kind sayable of a layer without adding a sixth member here.
+    /// </remarks>
     public LayerFilterKind Filter { get; init; } = LayerFilterKind.Levels;
+
+    /// <summary>
+    ///     The node type a <see cref="LayerKind.Filter" /> layer applies, when it is not one of the
+    ///     five <see cref="LayerFilterKind" /> members: <c>Colour/Levels</c>, a compound's path.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 48 § D10's fourth kind — "a graph with an <c>Input</c>" — and the member
+    ///         <see cref="MaskEffectAsset.Node" /> has had all along</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1068">#1068</a>). A mask's
+    ///         adjustments were never limited to a list, because an effect is specified as anything
+    ///         with one image in and one image out; a filter layer took its node type from
+    ///         <see cref="Filter" /> and from nothing else, so the same sentence was true of a mask
+    ///         and false of a layer. The asymmetry was invisible from either file alone.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A second member rather than a sixth <see cref="LayerFilterKind" />, and the
+    ///         argument is the one <c>MaskEffectAsset</c> already makes:</b> an enum has to grow a
+    ///         member per effect and still cannot reach a published compound, because a compound is
+    ///         content. ⚠ <b>And it takes precedence rather than sitting beside</b>
+    ///         <see cref="Filter" />, whose default is a real value — <c>Levels</c> is zero, so a
+    ///         file naming a compound and saying nothing about <c>filter</c> would otherwise be two
+    ///         instructions at once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The five enum members must keep compiling to exactly the ops they compile to
+    ///         now</b>, or <c>LayerStackExplodeTests</c>' byte-identical differential becomes a
+    ///         re-blessing rather than a check. <c>LayerStackGraph.Adjustment</c> therefore branches
+    ///         before the existing path rather than through it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it cannot carry is a compound's <em>settings</em>.</b>
+    ///         <see cref="Settings" /> is numbers by port name, so a compound whose behaviour is
+    ///         chosen by a string setting takes that setting's default —
+    ///         <see cref="MaskEffectAsset.Texts" /> is the member a mask effect has for this and a
+    ///         layer does not.
+    ///     </para>
+    /// </remarks>
+    public string FilterNode { get; init; } = "";
 
     /// <summary>The layer's numbers, by the port name the node declares.</summary>
     /// <remarks>

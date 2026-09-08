@@ -47,11 +47,14 @@
         <!--
             And the node library, which is the only thing this assembly takes from the evaluator.
 
-            ⚠ **It is the only thing it *can* take.** `TextureGraphCompiler`, `TextureNode` and all
-            eight `[Node]` classes are `internal` and that assembly's `InternalsVisibleTo` names its
-            own test project alone — so the generated `NodeTypes.Register` is the whole of the
-            reachable surface and a plugin cannot compile a graph into a `TexturePlan` at all. See
-            this project's README; it is a finding rather than a decision.
+            ⚠ **It is no longer the only thing it takes, and both widenings went through the public
+            surface on purpose.** `TextureGraphCompiler` has been public since #738 — so a plugin can
+            compile a graph into a `TexturePlan`, which is what `TextureGraphDocument.Compile` does —
+            and `TextureGraphPreviews` with `ITexturePreviewImages` are public as of #1015, for doc 48
+            § M4's per-node swatches. ⚠ **An `InternalsVisibleTo` naming this assembly was tried
+            first and `ModuleReferenceTests` refused it**, which is what that tripwire is for: a
+            friend assembly makes a feature reachable for the plugin this repository ships and for no
+            third party. The `[Node]` classes stay `internal`.
         -->
         <ProjectReference Include="..\Vixen.Editor.TextureGraph\Vixen.Editor.TextureGraph.csproj" />
 

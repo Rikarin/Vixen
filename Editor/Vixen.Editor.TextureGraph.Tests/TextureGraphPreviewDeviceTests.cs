@@ -412,6 +412,132 @@ public class TextureGraphPreviewDeviceTests {
         Assert.Equal(1, lease.Built);
     }
 
+    /// <summary>⚠ A rebuild that could not draw leaves the graph dirty, which the remark claimed and the code did not.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A refutation rather than a new feature, found wiring
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a>.</b> The no-device
+    ///         branch said "a rebuild that cannot draw leaves the graph dirty" and nothing did that:
+    ///         <see cref="TextureGraphPreviews.Update" /> takes the graph off the list <em>before</em>
+    ///         calling the rebuild, and neither refusal put it back. So the graph was clean, the
+    ///         device arriving invalidated nothing, and the swatches stayed blank until somebody
+    ///         edited the graph.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is the state the editor <em>starts</em> in, not an exotic one.</b>
+    ///         <c>EditorApplication</c> publishes its <c>IEditorGraphics</c> with a null
+    ///         <c>Device</c> and acquires one when the window can present, and a session restore
+    ///         opens its tabs before the first frame — so the ordinary path was a panel whose
+    ///         previews appear only after the first keystroke, arriving through the commit that
+    ///         closed the issue.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="TextureGraphPreviews.Pending" /> is the assertion and the bakes are
+    ///         the consequence.</b> A test that only checked the second update's bake could be
+    ///         satisfied by a source that re-compiled every frame; the pending count says the graph
+    ///         was <em>remembered</em>, and the compilation count below says asking cost nothing
+    ///         while there was nothing to draw on.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_rebuild_with_no_device_keeps_the_graph_pending() {
+        using var device = TextureKernelHarness.Open();
+        var adapter = TextureKernelHarness.Adapter(device);
+        var (graph, source, _, _) = Contrasting();
+        Kept sink = new();
+
+        using Lease lease = new(device) { Device = null };
+        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
+
+        var registry = Registry();
+        var node = First(graph, source);
+        var definition = Definition(registry, graph, source);
+
+        previews.TryGet(graph, node, definition, out _);
+        Assert.Equal(1, previews.Pending);
+
+        previews.Update();
+
+        Assert.Equal(1, previews.Refusals);
+        Assert.Equal(0, previews.Bakes);
+
+        // ⚠ The claim. Zero here is the whole defect: the graph has been forgotten and the device
+        // arriving will not bring it back.
+        Assert.Equal(1, previews.Pending);
+
+        // And the refusal cost no compile, which is what asking the lease *first* buys — otherwise
+        // every frame before the window is up compiles every open graph to a plan for nothing.
+        Assert.Equal(0, previews.Compilations);
+
+        lease.Device = device;
+        previews.Update();
+
+        Assert.Equal(1, previews.Bakes);
+        Assert.True(
+            previews.TryGet(graph, node, definition, out var preview),
+            $"{adapter}: the device came back and the swatches did not"
+        );
+
+        Assert.True(Middle(sink.Pictures[preview.Image]) is > 55 and < 75, $"the picture is wrong on {adapter}");
+    }
+
+    /// <summary>⚠ <c>Drop</c> gives every picture back and asks for all of them again.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a device loss needs, and it is not <c>Dispose</c>.</b> The source outlives the
+    ///         device because the canvas is still holding it as its <c>PreviewSource</c>; every
+    ///         number it handed out names a texture the host made on the device that is going.
+    ///         Disposing instead would leave the canvas drawing through a disposed object whose
+    ///         <see cref="TextureGraphPreviews.Update" /> throws — from a plugin's per-frame work,
+    ///         which <c>PluginHost.Update</c> answers by unloading the plugin.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, and the second is the one that would have been left out.</b>
+    ///         Releasing alone passes every "no stale handle" assertion and leaves the panel blank
+    ///         for good; the graphs are marked dirty again, so the frame after the device comes back
+    ///         has swatches on it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Drop_gives_every_picture_back_and_asks_for_them_again() {
+        using var device = TextureKernelHarness.Open();
+        var adapter = TextureKernelHarness.Adapter(device);
+        var (graph, source, _, _) = Contrasting();
+        Kept sink = new();
+
+        using Lease lease = new(device);
+        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
+
+        var registry = Registry();
+        var node = First(graph, source);
+        var definition = Definition(registry, graph, source);
+
+        previews.TryGet(graph, node, definition, out _);
+        previews.Update();
+
+        var held = previews.Live;
+
+        Assert.True(held > 0, $"{adapter}: nothing was registered, so this test is about a source that never ran");
+        Assert.Equal(held, sink.Pictures.Count);
+
+        previews.Drop();
+
+        // The sink is what the host is: every picture given back, and nothing left naming a texture
+        // on a device that is about to be destroyed.
+        Assert.Equal(0, previews.Live);
+        Assert.Empty(sink.Pictures);
+        Assert.False(previews.TryGet(graph, node, definition, out _));
+
+        // ⚠ And asked for again, which is what stops this being a panel that goes blank for good.
+        Assert.Equal(1, previews.Pending);
+
+        previews.Update();
+
+        Assert.Equal(2, previews.Bakes);
+        Assert.True(previews.TryGet(graph, node, definition, out var preview));
+        Assert.True(Middle(sink.Pictures[preview.Image]) is > 55 and < 75, $"the picture is wrong on {adapter}");
+    }
+
     static GraphNode First(NodeGraphModel graph, NodeId id) {
         Assert.True(graph.TryGet(id, out var node));
 

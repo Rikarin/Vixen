@@ -29,8 +29,17 @@ namespace Vixen.Editor.TextureGraph;
 ///         <see cref="TextureGraphPreviews.Size" /> squared that is sixteen kilobytes per node, which
 ///         is a price worth paying to be right on a discrete card.
 ///     </para>
+///     <para>
+///         ⚠ <b>Public, and an <c>InternalsVisibleTo</c> naming the editor's own texturing plugin was
+///         the wrong answer</b> — <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a>.
+///         That is cheaper: two internal types, no guide page, no <c>CheckApi</c> baseline. It is
+///         also the arrangement <c>ModuleReferenceTests</c> exists to refuse, and it fired on the
+///         attempt — what a plugin reaches is reached through the <em>public</em> surface, because a
+///         friend assembly works for the one plugin this repository ships and for no third party.
+///         The shader graph's <c>IPreviewImages</c> is public one folder over for the same reason.
+///     </para>
 /// </remarks>
-interface ITexturePreviewImages {
+public interface ITexturePreviewImages {
     /// <summary>Names a picture, and returns the number to draw it by.</summary>
     /// <param name="picture">The pixels, top row first, eight bits per channel.</param>
     /// <param name="existing">
@@ -75,18 +84,19 @@ interface ITexturePreviewImages {
 ///         makes that affordable and why the size is not the graph's.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nothing in the editor builds one of these yet, and the obstacle was not the panel</b>
-///         — <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a>. This type constructed
-///         its own <c>TexturePlanEvaluator</c>, so wiring it into <c>TexturingModule</c> would have
-///         put a third evaluator into a session that goes to some length to hold one; the
-///         constructor says what that costs. It takes a lease now, which is what
-///         <c>LayerStackPreview</c> and <c>TextureGraphPreview</c> take, so the remaining wiring is
-///         a construction beside those two, an <c>ITexturePreviewImages</c> over the host's
-///         renderer, and <c>view.Canvas.PreviewSource = previews</c> — the same three the shader
-///         graph's <c>EditorApplication.ShaderGraphPreviews</c> does.
+///         <b><c>TexturingModule</c> is what builds one</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1015">#1015</a>, closed by a
+///         construction beside <c>preview</c> and <c>stackPreview</c>, a
+///         <c>TexturePreviewImages</c> over the host's <c>IEditorGraphics</c>,
+///         <c>view.Canvas.PreviewSource = …</c> in the graph panel's factory and
+///         <c>PluginContext.OnUpdate</c> driving <see cref="Update" />. ⚠ <b>The obstacle was never
+///         the panel</b>: this type constructed its own <c>TexturePlanEvaluator</c>, so the wiring
+///         would have put a third one into a session that goes to some length to hold one, arriving
+///         through the commit that closed the issue. It takes a lease now, which is what
+///         <c>LayerStackPreview</c> and <c>TextureGraphPreview</c> take.
 ///     </para>
 /// </remarks>
-sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
+public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
     /// <summary>How big a preview is, in texels.</summary>
     /// <remarks>
     ///     Bigger than <c>NodePreviewLayer.Size</c> draws it, so a zoomed-in canvas does not show a
@@ -94,7 +104,7 @@ sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
     /// </remarks>
     public const int Size = 64;
 
-    readonly Func<TextureGraphCompiler> compilers;
+    readonly Func<TextureGraphCompiler?> compilers;
     readonly ITexturePreviewImages? images;
     readonly Func<TexturePlanEvaluator?> evaluators;
     readonly Dictionary<(NodeGraphModel Graph, NodeId Node), ulong> registered = [];
@@ -110,7 +120,8 @@ sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
     /// </param>
     /// <param name="compilers">
     ///     Makes a compiler over the node library the graphs are edited against, with whatever
-    ///     parameters, arguments and sub-graph library the host has. Its resolution and its
+    ///     parameters, arguments and sub-graph library the host has, or <see langword="null" /> when
+    ///     there is no canvas to read one off. Its resolution and its
     ///     <see cref="TextureGraphCompiler.PreviewEveryNode" /> are overridden here.
     /// </param>
     /// <param name="images">
@@ -146,7 +157,7 @@ sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
     /// </remarks>
     public TextureGraphPreviews(
         Func<TexturePlanEvaluator?> evaluators,
-        Func<TextureGraphCompiler> compilers,
+        Func<TextureGraphCompiler?> compilers,
         ITexturePreviewImages? images = null
     ) {
         ArgumentNullException.ThrowIfNull(evaluators);
@@ -244,6 +255,46 @@ sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
         }
     }
 
+    /// <summary>Gives every picture back, and asks for all of them again.</summary>
+    /// <exception cref="ObjectDisposedException">This source has been disposed.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>What a device loss needs, and <see cref="Dispose" /> is not it.</b> The host
+    ///         takes its device down and comes back with another — a window closed and reopened —
+    ///         and the source outlives that, because the canvas is still holding it. What does
+    ///         <em>not</em> outlive it is every number handed out: those name textures the host made
+    ///         on the device that is going. A source that kept them would draw a swatch through a
+    ///         handle whose texture no longer exists, which is a use-after-free the interface
+    ///         resolves silently rather than a blank square.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And every watched graph is marked dirty rather than left alone</b>, so the
+    ///         pictures come back when the device does. Without that half this would be correct and
+    ///         invisible: the swatches would go and never return until the author edited something.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Disposing instead would be worse than doing nothing.</b> A disposed source is
+    ///         still the canvas's <c>PreviewSource</c>, and its <see cref="Update" /> throws — from
+    ///         a plugin's per-frame work, which <c>PluginHost.Update</c> answers by unloading the
+    ///         plugin.
+    ///     </para>
+    /// </remarks>
+    public void Drop() {
+        ObjectDisposedException.ThrowIf(disposed, this);
+
+        foreach (var image in registered.Values) {
+            if (image != 0) {
+                images?.Release(image);
+            }
+        }
+
+        registered.Clear();
+
+        foreach (var graph in watched) {
+            Invalidate(graph);
+        }
+    }
+
     /// <inheritdoc />
     public void Dispose() {
         if (disposed) {
@@ -273,7 +324,32 @@ sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
     }
 
     void Rebuild(NodeGraphModel graph) {
-        var compiler = compilers();
+        // ⚠ Asked *before* the compile, and the order is the whole of #1015's second half. The
+        // remark on the branch below said "a rebuild that cannot draw leaves the graph dirty" and
+        // that was false: `Update` takes the graph off the list before calling this, and neither
+        // refusal put it back — so a graph whose first rebuild happened before the host had a device
+        // was clean afterwards and stayed blank until somebody edited it. That is *the* state the
+        // editor starts in (`IEditorGraphics` is published with a null `Device` and acquires one
+        // when the window can present), so the wiring that closed the issue would have shipped a
+        // panel whose swatches appear only after the first keystroke. Asking first also means the
+        // frames before the device arrives cost nothing rather than a compile each.
+        if (evaluators() is not { } evaluator) {
+            // No device, which is an ordinary state rather than a fault — the host has not finished
+            // starting, or it has just lost one.
+            Refusals++;
+            Invalidate(graph);
+
+            return;
+        }
+
+        if (compilers() is not { } compiler) {
+            // And no canvas: nothing is being edited, so there is no node library to compile the
+            // graph against. Dirty for the same reason, because opening the panel is what fixes it.
+            Refusals++;
+            Invalidate(graph);
+
+            return;
+        }
 
         compiler.BaseWidth = Size;
         compiler.BaseHeight = Size;
@@ -290,19 +366,12 @@ sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
             return;
         }
 
-        // ⚠ Asked here rather than held in a field, which is what "no pane owns an evaluator" means
-        // in practice — see the constructor. `PreviewLeaseTests` counts this question for the two
-        // panes; `A_preview_source_takes_its_evaluator_from_the_lease_on_every_rebuild` counts it
-        // for this one, because a source that asked once on the way in leaves every count about the
-        // lender's own builds green.
-        if (evaluators() is not { } evaluator) {
-            // No device, which is an ordinary state rather than a fault — the host has not finished
-            // starting, or it has just lost one. A rebuild that cannot draw leaves the graph dirty.
-            Refusals++;
-
-            return;
-        }
-
+        // ⚠ The evaluator is the one asked for at the top of this method rather than one held in a
+        // field, which is what "no pane owns an evaluator" means in practice — see the constructor.
+        // `PreviewLeaseTests` counts this question for the two panes;
+        // `A_preview_source_takes_its_evaluator_from_the_lease_on_every_rebuild` counts it for this
+        // one, because a source that asked once on the way in leaves every count about the lender's
+        // own builds green.
         using var bake = evaluator.Evaluate(plan);
 
         Bakes++;

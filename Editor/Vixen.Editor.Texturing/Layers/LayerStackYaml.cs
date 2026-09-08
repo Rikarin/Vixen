@@ -200,8 +200,15 @@ static class LayerStackYaml {
             mapping.Set("graph", Text(layer.Graph));
         }
 
+        // ⚠ One of the two and never both — #1068. `filterNode` takes precedence when it is there,
+        // and `LayerFilterKind.Levels` is zero, so a file carrying both would read as a compound and
+        // *say* it was a Levels: two instructions where the compiler follows one.
         if (layer.Kind == LayerKind.Filter) {
-            mapping.Set("filter", Text(layer.Filter.ToString()));
+            if (layer.FilterNode.Length > 0) {
+                mapping.Set("filterNode", Text(layer.FilterNode));
+            } else {
+                mapping.Set("filter", Text(layer.Filter.ToString()));
+            }
         }
 
         if (layer.Settings.Count > 0) {
@@ -439,6 +446,7 @@ static class LayerStackYaml {
             Textures = Strings(mapping, "textures", path),
             Graph = String(mapping, "graph", path),
             Filter = Choice(mapping, "filter", LayerFilterKind.Levels, path),
+            FilterNode = String(mapping, "filterNode", path),
             Settings = Colours(mapping, "settings", path),
             Mask = mapping.TryGet("mask", out var mask) ? ReadMask(mask, $"{path}.mask") : new(),
             Paint = String(mapping, "paint", path),
