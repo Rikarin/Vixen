@@ -62,6 +62,31 @@
         <ProjectReference Include="..\..\Editor\Vixen.Editor.Assets\Vixen.Editor.Assets.csproj" />
         <ProjectReference Include="..\..\Editor\Vixen.Editor.Core\Vixen.Editor.Core.csproj" />
 
+        <!--
+            The graph half of `texture bake` evaluates a `.vxtexgraph` (issue 1020). This is the
+            compiler, the kernels, the plan and the evaluator, and deliberately *not*
+            `Vixen.Editor.Texturing`: the plugin is the panel and the document, and it brings
+            `Vixen.Editor.Ui` and `Vixen.Editor.AssetEditors` with it, which is an editor shell
+            inside a command-line tool. Everything a bake needs was made public for a host to reach
+            — `TextureGraphCompiler` (738), `TextureCompoundLibrary.Publish` (799),
+            `TextureGraphExternals.Upload` — so this route calls the same code the panel does rather
+            than a copy of it.
+        -->
+        <ProjectReference Include="..\..\Editor\Vixen.Editor.TextureGraph\Vixen.Editor.TextureGraph.csproj" />
+
+        <!--
+            ⚠ **And a GPU, which this tool had none of and whose absence was the whole of issue
+            1020.** Named alone, rather than taken through `Tools/Vixen.App`'s `GraphicsHost`: that
+            one walks a preference list ending in `Vixen.Graphics.Null`, and a headless bake that
+            fell through to the device that draws nothing would write black PNGs and a valid
+            `.vxmat` over an artist's material, exit 0, and print healthy counters. Referencing one
+            backend is what makes "there is no fallback" a fact about this assembly rather than a
+            branch — `TextureCommandTests` reads the shipped assemblies and refuses the Null backend
+            among them. It also keeps the window system, the platform layer and two more backends
+            out of a `dotnet tool`.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+
         <!-- `content serve` is the same server the standalone tool is, so that a project has one
              entry point rather than two things to install. -->
         <ProjectReference Include="..\Vixen.ContentServer\Vixen.ContentServer.csproj" />

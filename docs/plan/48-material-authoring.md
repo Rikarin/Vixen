@@ -1063,11 +1063,18 @@ about.
 evaluates a preview map through `LayerStackPreview` and never reaches `MaterialBake`, and a stack's
 usages come from which channels its layers write rather than from `Output` nodes, so it is work and
 not a second call site ([#1029](https://github.com/Rikarin/Vixen/issues/1029) — ⚠ untracked until
-then, because M7 was closed). And `vixen texture bake --graph` needs a graphics device the CLI does
-not create — a
-refusal, not a Null-device fallback ([#1020](https://github.com/Rikarin/Vixen/issues/1020)). The
-editor verb also cannot force over a painted-over map, because a command handler carries no argument
-([#1019](https://github.com/Rikarin/Vixen/issues/1019)).
+then, because M7 was closed). The editor verb also cannot force over a painted-over map, because a
+command handler carries no argument ([#1019](https://github.com/Rikarin/Vixen/issues/1019)).
+
+⚠ **And the CLI's `--graph` landed 2026-09-08** ([#1020](https://github.com/Rikarin/Vixen/issues/1020)).
+`Tools/Vixen.Cli` references `Vixen.Editor.TextureGraph` and `Vixen.Graphics.Vulkan` and **not**
+`Vixen.Graphics.Null`, which is what makes "a refusal, not a Null-device fallback" a fact about the
+package rather than a branch — a test reads the shipped assemblies and holds it. The bake is asserted
+on a texel and not on an exit code, because the failure this refusal exists to prevent also exits 0.
+What is owed from it is narrower and filed: a `Source/Bitmap` naming a project asset is refused,
+because resolving one is 300 lines inside the texturing plugin and reads a live session's unsaved
+paint canvases ([#1087](https://github.com/Rikarin/Vixen/issues/1087)), and the `Assets/Compounds`
+convention is now spelled in two assemblies ([#1088](https://github.com/Rikarin/Vixen/issues/1088)).
 
 ### M6 — Mesh maps · 1.25 EM
 

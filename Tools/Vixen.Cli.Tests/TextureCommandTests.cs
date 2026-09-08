@@ -6,6 +6,9 @@ using Vixen.Core.Imaging;
 using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 using Vixen.Editor.Assets.Materials;
+using Vixen.Editor.NodeGraph;
+using Vixen.Editor.TextureGraph;
+using Vixen.Graphics.Vulkan;
 using Vixen.Rendering.Materials;
 using Xunit;
 
@@ -278,6 +281,198 @@ public sealed class TextureCommandTests : IDisposable {
         Directory.EnumerateFiles(directory)
             .Where(file => !file.EndsWith(AssetMetaFile.Extension, StringComparison.Ordinal))
             .ToDictionary(file => Path.GetFileName(file), File.ReadAllBytes, StringComparer.Ordinal);
+
+    /// <summary>⚠ A `.vxtexgraph` compiled and evaluated on a real GPU becomes a material.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>docs/plan/48 § M5's CLI row read literally</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1020">#1020</a>. Until this the graph
+    ///         route was the editor's alone, because nothing in this CLI created an
+    ///         <c>IGraphicsDevice</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The assertion is a colour and not an exit code, because a bake that produced
+    ///         nothing also exits 0 on the device that draws nothing.</b> The graph is a uniform
+    ///         colour whose red channel is 0.25, so the base-colour map's first texel must be 64 —
+    ///         a black picture, which is what a Null-device fallback would write, fails it. That is
+    ///         the same reason this file's neighbours read pixels rather than counting files.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Skips loudly with no adapter, and <c>VIXEN_REQUIRE_VULKAN=1</c> turns the skip into
+    ///         a failure — the harness the texture-graph suites use, spelled here because this
+    ///         assembly does not reference their test project. Without that, a CI leg with no driver
+    ///         would report this as passing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task Baking_a_graph_evaluates_it_on_a_device_and_writes_a_material() {
+        RequireDevice();
+
+        Graph("Flat.vxtexgraph", 0.25f);
+
+        var (code, said, complaint) = await Run(
+            "texture", "bake", "--project", root, "--graph", Path.Combine(root, "Assets", "Flat.vxtexgraph"),
+            "--name", "Flat"
+        );
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.Contains("Flat", said, StringComparison.Ordinal);
+
+        // ⚠ The adapter is in the line the verb prints, which is doc 48's exit criterion 11 as a
+        // property of the output rather than of somebody's memory: a run that fell back would have
+        // to name the device that draws nothing here.
+        Assert.Contains("baked on", said, StringComparison.Ordinal);
+
+        var map = Path.Combine(
+            root, "Assets", MaterialMapNaming.DefaultFolder,
+            "Flat_" + MaterialMapNaming.Suffix(MaterialMapUsage.BaseColor) + MaterialMapNaming.PortableExtension
+        );
+
+        Assert.True(File.Exists(map), said + complaint);
+
+        var picture = PngCodec.Decode(File.ReadAllBytes(map));
+
+        // 0.25 in a linear graph, written to an 8-bit map. A black picture — the Null device's answer
+        // — is 0, and every other kernel this graph could have run gives another number.
+        Assert.Equal(64, picture.Pixels[0]);
+    }
+
+    /// <summary>An adapter cannot be typed for a bake this tool ran itself.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A provenance block disagreeing with the run that wrote it is undetectable</b>: § D4
+    ///     records the adapter and never compares it, so a typed name would sit in the sidecar
+    ///     forever. Refused at the parse rather than ignored, because silently dropping an option
+    ///     somebody passed is how a script comes to believe it did something.
+    /// </remarks>
+    [Fact]
+    public async Task An_adapter_cannot_be_named_for_a_graph_bake() {
+        Graph("Flat.vxtexgraph", 0.5f);
+
+        var (code, _, complaint) = await Run(
+            "texture", "bake", "--project", root, "--graph", Path.Combine(root, "Assets", "Flat.vxtexgraph"),
+            "--name", "Flat", "--adapter", "Somebody's card"
+        );
+
+        Assert.Equal(ExitCode.UsageError, code);
+        Assert.Contains("--adapter", complaint, StringComparison.Ordinal);
+    }
+
+    /// <summary>Exactly one source, and neither is guessed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Both halves, because the interesting failure is the one that picks a winner.</b> A
+    ///     parser that preferred whichever option it saw first would satisfy the empty case and bake
+    ///     the wrong thing in the other.
+    /// </remarks>
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public async Task Exactly_one_of_from_and_graph(bool folder, bool graph) {
+        Authored("hull_baseColor.png", 10);
+        Graph("Flat.vxtexgraph", 0.5f);
+
+        List<string> args = ["texture", "bake", "--project", root, "--name", "Hull"];
+
+        if (folder) {
+            args.AddRange(["--from", Maps]);
+        }
+
+        if (graph) {
+            args.AddRange(["--graph", Path.Combine(root, "Assets", "Flat.vxtexgraph")]);
+        }
+
+        var (code, _, complaint) = await Run([.. args]);
+
+        Assert.Equal(ExitCode.UsageError, code);
+        Assert.NotEmpty(complaint);
+    }
+
+    /// <summary>A graph with no Output node is refused rather than writing an empty material.</summary>
+    [Fact]
+    public async Task A_graph_that_writes_no_map_is_refused() {
+        NodeGraphModel model = new();
+
+        model.Add("Source/Uniform");
+
+        File.WriteAllText(
+            Path.Combine(root, "Assets", "Nothing.vxtexgraph"),
+            YamlWriter.Write(YamlSerializer.Serialize(NodeGraphDocument.Save(model)))
+        );
+
+        var (code, _, complaint) = await Run(
+            "texture", "bake", "--project", root, "--graph", Path.Combine(root, "Assets", "Nothing.vxtexgraph"),
+            "--name", "Nothing"
+        );
+
+        Assert.Equal(ExitCode.Failed, code);
+        Assert.Contains("Output node", complaint, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ The tool does not link the device that draws nothing, which is what makes "it refuses
+    ///     rather than falling back" a fact rather than a branch.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The refusal <a href="https://github.com/Rikarin/Vixen/issues/1020">#1020</a> is
+    ///         about is one <c>if</c>, and an <c>if</c> is deleted by the next person in a hurry.</b>
+    ///         What cannot be deleted in a hurry is an assembly that is not there: with no
+    ///         <c>Vixen.Graphics.Null</c> in the closure there is nothing for a fallback to fall back
+    ///         to, and adding one is a reference somebody has to write down.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The Vulkan half is the anchor.</b> A directory listing that came back empty —
+    ///         the shape in which this kind of roll call reports success on the day it stops running
+    ///         — fails that assertion first.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_tool_links_a_real_backend_and_not_the_one_that_draws_nothing() {
+        var beside = Directory.GetFiles(AppContext.BaseDirectory, "Vixen.Graphics.*.dll")
+            .Select(Path.GetFileName)
+            .ToArray();
+
+        Assert.Contains("Vixen.Graphics.Vulkan.dll", beside);
+        Assert.DoesNotContain("Vixen.Graphics.Null.dll", beside);
+    }
+
+    /// <summary>A device, or a loud skip — or, when one was required, a failure.</summary>
+    /// <remarks>
+    ///     ⚠ Without a real adapter a headless run falls back to the Null device on every platform
+    ///     and prints identical healthy counters, so a graph bake asserted there would be comparing
+    ///     two black images. <c>VIXEN_REQUIRE_VULKAN=1</c> turns the skip into a failure, which is
+    ///     what a CI leg that is meant to be watching sets.
+    /// </remarks>
+    static void RequireDevice() {
+        if (VulkanDevice.TryCreate(new(), out var device, out var reason)) {
+            TestContext.Current.TestOutputHelper?.WriteLine($"adapter: {device!.Adapter.Name}");
+            device.Dispose();
+
+            return;
+        }
+
+        if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN") is "1" or "true" or "TRUE") {
+            Assert.Fail($"VIXEN_REQUIRE_VULKAN is set and no device could be opened: {reason}");
+        }
+
+        Assert.Skip(reason ?? "no Vulkan device, so nothing here can be proved");
+    }
+
+    /// <summary>A one-node graph writing a flat base colour, saved where a project keeps its assets.</summary>
+    void Graph(string file, float red) {
+        NodeGraphModel model = new();
+
+        var colour = model.Add("Source/Uniform");
+        var output = model.Add("Output/Output");
+
+        colour.SetValue("Colour", [red, 0f, 0f, 1f]);
+        output.SetText("Usage", MaterialMapNaming.Suffix(MaterialMapUsage.BaseColor));
+        model.Connect(new(colour.Id, "Out"), new(output.Id, "Input"));
+
+        File.WriteAllText(
+            Path.Combine(root, "Assets", file),
+            YamlWriter.Write(YamlSerializer.Serialize(NodeGraphDocument.Save(model)))
+        );
+    }
 
     static async Task<(ExitCode Code, string Output, string Error)> Run(params string[] args) {
         var output = new StringWriter { NewLine = "\n" };

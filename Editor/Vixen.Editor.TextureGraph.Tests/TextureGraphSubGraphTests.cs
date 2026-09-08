@@ -567,13 +567,19 @@ public class TextureGraphSubGraphTests {
     public void A_wire_into_the_port_wins_over_the_expression_written_on_it() {
         var (compiler, graph, used) = Containing(PublishedWithAPortForItsRadius());
 
-        var constant = graph.Add("Source/Uniform Colour");
-
-        graph.Connect(new(constant.Id, "Out"), new(used.Id, "Radius"));
-
         compiler.Parameters.Add(new("Amount", TextureGraphParameterKind.Scalar, 64f, 0f, 256f));
         used.SetText(TextureGraphExpressions.KeyOf("Radius"), "Amount * 0.5f");
 
+        // ⚠ The same graph twice, and the first half is what stops this being a test of a compiler
+        // that folded nothing at all. Unwired the expression costs one compilation; wired it costs
+        // none, and the difference is the wire.
+        compiler.Compile(graph);
+
+        Assert.Equal(1, compiler.ExpressionCompilations);
+
+        var constant = graph.Add("Source/Uniform");
+
+        graph.Connect(new(constant.Id, "Out"), new(used.Id, "Radius"));
         compiler.Compile(graph);
 
         Assert.Equal(0, compiler.ExpressionCompilations);

@@ -295,10 +295,45 @@ need credentials. `--target iOS` produces what the iOS SDK produces and says so.
 verified end to end against a local one — and until they are on nuget.org a scaffolded project needs a
 `nuget.config` pointing somewhere they exist.
 
+## `texture bake`
+
+Doc 48 § M5's CLI row. Two ways in and one bake after the first step:
+
+| | |
+|---|---|
+| `--from <folder>` | a folder of authored maps, each called `<anything>_<usage>.png` |
+| `--graph <file.vxtexgraph>` | a texture graph, compiled and evaluated on a GPU |
+
+Both end in one `ProjectMaterialBaker`: the ORM packing, the mip chain, the block compression, the
+scan-then-read-back GUID dance and the `texturing:` provenance block. It is the same baker the
+editor's *Bake Material* verb calls, which is the only arrangement in which "the same code the panel
+runs" is a fact rather than an intention. Exactly one of the two is passed; neither is guessed.
+
+⚠ **`--graph` refuses when there is no adapter, and does not fall back.** Evaluating a graph is
+compute on a device, and a headless run that fell through to the device that draws nothing would
+write black PNGs and a `.vxmat` that looks valid, exit 0, and print healthy counters — over an
+artist's material. This tool therefore links `Vixen.Graphics.Vulkan` and deliberately does *not* link
+`Vixen.Graphics.Null`, so "no fallback" is a fact about what is in the package rather than a branch;
+`TextureCommandTests` reads the shipped assemblies and holds it. A CI image that wants `--graph` needs
+a Vulkan driver, and lavapipe is enough.
+
+⚠ **`--adapter` is refused beside `--graph`.** It exists to record what ran a bake this tool did not
+do. A graph bake ran on the device this process opened, so a typed name would be a provenance block
+disagreeing with the run that wrote it — and doc 48 § D4 records the adapter without ever comparing
+it, so nothing would catch that.
+
+⚠ **A `Source/Bitmap` naming a project asset is refused rather than skipped.** Resolving one into a
+picture is the editor's job — it also reads unsaved paint canvases — and a second copy of that
+resolver here would be the copy that forgot a case
+([#1087](https://github.com/Rikarin/Vixen/issues/1087)). Every generator, pattern and noise graph
+bakes, and so does every graph built out of the shipped compounds.
+
 ## Still to come
 
-Also owed: the GPU and driver checks, which need `Vixen.Graphics.Vulkan`'s loader probe and would put
-a graphics dependency in a tool that today needs none.
+Also owed: the GPU and driver checks. ⚠ This said they "would put a graphics dependency in a tool that
+today needs none", which stopped being true when `texture bake --graph` landed
+([#1020](https://github.com/Rikarin/Vixen/issues/1020)) — `Vixen.Graphics.Vulkan` is referenced, so
+what is left is the loader probe itself rather than a decision about the dependency.
 
 Licensed under Apache-2.0.
 

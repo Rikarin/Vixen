@@ -111,30 +111,39 @@ public static class VixenCommand {
     /// <summary>`vixen texture bake` — docs/plan/48 § M5's CLI row.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>It bakes a folder of maps and does not evaluate a graph, and the reason is a
-    ///         device rather than a missing document.</b> This said a <c>.vxtexgraph</c> "does not
-    ///         exist yet"; it does, and <c>TexturingModule</c>'s <c>Bake Material</c> verb evaluates
-    ///         one through the same <c>ProjectMaterialBaker</c> this verb calls
-    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1009">#1009</a>). What <c>--graph</c>
-    ///         needs here is a graphics device, which nothing in this CLI creates —
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1020">#1020</a>, where the refusal a
-    ///         headless run must give instead of a black picture is the decision. What is here is the
-    ///         packing, the mip chain, the compression, the GUID dance and the provenance block, all
-    ///         of it the code the editor calls, and it is independently useful to a build script with
-    ///         a folder of authored maps.
+    ///         <b>Two ways in, and they are the same bake after the first step.</b> <c>--from</c>
+    ///         reads a folder of authored maps; <c>--graph</c> compiles and evaluates a
+    ///         <c>.vxtexgraph</c> on a GPU — <a href="https://github.com/Rikarin/Vixen/issues/1020">#1020</a>,
+    ///         which was owed since <a href="https://github.com/Rikarin/Vixen/issues/1009">#1009</a>
+    ///         landed the editor's half. Both end in one <c>ProjectMaterialBaker</c>: the packing, the
+    ///         mip chain, the compression, the GUID dance and the provenance block, all of it the code
+    ///         the editor calls.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Exactly one of them, and neither is defaulted.</b> Two sources for one material is
+    ///         a script that will silently bake whichever the parser preferred, and a verb with no
+    ///         source is a verb that would have to guess.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>--adapter</c> is refused beside <c>--graph</c>.</b> It exists to record what
+    ///         ran a bake this tool did not do; a graph bake ran on a device this process opened, so a
+    ///         typed name would be a provenance block disagreeing with the run that wrote it — and
+    ///         § D4 records the adapter without ever comparing it, so nothing would catch that.
     ///     </para>
     ///     <para>
     ///         A subcommand rather than a verb of its own, because <c>texture</c> is where the graph
-    ///         verbs go when they arrive and a promotion later would break every script that typed
-    ///         the shorter name.
+    ///         verbs go and a promotion later would break every script that typed the shorter name.
     ///     </para>
     /// </remarks>
     static Command Texture(TextWriter? output, TextWriter? error) {
         var project = ProjectOption();
 
         var from = new Option<string>("--from") {
-            Description = "The folder holding the maps, each called <anything>_<usage>.png.",
-            Required = true
+            Description = "The folder holding the maps, each called <anything>_<usage>.png."
+        };
+
+        var graph = new Option<string>("--graph") {
+            Description = "A .vxtexgraph to compile and evaluate. Needs a GPU; refuses without one."
         };
 
         var name = new Option<string>("--name") {
@@ -159,9 +168,10 @@ public static class VixenCommand {
             Description = "Overwrite outputs whose bytes are not what the last bake wrote."
         };
 
-        var bake = new Command("bake", "Pack, mip, compress and write a folder of maps as a material.") {
+        var bake = new Command("bake", "Write a material from a folder of maps, or from a texture graph.") {
             project,
             from,
+            graph,
             name,
             folder,
             adapter,
@@ -169,20 +179,56 @@ public static class VixenCommand {
         };
 
         bake.SetAction(parseResult => {
-                if (!Project.TryOpen(parseResult.GetValue(project), out var opened, out var why)) {
-                    (error ?? Console.Error).WriteLine(why);
+                var complain = error ?? Console.Error;
+                var folderIn = parseResult.GetValue(from) ?? "";
+                var graphIn = parseResult.GetValue(graph) ?? "";
+
+                if (folderIn.Length == 0 == (graphIn.Length == 0)) {
+                    complain.WriteLine(
+                        folderIn.Length == 0
+                            ? "Say where the maps come from: --from <folder> reads authored maps, "
+                            + "--graph <file.vxtexgraph> compiles and evaluates one."
+                            : "--from and --graph are two sources for one material. Pass one of them."
+                    );
+
                     return (int)ExitCode.UsageError;
                 }
 
-                return (int)TextureRunner.Bake(
+                if (!Project.TryOpen(parseResult.GetValue(project), out var opened, out var why)) {
+                    complain.WriteLine(why);
+                    return (int)ExitCode.UsageError;
+                }
+
+                if (graphIn.Length == 0) {
+                    return (int)TextureRunner.Bake(
+                        opened,
+                        folderIn,
+                        parseResult.GetRequiredValue(name),
+                        parseResult.GetRequiredValue(folder),
+                        parseResult.GetRequiredValue(adapter),
+                        parseResult.GetValue(force),
+                        output ?? Console.Out,
+                        complain
+                    );
+                }
+
+                if (parseResult.GetRequiredValue(adapter).Length > 0) {
+                    complain.WriteLine(
+                        "--adapter is for a bake this tool did not run. A --graph bake runs on the device "
+                        + "it opened and records that device's name."
+                    );
+
+                    return (int)ExitCode.UsageError;
+                }
+
+                return (int)TextureGraphRunner.Bake(
                     opened,
-                    parseResult.GetRequiredValue(from),
+                    graphIn,
                     parseResult.GetRequiredValue(name),
                     parseResult.GetRequiredValue(folder),
-                    parseResult.GetRequiredValue(adapter),
                     parseResult.GetValue(force),
                     output ?? Console.Out,
-                    error ?? Console.Error
+                    complain
                 );
             }
         );
