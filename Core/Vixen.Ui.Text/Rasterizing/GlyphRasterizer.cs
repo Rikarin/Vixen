@@ -49,6 +49,15 @@ public readonly record struct CoverageBitmap(int Width, int Height, float[] Cove
 ///         <c>Vixen.Ui.Text</c>, for one editor-side caller.
 ///     </para>
 ///     <para>
+///         ⚠ <b>That editor-side caller does not exist, and until it does this option is a finished
+///         thing nothing calls.</b> Swept over <c>.cs</c> and <c>.vxml</c> on 2026-09-08: the only
+///         sites naming <see cref="EvenOdd" /> anywhere in the tree are three assertions in
+///         <c>RasterizerTests</c>. That is not an argument for deleting it — the blocker it removes
+///         is real and #753 now carries the measured route to the node — but a reader who assumes an
+///         <c>Svg Path</c> node is drawing through this would be wrong, and this repository builds
+///         seams ahead of their callers more often than it builds anything else.
+///     </para>
+///     <para>
 ///         ⚠ <b>The other blocker those issues name did not survive a re-measure and this is not it.</b>
 ///         "Referencing <c>SvgPath</c> would put the whole UI framework behind a bake" rested on a
 ///         closure comparison that is wrong in both columns: <c>Vixen.Ui</c>'s project closure is a
