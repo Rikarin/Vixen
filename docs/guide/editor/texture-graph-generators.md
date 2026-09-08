@@ -148,13 +148,23 @@ path with a phantom folder in it.
 | `Utility/Histogram Range` · `Histogram Select` | The other two of § 4.5's histogram family |
 | `Utility/Contrast Luminosity` · `Highpass` · `Equalize` | Tone, detail and doc 40 § D2's *Delight / Equalize* row |
 | `Utility/Safe Transform` · `Make It Tile` | doc 40 § D2's first row: an offset-wrap behind an edge mask |
-| `Patterns/Brick` · `Panels` · `Tile Random` · `Rivets` | Four of § 4.9's pattern row, all over `Placement/Tile Sampler` |
+| `Patterns/Brick` · `Panels` · `Tile Random` · `Rivets` | Four of § 4.9's seven pattern marks, all over `Placement/Tile Sampler` |
+| `Grunges/…` | The family of eight — `Clouds` · `Concrete` · `Damage` · `Fibres` · `Leaks` · `Rust` · `Scratches` · `Smears`, which is `Source/Noise` and `Filters/Slope Blur` in eight arrangements |
+| `Surface/Height Blend` · `Bevel` · `Curvature Smooth` · `Height to AO` | Four of § 4.9's five surface marks; `Metal Reflectance` is refused, not missing — see below |
 | `Generators/Dirt` | Curvature's cavities multiplied by occlusion's enclosure |
-| `Generators/Curvature Edge Wear` | Curvature's convex half, broken up by a noise |
+| `Generators/Curvature Edge Wear` · `Metal Edge Wear` | Curvature's convex half, broken up by a noise |
 | `Generators/Grunge Rough Dirty` | A noise slope-blurred against itself, darkened by occlusion |
+| `Generators/Dust` · `Position Gradient` | A `Source/Mesh Map` read by usage, levelled — which is the whole of what makes a generator work on a mesh it was not authored against |
 | `Generators/Mask Editor` | The composite with the sliders, and § D9's parameters end to end |
 
-**Sixteen**, against the two dozen doc 48 marks for M10 and the several hundred the references ship.
+**Thirty-one**, against the thirty-five doc 48 § 4.9 marks for M10 and the several hundred the
+references ship. ⚠ **This page said "sixteen, against the two dozen doc 48 marks" and both halves
+were wrong** — fifteen more compounds had landed, and § 4.9's own summary sentence miscounted its own
+table by eleven, which is corrected there. Count them off `TextureCompoundLibrary.Shipped`, which is
+derived from the manifest, rather than off any prose including this sentence.
+
+What is owed is four marks — `Patterns/Scratches` · `Wood Grain` · `Cells`, and
+`Surface/Metal Reflectance` — plus the unshipped half of the *Delight / Equalize* row.
 That remaining gap is real and named in doc 48 § A.9; it is content authoring rather than engineering.
 ⚠ **The measurement M10 exists to make is written up beside the content itself**, in
 `Editor/Vixen.Editor.TextureGraph/Compounds/README.md`: what could *not* be authored out of the
@@ -172,24 +182,40 @@ sub-graph node with the graph's contents, and the node is where a parameter over
 before #742 an expression inside a published graph folded against that graph's own declared default
 and turning the knob changed nothing. `NodeGraphInlining` now carries each expansion's settings and
 the compiler reads them, so **seven of the sixteen shipped compounds declare parameters and drive
-node ports through folded expressions**.
+node ports through folded expressions**. ⚠ **That read "seven of the sixteen" and is now
+twenty-five of the thirty-one** — every shipped compound except `Generators/Curvature Edge Wear` ·
+`Dirt` · `Grunge Rough Dirty` and `Utility/Equalize` · `Highpass` · `Histogram Scan` declares at
+least one, so a knob is the norm here rather than the exception,
+and the sentence a reader should take from this section is that a port is what you reach for when the
+knob has to be *wired*, not when it has to exist.
 
 Which to reach for is now a real choice rather than a workaround:
 
 * a **port** is an edge, so it can take a whole image and can be wired from another node;
-* a **parameter** is a number with a range and a group, so it can be arithmetic — `position ±
-  contrast/2` is expressible — and it appears in the node inspector as a knob rather than as a
-  dangling input.
+* a **parameter** has a group and, for the three numeric kinds, a range — so it can be arithmetic,
+  `position ± contrast/2` is expressible, and it appears in the node inspector as a knob rather than
+  as a dangling input. ⚠ **This said "a parameter is a number" and there are four kinds, not
+  three**: `Scalar`, `Integer`, `Boolean` and, since 2026-09-08, `Name` — which is substituted into
+  a `[Setting]` on a node *inside* the published graph rather than folded into arithmetic, and is
+  the one kind an expression cannot spell, because a name is not a number and a source that declared
+  one would not parse.
 
 ### What this does not do yet
 
-- ⚠ **No host in this tree calls `TextureCompoundLibrary.Publish` or `MeshMapBinding.TryResolve`.**
-  `TextureNodeLibrary.Create` registers the generated node types and nothing else, so the shipped
-  compounds are in the assembly, loadable and compilable, and **not in the panel's search**; and a
-  graph containing a `Source/Mesh Map` compiles and does not bake, exactly as one containing a
-  `Source/Bitmap` does. [#799](https://github.com/Rikarin/Vixen/issues/799) carries the compound
-  half; [#702](https://github.com/Rikarin/Vixen/issues/702) and
-  [#573](https://github.com/Rikarin/Vixen/issues/573) the resolver half.
+- ⚠ **This bullet said no host calls `TextureCompoundLibrary.Publish`, so the shipped compounds were
+  "not in the panel's search" and a `Source/Mesh Map` graph "compiles and does not bake" — and every
+  clause of it is false, re-measured 2026-09-08.** `Publish` has three production callers:
+  `TextureNodeLibrary.Create` (`Editor/Vixen.Editor.Texturing/TextureNodeLibrary.cs:138`), which both
+  documents and the smart-material shelf start from, and `Tools/Vixen.Cli/TextureGraphRunner.cs:105`.
+  A mesh map resolves as a `meshmap:` external through `TextureExternalImages` and bakes on a device.
+  ⚠ **A guide page telling an artist that the library they can see in the search is unreachable is a
+  worse defect than the gap it described**, and it survived two batches of the fix because nothing
+  re-reads a page whose subject somebody else repaired.
+- ⚠ **What is still true, one name along: `MeshMapBinding` — `Vixen.Editor.Assets`' resolver — has
+  no caller outside its own assembly.** The plugin resolves the scheme itself and says so
+  (`TextureExternalImages.cs:49` duplicates `TextureMeshMaps.Scheme` deliberately, because the
+  alternative is telling an artist that `meshmap:curvature` is a missing file), so this is two
+  answers to one question rather than a missing one.
 - ⚠ **Two `Source/Mesh Map` nodes asking for one usage ask for it twice.** Each allocates its own
   external image, so a host uploads one PNG twice. The pictures are identical, so no bake is wrong;
   de-duplicating means the compiler keying externals by their reference —
