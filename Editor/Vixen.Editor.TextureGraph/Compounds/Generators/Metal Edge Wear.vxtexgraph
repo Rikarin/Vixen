@@ -1,0 +1,114 @@
+version: 1
+name: Metal Edge Wear
+nodes:
+  - id: 1
+    type: Source/Mesh Map
+    x: -1280
+    y: -220
+    values: {}
+    texts: { Map: curvature }
+  - id: 2
+    type: Colour/Levels
+    x: -960
+    y: -220
+    values: {}
+    texts:
+      '=Input Black': 0.74f - amount * 0.32f
+      '=Input White': 0.88f - amount * 0.24f
+  - id: 3
+    type: Source/Noise
+    x: -1280
+    y: 40
+    values:
+      Scale: [22]
+      Octaves: [3]
+      Tiling: [1]
+    texts: { Basis: Gradient }
+  - id: 4
+    type: Colour/Levels
+    x: -960
+    y: 40
+    values:
+      Input White: [1]
+    texts:
+      '=Input Black': 0.85f - breakup * 0.85f
+  - id: 5
+    type: Source/Uniform
+    x: -960
+    y: 300
+    values:
+      Colour: [0, 0, 0, 1]
+    texts: {}
+  - id: 6
+    type: Colour/Mix
+    x: -640
+    y: 0
+    values: {}
+    texts: { Mode: Copy, Coverage: Over }
+  - id: 7
+    type: Source/Mesh Map
+    x: -1280
+    y: 480
+    values: {}
+    texts: { Map: ao }
+  - id: 8
+    type: Colour/Levels
+    x: -960
+    y: 480
+    values:
+      Input Black: [0]
+    texts:
+      '=Input White': 0.15f + shelter * 0.85f
+  - id: 9
+    type: Colour/Blend
+    x: -320
+    y: 0
+    values: {}
+    texts: { Mode: Multiply }
+  - id: 10
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 6, toPort: Background }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Foreground }
+  - { fromNode: 4, fromPort: Out, toNode: 6, toPort: Mask }
+  - { fromNode: 7, fromPort: Out, toNode: 8, toPort: Input }
+  - { fromNode: 6, fromPort: Out, toNode: 9, toPort: Background }
+  - { fromNode: 8, fromPort: Out, toNode: 9, toPort: Foreground }
+  - { fromNode: 9, fromPort: Out, toNode: 10, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: Where the paint has been rubbed off a convex edge and the metal shows through.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: amount
+    default: '0.5'
+    summary: How far down from the edge the wear reaches.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Wear
+  - name: breakup
+    default: '0.45'
+    summary: How much of the edge the wear skips, so it does not read as a drawn outline.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Wear
+  - name: shelter
+    default: '0.35'
+    summary: How much a sheltered edge is spared — nothing rubs the inside of a crease.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Wear

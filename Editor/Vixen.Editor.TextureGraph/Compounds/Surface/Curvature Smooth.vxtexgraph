@@ -1,0 +1,79 @@
+version: 1
+name: Curvature Smooth
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Filters/Blur HQ
+    x: -640
+    y: 0
+    values: {}
+    texts:
+      '=Sigma': 0.5f + smoothing * 7.5f
+  - id: 3
+    type: Surface/Height to Normal
+    x: -320
+    y: 0
+    values:
+      Width: [1]
+    texts:
+      '=Intensity': 0.25f + relief * 3.75f
+  - id: 4
+    type: Surface/Curvature
+    x: 0
+    y: 0
+    values: {}
+    texts:
+      '=Radius': 1f + smoothing * 3f
+      '=Intensity': 0.05f + strength * 0.7f
+  - id: 5
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Height, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Height }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Normal }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Height
+    direction: Input
+    kind: Image
+    default: []
+    summary: A height field. A single channel.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: Its curvature about a mid tone, with the texel-scale detail taken out first.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: smoothing
+    default: '0.35'
+    summary: How much of the fine detail is removed before the curvature is measured.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Curvature
+  - name: relief
+    default: '0.5'
+    summary: How steep the height is taken to be.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Curvature
+  - name: strength
+    default: '0.3'
+    summary: How far the answer travels from mid grey.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Curvature

@@ -1,0 +1,61 @@
+version: 1
+name: Rusted Iron
+baseWidth: 1024
+baseHeight: 1024
+sets:
+  - name: Material
+    channels:
+      - usage: baseColor
+        default: [0.5, 0.5, 0.5, 1]
+      - usage: roughness
+        default: [0.5, 0.5, 0.5, 1]
+      - usage: metalness
+        default: [0, 0, 0, 1]
+    layers:
+      - id: iron
+        name: Iron
+        kind: Fill
+        values:
+          baseColor: [0.31, 0.31, 0.32, 1]
+          roughness: [0.36, 0.36, 0.36, 1]
+          metalness: [1, 1, 1, 1]
+      - id: rust
+        name: Rust
+        kind: Fill
+        blend: Copy
+        values:
+          baseColor: [0.33, 0.13, 0.05, 1]
+          roughness: [0.86, 0.86, 0.86, 1]
+          metalness: [0, 0, 0, 1]
+        mask:
+          source: Generator
+          generator: Grunges/Grunge Rust
+      - id: bloom
+        name: Rust Bloom
+        kind: Fill
+        blend: Copy
+        opacity: 0.7
+        values:
+          baseColor: [0.47, 0.23, 0.09, 1]
+          roughness: [0.94, 0.94, 0.94, 1]
+          metalness: [0, 0, 0, 1]
+        mask:
+          source: Generator
+          generator: Generators/Dust
+          effects:
+            - node: Colour/Levels
+              values:
+                Input Black: [0.35]
+                Input White: [0.8]
+      - id: streaks
+        name: Streaks
+        kind: Fill
+        blend: Multiply
+        opacity: 0.55
+        values:
+          baseColor: [0.55, 0.35, 0.22, 1]
+          roughness: [1.1, 1.1, 1.1, 1]
+          metalness: [1, 1, 1, 1]
+        mask:
+          source: Generator
+          generator: Grunges/Grunge Leaks

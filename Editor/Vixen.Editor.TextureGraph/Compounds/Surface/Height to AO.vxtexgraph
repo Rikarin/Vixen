@@ -1,0 +1,78 @@
+version: 1
+name: Height to AO
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Surface/Ambient Occlusion
+    x: -640
+    y: 0
+    values:
+      Samples: [8]
+    texts:
+      '=Height Scale': 0.01f + depth * 0.34f
+  - id: 3
+    type: Filters/Blur
+    x: -320
+    y: 0
+    values:
+      Radius: [2]
+    texts: {}
+  - id: 4
+    type: Colour/Levels
+    x: 0
+    y: 0
+    values:
+      Input White: [1]
+    texts:
+      '=Input Black': strength * 0.85f
+  - id: 5
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Height, toNode: 2, toPort: Height }
+  - { fromNode: 1, fromPort: Radius, toNode: 2, toPort: Radius }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Height
+    direction: Input
+    kind: Image
+    default: []
+    summary: A height field. A single channel.
+  - name: Radius
+    direction: Input
+    kind: Float
+    default: [16]
+    summary: How far each ray marches, in texels at the base resolution.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: The occlusion the height casts on itself, softened and pushed towards black.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: depth
+    default: '0.3'
+    summary: How tall a height of one is, as a fraction of the image's width. ⚠ Zero occludes nothing.
+    kind: Float
+    minimum: 0.01
+    maximum: 1
+    group: Occlusion
+  - name: strength
+    default: '0.4'
+    summary: How dark the cavities go.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Occlusion

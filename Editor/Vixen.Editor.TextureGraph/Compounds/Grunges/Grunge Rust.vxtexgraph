@@ -1,0 +1,81 @@
+version: 1
+name: Grunge Rust
+nodes:
+  - id: 1
+    type: Source/Noise
+    x: -1280
+    y: 0
+    values:
+      Scale: [14]
+      Tiling: [1]
+    texts: { Basis: Worley }
+  - id: 2
+    type: Colour/Levels
+    x: -960
+    y: 0
+    values: {}
+    texts:
+      '=Input Black': 0.05f + bite * 0.15f
+      '=Input White': 0.85f
+  - id: 3
+    type: Source/Noise
+    x: -1280
+    y: 300
+    values:
+      Scale: [7]
+      Octaves: [3]
+      Tiling: [1]
+    texts: { Basis: Gradient }
+  - id: 4
+    type: Filters/Slope Blur
+    x: -640
+    y: 0
+    values:
+      Samples: [10]
+    texts:
+      Mode: Min
+      '=Intensity': 1f + bite * 6f
+  - id: 5
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Input Black': 0.3f - spread * 0.28f
+      '=Input White': 1f - spread * 0.15f
+  - id: 6
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 4, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Slope }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: Pitted metal — a cell field eroded along a smooth slope, which eats the cell walls.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: bite
+    default: '0.45'
+    summary: How deep the pitting cuts.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Pitting
+  - name: spread
+    default: '0.35'
+    summary: How much of the surface the rust has reached.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Pitting

@@ -101,7 +101,13 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         // ⚠ The instrument. Every assertion above is inside the loop, so an empty `Shipped` — a
         // narrowed glob, a folder renamed — would leave this test green over no work at all.
         Assert.Equal(TextureCompoundLibrary.Shipped.Length, baked);
-        Assert.True(baked >= 12, $"only {baked} compounds were baked, and twelve ship.");
+
+        // ⚠ **And the floor is re-derived rather than left where the batch that wrote it put it.** It
+        // read twelve while thirty-one shipped, so nineteen compounds could have stopped being
+        // embedded with this case green: the equality above compares the loop with `Shipped`, and
+        // `Shipped` is the manifest, so a glob that narrowed takes both sides down together. This is
+        // the only number here that is independent of the assembly's own idea of what it ships.
+        Assert.True(baked >= 31, $"only {baked} compounds were baked, and thirty-one ship.");
     }
 
     /// <summary>
@@ -226,6 +232,176 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         Assert.True(
             Distinct(after) > 16,
             $"{adapter}: the tiled picture has {Distinct(after)} distinct values, which is not a picture."
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ One <c>Colour/Mix</c> computes what <c>Make It Tile</c>'s last four nodes compute, texel
+    ///     for texel.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1059">#1059</a>'s worked example,
+    ///         measured rather than argued.</b> That finding was filed on this compound: a masked
+    ///         composite <c>offset·(1 − m) + original·m</c> authored out of the atomic set is
+    ///         <c>Colour/Invert</c> plus three <c>Colour/Blend</c>s — four dispatches and three
+    ///         intermediate images. <c>Colour/Mix</c> arrived as the answer, and the question this
+    ///         case settles is whether the answer is the <em>same</em> answer, which nothing in the
+    ///         tree had checked: a node that composites correctly and a node that composites the way
+    ///         the four-node form did are different claims, and only the second one licenses the
+    ///         rewrite.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both forms are in one graph, for
+    ///         <see cref="Make_It_Tile_makes_a_noise_field_tile" />'s reason.</b>
+    ///         <c>TexturePlan.SeedFor</c> mixes the op's identity, so the same <c>Source/Noise</c>
+    ///         settings in a second graph are a different field and the two halves would be compared
+    ///         over different pictures.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And two guards, because "two arrangements agree" is trivially true of two
+    ///         arrangements that both do nothing.</b> The composite has to be a picture, and it has
+    ///         to differ from its own background — a <c>Mix</c> whose mask never reached the kernel
+    ///         would return the backdrop, and so would a four-node form whose <c>Add</c> was reading
+    ///         one term. Neither guard passes over a flat fill, and neither passes over a mask that
+    ///         was ignored.
+    ///     </para>
+    ///     <para>
+    ///         <b>So the rewrite is available and <c>Make It Tile</c> deliberately does not take
+    ///         it.</b> The twelve compounds are the measurement of the atomic set, and editing the
+    ///         worked example out of the finding would leave nothing in the tree showing what the gap
+    ///         cost — <c>Compounds/README.md</c> makes that argument and this case is what stops it
+    ///         becoming an excuse for an unverified claim.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_masked_composite_computes_what_Make_It_Tiles_four_nodes_compute() {
+        using var device = TextureKernelHarness.Open();
+        var adapter = TextureKernelHarness.Adapter(device);
+
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        var registry = Registry();
+
+        NodeGraphModel graph = new();
+
+        // Three grey fields: what is underneath, what is on top, and how much of the top each texel
+        // gets. Value noise, because every read below is of the red channel and a Worley writes three
+        // different things into three channels.
+        var under = graph.Add("Source/Noise");
+        var over = graph.Add("Source/Noise");
+        var coverage = graph.Add("Source/Noise");
+
+        foreach (var (node, scale) in new[] { (under, 5f), (over, 9f), (coverage, 3f) }) {
+            node.SetText("Basis", "Value");
+            node.SetValue("Scale", scale);
+        }
+
+        // The four-node form, exactly as #1059 wrote it down.
+        var inverted = graph.Add("Colour/Invert");
+        var keptUnder = graph.Add("Colour/Blend");
+        var keptOver = graph.Add("Colour/Blend");
+        var summed = graph.Add("Colour/Blend");
+
+        keptUnder.SetText("Mode", "Multiply");
+        keptOver.SetText("Mode", "Multiply");
+        summed.SetText("Mode", "Add");
+
+        graph.Connect(new(coverage.Id, "Out"), new(inverted.Id, "Input"));
+        graph.Connect(new(under.Id, "Out"), new(keptUnder.Id, "Background"));
+        graph.Connect(new(inverted.Id, "Out"), new(keptUnder.Id, "Foreground"));
+        graph.Connect(new(over.Id, "Out"), new(keptOver.Id, "Background"));
+        graph.Connect(new(coverage.Id, "Out"), new(keptOver.Id, "Foreground"));
+        graph.Connect(new(keptUnder.Id, "Out"), new(summed.Id, "Background"));
+        graph.Connect(new(keptOver.Id, "Out"), new(summed.Id, "Foreground"));
+
+        // And the one-node form, over the same three fields.
+        var mixed = graph.Add("Colour/Mix");
+
+        mixed.SetText("Mode", "Copy");
+
+        graph.Connect(new(under.Id, "Out"), new(mixed.Id, "Background"));
+        graph.Connect(new(over.Id, "Out"), new(mixed.Id, "Foreground"));
+        graph.Connect(new(coverage.Id, "Out"), new(mixed.Id, "Mask"));
+
+        // ⚠ And the backdrop on its own, which is the guard rather than a third form: a mask that
+        // never reached either arrangement leaves both of them equal to this.
+        var four = graph.Add("Output/Output");
+        var one = graph.Add("Output/Output");
+        var plain = graph.Add("Output/Output");
+
+        four.SetText("Usage", "height");
+        one.SetText("Usage", "baseColor");
+        plain.SetText("Usage", "roughness");
+
+        graph.Connect(new(summed.Id, "Out"), new(four.Id, "Input"));
+        graph.Connect(new(mixed.Id, "Out"), new(one.Id, "Input"));
+        graph.Connect(new(under.Id, "Out"), new(plain.Id, "Input"));
+
+        TextureGraphCompiler compiler = new(registry) { BaseWidth = Side, BaseHeight = Side, Seed = 4242 };
+
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+        Assert.Equal(3, compilation.Value.Outputs.Length);
+
+        using var bake = evaluator.Evaluate(compilation.Value);
+
+        // ⚠ **By usage, never by position.** `TexturePlan.Outputs` is a list of image indices in
+        // *image* order — the compiler's own remark says it is "a list of indices with no names on
+        // it" — and image order is allocation order, which is the graph's topology rather than the
+        // order the `Output` nodes were added. Reading `Outputs[0]` as "the first output I wrote" is
+        // therefore a coincidence that holds until somebody adds a node upstream, and it cost this
+        // case an hour: the three reads came back as backdrop, mix, four-node.
+        var authored = bake.Read(Image(compiler, "height"));
+        var kernel = bake.Read(Image(compiler, "baseColor"));
+        var backdrop = bake.Read(Image(compiler, "roughness"));
+
+        var worst = 0f;
+        var moved = 0;
+
+        for (var y = 0; y < Side; y++) {
+            for (var x = 0; x < Side; x++) {
+                worst = MathF.Max(
+                    worst,
+                    MathF.Abs(TextureKernelHarness.At(authored, x, y, 0) - TextureKernelHarness.At(kernel, x, y, 0))
+                );
+
+                if (MathF.Abs(TextureKernelHarness.At(kernel, x, y, 0) - TextureKernelHarness.At(backdrop, x, y, 0))
+                    > 2f) {
+                    moved++;
+                }
+            }
+        }
+
+        output.WriteLine(
+            $"{adapter}: four nodes against one differ by at most {worst:F1}/255; the composite moved "
+            + $"{moved} of {Side * Side} texels off its backdrop"
+        );
+
+        // The first guard: the composite is a picture and not a fill, so the equality below is a
+        // claim about arithmetic rather than about two flat greys.
+        Assert.True(
+            Distinct(kernel) > 16,
+            $"{adapter}: the masked composite has {Distinct(kernel)} distinct values, which is not a picture."
+        );
+
+        // The second: the mask actually did something. A Mix that dropped its mask and a four-node
+        // form that dropped a term would both return the backdrop, and would agree perfectly.
+        Assert.True(
+            moved > Side * Side / 2,
+            $"{adapter}: only {moved} of {Side * Side} texels differ from the backdrop, so the mask made "
+            + "almost no difference and the two forms agreeing says nothing."
+        );
+
+        // ⚠ Two eight-bit steps, and the tolerance is the read-back rather than a fudge: the authored
+        // form stores three `rgba16f` intermediates where the kernel stores none, so the two round
+        // differently at the last place. A mode, an operand or a `1 −` in the wrong position moves
+        // this by tens.
+        Assert.True(
+            worst <= 2f,
+            $"{adapter}: the four-node form and Colour/Mix differ by {worst:F1}/255 at worst, so one node "
+            + "does not replace the four and #1059's worked example is not answered."
         );
     }
 
@@ -376,6 +552,20 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         // the centre the input is a half, which the folded range sends back to a half.
         Assert.InRange(TextureKernelHarness.At(picture, 32, 32, 0), (byte)125, (byte)133);
     }
+
+    /// <summary>Which image one output usage was compiled into.</summary>
+    /// <param name="compiler">The compiler, after a <c>Compile</c>.</param>
+    /// <param name="usage">The <c>Output</c> node's usage — <c>baseColor</c>, <c>height</c>, …</param>
+    /// <returns>The image index, to be handed to <c>TextureBake.Read</c>.</returns>
+    /// <remarks>
+    ///     ⚠ <b><c>TexturePlan.Outputs</c> carries no names, and its order is the image table's rather
+    ///     than the graph's.</b> <c>TextureGraphCompiler.Outputs</c> is the half that knows which
+    ///     usage went where, and it exists precisely because the plan deliberately does not.
+    /// </remarks>
+    static int Image(TextureGraphCompiler compiler, string usage) =>
+        compiler.Outputs
+            .Single(output => string.Equals(output.Usage, usage, StringComparison.OrdinalIgnoreCase))
+            .Image;
 
     /// <summary>A registry holding the atomic node types.</summary>
     static NodeTypeRegistry Registry() {

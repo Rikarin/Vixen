@@ -1,0 +1,61 @@
+version: 1
+name: Concrete
+baseWidth: 1024
+baseHeight: 1024
+sets:
+  - name: Material
+    channels:
+      - usage: baseColor
+        default: [0.5, 0.5, 0.5, 1]
+      - usage: roughness
+        default: [0.5, 0.5, 0.5, 1]
+      - usage: metalness
+        default: [0, 0, 0, 1]
+    layers:
+      - id: pour
+        name: Pour
+        kind: Fill
+        values:
+          baseColor: [0.46, 0.45, 0.43, 1]
+          roughness: [0.82, 0.82, 0.82, 1]
+          metalness: [0, 0, 0, 1]
+      - id: mottling
+        name: Mottling
+        kind: Fill
+        blend: Copy
+        opacity: 0.7
+        values:
+          baseColor: [0.36, 0.36, 0.35, 1]
+          roughness: [0.88, 0.88, 0.88, 1]
+          metalness: [0, 0, 0, 1]
+        mask:
+          source: Generator
+          generator: Grunges/Grunge Concrete
+      - id: spalling
+        name: Spalling
+        kind: Fill
+        blend: Copy
+        values:
+          baseColor: [0.28, 0.27, 0.25, 1]
+          roughness: [0.93, 0.93, 0.93, 1]
+          metalness: [0, 0, 0, 1]
+        mask:
+          source: Generator
+          generator: Generators/Curvature Edge Wear
+          effects:
+            - node: Colour/Levels
+              values:
+                Input Black: [0.45]
+                Input White: [0.92]
+      - id: dust
+        name: Dust
+        kind: Fill
+        blend: Copy
+        opacity: 0.5
+        values:
+          baseColor: [0.62, 0.61, 0.58, 1]
+          roughness: [0.95, 0.95, 0.95, 1]
+          metalness: [0, 0, 0, 1]
+        mask:
+          source: Generator
+          generator: Generators/Dust

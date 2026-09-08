@@ -1,0 +1,97 @@
+version: 1
+name: Grunge Fibres
+nodes:
+  - id: 1
+    type: Source/Noise
+    x: -1280
+    y: 0
+    values:
+      Scale: [40]
+      Tiling: [1]
+    texts: { Basis: Value }
+  - id: 2
+    type: Space/Transform 2D
+    x: -960
+    y: 0
+    values:
+      Scale X: [1]
+    texts:
+      Tiling: Wrap
+      Filter: Bilinear
+      '=Scale Y': 0.03f + weave * 0.2f
+  - id: 3
+    type: Space/Mirror
+    x: -1280
+    y: 300
+    values: {}
+    texts: { Axis: Corner, Mode: Reflect }
+  - id: 4
+    type: Source/Noise
+    x: -1600
+    y: 300
+    values:
+      Scale: [5]
+      Octaves: [2]
+      Tiling: [1]
+    texts: { Basis: Gradient }
+  - id: 5
+    type: Filters/Slope Blur
+    x: -640
+    y: 0
+    values:
+      Samples: [14]
+    texts:
+      Mode: Min
+      '=Intensity': 2f + tangle * 14f
+  - id: 6
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Input Black': 0.2f - lint * 0.15f
+      '=Input White': 0.9f - lint * 0.35f
+  - id: 7
+    type: Sub-graph/Output
+    x: 0
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Out, toNode: 2, toPort: Input }
+  - { fromNode: 4, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 2, fromPort: Out, toNode: 5, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 5, toPort: Slope }
+  - { fromNode: 5, fromPort: Out, toNode: 6, toPort: Input }
+  - { fromNode: 6, fromPort: Out, toNode: 7, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: Matted fibre — a squashed field eroded along a mirrored slope, so the grain crosses itself.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: weave
+    default: '0.35'
+    summary: How long one fibre is.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Fibre
+  - name: tangle
+    default: '0.45'
+    summary: How far the fibres cross one another.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Fibre
+  - name: lint
+    default: '0.4'
+    summary: How much loose fibre stands off the surface.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Fibre

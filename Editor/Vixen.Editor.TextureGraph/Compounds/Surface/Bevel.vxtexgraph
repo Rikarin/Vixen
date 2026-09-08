@@ -1,0 +1,80 @@
+version: 1
+name: Bevel
+nodes:
+  - id: 1
+    type: Sub-graph/Input
+    x: -960
+    y: 0
+    values: {}
+    texts: {}
+  - id: 2
+    type: Analysis/Distance
+    x: -640
+    y: 0
+    values:
+      Threshold: [0.5]
+    texts:
+      Mode: Inside
+      '=Max Distance': 0.004f + width * 0.2f
+  - id: 3
+    type: Colour/Levels
+    x: -320
+    y: 0
+    values: {}
+    texts:
+      '=Gamma': 0.3f + profile * 1.7f
+  - id: 4
+    type: Surface/Height to Normal
+    x: 0
+    y: 0
+    values:
+      Width: [1]
+    texts:
+      '=Intensity': 0.2f + intensity * 3.8f
+  - id: 5
+    type: Sub-graph/Output
+    x: 320
+    y: 0
+    values: {}
+    texts: {}
+edges:
+  - { fromNode: 1, fromPort: Mask, toNode: 2, toPort: Mask }
+  - { fromNode: 2, fromPort: Out, toNode: 3, toPort: Input }
+  - { fromNode: 3, fromPort: Out, toNode: 4, toPort: Height }
+  - { fromNode: 4, fromPort: Out, toNode: 5, toPort: Out }
+groups: []
+comments: []
+interface:
+  - name: Mask
+    direction: Input
+    kind: Image
+    default: []
+    summary: The shape to bevel. A single channel — above the threshold is inside.
+  - name: Out
+    direction: Output
+    kind: Image
+    default: []
+    summary: A tangent-space normal whose edges roll off over the bevel's width.
+settings: { baseWidth: '1024', baseHeight: '1024', seed: '1' }
+parameters:
+  - name: width
+    default: '0.15'
+    summary: How far in from the shape's edge the roll-off reaches, as a fraction of the image.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Bevel
+  - name: profile
+    default: '0.5'
+    summary: The roll-off's shape — low is a rounded lip, high is a long ramp.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Bevel
+  - name: intensity
+    default: '0.5'
+    summary: How far the normal is bent by it.
+    kind: Float
+    minimum: 0
+    maximum: 1
+    group: Bevel
