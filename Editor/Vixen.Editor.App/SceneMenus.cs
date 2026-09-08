@@ -124,10 +124,17 @@ sealed partial class EditorApplication {
         }
 
         foreach (var entry in offered) {
-            var command = Shell.Commands[entry.CommandId];
             var item = radial.AddItem(Title(entry));
 
-            item.Disabled = command is null || !Shell.Commands.CanExecute(command);
+            // ⚠ **Resolved through the route rather than bound to it, and the pie is why.** Every
+            // other surface in the editor sets `ButtonBase.Command` and deletes its enablement line;
+            // a `RadialItem` cannot, because `RadialMenu.Accept` is what runs the aimed wedge — the
+            // hold-and-release gesture never produces a click at all — so a bound item would run its
+            // command twice on the click gesture and once on the release. What is copied here is
+            // exactly what the binding does, `CommandRoute.Resolve` included: an id nothing responds
+            // to resolves to nothing, and nothing responding is what greys a control. That is doc
+            // 45's first acceptance criterion, and it is why there is no `command is null` branch.
+            item.Disabled = CommandRoute.Resolve(Shell.Document, entry.CommandId) is not { CanExecute: true };
 
             if (entry.Art is { } art) {
                 item.LeadingIcon.Art = art;
@@ -166,11 +173,15 @@ sealed partial class EditorApplication {
         var offered = 0;
 
         foreach (var entry in SceneMenuEntries(SceneMenuSurface.Context)) {
-            var command = Shell.Commands[entry.CommandId];
             var item = sceneMenu.AddItem(Title(entry));
             var id = entry.CommandId;
 
-            item.Disabled = command is null || !Shell.Commands.CanExecute(command);
+            // ⚠ **One line where there were three, and the deleted `command is null` branch is the
+            // point rather than the saving.** A bound `MenuItem` resolves its id through
+            // `CommandRoute`, greys itself when nothing responds, runs the command on activation and
+            // follows `CommandsInvalidated` — so an id the registry does not know is greyed by the
+            // ordinary path instead of by a special case. Doc 45 § step 4.
+            item.Command = id;
 
             // The chord, so that the list is also where somebody learns the shortcut — which is most
             // of what a context menu is for once the commands are known.
@@ -178,7 +189,6 @@ sealed partial class EditorApplication {
                 item.ShowShortcut(chord.Key, chord.Modifiers);
             }
 
-            item.Clicked += _ => Shell.Commands.Execute(id);
             offered++;
         }
 
@@ -221,13 +231,22 @@ sealed partial class EditorApplication {
         Radial("scene.toggle-projection", 7);
 
         // The list: the verbs that act on what is selected, which are read rather than aimed.
-        Context("entity.duplicate", 0);
-        Context("entity.delete", 1);
-        Context("entity.rename", 2);
-        Context("entity.focus", 3);
+        //
+        // ⚠ **Five of these seven named ids nothing registers, and the guard below turned that into
+        // a shorter menu rather than an error.** `entity.duplicate`, `entity.delete`,
+        // `entity.rename`, `entity.focus` and `scene.create-empty` appear in this repository only on
+        // these lines — the verbs are `edit.duplicate`, `edit.delete`, `edit.rename`, `scene.focus`
+        // and `scene.create-entity`, which is what the outliner's own context menu names. So the
+        // viewport's list has offered two entries since it was written, and the comment under
+        // `Offer` saying "a name that resolves to nothing here is a typo in this method" was
+        // describing a typo that was there.
+        Context("edit.duplicate", 0);
+        Context("edit.delete", 1);
+        Context("edit.rename", 2);
+        Context("scene.focus", 3);
         Context("entity.snap-to-floor", 4);
         Context("entity.move-to-view", 5);
-        Context("scene.create-empty", 6);
+        Context("scene.create-entity", 6);
 
         void Radial(string command, int order) => Offer(command, SceneMenuSurface.Radial, order);
 

@@ -541,16 +541,22 @@ sealed partial class EditorApplication {
             button.Label = command.Title.Text;
             button.Size = ControlSize.Small;
             button.IsChecked = command.IsChecked;
-            button.Disabled = !Shell.Commands.CanExecute(command);
 
-            // ⚠ Through the registry rather than by writing a field, which is the whole of doc 20's
-            // "the preferences window shows the same commands rather than a second copy of the
-            // state". The tick is read back from the command afterwards, so a command that refused —
-            // a viewport preference with no viewport open — leaves the toggle where it was.
-            button.CheckedChanged += (control, _) => {
-                Shell.Commands.Execute(commandId);
-                control.IsChecked = command.IsChecked;
-            };
+            // ⚠ **Bound, so the greying and the running are both the binding's.** What went with the
+            // `CanExecute` line is a whole class of bug rather than three words: an enablement
+            // computed when the page was built is one that is right when it is drawn and never
+            // again, and this window stays open while somebody opens and closes the viewport a
+            // preference here is about. A bound `ButtonBase` follows `CommandsInvalidated`.
+            button.Command = commandId;
+
+            // ⚠ **And the read-back stays, which the binding does <i>not</i> make redundant here.**
+            // `ButtonBase.RefreshCommand` writes a bound command's check state through `ShowCheck`,
+            // and `ToggleBase` does not override it — so the binding writes `ElementState.Checked`,
+            // which is what the theme draws, and leaves `IsChecked` wherever the click left it. That
+            // is the property this panel and its tests read. Until a bound toggle writes its own
+            // `IsChecked` (#1046) this line is what makes a command that refused leave the toggle
+            // where it was, which is the behaviour doc 20 asks of this page.
+            button.Clicked += control => ((ToggleButton) control).IsChecked = command.IsChecked;
         }
     }
 
