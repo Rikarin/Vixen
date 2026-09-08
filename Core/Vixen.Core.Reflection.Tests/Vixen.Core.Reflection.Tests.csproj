@@ -17,6 +17,9 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
+
+        <!-- Drives TypeDescriptorGenerator over a string of C#. See TypeDescriptorGeneratorTests. -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     </ItemGroup>
 
     <ItemGroup>
@@ -28,9 +31,16 @@
           one and the serializers they point at come from the other. Consumers of the NuGet packages
           get both automatically — each package carries its own under analyzers/dotnet/cs.
         -->
+        <!--
+          ⚠ ReferenceOutputAssembly is true for this one, and both halves are used. As an analyzer
+          it runs over Described.cs, which is what TypeRegistryTests reads back. As a reference it
+          can be constructed and driven through CSharpGeneratorDriver, which is the only way to
+          observe VXS0201 at all: warnings are errors repo-wide, so a `[DataContract] class Box<T>`
+          added to Described.cs fails the build rather than being read.
+        -->
         <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
                           OutputItemType="Analyzer"
-                          ReferenceOutputAssembly="false" />
+                          ReferenceOutputAssembly="true" />
         <ProjectReference Include="..\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />

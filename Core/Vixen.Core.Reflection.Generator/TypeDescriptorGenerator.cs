@@ -64,7 +64,10 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
             .ForAttributeWithMetadataName(
                 attribute,
                 static (node, _) => node is Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax,
-                static (syntaxContext, _) => Describe((INamedTypeSymbol)syntaxContext.TargetSymbol)
+                static (syntaxContext, _) => Describe(
+                    (INamedTypeSymbol)syntaxContext.TargetSymbol,
+                    Where(syntaxContext.TargetNode)
+                )
             )
             .Where(static model => model.QualifiedName is not null);
 
@@ -85,11 +88,25 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
         return [.. seen.Values.OrderBy(model => model.SafeName, StringComparer.Ordinal)];
     }
 
-    static DescriptorModel Describe(INamedTypeSymbol type) {
+    /// <summary>The span a refusal about this declaration should land on.</summary>
+    /// <param name="node">The type declaration the attribute matched.</param>
+    /// <returns>The identifier's span, reduced to values.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The identifier, not the whole declaration.</b> A squiggle under a hundred lines of
+    ///     class body says nothing about what to change; the name is what has to.
+    /// </remarks>
+    static LocationInfo Where(SyntaxNode node) =>
+        LocationInfo.At(
+            node is Microsoft.CodeAnalysis.CSharp.Syntax.TypeDeclarationSyntax declaration
+                ? declaration.Identifier.GetLocation()
+                : node.GetLocation()
+        );
+
+    static DescriptorModel Describe(INamedTypeSymbol type, LocationInfo where) {
         var qualified = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
 
         if (type.IsGenericType) {
-            return new(qualified, SafeName(qualified), type.Name, [], "None", false, null, false, [], qualified);
+            return new(qualified, SafeName(qualified), type.Name, [], "None", false, null, false, [], qualified, where);
         }
 
         var traits = new List<string>();
@@ -130,6 +147,7 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
             CategoryOf(type),
             canCreate,
             members.ToImmutable(),
+            null,
             null
         );
     }
@@ -498,7 +516,13 @@ public sealed class TypeDescriptorGenerator : IIncrementalGenerator {
 
         foreach (var model in models) {
             if (model.Warning is not null) {
-                context.ReportDiagnostic(Diagnostic.Create(GenericNotDescribed, Location.None, model.Warning));
+                context.ReportDiagnostic(
+                    Diagnostic.Create(
+                        GenericNotDescribed,
+                        model.WarningLocation?.ToLocation() ?? Location.None,
+                        model.Warning
+                    )
+                );
             } else {
                 valid.Add(model);
             }
