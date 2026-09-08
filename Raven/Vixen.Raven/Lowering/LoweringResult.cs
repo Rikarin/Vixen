@@ -49,8 +49,20 @@ public sealed class LoweringResult {
     /// </remarks>
     internal IReadOnlyDictionary<IrFunction, string> ImportedFunctionNames { get; }
 
-    /// <summary>The name the artefact gave each imported struct.</summary>
-    internal IReadOnlyDictionary<IrStructType, string> ImportedStructNames { get; }
+    /// <summary>The artefact key each imported struct was resolved by, which is not its name.</summary>
+    internal IReadOnlyDictionary<IrStructType, string> ImportedStructKeys { get; }
+
+    /// <summary>
+    ///     The structs whose <em>name</em> is their identity: tuples and monomorphised generics.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ These are exempt from qualification, and the exemption is load-bearing rather than an
+    ///     optimisation. A tuple has no declaration to match on, so two libraries' <c>(float,
+    ///     float)</c> must reach one struct object or a library function's return type stops
+    ///     matching the caller's local — <c>Lowerer.LowerTuple</c> says exactly that. A
+    ///     monomorphised generic is named the same way, from its arguments.
+    /// </remarks>
+    internal IReadOnlySet<IrStructType> StructuralStructs { get; }
 
     internal LoweringResult(
         IrModule module,
@@ -59,7 +71,8 @@ public sealed class LoweringResult {
         IReadOnlySet<IrFunction> importedFunctions,
         IReadOnlySet<IrStructType> importedStructs,
         IReadOnlyDictionary<IrFunction, string> importedFunctionNames,
-        IReadOnlyDictionary<IrStructType, string> importedStructNames
+        IReadOnlyDictionary<IrStructType, string> importedStructKeys,
+        IReadOnlySet<IrStructType> structuralStructs
     ) {
         Module = module;
         Functions = functions;
@@ -67,7 +80,8 @@ public sealed class LoweringResult {
         ImportedFunctions = importedFunctions;
         ImportedStructs = importedStructs;
         ImportedFunctionNames = importedFunctionNames;
-        ImportedStructNames = importedStructNames;
+        ImportedStructKeys = importedStructKeys;
+        StructuralStructs = structuralStructs;
     }
 
     /// <summary>
@@ -78,7 +92,33 @@ public sealed class LoweringResult {
     internal string ArtefactName(IrFunction function) =>
         ImportedFunctionNames.GetValueOrDefault(function) ?? function.Name;
 
-    /// <summary>The artefact name for a struct, on the same terms.</summary>
-    internal string ArtefactName(IrStructType structType) =>
-        ImportedStructNames.GetValueOrDefault(structType) ?? structType.Name;
+    /// <summary>
+    ///     The artefact key for a struct: the one the library it was linked from gave it, or one
+    ///     this module coins by qualifying the name with its own.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Qualified, because the bare name was not an identity. Two libraries that each declared
+    ///     a <c>struct Shape</c> became one object in any consumer that referenced both, carrying
+    ///     the first one's fields — <c>RVN3010</c> when the widths differed and nothing at all when
+    ///     they matched, at which point a read of <c>height</c> was a read of somebody else's
+    ///     <c>drag</c>. <see cref="StructuralStructs" /> is exempt, and says why.
+    /// </remarks>
+    internal string ArtefactKey(IrStructType structType) =>
+        ImportedStructKeys.GetValueOrDefault(structType)
+        ?? (StructuralStructs.Contains(structType) ? structType.Name : Qualified(structType.Name));
+
+    /// <summary>The readable name to record for a struct this module lowered.</summary>
+    /// <remarks>
+    ///     Bare, and separate from <see cref="ArtefactKey" />, for the reason a function's name is:
+    ///     the GLSL a frame debugger shows should still say <c>Shape</c>.
+    /// </remarks>
+    internal static string ArtefactStructName(IrStructType structType) => structType.Name;
+
+    /// <summary>This module's name and a struct's, which together name one declaration.</summary>
+    /// <remarks>
+    ///     <c>::</c> rather than a dot, because a dot already separates a package from a type and a
+    ///     key that reused it could be read as either. Matched, never parsed — except by the
+    ///     decoder's placeholder, which takes the half after it for a readable name.
+    /// </remarks>
+    string Qualified(string name) => $"{Module.Name}::{name}";
 }

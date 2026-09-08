@@ -888,10 +888,30 @@ function taking five. Two same-named statics with *matching* signatures resolve 
 with no diagnostic at all, produce a shader that compiles and validates, and compute the wrong thing;
 that is the case `CompiledLibraryTests.SameNamedStaticsInTwoLibrariesEachKeepTheirOwnBody` pins.
 
-Structs still cross by name alone, and two packages that each declare a `struct Sampling` would
-unify the same way. That one is deliberately unfixed here: a struct's name is also what a consumer's
-own declaration shadows, so it wants the same treatment on both halves of the artefact rather than
-the IR half only.
+#### ✅ And a struct crossed under a name too, which was the worse half
+
+The paragraph that stood here said structs were "deliberately unfixed", on the reasoning that a
+struct's name is also what a consumer's own declaration shadows. ⚠ That deferral was wrong about the
+severity: two same-named *statics* with matching signatures compute the wrong thing, and two
+same-named *structs* of equal width do the same with the second library's field names still in the
+source — `b.height` lowered to a read of the other library's `drag`, with no diagnostic, no verifier
+complaint and a valid module. Only unequal field counts were loud (`RVN3010`).
+
+`LibraryIrStruct` now carries `Key` beside `Name`, exactly as the function half does: the key is the
+declaring library's name and the struct's, joined by `::`, and it is what
+`LibraryIrTypeReference.Struct` and `LibraryType.IrStruct` record. The name stays bare, so the GLSL
+still says `Shape`.
+
+⚠ **A qualified key is not applied to every struct, and that exemption is load-bearing.** A tuple has
+no declaration to qualify with and none to match on — `Lowerer.LowerTuple` matches an imported one by
+the name derived from its element types, and says in its own remarks that this is necessary rather
+than an optimisation. A monomorphised generic is named the same way. Qualifying those splits a type
+that must stay one, which shows up as `RVN3010: store: Tuple_f32_f32 does not match Tuple_f32_f32#1`
+— which is what the sabotage of the exemption prints, and what
+`CompiledLibraryTests.TuplesFromTwoLibrariesStayOneTypeDespiteTheStructKey` holds down.
+
+The `.rvnlib` format went to **version 4**. Nothing in the tree commits a `.rvnlib`, so no artefact
+had to be regenerated.
 
 ### G. Testing and CI additions
 

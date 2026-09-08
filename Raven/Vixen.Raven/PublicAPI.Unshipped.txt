@@ -3178,6 +3178,8 @@ required Vixen.Raven.Artefacts.LibraryIrFunction.Name.get -> string
 required Vixen.Raven.Artefacts.LibraryIrFunction.Name.init -> string
 required Vixen.Raven.Artefacts.LibraryIrFunction.ReturnType.get -> Vixen.Raven.Artefacts.LibraryIrTypeReference
 required Vixen.Raven.Artefacts.LibraryIrFunction.ReturnType.init -> Vixen.Raven.Artefacts.LibraryIrTypeReference
+required Vixen.Raven.Artefacts.LibraryIrStruct.Key.get -> string
+required Vixen.Raven.Artefacts.LibraryIrStruct.Key.init -> string
 required Vixen.Raven.Artefacts.LibraryIrStruct.Name.get -> string
 required Vixen.Raven.Artefacts.LibraryIrStruct.Name.init -> string
 required Vixen.Raven.Artefacts.LibraryMethod.Name.get -> string

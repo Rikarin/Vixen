@@ -213,6 +213,7 @@ public sealed partial class Lowerer {
         structType.SetFields([.. fields]);
 
         tuples[tuple] = structType;
+        structuralStructs.Add(structType);
         module.Add(structType);
         return structType;
     }

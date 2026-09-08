@@ -47,6 +47,16 @@ public sealed partial class Lowerer {
     readonly Dictionary<TupleTypeSymbol, IrStructType> tuples = [];
     readonly Dictionary<TypeSymbol, IrType> typeCache = [];
 
+    /// <summary>
+    ///     The structs this module lowered whose name is their identity: tuples and monomorphised
+    ///     generics.
+    /// </summary>
+    /// <remarks>
+    ///     Recorded because a library artefact has to know which of its structs may be shared with
+    ///     another library's by name and which may not. See <c>LoweringResult.StructuralStructs</c>.
+    /// </remarks>
+    readonly HashSet<IrStructType> structuralStructs = [];
+
     IrBlock currentBlock = new();
     IrFunction? currentFunction;
     NamedTypeSymbol? currentType;
@@ -176,7 +186,8 @@ public sealed partial class Lowerer {
             lowerer.importedFunctions,
             lowerer.importedStructs,
             lowerer.importedFunctionNames,
-            lowerer.importedStructNames
+            lowerer.importedStructKeys,
+            lowerer.structuralStructs
         );
     }
 
@@ -209,6 +220,7 @@ public sealed partial class Lowerer {
             if (instantiation.Type is { } constructed) {
                 var structType = new IrStructType(MangledName(constructed));
                 structs[constructed] = structType;
+                structuralStructs.Add(structType);
                 module.Add(structType);
             }
         }
