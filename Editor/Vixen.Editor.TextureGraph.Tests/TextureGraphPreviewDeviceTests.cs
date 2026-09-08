@@ -150,12 +150,10 @@ public class TextureGraphPreviewDeviceTests {
         return (graph, uniform.Id, inverted.Id, halved.Id);
     }
 
-    static byte Middle(Vixen.Core.Imaging.Bitmap picture) {
-        var pixels = picture.Pixels;
-        var offset = (((picture.Height / 2) * picture.Width) + (picture.Width / 2)) * 4;
+    static byte Middle(Vixen.Core.Imaging.Bitmap picture) => At(picture, picture.Width / 2, picture.Height / 2);
 
-        return pixels[offset];
-    }
+    static byte At(Vixen.Core.Imaging.Bitmap picture, int x, int y) =>
+        picture.Pixels[(((y * picture.Width) + x) * 4)];
 
     /// <summary>
     ///     ⚠ One ordinary <c>Evaluate</c> holds every node's picture, so no split was needed.
@@ -264,7 +262,8 @@ public class TextureGraphPreviewDeviceTests {
     }
 
     /// <summary>
-    ///     ⚠ A graph reading an imported picture is refused, not thrown out of the plugin's frame.
+    ///     ⚠ A graph that is <em>only</em> an imported picture is refused, not thrown out of the
+    ///     plugin's frame and not baked for nothing.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -281,6 +280,13 @@ public class TextureGraphPreviewDeviceTests {
     ///         satisfied by a source that had stopped rebuilding anything at all —
     ///         <see cref="A_preview_source_registers_one_picture_per_node" /> is the half that says
     ///         it still does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every node here is downstream of the picture, which is why the whole graph is
+    ///         still refused</b> — <see cref="A_node_beside_an_imported_picture_still_gets_its_own_swatch" />
+    ///         is the case #1089's remainder is actually about. Zero bakes is the assertion: filling
+    ///         the bitmap with a stand-in texel and dispatching over it would produce a bake whose
+    ///         every picture is thrown away.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -308,7 +314,147 @@ public class TextureGraphPreviewDeviceTests {
         Assert.Equal(1, previews.Compilations);
         Assert.Equal(0, previews.Bakes);
         Assert.Equal(1, previews.Refusals);
+        Assert.Equal(0, previews.Skipped);
         Assert.Empty(sink.Pictures);
+    }
+
+    /// <summary>
+    ///     ⚠ A <c>Source/Gradient</c> emits an external too, so the blanket refusal blanked the
+    ///     ordinary graph and not the exotic one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half of <a href="https://github.com/Rikarin/Vixen/issues/1089">#1089</a>'s
+    ///         remainder that is a regression rather than an improvement.</b> That issue names
+    ///         <c>Text</c> and <c>Svg Path</c> as the externals whose bytes a compilation carries,
+    ///         and neither of those is a node yet. The one that <em>is</em> shipped is
+    ///         <c>TextureTables</c>: a gradient with no ramp asset, a curve with no curve asset and a
+    ///         gradient map with neither each emit an external image the compiler bakes the strip for
+    ///         and carries the bytes of. So the first answer to the crash — refuse any graph with an
+    ///         external — took every swatch off three of the commonest nodes in the library, on a
+    ///         graph containing no imported picture at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sweep is the assertion and "a picture appeared" is not.</b> A stand-in texel
+    ///         and a ramp that never uploaded both produce a swatch; both produce a <em>flat</em>
+    ///         one. Reading the two ends of the strip is what says the black-to-white table the
+    ///         compiler baked reached the device, which is the whole of what this path does.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_gradients_baked_ramp_is_uploaded_rather_than_making_the_graph_unpreviewable() {
+        using var device = TextureKernelHarness.Open();
+        var adapter = TextureKernelHarness.Adapter(device);
+
+        NodeGraphModel graph = new();
+        var gradient = graph.Add("Source/Gradient");
+        var output = graph.Add("Output/Output");
+
+        graph.Connect(new(gradient.Id, "Out"), new(output.Id, "Input"));
+
+        Kept sink = new();
+
+        using Lease lease = new(device);
+        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
+
+        var registry = Registry();
+        var node = First(graph, gradient.Id);
+        var definition = Definition(registry, graph, gradient.Id);
+
+        previews.TryGet(graph, node, definition, out _);
+        previews.Update();
+
+        // Nothing is owed: the strip is bytes the compilation carries, so the graph bakes whole.
+        Assert.Equal(1, previews.Bakes);
+        Assert.Equal(0, previews.Refusals);
+        Assert.Equal(0, previews.Skipped);
+
+        Assert.True(previews.TryGet(graph, node, definition, out var preview), $"{adapter}: no swatch on a gradient");
+
+        var picture = sink.Pictures[preview.Image];
+        var dark = At(picture, 2, picture.Height / 2);
+        var light = At(picture, picture.Width - 3, picture.Height / 2);
+
+        // ⚠ Both ends, not a difference: a ramp uploaded as zeros is flat black and a ramp that was
+        // never uploaded at all cannot be told from one that was, without looking at what it says.
+        Assert.True(dark < 40, $"{adapter}: the dark end of the strip is {dark}, so the ramp did not arrive");
+        Assert.True(light > 215, $"{adapter}: the light end is {light}, so the ramp did not arrive");
+    }
+
+    /// <summary>
+    ///     ⚠ A node beside an imported picture keeps its swatch; only what is computed from the
+    ///     picture goes.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1089">#1089</a>'s remainder, and
+    ///         the whole of it.</b> The crash's first answer dropped every swatch in the graph — on
+    ///         the dozens of nodes upstream of the bitmap as much as on the bitmap. What is owed is
+    ///         only the asset-backed picture, so it is filled with one black texel, the rest of the
+    ///         graph bakes as it always did, and every node whose result is computed from that texel
+    ///         is skipped rather than shown a plausible-looking lie.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Three assertions and each rules out a different wrong implementation.</b> The
+    ///         uniform's own grey rules out the blanket refusal, which leaves it blank; the blend's
+    ///         <em>absence</em> rules out drawing the stand-in, which would put a picture of black
+    ///         under a node whose real answer is whatever the import is; and the bake count rules out
+    ///         a source that has quietly stopped evaluating. ⚠ Asserting the counter alone would be
+    ///         satisfied by a rebuild that skipped everything.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_node_beside_an_imported_picture_still_gets_its_own_swatch() {
+        using var device = TextureKernelHarness.Open();
+        var adapter = TextureKernelHarness.Adapter(device);
+
+        NodeGraphModel graph = new();
+        var uniform = graph.Add("Source/Uniform");
+        var picture = graph.Add("Source/Bitmap");
+        var blend = graph.Add("Colour/Blend");
+        var output = graph.Add("Output/Output");
+
+        uniform.SetValue("Colour", 0.25f, 0.25f, 0.25f, 1f);
+        picture.SetText("Source", "Assets/Imported.png");
+
+        graph.Connect(new(uniform.Id, "Out"), new(blend.Id, "Background"));
+        graph.Connect(new(picture.Id, "Out"), new(blend.Id, "Foreground"));
+        graph.Connect(new(blend.Id, "Out"), new(output.Id, "Input"));
+
+        Kept sink = new();
+
+        using Lease lease = new(device);
+        using TextureGraphPreviews previews = new(lease.Take, () => new(Registry()), sink);
+
+        var registry = Registry();
+        var clean = First(graph, uniform.Id);
+        var cleanType = Definition(registry, graph, uniform.Id);
+
+        previews.TryGet(graph, clean, cleanType, out _);
+        previews.Update();
+
+        Assert.Equal(1, previews.Bakes);
+        Assert.Equal(0, previews.Refusals);
+
+        // The node that has nothing to do with the import draws, which the blanket refusal is what
+        // stopped.
+        Assert.True(previews.TryGet(graph, clean, cleanType, out var preview), $"{adapter}: the uniform went blank");
+        Assert.True(Middle(sink.Pictures[preview.Image]) is > 55 and < 75, $"{adapter}: the uniform's grey is wrong");
+
+        // And the ones whose answer is the import's do not, rather than drawing the stand-in.
+        Assert.False(
+            previews.TryGet(graph, First(graph, picture.Id), Definition(registry, graph, picture.Id), out _),
+            $"{adapter}: the bitmap drew a swatch, which can only be the black texel standing in for it"
+        );
+
+        Assert.False(
+            previews.TryGet(graph, First(graph, blend.Id), Definition(registry, graph, blend.Id), out _),
+            $"{adapter}: the blend drew a swatch, so the taint stopped at the node that reads the picture"
+        );
+
+        // Counted, because a swatch that is simply missing is what a source that has stopped running
+        // also looks like.
+        Assert.True(previews.Skipped >= 2, $"{adapter}: {previews.Skipped} nodes were skipped");
     }
 
     /// <summary>An edit invalidates the graph, and the next update draws the new numbers.</summary>

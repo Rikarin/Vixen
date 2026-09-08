@@ -174,13 +174,33 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
     /// <summary>How many times a plan has been evaluated on the device — the expensive tier.</summary>
     public int Bakes { get; private set; }
 
-    /// <summary>How many graphs were refused a picture because they did not compile.</summary>
+    /// <summary>How many graphs got no pictures at all.</summary>
     /// <remarks>
     ///     ⚠ <b>Counted rather than reported.</b> A graph an author is halfway through wiring does
     ///     not compile most of the time, and a preview source that raised its diagnostics would be
-    ///     a second, noisier copy of the panel that already shows them.
+    ///     a second, noisier copy of the panel that already shows them. There is no device, or no
+    ///     canvas, or the graph does not compile, or every picture in it is one only a host with an
+    ///     asset database could supply — <see cref="Skipped" /> is the same thing per node.
     /// </remarks>
     public int Refusals { get; private set; }
+
+    /// <summary>How many node pictures have been left undrawn because only a host could fill them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The instrument for <a href="https://github.com/Rikarin/Vixen/issues/1089">#1089</a>'s
+    ///         remainder.</b> A graph reading an imported bitmap still bakes; what cannot be drawn is
+    ///         the node reading it and everything computed from it, because this side holds an
+    ///         evaluator and a compiler and no <c>AssetDatabase</c>. Counted per node per rebuild.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A missing swatch is otherwise indistinguishable from a preview source that has
+    ///         stopped running</b>, which is #1089 one level up: the crash it fixed was invisible
+    ///         because a blank canvas is what "no device yet" looks like too. <see cref="Refusals" />
+    ///         and this counter separate "the whole graph was skipped" from "these nodes were", and
+    ///         <see cref="Bakes" /> separates both from "nothing ran at all".
+    ///     </para>
+    /// </remarks>
+    public int Skipped { get; private set; }
 
     /// <summary>How many nodes have a picture.</summary>
     public int Live => registered.Count;
@@ -366,22 +386,74 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
             return;
         }
 
-        // ⚠ A graph that reads a picture this source cannot supply is refused rather than evaluated,
-        // and until #1089 it threw. `Evaluate` is called here with no externals at all — the
-        // bare-handle overload, the one #1014 said had no production caller — so a `Source/Bitmap`
-        // naming an imported image made `ExternalViews` raise `ArgumentException` straight out of
-        // `Update`, which is a plugin's per-frame work, which `PluginHost.Update` answers by
-        // unloading the plugin. A swatch is a convenience and a graph is not a fault; skipping it is
-        // the whole cost.
+        // ⚠ Until #1089 this called the bare-handle `Evaluate` with no externals at all, so a
+        // `Source/Bitmap` naming an imported image made `ExternalViews` raise `ArgumentException`
+        // straight out of `Update` — a plugin's per-frame work, which `PluginHost.Update` answers by
+        // unloading the plugin. The first answer was to refuse any graph with an external, and that
+        // was far coarser than the defect: it dropped every swatch on every node, and ⚠ a
+        // *`Source/Gradient` with no ramp asset* emits an external too — the compiler bakes the
+        // black-to-white strip itself and carries the bytes — so the ordinary gradient, the curve
+        // and the gradient map went blank along with the bitmap they have nothing to do with.
         //
-        // ⚠ It refuses the *whole* graph and not the nodes downstream of the picture, which is worse
-        // than it needs to be: `TextureGraphExternals.Upload` would fill every external whose bytes
-        // the compilation carries, leaving only the asset-backed ones owed. That needs a device on
-        // this side rather than an evaluator — see #1089.
-        if (compiler.Externals.Length > 0) {
-            Refusals++;
+        // So the externals whose bytes the compilation already carries are uploaded. The device is
+        // the one behind the evaluator that was just leased rather than one held in a field here:
+        // `TextureUploads` needs a device, and a field would be exactly the shape the constructor's
+        // remarks refuse — on the frame after a device loss it would name a device that is gone.
+        using TextureUploads uploads = new(evaluator.Device);
+        var owed = TextureGraphExternals.Upload(uploads, plan, compiler.Externals);
 
-            return;
+        // ⚠ An upload per rebuild is precisely the cost `TextureUploads`' own remarks call "the cost
+        // that arrangement hides" — and it is the right trade *here* and nowhere else. A preview
+        // compiles at `Size`, so a ramp is `TextureRamp.Entries`×1 and every other carried picture
+        // is 64×64: kilobytes, against a bake that already opens a frame and waits for the device
+        // once per node to read the pictures back. At the panel's own resolution it would not be.
+
+        // The asset-backed entries are the ones this side genuinely cannot fill, and their images
+        // taint everything computed from them. Collected before anything is uploaded for them, so a
+        // graph whose every node is downstream of one costs no bake at all.
+        HashSet<int> unresolved = [];
+
+        foreach (var external in owed) {
+            unresolved.Add(external.Image);
+        }
+
+        if (unresolved.Count > 0) {
+            // One forward pass is enough because `TexturePlan.Check` refuses a plan whose op reads an
+            // image no earlier op wrote — "an intermediate is written by an earlier op or supplied by
+            // the caller" — so the op list is in write-before-read order and a taint cannot travel
+            // backwards.
+            foreach (var op in plan.Ops) {
+                foreach (var input in op.Inputs) {
+                    if (unresolved.Contains(input)) {
+                        unresolved.Add(op.Output);
+
+                        break;
+                    }
+                }
+            }
+
+            if (compiler.NodeImages.All(written => unresolved.Contains(written.Image))) {
+                // Every picture in the graph is somebody else's, which is what a graph that is only
+                // a bitmap and an output looks like. Refused rather than baked for nothing, and not
+                // marked dirty: nothing will change until the author edits or a host with an asset
+                // database supplies the picture, so re-baking every frame would be a spin.
+                Refusals++;
+
+                return;
+            }
+
+            foreach (var image in unresolved) {
+                if (!plan.Images[image].External) {
+                    continue;
+                }
+
+                // ⚠ One black texel, so the *rest* of the graph bakes. Nothing computed from it is
+                // ever shown — a plausible picture drawn from a stand-in is the failure this whole
+                // path exists to avoid, and black is a perfectly plausible mask. `TexturePlan.Check`
+                // exempts an external image from the extent guard, so a 1×1 is legal here; the bake
+                // collects one caution per op that reads it, which nothing draws.
+                uploads.Add(plan, image, 1, 1, new byte[TextureFormats.BytesPerTexel(plan.Images[image].Format)]);
+            }
         }
 
         // ⚠ The evaluator is the one asked for at the top of this method rather than one held in a
@@ -390,7 +462,10 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
         // `A_preview_source_takes_its_evaluator_from_the_lease_on_every_rebuild` counts it for this
         // one, because a source that asked once on the way in leaves every count about the lender's
         // own builds green.
-        using var bake = evaluator.Evaluate(plan);
+        //
+        // ⚠ Declared after the uploads so that it is disposed *first*: the bake owns a view over
+        // every external texture and destroys it, and the textures those view are the uploads'.
+        using var bake = evaluator.Evaluate(plan, uploads.Externals);
 
         Bakes++;
 
@@ -401,6 +476,20 @@ public sealed class TextureGraphPreviews : INodePreviewSource, IDisposable {
 
         foreach (var written in compiler.NodeImages) {
             shown[written.Node] = written.Image;
+        }
+
+        // ⚠ Filtered after the dictionary is built rather than while it is being filled, and the
+        // difference is a node with two output ports. Skipping a tainted entry on the way in would
+        // leave such a node showing an *earlier* image it wrote — a clean intermediate of itself,
+        // which is a picture and is not its result. Taking the last write and then removing it is
+        // the same rule the loop above states.
+        foreach (var (node, image) in shown.ToArray()) {
+            if (!unresolved.Contains(image)) {
+                continue;
+            }
+
+            shown.Remove(node);
+            Skipped++;
         }
 
         var refused = false;
