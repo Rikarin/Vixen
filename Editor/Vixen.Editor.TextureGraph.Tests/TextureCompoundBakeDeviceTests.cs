@@ -229,6 +229,154 @@ public class TextureCompoundBakeDeviceTests(ITestOutputHelper output) {
         );
     }
 
+    /// <summary>
+    ///     ⚠ <c>Utility/Highpass</c> answers exactly one half over a flat input, whatever the input is.
+    /// </summary>
+    /// <param name="value">What the flat input is worth.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A closed form, and it is the whole of what the compound claims.</b> A highpass is
+    ///         the detail about a mid grey; a picture with no detail in it is therefore the mid grey,
+    ///         for every input value there is. Authored out of the atomic set that is
+    ///         <c>Blur</c> → <c>Invert</c> → <c>Blend Copy</c> at half opacity, which is
+    ///         <c>(a + (1 − b)) / 2</c> — the arrangement <c>Blend Subtract</c> cannot give, because
+    ///         it clamps at black and a highpass is signed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the oracle is what makes this more than "it is not flat": all three nodes have
+    ///         to be right for the answer to be a half.</b> A blur that did nothing, an invert that
+    ///         inverted alpha too, an opacity read as one instead of a half — each moves the answer
+    ///         off 128, and none of them changes whether the picture is flat.
+    ///     </para>
+    ///     <para>
+    ///         <b>Twice, at two input values, because one is not a claim about "whatever the input
+    ///         is".</b> A compound that answered its own input rather than a half would pass at 0.5
+    ///         alone.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(0.3f)]
+    [InlineData(0.8f)]
+    public void Highpass_answers_one_half_over_a_flat_input(float value) {
+        using var device = TextureKernelHarness.Open();
+        var adapter = TextureKernelHarness.Adapter(device);
+
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        var registry = Registry();
+        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+
+        NodeGraphModel graph = new();
+        var flat = graph.Add("Source/Uniform");
+        var high = graph.Add("Utility/Highpass");
+        var target = graph.Add("Output/Output");
+
+        flat.SetValue("Colour", [value, value, value, 1f]);
+        graph.Connect(new(flat.Id, "Out"), new(high.Id, "Input"));
+        graph.Connect(new(high.Id, "Out"), new(target.Id, "Input"));
+
+        TextureGraphCompiler compiler = new(registry) {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Seed = 3301,
+            SubGraphSource = library
+        };
+
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        using var bake = evaluator.Evaluate(compilation.Value);
+
+        var picture = bake.Read(compilation.Value.Outputs[0]);
+
+        output.WriteLine(
+            $"{adapter}: a flat {value} through Highpass is "
+            + $"{TextureKernelHarness.At(picture, 0, 0, 0)}…{TextureKernelHarness.At(picture, Side - 1, Side - 1, 0)}"
+        );
+
+        // Across the whole image and not one corner: a compound that answered a half in the middle
+        // and its input at the edges is a blur reading past the image, which one sample misses.
+        for (var y = 0; y < Side; y += 8) {
+            for (var x = 0; x < Side; x += 8) {
+                Assert.InRange(TextureKernelHarness.At(picture, x, y, 0), (byte)126, (byte)130);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     ⚠ <c>Utility/Contrast Luminosity</c>'s folded expressions reach the picture: at a contrast
+    ///     of one half a ramp is clipped at the quarter and the three-quarter.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The bake half of
+    ///         <c>TextureCompoundLibraryTests.An_expression_in_a_shipped_compound_folds_and_an_override_moves_it</c>,
+    ///         and both are worth having.</b> That one reads the number off the op the compiler
+    ///         emitted, which is a claim about a value; this one reads texels, which is a claim that
+    ///         the value reached a dispatch. Doc 48's own rule — verify with a picture where the
+    ///         output is a picture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>At a contrast of one half rather than at the declared default, because the
+    ///         default is the identity and so is a <c>Levels</c> whose expressions were thrown
+    ///         away.</b> An assertion at the default could not fail in the direction this is written
+    ///         for. With <c>contrast</c> at 0.5 the input range is 0.25…0.75, and the input is
+    ///         <c>Source/Shape</c>'s gradation — exactly <c>(x + 0.5) / width</c> — so the first
+    ///         sixteen columns must be black and the last sixteen white.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Contrast_Luminositys_folded_range_clips_a_ramp_where_the_expression_says() {
+        using var device = TextureKernelHarness.Open();
+        var adapter = TextureKernelHarness.Adapter(device);
+
+        using var evaluator = new TexturePlanEvaluator(device);
+
+        var registry = Registry();
+        var library = TextureCompoundLibrary.Publish(registry, folder: null, out _);
+
+        NodeGraphModel graph = new();
+        var ramp = graph.Add("Source/Shape");
+        var tone = graph.Add("Utility/Contrast Luminosity");
+        var target = graph.Add("Output/Output");
+
+        ramp.SetText("Kind", "Gradation");
+        tone.SetText("contrast", "0.5");
+        graph.Connect(new(ramp.Id, "Out"), new(tone.Id, "Input"));
+        graph.Connect(new(tone.Id, "Out"), new(target.Id, "Input"));
+
+        TextureGraphCompiler compiler = new(registry) {
+            BaseWidth = Side,
+            BaseHeight = Side,
+            Seed = 5501,
+            SubGraphSource = library
+        };
+
+        var compilation = compiler.Compile(graph);
+
+        Assert.Empty(compilation.Diagnostics);
+
+        using var bake = evaluator.Evaluate(compilation.Value);
+
+        var picture = bake.Read(compilation.Value.Outputs[0]);
+
+        output.WriteLine(
+            $"{adapter}: the clipped ramp runs {TextureKernelHarness.At(picture, 0, 32, 0)}, "
+            + $"{TextureKernelHarness.At(picture, 15, 32, 0)}, {TextureKernelHarness.At(picture, 32, 32, 0)}, "
+            + $"{TextureKernelHarness.At(picture, 48, 32, 0)}, {TextureKernelHarness.At(picture, 63, 32, 0)}"
+        );
+
+        // ⚠ Within a byte on either side, because `Colour/Levels` dithers by one 8-bit step by
+        // default — the same fact that made this file's roll-call bar three rather than one.
+        Assert.InRange(TextureKernelHarness.At(picture, 15, 32, 0), (byte)0, (byte)1);
+        Assert.InRange(TextureKernelHarness.At(picture, 48, 32, 0), (byte)254, (byte)255);
+
+        // And the middle is the ramp stretched over the half range rather than clipped with it: at
+        // the centre the input is a half, which the folded range sends back to a half.
+        Assert.InRange(TextureKernelHarness.At(picture, 32, 32, 0), (byte)125, (byte)133);
+    }
+
     /// <summary>A registry holding the atomic node types.</summary>
     static NodeTypeRegistry Registry() {
         NodeTypeRegistry registry = new();
