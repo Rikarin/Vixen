@@ -2,7 +2,7 @@ package Vixen.Editor.TextureGraph.Shaders
 
 // A checkerboard, with a scale, a rotation and an offset. Doc 48 § 4.1.
 //
-// ⚠ **`ComputeColor.rvn:169` already has one, and this is not a call to it.** A texture-graph kernel
+// ⚠ **`ComputeColor.Checker` already has one, and this is not a call to it.** A texture-graph kernel
 // is compiled on its own — `TexturePlanEvaluator.VariantFor` hands `RavenEffectCompiler.FromSources`
 // exactly one tree and no `.rvnlib` references — and a package's declarations are visible to another
 // file only within one compilation. So `import Vixen.Shaders.Material` here does not resolve, and the
