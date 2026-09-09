@@ -32,8 +32,20 @@ public readonly record struct SplineHandle(int Point, SplineElement Element);
 ///     <para>
 ///         <b>[docs/plan/31 § T8]'s viewport editing, on the gizmo and <see cref="SnapContext" />
 ///         that already exist.</b> A control point is a position and nothing else, so dragging one is
-///         what <see cref="IGizmoTarget" /> already does — which is why this is a target and a
-///         command rather than a mode.
+///         what <see cref="IGizmoTarget" /> already does — which is why this is a command and a
+///         <see cref="Begin" />/<see cref="Move" />/<see cref="Commit" /> protocol rather than a
+///         mode.
+///     </para>
+///     <para>
+///         ⚠ <b>It is not itself an <see cref="IGizmoTarget" />, and this sentence used to say it
+///         was.</b> Nothing here implements that interface and no adapter exists, so the gizmo cannot
+///         take hold of a handle: <c>SceneViewport.TargetsFactory</c> is the seat, and the three
+///         things that fill it — <see cref="EntityGizmoTarget" />, <see cref="MeshGizmoTarget" /> and
+///         <c>ProxyShapeGizmoTarget</c> — have no spline sibling. That is the same shape as the gap
+///         that made <see cref="SplineOverlay" /> uncallable before <c>0fa58d4a</c>: a class with the
+///         right behaviour and no adapter to the protocol a pane speaks. It is worth stating because
+///         it sizes the remaining work — a home for the gesture is the decision, and a target of
+///         sixty lines beside its three siblings is the code.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Tangent handles are selectable in their own right, and they have to be.</b> A tangent
