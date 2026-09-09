@@ -67,6 +67,17 @@ public sealed class CurvePreset {
 ///         <i>to</i>, which is this repository's commonest defect written down deliberately. The
 ///         curve control, by contrast, is a drawer in the inspector and is in two AI asset editors.
 ///     </para>
+///     <para>
+///         ⚠ <b>That refusal was already written down before this file existed, and the record is the
+///         thing to read rather than re-derive.</b>
+///         <c>Core/Vixen.Ui.Controls.Advanced/README.md</c> § GradientEditor gives three reasons that
+///         are all outside the control — no gradient asset, doc 48's predicted consumer shipped
+///         taking a texture name, and the obvious host does not reference the controls assembly — and
+///         <c>docs/overview.md</c> §1.7 carries the same sentence.
+///         <a href="https://github.com/Rikarin/Vixen/issues/1147">#1147</a> re-found the sweep and
+///         asked for a record that was already there, which is worth knowing: a <c>*.cs</c> plus
+///         <c>*.vxml</c> sweep answers "is it called" and not "was this decided".
+///     </para>
 /// </remarks>
 [DataContract("CurvePresetLibrary")]
 public sealed class CurvePresetLibrary {

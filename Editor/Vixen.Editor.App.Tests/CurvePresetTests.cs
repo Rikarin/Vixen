@@ -138,10 +138,15 @@ public class CurvePresetTests {
     ///     finding rather than a convenience.</b> No production type in this tree declares an
     ///     <c>AnimationCurve</c> member at all — a sweep of <c>*.cs</c> and <c>*.vxml</c> finds the
     ///     drawer, its registration and its tests and nothing else — and a <c>Behavior</c> cannot
-    ///     carry one, because a behaviour is read through <c>ISceneBehaviorBinder.Copy</c>, which is
-    ///     a binary round trip, and <c>AnimationCurve</c> is not <c>[DataContract]</c>. The two AI
-    ///     asset editors that do edit curves build a <c>CurveEditor</c> directly and call
-    ///     <c>Apply</c>, so they never pass through a row.
+    ///     carry one. ⚠ <b>Not because the type is unserialisable, which is the reason
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1148">#1148</a> gives and it is the
+    ///     second obstacle rather than the first:</b> <c>Vixen.Engine</c> references no UI assembly
+    ///     at all, so a behaviour cannot <em>name</em> <c>AnimationCurve</c> however many attributes
+    ///     it grows. The binary round trip is real — <c>ISceneBehaviorBinder.Copy</c> is
+    ///     <c>Restore(Save(…))</c>, so an unserialisable member draws a foldout with zero rows and no
+    ///     error — and it is what would bite a type that <em>could</em> name it. The two AI asset
+    ///     editors that do edit curves build a <c>CurveEditor</c> directly and call <c>Apply</c>, so
+    ///     they never pass through a row.
     /// </remarks>
     [Fact]
     public void A_preset_applies_to_the_curve_row_the_menu_was_opened_on() {
@@ -290,10 +295,12 @@ public class CurvePresetTests {
 
 /// <summary>A described type with a curve on it, so that a curve row exists to right-click.</summary>
 /// <remarks>
-///     ⚠ <b>It is a fixture because there is nothing else.</b> No production type in this tree
-///     declares an <c>AnimationCurve</c> member — the drawer is registered and has never had one to
-///     draw — and the panes that do edit curves build the control directly. That is a real gap and it
-///     is filed rather than papered over here.
+///     ⚠ <b>It is a fixture because there is nothing else, and that is a decision rather than a
+///     gap.</b> No production type in this tree declares an <c>AnimationCurve</c> member — the drawer
+///     is registered and has never had one to draw — and the panes that do edit curves build the
+///     control directly. The member the drawer is for is an <em>application's</em>, exactly as
+///     <c>GradientEditor</c>'s consumer is: the <c>WaterMaterial</c> in the Inspector README is the
+///     shape, and this fixture is the same shape written for a test.
 /// </remarks>
 public sealed class CurveFixture {
     /// <summary>The curve the presets are applied to.</summary>

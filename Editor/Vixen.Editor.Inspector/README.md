@@ -251,6 +251,25 @@ gizmo drag makes, and `CurveEditor.Curve` no-ops only on *reference* equality �
 call swaps the object out from under the control forty times a second, clearing its selection and
 re-subscribing.
 
+⚠ **The curve row's declaring type is an application's, and this repository has none — deliberately,
+and the same way `GradientEditor` has no editor consumer.** A sweep of `*.cs` *and* `*.vxml` finds the
+type, the drawer, its two registrations in `DrawerRegistry.CreateDefault`, the clip conversions in
+`AnimationClipCurves` and test fixtures — and no `[Inspector]` or `[DataContract]` member typed
+`AnimationCurve` anywhere. The `WaterMaterial` at the top of this file is the intended shape: a game
+type that references `Vixen.Ui.Controls.Advanced` and writes the member itself.
+
+⚠ **"Make `AnimationCurve` serialisable so a component can carry one"
+([#1148](https://github.com/Rikarin/Vixen/issues/1148)) is refuted, and the correction is worth
+keeping: serialisation is not the blocker, visibility is.** A behaviour does reach the component panel
+through a binary round trip — `ISceneBehaviorBinder.Copy` is `Restore(Save(…))` — so a member the
+serialiser cannot see draws a foldout with **zero rows and no error anywhere**, which is a real trap.
+But `Vixen.Engine` does not reference `Vixen.Ui.Controls.Advanced` at all, so a `Behavior` cannot
+*name* the type however many attributes it grows. The engine's curve is `Vixen.Core.Curves.CurveSample`
+and its serialised form is `AnimationCurveData`; `CurveEvaluation`'s remarks say outright that the
+mutable, event-raising control model and the serialised record cannot be one type, and that the shared
+thing is the arithmetic. A curve on a component is therefore a *drawer over `AnimationCurveData`* if it
+is ever wanted, not a relocated control model.
+
 ## Not in
 
 **A drawer for a nested object.** A member whose type has its own descriptor is drawn read-only rather

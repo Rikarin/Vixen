@@ -398,6 +398,13 @@ control:
   would widen a closure that was narrowed on purpose, which is a cost worth naming before anybody
   calls the wiring small.
 
+⚠ **One more fact, and it is what stops the refusal reading as an oversight:
+`DrawerRegistry.CreateDefault` has no `Gradient` entry at all** — there is no half-wired drawer to
+finish, and nothing falls through to the read-only last resort either, because no member of that type
+exists to fall through. [#1147](https://github.com/Rikarin/Vixen/issues/1147) re-found the sweep that
+produced this section and asked for exactly the record it already is; a sweep of `*.cs` and `*.vxml`
+is not the whole instrument, and the READMEs are the other half of it.
+
 What would change the decision is a gradient *asset*: a serialised `Gradient` with an importer, at
 which point a `GradientDrawer : PropertyDrawer<Gradient, GradientEditor>` beside `CurveDrawer` is the
 rest of it — with `CurveDrawer`'s two decisions carried over, because a gradient is a reference type

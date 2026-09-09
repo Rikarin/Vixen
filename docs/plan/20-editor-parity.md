@@ -389,7 +389,7 @@ is, and `EditorHost` instruments its loop with the four phases its own remarks n
 | **Audio mixer** | Audio Mixer (both) | `.AssetEditors` | ✅ | A strip per bus with its sends, inserts and snapshots, validated by running the real `MixerBuilder`. ⚠ The format was already `Vixen.Audio`'s |
 | **Input actions** | Input / Input System | `.AssetEditors` | ✅ | Maps, actions, composite bindings, control schemes, and rebinding as a *mode* rather than a modal — `KeyBindingsView`'s argument, restated |
 | **Font editor** | — / Font asset | `.AssetEditors` | ✅ | `.vxfont`: coverage per Unicode block against *assigned* code points, a glyph page drawn from the face's own outlines, and a fallback chain whose colour says which face drew each cell |
-| **Curve / gradient presets** | ✅ both | `.Inspector` | 🟡 | Controls exist; a library of saved presets does not. A user-store file rather than an editor surface, which is where [E5](#e5--authoring-surfaces-25-em)'s "not built" table already puts it. [#1041](https://github.com/Rikarin/Vixen/issues/1041) |
+| **Curve / gradient presets** | ✅ both | `.Inspector` | ✅ | `CurvePresetLibrary` in `presets.yaml`, beside the layouts and the keymap — not an asset, no importer, and the shipped shapes are *defaults* rather than entries, so an emptied store still offers all five. ⚠ **"Controls exist" was doing more work than it can carry, and the gradient half is a recorded refusal rather than an owed library**: `GradientEditor` has no editor consumer (no drawer — `DrawerRegistry.CreateDefault` has no `Gradient` entry — no asset editor, no panel), so a gradient preset library would be a library with nothing to apply a preset *to*. ⚠ And `CurveDrawer`'s row is an application's: no type in this repository declares an `AnimationCurve` member, and a `Behavior` cannot, because `Vixen.Engine` does not reference `Vixen.Ui.Controls.Advanced`. [#1041](https://github.com/Rikarin/Vixen/issues/1041), [#1147](https://github.com/Rikarin/Vixen/issues/1147), [#1148](https://github.com/Rikarin/Vixen/issues/1148) |
 
 ### B6 — World building
 
@@ -885,7 +885,7 @@ What is not built, each named against the layer it is missing from rather than a
 | **A navigation bake over real geometry** | It bakes, through the real `NavMeshBaker`, over the *boxes* the scene's primitives occupy — which is a real navigation mesh over a real blockout, and is what a level designer bakes at this stage anyway. It becomes true geometry the day the renderer has meshes, with nothing in the panel changing |
 | **Render-target inspection for a sequence's camera track** | The track cuts and the player reports which camera; making the viewport look through it is the same `GraphicsCompositor` wiring [E2](#e2--the-viewport-20-em)'s two remaining rows are waiting on |
 | **Layers and tags** | Named on the Scene menu and disabled with the reason. Doc 20's own row says they need an ECS-side concept first, and a panel maintaining a list of names nothing reads would fail this document's second bar |
-| **Curve and gradient preset libraries** | B5's last 🟡 row. The controls exist and a library of saved presets is a user-store file rather than an editor surface — it belongs beside the layouts and the keymap, not in an asset editor |
+| ~~**Curve and gradient preset libraries**~~ | Built as a user-store file, where this row said it goes. ⚠ The *gradient* half is refused rather than owed: the control has no editor consumer at all, so the library would have nothing to apply a preset to — see B5's row |
 
 ### E6 — Production hardening (1.5 EM)
 

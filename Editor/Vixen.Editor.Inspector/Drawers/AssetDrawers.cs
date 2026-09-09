@@ -152,6 +152,29 @@ public sealed class Color3Drawer : PropertyDrawer<Color3, ColorInput> {
 ///         silently, for the rest of the session. Twenty distinct copies is the only reading of
 ///         "set them all to this" that survives the next edit.
 ///     </para>
+///     <para>
+///         ⚠ <b>The member this draws is <i>application</i> code's, and nothing in this repository
+///         declares one — which is a decision rather than a gap, and the same one
+///         <c>GradientEditor</c> already carries.</b> A sweep of <c>*.cs</c> and <c>*.vxml</c> finds
+///         the type, this drawer, its two registrations, the clip conversions and test fixtures, and
+///         no <c>[Inspector]</c> or <c>[DataContract]</c> member of that type anywhere. The
+///         <c>WaterMaterial</c> at the top of this assembly's <c>README.md</c> is what the row is
+///         for: a game type that references <c>Vixen.Ui.Controls.Advanced</c> and writes
+///         <c>[Inspector, Curve] public AnimationCurve Amplitude</c>.
+///     </para>
+///     <para>
+///         ⚠ <b>And "make <c>AnimationCurve</c> serialisable so a component can carry one" —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1148">#1148</a>'s own proposal — is
+///         refuted: serialisation is not what stops it, visibility is.</b> A behaviour is read into
+///         the component panel through <c>ISceneBehaviorBinder.Copy</c>, which is
+///         <c>Restore(Save(…))</c>, so a member the serialiser cannot see draws a foldout with zero
+///         rows and no error. But <c>Vixen.Engine</c> does not reference
+///         <c>Vixen.Ui.Controls.Advanced</c> at all, so a <c>Behavior</c> cannot <i>name</i> the type
+///         whatever attributes it grows. The engine's curve is <c>Vixen.Core.Curves.CurveSample</c>,
+///         and <c>CurveEvaluation</c>'s own remarks say the two cannot be one type: one is a mutable
+///         class that raises events because a person is dragging its keys, the other is a serialised
+///         record. <c>AnimationCurveData</c> is that record and already exists.
+///     </para>
 /// </remarks>
 public sealed class CurveDrawer : PropertyDrawer<AnimationCurve, CurveEditor> {
     /// <inheritdoc />
