@@ -282,6 +282,23 @@ partial class Build {
                 .ThenBy(measurement => measurement.Project, StringComparer.Ordinal)
         ];
 
+    /// <summary>How old the committed list's own numbers are, in words.</summary>
+    /// <param name="lines">The committed list.</param>
+    /// <returns>The sentence, which is a report and never a verdict.</returns>
+    /// <remarks>
+    ///     ⚠ It says plainly that nothing fails on it. An age is the only axis
+    ///     <see cref="TestCostDrift.MinimumSeconds" /> cannot swallow — no measurement contradicts a
+    ///     row under a minute — but a day count nobody has watched trip would be a second instrument
+    ///     of exactly the kind #1128 is about, so this counts and does not judge.
+    /// </remarks>
+    static string DescribeCostListAge(IEnumerable<string> lines) =>
+        TestCostDrift.MeasuredOn(lines) is { } measured
+            ? $"Its numbers are from the run of {measured:yyyy-MM-dd}, "
+            + $"{(DateOnly.FromDateTime(DateTime.UtcNow).DayNumber - measured.DayNumber)} day(s) ago; nothing here "
+            + "fails on that age."
+            : $"It does not say which run measured it — no `{TestCostDrift.MeasuredMarker}` line — so its age is "
+            + "unknown.";
+
     /// <summary>
     ///     Compares the committed cost list with the TRX of the run that has just finished, and
     ///     fails when the list no longer describes it.
@@ -303,23 +320,6 @@ partial class Build {
     ///         artefacts without running anything again.
     ///     </para>
     /// </remarks>
-    /// <summary>How old the committed list's own numbers are, in words.</summary>
-    /// <param name="lines">The committed list.</param>
-    /// <returns>The sentence, which is a report and never a verdict.</returns>
-    /// <remarks>
-    ///     ⚠ It says plainly that nothing fails on it. An age is the only axis
-    ///     <see cref="TestCostDrift.MinimumSeconds" /> cannot swallow — no measurement contradicts a
-    ///     row under a minute — but a day count nobody has watched trip would be a second instrument
-    ///     of exactly the kind #1128 is about, so this counts and does not judge.
-    /// </remarks>
-    static string DescribeCostListAge(IEnumerable<string> lines) =>
-        TestCostDrift.MeasuredOn(lines) is { } measured
-            ? $"Its numbers are from the run of {measured:yyyy-MM-dd}, "
-            + $"{(DateOnly.FromDateTime(DateTime.UtcNow).DayNumber - measured.DayNumber)} day(s) ago; nothing here "
-            + "fails on that age."
-            : $"It does not say which run measured it — no `{TestCostDrift.MeasuredMarker}` line — so its age is "
-            + "unknown.";
-
     void AssertTestCostsStillDescribeTheRun() {
         var lines = TestCostFile.ReadAllLines();
         var stamped = TestCostDrift.ConfigurationOf(lines);

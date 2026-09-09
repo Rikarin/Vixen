@@ -127,8 +127,16 @@ readonly record struct MaskSourceEdit(
 ///         is a container, so the port owes a label element per bound string.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The rows are a model change before they are a markup change, and it is a specific
-///         one.</b> <c>BuildContext.For</c> matches a key, <em>reuses the region and does not re-run
+///         ⚠ <b>The rows were said to be a model change before a markup change, four times, and that
+///         turned out to be a statement about one <em>technique</em> rather than about the rows.</b>
+///         Three row kinds are markup now — <c>LayerRowView</c>, <c>FillRowView</c>,
+///         <c>FilterRowView</c> — and none of them is a <c>@for</c> region: they are components the
+///         walk below builds, which is markup without being reactive. The paragraph that follows is
+///         kept because it is <em>true of a region</em> and is what the next person reaching for one
+///         will need.
+///     </para>
+///     <para>
+///         <c>BuildContext.For</c> matches a key, <em>reuses the region and does not re-run
 ///         the body</em>, so every binding inside a row closes over the item as it was when that key
 ///         first appeared. Keying on <c>LayerAsset.Id</c> — the only stable identity a layer has,
 ///         and what the issue asks for — therefore needs the row to take something whose

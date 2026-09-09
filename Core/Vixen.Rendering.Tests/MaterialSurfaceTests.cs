@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Mathematics;
+using Vixen.Core.Serialization;
 using Vixen.Rendering;
 using Vixen.Rendering.Materials;
 using Xunit;
@@ -184,6 +185,54 @@ public class MaterialSurfaceTests {
         ]);
 
         Assert.Equal(MaterialSurface.Default, unfinished);
+    }
+
+    /// <summary>
+    ///     ⚠ Both layered features survive a chunk round trip, which is a property of their
+    ///     <em>declaration</em> rather than of any material.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The generator writes an interface-typed member polymorphically</b>
+    ///         (<c>DataContractGenerator</c>: a non-sealed member shape is <c>Polymorphic</c>, and
+    ///         <c>IReadOnlyList&lt;T&gt;</c> falls past the generic switch above it) — and
+    ///         <c>MaterialLayerValue[]</c> has no <c>[DataContract]</c> alias to write, so the write
+    ///         throws. Declaring the member as the array is the fix.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Asserted here, in the assembly that owns the declaration, because that is where a
+    ///         reverting edit is made.</b> The sample carries the same check for
+    ///         <c>TexturedMaterialLayersFeature</c> over a real <c>.vxmat</c> — but nothing in the
+    ///         tree serialised <c>MaterialLayersFeature</c> at all, so that half of the same fix could
+    ///         be reverted with every suite green. ⚠ And compiling a descriptor is not this check and
+    ///         cannot become it: <c>MaterialCompiler</c> reads the features in memory and is perfectly
+    ///         happy with an interface-typed collection.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void BothLayeredFeaturesSurviveAChunkRoundTrip() {
+        MaterialLayerValue[] layers = [
+            new(new(1f, 0f, 0f), 0f, 0.4f, 1f),
+            new(new(0f, 1f, 0f), 1f, 0.2f, 0.5f)
+        ];
+
+        MaterialContent content = new() {
+            Features = [
+                new MaterialLayersFeature { Layers = layers },
+                new TexturedMaterialLayersFeature { Layers = layers, PaintedChannels = 2 }
+            ]
+        };
+
+        var restored = Serializer.Read<MaterialContent>(Serializer.ToBytes(content));
+
+        // ⚠ The values and not the counts. A serializer that wrote an empty array satisfies a count
+        // of zero against a count of zero, and the values are what a splat map weights.
+        Assert.Equal(layers, Assert.Single(restored.Features.OfType<MaterialLayersFeature>()).Layers);
+
+        var textured = Assert.Single(restored.Features.OfType<TexturedMaterialLayersFeature>());
+
+        Assert.Equal(layers, textured.Layers);
+        Assert.Equal(2, textured.PaintedChannels);
     }
 
     /// <summary>A feature the reduction cannot show leaves the surface it wraps alone.</summary>

@@ -477,9 +477,9 @@ public static class MaterialBake {
                 continue;
             }
 
-            if (layered.Layers.Count != layers) {
+            if (layered.Layers.Length != layers) {
                 throw new ArgumentException(
-                    $"This material lists {layered.Layers.Count.ToString(CultureInfo.InvariantCulture)} layers and "
+                    $"This material lists {layered.Layers.Length.ToString(CultureInfo.InvariantCulture)} layers and "
                     + $"the map weighs {layers.ToString(CultureInfo.InvariantCulture)}. Channel i is layer i, so a "
                     + "map written for a different list paints the wrong layers — and every one of those pictures "
                     + "draws.",

@@ -567,17 +567,20 @@ scales smoothly, while a texture graph fills one outline once at whatever size a
 The result goes through `AddCoverage`, and `TextureTextDeviceTests` closes the whole path on an
 adapter in eight bits, texel for texel.
 
-⚠ **It takes a `FontFace` and never a path.** The paragraph this replaced was right about the real
-obstacle: resolving an asset to bytes is a project question. ⚠ **Half of that question is asked here
-now** — `TextureProjectImages` turns a reference into a path — and the half that matters for a font
-still is not: the *decode* stays with the caller, so the caller supplies the face exactly as it
-supplies an external image's texels.
+⚠ **It takes a `FontFace` and never a path**, and as of 2026-09-09 that is the decided shape rather
+than an open question: the face is **resolved by the host at fill time**, the way `Source/Bitmap`'s
+asset is, and not baked into the plan at compile time. Doc 48 § 4.1 carries the whole argument. The
+measurement that settles it is one neither #687 nor this file had — **a table is 256×1 and a line of
+text is the picture**: `TextureGraphPreview.Evaluate` compiles at the document's base width on every
+edit, so a compile-time bake would rasterise a full-size glyph run per keystroke.
 
-⚠ **And there is no `Text` node**, for a reason that has nothing to do with fonts: a node has to
-allocate an *external* image, and `TextureGraphCompiler.Allocate` only ever builds a pooled one. That
-is [#732](https://github.com/Rikarin/Vixen/issues/732), shared with `Bitmap`, `Gradient`, `Curve` and
-`Gradient Map`, and it is why the roll call's `Unnoded` list will not grow a `Text` entry — there is
-no kernel to excuse.
+⚠ **The reason this file used to give for having no `Text` node was measured false and is worth
+recording as such.** It said a node would have to allocate an *external* image while
+`TextureGraphCompiler.Allocate` only builds pooled ones — but `TextureNode.External` is exactly that
+allocation, `TextureTables.Ramp` and `TextureTables.Curve` already bake strips through it, and all
+four of the nodes that sentence named ship. [#732](https://github.com/Rikarin/Vixen/issues/732)
+closed the mechanism and the sentence outlived it by several batches, which is why the roll call's
+`Unnoded` list is derived rather than written down.
 
 ⚠ **The closure argument against `Svg Path` does not survive re-derivation.** This file said
 `Vixen.Ui`'s closure was twenty against this assembly's seventeen with eleven new. Re-derived over

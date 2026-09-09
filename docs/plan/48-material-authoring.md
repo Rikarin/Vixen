@@ -1099,13 +1099,19 @@ is owed a node: `TextureText.Rasterize` and `TextureUploads.AddCoverage` are clo
 three pieces left are a `text:` scheme, one `TextureEmitter.External` overload and a fill helper —
 whose test is a compiler assertion in that same suite, because a plan is a value. § 4.1's
 **`Svg Path`** is **refused**, not owed, on one surviving reason — what this assembly may *spell* —
-and [#753](https://github.com/Rikarin/Vixen/issues/753) carries where it should live instead, behind
-[#720](https://github.com/Rikarin/Vixen/issues/720)'s split. ⚠ **Everything else open under the
+and [#753](https://github.com/Rikarin/Vixen/issues/753) carries where it should live instead. ⚠ **Not
+"behind [#720](https://github.com/Rikarin/Vixen/issues/720)'s split", which this paragraph said in its
+first draft**: #720 is closed with a decision *not* to split, because the saving no caller can observe
+is not worth an assembly — so #753 is owed a home of its own rather than a place in a division that is
+not happening. ⚠ **Everything else open under the
 `material-authoring` label is a defect found while building this, not a box of this document** — and
-two of them are worth naming here because they are about the same seam M11 is: a layered material has
-no route to a baked occlusion map at all ([#1130](https://github.com/Rikarin/Vixen/issues/1130)), and
-no editor verb packs painted masks into a splat map ([#1124](https://github.com/Rikarin/Vixen/issues/1124)),
-which is precisely why #1073's map is hand-authored and why hand-authoring it does not wait on either.
+one is worth naming here because it is about the same seam M11 is: a layered material has
+no route to a baked occlusion map at all ([#1130](https://github.com/Rikarin/Vixen/issues/1130)),
+because dropping `TexturedOrmFeature` behind a layered surface — which the arithmetic requires — drops
+the only carrier occlusion has. ⚠ **The other one closed in the same batch this paragraph was written
+in**: *Bake Splat Map from Layers* packs a stack's painted coverage into an RGBA map and binds it
+([#1124](https://github.com/Rikarin/Vixen/issues/1124)), so #1073's map is hand-authored because the
+*mesh* is, and no longer because nothing could make one.
 
 ### M0 — The spike · 0.5 EM
 

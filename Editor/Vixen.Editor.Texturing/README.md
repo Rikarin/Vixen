@@ -464,7 +464,7 @@ than one path, so no 2D stroke pays for it.
   an undo made through the editor's own verb leaves every control in the layers panel showing the
   value it had — the blend mode and the opacity as much as the mesh picker. An edit made *in* a row
   refreshes, which is why this is invisible from inside the panel.
-* **The panel's frame is markup, and one of its four row kinds is.** Doc 36 § P4 makes markup the
+* **The panel's frame is markup, and three of its four row kinds are.** Doc 36 § P4 makes markup the
   authoring path, and [#881](https://github.com/Rikarin/Vixen/issues/881) is the debt:
   `LayerStackView` built its whole tree in C#. ⚠ **Most of that has landed.** The layout is `TexturingTheme.vcss` — the flex boxes
   that were fifty-two `SetStyle` calls are twenty-three, and every one of the twenty-three is either a
@@ -476,9 +476,9 @@ than one path, so no 2D stroke pays for it.
   relayout and `UiDocument.Load` appends. `LayerStackThemeTests` asserts the sheet reaches a real
   panel, by geometry rather than by declaration.
 
-  ⚠ **The tree is `LayerStackChrome.vxml` and the layer row is `LayerRowView.vxml`; three row kinds
-  are still C#** — the fill rows, the filter and knob rows, and the mask rows, with the ambiguous-layer
-  row beside them. The eleven remaining `SetStyle("display", …)` writes are theirs. The markup is the two
+  ⚠ **The tree is `LayerStackChrome.vxml`, and `LayerRowView.vxml`, `FillRowView.vxml` and
+  `FilterRowView.vxml` are the rows.** What is left in C# is the mask rows and the knob rows, with the
+  ambiguous-layer row beside them. The markup is the two
   columns, the binding row, the actions row, the legend, the diagnostics block and the preview
   column — everything about the panel that is a *fixed tree*, which is what markup expresses. It is
   the element itself rather than a box around one (`@inherits Vixen.Ui.UiElement`, `@tag
@@ -488,14 +488,15 @@ than one path, so no 2D stroke pays for it.
   toggles that stopped being a `SetStyle`, which took the file from twenty-five of them to
   twenty-three.
 
-  ⚠ **What is still owed is the other three row kinds, and it is a model change before it is a
-  markup change.** `BuildContext.For` matches a key, *reuses the region and does not re-run the body*,
-  so a row keyed on `LayerAsset.Id` needs a `Signal<LayerAsset>` per row or a reorder keeps the row
-  and shows the previous layer's values — and `LayerAsset` holds no signal. Keying on the layer's
-  *value* instead is not available either: a row carries a slider an artist is holding, and a value
-  key rebuilds it on the keystroke that changed it. That is the same property `Show`'s shape
-  signature already buys. ⚠ **The layer row got past that by not needing a key at all** — it is built
-  by the walk and only its channel strip is a region — which is why it is one row kind and not four.
+  ⚠ **The model change these rows were said to be blocked on turned out not to be needed, and that
+  is the durable finding.** The argument ran: `BuildContext.For` matches a key and *reuses the region
+  without re-running the body*, so a row keyed on `LayerAsset.Id` needs a `Signal<LayerAsset>` per row
+  — and `LayerAsset` holds no signal; while keying on the layer's *value* rebuilds the row under an
+  artist's drag. Both halves are true **of `@for`**, and none of these rows uses one: they are built
+  by `Build`'s own walk, which already re-runs on the shape signature `Show` computes, and each row is
+  a component with `ref`s. A component is markup without being a region. ⚠ So what was measured four
+  times as a blocker was a blocker on one *technique*, and the port needed a different technique
+  rather than a new model.
 
   ⚠ **And that region cost one thing worth knowing before porting the next.** A `@for`'s elements do
   not exist until a flush, so the row's ticks are wired from work `Build` owes rather than inline —

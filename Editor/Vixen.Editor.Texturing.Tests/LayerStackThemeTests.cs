@@ -374,8 +374,20 @@ public class LayerStackThemeTests {
         Assert.Equal(nameof(LayerProjection.Planar), fill.Projection.Value);
         Assert.Equal(nameof(LayerAxis.Z), fill.Axis.Value);
 
+        // ⚠ Shown *and* hidden, because a `Width > 0f` on its own is what an element with no display
+        // write at all measures — so both of these would have passed with every `SetStyle("display",
+        // …)` in the fill row deleted. The pair is the assertion: the same two controls go to zero
+        // when the row's own values say they should, and only a row that writes `display` can do
+        // both.
         Assert.True(fill.Graph.Width > 0f, "the graph path is display:none on a Graph fill.");
         Assert.True(fill.Axis.Width > 0f, "the axis picker is display:none on a Planar projection.");
+
+        fill.Kind.Value = nameof(LayerFillSource.Constant);
+        fill.Projection.Value = nameof(LayerProjection.Triplanar);
+        fixture.Shell.Document.Update();
+
+        Assert.Equal(0f, fill.Graph.Width);
+        Assert.Equal(0f, fill.Axis.Width);
 
         var filter = list.Children.OfType<FilterRowView>().Single();
 
