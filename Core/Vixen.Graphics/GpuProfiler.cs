@@ -215,7 +215,10 @@ public sealed class GpuProfiler : IGpuScopeSink, IDisposable {
     /// <param name="device">The device whose frames are being timed.</param>
     /// <param name="scopeCapacity">How many regions one frame may record.</param>
     /// <exception cref="ArgumentNullException"><paramref name="device" /> is null.</exception>
-    /// <exception cref="NotSupportedException">The device reports no timestamp queries.</exception>
+    /// <exception cref="NotSupportedException">
+    ///     The device cannot time frames — no timestamp queries, or no timestamp period. Ask
+    ///     <see cref="GraphicsDeviceFeatures.CanTimeFrames" /> first.
+    /// </exception>
     public GpuProfiler(IGraphicsDevice device, int scopeCapacity = DefaultScopeCapacity) {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(scopeCapacity);
@@ -223,7 +226,20 @@ public sealed class GpuProfiler : IGpuScopeSink, IDisposable {
         if (!device.Features.HasTimestampQueries) {
             throw new NotSupportedException(
                 "This device reports no timestamp queries, so its frames cannot be timed. Ask "
-                + "Features.HasTimestampQueries and show the reason rather than an empty timeline."
+                + "Features.CanTimeFrames and show the reason rather than an empty timeline."
+            );
+        }
+
+        // ⚠ The period, and not only the queries. A device that reports timestamps and a period of
+        // zero used to get a profiler whose every number was zero — GpuTimestamps.ToNanoseconds
+        // returns 0 for a period of 0 — and a frame reported as taking no time draws as a GPU doing
+        // nothing rather than as a device that cannot say (#1168). A lying number is worse than a
+        // missing one, and this is the seam where it stops being produced.
+        if (device.Features.TimestampPeriod <= 0f) {
+            throw new NotSupportedException(
+                "This device reports timestamp queries and no timestamp period, so a tick cannot be "
+                + "converted to a duration and every frame would read as zero milliseconds. Ask "
+                + "Features.CanTimeFrames and show the reason rather than a timeline of empty bars."
             );
         }
 

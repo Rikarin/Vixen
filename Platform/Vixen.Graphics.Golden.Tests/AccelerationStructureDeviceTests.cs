@@ -39,37 +39,30 @@ public sealed class AccelerationStructureDeviceTests {
         using var owned = fixture!;
         var device = owned.Device;
 
-        if (!device.Features.HasRayTracing) {
-            // Not a failure. MoltenVK exposes neither VK_KHR_acceleration_structure nor
-            // VK_KHR_ray_query, so a Mac is a legitimate "no" — the distance-field tracer is the
-            // configuration that runs here, and the VulkanFeatures tests hold the detection.
-            //
-            // ⚠ Skipped and not returned: same verdict, but a bare return is recorded as a pass, so
-            // a ray-query test reported green on every runner that cannot run a ray query at all.
-            //
-            // ⚠⚠ And the skip is the whole coverage story for § L6's kernel. This is the ONLY
-            // end-to-end proof that the hardware tracer answers what the BVH answers, and as of
-            // 2026-09-09 it has not executed on any machine this project has: the Mac is MoltenVK
-            // and the Linux CI runner is llvmpipe. Everything under it — VulkanFeatures.Translate's
-            // hand-built structs, QueriedField, the BVH's own referee — is real coverage of the
-            // DETECTION and none of the QUERY, so "the ray-query path works" is a claim nothing has
-            // ever checked. The message names the adapter so a log says which device declined
-            // rather than only that one did, and VIXEN_REQUIRE_RAY_QUERY is the expiry: set it on a
-            // runner that has the extensions and this stops being skippable.
-            var declined =
-                $"'{device.Adapter.Name}' exposes no ray query (ADR-011), which this test is gated on — "
-                + "so doc 19 § L6's kernel is UNEXECUTED on this run. Set VIXEN_REQUIRE_RAY_QUERY=1 on a "
-                + "runner that has VK_KHR_acceleration_structure and VK_KHR_ray_query to make this a "
-                + "failure rather than a skip.";
-
-            if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_RAY_QUERY") is "1" or "true" or "TRUE") {
-                Assert.Fail($"VIXEN_REQUIRE_RAY_QUERY is set and {declined}");
-            }
-
-            Assert.Skip(declined);
-
-            return;
-        }
+        // Not a failure. MoltenVK exposes neither VK_KHR_acceleration_structure nor VK_KHR_ray_query,
+        // so a Mac is a legitimate "no" — the distance-field tracer is the configuration that runs
+        // here, and the VulkanFeatures tests hold the detection.
+        //
+        // ⚠ Skipped and not returned: same verdict, but a bare return is recorded as a pass, so a
+        // ray-query test reported green on every runner that cannot run a ray query at all.
+        //
+        // ⚠⚠ And the skip is the whole coverage story for § L6's kernel. This is the ONLY end-to-end
+        // proof that the hardware tracer answers what the BVH answers, and as of 2026-09-09 it has
+        // not executed on any machine this project has: the Mac is MoltenVK and the Linux CI runner
+        // is llvmpipe. Everything under it — VulkanFeatures.Translate's hand-built structs,
+        // QueriedField, the BVH's own referee — is real coverage of the DETECTION and none of the
+        // QUERY, so "the ray-query path works" is a claim nothing has ever checked.
+        //
+        // ⚠ VIXEN_REQUIRE_RAY_QUERY was written here by hand and is now Capability.Variable's rule
+        // rather than this file's private arrangement (#143). The gate also refuses to believe
+        // HasRayTracing at all on a device whose feature description never ran, which is the case
+        // this site could not tell apart from an honest no.
+        Capability.Require(
+            device,
+            Capability.RayQuery,
+            device.Features.HasRayTracing,
+            "doc 19 § L6's ray-query kernel"
+        );
 
         // Four large, well-separated triangles around a probe at the origin: broad cones of hit
         // and of sky, so almost every octahedral texel is decisively one or the other. The edges

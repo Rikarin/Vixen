@@ -23,7 +23,53 @@ public sealed class GpuProfilerTests : IDisposable {
 
         var refused = Assert.Throws<NotSupportedException>(() => new GpuProfiler(limited));
 
-        Assert.Contains("HasTimestampQueries", refused.Message, StringComparison.Ordinal);
+        // ⚠ CanTimeFrames rather than HasTimestampQueries, and the premise moved because the second
+        // one turned out not to be the whole question — see the test below.
+        Assert.Contains("CanTimeFrames", refused.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>A device with timestamps and no period is refused too.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the configuration that used to produce a whole panel of zeros.</b>
+    ///         <c>GpuTimestamps.ToNanoseconds</c> returns <c>0</c> for a period of <c>0</c>, so every
+    ///         scope, every aggregate and the frame itself read as taking no time — and a frame of
+    ///         zero milliseconds draws as a GPU doing nothing rather than as a device that cannot
+    ///         say. The constructor asked about the queries and never about the period (#1168).
+    ///     </para>
+    ///     <para>
+    ///         A lying number is worse than a missing one, which is why this is a refusal and not a
+    ///         fallback: <c>GpuTimelineView.Unavailable</c> is already the seam for "there is a
+    ///         reason there is no timeline", and it prints the reason.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ADeviceWithTimestampsAndNoPeriodIsRefusedRatherThanReportingZeros() {
+        using NullDevice mute = new(new() {
+            Features = GraphicsDeviceFeatures.Minimum with { HasTimestampQueries = true, TimestampPeriod = 0f }
+        });
+
+        Assert.True(mute.Features.HasTimestampQueries, "the fixture is not the configuration this is about.");
+        Assert.False(mute.Features.CanTimeFrames);
+
+        var refused = Assert.Throws<NotSupportedException>(() => new GpuProfiler(mute));
+
+        Assert.Contains("period", refused.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("CanTimeFrames", refused.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>And a device with both is not refused, which is the other half.</summary>
+    /// <remarks>
+    ///     ⚠ Without it the two refusals above are satisfied by a constructor that refuses
+    ///     everything, and the editor would silently have no GPU panel on any machine.
+    /// </remarks>
+    [Fact]
+    public void ADeviceWithBothIsAccepted() {
+        Assert.True(device.Features.CanTimeFrames);
+
+        using GpuProfiler profiler = new(device);
+
+        Assert.True(profiler.Period > 0f);
     }
 
     [Fact]

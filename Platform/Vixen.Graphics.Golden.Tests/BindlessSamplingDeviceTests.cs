@@ -62,16 +62,16 @@ public class BindlessSamplingDeviceTests {
         using var owned = fixture!;
         var device = owned.Device;
 
-        if (!BindlessTable.IsSupportedBy(device)) {
-            // MoltenVK below Metal argument-buffer tier 2 (ADR-011). A legitimate no, and the whole
-            // reason VulkanFeatures.Bindless asks the features rather than the extension string.
-            //
-            // ⚠ Skipped and not returned: the verdict is the same, but a bare return is a pass, and
-            // a device test that reports a pass without opening a table proves nothing.
-            Assert.Skip("The device offers no bindless descriptor indexing (ADR-011), which this test is gated on.");
-
-            return;
-        }
+        // MoltenVK below Metal argument-buffer tier 2 (ADR-011) is a legitimate no, and the whole
+        // reason VulkanFeatures.Bindless asks the features rather than the extension string. ⚠ The
+        // gate is Capability.Require rather than a bare Assert.Skip because a device whose feature
+        // description never ran declines this in exactly the same words — see #143.
+        Capability.Require(
+            device,
+            Capability.Bindless,
+            BindlessTable.IsSupportedBy(device),
+            "the bindless table's per-invocation slot test"
+        );
 
         VulkanDiagnostics.Reset();
 
@@ -275,12 +275,13 @@ public class BindlessSamplingDeviceTests {
         using var owned = fixture!;
         var device = owned.Device;
 
-        if (!BindlessTable.IsSupportedBy(device)) {
-            // ADR-011 again, and the only one of the four that never said so. See the guard above.
-            Assert.Skip("The device offers no bindless descriptor indexing (ADR-011), which this test is gated on.");
-
-            return;
-        }
+        // ADR-011 again. See the guard above.
+        Capability.Require(
+            device,
+            Capability.Bindless,
+            BindlessTable.IsSupportedBy(device),
+            "the bindless table's linear-light colour probe"
+        );
 
         VulkanDiagnostics.Reset();
 

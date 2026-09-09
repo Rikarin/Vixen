@@ -511,13 +511,24 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     }
 
     /// <summary>Why the GPU timeline has nothing to show, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Three reasons and not two, because the third one used to draw as an answer.</b> A
+    ///     device that reports timestamp queries and a period of zero converts every duration to
+    ///     zero, so the panel drew a timeline of empty bars — "the GPU is doing nothing" rather than
+    ///     "this device cannot say" (#1168). The two are told apart here rather than in the panel,
+    ///     which has one seam for "nothing to show" and needs the sentence rather than the reason.
+    /// </remarks>
     string? GpuUnavailable() =>
         GraphicsDevice is null
             ? "No graphics device. A headless run has no GPU to time."
-            : GraphicsDevice.Features.HasTimestampQueries
+            : GraphicsDevice.Features.CanTimeFrames
                 ? null
-                : $"'{GraphicsDevice.Adapter.Name}' reports no timestamp queries on its graphics queue, "
-                + "so its frames cannot be timed.";
+                : GraphicsDevice.Features.HasTimestampQueries
+                    ? $"'{GraphicsDevice.Adapter.Name}' reports timestamp queries and no timestamp "
+                    + "period, so a tick cannot be turned into a duration. Every frame would read as "
+                    + "zero milliseconds, which is not a measurement."
+                    : $"'{GraphicsDevice.Adapter.Name}' reports no timestamp queries on its graphics "
+                    + "queue, so its frames cannot be timed.";
 
     /// <summary>What the project has loaded, as rows for the memory view.</summary>
     /// <remarks>

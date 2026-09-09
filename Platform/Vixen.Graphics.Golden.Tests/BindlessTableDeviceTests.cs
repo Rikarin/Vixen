@@ -54,21 +54,24 @@ public class BindlessTableDeviceTests {
         using var owned = fixture!;
         var device = owned.Device;
 
-        if (!BindlessTable.IsSupportedBy(device)) {
-            // Not a failure. MoltenVK gates descriptor indexing behind Metal argument-buffer tier 2
-            // (ADR-011), so a Mac is a legitimate "no" — and a capability check that reported yes
-            // here is exactly what VulkanFeatures.Bindless exists to prevent.
-            //
-            // ⚠ Skipped and not returned. The judgement above is unchanged — an absent capability
-            // must not redden a leg — but a bare return is recorded by xUnit as a *pass*, so this
-            // read as a device test that had run and been satisfied on every runner whose device
-            // says no, which is every runner but one. Skipping keeps the same verdict and stops it
-            // being invisible. Same shape as VirtualGeometryGoldenTests' int64-atomics gate, which
-            // docs/plan/22 § phase 6 settled the same way.
-            Assert.Skip("The device offers no bindless descriptor indexing (ADR-011), which this test is gated on.");
-
-            return;
-        }
+        // Not a failure. MoltenVK gates descriptor indexing behind Metal argument-buffer tier 2
+        // (ADR-011), so a Mac is a legitimate "no" — and a capability check that reported yes here
+        // is exactly what VulkanFeatures.Bindless exists to prevent.
+        //
+        // ⚠ Skipped and not returned. The judgement above is unchanged — an absent capability must
+        // not redden a leg — but a bare return is recorded by xUnit as a *pass*, so this read as a
+        // device test that had run and been satisfied on every runner whose device says no, which is
+        // every runner but one.
+        //
+        // ⚠ And through Capability.Require rather than Assert.Skip directly, which is #143's leg 2:
+        // a device whose feature description never ran reports every capability absent, so the skip
+        // above was also what a device nobody had asked would produce. Require tells the two apart.
+        Capability.Require(
+            device,
+            Capability.Bindless,
+            BindlessTable.IsSupportedBy(device),
+            "the bindless table's create-fill-destroy sequence"
+        );
 
         VulkanDiagnostics.Reset();
 

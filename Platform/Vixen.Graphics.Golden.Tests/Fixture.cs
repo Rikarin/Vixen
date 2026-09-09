@@ -32,6 +32,21 @@ sealed class Fixture : IDisposable {
     /// <summary>How large every fixture renders.</summary>
     public const int Side = 128;
 
+    /// <summary>The usages a texture view is legal for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A view over a texture that is only ever a transfer endpoint is a spec violation</b>
+    ///     (<c>VUID-VkImageViewCreateInfo-image-04441</c>), and <see cref="Owned" /> made one for
+    ///     every texture it handed out whatever the usage. <c>CopyBetweenTextures</c>' source has
+    ///     <c>CopySource | CopyDestination</c> and nothing else, so a whole golden run carried one
+    ///     validation error nothing read (#1174). The RHI did what it was asked; the fixture asked
+    ///     for something illegal.
+    /// </remarks>
+    const TextureUsage Viewable =
+        TextureUsage.Sampled
+        | TextureUsage.Storage
+        | TextureUsage.ColourTarget
+        | TextureUsage.DepthStencilTarget;
+
     readonly VulkanDevice device;
     readonly TransientResourcePool pool;
     readonly List<Action> cleanup = [];
@@ -82,6 +97,14 @@ sealed class Fixture : IDisposable {
         }
 
         TestContext.Current.TestOutputHelper?.WriteLine($"adapter: {Adapter(device!)}");
+
+        // ⚠ Here rather than at the top of `Render`, which is where it was, and the difference is
+        // the whole of #1174. Every texture, buffer, pipeline and descriptor set a fixture builds is
+        // created *before* it renders — so a reset on entry to `Render` threw away everything the
+        // layers had said about the setup, and `Fail` then read a counter that had just been
+        // zeroed. One golden run drew 271 pictures with a `vkCreateImageView` the spec forbids in
+        // it and reported nothing. Reset at the door, so the check below covers construction too.
+        VulkanDiagnostics.Reset();
 
         fixture = new(device);
         return true;
@@ -289,7 +312,6 @@ sealed class Fixture : IDisposable {
             new(Bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "golden readback")
         );
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "fixture")) {
@@ -328,10 +350,20 @@ sealed class Fixture : IDisposable {
     /// <summary>Throws if the validation layer has said anything, cleaning up first.</summary>
     /// <param name="readback">A buffer to destroy on the way out, or an invalid handle for none.</param>
     /// <remarks>
-    ///     The cleanup matters because this is called before the submit as well as after it: throwing
-    ///     out of the recording block leaves a command list that is never submitted and a readback
-    ///     buffer nobody frees, and a leak reported at device teardown would bury the message that
-    ///     says what actually went wrong.
+    ///     <para>
+    ///         The cleanup matters because this is called before the submit as well as after it:
+    ///         throwing out of the recording block leaves a command list that is never submitted and
+    ///         a readback buffer nobody frees, and a leak reported at device teardown would bury the
+    ///         message that says what actually went wrong.
+    /// </para>
+    ///     <para>
+    ///         ⚠ <b>What it reads reaches back to <see cref="TryOpen" />, not to the top of
+    ///         <see cref="Render" />.</b> The counter is reset when the device is opened, so a
+    ///         fixture that built an illegal resource fails here even though the picture itself was
+    ///         drawn cleanly — which is the point, because the picture was drawn on a device that had
+    ///         already been told it was doing something the spec forbids. A fixture that opens a
+    ///         device and never renders is still unchecked; there is nothing to hang the check on.
+    ///     </para>
     /// </remarks>
     void Fail(BufferHandle readback) {
         if (VulkanDiagnostics.ErrorCount == 0) {
@@ -386,6 +418,11 @@ sealed class Fixture : IDisposable {
     ///     a compositor imports its own targets by name, so a harness that had already imported them
     ///     would hand the graph two virtual resources over one texture and get a barrier between a
     ///     pass and itself.
+    ///     <para>
+    ///         The view is <see cref="TextureViewHandle.Null" /> when <paramref name="usage" />
+    ///         contains none of <see cref="Viewable" />. A caller asking for a transfer-only texture
+    ///         has no use for one, and creating it anyway is a spec violation.
+    ///     </para>
     /// </remarks>
     public (TextureHandle Texture, TextureViewHandle View, TextureDescription Description) Owned(
         string name,
@@ -396,10 +433,17 @@ sealed class Fixture : IDisposable {
     ) {
         var description = new TextureDescription(format, width, height, usage, Name: name);
         var texture = device.CreateTexture(description);
-        var view = device.CreateTextureView(texture);
+
+        // ⚠ Conditional, and it used to be unconditional. See `Viewable`: a transfer-only texture
+        // cannot legally have one, and asking for it anyway is a validation error the caller never
+        // wanted — it never touches the view it got back.
+        var view = (usage & Viewable) != 0 ? device.CreateTextureView(texture) : TextureViewHandle.Null;
 
         cleanup.Add(() => {
-            device.Destroy(view);
+            if (view.IsValid) {
+                device.Destroy(view);
+            }
+
             device.Destroy(texture);
         });
 

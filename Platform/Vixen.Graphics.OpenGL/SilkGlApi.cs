@@ -26,8 +26,16 @@ namespace Vixen.Graphics.OpenGL;
 ///         <b>Not exercised by the test suite, deliberately and visibly.</b> There is nothing here to
 ///         get wrong except a transcription, and a transcription is what a compiler checks. The logic
 ///         that could be wrong is in the other twelve files, and all of it is under test. What this
-///         file needs instead is a driver, which CI provides on the Mesa leg
-///         (<c>docs/plan/05</c> § Cross-backend equivalence).
+///         file needs instead is a driver.
+///     </para>
+///     <para>
+///         ⚠ <b>And it does not have one.</b> This said "which CI provides on the Mesa leg
+///         (<c>docs/plan/05</c> § Cross-backend equivalence)" in the present tense, and there is no
+///         such leg: <c>ci.yml</c> installs <c>mesa-vulkan-drivers</c> for lavapipe and no GL driver
+///         at all, the golden suite creates a <c>VulkanDevice</c> and nothing else, and nothing
+///         anywhere in the tree opens a GL context on a runner. So every line below this one is
+///         transcription that has never executed, and the sentence that said otherwise was the only
+///         thing standing between a reader and that fact (#302).
 ///     </para>
 /// </remarks>
 public sealed class SilkGlApi : IGlApi, IDisposable {

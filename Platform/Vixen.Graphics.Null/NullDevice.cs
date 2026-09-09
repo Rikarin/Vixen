@@ -191,12 +191,27 @@ sealed class NullSwapChain(SwapChainDescription description, NullDevice device) 
     /// </remarks>
     public SwapChainStatus NextStatus { get; set; } = SwapChainStatus.Ready;
 
+    /// <summary>This chain's own fault, or the device's if it has one set.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The device's wins, because a host builds its own swapchain and a test never holds
+    ///     one.</b> <c>AppGraphics.EnsureSwapChain</c> creates the chain on the first frame and keeps
+    ///     it private until then, so a caller wanting to lose the device at frame five has nothing to
+    ///     set — which is why the two <c>SwapChainStatus.DeviceLost</c> branches in the host had
+    ///     never executed despite the injection point existing here since it was written (#303).
+    /// </remarks>
+    SwapChainStatus Next =>
+        device.NextSwapChainStatus is var injected && injected is not SwapChainStatus.Ready
+            ? injected
+            : NextStatus;
+
     public SwapChainStatus AcquireNextImage(out TextureViewHandle view) {
         ObjectDisposedException.ThrowIf(disposed, this);
 
-        if (NextStatus is SwapChainStatus.OutOfDate or SwapChainStatus.DeviceLost) {
+        var next = Next;
+
+        if (next is SwapChainStatus.OutOfDate or SwapChainStatus.DeviceLost) {
             view = TextureViewHandle.Null;
-            return NextStatus;
+            return next;
         }
 
         index = (index + 1) % views.Length;
@@ -206,13 +221,13 @@ sealed class NullSwapChain(SwapChainDescription description, NullDevice device) 
         }
 
         view = views[index];
-        return NextStatus;
+        return Next;
     }
 
     public SwapChainStatus Present() {
         ObjectDisposedException.ThrowIf(disposed, this);
         PresentCount++;
-        return NextStatus is SwapChainStatus.DeviceLost ? SwapChainStatus.DeviceLost : SwapChainStatus.Ready;
+        return Next is SwapChainStatus.DeviceLost ? SwapChainStatus.DeviceLost : SwapChainStatus.Ready;
     }
 
     public void Resize(Int2 size) {
@@ -279,6 +294,27 @@ public sealed class NullDevice : IGraphicsDevice {
     readonly List<DescriptorWrite>? recordedWrites;
 
     bool disposed;
+
+    /// <summary>What every swapchain this device makes should report, for fault injection.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>On the device rather than on the chain, because the chain is not the caller's to
+    ///         hold.</b> <c>docs/plan/05 § Testing</c> asks for a fault-injection mode proving the
+    ///         engine survives a lost device, and <c>NullSwapChain.NextStatus</c> has been that
+    ///         switch since it was written — but a host creates its own swapchain on the first frame,
+    ///         so nothing that drives a host could reach it, and both
+    ///         <c>SwapChainStatus.DeviceLost</c> branches in <c>AppGraphics</c> had never run (#303).
+    ///         Set here before or between frames and every chain this device made obeys it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the engine does about a lost device is latch, not recover</b>, and doc 05's
+    ///         row asks for a recovery this engine deliberately does not have —
+    ///         <c>AppGraphics.IsLost</c> says so in its own remarks. So this injects the fault that
+    ///         proves the latch, and the recovery stays a separate, unbuilt feature rather than a
+    ///         half-measure that leaves handles dangling.
+    ///     </para>
+    /// </remarks>
+    public SwapChainStatus NextSwapChainStatus { get; set; } = SwapChainStatus.Ready;
 
     /// <summary>Creates a device, reporting failure rather than throwing.</summary>
     /// <param name="options">What to build it out of.</param>

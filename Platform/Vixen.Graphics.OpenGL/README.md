@@ -38,9 +38,17 @@ one level down. That one asserts what the engine asked the RHI for; this asserts
 GL for.
 
 So `SilkGlApi`, `SilkGlesApi` and `NativeEglApi` are the files the suite does not touch, and there is
-nothing in them but transcription, which a compiler checks. What they need instead is a driver, which
-CI provides on the Mesa leg ([`docs/plan/05`](../../docs/plan/05-graphics-rhi.md) § Cross-backend
-equivalence) and an Android device provides for the rest.
+nothing in them but transcription, which a compiler checks. What they need instead is a driver.
+
+> ⚠ **And no driver exists.** This paragraph used to end "which CI provides on the Mesa leg
+> ([`docs/plan/05`](../../docs/plan/05-graphics-rhi.md) § Cross-backend equivalence) and an Android
+> device provides for the rest", in the present tense. Neither is true: `ci.yml` installs
+> `mesa-vulkan-drivers` — lavapipe, for **Vulkan** — and no GL driver, and there is no Android job in
+> any workflow. The golden suite creates a `VulkanDevice` and nothing else, so cross-backend
+> equivalence has never run and these three files have never executed a single call. That is
+> [#302](https://github.com/Rikarin/Vixen/issues/302), and it is the level that would catch a backend
+> silently ignoring a state bit — the exact bug doc 05 records `BlendState.Opaque` costing an
+> afternoon of, caught by reading pixels **on one backend**.
 
 The same seam is repeated one layer out for EGL. What can be wrong about bringing a context up is the
 *sequence* — which attribute list, in what order, what happens when a driver refuses GLES 3.2,

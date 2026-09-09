@@ -220,6 +220,26 @@ public readonly record struct GraphicsDeviceFeatures {
     /// <see cref="GpuTimestamps" />, which is the only thing that should be doing the arithmetic.</remarks>
     public float TimestampPeriod { get; init; }
 
+    /// <summary>Whether this device's frames can actually be timed.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because either alone is a lie one way or the other.</b>
+    ///         <see cref="HasTimestampQueries" /> says the queue will write a tick;
+    ///         <see cref="TimestampPeriod" /> says what a tick is worth. A device that reports the
+    ///         first and not the second converts every duration to <c>0</c> — and a frame reported as
+    ///         zero milliseconds draws as "the GPU is doing nothing" rather than "this device cannot
+    ///         say", which is the more expensive of the two mistakes because it looks like an answer
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1168" />).
+    ///     </para>
+    ///     <para>
+    ///         Here rather than at each of the three readers — the profiler's constructor, the host
+    ///         that decides whether to build one, and the panel that says why there is no timeline —
+    ///         because three copies of a two-clause predicate is three chances for one of them to
+    ///         keep answering the old question.
+    ///     </para>
+    /// </remarks>
+    public bool CanTimeFrames => HasTimestampQueries && TimestampPeriod > 0f;
+
     /// <summary>The CPU and GPU share one memory pool.</summary>
     /// <remarks>
     ///     True on integrated and mobile GPUs. Where it holds, staging copies are pure overhead and

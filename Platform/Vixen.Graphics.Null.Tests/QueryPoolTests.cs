@@ -142,7 +142,16 @@ public sealed class QueryPoolTests : IDisposable {
         Assert.Equal(before, device.LiveResourceCount);
     }
 
-    /// <summary>Nothing to convert without a period, and zero is the honest answer.</summary>
+    /// <summary>Nothing to convert without a period, and the conversion stays total.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The premise moved and this test did not.</b> It used to say "zero is the honest
+    ///     answer", which is true of a pure conversion and was false of everything downstream: a
+    ///     <c>GpuFrame</c> built on a zero period reports zero milliseconds, and a frame that took no
+    ///     time draws as a GPU doing nothing rather than as a device that cannot say. The arithmetic
+    ///     is unchanged — what changed is that nothing can reach it with a period of zero any more,
+    ///     because <c>GpuProfiler</c>'s constructor refuses such a device outright (#1168). This pins
+    ///     the total function; <c>GpuProfilerTests</c> pins the refusal that makes it unreachable.
+    /// </remarks>
     [Fact]
     public void ADeviceWithNoPeriodConvertsToZero() {
         Assert.Equal(0d, GpuTimestamps.ToNanoseconds(1000, 0f));
