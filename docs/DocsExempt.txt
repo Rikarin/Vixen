@@ -2248,15 +2248,12 @@ T:Vixen.Physics.Constraints.ConstraintHandle sweep-pending
 T:Vixen.Physics.Constraints.ConstraintKind sweep-pending
 T:Vixen.Physics.Constraints.ConstraintMotor sweep-pending
 T:Vixen.Physics.Constraints.ConstraintSpring sweep-pending
-T:Vixen.Physics.Diagnostics.PhysicsDebugDraw sweep-pending
-T:Vixen.Physics.Diagnostics.PhysicsDebugOverlay sweep-pending
 T:Vixen.Physics.Ecs.AngularVelocity sweep-pending
 T:Vixen.Physics.Ecs.Collider sweep-pending
 T:Vixen.Physics.Ecs.EntityContactEvent sweep-pending
 T:Vixen.Physics.Ecs.EntityTriggerEvent sweep-pending
 T:Vixen.Physics.Ecs.LinearVelocity sweep-pending
 T:Vixen.Physics.Ecs.PhysicsBody sweep-pending
-T:Vixen.Physics.Ecs.PhysicsDebugDrawSystem sweep-pending
 T:Vixen.Physics.Ecs.PhysicsInterpolation sweep-pending
 T:Vixen.Physics.Ecs.PhysicsInterpolationSystem sweep-pending
 T:Vixen.Physics.Ecs.PhysicsScene sweep-pending

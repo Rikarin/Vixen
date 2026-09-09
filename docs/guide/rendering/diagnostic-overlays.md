@@ -4,7 +4,7 @@ slug: rendering/diagnostic-overlays
 kind: guide
 area: Rendering
 summary: One flag puts the frame-stats panel, the console, the log tail and every subsystem's debug lines on the screen of a running game.
-api: [T:Vixen.Engine.Renderer.DebugOverlayRenderer, T:Vixen.Engine.Renderer.GpuOverlay, T:Vixen.Engine.Renderer.StreamingOverlay, T:Vixen.Engine.Diagnostics.DebugDraw, T:Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays, T:Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay, T:Vixen.Engine.Diagnostics.Overlays.ConsoleCommands, T:Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay, T:Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay, T:Vixen.App.GraphicsOptions, T:Vixen.Rendering.LineShaders, L:13027]
+api: [T:Vixen.Engine.Renderer.DebugOverlayRenderer, T:Vixen.Engine.Renderer.GpuOverlay, T:Vixen.Engine.Renderer.StreamingOverlay, T:Vixen.Engine.Diagnostics.DebugDraw, T:Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays, T:Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay, T:Vixen.Engine.Diagnostics.Overlays.ConsoleCommands, T:Vixen.Engine.Diagnostics.Overlays.ConsoleOverlay, T:Vixen.Engine.Diagnostics.Overlays.FrameStatsOverlay, T:Vixen.App.GraphicsOptions, T:Vixen.Rendering.LineShaders, T:Vixen.Physics.Ecs.PhysicsDebugDrawSystem, T:Vixen.Physics.Diagnostics.PhysicsDebugDraw, T:Vixen.Physics.Diagnostics.PhysicsDebugOverlay, L:13027]
 tags: [diagnostics, overlay, console, debug-draw, profiling]
 since: 0.2
 status: stable
@@ -86,6 +86,30 @@ and `overlays` lists them.
 
 `log` is added by `AppBuilder`, which owns the ring it reads. `audio` is **not** registered by the
 host — nothing in `AppGraphics` owns an `AudioEngine` — so a game that opens a device registers it.
+`physics` is the same shape, for the same reason, and is one line:
+
+```csharp no-compile="a fragment of the game's Register; `Physics` is its PhysicsScene."
+PhysicsOverlay = loop.AddPhysicsOverlay(Physics, graphics.Debug!, graphics.Overlays);
+```
+
+| `overlay physics` | Shows |
+|---|---|
+| the wireframes | every body's collision volume, the contact points and normals from the last step, and each constraint's anchors and error, drawn in world space |
+| the panel | bodies awake against bodies total, constraints, and contacts against steps |
+
+⚠ **The colour is the state**: grey is asleep, dark green static, blue kinematic, bright green awake
+and dynamic, yellow a sensor, red a contact. "The crate has gone to sleep" and "the crate is static"
+are otherwise identical in every respect, and they are two different bugs.
+
+⚠ **The awake count and the step count are on the panel because the wireframes cannot tell you.** A
+scene whose bodies are all asleep draws exactly the same lines in exactly the same places as a scene
+nothing is stepping at all.
+
+⚠ **A mesh or a convex hull is drawn as its bounding box.** Wireframing a hundred-thousand-triangle
+level would produce more lines than the debug renderer holds and tell nobody anything; the bounds
+answer the question actually being asked, which is whether the body is where you think it is.
+`PhysicsDebugOverlay` narrows what is drawn — `Colliders`, `Contacts`, `Bounds`, `Axes`,
+`Constraints` — and the default is the first, second and last.
 
 ⚠ **`streaming`'s `refused` row is the one worth opening the panel for.** It is
 `PageResidency.Rejections`: a request dropped because nothing could be evicted to make room, which
