@@ -887,3 +887,26 @@ Testing a GUI application is where most plans go quiet. Concretely:
 | Golden screenshots | Key editor layouts rendered headless on lavapipe, perceptual diff, light and dark themes. Catches layout and theming regressions. |
 | Crash reporting | An out-of-process crash handler capturing a minidump plus the last N log lines and the undo history, with user consent (Stride has `Stride.Editor.CrashReport`; it earns its place) |
 | Session recovery | Kill the editor mid-edit; on restart it recovers unsaved scene state from a journal. Tested by an automated kill-and-restore loop. |
+
+> **As built**, for the last two rows only — every row above them has the tests it names.
+>
+> ⚠ **Neither exists.** `CrashReport`, `SessionRecovery` and `RecoveryJournal` name nothing in the
+> tree; audited 2026-09-09 and the rows are as owed as the day they were written. What they would
+> stand on does exist, which is why they are cheap rather than speculative: `CommandStack` over
+> `IEditorCommand` already holds *"what has this person done since the last save"* — the report wants
+> it as context and the journal wants it as the replay — and `Vixen.Core.Diagnostics`'
+> `RingBufferSink` is the *"last N log lines"*, already UTF-8 packed.
+>
+> ⚠ **A crash report from a build reading loose content has to say so**, which is [17](17-app-heads-and-shipping.md)
+> § Q5b's condition for allowing it at all: the reader of a report is further from the machine than
+> any other surface, and a report filed against bundles that were never read is filed against the
+> wrong thing. `AppServices.Content.IsLoose` is the flag and `Content.Root` the path.
+> ⚠ Two of the three surfaces exist, and the second is **not** where it looks: the standing
+> `CONTENT LOOSE` line is drawn by `DiagnosticOverlays.Draw` itself and deliberately not by
+> `FrameStatsOverlay`, because hiding a panel must not take a notice with it. A third surface built
+> onto a panel would inherit exactly the bug that placement avoids.
+>
+> ⚠ **And both rows specify how they are proved, which is the half to keep.** A crash handler
+> exercised only by a unit test is a handler nobody has watched run out of process, and a journal
+> without the kill-and-restore loop fails silently at the one moment it matters. Ask what each prints
+> on the day it does not work.
