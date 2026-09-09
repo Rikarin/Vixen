@@ -104,6 +104,131 @@ public static class MaterialBake {
         return made;
     }
 
+    /// <summary>Packs a layered material's per-layer coverage into one splat map.</summary>
+    /// <param name="coverage">
+    ///     One picture per layer, in the material's own layer order — index 0 is the bottom layer and
+    ///     therefore the red channel. Each is read for its red, 0..1.
+    /// </param>
+    /// <returns>The file, whose <see cref="MaterialMapImage.Target" /> is <c>Splat</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="coverage" /> is null.</exception>
+    /// <exception cref="ArgumentException">
+    ///     There are no layers, more than four, one has no pixels, or two of them are different sizes.
+    /// </exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The producer <see cref="MaterialMapTarget.Splat" /> exists for</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>. Nothing a graph
+    ///         emits reaches here: the inputs are one layer's <em>coverage</em> each, which only the
+    ///         thing holding the layer list can resolve.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Layer 0 is red and the order is the material's, not the panel's.</b>
+    ///         <c>TexturedMaterialLayersSurface.Painted</c> reads channel <c>i</c> for layer
+    ///         <c>i</c>, and <c>TexturedMaterialLayersFeature.Layers</c> is innermost first — so
+    ///         index 0 here is the bottom of the stack. A permuted map draws a lit, plausible surface
+    ///         of the wrong layers with nothing reported, which is why the order is stated here and
+    ///         asserted in the direction that fails.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The alpha is layer 3's weight, and writing <c>byte.MaxValue</c> into it — which
+    ///         is what <see cref="Encode" />'s packed path does, correctly, for every other map —
+    ///         would be the widest wrong picture this feature can draw.</b> The shader normalises by
+    ///         the sum of the weights, so an alpha of one at every texel wins that normalisation
+    ///         everywhere and the surface becomes entirely layer 3. Fewer than four layers leaves the
+    ///         alpha at <em>zero</em> rather than opaque: zero is "no weight", which is what "there
+    ///         is no layer 3" means, where opaque is the failure above waiting for somebody to raise
+    ///         <c>PaintedChannels</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The weights are resolved by <c>over</c> rather than copied straight out of the
+    ///         masks, and that is what makes the closed-form oracle true.</b> The shader divides by
+    ///         the total, so a bottom layer painted 1 everywhere — the ordinary base of a stack —
+    ///         would tie with every layer above it and a surface an artist painted pure gravel would
+    ///         come back half sand. Resolving top-down, <c>w[i] = c[i] · Π(1 − c[j])</c> over the
+    ///         layers above it, is exactly what the stack itself composited: doc 48's oracle — a map
+    ///         pure red over one half and pure green over the other rendering as layer 0's material
+    ///         then layer 1's — holds under this rule and fails under a raw copy of the masks.
+    ///     </para>
+    /// </remarks>
+    public static MaterialMapImage Splat(IReadOnlyList<Bitmap> coverage) {
+        ArgumentNullException.ThrowIfNull(coverage);
+
+        if (coverage.Count is 0 or > Channels) {
+            throw new ArgumentException(
+                "A splat map carries one to four layers, one per channel, and this asked for "
+                + $"{coverage.Count.ToString(CultureInfo.InvariantCulture)}. A material with more "
+                + "layers than that has nowhere to paint them — see "
+                + "TexturedMaterialLayersFeature.PaintedChannels.",
+                nameof(coverage)
+            );
+        }
+
+        var (width, height) = Extent(coverage);
+        var pixels = new byte[width * height * 4];
+
+        for (var at = 0; at < pixels.Length; at += 4) {
+            // What is left of the texel after every layer above the one being written has taken its
+            // share. One rather than zero, because the top layer competes with nothing.
+            var remaining = 1f;
+
+            for (var layer = coverage.Count - 1; layer >= 0; layer--) {
+                var painted = coverage[layer].Pixels[at] / 255f;
+
+                pixels[at + layer] = Byte(painted * remaining);
+                remaining *= 1f - painted;
+            }
+        }
+
+        return Encoded(MaterialMapTarget.Splat, pixels, width, height);
+    }
+
+    /// <summary>How many layers one splat map can weigh, which is how many channels it has.</summary>
+    const int Channels = 4;
+
+    /// <summary>The one size every layer's coverage has to agree on.</summary>
+    /// <remarks>
+    ///     <see cref="Extent(System.Collections.Generic.IReadOnlyDictionary{MaterialMapUsage,Bitmap})" />'s
+    ///     rule for the same reason: two coverages at different sizes came from different places, and
+    ///     scaling one to meet the other would hide that behind a filtered weight nobody asked for.
+    /// </remarks>
+    static (int Width, int Height) Extent(IReadOnlyList<Bitmap> coverage) {
+        var width = 0;
+        var height = 0;
+
+        for (var layer = 0; layer < coverage.Count; layer++) {
+            var bitmap = coverage[layer];
+
+            if (bitmap.Width <= 0 || bitmap.Height <= 0 || bitmap.Pixels.Length < bitmap.Width * bitmap.Height * 4) {
+                throw new ArgumentException(
+                    $"Layer {layer.ToString(CultureInfo.InvariantCulture)}'s coverage is "
+                    + $"{bitmap.Width.ToString(CultureInfo.InvariantCulture)}×"
+                    + $"{bitmap.Height.ToString(CultureInfo.InvariantCulture)} and carries "
+                    + $"{bitmap.Pixels.Length.ToString(CultureInfo.InvariantCulture)} bytes, which is not a picture.",
+                    nameof(coverage)
+                );
+            }
+
+            if (width == 0) {
+                (width, height) = (bitmap.Width, bitmap.Height);
+                continue;
+            }
+
+            if (bitmap.Width != width || bitmap.Height != height) {
+                throw new ArgumentException(
+                    $"Layer {layer.ToString(CultureInfo.InvariantCulture)}'s coverage is "
+                    + $"{bitmap.Width.ToString(CultureInfo.InvariantCulture)}×"
+                    + $"{bitmap.Height.ToString(CultureInfo.InvariantCulture)} and an earlier layer's is "
+                    + $"{width.ToString(CultureInfo.InvariantCulture)}×"
+                    + $"{height.ToString(CultureInfo.InvariantCulture)}. Every channel of one splat map is one "
+                    + "texel grid, so they are one size.",
+                    nameof(coverage)
+                );
+            }
+        }
+
+        return (width, height);
+    }
+
     /// <summary>The material a bake's files are sampled by.</summary>
     /// <param name="maps">What each written file became, once the database had seen it.</param>
     /// <param name="existing">The material as it already stood, or null where there was none.</param>
@@ -252,6 +377,14 @@ public static class MaterialBake {
             var parameter = target switch {
                 MaterialMapTarget.Height => parallax?.HeightMap,
                 MaterialMapTarget.BaseColor or MaterialMapTarget.Orm when layered is not null => null,
+
+                // ⚠ Never from here, even though `MaterialMapNaming.Parameter` names it. A graph bake
+                // cannot write a splat map — `MaterialMapNaming.Packed` gives it no channels, so
+                // `Encode` skips it — and the entry a layered material has is the author's, carried by
+                // `Layered` below. Binding it here as well would put two `splatMap` entries in one
+                // material, of which the host pairs whichever it reached last. `Splatted` is the one
+                // route that writes this name, and it patches rather than composes.
+                MaterialMapTarget.Splat => null,
                 _ => MaterialMapNaming.Parameter(target)
             };
 
@@ -273,6 +406,108 @@ public static class MaterialBake {
             Features = [.. features],
             Textures = [.. textures]
         };
+    }
+
+    /// <summary>Binds a freshly written splat map onto the material that paints from it.</summary>
+    /// <param name="existing">The material as it stands, which has to carry a layered surface.</param>
+    /// <param name="splat">The splat map this write produced.</param>
+    /// <param name="layers">How many layers it weighs, which is how many channels are painted.</param>
+    /// <returns>The material to write back.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="existing" /> is null.</exception>
+    /// <exception cref="ArgumentException">
+    ///     The material carries no <see cref="TexturedMaterialLayersFeature" />, the reference is
+    ///     null, or the count does not match the feature's layer list.
+    /// </exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A patch and not a compose, which is the whole difference between this and
+    ///         <see cref="Material" />.</b> A splat map is one file added to a material that already
+    ///         exists — the shading model, the features, the other maps and their provenance are all
+    ///         somebody else's — where <see cref="Material" /> replaces <c>Features</c> and
+    ///         <c>Textures</c> whole because a graph bake owns the whole set. Sending a splat write
+    ///         through that would drop every feature the layered material was carrying and prune
+    ///         every map this write did not produce.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It refuses a material with no layered surface rather than adding one.</b> The
+    ///         feature needs a layer list — colours, roughnesses, metalnesses — and nothing here has
+    ///         one; a feature composed with an empty list is a material that compiles, resolves
+    ///         <c>LayerCount</c> to one and shades every texel from a layer nobody authored.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="TexturedMaterialLayersFeature.PaintedChannels" /> is written from the
+    ///         count rather than left alone, and it is a guard rather than a tidiness.</b> Its default
+    ///         is three: a four-layer material whose map this write filled would otherwise paint three
+    ///         of them, and — the silent half — a material left at four over a map this write gave
+    ///         three layers reads an alpha this writer set to zero everywhere, which is a layer that
+    ///         never appears and nothing to say why.
+    ///     </para>
+    ///     <para>
+    ///         <b>The name is the feature's own default</b>, which is <c>MaterialMapNaming</c>'s
+    ///         standing rule: a host pairs one shader slot with one material-side name and keys that
+    ///         on the default, so a material spelling it anything else leaves <c>splatIndex</c> at
+    ///         nought and blends its layers by the bindless table's magenta checker.
+    ///     </para>
+    /// </remarks>
+    public static MaterialContent Splatted(MaterialContent existing, AssetReference splat, int layers) {
+        ArgumentNullException.ThrowIfNull(existing);
+
+        if (splat == AssetReference.Null) {
+            throw new ArgumentException(
+                "A splat map bound to nothing leaves splatIndex at nought, which is the bindless table's "
+                + "fallback checker read as weights — a hard-edged chequerboard of the first three layers, "
+                + "shaded perfectly.",
+                nameof(splat)
+            );
+        }
+
+        var paired = new TexturedMaterialLayersFeature();
+        var features = new List<IMaterialFeature>();
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        var found = false;
+
+        foreach (var feature in existing.Features) {
+            if (feature is not TexturedMaterialLayersFeature layered) {
+                features.Add(feature);
+
+                continue;
+            }
+
+            if (layered.Layers.Count != layers) {
+                throw new ArgumentException(
+                    $"This material lists {layered.Layers.Count.ToString(CultureInfo.InvariantCulture)} layers and "
+                    + $"the map weighs {layers.ToString(CultureInfo.InvariantCulture)}. Channel i is layer i, so a "
+                    + "map written for a different list paints the wrong layers — and every one of those pictures "
+                    + "draws.",
+                    nameof(layers)
+                );
+            }
+
+            // The author's spelling of the map is collected so that the entry under it goes: a
+            // material that renamed the map resolved nothing and sampled slot zero, and leaving the
+            // old entry beside the paired one would keep that texture resident for no reader.
+            names.Add(layered.SplatMap);
+            features.Add(layered with { SplatMap = paired.SplatMap, PaintedChannels = layers });
+            found = true;
+        }
+
+        if (!found) {
+            throw new ArgumentException(
+                "This material carries no TexturedMaterialLayersFeature, so there is no layer list for a splat "
+                + "map's channels to be the weights of. Add the feature with its layers first: composing one here "
+                + "would resolve LayerCount to a list nobody authored.",
+                nameof(existing)
+            );
+        }
+
+        names.Add(paired.SplatMap);
+
+        var textures = existing.Textures
+            .Where(texture => !names.Contains(texture.Parameter))
+            .Append(new MaterialTexture(paired.SplatMap, splat))
+            .ToArray();
+
+        return existing with { Features = [.. features], Textures = textures };
     }
 
     /// <summary>The author's parallax feature, where this bake can still feed it.</summary>
@@ -443,6 +678,19 @@ public static class MaterialBake {
         int height
     ) {
         var pixels = Compose(target, channels, outputs, width, height);
+
+        return Encoded(target, pixels, width, height);
+    }
+
+    /// <summary>Composed texels, encoded the way their size and their target decided.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Shared by the graph path and the splat path rather than copied</b>, because what a
+    ///     second copy forgets is the pair of settings below: the mip flag that a container's own
+    ///     chain makes a statement rather than an instruction, and the alpha weighting that only the
+    ///     base colour has. A splat map whose chain was built alpha-weighted would fade every layer
+    ///     the last channel does not cover.
+    /// </remarks>
+    static MaterialMapImage Encoded(MaterialMapTarget target, byte[] pixels, int width, int height) {
         var extension = MaterialMapNaming.ExtensionFor(width, height);
         var container = string.Equals(extension, MaterialMapNaming.ContainerExtension, StringComparison.Ordinal);
 

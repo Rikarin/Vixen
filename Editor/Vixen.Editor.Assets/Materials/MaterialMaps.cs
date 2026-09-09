@@ -83,26 +83,34 @@ public enum MaterialMapUsage {
 ///         feature at all.
 ///     </para>
 ///     <para>
-///         ⚠ <b>There is deliberately no <c>Splat</c> here, and that is
-///         <a href="https://github.com/Rikarin/Vixen/issues/1118">#1118</a>'s second answer rather
-///         than an omission.</b> <c>TexturedMaterialLayersFeature</c>'s splat map is a multi-channel
-///         weight map whose channel <c>i</c> is <em>layer <c>i</c></em> — an index into the
-///         material's own layer list. Every target above is a <em>measurement</em> of a surface, which
-///         is why a graph can produce one: albedo, roughness and occlusion mean the same thing
-///         whatever material samples them. A layer index does not. A graph has no layer list, an
+///         ⚠ <b><see cref="Splat" /> is a file this vocabulary writes and <em>not</em> one any
+///         <see cref="MaterialMapUsage" /> feeds, which is
+///         <a href="https://github.com/Rikarin/Vixen/issues/1118">#1118</a>'s answer kept rather than
+///         reversed.</b> <c>TexturedMaterialLayersFeature</c>'s splat map is a multi-channel weight
+///         map whose channel <c>i</c> is <em>layer <c>i</c></em> — an index into one material's own
+///         layer list. Every other target is a <em>measurement</em> of a surface, which is why a
+///         graph can produce one: albedo, roughness and occlusion mean the same thing whatever
+///         material samples them. A layer index does not. A graph has no layer list, an
 ///         <c>Output</c> node names a usage rather than an ordinal, and a texture set's channels are
 ///         keyed by that usage — so "which layer is this the weight of" is a question the whole
-///         authoring vocabulary is shaped not to be able to ask. Packing four of them the way
-///         <see cref="Orm" /> packs three would be a target no producer in this tree can fill.
+///         authoring vocabulary is shaped not to be able to ask.
 ///     </para>
 ///     <para>
-///         So a splat map is an ordinary imported RGBA texture, and what the bake owes is that a
-///         re-bake does not <em>destroy</em> the material that samples one — see
-///         <see cref="MaterialBake.Material" />, which is where the layered feature and its
-///         <c>splatMap</c> entry are carried across. ⚠ This also strikes
-///         <a href="https://github.com/Rikarin/Vixen/issues/1073">#1073</a>'s second option:
-///         finishing the paint route did not make the splat map bakeable, because what was missing
-///         was never the pixels.
+///         <b>So <see cref="MaterialMapNaming.Packed" /> returns nothing for it, which is that
+///         decision written as code rather than as a paragraph.</b>
+///         <see cref="MaterialBake.Encode" /> keeps a target only when one of the usages it packs was
+///         produced, so a graph bake can never write a splat map however many <c>Output</c> nodes it
+///         has — and adding a <see cref="MaterialMapUsage" /> that fed one would still have to name a
+///         layer ordinal, which is the thing the vocabulary cannot say.
+///     </para>
+///     <para>
+///         ⚠ <b>What fills it is the layer stack, where the layer list actually exists</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>'s <i>Bake Splat Map</i>
+///         verb, which resolves each chosen layer's painted coverage and packs them in layer order.
+///         That is a second write path deliberately, and it is a member of <em>this</em> enum rather
+///         than a vocabulary of its own so that it inherits the file naming, the digest, the
+///         painted-over guard and the provenance block <see cref="ProjectMaterialBaker" /> already
+///         has — which is exactly what a second write path forgets.
 ///     </para>
 /// </remarks>
 public enum MaterialMapTarget {
@@ -128,11 +136,37 @@ public enum MaterialMapTarget {
     /// <remarks>
     ///     ⚠ <b>Single-channel, and not the splat map a layered material paints from.</b>
     ///     <see cref="MaterialMapNaming.CompressionOf" /> ships this as BC4 because a one-channel map
-    ///     in BC7 is four channels of nothing; a splat map is four channels that all mean something,
-    ///     and it is not a bake output at all — see the type's remarks for why the vocabulary cannot
-    ///     name one.
+    ///     in BC7 is four channels of nothing; a splat map is four channels that all mean something —
+    ///     see <see cref="Splat" />, which is a file this enum names and no
+    ///     <see cref="MaterialMapUsage" /> feeds.
     /// </remarks>
-    Mask
+    Mask,
+
+    /// <summary>A layered material's per-layer weights, one layer per channel in layer order.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Layer 0 is <em>red</em>, per <c>TexturedMaterialLayersSurface.Painted</c>, and a
+    ///         permuted splat map is a plausible picture of the wrong layers.</b> Nothing in the
+    ///         frame, the file or the compile says which channel a layer's weight came from, so the
+    ///         order is <see cref="MaterialBake.Splat" />'s to get right and a test's to state in the
+    ///         direction that fails.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Its alpha is a <em>weight</em> and not padding, which is the one thing copying
+    ///         the packed path would have got wrong.</b> <see cref="MaterialBake.Encode" /> writes
+    ///         <c>byte.MaxValue</c> into the alpha of every map it makes, because no feature reads
+    ///         one; a splat map written that way weights layer 3 at one over the whole surface and,
+    ///         after the shader's normalisation, makes the material entirely layer 3 — the failure
+    ///         <c>TexturedMaterialLayersFeature.PaintedChannels</c> documents, arriving through the
+    ///         writer instead of through the map's channel count.
+    ///     </para>
+    ///     <para>
+    ///         <b>BC7 rather than <see cref="Mask" />'s BC4</b>, because four channels that each
+    ///         carry a weight are four channels; and linear rather than colour, because a weight is a
+    ///         number.
+    ///     </para>
+    /// </remarks>
+    Splat
 }
 
 /// <summary>What a baked material's files are called, and what a material calls them.</summary>
@@ -220,6 +254,7 @@ public static class MaterialMapNaming {
         MaterialMapTarget.Emissive => "emissive",
         MaterialMapTarget.Opacity => "opacity",
         MaterialMapTarget.Mask => "mask",
+        MaterialMapTarget.Splat => "splat",
         _ => throw new ArgumentOutOfRangeException(nameof(target), target, "There is no such baked map.")
     };
 
@@ -274,6 +309,12 @@ public static class MaterialMapNaming {
         MaterialMapTarget.Emissive => [MaterialMapUsage.Emissive],
         MaterialMapTarget.Opacity => [MaterialMapUsage.Opacity],
         MaterialMapTarget.Mask => [MaterialMapUsage.Mask],
+
+        // ⚠ Empty, and it is the decision rather than a gap: no usage names a layer ordinal, so
+        // nothing a graph outputs can land in a splat map's channels. `MaterialBake.Encode` keeps a
+        // target only when one of the usages it packs was produced, so this is what stops a graph
+        // bake writing one — see MaterialMapTarget.Splat.
+        MaterialMapTarget.Splat => [],
         _ => throw new ArgumentOutOfRangeException(nameof(target), target, "There is no such baked map.")
     };
 
@@ -293,6 +334,7 @@ public static class MaterialMapNaming {
         MaterialMapTarget.Orm => new TexturedOrmFeature().OrmMap,
         MaterialMapTarget.Emissive => new TexturedEmissiveFeature().EmissiveMap,
         MaterialMapTarget.Opacity => new TexturedOpacityFeature().OpacityMap,
+        MaterialMapTarget.Splat => new TexturedMaterialLayersFeature().SplatMap,
 
         // ⚠ Both deliberate, and both are files the bake still writes — but for different reasons
         // now. A mask is never a material's; a height map is one only when the material carries a
@@ -314,8 +356,8 @@ public static class MaterialMapNaming {
     public static TextureContent ContentOf(MaterialMapTarget target) => target switch {
         MaterialMapTarget.BaseColor or MaterialMapTarget.Emissive => TextureContent.Colour,
         MaterialMapTarget.Normal => TextureContent.NormalMap,
-        MaterialMapTarget.Orm or MaterialMapTarget.Height or MaterialMapTarget.Opacity or MaterialMapTarget.Mask =>
-            TextureContent.Linear,
+        MaterialMapTarget.Orm or MaterialMapTarget.Height or MaterialMapTarget.Opacity or MaterialMapTarget.Mask
+            or MaterialMapTarget.Splat => TextureContent.Linear,
         _ => throw new ArgumentOutOfRangeException(nameof(target), target, "There is no such baked map.")
     };
 
@@ -334,7 +376,8 @@ public static class MaterialMapNaming {
     ///     be a resolution slider that changes the compression artefacts.
     /// </remarks>
     public static TextureCompression CompressionOf(MaterialMapTarget target) => target switch {
-        MaterialMapTarget.BaseColor or MaterialMapTarget.Emissive or MaterialMapTarget.Orm => TextureCompression.Bc7,
+        MaterialMapTarget.BaseColor or MaterialMapTarget.Emissive or MaterialMapTarget.Orm
+            or MaterialMapTarget.Splat => TextureCompression.Bc7,
         MaterialMapTarget.Normal => TextureCompression.Bc5,
         MaterialMapTarget.Height or MaterialMapTarget.Opacity or MaterialMapTarget.Mask => TextureCompression.Bc4,
         _ => throw new ArgumentOutOfRangeException(nameof(target), target, "There is no such baked map.")

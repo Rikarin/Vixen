@@ -136,6 +136,21 @@ public static class MaterialProvenance {
     /// <summary>The key holding when the bake ran.</summary>
     public const string AtKey = "texturing.at";
 
+    /// <summary>The key naming where a splat write's weights came from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its own key rather than <see cref="SourceKey" />, because the two are written by
+    ///     different runs and neither may overwrite the other.</b> A material's <c>texturing:</c>
+    ///     block records the graph bake that made its maps; a splat map is added afterwards, by
+    ///     <c>ProjectMaterialBaker.WriteSplat</c>, from a layer stack that is usually a different
+    ///     asset. Sharing one key would make each write erase where the other one came from, and the
+    ///     surviving answer would look like the whole truth.
+    /// </remarks>
+    public const string SplatSourceKey = "texturing.splat.source";
+
+    /// <summary>And when it ran.</summary>
+    /// <remarks><inheritdoc cref="SplatSourceKey" path="/remarks" /></remarks>
+    public const string SplatAtKey = "texturing.splat.at";
+
     /// <summary>The key on a map's own sidecar saying which of the seven it is.</summary>
     public const string MapKey = "texturing.map";
 

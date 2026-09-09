@@ -219,6 +219,198 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
         return new(name, new AssetReference(found.Guid), maps, files, warnings);
     }
 
+    /// <summary>Writes a splat map beside a layered material and binds it onto the feature.</summary>
+    /// <param name="material">Which baked material the map belongs to. Sanitised here.</param>
+    /// <param name="image">What <see cref="MaterialBake.Splat" /> produced.</param>
+    /// <param name="layers">How many layers it weighs, which becomes the material's painted channels.</param>
+    /// <param name="record">What produced the weights, for the map's own sidecar.</param>
+    /// <param name="force">Overwrite a splat map somebody has painted over.</param>
+    /// <returns>What the project now holds.</returns>
+    /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <exception cref="ArgumentException">
+    ///     The name is empty, the image is not a splat map, or the count is outside one to four.
+    /// </exception>
+    /// <exception cref="IOException">
+    ///     There is no material of that name to bind it onto, or the existing splat map has been
+    ///     painted over and <paramref name="force" /> was not given.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">
+    ///     The asset database did not pick the file up, or the material on disk cannot be read.
+    /// </exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>, and it is a second
+    ///         write path on purpose.</b> <see cref="Write" /> owns a whole texture set: it claims the
+    ///         name, prunes what the bake no longer produces and replaces the material's features
+    ///         wholesale, all of which is right for a graph bake and wrong for one file added to a
+    ///         material that already exists. So this shares the parts a second write path forgets —
+    ///         the file naming, the digest, the painted-over guard, the scan-then-read-back GUID dance
+    ///         and the sidecar — and shares none of the parts that would destroy the set.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It does not claim a name.</b> <see cref="SetName" /> exists so that two sources
+    ///         baking "Rock" do not overwrite each other; a splat map is written <em>for</em> a
+    ///         material that is already there, so a name nothing has baked is a refusal rather than a
+    ///         new set — writing <c>Rock_splat.png</c> beside no <c>Rock.vxmat</c> would leave a
+    ///         texture in the project that nothing samples and nothing explains.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The material's <c>texturing:</c> block is merged rather than rewritten, which is
+    ///         the opposite of <see cref="Provenance" />'s rule and has to be.</b> That method drops
+    ///         every <c>texturing.</c> key because a graph bake owns all of them; this one owns
+    ///         exactly the splat digest, and rewriting the block would erase the graph bake's — after
+    ///         which the next bake's painted-over check has nothing to compare and every map of the
+    ///         set is silently overwritable. ⚠ <see cref="MaterialProvenance.WrittenDigestKey" /> is
+    ///         deliberately left as the graph bake wrote it: it is the digest of <em>that</em> set,
+    ///         and a splat map is not one of its outputs.
+    ///     </para>
+    /// </remarks>
+    public MaterialBakeSet WriteSplat(
+        string material,
+        MaterialMapImage image,
+        int layers,
+        MaterialBakeRecord record,
+        bool force = false
+    ) {
+        ArgumentException.ThrowIfNullOrEmpty(material);
+        ArgumentNullException.ThrowIfNull(image);
+        ArgumentNullException.ThrowIfNull(record);
+
+        if (image.Target != MaterialMapTarget.Splat) {
+            throw new ArgumentException(
+                $"This writes a splat map and was handed a {MaterialMapNaming.Suffix(image.Target)} one. "
+                + "Every other map of a set goes through Write, which owns the whole set.",
+                nameof(image)
+            );
+        }
+
+        ArgumentOutOfRangeException.ThrowIfLessThan(layers, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(layers, 4);
+
+        var directory = Path.Combine(project.Paths.Assets, Folder);
+        var name = Safe(material);
+        var materialFile = Path.Combine(directory, name + MaterialImporter.Extension);
+
+        if (!File.Exists(materialFile)) {
+            throw new IOException(Unbound(name, directory));
+        }
+
+        var sidecar = AssetMetaFile.PathFor(materialFile);
+        var recorded = Existing(sidecar)?.Extensions ?? new Dictionary<string, string>(StringComparer.Ordinal);
+        var warnings = new List<string>();
+        var present = new Dictionary<MaterialMapTarget, byte[]>();
+
+        foreach (var (target, bytes) in OnDisk(directory, name, recorded)) {
+            if (target == MaterialMapTarget.Splat) {
+                present[target] = bytes;
+            }
+        }
+
+        if (MaterialProvenance.Painted(recorded, present).Count > 0) {
+            if (!force) {
+                throw new IOException(Overpainted(name, [MaterialMapTarget.Splat]));
+            }
+
+            warnings.Add(
+                Overpainted(name, [MaterialMapTarget.Splat]) + " It was overwritten because this bake was forced."
+            );
+        }
+
+        // The other extension of this one map, for `Prune`'s first hazard: a stack re-baked across
+        // the portable limit writes `_splat.ktx2` beside the `_splat.png` a previous run left, and
+        // the material would go on naming whichever the database resolved.
+        Prune(directory, name, MaterialMapTarget.Splat, image.Extension, recorded, warnings);
+
+        var file = Path.Combine(directory, MaterialMapNaming.FileName(name, MaterialMapTarget.Splat, image.Extension));
+
+        File.WriteAllBytes(file, image.Bytes);
+        Written = [file];
+
+        project.Assets.Scan();
+
+        if (!project.Assets.TryGetByPath(project.Paths.Relative(file), out var texture)) {
+            throw new InvalidOperationException(Unresolved(file));
+        }
+
+        Describe(file, texture.Guid, name, image);
+
+        // ⚠ Read back off the disk rather than taken from a caller, because what is being patched is
+        // the material as it stands — a caller holding a stale copy would write back a material
+        // missing whatever an inspector changed while the weights were being resolved.
+        if (Material(materialFile) is not { } content) {
+            throw new InvalidOperationException(Unreadable(name));
+        }
+
+        File.WriteAllText(
+            materialFile,
+            YamlSerializer.ToYaml(MaterialBake.Splatted(content, new AssetReference(texture.Guid), layers))
+        );
+
+        Written = [file, materialFile];
+
+        project.Assets.Scan();
+
+        if (!project.Assets.TryGetByPath(project.Paths.Relative(materialFile), out var found)) {
+            throw new InvalidOperationException(Unresolved(materialFile));
+        }
+
+        Bound(materialFile, found.Guid, image, record);
+        project.Assets.Save();
+
+        return new(
+            name,
+            new AssetReference(found.Guid),
+            new Dictionary<MaterialMapTarget, AssetReference> {
+                [MaterialMapTarget.Splat] = new(texture.Guid)
+            },
+            [file, materialFile],
+            warnings
+        );
+    }
+
+    /// <summary>Adds this write's digest to the material's block without disturbing the rest of it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The digest key is the one <see cref="MaterialProvenance.Painted" /> and
+    ///     <see cref="Ours" /> both read</b>, so writing it under any other name would leave a splat
+    ///     map that no guard can tell from a file somebody authored — overwritable without a word,
+    ///     which is the failure § D4's whole digest exists to prevent.
+    /// </remarks>
+    static void Bound(string file, AssetId guid, MaterialMapImage image, MaterialBakeRecord record) {
+        var sidecar = AssetMetaFile.PathFor(file);
+        var existing = Existing(sidecar);
+        var extensions = new Dictionary<string, string>(existing?.Extensions ?? [], StringComparer.Ordinal) {
+            [MaterialProvenance.DigestPrefix + MaterialMapNaming.Suffix(MaterialMapTarget.Splat)] =
+                MaterialProvenance.Digest(image.Bytes),
+            [MaterialProvenance.SplatSourceKey] = record.Source,
+            [MaterialProvenance.SplatAtKey] =
+                DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture)
+        };
+
+        var outputs = extensions.TryGetValue(MaterialProvenance.OutputsKey, out var listed) ? listed : string.Empty;
+        var suffix = MaterialMapNaming.Suffix(MaterialMapTarget.Splat);
+
+        if (!outputs.Split(MaterialProvenance.Separator, StringSplitOptions.TrimEntries).Contains(suffix)) {
+            extensions[MaterialProvenance.OutputsKey] =
+                outputs.Length == 0 ? suffix : outputs + MaterialProvenance.Separator + suffix;
+        }
+
+        var meta = existing is null ? new AssetMeta { Guid = guid } : existing with { Guid = guid };
+
+        AssetMetaFile.WriteFile(sidecar, meta with { Extensions = extensions });
+    }
+
+    /// <summary>What a splat write says when there is no material of that name to bind it onto.</summary>
+    static string Unbound(string name, string directory) =>
+        $"There is no \"{name}{MaterialImporter.Extension}\" in {directory}, so a splat map written here would be a "
+        + "texture nothing samples. A splat map's channels are one material's layer indices — bake or author the "
+        + "layered material first, then bake its weights.";
+
+    /// <summary>And when the material is there and cannot be read.</summary>
+    static string Unreadable(string name) =>
+        $"\"{name}{MaterialImporter.Extension}\" could not be read as a material, so there is nothing to bind a "
+        + "splat map onto. Nothing further was written: unlike a full bake, which rewrites the file it could not "
+        + "parse, this one has to keep every feature already in it.";
+
     /// <summary>Whether this bake wrote a height map that the material it wrote samples nowhere.</summary>
     /// <param name="maps">What the bake wrote, by target.</param>
     /// <param name="content">The material the bake just composed for them.</param>
@@ -438,29 +630,54 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
         List<string> warnings
     ) {
         foreach (var target in MaterialMapNaming.EveryTarget) {
-            var writing = Writing(images, target);
+            // ⚠ Never the splat map, and it is the one target a graph bake must not judge. Nothing a
+            // graph outputs can fill one (`MaterialMapNaming.Packed` gives it no channels), so
+            // `Writing` is null for it on every run — and the branch that reaches is "this bake no
+            // longer produces a splat map", which would report a file `WriteSplat` wrote and the
+            // material still samples as an orphan, on every re-bake, for ever.
+            if (target == MaterialMapTarget.Splat) {
+                continue;
+            }
 
-            foreach (var extension in Extensions) {
-                // The file this bake is about to write is overwritten rather than pruned, which is
-                // what keeps its GUID and every reference through it.
-                if (string.Equals(extension, writing, StringComparison.Ordinal)) {
-                    continue;
-                }
+            Prune(directory, name, target, Writing(images, target), recorded, warnings);
+        }
+    }
 
-                var file = Path.Combine(directory, MaterialMapNaming.FileName(name, target, extension));
+    /// <summary>The same question about one map: which of its files this bake can prove it wrote.</summary>
+    /// <param name="directory">The folder the set lives in.</param>
+    /// <param name="name">What the set is called.</param>
+    /// <param name="target">Which map.</param>
+    /// <param name="writing">The extension this write is about to use, or null where it writes none.</param>
+    /// <param name="recorded">The material sidecar's extensions, as they stand.</param>
+    /// <param name="warnings">Where anything the artist should know is added.</param>
+    static void Prune(
+        string directory,
+        string name,
+        MaterialMapTarget target,
+        string? writing,
+        IReadOnlyDictionary<string, string> recorded,
+        List<string> warnings
+    ) {
+        foreach (var extension in Extensions) {
+            // The file this bake is about to write is overwritten rather than pruned, which is what
+            // keeps its GUID and every reference through it.
+            if (string.Equals(extension, writing, StringComparison.Ordinal)) {
+                continue;
+            }
 
-                if (!File.Exists(file)) {
-                    continue;
-                }
+            var file = Path.Combine(directory, MaterialMapNaming.FileName(name, target, extension));
 
-                if (!Ours(file, target, recorded)) {
-                    warnings.Add(Kept(target, file, writing));
-                    continue;
-                }
+            if (!File.Exists(file)) {
+                continue;
+            }
 
-                if (Remove(file, warnings)) {
-                    warnings.Add(Removed(target, file, writing));
-                }
+            if (!Ours(file, target, recorded)) {
+                warnings.Add(Kept(target, file, writing));
+                continue;
+            }
+
+            if (Remove(file, warnings)) {
+                warnings.Add(Removed(target, file, writing));
             }
         }
     }
@@ -611,7 +828,12 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
         var extensions = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var (key, value) in existing?.Extensions ?? []) {
-            if (!key.StartsWith(Texturing, StringComparison.Ordinal)) {
+            // ⚠ And the splat map's three keys survive, which is the one exception and is owed for
+            // the same reason the sweep exists. A splat map is written by `WriteSplat` and never by
+            // this bake, so dropping its digest here would leave the file with nothing any guard can
+            // compare it against — silently overwritable by the next `WriteSplat`, which is exactly
+            // what § D4's digest exists to prevent.
+            if (!key.StartsWith(Texturing, StringComparison.Ordinal) || Splat.Contains(key)) {
                 extensions[key] = value;
             }
         }
@@ -627,6 +849,13 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
 
     /// <summary>What every provenance key starts with.</summary>
     const string Texturing = "texturing.";
+
+    /// <summary>The keys a splat write owns, which a graph bake neither writes nor may drop.</summary>
+    static readonly HashSet<string> Splat = new(StringComparer.Ordinal) {
+        MaterialProvenance.DigestPrefix + MaterialMapNaming.Suffix(MaterialMapTarget.Splat),
+        MaterialProvenance.SplatSourceKey,
+        MaterialProvenance.SplatAtKey
+    };
 
     /// <summary>The sidecar as it stands, or null where it cannot be read as one.</summary>
     /// <remarks>
