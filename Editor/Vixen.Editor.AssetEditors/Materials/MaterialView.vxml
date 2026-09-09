@@ -60,7 +60,9 @@
 @inherits Vixen.Ui.Controls.Control
 @tag material-editor
 @using Vixen.Core
+@using Vixen.Core.Mathematics
 @using Vixen.Editor.Inspector
+@using Vixen.Editor.ShaderGraph
 @using Vixen.Rendering.Materials
 @using Vixen.Ui
 @using Vixen.Ui.Controls
@@ -75,6 +77,11 @@
 <InspectorView ref="@HeaderView" />
 
 <Button ref="@OpenGraph" class="@Link.Class" Label="@Link.Label" Disabled="@Link.Missing" />
+
+<Alert ref="@GraphBroken" class="@GraphTroubleClass" Title="This material's shader graph"
+       Message="@GraphTroubleMessage" />
+
+<material-graph-properties ref="@GraphProperties" />
 
 <material-parameters ref="@Parameters" />
 
@@ -96,7 +103,31 @@
     /// <summary>What the graph button is, all three facts at once.</summary>
     readonly Signal<MaterialGraphLink> link = new(new("hidden", false, "Open shader graph"));
 
+    /// <summary>Whether the graph alert is shown, as the class the sheet reads.</summary>
+    readonly Signal<string> graphTroubleClass = new("hidden");
+
+    /// <summary>And what it says, which outlives being hidden — `Broken`'s reason, one alert over.</summary>
+    readonly Signal<string> graphTroubleMessage = new(string.Empty);
+
+    /// <summary>Every graph-property field, with what it shows, so a reload can re-read them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A field that answered from itself would write an undone value back on the next
+    ///     nudge.</b> An undo replaces the whole <c>GraphSurfaceFeature</c> — the panel is not told
+    ///     which lanes moved — so the rows have to be re-read from the document rather than trusted,
+    ///     which is <c>LayerStackView</c>'s <c>bindings</c> list in the smallest form that works here.
+    /// </remarks>
+    readonly List<(NumericInput Field, ShaderGraphProperty Property, int Lane)> graphFields = [];
+
     MaterialDocument? document;
+
+    /// <summary>Which graph the property rows were last built for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>So that adding a parameter does not recompile the shader graph.</b>
+    ///     <see cref="Restate" /> runs from <see cref="Rebuild" />, which runs on every parameter add
+    ///     and remove; re-reading the linked graph off disk and compiling it there would put a file
+    ///     read and a whole graph compilation behind a button that changes a different list.
+    /// </remarks>
+    AssetId built;
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
@@ -131,6 +162,25 @@
     ///     clear and refill, which is what <c>SettingsView</c>'s pane established.
     /// </remarks>
     public UiElement Parameters { get; private set; } = null!;
+
+    /// <summary>Says why the linked graph offers no properties, when it offers none.</summary>
+    public Alert GraphBroken { get; private set; } = null!;
+
+    /// <summary>One row per property the linked graph asks a material to fill in.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A host element rather than a <c>@for</c>, and for the parameter list's reason
+    ///         rather than a new one</b> — a row is built by a method, in a loop, and it is cleared
+    ///         and refilled by <see cref="RebuildGraph" />. It is owned by no region, so that is safe.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the properties a person fills in.</b> <c>ShaderGraphMaterial.Values</c> is
+    ///         narrower than the graph's declared list on purpose: a texture's <c>uint</c> slot index
+    ///         is written from the bindless table every frame, so a field for it would be a number an
+    ///         author types and the next frame overwrites.
+    ///     </para>
+    /// </remarks>
+    public UiElement GraphProperties { get; private set; } = null!;
 
     /// <summary>Which kind of parameter the add button will add.</summary>
     public Select NewKind { get; private set; } = null!;
@@ -198,6 +248,8 @@
         HeaderView.EditedDocument = material;
         HeaderView.Inspect(material.Header);
 
+        built = default;
+
         Rebuild();
     }
 
@@ -243,6 +295,12 @@
     public void Reload() {
         HeaderView.Reload();
 
+        if (document is { } material) {
+            foreach (var (field, property, lane) in graphFields) {
+                field.Number = Lane(material, property, lane);
+            }
+        }
+
         // ⚠ Through the expander's *content*, not its children. An `Expander` is a header and a
         // content element, and the rows are inside the second — a walk over its immediate children
         // finds the header and reloads nothing.
@@ -284,7 +342,190 @@
             !known,
             known ? "Open shader graph" : "Shader graph is missing from this project"
         );
+
+        RebuildGraph(material);
     }
+
+    /// <summary>Rebuilds the graph-property rows, and only when the link has actually moved.</summary>
+    /// <param name="material">The document.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the surface <a href="https://github.com/Rikarin/Vixen/issues/494">#494</a>
+    ///         says nothing consumed.</b> A <c>.vxmat</c> could name a graph as its surface and the
+    ///         graph could report what it needs from outside, and the only way to give a graph
+    ///         material its values was to hand-edit the YAML —
+    ///         <c>ShaderGraphMaterial.Values</c> had no production caller at all, in <c>.cs</c> or in
+    ///         <c>.vxml</c>. This is that caller.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The width rule is <c>LayerStackView</c>'s, and its refusal and its splat are
+    ///         deliberately absent — because they are unreachable here rather than because they were
+    ///         not considered.</b> That panel takes a width from <c>PortKinds.Fields</c> and must then
+    ///         refuse a port whose declared default lists some other number of lanes, and splat a
+    ///         one-number default across the rest. Here <c>Values</c> has already narrowed the list to
+    ///         <c>float</c> and <c>float4</c>, so a width is one or four and nothing else can arrive;
+    ///         and a stored value is a <c>Vector4</c>, which is four lanes by its type. There is no
+    ///         third width to refuse and no short default to splat.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What does carry over is that panel's other decision: an untouched property is not
+    ///         written.</b> A <c>ShaderGraphProperty</c> has a name and a type and <em>no default</em>
+    ///         — the graph's own default lives in the generated shader — so a row for a property the
+    ///         material has never set shows nought because that is what a shader parameter reads as
+    ///         when nothing sets it, and <c>MaterialDocument.SetGraphValue</c> writes an entry only
+    ///         for the property that moved. Writing every row out on open would replace each graph
+    ///         default with black, which is this renderer's standing zero-means-off trap.
+    ///     </para>
+    /// </remarks>
+    void RebuildGraph(MaterialDocument material) {
+        if (material.Header.Graph == built) {
+            return;
+        }
+
+        built = material.Header.Graph;
+
+        material.ReadGraph();
+
+        while (GraphProperties.Children.Count > 0) {
+            GraphProperties.Children[^1].Remove();
+        }
+
+        graphFields.Clear();
+
+        if (material.GraphProblem is { } problem) {
+            graphTroubleClass.Value = string.Empty;
+            graphTroubleMessage.Value = problem;
+        } else {
+            graphTroubleClass.Value = "hidden";
+        }
+
+        if (material.GraphSource is not { } source) {
+            return;
+        }
+
+        foreach (var property in ShaderGraphMaterial.Values(source)) {
+            GraphRow(material, property);
+        }
+    }
+
+    /// <summary>One property's row: its name, and as many number fields as its type has lanes.</summary>
+    /// <param name="material">The document the edit lands on.</param>
+    /// <param name="property">The property, as the compiled graph declares it.</param>
+    /// <remarks>
+    ///     ⚠ <b>Every field reads the material back rather than trusting what it holds.</b> An undo
+    ///     replaces the whole feature, and a lane that answered from its own control would then write
+    ///     the value the undo removed back into the file on the next nudge.
+    /// </remarks>
+    void GraphRow(MaterialDocument material, ShaderGraphProperty property) {
+        var name = property.Name;
+        var lanes = string.Equals(property.Type, "float4", StringComparison.Ordinal) ? 4 : 1;
+        var row = GraphProperties.Add("material-graph-row");
+
+        row.Add("material-graph-label").Text = name;
+
+        for (var index = 0; index < lanes; index++) {
+            var lane = index;
+            var field = row.Add<NumericInput>(null, null, "material-graph-value");
+
+            // `LayerStackView`'s three and a hundredth, for its reasons: a `Decimals = 0` field
+            // writes "0" for 0.25 and reads it back on the next submit, and `Step` is also the floor
+            // of the scrub rate.
+            field.Decimals = 3;
+            field.Step = 0.01d;
+
+            // Assigned before the subscription below, which is `Shapes`' ordering one control over.
+            //
+            // ⚠ **And it is *not* what stops the panel writing every property out at nought when it
+            // opens — the equality guard below is, measured.** Reversing these two lines leaves every
+            // case in `MaterialGraphPropertyTests` green, because a `[UiProperty]` raises `Changed`
+            // only on an actual change and an unset property's opening value is already the field's
+            // own default. What the ordering does buy is the case that is not nought: a row opening
+            // at a value the material already holds would raise one edit per field on compose. The
+            // guard catches that too. Both are kept, and this comment says which is load-bearing
+            // rather than crediting the one that reads as though it must be.
+            field.Number = Lane(material, property, lane);
+
+            field.NumberChanged += (typed, value) => {
+                // Gated on the field's own verdict: this control holds and reports a number rather
+                // than clamping it, so an unfinished "-" is not an edit.
+                if (!typed.IsValid) {
+                    return;
+                }
+
+                var held = Held(material, property);
+
+                // ⚠ **A lane already at that number writes nothing, and this is the guard that
+                // actually holds** — `ReloadingAfterAnEditPushesNothing` is red without it.
+                // `Reload` assigns `Number` with this handler attached, so an unguarded write pushes
+                // an undo entry every time the panel re-reads the document, and one of those
+                // re-reads is the one an undo itself causes.
+                if (held[lane] == (float) value) {
+                    return;
+                }
+
+                held[lane] = (float) value;
+                material.SetGraphValue(name, new(held[0], held[1], held[2], held[3]));
+            };
+
+            field.AddHandler<PointerEvent>(
+                (_, args) => {
+                    if (args.Action == PointerAction.Released) {
+                        material.Stack.Seal();
+                    }
+                },
+                RoutingStrategy.Bubble,
+                handledEventsToo: true
+            );
+
+            field.Submitted += _ => material.Stack.Seal();
+            graphFields.Add((field, property, lane));
+        }
+    }
+
+    /// <summary>What the material sets this property to today, as four lanes.</summary>
+    /// <param name="material">The document.</param>
+    /// <param name="property">The property.</param>
+    /// <returns>Four numbers, of which a <c>float</c> property uses the first.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Zero for a property nothing sets, and that is the honest answer rather than a
+    ///     guess.</b> A <c>ShaderGraphProperty</c> carries no default — the graph's own lives in the
+    ///     generated shader, which this panel does not read — so a row cannot show the number the
+    ///     frame would use. What it must not do is write that nought back, which is why nothing here
+    ///     touches the file until a field is moved.
+    /// </remarks>
+    static float[] Held(MaterialDocument material, ShaderGraphProperty property) {
+        float[] held = [0f, 0f, 0f, 0f];
+
+        if (material.Surface is not { } surface) {
+            return held;
+        }
+
+        if (string.Equals(property.Type, "float", StringComparison.Ordinal)) {
+            foreach (var number in surface.Numbers) {
+                if (string.Equals(number.Name, property.Name, StringComparison.Ordinal)) {
+                    held[0] = number.Value;
+                }
+            }
+
+            return held;
+        }
+
+        foreach (var vector in surface.Vectors) {
+            if (string.Equals(vector.Name, property.Name, StringComparison.Ordinal)) {
+                held = [vector.Value.X, vector.Value.Y, vector.Value.Z, vector.Value.W];
+            }
+        }
+
+        return held;
+    }
+
+    /// <summary>One lane of what the material sets this property to.</summary>
+    /// <param name="material">The document.</param>
+    /// <param name="property">The property.</param>
+    /// <param name="lane">Which lane.</param>
+    /// <returns>The number the field opens at.</returns>
+    static double Lane(MaterialDocument material, ShaderGraphProperty property, int lane) =>
+        Held(material, property)[lane];
 
     void Chosen(ClickEvent args) {
         if (document is not { } material) {
@@ -354,6 +595,10 @@
     string BrokenClass => brokenClass.Value;
 
     string BrokenMessage => brokenMessage.Value;
+
+    string GraphTroubleClass => graphTroubleClass.Value;
+
+    string GraphTroubleMessage => graphTroubleMessage.Value;
 
     MaterialGraphLink Link => link.Value;
 }

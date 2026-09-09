@@ -26,19 +26,21 @@ namespace Tests;
 ///         ⚠ <b>Ask what this file prints on the day the folder ships nothing.</b>
 ///         <see cref="Every_shipped_compound_publishes_and_compiles" /> would then iterate an empty
 ///         list and pass, which is the shape of a green suite over no work at all — so
-///         <see cref="The_shipped_library_is_the_folder_and_not_a_list" /> holds a floor per folder,
-///         and it is the first thing to read when something here goes quiet. ⚠ <b>That floor was a
-///         single <c>4</c> for three batches while thirty-one compounds shipped</b>, which is the
-///         same defect one step along: an instrument that cannot fail, because the number it compares
-///         against stopped being re-derived when content landed.
+///         <see cref="The_shipped_library_is_the_folder_and_not_a_list" /> reconciles the folder with
+///         doc 48 § 4.9's ● marks per folder, and it is the first thing to read when something here
+///         goes quiet. ⚠ <b>That check was a single <c>4</c> for three batches while thirty-one
+///         compounds shipped</b>, which is the same defect one step along: an instrument that cannot
+///         fail, because the number it compares against stopped being re-derived when content landed.
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the floor is the shipped count, not doc 48 § 4.9's ● marks — this said it was the
-///         marks and for two of the five folders it was not</b>
-///         (<a href="https://github.com/Rikarin/Vixen/issues/1099">#1099</a>). The marks are carried
-///         beside the floors now rather than instead of them, because they answer a different
-///         question: a floor says what may not be deleted and a mark says what M10 still owes, and a
-///         reader taking the remainder off a floor that claimed to be the marks undercounted.
+///         ⚠ <b>And it is a list of names now, not a pair of counts — because a count cannot see a
+///         mark that counts wrong</b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/1110">#1110</a>). The counting version
+///         carried a deletion floor beside § 4.9's ● count and ratcheted one against the other, which
+///         is honest arithmetic over a row of glyphs and says nothing about what a glyph <em>stands
+///         for</em>: § 4.9's Grunges row was one ● for eight files, and the table wrote 8 beside it by
+///         hand. A row that has to spell the file it expects cannot be filled in without discovering
+///         a mark's arity, which is how #1110's premise came to be refuted rather than implemented.
 ///     </para>
 /// </remarks>
 public sealed class TextureCompoundLibraryTests : IDisposable {
@@ -155,87 +157,107 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         // floor that is not re-derived when content lands measures the batch that wrote it and
         // nothing since.
         //
-        // So the floors are **per folder**, and there are two numbers per folder rather than one
-        // because the two questions are different — which is the correction #1099 is:
+        // So the check is **per folder**, and — since #1110 — it is a list of **names** rather than
+        // a pair of counts.
         //
-        //   * `Least` is a **deletion floor and is the shipped count**. It is not derived from doc 48
-        //     § 4.9 and this comment used to say it was ("quoted from § 4.9, which is a claim the
-        //     document makes rather than a snapshot of the tree"). For Patterns and Surface it was
-        //     the snapshot, and the sentence beside Surface — "the Surface row names four" — was
-        //     simply false: § 4.9's Surface row is *Height Blend ● · Bevel ● · Curvature Smooth ● ·
-        //     Height to AO ● · Metal Reflectance ●*, five marks. ⚠ **A reader taking M10's remainder
-        //     off this table undercounted by one folder's worth**, which is the whole cost of a
-        //     citation that is wrong rather than a number that is.
-        //   * `Marked` is § 4.9's ● count, which is the plan's ask and is *not* assertable as a
-        //     floor in general: a marked compound may be refused for a reason, as
-        //     `Surface/Metal Reflectance` was on #1096 for want of an atomic node mapping a metal
-        //     name to an F0. ⚠ **That refusal ended on 2026-09-09 in the same batch that wrote this
-        //     table, and the ratchet below is what said so**: the node landed on one branch, the
-        //     compound with it, and the floor of four was written on another — the merge went red on
-        //     exactly the cross-branch drift a per-branch run cannot see. All five folders now sit at
-        //     `Least == Marked`.
+        // ⚠ **A count cannot see a mark that counts wrong, and that is the one shape the counting
+        // version was blind to.** It carried `(Least, Marked)` per folder: a deletion floor and
+        // § 4.9's ● count, ratcheted so that the last ● of a row could not land without the floor
+        // following it. Both numbers were transcribed by hand from a row of glyphs, and a glyph in
+        // that row does not reliably stand for one compound — *Grunges* is "a family of eight ●",
+        // one glyph for eight files, and the table simply wrote 8 beside it. So the moment a mark's
+        // arity is the thing in doubt, a count is a transcription of a transcription: #1110 was
+        // filed believing *Delight / Equalize ●* was one glyph over two compounds with one missing,
+        // and Utility read 8 against 8 and stayed green either way. A count is green whether the
+        // mark means one thing or two.
         //
-        // What that buys, beyond an honest sentence, is the reminder the old shape could not give:
-        // the moment a folder ships as many as § 4.9 marks, `Least` must be bumped to `Marked` or
-        // this goes red. So the last compound of a row cannot land without the floor following it,
-        // which is exactly how Patterns came to sit at four while seven shipped.
+        // **Names are what the counts could not be.** A row of this table has to spell the file it
+        // expects, so a mark standing for two compounds cannot be entered without writing both names
+        // down and discovering whether both exist — which is how #1110 was answered: doc 40 § D2's
+        // *Delight / equalize* names one technique twice, exactly as § A.5's neighbouring
+        // *Make-it-tile / smart auto-tile* names one shipped compound twice, and `Utility/Equalize`
+        // is it. A slash in those rows is an alias and not an enumeration, and no arithmetic over
+        // glyphs could have told the two apart.
+        //
+        // Both directions are asserted, and each is a different failure:
+        //
+        //   * A marked name with **no file** is content that stopped shipping — moved out of
+        //     `Compounds/`, or a glob narrowed — or a mark naming something that was never authored.
+        //     This is the deletion floor, per file rather than per count.
+        //   * A shipped file **no row marks** is a compound that landed without § 4.9 following it,
+        //     which is what the old ratchet's second half bought and is kept: a ninth grunge lands
+        //     red asking the plan for its ●. ⚠ It goes red on a sibling's addition on purpose. That
+        //     is the same trade the counting version made once `shipped == Least` bound, and the
+        //     equality is honest here because the right-hand side is *the plan's list*, not a second
+        //     copy of the folder.
+        //
+        // ⚠ A marked compound may still be refused for a reason — `Surface/Metal Reflectance` was,
+        // on #1096, for want of an atomic node mapping a metal name to an F0, until 2026-09-09. A
+        // refusal comes out of the list below and into § 4.9's prose with its number, so that the
+        // one row where the plan and the folder legitimately disagree says why in both places.
         Assert.All(
-            new (string Folder, int Least, int Marked, string Why)[] {
-                ("Utility/", 8, 8, "§ 4.9's Utility row marks eight ●"),
-                ("Patterns/", 7, 7, "§ 4.9's Patterns row marks Brick, Panels, Tile Random, Rivets, Scratches, "
-                    + "Wood Grain and Cells ● — and the seven are every ● it carries"),
-                ("Grunges/", 8, 8, "§ 4.9 calls the grunges 'a family of eight ●'"),
-                ("Surface/", 5, 5, "§ 4.9's Surface row marks Height Blend, Bevel, Curvature Smooth, Height to AO "
-                    + "and Metal Reflectance ● — five, and Metal Reflectance stopped being refused on 2026-09-09 "
-                    + "when #1096's atomic node landed"),
-                ("Generators/", 7, 7, "§ 4.9's mask-generator row marks seven ●")
+            new (string Folder, string[] Marked, string Why)[] {
+                ("Utility/", [
+                    "Contrast Luminosity", "Equalize", "Highpass", "Histogram Range", "Histogram Scan",
+                    "Histogram Select", "Make It Tile", "Safe Transform"
+                ], "§ 4.9's Utility row marks eight ●. ⚠ `Equalize` is the one written there as "
+                    + "'Delight / Equalize' — one compound under both of doc 40 § D2's names, not two"),
+                ("Patterns/", [
+                    "Brick", "Cells", "Panels", "Rivets", "Scratches", "Tile Random", "Wood Grain"
+                ], "§ 4.9's Patterns row marks these seven ● and no others"),
+                ("Grunges/", [
+                    "Grunge Clouds", "Grunge Concrete", "Grunge Damage", "Grunge Fibres", "Grunge Leaks",
+                    "Grunge Rust", "Grunge Scratches", "Grunge Smears"
+                ], "§ 4.9's Grunges row is the one that used to be a single ● 'family of eight' — it now "
+                    + "names them, so the glyph count and the compound count cannot drift apart again"),
+                ("Surface/", [
+                    "Bevel", "Curvature Smooth", "Height Blend", "Height to AO", "Metal Reflectance"
+                ], "§ 4.9's Surface row marks five ●, and Metal Reflectance stopped being refused on "
+                    + "2026-09-09 when #1096's atomic node landed"),
+                ("Generators/", [
+                    "Curvature Edge Wear", "Dirt", "Dust", "Grunge Rough Dirty", "Mask Editor",
+                    "Metal Edge Wear", "Position Gradient"
+                ], "§ 4.9's mask-generator row marks seven ●, every one of which reads § D12's maps by usage")
             },
             expected => {
-                var shipped = onDisk.Count(path => path.StartsWith(expected.Folder, StringComparison.Ordinal));
+                var shipped = onDisk
+                    .Where(path => path.StartsWith(expected.Folder, StringComparison.Ordinal))
+                    .Select(path => path[expected.Folder.Length..])
+                    .ToArray();
+
+                // The instrument, per row: a folder that walked to nothing would make both set
+                // differences below trivially one-sided, and `Missing` is what would then fire —
+                // but only because this says the walk found something at all.
+                Assert.NotEmpty(shipped);
+
+                var missing = expected.Marked
+                    .Except(shipped, StringComparer.Ordinal)
+                    .Order(StringComparer.Ordinal)
+                    .ToArray();
 
                 Assert.True(
-                    shipped >= expected.Least,
-                    $"'{folder}' holds {shipped} compound(s) under '{expected.Folder}' and {expected.Least} ship "
-                    + $"today, against § 4.9's {expected.Marked} ●: {expected.Why}. A walk that found fewer is a "
-                    + "pass over content that has stopped shipping rather than a clean library."
+                    missing.Length == 0,
+                    $"§ 4.9 marks these under '{expected.Folder}' and '{folder}' holds no file for them: "
+                    + $"{string.Join(", ", missing)}. {expected.Why}. Either the content stopped shipping, or "
+                    + "the mark names a compound nobody authored — and a count could not tell you which."
                 );
 
-                // ⚠ The half that reads the disk *and* the plan at once. A slice that lands the last
-                // ● of a row without bumping the floor leaves a deletion floor that no longer floors
-                // anything, which is how this table came to say four where seven shipped.
-                //
-                // ⚠ **And the condition is about the disk on both sides, which the first draft's was
-                // not.** That one read `shipped < Marked || Least == Marked`, whose second disjunct
-                // is a comparison of two literals in this very table — true for four of the five
-                // rows before anything was read from disk at all, and true for all five once Surface
-                // caught up, at which point the assertion could not fail for any content. This one
-                // is satisfied only by a floor that *is* the shipped count, or by a folder still
-                // short of its marks; a ninth grunge lands red asking for the floor.
+                var unmarked = shipped
+                    .Except(expected.Marked, StringComparer.Ordinal)
+                    .Order(StringComparer.Ordinal)
+                    .ToArray();
+
                 Assert.True(
-                    shipped == expected.Least || shipped < expected.Marked,
-                    $"'{expected.Folder}' now ships {shipped} compound(s) against a floor of {expected.Least} and "
-                    + $"§ 4.9's {expected.Marked} ● — so the floor in this table must be raised to {shipped}. A "
-                    + $"floor left below what ships stops being a deletion floor: {shipped - expected.Least} "
-                    + "compound(s) could be unembedded with this class still green."
+                    unmarked.Length == 0,
+                    $"'{expected.Folder}' ships these and no ● in § 4.9 names them: "
+                    + $"{string.Join(", ", unmarked)}. A compound that lands without the plan following it "
+                    + "leaves the row above unable to say what may not be deleted. Add the ● to doc 48 § 4.9 "
+                    + "and the name here."
                 );
             }
         );
 
         Assert.Equal(onDisk, TextureCompoundLibrary.Shipped);
-
-        // ⚠ And membership rather than equality for the four § 4.9 shipped, which is the half the
-        // folder comparison above genuinely cannot make: a compound *moved out of* `Compounds/`
-        // leaves the disk and the manifest at once, so the two sides agree and say nothing. Renaming
-        // or retiring one of these is a breaking change to every graph containing it — a node type
-        // that vanishes from a menu — so it should be a deliberate edit here rather than a silence.
-        // `Contains` and not `Equal`: a fifth compound is a sibling's work, not this file's failure.
-        Assert.All(
-            ["Generators/Curvature Edge Wear", "Generators/Dirt", "Generators/Dust",
-                "Generators/Grunge Rough Dirty", "Generators/Metal Edge Wear", "Generators/Position Gradient",
-                "Surface/Bevel", "Surface/Curvature Smooth", "Surface/Height Blend", "Surface/Height to AO",
-                "Utility/Histogram Scan", "Utility/Make It Tile"],
-            path => Assert.Contains(path, TextureCompoundLibrary.Shipped)
-        );
 
         // ⚠ A manifest resource name has no way to tell a folder separator from a dot somebody put
         // in a file name, so a compound called `Grunge v2.vxtexgraph` would publish under a path with

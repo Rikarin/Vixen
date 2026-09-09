@@ -312,6 +312,14 @@ material-parameters { flex-direction: column; }
 material-bar { flex-direction: row; align-items: center; gap: 6px; }
 material-bar > textbox { flex-grow: 1; min-width: 0; }
 
+/* The linked graph's properties, one row a property. ⚠ `column` is written out because a host
+   element's CSS-initial direction is `row`, which lays every row of the section side by side and
+   reads as a panel that failed to build. */
+material-graph-properties { flex-direction: column; gap: 2px; }
+material-graph-row { flex-direction: row; align-items: center; gap: 4px; }
+material-graph-label { flex-grow: 1; flex-basis: 0px; min-width: 0; color: var(--text-muted); }
+material-graph-value { width: 64px; flex-shrink: 0; }
+
 /* ── The code editors ───────────────────────────────────────────────── */
 code-editor-pane { flex-direction: row; gap: 6px; padding: 0px; }
 code-editor-pane > code-column { flex-grow: 1; flex-basis: 0px; min-width: 0; flex-direction: column; }
