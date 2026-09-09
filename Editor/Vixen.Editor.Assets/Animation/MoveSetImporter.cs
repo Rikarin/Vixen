@@ -49,7 +49,8 @@ public sealed class MoveSetImporter : AssetImporter<MoveSetImportSettings> {
     ) {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (await ShapeYaml.ReadAsync<MoveSetContent>(context, cancellationToken).ConfigureAwait(false)
+        if (await ShapeYaml.ReadAsync<MoveSetContent>(context, "a move set", cancellationToken)
+                .ConfigureAwait(false)
             is not { } set) {
             return context.Finish();
         }

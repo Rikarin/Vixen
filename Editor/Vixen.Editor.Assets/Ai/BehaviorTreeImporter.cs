@@ -65,7 +65,7 @@ public sealed class BehaviorTreeImporter : AssetImporter<BehaviorTreeImportSetti
         BehaviorTreeContent tree;
 
         try {
-            tree = YamlSerializer.Parse<BehaviorTreeContent>(text);
+            tree = context.BindYaml<BehaviorTreeContent>(text, "a behaviour tree");
         } catch (Exception exception) when (exception is YamlBindingException or YamlParseException) {
             context.Report(ImportSeverity.Error, exception.Message);
 

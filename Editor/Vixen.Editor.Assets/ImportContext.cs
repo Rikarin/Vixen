@@ -3,9 +3,37 @@
 
 using Vixen.Core;
 using Vixen.Core.IO;
+using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 
 namespace Vixen.Editor.Assets;
+
+/// <summary>Where an import finds another asset's source, given its id.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>This is the wall doc 47 § 2 chose a whole file format around, and it is one method.</b>
+///         An importer was handed its own <c>Guid</c>, its own <c>SourcePath</c>, a provider over
+///         <em>paths</em> and a <c>DependsOn(AssetId)</c> that declares an edge and returns nothing —
+///         so a scene could name a prefab and no importer could open it. Doc 47 took model (C) over
+///         Unity's sparse patch for that reason, and navigation's placement bake stopped at the same
+///         wall from the other side.
+///     </para>
+///     <para>
+///         <b>A separate interface rather than a method on the pipeline, because an import may not be
+///         in this process.</b> <see cref="IImportExecutor" /> is a process boundary: an
+///         <see cref="ImportJob" /> is five strings and a flag, and shipping a project's whole
+///         guid-to-path index across it per job would cost more than the imports. So whoever builds
+///         an executor supplies the lookup, and a worker builds its own from the project it was
+///         pointed at.
+///     </para>
+/// </remarks>
+public interface IAssetSources {
+    /// <summary>Finds where an asset's source file is.</summary>
+    /// <param name="asset">Its id.</param>
+    /// <param name="path">Where its source is.</param>
+    /// <returns>Whether this project has such an asset.</returns>
+    bool TryGetPath(AssetId asset, out VirtualPath path);
+}
 
 /// <summary>Everything one import is allowed to read, and everything it has to declare.</summary>
 /// <remarks>
@@ -25,6 +53,7 @@ namespace Vixen.Editor.Assets;
 ///     </para>
 /// </remarks>
 public sealed class ImportContext {
+    readonly IAssetSources? sources;
     readonly HashSet<VirtualPath> declaredFiles = [];
     readonly HashSet<AssetId> declaredAssets = [];
     readonly List<ImportDiagnostic> diagnostics = [];
@@ -72,6 +101,10 @@ public sealed class ImportContext {
     /// <param name="importer">Which importer is running.</param>
     /// <param name="target">Which build target, or <see langword="null" /> for none in particular.</param>
     /// <param name="enforceDeclaredReads">Whether an undeclared read throws.</param>
+    /// <param name="sources">
+    ///     Where another asset's source is found, or <see langword="null" /> when this import cannot
+    ///     reach one — see <see cref="TryResolve" />.
+    /// </param>
     public ImportContext(
         AssetId guid,
         VirtualPath sourcePath,
@@ -79,7 +112,8 @@ public sealed class ImportContext {
         IFileProvider files,
         string importer,
         string? target = null,
-        bool enforceDeclaredReads = true
+        bool enforceDeclaredReads = true,
+        IAssetSources? sources = null
     ) {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(files);
@@ -96,6 +130,7 @@ public sealed class ImportContext {
         // would ever be caught making.
         declaredFiles.Add(sourcePath);
 
+        this.sources = sources;
         Files = enforceDeclaredReads ? new DeclaredReadsOnlyProvider(files, this) : files;
     }
 
@@ -115,6 +150,56 @@ public sealed class ImportContext {
     /// <param name="path">The file.</param>
     public void DependsOnFile(VirtualPath path) => declaredFiles.Add(path);
 
+    /// <summary>Finds another asset's source file, and declares both edges to it in the same call.</summary>
+    /// <param name="asset">Which asset.</param>
+    /// <param name="path">Where its source is.</param>
+    /// <returns>Whether it was found. A <see langword="false" /> is also returned when this import
+    ///     has no way to look, which is what <see cref="CanResolve" /> distinguishes.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Resolving and declaring are one call because coming apart is the failure that
+    ///         cannot be seen.</b> A <c>Resolve</c> that handed back a path without registering the
+    ///         edge would let an importer read a template and never re-run when the template changed
+    ///         — a compiled artefact that is silently stale, which is strictly worse than the refusal
+    ///         it replaces. So this calls <see cref="DependsOn" /> for the cache key <em>and</em>
+    ///         <see cref="DependsOnFile" /> for the read, and there is no way to get the path without
+    ///         both. <c>DeclaredReadsOnlyProvider</c> is the same discipline over paths.
+    ///     </para>
+    ///     <para>
+    ///         <b>Nothing is declared when the asset is not found</b>, so a dangling reference does
+    ///         not put a phantom into the key. That is the one asymmetry: an asset that appears later
+    ///         re-imports this one through the ordinary source-hash path rather than through an edge
+    ///         to a file that did not exist.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A <see langword="false" /> from a context with no <see cref="IAssetSources" /> is
+    ///         not the same statement as a false from one that looked</b>, and an importer that
+    ///         reports "there is no such asset" for the first is lying about somebody's project.
+    ///         Check <see cref="CanResolve" /> before turning a miss into a diagnostic.
+    ///     </para>
+    /// </remarks>
+    public bool TryResolve(AssetId asset, out VirtualPath path) {
+        path = default;
+
+        if (asset.IsEmpty || sources is null || !sources.TryGetPath(asset, out path)) {
+            path = default;
+            return false;
+        }
+
+        DependsOn(asset);
+        DependsOnFile(path);
+        return true;
+    }
+
+    /// <summary>Whether this import can look an asset id up at all.</summary>
+    /// <remarks>
+    ///     False in a context built without an <see cref="IAssetSources" /> — a unit test that
+    ///     constructs one by hand, or an executor whose host did not supply the lookup. An importer
+    ///     that needs to read another asset should say <em>that</em> rather than reporting the asset
+    ///     missing, because the two have opposite fixes.
+    /// </remarks>
+    public bool CanResolve => sources is not null;
+
     /// <summary>Opens the asset's own source file.</summary>
     /// <param name="cancellationToken">Cancels the open.</param>
     /// <returns>A readable stream the caller owns.</returns>
@@ -127,6 +212,51 @@ public sealed class ImportContext {
     public void Report(ImportSeverity severity, string message) {
         ArgumentException.ThrowIfNullOrEmpty(message);
         diagnostics.Add(new(severity, message));
+    }
+
+    /// <summary>Binds a document to the type an importer reads it as, saying so when a key named nothing.</summary>
+    /// <typeparam name="T">What the document is.</typeparam>
+    /// <param name="yaml">The document's text.</param>
+    /// <param name="what">What to call the thing in the warning — <c>a material</c>, <c>a compositor</c>.</param>
+    /// <returns>The bound value.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="yaml" /> is null.</exception>
+    /// <exception cref="YamlBindingException">It is YAML that is not a <typeparamref name="T" />.</exception>
+    /// <exception cref="YamlParseException">It is not YAML.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This exists because <see cref="YamlSerializer.Parse{T}(string, YamlSerializerOptions)" />
+    ///         drops an unknown key unless the caller asks, and eleven importers did not ask.</b>
+    ///         <see cref="YamlSerializerOptions.OnUnknownKey" /> documents that default as deliberate —
+    ///         a project opened in an older editor has to load — and says in its own words that
+    ///         dropping silently is the other failure. For an <em>asset</em> there is no forward
+    ///         compatibility argument to weigh against it: a <c>.vxmat</c> is read by the same build
+    ///         that wrote it, so a key nothing read is a typo and the value the author meant to set is
+    ///         on its default with no diagnostic anywhere.
+    ///     </para>
+    ///     <para>
+    ///         <b>One method rather than one fix per importer, because the defect was one line
+    ///         repeated.</b> Every call site that reads its source as text and binds it goes through
+    ///         here, so an importer added tomorrow is warned about by construction rather than by
+    ///         someone remembering.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A key that names a member the binder cannot write reaches the same callback</b>,
+    ///         which is not a false positive: a get-only member is a key nothing read, which is the
+    ///         thing the warning is about.
+    ///     </para>
+    /// </remarks>
+    public T BindYaml<T>(string yaml, string what) {
+        ArgumentNullException.ThrowIfNull(yaml);
+        ArgumentException.ThrowIfNullOrEmpty(what);
+
+        return YamlSerializer.Parse<T>(yaml, YamlSerializerOptions.Default with { OnUnknownKey = Unknown });
+
+        void Unknown(string key) =>
+            Report(
+                ImportSeverity.Warning,
+                $"'{key}' is not a field of {what}, so nothing read it and whatever it was meant to set is "
+                + "on its default. Check the spelling against the guide for this asset kind."
+            );
     }
 
     /// <summary>Declares a sub-asset and derives its stable id.</summary>

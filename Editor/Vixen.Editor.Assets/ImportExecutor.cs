@@ -79,9 +79,23 @@ public interface IImportExecutor {
 ///     An importer that throws fails that asset and not the run; an importer that takes the process
 ///     down takes this with it, which is the difference the out-of-process executor exists for.
 /// </remarks>
-public sealed class InProcessImportExecutor(ImporterRegistry importers, IFileProvider files) : IImportExecutor {
+public sealed class InProcessImportExecutor(
+    ImporterRegistry importers,
+    IFileProvider files,
+    IAssetSources? sources = null
+) : IImportExecutor {
     readonly ImporterRegistry importers = importers ?? throw new ArgumentNullException(nameof(importers));
     readonly IFileProvider files = files ?? throw new ArgumentNullException(nameof(files));
+
+    /// <summary>Where an importer's <c>TryResolve</c> looks, or null when it cannot look.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Optional because the out-of-process worker has no index to hand.</b>
+    ///     <c>ImportContext.CanResolve</c> is what tells an importer which of the two it is in, and
+    ///     the distinction matters: "there is no such asset" and "this build cannot look" have
+    ///     opposite fixes, and reporting the first for the second is a message about somebody's
+    ///     project that is not true.
+    /// </remarks>
+    readonly IAssetSources? sources = sources;
 
     /// <inheritdoc />
     public async ValueTask<ExecutedImport> ExecuteAsync(
@@ -113,7 +127,8 @@ public sealed class InProcessImportExecutor(ImporterRegistry importers, IFilePro
             files,
             importer.Name,
             job.Target,
-            job.EnforceDeclaredReads
+            job.EnforceDeclaredReads,
+            sources
         );
 
         ImportResult result;

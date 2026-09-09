@@ -95,6 +95,18 @@ passes an empty map dictionary and `Default: null`, so every shard in the tree s
 loads one, and whatever closes this has to build the read path as well as the write path. There is no
 boot-ordering hazard to preserve for the same reason.
 
+⚠ **A key that names no weight is dropped, and that default is now a decision rather than an
+accident.** `YamlSerializer` ignores an unknown key unless the caller hands it `OnUnknownKey`, so
+`heathyFill:` scored exactly like a file that never mentioned fill — and because every field here has
+a legitimate-looking default, a file of nothing but typos was indistinguishable from no file at all.
+Eleven asset importers had the same defect and it was simply fixed there (`ImportContext.BindYaml`
+warns, always), because a `.vxmat` is read by the build that wrote it. **An operator's config is
+not**: a `.vxplacement` written for a newer engine and fed to an older shard mid-rolling-upgrade has
+to boot, and refusing it takes a fleet down for a spelling. So the answer here is the third one —
+**warn at the reader's choice**. `Parse` takes an optional `onUnknownKey`, which is what a tool with
+somewhere to log hands in (the importer below, when it exists; a `placement explain`; a boot that
+logs and continues), and leaving it null is a caller saying it would rather boot than complain.
+
 ⚠ **It is blocked on a layer decision rather than on somebody writing the class.** The obvious home
 is `Vixen.Editor.Assets`, beside every other `[Importer]` — and an importer there cannot name
 `PlacementWeights`, because `CheckArchitecture` refuses `Editor/` → `Live/` (docs/plan/27 §

@@ -57,7 +57,8 @@ public sealed class HarnessPlanImporter : AssetImporter<HarnessPlanImportSetting
     ) {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (await ShapeYaml.ReadAsync<HarnessPlanContent>(context, cancellationToken).ConfigureAwait(false)
+        if (await ShapeYaml.ReadAsync<HarnessPlanContent>(context, "a harness plan", cancellationToken)
+                .ConfigureAwait(false)
             is not { } plan) {
             return context.Finish();
         }

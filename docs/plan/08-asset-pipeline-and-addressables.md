@@ -380,19 +380,35 @@ Importer set for 1.0:
 | `TextureImporter` | png jpg tga bmp exr hdr psd tif dds ktx2 | `Texture` (BCn/ASTC/ETC2 per platform, mips, sRGB flags) |
 | `ModelImporter` | fbx gltf glb obj dae 3ds blend¹ | `Model`, `Mesh`, `Skeleton`, `AnimationClip`, `Material` stubs — via `Silk.NET.Assimp` |
 | `AudioImporter` | wav ogg mp3 flac | `AudioClip` (Ogg/Opus for streaming, PCM/ADPCM for SFX) |
-| `FontImporter` | ttf otf woff2 | `Font` (MSDF atlas + metrics + kerning, via HarfBuzz) |
-| `ShaderImporter` | rvn | `.rvnlib` / effect registration |
-| `MarkupImporter` | vxml | parsed component + generated C# partial |
-| `StyleImporter` | vcss | parsed stylesheet + utility-class extraction |
+| `FontImporter` | ttf otf woff2 | ⚠ **Half owed.** `Font` (MSDF atlas + metrics + kerning, via HarfBuzz). The *load* is not owed — `FontFace.Load` reads a face straight from its bytes — so what is missing is the bake, and every consumer shapes from the raw face at run time |
+| `ShaderImporter` | rvn | ⚠ **Not owed — MSBuild's, not the database's.** `Tools/Vixen.ShaderCompiler`, the `CheckShaders` target and `EditorEffects` compile shaders; there is no `.rvnlib` and effects register from that path |
+| `MarkupImporter` | vxml | ⚠ **Not owed — MSBuild's, not the database's.** `Vixen.Ui.Markup.Generators` writes the component's C# partial at compile time |
+| `StyleImporter` | vcss | ⚠ **Not owed — MSBuild's, not the database's.** StyleGen extracts utility classes at compile time and the application's own cascade loads the sheet at run time |
 | `AssetImporter` | vxmat vxscene vxprefab vxgroup vxanim vxvfx … | Vixen-authored YAML assets |
 | `NavMeshImporter` | vxnavmesh | `NavMesh` — the bake, run at build time from the collision mesh the asset names |
 | `WaterWavesImporter` | vxwaves | `WaterWavesAsset` — a sea state, which is the one asset kind [35 § D6](35-water.md) admits; a water body stays in the scene because that is where its merge is |
-| `ScriptImporter` | cs | script metadata (execution order, default field values) |
+| `ScriptImporter` | cs | ⚠ **Owed, and the only one of the five with no equivalent anywhere.** Script metadata — execution order, default field values — is what an inspector reads before an instance exists |
 | `VideoImporter` | ✅ webm mkv (mp4 claimed and refused with the reason) | `VideoClip` + the container beside it |
 | `FolderImporter` | folders | folder assets (group inheritance, addressable roots) |
 | `RawImporter` | anything unmatched | verbatim copy, addressable as a byte blob |
 
 ¹ `.blend` requires a Blender install; detected and reported clearly rather than failing obscurely.
+
+⚠ **Five of these fourteen do not exist, and that is now a recorded decision rather than a gap.**
+[#318](https://github.com/Rikarin/Vixen/issues/318) asked which side each belongs on — the asset
+database, or MSBuild — and the answer the tree had already made in code is the one above: shaders,
+`.vxml` and `.vcss` are compiled by the build and are **not** owed here; a font's *load* is not owed
+either and its **bake** is; `ScriptImporter` is owed whole. The table keeps their rows rather than
+dropping them, because a promise deleted is a promise nobody can check.
+
+⚠ **And the silence that made this worth filing is already closed.**
+`BuiltInImporters.cs`'s `UnimportedFormats` gives every one of these extensions a sentence when
+`RawImporter` takes it — an *information* note for one handled elsewhere, a *warning* for one nothing
+handles at all — so a `.ttf` or a `.cs` under `Assets/` is no longer imported as an anonymous byte
+blob with no diagnostic anywhere. `UnimportedFormatTests` asserts both halves, including the control
+that a `.csv` stays silent, and `Doc08ImporterSetTests` asserts that this table and that list agree:
+the day somebody writes one of these importers, the row and the sentence have to go in the same
+change.
 
 **Out-of-process, parallel, crash-isolated.** `Tools/Vixen.AssetCompiler` runs N worker processes
 (default = cores − 1). A worker that crashes on a malformed FBX marks that one asset failed and the

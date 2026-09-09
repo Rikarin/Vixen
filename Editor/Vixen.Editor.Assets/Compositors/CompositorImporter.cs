@@ -111,7 +111,7 @@ public sealed class CompositorImporter : AssetImporter<CompositorImportSettings>
         GraphicsCompositorAsset asset;
 
         try {
-            asset = YamlSerializer.Parse<GraphicsCompositorAsset>(text);
+            asset = context.BindYaml<GraphicsCompositorAsset>(text, "a compositor");
         } catch (YamlBindingException failure) {
             context.Report(ImportSeverity.Error, $"It is not a compositor: {failure.Message}");
             return context.Finish();

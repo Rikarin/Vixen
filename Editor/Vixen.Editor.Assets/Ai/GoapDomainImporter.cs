@@ -60,7 +60,7 @@ public sealed class GoapDomainImporter : AssetImporter<GoapDomainImportSettings>
         GoapDomainContent domain;
 
         try {
-            domain = YamlSerializer.Parse<GoapDomainContent>(text);
+            domain = context.BindYaml<GoapDomainContent>(text, "a GOAP domain");
         } catch (Exception exception) when (exception is YamlBindingException or YamlParseException) {
             context.Report(ImportSeverity.Error, exception.Message);
 

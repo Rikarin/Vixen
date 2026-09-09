@@ -127,7 +127,7 @@ public sealed class ImportPipeline {
         this.artifacts = artifacts;
         this.files = files;
         Cache = cache ?? new ImportCache();
-        Executor = new InProcessImportExecutor(importers, files);
+        Executor = new InProcessImportExecutor(importers, files, new ProjectAssetSources(database));
     }
 
     /// <summary>Imports everything in the project that needs it.</summary>
