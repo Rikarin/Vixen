@@ -215,6 +215,112 @@ public class SystemPaletteWiringTests {
         Assert.Equal(Dark(SystemColor.Canvas), document.SystemColors[SystemColor.Canvas]);
     }
 
+    /// <summary>
+    ///     ⚠ The accent read reaching a sheet, which is the link this whole chain was missing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>SetPlatform</c> had no production caller anywhere in the repository and no
+    ///         platform read one existed</b> — the palette carried an
+    ///         <c>AccentColor</c>/<c>AccentColorText</c> pair, <c>ControlTheme.vcss</c> drew
+    ///         thirty-one declarations with <c>--accent</c>, and nothing joined them. So this
+    ///         asserts the join through <c>PlatformInput</c> and reads the colour off a drawn
+    ///         rectangle rather than off the palette, for the reason this file's own remarks give.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sRGB-to-linear conversion is asserted as a <i>difference</i>, not as an
+    ///         equality alone.</b> <see cref="SystemPalette" /> holds linear and every platform
+    ///         reports sRGB; its own remarks record that handing it an sRGB colour makes a palette
+    ///         that is visibly too bright with nothing anywhere reporting it. A test that only
+    ///         compared against <c>Color4.FromSrgb</c> would also pass if both sides forgot, so the
+    ///         raw value is denied by name.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_platform_accent_reaches_a_sheet_and_outlives_an_appearance_change() {
+        using var document = new UiDocument(200f, 100f);
+        document.Load(".probe { width: 10px; height: 10px; background-color: AccentColor; }");
+        document.Root.Add("div", classNames: "probe");
+
+        var srgb = new Color4(0.5f, 0.25f, 0.75f, 1f);
+
+        PlatformInput.ApplyAccent(document, new SystemAccent(srgb, new Color4(1f, 1f, 1f, 1f)));
+        document.Update();
+        document.Draw();
+
+        Assert.True(document.SystemColors.IsFromPlatform(SystemColor.AccentColor));
+        Assert.Equal(Color4.FromSrgb(srgb), document.SystemColors[SystemColor.AccentColor]);
+        Assert.Equal(Color4.FromSrgb(srgb), Fill(document));
+
+        // ⚠ And not the sRGB numbers themselves, which is the failure that looks like a working
+        // palette until somebody compares two screenshots.
+        Assert.NotEqual(srgb, Fill(document));
+
+        // The two events that re-apply a default table, from two places on two cadences. An accent
+        // written with `Set` rather than `SetPlatform` would be gone after the first of these.
+        PlatformInput.ApplyColorScheme(document, SystemColorScheme.Dark);
+        document.Draw();
+
+        Assert.Equal(Color4.FromSrgb(srgb), Fill(document));
+
+        PlatformInput.ApplyAccessibility(document, new SystemAccessibility(HighContrast: true));
+
+        // ⚠ Read off the palette rather than off the frame for this third stage, and the reason is
+        // worth writing down: under forced colours the document paints its own `Canvas` behind
+        // everything, so the first rectangle in the list is the root's and not the probe's. A
+        // `Fill(document)` here reports black and would look exactly like a lost accent.
+        Assert.Equal(Color4.FromSrgb(srgb), document.SystemColors[SystemColor.AccentColor]);
+
+        // And the roles nobody read still follow, or this would be a frozen palette.
+        Assert.Equal(Forced(SystemColor.Canvas), document.SystemColors[SystemColor.Canvas]);
+    }
+
+    /// <summary>A platform that stops answering gives the role back rather than freezing it.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>ClearPlatform</c> forgets and does not revert</b> — the palette holds no memory
+    ///     of which of its three tables it was last filled from — so <c>ApplyAccent</c> repalettes
+    ///     after a clear. Without that, a host that lost its accent read would keep painting the
+    ///     last one until the user next toggled dark mode, which is a stale colour nothing
+    ///     announces.
+    /// </remarks>
+    [Fact]
+    public void An_accent_the_platform_stops_reporting_goes_back_to_the_table() {
+        using var document = new UiDocument(200f, 100f);
+
+        PlatformInput.ApplyAccent(
+            document,
+            new SystemAccent(new Color4(0.5f, 0.25f, 0.75f, 1f), new Color4(1f, 1f, 1f, 1f))
+        );
+
+        Assert.True(document.Root.HasClass(SystemPalette.PlatformAccentClass));
+
+        PlatformInput.ApplyAccent(document, SystemAccent.Unknown);
+
+        Assert.False(document.SystemColors.IsFromPlatform(SystemColor.AccentColor));
+        Assert.False(document.Root.HasClass(SystemPalette.PlatformAccentClass));
+        Assert.Equal(Light(SystemColor.AccentColor), document.SystemColors[SystemColor.AccentColor]);
+    }
+
+    /// <summary>Half a read supplies the role and does not repaint the theme's token.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The class is what points <c>--accent</c> at the palette, and it goes on for the
+    ///     <i>pair</i>.</b> <c>SystemColor</c>'s ordering exists because a palette guarantees
+    ///     contrast within a pair and guarantees nothing across two — so an accent taken from the
+    ///     system with the theme's own text colour left on top of it is how a pale accent gets white
+    ///     text. A platform that can answer only half still supplies that half to anything writing
+    ///     <c>AccentColor</c> directly; what it does not get to do is move the token.
+    /// </remarks>
+    [Fact]
+    public void An_accent_without_its_text_colour_fills_the_role_but_not_the_token() {
+        using var document = new UiDocument(200f, 100f);
+
+        PlatformInput.ApplyAccent(document, new SystemAccent(new Color4(0.5f, 0.25f, 0.75f, 1f)));
+
+        Assert.True(document.SystemColors.IsFromPlatform(SystemColor.AccentColor));
+        Assert.False(document.SystemColors.IsFromPlatform(SystemColor.AccentColorText));
+        Assert.False(document.Root.HasClass(SystemPalette.PlatformAccentClass));
+    }
+
     static Color4 Fill(UiDocument document) =>
         document.Drawing.Commands.First(command => command.Kind == DrawCommandKind.Rectangle).Color;
 

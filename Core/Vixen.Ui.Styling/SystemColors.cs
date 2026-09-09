@@ -115,6 +115,33 @@ public sealed class SystemPalette {
         Reset(Light);
     }
 
+    /// <summary>The class a document wears while a <i>platform</i> accent is filling
+    ///     <see cref="SystemColor.AccentColor" />.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A class rather than a media feature, because CSS has no query for "the operating
+    ///         system answered".</b> The control theme's <c>--accent</c> is a token with a chosen
+    ///         value, and a sheet cannot ask whether a system colour is a real read or the fallback
+    ///         table underneath it — so the fact has to arrive as something a selector can match.
+    ///         <c>ControlTheme.vcss</c> keys one rule on it: <c>root.system-accent</c> points
+    ///         <c>--accent</c> and <c>--accent-text</c> at <c>AccentColor</c> and
+    ///         <c>AccentColorText</c>, and the theme's own two blues stand when the class is absent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is what makes the platform a <i>fallback</i> the author still beats.</b>
+    ///         That rule is in the <c>base</c> layer with the rest of the tokens, so a downstream
+    ///         sheet's <c>root { --accent: … }</c> — a <c>components</c> rule — outranks it by layer
+    ///         whatever the platform said. An application that has chosen its brand colour keeps it
+    ///         on a machine whose user has chosen pink.
+    ///     </para>
+    ///     <para>
+    ///         Named here rather than in either of the two places that use it: the sheet is in
+    ///         <c>Vixen.Ui.Controls</c> and the writer is <c>PlatformInput</c> in
+    ///         <c>Vixen.Platform.Ui</c>, and neither can see the other.
+    ///     </para>
+    /// </remarks>
+    public const string PlatformAccentClass = "system-accent";
+
     /// <summary>How many times any entry has changed.</summary>
     /// <remarks>
     ///     Starts at zero and is bumped by every <see cref="Set" /> that actually changes a colour. A

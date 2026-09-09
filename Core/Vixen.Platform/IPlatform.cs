@@ -70,6 +70,24 @@ public interface IPlatform : IDisposable {
     /// </remarks>
     SystemAccessibility Accessibility { get; }
 
+    /// <summary>The accent colour the user picked in the operating system's settings.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Cached and refreshed by <see cref="PumpEvents" /> on the same terms as
+    ///         <see cref="ColorScheme" />, and it moves across the same
+    ///         <see cref="PlatformEventKind.SystemColorSchemeChanged" /> — an accent change is an
+    ///         appearance change from a sheet's point of view, and inventing a second event for it
+    ///         would mean a host that wired one and not the other.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="SystemAccent.Unknown" /> is a real answer and is not "there is no
+    ///         accent".</b> Every desktop has one; a platform can only be missing a way to read it,
+    ///         and a host that flattened the two would paint a default blue over a palette the
+    ///         machine could have answered for. See <see cref="SystemAccent" />.
+    ///     </para>
+    /// </remarks>
+    SystemAccent Accent { get; }
+
     /// <summary>Where this platform keeps files.</summary>
     IFileSystemHost FileSystem { get; }
 

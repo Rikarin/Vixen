@@ -257,6 +257,9 @@ public sealed unsafe class DesktopPlatform : IPlatform {
     public SystemAccessibility Accessibility => accessibility.Current;
 
     /// <inheritdoc />
+    public SystemAccent Accent => appearance.Accent;
+
+    /// <inheritdoc />
     public IFileSystemHost FileSystem { get; }
 
     /// <inheritdoc />

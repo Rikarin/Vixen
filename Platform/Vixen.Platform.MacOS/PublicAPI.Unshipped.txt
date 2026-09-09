@@ -1,4 +1,5 @@
 #nullable enable
+Vixen.Platform.MacOS.MacOSAccent -> static class
 Vixen.Platform.MacOS.MacOSAccessibility -> static class
 Vixen.Platform.MacOS.MacOSAppearance -> static class
 Vixen.Platform.MacOS.MacOSClipboard -> sealed class
@@ -46,5 +47,6 @@ Vixen.Platform.MacOS.MacOSProcessorTopology.PerformanceCores.get -> int
 Vixen.Platform.MacOS.MacOSProcessorTopology.PhysicalCores.get -> int
 Vixen.Platform.MacOS.MacOSProcessorTopology.SupportsAffinity.get -> bool
 Vixen.Platform.MacOS.MacOSProcessorTopology.TrySetAffinity(int processor) -> bool
+static Vixen.Platform.MacOS.MacOSAccent.Read() -> Vixen.Platform.SystemAccent
 static Vixen.Platform.MacOS.MacOSAccessibility.Read() -> Vixen.Platform.SystemAccessibility
 static Vixen.Platform.MacOS.MacOSAppearance.Read() -> Vixen.Platform.SystemColorScheme

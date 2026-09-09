@@ -43,23 +43,37 @@ sealed class DesktopAppearance {
     internal const int PumpsBetweenReads = 16;
 
     readonly Func<SystemColorScheme>? read;
+    readonly Func<SystemAccent>? accent;
     readonly bool repeatable;
 
     int pumps;
 
-    internal DesktopAppearance(Func<SystemColorScheme>? read, bool repeatable) {
+    internal DesktopAppearance(Func<SystemColorScheme>? read, bool repeatable, Func<SystemAccent>? accent = null) {
         this.read = read;
+        this.accent = accent;
         this.repeatable = repeatable;
 
         Current = read?.Invoke() ?? SystemColorScheme.Unknown;
+        Accent = accent?.Invoke() ?? SystemAccent.Unknown;
     }
 
     /// <summary>The appearance for the desktop this process is running on.</summary>
     public DesktopAppearance()
-        : this(Reader(), OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()) { }
+        : this(Reader(), OperatingSystem.IsWindows() || OperatingSystem.IsMacOS(), AccentReader()) { }
 
     /// <summary>What was last read.</summary>
     public SystemColorScheme Current { get; private set; }
+
+    /// <summary>The accent colour that was last read.</summary>
+    /// <remarks>
+    ///     ⚠ <b>On the appearance's poll rather than one of its own, and reported as an appearance
+    ///     change.</b> An accent change is an appearance change as far as a stylesheet is concerned —
+    ///     it moves what <c>AccentColor</c> resolves to and nothing else — so a second event kind
+    ///     would only have produced hosts that wired one of the two. It also means the accent
+    ///     inherits this poller's Linux policy, which is the right one for the same reason: the
+    ///     Linux read is a subprocess.
+    /// </remarks>
+    public SystemAccent Accent { get; private set; }
 
     static Func<SystemColorScheme>? Reader() {
         if (OperatingSystem.IsWindows()) {
@@ -73,6 +87,24 @@ sealed class DesktopAppearance {
         return OperatingSystem.IsLinux() ? LinuxAppearance.Read : null;
     }
 
+    /// <summary>Which of the three desktops can answer for the accent colour.</summary>
+    /// <remarks>
+    ///     ⚠ <b>macOS only, and the other two are unwritten rather than impossible.</b> Windows
+    ///     keeps its accent in <c>HKCU\Software\Microsoft\Windows\DWM</c> (and answers
+    ///     <c>DwmGetColorizationColor</c>) and GNOME keeps a theme name that implies one; neither is
+    ///     read here, because neither could be measured on the machine this was written on and an
+    ///     accent read that is wrong is a window painted a colour the user did not choose. A
+    ///     platform with no reader answers <see cref="SystemAccent.Unknown" />, which leaves the
+    ///     document's palette on its default tables — the same outcome as today.
+    /// </remarks>
+    static Func<SystemAccent>? AccentReader() {
+        if (OperatingSystem.IsMacOS()) {
+            return MacOSAccent.Read;
+        }
+
+        return null;
+    }
+
     /// <summary>Advances the poll counter and re-reads when it comes round.</summary>
     /// <returns>Whether the appearance moved, and therefore whether an event is owed.</returns>
     public bool Pump() {
@@ -84,11 +116,16 @@ sealed class DesktopAppearance {
 
         var current = read();
 
-        if (current == Current) {
-            return false;
-        }
+        // ⚠ Both are read and both are compared, and the accent is read even when the scheme did
+        // not move. A user picking a new accent does not touch the appearance, so an accent read
+        // guarded by "the scheme changed" would be one that only ever fires on the way into dark
+        // mode — which is exactly the shape of an update nobody notices is missing.
+        var latest = accent?.Invoke() ?? SystemAccent.Unknown;
+        var moved = current != Current || latest != Accent;
 
         Current = current;
-        return true;
+        Accent = latest;
+
+        return moved;
     }
 }

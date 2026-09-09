@@ -100,6 +100,29 @@ root.dark {
     --caret-color: #e8eaed;
 }
 
+/* ⚠ The operating system's accent, when a host has read one, and nothing at all when it has
+   not. `PlatformInput.ApplyAccent` puts `SystemPalette.PlatformAccentClass` on the root
+   exactly while the platform is filling the `AccentColor`/`AccentColorText` pair — so the
+   two blues above are what ships on a machine nobody could ask, and `AccentColor` here is a
+   real read rather than the fallback table underneath it.
+
+   ⚠ After `root.dark` and not before, because both are one class and source order is what
+   separates them. The user's accent is their choice in either appearance; the theme's is the
+   one that depends on which appearance it is.
+
+   ⚠ And in `base`, with the rest of the tokens, which is what keeps the platform a fallback:
+   a downstream sheet's `root { --accent: … }` is a `components` rule and beats this by layer.
+   An application with a brand colour keeps it on a machine whose user has chosen pink.
+
+   The pair moves together or not at all — see `SystemColor`, whose ordering is arranged
+   around exactly this: a palette guarantees contrast *within* a pair and guarantees nothing
+   across two, so an accent taken from the system with the theme's own text colour left on top
+   of it is how a yellow accent gets white text. */
+root.system-accent {
+    --accent: AccentColor;
+    --accent-text: AccentColorText;
+}
+
 }
 
 @layer components {

@@ -734,6 +734,7 @@ const Vixen.Ui.Styling.ContainerScopes.Root = 0 -> int
 const Vixen.Ui.Styling.MediaConditions.Unconditional = 0 -> int
 const Vixen.Ui.Styling.MediaScopes.Document = 0 -> int
 const Vixen.Ui.Styling.NameTable.None = -1 -> int
+const Vixen.Ui.Styling.SystemPalette.PlatformAccentClass = "system-accent" -> string
 const Vixen.Ui.Styling.VarSubstitution.MaximumDepth = 32 -> int
 override Vixen.Ui.Styling.CascadePrecedence.ToString() -> string
 override Vixen.Ui.Styling.ComputedStyle.Equals(object? obj) -> bool
