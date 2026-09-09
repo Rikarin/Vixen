@@ -865,8 +865,10 @@ public sealed partial class LayoutTree {
                 // An inline box's edge is not a break opportunity and cannot start a line on its own;
                 // it just costs its border, padding and margin wherever it falls. A float costs the
                 // line nothing at all — it is out of flow, and what it takes from the line it takes
-                // by narrowing the band rather than by advancing the pen.
-                if (item.Kind != InlineItemKind.Float) {
+                // by narrowing the band rather than by advancing the pen. An absolutely positioned
+                // child costs it nothing either, and for the stronger reason: it is not in this
+                // formatting context at all, it is only passing through it to be told where it was.
+                if (item.Kind is InlineItemKind.Open or InlineItemKind.Close) {
                     lineWidth += item.Kind == InlineItemKind.Open
                         ? InlineBoxStartEdge(item.Node, direction, innerWidth)
                         : InlineBoxEndEdge(item.Node, direction, innerWidth);
@@ -931,7 +933,7 @@ public sealed partial class LayoutTree {
             var item = inlineItems[i];
 
             if (item.Kind != InlineItemKind.Atomic) {
-                if (item.Kind != InlineItemKind.Float) {
+                if (item.Kind is InlineItemKind.Open or InlineItemKind.Close) {
                     width += item.Kind == InlineItemKind.Open
                         ? InlineBoxStartEdge(item.Node, direction, innerWidth)
                         : InlineBoxEndEdge(item.Node, direction, innerWidth);
@@ -984,7 +986,12 @@ public sealed partial class LayoutTree {
         for (var i = after; i < streamEnd; i++) {
             var item = inlineItems[i];
 
-            if (item.Kind == InlineItemKind.Float) {
+            // ⚠ Stepped over rather than ending the run, both of them, and for the same reason: an
+            // entry that spends none of the line cannot separate a box's end edge from the item it
+            // follows. An out-of-flow child written just before a `</span>` would otherwise hide
+            // that span's `padding-right` from the fit test, which is #984's defect one entry kind
+            // over.
+            if (item.Kind is InlineItemKind.Float or InlineItemKind.OutOfFlow) {
                 continue;
             }
 
@@ -1280,6 +1287,7 @@ public sealed partial class LayoutTree {
             width += item.Kind switch {
                 InlineItemKind.Open => InlineBoxStartEdge(item.Node, direction, innerWidth),
                 InlineItemKind.Close => InlineBoxEndEdge(item.Node, direction, innerWidth),
+                InlineItemKind.OutOfFlow => 0f,
                 _ => InlineOuterWidth(item.Node, direction, innerWidth)
             };
         }
@@ -1329,6 +1337,26 @@ public sealed partial class LayoutTree {
             // Already placed against the exclusion list, in the container's coordinates and not the
             // line's. It advances no pen and belongs to no fragment.
             if (item.Kind == InlineItemKind.Float) {
+                continue;
+            }
+
+            // ── CSS 2.1 §10.6.4, and the pen is the whole of it ─────────────────────────────────
+            // ⚠ <b>The static position of an out-of-flow box in an inline formatting context is
+            // where the walk had got to when it passed the box, and there is exactly one moment at
+            // which that is knowable.</b> `HideAndPositionOutOfFlow` records the container's content
+            // edge before the walk starts, which is the right answer only for a child that precedes
+            // every item; a child written after two 40-wide items on a wrapped line belongs at the
+            // start of what is left of THAT line, not at the container's corner. `x` is the pen in
+            // line-relative units and `lineTop` is the line box's own top, so both are converted the
+            // same way the atomic below is — physically, mirrored rather than negated, because an
+            // RTL line's start edge is its right one.
+            if (item.Kind == InlineItemKind.OutOfFlow) {
+                results[item.Node].BlockStaticLeft = direction == Direction.Ltr
+                    ? insetLeft + x
+                    : outerWidth - insetRight - x;
+
+                results[item.Node].BlockStaticTop = lineTop;
+
                 continue;
             }
 
@@ -1650,6 +1678,14 @@ public sealed partial class LayoutTree {
                         ? InlineBoxStartEdge(item.Node, direction, availableInnerWidth.OrZero())
                         : InlineBoxEndEdge(item.Node, direction, availableInnerWidth.OrZero());
 
+                    continue;
+                }
+
+                // ⚠ §10.3.5: an out-of-flow box contributes nothing to its container's intrinsic
+                // width. Sizing it here would be worse than a wrong number — it would run a whole
+                // nested layout for a box the absolute walk is going to size again against a
+                // containing block that does not exist yet.
+                if (item.Kind == InlineItemKind.OutOfFlow) {
                     continue;
                 }
 

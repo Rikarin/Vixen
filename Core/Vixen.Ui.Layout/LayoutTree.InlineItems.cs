@@ -55,7 +55,25 @@ public sealed partial class LayoutTree {
         ///     top exactly. So its position is decided by the line walk, and it then shortens the very
         ///     line it was written on — including the part of that line that came before it.
         /// </remarks>
-        Float
+        Float,
+
+        /// <summary>
+        ///     An absolutely positioned box written between two items, which takes no room and exists
+        ///     in the stream only so that the walk can say <i>where it was</i>.
+        /// </summary>
+        /// <remarks>
+        ///     ⚠ <b>CSS 2.1 §10.6.4's static position is a place on a line box, and a place on a line
+        ///     box is knowable only while the line is being placed.</b> An out-of-flow child is not
+        ///     on the line — it advances no pen, it contributes no height, it is not a break
+        ///     opportunity and it does not count towards the <c>placed</c> that decides whether a
+        ///     line exists at all. What it needs is an <i>ordinal</i>: the pen position and line top
+        ///     the walk had reached when it passed the child in source order, which is exactly where
+        ///     the child's hypothetical static box would have gone. Recording that from outside the
+        ///     walk is what <c>HideAndPositionOutOfFlow</c> does, and the best it can say from there
+        ///     is the container's content edge — the answer for a child before any content and wrong
+        ///     for every other one.
+        /// </remarks>
+        OutOfFlow
     }
 
     /// <summary>One entry in the flattened line stream.</summary>
@@ -131,17 +149,19 @@ public sealed partial class LayoutTree {
     ///         box of the box's first and last fragments, which is exactly what the union holds.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The static position was expected to be the other half of this and turned out not
-    ///         to be reachable at all, which is worth writing down because the obvious repair is dead
-    ///         code.</b> <c>HideAndPositionOutOfFlow</c> does record a
-    ///         <see cref="LayoutResult.BlockStaticLeft" /> for such a child, in the CONTAINER's
-    ///         coordinates, so rebasing it onto the union alongside everything else the commit moves
-    ///         looks obligatory. It is not: <c>LayoutAbsoluteChild</c> reads those two fields only
-    ///         when the parent's <c>display</c> is <see cref="Display.Block" /> or
-    ///         <see cref="Display.FlowRoot" />, and an inline box is neither — an un-inset child of
-    ///         one falls through to the alignment branch above it and lands at the union's inline
-    ///         start. Both halves of that are pre-existing and true of an ATOMIC span too, so §10.6.4
-    ///         for an inline parent is filed rather than fixed here.
+    ///         ⚠ <b>And the fifth: the static position of such a child is §10.6.4's now, and what had
+    ///         been missing was the READER rather than the recording.</b> The rebase of
+    ///         <see cref="LayoutResult.BlockStaticLeft" /> onto the union looked obligatory when this
+    ///         paragraph was first written, was written, and measured as DEAD CODE — deleting it
+    ///         reddened nothing. The reason was one keyword: <c>LayoutAbsoluteChild</c> read those two
+    ///         fields only when the parent's <c>display</c> was <see cref="Display.Block" /> or
+    ///         <see cref="Display.FlowRoot" />, so an un-inset child of an inline box fell through to
+    ///         the ALIGNMENT branch above and resolved its axes from the span's
+    ///         <c>flex-direction</c> — a property that means nothing on an inline box. Adding
+    ///         <see cref="Display.Inline" /> there makes the rebase live, and the pair being rebased
+    ///         is now <c>PlaceLine</c>'s pen rather than <c>HideAndPositionOutOfFlow</c>'s
+    ///         container content edge, because §10.6.4 asks where the walk WAS and only the walk
+    ///         knows that.
     ///     </para>
     /// </remarks>
     bool IsNonAtomicInline(int index) {
@@ -199,7 +219,17 @@ public sealed partial class LayoutTree {
         for (var i = childStart; i < childEnd; i++) {
             var child = childIds[i];
 
-            if (!ParticipatesInLine(child)) {
+            if (styles[child].Display == Display.None) {
+                continue;
+            }
+
+            // ⚠ In the stream but not on the line. The walk has to reach an out-of-flow child in
+            // SOURCE ORDER to know where its hypothetical box would have gone — §10.6.4 — and every
+            // reader below is written so that this entry costs nothing: no advance, no height, no
+            // break opportunity, no intrinsic width, and no contribution to `placed`.
+            if (styles[child].PositionType == PositionType.Absolute) {
+                AppendInlineItem(new InlineItem(child, InlineItemKind.OutOfFlow));
+
                 continue;
             }
 
@@ -363,20 +393,24 @@ public sealed partial class LayoutTree {
         }
 
         foreach (var child in ChildIds(index)) {
-            // ⚠ An out-of-flow child is not on a line and has no position yet — what it has is a
-            // STATIC POSITION, and that has to move by the same origin or it is the one number in
-            // the box left in somebody else's coordinates. `HideAndPositionOutOfFlow` recorded it as
-            // the CONTAINER's content edge, because for a flattened box that is the loop it runs in;
-            // this box's own origin is the union, and everything else placed here has just been
-            // rebased onto it. A child with no insets is positioned from this and nothing else, so
-            // omitting it puts such a child at the container's content edge measured from the span —
-            // right wherever the span happens to start at the origin, and wrong everywhere else,
-            // which is the failure mode that survives a demo.
-
             // ⚠ Only what the line walk actually placed. A `display: none` child was zeroed on the
             // way in, and moving a zero by the union's origin turns "nowhere" into a real negative
             // rectangle just off the top-left of the span — which is not nowhere.
-            if (!ParticipatesInLine(child)) {
+            if (styles[child].Display == Display.None) {
+                continue;
+            }
+
+            // ⚠ <b>An out-of-flow child is not on a line and has no position yet — what it has is a
+            // STATIC POSITION, and that has to move by the same origin or it is the one number in
+            // the box left in somebody else's coordinates.</b> This rebase was written once before
+            // and DELETED as dead code, correctly: nothing read the two fields for an inline parent,
+            // so removing it changed no test. It is live now that <c>LayoutAbsoluteChild</c> reads
+            // them for <see cref="Display.Inline" /> as well, and the pair it rebases is the line
+            // walk's §10.6.4 pen rather than the container's content edge.
+            if (styles[child].PositionType == PositionType.Absolute) {
+                results[child].BlockStaticLeft -= left;
+                results[child].BlockStaticTop -= top;
+
                 continue;
             }
 

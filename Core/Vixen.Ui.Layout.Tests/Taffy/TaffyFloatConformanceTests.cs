@@ -87,7 +87,7 @@ public class TaffyFloatConformanceTests {
     /// <summary>The three totals, asserted together.</summary>
     [Fact]
     public void The_corpus_stands_where_it_is_recorded_as_standing() {
-        var tally = TaffyCensus.Run("float", 0).Tally;
+        var tally = TaffyCensus.TallyOf("float");
 
         Assert.Equal(
             (ExpectedPassing, ExpectedFailing, ExpectedUnsupported),

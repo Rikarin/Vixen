@@ -40,6 +40,28 @@ sealed record TaffyCensusResult(TaffyTally Tally, IReadOnlyDictionary<string, in
 ///     goes up, which makes the same test a progress meter rather than dead weight.
 /// </remarks>
 static class TaffyCensus {
+    // ⚠ <b>Memoised because the per-category tally now has five askers and used to have four, and
+    // the fifth would otherwise be a whole extra run of the 5 524 fixtures — roughly what this test
+    // project costs.</b> The four `The_corpus_stands_where_it_is_recorded_as_standing` tests ask for
+    // all eight categories between them, so `TaffyReadmeTableTests` is free in a whole-project run
+    // and pays the full price alone under a filter. A `Lazy` rather than a bare `GetOrAdd` value
+    // because xUnit runs those four classes in parallel and `GetOrAdd`'s factory is not exclusive:
+    // two suites starting the same category at once would each lay out its fixtures.
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<TaffyTally>> Tallies =
+        new(StringComparer.Ordinal);
+
+    /// <summary>How one category stands, counted once per process.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Safe to memoise because a fixture run has no state to carry: </b>
+    ///     <c>TaffyFixtureRunner.Run</c> builds its own <c>LayoutTree</c>, lays it out and drops it,
+    ///     so the tally is a function of the committed corpus and the algorithm and of nothing that
+    ///     happened earlier in the process.
+    /// </remarks>
+    /// <param name="category">The corpus category.</param>
+    /// <returns>Its three outcomes, counted.</returns>
+    public static TaffyTally TallyOf(string category) =>
+        Tallies.GetOrAdd(category, key => new Lazy<TaffyTally>(() => Run(key, 0).Tally)).Value;
+
     public static TaffyCensusResult Run(string category, int reportLimit = 25) {
         var fixtures = TaffyCorpus.Load(category);
         var passed = 0;

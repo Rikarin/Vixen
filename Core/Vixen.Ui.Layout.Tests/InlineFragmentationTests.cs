@@ -630,36 +630,39 @@ public class InlineFragmentationTests {
     }
 
     /// <summary>
-    ///     An out-of-flow child of a fragmented span lands at the union's inline start on the axis
-    ///     it gave no inset for.
+    ///     An out-of-flow child of a fragmented span lands at §10.6.4's static position — where its
+    ///     hypothetical box would have gone, on the line the walk had reached.
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>One inset is given and the other is not, deliberately.</b> The vertical answer
-    ///         proves the walk ran at all — <c>Position</c> is never written for a child nobody
-    ///         positions, so a test that gave no inset on either axis would expect (0, 0), which is
-    ///         exactly what a vanished child reads.
+    ///         ⚠ <b>This test was the defect written down and is now its inversion, and the premise
+    ///         that moved is the READER rather than the recording.</b> It used to assert 0 with a
+    ///         remark saying so was wrong: <c>HideAndPositionOutOfFlow</c> wrote a
+    ///         <c>BlockStaticLeft</c> for this child all along, and <c>LayoutAbsoluteChild</c> read
+    ///         that pair only for a <c>block</c> or <c>flow-root</c> parent — an inline box is
+    ///         neither, so the child fell through to the ALIGNMENT branch and resolved its axes from
+    ///         the span's <c>flex-direction</c> and <c>justify-content</c>, properties that mean
+    ///         nothing on an inline box. It landed at the union's inline start whatever the flow had
+    ///         done. That is also why rebasing the recorded pair onto the union measured as dead code
+    ///         when it was first written: nothing read it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the horizontal answer is NOT §10.6.4's static position, which is the finding
-    ///         this case exists to record rather than an expectation it endorses.</b>
-    ///         <c>HideAndPositionOutOfFlow</c> does write a <c>BlockStaticLeft</c> for this child, and
-    ///         <c>LayoutAbsoluteChild</c> reads that pair only when the parent's <c>display</c> is
-    ///         <c>block</c> or <c>flow-root</c> — an inline box is neither, so an un-inset child of
-    ///         one falls through to the alignment branch and lands at the union's inline start. That
-    ///         is true of an ATOMIC span at HEAD as well, so it is older than fragmentation, and
-    ///         rebasing the recorded static position onto the union — the repair that looks
-    ///         obligatory — is dead code, verified by sabotage: removing the rebase left all of these
-    ///         green.
+    ///         ⚠ <b>Both axes are un-inset now, which the old remark said could not distinguish a
+    ///         placed child from a vanished one — and that is exactly what has changed.</b> A child
+    ///         nobody positions reads (0, 0); §10.6.4's answer here is (40, 20), so the two are no
+    ///         longer the same number and the fixture needs no inset to prove the walk ran.
     ///     </para>
     ///     <para>
-    ///         Chrome 148.0.7778.280 on the equivalent fixture answers neither: it puts an un-inset
-    ///         child where its hypothetical box would have gone, after the last in-flow item, at
-    ///         (40, 20) in the container. Filed as its own issue.
+    ///         Chrome 148.0.7778.280 on this fixture: (40, 20). The arithmetic behind it is forced —
+    ///         the container's lines are 80 wide, so three 40-wide items are two on the first line
+    ///         and one on the second, the pen stands at 40 into the second line when the walk passes
+    ///         the out-of-flow child, and the second line's top is 20 below the union's. Both numbers
+    ///         are measured from the union because §10.1 makes the union this child's containing
+    ///         block, and a stored position in this store is parent-relative.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void An_out_of_flow_child_with_no_inset_on_an_axis_lands_at_the_unions_start_edge() {
+    public void An_out_of_flow_child_with_no_inset_lands_where_its_hypothetical_box_would_have_gone() {
         using var tree = new LayoutTree();
         var root = PaddedRoot(tree, width: 100f, padding: 10f);
         var span = Span(tree, root);
@@ -670,7 +673,6 @@ public class InlineFragmentationTests {
 
         var loose = Item(tree, span, 10f, 10f);
         tree.SetPositionType(loose, PositionType.Absolute);
-        tree.SetPosition(loose, Edge.Top, StyleLength.Points(7f));
 
         tree.CalculateLayout(root, 100f, float.NaN, Direction.Ltr);
 
@@ -678,8 +680,126 @@ public class InlineFragmentationTests {
         Assert.Equal(10f, tree.GetLeft(span), Tolerance);
         Assert.Equal(10f, tree.GetTop(span), Tolerance);
 
-        Assert.Equal(0f, tree.GetLeft(loose), Tolerance);
-        Assert.Equal(7f, tree.GetTop(loose), Tolerance);
+        Assert.Equal(40f, tree.GetLeft(loose), Tolerance);
+        Assert.Equal(20f, tree.GetTop(loose), Tolerance);
+    }
+
+    /// <summary>
+    ///     The static position is the pen where the child was written, not the end of the flow.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The one assertion the fixture above cannot make, because there the child is last.</b>
+    ///     "After every in-flow sibling before it" and "after all of them" agree for a trailing child
+    ///     and disagree for every other one, so an implementation that recorded the pen once at the
+    ///     end of the walk — or that hoisted out-of-flow children out of the stream and appended them
+    ///     — passes the trailing case and fails this. The child sits between the first and second
+    ///     items, so its hypothetical box is at x = 40 on the FIRST line: (40, 0).
+    /// </remarks>
+    [Fact]
+    public void The_static_position_is_the_pen_at_the_child_and_not_at_the_end_of_the_flow() {
+        using var tree = new LayoutTree();
+        var root = PaddedRoot(tree, width: 100f, padding: 10f);
+        var span = Span(tree, root);
+
+        Item(tree, span, 40f, 20f);
+
+        var loose = Item(tree, span, 10f, 10f);
+        tree.SetPositionType(loose, PositionType.Absolute);
+
+        Item(tree, span, 40f, 20f);
+        Item(tree, span, 40f, 20f);
+
+        tree.CalculateLayout(root, 100f, float.NaN, Direction.Ltr);
+
+        // Unmoved by the out-of-flow child in the middle of it: still two lines, 80 then 40.
+        Assert.Equal(2, tree.GetFragmentCount(span));
+        Assert.Equal(80f, tree.GetWidth(span), Tolerance);
+        Assert.Equal(40f, tree.GetHeight(span), Tolerance);
+
+        Assert.Equal(40f, tree.GetLeft(loose), Tolerance);
+        Assert.Equal(0f, tree.GetTop(loose), Tolerance);
+    }
+
+    /// <summary>
+    ///     Under RTL the static position is the same pen, mirrored — and it is the child's own
+    ///     inline-start edge that is placed there.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half of the fix with a behaviour change in it, and it is a behaviour change
+    ///         for an ATOMIC span too.</b> Reaching the static-position branch at all required adding
+    ///         <see cref="Display.Inline" /> to <c>isPhysicalParent</c>, because the branch above it
+    ///         resolved an inline box's axes through <c>FlexAxis.Resolve(styles[node].FlexDirection)</c>
+    ///         — and a `row` left in the style by the initial value resolves to `row-reverse` under
+    ///         RTL, which sends an un-inset child to the wrong physical edge of the union.
+    ///     </para>
+    ///     <para>
+    ///         The line's start edge is its right one here, so the first item occupies 40..80 of the
+    ///         union's 80 and the second 0..40; the third is alone on line two at 40..80. The pen
+    ///         stands 40 in from the right when the walk passes the child, and the child's own left
+    ///         edge is its 10 of width further in again: 80 − 40 − 10 = 30.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_rtl_spans_out_of_flow_child_is_placed_from_the_lines_right_edge() {
+        using var tree = new LayoutTree();
+        var root = PaddedRoot(tree, width: 100f, padding: 10f);
+        var span = Span(tree, root);
+
+        Item(tree, span, 40f, 20f);
+        Item(tree, span, 40f, 20f);
+        Item(tree, span, 40f, 20f);
+
+        var loose = Item(tree, span, 10f, 10f);
+        tree.SetPositionType(loose, PositionType.Absolute);
+
+        tree.CalculateLayout(root, 100f, float.NaN, Direction.Rtl);
+
+        Assert.Equal(2, tree.GetFragmentCount(span));
+        Assert.Equal(80f, tree.GetWidth(span), Tolerance);
+
+        Assert.Equal(30f, tree.GetLeft(loose), Tolerance);
+        Assert.Equal(20f, tree.GetTop(loose), Tolerance);
+    }
+
+    /// <summary>
+    ///     No span at all: a block container's own out-of-flow child gets §10.6.4's position on a
+    ///     line too.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the half of the fix that changes an answer no span is involved in, and it
+    ///         is worth its own case because the two recordings were never the same thing.</b> A
+    ///         block container reading its children as a block flow has recorded a real §10.6.4
+    ///         cursor all along — <c>WalkBlockChildren</c> advances it per child. A block container
+    ///         whose children are all inline-level runs the line walk instead, and there the
+    ///         recording was <c>HideAndPositionOutOfFlow</c>'s single answer for every child in the
+    ///         run: the container's content edge. So a child written after two lines' worth of items
+    ///         claimed the corner.
+    ///     </para>
+    ///     <para>
+    ///         Nothing in the 6 465 cases of this project asserted the old answer, which is what says
+    ///         it had never been looked at rather than that it had been decided. Here the lines are
+    ///         80 wide inside 10 of padding, so the pen is 40 into the second line and the second
+    ///         line's top is 20 below the first's: (10 + 40, 10 + 20).
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_block_containers_own_out_of_flow_child_is_placed_on_the_line_it_was_written_on() {
+        using var tree = new LayoutTree();
+        var root = PaddedRoot(tree, width: 100f, padding: 10f);
+
+        Item(tree, root, 40f, 20f);
+        Item(tree, root, 40f, 20f);
+        Item(tree, root, 40f, 20f);
+
+        var loose = Item(tree, root, 10f, 10f);
+        tree.SetPositionType(loose, PositionType.Absolute);
+
+        tree.CalculateLayout(root, 100f, float.NaN, Direction.Ltr);
+
+        Assert.Equal(50f, tree.GetLeft(loose), Tolerance);
+        Assert.Equal(30f, tree.GetTop(loose), Tolerance);
     }
 
     /// <summary>

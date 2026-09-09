@@ -154,19 +154,26 @@ a span with an out-of-flow child  ⚠ CLOSED, and the shape it closed in is not 
                                   anonymous box is flattened by the same code. It descends into
                                   every flattened box rather than only the ones worth a call, since
                                   a span that is not itself a containing block can hold one that is
-                                  and the outer walk stops there. ⚠ The rebase half was DEAD CODE.
-                                  `HideAndPositionOutOfFlow` does record a `BlockStaticLeft` for
-                                  such a child in the container's coordinates, so rebasing it onto
-                                  the union looks obligatory — but `LayoutAbsoluteChild` reads that
-                                  pair only when the parent's `display` is `block` or `flow-root`,
-                                  and an inline box is neither. Removing the rebase left every test
-                                  green, which is how it was found. So an un-inset child of a span
-                                  lands at the union's inline start; Chrome 148.0.7778.280 puts it
-                                  where its hypothetical box would have gone, after the last in-flow
-                                  item. That divergence is true of an ATOMIC span at HEAD as well,
-                                  so it is older than fragmentation and is filed rather than fixed.
-                                  The union IS §10.1's containing block, which is what the insets
-                                  resolve against and what the closed-form numbers below pin.
+                                  and the outer walk stops there. ⚠ The rebase half measured as DEAD
+                                  CODE and the reason was ONE KEYWORD IN THE READER, which is the
+                                  part worth keeping. `HideAndPositionOutOfFlow` recorded a
+                                  `BlockStaticLeft` for such a child all along, so rebasing it onto
+                                  the union looked obligatory — but `LayoutAbsoluteChild` read that
+                                  pair only when the parent's `display` was `block` or `flow-root`,
+                                  and an inline box is neither, so the child fell through to the
+                                  ALIGNMENT branch and resolved its axes from the span's
+                                  `flex-direction`. Removing the rebase left every test green, which
+                                  is how the reader was found rather than the writer. ⚠ CLOSED IN
+                                  TURN: `Display.Inline` is in that branch and in `isPhysicalParent`
+                                  now, which makes the rebase live — and what it rebases is §10.6.4's
+                                  own answer rather than the container's content edge, because an
+                                  `OutOfFlow` entry in the stream lets `PlaceLine` say where the pen
+                                  and the line top stood when the walk passed the child. Chrome
+                                  148.0.7778.280 on the 100-wide fixture below: (40, 20), which is
+                                  what `An_out_of_flow_child_with_no_inset_lands_where_its_
+                                  hypothetical_box_would_have_gone` now pins. The union IS §10.1's
+                                  containing block, which is what the insets resolve against and
+                                  what the closed-form numbers below pin.
 a span with a floated child       still refused, and NOT the same shape however alike the two read.
                                   A float is placed by the line walk in the CONTAINER's coordinates
                                   and a flattened box's children are rebased into the box's own on
@@ -411,8 +418,12 @@ generated boxes (::before/after)  doc 43's A12. ⚠ ITS PRECONDITION IS NOW MET 
 #     `clear` to floating and block-level elements only, and Chrome 148 agrees: `clear: left` on an
 #     `inline-block` beside a left float leaves it exactly where it was, on the same line. A `clear`
 #     on a BLOCK child after an inline run already works, in `WalkBlockChildren`.
-#   · The static position of an absolutely positioned child of an inline run is still the container's
-#     content edge, not the band. §10.3.7's hypothetical box beside a float; no oracle consulted.
+#   · The static position of an absolutely positioned child of an inline run is the pen the line walk
+#     had reached, which means it follows the BAND and not the container's content edge — `PlaceLine`
+#     seeds its pen with `lineStartInset`, so a child on a line shortened by a float starts where that
+#     line starts. ⚠ This bullet used to say the opposite and was closed by the §10.6.4 work rather
+#     than by anything about floats; the float half still has no oracle, and what it inherits is a
+#     rule rather than a measurement.
 
 
 # ══ THE STRUT — LANDED, and the refusal it replaces was the right answer to the wrong question ══

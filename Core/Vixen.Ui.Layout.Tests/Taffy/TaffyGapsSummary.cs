@@ -152,7 +152,7 @@ static class TaffyGapsSummary {
     /// <summary>A number written the way these files write numbers.</summary>
     /// <param name="value">The count.</param>
     /// <returns>Its digits, grouped at the thousand with a space.</returns>
-    static string Grouped(int value) {
+    public static string Grouped(int value) {
         var format = (NumberFormatInfo)CultureInfo.InvariantCulture.NumberFormat.Clone();
         format.NumberGroupSeparator = " ";
         format.NumberDecimalDigits = 0;

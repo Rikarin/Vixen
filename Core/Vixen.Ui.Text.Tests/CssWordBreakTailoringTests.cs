@@ -27,8 +27,19 @@ namespace Vixen.Ui.Text.Tests;
 ///         beside it. <c>LineBreaker</c> is UAX #14 and property tables; there is no dictionary in
 ///         this repository and adding one is a feature and not a fix. Transcribing them anyway would
 ///         have produced five red tests that say "Thai is unimplemented", which is a sentence, not a
-///         test. They are listed by name in <see cref="TheDictionaryCases" /> so that the next reader
-///         can see what was left and why.
+///         test. They are listed by name in <see cref="TheDictionaryCases" />, and the arithmetic
+///         "seventeen here, five absent, twenty-two in ICU4X" is asserted by
+///         <see cref="The_transcribed_rows_and_the_absent_ones_account_for_all_of_icu4xs_cases" />
+///         rather than left to this paragraph.
+///     </para>
+///     <para>
+///         ⚠ <b>This paragraph used to end "and no amount of <c>word-break</c> changes that", and
+///         that clause is wrong.</b> <c>break-all</c> does not ask what script a character belongs
+///         to, so Thai and Lao break at every unit here with no dictionary anywhere in it — see
+///         <see cref="Break_all_reaches_inside_a_dictionary_script_without_one" />. What the three
+///         <c>normal</c> cases really rest on is
+///         <see cref="A_run_of_a_dictionary_script_has_no_algorithmic_word_boundary" />: LB1 resolves
+///         Complex Context to AL, and a run of AL has no rule that breaks it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>What this prints on the day the tailoring stops working</b> is a segmentation, not a
@@ -146,14 +157,114 @@ public class CssWordBreakTailoringTests {
         Assert.NotEqual(Segment(text, WordBreakMode.Normal), Segment(text, mode));
 
     /// <summary>
+    ///     The refusal the five absent cases rest on, asserted rather than described.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A sentence saying "Thai needs a dictionary" is a claim about this repository and
+    ///         nothing was checking it.</b> This is what the claim asserts: a run of a script that
+    ///         writes without spaces has <i>no interior break opportunity at all</i> under UAX #14 as
+    ///         written, because LB1 resolves Complex Context (SA) to AL and a run of AL has no rule
+    ///         that breaks it. Not "Vixen segments Thai badly" — Vixen does not segment it, which is
+    ///         the only honest answer available without a dictionary and is why the five were left.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this prints on the day a dictionary segmenter lands is a failure</b>, which
+    ///         is the point of writing it this way round: the five cases become transcribable at the
+    ///         same moment this goes red, and a list of them sitting in a field nobody reads would
+    ///         not have said so.
+    ///     </para>
+    ///     <para>
+    ///         The samples are one word each — Thai <c>ประเทศไทย</c>, Lao <c>ພາສາລາວ</c>, Khmer
+    ///         <c>ភាសាខ្មែរ</c> — with their lengths asserted, so a sample that was silently truncated
+    ///         to one character could not pass by having no interior to break.
+    ///     </para>
+    /// </remarks>
+    /// <param name="text">One word of a dictionary script.</param>
+    /// <param name="length">Its length in UTF-16 units, so the sample cannot degenerate.</param>
+    [Theory]
+    [InlineData("ประเทศไทย", 9)]
+    [InlineData("ພາສາລາວ", 7)]
+    [InlineData("ភាសាខ្មែរ", 9)]
+    public void A_run_of_a_dictionary_script_has_no_algorithmic_word_boundary(string text, int length) {
+        Assert.Equal(length, text.Length);
+        Assert.Equal(text, Segment(text, WordBreakMode.Normal));
+        Assert.Equal(text, Segment(text, WordBreakMode.KeepAll));
+    }
+
+    /// <summary>
+    ///     ⚠ And <c>break-all</c> <i>does</i> reach inside one, which corrects the sentence this
+    ///     file used to carry.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The remark below said "no amount of <c>word-break</c> changes that" and it is
+    ///         wrong for two of the five.</b> CSS Text §5.2's <c>break-all</c> breaks between
+    ///         typographic character units and does not ask what script they are, so Thai and Lao
+    ///         break at every unit here and the algorithm needs no dictionary to say so. The two
+    ///         <c>break-all</c> and <c>keep-all</c> entries among the five are therefore absent for a
+    ///         different reason from the three <c>normal</c> ones: it is ICU4X's <i>expected</i>
+    ///         pieces that come from a dictionary, not Vixen's answer that is missing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Khmer breaks at four places and not eight, and that is UAX #29 rather than a
+    ///         defect.</b> U+17D2 KHMER SIGN COENG is a nonspacing mark, so an extended grapheme
+    ///         cluster binds it to the consonant <i>before</i> it — <c>ខ្</c> and then <c>មែ</c> —
+    ///         which is not how the script is read. UAX #29 says in as many words that Khmer coeng
+    ///         needs a tailoring; this is that gap showing through, and it is upstream of anything
+    ///         here.
+    ///     </para>
+    /// </remarks>
+    /// <param name="text">One word of a dictionary script.</param>
+    /// <param name="pieces">What <c>break-all</c> segments it into, joined by <c>|</c>.</param>
+    [Theory]
+    [InlineData("ประเทศไทย", "ป|ร|ะ|เ|ท|ศ|ไ|ท|ย")]
+    [InlineData("ພາສາລາວ", "ພ|າ|ສ|າ|ລ|າ|ວ")]
+    [InlineData("ភាសាខ្មែរ", "ភា|សា|ខ្|មែ|រ")]
+    public void Break_all_reaches_inside_a_dictionary_script_without_one(string text, string pieces) =>
+        Assert.Equal(pieces, Segment(text, WordBreakMode.BreakAll));
+
+    /// <summary>
+    ///     ⚠ Seventeen here and five absent is twenty-two, which is the one arithmetic in this file's
+    ///     own remarks and was the one thing in it nothing checked.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="TheDictionaryCases" /> was a <c>public static readonly</c> field with no
+    ///     reader — this repository's commonest defect, in a test file rather than in production
+    ///     code.</b> Its own remark said it was "a list in a test rather than a comment in one, so
+    ///     that it is read", and nothing read it: a case quietly dropped from it, or a transcribed
+    ///     row quietly dropped from a theory above, would have left the class remark's "seventeen of
+    ///     ICU4X's twenty-two" true of nothing. Counting the rows off the two theories is what makes
+    ///     the sentence an assertion.
+    /// </remarks>
+    [Fact]
+    public void The_transcribed_rows_and_the_absent_ones_account_for_all_of_icu4xs_cases() {
+        var transcribed = RowsOf(nameof(Break_all)) + RowsOf(nameof(Keep_all));
+
+        Assert.Equal(17, transcribed);
+        Assert.Equal(5, TheDictionaryCases.Length);
+        Assert.Equal(22, transcribed + TheDictionaryCases.Length);
+    }
+
+    /// <summary>How many <c>InlineData</c> rows a theory in this class carries.</summary>
+    /// <param name="method">The theory's name.</param>
+    /// <returns>Its row count.</returns>
+    static int RowsOf(string method) =>
+        typeof(CssWordBreakTailoringTests).GetMethod(method)!.GetCustomAttributes(typeof(InlineDataAttribute), false).Length;
+
+    /// <summary>
     ///     The five ICU4X cases that need a dictionary segmenter, recorded rather than transcribed.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A list in a test rather than a comment in one, so that it is read.</b> Each entry is a
-    ///     WPT file ICU4X drives through <c>LineSegmenter::new_dictionary</c>; Thai, Lao and Khmer
-    ///     write without spaces and have no algorithmic word boundary, so UAX #14 alone offers no
-    ///     opportunity inside a run of them and no amount of <c>word-break</c> changes that. This is
-    ///     not a defect in <c>LineBreaker</c> and it is not a gap this file can close.
+    ///     ⚠ <b>Each entry is a WPT file ICU4X drives through <c>LineSegmenter::new_dictionary</c>.</b>
+    ///     Thai, Lao and Khmer write without spaces and have no algorithmic word boundary, which
+    ///     <see cref="A_run_of_a_dictionary_script_has_no_algorithmic_word_boundary" /> asserts rather
+    ///     than asserting that this repository is missing something. There is no dictionary here and
+    ///     adding one is a feature, not a fix; transcribing the five anyway would have produced red
+    ///     tests that say "Thai is unimplemented", which is a sentence and not a test. ⚠ The two
+    ///     entries naming <c>break-all</c> and <c>keep-all</c> are absent for the OTHER reason — see
+    ///     <see cref="Break_all_reaches_inside_a_dictionary_script_without_one" />: the algorithm
+    ///     answers, and it is ICU4X's expected pieces that a dictionary produced.
     /// </remarks>
     public static readonly string[] TheDictionaryCases = [
         "word-break-break-all-003.html — break-all, Thai",

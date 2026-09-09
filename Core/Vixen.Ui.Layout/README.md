@@ -43,10 +43,14 @@ until the blocker was read rather than repeated: it was never the rebasing of a 
 which was already free — it was one box's fragments being a contiguous slice of a shared scratch,
 which two boxes open at the same line's end cannot both have. ⚠ **A span with an out-of-flow child is
 gone from this sentence too**, and its blocker was half wrong in the other direction: the missing
-absolute walk was real and is `LayoutFlattenedInlineAbsolutes`, but the rebase of the static position
-the row insisted had to land beside it turned out to be dead code — `LayoutAbsoluteChild` reads
-`BlockStaticLeft` only for a `block` or `flow-root` parent, and an inline box is neither. What is
-still owed is generated boxes, a span with a FLOATED child, and a span's own strut. See
+absolute walk was real and is `LayoutFlattenedInlineAbsolutes`, while the rebase of the static
+position the row insisted had to land beside it measured as dead code, because `LayoutAbsoluteChild`
+read `BlockStaticLeft` only for a `block` or `flow-root` parent and an inline box is neither.
+⚠ **That reader is the defect and it has been fixed**: `Display.Inline` is in that branch and in
+`isPhysicalParent`, so an un-inset out-of-flow child of a span no longer resolves its axes from a
+`flex-direction` that means nothing on an inline box — and the pair it now reads is §10.6.4's, the
+pen `PlaceLine` had reached when it passed the child, rather than the container's content edge.
+What is still owed is generated boxes, a span with a FLOATED child, and a span's own strut. See
 [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down) and
 `InlineKnownGaps.txt`.
 
