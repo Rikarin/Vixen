@@ -181,12 +181,19 @@ public class CreateMenuTests {
     ///     <para>
     ///         ⚠ <b>Every one of these breaks a contract this repository states in words.</b>
     ///         <c>CreateAssetMenuAttribute</c>'s remarks describe a new asset as "a file with an
-    ///         extension that an importer claims", and these four are files with an extension nothing
+    ///         extension that an importer claims", and these three are files with an extension nothing
     ///         claims: the editor writes them, opens them, edits them and saves them, and the content
     ///         build takes each one as a chunk called <c>Blob</c> that no typed reader resolves.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>There were five, and <c>.vxshadergraph</c> is the one that left.</b>
+    ///         ⚠ <b>There were five, then four, and <c>.vxmixer</c> is the one that left next.</b>
+    ///         <c>MixerImporter</c> claims it and writes a <c>MixerAsset</c> chunk, which is the type
+    ///         <c>AudioEngine.LoadMixer</c> has always taken — the two halves existed and did not meet
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/473">#473</a>). Its row had to be
+    ///         deleted here as well as in the registry, which is what an exact set is for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And before it, <c>.vxshadergraph</c>.</b>
     ///         <c>ShaderGraphImporter</c> claims it and <c>ShaderGraphSources</c> is what the editor's
     ///         and the build's shader compilations enumerate, so the Raven a graph emits now reaches
     ///         one. Its row had to be deleted here as well as in the registry — which is exactly what
@@ -196,7 +203,6 @@ public class CreateMenuTests {
     static readonly string[] AuthoredAndUnimported = [
         ".vxanimgraph",
         ".vxseq",
-        ".vxmixer",
         ".vxfont"
     ];
 
@@ -206,9 +212,9 @@ public class CreateMenuTests {
     ///         <b>The half of the round trip nothing checked.</b>
     ///         <c>An_asset_kind_can_be_created_and_opens</c> above proves the editor can write one and
     ///         open it, and <c>AuthoringTests.EveryNewExtensionIsClaimedByExactlyOneEditor</c> proves
-    ///         an editor claims it. Neither asks whether the <em>importer</em> does, and four kinds
-    ///         answer no — so an author makes an audio mixer, edits it, ships it, and nothing can load
-    ///         it, with no diagnostic beyond the note <c>RawImporter</c> now writes.
+    ///         an editor claims it. Neither asks whether the <em>importer</em> does, and three kinds
+    ///         answer no — so an author makes an animation graph, edits it, ships it, and nothing can
+    ///         load it, with no diagnostic beyond the note <c>RawImporter</c> now writes.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Written as an exact set rather than as "these four are allowed".</b> A test that

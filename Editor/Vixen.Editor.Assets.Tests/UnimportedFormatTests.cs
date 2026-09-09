@@ -111,25 +111,24 @@ public sealed class UnimportedFormatTests {
     /// <summary>A format nothing at all handles is a warning, and names what is unreachable.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Four of these are asset kinds this editor's own Create menu writes</b> —
+    ///         ⚠ <b>Three of these are asset kinds this editor's own Create menu writes</b> —
     ///         <c>EditorWorlds.BuiltInAssetKinds</c> has a line for each — and
     ///         <c>CreateAssetMenuAttribute</c>'s remarks state the contract they break: "a file with
     ///         an extension that an importer claims". Authored by the editor, unreadable by the
     ///         build, and until now silent about it.
     /// </para>
     ///     <para>
-    ///         ⚠ <b><c>.vxshadergraph</c> was the fifth and is no longer one</b>, which is why this
-    ///         theory has one row fewer: <c>ShaderGraphImporter</c> claims it, and
-    ///         <c>ShaderGraphSources</c> is what the two shader compilations enumerate so the Raven
-    ///         it emits reaches one. A row left here after an importer lands is a test asserting the
-    ///         gap it was written to close.
+    ///         ⚠ <b><c>.vxshadergraph</c> was the fifth and <c>.vxmixer</c> was the fourth</b>, which
+    ///         is why this theory has two rows fewer than it had: <c>ShaderGraphImporter</c> claims
+    ///         one and <c>MixerImporter</c> the other, and each writes the typed chunk its runtime
+    ///         reader takes. A row left here after an importer lands is a test asserting the gap it
+    ///         was written to close.
     ///     </para>
     /// </remarks>
     [Theory]
     [InlineData(".vxfont")]
     [InlineData(".vxanimgraph")]
     [InlineData(".vxseq")]
-    [InlineData(".vxmixer")]
     [InlineData(".vxplacement")]
     public async Task AFormatNothingHandlesIsAWarning(string extension) {
         var result = await ImportAsFallback(extension);
