@@ -205,6 +205,75 @@ internal sealed class MaterialGraphValueCommand : IEditorCommand {
     }
 }
 
+/// <summary>Composing — or dropping — the graph feature when a material's link moves.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Linking a graph used to write the link and nothing else, so the graph did nothing to
+///         the picture until an author nudged a value</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1133">#1133</a>. Nothing reads
+///         <see cref="MaterialAsset.Graph" /> at draw time: it is a link the editor offers "open the
+///         graph" from, and the surface is composed from the <see cref="GraphSurfaceFeature" />
+///         alone. So a material naming a graph and carrying no feature draws as though it named
+///         nothing, and the first <see cref="MaterialDocument.SetGraphValue" /> was what composed the
+///         graph at all — the surface arriving as a side effect of moving a slider.
+///     </para>
+///     <para>
+///         ⚠ <b>Separate from <see cref="MaterialGraphValueCommand" /> rather than a value edit with
+///         no value</b>, because the two merge differently and mean different things in an undo
+///         list. A drag across a number field collapses into one entry keyed on the property; a link
+///         is one decision and merges with nothing, so "Link Shader Graph" is what an author sees
+///         and one undo puts the previous feature back.
+///     </para>
+/// </remarks>
+internal sealed class MaterialGraphLinkCommand : IEditorCommand {
+    readonly MaterialDocument document;
+    readonly GraphSurfaceFeature? before;
+    readonly GraphSurfaceFeature? after;
+
+    /// <inheritdoc />
+    public string Name => after is null ? "Unlink Shader Graph" : "Link Shader Graph";
+
+    /// <summary>Describes composing the linked graph, or dropping the feature of one that was unlinked.</summary>
+    /// <param name="document">The material.</param>
+    /// <param name="before">The feature as it stands, or null when the material has none.</param>
+    /// <param name="after">The feature the link composes, or null when the link was cleared.</param>
+    public MaterialGraphLinkCommand(
+        MaterialDocument document,
+        GraphSurfaceFeature? before,
+        GraphSurfaceFeature? after
+    ) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        this.document = document;
+        this.before = before;
+        this.after = after;
+    }
+
+    /// <inheritdoc />
+    public void Do(EditorContext context) {
+        ArgumentNullException.ThrowIfNull(context);
+
+        document.Replace(before, after);
+        context.Touch(document);
+    }
+
+    /// <inheritdoc />
+    public void Undo(EditorContext context) {
+        ArgumentNullException.ThrowIfNull(context);
+
+        document.Replace(after, before);
+        context.Touch(document);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Pointing a material at a graph is a decision, and two of them are two.</remarks>
+    public bool TryMergeWith(IEditorCommand previous, [NotNullWhen(true)] out IEditorCommand? merged) {
+        merged = null;
+
+        return false;
+    }
+}
+
 /// <summary>A material, open for editing.</summary>
 /// <remarks>
 ///     <para>
@@ -430,6 +499,69 @@ public sealed class MaterialDocument : EditorDocument {
         GraphSource = source;
     }
 
+    /// <summary>Composes the linked graph as this material's surface, undoably.</summary>
+    /// <returns>Whether anything changed.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The caller <c>ShaderGraphMaterial.Feature</c> was missing</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1133">#1133</a>,
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1126">#1126</a>. It is called when
+    ///         the link <em>moves</em> and not when the panel opens, which is the whole of the
+    ///         decision: composing in <see cref="ReadGraph" /> would dirty a material that was only
+    ///         looked at, and every material in a project would come back modified from a click
+    ///         through the browser.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The composed feature carries no numbers and no vectors.</b> A
+    ///         <see cref="GraphSurfaceNumber" /> entry overrides the generated shader's declared
+    ///         default, so seeding one per property would replace every graph default with black —
+    ///         the same call <see cref="SetGraphValue" /> makes for an untouched row, one step
+    ///         earlier. What the link owes the frame is the shader's name and the texture slots; the
+    ///         graph's own defaults stand until an author overrides one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Clearing the link drops the feature, and a graph that will not compile does
+    ///         not.</b> Those are the two ways <see cref="GraphSource" /> comes back null and they
+    ///         want opposite answers: a material that no longer names a graph carrying a feature
+    ///         naming one is the <c>.vxmat</c> a content build then has to resolve a surface for,
+    ///         while a graph deleted from this branch or mid-edit is a material whose authored values
+    ///         must survive being looked at.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two undo steps for one gesture</b>, and it is worth knowing rather than hiding:
+    ///         the link itself is an inspector edit that pushed its own <c>SetMembersCommand</c>
+    ///         before this runs, so one undo takes the feature away and the next puts the link back.
+    ///         A composite would read better and would have to reach inside the inspector's command
+    ///         to build one.
+    ///     </para>
+    /// </remarks>
+    public bool LinkGraph() {
+        var before = Surface;
+
+        if (GraphSource is not { } source) {
+            if (!Header.Graph.IsEmpty || before is null) {
+                return false;
+            }
+
+            Stack.Execute(new MaterialGraphLinkCommand(this, before, null));
+            Stack.Seal();
+
+            return true;
+        }
+
+        // Already composed for this graph, so the author's values stay exactly as they are. A
+        // re-link to the same graph is not an edit and must not become one, or every reopen of the
+        // panel that re-read the link would show a modified document.
+        if (before is not null && string.Equals(before.Shader, source.Name, StringComparison.Ordinal)) {
+            return false;
+        }
+
+        Stack.Execute(new MaterialGraphLinkCommand(this, before, ShaderGraphMaterial.Feature(source)));
+        Stack.Seal();
+
+        return true;
+    }
+
     /// <summary>Sets one of the linked graph's properties, undoably.</summary>
     /// <param name="property">The property, as the graph declares it.</param>
     /// <param name="value">Its value; a <c>float</c> property reads <c>X</c> and ignores the rest.</param>
@@ -467,29 +599,41 @@ public sealed class MaterialDocument : EditorDocument {
         // every one of them would fall back to the table's placeholder view. A wrong picture, no
         // error.
         var carried = before is not null && string.Equals(before.Shader, source.Name, StringComparison.Ordinal);
-        var numbers = (carried ? before!.Numbers : []).ToList();
-        var vectors = (carried ? before!.Vectors : []).ToList();
+        Dictionary<string, Vector4> values = new(StringComparer.Ordinal);
 
-        if (string.Equals(declared.Type, "float", StringComparison.Ordinal)) {
-            numbers.RemoveAll(entry => string.Equals(entry.Name, property, StringComparison.Ordinal));
-            numbers.Add(new(property, value.X));
-        } else {
-            vectors.RemoveAll(entry => string.Equals(entry.Name, property, StringComparison.Ordinal));
-            vectors.Add(new(property, value));
+        if (carried) {
+            foreach (var number in before!.Numbers) {
+                values[number.Name] = new(number.Value, 0f, 0f, 0f);
+            }
+
+            foreach (var vector in before!.Vectors) {
+                values[vector.Name] = vector.Value;
+            }
         }
 
-        GraphSurfaceFeature after = new() {
-            // ⚠ The shader name comes from the compilation and not from `Header.Shader`. A material's
-            // `Shader` is the effect it draws with — `ForwardPlus` — and a feature's is the generated
-            // surface the graph compiled to; writing the first into the second is a composition Raven
-            // cannot resolve, reported against a material whose author never saw the generated text.
-            Shader = source.Name,
-            Numbers = [.. numbers],
-            Vectors = [.. vectors],
-            // ⚠ The join from a compiled slot to a `GraphSurfaceMap` is the shader graph's own and
-            // is asked for rather than spelled — #1117. `AssetMaterialSource.Pair` keys the bindless
-            // table on `{shader}.{chain}.{graph}.{slot}`, so a second spelling that dropped a slot
-            // would write nothing for it and read the table's placeholder view for ever.
+        values[property] = value;
+
+        // ⚠ Through `ShaderGraphMaterial.Feature` rather than beside it — #1126. This used to spell
+        // the `float`/`float4` dispatch a second time because that method wrote every declared
+        // property at its type's zero and this one must leave an untouched property out; it now
+        // writes exactly what it is given, so the rule is in one place and the shader name, the
+        // widths and the `uint` skip come from the compilation rather than from a copy of it.
+        //
+        // ⚠ A carried entry for a property the graph no longer declares does not survive, which the
+        // hand-rolled list did keep: `Feature` walks the compilation's own properties. A value under
+        // a name no layout asks for is dropped in silence at draw time, so dropping it here is the
+        // same picture and one less thing in the file.
+        //
+        // ⚠ And the feature's shader name is the compilation's, never `Header.Shader`. A material's
+        // `Shader` is the effect it draws with — `ForwardPlus` — and a feature's is the generated
+        // surface the graph compiled to; writing the first into the second is a composition Raven
+        // cannot resolve, reported against a material whose author never saw the generated text.
+        var after = ShaderGraphMaterial.Feature(source, values) with {
+            // ⚠ The maps a material already carries are kept rather than re-derived, because a
+            // `.vxmat` names the texture it binds against each slot and that name is the material's
+            // and not the graph's. `AssetMaterialSource.Pair` keys the bindless table on
+            // `{shader}.{chain}.{graph}.{slot}`, so a slot dropped or renamed here writes nothing and
+            // reads the table's placeholder view for ever — a wrong picture with no error.
             Maps = carried ? before!.Maps : ShaderGraphMaterial.Maps(source)
         };
 

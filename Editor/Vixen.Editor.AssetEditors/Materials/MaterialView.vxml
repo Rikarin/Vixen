@@ -395,9 +395,21 @@
             return;
         }
 
+        // ⚠ **`built is not null` is what tells an author's edit from a panel opening**, and that
+        // distinction is the whole of #1133. A link that has *moved* composes the graph as the
+        // material's surface — before this, linking a graph wrote the link and no feature, so the
+        // graph did nothing to the picture until a value was nudged. A link that was merely *read*
+        // when this panel opened composes nothing, because writing a feature there would dirty every
+        // material an author clicked through the browser.
+        var moved = built is not null;
+
         built = material.Header.Graph;
 
         material.ReadGraph();
+
+        if (moved) {
+            material.LinkGraph();
+        }
 
         while (GraphProperties.Children.Count > 0) {
             GraphProperties.Children[^1].Remove();

@@ -120,6 +120,175 @@ public class MaterialGraphPropertyTests {
         return new(harness.Project.Project, AssetId.New(), path);
     }
 
+    /// <summary>The guid the fixture's graph is scanned under.</summary>
+    static AssetId Linked => AssetId.Parse("0123456789abcdef0123456789abcdef");
+
+    /// <summary>The same project, with the graph in it and the material not yet pointed at it.</summary>
+    /// <remarks>
+    ///     ⚠ The link has to be <em>moved</em> for the composition under test to happen at all, so a
+    ///     fixture that opened an already-linked material could only ever exercise the panel-open
+    ///     branch — which is the branch that must compose nothing.
+    /// </remarks>
+    static MaterialDocument Unlinked(ViewHarness harness) {
+        harness.Project.WriteAsset(
+            "Assets/AuthoredSurface.vxshadergraph",
+            Graph(),
+            "guid: 0123456789abcdef0123456789abcdef\nmetaVersion: 1\n"
+        );
+
+        MaterialAsset asset = new() { Shader = "ForwardPlus" };
+        var path = harness.Project.WriteAsset("Assets/stone.vxmat", asset.ToYaml());
+
+        harness.Project.Project.Assets.Scan();
+
+        return new(harness.Project.Project, AssetId.New(), path);
+    }
+
+    /// <summary>⚠ Linking a graph composes the surface, and seeds none of its values.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1133">#1133</a>.</b> Nothing reads
+    ///         <c>MaterialAsset.Graph</c> at draw time — the surface is composed from the
+    ///         <c>GraphSurfaceFeature</c> alone — so a material naming a graph and carrying no feature
+    ///         drew as though it named nothing, and the first <c>SetGraphValue</c> was what composed
+    ///         the graph at all. The surface arrived as a side effect of moving a slider, and moving
+    ///         the slider back did not remove it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the composed feature carries no numbers, which is the half that would be
+    ///         wrong the other way.</b> A <c>GraphSurfaceNumber</c> entry <em>overrides</em> the
+    ///         generated shader's declared default, so a link that seeded one per property would
+    ///         replace every graph default with black — the exact trap <c>SetGraphValue</c> leaves an
+    ///         untouched property out for. The row count above it is the instrument: the graph
+    ///         declares two properties a material sets, so the emptiness below is a rule and not an
+    ///         empty graph.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void LinkingAGraphComposesTheSurfaceAndSeedsNoValues() {
+        using var harness = new ViewHarness();
+        var document = Unlinked(harness);
+
+        Assert.Null(document.Surface);
+
+        document.Header.Graph = Linked;
+        document.ReadGraph();
+
+        Assert.True(document.LinkGraph());
+
+        var source = Assert.IsType<ShaderGraphSource>(document.GraphSource);
+        var surface = Assert.IsType<GraphSurfaceFeature>(document.Surface);
+
+        Assert.Equal("AuthoredSurface", surface.Shader);
+        Assert.Equal(2, ShaderGraphMaterial.Values(source).Length);
+        Assert.Empty(surface.Numbers);
+        Assert.Empty(surface.Vectors);
+
+        // The maps are the half the link does owe the frame: `AssetMaterialSource.Pair` keys the
+        // bindless table on `{shader}.{chain}.{graph}.{slot}`, so a composed surface with no pairing
+        // samples the table's placeholder view for every texture the graph reads.
+        Assert.Equal("albedo", Assert.Single(surface.Maps).Texture);
+
+        // One undo step of its own, and it is the whole feature that goes.
+        Assert.True(document.Stack.Undo());
+        Assert.Null(document.Surface);
+        Assert.Empty(document.Material.Features);
+    }
+
+    /// <summary>⚠ Opening the panel on a material that already names a graph composes nothing.</summary>
+    /// <remarks>
+    ///     <b>The other half of #1133, and the reason the composition is not in <c>ReadGraph</c>.</b>
+    ///     A material is read whenever an author clicks it in the browser; writing a feature there
+    ///     would come back as an unsaved change on every material anyone looked at, and an editor
+    ///     that reports a document dirty for having been opened teaches its author to ignore the
+    ///     mark. So the rows are built and the file is untouched — asserted through
+    ///     <c>IsDirty</c> rather than through the feature alone, because a feature written and
+    ///     equal-by-value would still be a modified document.
+    /// </remarks>
+    [Fact]
+    public void OpeningThePanelOnALinkedMaterialComposesNothing() {
+        using var harness = new ViewHarness();
+        var document = Open(harness);
+        var view = harness.Ui.Document.Root.Add<MaterialView>();
+
+        view.Show(document);
+        harness.Ui.Frames(3);
+
+        // The instrument: the panel really did read the linked graph, so the emptiness below is a
+        // decision rather than a panel that failed to resolve anything.
+        Assert.Equal(2, view.GraphProperties.Children.Count);
+        Assert.Null(document.Surface);
+        Assert.False(document.IsDirty.Value);
+    }
+
+    /// <summary>⚠ Moving the link in the panel is what composes it — the caller that was missing.</summary>
+    /// <remarks>
+    ///     <b>Every other case here calls <c>LinkGraph</c> directly</b>, so all of them would pass
+    ///     against a method nothing in the editor calls — which is this repository's commonest defect
+    ///     and is precisely what #1126 was filed about. <c>Rebuild</c> is the panel-level restate that
+    ///     <c>HeaderView.ValueChanged</c> reaches when the asset row is edited; <c>Show</c> is not
+    ///     that path, because it says "nothing is built" and takes the panel-open branch above.
+    /// </remarks>
+    [Fact]
+    public void MovingTheLinkInThePanelComposesTheGraph() {
+        using var harness = new ViewHarness();
+        var document = Unlinked(harness);
+        var view = harness.Ui.Document.Root.Add<MaterialView>();
+
+        view.Show(document);
+        harness.Ui.Frames(3);
+
+        Assert.Empty(view.GraphProperties.Children);
+        Assert.Null(document.Surface);
+
+        document.Header.Graph = Linked;
+
+        view.Rebuild();
+        harness.Ui.Frames(3);
+
+        Assert.Equal(2, view.GraphProperties.Children.Count);
+
+        var surface = Assert.IsType<GraphSurfaceFeature>(document.Surface);
+
+        Assert.Equal("AuthoredSurface", surface.Shader);
+        Assert.Empty(surface.Numbers);
+        Assert.Empty(surface.Vectors);
+    }
+
+    /// <summary>⚠ Clearing the link drops the feature; a graph this branch has not got keeps it.</summary>
+    /// <remarks>
+    ///     <b>The two ways <c>GraphSource</c> comes back null want opposite answers.</b> A material
+    ///     that no longer names a graph while still carrying a feature naming one is a <c>.vxmat</c>
+    ///     the content build then has to resolve a surface for — the same class of file
+    ///     <c>ClearingTheLinkTakesTheRowsAndTheWritesWithIt</c> refuses to let the rows write. A graph
+    ///     that is missing from this checkout is not a decision at all, and dropping an author's
+    ///     values for it would lose work by opening a panel on the wrong branch.
+    /// </remarks>
+    [Fact]
+    public void ClearingTheLinkDropsTheFeatureAndAnAbsentGraphKeepsIt() {
+        using var harness = new ViewHarness();
+        var document = Open(harness);
+
+        Assert.True(document.SetGraphValue("roughness", new(0.5f, 0f, 0f, 0f)));
+        Assert.NotNull(document.Surface);
+
+        document.Header.Graph = AssetId.Parse("fedcba9876543210fedcba9876543210");
+        document.ReadGraph();
+
+        Assert.False(document.LinkGraph());
+        Assert.NotNull(document.Surface);
+
+        document.Header.Graph = AssetId.Empty;
+        document.ReadGraph();
+
+        Assert.True(document.LinkGraph());
+        Assert.Null(document.Surface);
+        Assert.Empty(document.Material.Features);
+
+        Assert.True(document.Stack.Undo());
+        Assert.Equal(0.5f, Assert.IsType<GraphSurfaceFeature>(document.Surface).Numbers[0].Value);
+    }
+
     /// <summary>A graph with a standalone master is named as one rather than called broken.</summary>
     /// <remarks>
     ///     <para>

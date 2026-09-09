@@ -20,28 +20,36 @@ namespace Vixen.Editor.ShaderGraph;
 ///         own, no second convention to keep in step.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Feature" /> has no production caller, and the sentence that used to be
-///         here named one that does not exist</b> —
-///         <a href="https://github.com/Rikarin/Vixen/issues/1126">#1126</a>. It said the zeros are
-///         "overwritten by a caller from the material it is importing"; there is no importer and no
-///         other caller, in <c>.cs</c> or in <c>.vxml</c>. <c>MaterialDocument.SetGraphValue</c> is
-///         the editor's only feature-writing path and cannot be it: a <c>GraphSurfaceNumber</c>
-///         entry <em>overrides</em> the generated shader's declared default, so writing every
-///         property out the moment a panel opened would replace every graph default with black.
-///         That panel therefore leaves an untouched property <em>out</em>, and this deliberately
-///         does not.
+///         ⚠ <b>A property the caller does not name is left <em>out</em> of the feature, and it used
+///         to be written at its type's zero</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1126">#1126</a>,
+///         <a href="https://github.com/Rikarin/Vixen/issues/1133">#1133</a>. A
+///         <c>GraphSurfaceNumber</c> entry <em>overrides</em> the generated shader's declared
+///         default, so a projection that wrote every declared property out replaced every graph
+///         default with black — this renderer's standing "zero looks like a valid value" trap. The
+///         zeros were justified by a "first composition" where no author intent existed to preserve;
+///         that moment turned out not to exist either, and a first composition wants the shader and
+///         the maps with <em>no</em> numbers at all, which is what this now returns for a caller
+///         that supplies none.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The "first composition" that would justify the zeros is not a moment this editor
-///         has.</b> <c>MaterialHeaderEdits.Graph</c> is a bare <c>[Inspector]</c> property: linking
-///         a graph to a material writes the link and no feature at all, and a material with no
-///         <see cref="GraphSurfaceFeature" /> does not compose the graph's surface — nothing else
-///         reads <c>MaterialAsset.Graph</c> at draw time. So the graph does nothing until an author
-///         nudges a value, and the call that fixes that wants no numbers rather than zeroed ones.
-///         ⚠ Neither half is covered: the one fixture that composes this — the golden
+///         ⚠ <b>So this and <c>MaterialDocument.SetGraphValue</c> are one rule rather than two</b>,
+///         which is what the old shape prevented: that panel had to leave an untouched property out
+///         and this deliberately did not, so the editor's only feature-writing path could not go
+///         through the join it exists to be. It does now, and the <c>uint</c> skip, the
+///         <c>float</c>/<c>float4</c> dispatch and the map join are written here once.
+///     </para>
+///     <para>
+///         ⚠ <b>The caller <see cref="Feature" /> was missing is the link moving</b>, not the panel
+///         opening — <c>MaterialDocument.LinkGraph</c>, called when an author points a material at a
+///         graph. <c>MaterialHeaderEdits.Graph</c> was a bare <c>[Inspector]</c> property whose write
+///         composed nothing, and a material with no <see cref="GraphSurfaceFeature" /> does not
+///         compose the graph's surface at all — nothing reads <c>MaterialAsset.Graph</c> at draw
+///         time — so a linked graph did nothing to the picture until an author nudged a value.
+///         ⚠ The golden could not have said so: the one fixture that composes this —
 ///         <c>GraphMaterialImageTests</c> — builds its surface from constants on the master node
-///         rather than property nodes, so <see cref="ShaderGraphSource.Properties" /> is empty and
-///         the picture cannot distinguish this projection from no projection at all.
+///         rather than property nodes, so <see cref="ShaderGraphSource.Properties" /> is empty for it
+///         and the picture cannot distinguish this projection from no projection at all.
 ///     </para>
 ///     <para>
 ///         <b>Here rather than in the importer</b>, because the names being joined are this
@@ -54,7 +62,7 @@ public static class ShaderGraphMaterial {
     /// <param name="source">The compiled graph.</param>
     /// <param name="values">
     ///     What the material sets, by the name the graph declares. A name the graph does not declare
-    ///     is ignored, and one the material does not set takes its type's zero.
+    ///     is ignored, and one the material does not set is left out of the feature entirely.
     /// </param>
     /// <returns>The feature.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="source" /> is null.</exception>
@@ -62,11 +70,21 @@ public static class ShaderGraphMaterial {
     ///     The graph is a standalone shader, which is not a thing a material can compose.
     /// </exception>
     /// <remarks>
-    ///     ⚠ <b>A standalone graph is refused rather than converted.</b> Its shader has stages,
-    ///     transforms and a <c>return</c>, and binding it into a <c>compose</c> slot typed
-    ///     <c>IMaterialSurface</c> is a Raven error about generated text — reported against a
-    ///     material whose author never saw that text and cannot act on it. The graph has the wrong
-    ///     master, and that is the sentence worth saying.
+    ///     <para>
+    ///         ⚠ <b>Omitted rather than zeroed, which is the whole of the difference.</b> The
+    ///         generated shader declares each property with the graph's own default and a feature
+    ///         entry overrides it, so a feature that names only what the material sets leaves every
+    ///         other default standing. That makes <c>Feature(source)</c> — no values — the honest
+    ///         shape of "compose this graph as it is authored", and it is what
+    ///         <c>MaterialDocument.LinkGraph</c> writes when a link moves.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A standalone graph is refused rather than converted.</b> Its shader has stages,
+    ///         transforms and a <c>return</c>, and binding it into a <c>compose</c> slot typed
+    ///         <c>IMaterialSurface</c> is a Raven error about generated text — reported against a
+    ///         material whose author never saw that text and cannot act on it. The graph has the
+    ///         wrong master, and that is the sentence worth saying.
+    ///     </para>
     /// </remarks>
     public static GraphSurfaceFeature Feature(
         ShaderGraphSource source,
@@ -94,7 +112,12 @@ public static class ShaderGraphMaterial {
                 continue;
             }
 
-            var value = values is not null && values.TryGetValue(property.Name, out var set) ? set : Vector4.Zero;
+            // ⚠ Left out rather than written at zero — #1126, #1133. The shader declares this
+            // property with the graph's own default and an entry here *overrides* it, so writing a
+            // property the material never set replaces that default with black.
+            if (values is null || !values.TryGetValue(property.Name, out var value)) {
+                continue;
+            }
 
             switch (property.Type) {
                 case "float":
@@ -130,12 +153,13 @@ public static class ShaderGraphMaterial {
     /// <exception cref="ArgumentNullException"><paramref name="source" /> is null.</exception>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>Public because <see cref="Feature" /> is not the only thing that has to build
-    ///         one</b> — <c>MaterialDocument.SetGraphValue</c> writes a feature an author is editing
-    ///         a value on, and that one cannot go through <see cref="Feature" />: it must leave a
-    ///         property the author has not touched <em>out</em> of the feature, where
-    ///         <see cref="Feature" /> writes every declared property at its type's zero and so would
-    ///         replace every graph default with black the moment a panel opened.
+    ///         ⚠ <b>Public because a feature's maps outlive the compilation that first wrote
+    ///         them.</b> <c>MaterialDocument.SetGraphValue</c> now goes through
+    ///         <see cref="Feature" /> for the values — the two rules were reconciled in #1126 — but
+    ///         it still keeps the maps a material already carries when the shader has not changed,
+    ///         because a <c>.vxmat</c> may name a texture of its own against a slot and re-deriving
+    ///         them would quietly discard that. This is what seeds them when there is nothing to
+    ///         keep.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The maps are the half those two do agree on, and they were two spellings of one
