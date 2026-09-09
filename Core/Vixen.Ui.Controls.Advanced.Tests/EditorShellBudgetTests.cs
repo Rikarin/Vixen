@@ -252,6 +252,128 @@ public class EditorShellBudgetTests {
         Assert.True(elements < 10_000, $"the shell holds {elements} elements for {EditorShellScene.Rows} rows");
     }
 
+    /// <summary>
+    ///     The instrument the budget below is read through: a busy neighbour cannot move this
+    ///     thread's allocation counter, not even by collecting.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Verify the instrument first, and this is the one question #992 asks that no
+    ///         amount of re-running the budget can answer.</b> That issue's whole case is that the
+    ///         red is not a proof — "8 120 bytes over ten frames is real allocation <i>somewhere in
+    ///         the process</i>, and whatever it reads is a thread-local counter that a test class
+    ///         running in parallel beside it can move". If that were true the bound below would be a
+    ///         gate whose failure means nothing, and no number of green runs would show it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is false twice over, and the second half is the one that had not been
+    ///         measured.</b> A neighbour thread's allocations land in that thread's own allocation
+    ///         context and cannot reach this one — which was argued from the API's contract. But a
+    ///         neighbour's <em>collection</em> is not confined to a thread at all: a GC retires every
+    ///         allocation context on the heap, this one included, and "the accounting jumps when a
+    ///         busy neighbour forces a gen-0" is exactly the shape that would fail under load and
+    ///         pass alone. So it is measured rather than reasoned about, and the answer is zero
+    ///         across every window in which collections were observed.
+    ///     </para>
+    ///     <para>
+    ///         <b>Ordered by work, never by time.</b> The window closes when a fixed number of gen-0
+    ///         collections have been <em>observed</em> — not after a sleep, which is the calibration
+    ///         this repository files every flake under — and the iteration ceiling is a hang check
+    ///         rather than a bound, which its own message says.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing is asserted inside the measured window</b>, for the reason the budget
+    ///         test records: a passing <c>Assert</c> is still a call this loop cannot afford to be
+    ///         wrong about, and a failing one allocates its message. The readings go into an array
+    ///         made before the window and are read afterwards.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_neighbours_allocation_and_collection_cannot_move_this_threads_counter() {
+        // Enough collections that a per-collection jump could not hide, and few enough that the
+        // neighbour is a neighbour rather than the test.
+        const int Collections = 8;
+
+        // ⚠ A hang check and not a budget: the neighbour below forces a gen-0 on every pass, so ten
+        // thousand windows without eight of them means the thread never started, not that the machine
+        // is slow.
+        const int Ceiling = 10_000;
+
+        var readings = new long[Ceiling];
+        var observed = new int[Ceiling];
+        var running = true;
+        var windows = 0;
+
+        var neighbour = new Thread(() => {
+            while (Volatile.Read(ref running)) {
+                for (var i = 0; i < 2_000; i++) {
+                    _ = new byte[1024];
+                }
+
+                GC.Collect(0, GCCollectionMode.Forced, blocking: false);
+            }
+        }) { IsBackground = true };
+
+        // Warmed, so that nothing in the window below is a first call.
+        _ = GC.GetAllocatedBytesForCurrentThread();
+        _ = GC.CollectionCount(0);
+
+        neighbour.Start();
+
+        try {
+            var start = GC.CollectionCount(0);
+
+            while (windows < Ceiling) {
+                var collections = GC.CollectionCount(0);
+                var before = GC.GetAllocatedBytesForCurrentThread();
+
+                // The measured thread's own work, which allocates nothing by construction — the
+                // point is that its counter stays put while the neighbour churns the heap.
+                Thread.SpinWait(20_000);
+
+                readings[windows] = GC.GetAllocatedBytesForCurrentThread() - before;
+                observed[windows] = GC.CollectionCount(0) - collections;
+                windows++;
+
+                if (GC.CollectionCount(0) - start >= Collections) {
+                    break;
+                }
+            }
+        } finally {
+            Volatile.Write(ref running, false);
+            neighbour.Join();
+        }
+
+        var collected = 0;
+        var moved = 0;
+
+        for (var i = 0; i < windows; i++) {
+            collected += observed[i];
+
+            if (readings[i] != 0) {
+                moved++;
+            }
+        }
+
+        // ⚠ First, because it is the premise. A run in which the neighbour never collected has
+        // measured the quiet case and proved nothing about the loud one — the vacuous pass this
+        // whole test exists to make impossible.
+        Assert.True(
+            collected >= Collections,
+            $"only {collected} gen-0 collection(s) happened inside {windows} measured window(s), so "
+            + "the neighbour never got going and this asserted nothing about a busy machine"
+        );
+
+        Assert.True(
+            moved == 0,
+            $"{moved} of {windows} windows saw this thread's allocation counter move while it "
+            + $"allocated nothing and a neighbour forced {collected} collections. "
+            + "GC.GetAllocatedBytesForCurrentThread is therefore NOT immune to a busy machine, and "
+            + $"the zero bound in {nameof(A_settled_frame_allocates_nothing)} is a gate whose red "
+            + "proves nothing — fix that before reading its next failure (#992)."
+        );
+    }
+
     /// <summary>A settled frame allocates nothing at all — the advanced set included.</summary>
     /// <remarks>
     ///     <para>
@@ -312,6 +434,18 @@ public class EditorShellBudgetTests {
     ///         <c>UiDocument.Fonts</c> is per document, <c>EdgePool</c> is <c>[ThreadStatic]</c>, and
     ///         the Ui stack's only <c>ArrayPool&lt;T&gt;.Shared</c> is in a control this scene does
     ///         not build.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the half of that refutation which had only been argued is measured now.</b> A
+    ///         neighbour's <em>collection</em> is not confined to a thread the way its allocations
+    ///         are — a GC retires every allocation context, this one included — so "the accounting
+    ///         jumps when a busy neighbour forces a gen-0" was still a live reading of a failure seen
+    ///         under load and never alone.
+    ///         <see cref="A_neighbours_allocation_and_collection_cannot_move_this_threads_counter" />
+    ///         is that experiment kept: a thread that allocates nothing reads exactly zero across
+    ///         every window in which a neighbour forced collections. So the counter is sound, this
+    ///         bound's red is a proof, and #992's 8 120 bytes were bytes this thread really
+    ///         allocated. The bound is not widened, for the second time.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>What was genuinely unproved is that the measured frames were settled at all.</b>
