@@ -54,7 +54,7 @@ public sealed class BehaviorStateAnalyzer : DiagnosticAnalyzer {
     const string TagComponentMetadataName = "Vixen.Ecs.ITagComponent";
     const string WorldMetadataName = "Vixen.Ecs.World";
 
-    /// <summary>How far into an array, a generic's type arguments or a struct's fields a held type is looked for.</summary>
+    /// <summary>How far into an array, a generic's arguments or a struct's fields a held type is looked for.</summary>
     /// <remarks>
     ///     A <c>List&lt;Entity&gt;</c> is the case the document names and a
     ///     <c>Dictionary&lt;int, List&lt;Entity&gt;&gt;</c> is the same thing said twice. The bound
