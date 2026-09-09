@@ -711,8 +711,59 @@ Three rules the whole catalogue obeys:
 | **Shape** | grey | disc · square · triangle · paraboloid · gaussian · cone · half-bell · gradation, scale, rotation, falloff | The splatter's usual pattern input. Analytic rather than rasterised, so it is exact at every resolution — which is half of D8's scale-invariance criterion passing for free |
 | **Noise** | grey **+ cell id** | basis: value · gradient · worley · white; octaves, lacunarity, gain, **seed**, tiling | ⚠ One kernel with the basis as a **uniform** and a branch — this row said *permutation* from the day the document was written and [#638](https://github.com/Rikarin/Vixen/issues/638) is where the reversal is argued. A texture-graph plan has nowhere to put a permutation value, so one written here would take its `.rvn` default in every op for ever, silently; and the branch is the better answer anyway, because four bases times three storable formats is twelve modules for a branch every invocation in a bandwidth-bound dispatch takes the same way. `TextureKernelLanguageSeamTests` refuses a `[Permutation]` in any kernel, so the decision is held rather than remembered. Worley also outputs F1, F2 and a **cell index** — which is what a splatter wants and what saves a flood fill downstream |
 | **Checker** | grey | scale, rotation, offset | `ComputeColor.Checker` has one already, for the shader graph — and `Checker.rvn` **transcribes** its fold rather than calling it, and no longer because it cannot — `ComputeColor.Checker` takes a uv and a scale and has no rotation or offset, so the call would pass the identity for its only parameter ([#1077](https://github.com/Rikarin/Vixen/issues/1077)). The copy is held: the gate reads `mod(cell.x + cell.y, 2f)` out of the library and requires the kernel to contain it |
-| **Text** | grey | string, font, size, alignment, tracking | ⚙️ **Half built.** `TextureText.Rasterize` shapes and fills the string through the `Outlines` path and `TextureUploads.AddCoverage` puts it on the device — closed on an adapter, texel for texel, in `TextureTextDeviceTests`. ⚠ **There is still no node, and the reason recorded here has expired.** It said a node cannot allocate an *external* image ([#732](https://github.com/Rikarin/Vixen/issues/732), shared with `Bitmap`, `Gradient`, `Curve` and `Gradient Map`). That closed: `TextureEmitter.External` exists and all four of those nodes were written on it. So `Text` is now simply **unwritten** rather than blocked, which is a smaller and more actionable thing to say — and worth saying, because a row that keeps citing a closed issue is how work stays unclaimed. ⚠ And it is **not** a kernel — [#687](https://github.com/Rikarin/Vixen/issues/687) — because a compute kernel has no rasteriser and cannot reach a font |
+| **Text** | grey | string, font, size, alignment, tracking | ⚙️ **Half built, and the half that was a decision is decided.** `TextureText.Rasterize` shapes and fills the string through the `Outlines` path and `TextureUploads.AddCoverage` puts it on the device — closed on an adapter, texel for texel, in `TextureTextDeviceTests`. What is left is a node, and the font it draws with is answered below rather than deferred again. ⚠ It is **not** a kernel — [#687](https://github.com/Rikarin/Vixen/issues/687) — because a compute kernel has no rasteriser and cannot reach a font |
 | **Svg Path** | grey | path data (`d`), fill rule, scale | ⛔ **Refused here on one remaining reason of the three first written down.** The closure measurement was wrong, the fill rule is now implemented, and what is left is a compile surface — see below |
+
+#### `Text`'s font is decided: the host resolves it at fill time, and a compilation never carries a glyph
+
+[#687](https://github.com/Rikarin/Vixen/issues/687) left two shapes open — *a face this assembly
+ships*, with `Compile` baking the coverage into the plan the way `TextureTables.Ramp` bakes a strip,
+or *a reference a host resolves*, the way `Source/Bitmap`'s asset is. It is the second, and it is
+written out here rather than left in an issue for the reason M11's four answers are: an agent picking
+it up needs the answer before writing a line.
+
+**What decides it is a size, and it is a measurement neither the issue nor `TextureText` had.** A
+ramp is 256×1, which is why baking one inside `Compile` costs nothing. A line of text *is* the
+picture: `TextureText.Rasterize` allocates `float[width × height]` and an `ImmutableArray<byte>` is
+built beside it for `TextureGraphExternal.Texels`. `TextureGraphDocument.BaseWidth` is **1024** by
+default, `TextureGraphSettings.Extent` puts **no ceiling** on what a graph may declare, and
+`TextureGraphPreview.Evaluate` compiles at that size **on every edit** — its own remarks say "a pane
+re-evaluated on every edit". So the bytes-carrying external is 4 MB per keystroke at the default and
+67 MB at 4K, set by a number an author types. ⚠ **Not the node previews**, which compile at
+`TextureGraphPreviews.Size` = 64 and would notice nothing — a claim about the panel written as though
+it were about every compilation would be the inverse mistake and is worth naming, because the cheap
+half is the one an agent measures first.
+
+**Which face, when the node names none — the host's default, and the editor already has a production
+one.** "No face reaches this assembly" has stood since batch 5 and is a statement about a
+*compilation's reference set*: the only face in reach is an `EmbeddedResource` of this assembly's own
+**test** project. It is not a statement about the running editor. `Vixen.Editor.App`'s
+`Fonts.Install` registers Open Sans on the shell's `UiDocument` and sets it as `Fonts.Default`, in
+the same process that hosts the texturing plugin. A *named* face is an imported `.ttf` read out of
+the project's assets exactly as a bitmap is; a headless bake with neither answers with a refusal
+sentence, which is what it already gives for a `Source/Bitmap` it cannot read.
+
+**Three pieces are owed and every other one exists:**
+
+- **The reference carries a scheme — `text:`.** `TextureProjectImages.SchemeOf` already refuses a
+  scheme with a sentence naming what supplies it, beside `meshmap:` and `vxpaint:`, so
+  `vixen texture bake` says what it cannot do instead of reporting a missing file.
+- **`TextureEmitter` owes one overload.** Its two are *asset-named, size unknown* and *bytes, size
+  known*; a `Text` external is **asset-named and size known**, because the node's extent is the
+  plan's own level. `TextureGraphCompiler.External` already takes an asset *and* a size in one call,
+  and the two emitter overloads each drop one of them — so only the public
+  door is missing.
+- **The fill belongs here and only the face belongs to the host.** `TextureProjectImages` is the
+  precedent: the six steps live in this assembly, and the caller supplies the one thing only it can
+  answer — a decoder there, a `FontFace` here. The node's other four parameters travel with the
+  entry, so no host re-reads a node's settings and no second answer to "what does tracking mean" gets
+  created.
+
+⚠ **What this deliberately does not do is put the face on the compiler.** `SubGraphSource` is the
+precedent for a host-supplied service on `TextureGraphCompiler` and it would work — and it would make
+a compilation's *output* depend on a live font registry, so one graph would compile to different
+bytes in the editor and in the content build. D5's purity is what stops that, and it is worth more
+than the one indirection it costs.
 
 ⚠ **`Svg Path`'s refusal, re-derived — and the closure argument it rested on does not survive.**
 Batch 5 refused the node on a measurement: `Core/Vixen.Ui`'s project closure at 20 against
@@ -954,7 +1005,7 @@ The same catalogue question for the other front end (§ D10), listed here so it 
 | Compute kernels | **41**, and it is the *sum of the seven headings above* rather than a number kept here: [4.1](#41-sources--6-kernels-and-two-that-cannot-be) 6 · [4.2](#42-colour-and-channels--9-kernels) 9 · [4.3](#43-space--5-kernels) 5 · [4.4](#44-filters--11-kernels) 11 · [4.5](#45-analysis--3-kernels) 3 · [4.6](#46-surface--5-kernels-and-one-cpu-solve) 5 · [4.7](#47-placement--2-kernels) 2. ⚠ **Not 44, and the three that came off are the three rows below.** That arithmetic counted every *row* of every table as a kernel while three of those rows said in their own cells that they are not compute shaders. Change a heading and this changes with it, which is the only reason it is allowed to stay: there is nothing here to keep in step separately |
 | Node classes | ⚠ **Deleted, because this is the number the document could not keep.** It has read **49** (= 44 + 5, both wrong), then **46** (= 41 + § 4.8's five) — and 46 is wrong in a way that is worth stating, because it is wrong *by this table's own prose*: § 4.8 says three of its five are not classes in this assembly, and § D6's `Pixel Processor` is a class Part 4 deliberately never lists. What the catalogue actually implies is a **rule**, not a total: one class per kernel, plus one for each catalogue entry that is not a kernel, plus § D6's. **The number itself lives in the registry** — `NodeTypes`, reconciled against the kernel folder by `TextureNodeLibraryTests.Every_kernel_has_a_node_or_a_written_reason_not_to` — and its reading of the day is reported in [`docs/overview.md`](../overview.md) § 1.11. Three successive batches each corrected this cell into a different wrong number; a number a document cannot keep is worse than no number |
 | Not a kernel | One: `Normal → Height`, on the CPU, by exception — **built**, and declared in `TextureKernels.Cpu.cs` so that the roll calls can name the category rather than reading it as a kernel whose `.rvn` went missing |
-| Not a kernel and not an op | One: `Text`, which is CPU pixels *uploaded* rather than an op of any kind — `TextureText` + `TextureUploads.AddCoverage`. ⚠ It has no node, and no longer for a reason: [#732](https://github.com/Rikarin/Vixen/issues/732) closed and § 4.1's row says what is left |
+| Not a kernel and not an op | One: `Text`, which is CPU pixels *uploaded* rather than an op of any kind — `TextureText` + `TextureUploads.AddCoverage`. ⚠ It has no node, and the font that was the reason is decided: § 4.1's subsection names the three pieces that remain |
 | Not a kernel and not built | One: `Svg Path`, refused — the measurement is under [4.1](#41-sources--6-kernels-and-two-that-cannot-be) and [#753](https://github.com/Rikarin/Vixen/issues/753) carries where it should live instead |
 | Shipped compounds | ⚠ **Also deleted, and for a sharper version of the same reason.** This cell read **24 ●** while [§ 4.9](#49-the-compound-library--content-not-code) carried **34** ● marks — one of which ("a family of eight ●") stood for eight, and five of which are `.vxsmartmat` smart materials rather than compounds. So the cell and the list it summarised could not both be read the same way by anybody, and no single number was ever right for both. ⚠ **The list has since been made countable and the cell still does not come back**: § 4.9 names its grunges, so its marks and its compounds are the same 35 — but a number written here would be a fourth reading of a list three readings already got wrong, and `TextureCompoundLibraryTests` asks § 4.9 for the names rather than this table for a total. The ● in § 4.9 is the mark, [M10](#m10--the-library-smart-materials-and-export--10-em) is the phase that ships them, and what is in the tree on any given day is `TextureCompoundLibrary`'s and [`docs/overview.md`](../overview.md)'s |
 
@@ -1032,6 +1083,29 @@ Each is a branch, merged as it lands, with the affected suites run before the me
 ⚠ D1's shader-gate finding is filed separately as
 [#564](https://github.com/Rikarin/Vixen/issues/564), because it is a defect in a gate that exists
 today rather than work this document creates.
+
+#### What this document still owes, measured against the tree on 2026-09-09
+
+**M0–M10 are closed and three things are left, and only one of them is a milestone.** **M11**
+([#576](https://github.com/Rikarin/Vixen/issues/576)) is [#1073](https://github.com/Rikarin/Vixen/issues/1073)
+and is owed *content*: a mesh with a real 0..1 unwrap under `Samples/`, a hand-authored RGBA splat
+map beside it, and a `.vxmat` carrying `TexturedMaterialLayersFeature` — the code has been there
+since 2026-09-07 and is photographed by
+`Platform/Vixen.Graphics.Golden.Tests/LayeredMaterialImageTests`, so what the asset owes is a case in
+*that* file over the shipped material rather than over a fixture, against the half-red / half-green
+closed form § M11 writes out. § 4.1's **`Text`** ([#687](https://github.com/Rikarin/Vixen/issues/687))
+is owed a node: `TextureText.Rasterize` and `TextureUploads.AddCoverage` are closed on a device by
+`Editor/Vixen.Editor.TextureGraph.Tests/TextureTextDeviceTests`, the font is decided above, and the
+three pieces left are a `text:` scheme, one `TextureEmitter.External` overload and a fill helper —
+whose test is a compiler assertion in that same suite, because a plan is a value. § 4.1's
+**`Svg Path`** is **refused**, not owed, on one surviving reason — what this assembly may *spell* —
+and [#753](https://github.com/Rikarin/Vixen/issues/753) carries where it should live instead, behind
+[#720](https://github.com/Rikarin/Vixen/issues/720)'s split. ⚠ **Everything else open under the
+`material-authoring` label is a defect found while building this, not a box of this document** — and
+two of them are worth naming here because they are about the same seam M11 is: a layered material has
+no route to a baked occlusion map at all ([#1130](https://github.com/Rikarin/Vixen/issues/1130)), and
+no editor verb packs painted masks into a splat map ([#1124](https://github.com/Rikarin/Vixen/issues/1124)),
+which is precisely why #1073's map is hand-authored and why hand-authoring it does not wait on either.
 
 ### M0 — The spike · 0.5 EM
 

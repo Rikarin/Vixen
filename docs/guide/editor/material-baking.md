@@ -92,8 +92,19 @@ black and shades. The absent values are read off the runtime features' own defau
 `OcclusionFeature.OcclusionMap` for occlusion, and `MetalRoughnessFeature`'s roughness and metalness
 for the other two.
 
-⚠ **One of the nine binds to nothing, and is written anyway.** A mask is § 4.10's input to another
-graph or to a layer stack, and a material never samples one.
+⚠ **One of the nine binds to nothing on every material, and is written anyway.** A mask is § 4.10's
+input to another graph or to a layer stack, and a material never samples one.
+
+⚠ **And on a *layered* material, four more of them bind to nothing — the table above is the plain
+case.** A material carrying a `TexturedMaterialLayersFeature` gets no base surface composed behind it
+(the layered surface *is* the base surface) and, since 2026-09-09, no `TexturedOrmFeature` either —
+that feature assigns `d.perceptualRoughness` and re-splits the albedo by metalness, over per-layer
+values the author's surface has already answered. So `MaterialBake.Material` returns a null parameter
+for `baseColor` **and** for the three usages that share the packed map, and a re-bake of a layered
+material writes those files and names none of them in `textures:`. ⚠ **The cost is occlusion**, which
+has no other carrier and which a layered surface does not write, so a baked AO map has no route onto
+one of these materials at all — [#1130](https://github.com/Rikarin/Vixen/issues/1130), filed rather
+than answered by re-composing ORM.
 
 ⚠ **The height map's name is the author's answer and not the target's, which is why it is not in the
 naming table.** A material that carries `ParallaxOcclusionFeature` gets its height output bound to
