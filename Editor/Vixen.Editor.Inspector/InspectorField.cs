@@ -75,7 +75,7 @@ public sealed class InspectorField : EditProperty {
             }
 
             foreach (var target in Objects) {
-                if (!Equals(initial, Member.GetBoxed(target))) {
+                if (!Member.AreEqual(initial, Member.GetBoxed(target))) {
                     return true;
                 }
             }

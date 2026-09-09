@@ -81,7 +81,7 @@ public class EditProperty {
         var first = Member.Read(Objects[0]);
 
         for (var index = 1; index < Objects.Count; index++) {
-            if (!Equals(first, Member.Read(Objects[index]))) {
+            if (!Member.AreEqual(first, Member.Read(Objects[index]))) {
                 return new(null, true);
             }
         }
@@ -112,7 +112,7 @@ public class EditProperty {
 
         var current = Read();
 
-        if (!current.IsMixed && Equals(current.Value, value)) {
+        if (!current.IsMixed && Member.AreEqual(current.Value, value)) {
             return false;
         }
 
@@ -164,7 +164,7 @@ public class EditProperty {
                 continue;
             }
 
-            if (Equals(Member.Read(target), values[index])) {
+            if (Member.AreEqual(Member.Read(target), values[index])) {
                 continue;
             }
 

@@ -113,11 +113,12 @@ public class DrawerTests {
     }
 
     /// <summary>
-    ///     ⚠ <b>Two objects whose curves are identical are not a mixed selection, and until this
-    ///     landed every one of them was.</b> <c>EditProperty.Read</c> compares with
-    ///     <c>Equals(object, object)</c>, which for a type with no equality is reference identity —
-    ///     and a member initialised <c>= AnimationCurve.Linear()</c> gives each instance its own
-    ///     object. So the row was mixed the moment a second thing was selected, whatever it held.
+    ///     ⚠ <b>Two objects whose curves are identical are not a mixed selection, and this test used
+    ///     to assert that <c>EditProperty.Read</c> still said they were.</b> The drawer answered the
+    ///     question for itself and left the pipeline holding the old answer — reference identity, so
+    ///     a member initialised <c>= AnimationCurve.Linear()</c> made the row mixed the moment a
+    ///     second thing was selected, whatever it held. <c>OwnedValues</c> moved the premise: the
+    ///     comparison is the member type's now, and the line below flipped with it (#443).
     /// </summary>
     [Fact]
     public void Two_objects_holding_the_same_curve_are_not_a_mixed_selection() {
@@ -129,7 +130,7 @@ public class DrawerTests {
 
         // Distinct objects with identical keys, which is what a field initializer produces.
         Assert.NotSame(first.Amplitude, second.Amplitude);
-        Assert.True(new InspectorField(Water, Member("Amplitude"), [first, second]).Read().IsMixed);
+        Assert.False(new InspectorField(Water, Member("Amplitude"), [first, second]).Read().IsMixed);
 
         var field = new InspectorField(Water, Member("Amplitude"), [first, second]);
         var drawer = (IPropertyDrawer) new CurveDrawer();

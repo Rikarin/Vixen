@@ -53,7 +53,10 @@ public sealed class PropertyClipboard {
             return false;
         }
 
-        Value = value;
+        // ⚠ A copy rather than the object itself, for an owned type. The clipboard outlives the
+        // selection it was taken from, so holding the live instance would let an edit made after the
+        // copy travel into the paste — "copy, change your mind, paste" would paste the change.
+        Value = OwnedValues.Copy(field.Member.MemberType, value);
         ValueType = field.Member.MemberType;
         SourceName = field.Member.DisplayName;
 
@@ -79,10 +82,35 @@ public sealed class PropertyClipboard {
             return false;
         }
 
-        var changed = field.Write(Value);
+        var changed = Write(field);
         field.Seal();
 
         return changed;
+    }
+
+    /// <summary>Puts the clipboard's value on every object the field reaches.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One copy per object for an owned type, and one <c>EditProperty.Write</c>
+    ///     would have been an aliasing bug rather than a preference.</b> A single write puts the
+    ///     <i>same instance</i> on every selected object, so editing any one of them afterwards
+    ///     silently edits all of them — and the clipboard is holding that instance too. Twenty
+    ///     distinct copies is the only reading of "paste this into all of them" that survives the
+    ///     next edit. For anything else — a value type, a string, a reference to an asset — the
+    ///     instance <i>is</i> the value and <c>OwnedValues.Copy</c> hands it straight back, so this
+    ///     is the same write it always was.
+    /// </remarks>
+    bool Write(InspectorField field) {
+        if (!OwnedValues.IsOwned(field.Member.MemberType)) {
+            return field.Write(Value);
+        }
+
+        var written = new object?[field.Objects.Count];
+
+        for (var index = 0; index < written.Length; index++) {
+            written[index] = OwnedValues.Copy(field.Member.MemberType, Value);
+        }
+
+        return field.WriteEach(written);
     }
 
     /// <summary>Forgets what was copied.</summary>

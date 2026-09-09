@@ -42,6 +42,30 @@ public interface IEditMember {
     /// </remarks>
     bool CoalescesEdits { get; }
 
+    /// <summary>Whether two of this member's values count as the same value.</summary>
+    /// <param name="left">One value, boxed.</param>
+    /// <param name="right">The other, boxed.</param>
+    /// <returns>Whether writing one over the other would change anything.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The default is <see cref="object.Equals(object, object)" />, which for a type
+    ///         with no equality override is <i>reference identity</i> — and that is wrong for every
+    ///         member the inspector edits in place.</b> A member initialised
+    ///         <c>= new AnimationCurve()</c> gives each instance its own object, so two objects
+    ///         holding identical curves read as mixed the moment they are selected together, never
+    ///         de-duplicate a write, and light their reset affordance permanently. The comparison
+    ///         belongs to the <i>member</i> rather than to the type: an editable model value is
+    ///         mutable, raises <c>Changed</c> and lives in a <c>HashSet</c> inside its editor's
+    ///         selection, so giving it <c>Equals</c> and a matching <c>GetHashCode</c> is how a
+    ///         selection stops containing the key that is being dragged.
+    ///     </para>
+    ///     <para>
+    ///         Defaulted so that an implementation outside this repository — a graph port, a settings
+    ///         row, a plugin's own member — gets the old behaviour without knowing this exists.
+    ///     </para>
+    /// </remarks>
+    bool AreEqual(object? left, object? right) => Equals(left, right);
+
     /// <summary>Reads it, boxing a value type.</summary>
     /// <param name="owner">What to read it from.</param>
     /// <returns>Its value.</returns>

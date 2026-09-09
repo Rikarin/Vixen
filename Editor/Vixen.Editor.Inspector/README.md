@@ -228,14 +228,34 @@ with the same tangents and mode. Disagreement is **not per-key**: two curves wit
 counts have no third key to call mixed, so there is nothing between "the same curve" and "not". The
 row is mixed or it is not.
 
-⚠ **Compared key by key rather than by `EditProperty.Read`, and that is a fix rather than a
-preference.** `Read` compares with `Equals(object, object)`, which for a type with no equality is
-reference identity — and `AnimationCurve` has none. A member written `= AnimationCurve.Linear()`
-gives every instance its own object, so *every* multi-selection read as mixed whatever it held, and
-`IsModified` was permanently true beside it. The comparison lives in the drawer rather than on the
-type on purpose: an `AnimationCurve` is edited in place, raises `Changed`, and its keys sit in a
-`HashSet` inside `CurveEditor`'s selection — value equality on a mutable model obliges a hash code,
-and a hash that moves when a key is dragged takes the dragged key out of the set tracking it.
+⚠ **Compared key by key, and that comparison is the member type's rather than the drawer's.** `Read`
+used to compare with `Equals(object, object)`, which for a type with no equality is reference
+identity — and `AnimationCurve` has none. A member written `= AnimationCurve.Linear()` gives every
+instance its own object, so *every* multi-selection read as mixed whatever it held, and `IsModified`
+was permanently true beside it. Fixing that inside `CurveDrawer` fixed one row and left `Read`,
+`Write`, `WriteEach` and `IsModified` still comparing by identity behind its back; `IEditMember`
+carries an `AreEqual` now and all four ask it. Still not `Equals` on the type: an `AnimationCurve` is
+edited in place, raises `Changed`, and its keys sit in a `HashSet` inside `CurveEditor`'s selection —
+value equality on a mutable model obliges a hash code, and a hash that moves when a key is dragged
+takes the dragged key out of the set tracking it.
+
+### Owned values, and why a reference-typed row is two different rows
+
+⚠ **A reference-typed member is one of two things and the type alone does not say which.** A
+*reference* — a material, an asset, another object — is shared on purpose: pasting one into twenty
+objects so all twenty point at the same thing is what the row is for. An *owned* value — an
+`AnimationCurve`, a `Gradient` — is a model the row edits in place, and twenty objects sharing one
+instance is not "they all have the same curve" but "editing any of them edits all of them", silently,
+for the rest of the session.
+
+`OwnedValues` is the list of the second kind, and registering there is the whole declaration: values
+of an owned type compare structurally, and every object gets its own copy on a write. Anything
+unregistered keeps `Equals` and keeps sharing the instance, which is the right answer for a
+reference, for every value type and for a string. ⚠ **Copy/paste took the second half late**:
+`PropertyClipboard.Paste` was one `Write`, so pasting a curve aliased every selected object to the
+clipboard's own instance — the aliasing `CurveDrawer` had already fixed for the editing path and not
+for this one ([#443](https://github.com/Rikarin/Vixen/issues/443)). The clipboard holds a copy too,
+so an edit made after the copy does not travel into the paste.
 
 **A mixed curve shows an empty graph and stays editable.** Empty rather than one of them: showing
 the first object's curve has the user editing "the" curve while looking at one arbitrary object's,
