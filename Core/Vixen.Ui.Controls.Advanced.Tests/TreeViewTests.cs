@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
+using Vixen.Core.Imaging;
 using Vixen.Input;
+using Vixen.Ui.Testing;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Styling;
 using Xunit;
@@ -545,5 +547,166 @@ public class TreeViewTests {
             var tree = ctx.Child<TreeView>(null);
             ctx.Changed(tree, "Selection", () => tree.Selection, static _ => { });
         }
+    }
+
+
+    /// <summary>A tree with one folder holding one child, both rows on screen.</summary>
+    static TreeView Nested(AdvancedFixture fixture) {
+        var tree = fixture.Add<TreeView>();
+        var folder = tree.Root.Add("folder");
+        folder.Add("inside");
+
+        tree.Expand(folder);
+        tree.Refresh();
+        fixture.Update();
+
+        return tree;
+    }
+
+    /// <summary>Drags the row at <paramref name="from" /> and leaves the pointer over <paramref name="to" />.</summary>
+    static void DragOver(AdvancedFixture fixture, TreeRow from, float toX, float toY) {
+        // ⚠ Well clear of the chevron. `TreeView.Pointed` gives the press to the chevron rather than
+        // to the row, so pressing 20 px in COLLAPSES the folder being dragged — the child row
+        // vanishes, `RowAt` finds nothing over it, and the test measures an empty area while
+        // reporting a cycle.
+        fixture.Press(from.Bounds.X + 60f, from.Bounds.Y + 4f);
+
+        // Twice: the first move is what crosses the slop threshold and starts the drag, the second
+        // is the one `Track` answers. One move reports `Started` and hit-tests the source row.
+        fixture.Move(toX, toY);
+        fixture.Move(toX, toY);
+    }
+
+    [Fact]
+    public void A_drop_that_would_make_a_cycle_is_refused_out_loud_and_an_empty_area_is_not() {
+        using var fixture = new AdvancedFixture();
+        var tree = Nested(fixture);
+
+        var folder = tree.Rows[0];
+        var inside = tree.Rows[1].Bounds;
+
+        DragOver(fixture, folder, inside.X + 20f, inside.Y + (inside.Height * 0.5f));
+
+        // ⚠ Shown, and shown as a refusal. Hiding it said no with an ABSENCE, which is the same
+        // picture as the pointer being over nothing at all — the interaction a person repeats three
+        // times before deciding the tree is broken.
+        Assert.False(tree.DropIndicator.HasClass("hidden"));
+        Assert.True(tree.DropIndicator.HasClass("refused"));
+
+        // Over the whole illegal row, because "before" and "after" are not on offer: the answer is
+        // about the row and a two-pixel line at one edge would be answering a different question.
+        Assert.Equal(inside.Height, tree.DropIndicator.Height, 1);
+
+        // And still nothing happens on release. The picture is the only thing that changed.
+        fixture.Release(inside.X + 20f, inside.Y + (inside.Height * 0.5f));
+        Assert.Same(tree.Root.Children[0], tree.Root.Children[0].Children[0].Parent);
+        Assert.Single(tree.Root.Children);
+    }
+
+    [Fact]
+    public void An_empty_area_stays_an_absence_and_a_legal_row_stays_an_acceptance() {
+        using var fixture = new AdvancedFixture();
+        var tree = Nested(fixture);
+        var sibling = tree.Root.Add("sibling");
+
+        tree.Refresh();
+        fixture.Update();
+
+        var dragged = tree.Root.Children[0];
+        var folder = tree.Rows[0];
+        var last = tree.Rows[2].Bounds;
+
+        // ⚠ The half the refusal must not swallow. `RowAt` finding nothing is a genuine absence and
+        // an absence is the right picture for it — so the two cases the old code drew identically
+        // are now two pictures rather than both becoming a red row.
+        DragOver(fixture, folder, last.X + 60f, last.Y + (last.Height * 40f));
+
+        Assert.True(tree.DropIndicator.HasClass("hidden"));
+        Assert.False(tree.DropIndicator.HasClass("refused"));
+
+        // And a legal target is an acceptance rather than a refusal, which is the third picture.
+        fixture.Move(last.X + 60f, last.Y + (last.Height * 0.5f));
+
+        Assert.False(tree.DropIndicator.HasClass("hidden"));
+        Assert.False(tree.DropIndicator.HasClass("refused"));
+
+        fixture.Release(last.X + 60f, last.Y + (last.Height * 0.5f));
+
+        Assert.Same(sibling, dragged.Parent);
+        Assert.Single(tree.Root.Children);
+    }
+
+
+
+
+    /// <summary>How many pixels two captures of the same document disagree on.</summary>
+    static int Differing(Bitmap left, Bitmap right) {
+        var differing = 0;
+
+        for (var y = 0; y < left.Height; y++) {
+            for (var x = 0; x < left.Width; x++) {
+                var offset = left.Offset(x, y);
+
+                for (var channel = 0; channel < 3; channel++) {
+                    if (left.Pixels[offset + channel] != right.Pixels[offset + channel]) {
+                        differing++;
+                        break;
+                    }
+                }
+            }
+        }
+
+        return differing;
+    }
+
+    /// <summary>The refusal as pixels — it is a picture defect, so a class name is not the evidence.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Three captures of one document at one moment, not a committed reference.</b> The
+    ///         claim is a comparison — "the refusal is not the same picture as an absence, and not
+    ///         the same picture as an acceptance" — and a differential answers it without pinning a
+    ///         font, an anti-aliasing rule or a palette that any of eleven other things may change.
+    ///         Same document, same hover, same selection, same geometry: the class is the only thing
+    ///         that moves between the frames.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The second comparison is the one that gates the <i>stylesheet</i>. A
+    ///         <c>.refused</c> class the sheet says nothing about still passes the first — the
+    ///         indicator is drawn, in the accent it always had — and produces a picture identical to
+    ///         a drop that is going to work.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_refusal_is_a_different_picture_from_an_absence_and_from_an_acceptance() {
+        using var fixture = new AdvancedFixture(400f, 160f);
+        var tree = Nested(fixture);
+
+        var folder = tree.Rows[0];
+        var inside = tree.Rows[1].Bounds;
+
+        DragOver(fixture, folder, inside.X + 60f, inside.Y + (inside.Height * 0.5f));
+
+        Assert.True(tree.DropIndicator.HasClass("refused"));
+
+        // ⚠ Adopted and deliberately not disposed: `UiTest.Adopt` disposes whatever document it was
+        // handed, and this one belongs to the fixture, which outlives it.
+        var ui = UiTest.Adopt(fixture.Document);
+
+        fixture.Update();
+        var refused = ui.Capture();
+
+        // What the old code drew for this same gesture.
+        tree.DropIndicator.AddClass("hidden");
+        fixture.Update();
+        var absent = ui.Capture();
+
+        // And what a legal target draws, with the identical geometry left in place.
+        tree.DropIndicator.RemoveClass("hidden");
+        tree.DropIndicator.RemoveClass("refused");
+        fixture.Update();
+        var accepted = ui.Capture();
+
+        Assert.True(Differing(refused, absent) > 0, "the refusal painted nothing: it is still an absence");
+        Assert.True(Differing(refused, accepted) > 0, "the refusal is pixel-identical to an acceptance");
     }
 }
