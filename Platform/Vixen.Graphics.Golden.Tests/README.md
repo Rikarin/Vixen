@@ -534,3 +534,43 @@ another:
   `RasterizerState.DepthBias` by the depth format's smallest resolvable difference, which for a
   32-bit float buffer is around `6 × 10⁻⁸`, so the number that reads as "tiny" is nothing whatsoever.
   Both failures look exactly like a fixture that works.
+
+## ⚠ This suite is serial, so its cost is the sum of its fixtures
+
+64 of the 72 classes here carry `[Collection("Vulkan")]`, so xunit runs them one at a time whatever
+the collection pool is set to. Measured over the 2026-09-09 run's TRX, the assembly's wall is 703.6 s
+against 712.9 s of summed test durations — a mean concurrency of **1.01**, with a peak of 5 reached
+only in the first ten seconds while the fixtures that open no device are still going.
+
+The grouping is deliberate and should stay: a device per test class, opened concurrently, is a
+different machine's worth of GPU memory and MoltenVK is not the place to find that out. What follows
+from it is the arithmetic, and it is the part that keeps surprising people:
+
+- **A golden added here adds its own runtime to the assembly's wall, undivided.** Nothing absorbs it.
+  `Directory.Build.props`' note that "a large assembly's floor is its longest *collection* and not its
+  pool" applies to this project in its strongest form — the longest collection is the whole project —
+  so raising `maxParallelThreads` cannot shorten this suite by a second.
+- **It is the test run's largest assembly** (#1154), at 684.4 s contended and 609 s alone, ahead of
+  `Vixen.Editor.App.Tests`. `build/test-cost.txt` and `artifacts/test-order.proj` schedule on that.
+
+### Where the 2.9× of 2026-09-05..09 went
+
+`build/test-cost.txt` said 239.0 s and the drift check (#863) measured 684.4 s. The gap is not a
+regression in anything the suite was already doing — **389.1 s of it is sixteen test methods that did
+not exist when 239.0 was measured**, each of them a doc 48 material-authoring picture:
+
+| Added | Merge | Seconds |
+|---|---|--:|
+| `BakedMaterialImageTests` (six methods) | `27e6b2e9d`, 2026-09-05 23:14 — ten minutes *after* the 23:04 measurement run started | 139.7 |
+| `LayeredMaterialImageTests` (four) | `0f77c0ae0`, 2026-09-07 | 175.0 |
+| `ParallaxMaterialImageTests` (two) | `49790eec7`, 2026-09-08 | 74.3 |
+
+The 216 tests that predate that run sum to 322.4 s today against the 239.0 s wall then, so they also
+grew by about a third; that residual is not attributable to a commit from the run data alone, and
+dating it means bisecting on the assembly's own elapsed time at ~700 s a point.
+
+⚠ **The goldens were not skipping when 239.0 was measured**, which is the first thing to rule out on
+this machine and the cheapest. Three of 274 are skipped today, and all three are capability refusals
+that name the capability — `Min`/`Max` depth resolve, 64-bit buffer atomics, and ray queries. The
+2026-09-05 sweep's own arithmetic forbids a wholesale skip independently: 1 955.8 s summed over four
+workers finishing in 498.3 s cannot contain a 700 s assembly.

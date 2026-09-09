@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Syntax.Diagnostics;
+using Vixen.Raven.Artefacts;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.IR;
 using Vixen.Raven.Symbols;
@@ -240,5 +241,140 @@ public class IrVerifierTests {
         function.Body.Add(new IrReturnStatement(loaded));
 
         return function;
+    }
+
+    // --- Struct layout terminates -----------------------------------------
+    //
+    // ⚠ RVN2008 is a *source* rule — it runs in the binder over syntax — so it cannot see a struct
+    // that arrived through a `.rvnlib`. The artefact reader deliberately rebuilds a graph that may
+    // contain cycles and nothing between it and the first walk of the type graph asked whether the
+    // graph it rebuilt is one the compiler can walk (#1153). These modules are built the way the
+    // decoder builds one: shells first, fields second.
+
+    /// <summary>Two structs that hold each other never lay out, and the verifier says so.</summary>
+    [Fact]
+    public void Two_structs_that_hold_each_other_do_not_verify() {
+        var a = new IrStructType("A");
+        var b = new IrStructType("B");
+
+        a.SetFields([new("b", b)]);
+        b.SetFields([new("a", a)]);
+
+        var diagnostic = Assert.Single(Verify(ModuleWith(a, b)));
+
+        Assert.Equal("RVN3010", diagnostic.Id);
+
+        // The route rather than the type: naming one end sends the reader to the file where nothing
+        // is wrong, which is the reason RVN2008 gives for the same message shape.
+        Assert.Equal(
+            "laying out struct 'A' never terminates: A.b: B → B.a: A",
+            diagnostic.GetMessage()
+        );
+    }
+
+    /// <summary>A struct that holds itself directly is the degenerate case of the same thing.</summary>
+    [Fact]
+    public void A_struct_that_holds_itself_does_not_verify() {
+        var self = new IrStructType("Node");
+        self.SetFields([new("next", self)]);
+
+        Assert.Contains(Verify(ModuleWith(self)), d => d.GetMessage().Contains("Node.next: Node"));
+    }
+
+    /// <summary>An array of the type is the same infinity, so the walk goes through its element.</summary>
+    /// <remarks>
+    ///     <c>T[4]</c> is <c>T</c> laid out four times. A check that stopped at an array would call
+    ///     the commonest spelling of the bug well formed.
+    /// </remarks>
+    [Fact]
+    public void A_struct_that_holds_an_array_of_itself_does_not_verify() {
+        var self = new IrStructType("Cell");
+        self.SetFields([new("children", new IrArrayType(self, 4))]);
+
+        Assert.Contains(Verify(ModuleWith(self)), d => d.GetMessage().Contains("never terminates"));
+    }
+
+    /// <summary>
+    ///     ⚠ And the positive half: a deep, shared, acyclic graph still verifies.
+    /// </summary>
+    /// <remarks>
+    ///     The diamond is the part that matters. A walk that marked a struct visited and then read
+    ///     a second visit as a cycle would reject this — which is the failure mode a check like this
+    ///     has, and it would reject every real module, since a struct held by two others is ordinary.
+    /// </remarks>
+    [Fact]
+    public void A_deep_acyclic_struct_graph_verifies() {
+        var leaf = new IrStructType("Leaf");
+        var left = new IrStructType("Left");
+        var right = new IrStructType("Right");
+        var root = new IrStructType("Root");
+
+        leaf.SetFields([new("x", IrScalarType.Float)]);
+        left.SetFields([new("leaf", leaf)]);
+        right.SetFields([new("leaf", leaf), new("leaves", new IrArrayType(leaf, 8))]);
+        root.SetFields([new("left", left), new("right", right), new("also", leaf)]);
+
+        Assert.Empty(Verify(ModuleWith(root, left, right, leaf)));
+    }
+
+    /// <summary>
+    ///     ⚠ Identity and not the name, which is what the tuple exemption needs.
+    /// </summary>
+    /// <remarks>
+    ///     A tuple and a monomorphised generic keep a bare artefact key on purpose, so a check that
+    ///     walked keys or names would report a cycle between two libraries' unrelated <c>Shape</c>
+    ///     that is not there. Struct identity in the IR is reference identity, and this is that
+    ///     claim as an assertion: two distinct objects that share a name are two types.
+    /// </remarks>
+    [Fact]
+    public void Two_structs_that_only_share_a_name_are_not_a_cycle() {
+        var outer = new IrStructType("Shape");
+        var inner = new IrStructType("Shape");
+
+        inner.SetFields([new("radius", IrScalarType.Float)]);
+        outer.SetFields([new("inner", inner)]);
+
+        Assert.Empty(Verify(ModuleWith(outer, inner)));
+    }
+
+    /// <summary>
+    ///     A <c>.rvnlib</c> whose struct table holds a cycle is refused rather than walked.
+    /// </summary>
+    /// <remarks>
+    ///     Through <see cref="LibraryIrDecoder" /> rather than by hand, because the decoder is the
+    ///     door this defect comes in by: it loads every shell before any field precisely so a cycle
+    ///     decodes, which is right for a reader and is why the question has to be asked afterwards.
+    /// </remarks>
+    [Fact]
+    public void A_library_whose_struct_table_holds_a_cycle_is_refused() {
+        var decoder = new LibraryIrDecoder(name => name);
+
+        decoder.DecodeStructs(new() {
+            Structs = [
+                new() { Key = "Lib::A", Name = "A", Fields = [new("b", Reference("Lib::B"))] },
+                new() { Key = "Lib::B", Name = "B", Fields = [new("a", Reference("Lib::A"))] }
+            ]
+        });
+
+        var module = new IrModule("Consumer");
+
+        foreach (var structType in decoder.Structs.Values) {
+            module.Add(structType);
+        }
+
+        Assert.Contains(Verify(module), d => d.GetMessage().Contains("never terminates"));
+    }
+
+    static LibraryIrTypeReference Reference(string key) =>
+        new() { Kind = IrTypeKind.Struct, Struct = key };
+
+    static IrModule ModuleWith(params IrStructType[] structs) {
+        var module = new IrModule("Test");
+
+        foreach (var structType in structs) {
+            module.Add(structType);
+        }
+
+        return module;
     }
 }

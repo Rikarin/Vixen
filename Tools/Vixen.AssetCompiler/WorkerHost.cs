@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.Serialization;
 using Vixen.Editor.Assets;
+using Vixen.Editor.Core;
 
 namespace Vixen.AssetCompiler;
 
@@ -14,6 +15,15 @@ namespace Vixen.AssetCompiler;
 ///         The whole worker is this loop and one executor. It holds no cache, writes no sidecars and
 ///         knows nothing about build plans — all of that stays in the coordinator, so there is one
 ///         copy of it and a worker cannot disagree with the process that started it.
+///     </para>
+///     <para>
+///         ⚠ <b>It does read one thing the coordinator owns: <c>Library/GuidIndex</c>.</b> An
+///         importer may resolve an <see cref="AssetId" /> to a path, and until this the worker
+///         supplied no <see cref="IAssetSources" /> at all — so <c>ImportContext.CanResolve</c> was
+///         false out of process and every resolve missed, which quietly made any asset kind that
+///         needs one in-process-only (#1150). It is a read of what the coordinator has already
+///         written, and <see cref="Sources" /> and the constructor between them say why that is
+///         current rather than stale.
 ///     </para>
 ///     <para>
 ///         <b>Its built-ins come from <see cref="BuiltInImporters" />, not from an argument.</b> A
@@ -31,7 +41,7 @@ namespace Vixen.AssetCompiler;
 ///     </para>
 /// </remarks>
 public sealed class WorkerHost {
-    readonly IImportExecutor executor;
+    readonly Lazy<IImportExecutor> executor;
 
     /// <summary>Serves imports out of a project directory.</summary>
     /// <param name="projectRoot">The project. Importer paths are relative to it.</param>
@@ -42,24 +52,71 @@ public sealed class WorkerHost {
     ///     exists to prevent, so it must not be survivable.
     /// </param>
     /// <exception cref="InvalidOperationException">A named plugin assembly could not be loaded.</exception>
-    public WorkerHost(string projectRoot, IReadOnlyList<string>? pluginAssemblies = null) {
+    public WorkerHost(string projectRoot, IReadOnlyList<string>? pluginAssemblies = null)
+        : this(
+            projectRoot,
+            BuiltInImporters.Create(
+                pluginAssemblies is { Count: > 0 } ? PluginImporters.Load(pluginAssemblies) : new ImporterContributions()
+            )
+        ) { }
+
+    /// <summary>Serves imports out of a project directory with a given importer set.</summary>
+    /// <param name="projectRoot">The project. Importer paths are relative to it.</param>
+    /// <param name="importers">Which importers this worker has.</param>
+    /// <remarks>
+    ///     Internal because a shipping worker's registry is <see cref="BuiltInImporters" />' and
+    ///     nothing else — see the class remarks. A test needs an importer that resolves an id, and
+    ///     no built-in one does, so this exists to let the resolve path be exercised through the
+    ///     same construction the public constructor uses rather than through a second one.
+    /// </remarks>
+    internal WorkerHost(string projectRoot, ImporterRegistry importers) {
         ArgumentException.ThrowIfNullOrEmpty(projectRoot);
+        ArgumentNullException.ThrowIfNull(importers);
 
-        var contributed = pluginAssemblies is { Count: > 0 }
-            ? PluginImporters.Load(pluginAssemblies)
-            : new ImporterContributions();
-
-        executor = new InProcessImportExecutor(
-            BuiltInImporters.Create(contributed),
-            new PhysicalFileProvider(projectRoot, isReadOnly: true)
-        );
+        // ⚠ Lazy, and that is the whole of what makes the lookup correct rather than merely
+        // present. The pool starts its workers before the coordinator has scanned — `ImportRunner`
+        // constructs the `CompilerPool` and only then calls `ContentPipeline.ImportAsync`, which
+        // scans, saves the index and dispatches — so a worker that read `Library/GuidIndex` at
+        // construction would read the *previous* run's index and answer with a path an asset has
+        // since moved from. Read at the first request instead: every request arrives after the
+        // save, and the index does not change again for the rest of the import.
+        executor = new(() => new InProcessImportExecutor(
+            importers,
+            new PhysicalFileProvider(projectRoot, isReadOnly: true),
+            Sources(projectRoot)
+        ));
     }
 
     /// <summary>Serves imports through a given executor, which is what a test hands it.</summary>
     /// <param name="executor">Where importers run.</param>
     public WorkerHost(IImportExecutor executor) {
         ArgumentNullException.ThrowIfNull(executor);
-        this.executor = executor;
+        this.executor = new(executor);
+    }
+
+    /// <summary>The project's persisted guid index, as something an import can resolve through.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><see cref="AssetDatabase.TryLoad" /> and never <see cref="AssetDatabase.Scan" />.</b>
+    ///         A scan <em>writes</em> — it creates a missing <c>.meta</c> with a fresh GUID and moves
+    ///         an orphaned one to <c>Library/OrphanMeta</c> — so a worker scanning on demand would
+    ///         let an importer mutate the project it is importing, from inside a parallel loop and in
+    ///         a process the coordinator cannot see. <c>TryLoad</c> only reads, and refuses an index
+    ///         it cannot fully account for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null rather than an empty lookup when there is no index</b>, because
+    ///         <c>ImportContext.CanResolve</c> is exactly <c>sources is not null</c>. A resolver that
+    ///         was present and always missed would turn "this build cannot look" into "no asset in
+    ///         this project has that id" — the one distinction the whole seam exists to preserve, and
+    ///         the two have opposite fixes.
+    ///     </para>
+    /// </remarks>
+    /// <param name="projectRoot">The project.</param>
+    /// <returns>The lookup, or null when the project has no readable index.</returns>
+    internal static IAssetSources? Sources(string projectRoot) {
+        var database = new AssetDatabase(new ProjectPaths(projectRoot));
+        return database.TryLoad() ? new ProjectAssetSources(database) : null;
     }
 
     /// <summary>Answers requests until the other end goes away.</summary>
@@ -105,7 +162,7 @@ public sealed class WorkerHost {
             request.EnforceDeclaredReads
         );
 
-        var result = await executor.ExecuteAsync(job, cancellationToken).ConfigureAwait(false);
+        var result = await executor.Value.ExecuteAsync(job, cancellationToken).ConfigureAwait(false);
 
         return new() {
             Succeeded = result.Succeeded,
