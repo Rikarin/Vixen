@@ -83,7 +83,7 @@ override-cell > numeric-input	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.
 override-cell > select	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 override-cell > textbox	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
 override-row > override-cell	Editor/Vixen.Editor.AssetEditors/AssetEditorTheme.vcss
-palette-row > text	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
+palette-row > label	Editor/Vixen.Editor.Ui/Theming/EditorTheme.vcss
 profiler-body > scroll-view	Editor/Vixen.Editor.Profiler/ProfilerTheme.vcss
 profiler-view > data-grid	Editor/Vixen.Editor.Profiler/ProfilerTheme.vcss
 radial-item > icon	Core/Vixen.Ui.Controls/ControlTheme.vcss

@@ -1079,7 +1079,16 @@ palette-row {
    hover rule as well would give two highlighted rows. */
 palette-row:checked { background-color: var(--accent); color: var(--accent-text); }
 palette-row.parked { display: none; }
-palette-row > text { flex-grow: 1; }
+
+/* ⚠ `> label` and not `> text`. A `PaletteRow` is a `ButtonBase`, whose title
+   cell is `Part("label")`; `text` is `Display`'s tag and no palette row has
+   ever had one. So this rule matched nothing from the day it was written
+   (24d10d049), the title never grew, and the category and the shortcut sat
+   against the title instead of at the right-hand edge of the row.
+   `add-component-row > label` is the same row one panel over and is what this
+   should always have said. Found from `CombinatorPairs.txt`'s unproved
+   residue — see Rikarin/Vixen#531. */
+palette-row > label { flex-grow: 1; min-width: 0; }
 palette-category { color: var(--text-muted); font-size: 0.85em; }
 palette-row:checked palette-category, palette-row:checked palette-detail { color: var(--accent-text); }
 palette-detail { color: var(--text-muted); font-size: 0.85em; }
