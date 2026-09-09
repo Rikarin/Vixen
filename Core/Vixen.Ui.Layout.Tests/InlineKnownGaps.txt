@@ -507,6 +507,49 @@ vertical-align: <length> / <%>    `VerticalAlign.Offset`; the percentage is reso
                                   that knows what it is a percentage of
 
 
+# ══ BLOCKIFICATION (CSS DISPLAY §2.7) — REFUSED, and the refusal is a MEASUREMENT ═══════════════
+#
+# §2.7 rewrites a box's computed `display` when it is a flex item, a grid item, a float, absolutely
+# positioned or the root: `inline` → `block`, `inline-block` → `block`, `inline-flex` → `flex`.
+# Those five are between them every way of holding a box out of an inline formatting context.
+#
+# ⚠ THIS STORE DOES NOT DO IT AND DOES NOT NEED TO, and the sentence that matters is the second
+# half. `BlockificationTests` lays 156 shapes out twice — once with the specified `display` and
+# once with §2.7's — over all five contexts, three kinds of content (inline-level, block-level with
+# vertical margins, floats), padded and not, stated width and auto, and with an inline-level or a
+# block-level sibling. All 468 comparisons agree to the bit. So writing §2.7 here would be a
+# computed-value step whose entire effect is to produce the answer already produced.
+#
+# The reason is the dispatch. `CalculateLayoutImpl` sends `block`, `inline-block`, `inline` and
+# `flow-root` down ONE branch, because §2.1's INNER display picks the algorithm and the outer half
+# only says how a box relates to its siblings — and a box in these five contexts has no
+# inline-level siblings. Every reader of the outer half is unreachable from there:
+# `IsNonAtomicInline` is consulted only from a parent already walking lines,
+# `EstablishesInlineFormattingContext` asks about a container's CHILDREN, and
+# `BlockMarginsCollapsibleWithParent` wants a `block` PARENT, which a flex container, a grid
+# container and the root's absent parent are not.
+#
+# ⚠ AND #1149'S MEASURED HALF IS REFUTED BY THIS. It read a `display: inline` flex item honouring
+# `width: 90` and wrapping its third child at 85 as a divergence from Chrome. It is not one: Chrome
+# blockifies that span to `block`, a block container holding only inline-level children runs an
+# inline formatting context, and the same 90 and the same wrap come out. What this store has and
+# CSS does not is the ATOMIC non-replaced `inline` box, above — a different divergence, and visible
+# only where the box is NOT in one of these five contexts.
+#
+# ⚠ The equality is worthless without the second test and that is the part to keep. An
+# `Assert.Equal` between two layouts is satisfied by a comparison that cannot see `display` at all,
+# so the same 156 shapes are run through `block` against `grid` and must disagree 156 times.
+# Sabotaged both ways: dropping `Display.Inline` from the dispatch's block branch reddens the
+# equality (`root 200x89` against `root 200x127`) and leaves the instrument check green, while
+# blinding the describer to its `display` argument reddens the instrument check alone, at
+# `Expected: 156, Actual: 0`.
+
+blockification (§2.7)             refused as a measured no-op; `BlockificationTests` is the record,
+                                  and it goes red on the day a reader of the OUTER display half
+                                  becomes reachable from outside a line — a table formatting
+                                  context (#258) or a writing mode (#952) would be that day
+
+
 # ══ DELIBERATELY ABSENT — the store still cannot represent it ═══════════════════════════════════
 #
 # ⚠ THIS SECTION IS NOW SHORTER THAN ITS HEADING SUGGESTS, and what is left of it is one item: a
