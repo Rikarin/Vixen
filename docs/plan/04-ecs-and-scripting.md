@@ -343,9 +343,48 @@ door hinges, and framing it as "the fast one" is what makes them write behaviour
 
 ⚠ **The cost of the choice is not yet reversible.** An author who guesses wrong and finds a
 behaviour on ten thousand entities has to re-author it as a component and a system; nothing converts
-one to the other, and this document does not pretend the migration is free. Whether a supported
-conversion is owed, or whether "you will rewrite it" is the honest answer, is this document's call
-to make and it has not made it.
+one to the other, and this document does not pretend the migration is free.
+
+> **Recommended answer to that, priced against the tree** —
+> [#297](https://github.com/Rikarin/Vixen/issues/297). **"You will rewrite the logic", written into
+> the guide, and no conversion verb.** Not because a tool is hard, but because of *which* half a tool
+> could do:
+>
+> - **The data half is nearly free and nearly worthless on its own.** A behaviour's serialised state
+>   already travels as a `[DataContract]` through `ISceneBehaviorBinder.Save`/`Restore`, and
+>   `Vixen.Core.Reflection`'s generated type descriptor already knows the members and their types. A
+>   tool that emitted a component struct from those, and rewrote each scene instance, is a weekend.
+> - **⚠ The logic half cannot be done at all, and it is not a matter of effort.** `ISystem` is
+>   `Initialize` and `Update` — *two* entry points, both per-world. A `Behavior` has `Awake`,
+>   `OnEnable`, `Start`, `OnDisable`, `OnDestroy` and coroutines, all **per instance**. Turning
+>   `OnEnable` into ECS terms is a tag component and a change filter somebody has to design for this
+>   particular logic; there is no mechanical translation, and a generated `Update` skeleton with an
+>   empty body is not one either.
+> - **⚠ The editor has never written a line of a user's C# and this would be the first.** Everything
+>   under `Editor/**` that writes a file writes YAML, a `.meta`, a catalog or a report; the one thing
+>   that emits source is `TemplateCatalog`, which instantiates a whole `dotnet new` project from
+>   embedded files. "Rewrite this class in place" is a different capability, and buying it for this
+>   one verb is the wrong first customer.
+>
+> **So the tool that can be built would convert the half the author does not need help with, while
+> the verb's existence implies the migration is handled.** That is the trap this section already
+> names one paragraph up, in the other direction: a conversion verb sitting in a menu says a
+> behaviour is a provisional choice, which is exactly the framing — "the easy one" — that makes
+> people write a system for a door hinge.
+>
+> **⚠ The real remedy is not reversibility, it is discovery.** What hurts is finding out at ten
+> thousand instances, and that is a *measurement nothing takes*: `BehaviorStore` knows every bucket's
+> `Count` and nothing reports it. A `vixen doctor behaviors` beside the `vixen doctor systems` that
+> already exists — one line per behaviour type, its instance count, and a mark past a threshold —
+> makes the wrong guess visible in the frame where it starts being wrong, costs no new mechanism, and
+> pushes nobody either way. That is what this recommendation would spend the effort on instead, and it
+> is filed as [#1199](https://github.com/Rikarin/Vixen/issues/1199) — ⚠ the per-type count is not
+> merely unreported, it is *unreachable*: `BehaviorBucket<T>` is a private nested class, and
+> `BehaviorStore.Count`'s only readers in the whole tree are three lines of `BehaviorTests`.
+>
+> **Not landed as the document's answer**: this prices the three options and picks one, and which way
+> a rule about scale and shape should push authors is Jiu's call rather than an agent's. #297 stays
+> open on that.
 
 ### How it maps down
 
