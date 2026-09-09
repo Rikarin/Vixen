@@ -812,7 +812,9 @@ Vixen.Raven.IR.IrSharedVariable.Type.get -> Vixen.Raven.IR.IrType
 Vixen.Raven.IR.IrSharedVariable.Variable.get -> Vixen.Raven.IR.IrVariable
 Vixen.Raven.IR.IrStageIo -> sealed record
 Vixen.Raven.IR.IrStageIo : System.IEquatable<Vixen.Raven.IR.IrStageIo>
-Vixen.Raven.IR.IrStageIo.IrStageIo(string Name, Vixen.Raven.IR.IrType Type, string? Semantic, int? Member = null) -> void
+Vixen.Raven.IR.IrStageIo.Interpolation.get -> Vixen.Raven.Symbols.InterpolationMode
+Vixen.Raven.IR.IrStageIo.Interpolation.init -> Vixen.Raven.Symbols.InterpolationMode
+Vixen.Raven.IR.IrStageIo.IrStageIo(string Name, Vixen.Raven.IR.IrType Type, string? Semantic, int? Member = null, Vixen.Raven.Symbols.InterpolationMode Interpolation = Vixen.Raven.Symbols.InterpolationMode.Smooth) -> void
 Vixen.Raven.IR.IrStageIo.Member.get -> int?
 Vixen.Raven.IR.IrStageIo.Member.init -> int?
 Vixen.Raven.IR.IrStageIo.Name.get -> string
@@ -837,7 +839,8 @@ Vixen.Raven.IR.IrStoreInstruction.IrStoreInstruction(Vixen.Raven.IR.IrPlace plac
 Vixen.Raven.IR.IrStoreInstruction.Place.get -> Vixen.Raven.IR.IrPlace
 Vixen.Raven.IR.IrStoreInstruction.Value.get -> Vixen.Raven.IR.IrValue
 Vixen.Raven.IR.IrStream -> sealed class
-Vixen.Raven.IR.IrStream.IrStream(Vixen.Raven.IR.IrVariable variable) -> void
+Vixen.Raven.IR.IrStream.Interpolation.get -> Vixen.Raven.Symbols.InterpolationMode
+Vixen.Raven.IR.IrStream.IrStream(Vixen.Raven.IR.IrVariable variable, Vixen.Raven.Symbols.InterpolationMode interpolation = Vixen.Raven.Symbols.InterpolationMode.Smooth) -> void
 Vixen.Raven.IR.IrStream.Name.get -> string
 Vixen.Raven.IR.IrStream.Type.get -> Vixen.Raven.IR.IrType
 Vixen.Raven.IR.IrStream.Variable.get -> Vixen.Raven.IR.IrVariable
@@ -1247,6 +1250,12 @@ Vixen.Raven.Symbols.ImageFormat.RequiresExtendedFormats.init -> bool
 Vixen.Raven.Symbols.ImageFormat.SpirvValue.get -> uint
 Vixen.Raven.Symbols.ImageFormat.SpirvValue.init -> uint
 Vixen.Raven.Symbols.ImageFormats -> static class
+Vixen.Raven.Symbols.InterpolationMode -> enum : int
+Vixen.Raven.Symbols.InterpolationMode.Centroid = 3 -> Vixen.Raven.Symbols.InterpolationMode
+Vixen.Raven.Symbols.InterpolationMode.Flat = 1 -> Vixen.Raven.Symbols.InterpolationMode
+Vixen.Raven.Symbols.InterpolationMode.InterpolationMode() -> void
+Vixen.Raven.Symbols.InterpolationMode.NoPerspective = 2 -> Vixen.Raven.Symbols.InterpolationMode
+Vixen.Raven.Symbols.InterpolationMode.Smooth = 0 -> Vixen.Raven.Symbols.InterpolationMode
 Vixen.Raven.Symbols.Intrinsics -> static class
 Vixen.Raven.Symbols.LocalSymbol -> sealed class
 Vixen.Raven.Symbols.LocalSymbol : Vixen.Raven.Symbols.Symbol
@@ -2743,6 +2752,7 @@ override Vixen.Raven.Symbols.StorageImageTypeSymbol.TypeKind.get -> Vixen.Raven.
 override Vixen.Raven.Symbols.SubstitutedFieldSymbol.ConstantValue.get -> object?
 override Vixen.Raven.Symbols.SubstitutedFieldSymbol.ContainingSymbol.get -> Vixen.Raven.Symbols.Symbol?
 override Vixen.Raven.Symbols.SubstitutedFieldSymbol.DeclaringSyntax.get -> Vixen.Core.Syntax.SyntaxNode?
+override Vixen.Raven.Symbols.SubstitutedFieldSymbol.Interpolation.get -> Vixen.Raven.Symbols.InterpolationMode
 override Vixen.Raven.Symbols.SubstitutedFieldSymbol.IsConst.get -> bool
 override Vixen.Raven.Symbols.SubstitutedFieldSymbol.IsReadOnly.get -> bool
 override Vixen.Raven.Symbols.SubstitutedFieldSymbol.IsStatic.get -> bool
@@ -2764,6 +2774,7 @@ override Vixen.Raven.Symbols.SubstitutedParameterSymbol.ContainingSymbol.get -> 
 override Vixen.Raven.Symbols.SubstitutedParameterSymbol.DeclaringSyntax.get -> Vixen.Core.Syntax.SyntaxNode?
 override Vixen.Raven.Symbols.SubstitutedParameterSymbol.DefaultValue.get -> object?
 override Vixen.Raven.Symbols.SubstitutedParameterSymbol.HasDefaultValue.get -> bool
+override Vixen.Raven.Symbols.SubstitutedParameterSymbol.Interpolation.get -> Vixen.Raven.Symbols.InterpolationMode
 override Vixen.Raven.Symbols.SubstitutedParameterSymbol.Name.get -> string
 override Vixen.Raven.Symbols.SubstitutedParameterSymbol.Ordinal.get -> int
 override Vixen.Raven.Symbols.SubstitutedParameterSymbol.RefKind.get -> Vixen.Raven.Symbols.RefKind
@@ -3270,6 +3281,7 @@ static Vixen.Raven.Reflection.ShaderLayout.Members(System.Collections.Generic.IR
 static Vixen.Raven.Reflection.ShaderLayout.Size(Vixen.Raven.IR.IrType type, Vixen.Raven.Reflection.LayoutRule rule = Vixen.Raven.Reflection.LayoutRule.Std140) -> int
 static Vixen.Raven.Reflection.StageInterface.CanCarry(Vixen.Raven.IR.IrType type) -> bool
 static Vixen.Raven.Reflection.StageInterface.Describe(Vixen.Raven.IR.IrType type, string name, bool isInput) -> string
+static Vixen.Raven.Reflection.StageInterface.Interpolation(Vixen.Raven.IR.IrType type, Vixen.Raven.Symbols.InterpolationMode declared) -> Vixen.Raven.Symbols.InterpolationMode
 static Vixen.Raven.Reflection.StageInterface.MustBeFlat(Vixen.Raven.IR.IrType type) -> bool
 static Vixen.Raven.Reflection.StreamPlan.InputLocations(Vixen.Raven.IR.IrShader shader, Vixen.Raven.IR.IrEntryPoint entryPoint) -> System.Collections.Immutable.ImmutableArray<int?>
 static Vixen.Raven.Reflection.StreamPlan.LocationOf(Vixen.Raven.IR.IrShader shader, Vixen.Raven.IR.IrStream stream) -> int
@@ -3455,6 +3467,9 @@ static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.InOutCannotHaveDefau
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.InOutOnEntryPoint -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.InOutOnOperator -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.IndexOutOfRange -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.InterpolationNotAvailable -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.InterpolationNotRecognised -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.InterpolationOnNonVarying -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.MemberNotFound -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.MemberOutsideAType -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.MissingReturnValue -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
@@ -3578,6 +3593,7 @@ virtual Vixen.Raven.Symbols.FieldSymbol.ComposedType.get -> Vixen.Raven.Symbols.
 virtual Vixen.Raven.Symbols.FieldSymbol.ConstantValue.get -> object?
 virtual Vixen.Raven.Symbols.FieldSymbol.DeclaredValue.get -> object?
 virtual Vixen.Raven.Symbols.FieldSymbol.ImageFormat.get -> Vixen.Raven.Symbols.ImageFormat?
+virtual Vixen.Raven.Symbols.FieldSymbol.Interpolation.get -> Vixen.Raven.Symbols.InterpolationMode
 virtual Vixen.Raven.Symbols.FieldSymbol.IsCompose.get -> bool
 virtual Vixen.Raven.Symbols.FieldSymbol.IsConst.get -> bool
 virtual Vixen.Raven.Symbols.FieldSymbol.IsDynamicOffset.get -> bool
@@ -3602,6 +3618,7 @@ virtual Vixen.Raven.Symbols.NamedTypeSymbol.TypeArguments.get -> System.Collecti
 virtual Vixen.Raven.Symbols.NamedTypeSymbol.TypeParameters.get -> System.Collections.Generic.IReadOnlyList<Vixen.Raven.Symbols.TypeParameterSymbol>
 virtual Vixen.Raven.Symbols.ParameterSymbol.DefaultValue.get -> object?
 virtual Vixen.Raven.Symbols.ParameterSymbol.HasDefaultValue.get -> bool
+virtual Vixen.Raven.Symbols.ParameterSymbol.Interpolation.get -> Vixen.Raven.Symbols.InterpolationMode
 virtual Vixen.Raven.Symbols.ParameterSymbol.RefKind.get -> Vixen.Raven.Symbols.RefKind
 virtual Vixen.Raven.Symbols.ParameterSymbol.SemanticName.get -> string?
 virtual Vixen.Raven.Symbols.PropertySymbol.Parameters.get -> System.Collections.Generic.IReadOnlyList<Vixen.Raven.Symbols.ParameterSymbol>

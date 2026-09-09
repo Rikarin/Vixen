@@ -156,6 +156,14 @@ internal sealed class SourceFieldSymbol : FieldSymbol {
 
     public override string? SemanticName => DeclarationFacts.GetSemanticName(syntax.AttributeLists);
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     An unrecognised word falls back to <c>Smooth</c> here and is reported once, at the
+    ///     declaration, by <c>ReportStreamIssues</c>.
+    /// </remarks>
+    public override InterpolationMode Interpolation =>
+        DeclarationFacts.GetInterpolation(syntax.AttributeLists, out _) ?? InterpolationMode.Smooth;
+
     public override object? DeclaredValue {
         get {
             if (Declaration.Initializer?.Value is not { } initializer) {

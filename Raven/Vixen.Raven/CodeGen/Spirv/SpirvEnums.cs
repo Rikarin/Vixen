@@ -221,6 +221,18 @@ internal enum SpirvDecoration {
     /// <summary>This varying is not interpolated. Required on a fragment input of integer type.</summary>
     Flat = 14,
 
+    /// <summary>
+    ///     This varying is interpolated at the centroid of the covered area rather than at the
+    ///     pixel centre — <c>[Interpolation("centroid")]</c>.
+    /// </summary>
+    Centroid = 16,
+
+    /// <summary>
+    ///     This varying is interpolated linearly in screen space, without the perspective divide —
+    ///     <c>[Interpolation("noperspective")]</c>.
+    /// </summary>
+    NoPerspective = 13,
+
     Location = 30,
     Binding = 33,
     DescriptorSet = 34,

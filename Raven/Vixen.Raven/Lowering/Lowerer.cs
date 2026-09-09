@@ -859,7 +859,7 @@ public sealed partial class Lowerer {
 
             var variable = new IrVariable(field.Name, irType, IrVariableKind.Global);
             globals[field] = variable;
-            shader.Add(new IrStream(variable));
+            shader.Add(new IrStream(variable, field.Interpolation));
         }
     }
 
@@ -1632,7 +1632,14 @@ public sealed partial class Lowerer {
 
     static IrEntryPoint BuildEntryPoint(MethodSymbol method, IrFunction function) {
         var inputs = method.Parameters
-            .Select((p, i) => new IrStageIo(p.Name, function.Parameters[i].Type, p.SemanticName))
+            .Select(
+                (p, i) => new IrStageIo(
+                    p.Name,
+                    function.Parameters[i].Type,
+                    p.SemanticName,
+                    Interpolation: p.Interpolation
+                )
+            )
             .ToArray();
 
         // Only on the stage that has workgroups. A size the binder warned about (RVN2106) is

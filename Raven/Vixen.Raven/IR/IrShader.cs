@@ -192,6 +192,11 @@ public sealed class IrBinding(
 ///     For an output, the index of the returned struct's member this output takes its value from;
 ///     null when the output <em>is</em> the returned value.
 /// </param>
+/// <param name="Interpolation">
+///     How the rasteriser interpolates it, from <c>[Interpolation("…")]</c> on the parameter. Only
+///     a fragment stage's inputs can carry one; everything else is
+///     <see cref="InterpolationMode.Smooth" /> and means nothing.
+/// </param>
 /// <remarks>
 ///     <paramref name="Member" /> is what multiple render targets are made of. A stage interface
 ///     variable gets one location and therefore has to be one scalar or vector, so a fragment stage
@@ -199,7 +204,13 @@ public sealed class IrBinding(
 ///     extract, one store, per target. Recording the index here rather than re-deriving it in each
 ///     backend keeps the two from disagreeing about which member is which target.
 /// </remarks>
-public sealed record IrStageIo(string Name, IrType Type, string? Semantic, int? Member = null);
+public sealed record IrStageIo(
+    string Name,
+    IrType Type,
+    string? Semantic,
+    int? Member = null,
+    InterpolationMode Interpolation = InterpolationMode.Smooth
+);
 
 /// <summary>
 ///     An interstage value the shader declares with <c>stream</c>: written by one stage, read by
@@ -220,11 +231,23 @@ public sealed record IrStageIo(string Name, IrType Type, string? Semantic, int? 
 ///         <see cref="IrEntryPoint.StreamInputs" />.
 ///     </para>
 /// </remarks>
-public sealed class IrStream(IrVariable variable) {
+public sealed class IrStream(IrVariable variable, InterpolationMode interpolation = InterpolationMode.Smooth) {
     public IrVariable Variable { get; } = variable;
 
     public string Name => Variable.Name;
     public IrType Type => Variable.Type;
+
+    /// <summary>
+    ///     How the rasteriser interpolates it, from <c>[Interpolation("…")]</c> on the
+    ///     <c>stream</c> declaration.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ A property of the stream and not of a stage, which is the whole reason a stream is one
+    ///     declaration: GLSL links the producing and consuming stages into one program and rejects
+    ///     the pair if their qualifiers disagree, so a mode declared once cannot be written
+    ///     inconsistently. See <c>GlslEmitter.EmitStreamInterface</c>.
+    /// </remarks>
+    public InterpolationMode Interpolation { get; } = interpolation;
 
     public override string ToString() => Name;
 }

@@ -674,6 +674,140 @@ internal sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         && primitive.ComponentSpecialType != SpecialType.Bool;
 
     /// <summary>
+    ///     Checks every <c>[Interpolation]</c>: that its word is one of the four, that the type it
+    ///     is written on has an interpolation to choose, and that the declaration it is written on
+    ///     is one the rasteriser interpolates at all.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Two surfaces rather than one, because a varying reaches a fragment stage two ways: a
+    ///         <c>stream</c> field, which is one declaration serving both ends of the link, and the
+    ///         fragment entry point's own parameters. An attribute only one of the two could carry
+    ///         would be a hole an author falls into with nothing said.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A vertex stage's parameters are not varyings</b> and neither are a compute
+    ///         stage's. A vertex parameter is a vertex attribute read out of a buffer and a compute
+    ///         parameter is a dispatch built-in; nothing between either of them and the shader is a
+    ///         rasteriser, so both take <c>RVN2145</c>. What a vertex stage <em>can</em> qualify is
+    ///         the stream it writes, and it does that at the stream's own declaration — which is
+    ///         the whole reason a stream is one declaration and not two.
+    ///     </para>
+    /// </remarks>
+    void ReportInterpolationIssues() {
+        foreach (var member in members!) {
+            switch (member) {
+                case SourceFieldSymbol field when DeclarationFacts.HasInterpolation(field.AttributeLists):
+                    ReportInterpolation(
+                        field.AttributeLists,
+                        field.Name,
+                        field.Type,
+                        field.DeclaringSyntax?.GetLocation() ?? Location.None,
+                        field is { IsStream: true } && TypeKind == TypeKind.Shader
+                            ? null
+                            : field.IsStream
+                                ? "a stream is only interpolated on a shader"
+                                : "it is not a stream field"
+                    );
+
+                    break;
+
+                case SourceMethodSymbol method:
+                    foreach (var parameter in method.Parameters) {
+                        if (parameter is not SourceParameterSymbol source
+                            || !DeclarationFacts.HasInterpolation(source.AttributeLists)) {
+                            continue;
+                        }
+
+                        ReportInterpolation(
+                            source.AttributeLists,
+                            source.Name,
+                            source.Type,
+                            source.DeclaringSyntax?.GetLocation() ?? Location.None,
+                            method.Stage switch {
+                                ShaderStage.Fragment => null,
+                                ShaderStage.None => "it is not a parameter of an entry point",
+                                ShaderStage.Vertex => "a vertex stage's parameters are vertex "
+                                    + "attributes, read from a buffer rather than interpolated — "
+                                    + "qualify the stream it writes instead",
+                                _ => $"a {method.Stage.ToString().ToLowerInvariant()} stage's "
+                                    + "parameters do not come through the rasteriser"
+                            }
+                        );
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    ///     One <c>[Interpolation]</c>, reported at its own declaration.
+    /// </summary>
+    /// <param name="attributeLists">The declaration's attributes.</param>
+    /// <param name="name">The declaration's name, for the message.</param>
+    /// <param name="type">What it carries.</param>
+    /// <param name="location">Where to report.</param>
+    /// <param name="notAVarying">
+    ///     Why this declaration is not interpolated, or null when it is. Checked first: a mode on a
+    ///     declaration nothing interpolates is worth saying whether or not the mode itself is one
+    ///     the language has, and reporting both would be two complaints about one attribute.
+    /// </param>
+    void ReportInterpolation(
+        SyntaxList<AttributeListSyntax> attributeLists,
+        string name,
+        TypeSymbol type,
+        Location location,
+        string? notAVarying
+    ) {
+        if (notAVarying is not null) {
+            outerBinder.Diagnostics.Add(
+                SemanticDiagnostics.InterpolationOnNonVarying,
+                location,
+                name,
+                notAVarying
+            );
+            return;
+        }
+
+        var mode = DeclarationFacts.GetInterpolation(attributeLists, out var written);
+
+        if (mode is null) {
+            outerBinder.Diagnostics.Add(
+                SemanticDiagnostics.InterpolationNotRecognised,
+                location,
+                written ?? string.Empty,
+                DeclarationFacts.InterpolationModeNamesText
+            );
+            return;
+        }
+
+        // The integer rule, and it is the compiler's answer being defended rather than a
+        // preference: StageInterface.MustBeFlat applies `flat` to this declaration whatever the
+        // author wrote, so anything but `flat` here is an attribute that would be silently
+        // overruled — and obeying it instead emits a module spirv-val refuses.
+        if (mode is not InterpolationMode.Flat && IsIntegerVarying(type)) {
+            outerBinder.Diagnostics.Add(
+                SemanticDiagnostics.InterpolationNotAvailable,
+                location,
+                name,
+                type.ToDisplayString()
+            );
+        }
+    }
+
+    /// <summary>Whether a varying of this type has no interpolation to take.</summary>
+    /// <remarks>
+    ///     The symbol-level twin of <c>Reflection.StageInterface.MustBeFlat</c>, which asks the same
+    ///     question of an <c>IrType</c> after lowering. Two predicates rather than one because the
+    ///     diagnostic has to reach the declaration and lowering has thrown the declaration away —
+    ///     <c>InterpolationTests.The_two_flat_predicates_agree</c> holds them to each other.
+    /// </remarks>
+    static bool IsIntegerVarying(TypeSymbol type) =>
+        type is PrimitiveTypeSymbol { TypeKind: TypeKind.Scalar or TypeKind.Vector } primitive
+        && primitive.ComponentSpecialType is SpecialType.Int or SpecialType.UInt;
+
+    /// <summary>
     ///     Checks the descriptor-set markers: at most one per field, and only on a field that
     ///     actually becomes a binding.
     /// </summary>
@@ -1210,6 +1344,7 @@ internal sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
         ReportGroupSharedIssues();
         ReportResourceSetIssues();
         ReportBooleanBindingIssues();
+        ReportInterpolationIssues();
         ReportModifierIssues();
         ReportAttributeIssues();
 

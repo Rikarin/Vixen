@@ -33,10 +33,11 @@ namespace Tests;
 ///         machine enters it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What this cannot say.</b> It is a gate on parse work and not on compile time — the
-///         other half of that doc row, a number for the whole library, is inherently a duration and
-///         has no counter standing in for it. It is not gated here, and saying so is better than a
-///         green wall-clock assertion that measures the runner.
+///         ⚠ <b>What this cannot say.</b> It is a gate on parse work and not on compile time. The
+///         other half of that doc row — a number for the whole library — is
+///         <see cref="LibraryCompileWorkTests" />, and it is a counter as well: ⚠ this paragraph used
+///         to say that half "is inherently a duration and has no counter standing in for it", which
+///         was true of the duration and not of the work behind it.
 ///     </para>
 /// </remarks>
 public class IncrementalParseWorkTests {

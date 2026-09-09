@@ -43,8 +43,25 @@ internal static class DeclarationFacts {
     ///     unrecognised attribute was dropped in silence — see <c>RVN2138</c> — and the check that
     ///     ended that had to be able to enumerate what "recognised" means.
     /// </remarks>
-    static readonly string[] MarkerAttributes =
-        ["Permutation", "PushConstant", "Shared", "MaterialIndex", "Format", "Semantic", "DynamicOffset"];
+    static readonly string[] MarkerAttributes = [
+        "Permutation", "PushConstant", "Shared", "MaterialIndex", "Format", "Semantic", "DynamicOffset",
+        "Interpolation"
+    ];
+
+    /// <summary>The word each <see cref="InterpolationMode" /> is written as.</summary>
+    /// <remarks>
+    ///     The GLSL qualifier rather than a name of our own, because that is the word an author of
+    ///     shaders already knows and the one every reference they will reach for uses.
+    /// </remarks>
+    static readonly Dictionary<string, InterpolationMode> InterpolationModes = new(StringComparer.Ordinal) {
+        ["smooth"] = InterpolationMode.Smooth,
+        ["flat"] = InterpolationMode.Flat,
+        ["noperspective"] = InterpolationMode.NoPerspective,
+        ["centroid"] = InterpolationMode.Centroid
+    };
+
+    /// <summary>The interpolation words, in declaration order, for a diagnostic.</summary>
+    public static string InterpolationModeNamesText { get; } = string.Join(", ", InterpolationModes.Keys);
 
     /// <summary>Every attribute name Raven reads, in the order the message lists them.</summary>
     public static IReadOnlyList<string> KnownAttributeNames { get; } =
@@ -404,6 +421,46 @@ internal static class DeclarationFacts {
     /// </summary>
     public static string? GetSemanticName(SyntaxList<AttributeListSyntax> attributeLists) =>
         StringArgumentOf(attributeLists, "Semantic");
+
+    /// <summary>
+    ///     The interpolation the declaration asks for — <c>[Interpolation("noperspective")]</c> —
+    ///     or null when it carries no such attribute.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Three answers rather than two, and the third is what makes the diagnostic possible: a
+    ///     declaration with the attribute and an unrecognised word inside it reports
+    ///     <see cref="InterpolationMode" />-less rather than "no interpolation". Returning
+    ///     <c>Smooth</c> for it would silently give the author the default they were writing the
+    ///     attribute to decline.
+    /// </remarks>
+    /// <param name="attributeLists">The declaration's attributes.</param>
+    /// <param name="written">The word as written, when there is an attribute at all.</param>
+    /// <returns>The mode, or null when the attribute is absent or its word is not one of the four.</returns>
+    public static InterpolationMode? GetInterpolation(
+        SyntaxList<AttributeListSyntax> attributeLists,
+        out string? written
+    ) {
+        written = null;
+
+        if (!HasInterpolation(attributeLists)) {
+            return null;
+        }
+
+        written = StringArgumentOf(attributeLists, "Interpolation") ?? string.Empty;
+
+        return InterpolationModes.TryGetValue(written, out var mode) ? mode : null;
+    }
+
+    /// <summary>Whether the declaration carries an <c>[Interpolation]</c> at all, well-formed or not.</summary>
+    public static bool HasInterpolation(SyntaxList<AttributeListSyntax> attributeLists) {
+        foreach (var attribute in GetAttributes(attributeLists)) {
+            if (GetAttributeName(attribute) == "Interpolation") {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>The first string literal passed to the named attribute, or null.</summary>
     static string? StringArgumentOf(SyntaxList<AttributeListSyntax> attributeLists, string name) {

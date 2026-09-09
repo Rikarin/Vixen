@@ -2383,6 +2383,7 @@ T:Vixen.Platform.Windows.WindowsDialogs sweep-pending
 T:Vixen.Platform.Windows.WindowsPlatformSupplement sweep-pending
 T:Vixen.Platform.Windows.WindowsPowerInfo sweep-pending
 T:Vixen.Platform.Windows.WindowsProcessorTopology sweep-pending
+T:Vixen.Raven.Symbols.InterpolationMode raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
 T:Vixen.Rendering.AnimationChannel sweep-pending
 T:Vixen.Rendering.AnimationClipData sweep-pending
 T:Vixen.Rendering.Barycentrics sweep-pending

@@ -55,8 +55,7 @@ public class DiagnosticCoverageTests {
     /// </remarks>
     static readonly string[] Owed = [
         "RVN1002", "RVN2002", "RVN2003", "RVN2004", "RVN2005", "RVN2006", "RVN2010", "RVN2013",
-        "RVN2014", "RVN2015", "RVN2020", "RVN2021", "RVN2022", "RVN2023", "RVN2024", "RVN2025",
-        "RVN2030", "RVN2031", "RVN2032", "RVN2034", "RVN2040", "RVN2041", "RVN2042", "RVN2043",
+        "RVN2014", "RVN2015", "RVN2032", "RVN2041", "RVN2042", "RVN2043",
         "RVN2045", "RVN2070", "RVN2071", "RVN2074", "RVN2075", "RVN2080",
         "RVN2081", "RVN2092", "RVN2093", "RVN2094",
         "RVN2113", "RVN2114", "RVN2122", "RVN2131", "RVN3001",

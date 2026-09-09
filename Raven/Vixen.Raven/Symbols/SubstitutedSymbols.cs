@@ -33,6 +33,7 @@ public sealed class SubstitutedFieldSymbol(FieldSymbol definition, Symbol contai
     public override object? ConstantValue => OriginalDefinition.ConstantValue;
     public override ResourceKind ResourceKind => OriginalDefinition.ResourceKind;
     public override string? SemanticName => OriginalDefinition.SemanticName;
+    public override InterpolationMode Interpolation => OriginalDefinition.Interpolation;
     public override bool IsStatic => OriginalDefinition.IsStatic;
     public override SyntaxNode? DeclaringSyntax => OriginalDefinition.DeclaringSyntax;
 }
@@ -111,6 +112,7 @@ public sealed class SubstitutedParameterSymbol(ParameterSymbol definition, Symbo
     public override bool HasDefaultValue => OriginalDefinition.HasDefaultValue;
     public override object? DefaultValue => OriginalDefinition.DefaultValue;
     public override string? SemanticName => OriginalDefinition.SemanticName;
+    public override InterpolationMode Interpolation => OriginalDefinition.Interpolation;
     public override RefKind RefKind => OriginalDefinition.RefKind;
     public override SyntaxNode? DeclaringSyntax => OriginalDefinition.DeclaringSyntax;
 }

@@ -3415,4 +3415,481 @@ public class NegativeDiagnosticTests {
                 """
             )
         );
+
+    // --- RVN2143: an interpolation the language does not have ---------------
+
+    /// <summary>
+    ///     All four words the language does have, on one shader.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>InterpolationTests.AnUnrecognisedWordIsReported</c>, which is this
+    ///     shader with one letter removed from <c>noperspective</c>. A rule that matched on
+    ///     "the attribute is present" rather than on the word would refuse all four, and the
+    ///     feature would be unusable while every existing shader stayed green — none of them
+    ///     writes it.
+    /// </remarks>
+    [Fact]
+    public void The_four_interpolations_the_language_has_are_accepted() =>
+        Silent(
+            "RVN2143",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    [Interpolation("smooth")] stream var a: float2
+                    [Interpolation("flat")] stream var b: float3
+                    [Interpolation("noperspective")] stream var c: float4
+                    [Interpolation("centroid")] stream var d: float
+
+                    [VertexShader]
+                    func Vertex([Semantic("POSITION")] position: float3): float4 {
+                        a = float2(position.x, position.y)
+                        b = float3(1f, 0f, 0f)
+                        c = float4(1f, 1f, 1f, 1f)
+                        d = position.z
+
+                        return float4(position.x, position.y, position.z, 1f)
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Shade(): float4 => float4(a.x, b.y, c.z, d)
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2144: an interpolation the type cannot take ---------------------
+
+    /// <summary>
+    ///     <c>flat</c> on an integer varying, and <c>noperspective</c> on a float one.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>InterpolationTests.AnInterpolationOnAnIntegerVaryingIsRefused</c>, and
+    ///     it is two near misses rather than one because the rule turns on two facts. Refusing the
+    ///     first would refuse an author writing out what the compiler was going to do anyway;
+    ///     refusing the second would be the rule reading "an interpolation was declared" and
+    ///     ignoring the type it was declared on, which is the whole content of it.
+    /// </remarks>
+    [Fact]
+    public void Flat_on_an_integer_and_a_mode_on_a_float_are_both_available() =>
+        Silent(
+            "RVN2144",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    [Interpolation("flat")] stream var id: int
+                    [Interpolation("noperspective")] stream var screenUv: float2
+
+                    [VertexShader]
+                    func Vertex([Semantic("POSITION")] position: float3): float4 {
+                        id = 3
+                        screenUv = float2(position.x, position.y)
+
+                        return float4(position.x, position.y, position.z, 1f)
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Shade(): float4 => float4(screenUv.x, screenUv.y, float(id), 1f)
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2145: an interpolation where nothing interpolates ---------------
+
+    /// <summary>
+    ///     The two declarations that <em>are</em> interpolated: a <c>stream</c> field and a fragment
+    ///     entry point's own parameter.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>InterpolationTests.TheAttributeOnSomethingThatIsNotAVaryingIsReported</c>
+    ///     and of <c>TheAttributeOnAVertexParameterIsReported</c>. ⚠ The parameter half is the one
+    ///     worth having: the obvious way to write this rule is "a field, and it must be a stream",
+    ///     which leaves every parameter warned about — including the one place besides a stream
+    ///     where the attribute means exactly what it says.
+    /// </remarks>
+    [Fact]
+    public void A_stream_and_a_fragment_parameter_are_both_interpolated() =>
+        Silent(
+            "RVN2145",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    [Interpolation("centroid")] stream var edgeSafe: float4
+
+                    [VertexShader]
+                    func Vertex([Semantic("POSITION")] position: float3): float4 {
+                        edgeSafe = float4(position.x, position.y, 0f, 1f)
+
+                        return float4(position.x, position.y, position.z, 1f)
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Shade([Interpolation("noperspective")] uv: float2): float4 {
+                        return float4(uv.x, uv.y, edgeSafe.z, 1f)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2020: an implicit conversion that is there ----------------------
+
+    /// <summary>
+    ///     Widening, which is what the implicit conversions are for.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>SemanticDiagnosticsTests.Implicit_narrowing_is_rejected</c>, which is
+    ///     this declaration with the two types swapped. A rule that refused every conversion an
+    ///     initializer needed rather than every <em>lossy</em> one would make the language ask for
+    ///     a cast on <c>val x: float = 1</c>, which is most of the arithmetic in the library.
+    /// </remarks>
+    [Fact]
+    public void Widening_an_initializer_needs_no_cast() =>
+        Silent(
+            "RVN2020",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    func F(): float {
+                        val wide: float = 1
+                        val vector: float3 = float3(wide, wide, wide)
+
+                        return vector.x
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2021: an explicit conversion that is there ----------------------
+
+    /// <summary>
+    ///     A cast between two types that do have a conversion, written out.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of
+    ///     <c>UnprovenDiagnosticTests.An_explicit_cast_with_no_conversion_behind_it_is_reported</c>,
+    ///     which casts a struct to an <c>int</c>. This is the narrowing that the cast exists to
+    ///     ask for — refusing it would leave no way to write the conversion <c>RVN2020</c> tells
+    ///     an author to write.
+    /// </remarks>
+    [Fact]
+    public void A_cast_that_narrows_is_what_a_cast_is_for() =>
+        Silent(
+            "RVN2021",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    func F(): int {
+                        val truncated = (int)1.5f
+                        val back = (float)truncated
+
+                        return truncated + int(back)
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2022: a binary operator that is defined -------------------------
+
+    /// <summary>
+    ///     A vector times a scalar, and two bools joined.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>SemanticDiagnosticsTests.Undefined_operator_names_both_operand_types</c>,
+    ///     which subtracts an <c>int</c> from a <c>bool</c>. Both cases here have operands of
+    ///     <em>different</em> shapes, which is the fact a rule looking for "the operand types are
+    ///     not equal" would trip on — and vector-scalar broadcast is in every second line of the
+    ///     shading library.
+    /// </remarks>
+    [Fact]
+    public void A_vector_scalar_product_and_a_bool_conjunction_are_defined() =>
+        Silent(
+            "RVN2022",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    func F(v: float3, s: float, a: bool, b: bool): float3 {
+                        val scaled = v * s
+                        val both = a && b
+
+                        return both ? scaled : v
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2023: a unary operator that is defined --------------------------
+
+    /// <summary>
+    ///     Negation, on a scalar and on a vector.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of
+    ///     <c>UnprovenDiagnosticTests.A_unary_operator_with_no_definition_is_reported</c>. A rule
+    ///     that asked "is the operand a vector" rather than "does this operator have a definition
+    ///     for it" would refuse the vector half, and a negated direction is what every reflection
+    ///     in the library is built from.
+    /// </remarks>
+    [Fact]
+    public void Negation_is_defined_on_a_scalar_and_on_a_vector() =>
+        Silent(
+            "RVN2023",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    func F(v: float3, s: float): float3 {
+                        val flipped = -v
+                        val down = -s
+
+                        return flipped * down
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2024: a condition that is a bool --------------------------------
+
+    /// <summary>
+    ///     A comparison, which is where a condition comes from.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>SemanticDiagnosticsTests.Non_bool_condition_is_rejected</c>, which puts
+    ///     an <c>int</c> literal in the same position. The near miss is that the operands here are
+    ///     <em>not</em> bools — only the comparison's result is — so a rule that looked at the
+    ///     expression's parts rather than at its type would refuse every <c>if</c> in the tree.
+    /// </remarks>
+    [Fact]
+    public void A_comparison_is_a_condition() =>
+        Silent(
+            "RVN2024",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    func F(x: float): float {
+                        if (x > 0f) {
+                            return x
+                        }
+
+                        while (x < 1f) {
+                            x = x + 1f
+                        }
+
+                        return x
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2025: a string literal where one is legal -----------------------
+
+    /// <summary>
+    ///     A string literal in an attribute argument, which is the one place it belongs.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>RemovedConstructsTests</c>'s string cases. ⚠ This is the near miss that
+    ///     matters most of the batch: <c>RVN2025</c> is what makes string interpolation a
+    ///     <em>removed</em> construct rather than an owed one, and a rule that refused every string
+    ///     literal would take <c>[Semantic("POSITION")]</c> with it — which is to say every entry
+    ///     point in the library.
+    /// </remarks>
+    [Fact]
+    public void A_string_literal_is_legal_in_an_attribute_argument() =>
+        Silent(
+            "RVN2025",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    [Format("rgba16f")] var target: RWTexture2D<float4>
+
+                    [VertexShader]
+                    func Vertex([Semantic("POSITION")] position: float3): float4 {
+                        return float4(position.x, position.y, position.z, 1f)
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Shade(): float4 => float4(1f, 1f, 1f, 1f)
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2030: an identifier before a '(' that is a method ---------------
+
+    /// <summary>
+    ///     A call, in a shader that also has a field — so the receiver is resolved rather than
+    ///     assumed.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>SemanticDiagnosticsTests.Calling_a_non_method_is_rejected</c>, which is
+    ///     this shader calling <c>v</c> instead of <c>Compute</c>. The field is present here on
+    ///     purpose: a rule that fired whenever a shader had a non-method member in scope would be
+    ///     satisfied by the positive test's fixture and by every shader in the library.
+    /// </remarks>
+    [Fact]
+    public void Calling_a_method_beside_a_field_is_not_calling_the_field() =>
+        Silent(
+            "RVN2030",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    val v: float3
+
+                    func Compute(): float3 => v * 2f
+
+                    func F(): float3 => Compute()
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2031: an overload that does apply -------------------------------
+
+    /// <summary>
+    ///     An intrinsic called with the arguments it takes, and one called after a widening.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>SemanticDiagnosticsTests.No_applicable_overload_lists_the_argument_types</c>,
+    ///     which calls <c>dot</c> with an <c>int</c> and a <c>bool</c>. The second line is the near
+    ///     miss with the teeth: the argument's type is not the parameter's type, and overload
+    ///     resolution is supposed to reach it through a conversion rather than give up.
+    /// </remarks>
+    [Fact]
+    public void An_overload_reached_through_a_conversion_still_applies() =>
+        Silent(
+            "RVN2031",
+            Semantic(
+                """
+                package A
+
+                shader S {
+                    func F(a: float3, b: float3): float {
+                        val exact = dot(a, b)
+                        val converted = max(1f, 2)
+
+                        return exact + converted
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2034: the constructor a struct declared -------------------------
+
+    /// <summary>
+    ///     The declared <c>init</c>, called with what it takes.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>ConstructorTests.A_declared_constructor_takes_over_from_the_positional_form</c>,
+    ///     which is this struct constructed with two arguments instead of one. A rule that refused
+    ///     a construction of any type carrying a declared <c>init</c> — rather than one whose
+    ///     arguments match none of them — would make declaring a constructor stop the type being
+    ///     constructible at all.
+    /// </remarks>
+    [Fact]
+    public void The_constructor_a_struct_declares_can_be_called() =>
+        Silent(
+            "RVN2034",
+            Semantic(
+                """
+                package A
+
+                struct Ray {
+                    var origin: float3
+                    var direction: float3
+
+                    init(o: float3) {
+                        origin = o
+                    }
+                }
+
+                shader S {
+                    func F(): float3 {
+                        val r = Ray(float3(0f, 0f, 0f))
+
+                        return r.origin
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2040: a target that can be assigned -----------------------------
+
+    /// <summary>
+    ///     A <c>var</c> local, a <c>var</c> field and one lane of a vector.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>SemanticDiagnosticsTests.Assigning_to_a_val_is_rejected</c>. The third
+    ///     line is the near miss: a swizzle is a synthesized member rather than a declared one, so
+    ///     a rule deciding assignability from "was this member declared as a var" answers no for it
+    ///     — and a component store is how every shader in the library builds a colour.
+    /// </remarks>
+    [Fact]
+    public void A_var_local_a_var_field_and_a_lane_are_all_assignable() =>
+        Silent(
+            "RVN2040",
+            Semantic(
+                """
+                package A
+
+                struct Surface {
+                    var albedo: float3
+                }
+
+                shader S {
+                    func F(tint: float3): float3 {
+                        var local = float3(0f, 0f, 0f)
+                        var surface: Surface
+                        local = tint
+                        local.x = 1f
+                        surface.albedo = local
+
+                        return surface.albedo
+                    }
+                }
+
+                """
+            )
+        );
 }
