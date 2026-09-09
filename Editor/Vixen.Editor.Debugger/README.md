@@ -211,6 +211,52 @@ one that cannot count datagrams — an in-process transport has none to count �
 flat along the bottom would say the link is clean, which is the state this must never invent. Nothing
 is wired for any of it: a `NetworkSession` holds the transport it runs on, so the panel asks it.
 
+### What the outbound lane would have to become, and why it has not
+
+**resent** is an upper bound and is named that rather than "loss" because the far end acknowledges
+what it received and says nothing about what it did not
+([#121](https://github.com/Rikarin/Vixen/issues/121)). The measurement that would replace it already
+exists — it is the peer's own `Missing` over `Expected` — and what is missing is a way to carry it
+back. That is a **wire change** and stays one at HEAD:
+
+- The two ends of the arithmetic are already apart. `NetworkSession` never reads `ITransport.Loss`
+  itself; the readers are `NetworkMetrics:310` and this panel, through `session.Transport.Loss`
+  (`NetworkReport.cs:347`). Whichever end carries the report has to start reading its own inbound
+  counters and sending them.
+- `SystemMessage` is the first byte of every packet and its numbers *are* the wire format, so both a
+  new `LinkReport` value and a lengthened `Pong` — which already runs at `PingInterval`, one second,
+  which is the cadence the panel differences at anyway — mean a `ProtocolVersion` bump.
+- ⚠ And it cannot land inside `TransportLoss`. "What the peer says it missed of what I sent" is a
+  fifth measurement, taken by different evidence from all four of those, and folding it in beside
+  `Retransmitted` is exactly the conflation that struct's remarks refuse.
+
+### The three views doc 16 asks for and this panel does not have
+
+Ownership, interest sets and a live RPC log
+([#122](https://github.com/Rikarin/Vixen/issues/122)). That issue says none of the three is a question
+`BandwidthLedger` or `SnapshotInspector` can answer, which is true — but they are not the only models
+in `Vixen.Net`, and the three turn out to need very different things:
+
+- ⚠ **Ownership needs no new surface at all.** `NetworkOwnership` (`Core/Vixen.Net/Rpc/`) already has
+  `Count`, an `OwnerChanged` event, `TryGetOwner` and `OwnedBy(PlayerId, List<NetworkId>)`, and
+  `RpcRouter.Ownership` publishes the instance. What is missing is the *pointer* — a
+  `DiagnosticsModule` property beside `NetworkLedger` and `NetworkRegistry`, set the same way — which
+  makes this the cheapest of the three and not a design question.
+- **Interest sets need a small accessor that does not exist.** `ReplicationServer` keeps
+  `Connection.Holding`, the set of ids a connection currently has, but `Connection` is a private
+  nested class and `BaselineOf(PlayerId)` is the only per-connection reader. ⚠ The resolver is not the
+  place to ask: `InterestChain` publishes `ConsideredCount`, `NominatedCount` and `HiddenCount` and
+  nothing per player, and `ReplicationServer` resolves into **one shared scratch list** it clears per
+  connection, so after a tick the only set that still exists is the last connection's.
+- **A live RPC log needs a record that is not being kept.** `RpcRouter` publishes eight refusal
+  counters and an accepted count and no per-call anything, so a log is an event or a ring somebody
+  has to add — and the ring belongs here rather than in `Vixen.Net`, for the reason `NetworkTrend`
+  gives above: a dedicated server should not pay for a time series nobody is looking at.
+
+⚠ **All three are behind [#120](https://github.com/Rikarin/Vixen/issues/120) regardless.** The editor
+is the only process in the tree holding a `DiagnosticsModule` and it runs no session, so a view built
+today would draw the same nothing the existing ones draw.
+
 ## The theme
 
 **The sheet is `DebuggerTheme.vcss`, a file beside the loader**, embedded by the `**/*.vcss` glob in
