@@ -135,7 +135,7 @@ sealed class GitSourceControl : ISourceControl {
     ///     to everybody who does not use git.
     /// </remarks>
     public static GitSourceControl? For(string directory) {
-        if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory)) {
+        if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory) || !NearGit(directory)) {
             return null;
         }
 
@@ -161,6 +161,39 @@ sealed class GitSourceControl : ISourceControl {
         }
 
         return new GitSourceControl(directory, prefix);
+    }
+
+    /// <summary>Whether a <c>.git</c> is anywhere at or above a directory.</summary>
+    /// <param name="directory">Where to start.</param>
+    /// <returns>Whether it is worth asking git.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A stat walk before a process, and the cost it saves is the ordinary case.</b>
+    ///         Every project that is not in git — which includes every project the test suite makes,
+    ///         several hundred of them in one run — would otherwise pay a <c>git rev-parse</c> to be
+    ///         told no.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A file counts as much as a directory.</b> Inside a git *worktree* — which is what
+    ///         every agent in this repository works in — <c>.git</c> is a file naming the real one,
+    ///         and a check for a directory would report the whole arrangement as unversioned.
+    ///     </para>
+    ///     <para>
+    ///         The one thing this cannot see is a repository named entirely by environment
+    ///         (<c>GIT_DIR</c> with no marker on disk), which is rare enough to be worth a process
+    ///         per project launch to nobody.
+    ///     </para>
+    /// </remarks>
+    static bool NearGit(string directory) {
+        for (var walk = new DirectoryInfo(directory); walk is not null; walk = walk.Parent) {
+            var marker = Path.Combine(walk.FullName, ".git");
+
+            if (Directory.Exists(marker) || File.Exists(marker)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <inheritdoc />
