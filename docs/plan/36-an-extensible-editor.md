@@ -764,11 +764,16 @@ above said "Profiler + Debugger ✅ done". Both were true about the *panels* and
 the *references*: the module was created and the app kept referencing the two originals as well.
 Seven panels moved; three references stand where two did.
 
-⚠ **`EditorApplication.cs` is 3,787 lines** — measured, and the exit wants under 800. The header of
-this document says 3,601 and two other places said 3,641 and 3,675; those were all true when written
-and none of them is now. The file grows by tens of lines with each phase that gives it something to
-own — the reload host, the icon resolution, the plugin host, the gizmo pass — which is the shape of
-the problem rather than a lapse.
+⚠ **`EditorApplication.cs` is 5,282 lines** — measured 2026-09-09, and the exit wants under 800.
+`EditorParity.cs` is 2,997 beside it. This paragraph has said 3,601, 3,641, 3,675, 3,787 and 4,593 in
+turn; each was true when written and none of them is now. **The criterion is moving away from itself
+at roughly 700 lines a revision**, and the file grows by tens of lines with each phase that gives it
+something to own — the reload host, the icon resolution, the plugin host, the gizmo pass — which is
+the shape of the problem rather than a lapse.
+
+⚠ **A number nobody can re-derive goes stale again**, which is the standing lesson from F7's count in
+the other direction. `wc -l Editor/Vixen.Editor.App/EditorApplication.cs` is the command; a revision
+that restates the figure without running it is writing down a memory.
 
 ⚠ **This phase was never going to fix that, and the plan conflated two jobs.** The five moves took
 3,299 lines out of the *assembly* — 20,175 to 16,876 — but almost all of it came from the other
@@ -776,11 +781,31 @@ partials and from the host. Splitting the god object is a different job from mov
 of it: a file of project opening, panels, selection, commands and play mode is long for reasons no
 feature move addresses.
 
-⚠ **`CheckArchitecture` has no rule for this and never gained one.** `build/Build.ArchitectureRules.cs`
-enforces the layer order (`Core` < `Platform` < `Editor`/`Tools`) and an editor-only package list;
-nothing fails the build when `Vixen.Editor.App` references a feature assembly again. Until it does,
-every row removed from the table above can come back without anybody noticing — which for F2, the
-finding this document says matters most, is the difference between a fix and a tidy-up.
+✅ **`CheckArchitecture` has the rule now** — [`ApplicationReferenceRule`](../../build/ApplicationReferenceRule.cs).
+It had never been written: the target enforced the layer order, an editor-only package list, the
+Orleans tiers and three named one-offs, and nothing failed the build when `Vixen.Editor.App`
+referenced a feature assembly again. Until it did, every row removed from the table above could come
+back without anybody noticing — which for F2, the finding this document says matters most, is the
+difference between a fix and a tidy-up.
+
+⚠ **Two lists, and the second is what makes the criterion move rather than describe.** `Allowed` is
+what the exit permits for ever — corrected to include `Assets`, per the table above. `NotYetMoved` is
+the five the application still names, each with the reason beside it — and **a name in that list
+which is no longer referenced fails too**. So the list can only shrink: the batch that finally
+dereferences the profiler is told to delete the line in the same run, rather than leaving a rule that
+has quietly stopped asserting anything. `CheckWhitespace`'s exemption file is the same shape for the
+same reason.
+
+⚠ **The table above lists four names and the rule lists five.** `Vixen.Editor.NodeGraph` is
+referenced too, for one call — `NodeGraphTheme.Install`, the user-agent sheet the four graph panels
+are drawn with (#917) — and it arrives transitively through the asset editors as well, so deleting
+the line would compile and lose the look. It belongs in the count either way.
+
+⚠ **And the rule is run by a test rather than only by the gate.** `ApplicationReferenceRuleTests`
+compiles the same file into `Vixen.Editor.Texturing.Tests` and calls it over this tree and over
+fixtures that make both halves fire, because a rule that can only answer by running a Release-mode
+Nuke target is one that ships without anybody having seen it produce an answer — which is exactly
+what happened to `PluginReferenceRule`.
 
 ✅ **The seam is built.** `PluginHost.Activate(id, name, module)` runs a compiled-in `IEditorPlugin`
 through the same `PluginContext`, the same registration scope, the same rollback-on-throw and the

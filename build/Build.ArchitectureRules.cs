@@ -362,6 +362,28 @@ partial class Build {
                     )
                 );
 
+                // Doc 36 § P3's third exit criterion, which had never been written: nothing failed the
+                // build when `Vixen.Editor.App` referenced a feature assembly again. Blockout and
+                // Terrain were decoupled at real cost and either could have come back in silence.
+                //
+                // ⚠ The rule's second half is what makes the criterion move: a name in
+                // `NotYetMoved` that is no longer referenced fails too, so the batch that finally
+                // dereferences one is told to delete the line rather than leaving a list that has
+                // quietly stopped asserting anything.
+                var applicationVacuity = ApplicationReferenceRule.Vacuity(
+                    RootDirectory,
+                    projects.Select(project => project.ToString())
+                );
+
+                Assert.True(applicationVacuity is null, applicationVacuity ?? "");
+
+                violations.AddRange(
+                    ApplicationReferenceRule.Violations(
+                        RootDirectory,
+                        projects.Select(project => project.ToString())
+                    )
+                );
+
                 foreach (var violation in violations) {
                     Log.Error("{Violation}", violation);
                 }
