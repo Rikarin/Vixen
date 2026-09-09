@@ -574,7 +574,11 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 > closed and #371's completeness test now reads the library's slots. What is missing is that
 > **nothing in the tree constructs one**: the only constructions are tests, a golden and the line in
 > `WorldRenderer.Paired` that exists so the pairing can read its map names off
-> ([#1073](https://github.com/Rikarin/Vixen/issues/1073)).
+> ([#1073](https://github.com/Rikarin/Vixen/issues/1073)). ⚠ **The decision that issue needs is
+> written where somebody can act on it** — [48](plan/48-material-authoring.md) § M11's *"whole
+> remainder is one authored asset"* names the mesh, the unwrap, who paints the weights (nobody, in the
+> first version) and the closed-form oracle, because both failure shapes here *draw*: a wrong
+> `LayerCount` variant, and an unpaired `heightIndex` biasing every weight by the magenta checker.
 > ⚠ **The editor bakes a material as of 2026-09-08** — `MaterialBakeRoute` compiles the open
 > `.vxtexgraph`, fills its externals, dispatches through the evaluator both panes already share,
 > reads *every* output and writes the `.vxmat`, behind a *Bake Material* verb

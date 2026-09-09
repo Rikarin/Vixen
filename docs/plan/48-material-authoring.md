@@ -1188,7 +1188,9 @@ path, the 2D UV view, symmetry, curve strokes, smoothing.
 
 ### M10 — The library, smart materials and export · 1.0 EM
 
-Twenty compound nodes and ten smart materials authored *in the tool*, `.vxsmartmat`, export presets,
+⚠ **The deliverable is [§ 4.9](#49-the-compound-library--content-not-code)'s ● marks, not a number written here** — this line said *"twenty compound nodes and ten smart materials"* while that section marked thirty-five and five, so a reader deriving the milestone's scope from Part 6 and one deriving it from § 4.9 got different answers out of one document. The marks are the list, `TextureCompoundLibraryTests` compares them with the folder by name, and this section says only what kind of thing the phase ships.
+
+Compound nodes and smart materials authored *in the tool*, `.vxsmartmat`, export presets,
 and the tool's own dogfooding report — which is the only real answer to "is the atomic set right".
 Optionally nPass ([D7](#d7-the-scatter-is-a-node-with-a-count-not-a-recursive-quadrant-machine)).
 
@@ -1227,6 +1229,56 @@ and the frame becomes that layer alone.
 splat map — was a live bug in it and is **fixed and closed**: `paintedChannels` gates the alpha, and
 the same gate now serves the height map, so the two maps cannot disagree about which channel a layer
 is.
+
+#### M11's whole remainder is one authored asset, and this is the decision it needs
+
+[#1073](https://github.com/Rikarin/Vixen/issues/1073) is the last box of this milestone and the last
+of this document. It is **content plus the route that makes content possible**, so it is written out
+here rather than left as a caveat: an agent picking it up needs four answers before writing a line,
+and getting any of them wrong produces a frame that draws and is wrong.
+
+**Which mesh — a new one, not an arena mesh as it stands.** Every mesh in
+`Samples/13-ThirdPersonShooter` is box-projected by `Content/boxuv.py` *in metres of world
+divided by a 2 m tile*, which is what
+`arena-wall.obj`'s "64 metres over 32 uv units" means in `wall.vxmat`. So a splat map painted over
+0..1 repeats once per two metres across the surface it is meant to place layers on — thirty-two times
+for that wall — and the wrap is not a bug there, because the tiling *is* the uv.
+⚠ **And a second uv set is not the way out**:
+`SurfaceVertex` (`Core/Vixen.Rendering/SurfaceVertex.cs:48`) carries exactly one `TexCoord`, so
+"splat on uv0, detail on uv1" is a vertex-format change and out of this document's scope. Re-exporting
+an arena mesh at its own extent would give it a 0..1 unwrap and change every other material already on
+it, which breaks the one-changed-thing rule the arena's own A/B rests on. So: **a purpose-built ground
+plane or rock with a real 0..1 unwrap**, whose layers carry their own detail tiling.
+
+**Which unwrap — the one doc 42 built.** `Vixen.Geometry.Uv` is in the tree and is listed among the
+things this plan stands on; a hand-authored plane needs nothing from it, and the moment the asset is a
+rock rather than a plane it does. Either way the unwrap is committed with the mesh, because the
+content build never runs an unwrapper.
+
+**Who paints the weights — nobody, in the first version, and that is the point.** ⚠ The tempting
+reading is "M9 landed, so paint them" — and that assumes an output shape the bake does not have.
+`MaterialMapTarget.Mask` is the only mask-shaped target, `CompressionOf(Mask)` is single-channel BC4
+and `Parameter(Mask)` is null, so a stack whose author painted three weights has nowhere to put them
+([#1118](https://github.com/Rikarin/Vixen/issues/1118)). **The splat map is therefore an ordinary
+imported RGBA texture, named by hand in the `.vxmat`'s `textures:` block**, exactly as `wall.vxmat`
+names its maps. That is what makes #1073 closable without waiting on #1118, and #1118 stays open as
+the route that removes the hand-naming.
+
+**What the bake has to be able to write, when it does** — #1118's packed weight target: a
+`MaterialMapTarget.Splat` fed by four weight usages the way `Orm` packs three, in BC7 rather than BC4.
+⚠ **Its parameter name is read off `TexturedMaterialLayersFeature.SplatMap`'s default and never
+typed** — that is `MaterialMapNaming`'s standing rule, and `MaterialDiagnosticId.RenamedTextureMap`
+refuses the alternative.
+
+**And it is verified with a picture against a closed form, not a counter.** Both failure shapes here
+*draw*: a material resolving the `LayerCount` variant compiled for a different count, and an unpaired
+`heightIndex` resolving to slot zero — the magenta checker, whose channels are emphatically not zero,
+biasing every weight in the frame. The oracle that separates them from a working splat: a map that is
+pure red over one half of the surface and pure green over the other must render as **layer 0's
+material over the first half and layer 1's over the second**, each half matching a single-layer
+material of that layer drawn in the same frame. ⚠ And `PaintedChannels` defaults to **3**, so a
+four-layer stack given a four-channel map without setting it is the silent-wrong case the feature's
+own remarks warn about.
 
 ### Cost
 
@@ -1600,8 +1652,8 @@ forgotten.
 | Planar symmetry | — | ✅ | ✅ | ● M9 |
 | Radial symmetry | — | ◐ | ✅ 2026 | 🕓 |
 | Stroke smoothing / lazy mouse | — | ✅ | ✅ 2026 | ● M9 |
-| Curve and path strokes | — | ◐ | ✅ 2026 | ◐ M9 — the **straight** half landed and cost nothing: `BrushStroke.MoveTo` already walks the segment, so a shift-click line is two `MoveAll` calls and one undo entry. ⚠ **The pen gesture landed 2026-09-08** — `PaintToolMode.Path` and `PaintPath`, with a preview and one stroke on commit. What is left is that a placed point cannot be moved or inserted, and a 3D path needs a 3D surface ([#1084](https://github.com/Rikarin/Vixen/issues/1084), [#1063](https://github.com/Rikarin/Vixen/issues/1063)) |
-| Brush alphas and presets | — | ✅ | ✅ | ◐ M9 — ⚠ **Landed 2026-09-08, and the blocker was arithmetic rather than wiring**: `TerrainBrush.WeightAt` measured every stamp radially and clipped at the radius whatever the shape, so a mask that was one over its whole square painted *exactly* what a circle painted and a rotation over it moved no texel. An alpha's reach is the Chebyshev distance in the stamp's own turned frame now. `PaintImageMask` is the first production `IBrushMask`; `PaintAlphas` is a four-shape shelf; the two knobs have rows. **Presets and a picker over the project's own textures are still owed** — [#1090](https://github.com/Rikarin/Vixen/issues/1090) |
+| Curve and path strokes | — | ◐ | ✅ 2026 | ● M9 — the **straight** half landed and cost nothing: `BrushStroke.MoveTo` already walks the segment, so a shift-click line is two `MoveAll` calls and one undo entry. ⚠ **The pen gesture landed 2026-09-08** — `PaintToolMode.Path` and `PaintPath`, with a preview and one stroke on commit — and **both of the things this cell then owed closed on 2026-09-09**: a placed point can be dragged, inserted into a segment and deleted ([#1084](https://github.com/Rikarin/Vixen/issues/1084)), and `PaintMeshView` is the 3D surface a 3D path needed ([#1063](https://github.com/Rikarin/Vixen/issues/1063)) |
+| Brush alphas and presets | — | ✅ | ✅ | ◐ M9 — ⚠ **Landed 2026-09-08, and the blocker was arithmetic rather than wiring**: `TerrainBrush.WeightAt` measured every stamp radially and clipped at the radius whatever the shape, so a mask that was one over its whole square painted *exactly* what a circle painted and a rotation over it moved no texel. An alpha's reach is the Chebyshev distance in the stamp's own turned frame now. `PaintImageMask` is the first production `IBrushMask`; `PaintAlphas` is a four-shape shelf; the two knobs have rows. ⚠ **An artist can bring their own alpha as of 2026-09-09** — `PaintAlphaSource` resolves a project-relative path to a decoded image and the brush column has the row ([#1090](https://github.com/Rikarin/Vixen/issues/1090)); ⚠ the channel is decided by *inspecting* the picture, because an image with no alpha otherwise reads as a mask that is zero everywhere — a brush that paints nothing, silently. **A browse dialog and a drag target stay owed** and are behind `PropertyField` ([#881](https://github.com/Rikarin/Vixen/issues/881)) |
 | Tablet pressure and tilt | — | ✅ | ✅ | ◐ M9 — pressure needs a platform input path that does not exist; named here rather than assumed |
 | Particle brushes / dynamic strokes | — | ✅ | ? | ✖ a simulation inside a brush; not planned |
 | UV reprojection when the mesh changes | — | ✅ | ✅ | 🕓 **a real gap**, and the one an artist notices on day two of a production |
