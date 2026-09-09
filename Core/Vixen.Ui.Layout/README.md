@@ -834,6 +834,25 @@ Removing the ceiling is therefore a decision about that default and not about th
 whole table, both sabotages and four re-measurements are in `Taffy/KnownGaps.txt` and in the
 method's own remark. `Rikarin/Vixen#265` and `#682`.
 
+⚠ **That decision is taken as of 2026-09-09: the default stays `Flex`, so the ceiling stays, and
+both are divergences of record rather than defects.** Six audits left it open because each read it as
+needing a measurement, and there is none left to take — every probe defect behind the ceiling is
+closed, Chrome has been measured, and flipping the default has been costed. What decides it is not
+arithmetic: `Vixen.Ui`'s authoring surface is `.vxml`, `.vcss` and the utility families, and a
+control's default box is a flex container in every one of them — the control library, the editor's
+chrome and every sample are written against it, while `display: block` is one declaration away
+wherever a text flow is what is wanted. CSS's `block` initial exists because an HTML document is a
+text flow; this store has no anonymous inline box at the root and is judged by two flex-and-grid
+corpora. So the flip buys Chrome-parity on a case the corpus does not contain and costs 36 measured
+geometry and hit-testing assertions in `Vixen.Ui.Tests` plus the used layout of every application
+built on this engine.
+
+⚠ **It is a decision of record and not a lock, which is the half worth writing down.** Reversing it
+is one line — `CreateCssInitial`'s `Display` — and the bill is exactly those 36 assertions, the
+ceiling's deletion, and a re-measurement of `TextWrappingPixelTests`' four fixtures. It wants an
+owner rather than an agent, and what it wants from them is a position on whether VCSS is CSS first,
+not another measurement.
+
 **Parallel layout.** Independent subtrees with a fixed available size are jobs, and text measurement
 of siblings is where the win is. `Benchmarks/Vixen.Benchmarks.Ui` now gives the serial number to
 beat, and it says the algorithm is not where an incremental frame's time goes — so this waits behind

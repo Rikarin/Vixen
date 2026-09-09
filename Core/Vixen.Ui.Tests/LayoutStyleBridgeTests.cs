@@ -44,7 +44,13 @@ public class LayoutStyleBridgeTests {
         // `block`, so a plain element there is not a flex item and has no §4.5 floor at all, while a
         // plain element built through this bridge is a row flex item and gets one. Removing the
         // ceiling would be right about Chrome and wrong about the markup an author believes they
-        // wrote. `Rikarin/Vixen#265` and `#682` are open on that one call and on nothing else.
+        // wrote. `Rikarin/Vixen#265` and `#682` were open on that one call and on nothing else.
+        //
+        // ⚠ <b>The call is TAKEN as of 2026-09-09 — the default stays `Flex` — so this assertion has
+        // stopped pinning an accident and started pinning a decision.</b> What it means when it goes
+        // red is therefore narrower than it was: not "go and re-take those two issues" but "somebody
+        // reversed a recorded default", and the reversal's bill is written at
+        // `LayoutStyleBuilder.CreateCssInitial` beside the line that is not there.
         //
         // ⚠ <b>So the loud direction here is a FAILURE, and what it means is "go and re-take those
         // two issues" — which was not free before, but was ANONYMOUS.</b> Measured: setting

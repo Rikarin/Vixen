@@ -727,7 +727,22 @@ public sealed partial class LayoutTree {
     ///         <c>Row</c> where a browser's initial display is <c>block</c>, so every plain element
     ///         here is the first row of that table and is given the last row's picture. Removing the
     ///         term would be right about Chrome and wrong about the markup an author believes they
-    ///         wrote. <c>Rikarin/Vixen#682</c> is where that call is owed.
+    ///         wrote. <c>Rikarin/Vixen#265</c> is where that call was owed.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is taken as of 2026-09-09: the default stays <c>Flex</c>, so this term is
+    ///         permanent while it does.</b> Six audits left it open on the belief that a measurement
+    ///         was outstanding, and none is — every probe defect this ceiling was written to hide is
+    ///         closed, the layout project is green without it, Chrome has been measured, and the
+    ///         flip has been costed at 36 red geometry and hit-testing assertions in
+    ///         <c>Vixen.Ui.Tests</c>. What was left was a position rather than a number, and the
+    ///         position is that <c>.vxml</c> and <c>.vcss</c> treat a control's default box as a flex
+    ///         container throughout, so the CSS-initial <c>block</c> would be right about a document
+    ///         and wrong about this engine's markup. So nothing here is a defect awaiting a fix, and
+    ///         a reader who deletes the term to see what happens is re-taking a decision rather than
+    ///         finding a bug — which is exactly the reading the four unnamed lines used to invite.
+    ///         The one line that reverses it is <c>LayoutStyleBuilder.CreateCssInitial</c>'s
+    ///         <c>Display</c>, and that is where the decision is now written down.
     ///     </para>
     /// </remarks>
     float MeasuredContentCeiling(int index, Dimension mainDimension) {

@@ -348,6 +348,30 @@ public sealed class LayoutStyleBuilder {
         // `ResolveFlexShrink`'s negative-`Flex` convention, which no stylesheet can reach.
         style.FlexShrink = 1f;
 
+        // ⚠ <b>`Display` is deliberately NOT corrected here, and the absence of a line is the
+        // decision.</b> Four fields above restate CSS's initial value away from Yoga's; a browser's
+        // initial `display` is `block` and this one is left at `Flex`, so every plain element built
+        // through this bridge is a row flex item. That is what `LayoutTree.MeasuredContentCeiling`
+        // two projects away exists to survive — §4.5's automatic minimum floors a flex item, Chrome
+        // has no flex item to floor, and the ceiling is what keeps an unbreakable `break-word` word
+        // wrapping into its box here. Nothing at this line said so until 2026-09-09, and a choice
+        // written as an omission is one nobody can find: the ceiling's whole evidence lives in
+        // `Vixen.Ui.Layout`, which cannot see this method.
+        //
+        // ⚠ <b>Taken as a decision on 2026-09-09 rather than left owed: the default stays `Flex`.</b>
+        // `Rikarin/Vixen#265` and `#682` were open on this one call through six audits, each reading
+        // it as a measurement that had not been taken — and there is none left. `.vxml`, `.vcss` and
+        // the utility families all treat a control's default box as a flex container, `display:
+        // block` is one declaration away where a text flow is wanted, and the flip was measured at
+        // 36 red geometry and hit-testing assertions in `Vixen.Ui.Tests` (`TextTests`,
+        // `NavigationTests`, `InAppDragTests`, `FlexShrinkFromCssTests`) plus the used layout of
+        // every application on this engine. It buys Chrome-parity on a case neither corpus contains.
+        //
+        // ⚠ A decision of record, not a lock. Reversing it is this one line, and the bill is those
+        // 36 assertions, the ceiling's deletion and a re-measurement of `TextWrappingPixelTests`'
+        // four fixtures. What it wants is an owner's position on whether VCSS is CSS first.
+        // Pinned by `LayoutStyleBridgeTests.The_display_this_method_leaves_alone_is_what_a_ceiling_
+        // two_projects_away_stands_on`, which fails loudly in the direction of the flip.
         return style;
     }
 
