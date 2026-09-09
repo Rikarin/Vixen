@@ -1094,13 +1094,55 @@ sealed class LayerStackView : IDisposable {
         // and six test files read the tree synchronously after `Show` returns, so waiting for the
         // frame's own flush would mean a first pass over rows that are half built. Draining here
         // costs one extra flush on the passes where the shape actually changed.
-        root.Document.Effects.Flush();
+        // ⚠ **And the drain is allowed to have done nothing, which is the whole of why this is not
+        // three lines.** `Flush` returns zero and runs nothing when a flush is already in progress —
+        // deliberately, so the outer drain picks the work up — and `Build` is reached from inside one
+        // on every *external* edit: the depth watcher is itself an `Effect`, so an undo or a redo of
+        // an Add Layer arrives here mid-flush. Running the owed closures then reads `Ticks()` before
+        // the `@for` that makes them has run, gets an empty list, wires nothing, and leaves every
+        // channel box on every rebuilt row unchecked and inert — with the boxes appearing a moment
+        // later when the outer drain gets to them, so it looks like a panel that works.
+        //
+        // So the owed work waits for a drain that actually happened. `Post` runs it at the start of
+        // the next flush, which is after the outer one has made the regions, and it restates from
+        // there because the closures it runs are what register the bindings `Present` already asked
+        // for.
+        if (root.Document.Effects.Flush() > 0 || root.Document.Effects.PendingCount == 0) {
+            Drain();
 
-        foreach (var owed in pending) {
-            owed();
+            return;
         }
 
-        pending.Clear();
+        // ⚠ A one-shot effect rather than `Post`, because `Post` runs at the start of the *next*
+        // flush and the outer drain is still going: the regions this is waiting for are made in it,
+        // and so is anything they queue in turn. An effect created here is picked up by that same
+        // drain, so the owed work happens in the frame the edit did — not one later, with every tick
+        // box drawn unchecked in between.
+        //
+        // ⚠ Untracked, and disposed the moment it has run. The closures below read the document, so
+        // an effect that tracked them would take a dependency on the whole stack and re-run itself
+        // on the next edit, wiring every handler a second time.
+        var owed = new Effect[1];
+
+        owed[0] = new Effect(
+            () => {
+                ReactiveGraph.Untracked(() => {
+                    Drain();
+                    Restate();
+                });
+
+                owed[0].Dispose();
+            },
+            root.Document.Effects
+        );
+
+        void Drain() {
+            foreach (var owed in pending) {
+                owed();
+            }
+
+            pending.Clear();
+        }
 
         void Walk(List<LayerAsset> layers, int depth) {
             for (var index = layers.Count - 1; index >= 0; index--) {

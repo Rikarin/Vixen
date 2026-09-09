@@ -615,11 +615,34 @@ public sealed class MaterialBakeTests {
         Assert.DoesNotContain("TexturedMetalRoughnessSurface", composed);
         Assert.DoesNotContain("MetalRoughnessSurface", composed);
 
-        // And the base-colour file the bake wrote is left unbound, because with the base surface
-        // replaced nothing in the chain samples it.
+        // ⚠ And neither is the packed map, which is the half a rule about the *base colour* alone
+        // leaves behind. `TexturedOrmFeature` assigns `d.perceptualRoughness` and splits the albedo
+        // by the map's metalness — so behind a layered surface it writes over the author's per-layer
+        // roughness and splits a second time off a diffuse that has already been split. The third
+        // layer here is metalness 1, which is exactly the case that then computes `f0` from black
+        // and shades as a dielectric. The material compiles clean either way, so this is the only
+        // thing that says it.
+        Assert.DoesNotContain("TexturedOrmSurface", composed);
+
+        // And the two files the bake wrote for those features are left unbound, because with the
+        // features gone nothing in the chain samples them.
         Assert.DoesNotContain(
             material.Textures,
             texture => texture.Parameter == new TexturedMetalRoughnessFeature().BaseColorMap
+        );
+
+        Assert.DoesNotContain(
+            material.Textures,
+            texture => texture.Parameter == new TexturedOrmFeature().OrmMap
+        );
+
+        // The instrument: the normal map is composed and bound, so "nothing is composed and nothing
+        // is bound" is not what the four assertions above are reading.
+        Assert.Contains("TexturedNormalMapSurface", composed);
+
+        Assert.Contains(
+            material.Textures,
+            texture => texture.Parameter == new TexturedNormalMapFeature().NormalMap
         );
     }
 

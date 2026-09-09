@@ -170,6 +170,56 @@ public class LayerStackEditingTests {
         Assert.Equal(2, Count(Compile(document), "Blend"));
     }
 
+    /// <summary>
+    ///     ⚠ A channel tick still works on a row the panel rebuilt from inside a flush, which is
+    ///     what an undo is.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The path every test in this file took until now was the easy one.</b> A test calls
+    ///         <c>Show</c> from test code, so <c>Build</c>'s drain is a real flush and the markup
+    ///         row's channel <c>@for</c> has run by the time the row wires its ticks. An *external*
+    ///         edit does not arrive that way: the view watches <c>Stack.Depth</c> with an
+    ///         <c>Effect</c>, so an undo reaches <c>Build</c> from **inside** a flush — and
+    ///         <c>EffectScheduler.Flush</c> deliberately returns zero and runs nothing when one is
+    ///         already in progress.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the row's ticks were read before anything made them.</b> An empty list wires
+    ///         no handler, and the boxes then appear when the outer drain gets to them — present,
+    ///         correct-looking, and inert. Nothing was red: the picture is right, the count is right,
+    ///         and only pressing one says otherwise.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_channel_tick_on_a_row_rebuilt_by_an_undo_is_still_wired() {
+        using var fixture = new TexturingFixture();
+        var document = Open(fixture, TwoChannels());
+        var panel = Panel(fixture);
+
+        // ⚠ An *add* and its undo, not a channel edit: `Build` only re-walks when the shape moved, so
+        // an edit that leaves the layer list alone reuses the rows that are already there and never
+        // reaches the path this case is about.
+        Find<Button>(panel, "layer-stack-add").Activate();
+
+        Assert.True(document.Stack.Undo());
+
+        // The one flush is what makes it re-entrant: `Undo` writes `Stack.Depth`, which only queues
+        // the view's watcher, and the watcher is what calls `Show` — from inside this drain.
+        fixture.Shell.Document.Effects.Flush();
+
+        var ticks = Ticks(panel, "layer-stack-channel");
+
+        Assert.Equal(2, ticks.Count);
+        Assert.All(ticks, tick => Assert.True(tick.IsChecked));
+
+        // The claim: pressing one still reaches the document. A row whose ticks were read before the
+        // region made them has boxes that look exactly like these and change nothing.
+        ticks[1].Activate();
+
+        Assert.Equal("baseColor", Assert.Single(document.Document.Sets[0].Layers[0].Channels));
+    }
+
     /// <summary>⚠ The last remaining tick cannot be cleared, and the legend says why.</summary>
     /// <remarks>
     ///     <b>The ambiguity in the file kept out of the panel.</b> Clearing the last tick would leave

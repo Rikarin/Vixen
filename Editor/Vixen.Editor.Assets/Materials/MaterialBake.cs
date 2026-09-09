@@ -215,7 +215,20 @@ public static class MaterialBake {
             features.Add(new TexturedNormalMapFeature());
         }
 
-        if (maps.ContainsKey(MaterialMapTarget.Orm)) {
+        // ⚠ Not behind a layered surface, and this is the same decision the base colour's is rather
+        // than a second one. `TexturedOrmFeature` *assigns* `d.perceptualRoughness` and splits the
+        // albedo by the map's metalness — so composed behind `TexturedMaterialLayersSurface` it
+        // writes over the author's per-layer roughness outright, and splits a second time off a
+        // diffuse the layered surface has already split, leaving a fully metallic layer computing
+        // `f0` from black and shading as a dielectric. The bake's ORM is a *flattened* answer to the
+        // question the per-layer values already answer, so the two cannot both be right and the
+        // author's is the one nothing else can supply. ⚠ The neighbouring remark on this method's
+        // metalness rule states the invariant this would break as a requirement rather than a
+        // preference, and it is not one a compilation can refuse: the material compiles clean.
+        //
+        // ⚠ The cost is the baked *occlusion*, which the layered surface does not write and which
+        // therefore has no route onto one of these materials at all — #1130.
+        if (maps.ContainsKey(MaterialMapTarget.Orm) && layered is null) {
             features.Add(new TexturedOrmFeature());
         }
 
@@ -232,14 +245,13 @@ public static class MaterialBake {
             // not in `MaterialMapNaming.Parameter`. That answers "what does the feature that samples
             // this file call it" for the five the bake always composes; whether anything samples the
             // height file at all is this material's answer, not the target's — see the remarks.
-            // ⚠ And the base colour's name is conditional too, once a layered surface has replaced
-            // the feature that reads it. `TexturedOrmFeature` reads the albedo back out of the
-            // surface rather than out of the file, so with `TexturedMetalRoughnessFeature` gone
-            // nothing samples `baseColorMap` — an entry the build imports, a bundle carries and a
-            // pool makes resident for no reader.
+            // ⚠ And the base colour's and the packed map's names are conditional too, once a layered
+            // surface has replaced the features that read them: with `TexturedMetalRoughnessFeature`
+            // and `TexturedOrmFeature` both gone, nothing samples `baseColorMap` or `ormMap` — two
+            // entries the build imports, a bundle carries and a pool makes resident for no reader.
             var parameter = target switch {
                 MaterialMapTarget.Height => parallax?.HeightMap,
-                MaterialMapTarget.BaseColor when layered is not null => null,
+                MaterialMapTarget.BaseColor or MaterialMapTarget.Orm when layered is not null => null,
                 _ => MaterialMapNaming.Parameter(target)
             };
 
