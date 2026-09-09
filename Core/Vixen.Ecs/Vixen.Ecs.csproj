@@ -30,6 +30,16 @@
             depends on no input, so an assembly that also referenced it would emit a second copy of
             the same partial and the same extension class. The generators meant for a user's own
             compilation join it with the layers that need them.
+
+            ⚠ **#1165 called this "the one that matters most" of four libraries shipping without
+            their sibling generator, on the belief that a game outside this repository gets
+            `[Component]` with none of the code the generator writes. That is refuted.**
+            `QueryArityGenerator` is the only generator in `Vixen.Ecs.Generators` and it emits at
+            post-initialisation; `[Component]` registration is `ComponentRegistrationGenerator` in
+            `Vixen.Engine.Generators`, which `Vixen.Engine` packs. So packing this would ship a
+            duplicate type rather than supply a missing one. The line stating that, and the rule that
+            asks the question of every generator in the tree, are
+            `docs/GeneratorPackagingExempt.txt` and `build/GeneratorPackagingRule.cs`.
         -->
         <ProjectReference Include="..\Vixen.Ecs.Generators\Vixen.Ecs.Generators.csproj"
                           OutputItemType="Analyzer"

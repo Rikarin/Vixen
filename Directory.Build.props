@@ -475,6 +475,14 @@
     Where it still fires inside Core — PhysicalFileProvider, the watcher, the disk
     caches — .editorconfig turns it off by name with a reason, beside every other
     named exclusion.
+
+    ⚠ And it is deliberately NOT packed into Vixen.Core.IO, which #1165 asked to be
+    decided rather than assumed: the scope above is the decision. A rule that
+    Platform/, Editor/, Tools/ and Raven/ are exempt from is a rule about this
+    repository's own code, so shipping it would hand a consumer's game a warning —
+    an error under TreatWarningsAsErrors — for calling System.IO.Path in code this
+    rule was never written about. docs/GeneratorPackagingExempt.txt carries the line
+    and build/GeneratorPackagingRule.cs is what would otherwise report it.
     ============================================================================
   -->
   <ItemGroup Condition="$(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Core')) AND

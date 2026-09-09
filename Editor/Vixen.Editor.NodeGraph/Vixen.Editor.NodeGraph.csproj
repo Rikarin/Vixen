@@ -12,11 +12,54 @@
         </Description>
         <PackageTags>editor;node-graph;shader-graph;vfx;source-generator;game-engine;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!--
+            ⚠ **The generator travels inside this package, and until #1165 it did not.** The
+            `PackageTags` above have said `source-generator` since the project was written, and the
+            `<Description>` promises "the generated registry that turns [Node]-attributed C# classes
+            into a node library" — which is precisely the half a consumer did not get. Analyzers do
+            not flow through a `ProjectReference`, so in-tree every graph toolset names
+            `Vixen.Editor.NodeGraph.Generator` itself and nothing in a green build could notice; the
+            only place the answer exists is the `.nupkg` bytes. Same arrangement and same reason as
+            `Vixen.Editor.Inspector`, which is the other half of a plugin's authoring surface.
+
+            ⚠ **Safe to ship because `NodeTypeGenerator` emits nothing for a compilation with no
+            `[Node]` in it** — `ForAttributeWithMetadataName` drives the per-node output and
+            `Library` returns early on an empty collection. That is the question to ask of any
+            generator before packing it, and it is the question `Vixen.Ecs.Generators` fails: see
+            `docs/GeneratorPackagingExempt.txt`.
+
+            ⚠ **And if #641 lands option 2 this target becomes inert rather than wrong.** An Editor
+            project that stops being packable packs nothing at all, this target included — so the
+            two decisions do not collide, and the one that ships a broken package is the state
+            without this target.
+        -->
+        <TargetsForTfmSpecificContentInPackage>
+            $(TargetsForTfmSpecificContentInPackage);PackNodeGraphGenerator
+        </TargetsForTfmSpecificContentInPackage>
     </PropertyGroup>
 
     <ItemGroup>
         <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
     </ItemGroup>
+
+    <!--
+        GetTargetPath, not Build — as in Vixen.Editor.Inspector and Vixen.Core.Serialization. Asking
+        for Build here fails a no-build `dotnet pack` with NETSDK1085, because NoBuild is a global
+        property and the MSBuild task hands global properties to the project it invokes.
+    -->
+    <Target Name="PackNodeGraphGenerator">
+        <MSBuild Projects="..\Vixen.Editor.NodeGraph.Generator\Vixen.Editor.NodeGraph.Generator.csproj"
+                 Targets="GetTargetPath"
+                 Properties="Configuration=$(Configuration)"
+                 RemoveProperties="TargetFramework">
+            <Output TaskParameter="TargetOutputs" ItemName="NodeGraphGeneratorAssembly" />
+        </MSBuild>
+
+        <ItemGroup>
+            <TfmSpecificPackageFile Include="@(NodeGraphGeneratorAssembly)" PackagePath="analyzers/dotnet/cs" />
+        </ItemGroup>
+    </Target>
 
     <ItemGroup>
         <ProjectReference Include="..\..\Core\Vixen.Core\Vixen.Core.csproj" />

@@ -100,6 +100,18 @@
             nobody has watched produce one.
         -->
         <Compile Include="..\..\build\ComponentGeneratorRule.cs" Link="ComponentGeneratorRule.cs" />
+
+        <!--
+            ⚠ And the one a level up (#1165): the two above ask whether a project in this tree names
+            a generator, and this one asks whether the PACKAGE carries it. An analyzer does not flow
+            through a `ProjectReference`, so a library that never packs its sibling generator ships
+            the attributes and none of the code they generate — and every in-tree consumer names the
+            generator itself, so no build in this repository can go red over it. Two libraries were
+            found in that state by hand, `Vixen.Editor.Inspector` and then `Vixen.Editor.NodeGraph`,
+            which is what a rule is for. Same arrangement for the same reason: the gate is one caller
+            of this source and `GeneratorPackagingRuleTests` is the other.
+        -->
+        <Compile Include="..\..\build\GeneratorPackagingRule.cs" Link="GeneratorPackagingRule.cs" />
     </ItemGroup>
 
     <!--

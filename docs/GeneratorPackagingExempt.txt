@@ -1,0 +1,24 @@
+# Generator and analyzer projects that no packable library carries into its package, deliberately.
+# One project name per line; everything after the first space is why.
+#
+# ⚠ This list can only SHRINK. `CheckArchitecture` fails on a name that is here and has become
+# packed, exactly as `docs/ComponentGeneratorExempt.txt`, `docs/WhitespaceExempt.txt` and
+# `docs/DocCommentExempt.txt` do — so a line that has done its job cannot sit here hiding the next
+# library to stop shipping its generator.
+#
+# ⚠ What being on this list means: a consumer with a `PackageReference` to the sibling library gets
+# the attributes the generator reads and none of the code it writes, and NOTHING IN THIS TREE CAN
+# NOTICE — an analyzer does not flow through a `ProjectReference`, so every in-tree consumer names
+# the generator itself and the only place the answer exists is the `.nupkg` bytes. For the three
+# below that is the right outcome; for `Vixen.Ecs.Generators` and `Vixen.Editor.Inspector.Generator`
+# it was not, which is #1165.
+#
+# ⚠ The question to ask before packing one: what does it emit into a compilation that declares none
+# of its attributes? A generator that answers "nothing" is safe to ship. One that answers "the same
+# code every time" ships a duplicate, and one that answers "a warning" ships a warning.
+
+Vixen.Ecs.Generators QueryArityGenerator emits at post-initialisation and its output depends on nothing in the compilation, so a consumer that also ran it would get a SECOND copy of the same partials and the same WorldQueryExtensions in namespace Vixen.Ecs — a duplicate type rather than a missing one. The generators meant for a user's own compilation live with the layers that need them: [Component] registration is Vixen.Engine.Generators, which Vixen.Engine packs. ⚠ #1165 named this one "the one that matters most" on the belief that it writes the code behind [Component]; it does not, and that claim is refuted.
+
+Vixen.Core.IO.Analyzers VXIO0001 is a rule about THIS repository's own code — only virtual paths in engine code, doc 10 § Cross-platform discipline — and Directory.Build.props:485 applies it to Core/** alone. Platform/, Editor/, Tools/ and Raven/ deliberately do not get it, because translating a virtual path to a host path is what those layers are for. Shipping it would hand a game's own code a warning for calling System.IO.Path, which is the opposite of the rule's intent, and with TreatWarningsAsErrors an error.
+
+Vixen.Core.Syntax.Generator VXS0001 is a Warning reported when the compilation has no Syntax.xml (SourceGenerator.cs:15), so packing this into Vixen.Core.Syntax would warn every consumer that references the package and is not writing a language front end — and Vixen.Ui.Markup and Vixen.Raven both depend on Vixen.Core.Syntax, so the reach is wider than the generator's audience. ⚠ Unlike the two above this exemption is a BLOCKER rather than a decision: the description advertises "each supplies its own Syntax.xml", which is exactly the third-party case that needs the generator. Packing it wants an opt-in the diagnostic can read first — #1188.

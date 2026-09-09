@@ -362,6 +362,41 @@ partial class Build {
                     )
                 );
 
+                // #1165. One level up from the two above: those ask whether a project in this tree
+                // names a generator, this asks whether the PACKAGE carries it. An analyzer does not
+                // flow through a `ProjectReference`, so a library that never packs its sibling
+                // generator ships the attributes and none of the code they generate — and every
+                // in-tree consumer names the generator itself, so nothing in a green build can
+                // notice. `Vixen.Editor.Inspector` and `Vixen.Editor.NodeGraph` were both found in
+                // that state by hand.
+                //
+                // ⚠ Both halves of the subject set again, and the second is the one that matters
+                // here: a walk that stopped understanding `TargetsForTfmSpecificContentInPackage`
+                // reports every generator in the tree as an offender rather than going quiet, so the
+                // vacuity to guard against is "nothing is packaged", not "nothing is a subject".
+                var packagedGenerators = GeneratorPackagingRule.Packaged(
+                    projects.Select(project => project.ToString())
+                );
+
+                Assert.True(
+                    GeneratorPackagingRule.Subjects(projects.Select(project => project.ToString())).Count > 0,
+                    "No generator or analyzer project was found, so the generator-packaging rule is checking "
+                    + "nothing."
+                );
+
+                Assert.True(
+                    packagedGenerators.Count > 0,
+                    "No library packs a generator, so the generator-packaging rule can no longer read a pack "
+                    + "target and would report every generator in the tree."
+                );
+
+                violations.AddRange(
+                    GeneratorPackagingRule.Violations(
+                        RootDirectory,
+                        projects.Select(project => project.ToString())
+                    )
+                );
+
                 // Doc 36 § P3's third exit criterion, which had never been written: nothing failed the
                 // build when `Vixen.Editor.App` referenced a feature assembly again. Blockout and
                 // Terrain were decoupled at real cost and either could have come back in silence.
