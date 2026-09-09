@@ -41,7 +41,7 @@ sealed record RecentProject(string Path, DateTime Opened) {
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Reading a broken file gives an empty list rather than throwing.</b> This is read
-///         before the window is up, in the same position <see cref="WindowPlacement" /> is and for
+///         before the window is up, in the same position <c>WindowPlacement</c> is and for
 ///         the same reason: a stray character in a file about recent projects must not be a process
 ///         that exits with a stack trace in front of somebody who wanted to open one.
 ///     </para>

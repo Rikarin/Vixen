@@ -15,7 +15,7 @@ namespace Vixen.Editor.App.Tests;
 ///         ⚠ <b>Nothing built an <c>EditorHost</c> before this file.</b> <c>grep -rn "new
 ///         EditorHost"</c> had one hit — <c>Program.cs</c> — so every step of <c>Run</c> was
 ///         uncovered: pump, resize coalescing, tick, document update, <c>PlatformCursor.Apply</c>,
-///         editor update, draw, sync, geometry, present. <see cref="EditorSession" /> is not that
+///         editor update, draw, sync, geometry, present. <see cref="Editor.Testing.EditorSession" /> is not that
 ///         coverage and does not claim to be: it runs the same four steps in the same order out of
 ///         its own <c>Frame</c>, which is a copy of the loop rather than the loop.
 ///     </para>

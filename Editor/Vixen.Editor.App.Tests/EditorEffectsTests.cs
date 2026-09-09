@@ -248,4 +248,58 @@ public sealed class EditorEffectsTests : IDisposable {
         Assert.NotNull(effects.Refusal);
         Assert.NotEqual(string.Empty, effects.Refusal);
     }
+
+    /// <summary>A rebuild loads through the loader it already had, so the device gains nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The measurement <a href="https://github.com/Rikarin/Vixen/issues/1121">#1121</a>
+    ///         asked for and nothing had ever taken: no test rebuilt <c>EditorEffects</c> twice.</b>
+    ///         <c>new EffectLoader(device)</c> sat inline in <c>Build</c>, so a shader edit, a graph
+    ///         save or a project open minted a loader, filled it with a descriptor set layout per
+    ///         binding shape and a pipeline layout to match, and dropped it — and unlike its two
+    ///         siblings it cannot <c>Release</c>, because the pipelines built from its effects live in
+    ///         the renderer's caches with no fence saying when they have gone.
+    ///     </para>
+    ///     <para>
+    ///         <b>A closed-form oracle rather than a threshold.</b> ⚠ <c>EffectLoader.Load</c> creates
+    ///         <em>only</em> layouts — bytecode is copied into managed arrays and no shader module is
+    ///         made — so the count of live device resources across a rebuild that changes no source
+    ///         cannot move by one. Against the loader-per-rebuild arrangement it moves by the set
+    ///         layouts plus the pipeline layout, every time, for ever.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Assert.NotSame</c> is what stops this passing vacuously</b>, and it is the half
+    ///         worth reading twice. A rebuild that quietly handed back the effect it had already
+    ///         resolved would create nothing, move no count and match every handle — which is exactly
+    ///         the shape of an instrument that cannot fail. The reference has to differ for the
+    ///         equalities below to be saying anything at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_rebuild_reuses_the_layouts_rather_than_making_a_second_set() {
+        using var effects = new EditorEffects(device, Project());
+
+        var key = EffectKey.Of("ForwardPlus");
+        var first = effects.System.Resolve(key);
+
+        Assert.NotNull(first);
+        Assert.NotEmpty(first.SetLayouts);
+
+        var settled = device.LiveResourceCount;
+
+        Assert.True(settled > 0, "no device resource was created at all, so there is nothing to leak.");
+
+        for (var rebuild = 0; rebuild < 5; rebuild++) {
+            effects.Rebuild();
+
+            var again = effects.System.Resolve(key);
+
+            Assert.NotNull(again);
+            Assert.NotSame(first, again);
+            Assert.Equal(first.Layout, again.Layout);
+            Assert.Equal(first.SetLayouts, again.SetLayouts);
+        }
+
+        Assert.Equal(settled, device.LiveResourceCount);
+    }
 }

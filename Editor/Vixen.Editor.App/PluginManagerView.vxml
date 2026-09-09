@@ -67,7 +67,8 @@
 
     /// <summary>What the strip and the line under the grid say, as one value.</summary>
     /// <remarks>
-    ///     ⚠ <b>One snapshot rather than four signals, and <see cref="PrefabView" />'s argument
+    ///     ⚠ <b>One snapshot rather than four signals, and
+    ///     <see cref="Vixen.Editor.AssetEditors.Prefabs.PrefabView" />'s argument
     ///     applies unchanged.</b> Every field of it comes from one reading of the host and the
     ///     selection together — whether a plugin is chosen, whether the user switched it off, whether
     ///     it failed — so splitting them would mean reading the host four times, or writing them in
@@ -279,7 +280,15 @@
         column.Width = width;
     }
 
-    /// <inheritdoc cref="MessageLogView.Detach" />
+    /// <summary>Stops listening to whatever it was showing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A method group rather than a field holding a lambda</b>, which is <c>MessageLogView</c>'s
+    ///     argument and was an <c>&lt;inheritdoc cref&gt;</c> at it until #821's instrument reached this
+    ///     assembly. That method is <em>private</em> in another assembly, so the link resolved to nothing
+    ///     and this member documented itself as nothing — silently, the way an <c>&lt;inheritdoc&gt;</c>
+    ///     always fails. Two delegates over the same method and target compare equal, so <c>-=</c> finds
+    ///     this one and no field has to hold the instance that subscribed.
+    /// </remarks>
     void Detach() {
         if (host is not null) {
             host.Changed -= Changed;

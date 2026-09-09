@@ -10,7 +10,7 @@ namespace Vixen.Editor.App;
 ///         its list is made of, and the type declaration the emitter's partial pairs with.
 ///     </para>
 ///     <para>
-///         <b>Five fields and a list, over <see cref="PlayerBuild" />'s calls.</b> Target,
+///         <b>Five fields and a list, over <see cref="Assets.Content.PlayerBuild" />'s calls.</b> Target,
 ///         configuration, output path and the scenes that ship are the four doc 20 names; the fifth
 ///         thing on the window is the sentence saying why Build is greyed, which is the same rule
 ///         every unimplemented menu line follows and is what stops "it does nothing when I press it".

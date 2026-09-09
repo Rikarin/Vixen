@@ -51,7 +51,7 @@ namespace Vixen.Editor.App;
 ///     <para>
 ///         <b>The half of the editor that is not chrome.</b> <see cref="EditorShell" /> is a menu
 ///         bar, a docking workspace, a palette and a status bar with nothing in them;
-///         <see cref="EditorHost" /> is a window, a device and a frame loop. This is what goes in the
+///         <c>EditorHost</c> is a window, a device and a frame loop. This is what goes in the
 ///         panels and what the panels are looking <i>at</i> — which is the part a game team would
 ///         fork and the other two are not.
 ///     </para>

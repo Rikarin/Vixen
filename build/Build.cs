@@ -356,6 +356,25 @@ partial class Build : NukeBuild {
                 // not — the same reasoning as CheckFormat's raw CLI invocation above.
                 Environment.SetEnvironmentVariable("VIXEN_GOLDEN_DIFF", GoldenDiffDirectory);
                 Environment.SetEnvironmentVariable("VIXEN_UPDATE_GOLDEN", UpdateGolden ? "1" : "0");
+
+                // ⚠ What this target printed on the day it did not run was `Passed!`. Every fixture
+                // in the suite skips itself when no Vulkan device opens — correctly, because a
+                // machine with no driver is not a broken renderer — and a target whose entire
+                // subject is a picture then compared nothing, exited 0, and said so. Nothing else
+                // covered it: `ci.yml` sets VIXEN_REQUIRE_VULKAN on the ubuntu `Test` leg and never
+                // runs `GoldenImages` at all, so the only caller is a developer at a terminal, on
+                // the machine most likely to be missing the device.
+                //
+                // ⚠ Device only, and that is why this is safe rather than a flood of red: the guard
+                // turns a missing *device* into a failure and says nothing about missing
+                // *capabilities*, so the suites that legitimately skip on MoltenVK still skip.
+                // Set rather than forced — an explicit `VIXEN_REQUIRE_VULKAN=0` in the environment
+                // is left alone, because the escape hatch has to be reachable by somebody who has
+                // read this and meant it.
+                if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN"))) {
+                    Environment.SetEnvironmentVariable("VIXEN_REQUIRE_VULKAN", "1");
+                }
+
                 ExportLayerLibraryPath();
 
                 // Run separately from `Test` rather than only as part of it. The fixtures need a

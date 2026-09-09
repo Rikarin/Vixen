@@ -14,7 +14,8 @@ namespace Vixen.Editor.App.Tests;
 ///         "draws every frame rather than when something changes", and it is right about the
 ///         <i>drawing</i> — <c>Record</c>, <c>Upload</c>, <c>Compose</c> and the present are all
 ///         unconditional. What was never measured is whether the frame would have had anything new to
-///         say, and <see cref="UiTest.Redraws" /> is that number: <c>DrawList</c> compares the rebuilt
+///         say, and <see cref="Vixen.Ui.Testing.UiTest.Redraws" /> is that number: <c>DrawList</c> compares
+///         the rebuilt
 ///         commands against the previous frame's, so it counts frames whose picture actually differs.
 ///     </para>
 ///     <para>

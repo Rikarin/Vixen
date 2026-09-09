@@ -344,7 +344,8 @@ public class TerrainSessionTests {
     ///         has bodies under it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b><see cref="TerrainColliderSystem.Rebuilds" /> and not <c>TileCount</c> alone.</b>
+    ///         ⚠ <b><see cref="Vixen.Terrain.Physics.TerrainColliderSystem.Rebuilds" /> and not
+    ///         <c>TileCount</c> alone.</b>
     ///         A tile count says the first build happened, which the poll would have done on the next
     ///         frame anyway. What the seam adds is *when* — the frame the artist let go of the mouse —
     ///         and a rebuild counted between two ticks is the only way to see that.
