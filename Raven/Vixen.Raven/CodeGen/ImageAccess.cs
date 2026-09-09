@@ -130,8 +130,8 @@ static class ImageAccess {
                 // instruction with the same type, so without it a helper's parameter is recorded as
                 // if it were the binding — and the untraced case then never announces itself.
                 case IrLoadInstruction {
-                        Place: { Chain.Count: 0, Root: { Kind: IrVariableKind.Global, Type: IrStorageImageType } } place
-                    } load:
+                    Place: { Chain.Count: 0, Root: { Kind: IrVariableKind.Global, Type: IrStorageImageType } } place
+                } load:
                     images[load.Result.Id] = place.Root;
                     break;
 
