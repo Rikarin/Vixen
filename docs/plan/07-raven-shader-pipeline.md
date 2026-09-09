@@ -25,7 +25,7 @@ decision that has been made and built, kept because the reasons stay useful.
 | | Open item | Where | Blocks |
 |---|---|---|---|
 | ⚪ | **Nuke is not stood up**: `CompileShaderLibrary`, the CI workflows | § A, § G | shipping the library as a package. SPDX enforcement is no longer part of this row — `CheckFormat` checks it, over `.cs`, `.g4`, `.vxml`, `.vcss` and `.ts`, and `.rvn` is deliberately outside that scope |
-| ⚪ | **`Vixen.Raven.Transpile`** (SPIRV-Cross wrapper) and the cross-compilation test pass | § A, § G | HLSL/MSL/WGSL output, which ADR-012 says SPIRV-Cross owns |
+| ⚪ | **The other four cross-compilation targets.** ⚠ This row said `Vixen.Raven.Transpile` and its test pass were both owed and **neither is**: the project ships (`Raven/Vixen.Raven.Transpile`, with `Vixen.Raven.Transpile.Tests` beside it) and every engine shader goes through SPIRV-Cross into a `glslangValidator` reading `#version 300 es`. What is owed is the rest of § G's row — GLSL 450, HLSL 60, MSL and WGSL, which ADR-012 says SPIRV-Cross owns too | § A, § G | HLSL/MSL/WGSL output |
 
 Two smaller ones recorded where they belong rather than here: streams have **no interpolation control**
 (§ Streams), and a library's **IR names share one flat namespace per module** (§ D).
@@ -41,7 +41,7 @@ documents. **Criticality**: 🔴 engine-blocking · 🟡 needed for 1.0 · ⚪ m
 |---|---|---|
 | ⚪ | Absorb `Raven/` into the Vixen monorepo **with git history preserved** (`read-tree --prefix=Raven/`, do not squash), then delete `Raven/.git` | ✅ |
 | ⚪ | Rename to the monorepo convention: `Compiler/` → `Vixen.Raven`, `Tests/` → `Vixen.Raven.Tests`, `Cli/` → `Vixen.Raven.Cli`, `Feed/` → `Library/` | ✅ |
-| ⚪ | Add projects: `Vixen.Raven.Transpile` (SPIRV-Cross wrapper), `Vixen.Raven.Reflection` — each with a sibling `.Tests`. *`Vixen.Raven.Spirv` was listed here in error: both emitters land together and live in `Vixen.Raven`, per [02](02-repository-layout.md) § Raven, which the code already follows.* | |
+| ⚪ | Add projects: `Vixen.Raven.Transpile` (SPIRV-Cross wrapper) — with a sibling `.Tests`. *`Vixen.Raven.Spirv` was listed here in error: both emitters land together and live in `Vixen.Raven`, per [02](02-repository-layout.md) § Raven, which the code already follows.* ⚠ *And `Vixen.Raven.Reflection` was listed here in error for the same reason and stood unresolved either way for longer:* reflection is `Vixen.Raven/Reflection` plus the `.reflect.json` `Vixen.Raven.Cli` writes (`CompileDriver`, `CompileRequest`, `RavenCommand`), which `Vixen.Shaders.Generators` and `LibraryReflectionTests` consume with no project of its own. A separate assembly would put the reflection model on the far side of an assembly boundary from the IR it is derived from | ✅ `Vixen.Raven.Transpile` and its tests |
 | 🔴 | **Extract `Vixen.Core.Syntax`**: lift `GreenNode`, `SyntaxNode`, `SyntaxToken`, `SyntaxTrivia`, `SyntaxList<T>`, `SeparatedSyntaxList`, `SourceText`, the `Diagnostic`/`DiagnosticBag` model, and the `Syntax.xml` → node-classes generator out of Raven into shared `Core/` projects, then retarget Raven onto them. VXML and VCSS then declare their own `Syntax.xml` against the same infrastructure. **This is the single highest-leverage refactor in the plan** — it turns three parser front ends into one tested foundation plus three grammars | ✅ |
 | ⚪ | Raven lands in the **Tooling** MSBuild profile ([02](02-repository-layout.md)): reflection and LINQ permitted, `IsAotCompatible` off. It is a compiler, not runtime code | ✅ |
 | ⚪ | `Vixen.Raven` and `Vixen.Raven.Cli` become shipped NuGet packages ([12](12-build-ci-and-testing.md)); the compiler is useful standalone | ✅ |
@@ -597,15 +597,26 @@ Still owed, and not the compiler's to give:
   - ⚠ **The seed step is not `0x9E3779B9`**, which is what `Combine` multiplies its second operand
     by. Seeding by that constant makes `Combine(seed, i)` fold to `Hash(0)` for every i, so the table
     would have pinned one number sixteen times while reading like a sweep.
-- **Numeric agreement on a real device** — the GPU-readback tests in § G. Everything above pins the
-  *convention*; only a device proves the arithmetic.
+- ✅ **Numeric agreement on a real device** — ⚠ **no longer owed, and it is the only item in this list
+  that ever was the compiler's to give.** Everything above pins the *convention* and only a device
+  proves the arithmetic, which is what `Platform/Vixen.Raven.Gpu.Tests` is: `BrdfGateTests`,
+  `LayoutGateTests` and `RandomGateTests` over `ShaderRun`, with `VulkanRequirement` deciding whether
+  the run had a device rather than each test guessing.
 
 ### F. The shader library to write *in* Raven — Phase 5, ~the largest content task
 
 `Raven/Library/` becomes a shipped, version-locked artefact compiled by the Nuke `CompileShaderLibrary`
 target. Full tree in [§ Source layout](#source-layout-what-is-written-in-raven).
 
-#### ✅ Written: 47 files across all eight packages
+#### ✅ Written, and no longer eight packages
+
+⚠ **This heading said "47 files across all eight packages" and both halves had rotted.** No count is
+recorded here now, for the reason the SPDX note above gives: a hand-maintained number is right on the
+day it is typed and silently wrong from the next commit. `LibraryTreeTests.Files()` walks the tree, so
+every file added is covered on arrival and nothing has to be counted twice. The package list is
+`LibraryTreeTests.Packages`, and the nine the table below predates are `DistanceFields`,
+`IrradianceFields`, `PunctualShadows`, `VirtualShadows`, `ScreenProbes`, `SurfaceCache`,
+`Reflections`, `Terrain` and `Water` — each owned by the doc that asked for it.
 
 `LibraryTreeTests` holds the tree to four claims, each failing differently: every file parses and
 round-trips; the tree binds as **one** compilation, so the library agrees with itself rather than
@@ -618,9 +629,10 @@ through `.rvnlib` references.
 and — the part that could not be written down by hand — the binding indices, which Raven assigns from
 declaration order within a set and therefore renumbers whenever a resource is added above another.
 Checked in rather than compiled during the build, because the alternative is the engine's render
-project depending on the compiler being built first. Only `PostFx/Bloom` and `PostFx/Tonemap` so far:
-the list grows when a node starts binding a shader, since every entry is a file somebody has to keep
-compiling.
+project depending on the compiler being built first. ⚠ *"Only `PostFx/Bloom` and `PostFx/Tonemap` so
+far"*, which this paragraph said, has not been true for a long time — `LibraryReflectionTests.Published`
+is the list and it spans most of `PostFx` plus the probe, cache and reflection packages. It grows when
+a node starts binding a shader, since every entry is a file somebody has to keep compiling.
 
 The reflection describes **one variant**, so a resource only a non-default variant reads generates no
 key. `Bloom`'s `previous` texture is exactly that shape — read only by the upsample mode — and a test
@@ -962,11 +974,11 @@ is how two lists come to disagree.
 | 🟡 | Semantic | Positive/negative fixture pairs per diagnostic ID; `compose`-resolution golden trees per material-feature combination | partial — most IDs have a trigger, few have the negative |
 | 🟡 | SPIR-V | `spirv-val` on every emitted module; golden `spirv-dis` snapshots so codegen changes are reviewable | ✅ |
 | 🔴 | Both emitters | **Differential test**: Raven's SPIR-V vs `glslc`(Raven's GLSL), compared for semantic equivalence — the hard class of bug, an emitter internally consistent and semantically wrong | ✅ interface-level; blind to the shared IR, hence the numeric tests |
-| 🟡 | Cross-compile | Every module through SPIRV-Cross to GLSL 450 / ESSL 300 / HLSL 60 / MSL / WGSL without error; GLSL/ESSL additionally through `glslang` | not started |
+| 🟡 | Cross-compile | Every module through SPIRV-Cross to GLSL 450 / ESSL 300 / HLSL 60 / MSL / WGSL without error; GLSL/ESSL additionally through `glslang` | partial — ESSL 300 is built and is the one with the oracle (`Vixen.Raven.Transpile.Tests`, `glslangValidator` as a hard failure rather than a skip); GLSL 450, HLSL, MSL and WGSL are owed |
 | 🟡 | Numeric | BRDF functions ported to C# and compared against a GPU compute readback over a parameter sweep, agreeing to 1e-4 — the test that catches "the shader is subtly wrong" | ✅ `BrdfGateTests`, and `RandomGateTests` beside it pins `Random.rvn`'s bits — ⚠ that one is a golden vector rather than a port, because the CPU implementation § E named does not exist |
 | 🟡 | Layout | Reflection offsets against a GPU readback of a known pattern, **per backend** | ✅ `LayoutGateTests`; the std430 half is checked against glslang rather than a device, in `SpirvDifferentialTests` |
 | 🟡 | Permutations | An unused define produces a byte-identical module and the same cache key | ✅ |
-| ⚪ | Fuzz | `SharpFuzz` corpus over the Raven parser, alongside the VXML/VCSS/`.meta`/bundle readers ([12](12-build-ci-and-testing.md)) | not started |
+| ⚪ | Fuzz | `SharpFuzz` corpus over the Raven parser, alongside the VXML/VCSS/`.meta`/bundle readers ([12](12-build-ci-and-testing.md)) | ⚠ **not "not started"** — `Core/Vixen.Fuzz`'s `RavenTarget` mutates trees and runs four differential oracles over them (round-trip, incremental-vs-full reparse, diagnostic identity, `spirv-val` on what generated), and has closed real defects: a binder recursion that killed the host, and an implicit-LOD substitution nothing else could see. What is still owed is **`SharpFuzz` itself** — real coverage-guided instrumentation rather than this harness's own mutation ([#104](https://github.com/Rikarin/Vixen/issues/104)) |
 | ⚪ | Perf | Gates on full-library compile time and < 500 ms incremental recompile of a leaf shader | ~~needs § F~~ — § F landed. The incremental half is gated as **work rather than time** (`IncrementalParseWorkTests`, below); the full-library number is still ungated |
 | ⚪ | CI | Nuke `CompileShaderLibrary`: Raven over `Raven/Library/**/*.rvn` → `.rvnlib`, `spirv-val` each, **fail on any diagnostic** | Nuke not stood up ([12](12-build-ci-and-testing.md)) |
 

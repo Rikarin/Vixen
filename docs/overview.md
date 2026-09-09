@@ -1146,7 +1146,7 @@ reduced to a pointer.
 | 47 | `Vixen.Ui.Controls.Advanced` | ~~Undo~~ (`CodeBuffer` states outright that it has no stack, and the editor's does subscribe — see §1.7); ~~`GradientEditor` has no consumer~~ (no *editor* consumer, deliberately — §1.7); `CodeEditor` caret blink (wrap landed 2026-09-02); `AppendChild` O(n)… | [#184](https://github.com/Rikarin/Vixen/issues/184) |
 | 48 | `Vixen.Ui.Testing` | Group opacity; a third finger; layout-box assertions | [#185](https://github.com/Rikarin/Vixen/issues/185) |
 | 49 | `Vixen.Ui.Renderer` | Reconcile per-vertex box params with `Raven/Library/Ui`'s per-uniform ones | [#186](https://github.com/Rikarin/Vixen/issues/186) |
-| 50 | Raven | String interpolation; a depth texture and a comparison sampler in the type system — what WebGPU shadow maps wait on (… | [#187](https://github.com/Rikarin/Vixen/issues/187) |
+| 50 | Raven | ~~String interpolation; a depth texture and a comparison sampler in the type system~~ — **closed**, and the row stays because Part 4's numbers are cited elsewhere. The first is refused rather than owed and the second shipped; evidence in § 1.8's two rows | [#187](https://github.com/Rikarin/Vixen/issues/187) |
 | 51 | Raven | `Vixen.Raven.Transpile`; cross-compilation pass | [#188](https://github.com/Rikarin/Vixen/issues/188) |
 | 52 | Raven | `CompileShaderLibrary` Nuke target; SPDX enforcement | [#189](https://github.com/Rikarin/Vixen/issues/189) |
 | 53 | Raven | Negative diagnostic fixtures ( built, in `Platform/Vixen.Raven.Gpu.Tests` — the one place the compiler and a driver… | [#190](https://github.com/Rikarin/Vixen/issues/190) |
