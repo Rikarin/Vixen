@@ -23,6 +23,26 @@ namespace Vixen.Ui;
 ///         A struct passed by value, not a class handed out per element per frame. It is three
 ///         references' worth of state and it exists for the length of one virtual call.
 ///     </para>
+///     <para>
+///         ⚠ <b>There is no text method here, and that does not mean a drawn layer cannot write a
+///         word</b> — <a href="https://github.com/Rikarin/Vixen/issues/1112">#1112</a>, which read
+///         the absence as a wall and is why this paragraph exists. Every piece is public and
+///         reachable from here: <see cref="UiDocument.Fonts" /> resolves a face,
+///         <see cref="UiDocument.Shaping" /> shapes one run through the same LRU the layout pass
+///         uses — so a canvas of forty labels costs forty <em>lookups</em> and not forty shapings —
+///         <c>TextRun.Place</c> gives the glyphs on a baseline, and <see cref="List" /> takes them
+///         through <c>AddGlyphs</c>, <c>AddFont</c> and a <c>DrawCommandKind.Text</c> command. That
+///         is five calls, and it is what <c>DrawListBuilder</c> does per run without the layout pass
+///         a layer is avoiding.
+///     </para>
+///     <para>
+///         <c>Vixen.Ui.Tests.DrawnLayerTextTests</c> is that recipe, executed, rather than a
+///         paragraph that can rot. ⚠ What a layer does not get from it is a <em>paragraph</em>: no
+///         line breaking, no bidi reordering, no fallback across scripts and no cascade — those are
+///         an element's, and a layer wanting them wants an element. There is no shorthand on this
+///         type because no production layer has needed one twice; the day a second does, it wraps
+///         those five calls.
+///     </para>
 /// </remarks>
 public readonly struct DrawContext {
     readonly float alpha;
