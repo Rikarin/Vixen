@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core.Mathematics;
 using Vixen.Editor.AssetEditors.Importing;
 using Vixen.Editor.Assets.Tests;
 using Vixen.Editor.Testing;
@@ -63,7 +64,12 @@ public class TexturePreviewWiringTests {
         var surface = Attach(session);
         var view = Open(session);
 
-        var uploaded = Assert.Single(surface.Uploads);
+        // ⚠ Two, and the second one is the sprite pane's: opening a texture opens two views over one
+        // document, and the ladder's chosen level is not the sheet the slicer draws its rects over.
+        // See `Opening_a_texture_puts_the_sheet_under_the_sprite_overlay`.
+        Assert.Equal(2, surface.Uploads.Count);
+
+        var uploaded = surface.Uploads[0];
 
         Assert.Equal(Width, uploaded.Width);
         Assert.Equal(Height, uploaded.Height);
@@ -191,6 +197,75 @@ public class TexturePreviewWiringTests {
         session.Editor.ThumbnailSurface = surface;
 
         Assert.Contains(image, surface.Released);
+    }
+
+    /// <summary>The sprite editor's overlay gets the sheet under it, which it never had.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same defect as this file's own subject, one pane down.</b>
+    ///         <c>SpriteSheetView.Preview.Texture</c> had no writer anywhere in the repository, so
+    ///         every rect an author dragged was dragged over an empty box — and it survived because
+    ///         <c>SpriteEditorTests</c> asserts the rects, the modes and the sub-assets, which are the
+    ///         half that worked. <see href="https://github.com/Rikarin/Vixen/issues/1031">#1031</see>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The intrinsic size is the assertion that the boxes will land on the frames.</b>
+    ///         The overlay positions its rects in texels times the zoom while the <c>Image</c> fits
+    ///         its picture with <c>object-fit</c>, so the two agree only when the picture's own shape
+    ///         is the shape of the box <c>Restate</c> sized — a preview letterboxed inside its box
+    ///         would put every rect somewhere the frame is not.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Opening_a_texture_puts_the_sheet_under_the_sprite_overlay() {
+        using var session = EditorSession.Start();
+        var surface = Attach(session);
+        var view = Open(session);
+        var sprites = view.Sprites;
+
+        Assert.NotEqual(0ul, sprites.Preview.Texture);
+
+        // Its own picture rather than the ladder's, because the two panes are asked different
+        // questions and only one of them can be answered with a mip.
+        Assert.NotEqual(view.Preview.Texture, sprites.Preview.Texture);
+
+        var uploaded = surface.Uploads[^1];
+
+        Assert.Equal(Width, uploaded.Width);
+        Assert.Equal(Height, uploaded.Height);
+        Assert.Equal(new Vector2(Width, Height), sprites.Preview.IntrinsicSize);
+
+        // Level zero with every channel, whatever the pane above is showing.
+        Assert.Equal(Red, uploaded.Pixels[0]);
+        Assert.Equal(Green, uploaded.Pixels[1]);
+        Assert.Equal(Blue, uploaded.Pixels[2]);
+        Assert.Equal(Alpha, uploaded.Pixels[3]);
+    }
+
+    /// <summary>A channel button moves the pane above and leaves the sheet alone.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half that says the second picture is a second picture.</b> An implementation that
+    ///     pointed both previews at whatever the ladder last uploaded would pass every assertion about
+    ///     the sheet arriving, and then show the sprite editor a 2×2 mip of the alpha the moment
+    ///     anybody touched the inspector above it.
+    /// </remarks>
+    [Fact]
+    public void Moving_the_ladder_does_not_disturb_the_sheet() {
+        using var session = EditorSession.Start();
+        var surface = Attach(session);
+        var view = Open(session);
+
+        var sheet = view.Sprites.Preview.Texture;
+
+        Assert.NotEqual(0ul, sheet);
+
+        view.SetChannel(TextureChannels.Alpha, shown: false);
+        view.SetMipLevel(2);
+        session.Frames(1);
+
+        Assert.Equal(2, view.MipLevel);
+        Assert.Equal(sheet, view.Sprites.Preview.Texture);
+        Assert.DoesNotContain(sheet, surface.Released);
     }
 
     // ── The fixture ──────────────────────────────────────────────────────────

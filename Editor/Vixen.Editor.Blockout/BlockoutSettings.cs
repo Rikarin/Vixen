@@ -34,8 +34,18 @@ namespace Vixen.Editor.Blockout;
 ///         number field. <see cref="ToRemeshSettings" /> leaves each at the record's own default, so
 ///         a caller that has one passes it beside these rather than through them.
 ///     </para>
+///     <para>
+///         ⚠ <b>And <em>not</em> a <c>[DataContract]</c>, which all three of these carried until
+///         <a href="https://github.com/Rikarin/Vixen/issues/1025">#1025</a>.</b>
+///         <c>Vixen.Editor.Blockout.csproj</c> names neither <c>Vixen.Core.Reflection.Generator</c>
+///         nor <c>Vixen.Core.Serialization.Generator</c>, and analyzers do not flow through a
+///         <c>ProjectReference</c> — so the aliases they stated registered nothing at all and the
+///         attribute was a claim the next reader would have believed. Nothing writes one of these to
+///         a file; a saved retopology preset is the thing that would want one, and the answer then is
+///         to name the generators. <c>BlockoutContractTests</c> is what refuses the attribute
+///         without them.
+///     </para>
 /// </remarks>
-[DataContract("BlockoutRetopologySettings")]
 public sealed class BlockoutRetopologySettings {
     /// <summary>Roughly how many quads to spend.</summary>
     [Inspector]
@@ -118,7 +128,6 @@ public sealed class BlockoutRetopologySettings {
 ///     time somebody asks for it. <see cref="ToUvSettings" /> leaves both at the record's defaults,
 ///     which is the built-in decomposition and the built-in seam cost.
 /// </remarks>
-[DataContract("BlockoutChartSettings")]
 public sealed class BlockoutChartSettings {
     /// <summary>The distortion a chart must come in under, or it is split and tried again.</summary>
     [Inspector]
@@ -171,7 +180,6 @@ public sealed class BlockoutChartSettings {
 ///     forget the number the margin is counted against, and a panel cannot forget it — it is a field
 ///     with a value in it from the moment it is drawn.
 /// </remarks>
-[DataContract("BlockoutPackSettings")]
 public sealed class BlockoutPackSettings {
     /// <summary>The atlas's edge length in texels.</summary>
     [Inspector]

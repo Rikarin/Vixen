@@ -142,11 +142,19 @@ public static class SceneBehaviorRegistry {
     static readonly ConcurrentQueue<Action> Declared = new();
     static readonly Lock Gate = new();
 
-    /// <summary>Every behaviour a scene may name, in the order they were registered.</summary>
+    /// <summary>Every behaviour a scene may name, ordered by name.</summary>
+    /// <remarks>
+    ///     <inheritdoc cref="Scenes.SceneComponentRegistry.Binders" select="remarks/para[2]" />
+    /// </remarks>
     public static IReadOnlyCollection<ISceneBehaviorBinder> Binders {
         get {
             Resolve();
-            return (IReadOnlyCollection<ISceneBehaviorBinder>) ByAlias.Values;
+
+            var binders = ByAlias.Values.ToArray();
+
+            Array.Sort(binders, static (left, right) => string.CompareOrdinal(left.Name, right.Name));
+
+            return binders;
         }
     }
 

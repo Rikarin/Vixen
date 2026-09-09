@@ -268,4 +268,65 @@ public sealed class EntityLifetimeTests : IDisposable {
         // Nothing half-restored: the world holds the thieves and nothing the command was keeping.
         Assert.False(world.IsAlive(parent));
     }
+
+    /// <summary>An undo that destroys what is selected takes it out of the selection.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A dead handle in the selection is not a stale reading, it is a crash.</b>
+    ///         <c>World.Has&lt;T&gt;</c> goes through <c>Live</c> and throws
+    ///         <c>EntityNotFoundException</c> rather than answering false — so a command's enablement
+    ///         predicate, which runs from inside <c>UiDocument.RaiseCommandsInvalidated</c>, takes the
+    ///         frame down when it asks whether the primary selection can be moved.
+    ///     </para>
+    ///     <para>
+    ///         Undoing a duplicate is the ordinary way to reach it, and the reason
+    ///         <c>SceneDocument.Delete</c> could not see it: the verb selects the copies
+    ///         (<c>EditorParity.DuplicateSelection</c>, <c>BlockoutCreate.Duplicate</c>) and the
+    ///         handles then die inside a command rather than in a verb that could clear it.
+    ///     </para>
+    ///     <para>
+    ///         The assertion walks the selection and reads a component off each, which is the shape of
+    ///         the predicate that crashed — a <c>Contains</c> check alone would pass against a
+    ///         selection that had been emptied by something unrelated.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Undoing_a_duplicate_takes_the_dead_copies_out_of_the_selection() {
+        var entity = document.Add("Crate", LocalTransform.At(new Vector3(1f, 0f, 0f)));
+
+        List<Entity> copies = [];
+
+        Assert.Equal(1, SceneClone.Duplicate(document, [entity], new Vector3(2f, 0f, 0f), copies));
+
+        // What the verb does with them, and the whole of why the selection can hold a handle the
+        // undo is about to destroy.
+        document.Selection.Set(copies);
+
+        Assert.True(document.Stack.Undo());
+        Assert.False(world.IsAlive(copies[0]));
+
+        Assert.DoesNotContain(copies[0], document.Selection);
+        Assert.Empty(document.Selection);
+
+        foreach (var selected in document.Selection) {
+            _ = world.Has<LocalTransform>(selected);
+        }
+    }
+
+    /// <summary>The prune does not take the living with the dead.</summary>
+    /// <remarks>
+    ///     The other half of the predicate, and the one that makes it falsifiable: a
+    ///     <c>Selection.Clear()</c> in the prune would pass every assertion above.
+    /// </remarks>
+    [Fact]
+    public void Pruning_leaves_the_entities_that_are_still_alive_selected() {
+        var kept = document.Add("Kept", LocalTransform.Identity);
+        var going = document.Add("Going", LocalTransform.Identity);
+
+        document.Selection.Set([kept, going]);
+        document.Stack.Execute(new DestroyEntitiesCommand(document, [going]));
+
+        Assert.False(world.IsAlive(going));
+        Assert.Equal([kept], document.Selection.ToArray());
+    }
 }
