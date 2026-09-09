@@ -14,8 +14,8 @@ using Vixen.Input;
 using Vixen.Rendering;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
-using ViewportControl = Vixen.Ui.Controls.Advanced.Viewport;
 using Xunit;
+using ViewportControl = Vixen.Ui.Controls.Advanced.Viewport;
 
 namespace Vixen.Editor.Blockout.Tests;
 
