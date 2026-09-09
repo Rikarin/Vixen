@@ -181,6 +181,29 @@ it uses change versions. They exist for editor tooling and user code.
 > zipping the two is a translation table — and no caller does. ⚠ Nor does any caller do anything
 > else: outside `WorldSerializerTests` the type has **no production callers at all**, which is worth
 > knowing before treating "world serialisation is built" as "worlds are being saved".
+>
+> ⚠ **The refusal had a hole exactly where a codebase grows one, and it is closed.** The walk followed
+> arrays and generic arguments and then stopped at a named type's own fields, so `List<Entity>` was
+> refused and `struct Link { public Entity Target; }` inside a component was waved straight through —
+> the wrapped handle being the *more* likely shape, because a wrapper is what anyone reaches for on
+> the second kind of link, and the more dangerous one, because the bytes sit in the chunk either way
+> and the generated serializer writes them either way. `Holds` now walks a struct's instance fields
+> too. ⚠ **It stops at a reference, on purpose and stated**: a class field is a pointer rather than
+> bytes in the component, its graph can be large and cyclic, and whether any of it reaches a file
+> depends on a serializer the analyzer cannot see — a predicate that walked it would be
+> unpredictable. `A_handle_behind_a_reference_is_out_of_this_rules_reach` and `A_cyclic_shape_terminates`
+> are that bound written down.
+>
+> ⚠ **And this refutes the premise the choice between the two shapes rests on.** `WorldSerializer`
+> says "nothing generic knows which of a component's fields are handles" and
+> `World.CopyComponentsFrom` repeats it — but `SerializedHandleAnalyzer` answers exactly that
+> question at compile time, for every component in every assembly, and throws the answer away as a
+> diagnostic. So the second shape — generated per-component handle metadata that `WorldSerializer`
+> and `CopyComponentsFrom` both consume — is not a new mechanism to invent; it is this walk emitting
+> a field list instead of an error, next to the `SceneComponentRegistry.Declare<T>()` its neighbour
+> already emits. That is a fact about cost, not a decision: **#296 is still the decision**, and the
+> `GuidComponent` shape buys something the metadata one does not, which is an identity that survives
+> being written into a *different* file from the entity it names.
 
 ## Layer 2 — the system scheduler
 
