@@ -89,9 +89,54 @@ sealed class Deferred {
     /// <param name="work">The call.</param>
     /// <param name="next">What to do with the answer.</param>
     /// <param name="failed">What to do if it threw.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A call that has already answered is queued from here, and until it was, this
+    ///         method turned every synchronous answer into a wait on the thread pool's mood.</b>
+    ///         <c>ContinueWith</c> against <see cref="TaskScheduler.Default" /> schedules a pool work
+    ///         item <em>even for a task that has already completed</em> — it does not run inline —
+    ///         so a provider that answered without yielding still had its <c>Post</c> made by a pool
+    ///         thread at whatever moment the pool got round to it. On an idle machine that is
+    ///         microseconds and invisible; on a machine running fifteen other test assemblies it is
+    ///         however long the queue is, and it is
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1179">#1179</see>: the sweep
+    ///         <c>SourceControlColumnTests</c> waited for was <em>finished</em>, and what had not
+    ///         happened was the hand-off.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Posted rather than run, and that distinction is the whole contract.</b> The
+    ///         promise is "on the frame thread, at the next pump", not "on the frame thread now" — a
+    ///         caller part-way through a frame must not have its own continuation re-enter it. So the
+    ///         fast path removes a pool hop and changes nothing else about when the work runs.
+    ///     </para>
+    ///     <para>
+    ///         A cancelled call runs neither callback, on both paths. That was already the behaviour:
+    ///         the continuation below tests <c>IsFaulted</c> and <c>IsCompletedSuccessfully</c> and
+    ///         does nothing when neither holds.
+    ///     </para>
+    /// </remarks>
     public void When<T>(ValueTask<T> work, Action<T> next, Action<Exception> failed) {
         ArgumentNullException.ThrowIfNull(next);
         ArgumentNullException.ThrowIfNull(failed);
+
+        if (work.IsCompletedSuccessfully) {
+            var answer = work.Result;
+
+            Post(() => next(answer));
+            return;
+        }
+
+        if (work.IsCompleted) {
+            // Faulted or cancelled. `AsTask` on a completed ValueTask hands back a completed Task
+            // rather than starting anything, and a cancelled one carries no exception to report.
+            if (work.AsTask().Exception is { } thrown) {
+                var failure = thrown.GetBaseException();
+
+                Post(() => failed(failure));
+            }
+
+            return;
+        }
 
         work.AsTask().ContinueWith(
             finished => {
