@@ -750,7 +750,8 @@ sentence, which is what it already gives for a `Source/Bitmap` it cannot read.
   `vixen texture bake` says what it cannot do instead of reporting a missing file.
 - **`TextureEmitter` owes one overload.** Its two are *asset-named, size unknown* and *bytes, size
   known*; a `Text` external is **asset-named and size known**, because the node's extent is the
-  plan's own level. `TextureGraphCompiler.External` already takes all six arguments — only the public
+  plan's own level. `TextureGraphCompiler.External` already takes an asset *and* a size in one call,
+  and the two emitter overloads each drop one of them — so only the public
   door is missing.
 - **The fill belongs here and only the face belongs to the host.** `TextureProjectImages` is the
   precedent: the six steps live in this assembly, and the caller supplies the one thing only it can
