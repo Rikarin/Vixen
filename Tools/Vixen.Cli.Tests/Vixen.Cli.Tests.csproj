@@ -31,5 +31,20 @@
         <ProjectReference Include="..\..\Core\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            ⚠ And `doctor behaviors` needs two more of them, for the same reason. A behaviour is
+            scene-nameable only if `SceneBehaviorRegistry.Register` finds it a serializer, and the
+            alias a scene's `!Tag` resolves through is the reflection generator's. Without these the
+            fixture behaviours below would compile, register nothing, and the command would honestly
+            report that the assembly declares behaviours no scene can name — which is a real finding
+            and not the one being tested.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 </Project>

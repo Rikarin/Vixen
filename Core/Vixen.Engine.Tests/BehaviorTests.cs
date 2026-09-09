@@ -463,6 +463,83 @@ public sealed class BehaviorTests {
         }
     }
 
+    // ---------------------------------------------------------------- population
+
+    /// <summary>
+    ///     ⚠ The per-type count existed and was unreachable: it lives on <c>BehaviorBucket&lt;T&gt;</c>,
+    ///     a private nested class, and <c>BehaviorStore.Count</c> summed it away
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1199">#1199</a>). It is the number
+    ///     doc 04's "one instance or many" authoring rule is written about, so an author who guessed
+    ///     wrong had no way to find out.
+    /// </summary>
+    [Fact]
+    public void PopulationCountsEachBehaviourTypeSeparatelyMostNumerousFirst() {
+        var log = new List<string>();
+        using var loop = new EngineLoop();
+
+        for (var index = 0; index < 5; index++) {
+            loop.Behaviors.Add(loop.World.Create(), new Recorder($"a{index}", log));
+        }
+
+        loop.Behaviors.Add(loop.World.Create(), new Mover());
+
+        var population = loop.Behaviors.Population;
+
+        Assert.Equal(2, population.Count);
+        Assert.Equal(typeof(Recorder), population[0].BehaviorType);
+        Assert.Equal(5, population[0].Total);
+        Assert.Equal(typeof(Mover), population[1].BehaviorType);
+        Assert.Equal(1, population[1].Total);
+
+        // The sum is what the one number the store already published says, so the split cannot be
+        // right about the parts and wrong about the whole.
+        Assert.Equal(loop.Behaviors.Count, population.Sum(one => one.Total));
+    }
+
+    /// <summary>
+    ///     ⚠ <c>Enabled</c> is the bucket's partition, not the sum of <c>Behavior.Enabled</c>: an
+    ///     attached behaviour is past the enabled prefix until a lifecycle drain activates it. A
+    ///     reader outside a running frame that printed this as "how many the author enabled" would
+    ///     be reporting zero for a scene in which everything is on.
+    /// </summary>
+    [Fact]
+    public void PopulationSeparatesEnabledFromAttachedAndOnlyADrainMovesOne() {
+        var log = new List<string>();
+        using var loop = new EngineLoop();
+        var behavior = loop.Behaviors.Add(loop.World.Create(), new Recorder("a", log));
+
+        loop.Behaviors.Add(loop.World.Create(), new Recorder("b", log));
+
+        Assert.Equal(2, loop.Behaviors.Population[0].Total);
+        Assert.Equal(0, loop.Behaviors.Population[0].Enabled);
+
+        loop.Frame(TimeSpan.FromMilliseconds(16));
+
+        Assert.Equal(2, loop.Behaviors.Population[0].Enabled);
+
+        behavior.Enabled = false;
+        loop.Frame(TimeSpan.FromMilliseconds(16));
+
+        Assert.Equal(2, loop.Behaviors.Population[0].Total);
+        Assert.Equal(1, loop.Behaviors.Population[0].Enabled);
+    }
+
+    /// <summary>A destroyed behaviour leaves the count, or the number is of what was ever attached.</summary>
+    [Fact]
+    public void PopulationFollowsTheBucketDownAgain() {
+        var log = new List<string>();
+        using var loop = new EngineLoop();
+        var behavior = loop.Behaviors.Add(loop.World.Create(), new Recorder("a", log));
+
+        loop.Frame(TimeSpan.FromMilliseconds(16));
+        behavior.Destroy();
+        loop.Frame(TimeSpan.FromMilliseconds(16));
+
+        // The bucket stays, empty: it is created on the first Add<T> and nothing removes it. So the
+        // row is there with a zero, which is the honest answer to "how many PlayerControllers".
+        Assert.Equal(0, Assert.Single(loop.Behaviors.Population).Total);
+    }
+
     sealed class Recorder(string name, List<string> log) : Behavior {
         protected override void Awake() => log.Add($"{name}.Awake");
 

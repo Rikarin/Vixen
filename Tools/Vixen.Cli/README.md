@@ -13,6 +13,7 @@ vixen content loose              # or catalogue the imported artefacts, unpacked
 vixen content serve --any        # serve that build to a phone on the same network
 vixen doctor                     # say what is wrong, and change nothing
 vixen doctor systems             # what a built assembly's frame runs, and in what order
+vixen doctor behaviors           # which behaviour types exist, and how many of each a scene has
 ```
 
 A project is a directory with an `Assets/` folder. With no `--project`, the working directory and
@@ -207,6 +208,36 @@ constrained `where T : class`, so a system asking for a struct can never be sati
 so the game's code stays loaded for the life of the process — which for a CLI invocation is the
 command. The editor's `ProjectAssemblies` is the collectible one, and it has to be, because it reloads
 after every rebuild.
+
+## `doctor behaviors`
+
+**An assembly *and* a scene, which is the difference from its sibling.** Which behaviour types exist
+is in the code; how many instances of each there are is not in the code at all — it is in the levels.
+
+```
+vixen doctor behaviors --assembly bin/Release/net10.0/Asteroids.dll --scene Assets/Scenes/Arena.vxscene
+```
+
+It reports every `Behavior` subclass in the assembly and whether a scene may name it — a behaviour
+without `[DataContract]` is code-only, which is supported and simply invisible here — and then, per
+scene, how many instances of each type it authors and how many of those start enabled. Past **200**
+of one type it marks the line, which is [doc 04](../../docs/plan/04-ecs-and-scripting.md) §
+*When to write one*'s number and not this command's: that section's whole judgement is "one instance
+or a handful" against "many instances, the same operation over all of them", and an author who
+guessed wrong had no way to find out afterwards.
+
+It counts by attaching the scene's behaviours into a scratch `BehaviorStore` and reading
+`BehaviorStore.Population`, rather than tallying them here — the store is what buckets by concrete
+type, and a second tally would agree with it until `Add<T>`'s bucketing changed.
+
+⚠ **It runs no lifecycle**, for the reason `doctor systems` builds no system: draining the queue an
+attach fills is running somebody's game code. So the enabled figure is read from the authored
+`Behavior.Enabled`, not from the bucket's enabled prefix, which before a drain is zero for everything.
+
+⚠ **A scene that names no behaviour is reported, not passed over.** In this repository that is every
+scene — all fourteen `.vxscene` files carry components only, and `Samples/13` attaches every
+behaviour instance from `Arena.cs`. A command that printed "nothing is over the threshold" when what
+happened is that it counted nothing would be the failure a doctor exists to catch.
 
 ## `content serve`
 

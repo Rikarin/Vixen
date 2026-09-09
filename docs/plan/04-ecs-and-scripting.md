@@ -406,9 +406,27 @@ one to the other, and this document does not pretend the migration is free.
 > merely unreported, it is *unreachable*: `BehaviorBucket<T>` is a private nested class, and
 > `BehaviorStore.Count`'s only readers in the whole tree are three lines of `BehaviorTests`.
 >
+> ✅ **The discovery half landed.** `BehaviorStore.Population` is the per-type count leaving the
+> store — `(Type, Total, Enabled)` per bucket, most numerous first — and `vixen doctor behaviors`
+> (`Tools/Vixen.Cli/BehaviorsRunner.cs`) reads it beside `vixen doctor systems`. **The threshold this
+> document owes the tool is 200**: past two hundred instances of one behaviour type, the report marks
+> the line, because two hundred is where re-authoring is still cheap and ten thousand is where the
+> paragraph above says it is not. A number the tool picked for itself would be one nobody could
+> argue with.
+>
+> ⚠ **And what building it found is worth more than the verb.** *No `.vxscene` in this repository
+> names a behaviour* — all fourteen carry components only, and every behaviour instance in
+> `Samples/13` is attached from code (`Arena.cs:526` puts one `LampFlicker` on each point light the
+> level placed). So the count a scene can be asked for is, today, zero everywhere, and the command
+> says so in a finding rather than printing a clean report: an instrument that reports "nothing is
+> over the threshold" when what happened is that it counted nothing is the failure a doctor exists
+> to catch. **The number the rule is about is therefore a run-time number in this engine, not an
+> authored one** — which is an argument for the editor's Play mode being `Population`'s second
+> customer, and is not an argument this document has settled.
+>
 > **Not landed as the document's answer**: this prices the three options and picks one, and which way
 > a rule about scale and shape should push authors is Jiu's call rather than an agent's. #297 stays
-> open on that.
+> open on that — narrowed, since the remedy the recommendation would spend the effort on now exists.
 
 ### How it maps down
 
