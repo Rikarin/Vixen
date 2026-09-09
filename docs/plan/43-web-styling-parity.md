@@ -2952,6 +2952,23 @@ there is exactly one plain-data oracle for it anywhere: **ICU4X's**
 encode `line-break: loose/normal/strict/anywhere` and `word-break: keep-all/break-all` with `ja`/`zh`
 content locales. Unicode-3.0, permissive, and small enough to transcribe by hand.
 
+⚠ **The `word-break` half landed and its five absent cases are now a checked refusal rather than a
+list nobody read.** Seventeen of the twenty-two active assertions are transcribed in
+`CssWordBreakTailoringTests`; the five that ICU4X drives through `LineSegmenter::new_dictionary` are
+named in a field, and that field had **no reader at all** — this repository's commonest defect, in a
+test file. `The_transcribed_rows_and_the_absent_ones_account_for_all_of_icu4xs_cases` counts the rows
+off the two theories so that seventeen-plus-five-is-twenty-two is an assertion, and
+`A_run_of_a_dictionary_script_has_no_algorithmic_word_boundary` asserts the *reason*: a Thai, Lao or
+Khmer word segments whole, because LB1 resolves Complex Context to AL and a run of AL has no rule
+that breaks it. It goes red the day a dictionary segmenter lands, which is the day the five become
+transcribable. ⚠ **And one clause of the recorded reason is wrong**: "no amount of `word-break`
+changes that" — `break-all` does not ask what script a character is, so Thai and Lao break at every
+unit with no dictionary anywhere in it. The two `break-all`/`keep-all` entries among the five are
+absent because ICU4X's *expected* pieces came from a dictionary, not because Vixen has no answer.
+⚠ Khmer breaks at four places rather than eight, and that is UAX #29 rather than a defect: U+17D2
+COENG is a nonspacing mark, so an extended grapheme cluster binds it to the consonant *before* it,
+which UAX #29 itself says needs a tailoring.
+
 **For ellipsis specifically**, since Parley has nothing: the reference implementation is Chromium's
 `third_party/blink/renderer/core/layout/inline/line_truncator.cc`, and the directory is
 **BSD-3-Clause**. ⚠ **The licence trap is one directory up**: `layout/layout_text.cc` and its
