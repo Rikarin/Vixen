@@ -277,9 +277,28 @@ Silk.NET 2.23.0, Chromium.
   being slow. Two things do change and are stated in that project's README: scheduled-and-never-completed
   work never runs, and an automatic parallel-for batch size is one batch rather than four per
   participant. Covered by `SingleThreadedJobSchedulerTests`. **An earlier draft of this document said
-  a `workerCount == 0` CI leg already enforced this. There was no such leg and there is not one yet** —
-  running the whole suite single-threaded needs the schedulers the rest of the engine constructs to
-  take the count from somewhere, which is its own change.
+  a `workerCount == 0` CI leg already enforced this. There was no such leg** — and the correction
+  itself has since been wrong in both halves ([#328](https://github.com/Rikarin/Vixen/issues/328)), so
+  here is what was counted rather than assumed, on 2026-09-09:
+  - ⚠ **There is a zero-worker leg in CI, for one subsystem.** `RemeshBytesTests` runs the pinned
+    fixture at `("calling-thread", 0)`, 1, 4 and 16 workers, on all three runners, and `ci.yml`'s
+    `remesh-bytes` job diffs the bytes per worker count. "Nothing in CI sets a worker count" is
+    false; what is true is that one subsystem does and no other.
+  - ⚠ **The stated blocker is wrong: the engine constructs exactly one scheduler, and it already
+    takes the count from somewhere.** `AppBuilder` holds the only `new JobScheduler(` outside tests,
+    samples and benchmarks, and it reads `AppConfig.WorkerCount` — which `--vixen-workers 0` sets and
+    `AppArgumentsTests.ZeroWorkersIsALegitimateRequest` already covers. There is no plural to thread
+    a count through.
+  - ⚠ **And a suite forced single-threaded would assert less rather than more.** Of 118 construction
+    sites, **42 already pass 0** — the commonest count in the tree — and the rest pass 2, 4, 8 or a
+    loop variable *because the concurrency is the subject*. Several then assert that
+    `scheduler.WorkerCount` is what they asked for, so a global clamp would redden them by
+    construction. "The whole suite single-threaded" is not the shape of the owed work.
+  - **What is genuinely owed is narrower and per-subsystem.** Zero-worker construction reaches
+    `Vixen.Core.Threading`, `Vixen.Ecs`, `Vixen.Rendering`, the golden suite and one sample's frame
+    tests, and no further. Assets, animation, terrain, water, physics, AI, net and UI each schedule
+    work and none has a fixture that runs it with none — which is where "scheduled-and-never-completed
+    work never runs" would actually bite.
 - **Size beyond the floor.** 930 KB is the runtime baseline; the engine's own IL adds to it. ✅
   **Lazy assembly loading is implemented** — `VixenWebLazyAssembly` takes a named assembly out of the
   boot manifest at publish and `WebLazyAssemblies.LoadAsync` fetches it on demand; see
@@ -335,7 +354,7 @@ under budget; single-threaded job-system mode verified.
 | Floating point | No reliance on cross-platform FP bit-identity for gameplay. Deterministic simulation, where needed, uses fixed-point or a documented deterministic subset. |
 | Feature detection | Always a runtime capability query with a fallback, never `#if PLATFORM`. `#if` is for P/Invoke surface only. |
 | Time | `Stopwatch`-based monotonic time; never `DateTime.Now` in the loop. |
-| Threading | Every subsystem works with `workerCount == 0`. `JobScheduler` supports it and is tested for it; the test mode that would run the *whole* suite single-threaded does not exist yet — see § Web, where the same claim was corrected. |
+| Threading | Every subsystem works with `workerCount == 0`. `JobScheduler` supports it and is tested for it. ⚠ The *whole*-suite single-threaded mode this row used to call owed is not the shape of the work — 42 of the tree's 118 construction sites already pass 0, the rest pass a count deliberately, and forcing them would redden tests that assert the count they asked for. See § Web, where this claim has now been corrected three times and the third correction carries the counts. |
 | Native binaries | One `Vixen.Platform.Native` project owns RID→binary mapping, `runtimes/<rid>/native/` layout, checksum verification at acquisition time, and a licence manifest. Native binaries are never committed; they are restored by a Nuke target from pinned, checksummed URLs. |
 
 ## Platform CI matrix
