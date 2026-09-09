@@ -276,10 +276,21 @@ in `Vixen.Net`, and the three turn out to need very different things:
   place to ask: `InterestChain` publishes `ConsideredCount`, `NominatedCount` and `HiddenCount` and
   nothing per player, and `ReplicationServer` resolves into **one shared scratch list** it clears per
   connection, so after a tick the only set that still exists is the last connection's.
-- **A live RPC log needs a record that is not being kept.** `RpcRouter` publishes eight refusal
-  counters and an accepted count and no per-call anything, so a log is an event or a ring somebody
-  has to add — and the ring belongs here rather than in `Vixen.Net`, for the reason `NetworkTrend`
-  gives above: a dedicated server should not pay for a time series nobody is looking at.
+- **A live RPC log needs a record that is not being kept**, and ⚠ **"so the ring belongs here rather
+  than in `Vixen.Net`" — recorded twice above this line — cannot be acted on as it stands.** A ring
+  in this assembly needs something to subscribe to, and `RpcRouter` publishes **no event, no callback
+  and no per-call anything**: nine counters, and exactly one per-call callout in the whole type,
+  `Ledger?.RecordCall(from, method, bits)` at the accept site (`Core/Vixen.Net/Rpc/RpcRouter.cs:604`).
+  That callout cannot be the seam for three separate reasons, and each of them is fatal on its own —
+  `Ledger` is the concrete `BandwidthLedger` rather than an interface, so nothing else can be handed
+  in; `RecordCall` aggregates into dictionaries keyed by method name and by connection, so it is a
+  histogram and not a log, and the *order* a log is for is gone the moment it returns; and it is on
+  the accepted path only, so the eight refusals — the half somebody opens an RPC log to look at —
+  never reach it at all. So `Vixen.Net` has to grow the seam (an event, or an `IRpcLog`-shaped sink
+  the router calls on every outcome and not only the happy one) before the question of where the ring
+  lives can be asked. Once it exists, the ring still belongs here, for the reason `NetworkTrend` gives
+  above: a dedicated server should not pay for a time series nobody is looking at. The correction is
+  that the ordering is the other way round from what was written.
 
 ⚠ **All three are behind [#120](https://github.com/Rikarin/Vixen/issues/120) regardless.** The editor
 is the only process in the tree holding a `DiagnosticsModule` and it runs no session, so a view built
