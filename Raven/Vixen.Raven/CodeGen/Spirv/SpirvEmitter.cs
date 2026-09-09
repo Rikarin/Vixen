@@ -545,6 +545,24 @@ sealed partial class SpirvEmitter {
         foreach (var stream in entryPoint.StreamOutputs) {
             streamWrites[stream.Variable] = DeclareStream(stream, SpirvStorageClass.Output, "out_");
         }
+
+        // ⚠ A stream nothing reads goes in `globals` rather than in the two stream maps, and that is
+        // not a filing preference. `Resolve` hard-codes the storage class of a stream to
+        // Input/Output by direction, so a Private variable resolved that way would build its access
+        // chain through a pointer type that does not match the variable — a spirv-val failure.
+        // Going through the globals path gives it the storage class it actually has, and gets it
+        // listed in a SPIR-V 1.4 module's entry point interface, where every referenced global has
+        // to appear.
+        foreach (var stream in entryPoint.PrivateStreams) {
+            var variable = module.AddDeclaration(
+                SpirvOp.Variable,
+                types.Pointer(SpirvStorageClass.Private, types.Type(stream.Type)),
+                SpirvOperand.Enumerant(SpirvStorageClass.Private)
+            );
+
+            module.AddName(variable, "out_" + stream.Name);
+            globals[stream.Variable] = new(variable, SpirvStorageClass.Private);
+        }
     }
 
     uint DeclareStream(IrStream stream, SpirvStorageClass storage, string prefix) {

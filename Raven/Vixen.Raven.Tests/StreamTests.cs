@@ -580,6 +580,230 @@ public class StreamTests {
         Assert.Contains("normalWS", warning.GetMessage(), StringComparison.Ordinal);
     }
 
+    // --- A stream nothing reads -------------------------------------------
+
+    /// <summary>
+    ///     A prepass whose only read of its stream sits inside a permutation — the shape all three
+    ///     library shaders that spent a varying on nothing turned out to have.
+    /// </summary>
+    const string Gated = """
+                         package A
+
+                         shader Prepass {
+                             [Permutation] val AlphaTested: bool = false
+
+                             stream var uv: float2
+
+                             [VertexShader]
+                             [Semantic("SV_Position")]
+                             func Vertex(position: float3, texcoord: float2): float4 {
+                                 uv = texcoord
+                                 return float4(position, 1f)
+                             }
+
+                             [FragmentShader]
+                             [Semantic("SV_Target")]
+                             func Fragment(): float4 {
+                                 if (AlphaTested) {
+                                     return float4(uv.x, uv.y, 0f, 1f)
+                                 }
+
+                                 return float4(1f, 1f, 1f, 1f)
+                             }
+                         }
+
+                         """;
+
+    /// <summary>
+    ///     One pipeline written as two <c>shader</c> declarations, which is how <c>Ui.rvn</c> and
+    ///     <c>Line.rvn</c> are written: the vertex stage's consumer is not in its own shader.
+    /// </summary>
+    const string Split = """
+                         package A
+
+                         shader Blit {
+                             stream var colour: float4
+
+                             [VertexShader]
+                             [Semantic("SV_Position")]
+                             func Vertex(position: float3, vertexColour: float4): float4 {
+                                 colour = vertexColour
+                                 return float4(position, 1f)
+                             }
+                         }
+
+                         shader Tint {
+                             stream var colour: float4
+
+                             [FragmentShader]
+                             [Semantic("SV_Target")]
+                             func Fragment(): float4 {
+                                 return colour
+                             }
+                         }
+
+                         """;
+
+    static IrModule LowerWith(string source, PermutationValues values) {
+        var tree = SyntaxTree.ParseText(source, path: "Test.rvn");
+        Assert.Empty(tree.Diagnostics);
+
+        var compilation = Compilation.Create("Test", values, [tree]);
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var bag = new DiagnosticBag();
+        var module = Lowerer.Lower(compilation, bag);
+        IrVerifier.Verify(module, bag);
+        Assert.Empty(bag.ToArray());
+
+        return module;
+    }
+
+    /// <summary>
+    ///     A stream the folded variant's fragment stage never reads costs the vertex stage no
+    ///     varying: it is written to a private global instead of an <c>out</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The interesting half is that this is decided per variant.</b> The read is right
+    ///         there in the source; what makes the varying dead is a permutation value, so nothing
+    ///         about the <c>.rvn</c> could say it, and the answer differs between two compilations
+    ///         of the same file. GLSL ES 3.0 guarantees 16 vec4 of varyings and a written-but-unread
+    ///         vertex output still counts against them, so the slot is a real budget.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AStreamTheFoldedVariantNeverReadsTakesNoVaryingSlot() {
+        var module = LowerWith(Gated, PermutationValues.Empty);
+        var shader = FindShader(module, "Prepass");
+        var vertex = Assert.Single(shader.EntryPoints, e => e.Stage == ShaderStage.Vertex);
+        var fragment = Assert.Single(shader.EntryPoints, e => e.Stage == ShaderStage.Fragment);
+
+        Assert.Empty(vertex.StreamOutputs);
+        Assert.Equal(["uv"], vertex.PrivateStreams.Select(s => s.Name));
+        Assert.Empty(fragment.StreamInputs);
+
+        var bag = new DiagnosticBag();
+        var generated = new GlslBackend().Generate(module, bag);
+        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+
+        var code = Assert.Single(generated, unit => unit.Stage == ShaderStage.Vertex).Code;
+
+        // The store survives — it is the declaration's qualifier that goes.
+        Assert.Contains("vec2 out_uv;", code, StringComparison.Ordinal);
+        Assert.Contains("out_uv = ", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("out vec2 out_uv", code, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     And the other value of the same permutation keeps it: this is a variant's answer, not the
+    ///     shader's.
+    /// </summary>
+    [Fact]
+    public void TheVariantThatReadsTheStreamStillGetsAVarying() {
+        var module = LowerWith(Gated, PermutationValues.Create([new("AlphaTested", true)]));
+        var shader = FindShader(module, "Prepass");
+        var vertex = Assert.Single(shader.EntryPoints, e => e.Stage == ShaderStage.Vertex);
+
+        Assert.Equal(["uv"], vertex.StreamOutputs.Select(s => s.Name));
+        Assert.Empty(vertex.PrivateStreams);
+
+        var bag = new DiagnosticBag();
+        var generated = new GlslBackend().Generate(module, bag);
+        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+
+        Assert.Contains(
+            "layout(location = 0) out vec2 out_uv;",
+            Assert.Single(generated, unit => unit.Stage == ShaderStage.Vertex).Code,
+            StringComparison.Ordinal
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ A shader with no stage after the writer keeps every stream it writes, because its
+    ///     reader is in another <c>shader</c> declaration and this compilation cannot see it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The engine's two most-shipped modules are this shape</b>, and they are the reason
+    ///         the rule is not simply "nothing in this shader reads it".
+    ///         <c>Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn</c> declares <c>UiVertex</c> beside seven
+    ///         fragment shaders and <c>Editor/Vixen.Editor.Host/Shaders/Line.rvn</c> splits
+    ///         <c>LineVertex</c> from <c>LineFragment</c>: one pipeline, two declarations, matching
+    ///         locations only because <c>StreamPlan</c> numbers by declaration order in each. Drop a
+    ///         vertex-only shader's streams and the fragment module reads locations nothing writes —
+    ///         which is a link failure, not a wasted slot.
+    ///     </para>
+    ///     <para>
+    ///         Both of those modules are committed, so <c>CheckShaders</c> caught it — but only
+    ///         after the fact and only for the two files that happen to have a committed
+    ///         <c>.spv</c>. This is the assertion that does not depend on that.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AVertexOnlyShaderKeepsEveryStreamItWrites() {
+        var module = LowerWith(Split, PermutationValues.Empty);
+        var vertex = Assert.Single(FindShader(module, "Blit").EntryPoints);
+
+        Assert.Equal(["colour"], vertex.StreamOutputs.Select(s => s.Name));
+        Assert.Empty(vertex.PrivateStreams);
+
+        var bag = new DiagnosticBag();
+        var generated = new GlslBackend().Generate(module, bag);
+        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+
+        // The two halves have to agree on location 0 or the host's program does not link.
+        Assert.Contains(
+            "layout(location = 0) out vec4 out_colour;",
+            Assert.Single(generated, unit => unit.Name.StartsWith("Blit.", StringComparison.Ordinal)).Code,
+            StringComparison.Ordinal
+        );
+
+        Assert.Contains(
+            "layout(location = 0) in vec4 in_colour;",
+            Assert.Single(generated, unit => unit.Name.StartsWith("Tint.", StringComparison.Ordinal)).Code,
+            StringComparison.Ordinal
+        );
+    }
+
+    /// <summary>
+    ///     And in SPIR-V it is a <c>Private</c> variable: no <c>Location</c>, and absent from the
+    ///     entry point's interface, which before SPIR-V 1.4 may list only <c>Input</c> and
+    ///     <c>Output</c>.
+    /// </summary>
+    /// <remarks>
+    ///     The validator is the point of this one. A private stream that kept the stream maps'
+    ///     Input/Output storage class would build its access chain through a pointer type that does
+    ///     not match the variable, and an interface list naming it would be rejected outright —
+    ///     both are <c>spirv-val</c> failures rather than anything a string assertion would notice.
+    /// </remarks>
+    [Fact]
+    public void SpirvGivesAnUnreadStreamPrivateStorageAndNoLocation() {
+        Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
+
+        var module = LowerWith(Gated, PermutationValues.Empty);
+        var bag = new DiagnosticBag();
+        var generated = new SpirvBackend().Generate(module, bag);
+        Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
+
+        foreach (var unit in generated) {
+            SpirvTestBase.Validate(unit);
+        }
+
+        var vertex = Assert.Single(generated, u => u.Stage == ShaderStage.Vertex).Code;
+        var id = SpirvTestBase.IdNamed(vertex, "out_uv");
+
+        Assert.DoesNotContain($"OpDecorate {id} Location", vertex, StringComparison.Ordinal);
+        Assert.DoesNotContain("out_uv", SpirvInterface.Read(vertex).Locations.Keys);
+
+        var entryPoint = Assert.Single(
+            vertex.Split('\n'),
+            line => line.StartsWith("OpEntryPoint ", StringComparison.Ordinal)
+        );
+
+        Assert.DoesNotContain(id, entryPoint.Split(' '));
+    }
+
     // --- Libraries --------------------------------------------------------
 
     /// <summary>

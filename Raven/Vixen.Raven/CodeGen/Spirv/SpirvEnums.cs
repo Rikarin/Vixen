@@ -159,6 +159,16 @@ internal enum SpirvStorageClass {
     /// </remarks>
     Workgroup = 4,
 
+    /// <summary>
+    ///     Module-scope storage private to one invocation.
+    /// </summary>
+    /// <remarks>
+    ///     What a <c>stream</c> nothing reads becomes. It keeps the store in the writing stage legal
+    ///     while costing no interface location — and it must stay out of the entry point's
+    ///     interface list, which before SPIR-V 1.4 may name only <c>Input</c> and <c>Output</c>.
+    /// </remarks>
+    Private = 6,
+
     Function = 7,
 
     /// <summary>

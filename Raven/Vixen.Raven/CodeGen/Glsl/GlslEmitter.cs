@@ -542,7 +542,9 @@ sealed class GlslEmitter {
     }
 
     void EmitStreamInterface() {
-        if (entryPoint.StreamInputs.Count == 0 && entryPoint.StreamOutputs.Count == 0) {
+        if (entryPoint.StreamInputs.Count == 0
+            && entryPoint.StreamOutputs.Count == 0
+            && entryPoint.PrivateStreams.Count == 0) {
             return;
         }
 
@@ -589,6 +591,19 @@ sealed class GlslEmitter {
                 + $"{Declare(stream.Type, name, stream.Name)};"
                 + Comment("stream")
             );
+        }
+
+        // A stream nothing reads takes no location and no qualifier — a plain module-scope global,
+        // which is what GLSL calls a variable at this scope with no storage word. The store that
+        // writes it stays legal and the linker never sees it, so the varying slot it used to hold is
+        // free. ⚠ Registered as both the read and the write name: one variable serves a stage that
+        // writes a stream and then reads its own value back, where the interface case has two.
+        foreach (var stream in entryPoint.PrivateStreams) {
+            var name = Reserve("out_" + stream.Name);
+            streamWrites[stream.Variable] = name;
+            streamReads[stream.Variable] = name;
+
+            writer.Line($"{Declare(stream.Type, name, stream.Name)};" + Comment("stream, unread"));
         }
 
         writer.Blank();
