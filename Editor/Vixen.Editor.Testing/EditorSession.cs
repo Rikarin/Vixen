@@ -181,6 +181,20 @@ public sealed class EditorSession : IDisposable {
     /// <summary>The curve presets the editor is offering, which are the user's rather than the project's.</summary>
     public CurvePresetLibrary Curves => editor.Curves;
 
+    /// <summary>The project browser's saved filters, which are the user's rather than the project's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The list the panel was handed rather than a copy</b>, for <see cref="Curves" />'s
+    ///     reason: the browser's menu is filled from what it holds, so a test asserting about a copy
+    ///     would be asserting about an object no menu is built from.
+    /// </remarks>
+    public IReadOnlyList<SavedAssetFilter> AssetFilters => editor.AssetFilters;
+
+    /// <summary>Keeps a named filter the way the Save line does, without the modal prompt.</summary>
+    /// <param name="name">What to call it.</param>
+    /// <param name="search">What was in the search box.</param>
+    /// <param name="kind">The importer tag, or empty for every kind.</param>
+    public void SaveFilter(string name, string search, string kind) => editor.SaveFilter(name, search, kind);
+
     /// <summary>The focused pane, or <see langword="null" /> while the scene panel is closed.</summary>
     public SceneViewport? Viewport => editor.Viewport;
 

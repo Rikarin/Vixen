@@ -55,6 +55,26 @@ sealed class ProjectBrowser {
     readonly Select sizes;
     readonly AssetGrid tiles;
 
+    /// <summary>The button that drops the saved-filter menu.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A menu behind one button rather than a fifth control in the bar, and the width is
+    ///     the reason.</b> The bar already carries a search box, a kind dropdown, the view toggle and
+    ///     the tile-size picker; a saved-filter dropdown beside them is the row that runs out of room
+    ///     in a docked panel, which is the failure the inspector's own row hit. A menu also has
+    ///     somewhere to put Save and Forget, which a dropdown does not.
+    /// </remarks>
+    readonly Button filters;
+
+    /// <summary>The saved-filter menu, built on first use.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Lazily, because a <c>ContextMenu</c> is an overlay and belongs to the document rather
+    ///     than to the panel</b> — and the panel may not be in a document yet while its factory runs.
+    ///     It is filled on every opening for <c>CurvePresetLines</c>'s reason: a menu filled once
+    ///     holds the filters that existed when the panel was built, and the first thing anybody does
+    ///     after saving one is look for it.
+    /// </remarks>
+    ContextMenu? filterMenu;
+
     /// <summary>The folders-only tree beside the grid.</summary>
     /// <remarks>
     ///     <para>
@@ -114,6 +134,18 @@ sealed class ProjectBrowser {
     ///     every verb goes out as an event.
     /// </remarks>
     public event Action<bool>? ViewChanged;
+
+    /// <summary>Raised when the user asks to keep the filter that is set, under a name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The request rather than the filter, for the browser's own rule: every verb goes out
+    ///     as an event.</b> Naming it means a modal prompt and keeping it means a preferences file,
+    ///     and a panel that owned either would be a second writer to the user store. What the host
+    ///     reads back is <see cref="Search" /> and <see cref="Kind" />, which are the filter.
+    /// </remarks>
+    public event Action? FilterSaveRequested;
+
+    /// <summary>Raised when the user forgets a saved filter, by name.</summary>
+    public event Action<string>? FilterForgotten;
 
     /// <summary>Raised when rows are dropped onto a folder row.</summary>
     public event Action<IReadOnlyList<AssetId>, AssetId>? Moved;
@@ -236,6 +268,16 @@ sealed class ProjectBrowser {
             Restate();
             ViewChanged?.Invoke(on);
         };
+
+        // ⚠ In the bar and not in the assets' context menu, because a filter is a property of the
+        // panel rather than of whatever row was right-clicked — and because the menu over a row has
+        // to stay the verbs that act on the selection. See `filters`.
+        filters = bar.Add<Button>();
+        filters.Label = "Filters";
+        filters.Size = ControlSize.Small;
+        filters.Variant = ControlVariant.Subtle;
+        filters.AddClass("browser-filter-menu");
+        filters.Clicked += _ => OpenFilters();
 
         // ⚠ A row holding the folder tree and whichever browsing surface is showing. The two views
         // were direct children of the panel, which is a column — so a folder tree added beside them
@@ -536,6 +578,114 @@ sealed class ProjectBrowser {
             // it is why the grid is set first rather than left to that round trip.
             sizes.Value = tiles.TileSize;
         }
+    }
+
+    /// <summary>What is in the search box.</summary>
+    public string Search => search.Value ?? string.Empty;
+
+    /// <summary>The importer tag the kind dropdown is on, or empty for every kind.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Empty rather than <c>All types</c>, because the dropdown's own line is a label and
+    ///     not a tag.</b> A saved filter that stored the label would come back as a filter for assets
+    ///     whose importer is called "All types", which is a filter that matches nothing — silently,
+    ///     since an empty grid is what a narrow filter looks like.
+    /// </remarks>
+    public string Kind => kinds.Value is { } chosen && chosen != AnyType ? chosen : string.Empty;
+
+    /// <summary>Where the saved filters come from, asked at the moment the menu opens.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A function rather than the list, and holding the list would have been a bug
+    ///         rather than a style.</b> <c>EditorPreferences</c> is <i>replaced</i> — the settings
+    ///         window's Revert re-reads the file into a new object, and so does a restart — so a
+    ///         panel that had captured <c>preferences.AssetFilters</c> would go on offering the
+    ///         filters that existed when it was opened, silently, for as long as it stayed open. It
+    ///         is the same shape as <c>CurvePresetLines</c>'s <c>Func&lt;InspectorRow?&gt;</c>: asked
+    ///         at the moment it is needed, because that is the only moment the answer is known to be
+    ///         current.
+    ///     </para>
+    ///     <para>
+    ///         Null while nothing has offered any, which is a browser with no saved filters rather
+    ///         than an error — the panel is constructible without a preferences file, and the
+    ///         harness builds one that way.
+    ///     </para>
+    /// </remarks>
+    public Func<IReadOnlyList<SavedAssetFilter>>? SavedFilters { get; set; }
+
+    /// <summary>Puts a filter into the two controls that are the filter.</summary>
+    /// <param name="query">What to put in the search box.</param>
+    /// <param name="kind">The importer tag, or empty for every kind.</param>
+    /// <remarks>
+    ///     ⚠ <b>Through the controls rather than around them, which is what makes an applied filter
+    ///     visible.</b> A filter applied to <see cref="Populate" /> alone would narrow the grid while
+    ///     the search box sat empty — a browser showing a fifth of the project with nothing on screen
+    ///     saying why, which is the state people restart the editor to get out of.
+    ///     <para>
+    ///         ⚠ A kind the project no longer holds falls back to every kind, because
+    ///         <see cref="Refilter" /> only offers the tags the project actually has. That is the
+    ///         same answer the dropdown already gives when the last texture is deleted, and it is
+    ///         better than a filter that hides everything with no way to tell why.
+    ///     </para>
+    /// </remarks>
+    public void Apply(string query, string kind) {
+        search.Value = query ?? string.Empty;
+
+        kinds.Value = !string.IsNullOrEmpty(kind) && kinds.Options.Any(option => option.Value == kind)
+            ? kind
+            : AnyType;
+
+        Populate();
+    }
+
+    /// <summary>Drops the saved-filter menu under the button, filled from what the host has given.</summary>
+    void OpenFilters() {
+        var menu = filterMenu ??= filters.Document.Root.Add<ContextMenu>();
+
+        // ⚠ Closed before it is emptied. An open menu has focus inside it, and removal is final in
+        // this framework — taking the focused item out from under the focus is the shape of thing
+        // that leaves a document pointing at a slot somebody else has been given.
+        if (menu.IsOpen) {
+            menu.Close();
+        }
+
+        while (menu.Children.Count > 0) {
+            menu.Children[^1].Remove();
+        }
+
+        var save = menu.AddItem("Save Filter…");
+
+        // ⚠ Nothing set is nothing to save. A filter of "" over every kind is the browser's resting
+        // state, and a menu that offered to name it would be offering to keep a row that does
+        // nothing when it is applied.
+        save.Disabled = Search.Length == 0 && Kind.Length == 0;
+        save.Clicked += _ => FilterSaveRequested?.Invoke();
+
+        var offered = SavedFilters?.Invoke() ?? [];
+
+        if (offered.Count > 0) {
+            menu.AddSeparator();
+
+            foreach (var saved in offered) {
+                var line = menu.AddItem(saved.Name);
+                var query = saved.Search;
+                var kind = saved.Kind;
+
+                line.Clicked += _ => Apply(query, kind);
+            }
+
+            var forget = menu.AddSubmenu("Forget Filter");
+
+            foreach (var saved in offered) {
+                var line = forget.AddItem(saved.Name);
+                var name = saved.Name;
+
+                line.Clicked += _ => FilterForgotten?.Invoke(name);
+            }
+        }
+
+        var bounds = filters.Bounds;
+
+        menu.OpenAt(bounds.X, bounds.Y + bounds.Height);
     }
 
     /// <summary>Raised when the tile size is changed, so that the choice can outlive the panel.</summary>

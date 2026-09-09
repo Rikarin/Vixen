@@ -238,6 +238,52 @@ public sealed class EditorPreferences {
     ///     </para>
     /// </remarks>
     public List<ViewportPreferences> Viewports { get; set; } = [];
+
+    /// <summary>The project browser's named searches, in the order they were saved.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 20 § B1's "saved filters", and the storage question it shares with
+    ///         collections is answered differently for each: a saved filter holds the <i>query</i>,
+    ///         a collection holds the <i>result</i>.</b> That is why this one is a preference and a
+    ///         collection is not — a query re-runs against whatever the project holds today, so a
+    ///         filter naming an importer nobody uses any more narrows to nothing and says so, while a
+    ///         set of assets stored by path breaks the first time somebody moves one.
+    ///     </para>
+    ///     <para>
+    ///         Not <c>[Inspector]</c>, for <see cref="ProjectGridView" />'s reason: the menu in the
+    ///         browser's own filter bar is how it is changed. A saved filter naming a kind the
+    ///         project no longer has is kept, exactly as a <see cref="ComponentOrder" /> entry no
+    ///         component answers to is: re-importing the last texture puts it back.
+    ///     </para>
+    /// </remarks>
+    public List<SavedAssetFilter> AssetFilters { get; set; } = [];
+}
+
+/// <summary>One named search of the project browser: the query, never its result.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The query and not what it matched, which is the whole difference between this and a
+///         collection.</b> A filter re-runs, so it keeps answering as the project changes; a stored
+///         list of matches is a snapshot that is wrong the moment somebody imports anything. Doc 20
+///         § B1 asks for both and they are the same storage question with opposite answers.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="Kind" /> is the importer tag and not an extension</b>, because that is
+///         what the browser's own dropdown offers — the list is what the project actually holds
+///         rather than everything the engine can import. Empty means every kind, which is the
+///         dropdown's <c>All types</c> line rather than a filter that matches nothing.
+///     </para>
+/// </remarks>
+[DataContract("SavedAssetFilter")]
+public sealed class SavedAssetFilter {
+    /// <summary>What the user called it.</summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>What was in the search box, which may be empty.</summary>
+    public string Search { get; set; } = string.Empty;
+
+    /// <summary>The importer tag the kind dropdown was on, or empty for every kind.</summary>
+    public string Kind { get; set; } = string.Empty;
 }
 
 /// <summary>What one viewport pane was showing when the editor last closed.</summary>

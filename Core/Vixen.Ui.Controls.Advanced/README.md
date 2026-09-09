@@ -363,6 +363,15 @@ send whatever it drives into the next county.
 ⚠ **The value axis points up.** It is the one place in an interface where the mathematical
 convention wins, because a graph with its value axis upside down is unreadable.
 
+⚠ **A secondary press pans, and it marks the event handled.** Middle and right are the same gesture
+here — a graph is a thing you move around, and reserving the right button for a menu would leave
+panning to a modifier nobody discovers. `Pointed` marks every press handled and `Begin` captures the
+pointer for the pan — so a `ContextMenu` attached to this control is competing with a gesture that has
+already claimed the button, and the surface for a menu over a curve has to be a control *beside* the
+graph. That is why the editor's curve presets reach the inspector's rows and not the three asset
+editors that build a `CurveEditor` directly — see
+[#1148](https://github.com/Rikarin/Vixen/issues/1148).
+
 ### GradientEditor
 
 Two rails of stops, a sampled bar, three interpolation spaces and a picker beside the selection.
@@ -397,6 +406,13 @@ control:
   records the count — and `Vixen.Ui.Controls.Advanced` is not in it. Baking a `Gradient` there
   would widen a closure that was narrowed on purpose, which is a cost worth naming before anybody
   calls the wiring small.
+
+⚠ **One more fact, and it is what stops the refusal reading as an oversight:
+`DrawerRegistry.CreateDefault` has no `Gradient` entry at all** — there is no half-wired drawer to
+finish, and nothing falls through to the read-only last resort either, because no member of that type
+exists to fall through. [#1147](https://github.com/Rikarin/Vixen/issues/1147) re-found the sweep that
+produced this section and asked for exactly the record it already is; a sweep of `*.cs` and `*.vxml`
+is not the whole instrument, and the READMEs are the other half of it.
 
 What would change the decision is a gradient *asset*: a serialised `Gradient` with an importer, at
 which point a `GradientDrawer : PropertyDrawer<Gradient, GradientEditor>` beside `CurveDrawer` is the

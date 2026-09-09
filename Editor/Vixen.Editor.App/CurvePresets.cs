@@ -67,6 +67,33 @@ public sealed class CurvePreset {
 ///         <i>to</i>, which is this repository's commonest defect written down deliberately. The
 ///         curve control, by contrast, is a drawer in the inspector and is in two AI asset editors.
 ///     </para>
+///     <para>
+///         ⚠ <b>That refusal was already written down before this file existed, and the record is the
+///         thing to read rather than re-derive.</b>
+///         <c>Core/Vixen.Ui.Controls.Advanced/README.md</c> § GradientEditor gives three reasons that
+///         are all outside the control — no gradient asset, doc 48's predicted consumer shipped
+///         taking a texture name, and the obvious host does not reference the controls assembly — and
+///         <c>docs/overview.md</c> §1.7 carries the same sentence.
+///         <a href="https://github.com/Rikarin/Vixen/issues/1147">#1147</a> re-found the sweep and
+///         asked for a record that was already there, which is worth knowing: a <c>*.cs</c> plus
+///         <c>*.vxml</c> sweep answers "is it called" and not "was this decided".
+///     </para>
+///     <para>
+///         ⚠ <b>The three panes that edit a curve without a row do not offer these yet, and the two
+///         things stopping them are both measured rather than assumed.</b>
+///         <c>Ai/QueryView</c>, <c>Ai/UtilitySetView</c> and <c>Animation/AnimationClipView</c> hold a
+///         <c>CurveEditor</c> directly, so they never pass through the <c>InspectorRow</c> the menu
+///         lines are attached to. First, <b>they cannot see this type</b>: the project reference runs
+///         <c>Vixen.Editor.App</c> → <c>Vixen.Editor.AssetEditors</c>, so offering the presets there
+///         means moving the library down to <c>Vixen.Editor.Core</c> and giving the views a seam to
+///         reach the instance. Second — and this is the part that rules out the cheap workaround —
+///         <b>a context menu attached from the host would be competing with the control's own
+///         gesture</b>: <c>CurveEditor.Begin</c> takes a <c>Secondary</c> press as a <em>pan</em> and
+///         captures the pointer for it, and <c>Pointed</c> marks every press handled. So the surface
+///         has to be a control beside the curve, in the view, which is why this is
+///         <a href="https://github.com/Rikarin/Vixen/issues/1148">#1148</a>'s second half rather than
+///         three lines here.
+///     </para>
 /// </remarks>
 [DataContract("CurvePresetLibrary")]
 public sealed class CurvePresetLibrary {
