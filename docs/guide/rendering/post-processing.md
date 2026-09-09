@@ -4,7 +4,7 @@ slug: rendering/post-processing
 kind: guide
 area: Rendering
 summary: Every screen-space effect a compositor document can name, what each one reads, and the order they have to run in.
-api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.BloomAsset, T:Vixen.Rendering.PostFx.TonemapAsset, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Rendering.PostFx.FxaaAsset, T:Vixen.Rendering.PostFx.TemporalAntialiasingAsset, T:Vixen.Rendering.PostFx.SharpenAsset, T:Vixen.Rendering.PostFx.VignetteAsset, T:Vixen.Rendering.PostFx.FogAsset, T:Vixen.Rendering.PostFx.OutlineAsset, T:Vixen.Rendering.PostFx.SsaoAsset, T:Vixen.Rendering.PostFx.AutoExposureAsset, T:Vixen.Rendering.PostFx.DepthOfFieldAsset, T:Vixen.Rendering.PostFx.DepthOfFieldRenderer, R:PostFx/DepthOfField, T:Vixen.Rendering.PostFx.MotionBlurAsset, T:Vixen.Rendering.PostFx.MotionBlurRenderer, R:PostFx/MotionBlur, T:Vixen.Rendering.PostFx.LocalExposureAsset, T:Vixen.Rendering.PostFx.LocalExposureRenderer, R:PostFx/LocalExposure, T:Vixen.Rendering.PostFx.LensFlareAsset, T:Vixen.Rendering.PostFx.LensFlareRenderer, R:PostFx/LensFlare, R:PostFx/AutoExposure, T:Vixen.Rendering.PostFx.AutoExposureRenderer, R:Pipeline/MotionVectors, T:Vixen.Rendering.Features.MotionVectorRenderFeature, T:Vixen.Rendering.PostFx.DistanceFieldAoAsset, T:Vixen.Rendering.Compositor.IResizeTarget, T:Vixen.Rendering.PostFx.IndirectDiffuseAsset, T:Vixen.Rendering.ColorGrading, T:Vixen.Rendering.ColorGradingRange, T:Vixen.Editor.Assets.Textures.CubeLut, T:Vixen.Editor.Assets.Textures.CubeLutImporter, T:Vixen.Editor.Assets.Textures.CubeLutImportSettings, R:PostFx/Tonemap, R:PostFx/Vignette]
+api: [T:Vixen.Rendering.PostFx.PostEffectFactory, T:Vixen.Rendering.PostFx.BloomAsset, T:Vixen.Rendering.PostFx.TonemapAsset, T:Vixen.Rendering.PostFx.SkyAsset, T:Vixen.Rendering.PostFx.FxaaAsset, T:Vixen.Rendering.PostFx.TemporalAntialiasingAsset, T:Vixen.Rendering.PostFx.SharpenAsset, T:Vixen.Rendering.PostFx.VignetteAsset, T:Vixen.Rendering.PostFx.FogAsset, T:Vixen.Rendering.PostFx.OutlineAsset, T:Vixen.Rendering.PostFx.SsaoAsset, T:Vixen.Rendering.PostFx.AutoExposureAsset, T:Vixen.Rendering.PostFx.DepthOfFieldAsset, T:Vixen.Rendering.PostFx.DepthOfFieldRenderer, R:PostFx/DepthOfField, T:Vixen.Rendering.PostFx.MotionBlurAsset, T:Vixen.Rendering.PostFx.MotionBlurRenderer, R:PostFx/MotionBlur, T:Vixen.Rendering.PostFx.LocalExposureAsset, T:Vixen.Rendering.PostFx.LocalExposureRenderer, R:PostFx/LocalExposure, T:Vixen.Rendering.PostFx.LensFlareAsset, T:Vixen.Rendering.PostFx.LensFlareRenderer, R:PostFx/LensFlare, T:Vixen.Rendering.PostFx.LightStreakAsset, T:Vixen.Rendering.PostFx.LightStreakRenderer, R:PostFx/LightStreak, R:PostFx/AutoExposure, T:Vixen.Rendering.PostFx.AutoExposureRenderer, R:Pipeline/MotionVectors, T:Vixen.Rendering.Features.MotionVectorRenderFeature, T:Vixen.Rendering.PostFx.DistanceFieldAoAsset, T:Vixen.Rendering.Compositor.IResizeTarget, T:Vixen.Rendering.PostFx.IndirectDiffuseAsset, T:Vixen.Rendering.ColorGrading, T:Vixen.Rendering.ColorGradingRange, T:Vixen.Editor.Assets.Textures.CubeLut, T:Vixen.Editor.Assets.Textures.CubeLutImporter, T:Vixen.Editor.Assets.Textures.CubeLutImportSettings, R:PostFx/Tonemap, R:PostFx/Vignette]
 tags: [rendering, post-processing, compositor]
 since: 0.1
 status: stable
@@ -13,7 +13,7 @@ related: [rendering/physical-lighting, rendering/post-process-volumes, rendering
 
 ## What it is
 
-Eighteen screen-space effects, each a node a `.vxcompositor` names and configures. Register the
+Nineteen screen-space effects, each a node a `.vxcompositor` names and configures. Register the
 factory once and a document can say `!Bloom`:
 
 ```csharp no-compile="the builder is the host's; see SceneRenderHost"
@@ -32,6 +32,7 @@ builder.Factories.Add(new PostEffectFactory());
 | `!MotionBlur` | colour, motion vectors, a view's shutter | smeared colour |
 | `!LocalExposure` | colour, an exposure value | colour, re-exposed per region |
 | `!LensFlare` | colour, a view's blade count | colour, with ghosts and a halo |
+| `!LightStreak` | colour | colour, with an anamorphic smear along one axis |
 | `!Fog` | colour, depth, a view | fogged colour |
 | `!Bloom` | colour | the pyramid above its threshold |
 | `!Tonemap` | colour, a pyramid, a table, an exposure buffer | display-referred colour |
@@ -306,6 +307,57 @@ camera would be one lens with two diaphragms.
 at surfaces coated for transmission rather than reflection — so a real ghost fringes at its edge.
 Sampling the three channels at three radii along the vector to the centre is what produces it, and a
 ghost without it reads as a flat coloured blob.
+
+## The light streak, which is not bloom either — and for a different reason
+
+Bloom is isotropic because the scatter it models is: light spreading a short way in every direction
+from where it landed. An anamorphic lens squeezes a wide image onto a normal frame with a cylindrical
+element, so the aperture it presents to the light is *not round* — and what diffracts and scatters
+inside it is stretched along one axis. **No radius of an isotropic blur is that shape**, which is why
+`!LightStreak` is a pass rather than a knob on `!Bloom`.
+
+```yaml
+- !LightStreak
+  name: Streak
+  source: SceneFlared
+  output: SceneStreaked
+  threshold: 40000.0
+  scale: 0.25
+  blurPasses: 3
+  samples: 4
+  direction: {x: 1.0, y: 0.0}
+  attenuation: 0.94
+  intensity: 0.6
+  tint: {x: 0.6, y: 0.8, z: 1.0}
+```
+
+**A threshold, then `blurPasses` separable blurs, then a composite.** Each blur takes `samples` taps
+each side along `direction`, and the node raises the stride by `2·samples + 1` per pass — exactly the
+width the pass before it produced, so the reach multiplies while the cost only adds. Three passes of
+four taps reach 729 texels for 27 samples rather than 729 of them.
+
+⚠ **`threshold` is in the source's units**, for `!LensFlare`'s reason and with the same failure if it
+is left at the default: in a photometric frame nothing is near one, so a threshold of one streaks the
+floor.
+
+⚠ **`attenuation` must stay below one.** It is raised to the tap's distance in texels, so it is the
+whole of what makes the smear taper; at one the streak ends in a hard edge wherever the last pass
+stopped reaching.
+
+⚠ **A zero `direction` is read as horizontal rather than honoured.** Zero is what an unset vector is,
+and a zero axis puts every tap on the centre texel — a chain of seventeen samples of one pixel, which
+comes back as its own input and reads as "the streak is subtle" rather than as a pass that did
+nothing.
+
+**`scale` is a quarter by default**, and the smear is wide and smooth enough that resolving it finely
+buys nothing a viewer sees. The node steps in *that* plane's texel grid and not the frame's — a stride
+measured in the frame's texels would be a fraction of a texel at a quarter scale, and every tap would
+land back where it started.
+
+The Standard Frame emits it after `!LensFlare` and before `!Bloom` at the Epic tier
+(`post.lightStreak`). After the flare because the ghosts and the halo are light on the sensor too and
+a real element smears them along with everything else; before the curve because a streak that cannot
+blow out is a wash laid over the picture rather than light arriving at it.
 
 ## Motion vectors, which are not a post-process
 

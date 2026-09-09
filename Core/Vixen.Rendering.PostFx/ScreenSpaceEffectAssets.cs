@@ -943,3 +943,74 @@ public sealed record LensFlareAsset : ISceneRendererAsset {
     /// <summary>A tint on the whole flare, for a lens with a coloured coating.</summary>
     public Vector3 Tint { get; init; } = Vector3.One;
 }
+
+/// <summary>The anamorphic light streak — the one smear bloom cannot make, because bloom is round.</summary>
+/// <remarks>
+///     <para>
+///         <b>Not bloom with a direction.</b> Bloom is isotropic because the scatter it models is. A
+///         streak comes from an aperture that is not round: an anamorphic lens squeezes a wide image
+///         onto a normal frame with a cylindrical element, so what diffracts inside it is stretched
+///         along one axis. No radius of an isotropic blur is that shape.
+///     </para>
+///     <para>
+///         ⚠ <b>Before the tonemap, beside <see cref="LensFlareAsset" />.</b> A streak is light
+///         arriving at the sensor and has to be able to blow out; after the curve it is a wash.
+///     </para>
+///     <para>
+///         ⚠ <b><see cref="Threshold" /> is in the source's units.</b> In a physically lit frame that
+///         is cd/m² and nothing is near one, so the default of one streaks the floor — the same
+///         argument <c>!Bloom</c>'s threshold makes, and the same failure if it is left alone.
+///     </para>
+/// </remarks>
+[DataContract("LightStreak")]
+public sealed record LightStreakAsset : ISceneRendererAsset {
+    /// <inheritdoc />
+    public string Name { get; init; } = string.Empty;
+
+    /// <inheritdoc />
+    public bool Enabled { get; init; } = true;
+
+    /// <summary>The linear HDR colour the streak is built from and added onto.</summary>
+    public string Source { get; init; } = string.Empty;
+
+    /// <summary>The name the result is published under.</summary>
+    public string Output { get; init; } = "Streaked";
+
+    /// <summary>The format of the targets it declares.</summary>
+    public PixelFormat Format { get; init; } = PixelFormat.Rgba16Float;
+
+    /// <summary>The fraction of the frame the streak is built at.</summary>
+    public float Scale { get; init; } = 0.25f;
+
+    /// <summary>Luminance above which a pixel streaks, in the source's units.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Photometric, and not the one <see cref="LensFlareAsset.Threshold" /> and
+    ///     <c>!Bloom</c> default to.</b> The renderer works in cd/m², where nothing is near one, so a
+    ///     threshold of one streaks the floor and the smear becomes a second copy of the picture
+    ///     rather than a shape put where a highlight is.
+    /// </remarks>
+    public float Threshold { get; init; } = 40_000f;
+
+    /// <summary>How many blur passes run, each reaching further than the last.</summary>
+    public int BlurPasses { get; init; } = 3;
+
+    /// <summary>How many taps each side of the centre one blur pass takes.</summary>
+    public int Samples { get; init; } = 4;
+
+    /// <summary>The axis the smear runs along, in UV.</summary>
+    /// <remarks>
+    ///     ⚠ Horizontal by default and normalised by the node, and a zero here falls back to
+    ///     horizontal rather than being honoured: a zero axis puts every tap on the centre texel, so
+    ///     the chain returns its own input and the streak reads as merely subtle.
+    /// </remarks>
+    public Vector2 Direction { get; init; } = new(1f, 0f);
+
+    /// <summary>How fast a tap fades per texel of separation. Below one, or the streak never ends.</summary>
+    public float Attenuation { get; init; } = 0.94f;
+
+    /// <summary>How bright the finished streak is added back.</summary>
+    public float Intensity { get; init; } = 0.6f;
+
+    /// <summary>A tint on the streak, for the blue a coated anamorphic element is known for.</summary>
+    public Vector3 Tint { get; init; } = Vector3.One;
+}

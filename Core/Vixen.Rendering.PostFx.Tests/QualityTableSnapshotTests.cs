@@ -76,6 +76,7 @@ public class QualityTableSnapshotTests {
           grassResidentCells = 128
           irradianceBudget = 2
           lensFlare = False
+          lightStreak = False
           localExposure = False
           localExposureTaps = 4
           lodBias = 1
@@ -95,6 +96,7 @@ public class QualityTableSnapshotTests {
           shadowDistance = 75
           slopeBias = 0.004
           splitLambda = 0.75
+          ssaoBentNormal = False
           ssaoDirections = 4
           ssaoScale = 0.5
           ssaoSteps = 4
@@ -137,6 +139,7 @@ public class QualityTableSnapshotTests {
           grassResidentCells = 192
           irradianceBudget = 4
           lensFlare = False
+          lightStreak = False
           localExposure = False
           localExposureTaps = 6
           lodBias = 0
@@ -156,6 +159,7 @@ public class QualityTableSnapshotTests {
           shadowDistance = 120
           slopeBias = 0.004
           splitLambda = 0.75
+          ssaoBentNormal = False
           ssaoDirections = 6
           ssaoScale = 0.5
           ssaoSteps = 4
@@ -198,6 +202,7 @@ public class QualityTableSnapshotTests {
           grassResidentCells = 256
           irradianceBudget = 8
           lensFlare = True
+          lightStreak = False
           localExposure = True
           localExposureTaps = 6
           lodBias = 0
@@ -217,6 +222,7 @@ public class QualityTableSnapshotTests {
           shadowDistance = 150
           slopeBias = 0.004
           splitLambda = 0.75
+          ssaoBentNormal = True
           ssaoDirections = 8
           ssaoScale = 0.5
           ssaoSteps = 6
@@ -259,6 +265,7 @@ public class QualityTableSnapshotTests {
           grassResidentCells = 384
           irradianceBudget = 16
           lensFlare = True
+          lightStreak = True
           localExposure = True
           localExposureTaps = 12
           lodBias = 0
@@ -278,6 +285,7 @@ public class QualityTableSnapshotTests {
           shadowDistance = 200
           slopeBias = 0.004
           splitLambda = 0.75
+          ssaoBentNormal = True
           ssaoDirections = 12
           ssaoScale = 1
           ssaoSteps = 8

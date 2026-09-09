@@ -420,6 +420,106 @@ public sealed class StandardFrameTierImageTests {
     }
 
     /// <summary>
+    ///     The tier's bent-normal column reaches the picture.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The instrument check <c>frame-split</c> cannot be.</b> High turns
+    ///         <c>gi.ssaoBentNormal</c> on, which sets <c>!Ssao</c>'s <c>BentNormal</c> and
+    ///         <c>!AmbientCombine</c>'s <c>ContactBentNormal</c> together — and the committed
+    ///         reference still matched inside <see cref="Tolerance.Shaded" /> when it did, so that
+    ///         golden would go on passing if the column stopped reaching either node. This renders
+    ///         the same split frame twice, once with a preset that turns the column off, and asserts
+    ///         the two disagree.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The worst channel and not the mean, and the numbers are why.</b> Measured on an
+    ///         M1 Max, this repository, 2026-09-10: the two frames differ by a mean channel of
+    ///         <b>0.042</b> over <b>0.006%</b> of the frame — one pixel of 16 384 past
+    ///         <see cref="Tolerance.Shaded" />'s threshold — and by a worst channel of <b>16/255 at
+    ///         (61, 64)</b>, which is the contact under the near box. A mean bound could not be set
+    ///         above the 0.35 two renderings of the same picture are allowed, so it would be a
+    ///         predicate that cannot be false. The worst channel is 16 against a driver's rounding
+    ///         noise of one or two, and this comparison is between two renderings on the same device
+    ///         in the same process, where an unchanged configuration is bit-identical — the render
+    ///         scale fixture above measures exactly 0.000 for that case.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That the difference is one pixel wide is the honest reading of this fixture and
+    ///         not of the feature.</b> The producer is built so that an unoccluded surface's bent
+    ///         normal is exactly its geometric normal at every tilt — <c>GtaoImageTests</c> holds
+    ///         that — so only the corners and the contacts may move at all, and at 128² with a
+    ///         half-scale AO plane and a 0.5 m march there are a handful of such texels. The claim
+    ///         that the bent normal <em>shades</em> correctly is
+    ///         <c>BentNormalAmbientImageTests</c>'; the claim here is only that the tier column
+    ///         reaches a shader.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Zero is the failure this exists for and it has three causes that look alike from
+    ///         outside: the tier column reaching neither node, <c>PostEffectAssets</c> dropping
+    ///         either switch on the way to its renderer, or <c>AmbientCombineRenderer.Configure</c>
+    ///         degrading the consumer back off for want of a camera. The last one says so in its own
+    ///         <c>Degraded</c> reason, which is asserted first — a node that degraded is the one
+    ///         cause a picture cannot tell from a feature that is simply subtle.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheBentNormalColumnMovesTheSplitFrame() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        var flat = new RenderQualityAsset {
+            High = new() { GlobalIllumination = new() { SsaoBentNormal = false } }
+        };
+
+        Bitmap bent;
+        Bitmap geometric;
+
+        using (var scene = Stage(owned, QualityTier.High, SplitDocument)) {
+            bent = scene.Frames(Frames);
+
+            // ⚠ The instrument, and it has to be here rather than in the comparison, because the
+            // comparison cannot tell the working feature from the broken half of it. Dropping the
+            // consumer's switch on the way to its renderer leaves the producer writing the direction
+            // over rgb and the combine reading `.x` as an occlusion — a *bigger* difference against
+            // the column-off frame than the correct wiring makes, so the picture assertion below
+            // stays green on exactly the defect this pair exists to prevent. Both switches are read
+            // off the built nodes instead.
+            var contact = (AmbientOcclusionRenderer)scene.Renderer.Host.Builder.Nodes["ContactOcclusion"];
+            var combine = (AmbientCombineRenderer)scene.Renderer.Host.Builder.Nodes["Combine"];
+
+            Assert.True(contact.BentNormal);
+            Assert.True(combine.ContactBentNormal);
+
+            // And that the consumer did not turn itself back off: it does that when the plane or the
+            // camera it needs is missing, and a degraded combine renders a frame that is *correct* —
+            // the geometric normal — so no picture can tell that case from a subtle feature.
+            Assert.Null(combine.Degraded);
+        }
+
+        using (var scene = Stage(owned, QualityTier.High, new() { Game = SplitFrame with { Preset = flat } })) {
+            geometric = scene.Frames(Frames);
+        }
+
+        var comparison = GoldenImage.Compare(bent, geometric, Tolerance.Shaded);
+
+        Assert.True(
+            comparison.WorstChannel >= 8,
+            $"The split frame with the tier's bent normal on and the same frame with it off differ "
+            + $"by a worst channel of {comparison.WorstChannel}/255 at ({comparison.WorstAt.X}, "
+            + $"{comparison.WorstAt.Y}), a mean of {comparison.MeanChannel:F3}/255 over "
+            + $"{comparison.Fraction:P3} of the frame, where 8 is the least a real difference may "
+            + "be and 16 is what this measured — so gi.ssaoBentNormal reached no shader. "
+            + "StandardFrame.Emit sets !Ssao's BentNormal and !AmbientCombine's ContactBentNormal "
+            + "from that one column; check that both survive PostEffectAssets' mapping to their "
+            + "renderers."
+        );
+    }
+
+    /// <summary>
     ///     A half-scale frame reflects the same thing a native one does.
     /// </summary>
     /// <remarks>

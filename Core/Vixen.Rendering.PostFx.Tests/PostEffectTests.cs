@@ -2124,6 +2124,54 @@ public class PostEffectTests : IDisposable {
         Assert.Null(node.Reflections);
     }
 
+    /// <summary>Both halves of the bent-normal switch survive the factory.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two documents' lines and one plane layout, so losing either mapping is a wrong
+    ///         picture rather than a missing feature.</b> <c>!Ssao</c>'s permutation writes the
+    ///         direction over <c>rgb</c> and moves the occlusion into <c>a</c>; a producer whose
+    ///         switch arrives and a consumer whose switch does not gives the combine a direction's x
+    ///         to multiply its ambient term by, which is in [0, 1] and looks exactly like an
+    ///         occlusion. <c>!StandardFrame</c> sets the pair from one tier column for that reason,
+    ///         and this is the seam below it: the mapping from each document record to its renderer.
+    ///     </para>
+    ///     <para>
+    ///         Device-free on purpose. <c>StandardFrameTierImageTests</c> holds the same pair on a
+    ///         real frame and is the stronger claim, but it is skipped wherever there is no Vulkan —
+    ///         and a mapping that stopped copying a bool is exactly the defect that would then reach
+    ///         master with every runnable suite green.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_bent_normals_producer_and_consumer_switches_both_reach_their_renderers() {
+        using var system = new RenderSystem();
+
+        using var producer = (AmbientOcclusionRenderer)new PostEffectFactory().Create(
+            new SsaoAsset {
+                Name = "ContactOcclusion",
+                Depth = "SceneDepth",
+                Normals = "SceneNormals",
+                BentNormal = true
+            },
+            new(system)
+        )!;
+
+        using var consumer = (AmbientCombineRenderer)new PostEffectFactory().Create(
+            new AmbientCombineAsset {
+                Name = "Combine",
+                Direct = "SceneHdr",
+                Albedo = "SceneAlbedo",
+                Normals = "SceneNormals",
+                ContactOcclusion = "ScreenOcclusion",
+                ContactBentNormal = true
+            },
+            new(system)
+        )!;
+
+        Assert.True(producer.BentNormal);
+        Assert.True(consumer.ContactBentNormal);
+    }
+
     /// <summary>
     ///     ⚠ The reflections node publishes its target into the frame's namespace, where a document
     ///     line — the combine's <c>reflections:</c> — can resolve it.

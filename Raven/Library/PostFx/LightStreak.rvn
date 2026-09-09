@@ -1,0 +1,167 @@
+// SPDX-FileCopyrightText: Copyright (c) Rikarin
+// SPDX-License-Identifier: Apache-2.0
+
+package Vixen.Shaders.PostFx
+
+import Vixen.Shaders.Core
+
+// The anamorphic light streak: the horizontal smear a bright highlight gets from a lens whose front
+// element is cylindrical, and the one thing bloom cannot produce because bloom is isotropic.
+//
+// An anamorphic lens squeezes a wide image onto a normal frame with a cylindrical element, so the
+// aperture it presents to the light is *not* round — and the diffraction and internal scatter off a
+// non-round aperture are stretched along one axis. That is why the streak is a real optical
+// phenomenon and not a stylistic filter, and it is also why the smear has a hard direction: an
+// isotropic blur at any width is a different effect wearing the same name.
+//
+// **Three modes, and the middle one runs several times:**
+//
+//   Threshold  the bright pass, into a reduced target. A hard knee, like `LensFlare`'s and unlike
+//              `Bloom`'s: a streak is a shape put where a highlight is, and a soft threshold smears a
+//              faint copy of the whole picture along the axis instead.
+//   Blur       one separable pass along `direction`, `Samples` taps each side at `stride` texels
+//              apart. Run repeatedly with a geometrically growing stride, so `P` passes of `S` taps
+//              reach `S^P` texels for the cost of `P·(2S+1)` samples rather than `S^P` of them.
+//   Composite  the streak added onto the scene, tinted.
+//
+// ⚠ **`texelSize` is the *source's* and never the target's.** Each pass steps in the grid of the
+// plane it reads: the bright pass is at a fraction of the frame, so a stride measured in the frame's
+// texels would be a stride of a fraction of a texel and every tap would land back on the pixel it
+// started from. The result is a streak that is subtly too short and too soft, which no screenshot
+// answers and which is exactly the mistake the bloom chain records having made.
+//
+// ⚠ **Scene-referred, before the tonemap.** A streak is light arriving at the sensor, so it has to be
+// able to blow out. Added after the curve it could only ever be a wash across the picture.
+
+shader LightStreak {
+    /// 0 thresholds, 1 blurs along the axis, 2 composites onto the scene.
+    ///
+    /// Defaulting to the blur because reflection describes one variant and this is the variant that
+    /// reads every binding the other two do.
+    [Permutation] val Mode: int = 1
+
+    /// How many taps each side of the centre one blur pass takes.
+    ///
+    /// A permutation so the loop unrolls: the taps are a fixed pattern and a runtime count would put a
+    /// branch inside the one loop this shader has.
+    [Permutation] val Samples: int = 4
+
+    /// The scene, and what the composite adds onto.
+    var source: Texture2D
+    var sourceSampler: Sampler
+
+    /// The plane a blur pass reads, and the finished streak the composite reads.
+    var streak: Texture2D
+    var streakSampler: Sampler
+
+    /// One texel of the plane being *read*, which is not the frame's below full scale.
+    var texelSize: float2 = float2(0.001f, 0.001f)
+
+    /// The axis the smear runs along, as a unit vector in UV.
+    ///
+    /// ⚠ Horizontal by default because that is what an anamorphic lens does — the squeeze is
+    /// horizontal, so the aperture is narrow horizontally and the diffraction spreads that way. A
+    /// vertical streak is a lens nobody makes, and is available here only because the arithmetic does
+    /// not care.
+    var direction: float2 = float2(1f, 0f)
+
+    /// How many texels apart consecutive taps of this pass are.
+    ///
+    /// The host raises it per pass — 1, then `2·Samples + 1`, then its square — so each pass reaches
+    /// past everything the pass before it summed rather than re-blurring the same neighbourhood.
+    var stride: float = 1f
+
+    /// How fast a tap fades with distance, per texel of separation.
+    ///
+    /// Below one, and it is what makes the streak taper instead of ending in a hard edge. Raised to
+    /// the tap's distance in texels, so the whole chain's falloff is one exponential however the
+    /// passes are divided up.
+    var attenuation: float = 0.94f
+
+    /// Luminance above which a pixel streaks, in the source's units.
+    ///
+    /// ⚠ **The default is photometric and not one**, which is the opposite of every other threshold
+    /// in this library and is the correction rather than the exception. This renderer works in cd/m²,
+    /// where nothing is near one — so a threshold of one streaks the *floor*, and the smear stops
+    /// being a shape put where a highlight is and becomes a second copy of the whole picture. Forty
+    /// thousand is the number sample 13's hand-authored frame gives its flare, which is about a stop
+    /// over the brightest sunlit surface in it.
+    var threshold: float = 40000f
+
+    /// How bright the finished streak is added back.
+    var intensity: float = 0.6f
+
+    /// A tint on the streak, for the blue a coated anamorphic element is famous for.
+    var tint: float3 = float3(1f, 1f, 1f)
+
+    stream var uv: float2
+
+    [VertexShader]
+    [Semantic("SV_Position")]
+    func Vertex([Semantic("SV_VertexID")] vertexIndex: int): float4 {
+        uv = Fullscreen.Uv(vertexIndex)
+        return Fullscreen.Position(vertexIndex)
+    }
+
+    [FragmentShader]
+    [Semantic("SV_Target")]
+    func Fragment(): float4 {
+        if (Mode == 0) {
+            return Threshold()
+        }
+
+        if (Mode == 2) {
+            return Composite()
+        }
+
+        return Blur()
+    }
+
+    /// Everything above the threshold, and nothing else.
+    func Threshold(): float4 {
+        val colour = source.Sample(sourceSampler, uv).rgb
+        val luminance = ColorSpaces.Luminance(colour)
+
+        if (luminance <= threshold) {
+            return float4(0f, 0f, 0f, 1f)
+        }
+
+        return float4(colour * ((luminance - threshold) / max(luminance, Const.Epsilon)), 1f)
+    }
+
+    /// One separable pass along the axis, weighted by distance.
+    ///
+    /// ⚠ **Normalised by the weights it actually took**, and the two ends of the plane are why. A tap
+    /// that falls outside contributes nothing and is left out of the sum *and* out of the divisor, so
+    /// a highlight beside the frame's edge keeps its brightness instead of fading into the border. The
+    /// alternative — a fixed divisor — darkens exactly the pixels a streak is most visible on.
+    func Blur(): float4 {
+        var sum = float3(0f, 0f, 0f)
+        var total = 0f
+        val step = direction * texelSize * stride
+
+        for (i in 0 .. 16) {
+            if (i <= Samples * 2) {
+                val offset = float(i - Samples)
+                val at = uv + step * offset
+
+                if (Fullscreen.InBounds(at)) {
+                    val weight = pow(attenuation, abs(offset) * stride)
+
+                    sum += streak.Sample(streakSampler, at).rgb * weight
+                    total += weight
+                }
+            }
+        }
+
+        return float4(sum / max(total, Const.Epsilon), 1f)
+    }
+
+    /// The streak added onto the scene.
+    func Composite(): float4 {
+        val scene = source.Sample(sourceSampler, uv)
+        val smear = streak.Sample(streakSampler, uv).rgb
+
+        return float4(scene.rgb + smear * intensity * tint, scene.a)
+    }
+}

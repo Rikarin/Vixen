@@ -2950,6 +2950,8 @@ T:Vixen.Shaders.Generated.IrradianceRepairConstants sweep-pending
 T:Vixen.Shaders.Generated.IrradianceRepairKeys sweep-pending
 T:Vixen.Shaders.Generated.LensFlareConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/LensFlare on rendering/post-processing
 T:Vixen.Shaders.Generated.LensFlareKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
+T:Vixen.Shaders.Generated.LightStreakConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/LightStreak on rendering/post-processing
+T:Vixen.Shaders.Generated.LightStreakKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
 T:Vixen.Shaders.Generated.LineFragmentKeys sweep-pending
 T:Vixen.Shaders.Generated.LineVertexKeys sweep-pending
 T:Vixen.Shaders.Generated.LocalExposureConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/LocalExposure on rendering/post-processing

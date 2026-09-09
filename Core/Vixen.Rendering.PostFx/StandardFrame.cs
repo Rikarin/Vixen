@@ -962,7 +962,15 @@ static class StandardFrame {
                     Output = "ScreenOcclusion",
                     Directions = tier.SsaoDirections,
                     Steps = tier.SsaoSteps,
-                    Scale = tier.SsaoScale
+                    Scale = tier.SsaoScale,
+
+                    // ⚠ The other half of this switch is the combine's `ContactBentNormal` below,
+                    // and the two are one tier column for that reason: this permutation moves the
+                    // occlusion out of `r` and into `a` to make room for the direction, so a frame
+                    // that turned on the producer alone would hand the consumer a direction's x —
+                    // a number in [0, 1] that reads exactly like an occlusion — and one that turned
+                    // on the consumer alone would rotate a plane that holds no direction.
+                    BentNormal = tier.SsaoBentNormal
                 }
             );
         }
@@ -984,6 +992,12 @@ static class StandardFrame {
                     Irradiance = probes ? "ProbeIrradiance" : "",
                     Occlusion = frame.Gi != GiMode.Off ? "AmbientOcclusion" : "",
                     ContactOcclusion = frame.Gi != GiMode.Off ? "ScreenOcclusion" : "",
+
+                    // Set from the same tier column as the producer above, and guarded by the same
+                    // condition that names the plane: with GI off there is no `!Ssao` node, so a
+                    // bare `tier.SsaoBentNormal` here would be a consumer switch over a plane the
+                    // frame does not contain.
+                    ContactBentNormal = frame.Gi != GiMode.Off && tier.SsaoBentNormal,
                     Reflections = mirrors ? "Reflections" : "",
 
                     // The AO planes above run at a fraction of the frame; the depth and the camera
@@ -1118,6 +1132,22 @@ static class StandardFrame {
             );
 
             colour = "SceneFlared";
+        }
+
+        if (tier.LightStreak) {
+            // ⚠ After the flare and still before the bloom and the curve. After the flare because the
+            // ghosts and the halo are light on the sensor too and a real anamorphic element smears
+            // them along with everything else; before the curve because a streak that cannot blow out
+            // is a wash laid over the picture rather than light arriving at it.
+            nodes.Add(
+                new LightStreakAsset {
+                    Name = "Streak",
+                    Source = colour,
+                    Output = "SceneStreaked"
+                }
+            );
+
+            colour = "SceneStreaked";
         }
 
         if (tier.Bloom) {
@@ -1391,6 +1421,9 @@ static class StandardFrame {
                     + "publishes one number in a buffer the tonemap names.",
                 "Adapt" => "Local exposure over the metered frame, before the curve.",
                 "Flare" => "The lens answering the brightest sources, still in scene-referred light.",
+                "Streak" =>
+                    "The anamorphic smear, which bloom cannot make because bloom is isotropic — a "
+                    + "separable blur along one axis over the same bright pass, added back.",
                 "Glow" =>
                     "Publishes the pyramid and nothing else; the tonemap composites it. Wiring the pyramid "
                     + "into bloom: rather than source: is the difference between a glow and a black window.",

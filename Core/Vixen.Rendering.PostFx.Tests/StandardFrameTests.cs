@@ -196,6 +196,76 @@ public class StandardFrameTests {
         Assert.True(occlusion.SunShadow);
     }
 
+    /// <summary>
+    ///     The bent normal is one tier column driving two switches, and never one of them.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The producer and the consumer cannot be set separately, and the failure is
+    ///         silent both ways round.</b> <c>!Ssao</c>'s permutation writes the direction over rgb
+    ///         and moves the occlusion into alpha, so a frame with the producer on and the consumer
+    ///         off multiplies its whole ambient term by a direction's x — a number in [0, 1] that
+    ///         looks exactly like an occlusion — and a frame with the consumer on and the producer
+    ///         off rotates a plane that holds no direction. So the assertion is equality between
+    ///         the two switches rather than each one's value, over every tier and both GI modes.
+    ///     </para>
+    ///     <para>
+    ///         The tier column itself is spot-checked at the two ends: off below High, on at High
+    ///         and Epic. Before this was wired, <c>StandardFrame</c> set neither switch at any tier
+    ///         and the whole feature was reachable only from a hand-authored document — which the
+    ///         High and Epic halves below are red for.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(QualityTier.Low, false)]
+    [InlineData(QualityTier.Medium, false)]
+    [InlineData(QualityTier.High, true)]
+    [InlineData(QualityTier.Epic, true)]
+    public void The_bent_normals_producer_and_consumer_are_one_tier_column(QualityTier tier, bool on) {
+        foreach (var gi in (GiMode[])[GiMode.Ambient, GiMode.Probes]) {
+            var document = Expand(AllOff with { Gi = gi, Quality = tier });
+
+            var contact = Node<SsaoAsset>(document, "ContactOcclusion");
+            var combine = Node<AmbientCombineAsset>(document, "Combine");
+
+            Assert.Equal(on, contact.BentNormal);
+            Assert.Equal(contact.BentNormal, combine.ContactBentNormal);
+        }
+
+        // ⚠ And with GI off there is no `!Ssao` node at all, so the consumer's switch must be off
+        // whatever the tier says: a combine asking to read a bent-normal plane the frame does not
+        // contain is the same disagreement seen from the other end. This is the half that makes the
+        // four tier goldens — which stage `gi: off` — unable to see this change.
+        var bare = Expand(AllOff with { Quality = tier, Reflections = ReflectionsMode.Screen });
+
+        Assert.DoesNotContain("ContactOcclusion", Names(bare));
+        Assert.False(Node<AmbientCombineAsset>(bare, "Combine").ContactBentNormal);
+    }
+
+    /// <summary>The streak is Epic's alone, and it takes the flared frame rather than the raw one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its threshold is photometric and the node is emitted without one</b>, so it runs at
+    ///     <see cref="LightStreakAsset" />'s own default of 40 000 cd/m². That is the correction
+    ///     rather than the exception: <c>!Bloom</c> and <c>!LensFlare</c> are both emitted here at
+    ///     <em>their</em> defaults of one, which in a frame measured in cd/m² is every pixel — sample
+    ///     13's hand-authored document sets 3 000 and 40 000 for exactly that reason and the
+    ///     expansion sets neither. Measured on the Epic tier fixture, a streak at a threshold of one
+    ///     moves the frame's average channel by 23.1 of 255; at the photometric default the same
+    ///     picture stays inside the golden's tolerance.
+    /// </remarks>
+    [Fact]
+    public void The_light_streak_is_the_top_tiers_and_reads_the_flared_frame() {
+        foreach (var tier in (QualityTier[])[QualityTier.Low, QualityTier.Medium, QualityTier.High]) {
+            Assert.DoesNotContain("Streak", Names(Expand(AllOn with { Quality = tier })));
+        }
+
+        var document = Expand(AllOn);
+        var streak = Node<LightStreakAsset>(document, "Streak");
+
+        Assert.Equal(Node<LensFlareAsset>(document, "Flare").Output, streak.Source);
+        Assert.Equal(40_000f, streak.Threshold);
+    }
+
     [Fact]
     public void Ambient_gi_runs_the_occlusion_pair_without_the_probe_machinery() {
         var document = Expand(AllOff with { Gi = GiMode.Ambient });
@@ -451,7 +521,7 @@ public class StandardFrameTests {
                 "Cull", "Clipmap", "Probes", "Cache", "Sun", "Lamps", "Volumetrics", "Sky", "Main", "Velocity",
                 "Sparks", "Occluders", "SunPages", "Gather", "Mirrors", "Occlusion",
                 "ContactOcclusion", "Combine", "Accumulate", "Air", "Defocus", "Shutter", "Meter",
-                "Adapt", "Flare", "Glow", "Tonemap", "Edges", "Recover", "Glass"
+                "Adapt", "Flare", "Streak", "Glow", "Tonemap", "Edges", "Recover", "Glass"
             ],
             Names(document)
         );
@@ -466,11 +536,16 @@ public class StandardFrameTests {
         Assert.Equal("SceneBlurred", Node<AutoExposureAsset>(document, "Meter").Source);
         Assert.Equal("SceneBlurred", Node<LocalExposureAsset>(document, "Adapt").Source);
         Assert.Equal("SceneAdapted", Node<LensFlareAsset>(document, "Flare").Source);
-        Assert.Equal("SceneFlared", Node<BloomAsset>(document, "Glow").Source);
+
+        // ⚠ The streak reads the *flared* frame and not the adapted one. The ghosts and the halo are
+        // light on the sensor too, and a real anamorphic element smears them along with everything
+        // else; a streak that took the frame before the flare would put the smear under the ghosts.
+        Assert.Equal("SceneFlared", Node<LightStreakAsset>(document, "Streak").Source);
+        Assert.Equal("SceneStreaked", Node<BloomAsset>(document, "Glow").Source);
 
         var tonemap = Node<TonemapAsset>(document, "Tonemap");
 
-        Assert.Equal("SceneFlared", tonemap.Source);
+        Assert.Equal("SceneStreaked", tonemap.Source);
         Assert.Equal(Node<BloomAsset>(document, "Glow").Output, tonemap.Bloom);
         Assert.Equal("Meter.Exposure", tonemap.ExposureBuffer);
 
