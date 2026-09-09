@@ -486,6 +486,106 @@ public class LodTests : IDisposable {
         Assert.All(pushes, push => Assert.Equal((68, 4), (push.B, push.C)));
     }
 
+    // --- Registering and releasing groups -----------------------------------
+
+    /// <summary>
+    ///     Registering a second group does not disturb the first one's chosen level.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Not a hypothetical: a producer registers groups as entities appear</b>, so this is
+    ///     every frame in which a level streams in. The per-view transition table used to be
+    ///     <em>rebuilt</em> whenever it grew, which returned every group in the scene to "undecided"
+    ///     — and an undecided group re-chooses from the raw screen height with no hysteresis, so a
+    ///     group sitting inside its hysteresis band pops to the other level for one frame, in every
+    ///     LOD group at once, whenever any of them is added.
+    /// </remarks>
+    [Fact]
+    public void AddingAGroupDoesNotResetTheGroupsAlreadyChosen() {
+        using var h = Build();
+        var first = h.Lods.Add([0.5f]);
+
+        var levels = new[] { AddLevel(h, Vector3.Zero, first, 0), AddLevel(h, Vector3.Zero, first, 1) };
+
+        // Near enough to be level 0 outright.
+        Place(h, levels, h.Camera.ScreenHeightScale / 0.5f * 0.5f);
+        h.System.Draw();
+
+        Assert.Equal(0, h.Lods.LevelOf(first, h.Camera.Index));
+
+        // Now just past the boundary, but inside the hysteresis band — so the level is held at 0 by
+        // the choice made above and by nothing else.
+        Place(h, levels, h.Camera.ScreenHeightScale / 0.5f * 1.02f);
+        h.System.Draw();
+
+        Assert.Equal(0, h.Lods.LevelOf(first, h.Camera.Index));
+
+        // The group being registered has nothing to do with the first one, and neither do its levels.
+        var second = h.Lods.Add([0.5f]);
+
+        AddLevel(h, new(0f, 0f, -3f), second, 0);
+        h.System.Draw();
+
+        Assert.Equal(0, h.Lods.LevelOf(first, h.Camera.Index));
+    }
+
+    /// <summary>
+    ///     A released group's slot is handed to the next group, undecided.
+    /// </summary>
+    /// <remarks>
+    ///     What keeps a level that streams its LOD groups in and out from walking the group list up
+    ///     for ever. ⚠ Both halves are asserted, and the second is the one that would rot quietly: a
+    ///     reused slot that kept the old group's transition hands the new group a chosen level it
+    ///     never measured, which is one frame of the wrong mesh at whatever size the old object was.
+    /// </remarks>
+    [Fact]
+    public void AReleasedGroupsSlotIsReusedAndUndecided() {
+        using var h = Build();
+        var first = h.Lods.Add([0.5f]);
+
+        var levels = new[] { AddLevel(h, Vector3.Zero, first, 0), AddLevel(h, Vector3.Zero, first, 1) };
+
+        Place(h, levels, 2f);
+        h.System.Draw();
+
+        Assert.Equal(0, h.Lods.LevelOf(first, h.Camera.Index));
+
+        h.Lods.Release(first);
+
+        Assert.Equal(-1, h.Lods.LevelOf(first, h.Camera.Index));
+
+        var second = h.Lods.Add([0.25f]);
+
+        Assert.Equal(first, second);
+        Assert.Equal(2, h.Lods.Groups.Count);
+        Assert.Equal(-1, h.Lods.LevelOf(second, h.Camera.Index));
+    }
+
+    /// <summary>Releasing a group twice hands its slot out once.</summary>
+    /// <remarks>
+    ///     A scene tears down in whatever order its entities die, and the caller that owns a group is
+    ///     usually not the one that notices it has gone — so the second release is a no-op rather than
+    ///     an error. ⚠ The assertion is that two <c>Add</c>s afterwards return <em>different</em>
+    ///     indices: a free list that took the same slot twice would give two live groups one entry
+    ///     and one set of thresholds.
+    /// </remarks>
+    [Fact]
+    public void ReleasingAGroupTwiceFreesOneSlot() {
+        using var h = Build();
+        var first = h.Lods.Add([0.5f]);
+
+        h.Lods.Release(first);
+        h.Lods.Release(first);
+
+        Assert.Equal(first, h.Lods.Add([0.5f]));
+        Assert.NotEqual(first, h.Lods.Add([0.5f]));
+    }
+
+    static void Place(Harness h, RenderObjectId[] levels, float distance) {
+        foreach (var id in levels) {
+            h.System.Objects[id].Bounds = new(new Vector3(0f, 0f, -distance), 1f);
+        }
+    }
+
     void Record(Harness h) {
         var target = device.CreateTextureView(
             device.CreateTexture(

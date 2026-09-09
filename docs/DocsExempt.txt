@@ -2720,9 +2720,6 @@ T:Vixen.Rendering.Features.IPermutationSubFeature sweep-pending
 T:Vixen.Rendering.Features.ITransformRecordSource sweep-pending
 T:Vixen.Rendering.Features.InstanceBatch sweep-pending
 T:Vixen.Rendering.Features.InstancingRenderFeature sweep-pending
-T:Vixen.Rendering.Features.LodGroup sweep-pending
-T:Vixen.Rendering.Features.LodMembership sweep-pending
-T:Vixen.Rendering.Features.LodRenderFeature sweep-pending
 T:Vixen.Rendering.Features.ObjectRecord sweep-pending
 T:Vixen.Rendering.Features.ParticleDraw sweep-pending
 T:Vixen.Rendering.Features.SkinningRenderFeature sweep-pending

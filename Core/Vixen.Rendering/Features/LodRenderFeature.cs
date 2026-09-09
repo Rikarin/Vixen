@@ -43,6 +43,11 @@ public readonly record struct LodMembership(int Group, int Level);
 public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
     readonly List<LodGroup> groups = [];
     readonly List<Transition> current = [];
+
+    // Slots whose group has been released, oldest first, for the next Add to take. A list rather
+    // than a stack because releasing one twice has to be free to detect, and the list is as long as
+    // the number of LOD groups a level has unloaded and not yet replaced — single digits.
+    readonly List<int> free = [];
     int viewStride;
 
     /// <inheritdoc />
@@ -121,7 +126,11 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
 
         // Group 0 is "no LOD", so an object nobody put in a group keeps the default and is never
         // hidden — the same sentinel-at-zero reasoning as the material feature's.
-        groups.Add(new([]));
+        // ⚠ Only if it is not there already. `Add` puts it there too, because a caller that
+        // registers a group before this feature has been given to a root feature would otherwise be
+        // handed index 0 — a group index that means "no LOD", so `Assign` refuses it and the frame
+        // throws from inside the loop rather than from the mistaken call.
+        Sentinel();
     }
 
     /// <summary>
@@ -132,6 +141,8 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
     ///     levels take three thresholds; the last level has none, because there is nothing past it.
     /// </param>
     public int Add(ReadOnlySpan<float> thresholds) {
+        Sentinel();
+
         for (var i = 1; i < thresholds.Length; i++) {
             if (thresholds[i] >= thresholds[i - 1]) {
                 throw new ArgumentException(
@@ -143,8 +154,54 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
             }
         }
 
+        // ⚠ A released slot before a new one, so a level that streams its LOD groups in and out does
+        // not walk `groups` up for ever. The reused slot's transitions are forgotten with it: a slot
+        // that kept them would hand the new group the old one's chosen level on its first frame,
+        // which is a different mesh appearing for one frame at whatever size the last object was.
+        if (free.Count > 0) {
+            var reused = free[0];
+
+            free.RemoveAt(0);
+            groups[reused] = new(thresholds.ToArray());
+            Forget(reused);
+
+            return reused;
+        }
+
         groups.Add(new(thresholds.ToArray()));
         return groups.Count - 1;
+    }
+
+    /// <summary>
+    ///     Gives up a group, so the next <see cref="Add" /> takes its slot.
+    /// </summary>
+    /// <param name="group">The group, as <see cref="Add" /> returned it.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A slot is freed rather than removed, because a group's index is its identity.</b>
+    ///         Every membership already written names a group by index — see
+    ///         <see cref="LodMembership" /> — so compacting the list would silently move every object
+    ///         in every group after this one into its neighbour.
+    ///     </para>
+    ///     <para>
+    ///         Releasing one twice is a no-op rather than an error: a scene tears down in whatever
+    ///         order its entities die, and the caller that owns the group is usually not the one that
+    ///         notices it has gone.
+    ///     </para>
+    /// </remarks>
+    public void Release(int group) {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(group);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(group, groups.Count);
+
+        if (free.Contains(group)) {
+            return;
+        }
+
+        // Emptied as well as freed, so a membership left pointing at it draws its only level rather
+        // than being hidden by the thresholds of a group that no longer exists.
+        groups[group] = new([]);
+        Forget(group);
+        free.Add(group);
     }
 
     /// <summary>Puts an object in a group as one of its levels.</summary>
@@ -371,11 +428,21 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
     void Resize(int viewCount) {
         var wanted = groups.Count * viewCount;
 
-        if (viewStride == viewCount && current.Count >= wanted) {
+        // ⚠ Appended, not rebuilt, when only the group count grew. A slot is `group * stride + view`
+        // and the stride has not moved, so every entry already there is still the entry it was —
+        // where clearing would make registering one group reset the chosen level of every other one,
+        // which is every LOD group in the scene popping to whatever the next frame measures on the
+        // frame a level streams in. A producer registers groups as entities appear, so that is not a
+        // rare case; it is every frame the scene grows.
+        if (viewStride == viewCount) {
+            while (current.Count < wanted) {
+                current.Add(new(-1, -1, 0f));
+            }
+
             return;
         }
 
-        // Rebuilt rather than remapped when the shape changes, and every entry starts undecided so
+        // Rebuilt rather than remapped when the *stride* changes, and every entry starts undecided so
         // that the first frame after a resize picks a level from the screen size rather than from a
         // stale one that belonged to a different view.
         viewStride = viewCount;
@@ -383,6 +450,24 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
 
         for (var i = 0; i < wanted; i++) {
             current.Add(new(-1, -1, 0f));
+        }
+    }
+
+    /// <summary>Makes sure group 0 exists, whichever of <see cref="Add" /> and Initialize ran first.</summary>
+    void Sentinel() {
+        if (groups.Count == 0) {
+            groups.Add(new([]));
+        }
+    }
+
+    /// <summary>Returns one group to "not decided yet" in every view.</summary>
+    void Forget(int group) {
+        for (var view = 0; view < viewStride; view++) {
+            var slot = (group * viewStride) + view;
+
+            if (slot < current.Count) {
+                current[slot] = new(-1, -1, 0f);
+            }
         }
     }
 

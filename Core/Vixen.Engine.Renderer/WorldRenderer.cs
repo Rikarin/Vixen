@@ -135,6 +135,12 @@ public sealed class WorldRenderer : IDisposable {
         Materials = new() { Effects = effects, Device = device, Descriptors = MaterialDescriptors };
         Transforms = new() { Device = device };
 
+        // No device and nothing to hold: this one decides which objects a view is allowed to see and
+        // clears bits, so it is free until something registers a group — Prepare returns on the first
+        // line while the only group is the "no LOD" sentinel. The cross-fade stays off by default,
+        // which is what keeps Draw from pushing a constant for every object in the scene.
+        Lods = new();
+
         // ⚠ Its own contributor rather than two more fields on Transforms, because that feature stops
         // pushing entirely once the object records are on — see MotionVectorRenderFeature's remarks.
         // It contributes to exactly one pass, and decides which by asking the shader whether it has a
@@ -278,6 +284,11 @@ public sealed class WorldRenderer : IDisposable {
         Meshes.Add(Transforms);
         Meshes.Add(Motion);
         Meshes.Add(Lighting);
+
+        // After the material feature, which is the order LodTests builds and the order the selection
+        // wants: hiding a level is a visibility bit and the bit has to be cleared before the stage's
+        // list is built from it.
+        Meshes.Add(Lods);
 
         // ⚠ Doc 33 § D4's pre-pass, and the whole of what makes a blend shape appear in a picture.
         //
@@ -477,6 +488,19 @@ public sealed class WorldRenderer : IDisposable {
     ///     a feature only one of the three reaches is a feature that costs memory and draws nothing.
     /// </remarks>
     public MorphRenderFeature Morphing { get; }
+
+    /// <summary>
+    ///     Which level of each authored LOD group a view sees, and which it hides.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Fed by <see cref="LodExtractionSystem" />, which is what this feature spent its whole
+    ///     life without.</b> It was complete and tested and named by neither renderer, so no group
+    ///     was ever registered and no level was ever hidden — a scene with a three-level rock drew
+    ///     all three, on top of each other, at every distance. Constructed here rather than in either
+    ///     renderer because the editor's renderer builds one of these, so a feature added here
+    ///     reaches both and a feature added to one of them reaches half the product.
+    /// </remarks>
+    public LodRenderFeature Lods { get; }
 
     /// <summary>The materials they are drawn with.</summary>
     public MaterialRenderFeature Materials { get; }
@@ -708,6 +732,16 @@ public sealed class WorldRenderer : IDisposable {
 
     /// <summary>The extraction the last <see cref="Register" /> added, or null.</summary>
     public MeshExtractionSystem? Extraction { get; private set; }
+
+    /// <summary>The LOD producer the last <see cref="Register" /> added, or null.</summary>
+    /// <remarks>
+    ///     Exposed for its two counters rather than to be reconfigured. A scene whose LOD parents are
+    ///     registered and whose levels are all still waiting on their meshes reads
+    ///     <see cref="LodExtractionSystem.GroupCount" /> healthy and
+    ///     <see cref="LodExtractionSystem.Assigned" /> zero, which is the frame in which nothing is
+    ///     ever hidden.
+    /// </remarks>
+    public LodExtractionSystem? LodExtraction { get; private set; }
 
     /// <summary>The frame's terrains, filled by the terrain bridge and read by a <c>!Terrain</c> node.</summary>
     /// <remarks>
@@ -961,6 +995,14 @@ public sealed class WorldRenderer : IDisposable {
                 Renderer = Host.System
             }
         );
+
+        // ⚠ And the producer `LodRenderFeature` never had. The feature is complete and was named by
+        // neither renderer, so no group was ever registered and no level was ever hidden — a scene
+        // authored with a LOD chain drew every level of it at once, at every distance, with nothing
+        // in any counter to say so. Registered unconditionally on the same terms as the two above: a
+        // world with no LOD group in it walks an empty query.
+        LodExtraction = new() { Feature = Lods, Renderer = Host.System };
+        loop.Add(LodExtraction);
     }
 
     /// <summary>Draws the frame, having first put the content work the frame needs on the list.</summary>

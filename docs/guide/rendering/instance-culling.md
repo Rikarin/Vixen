@@ -8,7 +8,7 @@ api: [T:Vixen.Rendering.InstanceCuller, T:Vixen.Rendering.InstanceBounds, T:Vixe
 tags: [rendering, instancing, culling, lod, streaming]
 since: 0.1
 status: preview
-related: [rendering/mesh-and-material, rendering/terrain-rendering, rendering/foliage-rendering]
+related: [rendering/mesh-and-material, rendering/terrain-rendering, rendering/foliage-rendering, rendering/lod-groups]
 ---
 
 ## What it is

@@ -113,6 +113,11 @@ sealed class EditorWorldRenderer : IDisposable {
     // field rather than a local, because it holds nothing but the feature reference and constructing
     // one per frame would be a second object per frame to say the same thing.
     readonly MorphWeightSystem weights;
+
+    // ⚠ And the LOD memberships, for the reason the line above exists: `Register` never runs here, so
+    // a system wired only there is a feature that does nothing in the editor. A three-level rock in
+    // the scene view drew all three on top of each other while the game drew one.
+    readonly LodExtractionSystem lods;
     readonly IGraphicsDevice device;
 
     /// <summary>The project's own geometry, kept so that <see cref="Mount" /> can put it back.</summary>
@@ -213,6 +218,8 @@ sealed class EditorWorldRenderer : IDisposable {
             Virtualized = Renderer.Clusters?.Feature,
             Renderer = Renderer.Host.System
         };
+
+        lods = new() { Feature = Renderer.Lods, Renderer = Renderer.Host.System };
 
         // ⚠ The views before the build, the build before the mask, and the mask before anything
         // extracts. The first is the builder's rule — a `view:` is bound by name as each node is
@@ -919,6 +926,11 @@ sealed class EditorWorldRenderer : IDisposable {
         // this ordering out of the declared access; here it is a line below another line, for the
         // reason the whole of this method exists.
         weights.Run(world);
+
+        // ⚠ Also after the extraction, and for the same reason: a level that appeared this frame has
+        // no RenderHandle until it ran, and a membership written for an object that does not exist
+        // names whatever takes the slot.
+        lods.Run(world);
 
         lights.Extract(world);
     }

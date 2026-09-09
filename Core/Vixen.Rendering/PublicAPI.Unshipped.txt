@@ -1550,6 +1550,12 @@ Vixen.Rendering.Ecs.LightExtractionSystem.Extract(Vixen.Ecs.World world) -> void
 Vixen.Rendering.Ecs.LightExtractionSystem.LightCount.get -> int
 Vixen.Rendering.Ecs.LightExtractionSystem.LightExtractionSystem(Vixen.Rendering.Features.ForwardLightingRenderFeature feature) -> void
 Vixen.Rendering.Ecs.Lights -> static class
+Vixen.Rendering.Ecs.LodGroupComponent -> struct
+Vixen.Rendering.Ecs.LodGroupComponent.LodGroupComponent() -> void
+Vixen.Rendering.Ecs.LodGroupComponent.Thresholds -> float[]?
+Vixen.Rendering.Ecs.LodLevel -> struct
+Vixen.Rendering.Ecs.LodLevel.Level -> int
+Vixen.Rendering.Ecs.LodLevel.LodLevel() -> void
 Vixen.Rendering.Ecs.MeshExtractionSystem -> sealed class
 Vixen.Rendering.Ecs.MeshExtractionSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Rendering.Ecs.MeshExtractionSystem : Vixen.Ecs.Systems.SystemBase
@@ -1897,6 +1903,7 @@ Vixen.Rendering.Features.LodRenderFeature.LodRenderFeature() -> void
 Vixen.Rendering.Features.LodRenderFeature.Membership.get -> Vixen.Rendering.RenderDataKey<Vixen.Rendering.Features.LodMembership>
 Vixen.Rendering.Features.LodRenderFeature.Offset.get -> int
 Vixen.Rendering.Features.LodRenderFeature.Offset.set -> int
+Vixen.Rendering.Features.LodRenderFeature.Release(int group) -> void
 Vixen.Rendering.Features.LodRenderFeature.Stages.get -> Vixen.Graphics.ShaderStage
 Vixen.Rendering.Features.LodRenderFeature.Stages.set -> Vixen.Graphics.ShaderStage
 Vixen.Rendering.Features.MaterialRenderFeature -> sealed class

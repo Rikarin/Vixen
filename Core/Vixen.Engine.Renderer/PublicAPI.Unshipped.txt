@@ -153,6 +153,18 @@ Vixen.Engine.Renderer.GpuOverlay.Width.get -> float
 Vixen.Engine.Renderer.GpuOverlay.Width.set -> float
 Vixen.Engine.Renderer.ITextureStreamSource -> interface
 Vixen.Engine.Renderer.ITextureStreamSource.ReadAsync(int texture, long offset, System.Memory<byte> destination, System.Threading.CancellationToken cancellation) -> System.Threading.Tasks.ValueTask<int>
+Vixen.Engine.Renderer.LodExtractionSystem -> sealed class
+Vixen.Engine.Renderer.LodExtractionSystem : Vixen.Ecs.Systems.IDeclaredAccess
+Vixen.Engine.Renderer.LodExtractionSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Engine.Renderer.LodExtractionSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Engine.Renderer.LodExtractionSystem.Assigned.get -> int
+Vixen.Engine.Renderer.LodExtractionSystem.Feature.get -> Vixen.Rendering.Features.LodRenderFeature?
+Vixen.Engine.Renderer.LodExtractionSystem.Feature.set -> Vixen.Rendering.Features.LodRenderFeature?
+Vixen.Engine.Renderer.LodExtractionSystem.GroupCount.get -> int
+Vixen.Engine.Renderer.LodExtractionSystem.LodExtractionSystem() -> void
+Vixen.Engine.Renderer.LodExtractionSystem.Renderer.get -> Vixen.Rendering.RenderSystem?
+Vixen.Engine.Renderer.LodExtractionSystem.Renderer.set -> Vixen.Rendering.RenderSystem?
+Vixen.Engine.Renderer.LodExtractionSystem.Run(Vixen.Ecs.World world) -> void
 Vixen.Engine.Renderer.SceneRenderHost -> sealed class
 Vixen.Engine.Renderer.SceneRenderHost : System.IDisposable
 Vixen.Engine.Renderer.SceneRenderHost.Builder.get -> Vixen.Rendering.Compositor.CompositorBuilder
@@ -265,6 +277,8 @@ Vixen.Engine.Renderer.WorldRenderer.Hierarchies.get -> Vixen.Rendering.Ecs.IVirt
 Vixen.Engine.Renderer.WorldRenderer.Hierarchies.set -> Vixen.Rendering.Ecs.IVirtualGeometrySource?
 Vixen.Engine.Renderer.WorldRenderer.Host.get -> Vixen.Engine.Renderer.SceneRenderHost
 Vixen.Engine.Renderer.WorldRenderer.Lighting.get -> Vixen.Rendering.Features.ForwardLightingRenderFeature
+Vixen.Engine.Renderer.WorldRenderer.LodExtraction.get -> Vixen.Engine.Renderer.LodExtractionSystem?
+Vixen.Engine.Renderer.WorldRenderer.Lods.get -> Vixen.Rendering.Features.LodRenderFeature
 Vixen.Engine.Renderer.WorldRenderer.Logger.get -> Microsoft.Extensions.Logging.ILogger?
 Vixen.Engine.Renderer.WorldRenderer.Logger.set -> Microsoft.Extensions.Logging.ILogger?
 Vixen.Engine.Renderer.WorldRenderer.MaterialDescriptors.get -> Vixen.Graphics.DescriptorAllocator
@@ -306,6 +320,7 @@ const Vixen.Engine.Renderer.GpuOverlay.MaxRows = 12 -> int
 const Vixen.Engine.Renderer.GpuOverlay.PeakSeconds = 3 -> float
 const Vixen.Engine.Renderer.WorldRenderer.MeshParticleLayout = 2 -> int
 override Vixen.Engine.Renderer.DebugOverlayRenderer.Build(Vixen.Rendering.Compositor.GraphicsCompositor compositor, Vixen.Rendering.Compositor.CompositorFrame frame) -> void
+override Vixen.Engine.Renderer.LodExtractionSystem.Update(in Vixen.Ecs.Systems.SystemContext context, Vixen.Core.Threading.JobHandle dependency) -> Vixen.Core.Threading.JobHandle
 static Vixen.Engine.Renderer.DebugView.FromView(in Vixen.Core.Mathematics.Matrix4x4 view) -> Vixen.Engine.Renderer.DebugView
 static Vixen.Engine.Renderer.TextureStreamer.WantedWidth(float radius, float distance, float viewportHeight, float verticalFieldOfView) -> int
 static Vixen.Engine.Renderer.TextureStreamer.WantedWidth(in Vixen.Core.Mathematics.BoundingSphere bounds, Vixen.Rendering.RenderView view, float viewportHeight) -> int
