@@ -11,8 +11,9 @@ namespace Vixen.Editor.AssetEditors.Ai;
 /// <remarks>
 ///     <para>
 ///         doc 37 § Part 5 § Shared's agent inspector, and § P7's editor panels. Five lists over one
-///         <see cref="AgentDebugModel" />: the agents, the four sections of its snapshot, the recorded
-///         log, and whatever <see cref="Vixen.Ai.Diagnostics.AiDiagnosis" /> made of it.
+///         <see cref="Vixen.Editor.Ai.AgentDebugModel" />: the agents, the four sections of its
+///         snapshot, the recorded log, and whatever
+///         <see cref="Vixen.Ai.Diagnostics.AiDiagnosis" /> made of it.
 ///     </para>
 ///     <para>
 ///         The panel is <c>AgentDebuggerView.vxml</c>; this file is the accessibility modifier, the

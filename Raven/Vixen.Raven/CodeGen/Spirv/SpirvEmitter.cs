@@ -101,7 +101,7 @@ sealed partial class SpirvEmitter {
 
     /// <summary>
     ///     Whether this module touches ray query at all — an acceleration-structure binding, or a
-    ///     reachable <c>Trace</c>. Computed up front in <see cref="Emit" />, because it is really
+    ///     reachable <c>Trace</c>. Computed up front in <see cref="Emit()" />, because it is really
     ///     "is this module SPIR-V 1.4", and 1.4 changes decisions made from the very first
     ///     declaration: how a storage buffer is spelled, and what the entry point's interface
     ///     lists.

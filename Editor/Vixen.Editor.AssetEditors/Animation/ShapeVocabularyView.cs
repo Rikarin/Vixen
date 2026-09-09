@@ -21,9 +21,9 @@ namespace Vixen.Editor.AssetEditors.Animation;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The problems are the vocabulary's own answer, not this panel's.</b>
-///         <see cref="ShapeVocabularyContent.Problems" /> is what the importer reports from too — two
-///         copies of the rules would be one copy that goes out of step, and the way that shows up is
-///         a file the panel calls clean and the build refuses.
+///         <see cref="Vixen.Animation.Constraints.ShapeVocabularyContent.Problems" /> is what the
+///         importer reports from too — two copies of the rules would be one copy that goes out of
+///         step, and the way that shows up is a file the panel calls clean and the build refuses.
 ///     </para>
 ///     <para>
 ///         The panel is <c>ShapeVocabularyView.vxml</c>; this file is the accessibility modifier, the

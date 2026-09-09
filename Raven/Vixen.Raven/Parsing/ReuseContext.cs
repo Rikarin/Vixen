@@ -17,8 +17,9 @@ static class ReuseContext {
 
     /// <summary>
     ///     An enum's comma-separated members, which only <c>ParseEnumDeclaration</c> reads.
-    ///     <see cref="EnumMemberDeclarationSyntax" /> is a <see cref="MemberDeclarationSyntax" /> and
-    ///     is therefore collected as a candidate; this is what stops it being spliced into a
+    ///     <see cref="Vixen.Raven.Syntax.EnumMemberDeclarationSyntax" /> is a
+    ///     <see cref="Vixen.Raven.Syntax.MemberDeclarationSyntax" /> and is therefore collected as a
+    ///     candidate; this is what stops it being spliced into a
     ///     <see cref="MemberList" />, where nothing could have parsed it.
     /// </summary>
     public const int EnumBody = 1;

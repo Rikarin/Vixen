@@ -33,8 +33,8 @@ namespace Vixen.Editor.AssetEditors.Prefabs;
 ///         reads it.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="SceneEntity" />'s position and rotation are world space and
-///         <see cref="SceneEntityData" />'s are relative to the parent.</b> The two objects a pairing
+///         ⚠ <b>The editor application's <c>SceneEntity</c>'s position and rotation are world space
+///         and <see cref="SceneEntityData" />'s are relative to the parent.</b> The two objects a pairing
 ///         joins do not mean the same thing by "position", so <see cref="TryGetPrefabValue" /> takes
 ///         the template's value through the instance's parent before handing it back — otherwise a
 ///         revert would write a local value into a world-space setter and put the entity somewhere

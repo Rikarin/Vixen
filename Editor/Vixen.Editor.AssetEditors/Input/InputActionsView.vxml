@@ -643,7 +643,7 @@
     ///     <para>
     ///         ⚠ <b>A chord is not a path, so this cannot be a longer string.</b>
     ///         <see cref="InputControl" /> is one device and one code and
-    ///         <see cref="InputControlPath.TryParse" /> refuses anything that is not one
+    ///         <see cref="InputControlPath.TryParse(string, out InputControl)" /> refuses anything that is not one
     ///         <c>&lt;Device&gt;/control</c>. A modifier is a <i>composite part</i> —
     ///         <see cref="InputCompositeKind.ButtonWithModifiers" />, whose parts are named
     ///         <c>modifier</c> and <c>button</c> — which the reader, the writer and
