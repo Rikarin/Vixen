@@ -123,11 +123,24 @@ public class LayerStackThemeTests {
     ///         <c>ControlTheme.vcss</c> selector for either to be renamed out of.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the exemption is the declaring assembly and not a list of names.</b> A type
-    ///         declared beside the view is this panel's own part and owns its tag; a type from
-    ///         <c>Vixen.Ui.Controls</c> answering to a <c>layer-stack-</c> name is #1071 exactly, and
-    ///         is what the sabotage — putting one <c>Add&lt;Slider&gt;("layer-stack-opacity")</c>
-    ///         back — still turns red.
+    ///         ⚠ <b>So the question is whether an element answers to the name its own type
+    ///         declares</b> — <c>UiElement.DeclaredTag</c>, added for this in
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1131">#1131</a>. A part of this
+    ///         panel's own declares its tag and passes; a <c>Vixen.Ui.Controls</c> type answering to
+    ///         a <c>layer-stack-</c> name is #1071 exactly, and is what the sabotage — putting one
+    ///         <c>Add&lt;Slider&gt;("layer-stack-opacity")</c> back — still turns red.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This asked the declaring <em>assembly</em> until #1131, which is a broader
+    ///         exemption than the sentence above and let the defect back in by another door.</b>
+    ///         <c>Add&lt;T&gt;</c>'s first argument is a tag override, so
+    ///         <c>rows.Add&lt;LayerRowView&gt;("layer-stack-fill")</c> renamed a part of this panel
+    ///         out of its own <c>layer-stack-row</c> rule and an assembly test called it exempt —
+    ///         the one rename this rule exists to catch, invisible to it. ⚠ <b>And the reason it
+    ///         stayed open was wrong</b>: the issue said a narrow test needed a <c>TagOf(Type)</c>
+    ///         and a non-generic <c>Add(Type)</c> to build an instance with. <c>TagName</c> is a
+    ///         virtual <em>instance</em> property and this walk holds the instance; only the
+    ///         accessibility was ever missing.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And a measurement, because the sentence above is satisfied by a panel that draws
@@ -164,9 +177,11 @@ public class LayerStackThemeTests {
 
         Assert.True(
             renamed.Count == 0,
-            $"these controls answer to a tag of their own naming — {string.Join(", ", renamed)} — so every "
-            + "type selector in ControlTheme.vcss stops matching them. Pass the name as a class instead: "
-            + "Add<T>(null, null, \"layer-stack-…\"). #1071."
+            $"these elements answer to a name their own type does not declare — {string.Join(", ", renamed)} "
+            + "— so every type selector written against the name they do declare stops matching them. For a "
+            + "control from Vixen.Ui.Controls, pass the name as a class instead: "
+            + "Add<T>(null, null, \"layer-stack-…\") — #1071. For a part of this panel's own, drop the tag "
+            + "override: its `@tag` is its identity — #1131."
         );
 
         // ⚠ The half that is geometry rather than a name. `slider { height: 20px; min-width: 80px }`
@@ -190,16 +205,17 @@ public class LayerStackThemeTests {
                 // `layer-stack-row` because that is the element it replaced, so it passes; a control
                 // handed a `layer-stack-` name at a call site does not, which is #1071's defect.
                 //
-                // ⚠ **And the exemption is the declaring assembly, which is broader than the
-                // sentence above.** `UiElement.Add<T>`'s first argument is a tag override, so
-                // `rows.Add<LayerRowView>("layer-stack-fill")` would rename a local part out of its
-                // own rule — the very thing this rule is about — and this would call it exempt. The
-                // narrow test is the tag the type itself answers to, and `UiElement.TagName` is
-                // `protected`, so it is not reachable from a test assembly: #1131. No such call
-                // exists today, so this is a hole in the instrument rather than a live defect —
-                // written down because a hole nobody wrote down is how the next one gets through.
+                // ⚠ **The exemption was the declaring assembly and that hole is closed** — #1131.
+                // `UiElement.Add<T>`'s first argument is a tag override, so
+                // `rows.Add<LayerRowView>("layer-stack-fill")` renamed a local part out of its own
+                // rule — the very thing this rule is about — and an assembly test called it exempt.
+                // What is asked now is the narrow question: does this element answer to the name its
+                // own type declares? ⚠ **And no `TagOf(Type)` was needed to ask it**, which is the
+                // half the issue had wrong: `TagName` is a *virtual instance* property, so this walk
+                // already holds the instance whose type's answer it wants and only the accessibility
+                // was missing. `UiElement.DeclaredTag` is that reader.
                 if (element.Tag.StartsWith("layer-stack-", StringComparison.Ordinal)
-                    && type.Assembly != typeof(LayerStackView).Assembly) {
+                    && !string.Equals(element.Tag, element.DeclaredTag, StringComparison.Ordinal)) {
                     renamed.Add($"{type.Name} as '{element.Tag}'");
                 }
             }
@@ -281,6 +297,164 @@ public class LayerStackThemeTests {
         Assert.NotEmpty(ticks);
         Assert.Equal(ticks.Count, row.Children[8].Children.Count);
         Assert.All(ticks, tick => Assert.True(tick.HasClass("layer-stack-channel")));
+    }
+
+    /// <summary>⚠ The fill and filter rows are the markup parts, in place, in order, and still bound.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The next two row kinds of <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a>,
+    ///         held the way the layer's row is held.</b> A class search finds a control wherever it
+    ///         has drifted to, so what a <c>.vxml</c> can silently change — the order an artist reads
+    ///         left to right, a control dropped with its class left on another — is only recoverable
+    ///         by position.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the <em>values</em>, because the shape half alone is satisfied by a port that
+    ///         deleted the binding.</b> Moving five <c>Add&lt;T&gt;</c> calls into markup does not
+    ///         touch <c>bindings</c>, and nothing about a correctly ordered row would say if it had:
+    ///         the pickers would sit there showing their first option, which is <c>Constant</c> and
+    ///         <c>Uv</c> and <c>Levels</c> — three plausible values. So this stack says <c>Graph</c>,
+    ///         <c>Planar</c>, <c>Z</c> and <c>Blur</c>, none of which is any picker's default, and
+    ///         the assertion is that the document reached the control.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two conditional fields are read as geometry rather than as a style.</b>
+    ///         Whether the graph path and the axis are shown is written by <c>SetStyle</c> from the
+    ///         same binding, and <c>display: none</c> is the one state that occupies no box — so a
+    ///         width says the write arrived, where reading the style back would say only that this
+    ///         test knows what the view wrote. Planar is deliberately the projection here: it is the
+    ///         one that shows the axis, so both fields are visible and their widths are the
+    ///         measurement rather than the absence of one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two labels are read through <c>Said</c> and not off their own <c>Text</c>,
+    ///         because a markup port is <em>not</em> element for element where literal text is
+    ///         concerned.</b> <c>label.Text = "Fill"</c> put the word on the label;
+    ///         <c>&lt;layer-stack-fill-label&gt;Fill&lt;/…&gt;</c> compiles to
+    ///         <c>BuildContext.Text</c>, which makes a child element tagged <c>text</c> and puts the
+    ///         word on <em>that</em> — so the label's own <c>Text</c> is null and the row has one
+    ///         element more than the C# it replaced. ⚠ <b>The already-landed
+    ///         <c>LayerStackChrome.vxml</c> changed its three binding labels this way and nothing
+    ///         noticed</b>, because <c>Said</c> walks children and every reader in this assembly goes
+    ///         through it. It is a difference rather than a defect, and the difference favours the
+    ///         markup: <c>ControlTheme.vcss</c> has <c>text { color: var(--text) }</c> and no rule
+    ///         any label element matches, so the word is themed now and was not before.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_fill_row_and_a_filter_row_are_the_markup_parts_in_the_order_the_hand_built_ones_held() {
+        using var fixture = new TexturingFixture();
+
+        var panel = Opened(fixture);
+        var list = Only(panel, "layer-stack-list");
+
+        // The instrument first: a walk that emitted neither row kind would satisfy every `First`
+        // below by throwing rather than by passing, but a *set* with no channels would leave the
+        // fill's own row there and nothing under it — which is the shape a broken fixture takes.
+        Assert.Equal(2, list.Children.OfType<LayerRowView>().Count());
+
+        var fill = list.Children.OfType<FillRowView>().Single();
+
+        // The place: still the element `layer-stack-fill-row` is written against in the sheet, and
+        // still a direct child of the list rather than wrapped in a component's own host box.
+        Assert.Equal("layer-stack-fill-row", fill.Tag);
+        Assert.Same(list, fill.Parent);
+
+        Assert.Equal(5, fill.Children.Count);
+        Assert.Equal("layer-stack-fill-label", fill.Children[0].Tag);
+        Assert.Equal("Fill", LayerStackPanelTests.Said(fill.Children[0]));
+        Named<Select>(fill.Children[1], "layer-stack-fill-source");
+        Named<TextBox>(fill.Children[2], "layer-stack-fill-graph");
+        Named<Select>(fill.Children[3], "layer-stack-fill-projection");
+        Named<Select>(fill.Children[4], "layer-stack-fill-axis");
+
+        // The values, none of which is the first option of its own picker.
+        Assert.Equal(nameof(LayerFillSource.Graph), fill.Kind.Value);
+        Assert.Equal("Compounds/Noise", fill.Graph.Value);
+        Assert.Equal(nameof(LayerProjection.Planar), fill.Projection.Value);
+        Assert.Equal(nameof(LayerAxis.Z), fill.Axis.Value);
+
+        Assert.True(fill.Graph.Width > 0f, "the graph path is display:none on a Graph fill.");
+        Assert.True(fill.Axis.Width > 0f, "the axis picker is display:none on a Planar projection.");
+
+        var filter = list.Children.OfType<FilterRowView>().Single();
+
+        Assert.Equal("layer-stack-filter-row", filter.Tag);
+        Assert.Same(list, filter.Parent);
+
+        Assert.Equal(4, filter.Children.Count);
+        Assert.Equal("layer-stack-filter-label", filter.Children[0].Tag);
+        Assert.Equal("Filter", LayerStackPanelTests.Said(filter.Children[0]));
+        Named<Select>(filter.Children[1], "layer-stack-filter-source");
+        Named<Select>(filter.Children[2], "layer-stack-filter-kind");
+        Named<TextBox>(filter.Children[3], "layer-stack-filter-node");
+
+        Assert.Equal(LayerStackView.PresetFilter, filter.Source.Value);
+        Assert.Equal(nameof(LayerFilterKind.Blur), filter.Kind.Value);
+
+        Assert.True(filter.Kind.Width > 0f, "the preset picker is display:none while a preset is in force.");
+        Assert.Equal(0f, filter.Node.Width);
+    }
+
+    /// <summary>A stack with one graph fill and one preset filter, drawn by the module's own panel.</summary>
+    /// <param name="fixture">The shell to open it in.</param>
+    /// <returns>The panel, laid out.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Opened twice, which is how the document's own contents are replaced through the verb
+    ///     rather than around it.</b> The first execute makes the <c>LayerStackDocument</c>; the
+    ///     second re-shows it with the stack this test wants, so what the panel draws is what
+    ///     <c>Show</c> produces from a document rather than what a fixture built by hand.
+    /// </remarks>
+    static UiElement Opened(TexturingFixture fixture) {
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, new TexturingModule());
+        fixture.Project.Selection.Set(LayerStackPanelTests.AddStack(fixture, "Hull"));
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
+
+        var document = fixture.Project.Documents.OfType<LayerStackDocument>().Single();
+
+        document.Document = new() {
+            Name = "Hull",
+            BaseWidth = 32,
+            BaseHeight = 32,
+            Seed = 7u,
+            Sets = [
+                new() {
+                    Name = "S",
+                    Channels = [new() { Usage = "baseColor", Default = [0f, 0f, 0f, 1f] }],
+                    Layers = [
+                        new() {
+                            Id = "bottom",
+                            Name = "Bottom",
+                            Kind = LayerKind.Fill,
+                            Opacity = 1f,
+                            Fill = LayerFillSource.Graph,
+                            Graph = "Compounds/Noise",
+                            Projection = LayerProjection.Planar,
+                            PlanarAxis = LayerAxis.Z
+                        },
+                        new() {
+                            Id = "top",
+                            Name = "Top",
+                            Kind = LayerKind.Filter,
+                            Opacity = 1f,
+                            Filter = LayerFilterKind.Blur
+                        }
+                    ]
+                }
+            ]
+        };
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
+
+        var panel = fixture.Shell.Workspace.Open(TexturingModule.StackPanel);
+
+        Assert.NotNull(panel);
+
+        fixture.Shell.Document.Update();
+        fixture.Shell.Document.Draw();
+
+        return panel;
     }
 
     /// <summary>Asserts one child is the control it should be, under the class it answers to.</summary>

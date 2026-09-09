@@ -1,0 +1,93 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    What a fill layer *is*, as markup — https://github.com/Rikarin/Vixen/issues/881's rows, taken
+    one row kind further after `LayerRowView`.
+
+    ⚠ **The key question `LayerRowKeyTests` measures does not arise here either, and that is now a
+    decision rather than a deferral.** Five slices asked whether this panel wants a
+    `Signal<LayerAsset>` per row or a `BuildContext.For` that re-runs a matched body. The answer is
+    neither, and the second is not an option at all: `For`'s `build` delegate only ever *creates*
+    elements — there is no shape of it that updates an existing subtree — so re-running it on a
+    matched key means clearing the region first, which is `ByValue` under another name and destroys
+    the slider the artist is holding. The first *works* and is measured working, and still buys
+    nothing here, because **the row list is not a projection of a sequence**: `LayerStackView.Build`
+    walks the layer tree depth-first and emits up to four row kinds per layer as flat siblings of one
+    `layer-stack-list`. No `@for` produces that order. So a row kind becomes a component, and the
+    walk that already knows the order instantiates it.
+
+    ⚠ **`@inherits Vixen.Ui.UiElement` and `@tag layer-stack-fill-row`, so this file adds no
+    element** — `LayerRowView`'s reason exactly. `rows.Add<FillRowView>()` stands where
+    `rows.Add("layer-stack-fill-row")` stood, as the same direct child of `layer-stack-list`, so
+    `TexturingTheme.vcss`'s `layer-stack-fill-row { display: flex; flex-direction: row }` reaches it
+    and the `padding-left` the walk writes still lands on the same element.
+
+    ⚠ **The values stay in `LayerStackView`'s `bindings` list and are not bound here**, including the
+    two `display` writes that decide whether the graph field and the axis picker are shown. That is
+    the same refusal `LayerRowView` states: a markup binding is an `Effect` and an effect never runs
+    on the write, while `LayerStackView.Present` calls `Restate()` before `Show` drains the queue and
+    six test files read this panel's tree synchronously afterwards. An `@if` around the axis would
+    read better and would move it one flush later for no gain.
+
+    ⚠ **And no region here at all, which is why this row costs `Build` nothing.** Every element below
+    exists the moment `Add<FillRowView>` returns, so `FillRows` reads its `ref`s straight away rather
+    than through the `pending` list `LayerRowView`'s channel strip has to use.
+-->
+@component FillRowView
+@namespace Vixen.Editor.Texturing
+@inherits Vixen.Ui.UiElement
+@tag layer-stack-fill-row
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+
+<!--
+    ⚠ **The word is content and not an assignment, and the two are not the same tree.** The C# this
+    replaced wrote `source.Add("layer-stack-fill-label").Text = "Fill"` — one element carrying the
+    word. Literal text in markup compiles to `BuildContext.Text`, which makes a *child* element
+    tagged `text` and puts the word on that, so this label has a child and its own `Text` is null.
+    `LayerStackChrome.vxml`'s three binding labels changed the same way when they were ported and
+    nothing said so, because every reader in the tests goes through `LayerStackPanelTests.Said`,
+    which walks children. Kept rather than written back with `use=`, because the difference favours
+    the markup: `ControlTheme.vcss` carries `text { color: var(--text) }` and no rule any label
+    element matches, so the word is themed here and was not before.
+
+    ⚠ **What it must not be is this row's own `Text`.** `LayoutTree.SetMeasureFunction` throws for an
+    element that has element children, and inside an `Effect` that throw suspends the effect
+    silently — a row that renders once and then follows nothing for ever.
+-->
+<layer-stack-fill-label>Fill</layer-stack-fill-label>
+
+<!-- Where the pixels come from: a colour, an imported picture, or a published graph. -->
+<Select ref="@Kind" class="layer-stack-fill-source" />
+
+<!--
+    ⚠ Shown for the graph source alone and hidden by `FillRows`' binding rather than by an `@if`.
+    The field holds a *published path* an artist is part-way through typing, so the one thing it must
+    not do is come and go between two keystrokes; a hidden `TextBox` keeps its value and its caret,
+    a region that was cleared does not.
+-->
+<TextBox ref="@Graph" class="layer-stack-fill-graph" />
+
+<!--
+    ⚠ The projection is on the fill row and not on the layer's own — #1032. A projection means
+    something only on a fill: `LayerStackGraph.Project` warns on every other kind by name.
+-->
+<Select ref="@Projection" class="layer-stack-fill-projection" />
+
+<!-- And its plane, which only `Planar` chooses. Shown by the same binding, for the same reason. -->
+<Select ref="@Axis" class="layer-stack-fill-axis" />
+
+@code {
+    /// <summary>Where a fill's pixels come from: a colour, a picture, or a graph.</summary>
+    public Select Kind { get; private set; } = null!;
+
+    /// <summary>The published path of the graph a <c>Graph</c> fill resolves through the library.</summary>
+    public TextBox Graph { get; private set; } = null!;
+
+    /// <summary>How the fill is laid onto the surface.</summary>
+    public Select Projection { get; private set; } = null!;
+
+    /// <summary>Which plane a planar projection uses. Hidden for every other projection.</summary>
+    public Select Axis { get; private set; } = null!;
+}

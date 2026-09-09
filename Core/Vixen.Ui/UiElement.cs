@@ -79,6 +79,29 @@ public partial class UiElement : Composition.IComposable {
     /// <summary>Its element name, which selectors match on.</summary>
     public string Tag { get; private set; }
 
+    /// <summary>The name this instance's own type answers to, whatever <see cref="Tag" /> it was given.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The two differ exactly when a caller overrode the tag</b> — <c>Add&lt;T&gt;</c>'s
+    ///         first argument — and that difference is the whole reason to read this. A control
+    ///         renamed at a call site is styled by nothing: every rule its theme is written against
+    ///         is a type selector on the name it stopped answering to, and no assertion about
+    ///         <see cref="Tag" /> alone can see it, because the renamed name is exactly the one the
+    ///         panel meant to write.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Public because <see cref="TagName" /> is <c>protected internal</c>, which is
+    ///         reachable from a subclass and from <c>Vixen.Ui</c> and from nowhere a rule about a
+    ///         whole panel can be written</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1131">#1131</a>. The issue asked for
+    ///         a <c>TagOf(Type)</c> and a non-generic <c>Add(Type)</c> to make an instance with; that
+    ///         is not needed and this is the refutation of it. <see cref="TagName" /> is a
+    ///         <em>virtual instance</em> property, so any walk over a live tree already holds the
+    ///         instance whose type's answer it wants.
+    ///     </para>
+    /// </remarks>
+    public string DeclaredTag => TagName;
+
     /// <summary>The element name this type answers to when a caller does not choose one.</summary>
     /// <remarks>
     ///     <para>
