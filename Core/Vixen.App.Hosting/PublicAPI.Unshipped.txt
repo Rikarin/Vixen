@@ -52,8 +52,8 @@ Vixen.App.AppConfig.Headless.set -> bool
 Vixen.App.AppConfig.HeadlessFallbackReason.get -> string?
 Vixen.App.AppConfig.LogFileDirectory.get -> string?
 Vixen.App.AppConfig.LogFileDirectory.set -> string?
-Vixen.App.AppConfig.LogLevel.get -> Microsoft.Extensions.Logging.LogLevel
-Vixen.App.AppConfig.LogLevel.set -> Microsoft.Extensions.Logging.LogLevel
+Vixen.App.AppConfig.LogLevel.get -> Microsoft.Extensions.Logging.LogLevel?
+Vixen.App.AppConfig.LogLevel.set -> Microsoft.Extensions.Logging.LogLevel?
 Vixen.App.AppConfig.LogToConsole.get -> bool
 Vixen.App.AppConfig.LogToConsole.set -> bool
 Vixen.App.AppConfig.LooseContentPath.get -> string?

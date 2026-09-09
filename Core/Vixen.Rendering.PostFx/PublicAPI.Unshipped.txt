@@ -1783,9 +1783,11 @@ Vixen.Shaders.Generated.AmbientCombineConstants.EnvironmentShL22 -> Vixen.Core.M
 Vixen.Shaders.Generated.AmbientCombineConstants.EnvironmentShL2m1 -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.AmbientCombineConstants.EnvironmentShL2m2 -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.AmbientCombineConstants.Intensity -> float
+Vixen.Shaders.Generated.AmbientCombineConstants.InverseView -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.AmbientCombineConstants.InverseViewProjection -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Shaders.Generated.AmbientCombineConstants.OcclusionTexel -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.AmbientCombineConstants.PlaneTolerance -> float
+Vixen.Shaders.Generated.AmbientCombineConstants.UseBentNormal -> float
 Vixen.Shaders.Generated.AmbientCombineConstants.UseBilateral -> float
 Vixen.Shaders.Generated.AmbientCombineConstants.UseContactOcclusion -> float
 Vixen.Shaders.Generated.AmbientCombineConstants.UseEnvironmentSh -> float
@@ -1921,6 +1923,8 @@ Vixen.Shaders.Generated.VignetteConstants.DistortionCenter -> Vixen.Core.Mathema
 Vixen.Shaders.Generated.VignetteConstants.DistortionIntensity -> float
 Vixen.Shaders.Generated.VignetteConstants.DistortionScale -> Vixen.Core.Mathematics.Vector2
 Vixen.Shaders.Generated.VignetteConstants.DistortionZoom -> float
+Vixen.Shaders.Generated.VignetteConstants.DitherIntensity -> float
+Vixen.Shaders.Generated.VignetteConstants.DitherLevels -> float
 Vixen.Shaders.Generated.VignetteConstants.FrameIndex -> float
 Vixen.Shaders.Generated.VignetteConstants.GrainIntensity -> float
 Vixen.Shaders.Generated.VignetteConstants.GrainScale -> float
@@ -1980,12 +1984,12 @@ const Vixen.Rendering.PostFx.SmaaAreaTexture.MaxDistance = 16 -> int
 const Vixen.Rendering.PostFx.SmaaAreaTexture.Patterns = 5 -> int
 const Vixen.Rendering.PostFx.SmaaAreaTexture.Side = 80 -> int
 const Vixen.Rendering.PostFx.SmaaAreaTexture.SmoothingMaxDistance = 32 -> double
-const Vixen.Shaders.Generated.AmbientCombineConstants.Size = 288 -> int
+const Vixen.Shaders.Generated.AmbientCombineConstants.Size = 352 -> int
 const Vixen.Shaders.Generated.AmbientCombineKeys.AlbedoBinding = 2 -> uint
 const Vixen.Shaders.Generated.AmbientCombineKeys.AlbedoSet = 2 -> int
 const Vixen.Shaders.Generated.AmbientCombineKeys.ConstantBufferBinding = 0 -> uint
 const Vixen.Shaders.Generated.AmbientCombineKeys.ConstantBufferSet = 2 -> int
-const Vixen.Shaders.Generated.AmbientCombineKeys.ConstantBufferSize = 288 -> int
+const Vixen.Shaders.Generated.AmbientCombineKeys.ConstantBufferSize = 352 -> int
 const Vixen.Shaders.Generated.AmbientCombineKeys.ContactOcclusionBinding = 6 -> uint
 const Vixen.Shaders.Generated.AmbientCombineKeys.ContactOcclusionSet = 2 -> int
 const Vixen.Shaders.Generated.AmbientCombineKeys.DepthBufferBinding = 9 -> uint
@@ -2494,6 +2498,7 @@ static readonly Vixen.Shaders.Generated.AmbientCombineKeys.EnvironmentShL22 -> V
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.EnvironmentShL2m1 -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.EnvironmentShL2m2 -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.Intensity -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.AmbientCombineKeys.InverseView -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.InverseViewProjection -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Matrix4x4>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.Irradiance -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.LinearSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
@@ -2504,6 +2509,7 @@ static readonly Vixen.Shaders.Generated.AmbientCombineKeys.PlaneTolerance -> Vix
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.PointSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.Reflections -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.Specular -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.AmbientCombineKeys.UseBentNormal -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.UseBilateral -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.UseContactOcclusion -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.AmbientCombineKeys.UseEnvironmentSh -> Vixen.Shaders.ParameterKey<float>
@@ -2672,6 +2678,8 @@ static readonly Vixen.Shaders.Generated.VignetteKeys.DistortionCenter -> Vixen.S
 static readonly Vixen.Shaders.Generated.VignetteKeys.DistortionIntensity -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.VignetteKeys.DistortionScale -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.VignetteKeys.DistortionZoom -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.VignetteKeys.DitherIntensity -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.VignetteKeys.DitherLevels -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.VignetteKeys.FrameIndex -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.VignetteKeys.GrainIntensity -> Vixen.Shaders.ParameterKey<float>
 static readonly Vixen.Shaders.Generated.VignetteKeys.GrainScale -> Vixen.Shaders.ParameterKey<float>
@@ -2680,6 +2688,7 @@ static readonly Vixen.Shaders.Generated.VignetteKeys.LuminanceWeightedGrain -> V
 static readonly Vixen.Shaders.Generated.VignetteKeys.ScreenSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.VignetteKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.VignetteKeys.UseChromaticAberration -> Vixen.Shaders.PermutationKey<bool>
+static readonly Vixen.Shaders.Generated.VignetteKeys.UseDither -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.VignetteKeys.UseGrain -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.VignetteKeys.UseLensDistortion -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.VignetteKeys.UseVignette -> Vixen.Shaders.PermutationKey<bool>
