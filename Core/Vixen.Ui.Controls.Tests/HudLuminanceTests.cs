@@ -40,7 +40,11 @@ namespace Vixen.Ui.Controls.Tests;
 ///         <b>The software executor, not the device.</b> This runs the fragment arithmetic on the
 ///         CPU from the geometry the GPU would be given, so it proves the white level reaches the
 ///         pixels and not that the Vulkan path agrees — see that class's own remarks on the line it
-///         cannot see below.
+///         cannot see below. ⚠ The device's half is
+///         <c>Vixen.Graphics.Golden.Tests.HudLuminanceDeviceTests</c>, which asserts the same order
+///         and the same two magnitudes through <c>UiRenderer</c> into an <c>Rgba32Float</c>
+///         attachment, and it needed no reference image: a float target is that suite's
+///         <see cref="SoftwareUiRasterizer.RenderLinear" />.
 ///     </para>
 /// </remarks>
 public class HudLuminanceTests {
