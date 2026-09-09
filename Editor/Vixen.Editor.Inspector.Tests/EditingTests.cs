@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.Core;
+using Vixen.Ui.Controls.Advanced;
 using Xunit;
 
 namespace Vixen.Editor.Inspector.Tests;
@@ -251,6 +252,115 @@ public class EditingTests : IDisposable {
 
         // A float into an int would be a truncation nothing told anybody about.
         Assert.False(clipboard.CanPaste(Field("Version", new WaterMaterial())));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>An owned reference-typed member is not mixed because the objects hold different
+    ///     instances, and until <c>OwnedValues</c> landed every such row was.</b>
+    ///     <c>EditProperty.Read</c> compared with <c>Equals(object, object)</c>, which for a type
+    ///     with no equality override is reference identity — and a member initialised
+    ///     <c>= AnimationCurve.Linear()</c> gives each instance its own object. So the row went mixed
+    ///     the moment a second object was selected, whatever it held.
+    /// </summary>
+    [Fact]
+    public void Two_objects_holding_identical_curves_read_as_one_value() {
+        var first = new WaterMaterial();
+        var second = new WaterMaterial();
+
+        // Distinct objects with identical keys, which is exactly what a field initializer produces.
+        Assert.NotSame(first.Amplitude, second.Amplitude);
+
+        var value = Field("Amplitude", first, second).Read();
+
+        Assert.False(value.IsMixed);
+        Assert.Same(first.Amplitude, value.Value);
+    }
+
+    [Fact]
+    public void Curves_that_differ_still_read_as_mixed() {
+        var first = new WaterMaterial();
+        var second = new WaterMaterial { Amplitude = AnimationCurve.EaseInOut() };
+
+        // The instrument's other half: a comparison that cannot say "different" is worse than the
+        // identity one it replaced.
+        Assert.True(Field("Amplitude", first, second).Read().IsMixed);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And the reset affordance was permanently lit for the same reason.</b>
+    ///     <c>IsModified</c> compares each object's value with one read off a fresh instance of the
+    ///     type, so a curve was always "modified" — the descriptor's default is a different object by
+    ///     construction.
+    /// </summary>
+    [Fact]
+    public void An_untouched_curve_does_not_count_as_modified() {
+        Assert.False(Field("Amplitude", new WaterMaterial()).IsModified);
+        Assert.True(Field("Amplitude", new WaterMaterial { Amplitude = AnimationCurve.EaseInOut() }).IsModified);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>Pasting a reference-typed value used to put <i>one instance</i> on every selected
+    ///     object, so editing any one of them silently edited all of them — and the clipboard kept a
+    ///     live reference to it as well.</b> This is the aliasing #90 fixed on the curve editing path
+    ///     and did not fix on the copy/paste path.
+    /// </summary>
+    [Fact]
+    public void Pasting_an_owned_value_gives_every_object_its_own_copy() {
+        var source = new WaterMaterial { Amplitude = AnimationCurve.EaseInOut() };
+        var first = new WaterMaterial();
+        var second = new WaterMaterial();
+        var clipboard = new PropertyClipboard();
+
+        Assert.True(clipboard.Copy(Field("Amplitude", source)));
+        Assert.True(clipboard.Paste(Field("Amplitude", first, second)));
+
+        Assert.NotSame(first.Amplitude, second.Amplitude);
+        Assert.NotSame(source.Amplitude, first.Amplitude);
+        Assert.NotSame(clipboard.Value, first.Amplitude);
+
+        // The proof that they are not aliases: moving one key leaves every other copy alone.
+        Assert.Equal(2, first.Amplitude.Keys.Count);
+        first.Amplitude.Move(first.Amplitude.Keys[0], 0.75f, 0.1f);
+
+        Assert.Equal(0f, second.Amplitude.Keys[0].Time);
+        Assert.Equal(0f, source.Amplitude.Keys[0].Time);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And the clipboard holds a copy, not the live object.</b> It outlives the selection it
+    ///     was taken from, so "copy, change your mind, paste" would otherwise paste the change.
+    /// </summary>
+    [Fact]
+    public void An_edit_after_the_copy_does_not_travel_into_the_paste() {
+        var source = new WaterMaterial();
+        var target = new WaterMaterial { Amplitude = AnimationCurve.EaseInOut() };
+        var clipboard = new PropertyClipboard();
+
+        Assert.True(clipboard.Copy(Field("Amplitude", source)));
+        source.Amplitude.Add(0.5f, 0.5f);
+
+        Assert.True(clipboard.Paste(Field("Amplitude", target)));
+        Assert.Equal(2, target.Amplitude.Keys.Count);
+    }
+
+    /// <summary>
+    ///     <b>A member that <i>refers</i> to something still shares the instance, and that is the
+    ///     right answer.</b> Copying a material reference onto twenty objects so all twenty point at
+    ///     the same material is what the row is for; only a type the inspector edits in place is
+    ///     copied per object.
+    /// </summary>
+    [Fact]
+    public void Pasting_a_value_that_is_not_edited_in_place_writes_the_value_itself() {
+        var source = new WaterMaterial { Notes = "shared" };
+        var first = new WaterMaterial();
+        var second = new WaterMaterial();
+        var clipboard = new PropertyClipboard();
+
+        Assert.True(clipboard.Copy(Field("Notes", source)));
+        Assert.True(clipboard.Paste(Field("Notes", first, second)));
+
+        Assert.Same(source.Notes, first.Notes);
+        Assert.Same(source.Notes, second.Notes);
     }
 
     [Fact]

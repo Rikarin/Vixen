@@ -216,6 +216,167 @@ public sealed class InputActionsViewDumpTests {
         Assert.False(args.Handled);
     }
 
+    // ── Chords, which the mode could not record at all ───────────────────────
+
+    /// <summary>
+    ///     ⚠ <b>Ctrl+S is a <c>buttonWithModifiers</c> composite of two parts, and the mode used to
+    ///     be unable to record any chord whatever.</b> The issue's stated symptom — an author gets
+    ///     <c>&lt;Keyboard&gt;/s</c> and the modifier is discarded — is <b>refuted</b>: holding
+    ///     Control produces a <c>KeyEvent</c> whose key <i>is</i> Control, which the old
+    ///     <c>Keyed</c> recorded as <c>&lt;Keyboard&gt;/leftCtrl</c> before dropping out of the
+    ///     mode, so S never arrived. Worse than the filed symptom, and the same fix (#468).
+    /// </summary>
+    [Fact]
+    public void A_chord_records_the_composite_the_format_has_always_had() {
+        using var harness = new ViewHarness();
+
+        var view = Open(harness, out var document);
+
+        Choose(harness, view, document);
+
+        view.Listen.IsChecked = true;
+        harness.Ui.Frame();
+        harness.Ui.Document.Focus(view);
+
+        harness.Ui.Hold(ModifierKeys.Control);
+        harness.Ui.KeyDown(InputKey.LeftControl);
+        harness.Ui.Frame();
+
+        // The modifier alone recorded nothing and left the mode running — which is the half that
+        // makes a chord reachable at all.
+        Assert.True(view.IsListening);
+        Assert.Equal(InputCompositeKind.None, Binding(document).Composite);
+
+        harness.Ui.PressKey(InputKey.S);
+        harness.Ui.Frame();
+
+        var binding = Binding(document);
+
+        Assert.Equal(InputCompositeKind.ButtonWithModifiers, binding.Composite);
+        Assert.Equal(string.Empty, binding.Path);
+        Assert.Equal(2, binding.Parts.Count);
+        Assert.Equal("modifier", binding.Parts[0].Part);
+        Assert.Equal("<Keyboard>/leftControl", binding.Parts[0].Path);
+        Assert.Equal("button", binding.Parts[1].Part);
+        Assert.Equal("<Keyboard>/s", binding.Parts[1].Path);
+
+        Assert.False(view.IsListening);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>And the composite the panel writes is one the runtime reads back.</b> A recorder
+    ///     that produced a shape only it understood would pass every assertion above and bind
+    ///     nothing in a game, so the YAML goes through <c>InputActionAssetWriter</c> and
+    ///     <c>InputActionAssetReader</c> — the pair a <c>.vxinput</c> actually travels through.
+    /// </summary>
+    [Fact]
+    public void The_recorded_chord_round_trips_through_the_reader() {
+        using var harness = new ViewHarness();
+
+        var view = Open(harness, out var document);
+
+        Choose(harness, view, document);
+
+        view.Listen.IsChecked = true;
+        harness.Ui.Frame();
+        harness.Ui.Document.Focus(view);
+
+        harness.Ui.Hold(ModifierKeys.Control | ModifierKeys.Shift);
+        harness.Ui.KeyDown(InputKey.LeftControl);
+        harness.Ui.KeyDown(InputKey.RightShift);
+        harness.Ui.PressKey(InputKey.S);
+        harness.Ui.Frame();
+
+        var text = InputActionAssetWriter.Write(document.Actions);
+
+        Assert.Contains("buttonWithModifiers", text, StringComparison.Ordinal);
+
+        var result = InputActionAssetReader.Read(text);
+
+        Assert.Empty(result.Diagnostics);
+        Assert.NotNull(result.Asset);
+
+        var read = result.Asset!.Maps[0].Actions[0].Bindings[0];
+
+        Assert.Equal(InputCompositeKind.ButtonWithModifiers, read.Composite);
+        Assert.Equal(
+            ["<Keyboard>/leftControl", "<Keyboard>/rightShift", "<Keyboard>/s"],
+            read.Parts.Select(part => part.Path)
+        );
+
+        // The side actually held, not a left-hand guess: `ModifierKeys` says "either Shift" and a
+        // part has to name one control.
+        Assert.Equal(["modifier", "modifier", "button"], read.Parts.Select(part => part.Part));
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A modifier let go with nothing under it still binds the modifier, and refusing
+    ///     modifier keys outright would have taken that away.</b> Sprint on Shift is a binding
+    ///     people write.
+    /// </summary>
+    [Fact]
+    public void A_modifier_released_on_its_own_binds_the_modifier() {
+        using var harness = new ViewHarness();
+
+        var view = Open(harness, out var document);
+
+        Choose(harness, view, document);
+
+        view.Listen.IsChecked = true;
+        harness.Ui.Frame();
+        harness.Ui.Document.Focus(view);
+
+        harness.Ui.Hold(ModifierKeys.Shift);
+        harness.Ui.KeyDown(InputKey.LeftShift);
+        harness.Ui.Frame();
+
+        Assert.Equal(string.Empty, Binding(document).Path);
+
+        harness.Ui.Hold(ModifierKeys.None);
+        harness.Ui.KeyUp(InputKey.LeftShift);
+        harness.Ui.Frame();
+
+        var binding = Binding(document);
+
+        Assert.Equal(InputCompositeKind.None, binding.Composite);
+        Assert.Equal("<Keyboard>/leftShift", binding.Path);
+    }
+
+    /// <summary>
+    ///     And letting a modifier up <i>after</i> the chord landed does not record a second time.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The predicate that could not be false otherwise.</b> Every real chord ends with the
+    ///     modifier coming up, so a release arm that did not know a chord had been recorded would
+    ///     overwrite every chord with its own modifier the instant the author's hand left the
+    ///     keyboard — and the test above would still pass.
+    /// </remarks>
+    [Fact]
+    public void Letting_the_modifier_up_after_a_chord_does_not_overwrite_it() {
+        using var harness = new ViewHarness();
+
+        var view = Open(harness, out var document);
+
+        Choose(harness, view, document);
+
+        view.Listen.IsChecked = true;
+        harness.Ui.Frame();
+        harness.Ui.Document.Focus(view);
+
+        harness.Ui.Hold(ModifierKeys.Control);
+        harness.Ui.KeyDown(InputKey.LeftControl);
+        harness.Ui.PressKey(InputKey.S);
+
+        harness.Ui.Hold(ModifierKeys.None);
+        harness.Ui.KeyUp(InputKey.LeftControl);
+        harness.Ui.Frame();
+
+        var binding = Binding(document);
+
+        Assert.Equal(InputCompositeKind.ButtonWithModifiers, binding.Composite);
+        Assert.Equal("<Keyboard>/s", binding.Parts[^1].Path);
+    }
+
     // ── The one binding this port introduced ─────────────────────────────────
 
     /// <summary>
@@ -296,6 +457,9 @@ public sealed class InputActionsViewDumpTests {
         // The panel read the row's tag, which is what every branch of `Record` then keys off.
         Assert.Equal(0, view.Selected.Binding);
     }
+
+    static InputBindingData Binding(InputActionsDocument document) =>
+        document.Actions.Maps[0].Actions[0].Bindings[0];
 
     static IReadOnlyList<UiElement> Rows(InputActionsView view) =>
         [.. view.Diagnostics.Children.Where(child => child.Tag == "analysis-row")];

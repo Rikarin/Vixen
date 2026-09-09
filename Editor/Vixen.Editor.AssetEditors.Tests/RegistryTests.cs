@@ -8,6 +8,8 @@ using Vixen.Editor.AssetEditors.Importing;
 using Vixen.Editor.AssetEditors.Materials;
 using Vixen.Editor.Assets;
 using Vixen.Editor.Core;
+using Vixen.Editor.Plugin;
+using Vixen.Editor.Ui;
 using Vixen.Ui;
 using Xunit;
 
@@ -231,6 +233,64 @@ public class AssetEditorRegistryTests {
         Assert.Throws<InvalidOperationException>(() => registry.Add(new ClashingFactory()));
         Assert.False(registry.TryGetByName("Other", out _));
         Assert.Equal(1, registry.Count);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A plugin can register the tenth asset editor through the plugin contract's own door,
+    ///     and nothing had ever walked that route.</b> <c>AssetEditorRegistry</c> is published in
+    ///     <c>PluginServices</c> (<c>EditorApplication.cs</c>) and <c>Add</c> hands back the removal
+    ///     <c>PluginContext.Owns</c> wants — but the only <c>Require&lt;AssetEditorRegistry&gt;</c>
+    ///     in the tree is <c>AssetEditorsModule</c>, which lives inside this assembly. A seam with no
+    ///     caller is this repository's commonest defect, so this is the caller (#489).
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Through <c>PluginHost.Activate</c>, which its own summary calls "the door a third
+    ///     party comes through".</b> A test that built an <c>AssetEditorRegistry</c> and called
+    ///     <c>Add</c> on it — which is every other test in this class — would pass with the service
+    ///     unpublished and the plugin route shut.
+    /// </remarks>
+    [Fact]
+    public void APluginRegistersAnAssetEditorThroughTheContractAlone() {
+        using var shell = new EditorShell(1280f, 800f);
+
+        var registry = StandardEditors.CreateWorldless();
+        var host = new PluginHost(shell, new PluginServices().Add(registry));
+        var module = new EditorAddingModule();
+
+        Assert.False(registry.TryGetForFile("Assets/thing.tenth", out _));
+
+        var loaded = host.Activate("mine.tenth", "Tenth", module);
+
+        Assert.Equal(PluginState.Active, loaded.State);
+        Assert.True(registry.TryGetForFile("Assets/thing.tenth", out var editor));
+        Assert.Equal("Tenth", editor!.Name);
+
+        // And it comes back out, which is what makes a plugin unloadable rather than a one-way
+        // addition to the process.
+        Assert.True(host.Unload("mine.tenth"));
+        Assert.False(registry.TryGetForFile("Assets/thing.tenth", out _));
+
+        // The nine built-ins are untouched by either half.
+        Assert.True(registry.TryGetForFile("Assets/hero.png", out _));
+    }
+
+    /// <summary>What a third-party asset editor looks like: two lines in <c>Activate</c>.</summary>
+    sealed class EditorAddingModule : IEditorPlugin {
+        public void Activate(PluginContext context) =>
+            context.Owns(context.Services.Require<AssetEditorRegistry>().Add(new TenthFactory()));
+
+        public void Deactivate() {
+        }
+    }
+
+    sealed class TenthFactory : IAssetEditorFactory {
+        public string Name => "Tenth";
+
+        public IReadOnlyList<string> Extensions { get; } = [".tenth"];
+
+        public EditorDocument Open(AssetEditorRequest request) => throw new NotSupportedException();
+
+        public UiElement CreateView(EditorDocument document, UiElement panel) => throw new NotSupportedException();
     }
 
     sealed class ClashingFactory : IAssetEditorFactory {

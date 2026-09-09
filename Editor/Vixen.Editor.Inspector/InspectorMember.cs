@@ -171,6 +171,19 @@ public abstract class InspectorMember : Core.IEditMember {
         Core.EditorDocument? document
     );
 
+    /// <inheritdoc cref="Core.IEditMember.AreEqual" />
+    /// <param name="left">One value, boxed.</param>
+    /// <param name="right">The other, boxed.</param>
+    /// <returns>Whether writing one over the other would change anything.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Structural for a member type the inspector <i>owns</i>, reference identity for
+    ///     everything else, and the distinction is the member type's rather than this member's.</b>
+    ///     An <c>AnimationCurve</c> initialised per instance is not a different value because it is a
+    ///     different object; a material referenced by two objects <i>is</i> the same value only when
+    ///     it is the same object. <c>OwnedValues</c> is where a type declares which of the two it is.
+    /// </remarks>
+    public virtual bool AreEqual(object? left, object? right) => OwnedValues.AreEqual(MemberType, left, right);
+
     /// <inheritdoc />
     Type Core.IEditMember.ValueType => MemberType;
 

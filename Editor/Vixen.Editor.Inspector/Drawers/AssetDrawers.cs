@@ -132,13 +132,15 @@ public sealed class Color3Drawer : PropertyDrawer<Color3, ColorInput> {
 ///         is not, and a mixed one shows an <b>empty</b> graph rather than one of the curves.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Compared key by key rather than by <c>EditProperty.Read</c>'s answer, and that is a
-///         defect this fixes rather than a preference.</b> <c>Read</c> compares with
-///         <c>Equals(object, object)</c>, which for a type with no equality is reference identity —
-///         and <c>AnimationCurve</c> has none. So two objects holding structurally identical curves
-///         read as mixed the moment they are selected together, which is every multi-selection
-///         there has ever been: a member initialised <c>= AnimationCurve.Linear()</c> gives each
-///         instance its own object. The comparison is here rather than on the type on purpose: an
+///         ⚠ <b>Compared key by key, and that comparison is no longer this drawer's private
+///         opinion.</b> <c>EditProperty.Read</c> used to compare with <c>Equals(object, object)</c>,
+///         which for a type with no equality is reference identity — and <c>AnimationCurve</c> has
+///         none — so two objects holding structurally identical curves read as mixed the moment they
+///         were selected together, which is every multi-selection there has ever been: a member
+///         initialised <c>= AnimationCurve.Linear()</c> gives each instance its own object. The
+///         drawer fixing that for itself left <c>Read</c>, <c>Write</c>, <c>WriteEach</c> and
+///         <c>InspectorField.IsModified</c> still comparing by identity behind its back; the answer
+///         is <c>OwnedValues</c>' now and all five ask it. Still not <c>Equals</c> on the type: an
 ///         <c>AnimationCurve</c> is edited in place, has a <c>Changed</c> event, and its keys live
 ///         in a <c>HashSet</c> inside <c>CurveEditor</c> — giving a mutable model value equality
 ///         and a hash code is how a selection stops containing the key that is being dragged.
@@ -211,11 +213,11 @@ public sealed class CurveDrawer : PropertyDrawer<AnimationCurve, CurveEditor> {
     /// <inheritdoc />
     /// <remarks>
     ///     ⚠ <b><paramref name="value" /> and <paramref name="isMixed" /> are recomputed rather than
-    ///     used, and the base class is not wrong to have handed them over.</b> It gets them from
-    ///     <c>EditProperty.Read</c>, whose comparison is <c>Equals(object, object)</c> — reference
-    ///     identity for a curve — so <paramref name="isMixed" /> is true for any two objects that do
-    ///     not literally share one object, however identical their curves. The class remarks say why
-    ///     the fix is here and not on the type.
+    ///     used, and they now agree with what is recomputed.</b> They come from
+    ///     <c>EditProperty.Read</c>, which asks the member — and therefore <c>OwnedValues</c> — the
+    ///     same question <see cref="Agreement" /> asks. The recomputation stays because this drawer
+    ///     needs the shared <i>curve</i> and not the boxed value <c>Read</c> suppresses when the row
+    ///     is mixed; before <c>OwnedValues</c> existed it was also the only correct answer.
     /// </remarks>
     protected override void Show(InspectorField field, CurveEditor editor, AnimationCurve? value, bool isMixed) {
         ArgumentNullException.ThrowIfNull(field);
@@ -284,52 +286,17 @@ public sealed class CurveDrawer : PropertyDrawer<AnimationCurve, CurveEditor> {
 
     /// <summary>Whether two curves have the same keys, which is what "the same curve" means here.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not <c>Equals</c> on <c>AnimationCurve</c>, deliberately.</b> Value equality on a
-    ///     type obliges a matching hash code, and this one is a mutable model with a <c>Changed</c>
-    ///     event whose keys sit in a <c>HashSet</c> inside <c>CurveEditor</c>'s selection — a hash
-    ///     that moved when a key was dragged would take the dragged key out of the set that is
-    ///     tracking it. Whether two curves count as the same value is an editing question, so it is
-    ///     answered where the editing is.
+    ///     ⚠ <b><c>OwnedValues</c>' answer rather than a second one here.</b> This comparison used to
+    ///     live in this drawer, which made it the drawer's private opinion — so
+    ///     <c>EditProperty.Read</c>, <c>Write</c>, <c>WriteEach</c> and <c>InspectorField.IsModified</c>
+    ///     all went on comparing curves by reference identity behind its back. It is the member type's
+    ///     opinion now, and this asks the same question the pipeline does.
     /// </remarks>
-    static bool SameKeys(AnimationCurve? left, AnimationCurve? right) {
-        if (ReferenceEquals(left, right)) {
-            return true;
-        }
+    static bool SameKeys(AnimationCurve? left, AnimationCurve? right) =>
+        OwnedValues.AreEqual(typeof(AnimationCurve), left, right);
 
-        if (left is null || right is null || left.Keys.Count != right.Keys.Count) {
-            return false;
-        }
-
-        for (var index = 0; index < left.Keys.Count; index++) {
-            var a = left.Keys[index];
-            var b = right.Keys[index];
-
-            if (!a.Time.Equals(b.Time)
-                || !a.Value.Equals(b.Value)
-                || !a.InTangent.Equals(b.InTangent)
-                || !a.OutTangent.Equals(b.OutTangent)
-                || a.Mode != b.Mode) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    static AnimationCurve Copy(AnimationCurve source) {
-        var keys = new CurveKey[source.Keys.Count];
-
-        for (var index = 0; index < keys.Length; index++) {
-            var key = source.Keys[index];
-
-            keys[index] = new(key.Time, key.Value, key.Mode) {
-                InTangent = key.InTangent,
-                OutTangent = key.OutTangent
-            };
-        }
-
-        return new(keys);
-    }
+    static AnimationCurve Copy(AnimationCurve source) =>
+        (AnimationCurve) OwnedValues.Copy(typeof(AnimationCurve), source)!;
 }
 
 /// <summary>A field naming an asset, with a button that opens a picker and a place to drop one.</summary>

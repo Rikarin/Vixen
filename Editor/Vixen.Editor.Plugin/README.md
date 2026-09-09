@@ -160,6 +160,21 @@ in the build of every plugin that only wanted to add a menu item. A plugin that 
 importer references that assembly itself, gets the real `IAssetImporter`, and hands the typed
 registry to `Require<T>` — one weakly-typed line at the top of `Activate` and nothing after it.
 
+⚠ **An asset editor is that same shape, and the question of moving `IAssetEditorFactory` here is
+answered no.** A plugin claiming an extension, opening a document for it and building its view does
+so through the contract's own door today — `Require<AssetEditorRegistry>()`, `Add`, `Owns` — and
+`AssetEditorRegistryTests.APluginRegistersAnAssetEditorThroughTheContractAlone` is the caller that
+proves it, because until it was written the only `Require<AssetEditorRegistry>` in the tree was
+`AssetEditorsModule`, inside the assembly that owns the registry. What the plugin references is
+`Vixen.Editor.AssetEditors`, and that is one line in its own csproj rather than a line in everybody
+else's. ⚠ Stating the interface *here* is what cannot be done: `IAssetEditorFactory.Open` returns an
+`EditorDocument` and takes an `EditorProject`, so it would drag `Vixen.Editor.Core` — the document
+model, the command stack, the asset database and a hundred and thirty kilobytes of embedded
+`dotnet new` templates — into the build of a plugin that only wanted a menu item. Splitting `Open`
+from `CreateView` to dodge that is refused by `IAssetEditorFactory`'s own remarks: a document with no
+view is a model nobody can reach.
+([#489](https://github.com/Rikarin/Vixen/issues/489))
+
 **`IEditorGraphics` is the one exception, and it is declared here.** A plugin that draws needs a
 device, and a device has no feature assembly that owns it: it belongs to the host, is created by
 `Vixen.Editor.App` before any project is open, and no plugin may reference `Vixen.Editor.App`. So

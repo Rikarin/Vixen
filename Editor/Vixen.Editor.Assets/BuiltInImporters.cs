@@ -94,6 +94,7 @@ public static class BuiltInImporters {
                 .Add(new Animation.MoveSetImporter())
                 .Add(new Gameplay.DefinitionImporter())
                 .Add(new Net.NetworkRulesImporter())
+                .Add(new Audio.MixerImporter())
                 .Add(new NativeFormatImporter())
                 .Add(new FolderImporter())
         ).AddFallback(new RawImporter());
@@ -189,10 +190,6 @@ static class UnimportedFormats {
             [".vxseq"] = (ImportSeverity.Warning,
                 "The editor creates and opens a .vxseq and nothing imports one, so an authored sequence cannot be "
                 + "loaded by address at run time."),
-
-            [".vxmixer"] = (ImportSeverity.Warning,
-                "The editor creates and opens a .vxmixer and nothing imports one. AudioEngine.LoadMixer takes a "
-                + "MixerAsset and nothing builds one from a file, so the two halves exist and do not meet."),
 
             [".vxplacement"] = (ImportSeverity.Warning,
                 "Nothing imports a .vxplacement. The extension belongs to Live/Vixen.Live.Orchestrator, which "
