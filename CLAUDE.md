@@ -97,8 +97,9 @@ through `ProjectReference` and silently drop ~300 types in any other configurati
 "this test never runs in CI" drawn from one is wrong. Reproduce a gate result in the gate's own
 configuration.
 
-⚠ **`CheckFormat` now builds first and exports `Configuration` to `dotnet format`**, because the
-`analyzers` pass reads a compilation and a compilation is only the code if the generators are in it.
+⚠ **`CheckFormat` now hard-codes Release too**: it depends on `CompileRelease` and exports
+`Configuration=Release` to `dotnet format`, because the `analyzers` pass reads a compilation and a
+compilation is only the code if the generators are in it.
 Every generator here arrives as a `ProjectReference` with `OutputItemType="Analyzer"`, so the
 workspace resolves it under `bin/$(Configuration)/` and, finding nothing, drops it — with **no
 warning at any verbosity**. `dotnet format analyzers` reports analyzer diagnostics and not compiler

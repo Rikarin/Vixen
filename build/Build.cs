@@ -501,6 +501,13 @@ partial class Build : NukeBuild {
     ///         environment as global properties.
     ///     </para>
     ///     <para>
+    ///         Release rather than <see cref="Configuration" />, for the reason
+    ///         <see cref="CheckApi" /> and <c>Docs</c> already hard-code it — a gate that changes
+    ///         subject between a developer machine and CI cannot be reproduced — and because those
+    ///         two already depend on <see cref="CompileRelease" />, so the leg that runs the three
+    ///         together pays for one solution build rather than two.
+    ///     </para>
+    ///     <para>
     ///         So the bug was never in the eleven call sites the diagnostic named, and the damage was
     ///         wider than those: <b>every</b> ProjectReference-supplied analyzer was absent from CI's
     ///         format run, so the pass has been checking a fraction of what it appears to. It also
@@ -510,7 +517,7 @@ partial class Build : NukeBuild {
     /// </remarks>
     Target CheckFormat => definition => definition
         .Description("Fails if a file deviates from .editorconfig, lacks its SPDX header, or is a dependency nothing attributes")
-        .DependsOn(Compile)
+        .DependsOn(CompileRelease)
         .Executes(() => {
                 // First, because it takes milliseconds and the two passes below take minutes. A
                 // developer who forgot a header finds out before the format run, not after it.
@@ -559,17 +566,24 @@ partial class Build : NukeBuild {
                 // the other seven eighths, with those 551 named in docs/WhitespaceExempt.txt. The
                 // two numbers this comment used to carry were both wrong: "about nine hundred"
                 // violations are 5 167, and "twenty-eight files" are 551.
-                // ⚠ Pinned to the configuration `Compile` just built, on the process environment,
-                // because `dotnet format` has no configuration switch and MSBuild reads environment
-                // variables as global properties. Without this the workspace evaluates Debug while
-                // CI has built only Release, every ProjectReference-supplied generator resolves to a
-                // `bin/Debug/` path that does not exist, and the analyzers pass reads a compilation
-                // with no generated code in it. Set and restored around the two passes rather than
-                // for the build, because a `Configuration` in this process's environment is a global
-                // property for every MSBuild invocation that follows it, including targets that
-                // deliberately hard-code Release.
+                // ⚠ Pinned to the configuration `CompileRelease` just built, on the process
+                // environment, because `dotnet format` has no configuration switch and MSBuild reads
+                // environment variables as global properties. Without this the workspace evaluates
+                // Debug while CI has built only Release, every ProjectReference-supplied generator
+                // resolves to a `bin/Debug/` path that does not exist, and the analyzers pass reads a
+                // compilation with no generated code in it.
+                //
+                // Release rather than `Configuration`, on the same grounds `Docs` and `CheckApi`
+                // hard-code it: a gate that changes subject between a developer machine and CI is a
+                // gate whose result cannot be reproduced. It is also one solution build instead of
+                // two — CI's `checks` leg runs this beside those two, which already depend on
+                // `CompileRelease`.
+                //
+                // Set and restored around the two passes rather than for the whole target, because a
+                // `Configuration` left in this process's environment is a global property for every
+                // MSBuild invocation that follows it.
                 var configuration = Environment.GetEnvironmentVariable("Configuration");
-                Environment.SetEnvironmentVariable("Configuration", Configuration);
+                Environment.SetEnvironmentVariable("Configuration", Configuration.Release);
 
                 try {
                     foreach (var workspace in FormatWorkspaces()) {
