@@ -1375,6 +1375,93 @@ public class CompositorAssetTests : IDisposable {
     }
 
     /// <summary>
+    ///     The lighting feature's own flag is routed to the shading pass's permutation, and registered.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>MaterialRenderFeature.PermutationSources</c> had no production writer at all.</b>
+    ///         Every write in the repository was a test and every one was this same line — so
+    ///         <c>IPermutationSubFeature</c>'s whole contract, that a feature contributes under the
+    ///         <em>renderer's</em> name and a host routes it to the shader's, was a contract only the
+    ///         tests kept.
+    ///     </para>
+    ///     <para>
+    ///         Both halves, because either alone is silent: an unrouted flag lands under
+    ///         <c>Vixen.Clustered</c>, which is a define no compiler can match, and a routed one the
+    ///         key is not built from never leaves the collection.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_clustered_flag_is_routed_to_the_shading_pass_and_registered() {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
+        using var h = Build();
+        using var lighting = new ForwardLightingRenderFeature();
+
+        h.Meshes.Add(lighting);
+        Compose(h, asset);
+
+        var key = ForwardLightingRenderFeature.ClusteredPermutationKey("ForwardPlus");
+
+        Assert.Equal(ForwardLightingRenderFeature.ClusteredKey, h.Materials.PermutationSources[key]);
+        Assert.Contains(key, h.Materials.PermutationKeys["ForwardPlus"]);
+    }
+
+    /// <summary>
+    ///     And a clustered frame resolves a different variant than an identical unclustered one.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The assertion that could not be true before the routing existed</b>, and the reason
+    ///         it is stated as a difference between two frames rather than as one value: the same
+    ///         material, the same document, the same mesh — only
+    ///         <see cref="ForwardLightingRenderFeature.Clustered" /> moves, and it is a
+    ///         <em>renderer's</em> fact that no material can state.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ What it was before: the culler dispatched, the grid filled, and the pass shaded out
+    ///         of the per-object uniform loop beside it — <c>ClusteredShading.rvn</c>'s
+    ///         <c>UseClusteredLights = false</c>, resolved in silence, with every counter healthy.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_clustered_frame_resolves_a_different_variant_than_an_unclustered_one() {
+        Assert.Equal("false", Shaded(clustered: false));
+        Assert.Equal("true", Shaded(clustered: true));
+    }
+
+    /// <summary>What one frame's shading variant was compiled for, as its effect key spells it.</summary>
+    /// <remarks>
+    ///     A harness each, deliberately: a variant is cached by its effect key, so flipping the flag
+    ///     inside one frame would be the ordering hazard <c>SetPermutation</c> warns about rather than
+    ///     the property under test.
+    /// </remarks>
+    string? Shaded(bool clustered) {
+        var asset = YamlSerializer.Parse<GraphicsCompositorAsset>(Document);
+        using var h = Build();
+        using var lighting = new ForwardLightingRenderFeature { Clustered = clustered };
+
+        h.Meshes.Add(lighting);
+
+        var compositor = Compose(h, asset);
+        var opaque = h.Builder.Stages["Opaque"];
+        var mesh = AddMesh(h, -10f, new Material("ForwardPlus"), opaque.Mask);
+
+        Frame(h, compositor);
+
+        var effect = h.Materials.EffectOf(h.System, mesh);
+
+        Assert.NotNull(effect);
+
+        foreach (var (name, value) in effect!.Key.Values) {
+            if (string.Equals(name, "ForwardPlus.UseClusteredLights", StringComparison.Ordinal)) {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     ///     A document's four colour targets are what makes the shading pass write four.
     /// </summary>
     /// <remarks>
