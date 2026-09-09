@@ -106,7 +106,7 @@ sealed partial class EditorApplication {
 
             // ⚠ On the pool. `For` starts a process, and a network share or a repository whose
             // index is locked is seconds of a frame thread that is drawing a window.
-            sourceControl = await Task.Run(() => (ISourceControl?) GitSourceControl.For(root)).ConfigureAwait(false);
+            sourceControl = await Task.Run(() => (ISourceControl?)GitSourceControl.For(root)).ConfigureAwait(false);
             sought = true;
         }
 

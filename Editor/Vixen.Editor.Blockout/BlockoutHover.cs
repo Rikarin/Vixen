@@ -191,7 +191,7 @@ public static class BlockoutHover {
     /// <summary>Where cut <paramref name="index" /> sits on an edge, as a position.</summary>
     static Vector3 Along(EditMesh mesh, int edge, int index, int cuts, float slide) {
         var (a, b) = mesh.Edges[edge];
-        var along = cuts == 1 ? slide : (index + 1) / (float) (cuts + 1);
+        var along = cuts == 1 ? slide : (index + 1) / (float)(cuts + 1);
 
         return Vector3.Lerp(mesh.Positions[a], mesh.Positions[b], along);
     }

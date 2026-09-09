@@ -403,6 +403,6 @@ public class SourceControlColumnTests {
 
         public ValueTask<IReadOnlyDictionary<string, SourceControlStatus>> StatusAsync() => new(statuses);
 
-        public ValueTask<string?> RevertAsync(string path) => new((string?) null);
+        public ValueTask<string?> RevertAsync(string path) => new((string?)null);
     }
 }
