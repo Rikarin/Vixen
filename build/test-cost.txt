@@ -5,11 +5,18 @@
 #
 # ⚠ A name here that is no longer a test project in Vixen.slnx fails TestOrder and
 # Test. A test project with no line here is scheduled first, not last. And ⚠ a
-# number here that the run disagrees with by more than both
-# 60 s and 1.5× fails Test as well, in the
-# configuration below — these numbers are read as evidence and not only scheduled
-# on, and a stale one argued that the run could not be shortened at all (#863).
+# number here that the run disagrees with by more than both 60 s and 1.5×
+# fails Test as well, in the configuration below — these numbers are read as
+# evidence and not only scheduled on, and a stale one argued that the run could not
+# be shortened at all (#863).
 #
+# ⚠ That last guard is a guard on the schedule's TOP and not a freshness check on this
+# file, and the difference is most of the file. A row can only be reported as having
+# become faster if it is above 60 s to begin with, so 7 of these 178 rows
+# can be caught shrinking and 171 cannot be, by any measurement. A green Test
+# says nothing about those; only regenerating after a full run does (#1128).
+#
+# measured: 2026-09-05
 # configuration: Debug
 
 329.5    Vixen.Editor.App.Tests

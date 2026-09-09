@@ -249,7 +249,7 @@ partial class Build {
     ///     is packing is the wall of a test host including the time it spends starting, and on the
     ///     small assemblies that start-up is most of the number.
     /// </remarks>
-    IReadOnlyList<(string Project, double Seconds)> MeasuredTestCosts() {
+    IReadOnlyList<(string Project, DateTimeOffset Start, DateTimeOffset Finish)> MeasuredTestRuns() {
         var results = TestResultsDirectory.GlobFiles("*.trx");
 
         Assert.True(
@@ -259,22 +259,37 @@ partial class Build {
         );
 
         return [
-            .. results
-                .Select(trx => {
-                        var times = XDocument.Load(trx).Root!
-                            .Elements()
-                            .Single(element => element.Name.LocalName == "Times");
+            .. results.Select(trx => {
+                    var times = XDocument.Load(trx).Root!
+                        .Elements()
+                        .Single(element => element.Name.LocalName == "Times");
 
-                        var start = DateTimeOffset.Parse(times.Attribute("start")!.Value, CultureInfo.InvariantCulture);
-                        var finish = DateTimeOffset.Parse(times.Attribute("finish")!.Value, CultureInfo.InvariantCulture);
+                    return (
+                        Project: trx.NameWithoutExtension,
+                        Start: DateTimeOffset.Parse(times.Attribute("start")!.Value, CultureInfo.InvariantCulture),
+                        Finish: DateTimeOffset.Parse(times.Attribute("finish")!.Value, CultureInfo.InvariantCulture)
+                    );
+                }
+            )
+        ];
+    }
 
-                        return (Project: trx.NameWithoutExtension, Seconds: (finish - start).TotalSeconds);
-                    }
-                )
+    IReadOnlyList<(string Project, double Seconds)> MeasuredTestCosts() =>
+        [
+            .. MeasuredTestRuns()
+                .Select(run => (run.Project, Seconds: (run.Finish - run.Start).TotalSeconds))
                 .OrderByDescending(measurement => measurement.Seconds)
                 .ThenBy(measurement => measurement.Project, StringComparer.Ordinal)
         ];
-    }
+
+    /// <summary>The day the run whose TRX are on disk started.</summary>
+    /// <remarks>
+    ///     ⚠ Read off the TRX rather than the clock, so <c>--update-test-cost</c> over a fortnight-old
+    ///     <c>artifacts/test-results</c> stamps the fortnight-old date. It rewrites the file either
+    ///     way — the numbers are what those TRX say — and a stamp of "today" would be the file
+    ///     claiming a freshness the operation did not give it.
+    /// </remarks>
+    DateOnly MeasuredTestRunDate() => DateOnly.FromDateTime(MeasuredTestRuns().Min(run => run.Start).UtcDateTime);
 
     /// <summary>
     ///     Compares the committed cost list with the TRX of the run that has just finished, and
@@ -297,17 +312,41 @@ partial class Build {
     ///         artefacts without running anything again.
     ///     </para>
     /// </remarks>
+    /// <summary>How old the committed list's own numbers are, in words.</summary>
+    /// <param name="lines">The committed list.</param>
+    /// <returns>The sentence, which is a report and never a verdict.</returns>
+    /// <remarks>
+    ///     ⚠ It says plainly that nothing fails on it. An age is the only axis
+    ///     <see cref="TestCostDrift.MinimumSeconds" /> cannot swallow — no measurement contradicts a
+    ///     row under a minute — but a day count nobody has watched trip would be a second instrument
+    ///     of exactly the kind #1128 is about, so this counts and does not judge.
+    /// </remarks>
+    static string DescribeCostListAge(IEnumerable<string> lines) =>
+        TestCostDrift.MeasuredOn(lines) is { } measured
+            ? $"Its numbers are from the run of {measured:yyyy-MM-dd}, "
+            + $"{(DateOnly.FromDateTime(DateTime.UtcNow).DayNumber - measured.DayNumber)} day(s) ago; nothing here "
+            + "fails on that age."
+            : $"It does not say which run measured it — no `{TestCostDrift.MeasuredMarker}` line — so its age is "
+            + "unknown.";
+
     void AssertTestCostsStillDescribeTheRun() {
-        var stamped = TestCostDrift.ConfigurationOf(TestCostFile.ReadAllLines());
-        var drifted = TestCostDrift.Find(TestCosts(), MeasuredTestCosts());
+        var lines = TestCostFile.ReadAllLines();
+        var stamped = TestCostDrift.ConfigurationOf(lines);
+        var costs = TestCosts();
+        var drifted = TestCostDrift.Find(costs, MeasuredTestCosts());
         var comparable = IsLocalBuild && string.Equals(stamped, Configuration.ToString(), StringComparison.Ordinal);
 
         if (drifted.Count == 0) {
+            // ⚠ Not "the list is fresh", which is what this line said and is not what was checked.
+            // The coverage sentence is the difference, and on today's list it is 7 rows of 178
+            // (#1128).
             Log.Information(
-                "{File} still describes the run: nothing differs by both {Seconds} s and {Ratio}×.",
+                "Nothing in {File} differs by both {Seconds} s and {Ratio}×. ⚠ {Coverage} {Age}",
                 TestCostFile.Name,
                 TestCostDrift.MinimumSeconds,
-                TestCostDrift.MinimumRatio
+                TestCostDrift.MinimumRatio,
+                TestCostDrift.Coverage.Of(costs.Values).Describe(),
+                DescribeCostListAge(lines)
             );
 
             return;
@@ -350,29 +389,29 @@ partial class Build {
         .Description("Prints the order Test starts the test assemblies in, or rewrites the cost list from the last run")
         .Executes(() => {
             if (UpdateTestCost) {
-                var measured = MeasuredTestCosts();
+                var runs = MeasuredTestRuns();
+
+                var measured = runs
+                    .Select(run => (run.Project, Seconds: (run.Finish - run.Start).TotalSeconds))
+                    .OrderByDescending(measurement => measurement.Seconds)
+                    .ThenBy(measurement => measurement.Project, StringComparer.Ordinal)
+                    .ToList();
+
+                var date = DateOnly.FromDateTime(runs.Min(run => run.Start).UtcDateTime);
 
                 TestCostFile.WriteAllLines([
-                    "# The wall of each test assembly in seconds, longest first, read out of the TRX",
-                        "# `Times` of a full Test run. Regenerate with",
-                        "# `./build.sh TestOrder --update-test-cost`, which reads the TRX that run already",
-                        "# wrote and reruns nothing.",
-                        "#",
-                        "# ⚠ A name here that is no longer a test project in Vixen.slnx fails TestOrder and",
-                        "# Test. A test project with no line here is scheduled first, not last. And ⚠ a",
-                        "# number here that the run disagrees with by more than both",
-                        $"# {TestCostDrift.MinimumSeconds:0} s and {TestCostDrift.MinimumRatio:0.0}× fails Test as well, in the",
-                        "# configuration below — these numbers are read as evidence and not only scheduled",
-                        "# on, and a stale one argued that the run could not be shortened at all (#863).",
-                        "#",
-                        $"{TestCostDrift.ConfigurationMarker} {Configuration}",
-                        "",
+                    .. TestCostDrift.Header(Configuration.ToString(), date, measured.Select(m => m.Seconds)),
                         .. measured.Select(measurement =>
                             $"{measurement.Seconds.ToString("0.0", CultureInfo.InvariantCulture),-8} {measurement.Project}"
                         )
                 ]);
 
-                Log.Information("Wrote {Count} measurement(s) to {File}.", measured.Count, TestCostFile);
+                Log.Information(
+                    "Wrote {Count} measurement(s) from the run of {Date} to {File}.",
+                    measured.Count,
+                    date,
+                    TestCostFile
+                );
 
                 return;
             }
@@ -408,9 +447,11 @@ partial class Build {
             var drifted = TestCostDrift.Find(costs, MeasuredTestCosts());
 
             if (drifted.Count == 0) {
-                Log.Information("Every cost above is within {Seconds} s or {Ratio}× of the last run.",
+                Log.Information("Every cost above is within {Seconds} s or {Ratio}× of the last run. ⚠ {Coverage} {Age}",
                     TestCostDrift.MinimumSeconds,
-                    TestCostDrift.MinimumRatio
+                    TestCostDrift.MinimumRatio,
+                    TestCostDrift.Coverage.Of(costs.Values).Describe(),
+                    DescribeCostListAge(TestCostFile.ReadAllLines())
                 );
 
                 return;
