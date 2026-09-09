@@ -59,7 +59,7 @@ public sealed class GoldenFileTests : IDisposable {
         var failure = Assert.Throws<XunitException>(() => GoldenFile.Matches("rendered", path));
 
         Assert.Contains("(re)generated", failure.Message, StringComparison.Ordinal);
-        Assert.Equal("rendered", File.ReadAllText(path));
+        Assert.Equal("rendered\n", File.ReadAllText(path));
     }
 
     /// <summary>⚠ An empty rendering is refused even when the committed golden is empty too.</summary>
@@ -123,7 +123,36 @@ public sealed class GoldenFileTests : IDisposable {
         Assert.Contains("@@ -1,3 +1,3 @@", failure.Message, StringComparison.Ordinal);
         Assert.Contains("- gamma", failure.Message, StringComparison.Ordinal);
         Assert.Contains("+ GAMMA", failure.Message, StringComparison.Ordinal);
-        Assert.Equal("alpha\nbeta\nGAMMA\ndelta", File.ReadAllText(path + ".actual"));
+        Assert.Equal("alpha\nbeta\nGAMMA\ndelta\n", File.ReadAllText(path + ".actual"));
+    }
+
+    /// <summary>⚠ Regenerating a golden that was already right leaves the file byte-identical.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The comparison trims the trailing newline so that an editor adding one cannot fail a
+    ///         suite it did not touch — and the writer used to commit that trimmed form, so a run of
+    ///         <c>UPDATE_GOLDEN=1</c> rewrote <i>every</i> golden in the suite without its final
+    ///         newline. Three of the four wire goldens came back as
+    ///         <c>\ No newline at end of file</c> on a change that touched one
+    ///         ([#1052](https://github.com/Rikarin/Vixen/issues/1052)).
+    ///     </para>
+    ///     <para>
+    ///         Asserted as bytes rather than through <c>Matches</c>, because the comparison passes
+    ///         either way: that is what let this stand, and it is what makes a test written in terms
+    ///         of the comparison worthless here.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void RegeneratingAGoldenThatDidNotChangeRewritesTheSameBytes() {
+        var committed = "one\ntwo\n";
+        var path = Committed("stable.txt", committed);
+
+        // What Rewriting does, without depending on the environment variable: the file exists, so
+        // this is the branch a regeneration takes.
+        File.Delete(path);
+        Assert.Throws<XunitException>(() => GoldenFile.Matches("one\ntwo", path));
+
+        Assert.Equal(committed, File.ReadAllText(path));
     }
 
     string Committed(string name, string text) {
