@@ -194,6 +194,30 @@ it uses change versions. They exist for editor tooling and user code.
 > unpredictable. `A_handle_behind_a_reference_is_out_of_this_rules_reach` and `A_cyclic_shape_terminates`
 > are that bound written down.
 >
+> ⚠ **The same hole was open in the sibling analyzer for a day longer, and it is closed too.**
+> `BehaviorStateAnalyzer.Offender` (`VXS0413`/`VXS0414`) was written with the same walk, so the fix
+> landed on one and not the other: a behaviour holding `List<Entity>` was refused and one holding a
+> one-field wrapper around the same handle was not — [#1141](https://github.com/Rikarin/Vixen/issues/1141).
+> It now walks a struct's instance fields with the identical bound. ⚠ One precedence follows from it
+> that was not there before: a `[Component]` struct that itself holds an `Entity` is reported as
+> `VXS0413` rather than `VXS0414`, which is what the type-argument walk already did for
+> `Held<Entity>`. **An analyzer that catches the direct shape and misses the wrapped one is worse
+> than none, because the rule then reads as enforced** — which is the general lesson, not a fact
+> about these two.
+>
+> ⚠ **Two corrections to the description of the failure above.** First, a component holding an
+> `Entity` that carries `[Component]` *without* `[DataContract]` is not written as a stale slot
+> number and is not silently dropped either: `Capture` skips a type that is not in
+> `SceneComponentRegistry` and names it in `WorldContent.Dropped` (`WorldSerializer.cs:321,368`,
+> which `WorldContent.IsComplete` reads), so the loss is recorded — a caller that ignores `Dropped`
+> is the silent part, not the serializer. Second, `CopyComponentsFrom` *does* have production
+> callers, five of them in `Core/Vixen.Engine/Scenes/Prefab.cs` and three more across the editor's
+> `SubtreeSnapshot` and `WorldSnapshot`. The exposure there is narrower than it reads: the editor's
+> copy an entity out
+> to a scratch world and back into the world it came from, where a handle still names what it named,
+> and prefab instantiation's cross-world copies carry only components a scene could name — which
+> `VXS0416` now refuses to let hold a handle at all.
+>
 > ⚠ **And this refutes the premise the choice between the two shapes rests on.** `WorldSerializer`
 > says "nothing generic knows which of a component's fields are handles" and
 > `World.CopyComponentsFrom` repeats it — but `SerializedHandleAnalyzer` answers exactly that
@@ -355,6 +379,36 @@ This is measurably slower than a pure ECS system and dramatically faster than Un
 MonoBehaviour path. It is the honest trade: convenience where users want it, `ISystem` where they
 need throughput. Both are first-class and documented as such.
 
+> ⚠ **Item 3 is not built, and its stated blocker has *moved* rather than expired.**
+> `BehaviorJob` appears nowhere in the tree — [#294](https://github.com/Rikarin/Vixen/issues/294) —
+> so `BehaviorStore.RunUpdate` walks the buckets in order on the calling thread and ten thousand
+> instances of one type run on one core. Bucketing bought the cache locality; parallelism is a
+> separate axis and item 2 does not dispose of it.
+>
+> The blocker this section names is "the read/write safety check", and both issues it pointed at are
+> **closed**: `JobScheduler` has `DeclareAccess`, `JobAccess` and `ParallelFor` today, and
+> `SystemAccessInferenceGenerator` infers a declaration from a body. ⚠ **But neither reaches a
+> behaviour**, and saying which half is missing is the point:
+>
+> - **The inference is `ISystem`-shaped and reads queries.** It is gated on `[InferAccess]` on a type
+>   implementing `ISystem` (`VXS0407`) and collects from `QueryDescription`, `World`, `Chunk` and
+>   `WorldQueryExtensions` calls. A behaviour reaches components through `Behavior.Get<T>()` /
+>   `Read<T>()` and through the `Transform` façade, which is none of those — and the generator's own
+>   `VXS0412` already refuses a body that hands a world to a call it cannot read, rather than
+>   assuming it harmless. So a declaration for a behaviour type is new inference, not a reused one.
+> - **A declaration is not enough on its own, because `Update` may touch the store.**
+>   `Enabled` queues into a plain `List<Behavior?>` through `QueueEnabledChange`, `Destroy()` and
+>   `Run(coroutine)` do the same to their own queues, and none of it is synchronised — deliberately,
+>   because the whole lifecycle is deferred to a single-threaded drain. So `[BehaviorJob]` needs a
+>   **refusal** — the analyzer shape this file's other three rules already have — as much as it needs
+>   a declaration: inside a `[BehaviorJob]` `Update`, a lifecycle call is a data race and not a slow
+>   path.
+>
+> **What is owed is therefore four things, in order**: the access declaration for a behaviour type,
+> the refusal, dispatch through `ParallelFor` in `BehaviorBucket<T>`, and the measurement — because
+> "measurably slower than a pure ECS system and dramatically faster than Unity's MonoBehaviour path"
+> is a claim this section makes and nothing checks.
+
 ### The rule that keeps this coherent
 
 > ✅ **Built.** `Core/Vixen.Engine/` with 58 tests: the frame loop and its fixed-step accumulator,
@@ -489,6 +543,15 @@ Without this rule, the ECS below becomes decoration and the whole design collaps
 >   been silent on "a cached transform", the case this section spells out. What is decidable instead
 >   is the read: assigning what `Get<T>`/`Read<T>` returns into a member of the behaviour is the copy,
 >   whatever `T` is annotated with.
+> - ⚠ **It reaches one struct deep, and for a day it did not.** `Offender` followed an array's
+>   element type and a generic's type arguments and then stopped at a named type's own fields, so
+>   `List<Entity>` was refused and `struct Link { public Entity Target; }` was waved through —
+>   [#1141](https://github.com/Rikarin/Vixen/issues/1141), the same hole its sibling `VXS0416` had
+>   and the same fix. The wrapped shape is the *likelier* one, because a wrapper is what anyone
+>   reaches for on the second kind of link. **Structs only**: a class field is a pointer rather than
+>   bytes on the behaviour, which is what an asset or a service reference is and which this rule
+>   allows, and primitives and enums are skipped so that `System.Single`'s own `float` does not make
+>   termination depend on the depth bound.
 > - **The hot-data warning is deliberately not built.** There is no static predicate for "hot" — this
 >   section says profiling is what promotes a field — and a rule whose predicate cannot be false is
 >   worse than no rule.

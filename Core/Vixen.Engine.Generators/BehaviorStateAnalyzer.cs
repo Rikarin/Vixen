@@ -54,7 +54,7 @@ public sealed class BehaviorStateAnalyzer : DiagnosticAnalyzer {
     const string TagComponentMetadataName = "Vixen.Ecs.ITagComponent";
     const string WorldMetadataName = "Vixen.Ecs.World";
 
-    /// <summary>How far into a generic's type arguments a held type is looked for.</summary>
+    /// <summary>How far into an array, a generic's arguments or a struct's fields a held type is looked for.</summary>
     /// <remarks>
     ///     A <c>List&lt;Entity&gt;</c> is the case the document names and a
     ///     <c>Dictionary&lt;int, List&lt;Entity&gt;&gt;</c> is the same thing said twice. The bound
@@ -253,8 +253,30 @@ public sealed class BehaviorStateAnalyzer : DiagnosticAnalyzer {
 
     /// <summary>The banned type a member's type reaches, or null.</summary>
     /// <remarks>
-    ///     ⚠ <b>An entity beats a component when a member reaches both.</b> One member gets one
-    ///     diagnostic, and the handle is the half that also corrupts a file.
+    ///     <para>
+    ///         ⚠ <b>An entity beats a component when a member reaches both.</b> One member gets one
+    ///         diagnostic, and the handle is the half that also corrupts a file. That precedence now
+    ///         also decides a <c>[Component]</c> struct that itself holds an <c>Entity</c>: the
+    ///         member is reported as VXS0413 rather than VXS0414, which is what the type-argument
+    ///         walk already did for <c>Held&lt;Entity&gt;</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A struct's own fields are part of the walk, and were the hole.</b>
+    ///         <c>List&lt;Entity&gt;</c> was refused and <c>struct Link { public Entity Target; }</c>
+    ///         was waved through — even though a wrapper is what a codebase reaches for as soon as it
+    ///         has more than one kind of link, and the handle is exactly as stale on the far side of
+    ///         a save either way. An analyzer that catches the direct shape and misses the wrapped one
+    ///         is worse than none, because the rule then reads as enforced. This is the same walk
+    ///         <c>SerializedHandleAnalyzer.Holds</c> gained for VXS0416, with the same stated bound.
+    ///     </para>
+    ///     <para>
+    ///         <b>Structs only, and that bound is the honest half.</b> A class field is a pointer
+    ///         rather than bytes on the behaviour, its graph can be arbitrarily large and cyclic, and
+    ///         a class reference is what an asset or a service reference is — which the rule allows.
+    ///         Primitives and enums are skipped because <c>System.Single</c> holds a <c>float</c> of
+    ///         its own, so a walk that followed them would depend on the depth bound to terminate
+    ///         rather than on the shape of the type.
+    ///     </para>
     /// </remarks>
     static INamedTypeSymbol? Offender(
         ITypeSymbol held,
@@ -283,6 +305,28 @@ public sealed class BehaviorStateAnalyzer : DiagnosticAnalyzer {
 
         foreach (var argument in named.TypeArguments) {
             var inside = Offender(argument, entity, componentAttribute, tagComponent, depth - 1);
+
+            if (inside is null) {
+                continue;
+            }
+
+            if (SymbolEqualityComparer.Default.Equals(inside, entity)) {
+                return entity;
+            }
+
+            component ??= inside;
+        }
+
+        if (named.TypeKind != TypeKind.Struct || named.SpecialType != SpecialType.None) {
+            return component;
+        }
+
+        foreach (var member in named.GetMembers()) {
+            if (member is not IFieldSymbol { IsConst: false, IsStatic: false } field) {
+                continue;
+            }
+
+            var inside = Offender(field.Type, entity, componentAttribute, tagComponent, depth - 1);
 
             if (inside is null) {
                 continue;

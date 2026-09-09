@@ -274,8 +274,42 @@ the same thing, with the layer boundary holding it up.
 the same thing — `World.CopyComponentsFrom` says the same and leaves the fix-up to its caller.
 `Parent`, `Child` and `Sibling` are therefore never written: the hierarchy travels as a table of
 indices and the links are rebuilt. A component of a game's own that stores an `Entity` is not
-covered, because nothing generic can tell which of a struct's four-byte fields are handles, and
-`TryRecreate` does not help — it needs a slot the world has already issued and destroyed, which a
-world being restored into has not.
+covered, and `TryRecreate` does not help — it needs a slot the world has already issued and
+destroyed, which a world being restored into has not.
+
+⚠ **The reason that paragraph used to give for it is false, and the correction changes what the fix
+would cost.** "Nothing generic can tell which of a struct's four-byte fields are handles" is no
+longer true: `SerializedHandleAnalyzer` (`VXS0416`) answers exactly that question at compile time,
+for every component in every assembly that runs it, and throws the answer away as a diagnostic. So
+generated per-component handle metadata is not a mechanism to invent — it is that walk emitting a
+field list instead of an error. That prices one of the two shapes
+[#296](https://github.com/Rikarin/Vixen/issues/296) is choosing between; it does not choose it, and
+the other shape — a `GuidComponent` — buys an identity that survives being written into a *different*
+file from the entity it names, which is what a prefab reference and a cross-scene reference need and
+what metadata cannot give.
+
+**Layers and tags, which are an open decision rather than a missing feature.**
+[#1036](https://github.com/Rikarin/Vixen/issues/1036). The editor's `Layers and Tags…` line is grey
+with the reason "layers need an ECS-side concept first", and that is the right answer until someone
+makes the call here. ⚠ **What is *not* true is that nothing says what a layer would be.**
+`Core/Vixen.Physics/PhysicsLayers.cs` already is the whole shape and is live — `PhysicsLayer(byte)`
+the dense index, `PhysicsLayerMask(uint)` the one-word bitmask so a filter test is a single `and`,
+and a 32-entry name table with a symmetric collision matrix, all read today by `PhysicsWorld`,
+`QueryFilter`, `PhysicsOcclusionProvider` and `Vixen.Ai.Perception`. The three shapes the question is
+usually posed as — small integer, bitmask, name table — are three projections of that one table
+rather than alternatives.
+
+⚠ **And two of the three consumers usually named are not consumers.** `RenderView.Stages` is a
+`RenderStageMask`, which is a different axis entirely — which *pass* collects an object, not which
+world layer it sits on — and nothing in `Vixen.Rendering` has a per-view include/exclude mask.
+`SceneHierarchyView` has no filter of any kind. Only physics is real, and it decided already. The
+call is therefore **promote** (lift the table to a world-level `SceneLayers` with a one-byte
+`SceneLayer` component, physics keeping its matrix as a view of it), **federate** (each subsystem
+keeps its own table, and an entity on "Enemy" for physics is not on "Enemy" for rendering — the exact
+confusion a single table exists to prevent), or **drop** (say scene-wide layers are not a thing here
+and take the menu line off). The binding constraint is that any consumer reads it per object per
+frame, which rules out a dictionary lookup and asks for a dense index and a mask — which is what
+already exists and is already proved by a shipping subsystem. Nothing is built on that reasoning
+until the call is made.
 
 Licensed under Apache-2.0.

@@ -78,6 +78,125 @@ public class BehaviorStateTests {
         Assert.Equal(BehaviorStateAnalyzer.HandleDiagnosticId, Assert.Single(reported).Id);
     }
 
+    /// <summary>
+    ///     ⚠ <b>The wrapped handle, which is the likelier shape and was the hole.</b> The walk
+    ///     followed arrays and generic arguments and then stopped at a named type's own fields, so a
+    ///     <c>List&lt;Entity&gt;</c> was refused and a one-field wrapper around the same handle was
+    ///     waved through — and a wrapper is what a codebase reaches for as soon as it has more than
+    ///     one kind of link. The handle is exactly as stale on the far side of a save either way.
+    /// </summary>
+    [Fact]
+    public async Task A_handle_one_struct_deep_is_still_a_handle_a_behaviour_holds() {
+        var reported = await RunAsync(
+            """
+            using Vixen.Core;
+            using Vixen.Engine.Behaviors;
+
+            public struct Link {
+                public Entity Target;
+                public float Weight;
+            }
+
+            public sealed class Leash : Behavior {
+                Link anchor;
+            }
+            """
+        );
+
+        var diagnostic = Assert.Single(reported);
+
+        Assert.Equal(BehaviorStateAnalyzer.HandleDiagnosticId, diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+        Assert.Equal("anchor", AnalyzerHarness.Underlined(diagnostic));
+    }
+
+    /// <summary>
+    ///     The same hole on the other half of the rule: a copy of a component is a copy whether the
+    ///     behaviour names the component or names a struct that carries one.
+    /// </summary>
+    [Fact]
+    public async Task A_component_one_struct_deep_is_still_a_copy() {
+        var reported = await RunAsync(
+            """
+            using Vixen.Core;
+            using Vixen.Engine.Behaviors;
+
+            [Component]
+            public struct Health {
+                public float Value;
+            }
+
+            public struct Snapshot {
+                public Health Vitals;
+                public float TakenAt;
+            }
+
+            public sealed class Medic : Behavior {
+                Snapshot last;
+            }
+            """
+        );
+
+        var diagnostic = Assert.Single(reported);
+
+        Assert.Equal(BehaviorStateAnalyzer.ComponentDiagnosticId, diagnostic.Id);
+        Assert.Equal("last", AnalyzerHarness.Underlined(diagnostic));
+        Assert.Contains("Health", diagnostic.GetMessage(null), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A reference is where the walk stops, and stating the bound is the point.</b> A class
+    ///     a behaviour holds is a reference to one object rather than bytes on the behaviour — which
+    ///     is what an asset or a service reference is, and those are allowed. Its graph can also be
+    ///     arbitrarily large and cyclic, so walking it would make the predicate unpredictable.
+    /// </summary>
+    [Fact]
+    public async Task A_handle_behind_a_class_reference_is_out_of_this_rules_reach() {
+        var reported = await RunAsync(
+            """
+            using Vixen.Core;
+            using Vixen.Engine.Behaviors;
+
+            public sealed class Bookmark {
+                public Entity Target;
+            }
+
+            public sealed class Journal : Behavior {
+                Bookmark latest = new();
+            }
+            """
+        );
+
+        Assert.Empty(reported);
+    }
+
+    /// <summary>
+    ///     ⚠ A struct may name itself through a reference, and a field walk without a bound would
+    ///     hang the build rather than fail it. The depth bound is what makes this terminate, and this
+    ///     is the fixture that says so — a walk that also followed primitives would need the bound to
+    ///     escape <c>System.Single</c>'s own <c>float</c> field instead.
+    /// </summary>
+    [Fact]
+    public async Task A_cyclic_shape_terminates() {
+        var reported = await RunAsync(
+            """
+            using System.Collections.Generic;
+            using Vixen.Engine.Behaviors;
+
+            public struct Node {
+                public List<Node> Children;
+                public float Weight;
+            }
+
+            public sealed class Tree : Behavior {
+                Node root;
+            }
+            """
+        );
+
+        Assert.Empty(reported);
+    }
+
     [Fact]
     public async Task A_component_struct_on_a_behaviour_is_refused() {
         var reported = await RunAsync(
