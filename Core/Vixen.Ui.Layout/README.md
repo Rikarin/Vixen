@@ -836,8 +836,9 @@ containing block and the test could not otherwise have failed.
 
 ⚠ **What is not here is any *pruning*.** Nothing skips a measurement, a layout pass or a draw-list
 walk because of a promise made through this property; containment changes what the answer is, not how
-long it takes to get. And no `contain-*` utility class is registered — the parity ledger's row stays
-`absent` until the family lands. See `docs/guide/ui/containment.md` and
+long it takes to get. ⚠ And the eight `contain-*` utility classes landed on 2026-09-09, four batches
+after this property did: the parity row read `absent` the whole time for a feature that was finished,
+because nothing had registered the names. See `docs/guide/ui/containment.md` and
 `docs/plan/43-web-styling-parity.md` § Part 9, Bucket 3.
 
 ⚠ **§4.5's automatic minimum is held under a ceiling this store keeps on purpose, and Chrome does

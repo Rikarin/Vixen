@@ -877,6 +877,17 @@ public class UtilityFamilySupportTests {
         { "forced-color-adjust-none", "forced-color-adjust", "none" },
         { "forced-color-adjust-auto", "forced-color-adjust", "auto" },
 
+        // ⚠ <b>The property was read end to end for four batches before any class could name it</b> —
+        // #785 and #786 built `ContainmentReader`, `LayoutStyle.Containment`, the size branch and the
+        // paint clip, and #246 registered the eight names on 2026-09-09. Two rows rather than eight
+        // because this table asks whether the ENGINE acts on the property and
+        // `ContainFamilyTests` asks about the mapping: `size` is the kind whose absence is visible on
+        // a fixture that does nothing else, and `style` is the kind that computes and moves nothing
+        // on purpose — see the third `Inert` note below, which is where it would sit if
+        // `ContainmentReader` did not have to understand it for the aggregates' sake.
+        { "contain-size", "contain", "size" },
+        { "contain-paint", "contain", "paint" },
+
         { "truncate", "overflow", "hidden" },
         { "overflow-scroll", "overflow", "scroll" },
         { "overflow-auto", "overflow", "auto" },

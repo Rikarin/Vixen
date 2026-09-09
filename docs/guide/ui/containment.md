@@ -101,8 +101,9 @@ In a `.vcss` it is the declaration CSS uses, and the reader takes a list of keyw
 #row   { contain: inline-size; }
 ```
 
-There are no `contain-*` utility classes yet: the parity ledger's row stays `absent` until the
-family is registered, which is tracked separately from the property being read.
+The eight `contain-*` utility classes spell the same thing — `contain-none`, `contain-content`,
+`contain-strict`, `contain-size`, `contain-inline-size`, `contain-layout`, `contain-paint` and
+`contain-style`, each emitting its own keyword.
 
 ## Examples
 
@@ -163,8 +164,10 @@ exactly the disagreement that arrangement exists to prevent.
 because of a promise made here; the property changes what the answer *is*, not how long it takes to
 get. `contain: size` still lays its subtree out.
 
-⚠ **No `contain-*` utility classes.** The property is reachable from a hand-written `.vcss` and from
-the layout store, and the utility family is a separate piece of work.
+⚠ **`contain-style` is a real class for a keyword that moves nothing**, and that is deliberate rather
+than an oversight. `ContainmentReader` drops a declaration it cannot parse *whole*, as CSS does — so a
+`style` it had never heard of would make `contain: layout style` contain nothing at all, and both
+aggregate keywords expand through it. Understood-and-inert is a different state from unparseable.
 
 ## See also
 

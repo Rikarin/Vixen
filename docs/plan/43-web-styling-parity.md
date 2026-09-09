@@ -84,7 +84,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **331** | 311 families |
+| Utility **roots** (the unit of this table) | **331** | 312 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **54** |
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **248** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **249** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **24** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **55** |
+| **absent** | not emitted at all | **54** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 
 ⚠ **There was a sixth, `unknown`, and it described a row rather than a state.** Exactly one row held
@@ -489,7 +489,7 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed |
 |---|--:|--:|--:|--:|--:|--:|
-| Layout | 49 | 35 | 2 | 0 | 9 | 3 |
+| Layout | 49 | 36 | 2 | 0 | 8 | 3 |
 | Interactivity | 40 | 30 | 0 | 1 | 9 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 |
 | Effects | 35 | 30 | 2 | 0 | 3 | 0 |
@@ -504,10 +504,10 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
 | Accessibility | 1 | 1 | 0 | 0 | 0 | 0 |
-| **Total** | **331** | **248** | **24** | **1** | **55** | **3** |
+| **Total** | **331** | **249** | **24** | **1** | **54** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
-policy rather than owed; then Layout at 35 of 49, Interactivity at 30 of 40, Borders at 28 of 34,
+policy rather than owed; then Layout at 36 of 49, Interactivity at 30 of 40, Borders at 28 of 34,
 and Effects at 27 of 34. ⚠ Accessibility is 1 of 1 as of 2026-09-06 — `forced-color-adjust` landed the
 day its last blocker (#836) closed, and this paragraph said it had "no working root at all" for as long
 as the refusal outlived its reason. **Tables** is the one category still at zero.
@@ -3593,9 +3593,22 @@ overflows.
 **Sized:** `paint` is small and is the same clip that already exists. `layout` is small and is mostly
 a statement about what is already true, which is a reason to be careful that its test can fail.
 `size` and `inline-size` are the item, and they are a change inside the flex and block algorithms
-with an intrinsic-pre-pass half beside it. `style` is a refusal. The four buildable kinds are filed
-separately from this triage; the row stays `absent` until every keyword an aggregate class expands to
-is real, because a half-real `contain-strict` is worse than an absent one.
+with an intrinsic-pre-pass half beside it. `style` is a refusal.
+
+⚠ **All of that landed under #785 and #786, and the row went on reading `absent` for four more
+batches — because nobody registered the eight class names.** The property was end to end:
+`ContainmentReader` parsing the list, `LayoutStyle.Containment` carrying it, the size branch at the
+top of `CalculateLayoutImpl`, `EstablishesBlockFormattingContext`, and `OverflowAxes` taking `paint`
+as a second reason to clip. A hand-written `.vcss` had every one of them. What no stylesheet could
+write was `contain-content`, so the ledger measured a finished feature as an absent one. That is this
+document's own commonest defect wearing the other face — not a finished thing nothing calls, but a
+finished thing nothing can *name* — and it is worth watching for wherever a plan splits "the
+mechanism" from "the classes" into separate items. `Keywords("contain", "contain", …)` closed it on
+2026-09-09 and the row reads `works`; `ContainFamilyTests` asserts the eight mappings one at a time,
+which the ledger cannot, because `state` moves on the property being read and never looks at the
+value. ⚠ `contain-style` is registered although `style` folds to no flag: `ContainmentReader` drops a
+declaration it cannot parse *whole*, so an unregistered keyword would make `contain: layout style`
+contain nothing — and both aggregates expand through it.
 
 ### Bucket 4 — the algorithm was never written. `columns`, the three `break-*`, `box-decoration-break`, `float`, `clear`.
 
