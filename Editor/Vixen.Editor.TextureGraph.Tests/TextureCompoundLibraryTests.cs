@@ -195,8 +195,7 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
         // on #1096, for want of an atomic node mapping a metal name to an F0, until 2026-09-09. A
         // refusal comes out of the list below and into § 4.9's prose with its number, so that the
         // one row where the plan and the folder legitimately disagree says why in both places.
-        Assert.All(
-            new (string Folder, string[] Marked, string Why)[] {
+        var rows = new (string Folder, string[] Marked, string Why)[] {
                 ("Utility/", [
                     "Contrast Luminosity", "Equalize", "Highpass", "Histogram Range", "Histogram Scan",
                     "Histogram Select", "Make It Tile", "Safe Transform"
@@ -218,7 +217,10 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
                     "Curvature Edge Wear", "Dirt", "Dust", "Grunge Rough Dirty", "Mask Editor",
                     "Metal Edge Wear", "Position Gradient"
                 ], "§ 4.9's mask-generator row marks seven ●, every one of which reads § D12's maps by usage")
-            },
+        };
+
+        Assert.All(
+            rows,
             expected => {
                 var shipped = onDisk
                     .Where(path => path.StartsWith(expected.Folder, StringComparison.Ordinal))
@@ -255,6 +257,20 @@ public sealed class TextureCompoundLibraryTests : IDisposable {
                     + "and the name here."
                 );
             }
+        );
+
+        // ⚠ The rows above are five hard-coded prefixes, so a compound shipped anywhere else is
+        // checked by nothing — and the comment above, `Compounds/README.md` and doc 48 § 4.9 all say
+        // this class refuses a shipped file no ● names. A sixth folder, or a file at the root, would
+        // have shipped with every assertion here green: the per-folder loop never sees it, and the
+        // manifest comparison below only compares the disk with itself.
+        Assert.All(
+            onDisk,
+            path => Assert.True(
+                Array.Exists(rows, row => path.StartsWith(row.Folder, StringComparison.Ordinal)),
+                $"'{path}' is in no folder this class has a row for, so nothing checks it against § 4.9. "
+                + "Add a row — the ● count, the shipped floor and the names — or move the file."
+            )
         );
 
         Assert.Equal(onDisk, TextureCompoundLibrary.Shipped);

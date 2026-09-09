@@ -3444,6 +3444,7 @@ Vixen.Rendering.Materials.MaterialCompilationContext.Report(Vixen.Rendering.Mate
 Vixen.Rendering.Materials.MaterialCompilationContext.Set<T>(string name, T value) -> void
 Vixen.Rendering.Materials.MaterialCompilationContext.SetPermutation<T>(string name, T defaultValue, T value) -> void
 Vixen.Rendering.Materials.MaterialCompilationContext.ShaderName.get -> string
+Vixen.Rendering.Materials.MaterialCompilationContext.Strict.get -> bool
 Vixen.Rendering.Materials.MaterialCompiler -> static class
 Vixen.Rendering.Materials.MaterialContent -> sealed record
 Vixen.Rendering.Materials.MaterialContent : System.IEquatable<Vixen.Rendering.Materials.MaterialContent>
@@ -6711,7 +6712,7 @@ static Vixen.Rendering.Lighting.SurfaceCardCapture.Projection(in Vixen.Rendering
 static Vixen.Rendering.Lighting.SurfaceCardCapture.SinglePassOutput.get -> Vixen.Rendering.RenderOutput
 static Vixen.Rendering.LineShaders.Default(Vixen.Graphics.IGraphicsDevice device) -> Vixen.Rendering.LineShaders
 static Vixen.Rendering.Materials.GraphSurfaceFeature.IndexParameter(string path, string slot) -> string
-static Vixen.Rendering.Materials.MaterialCompiler.Compile(Vixen.Rendering.Materials.MaterialDescriptor descriptor, System.Collections.Generic.IReadOnlyDictionary<string, string>? slots = null) -> Vixen.Rendering.Materials.MaterialCompilation
+static Vixen.Rendering.Materials.MaterialCompiler.Compile(Vixen.Rendering.Materials.MaterialDescriptor descriptor, System.Collections.Generic.IReadOnlyDictionary<string, string>? slots = null, bool strict = true) -> Vixen.Rendering.Materials.MaterialCompilation
 static Vixen.Rendering.Materials.MaterialCompiler.PassComposition() -> Vixen.Shaders.ShaderComposition
 static Vixen.Rendering.Materials.MaterialCompiler.PassComposition(params System.ReadOnlySpan<(string Slot, string Filler)> overrides) -> Vixen.Shaders.ShaderComposition
 static Vixen.Rendering.Materials.MaterialCompiler.PassComposition(string slot, string filler) -> Vixen.Shaders.ShaderComposition

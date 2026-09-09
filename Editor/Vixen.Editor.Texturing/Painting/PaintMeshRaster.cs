@@ -252,7 +252,7 @@ sealed class PaintMeshRaster {
     ///     previous frame across the pane, and one that shared a row between two bands would be two
     ///     threads writing one depth slot — a race whose symptom is a few wrong pixels on some frames
     ///     and not others. Both are invisible in a picture and neither is a crash, so
-    ///     <c>PaintMeshRasterTests</c> asserts the partition itself over many sizes rather than
+    ///     <c>PaintMeshOrbitTests</c> asserts the partition itself over many sizes rather than
     ///     hoping a rendered frame shows it.
     /// </remarks>
     public static (int Low, int High) Rows(int band, int bands, int height) {

@@ -215,6 +215,20 @@ public class BrokenBindingTests {
         label.Text = "words";
 
         Assert.Throws<InvalidOperationException>(() => label.Add("box"));
+
+        // ⚠ And the parent is untouched, which the throw on its own does not say. The layout tree's
+        // own guard fires last — after the style node is made and after the child is in the parent's
+        // element list — so refusing there swaps an un-laid-out child for a document in two states,
+        // and inside a binding the effect swallows the throw and that state is permanent.
+        Assert.Empty(label.Children);
+        Assert.Equal("words", label.Text);
+
+        // And the document still works afterwards: a half-created element would take the next
+        // sibling's index with it.
+        var sibling = document.Root.Add("box");
+
+        Assert.Equal(2, document.Root.Children.Count);
+        Assert.Same(sibling, document.Root.Children[1]);
     }
 
     /// <summary>A panel whose binding works, for the reading taken when nothing is wrong.</summary>
@@ -228,12 +242,6 @@ public class BrokenBindingTests {
         }
     }
 
-    /// <summary>The natural spelling: a container that binds its own text, with a run counter.</summary>
-    /// <remarks>
-    ///     ⚠ The counter is what makes "frozen" measurable. Without it, an element holding the right
-    ///     first value and the wrong second one is the same picture as an element whose model has
-    ///     not moved.
-    /// </remarks>
     /// <summary>A component that breaks one binding, made through whichever helper is named.</summary>
     /// <param name="helper">Which of the three to use.</param>
     /// <remarks>
@@ -260,6 +268,12 @@ public class BrokenBindingTests {
         static object? Boom() => throw new InvalidOperationException("this binding is meant to throw.");
     }
 
+    /// <summary>The natural spelling: a container that binds its own text, with a run counter.</summary>
+    /// <remarks>
+    ///     ⚠ The counter is what makes "frozen" measurable. Without it, an element holding the right
+    ///     first value and the wrong second one is the same picture as an element whose model has
+    ///     not moved.
+    /// </remarks>
     sealed class Frozen : Component {
         public Signal<string> Name { get; } = new("first");
 

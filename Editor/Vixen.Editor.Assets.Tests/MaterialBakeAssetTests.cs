@@ -607,7 +607,11 @@ public sealed class MaterialBakeAssetTests : IDisposable {
 
         var warning = Assert.Single(set.Warnings);
 
-        Assert.Contains("ParallaxOcclusion", warning, StringComparison.Ordinal);
+        // ⚠ The tag with its `- !`, which is the literal line an artist pastes — not the bare type
+        // name, which `ParallaxOcclusionFeature` also contains and which is not something a `.vxmat`
+        // will accept. A substring that both spellings satisfy is not an assertion about the message
+        // being actionable.
+        Assert.Contains("- !ParallaxOcclusion", warning, StringComparison.Ordinal);
         Assert.Contains("ShipHull", warning, StringComparison.Ordinal);
     }
 

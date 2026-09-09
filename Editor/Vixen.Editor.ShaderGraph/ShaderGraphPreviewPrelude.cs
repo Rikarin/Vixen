@@ -44,8 +44,12 @@ namespace Vixen.Editor.ShaderGraph;
 ///         <c>Material/ComputeColor.rvn</c> is the node vocabulary — its own header says it was
 ///         written for this graph. It imports <c>Vixen.Shaders.Core</c>, and <c>Core/Random.rvn</c>
 ///         spells <c>Math.SphericalToCartesian</c> and <c>Const.TwoPi</c>, so <c>Core/Math.rvn</c>
-///         arrives with it; <c>Core/ColorSpaces.rvn</c> completes the package's <c>Const</c> and
-///         colour helpers and imports nothing further. ⚠ Every file in a compilation is bound whether
+///         arrives with it. ⚠ <c>Core/ColorSpaces.rvn</c> is <b>not</b> part of that closure and this
+///         sentence said it was: <c>Const</c> is declared in <c>Math.rvn</c>, and nothing in the other
+///         three names <c>ColorSpaces</c> at all — it <em>consumes</em> <c>Const.Epsilon</c> rather
+///         than completing anything. It is carried to match <c>TextureKernelPrelude</c>'s set, so a
+///         node that reaches for a colour-space conversion finds it in both previews rather than in
+///         one; the closure the vocabulary requires is the other three. ⚠ Every file in a compilation is bound whether
 ///         the preview calls into it or not, so a set that stops one edge short fails on
 ///         <em>every</em> previewed node at once — which reads as the prelude not working rather than
 ///         as one missing file.

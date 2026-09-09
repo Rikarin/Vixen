@@ -3,6 +3,9 @@
 
 using Vixen.Editor.Core;
 using Vixen.Editor.Texturing.Painting;
+using Vixen.Input;
+using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.Texturing.Tests;
@@ -186,6 +189,87 @@ public class PaintAlphaSourceTests {
         Assert.Equal("Assets/scratches.tga", brush.Tool.AlphaAsset);
         Assert.True(brush.Tool.IsMasked, "the brush did not take the imported alpha.");
         Assert.Contains("scratches", brush.Tool.Describe(), StringComparison.Ordinal);
+    }
+
+    /// <summary>⚠ Typing a path into the row and pressing Enter is what puts the mask on the brush.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Every other case here calls the resolver, and the resolver is not the row.</b>
+    ///         Deleting <c>Load</c>'s body, or the <c>Submitted</c> wiring, leaves the panel with a
+    ///         box an artist can type into that changes no texel — this workstream's commonest defect
+    ///         exactly, in the one place where the whole feature is the control.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Enter and not a keystroke</b>, which is the one way this row differs from the
+    ///         plugin's other typed-path rows: resolving decodes a picture, so committing per
+    ///         character would decode a file per character. The status line says so before anything
+    ///         is typed, because the difference is otherwise invisible until it has caught somebody.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Typing_a_path_and_pressing_enter_is_what_loads_the_alpha() {
+        using var fixture = new TexturingFixture();
+
+        TexturingModule module = new();
+
+        fixture.Host.Activate(TexturingModule.ModuleId, TexturingModule.ModuleName, module);
+
+        Add(fixture, "scratches", (x, y) => (0, 0, 0, (byte)((x * 16) + (y * 2))));
+
+        fixture.Project.Selection.Set(fixture.AddStack("Hull"));
+
+        Assert.True(fixture.Shell.Commands.Execute(TexturingModule.OpenStackCommand));
+
+        var panel = fixture.Shell.Workspace.Open(TexturingModule.StackPanel);
+
+        Assert.NotNull(panel);
+
+        var brush = module.Stack?.Brush;
+
+        Assert.NotNull(brush);
+
+        // The row says how it commits before anything has been typed into it.
+        Assert.Contains("Enter", brush.AlphaStatus, StringComparison.Ordinal);
+        Assert.False(brush.Tool.IsMasked);
+
+        var box = Boxes(panel!).FirstOrDefault(one => one.Placeholder?.Contains(".png", StringComparison.Ordinal) == true);
+
+        Assert.NotNull(box);
+
+        box!.Value = "Assets/scratches.tga";
+
+        // ⚠ Typing alone is not the gesture: this row commits on Enter, and a test that set `Value`
+        // and asserted would be green against a row wired to nothing.
+        Assert.False(brush.Tool.IsMasked, "the row committed on a keystroke, which is not what it says it does.");
+
+        fixture.Shell.Document.Focus(box);
+        fixture.Shell.Document.Dispatch(new KeyEvent { Key = InputKey.Enter, Action = KeyAction.Pressed });
+        fixture.Shell.Document.Dispatch(new KeyEvent { Key = InputKey.Enter, Action = KeyAction.Released });
+
+        Assert.True(brush.Tool.IsMasked, "Enter in the alpha row did not put a mask on the brush.");
+        Assert.Equal("Assets/scratches.tga", brush.Tool.AlphaAsset);
+        Assert.Contains("scratches", brush.AlphaStatus, StringComparison.Ordinal);
+    }
+
+    /// <summary>Every text box under one element, in tree order.</summary>
+    /// <param name="root">Where to start.</param>
+    /// <returns>The boxes.</returns>
+    static List<TextBox> Boxes(UiElement root) {
+        List<TextBox> found = [];
+
+        void Walk(UiElement element) {
+            if (element is TextBox box) {
+                found.Add(box);
+            }
+
+            foreach (var child in element.Children) {
+                Walk(child);
+            }
+        }
+
+        Walk(root);
+
+        return found;
     }
 
     /// <summary>Picking a shelf shape puts the imported alpha down.</summary>

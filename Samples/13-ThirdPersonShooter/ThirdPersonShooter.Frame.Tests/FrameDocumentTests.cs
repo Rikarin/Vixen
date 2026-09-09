@@ -319,7 +319,11 @@ public sealed class FrameDocumentTests : IDisposable {
     ///         <c>WorldRenderer.Paired</c> keys its single <c>TextureIndices</c> entry off
     ///         <c>new TexturedMetalRoughnessFeature().BaseColorMap</c> — the feature's *default* — so
     ///         a material that renamed its map resolves nothing, takes slot zero and samples the
-    ///         table's fallback. Nothing refuses it; the wall just draws in somebody else's texture.
+    ///         table's fallback. ⚠ <b>The compiler refuses that at import as of 2026-09-09</b>
+    ///         (<c>MaterialDiagnosticId.RenamedTextureMap</c>) — and this test is the half it does not
+    ///         do: <c>MaterialMapNames.Check</c> compares the feature's own name against the paired
+    ///         default and never looks at the <c>textures</c> entry that binds it, so a file whose
+    ///         entry drifted from its feature is still only caught by reading the file.
     ///     </para>
     ///     <para>
     ///         The <c>textures:</c> entry and the feature's name are asserted together because

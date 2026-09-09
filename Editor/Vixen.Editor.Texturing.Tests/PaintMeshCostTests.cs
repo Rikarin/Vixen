@@ -204,8 +204,8 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
     ///     <para>
     ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1107">#1107</a>: the stamp path
     ///         was measured and the <em>camera</em> path was not.</b> An orbit calls
-    ///         <c>PaintMeshRaster.Draw</c> once per pointer move at whatever size the pane is, on one
-    ///         thread — and the case above measures 1280×720, which says nothing at all about the
+    ///         <c>PaintMeshRaster.Draw</c> once per pointer move at whatever size the pane is — and
+    ///         the case above measures 1280×720, which says nothing at all about the
     ///         8.3 million pixels of a maximised pane on a 4K display. The issue asks for the
     ///         measurement <em>first</em>, because a cap, a coarser draw while dragging and a
     ///         parallel raster are three different answers and only a number chooses between them.
@@ -286,7 +286,7 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_banded_orbit_frame_costs_less_than_a_serial_one_and_draws_the_same_picture() {
+    public void A_banded_orbit_frame_draws_the_same_picture_as_a_serial_one() {
         const int Repeats = 3;
         const int Wide = 1600;
         const int Tall = 900;
@@ -308,6 +308,16 @@ public class PaintMeshCostTests(ITestOutputHelper output) {
 
         // The instrument: two draws of an empty pane would agree for a reason that is not the bands.
         Assert.True(one.Length > 0 && many.Length == one.Length, "the two draws are not the same pane.");
+
+        // ⚠ And the second instrument, which the first draft left out while documenting the trap it
+        // guards against two files away: `BandCount` answers one on a small pane *and* on a
+        // single-core machine, so without this the two sides are the identical serial call and the
+        // comparison is the serial raster against itself — green, and about nothing.
+        Assert.True(
+            bands > 1 || Environment.ProcessorCount <= 1,
+            $"{Environment.ProcessorCount} processors and BandCount({Wide}, {Tall}) is {bands}, so both draws "
+            + "below are the same serial call and this case is comparing the raster with itself."
+        );
 
         Assert.Equal(one, many);
     }

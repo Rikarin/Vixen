@@ -364,8 +364,12 @@ public sealed class TexturePlanEvaluator : IDisposable {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Raising it does not cost only memory.</b> Each held variant is a
-    ///         <see cref="ShaderHandle" />, a <see cref="PipelineHandle" /> and the pipeline layout
-    ///         its <c>Effect</c> was loaded with, and a driver's pipeline cache is not free of them.
+    ///         <see cref="ShaderHandle" /> and a <see cref="PipelineHandle" />, and a driver's
+    ///         pipeline cache is not free of them. ⚠ <b>Not a pipeline layout, as of 2026-09-09</b> —
+    ///         this sentence counted three things and the same commit made it two:
+    ///         <c>EffectLoader.PipelineLayoutOf</c> shares both of an effect's layouts by
+    ///         <em>shape</em>, across every pixel processor an author has ever typed, so a held
+    ///         variant owns none of its own. <c>Destroy</c> says the other half of it.
     ///     </para>
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The ceiling is not positive.</exception>

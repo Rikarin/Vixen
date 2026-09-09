@@ -177,7 +177,7 @@ public enum MaterialDiagnosticId {
     ///         the case that already happened: a re-bake that copied its own texture entry's name onto
     ///         a preserved <c>ParallaxOcclusionFeature</c> bound a real texture under
     ///         <c>heightMap</c> — which is the <em>layered</em> feature's name — and marched the
-    ///         checker. Four map-name remarks in <c>MaterialFeatures</c> say the name is not the
+    ///         checker. Eight map-name remarks in <c>MaterialFeatures</c> say the name is not the
     ///         author's; until this, nothing enforced any of them.
     ///     </para>
     ///     <para>
@@ -241,9 +241,11 @@ public sealed class MaterialCompilationContext {
         Dictionary<string, string> composition,
         ParameterCollection parameters,
         List<MaterialDiagnostic> diagnostics,
-        HashSet<string> composed
+        HashSet<string> composed,
+        bool strict = true
     ) {
         ShaderName = shaderName;
+        Strict = strict;
         this.composition = composition;
         this.parameters = parameters;
         this.diagnostics = diagnostics;
@@ -258,6 +260,25 @@ public sealed class MaterialCompilationContext {
 
     /// <summary>The shading pass the material is being compiled for.</summary>
     public string ShaderName { get; }
+
+    /// <summary>Whether a defect in the authored content refuses the material or only warns.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same compiler runs at import and at load, and those two want different
+    ///         answers to "this material is wrong".</b> At import there is an author to tell, the
+    ///         content has not shipped yet, and a refusal is the whole point. At load the material is
+    ///         already in a bundle somebody built, and a compiler that started refusing what it used
+    ///         to accept takes the mesh off screen — for content the importer will not re-check,
+    ///         because a compiler change moves no importer version.
+    ///     </para>
+    ///     <para>
+    ///         So a rule about the <em>author's</em> spelling reports under this, and a rule about
+    ///         something the runtime genuinely cannot do stays an error either way. A warning at load
+    ///         leaves the picture exactly as it was — which for a renamed map is the fallback checker,
+    ///         wrong and recognisable — rather than replacing it with nothing.
+    ///     </para>
+    /// </remarks>
+    public bool Strict { get; }
 
     /// <summary>Sets one of the current feature's parameters.</summary>
     /// <param name="name">The name the shader declares, unqualified.</param>

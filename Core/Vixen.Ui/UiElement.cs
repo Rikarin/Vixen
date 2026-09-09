@@ -1895,9 +1895,22 @@ public partial class UiElement : Composition.IComposable {
         // suspends, so the row keeps the string it was given and stops following its model for ever
         // with nothing said anywhere. See #1109. The count is on `UiDiagnostics.BrokenBindings`;
         // this is the half that says what to do about it.
-        if (!string.IsNullOrEmpty(current) && children.Count > 0) {
+        // ⚠ The children the *layout tree* has, which is not `children.Count`. A surface root stays
+        // in the element tree and the style tree and is taken out of the layout tree's child list —
+        // which is why `UiDocument.LayoutIndexOf` exists — so an element whose only children are
+        // surface roots is a leaf as far as the rule below is about, and counting the element list
+        // would refuse text on it for a conflict that cannot happen.
+        var laidOut = 0;
+
+        foreach (var child in children) {
+            if (child.SurfaceRoot is null) {
+                laidOut++;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(current) && laidOut > 0) {
             throw new InvalidOperationException(
-                $"<{Tag}> has {children.Count.ToString(CultureInfo.InvariantCulture)} element children, so it "
+                $"<{Tag}> has {laidOut.ToString(CultureInfo.InvariantCulture)} element children, so it "
                 + "cannot also carry text: an element with text measures itself, and a node whose size is "
                 + "decided both by its own text and by its children has it decided twice by two rules that do "
                 + "not have to agree. Put the text on a child of its own — a label — and bind that. ⚠ In a "

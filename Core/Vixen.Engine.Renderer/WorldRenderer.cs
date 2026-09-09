@@ -1104,7 +1104,12 @@ public sealed class WorldRenderer : IDisposable {
     ///         this pairing is one entry, so a material that renamed its map to <c>bark</c> samples the
     ///         fallback. That is the shape of the pairing rather than an oversight — a table keyed by
     ///         one name cannot hold two — and closing it means keying the pairing per material, which is
-    ///         a cost every material would pay for the few that rename.
+    ///         a cost every material would pay for the few that rename. ⚠ <b>So it was closed from the
+    ///         other end on 2026-09-09 and the per-material key stays unbuilt</b>:
+    ///         <c>MaterialDiagnosticId.RenamedTextureMap</c> refuses the rename where there is an
+    ///         author to tell — an error at import, a warning at load, because a compiler change moves
+    ///         no importer version and refusing at load would take a shipped mesh off screen. Nothing
+    ///         an author can still fix now reaches this table under a name it does not hold.
     ///     </para>
     ///     <para>
     ///         The composition path carries no slot, so the same feature in the first chain slot and the

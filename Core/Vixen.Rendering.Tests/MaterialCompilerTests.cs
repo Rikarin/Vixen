@@ -428,6 +428,51 @@ public class MaterialCompilerTests {
         }
     }
 
+    /// <summary>⚠ And at load the same rename is a warning, so a shipped mesh does not leave the screen.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The same compiler runs at import and at load, and the two want different answers.</b>
+    ///         At import there is an author, the content has not shipped, and refusing is the point.
+    ///         At load the material is in a bundle somebody built — and ⚠ <b>a compiler change moves
+    ///         no importer version</b>, so an already-imported material is re-checked by nothing. A
+    ///         refusal there would take the mesh off screen, silently, because
+    ///         <c>AssetMaterialSource</c> reads no diagnostics.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the picture it leaves is not a good one.</b> A renamed map has always sampled
+    ///         the fallback checker; the warning does not fix that. What it refuses to do is replace a
+    ///         wrong picture with no picture at all for a defect the author can only be told about
+    ///         where there is an author.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ARenamedMapIsAWarningRatherThanARefusalWhereThereIsNoAuthor() {
+        var renamed = new TexturedMetalRoughnessFeature { BaseColorMap = "mine" };
+        var descriptor = Standard(renamed);
+
+        // The instrument, and it is the whole claim: the same feature, the same descriptor, one flag.
+        Assert.True(MaterialCompiler.Compile(descriptor).Failed);
+
+        var loaded = MaterialCompiler.Compile(descriptor, slots: null, strict: false);
+
+        Assert.False(
+            loaded.Failed,
+            "a material that has been drawing the fallback checker stopped compiling at load, which takes the "
+            + "mesh off screen for content no importer is going to look at again."
+        );
+
+        Assert.NotNull(loaded.Material);
+
+        // Said, and not merely allowed: a warning nobody emits is the silence this whole rule is about.
+        var warning = Assert.Single(
+            loaded.Diagnostics,
+            diagnostic => diagnostic.Id == MaterialDiagnosticId.RenamedTextureMap
+        );
+
+        Assert.False(warning.IsError);
+        Assert.Contains("mine", warning.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>Every map name the shipped features carry, found rather than listed.</summary>
     /// <remarks>
     ///     <para>

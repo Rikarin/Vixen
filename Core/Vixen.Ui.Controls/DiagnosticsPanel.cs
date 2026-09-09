@@ -119,6 +119,10 @@ public sealed class DiagnosticsPanel : Control {
         // keeps the frame it had. Written unconditionally rather than only when non-zero, because a
         // row that appears when something breaks is a row nobody knows to look for — and a steady
         // zero is what makes the one is legible.
+        //
+        // ⚠ And the zero is narrower than it reads: this counts effects `BuildContext.Bind` made,
+        // so a hand-built `new Effect` that threw is suspended and not counted here — #1122. Every
+        // binding a panel or a `.vxml` declares does go through `Bind`.
         Write(ref row, "Broken bindings", diagnostics.BrokenBindings);
 
         if (diagnostics.LastBrokenBinding is { } broken) {

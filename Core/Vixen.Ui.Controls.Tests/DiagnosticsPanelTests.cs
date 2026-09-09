@@ -214,14 +214,6 @@ public class DiagnosticsPanelTests {
 
     static string? Value(DiagnosticsPanel panel, string key) => Find(panel, key)?.Value;
 
-    /// <summary>The row with that key, among the rows the list is SHOWING.</summary>
-    /// <remarks>
-    ///     ⚠ <b>`Rows.Count` and not `RowCount`, and the difference is a whole sabotage.</b> The
-    ///     panel's own count is what the last refresh wrote; the list's is what is on screen, which
-    ///     includes any row a refresh wrote and a later one failed to retire. Searching the panel's
-    ///     count made this file green with `KeyValueList.Trim` deleted — the stale row was still
-    ///     shown and the instrument could not see past the number the defect had already moved.
-    /// </remarks>
     /// <summary>⚠ <c>Help</c>'s binding names the caller's file too, and it is tested here.</summary>
     /// <remarks>
     ///     <para>
@@ -254,6 +246,14 @@ public class DiagnosticsPanelTests {
         Assert.DoesNotContain("BuildContext.cs", record, StringComparison.Ordinal);
     }
 
+    /// <summary>The row with that key, among the rows the list is SHOWING.</summary>
+    /// <remarks>
+    ///     ⚠ <b>`Rows.Count` and not `RowCount`, and the difference is a whole sabotage.</b> The
+    ///     panel's own count is what the last refresh wrote; the list's is what is on screen, which
+    ///     includes any row a refresh wrote and a later one failed to retire. Searching the panel's
+    ///     count made this file green with `KeyValueList.Trim` deleted — the stale row was still
+    ///     shown and the instrument could not see past the number the defect had already moved.
+    /// </remarks>
     static KeyValueRow? Find(DiagnosticsPanel panel, string key) {
         for (var i = 0; i < panel.Rows.Count; i++) {
             if (panel.Rows.Rows[i].Key == key) {

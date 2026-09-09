@@ -700,6 +700,22 @@ public sealed partial class UiDocument : IDisposable {
         ArgumentNullException.ThrowIfNull(element);
         tag ??= element.TagName;
 
+        // ⚠ Refused here, before anything is created, and not left to `LayoutTree.AddChild`. That
+        // guard is the store's backstop and it fires last — after the style node exists and after
+        // `Attach` has put the child in the parent's element list — so a refusal there leaves a
+        // document half-attached: an element in two of the three trees with a layout node nothing
+        // parented, and `OnCreated` never run. Inside a binding the effect swallows the throw, so
+        // that state is permanent. The question is the same one `UiElement.OnTextChanged` asks from
+        // the other side.
+        if (parent is not null && !string.IsNullOrEmpty(parent.Text)) {
+            throw new InvalidOperationException(
+                $"<{parent.Tag}> carries text, so it measures itself and cannot also have children: its size "
+                + "would be decided twice, by two rules that do not have to agree — and the measure function "
+                + "wins, so nothing put inside it would be laid out at all. Clear the text first, or put both "
+                + "the text and this child in children of their own."
+            );
+        }
+
         var styleNode = Styles.Tree.CreateElement(tag, parent?.StyleNode, id, classNames);
         var layoutNode = Layout.CreateNode();
 

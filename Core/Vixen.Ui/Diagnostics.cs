@@ -189,6 +189,16 @@ public readonly struct UiDiagnostics(UiDocument document) {
     ///         it. See <a href="https://github.com/Rikarin/Vixen/issues/1109">#1109</a>, where the
     ///         symptom was a texturing panel that rendered once and froze.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It counts effects made by <c>BuildContext.Bind</c>, which is
+    ///         not the same as every suspended effect.</b> Four production sites construct an
+    ///         <c>Effect</c> directly, and one of those throwing suspends exactly as silently as
+    ///         before while this reads nought — so a zero here means "no bound expression broke",
+    ///         not "nothing broke". <c>Effect</c> lives in <c>Vixen.Ui.Reactive</c>, which has no
+    ///         document to report to, so closing that gap needs a hook rather than a line:
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1122">#1122</a>. Everything a panel
+    ///         or a <c>.vxml</c> declares goes through <c>Bind</c> and is counted.
+    ///     </para>
     /// </remarks>
     public int BrokenBindings => document.BrokenBindings;
 

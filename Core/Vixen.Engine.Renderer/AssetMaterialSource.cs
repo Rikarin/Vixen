@@ -450,7 +450,13 @@ public sealed class AssetMaterialSource : IMaterialSource, IDisposable {
         // shading it with the standard model is a picture somebody can recognise as wrong.
         MaterialShading.TryResolve(content.Shading, out var shading);
 
-        var compilation = MaterialCompiler.Compile(content.ToDescriptor(shading), Slots);
+        // ⚠ `strict: false`, and it is the same reasoning as the shading model two lines above: the
+        // import already refused what an author could have fixed, and content that reaches here was
+        // built by whatever engine built the bundle. A rule about the author's *spelling* that
+        // started refusing at load would take a mesh off screen for a material that has been drawing
+        // — wrongly, but recognisably — and it would do it silently, because nothing reads the
+        // diagnostics here. A compiler change moves no importer version, so nothing would re-check.
+        var compilation = MaterialCompiler.Compile(content.ToDescriptor(shading), Slots, strict: false);
 
         if (compilation.Material is not { } material) {
             entry.Failed = true;

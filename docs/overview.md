@@ -537,9 +537,11 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 > `Editor/Vixen.Editor.Texturing/SmartMaterials/`, embedded by a glob and written onto a project's
 > shelf on activation. ⚠ **And the denominator was wrong in the other direction the whole time**:
 > doc 48 § 4.9's own summary sentence miscounted its own table, and this file quoted the sentence
-> rather than the marks. What M10 is owed is now **one named thing**: the unshipped half of one
-> shared row, since § 4.9 writes *"Delight / Equalize"* as a single ● and only Equalize exists
-> ([#1110](https://github.com/Rikarin/Vixen/issues/1110)). ⚠ **`Surface/Metal Reflectance` was that
+> rather than the marks. ⚠ **And what looked like one named remainder was a misreading of the plan, refuted 2026-09-09**:
+> *"Delight / Equalize"* is one ● for **one** compound under two names — doc 40 § D2's row reads
+> "delight / equalize" as a single technique — so `Utility/Equalize` is the whole of it and there is
+> no unshipped half ([#1110](https://github.com/Rikarin/Vixen/issues/1110)). M10's content is
+> **35 files against 35 marks**. ⚠ **`Surface/Metal Reflectance` was that
 > list's other entry and shipped on 2026-09-09** — the node, the kernel and the compound — so
 > [#1096](https://github.com/Rikarin/Vixen/issues/1096) is closed and this paragraph's "stays refused"
 > was one batch stale, which is the fourth time this stretch has said a thing the tree already
@@ -943,7 +945,7 @@ what is left.
 | W0-14 | Pin a static `libjoltc.a` for `ios-arm64` | Physics on iOS → `Samples/05` on iOS. Still absent from `native-dependencies.json` |
 | W0-15 | Add `astcenc` + `ispc_texcomp` to `native-dependencies.json` | ASTC/ETC2 · full BC7/BC6H · mobile texture budgets. Also proves R10's schema generalises. Still absent |
 | ~~W0-16~~ | ~~ECS entity-handle **reservation**~~ | Built (`World.TryRecreate`), and spent: create/delete/rename are undoable in the scene view |
-| W0-17 | Bindless material binding plan | **Built bar the table's pairing** — `BindlessTable`, descriptor indexing, Raven's `[Bindless]`/`[MaterialIndex]`, `GeometryBuffer`, `DrawIndexedIndirectCount` and compaction, all recorded in [plan/23](plan/23-bindless-materials.md) with the set-4 and push-constant traps. **Owed:** pairing beyond the one entry `WorldRenderer.Paired` writes — a material that renamed its map samples the fallback, and a surface declaring set 4 on a host that built no table gives a five-set layout with four bound |
+| W0-17 | Bindless material binding plan | **Built bar the table's pairing** — `BindlessTable`, descriptor indexing, Raven's `[Bindless]`/`[MaterialIndex]`, `GeometryBuffer`, `DrawIndexedIndirectCount` and compaction, all recorded in [plan/23](plan/23-bindless-materials.md) with the set-4 and push-constant traps. **Owed:** a surface declaring set 4 on a host that built no table gives a five-set layout with four bound. ⚠ **The renamed-map half closed 2026-09-09, and it closed by refusing rather than by keying** — `MaterialDiagnosticId.RenamedTextureMap` is an error at import and a warning at load, over the eight map names found by reflection rather than listed ([#371](https://github.com/Rikarin/Vixen/issues/371)) |
 | ~~W0-18~~ | ~~Light-probe exact predicates (robust Bowyer–Watson)~~ | Built and spent: `LightProbeVolume` interpolates tetrahedrally, and `ExactPredicates` is general — exact orientation and in-sphere live in `Vixen.Core.Mathematics` |
 | ~~W0-19~~ | ~~`NodeGraphView` (pan/zoom/wires/minimap/search-to-create)~~ | Built. Shader-graph and VFX-graph authoring is a matter of nodes now, not of a canvas |
 | ~~W0-20~~ | ~~Non-scene asset editors: texture · model · material · shader · UI · addressable groups · compositor~~ | All seven built, the UI one included (`MarkupDocument` lexes, parses and binds a `.vxml`). Owed is a **live** preview — a `.vxml` becomes a C# partial class, so running one is the hot-reload pipeline; the pane draws the static structure and says so |

@@ -419,6 +419,10 @@ public static class MaterialCompiler {
     ///     Slot fillers the project decides rather than the material, by their qualified names —
     ///     <see cref="ForwardIrradianceSlot" /> is the one that exists. Null takes every default.
     /// </param>
+    /// <param name="strict">
+    ///     Whether a defect in the authored content refuses the material or only warns. True where
+    ///     there is an author to tell — see <see cref="MaterialCompilationContext.Strict" />.
+    /// </param>
     /// <remarks>
     ///     <b>A parameter rather than a field on the descriptor, because it is not a property of the
     ///     material.</b> Whether the scene has an irradiance field is true of every material in it at
@@ -427,7 +431,8 @@ public static class MaterialCompiler {
     /// </remarks>
     public static MaterialCompilation Compile(
         MaterialDescriptor descriptor,
-        IReadOnlyDictionary<string, string>? slots = null
+        IReadOnlyDictionary<string, string>? slots = null,
+        bool strict = true
     ) {
         ArgumentNullException.ThrowIfNull(descriptor);
 
@@ -441,7 +446,8 @@ public static class MaterialCompiler {
             composition,
             parameters,
             diagnostics,
-            composed
+            composed,
+            strict
         );
 
         if (descriptor.Features.Count > ChainSlots.Length) {

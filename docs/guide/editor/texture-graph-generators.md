@@ -163,9 +163,12 @@ were wrong** — fifteen more compounds had landed, and § 4.9's own summary sen
 table by eleven, which is corrected there. Count them off `TextureCompoundLibrary.Shipped`, which is
 derived from the manifest, rather than off any prose including this sentence.
 
-What is owed is four marks — `Patterns/Scratches` · `Wood Grain` · `Cells`, and
-`Surface/Metal Reflectance` — plus the unshipped half of the *Delight / Equalize* row.
-That remaining gap is real and named in doc 48 § A.9; it is content authoring rather than engineering.
+⚠ **Nothing is owed as of 2026-09-09** — `Patterns/Scratches`, `Wood Grain`, `Cells` and
+`Surface/Metal Reflectance` all shipped, and the *Delight / Equalize* row turned out to be one ● for
+one compound under two names rather than two compounds with one missing
+([#1110](https://github.com/Rikarin/Vixen/issues/1110)). § 4.9's marks and the folder are both 35.
+⚠ Do not take a remainder off this paragraph either: `TextureCompoundLibrary.Shipped` is the derived
+list and `TextureCompoundLibraryTests` is what compares it with the plan, by name.
 ⚠ **The measurement M10 exists to make is written up beside the content itself**, in
 `Editor/Vixen.Editor.TextureGraph/Compounds/README.md`: what could *not* be authored out of the
 atomic set, which is the standing test of whether M2 and M3 got that set right.

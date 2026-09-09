@@ -246,11 +246,12 @@ public static class MaterialBake {
             if (feature is ParallaxOcclusionFeature parallax) {
                 // ⚠ The author's numbers and the feature's own map name. `HeightScale` is theirs to
                 // keep; `HeightMap` is not, because it is half of a *pairing*: `WorldRenderer` keys
-                // the height texture index on `new ParallaxOcclusionFeature().HeightMap` and nothing
-                // anywhere refuses a material that spells the parameter differently. Preserving a
-                // renamed map would write a texture entry no feature ever looks up, leave the index
-                // at nought, and march the fallback checker — the silent failure the drop rule below
-                // exists to prevent, reached through the preservation rule above it.
+                // the height texture index on `new ParallaxOcclusionFeature().HeightMap`. Preserving
+                // a renamed map would write a texture entry no feature ever looks up, leave the index
+                // at nought, and march the fallback checker. ⚠ Since 2026-09-09 the compiler refuses
+                // that at import (`MaterialDiagnosticId.RenamedTextureMap`), which does not make this
+                // line redundant — it makes it upstream: a bake that handed an author a file the
+                // compiler will reject is not an improvement on one that quietly drew wrong.
                 return parallax with { HeightMap = new ParallaxOcclusionFeature().HeightMap };
             }
         }

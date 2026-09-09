@@ -95,13 +95,18 @@ static class MaterialMapNames {
             return;
         }
 
+        // ⚠ An error where there is an author and a warning where there is only a frame. See
+        // `MaterialCompilationContext.Strict`: refusing at load would turn a material that has been
+        // drawing the fallback checker into no material at all, silently, on content no importer is
+        // going to look at again.
         context.Report(
             MaterialDiagnosticId.RenamedTextureMap,
             $"'{shader}' calls its {property} '{authored}', and a host pairs that map under "
             + $"'{paired}'. The pairing is one static entry per name for the whole frame, so a "
             + "renamed map resolves nothing, leaves the index at zero and samples slot zero — the "
             + $"fallback checker, on every device, with nothing reported. Call it '{paired}' and "
-            + "rename the textures entry that binds it."
+            + "rename the textures entry that binds it.",
+            context.Strict
         );
     }
 }

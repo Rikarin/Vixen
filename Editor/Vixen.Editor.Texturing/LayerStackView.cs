@@ -121,8 +121,7 @@ readonly record struct MaskSourceEdit(
 ///         candidate keys and the answer against a real document edited through this panel's own
 ///         slider, so each is a test that goes red if it stops being true.</b> ⚠ And it turned up a
 ///         fourth blocker nothing had written down — <c>UiElement.Text</c> on an element with
-///         children throws from <c>LayoutTree.SetMeasureFunction</c>, and an <c>Effect</c> answers a
-///         throw by <em>suspending itself</em>, so a row that bound its own <c>Text</c> renders once,
+///         children throws, and an <c>Effect</c> answers a throw by <em>suspending itself</em>, so a row that bound its own <c>Text</c> renders once,
 ///         keeps the string, and follows nothing thereafter with no diagnostic
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/1109">#1109</a>). Every row shape here
 ///         is a container, so the port owes a label element per bound string.

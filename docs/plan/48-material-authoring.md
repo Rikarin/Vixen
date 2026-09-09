@@ -1667,12 +1667,12 @@ forgotten.
 
 | | SD | SP | IM | Here |
 |---|---|---|---|---|
-| A stock library of materials, filters and generators | ✅ several hundred | ✅ | ✅ 1000+ | ◐ **24 compounds and 6 smart materials at M10** |
+| A stock library of materials, filters and generators | ✅ several hundred | ✅ | ✅ 1000+ | ◐ **35 compounds and 6 smart materials at M10** — ⚠ this cell said 24 for four batches, which was § 4.9's own miscounted summary sentence quoted onward rather than its marks counted |
 | Monthly asset drops | — | ✅ | ✅ | ✖ |
 
 ⚠ **This is the row no engineering plan closes.** A tool with forty-one kernels and eleven compounds
 is a tool an artist opens once. The references' libraries are years of full-time content authoring,
-they are what people actually buy, and M10's two dozen is a *seed* — enough to prove the atomic set is
+they are what people actually buy, and M10's thirty-five is a *seed* — enough to prove the atomic set is
 sufficient and to texture the samples, and not enough to compete. Saying so here is cheaper than
 discovering it in a review after M9.
 

@@ -341,8 +341,16 @@ sealed class PaintBrushInspector {
     ///         and the drag target live in <c>Vixen.Editor.App</c>'s <c>AssetPicker</c>, which is
     ///         <see langword="internal" /> to that assembly and reached through the
     ///         <c>[Inspector]</c>/<c>PropertyField</c> path #881 keeps out of a plugin's entry
-    ///         assembly. So this is the same affordance the rest of the plugin gives, rather than a
-    ///         second worse one.
+    ///         assembly. So it is a typed path here for the same reason it is one there.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is not quite the same affordance, and the difference is worth knowing.</b>
+    ///         Those rows commit on <c>ValueChanged</c> — every keystroke — and this one commits on
+    ///         <c>Submitted</c>, which <c>TextField</c> raises on Enter and <em>not</em> on losing
+    ///         focus. Resolving a path here decodes a PNG, so a keystroke wiring would decode a file
+    ///         per character and spend most of them on prefixes naming nothing. The cost of choosing
+    ///         Enter is that typing a path and clicking away leaves the box showing a picture no
+    ///         texel is reading, which is why the line under it says so rather than staying blank.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The sentence under it is the row, not a nicety.</b> Every way this fails —
@@ -364,6 +372,11 @@ sealed class PaintBrushInspector {
         box.AddAccessibleRelation(AccessibleRelation.LabelledBy, caption);
 
         var status = root.Add("paint-brush-note");
+
+        // ⚠ Said before anything is typed, because the alternative is a row whose only difference
+        // from every other row in this column is invisible until an artist has already been caught
+        // by it — see the remarks: this one applies on Enter and the others apply as you type.
+        status.Text = "Press Enter to load.";
 
         // ⚠ On Enter and not on every keystroke, which is the one place in this column where the two
         // events differ in cost rather than in feel: resolving a path decodes a PNG, so a
@@ -393,7 +406,7 @@ sealed class PaintBrushInspector {
     void Load(string typed, UiElement status) {
         if (typed.Trim().Length == 0) {
             tool.SetAlphaAsset("", null);
-            status.Text = "";
+            status.Text = "Press Enter to load.";
 
             return;
         }
