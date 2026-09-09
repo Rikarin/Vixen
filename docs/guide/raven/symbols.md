@@ -8,7 +8,7 @@ api: [T:Vixen.Raven.Symbols.Symbol, T:Vixen.Raven.Symbols.SymbolKind, T:Vixen.Ra
 tags: [raven, shaders, compiler, tooling]
 since: 0.1
 status: preview
-related: [raven/compiling-a-shader, raven/ir, raven/shader-reflection]
+related: [raven/compiling-a-shader, raven/ir, raven/shader-reflection, raven/syntax]
 ---
 
 ## What it is
@@ -192,6 +192,8 @@ Console.WriteLine(ReferenceEquals(value.Type, BuiltInTypes.Int));
   `SemanticModel`, which is how a caller reaches a symbol from a syntax node.
 - [The target-independent IR](ir.md) — what this model is lowered *to*, why its type system is
   deliberately smaller, and the opposite identity rule that goes with it.
+- [The Raven syntax tree](syntax.md) — the model this one is built *from*, and what a
+  `DeclaringSyntax` points back into.
 - [Reading a shader's reflection](shader-reflection.md) — the same facts about bindings and entry
   points, packaged for a host that never sees a symbol.
 - `Raven/README.md` in the repository — the language these symbols are the meaning of, and ⚠ the
