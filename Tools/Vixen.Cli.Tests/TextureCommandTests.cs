@@ -263,6 +263,118 @@ public sealed class TextureCommandTests : IDisposable {
         Assert.False(File.Exists(Path.Combine(directory, "Hull.vxmat")), "a material naming nothing was written");
     }
 
+    /// <summary>
+    ///     ⚠ The bake's own "nothing samples this height map" warning still names the tag
+    ///     <see cref="BakeParallax" /> matches on.
+    /// </summary>
+    /// <remarks>
+    ///     <b>The anchor for a match across an assembly seam, and it is here because there is no
+    ///     shared constant to match on.</b> <c>ProjectMaterialBaker.Overpaint</c> is a public const
+    ///     for exactly this reason one refusal over — a caller has to tell one of that type's
+    ///     messages from the others — and the unfed-height warning has none, so
+    ///     <c>BakeParallax.Requested</c> drops it by looking for the YAML tag in its text. A reword
+    ///     in <c>Vixen.Editor.Assets</c> would otherwise leave <c>--parallax</c> printing a sentence
+    ///     telling an artist to do the thing the flag has just done, silently and for ever.
+    /// </remarks>
+    [Fact]
+    public async Task The_bakers_unfed_height_warning_still_names_the_tag() {
+        Authored("hull_baseColor.png", 10);
+        Authored("hull_height.png", 80);
+
+        var (code, _, complaint) = await Bake();
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.Contains(BakeParallax.Tag, complaint, StringComparison.Ordinal);
+    }
+
+    /// <summary>⚠ A first bake can ask for the march, and what it writes compiles.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>'s remainder.</b>
+    ///         The bake preserves and re-seats a parallax feature the material already carries, which
+    ///         cannot help a material that does not exist yet — so the route was bake, paste the tag,
+    ///         bake again.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The compile is the assertion that matters and it is not a formality.</b>
+    ///         <c>ParallaxOcclusionFeature</c> declares <c>MaterialFeatureStage.Coordinate</c> and
+    ///         <c>MaterialCompiler</c> refuses a coordinate feature listed behind one that samples, so
+    ///         the obvious implementation — append the feature to what the bake wrote — produces a
+    ///         <c>.vxmat</c> this verb itself created and the importer then rejects. A test that only
+    ///         looked for the feature in the list would pass on that.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the texture entry is asserted against the feature's <em>default</em> name.</b>
+    ///         <c>WorldRenderer.Paired</c> keys the height index on
+    ///         <c>new ParallaxOcclusionFeature().HeightMap</c>, so an entry written under any other
+    ///         spelling leaves that index at nought and marches the bindless table's fallback checker:
+    ///         a surface that swims, on every device, with nothing reported.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task A_first_bake_can_ask_for_the_parallax_march() {
+        Authored("hull_baseColor.png", 10);
+        Authored("hull_height.png", 80);
+
+        var (code, _, complaint) = await Bake("--parallax");
+
+        Assert.Equal(ExitCode.Success, code);
+
+        // The bake's warning has become false and is not printed beside the thing that made it false.
+        Assert.DoesNotContain(BakeParallax.Tag, complaint, StringComparison.Ordinal);
+
+        var content = Material();
+        var parallax = Assert.IsType<ParallaxOcclusionFeature>(content.Features[0]);
+
+        Assert.Contains(content.Textures, texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap);
+        Assert.Equal(new ParallaxOcclusionFeature().HeightMap, parallax.HeightMap);
+        Assert.True(MaterialShading.TryResolve(content.Shading, out var shading));
+        Assert.False(MaterialCompiler.Compile(content.ToDescriptor(shading)).Failed);
+    }
+
+    /// <summary>Without the flag a bake that wrote a height map still composes no march.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half that makes the case above a claim about the flag.</b> Both bakes write the
+    ///     same height file; what differs is whether anything samples it, and a <c>--parallax</c> that
+    ///     had accidentally become the default would put a per-pixel march on every material any graph
+    ///     ever emitted a height output from — a picture change and a cost nobody authored.
+    /// </remarks>
+    [Fact]
+    public async Task A_bake_that_did_not_ask_grows_no_march() {
+        Authored("hull_baseColor.png", 10);
+        Authored("hull_height.png", 80);
+
+        Assert.Equal(ExitCode.Success, (await Bake()).Code);
+
+        var content = Material();
+
+        Assert.DoesNotContain(content.Features, feature => feature is ParallaxOcclusionFeature);
+        Assert.DoesNotContain(content.Textures, texture => texture.Parameter == new ParallaxOcclusionFeature().HeightMap);
+    }
+
+    /// <summary>Asking for a march this bake cannot feed says so rather than composing one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A parallax feature whose map is unbound is not a smaller effect.</b> Its height index
+    ///     stays at nought, it marches the bindless table's fallback checker as a height field, and
+    ///     the surface swims — so the honest answer to "turn it on" over a bake with no height output
+    ///     is a sentence naming what is missing upstream.
+    /// </remarks>
+    [Fact]
+    public async Task Asking_for_a_march_with_no_height_map_says_so() {
+        Authored("hull_baseColor.png", 10);
+
+        var (code, _, complaint) = await Bake("--parallax");
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.Contains("no height map", complaint, StringComparison.Ordinal);
+        Assert.DoesNotContain(Material().Features, feature => feature is ParallaxOcclusionFeature);
+    }
+
+    MaterialContent Material() =>
+        YamlSerializer.Parse<MaterialContent>(
+            File.ReadAllText(Path.Combine(root, "Assets", MaterialMapNaming.DefaultFolder, "Hull.vxmat"))
+        );
+
     Task<(ExitCode Code, string Output, string Error)> Bake(params string[] extra) =>
         Run([.. new[] { "texture", "bake", "--project", root, "--from", Maps, "--name", "Hull" }, .. extra]);
 
