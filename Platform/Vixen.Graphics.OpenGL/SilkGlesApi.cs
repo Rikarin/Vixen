@@ -70,9 +70,13 @@ namespace Vixen.Graphics.OpenGL;
 ///     </para>
 ///     <para>
 ///         <b>Not exercised by the test suite, deliberately and visibly</b> — the same position
-///         <see cref="SilkGlApi" /> takes, for the same reason. What it needs is a driver, which CI
-///         provides on the Mesa leg (<c>docs/plan/05</c> § Cross-backend equivalence) and an Android
-///         device provides for the rest.
+///         <see cref="SilkGlApi" /> takes, for the same reason. What it needs is a driver.
+///     </para>
+///     <para>
+///         ⚠ <b>And there is neither driver.</b> This said the Mesa leg provides one and an Android
+///         device provides the rest; <c>ci.yml</c> has no GL driver and no Android job of any kind,
+///         so both halves named coverage that does not exist (#302). Doc 05's cross-backend
+///         equivalence level is the plan for it and has never run.
 ///     </para>
 /// </remarks>
 public sealed class SilkGlesApi : IGlApi, IDisposable {
