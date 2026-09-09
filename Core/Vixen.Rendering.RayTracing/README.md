@@ -51,11 +51,38 @@ hardware the detection logic is what the unit tests hold, and the query comparis
 device that can run it. That is stated here rather than discovered later, because a test that has
 never failed anywhere is a different claim from a test that has passed somewhere.
 
+⚠ **And as of 2026-09-09 it has run nowhere.** The goldens execute on two machines — this project's
+Mac, which is MoltenVK, and the Linux CI runner, which is llvmpipe — so the *only* end-to-end proof
+that the hardware tracer answers what the BVH answers has never executed. Everything under it is
+real coverage of the **detection** and none of the **query**: `VulkanFeatures.Translate`'s hand-built
+structs, `QueriedField`, the BVH's own referee against brute force. Read that as "L6's kernel is
+unexecuted", not as "L6 is tested", when a quality tier decides whether to use it.
+
+The skip now says so out loud and has an expiry. It names the adapter that declined, so a log
+records *which* device answered no rather than only that one did; and `VIXEN_REQUIRE_RAY_QUERY=1`
+turns the skip into a failure, the same escalation `VIXEN_REQUIRE_VULKAN` is for a missing device.
+Set it on a runner that has both extensions and the comparison stops being skippable — which is what
+closing this needs, since nothing in the repository can conjure a device that has them.
+
 ## Not yet, and named so the absence is a decision
 
-- **The hit's true normal.** The query returns the committed primitive's index, and the vertex
-  buffer the structure was built from can turn it into the triangle's geometric normal —
-  `GradientField`'s honest answer, landing in `QueriedField` first.
+- **The hit's true normal**, and ⚠ **it is not the small read this list used to describe.** The
+  `Trace` intrinsic does answer `(t, primitive, instance, hit)`, so the index is there — but
+  `RayQueryField.TraceField` discards it one line later, because `DistanceFieldHit` carries
+  `hit`, `distance`, `position` and `steps` and no normal, and the consumers ask
+  `GradientField(hit.position)` — a *position*, which names no triangle. So the primitive index is
+  gone before anything that wants a normal can see it, and giving the hardware tracer an honest
+  normal is a change to the shared protocol (a field on `DistanceFieldHit`, or a `GradientField`
+  overload taking the hit) that every `IDistanceFieldSource` and every consuming kernel touches —
+  not a read inside this shader.
+
+  ⚠ It is also not a quality item in the same sense as the two below. `SurfaceRadiance(position,
+  normal)` picks a card by normal, so a constant upward answer picks every horizontal card in the
+  atlas whatever the surface is: under the hardware tracer that is a **wrong colour, not a rough
+  one**, and it will not look like a normal bug — it will look like the surface cache being wrong.
+  Filed as [#1169](https://github.com/Rikarin/Vixen/issues/1169) rather than left here,
+  because the protocol change is its own piece of work — and its CPU half, the geometric normal off
+  the triangle the BVH committed, is device-free and testable today.
 - **SAH.** The median build is the baseline and the referee; the surface-area heuristic is the
   optimisation measured against it.
 - **Refit.** A build per change is the baseline; updating in place is the optimisation, and it

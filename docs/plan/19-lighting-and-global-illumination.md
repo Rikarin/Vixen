@@ -1066,9 +1066,26 @@ above takes it without changing a line — which is this section's sentence, mad
 on this project's own hardware the detection tests carry the correctness burden, and the query
 comparison waits for a device that can run it; stated, not discovered.
 
-Owed, quality rather than criteria: the hit's true normal (the committed primitive's, off the
-vertex buffer the structure was built from — until then a cache hit through the hardware tracer
-faces up), SAH, and refit — each named in the package README with its baseline.
+⚠⚠ **And it has run nowhere.** The goldens execute on two machines, this project's Mac (MoltenVK)
+and the Linux CI runner (llvmpipe), so the only end-to-end proof that the hardware tracer answers
+what the BVH answers has never executed anywhere. Everything under it — `VulkanFeatures.Translate`'s
+hand-built structs, `QueriedField`, the BVH against brute force — is real coverage of the *detection*
+and none of the *query*. Read § L6 as "the kernel is unexecuted" rather than "L6 is tested" when a
+tier decides whether to use it. The skip now names the adapter that declined and has an expiry:
+`VIXEN_REQUIRE_RAY_QUERY=1` turns it into a failure, the escalation `VIXEN_REQUIRE_VULKAN` is for a
+missing device, so a runner with both extensions makes the comparison unskippable. Nothing in this
+repository can close it otherwise — a device that has the extensions is the whole of what is missing.
+
+Owed, quality rather than criteria: SAH and refit — each named in the package README with its
+baseline. ⚠ **The hit's true normal is owed too, and it is neither of those things.** It reads as a
+small change ("the committed primitive's, off the vertex buffer the structure was built from") and
+is not: `Trace` does answer `(t, primitive, instance, hit)`, but `RayQueryField.TraceField` drops the
+index immediately, because `DistanceFieldHit` carries no normal and every consumer asks
+`GradientField(hit.position)` — a position, which names no triangle. An honest normal is therefore a
+change to the shared protocol that every `IDistanceFieldSource` and consuming kernel touches. And its
+consequence is not roughness: `SurfaceRadiance(position, normal)` picks a card *by* normal, so a
+constant upward answer picks every horizontal card in the atlas whatever the surface is — a wrong
+colour that will look like the surface cache being wrong rather than like a normal bug.
 
 ### Total, honestly
 
