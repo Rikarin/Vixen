@@ -1,0 +1,55 @@
+<Project>
+
+  <!-- Inherit the repository-wide policy, the way Directory.Build.props does. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    SPIRV-Cross's native library, put where the loader that asks for it actually looks.
+
+    ⚠ **Shipping a native is not the same as finding it, and Silk.NET's loader is not the
+    runtime's.** `Silk.NET.SPIRV.Cross.Native` restores `libspirv-cross` for eight RIDs into
+    `$(OutDir)runtimes/<rid>/native/`, and the .NET host puts that directory on
+    NATIVE_DLL_SEARCH_DIRECTORIES — but `Cross.GetApi()` does not go through a `DllImport`, it
+    goes through Silk.NET's own `LibraryLoader`, and what that finds is a different set of paths
+    on every platform. On the ubuntu leg it finds nothing: six of the nine cases in
+    `Vixen.Raven.Transpile.Tests` died inside `Cross.GetApi()` with
+    `FileNotFoundException: Could not load from any of the possible library names!`, and read as
+    six defects in the shader compiler (#1027).
+
+    ⚠ **The same shape is already written down in `Directory.Packages.props` for Assimp**, and
+    measured there: the loader does not look in `runtimes/` on Linux, and the same file placed
+    beside the assembly loads. That note calls copying it beside the binary "owed"; this is that,
+    for the library whose absence was turning a CI leg red.
+
+    Measured here the other way round, on macOS, which is the leg that works: delete
+    `$(OutDir)runtimes/osx-arm64` and the suite reproduces the ubuntu run exactly — 6 skipped,
+    3 passed, the two unguarded cases red. Put the identical file flat beside the assembly with
+    the RID directory still gone and all eleven pass. So beside-the-assembly is a path this
+    loader takes, and it is the one path that does not depend on which RID name the loader
+    guesses.
+
+    ⚠ Green on macOS is not green on Linux, and the ubuntu leg is where this has to be judged.
+    `VIXEN_REQUIRE_SPIRV_CROSS` is still off there deliberately (see `.github/workflows/ci.yml`),
+    so this change can only turn that leg's *skips* into passes and can never turn it red — and
+    the skip count is what says whether the copy worked. Flip the promise on once it reads zero.
+
+    `NETCoreSdkPortableRuntimeIdentifier` rather than `RuntimeIdentifier`: none of these projects
+    sets one, so the only RID in scope is the machine's own, which is what the SDK reports and
+    exactly the native that has to be beside the binary for a run on that machine. A cross-build
+    would want the target's instead, and none of these projects does one.
+  -->
+  <Target Name="VixenFlattenSpirvCrossNative"
+          AfterTargets="Build"
+          Condition="'$(NETCoreSdkPortableRuntimeIdentifier)' != ''">
+    <ItemGroup>
+      <VixenSpirvCrossNative
+        Include="$(OutDir)runtimes/$(NETCoreSdkPortableRuntimeIdentifier)/native/*spirv-cross*"/>
+    </ItemGroup>
+
+    <Copy SourceFiles="@(VixenSpirvCrossNative)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true"
+          Condition="'@(VixenSpirvCrossNative)' != ''"/>
+  </Target>
+
+</Project>

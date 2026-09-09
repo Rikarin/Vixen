@@ -152,6 +152,8 @@ public class CrossCompilationTests {
     /// </remarks>
     [Fact]
     public void A_varying_loses_its_location_and_takes_one_name_at_es_300() {
+        CrossCompilerRequirement.Available();
+
         var vulkan = Generate(Streamed, "glsl");
         var vulkanVertex = Assert.Single(vulkan, unit => unit.Stage == ShaderStage.Vertex).Code;
         var vulkanFragment = Assert.Single(vulkan, unit => unit.Stage == ShaderStage.Fragment).Code;
@@ -222,6 +224,8 @@ public class CrossCompilationTests {
     /// </remarks>
     [Fact]
     public void Every_library_shaders_fragment_inputs_are_written_by_its_vertex_stage() {
+        CrossCompilerRequirement.Available();
+
         var bag = new DiagnosticBag();
         var units = Backend(GlslDialect.Essl300).Generate(Library(), bag);
 

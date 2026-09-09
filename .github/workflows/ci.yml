@@ -262,9 +262,18 @@ jobs:
           # the shader compiler (#1027). They now skip there, with the library named.
           #
           # macOS and Windows have been observed to load it — those two legs pass all nine today —
-          # so on them a skip is a regression and is treated as one. Nobody has yet found out what
-          # ubuntu is doing differently; when that is answered, add ubuntu-latest here, and until
-          # then the skip count on that leg is the record that this is owed.
+          # so on them a skip is a regression and is treated as one.
+          #
+          # ⚠ What ubuntu is doing differently is answered now, and the answer was not "the file is
+          # missing": `Cross.GetApi()` does not go through a DllImport, so the host's
+          # NATIVE_DLL_SEARCH_DIRECTORIES — which *does* include runtimes/<rid>/native — never
+          # resolves it. Silk.NET's own loader does, and Directory.Packages.props already records,
+          # measured on Linux for Assimp, that it does not read runtimes/ there while the same file
+          # beside the assembly loads. Raven/Directory.Build.targets copies it beside the assembly
+          # now. That was measured the other way round on macOS, so it is unverified on this leg —
+          # which is exactly why the promise stays off here: the change can only turn skips into
+          # passes and can never turn this leg red. Add ubuntu-latest to this condition once the
+          # leg's skip count for that suite reads zero.
           VIXEN_REQUIRE_SPIRV_CROSS: ${{ matrix.os == 'ubuntu-latest' && '' || '1' }}
 
       - name: Upload test results
