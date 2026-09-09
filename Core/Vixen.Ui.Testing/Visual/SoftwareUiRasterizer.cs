@@ -57,6 +57,50 @@ public static class SoftwareUiRasterizer {
         int height,
         Color4 background
     ) {
+        var target = RenderLinear(geometry, atlas, width, height, background);
+        var pixels = new byte[width * height * 4];
+
+        for (var i = 0; i < pixels.Length; i++) {
+            // ⚠ No sRGB encode. The render output is Rgba8UNorm and the draw list's colours are
+            // linear, so this is the same store the GPU does — and a reference written through a
+            // gamma curve the engine does not apply would be a picture of something that never
+            // reaches a screen.
+            pixels[i] = (byte)Math.Clamp(MathF.Round(target[i] * 255f), 0f, 255f);
+        }
+
+        return new(width, height, pixels);
+    }
+
+    /// <summary>The same frame, before the store that makes it eight bits.</summary>
+    /// <param name="geometry">What to draw.</param>
+    /// <param name="atlas">The glyph fields the text reads.</param>
+    /// <param name="width">How wide the picture is.</param>
+    /// <param name="height">How tall.</param>
+    /// <param name="background">What is already in the buffer this composites over.</param>
+    /// <returns>Premultiplied linear RGBA, four floats a pixel, row by row from the top.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Because a frame in cd/m² does not survive <see cref="Render" />.</b> The renderer
+    ///         works in luminance, and everything above a candela or so leaves that byte store
+    ///         clamped at 255 — so a HUD at one candela over a scene at a hundred and a HUD at
+    ///         diffuse white over the same scene come back as the same white rectangle. That is not
+    ///         a limitation of the arithmetic below, which is float throughout; it is the last four
+    ///         lines of <see cref="Render" />, and this is the same picture with those lines not
+    ///         taken. See <c>UiGeometryBuilder.WhiteLevel</c> and #670.
+    ///     </para>
+    ///     <para>
+    ///         <paramref name="background" /> is the scene, in the pass's own units, and is
+    ///         <em>not</em> scaled by anything: it is what a 3D frame already wrote, and only the
+    ///         interface's own colours pass through the white level.
+    ///     </para>
+    /// </remarks>
+    public static float[] RenderLinear(
+        UiGeometry geometry,
+        GlyphAtlas atlas,
+        int width,
+        int height,
+        Color4 background
+    ) {
         ArgumentNullException.ThrowIfNull(atlas);
         ArgumentOutOfRangeException.ThrowIfNegative(width);
         ArgumentOutOfRangeException.ThrowIfNegative(height);
@@ -77,17 +121,7 @@ public static class SoftwareUiRasterizer {
         var frame = new Frame(geometry, atlas, width, height);
         frame.Run(target, 0, geometry.Draws.Count);
 
-        var pixels = new byte[width * height * 4];
-
-        for (var i = 0; i < pixels.Length; i++) {
-            // ⚠ No sRGB encode. The render output is Rgba8UNorm and the draw list's colours are
-            // linear, so this is the same store the GPU does — and a reference written through a
-            // gamma curve the engine does not apply would be a picture of something that never
-            // reaches a screen.
-            pixels[i] = (byte)Math.Clamp(MathF.Round(target[i] * 255f), 0f, 255f);
-        }
-
-        return new(width, height, pixels);
+        return target;
     }
 
     /// <summary>The signed distance to a box with an elliptical corner, negative inside.</summary>

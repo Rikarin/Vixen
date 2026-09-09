@@ -836,10 +836,18 @@ expensive items are.
    `Rgb10A2UNorm` is the usual HDR10 swapchain format and is display-referred, so it wants a white of
    one); `UiWindowSurface.Adopt` and any game host both read it; and `UiGeometry.WhiteLevel` carries
    what a frame was built at, because a magnitude cannot be recovered from a colour afterwards.
-   ⚠ **What is left is a picture, and it is blocked on a host rather than on the mechanism.**
    `UiRenderFeature.Dim` counts a frame built at the display's white and drawn into a scene-referred
    pass — the defect itself, made countable, since nothing else in a frame changes when it happens —
-   and nothing in the tree yet mounts a HUD in a world for it to count. See #670 and #627.
+   and nothing in the tree yet mounts a HUD in a world for it to count.
+   ⚠ **The picture is no longer blocked on a device, and what was blocking it was four lines of the
+   software rasteriser.** `SoftwareUiRasterizer.Render` stores eight bits, so a scene at a hundred
+   candelas and a HUD at one both leave it as 255 and the two frames are byte-identical through that
+   door — which is why five audits called this unphotographable. `RenderLinear` is the same frame
+   with that store not taken, and `HudLuminanceTests` reads the defect out of it as an order rather
+   than a threshold: a panel CSS calls white comes out at 1 cd/m² against a wall at 100, one code
+   value from a buffer nothing was drawn into, and at BT.2408's white it is 255. What is still owed
+   is the *device* executor's half of the same picture and a production host to mount a HUD at all.
+   See #670 and #627.
 3. ⚠ **`prefers-color-scheme` is built and never fed.** The query works (`MediaQuery.cs:146,151`),
    the property exists per surface (`UiSurface.cs:152`, `Media.cs:80`), and **the only writers in the
    tree are two test files**. No platform assembly reads the OS appearance. The editor hides this by
