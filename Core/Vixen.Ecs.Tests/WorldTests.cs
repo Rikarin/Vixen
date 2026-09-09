@@ -300,6 +300,98 @@ public sealed class WorldTests {
         GC.Collect();
     }
 
+    /// <summary>
+    ///     ⚠ A read of a managed component used to be a write: <c>World.Read</c> reached the same
+    ///     lazy allocation <c>Get</c> does, so a row nobody had written got a store slot, the chunk
+    ///     cell was overwritten with its handle, and the world's table of stores was grown to make
+    ///     the store — three mutations behind a method documented as changing nothing
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1198">#1198</a>).
+    /// </summary>
+    /// <remarks>
+    ///     The assertion is on the chunk cell rather than on the value, because the value is the same
+    ///     either way — <c>default</c> is what the freshly allocated slot held. That is what made the
+    ///     defect invisible, and it is why the test reaches an internal accessor rather than proving
+    ///     it through the public surface, which cannot see it at all.
+    /// </remarks>
+    [Fact]
+    public void ReadingAManagedComponentThatWasNeverWrittenTakesItNoSlot() {
+        using var world = new World();
+        var entity = world.Create(world.ArchetypeOf([ComponentType<Label>.Id]));
+
+        Assert.Equal(0, world.ManagedHandleOf<Label>(entity));
+        Assert.False(world.HasManagedStore<Label>());
+
+        Assert.Null(world.Read<Label>(entity));
+
+        Assert.Equal(0, world.ManagedHandleOf<Label>(entity));
+        Assert.False(world.HasManagedStore<Label>());
+    }
+
+    /// <summary><c>TryGet</c> hands back a copy, so it is a read and owes the same promise.</summary>
+    [Fact]
+    public void TryGettingAManagedComponentThatWasNeverWrittenTakesItNoSlot() {
+        using var world = new World();
+        var entity = world.Create(world.ArchetypeOf([ComponentType<Named>.Id]));
+
+        Assert.True(world.TryGet<Named>(entity, out var value));
+        Assert.Null(value.Name);
+
+        Assert.Equal(0, world.ManagedHandleOf<Named>(entity));
+        Assert.False(world.HasManagedStore<Named>());
+    }
+
+    /// <summary>
+    ///     The other half, and the one that keeps the first from being satisfiable by doing nothing:
+    ///     a <em>write</em> still takes the slot lazily, which is what makes <c>Add&lt;T&gt;()</c>
+    ///     with no value and a move that gains the component land on a real reference.
+    /// </summary>
+    [Fact]
+    public void WritingAManagedComponentThatWasNeverWrittenStillTakesItASlot() {
+        using var world = new World();
+        var entity = world.Create(world.ArchetypeOf([ComponentType<Label>.Id]));
+
+        world.Get<Label>(entity) = new() { Text = "written" };
+
+        Assert.NotEqual(0, world.ManagedHandleOf<Label>(entity));
+        Assert.True(world.HasManagedStore<Label>());
+        Assert.Equal("written", world.Read<Label>(entity).Text);
+    }
+
+    /// <summary>
+    ///     And the read path still resolves a slot that exists — a "takes no slot" that also stopped
+    ///     reading the value would satisfy every assertion above.
+    /// </summary>
+    [Fact]
+    public void ReadingAManagedComponentThatWasWrittenSeesTheValueAndNotTheDefault() {
+        using var world = new World();
+        var first = world.Create(new Label { Text = "first" });
+        var second = world.Create(new Label { Text = "second" });
+
+        Assert.Equal("first", world.Read<Label>(first).Text);
+        Assert.Equal("second", world.Read<Label>(second).Text);
+        Assert.True(world.TryGet<Label>(second, out var copy));
+        Assert.Equal("second", copy!.Text);
+    }
+
+    /// <summary>
+    ///     A read of one row must not change what the next writer of another row gets. With the old
+    ///     path the read consumed slot 1, so the write landed in slot 2; the numbers are not the
+    ///     point, the read having an effect on them is.
+    /// </summary>
+    [Fact]
+    public void ReadingOneRowDoesNotMoveTheSlotTheNextWriterGets() {
+        using var world = new World();
+        var archetype = world.ArchetypeOf([ComponentType<Label>.Id]);
+        var read = world.Create(archetype);
+        var written = world.Create(archetype);
+
+        _ = world.Read<Label>(read);
+        world.Get<Label>(written) = new() { Text = "x" };
+
+        Assert.Equal(1, world.ManagedHandleOf<Label>(written));
+        Assert.Equal(0, world.ManagedHandleOf<Label>(read));
+    }
+
     [Fact]
     public void ManagedSlotsAreReusedRatherThanGrowingForEver() {
         using var world = new World();
