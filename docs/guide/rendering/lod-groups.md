@@ -103,7 +103,11 @@ silhouette, so the flicker is far more visible than the detail the switch was pr
 
 **Cross-fade** is off (`CrossFadeDuration` is zero). During a fade *both* levels are drawn and each is
 pushed a weight a material turns into a dithered discard, so a fade doubles the draws for the objects
-crossing a threshold. A host that wants one sets the duration and feeds `DeltaTime` each frame.
+crossing a threshold. Setting the duration is now the whole of turning it on: `LodExtractionSystem`
+hands the feature the frame's unscaled delta, in a game from the loop's `SystemContext.Time` and in the
+editor from `EditorWorldRenderer.Extract`. ⚠ It advances faster than the duration says — see
+[#1183](https://github.com/Rikarin/Vixen/issues/1183) — because the feature accumulates once per
+visible member of the group and a fade is exactly the state in which two members are visible.
 
 ## Examples
 
@@ -133,13 +137,23 @@ nothing in half the product.
 
 ## What is not built yet
 
-- **No importer produces a chain.** `MeshData` has no LOD field and `ModelImportSettings` has no
-  `generateLods` — the settings' own remarks put LOD generation in "the compiler that sees the whole
-  model". A chain today is three imported meshes an author wires up, not something a `.fbx` brings.
+- **No importer produces a chain, and the decision is that generation is the compiler's rather than
+  the importer's.** `MeshData` has no LOD field and `ModelImportSettings` has no `generateLods`; the
+  settings' own remarks put LOD generation in "the compiler that sees the whole model", and that
+  stands — an import setting decides one file at a time, and which levels an object needs is a fact
+  about the scene it is placed in. So **an authored chain is the only kind there is today**: three
+  imported meshes hung off a parent that carries the thresholds, which is what every example on this
+  page does.
+
+  ⚠ **The decimator is not the missing piece.** `Vixen.Geometry.Remeshing` is a whole quad remesher
+  with an isotropic pass, and the virtualized path already simplifies clusters — what is missing is
+  the step that emits the coarser meshes as *sub-assets a group can name*, and the parent that names
+  them. That is the owed half of
+  [#1173](https://github.com/Rikarin/Vixen/issues/1173), and it is a content-build feature rather
+  than an importer flag.
 - **No editor gesture builds a group.** The components serialise and inspect; there is no
-  Create ▸ LOD Group and no handle that shows where a threshold falls.
-- **`DeltaTime` is not fed by either renderer**, so a cross-fade needs a host that sets it. With the
-  fade off — the default — nothing reads it.
+  Create ▸ LOD Group and no handle that shows where a threshold falls. Judging a screen-height
+  fraction by typing `0.06` and walking backwards is the authoring experience. Also #1173.
 
 ⚠ **Until 2026-09-09 there was no producer at all.** `LodRenderFeature` was complete, tested and named
 by neither renderer, so nothing ever called `Add`, no group was ever registered, and a scene authored

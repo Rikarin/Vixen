@@ -104,16 +104,50 @@ public sealed class LodExtractionSystem : SystemBase, IDeclaredAccess {
         .Build();
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The <em>unscaled</em> delta, which is the one decision in this line.</b> A cross-fade
+    ///     is a visual transition rather than a simulated one — the same class as UI animation, which
+    ///     <see cref="GameTime.UnscaledElapsed" />'s own remarks name — so a paused game whose camera
+    ///     is still being flown finishes the fade it started instead of freezing two levels of one
+    ///     object on top of each other for as long as the pause lasts.
+    /// </remarks>
     public override JobHandle Update(in SystemContext context, JobHandle dependency) {
-        Run(context.World);
+        Run(context.World, context.Time.UnscaledDeltaSeconds);
+
         return dependency;
     }
 
     /// <summary>Registers every authored group and gives every extracted level its membership.</summary>
     /// <param name="world">The world.</param>
+    /// <param name="deltaSeconds">
+    ///     How long the last frame took. Zero — the default — is a hard swap, which is what
+    ///     <see cref="LodRenderFeature.CrossFadeDuration" />'s own default asks for anyway.
+    /// </param>
     /// <exception cref="ArgumentNullException"><paramref name="world" /> is null.</exception>
-    /// <remarks>Public so a test or an editor can drive one frame of this without a runner.</remarks>
-    public void Run(World world) {
+    /// <remarks>
+    ///     <para>
+    ///         Public so a test or an editor can drive one frame of this without a runner.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is where the frame's clock reaches the feature, and until it did
+    ///         <see cref="LodRenderFeature.CrossFadeDuration" /> was unreachable through either
+    ///         renderer.</b> <c>LodRenderFeature.DeltaTime</c> is a property rather than a clock read
+    ///         on purpose — a renderer that reads a clock is a renderer whose frames cannot be
+    ///         reproduced, and a fade is exactly what a golden image would want to step through — but
+    ///         nothing set it, so a project that set a duration got a transition whose elapsed time
+    ///         never moved and therefore never ended. The default of zero is what kept that from
+    ///         being visible: a hard swap looks identical either way.
+    ///     </para>
+    ///     <para>
+    ///         Here rather than in <c>WorldRenderer.Draw</c>, which is what #1173 proposed: <c>Draw</c>
+    ///         takes a command list and no time, so a <c>DeltaTime</c> on the renderer would be a
+    ///         second unfed property one level up. This system already runs once a frame over the
+    ///         world, in both renderers — registered in the loop for a game, called by hand from
+    ///         <c>EditorWorldRenderer.Extract</c> for the editor — and it already holds the feature.
+    ///         The same shape <c>WaterClockSystem</c> settled on for the one water clock.
+    ///     </para>
+    /// </remarks>
+    public void Run(World world, float deltaSeconds = 0f) {
         ArgumentNullException.ThrowIfNull(world);
 
         Assigned = 0;
@@ -122,6 +156,11 @@ public sealed class LodExtractionSystem : SystemBase, IDeclaredAccess {
         if (Feature is null || Renderer is null) {
             return;
         }
+
+        // Before the walk rather than after it, because the feature's own Prepare is what consumes
+        // this and it runs after the whole extraction — and a NaN or a negative from a host whose
+        // clock jumped is clamped here rather than accumulated into every group's transition.
+        Feature.DeltaTime = float.IsFinite(deltaSeconds) ? MathF.Max(deltaSeconds, 0f) : 0f;
 
         Register(world);
         Assign(world);

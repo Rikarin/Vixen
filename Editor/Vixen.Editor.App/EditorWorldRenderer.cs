@@ -979,7 +979,11 @@ sealed class EditorWorldRenderer : IDisposable {
     ///     is <see cref="EditorApplication.ResolveTransforms" /> and then this, and an extraction that
     ///     ran first would place every object where it was last frame.
     /// </remarks>
-    public void Extract(World world) {
+    /// <param name="deltaSeconds">
+    ///     How long the last frame took, for the one thing in this extraction that moves by itself —
+    ///     see <c>LodExtractionSystem.Run</c>. Zero is a hard swap, which is the default anyway.
+    /// </param>
+    public void Extract(World world, float deltaSeconds = 0f) {
         ArgumentNullException.ThrowIfNull(world);
         ObjectDisposedException.ThrowIf(disposed, this);
 
@@ -994,7 +998,11 @@ sealed class EditorWorldRenderer : IDisposable {
         // ⚠ Also after the extraction, and for the same reason: a level that appeared this frame has
         // no RenderHandle until it ran, and a membership written for an object that does not exist
         // names whatever takes the slot.
-        lods.Run(world);
+        // ⚠ And with the editor's own frame delta, because `Register` never runs here: in a game the
+        // loop hands this system a `SystemContext.Time` and the cross-fade advances; here the number
+        // has to travel from `EditorApplication.Update` or `CrossFadeDuration` is a setting the scene
+        // view can never show.
+        lods.Run(world, deltaSeconds);
 
         lights.Extract(world);
     }

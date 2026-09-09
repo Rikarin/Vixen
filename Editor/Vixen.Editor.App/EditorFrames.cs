@@ -261,7 +261,13 @@ sealed partial class EditorApplication {
     ///     second <c>WorldTransform</c> pass over every open document is a cost the viewport does not
     ///     yet have a reason to pay.
     /// </remarks>
-    void ExtractFrame() => frame?.Extract(scene.World);
+    /// <param name="delta">
+    ///     How long the last frame took. The extraction's one self-moving part is the LOD cross-fade,
+    ///     whose feature takes a supplied delta rather than reading a clock — see
+    ///     <c>LodExtractionSystem.Run</c> — so a viewport that passed nothing would show a transition
+    ///     that starts and never ends.
+    /// </param>
+    void ExtractFrame(TimeSpan delta) => frame?.Extract(scene.World, (float)delta.TotalSeconds);
 
     /// <summary>What the composed pane's last frame reported, so a repeat is not logged twice.</summary>
     string? reportedDegradations;

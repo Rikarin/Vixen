@@ -165,7 +165,7 @@ Vixen.Engine.Renderer.LodExtractionSystem.LodExtractionSystem() -> void
 Vixen.Engine.Renderer.LodExtractionSystem.Malformed.get -> int
 Vixen.Engine.Renderer.LodExtractionSystem.Renderer.get -> Vixen.Rendering.RenderSystem?
 Vixen.Engine.Renderer.LodExtractionSystem.Renderer.set -> Vixen.Rendering.RenderSystem?
-Vixen.Engine.Renderer.LodExtractionSystem.Run(Vixen.Ecs.World world) -> void
+Vixen.Engine.Renderer.LodExtractionSystem.Run(Vixen.Ecs.World world, float deltaSeconds = 0) -> void
 Vixen.Engine.Renderer.SceneRenderHost -> sealed class
 Vixen.Engine.Renderer.SceneRenderHost : System.IDisposable
 Vixen.Engine.Renderer.SceneRenderHost.Builder.get -> Vixen.Rendering.Compositor.CompositorBuilder

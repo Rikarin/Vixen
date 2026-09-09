@@ -1236,7 +1236,7 @@ sealed partial class EditorApplication : IDisposable {
         // `WorldTransform` and neither writes one — in a game the phase and the declared access are
         // what put them after `TransformSystem`, and the editor has no graph to do that — so an
         // extraction anywhere above this line places every object where it was last frame.
-        ExtractFrame();
+        ExtractFrame(delta);
 
         FollowHistory();
         Retitle();

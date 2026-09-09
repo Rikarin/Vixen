@@ -13,10 +13,23 @@ namespace Vixen.Editor.Assets.Models;
 
 /// <summary>How one model is imported.</summary>
 /// <remarks>
-///     Each of these answers something the file cannot. Which axis is up, how the material tree is
-///     wired and what the LODs should be are all decisions with better homes — the first in the
-///     authoring tool, the second in a material asset, the third in the compiler that sees the whole
-///     model.
+///     <para>
+///         Each of these answers something the file cannot. Which axis is up, how the material tree is
+///         wired and what the LODs should be are all decisions with better homes — the first in the
+///         authoring tool, the second in a material asset, the third in the compiler that sees the
+///         whole model.
+///     </para>
+///     <para>
+///         ⚠ <b>The third of those is a standing decision rather than an unwritten setting</b>, and
+///         #1173 asked for it to be said out loud: there is deliberately no <c>generateLods</c> here.
+///         An import setting decides one file at a time, and which levels an object needs is a fact
+///         about the scene it is placed in. So an authored chain — a parent carrying
+///         <c>LodGroupComponent</c>'s thresholds over children carrying <c>LodLevel</c> — is the only
+///         kind of chain that exists today, and the generated kind is owed from the content build
+///         rather than from here. <c>Vixen.Geometry.Remeshing</c> is already the decimator that half
+///         would use; what is missing is emitting the coarser meshes as sub-assets a group can name.
+///         See <c>docs/guide/rendering/lod-groups.md</c>.
+///     </para>
 /// </remarks>
 [DataContract("ModelImporter")]
 public sealed record ModelImportSettings : IImportSettings {
