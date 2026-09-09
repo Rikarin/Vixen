@@ -481,54 +481,49 @@ submitted twice and `UiRenderer.Filtered` counts it twice; the same goes for `Ma
 bounded by the layer count any more. That is the price of the feature rather than a bookkeeping
 artefact, and it is what makes the price visible.
 
-⚠ **The filtered backdrop is clipped to the border box, and to its corner radius on the software path
-alone.** `UiLayer.Bounds` is the group's *ink* — a child overflowing the element makes it bigger — so
-a rectangle taken from there would put blurred scene outside the panel that asked for it;
+⚠ **The filtered backdrop is clipped to the border box, and to its corner radius, on both
+executors.** `UiLayer.Bounds` is the group's *ink* — a child overflowing the element makes it bigger —
+so a rectangle taken from there would put blurred scene outside the panel that asked for it;
 `UiLayer.BackdropBounds` carries the border box instead, which closes that half.
-`UiLayer.BackdropRadius` and `UiLayer.BackdropBox` carry the rounding, and
-`SoftwareUiRasterizer.Composite` multiplies its coverage into the mask's. `UiRenderer` does not, and
-`UiRenderer.SquareBackdrops` counts every quad that went out square — the same shape
-`mix-blend-mode`'s divergence has, and counted for the same reason: a corner of filtered scene against
-unfiltered scene is frequently the identity, so no screenshot can report it. The ten `backdrop-*`
-roots read **partial** in `docs/plan/43` for the device half and for nothing else now.
+`UiLayer.BackdropRadius` and `UiLayer.BackdropBox` carry the rounding;
+`SoftwareUiRasterizer.Composite` multiplies its coverage into the mask's, and `UiRenderer` pushes the
+box to `ui-colour.frag` or `ui-mask.frag`, which do the same multiply.
+`UiCompositingTests.ARoundedBackdropIsClippedToItsCurveOnBothExecutors` compares the two frames on a
+device; it asserted the opposite until 2026-09-09, having been written to be inverted.
 
 ⚠ **The channel from the document to the layer was a literal `0f`, and four audits of the divergence
 priced only the half below it.** Measured 2026-09-08: `DrawListBuilder` passed a hard zero for the
 `LayerPush`'s own `Radius` — the slot that carries a box's rounding for every other command kind — so
 the radius was discarded one hop after it was resolved and four hops before any fragment. Everything
-in the paragraph below is true and is about a *fragment*; none of it was reachable, because there was
-nothing for a fragment to be told. ⚠ It is uniform-or-zero, which is `DrawCommand.Radius`'s own rule:
-a `LayerPush`'s side-buffer range is spent on its mask list, so an element whose four corners differ
+in the paragraphs below is about a *fragment*; none of it was reachable, because there was nothing for
+a fragment to be told. ⚠ It is uniform-or-zero, which is `DrawCommand.Radius`'s own rule: a
+`LayerPush`'s side-buffer range is spent on its mask list, so an element whose four corners differ
 keeps its square backdrop.
 
-⚠ **The distance field is the easy half of the *device* half, and this used to price only that.**
-Measured 2026-09-06: there is no way to *tell* a composite fragment where the rounded box is. A
-composite quad has no
-`UiShape` — an image descriptor set's storage binding never points at the box buffer. And the quad's
-`shape` stream has three free lanes — `shape.x` is already the premultiplied flag — where a *backdrop*
-quad needs the box's centre, its half-size and a radius, because its `uv` is viewport-relative rather
-than box-relative.
+⚠ **The third cost the device half was priced at — "the push constants are at the ceiling" — was
+false, and it is the one the expensive answer was derived from.** It stood in five places until
+2026-09-09 and it conflates two different blocks. Measured off the committed `.reflect.json` before
+the box landed: `UiBlur`'s push block was **32** bytes, `UiColour`'s **64**, `UiMask`'s **80** — the
+widest — and `UiImage` declares none at all, against the **128** Vulkan guarantees everywhere. The box
+went into those 48 free bytes as a centre and a half plus a uniform-or-zero radius, two `float4`,
+taking `UiColour` to **96** and `UiMask` to **112**. The pipeline layout was already one
+`Vertex | Fragment` range over the whole 128, so no host change attended it. What *is* at the ceiling
+is a **mask list**: an entry is sixty-four bytes, so sixteen reserved plus a forty-eight-byte matrix
+plus one entry is exactly 128 and a second will not fit — which is what `MaskEntry`'s remark in
+`Ui.rvn` says, correctly, and why those entries went to a storage buffer. Four audits read a true
+sentence about a sixty-four-byte record as a statement about a spare `float4`.
 
-⚠ **The third cost in that list — "the push constants are at the ceiling" — is false, and it is the
-one the expensive answer was derived from.** It stood in four places until 2026-09-09 and it conflates
-two different blocks. Measured off the committed `.reflect.json`: `UiBlur`'s push block is **32**
-bytes, `UiColour`'s **64**, `UiMask`'s **80** — the widest — and `UiImage` declares none at all,
-against the **128** Vulkan guarantees everywhere. That is 48 free bytes on the worst composite stage,
-where a box as a centre and a half plus a uniform-or-zero radius is two `float4` and spends 32. The
-pipeline layout is already one `Vertex | Fragment` range over the whole 128, so no host change attends
-it. What *is* at the ceiling is a **mask list**: an entry is sixty-four bytes, so sixteen reserved
-plus a forty-eight-byte matrix plus one entry is exactly 128 and a second will not fit — which is what
-`MaskEntry`'s remark in `Ui.rvn` says, correctly, and why those entries went to a storage buffer. Four
-audits read a true sentence about a sixty-four-byte record as a statement about a spare `float4`.
+So the channel was two push constants, and **not** the fourth `MaskEntry` shape this paragraph used to
+recommend — which would have routed every rounded backdrop through the mask pipeline whether or not
+the element has a `mask-image`, to buy a record that has room where there was already room.
+`ShaderReflectionTests.TheBackdropBoxIsWhereTheHostPushesIt` pins where the bytes went.
 
-So the channel is two push constants on `UiImage`, `UiColour` and `UiMask`, and **not** the fourth
-`MaskEntry` shape this paragraph used to recommend — which would have routed every rounded backdrop
-through the mask pipeline whether or not the element has a `mask-image`, to buy a record that has room
-where there was already room. `ShaderReflectionTests.ThereIsRoomForARoundedBackdropBox` holds the
-headroom, so the day something spends it the expensive answer becomes the right one visibly rather
-than silently. The rest is what was already priced — the signed distance in the three fragments, their
-committed copies, `SoftwareUiRasterizer.Composite` (which has it as of 2026-09-08) and a device to
-photograph the corner.
+⚠ **`UiImage` is the module that did *not* get the box, and that is what the closure cost.** It draws
+every viewport, thumbnail and video frame in the interface, and a push block there would make each of
+them write a range once a frame — the cost `ui-colour.frag` exists to avoid. So a rounded backdrop
+composites through `colourPipeline` with an identity matrix, on the precedence `maskPipeline` already
+sets, and a host that handed over no colour stage draws its backdrop *square* rather than not at all.
+That is the only thing `UiRenderer.SquareBackdrops` counts now.
 
 ⚠ **An element that paints nothing of its own used to get no backdrop, and the reason recorded for it
 was a claim about these two executors that was not true of either.** The claim was that both walk the

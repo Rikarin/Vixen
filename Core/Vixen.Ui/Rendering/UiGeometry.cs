@@ -317,34 +317,19 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///         wherever a tooltip, a shadow-casting child or a <c>blur-*</c> pushed the ink out.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Rectangular, including where the element is rounded, and that is a stated
-    ///         divergence rather than an oversight.</b> A <c>UiLayer</c> carries no corner radius, and
-    ///         <c>rounded-2xl backdrop-blur-md</c> is the canonical use of the feature — so the
-    ///         filtered backdrop shows square corners just outside the rounded ones.
+    ///         ⚠ <b>Rectangular, and the rounding is <see cref="BackdropBox" />'s job rather than
+    ///         this rectangle's.</b> A rounded rectangle is a box and a radius together, and clipping
+    ///         a box moves its corners — so rounding <i>these</i> bounds would put a curve at the
+    ///         corners of whatever the clip left. That is the whole reason there are two rectangles;
+    ///         see the other one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the price this used to quote — "a rounded-rect distance in the composite
-    ///         fragment" — leaves out the half that is actually missing, which is a <i>channel</i> to
-    ///         tell the fragment where the rounded box is.</b> Measured rather than assumed, 2026-09-06:
-    ///         a composite quad has no <c>UiShape</c> at all, because an image descriptor set's storage
-    ///         binding never points at the box buffer — see <c>UiRenderer</c>'s remark on it. The push
-    ///         constants are full: <c>Ui.rvn</c>'s <c>MaskEntry</c> records that <c>UiMask</c>'s
-    ///         forty-eight-byte matrix plus the vertex stage's sixteen is 16 + 112, which is exactly
-    ///         the 128 bytes Vulkan guarantees on every device. And the quad's own <c>shape</c> stream
-    ///         has three free lanes — <c>shape.x</c> is already the premultiplied flag
-    ///         <c>UiGeometryBuilder.Layer</c> sets — which is not enough: a backdrop quad's <c>uv</c> is
-    ///         <i>viewport</i>-relative, so the fragment would need the box's centre as well as its
-    ///         half-size and four elliptical radii.
-    ///     </para>
-    ///     <para>
-    ///         ⚠ <b>The channel that does exist is <c>MaskEntry</c>, and it costs no lane anywhere.</b>
-    ///         That record already rides a binding every composite draw has bound, already carries the
-    ///         border box as centre and half in document pixels, and already discriminates on
-    ///         <c>ramp.z</c> — so a fourth shape beside linear, radial and conic can spend the stop
-    ///         lanes, which a shape that is not a ramp does not read, on four radii. What it costs
-    ///         instead is routing: only <c>UiMask</c> reads entries, so a rounded backdrop would
-    ///         composite through the mask pipeline whether or not it has a <c>mask-image</c>.
-    ///         <c>docs/guide/ui/compositing.md</c> carries the same measurement.
+    ///         ⚠ <b>Five audits of #229 priced the missing curve as a <i>channel</i> nobody had, and
+    ///         the channel turned out to be two <c>float4</c> of push constants nobody had measured.</b>
+    ///         The record of what those audits believed is kept on <see cref="BackdropRadius" />,
+    ///         because every one of the beliefs was about how to reach a fragment and not about this
+    ///         rectangle. What is true of this one is only the first paragraph: it is the ink's box
+    ///         narrowed to the border box, and it is what the backdrop is sampled through.
     ///     </para>
     /// </remarks>
     public Rectangle BackdropBounds { get; init; }
@@ -369,10 +354,13 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         <b>#229 divergence 1, half closed.</b> CSS clips a filtered backdrop to the element's
-    ///         border box <i>including its radius</i>, and until 2026-09-08 nothing carried one:
+    ///         <b>#229 divergence 1, closed on both executors — the software one on 2026-09-08 and
+    ///         the device on 2026-09-09.</b> CSS clips a filtered backdrop to the element's border
+    ///         box <i>including its radius</i>, and until then nothing carried one:
     ///         <c>rounded-2xl backdrop-blur-md bg-white/30</c> — the canonical use of the feature —
-    ///         showed square corners just outside the rounded ones on both executors.
+    ///         showed square corners just outside the rounded ones on both executors. The picture is
+    ///         <c>UiCompositingTests.ARoundedBackdropIsClippedToItsCurveOnBothExecutors</c>, which
+    ///         compares the two on a device.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Four audits priced that divergence as a shader problem and every one of them was
@@ -385,26 +373,24 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///         slot was there the whole time.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So this is honestly half: <c>SoftwareUiRasterizer</c> applies it and
-    ///         <c>UiRenderer</c> does not, which is a NEW divergence between the two executors and
-    ///         the same shape <c>mix-blend-mode</c> has carried since #244.</b>
-    ///         <c>UiRenderer.SquareBackdrops</c> is what counts the divergence rather than leaving it
-    ///         a paragraph; see <c>UiRenderer.Unblended</c> for why a divergence nothing counts is one
-    ///         nobody notices closing.
+    ///         ⚠ <b>And the device half's price was refuted before it was paid, measured against the
+    ///         committed reflection.</b> Five audits wrote "the push constants are full" and the
+    ///         fifth concluded from it that the cheapest channel is a fourth <c>MaskEntry</c> shape,
+    ///         whose cost is routing every rounded backdrop through the mask pipeline. They were not
+    ///         full. The composite blocks were <c>UiBlur</c> 32 bytes, <c>UiColour</c> 64 and
+    ///         <c>UiMask</c> 80 — the widest — of the 128 every Vulkan implementation guarantees, with
+    ///         <c>UiImage</c> declaring none at all; the box went into the free 48 as one
+    ///         <c>float4</c> for a centre and a half and one for the radius, taking them to 96 and
+    ///         112. The pipeline layout was already a single <c>Vertex | Fragment</c> range over the
+    ///         whole 128, so no host change attended it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the device half's price is refuted, measured against the committed
-    ///         reflection on 2026-09-09.</b> Five audits wrote "the push constants are full" and the
-    ///         fifth concluded from it that the cheapest channel is a fourth <c>MaskEntry</c> shape,
-    ///         whose cost is routing every rounded backdrop through the mask pipeline. They are not
-    ///         full. The composite blocks are <c>UiBlur</c> 32 bytes, <c>UiColour</c> 64 and
-    ///         <c>UiMask</c> 80 — the widest — of the 128 every Vulkan implementation guarantees, and
-    ///         <c>UiImage</c> declares none at all. That leaves <b>48 free bytes on the worst
-    ///         stage</b>, where a rounded backdrop needs 32: one <c>float4</c> for the box as a centre
-    ///         and a half, and one for the radius, which is uniform-or-zero by
-    ///         <c>DrawCommand.Radius</c>'s rule and so spends one lane of four. The pipeline layout is
-    ///         already a single <c>Vertex | Fragment</c> range over the whole 128, so no host change
-    ///         attends it.
+    ///         ⚠ <b>What <c>UiImage</c> declaring none costs, and it is the one thing that did not
+    ///         come free.</b> A composite with neither a filter nor a mask used to go through the
+    ///         image pipeline; a rounded one now goes through <c>colourPipeline</c> carrying an
+    ///         identity matrix, on the precedence the mask pipeline already sets. So a host that hands
+    ///         over no colour stage draws its backdrop square, which is what
+    ///         <c>UiRenderer.SquareBackdrops</c> counts now.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Where the "full" sentence came from is a true sentence about something else.</b>
@@ -412,8 +398,9 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///         push constants — an entry is 64 bytes, so 16 reserved plus a 48-byte colour matrix
     ///         plus one entry is exactly 128 and a second will not fit. That is right, and it is why
     ///         mask entries went to a storage buffer. It is not a statement about a spare
-    ///         <c>float4</c>, and four audits read it as one. <c>ShaderReflectionTests</c> pins the
-    ///         headroom now, so the day it is spent this plan changes visibly instead of silently.
+    ///         <c>float4</c>, and four audits read it as one.
+    ///         <c>ShaderReflectionTests.TheBackdropBoxIsWhereTheHostPushesIt</c> pins where the box
+    ///         landed, so the wire layout is now compared rather than described.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Uniform or zero, which is <c>DrawCommand.Radius</c>'s own rule.</b> A

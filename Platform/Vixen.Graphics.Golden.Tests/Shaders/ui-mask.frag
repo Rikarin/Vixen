@@ -82,10 +82,11 @@ layout(std430, set = 0, binding = 2) readonly buffer Masks {
 } masks;
 
 // ⚠ At offset 16, past the vertex stage's projection, in the same fragment range `ui-blur.frag`
-// declares sixteen bytes of and `ui-colour.frag` forty-eight. The layout promises a hundred and
-// twelve, which is what the single-mask version of this module needed; a shader may read fewer than
-// the layout promises — the reverse is the error — so the range was left alone when the entries
-// moved to the storage buffer rather than narrowed and every pipeline recompiled.
+// declares sixteen bytes of and `ui-colour.frag` eighty. The layout promises the hundred and
+// twenty-eight Vulkan guarantees everywhere, and this is the widest consumer of it at 16 + 96; a
+// shader may read fewer than the layout promises — the reverse is the error — so nothing else had
+// to be recompiled when the entries moved to the storage buffer, or when the backdrop box arrived
+// after them.
 layout(push_constant) uniform Mask {
     // Three rows of a 4x5 colour matrix, as `ui-colour.frag` documents them. The identity when the
     // group has no `filter`.
@@ -99,6 +100,13 @@ layout(push_constant) uniform Mask {
     // have to be laid out by hand on both sides of the wire. Rounded rather than truncated on the
     // way back, which is the same `+ 0.5` the shape is read with.
     vec4 list;
+
+    // The border box a `backdrop-filter` is clipped to: `xy` its centre and `zw` half its size, in
+    // document pixels — and `corner.x` its radius, uniform or zero. `ui-colour.frag` carries the
+    // same pair at its own offset and argues them; a group may hold a `mask-image`, a `filter` and a
+    // radius at once, so all three have to be readable by the one module that serves that draw.
+    vec4 box;
+    vec4 corner;
 } push;
 
 layout(location = 0) in vec2 varying_texcoord;
@@ -243,6 +251,47 @@ float mask_list(vec2 point, int first, int count) {
     return clamp(result, 0.0, 1.0);
 }
 
+// The signed distance to a box with an elliptical corner, negative inside. `ui-box.frag`'s
+// `box_distance`, copied line for line, and `ui-colour.frag` carries the same copy — see that file
+// for why it is copied whole rather than simplified for the uniform radius a backdrop has.
+float box_distance(vec2 point, vec2 half_size, vec2 radius) {
+    vec2 r = min(max(radius, vec2(0.0)), half_size);
+    vec2 q = abs(point) - half_size + r;
+
+    if (r.x <= 0.0 || r.y <= 0.0) {
+        vec2 square = abs(point) - half_size;
+        return length(max(square, 0.0)) + min(max(square.x, square.y), 0.0);
+    }
+
+    if (q.x <= 0.0 && q.y <= 0.0) {
+        return max(q.x - r.x, q.y - r.y);
+    }
+
+    if (q.x <= 0.0) {
+        return q.y - r.y;
+    }
+
+    if (q.y <= 0.0) {
+        return q.x - r.x;
+    }
+
+    return (length(q / r) - 1.0) * min(r.x, r.y);
+}
+
+// The border box's own rounding, one where there is no radius.
+//
+// ⚠ It multiplies the mask's coverage rather than replacing it. An element may carry a `mask-image`
+// and a radius at once and CSS applies both — the mask clips what the group shows, the radius clips
+// where its backdrop is allowed to be, and neither subsumes the other. `SoftwareUiRasterizer` folds
+// the two the same way and in the same order.
+float backdrop_coverage(vec2 point) {
+    if (push.corner.x <= 0.0) {
+        return 1.0;
+    }
+
+    return clamp(0.5 - box_distance(point - push.box.xy, push.box.zw, vec2(push.corner.x)), 0.0, 1.0);
+}
+
 void main() {
     // ⚠ Premultiplied, always, with no `varying_shape.x` branch — `ui-colour.frag`'s remark applies
     // here word for word. This pipeline is bound for a composite quad and nothing else, so a
@@ -266,7 +315,8 @@ void main() {
     // scale of one and wrong at every other, because the surface is in target texels and the mask box
     // is in document pixels.
     vec2 point = varying_texcoord * vec2(textureSize(sampler2D(source, source_sampler), 0));
-    float coverage = mask_list(point, int(push.list.x + 0.5), int(push.list.y + 0.5));
+    float coverage = mask_list(point, int(push.list.x + 0.5), int(push.list.y + 0.5))
+        * backdrop_coverage(point);
 
     // ⚠ <b>All four channels, because the sample is premultiplied.</b> Scaling coverage on
     // premultiplied colour is `(rgb·m, a·m)` — the whole vector. The `(rgb, a·m)` an ordinary

@@ -841,34 +841,39 @@ public sealed class UiCompositingTests {
         Assert.Equal((255, 0, 0), Middle(software));
     }
 
-    /// <summary>A rounded group's backdrop goes out square on the device, and it is counted.</summary>
+    /// <summary>A rounded group's backdrop stops at the curve on the device too.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="ADeclaredBlendRunsOnTheSoftwarePathAndGoesOutSourceOverOnTheDevice" />'s
-    ///         sibling, and it exists for the sentence that test's own remarks make: a counter that
-    ///         says what a renderer failed to do is worth exactly what asks it.</b>
-    ///         <c>UiRenderer.Unblended</c> had no reader anywhere in the repository for a release, so
-    ///         the divergence was a paragraph rather than a measurement and neither a regression in it
-    ///         nor the day it closed would have been noticed. <c>UiRenderer.SquareBackdrops</c> is one
-    ///         week old and is read here rather than in a release's time.
+    ///         ⚠ <b>This test was its own opposite until 2026-09-09, and it is the inversion it was
+    ///         written to be given.</b> It used to assert <c>SquareBackdrops == 1</c> — the device
+    ///         drawing a rectangle where CSS asks for a rounded rectangle, so <c>rounded-2xl
+    ///         backdrop-blur-md bg-white/30</c> showed square corners just outside the rounded ones.
+    ///         The counter now says a host with no colour stage got its backdrop square, which is a
+    ///         degradation rather than the general case, so zero here is the claim that the box
+    ///         reached the fragment.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Counters and not pixels, deliberately, and this is the one case in this file where
-    ///         that is the stronger assertion.</b> The corner of a filtered backdrop is the filtered
-    ///         scene against the unfiltered scene — over the flat field this fixture paints, an
-    ///         <c>invert</c> of it and a copy of it differ, but the difference sits in four corner
-    ///         texels of a 128-pixel frame and a comparison of the two executors would report it as a
-    ///         diff with no obvious cause. The corner's *picture* is asserted where it can be read to
-    ///         the level: <c>BackdropFilterTests.A_rounded_backdrop_stops_at_the_curve</c>.
+    ///         ⚠ <b>Both halves, because either alone passes on a broken renderer.</b> The counter
+    ///         alone would pass on a renderer that took the rounded path and pushed the wrong numbers;
+    ///         the comparison alone would pass on a frame where <em>neither</em> executor rounded
+    ///         anything, which is exactly the state this file was in for a week. The layer assertions
+    ///         above them separate a third case — a fixture whose radius never survived the builder,
+    ///         which would make both of the others true and mean nothing.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Written to be inverted when #229 divergence 1 lands</b>, exactly as its sibling is:
-    ///         <see cref="UiRenderer.SquareBackdrops" /> becomes zero and the two frames are compared
-    ///         with the agreement every other case here uses.
+    ///         ⚠ <b>The comparison is over the whole frame and the difference it has to catch is four
+    ///         corners of it.</b> The corner of a filtered backdrop is the filtered scene against the
+    ///         unfiltered scene, and this fixture's <c>invert(1)</c> over a saturated magenta field is
+    ///         what makes those two legible — <see cref="Agreement" />'s ratio is 0.001 of the pixels,
+    ///         and a 16-pixel radius on a 128-pixel frame leaves about 55 texels outside the four
+    ///         curves, so a device that ignored the box is over the threshold by a factor of three.
+    ///         The corner's picture is *also* read to the level in
+    ///         <c>BackdropFilterTests.A_rounded_backdrop_stops_at_the_curve</c>, on the software path,
+    ///         which is what says the shared curve is the right curve rather than merely a shared one.
     ///     </para>
     /// </remarks>
     [Fact]
-    public void ARoundedBackdropIsClippedOnTheSoftwarePathAndGoesOutSquareOnTheDevice() {
+    public void ARoundedBackdropIsClippedToItsCurveOnBothExecutors() {
         if (!TryOpen(out var fixture, out _)) {
             return;
         }
@@ -910,7 +915,7 @@ public sealed class UiCompositingTests {
             pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Side, Side)));
         });
 
-        owned.Render(
+        var rendered = owned.Render(
             colour,
             commands => {
                 renderer.Upload(commands, geometry, cache.Atlas);
@@ -918,12 +923,25 @@ public sealed class UiCompositingTests {
             }
         );
 
-        // The capture ran — otherwise the backdrop quad is drawing nothing and the count below would
+        // The capture ran — otherwise the backdrop quad is drawing nothing and everything below would
         // be a claim about an empty picture.
         Assert.Equal(1, renderer.Backdropped);
 
-        // The claim: the geometry asked for a rounded backdrop and the quad went out square.
-        Assert.Equal(1, renderer.SquareBackdrops);
+        // The claim: nothing went out square. See the remarks for what this counts now.
+        Assert.Equal(0, renderer.SquareBackdrops);
+
+        var software = SoftwareUiRasterizer.Render(geometry, cache.Atlas, Side, Side, Background);
+
+        var comparison = ImageComparer.Compare(rendered, software, Agreement);
+
+        Assert.True(
+            comparison.Matches,
+            "the device and the software renderer disagree about a rounded backdrop, and one of them "
+            + $"is wrong: {comparison}. Four square corners of filtered scene where the curve should "
+            + "leave the field untouched is the device drawing the backdrop quad without its box — "
+            + "the push block in `ui-colour.frag`, and `UiRenderer.SubmitDraw` choosing "
+            + "`colourPipeline` for a draw that carries one."
+        );
     }
 
     /// <summary>A field with a rounded, inverting glass panel over the middle of it.</summary>
@@ -932,7 +950,7 @@ public sealed class UiCompositingTests {
     ///     backdrop is whatever is in the buffer the capture replays into, and a fixture whose backdrop
     ///     was the clear would be asserting about the render pass.
     /// </remarks>
-    static DrawList RoundedBackdrop() {
+    internal static DrawList RoundedBackdrop() {
         var list = new DrawList();
         list.BeginFrame();
 

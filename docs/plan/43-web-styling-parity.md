@@ -84,7 +84,7 @@ claim below was re-checked by reading the consumer rather than by the absence of
 | | Tailwind v4.3.3 | Vixen |
 |---|--:|--:|
 | Utility registry keys | 1 205 (890 static + 315 functional) | — |
-| Utility **roots** (the unit of this table) | **331** | 311 families |
+| Utility **roots** (the unit of this table) | **331** | 312 families |
 | CSS properties the utilities can set | **258** (8 of them vendor-prefixed) | **106** (11 of them `--tw-*` fragments) |
 | …of which something in the engine acts on | — | **89** |
 | Variant keys | **88** | **54** |
@@ -107,10 +107,10 @@ checked table is a copy nothing checks, and it is exactly how 128 outlived the t
 
 | State | Meaning | Roots |
 |---|--:|--:|
-| **works** | Vixen emits it, and a consumer acts on every property it sets | **248** |
+| **works** | Vixen emits it, and a consumer acts on every property it sets | **249** |
 | **partial** | emitted and partly read — one property of several, one axis of two, or a keyword set narrower than Tailwind's | **24** |
 | **inert** | resolves, computes a value, and nothing in the engine looks at it | **1** |
-| **absent** | not emitted at all | **55** |
+| **absent** | not emitted at all | **54** |
 | **composed** | it sets a `--tw-*` that another utility assembles; judged through its assembler | **3** |
 
 ⚠ **There was a sixth, `unknown`, and it described a row rather than a state.** Exactly one row held
@@ -489,7 +489,7 @@ refusal block, which already says so for the same reason.
 
 | Category | roots | works | partial | inert | absent | composed |
 |---|--:|--:|--:|--:|--:|--:|
-| Layout | 49 | 35 | 2 | 0 | 9 | 3 |
+| Layout | 49 | 36 | 2 | 0 | 8 | 3 |
 | Interactivity | 40 | 30 | 0 | 1 | 9 | 0 |
 | Borders | 34 | 28 | 2 | 0 | 4 | 0 |
 | Effects | 35 | 30 | 2 | 0 | 3 | 0 |
@@ -504,10 +504,10 @@ refusal block, which already says so for the same reason.
 | SVG | 3 | 3 | 0 | 0 | 0 | 0 |
 | Tables | 2 | 0 | 0 | 0 | 2 | 0 |
 | Accessibility | 1 | 1 | 0 | 0 | 0 | 0 |
-| **Total** | **331** | **248** | **24** | **1** | **55** | **3** |
+| **Total** | **331** | **249** | **24** | **1** | **54** | **3** |
 
 Flexbox and Grid leads at 30 of 34, with only two absent roots left and both of those refused on
-policy rather than owed; then Layout at 35 of 49, Interactivity at 30 of 40, Borders at 28 of 34,
+policy rather than owed; then Layout at 36 of 49, Interactivity at 30 of 40, Borders at 28 of 34,
 and Effects at 27 of 34. ⚠ Accessibility is 1 of 1 as of 2026-09-06 — `forced-color-adjust` landed the
 day its last blocker (#836) closed, and this paragraph said it had "no working root at all" for as long
 as the refusal outlived its reason. **Tables** is the one category still at zero.
@@ -621,8 +621,8 @@ box itself *is* honoured: `UiLayer.BackdropBounds` carries it separately from th
 the ink is grown by any child that overflows the element and filtering the backdrop over that would
 put blurred scene outside the panel that asked for it.
 
-⚠ **The radius is half closed as of 2026-09-08, and the half that had never been looked at was not a
-shader.** This paragraph priced it four times as "a rounded-rect signed distance in three shipped
+⚠ **The radius is closed — the software executor on 2026-09-08, the device on 2026-09-09 — and the
+half that had never been looked at was not a shader.** This paragraph priced it four times as "a rounded-rect signed distance in three shipped
 fragment modules and their software transcription", and the audits under #229 sharpened that to "the
 missing piece is a *channel* to tell a composite fragment where the box is". Both were about the hop
 below the one that was broken: `DrawListBuilder` passed a literal `0f` for the `LayerPush`'s own
@@ -632,23 +632,33 @@ be told even once somebody built the telling. `UiLayer.BackdropRadius` and `UiLa
 it now; `SoftwareUiRasterizer.Composite` multiplies the rounded coverage into the mask's, through the
 same `BoxDistance` the element's own background goes through so the two curves cannot disagree.
 
-⚠ **The device half is what keeps the ten rows `partial`, and it is now a counted divergence rather
-than a paragraph.** `UiRenderer` still draws a rectangle, for the reason the audits established — a
-composite quad has no `UiShape`, and the quad's `shape` stream has three free lanes where a
-viewport-relative backdrop needs five. ⚠ **The third reason in that list was false and the channel is
-cheap**: "the push constants are at Vulkan's guaranteed 128 bytes" stood in four places until
-2026-09-09 and is a true sentence about a sixty-four-byte *mask entry* read as one about a spare
-`float4`. Measured off the committed reflection, the composite blocks are `UiBlur` 32, `UiColour` 64,
-`UiMask` 80 and `UiImage` none, of the guaranteed 128 — 48 free bytes where a box as a centre and a
-half plus a uniform radius spends 32, over a pipeline layout that is already one `Vertex | Fragment`
-range across the whole 128. So the channel is two push constants on the three composite stages and
-**not** the fourth `MaskEntry` shape earlier audits recommended, which would have routed every rounded
-backdrop through the mask pipeline. `ShaderReflectionTests.ThereIsRoomForARoundedBackdropBox` pins the
-headroom so the day it is spent the expensive answer becomes the right one visibly.
-`UiRenderer.SquareBackdrops` counts every quad that goes out square and is
-read by `UiCompositingTests.ARoundedBackdropIsClippedOnTheSoftwarePathAndGoesOutSquareOnTheDevice`,
-which is `mix-blend-mode`'s arrangement word for word and exists because a corner of filtered scene
-against unfiltered scene is frequently the identity — no screenshot can report it.
+⚠ **The device half landed on 2026-09-09, and the price four audits gave for it was false.**
+`UiRenderer` drew a rectangle, for the reason those audits established — a composite quad has no
+`UiShape`, and the quad's `shape` stream has three free lanes where a viewport-relative backdrop needs
+five. ⚠ **The third reason in that list was false and the channel was cheap**: "the push constants are
+at Vulkan's guaranteed 128 bytes" stood in five places and is a true sentence about a sixty-four-byte
+*mask entry* read as one about a spare `float4`. Measured off the committed reflection, the composite
+blocks were `UiBlur` 32, `UiColour` 64, `UiMask` 80 and `UiImage` none, of the guaranteed 128 — and
+the box, a centre and a half plus a uniform radius, spent 32 of those 48 free bytes and took `UiColour`
+to 96 and `UiMask` to 112, over a pipeline layout that was already one `Vertex | Fragment` range across
+the whole 128. So the channel was two push constants and **not** the fourth `MaskEntry` shape earlier
+audits recommended, which would have routed every rounded backdrop through the mask pipeline.
+`ShaderReflectionTests.TheBackdropBoxIsWhereTheHostPushesIt` pins where the bytes went, and
+`UiCompositingTests.ARoundedBackdropIsClippedToItsCurveOnBothExecutors` compares the two executors'
+frames on a device — the test that asserted the opposite, written to be inverted, and inverted.
+
+⚠ **`UiImage` is the module that did not get the box, and that is the whole cost of the closure.** It
+draws every viewport, thumbnail and video frame in the interface, and a push block there would make
+each of them write a range once a frame. So a rounded backdrop composites through `colourPipeline`
+carrying an identity matrix, on the precedence `maskPipeline` already sets, and a host that handed over
+no colour stage draws its backdrop *square* rather than not at all — which is the only thing
+`UiRenderer.SquareBackdrops` counts now.
+
+⚠ **The ten rows stay `partial`, and not for anything #229 owes.** `state` is derived from what the
+engine *reads*, and each of these rows' `css` names `-webkit-backdrop-filter` beside
+`backdrop-filter` — a prefix Vixen deliberately never emits, as every one of the ten `note` cells has
+said all along. "The ten rows measuring `works`", which #229 gives as its own "done looks like", was
+never reachable through fidelity work of any kind.
 
 ⚠ **And it is the uniform radius or none**, which is `DrawCommand.Radius`'s own rule: a `LayerPush`'s
 side-buffer range is already spent on its mask list, so four differing corners have nowhere to ride
@@ -3583,9 +3593,22 @@ overflows.
 **Sized:** `paint` is small and is the same clip that already exists. `layout` is small and is mostly
 a statement about what is already true, which is a reason to be careful that its test can fail.
 `size` and `inline-size` are the item, and they are a change inside the flex and block algorithms
-with an intrinsic-pre-pass half beside it. `style` is a refusal. The four buildable kinds are filed
-separately from this triage; the row stays `absent` until every keyword an aggregate class expands to
-is real, because a half-real `contain-strict` is worse than an absent one.
+with an intrinsic-pre-pass half beside it. `style` is a refusal.
+
+⚠ **All of that landed under #785 and #786, and the row went on reading `absent` for four more
+batches — because nobody registered the eight class names.** The property was end to end:
+`ContainmentReader` parsing the list, `LayoutStyle.Containment` carrying it, the size branch at the
+top of `CalculateLayoutImpl`, `EstablishesBlockFormattingContext`, and `OverflowAxes` taking `paint`
+as a second reason to clip. A hand-written `.vcss` had every one of them. What no stylesheet could
+write was `contain-content`, so the ledger measured a finished feature as an absent one. That is this
+document's own commonest defect wearing the other face — not a finished thing nothing calls, but a
+finished thing nothing can *name* — and it is worth watching for wherever a plan splits "the
+mechanism" from "the classes" into separate items. `Keywords("contain", "contain", …)` closed it on
+2026-09-09 and the row reads `works`; `ContainFamilyTests` asserts the eight mappings one at a time,
+which the ledger cannot, because `state` moves on the property being read and never looks at the
+value. ⚠ `contain-style` is registered although `style` folds to no flag: `ContainmentReader` drops a
+declaration it cannot parse *whole*, so an unregistered keyword would make `contain: layout style`
+contain nothing — and both aggregates expand through it.
 
 ### Bucket 4 — the algorithm was never written. `columns`, the three `break-*`, `box-decoration-break`, `float`, `clear`.
 

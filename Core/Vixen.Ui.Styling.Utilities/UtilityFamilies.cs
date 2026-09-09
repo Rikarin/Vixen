@@ -2659,6 +2659,34 @@ public static class UtilityFamilies {
             ["auto"] = "auto", ["hidden"] = "hidden", ["clip"] = "clip", ["visible"] = "visible", ["scroll"] = "scroll"
         });
 
+        // ⚠ <b>The property was built and this family was not, and that gap is the whole of what kept
+        // this root <c>absent</c> — see #246, #785 and #786.</b> Every one of the eight values is
+        // already read end to end: <c>ContainmentReader</c> parses the declaration (a <i>list</i> of
+        // keywords, which is why it is not a keyword lookup like every other family on this page),
+        // <c>LayoutStyleBuilder</c> writes <c>LayoutStyle.Containment</c>, <c>LayoutTree</c> honours
+        // <c>Size</c> through <c>MeasureNodeWithoutChildren</c> and <c>Layout</c> through
+        // <c>EstablishesBlockFormattingContext</c>, and <c>OverflowAxes</c> takes <c>Paint</c> as a
+        // second reason to clip. A hand-written <c>.vcss</c> has had the behaviour since #785 landed;
+        // only the class names were missing.
+        //
+        // ⚠ <b><c>style</c> is registered even though the engine measures it as inert</b>, and that is
+        // this reader's rule rather than an oversight: <c>ContainmentReader.Parse</c> understands the
+        // word and folds it to no flag, so <c>contain: layout style</c> still contains layout — where
+        // dropping the word would drop the whole declaration, which is what CSS does with a value it
+        // cannot parse. Refusing to register it would make <c>contain-style</c> the unparseable case
+        // it deliberately is not, and would leave <c>contain-content</c> and <c>contain-strict</c> —
+        // which both expand through <c>style</c> — spelling a keyword no class could.
+        //
+        // ⚠ <b><c>contain</c> and not <c>container</c>.</b> Nothing registers the bare Tailwind
+        // <c>container</c> class here, so the longest-prefix walk in <c>UtilityGenerator</c> has no
+        // second candidate to choose between — and if one is ever added it must be its own root, or
+        // <c>container</c> resolves as this family asked for a keyword called <c>er</c>.
+        Keywords("contain", "contain", new() {
+            ["none"] = "none", ["content"] = "content", ["strict"] = "strict",
+            ["size"] = "size", ["inline-size"] = "inline-size",
+            ["layout"] = "layout", ["paint"] = "paint", ["style"] = "style"
+        });
+
         // ⚠ <b>Lengths where the web has keywords, because the two are answering different
         // questions.</b> A browser's `scrollbar-width: auto | thin | none` is a page's *preference*
         // about a widget the browser owns and draws; nothing here owns one, so the useful value is

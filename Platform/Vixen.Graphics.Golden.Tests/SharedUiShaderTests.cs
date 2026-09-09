@@ -420,11 +420,19 @@ public partial class SharedUiShaderTests {
     ///         not excused because the Raven happens to write one elsewhere in the file; that it
     ///         slips through on a coincidence is worth knowing and is not worth an entry.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And both of those went the way the paragraph above says an entry goes — refuted
+    ///         by the tree rather than retired on purpose, which is worth naming because it is the
+    ///         weaker of the two ways.</b> <c>UiComposite</c> gained a <c>1f</c> on 2026-09-09 when a
+    ///         rounded backdrop's coverage landed there (<c>Rikarin/Vixen#229</c>), and declarations
+    ///         outside every shader block are in every copy's pool — so <c>ui-solid.frag</c>'s and
+    ///         <c>ui-text.frag</c>'s <c>clamp(x, 0.0, 1.0)</c> is now excused by a number in a struct
+    ///         neither of them transcribes. That is exactly the coincidence the <c>0.0</c> above is
+    ///         left to slip through on, and it is the cost of the pool being shared. The rows had to
+    ///         go: an entry that is no longer missing fails, and the list may only shrink.
+    ///     </para>
     /// </remarks>
-    static readonly Dictionary<string, float[]> Spelled = new(StringComparer.Ordinal) {
-        ["ui-solid.frag"] = [1f],
-        ["ui-text.frag"] = [1f]
-    };
+    static readonly Dictionary<string, float[]> Spelled = new(StringComparer.Ordinal);
 
     /// <summary>Which Raven shader each GLSL copy transcribes.</summary>
     /// <remarks>

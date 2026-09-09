@@ -776,6 +776,56 @@ struct UiComposite {
 
         return clamp(filtered, float3(0f), float3(sampled.a))
     }
+
+    /// The signed distance to a box with an elliptical corner, negative inside — `UiBox`'s
+    /// `BoxDistance`, copied.
+    ///
+    /// ⚠ **Copied rather than shared, and rather than simplified for the uniform radius a backdrop
+    /// has.** Shared, it would move a function out of `UiBox`'s own block, which is where the GLSL
+    /// twin keeps it and where `SharedUiShaderTests` compares the two files' constants shader by
+    /// shader. Simplified, it would part company with the element's own background wherever the
+    /// radius exceeds one half-extent and not the other — a one-texel light ring between a panel and
+    /// the glass behind it, which reads as a rendering fault and is nearly impossible to attribute.
+    static func BoxDistance(point: float2, halfSize: float2, radius: float2): float {
+        val r = min(max(radius, float2(0f)), halfSize)
+        val q = abs(point) - halfSize + r
+
+        if (r.x <= 0f || r.y <= 0f) {
+            val square = abs(point) - halfSize
+            return length(max(square, float2(0f))) + min(max(square.x, square.y), 0f)
+        }
+
+        if (q.x <= 0f && q.y <= 0f) {
+            return max(q.x - r.x, q.y - r.y)
+        }
+
+        if (q.x <= 0f) {
+            return q.y - r.y
+        }
+
+        if (q.y <= 0f) {
+            return q.x - r.x
+        }
+
+        return (length(q / r) - 1f) * min(r.x, r.y)
+    }
+
+    /// How much of this pixel the border box a `backdrop-filter` is clipped to covers — one where
+    /// there is no radius, so the multiply is the identity on every other draw these stages serve.
+    ///
+    /// ⚠ **A one-pixel band, hard-coded, where `UiBox` takes its width from a screen-space
+    /// derivative.** A composite quad covers bounds `UiGeometryBuilder` has already rounded out to
+    /// whole pixels over a surface that is the viewport's size, so the mapping is one to one and the
+    /// derivative of this distance is one by construction. `SoftwareUiRasterizer.Composite` says it
+    /// in the same words, which is what makes the two executors' corners agree to the texel rather
+    /// than to a threshold.
+    static func Backdrop(point: float2, box: float4, corner: float4): float {
+        if (corner.x <= 0f) {
+            return 1f
+        }
+
+        return saturate(0.5f - BoxDistance(point - box.xy, box.zw, float2(corner.x)))
+    }
 }
 
 /// One axis of the separable Gaussian a composited group's `filter: blur()` is made of.
@@ -885,6 +935,19 @@ shader UiColour {
 
     [PushConstant] var blue: float4 = float4(0f, 0f, 1f, 0f)
 
+    /// The border box a `backdrop-filter` is clipped to: `xy` its centre and `zw` half its size, in
+    /// document pixels. `UiLayer.BackdropBox`, which is the element's border box and not the group's
+    /// ink.
+    [PushConstant] var box: float4 = float4(0f, 0f, 0f, 0f)
+
+    /// `x` the corner radius, uniform across the four corners or zero — `UiLayer.BackdropRadius`.
+    ///
+    /// ⚠ **Zero is the whole of the "this draw is not a rounded backdrop" test, and it has to be a
+    /// number rather than an absent push.** This pipeline also serves every filtered group, and one
+    /// of those following a rounded backdrop would otherwise clip itself to the previous draw's box.
+    /// `UiRenderer.SubmitDraw` pushes this block whole on every draw that reaches here.
+    [PushConstant] var corner: float4 = float4(0f, 0f, 0f, 0f)
+
     stream var uv: float2
     stream var colour: float4
     stream var shape: float4
@@ -896,16 +959,25 @@ shader UiColour {
         // and `UiImage`, which needs one. This pipeline is bound for a composite quad and nothing
         // else: `UiGeometryBuilder.Layer` is the only thing that emits a surface-backed image draw,
         // and `UiRenderer.SubmitDraw` reaches this pipeline only for a draw whose layer carries a
-        // filter. A straight-alpha texture can never arrive here, so the flag would be a branch on a
-        // constant.
+        // filter or a rounded backdrop. A straight-alpha texture can never arrive here, so the flag
+        // would be a branch on a constant.
         val sampled = source.Sample(sourceSampler, uv)
         val filtered = UiComposite.Filter(sampled, red, green, blue)
 
-        // The rest is `UiImage`'s premultiplied path verbatim: the group's opacity is the composite
-        // quad's vertex alpha and is applied here, once.
-        val alpha = sampled.a * colour.a
+        // ⚠ **The point comes from the texture coordinate times the surface size, which *is* the
+        // document pixel** — `UiMask` argues it at length and this is the same expression for the
+        // same reason. The fragment's own coordinate would be right at a scale of one and wrong at
+        // every other.
+        val size = source.GetDimensions(0)
+        val coverage = UiComposite.Backdrop(uv * float2(float(size.x), float(size.y)), box, corner)
 
-        return float4(filtered * colour.rgb * colour.a, alpha)
+        // The rest is `UiImage`'s premultiplied path verbatim: the group's opacity is the composite
+        // quad's vertex alpha and is applied here, once. ⚠ The coverage multiplies all four channels,
+        // because the sample is premultiplied — leaving `rgb` alone would brighten the corner texels
+        // towards full strength as the curve closes, which reads as a light ring around the panel.
+        val alpha = sampled.a * colour.a * coverage
+
+        return float4(filtered * colour.rgb * colour.a * coverage, alpha)
     }
 }
 
@@ -959,6 +1031,14 @@ shader UiMask {
     /// the way back, which is the same `+ 0.5` the shape is read with.
     [PushConstant] var list: float4 = float4(0f, 0f, 0f, 0f)
 
+    /// The border box a `backdrop-filter` is clipped to, and its uniform-or-zero radius. `UiColour`
+    /// carries the same pair at its own offset and argues them; a group may hold a `mask-image`, a
+    /// `filter` and a radius at once, so all three have to be readable by the one module that serves
+    /// that draw.
+    [PushConstant] var box: float4 = float4(0f, 0f, 0f, 0f)
+
+    [PushConstant] var corner: float4 = float4(0f, 0f, 0f, 0f)
+
     stream var uv: float2
     stream var colour: float4
     stream var shape: float4
@@ -981,7 +1061,15 @@ shader UiMask {
         val size = source.GetDimensions(0)
         val point = uv * float2(float(size.x), float(size.y))
 
-        val coverage = List(point, int(list.x + 0.5f), int(list.y + 0.5f))
+        // ⚠ The border box's rounding multiplies the mask's coverage rather than replacing it. An
+        // element may carry a `mask-image` and a radius at once and CSS applies both — the mask clips
+        // what the group shows, the radius clips where its backdrop is allowed to be, and neither
+        // subsumes the other. `SoftwareUiRasterizer` folds the two the same way and in the same order.
+        //
+        // ⚠ One line, because a newline ends a statement in Raven: the leading-operator arrangement
+        // is two statements and the second is discarded, silently, which `RVN1001` does not catch.
+        val masked = List(point, int(list.x + 0.5f), int(list.y + 0.5f))
+        val coverage = masked * UiComposite.Backdrop(point, box, corner)
 
         // ⚠ **All four channels, because the sample is premultiplied.** Scaling coverage on
         // premultiplied colour is `(rgb·m, a·m)` — the whole vector. The `(rgb, a·m)` an ordinary

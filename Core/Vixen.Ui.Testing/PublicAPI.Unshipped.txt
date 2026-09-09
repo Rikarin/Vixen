@@ -182,5 +182,6 @@ static Vixen.Ui.Testing.Visual.ImageTolerance.Exact.get -> Vixen.Ui.Testing.Visu
 static Vixen.Ui.Testing.Visual.ImageTolerance.Slight.get -> Vixen.Ui.Testing.Visual.ImageTolerance
 static Vixen.Ui.Testing.Visual.SoftwareUiRasterizer.BoxDistance(Vixen.Core.Mathematics.Vector2 point, Vixen.Core.Mathematics.Vector2 half, Vixen.Core.Mathematics.Vector2 radius) -> float
 static Vixen.Ui.Testing.Visual.SoftwareUiRasterizer.Render(Vixen.Ui.Rendering.UiGeometry geometry, Vixen.Ui.Text.Rasterizing.GlyphAtlas atlas, int width, int height, Vixen.Core.Mathematics.Color4 background) -> Vixen.Core.Imaging.Bitmap
+static Vixen.Ui.Testing.Visual.SoftwareUiRasterizer.RenderLinear(Vixen.Ui.Rendering.UiGeometry geometry, Vixen.Ui.Text.Rasterizing.GlyphAtlas atlas, int width, int height, Vixen.Core.Mathematics.Color4 background) -> float[]
 static Vixen.Ui.Testing.Visual.VisualBaseline.SourceDirectory(Vixen.Ui.Testing.UiTest test) -> string
 static Vixen.Ui.Testing.Visual.VisualBaseline.Verify(Vixen.Ui.Testing.UiTest test, string name, in Vixen.Core.Imaging.Bitmap rendered, Vixen.Ui.Testing.Visual.ImageTolerance tolerance) -> string
