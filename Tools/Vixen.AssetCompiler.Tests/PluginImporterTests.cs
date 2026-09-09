@@ -274,7 +274,7 @@ public sealed class PluginImporterTests : IDisposable {
 
         Assert.Empty(assembly.Location);
 
-        return (IAssetImporter) Activator.CreateInstance(type)!;
+        return (IAssetImporter)Activator.CreateInstance(type)!;
     }
 
     static ImportJob Job(string importer) =>

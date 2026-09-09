@@ -176,7 +176,7 @@ public static class PluginImporters {
         IAssetImporter importer;
 
         try {
-            importer = (IAssetImporter) Activator.CreateInstance(type)!;
+            importer = (IAssetImporter)Activator.CreateInstance(type)!;
         } catch (Exception failure) when (failure is MissingMethodException or TargetInvocationException) {
             throw new InvalidOperationException($"'{type.Name}' in '{path}' could not be made: {failure.Message}", failure);
         }

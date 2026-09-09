@@ -235,7 +235,7 @@ public sealed class BlockoutRemeshDebug {
         var mesh = artefacts.Conditioned;
 
         foreach (var region in artefacts.Layout) {
-            if ((uint) region.Triangle >= (uint) mesh.FaceCount) {
+            if ((uint)region.Triangle >= (uint)mesh.FaceCount) {
                 continue;
             }
 

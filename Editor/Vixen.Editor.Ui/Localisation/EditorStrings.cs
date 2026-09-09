@@ -907,6 +907,9 @@ public static class EditorStrings {
     /// <summary>The <c>Blockout</c> panel.</summary>
     public static StringId PanelBlockout { get; } = new("editor.panel.blockout", "Blockout");
 
+    /// <summary>The <c>Blockout UV</c> panel.</summary>
+    public static StringId PanelBlockoutUv { get; } = new("editor.panel.blockout-uv", "Blockout UV");
+
     /// <summary>The <c>Build Settings</c> panel.</summary>
     public static StringId PanelBuild { get; } = new("editor.panel.build", "Build Settings");
 
@@ -1323,6 +1326,7 @@ public static class EditorStrings {
         PanelAddressables,
         PanelAiDebugger,
         PanelBlockout,
+        PanelBlockoutUv,
         PanelBuild,
         PanelConsole,
         PanelDevices,

@@ -114,7 +114,7 @@ public sealed partial class BlockoutModule {
 
         Shell.RegisterPanel(
             UvPanel,
-            new StringId("editor.panel.blockout-uv", "Blockout UV"),
+            EditorStrings.PanelBlockoutUv,
             panel => {
                 var view = panel.Add<BlockoutUvView>();
 

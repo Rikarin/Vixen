@@ -296,7 +296,7 @@ public sealed class CurveDrawer : PropertyDrawer<AnimationCurve, CurveEditor> {
         OwnedValues.AreEqual(typeof(AnimationCurve), left, right);
 
     static AnimationCurve Copy(AnimationCurve source) =>
-        (AnimationCurve) OwnedValues.Copy(typeof(AnimationCurve), source)!;
+        (AnimationCurve)OwnedValues.Copy(typeof(AnimationCurve), source)!;
 }
 
 /// <summary>A field naming an asset, with a button that opens a picker and a place to drop one.</summary>
