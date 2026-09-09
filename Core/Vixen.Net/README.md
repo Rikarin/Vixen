@@ -126,6 +126,33 @@ ends gives a round trip of twice it.
 profile's `LossChance` come back as an observation, which is the one thing those counters must not
 be.
 
+### Why it is not on by default, which doc 16 says it should be
+
+That document's diagnostics section asks for the decorator *and* for it to be **on by default in dev
+builds with a modest profile**, and only the first half is here
+([#350](https://github.com/Rikarin/Vixen/issues/350)). Three of the four questions that issue asks
+have answers the tree gives on its own, and they narrow the decision rather than making it:
+
+- ⚠ **`SessionOptions` cannot be the home, though the issue proposes it.** A `NetworkSession` is
+  *handed* a transport and reads its options afterwards — `NetworkSession.cs:162` takes the transport
+  as its first argument and `:174` sizes the scratch buffer off `transport.Capabilities` — so a
+  profile carried on the options record would arrive after the decision it is meant to make. The
+  decorator has to wrap before a session exists.
+- ⚠ **And `Vixen.App.Hosting` cannot be it as things stand, which is the part that is work rather
+  than a preference.** `BuildVariants.Current` — the runtime answer to "is this a development
+  build" — lives in that assembly, and that assembly does not reference `Vixen.Net` at all. Nothing
+  in between joins them either: `NetworkModule` is a sync-field layout and holds no transport, and
+  every program that runs one constructs it at its own call site (`Samples/08`, `Samples/10`,
+  `Live/Vixen.Live.Realm`, the `vixen-mmo` template). **"On by default" has no seam to be default
+  at** — the same shape as [#120](https://github.com/Rikarin/Vixen/issues/120), where the panel has
+  no session for the same reason.
+- **The seed and the announcement are already answered, by the one program that wraps a transport
+  in this.** `Samples/08-Multiplayer/LocalMatch.cs:107` wraps only when `--loss` or `--latency` asks
+  for it, derives a seed per participant from the match's so that eight clients do not lose the same
+  packets in the same order, and prints the loss, the latency and the seed at startup. That is the
+  shape a default-on simulation wants, and it is worth copying rather than redesigning: the required
+  `seed` argument stops being a burden the moment something prints it.
+
 ## The tick
 
 One fixed-tick clock, shared with the ECS `FixedUpdate` phase — networking does not get a loop of its

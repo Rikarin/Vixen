@@ -556,6 +556,7 @@ Vixen.Net.Replication.InterestGrid.Forget(Vixen.Net.Sessions.PlayerId player) ->
 Vixen.Net.Replication.InterestGrid.Hysteresis.get -> float
 Vixen.Net.Replication.InterestGrid.Hysteresis.set -> float
 Vixen.Net.Replication.InterestGrid.InterestGrid() -> void
+Vixen.Net.Replication.InterestGrid.OccupiedLayerCount.get -> int
 Vixen.Net.Replication.InterestGrid.PositionedCount.get -> int
 Vixen.Net.Replication.InterestGrid.ProbedCellCount.get -> long
 Vixen.Net.Replication.InterestGrid.Radius.get -> float

@@ -246,9 +246,15 @@ internal sealed class Soak(SoakSettings settings) : IDisposable {
             // The other half of the grid's price, and the half a stopwatch cannot separate from the
             // machine. A query walks the part of its window the rebuild filled, so this is the
             // number that says whether the layout or the code is what a slow tick is made of.
+            //
+            // ⚠ The layer count is printed beside it because it is the only thing that explains a
+            // probe count that has grown: the vertical half of a query is bounded by it, and a world
+            // that has picked up a floor — or an entity on a sentinel transform — says so here
+            // before it says so in the tick time (#1144).
             Write(
                 $"probes    {bucketed.ProbedCellCount:N0} cells looked up over the run — "
-                + $"{bucketed.ProbedCellCount / (double)settings.Ticks / settings.Clients:N0} a query"
+                + $"{bucketed.ProbedCellCount / (double)settings.Ticks / settings.Clients:N0} a query, "
+                + $"over {bucketed.OccupiedLayerCount:N0} occupied layers"
             );
         }
 
