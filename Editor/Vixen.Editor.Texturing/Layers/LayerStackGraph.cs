@@ -1879,11 +1879,13 @@ static class LayerStackGraph {
         ///     </para>
         ///     <para>
         ///         <b>Every entry, without re-reading the channel enables.</b>
-        ///         <c>LayerStackSplat.Coverage</c> clears them on the layer it asks about — a layer
-        ///         restricted to <c>baseColor</c> still has a coverage — and
-        ///         <see cref="Composite" /> has already turned any deeper layer whose enables exclude
-        ///         the synthetic channel away. So by the time this runs there is no entry here the
-        ///         layer does not write.
+        ///         <c>LayerStackSplat.Coverage</c> clears them on the layer it asks about and on every
+        ///         layer beneath it — a layer restricted to <c>baseColor</c> still has a coverage — so
+        ///         by the time this runs there is no entry here the layer does not write. ⚠ That used
+        ///         to be true of the top layer alone, and <see cref="Composite" /> turning the deeper
+        ///         ones away was described here as the other half of the argument rather than as the
+        ///         defect it was: a group of restricted children weighed nothing
+        ///         (<a href="https://github.com/Rikarin/Vixen/issues/1182">#1182</a>).
         ///     </para>
         ///     <para>
         ///         ⚠ <b>One is what a fill authoring nothing gets, and that is deliberately not a

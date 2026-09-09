@@ -118,6 +118,60 @@ public class SplatCoverageDeviceTests(ITestOutputHelper output) {
         Assert.Empty(LayerStackGraph.Build(stack, stack.Sets[0]).Problems);
     }
 
+    /// <summary>⚠ A group weighs what its children cover, even when they restrict their channels.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1182">#1182</a>.
+    ///         <c>LayerStackSplat.Coverage</c> cleared the channel enables on the layer it was asked
+    ///         about and carried a group's <c>Children</c> through untouched, while
+    ///         <c>LayerStackGraph.Composite</c> turns every layer away whose enables exclude the
+    ///         channel being compiled. A coverage compiles one channel called <c>mask</c> and a
+    ///         restriction names a <em>real</em> usage, so a group that paints base colour from one
+    ///         child and roughness from another — which is what a group is for — composited nothing,
+    ///         and the splat map came back <b>black</b> for a layer painting perfectly in the picture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The unrestricted group is the instrument and not decoration.</b> Empty enables
+    ///         mean "writes everything", so both readings agree on it — a test built out of one alone
+    ///         is green against the defect, which is why the assertion is that the two weigh the
+    ///         <em>same</em>. Half alpha rather than one, so a group that came back merely non-zero
+    ///         cannot pass either.
+    ///     </para>
+    ///     <para>
+    ///         <b>And a grandchild, because <c>Children</c> nests.</b> A fix that cleared one level
+    ///         answers for a group of fills and not for a group of groups, which is the same
+    ///         arrangement one row further in a panel.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_group_whose_children_restrict_their_channels_weighs_what_they_cover() {
+        using var device = TexturingDevice.Open();
+
+        var restrained = Fill("moss", 0.5f) with { Channels = ["baseColor"] };
+
+        var open = Weight(device, Group("open", Fill("moss", 0.5f)));
+        var restricted = Weight(device, Group("shut", restrained));
+        var nested = Weight(device, Group("outer", Group("inner", restrained)));
+
+        output.WriteLine(
+            $"{TexturingDevice.Adapter(device)}: an open group weighed {open}, a restricted one {restricted}, "
+            + $"a restricted grandchild {nested}"
+        );
+
+        // The instrument first: a group whose child restricts nothing must weigh what the child covers,
+        // or the assertions below are satisfied by the group path having stopped working entirely.
+        Assert.InRange(open, 125, 131);
+
+        // The rule. Zero is the answer the defect gave, and it is silent — a splat channel at nought
+        // with the rest normalised over a total that is short.
+        Assert.Equal(open, restricted);
+        Assert.Equal(open, nested);
+    }
+
+    /// <summary>A group of one layer, passing its children through.</summary>
+    static LayerAsset Group(string id, LayerAsset child) =>
+        new() { Id = id, Name = id, Kind = LayerKind.Group, Children = { child } };
+
     /// <summary>One constant fill authoring one colour at the given alpha.</summary>
     static LayerAsset Fill(string id, float alpha) =>
         new() {
