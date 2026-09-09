@@ -863,3 +863,81 @@ a target is not finished until something downstream will compile its output —
 `Raven/Vixen.Raven.Transpile.Tests` holds ESSL to `glslangValidator` over the whole of
 `Raven/Library`, and HLSL wants `dxc`, MSL wants `metal`, WGSL wants `naga` or `tint`. A dialect with
 no oracle is a string, not a shader.
+
+## The public surface, and the five things in it nobody has decided about
+
+`Vixen.Raven`'s `PublicAPI` baseline landed at 4,913 entries and was narrowed to 3,748. Five blocks
+went in because narrowing them is a judgement rather than a mechanical cut (#8), and each is
+**defensible either way** — which is exactly why leaving them undecided is the expensive option:
+every one of them is a *removal* from here on.
+
+⚠ **The arithmetic has already moved**, which is the first thing to say. The baseline is 3,778 lines
+now and the `Artefacts.LibraryIr*` block is 277 of them — the issue counted 265 of 3,748. Deferring
+this does not hold it still.
+
+⚠ **And two of these five are one decision**, which the issue did not say. `CodeGen.ShaderStageNames`
+and `GeneratedSource` are both only interesting if an `ITargetBackend` written *outside*
+`Vixen.Raven` is a supported shape. It is, and there is one in this repository already:
+`Raven/Vixen.Raven.Transpile/EsslBackend.cs` implements the interface from another assembly,
+constructs `GeneratedSource`, and calls `ShaderStageNames.Suffix` at line 78. So the question is
+answered by the code rather than by taste, and it answers both.
+
+`Vixen.Raven.csproj:30` already grants `InternalsVisibleTo` to `Vixen.Raven.Tests`, so narrowing
+anything whose only caller is that project costs the suites nothing. Three of the five are in that
+position.
+
+**These are recommendations, not changes.** Nothing here has been narrowed; a narrowing regenerates
+the baseline (`./build.sh CheckApi --update-api`) rather than editing lines out of it, and that file
+is never hand-merged on a conflict.
+
+| | measured | recommendation |
+|---|---|---|
+| `Artefacts.LibraryIr*` (277 entries, 7.3%) | no reader outside `Vixen.Raven` and `Vixen.Raven.Tests` | **narrow** |
+| `CodeGen.CallGraph` | same | **narrow**, unless the row below is taken further |
+| `CodeGen.ShaderStageNames` | ⚠ **refuted** — called from `Vixen.Raven.Transpile` | **keep** |
+| `Reflection.BindingPlan`, `StreamPlan`, `StageInterface`, `PlannedBinding`, `PlannedStream` (45 entries) | no *code* reference outside the assembly; fourteen doc comments across seven assemblies cite them by name | **keep** |
+| `IrModule(string)` / `IrShader(string)` public constructors | constructed only in `Vixen.Raven.Tests` | **narrow** |
+| `GeneratedSource.Binary -> byte[]?` | constructed and read across assemblies | **keep public, change the type** |
+
+**`LibraryIr*` — narrow.** "A format consumers read *is* a contract" is the right principle and does
+not apply yet: nothing outside the compiler reads one. What is actually the contract is the
+`.rvnlib` **bytes** and their version number in `CompiledLibraryFormat`, and freezing the C# records
+that happen to model them freezes an internal data model in the shape of a wire format — the two
+drift the first time a field is stored differently from how it is held. Seven per cent of the surface
+is a large price for a model with one reader.
+
+**`CallGraph` — narrow; `ShaderStageNames` — keep.** The issue said neither is referenced outside the
+assembly and that is wrong about the second. Keep `ShaderStageNames` because its caller is precisely
+the out-of-tree-backend shape `ITargetBackend` exists to allow. `CallGraph` has no such caller today,
+and it is IR analysis rather than the name of a file a backend must produce — but the two rows
+belong to one question, so if the answer to "is a third-party backend supported?" is a firm yes,
+`CallGraph` is the next thing such a backend asks for and should stay.
+
+**The planners — keep.** ⚠ The interesting measurement is not that nothing calls them; it is *what*
+mentions them. Fourteen doc comments in `Vixen.Ui.Renderer`, `Vixen.Shaders.Generators`,
+`Vixen.Graphics`, `Vixen.Rendering`, `Vixen.Graphics.OpenGL`, `Vixen.Ui.Desktop` and the editor's
+texture-graph suites cite `BindingPlan` and `StreamPlan` *by name* as the authority for a numbering
+each of them then re-derives by hand — `Core/Vixen.Rendering/VertexSchema.cs:29` and
+`Core/Vixen.Shaders.Generators/BindingsEmitter.cs:234` are the clearest. That is a surface which has
+not become an API yet rather than one that leaked, and the repair those comments imply is a host
+*calling* the plan instead of restating it. Narrowing them forecloses it. `ShaderLayout.Size` /
+`Alignment` and `LayoutRule` stay public whatever is decided about the rest.
+
+**The public constructors — narrow.** "A consumer can construct an empty module and then never fill
+it" is a real trap and not a cosmetic one, and unlike the planners there is nothing an empty
+`IrModule` lets a host do. Every caller is in `Vixen.Raven.Tests`
+(`CodeGenTestBase.cs:88`, `:96`, `IrVerifierTests`, `InOutTests`), which already sees internals.
+
+**`GeneratedSource.Binary` — keep the member, change the type to `ReadOnlyMemory<byte>`, and do it
+now.** It is the one mutable array the whole surface hands out. ⚠ It is also a *positional record
+parameter*, so the change moves the constructor and every backend that builds one — which is why
+"later" is the wrong answer: there is exactly one such backend outside this assembly today and that
+number only grows. The readers are small (`SpirvTestBase.Validate` writes the bytes to a file and
+reads word 1 of the header; `Vixen.Vfx.Gpu.Tests/ParticlePicture.cs:541` returns them) and every one
+of them has a `Memory` equivalent.
+
+**Separately, and not one of the five:** `LibraryIr`'s own doc comment says the `.rvnlib` reader
+rebuilds graphs with cycles in them on purpose, so two structs may hold each other. `RVN2008` guards
+*source*, so a hand-crafted `.rvnlib` decoded straight into the IR is still a route to the stack
+overflow that diagnostic exists to prevent. That belongs in `IrVerifier` rather than in the binder,
+for the reason the `UnsizedArrayDiagnostics` note gives, and it is filed on its own.
