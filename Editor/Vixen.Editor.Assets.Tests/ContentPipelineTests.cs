@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Collections.Concurrent;
 using System.Text;
+using Vixen.Core;
 using Vixen.Editor.Assets.Content;
 using Vixen.Editor.Core;
 using Xunit;
@@ -203,5 +205,72 @@ public sealed class ContentPipelineTests : IDisposable {
         var output = workspace.DefaultOutput("Android/Vulkan");
 
         Assert.Equal(Path.Combine(workspace.Paths.Build, "Android-Vulkan"), output);
+    }
+
+    /// <summary>
+    ///     ⚠ The guid index on disk names the assets of <em>this</em> scan before the first job is
+    ///     dispatched, not after the last one comes back.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         An out-of-process import resolves an asset id through <c>Library/GuidIndex</c>
+    ///         (<c>WorkerHost.Sources</c>), because shipping a project's whole guid-to-path map across
+    ///         the pipe per job would cost more than the imports. The only index a worker can read is
+    ///         the one that is on disk when its job arrives — so the ordering is the correctness
+    ///         property, and it is invisible from inside either process.
+    ///     </para>
+    ///     <para>
+    ///         The executor is the instrument: it reads the index off disk from the outside, exactly
+    ///         as a worker would, at the moment it is handed each job. ⚠ The count is asserted too,
+    ///         because a loop that asserts inside itself passes on an empty collection — and an
+    ///         import that dispatched nothing is precisely how this could look green.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task The_guid_index_is_current_on_disk_before_any_job_is_dispatched() {
+        var workspace = Workspace("Textures/crate.txt", "Meshes/hero.txt");
+        var executor = new IndexReadingExecutor(root);
+
+        await ContentPipeline.ImportAsync(
+            workspace,
+            "Windows",
+            _ => { },
+            executor: executor,
+            cancellationToken: TestContext.Current.CancellationToken
+        );
+
+        var seen = executor.Seen.ToList();
+
+        // The two files and the two folders under Assets/ — each is an asset with a sidecar, and each
+        // is a job. Assets/ itself is the root and is not one.
+        Assert.Equal(4, seen.Count);
+        Assert.All(seen, entry => Assert.True(entry.Known, $"The index did not name {entry.Asset} yet."));
+    }
+
+    /// <summary>An executor that reads the persisted index the way another process would.</summary>
+    /// <param name="root">The project directory.</param>
+    sealed class IndexReadingExecutor(string root) : IImportExecutor {
+        readonly ConcurrentBag<(AssetId Asset, bool Known)> seen = [];
+
+        /// <summary>What each job saw when it arrived.</summary>
+        public IReadOnlyCollection<(AssetId Asset, bool Known)> Seen => seen;
+
+        /// <inheritdoc />
+        public ValueTask<ExecutedImport> ExecuteAsync(
+            ImportJob job,
+            CancellationToken cancellationToken = default
+        ) {
+            ArgumentNullException.ThrowIfNull(job);
+
+            // A fresh database over the same directory, loaded and never scanned — which is all a
+            // worker is allowed to do, and all it can do from another process.
+            var database = new AssetDatabase(new ProjectPaths(root));
+
+            seen.Add((job.Guid, database.TryLoad() && database.TryGetByGuid(job.Guid, out _)));
+
+            return ValueTask.FromResult(
+                new ExecutedImport(true, [], [], [], [job.Source.ToString()], [])
+            );
+        }
     }
 }

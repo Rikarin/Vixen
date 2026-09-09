@@ -20,5 +20,19 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.AssetCompiler\Vixen.AssetCompiler.csproj" />
+
+        <!--
+          Analyzers do not flow transitively through a ProjectReference. The fixture importer's
+          settings here are a [DataContract] type the binder has to describe, so the reflection
+          generator is named — and the serializer generator with it, because the protocol records the
+          worker answers with are [DataContract] too.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <ProjectReference Include="..\..\Core\Vixen.Core.Serialization.Generator\Vixen.Core.Serialization.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 </Project>

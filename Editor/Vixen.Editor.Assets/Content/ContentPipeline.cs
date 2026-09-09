@@ -144,6 +144,16 @@ public static class ContentPipeline {
             report(new(SeverityOf(issue.Kind), ContentStage.Scan, issue.Path, issue.Message));
         }
 
+        // ⚠ The index is written here as well as at the end, and this is the write that an
+        // out-of-process import depends on. A worker resolves an asset id through `Library/GuidIndex`
+        // (`WorkerHost.Sources`) because shipping the map across the pipe per job would cost more
+        // than the imports — and the only index it can read is the one on disk when the job arrives.
+        // Saving after `ImportAllAsync` and not before would hand every worker the *previous* run's
+        // index: a path for an asset that has since moved, silently, which is the failure this is
+        // ordered against. Writing it here makes "the index a worker reads is the scan this import is
+        // running from" true by construction rather than by luck.
+        workspace.Database.Save();
+
         var pipeline = new ImportPipeline(
             workspace.Database,
             ProjectWorkspace.Importers(),
