@@ -611,7 +611,22 @@ line-height on the container      ⚠ LANDED with the strut above — it is the 
                                   and nothing else in this walk reads a line height. `The_containers
                                   _leading_moves_the_baseline_and_the_line_height` is the test
 white-space / nowrap              the container-level suppression of line breaking
-text-overflow: ellipsis           ⚠ Parley was proposed for this and REFUTED — the word "ellipsis"
+text-overflow: ellipsis           ⚠ THE ROW IS THE INLINE-LEVEL HALF AND THE PROPERTY IS NOT OWED,
+                                  which is worth saying first because doc 43's B3 row and #249's own
+                                  comments have listed the bare property name as owed since weeks
+                                  after it shipped. `text-overflow: ellipsis` landed in `Vixen.Ui`
+                                  at fa9e32b82 (2026-08-22) and `line-clamp` at edc480226
+                                  (2026-09-04); `UiDocument.EllipsisOf` reads it,
+                                  `UiElement.cs:1116` calls it, `ControlTheme.vcss`'s `truncate`
+                                  writes it and `TextOverflowTests` pins eight cases including the
+                                  inheritance divergence. What is owed HERE is truncating a LINE BOX
+                                  shared by several inline-level boxes rather than one element's own
+                                  text. ⚠ And note which half of that divergence's stated reason has
+                                  expired: `EllipsisOf` said "Vixen has no shared line box", citing
+                                  one node produces one box — the invariant the fragmentation work
+                                  above relaxed. The shared line exists; what does not is text
+                                  inside this store to cut on it.
+                                  ⚠ Parley was proposed for this and REFUTED — the word "ellipsis"
                                   appears nowhere in that repository. The reference implementation is
                                   Chromium's `layout/inline/line_truncator.cc` (BSD-3-Clause) and the
                                   oracle is Gecko's 68 `text-overflow` reftests. ⚠ Gecko's licensing
