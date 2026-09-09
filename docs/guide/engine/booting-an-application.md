@@ -8,7 +8,7 @@ api: [T:Vixen.App.VixenApp, T:Vixen.App.AppBuilder, T:Vixen.App.Game, T:Vixen.Ap
 tags: [host, bootstrap, app, platform, backends]
 since: 0.1
 status: stable
-related: [assets/content-in-a-game, engine/world-serialisation, rendering/lit-path, rendering/device-deny-list]
+related: [assets/content-in-a-game, engine/host-logging, engine/world-serialisation, rendering/lit-path, rendering/device-deny-list]
 ---
 
 ## What it is
@@ -271,6 +271,8 @@ new AppBuilder(AppArguments.Parse(args))
 
 * [Getting content into a running game](../assets/content-in-a-game.md) — what `AppConfig.StartupScene`
   defaults to, and where it comes from.
+* [Host logging and vixen.log.yaml](host-logging.md) — the sinks `Build` composes, the file it reads
+  straight after the mounts, and the line that says whether that file was found.
 * `Tools/Vixen.App/README.md` — the frame, argument reference, logging,
   build variants and content mounting in full.
 * `Core/Vixen.App.Hosting/README.md` — why the host is two
