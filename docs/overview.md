@@ -508,17 +508,17 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 > subsystem with device tests and no production caller, which closing the umbrella made untracked —
 > [#1015](https://github.com/Rikarin/Vixen/issues/1015) is where it lives now. The ledger is worth
 > doing and its failure mode is exactly this, so it is recorded rather than quietly corrected.
-> ⚠ **What is genuinely owed, re-measured 2026-09-09, is one milestone and one issue.** **M9**
-> ([#574](https://github.com/Rikarin/Vixen/issues/574)) and **M10**
-> ([#575](https://github.com/Rikarin/Vixen/issues/575)) both closed that day, against the tree; what
-> is left of doc 48 is **M11** ([#576](https://github.com/Rikarin/Vixen/issues/576)), and M11 is
-> [#1073](https://github.com/Rikarin/Vixen/issues/1073) — nothing an artist can make carries the
-> layered material feature. ⚠ **That is owed a hand-authored asset rather than a diff**: a
-> `MaterialLayerValue` is four scalars naming no map, `SurfaceVertex` carries exactly one `TexCoord`,
-> and the arena's box-projected uv repeats a painted weight map thirty-two times per axis — so the
-> remainder is a mesh with a real unwrap and someone to paint weights onto it. The tool to paint them
-> with is M9, which now exists.
-> ⚠ **"One milestone and one issue" is the milestone ledger and it is not the whole of what doc 48
+> ⚠ **All twelve milestones closed on 2026-09-09** ([#577](https://github.com/Rikarin/Vixen/issues/577)),
+> the last three that day: **M9** ([#574](https://github.com/Rikarin/Vixen/issues/574)), **M10**
+> ([#575](https://github.com/Rikarin/Vixen/issues/575)) and **M11**
+> ([#576](https://github.com/Rikarin/Vixen/issues/576)). ⚠ **M11 closed on an asset rather than a
+> diff**, which is what it had been waiting on for three batches: the feature, its height blend and
+> its goldens had all existed for days and *nothing an artist could make carried one*
+> ([#1073](https://github.com/Rikarin/Vixen/issues/1073)). `plaza.vxmat` in sample 13 does — three
+> layers weighted by a painted `plaza-splat.png`, on `arena-plaza.obj`, unwrapped 0..1 for the purpose
+> because every other arena mesh is box-projected over a 2 m tile and would repeat the map thirty-two
+> times per axis — and an entity in `Arena.vxscene` puts it in a frame.
+> ⚠ **The milestone ledger is not the whole of what doc 48
 > owes**, which is worth separating because the two disagree and the disagreement is structural. § 4.1
 > still carries an unbuilt catalogue entry, `Text`, and no *phase* claims it: M2 and M3 shipped the
 > kernels and `Text` is not one, M4 shipped the node classes and closed without it, and
