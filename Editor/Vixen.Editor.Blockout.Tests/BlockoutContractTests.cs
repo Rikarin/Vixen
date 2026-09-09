@@ -64,7 +64,7 @@ public class BlockoutContractTests {
 
         var unregistered = declared
             .Select(type => (Type: type,
-                Contract: (DataContractAttribute?) Attribute.GetCustomAttribute(type, typeof(DataContractAttribute))))
+                Contract: (DataContractAttribute?)Attribute.GetCustomAttribute(type, typeof(DataContractAttribute))))
             .Where(entry => entry.Contract is not null)
             .Select(entry => (entry.Type, Alias: entry.Contract!.Alias ?? entry.Type.Name))
             .Where(entry => !TypeRegistry.TryGetByAlias(entry.Alias, out _)
