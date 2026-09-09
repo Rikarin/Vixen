@@ -43,7 +43,12 @@ public sealed class CommandRecorderTests : IDisposable {
                 RecordedCommandKind.BindVertexBuffer,
                 RecordedCommandKind.Draw,
                 RecordedCommandKind.EndRenderPass,
-                RecordedCommandKind.PopDebugGroup
+                RecordedCommandKind.PopDebugGroup,
+
+                // ⚠ The submission is the last call in the frame and is now in the stream too. It
+                // is not an `ICommandList` call, which is exactly why it belongs here: the queue a
+                // frame's work went to is a property of the frame and of nothing inside the lists.
+                RecordedCommandKind.Submit
             ],
             kinds
         );
@@ -288,6 +293,68 @@ public sealed class CommandRecorderTests : IDisposable {
         device.GraphicsQueue.Submit([list]);
 
         Assert.Equal(0, device.Recorder!.CountOf(RecordedCommandKind.Barrier));
+    }
+
+    /// <summary>
+    ///     ⚠ Which queue a list went to is in the stream for the plain <c>Submit</c> too, and until
+    ///     it was no test could see it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         This device is the only backend in the tree where the graphics and compute queues are
+    ///         distinguishable at all — every real one it runs on has a single universal family — so
+    ///         a cross-queue mistake is catchable here or nowhere. The overload almost every caller
+    ///         uses recorded nothing of its own, which made the one thing this device is for
+    ///         unobservable: the stream said what ran and never where.
+    ///     </para>
+    ///     <para>
+    ///         The queue is asserted from the <em>stream</em> and not from a field the type under
+    ///         test was made to expose, which is what <c>TextureQueueTests</c> had to settle for.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void APlainSubmitSaysWhichQueueItWentTo() {
+        using var graphics = device.BeginCommandList(QueueKind.Graphics, "opaque");
+        graphics.Finish();
+
+        using var compute = device.BeginCommandList(QueueKind.Compute, "bake");
+        compute.Finish();
+
+        device.GraphicsQueue.Submit([graphics]);
+        device.ComputeQueue.Submit([compute]);
+
+        var submissions = device.Recorder!.OfKind(RecordedCommandKind.Submit);
+
+        // The count is part of the assertion: a loop over an empty collection asserts nothing.
+        Assert.Equal(2, submissions.Count);
+
+        Assert.Equal((long)QueueKind.Graphics, submissions[0].A);
+        Assert.Equal((long)QueueKind.Compute, submissions[1].A);
+        Assert.Equal(1, submissions[0].B);
+        Assert.Equal(1, submissions[1].B);
+    }
+
+    /// <summary>
+    ///     ⚠ And a submission with no timeline point is told apart from one that issued a point by
+    ///     its <c>reached</c> slot, because a queue's first real point is 1 and never 0.
+    /// </summary>
+    [Fact]
+    public void ASubmissionWithNoTimelinePointReachesNothing() {
+        using var plain = device.BeginCommandList(QueueKind.Compute, "plain");
+        plain.Finish();
+
+        using var timed = device.BeginCommandList(QueueKind.Compute, "timed");
+        timed.Finish();
+
+        device.ComputeQueue.Submit([plain]);
+        var point = device.ComputeQueue.Submit([timed], []);
+
+        var submissions = device.Recorder!.OfKind(RecordedCommandKind.Submit);
+
+        Assert.Equal(2, submissions.Count);
+        Assert.Equal(0, submissions[0].C);
+        Assert.Equal((long)point.Value, submissions[1].C);
+        Assert.True(submissions[1].C > 0);
     }
 
     public void Dispose() => device.Dispose();

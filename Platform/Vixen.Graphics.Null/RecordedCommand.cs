@@ -103,6 +103,12 @@ public enum RecordedCommandKind : byte {
     ///     queues is interesting precisely <em>between</em> the lists — which queue got what, in
     ///     what order, and what each submission was made to wait for — and a recorder that held only
     ///     the calls inside the lists could not see any of it.
+    ///     <para>
+    ///         ⚠ <b>Recorded by both <c>Submit</c> overloads.</b> The plain one recorded nothing of
+    ///         its own until #633, so for the overload almost every caller uses the stream said what
+    ///         ran and never where. A <c>reached</c> of 0 is what marks a submission with no timeline
+    ///         point: a queue's first real point is 1.
+    ///     </para>
     /// </remarks>
     Submit,
 
