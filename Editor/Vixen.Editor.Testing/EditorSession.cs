@@ -178,6 +178,9 @@ public sealed class EditorSession : IDisposable {
     /// <summary>The scene it is editing.</summary>
     public SceneDocument Scene => editor.Scene;
 
+    /// <summary>The curve presets the editor is offering, which are the user's rather than the project's.</summary>
+    public CurvePresetLibrary Curves => editor.Curves;
+
     /// <summary>The focused pane, or <see langword="null" /> while the scene panel is closed.</summary>
     public SceneViewport? Viewport => editor.Viewport;
 

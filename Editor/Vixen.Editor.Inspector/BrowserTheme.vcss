@@ -39,6 +39,35 @@ browser-filters > .browser-view { flex-shrink: 0; }
 browser-filters > .browser-tile-size { flex-shrink: 0; width: 82px; min-width: 60px; }
 browser-filters > .hidden { display: none; }
 
+/* ── The two browsing surfaces, side by side with the folder tree ──────
+   ⚠ A row, said out loud even though `row` is the CSS initial: the two views used to be direct
+   children of the panel, which is a column, so a folder tree added there would have been a strip
+   *above* the grid. `min-height: 0` is what gives the trees inside it a scroll range at all —
+   without it a viewport takes its base size from its content and the virtualiser realises every
+   row there is, which is the silent failure `tree-view virtualizing-panel` records. */
+browser-body { flex-direction: row; flex-grow: 1; min-height: 0px; }
+
+/* ⚠ A fixed column rather than a growing one. `tree-view` sets `flex-grow: 1`, which in a row means
+   the folder tree and the grid would split the panel evenly — and a content browser whose grid is
+   half a panel wide shows two tiles a row. The floor is what a nested folder name still reads
+   inside. */
+browser-folders {
+    /* ⚠ Drawn first and built last. `ProjectBrowser` has to construct it after the grid its handler
+       writes to, and putting the element first instead would make
+       `Descendants(panel).OfType<TreeView>().First()` — which is how the harness reaches the
+       browsing tree — return this one. `order` is what the web uses to say otherwise, and the
+       layout has implemented it all along. */
+    order: -1;
+    flex-grow: 0;
+    flex-shrink: 0;
+    width: 170px;
+    min-width: 96px;
+    border-width: 0px 1px 0px 0px;
+    border-color: var(--border);
+}
+
+browser-folders.hidden { display: none; }
+
 /* ── The grid ───────────────────────────────────────────────────────────
    ⚠ `flex-wrap` is the whole of the layout, and the tiles have a fixed basis so that
    a row holds as many as fit rather than as many as the widest name allows. A grid
@@ -218,6 +247,54 @@ component-drop-indicator {
 }
 
 component-drop-indicator.hidden { display: none; }
+
+/* ── Debug (raw) mode ─────────────────────────────────────────────────
+   ⚠ Doc 20 § B1's third inspector row. `flex-direction: row` is the CSS initial and is what this
+   bar wants, but it is said out loud for the reason `component-list` above is: an element no
+   stylesheet mentions is built from the initial, and the next person to add a second control here
+   should not have to rediscover which way it lays out. `justify-content: flex-end` puts the toggle
+   on the right, away from the foldout labels it is not one of. */
+component-raw-bar {
+    flex-direction: row;
+    flex-shrink: 0;
+    justify-content: flex-end;
+    padding: 2px 4px;
+}
+
+/* ⚠ Said rather than implied. A raw panel is the ordinary panel with more rows in it, and without a
+   sentence saying so the difference between "this component has eleven members" and "this component
+   shows four of its eleven members" is a thing somebody has to already know. */
+component-raw-note {
+    flex-shrink: 0;
+    margin: 0px 4px 4px 4px;
+    padding: 4px 6px;
+    color: var(--text-muted);
+    font-size: 11px;
+    background-color: var(--surface-sunken);
+    border-radius: 3px;
+}
+
+/* ⚠ The rows the ordinary panel would not have drawn, marked — because raw mode is opened to find
+   out *which* member is undrawn, and a dump that does not say leaves that question exactly where it
+   was. The accent edge is `component-drop-indicator`'s colour for the same reason: it is the
+   editor's "look here". */
+inspector-row.raw-member {
+    border-width: 0px 0px 0px 2px;
+    border-color: var(--accent);
+    opacity: 0.75;
+}
+
+/* ── Pinned members ───────────────────────────────────────────────────
+   ⚠ A tint and an edge rather than a control, and the control is what was tried first. A pin toggle
+   in every row costs a control's width in every row — and the inspector's rows are already at their
+   minimum in a default layout, so the panel's *content* became wider than the panel and a foldout's
+   remove button slid outside the scroll region's clip. The affordance is the context menu; this is
+   the state it sets, and it takes no space at all. */
+inspector-row.pinned-member {
+    background-color: var(--surface-sunken);
+    border-width: 0px 0px 0px 2px;
+    border-color: var(--accent);
+}
 
 .add-component { align-self: stretch; margin: 8px 4px 4px 4px; }
 .add-component.hidden { display: none; }

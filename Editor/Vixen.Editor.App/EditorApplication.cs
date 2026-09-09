@@ -352,10 +352,31 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     readonly WorkPlane plane = new();
 
-    InspectorView? inspector;
-
-    /// <summary>The component foldouts under the inspector, while its panel is open.</summary>
-    ComponentsView? components;
+    /// <summary>Every inspector panel that is open, with the component section under each.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A list because doc 20 § B1 asks for more than one, and "a second instance" was
+    ///         the hard half rather than "a second feature".</b> The panel already floats and already
+    ///         has a lock; what it did not have was a second of it, because this class held one view
+    ///         and one component section in two fields and <see cref="ShowSelection" /> wrote to
+    ///         both. Pinning one inspector to entity A while selecting entity B is how anybody copies
+    ///         a value between two things, and it is the first thing somebody who has used either
+    ///         reference editor tries.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The lock is what arbitrates, and it already existed.</b>
+    ///         <c>InspectorView.Inspect</c> refuses while locked — so a locked panel needed nothing
+    ///         adding — but the component section under it is not the inspector's rows and knew
+    ///         nothing about the lock, so a locked panel's foldouts followed the selection anyway.
+    ///         A pane is skipped whole.
+    ///     </para>
+    ///     <para>
+    ///         Both entries go in and come out together: a panel's factory builds the section inside
+    ///         the view's scroll region, and its <c>Closed</c> takes the pair out. Nothing here
+    ///         assumes there is a first one.
+    ///     </para>
+    /// </remarks>
+    readonly List<(InspectorView View, ComponentsView Components)> inspectors = [];
 
     /// <summary>Which components and behaviours the editor can show.</summary>
     /// <remarks>
@@ -639,8 +660,10 @@ sealed partial class EditorApplication : IDisposable {
         // column back with nothing having been clicked, so a view that rebuilt only on its own
         // edits would show a component that is gone and hide one that is back.
         scene.ComponentsChanged += (_, changed) => {
-            if (components?.Entity == changed) {
-                components.Rebuild();
+            foreach (var (_, section) in inspectors) {
+                if (section.Entity == changed) {
+                    section.Rebuild();
+                }
             }
 
             // ⚠ And the outliner, whose row glyph is *what the entity carries* — see `GlyphFor`. It
@@ -888,6 +911,7 @@ sealed partial class EditorApplication : IDisposable {
         // to stacks that exist by now, and because `SavePreferences` is reachable from a panel the
         // line above has just registered.
         LoadPreferences();
+        LoadPresets();
         ApplyProjectSettings();
 
         // ⚠ Plugins go here and not later, and the two reasons are the two lines below. A plugin's
@@ -1274,7 +1298,9 @@ sealed partial class EditorApplication : IDisposable {
         // The inspector follows the gizmo. Reload rather than Inspect, because the rows and their
         // handlers already exist and rebuilding would take the focus out of whatever is being typed.
         if (layout.Panes.Any(static pane => pane.Gizmo.IsDragging)) {
-            inspector?.Reload();
+            foreach (var (view, _) in inspectors) {
+                view.Reload();
+            }
         }
     }
 
@@ -1379,14 +1405,15 @@ sealed partial class EditorApplication : IDisposable {
             return;
         }
 
-        inspector?.Reload();
-
         // ⚠ And the component foldouts, which are not the inspector's rows and are the ones a
         // numeric edit usually lands in. `SetComponentCommand` announces itself only when the *set*
         // of components changed — a value edit deliberately says nothing, so that a slider drag does
         // not rebuild the panel under the pointer — which left an undone intensity showing the
         // number it had been undone from.
-        components?.Reload();
+        foreach (var (view, section) in inspectors) {
+            view.Reload();
+            section.Reload();
+        }
     }
 
     /// <summary>Brings every <c>WorldTransform</c> up to date with the local one behind it.</summary>
@@ -1570,7 +1597,10 @@ sealed partial class EditorApplication : IDisposable {
             // has it without being told.
             RestoreProjectBehaviors(authored);
 
-            components?.Rebuild();
+            foreach (var (_, section) in inspectors) {
+                section.Rebuild();
+            }
+
             RefreshBuildPanel();
         }
     }
@@ -2321,75 +2351,19 @@ sealed partial class EditorApplication : IDisposable {
             }
         );
 
+        // ⚠ Two of them, which is doc 20 § B1's "multiple inspector windows" — and the reason it is
+        // two registrations rather than a loop over a number is that an arrangement names panels by
+        // id. A saved layout can only carry a panel back if the id it names is one something
+        // registers, so "how many inspectors are there" is a fact about the editor rather than a
+        // number somebody types.
+        //
+        // ⚠ The second is not in any layout preset, deliberately. It is opened from the Window menu
+        // by somebody who wants it, and a preset that opened two inspectors by default would give
+        // every new user a duplicate panel to close.
+        Shell.RegisterPanel(Inspecting("inspector", new StringId("editor.panel.inspector", "Inspector")));
+
         Shell.RegisterPanel(
-            new PanelDescriptor(
-                "inspector",
-                new StringId("editor.panel.inspector", "Inspector"),
-                panel => {
-                    // ⚠ `InspectorView` owns a scroll region of its own and keeps its header out of
-                    // it on purpose, so that the search box and the lock cannot scroll away from
-                    // somebody who is using them to find the row they scrolled past. A panel that
-                    // scrolled the whole view would put the header back inside a scroller and give
-                    // the wheel two bars to choose between.
-                    panel.Scrolls = false;
-
-                    inspector = panel.Add<InspectorView>();
-                    inspector.EditedDocument = scene;
-
-                    // This editor's registry rather than the process-wide default — see `Configure`.
-                    inspector.Extensions = Extensions;
-
-                    // ⚠ Under the inspector's rows rather than inside its model. `InspectorView` draws
-                    // the members of one described type; which *types* are on an entity is a different
-                    // question, and one it deliberately cannot ask — see `ComponentsView`. What it does
-                    // share is the scroll region: an entity with six components is longer than any
-                    // panel, and two independent scroll regions would leave half the answer off screen
-                    // whichever one you moved.
-                    components = inspector.Scroll.Content.Add<ComponentsView>();
-                    components.Attach(scene, bridges, Extensions);
-
-                    // ⚠ Restored before the subscription, so putting the foldouts back where the user
-                    // left them is not itself recorded as a rearrangement. The order is a preference
-                    // rather than anything about the entity — see `ComponentsView.Order` — which is why
-                    // it lives in the preferences file and not in the scene.
-                    components.Order = preferences.ComponentOrder;
-
-                    components.Reordered += arranged => {
-                        preferences.ComponentOrder = [.. arranged];
-                        WritePreferences();
-                    };
-
-                    // ⚠ After it is in the tree, because the menu is a child of the document root and a
-                    // control has no document until it is added to one.
-                    inspector.Contextualise();
-
-                    // ⚠ The panel refused every selection while it was locked, so it is showing
-                    // something stale the moment the lock comes off — and nothing else would tell it,
-                    // because the selection has not changed since.
-                    inspector.LockChanged += view => {
-                        if (!view.IsLocked) {
-                            ShowSelection();
-                        }
-                    };
-
-                    // The rows were built against the previous instance of this panel, so what is
-                    // selected has to be pushed into the new one rather than waited for — and from
-                    // whichever selection the inspector was already following, which is what the two
-                    // fields behind `ShowSelection` are for.
-                    ShowSelection();
-                }
-            ) {
-                // ⚠ The other half of holding both. `FollowSelection` runs every frame and hands
-                // whatever is selected to the inspector — so a panel closed while the editor is
-                // running leaves this field pointing at a view whose elements have been removed, and
-                // the next selection change throws from inside `Rebuild`. Applying a preset that
-                // does not name the inspector is now one of the ways it closes, which is how this
-                // came to matter. See `PanelDescriptor.Closed`.
-                Closed = () => {
-                    inspector = null;
-                    components = null;
-                }
-            }
+            Inspecting("inspector-2", new StringId("editor.panel.inspector2", "Inspector 2"))
         );
 
         Shell.RegisterPanel(
@@ -2813,6 +2787,302 @@ sealed partial class EditorApplication : IDisposable {
                 : $"{reloaded} plugin(s) reloaded",
             NotificationSeverity.Success
         );
+    }
+
+    /// <summary>Describes one inspector panel, which there may be more than one of.</summary>
+    /// <param name="id">The panel's id, which is what a saved arrangement carries it back by.</param>
+    /// <param name="title">What the tab says.</param>
+    /// <returns>The descriptor.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 20 § B1's "multiple inspector windows", and what was missing was a second
+    ///         <i>instance</i> rather than a second feature.</b> The panel already floats and already
+    ///         locks; this application held one view and one component section in two fields, and
+    ///         every place that fed them wrote to exactly one. <see cref="inspectors" /> is the list
+    ///         now and this is the factory both entries go through, so the second inspector is the
+    ///         first one — not a cut-down copy that quietly does less.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A panel's factory runs again every time it is reopened</b>, so everything here is
+    ///         per visit: the pair is added on the way in and removed by <c>Closed</c> on the way
+    ///         out, and the preferences are read then rather than captured.
+    ///     </para>
+    /// </remarks>
+    PanelDescriptor Inspecting(string id, StringId title) {
+        InspectorView? opened = null;
+
+        return new PanelDescriptor(
+            id,
+            title,
+            panel => {
+                // ⚠ `InspectorView` owns a scroll region of its own and keeps its header out of it
+                // on purpose, so that the search box and the lock cannot scroll away from somebody
+                // who is using them to find the row they scrolled past. A panel that scrolled the
+                // whole view would put the header back inside a scroller and give the wheel two bars
+                // to choose between.
+                panel.Scrolls = false;
+
+                var view = panel.Add<InspectorView>();
+
+                view.EditedDocument = scene;
+
+                // This editor's registry rather than the process-wide default — see `Configure`.
+                view.Extensions = Extensions;
+
+                // ⚠ Under the inspector's rows rather than inside its model. `InspectorView` draws
+                // the members of one described type; which *types* are on an entity is a different
+                // question, and one it deliberately cannot ask — see `ComponentsView`. What it does
+                // share is the scroll region: an entity with six components is longer than any
+                // panel, and two independent scroll regions would leave half the answer off screen
+                // whichever one you moved.
+                var section = view.Scroll.Content.Add<ComponentsView>();
+
+                section.Attach(scene, bridges, Extensions);
+
+                // ⚠ Restored before the subscription, so putting the foldouts back where the user
+                // left them is not itself recorded as a rearrangement. The order is a preference
+                // rather than anything about the entity — see `ComponentsView.Order` — which is why
+                // it lives in the preferences file and not in the scene.
+                section.Order = preferences.ComponentOrder;
+
+                section.Reordered += arranged => {
+                    preferences.ComponentOrder = [.. arranged];
+                    WritePreferences();
+                    RestatePreferences(section);
+                };
+
+                // ⚠ Restored before the subscription, on the same terms as the order above and as
+                // the browser's view toggle: writing `IsRaw` moves the button, which raises the
+                // control's change — so a subscription made first would record the restore as the
+                // user having pressed it. `Reveal` guards the round trip as well, and both halves
+                // are cheap next to the class of bug they close.
+                section.IsRaw = preferences.InspectorRawMode;
+
+                section.RawChanged += on => {
+                    preferences.InspectorRawMode = on;
+                    WritePreferences();
+                    RestatePreferences(section);
+                };
+
+                // ⚠ Pinned members are a preference about how somebody works — per type and member
+                // rather than per object — so they live in the same file as the foldout order and
+                // for the same reason, and every open inspector is restated when one changes. Two
+                // panels disagreeing about which member is pinned would be two answers to one
+                // question.
+                section.Pinned = preferences.PinnedMembers;
+
+                section.PinsChanged += pinned => {
+                    preferences.PinnedMembers = [.. pinned];
+                    WritePreferences();
+                    RestatePreferences(section);
+                };
+
+                // ⚠ After it is in the tree, because the menu is a child of the document root and a
+                // control has no document until it is added to one.
+                view.Contextualise();
+
+                // Doc 20 § B5's curve presets, on the row's own menu because that is where a curve
+                // is — and on both menus, because a curve can be a member of the inspected object or
+                // a member of a component on it, and those are two panels. See `CurvePresetLibrary`
+                // for where the library lives and why.
+                CurvePresetLines(view.Contextualise(), () => view.AimedRow);
+
+                // ⚠ And the component section's own, which is a second menu rather than a second
+                // caller of the first. `InspectorView`'s is attached to its `Body`, and this control
+                // is a sibling of that body inside the same scroll region — so until now a secondary
+                // click on a component row reached no menu at all.
+                CurvePresetLines(section.Contextualise(), () => section.AimedRow);
+
+                // ⚠ The panel refused every selection while it was locked, so it is showing
+                // something stale the moment the lock comes off — and nothing else would tell it,
+                // because the selection has not changed since.
+                view.LockChanged += held => {
+                    if (!held.IsLocked) {
+                        ShowSelection();
+                    }
+                };
+
+                opened = view;
+                inspectors.Add((view, section));
+
+                // The rows were built against the previous instance of this panel, so what is
+                // selected has to be pushed into the new one rather than waited for — and from
+                // whichever selection the inspector was already following, which is what the two
+                // fields behind `ShowSelection` are for.
+                ShowSelection();
+            }
+        ) {
+            // ⚠ The other half of holding the pair. `FollowSelection` runs every frame and hands
+            // whatever is selected to every open inspector — so a panel closed while the editor is
+            // running leaves a dead entry pointing at a view whose elements have been removed, and
+            // the next selection change throws from inside `Rebuild`. Applying a preset that does
+            // not name the inspector is one of the ways it closes. See `PanelDescriptor.Closed`.
+            Closed = () => {
+                inspectors.RemoveAll(entry => ReferenceEquals(entry.View, opened));
+                opened = null;
+            }
+        };
+    }
+
+    /// <summary>Adds the curve-preset lines to a panel's context menu.</summary>
+    /// <param name="menu">The menu to add to.</param>
+    /// <param name="aimed">What row a secondary click landed on, asked at the moment it is needed.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 20 § B5's last row, and the surface is the row's own menu because that is
+    ///         where the curve is.</b> A preset is applied through <c>CurveEditor.Apply</c>, which
+    ///         copies the keys into the curve the object already holds rather than swapping the
+    ///         object — that is what makes applying one an undoable edit rather than an alias, and it
+    ///         is why the drawer's <c>CurveChanged</c> is what writes it home.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Rebuilt every time the menu opens.</b> A submenu filled once holds the presets
+    ///         that existed when the panel was built, and the first thing anybody does after saving
+    ///         one is look for it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both menus, because there are two panels drawing rows and a curve can be in
+    ///         either.</b> <c>InspectorView</c> draws the members of one described type — a scene
+    ///         entity, an asset — and <c>ComponentsView</c> draws what is on an entity; they are
+    ///         siblings inside one scroll region with a context menu each. Lines added to one only
+    ///         would be a feature that works on a curve in a custom inspector and silently does not
+    ///         on a curve in a component, which is the shape of gap nobody reports.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Curves only, and the gradient half of the doc row is refused rather than
+    ///         forgotten</b> — see <see cref="CurvePresetLibrary" /> for the sweep that settles it.
+    ///     </para>
+    /// </remarks>
+    void CurvePresetLines(ContextMenu menu, Func<InspectorRow?> aimed) {
+        menu.AddSeparator();
+
+        var apply = menu.AddSubmenu("Curve Presets");
+        var save = menu.AddItem("Save Curve as Preset…");
+        var forget = menu.AddSubmenu("Forget Curve Preset");
+
+        save.Clicked += _ => Keep(aimed);
+
+        menu.OpenChanged += (_, isOpen) => {
+            if (!isOpen) {
+                return;
+            }
+
+            var editing = Curve(aimed) is not null;
+
+            save.Disabled = !editing;
+            if (apply.Opener is { } applyLine) {
+                applyLine.Disabled = !editing;
+            }
+            if (forget.Opener is { } forgetLine) {
+                forgetLine.Disabled = !editing || presets.Curves.Count == 0;
+            }
+
+            Fill(apply, editing ? presets.Offered() : [], name => Apply(aimed, name));
+
+            Fill(
+                forget,
+                editing ? [.. presets.Curves.Select(saved => (saved.Name, CurvePresetLibrary.ToCurve(saved)))] : [],
+                name => {
+                    if (presets.Forget(name)) {
+                        WritePresets();
+                    }
+                }
+            );
+        };
+
+        static void Fill(Menu submenu, IReadOnlyList<(string Name, AnimationCurve Curve)> offered, Action<string> run) {
+            while (submenu.Items.Count > 0) {
+                submenu.Items[^1].Remove();
+            }
+
+            foreach (var (name, _) in offered) {
+                var line = submenu.AddItem(name);
+
+                line.Clicked += _ => run(name);
+            }
+        }
+    }
+
+    /// <summary>The curve editor the aimed row is drawing, if it is drawing one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The control rather than the member's value.</b> <c>CurveEditor.Apply</c> is what
+    ///     keeps the object the caller is holding, and it is also what raises the change the drawer
+    ///     writes home; reaching past it to the boxed value would edit a copy nothing is bound to.
+    /// </remarks>
+    static CurveEditor? Curve(Func<InspectorRow?> aimed) => aimed()?.Editor as CurveEditor;
+
+    /// <summary>Puts a named shape into the aimed row's curve.</summary>
+    /// <param name="aimed">What row the click landed on.</param>
+    /// <param name="name">Which shape.</param>
+    void Apply(Func<InspectorRow?> aimed, string name) {
+        if (Curve(aimed) is not { } editor) {
+            return;
+        }
+
+        foreach (var (offered, curve) in presets.Offered()) {
+            if (string.Equals(offered, name, StringComparison.Ordinal)) {
+                editor.Apply(curve);
+                return;
+            }
+        }
+    }
+
+    /// <summary>Asks for a name and keeps the aimed row's curve under it.</summary>
+    /// <param name="aimed">What row the click landed on.</param>
+    /// <remarks>
+    ///     ⚠ <b>The keys are copied out of the control's curve.</b> A library holding the object an
+    ///     inspector row is editing would be a preset that changed every time somebody dragged the
+    ///     key it was made from.
+    /// </remarks>
+    void Keep(Func<InspectorRow?> aimed) {
+        if (Curve(aimed) is not { } editor) {
+            return;
+        }
+
+        var shape = editor.Curve;
+
+        _ = Ask();
+
+        async Task Ask() {
+            var typed = await Shell.Dialogs.PromptAsync(
+                "Save Curve as Preset",
+                "It is kept beside your layouts and keymap rather than in the project.",
+                confirm: "Save"
+            ).ConfigureAwait(true);
+
+            if (typed is not { Length: > 0 } name || string.IsNullOrWhiteSpace(name)) {
+                return;
+            }
+
+            presets.Save(name.Trim(), shape);
+            WritePresets();
+        }
+    }
+
+    /// <summary>Brings every open inspector's component section into line with the preferences.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What a second inspector needs and one did not.</b> The order, the raw toggle and the
+    ///     pinned members are all preferences rather than facts about a panel, so a change made in
+    ///     one panel is a change to all of them — and two panels showing the same entity with
+    ///     different foldout orders is a picture that says the preference is per panel, which it is
+    ///     not.
+    /// </remarks>
+    /// <param name="origin">
+    ///     The section that raised the change, which is skipped. ⚠ It already holds the new value —
+    ///     it is where the value came from — and writing it back re-runs its own <c>Rebuild</c> in
+    ///     the middle of the drop handler that raised it, which tears down the rows a drag has just
+    ///     finished with.
+    /// </param>
+    void RestatePreferences(ComponentsView? origin = null) {
+        foreach (var (_, section) in inspectors) {
+            if (ReferenceEquals(section, origin)) {
+                continue;
+            }
+
+            section.Order = preferences.ComponentOrder;
+            section.IsRaw = preferences.InspectorRawMode;
+            section.Pinned = preferences.PinnedMembers;
+        }
     }
 
     void Layouts() {
@@ -3922,19 +4192,29 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     void ShowSelection() {
         if (inspectingAssets) {
-            if (inspector is { } assetView) {
+            var assets = project.Selection.Select(asset => new ProjectAsset(project, asset)).Cast<object>().ToArray();
+
+            foreach (var (view, section) in inspectors) {
+                // ⚠ A locked panel is skipped whole rather than half. `InspectorView.Inspect` already
+                // refuses while locked — that is what a lock is — but the component section under it
+                // is not the inspector's rows and knew nothing about the lock, so a locked panel's
+                // foldouts followed the selection anyway and the two halves of one panel showed two
+                // different things.
+                if (view.IsLocked) {
+                    continue;
+                }
+
                 // ⚠ Dropped rather than left pointing at the last entity. An asset did not come from a
                 // prefab, and a stale pairing keyed by reference would answer for whatever boxed value
                 // happened to land on the same object.
-                assetView.Prefab = null;
+                view.Prefab = null;
+                view.Inspect(assets);
+
+                // An asset has no components, and leaving the last entity's foldouts under it would be
+                // a panel showing two different things at once.
+                section.Pair(null);
+                section.Show(Entity.Null);
             }
-
-            inspector?.Inspect([.. project.Selection.Select(asset => new ProjectAsset(project, asset))]);
-
-            // An asset has no components, and leaving the last entity's foldouts under it would be a
-            // panel showing two different things at once.
-            components?.Pair(null);
-            components?.Show(Entity.Null);
 
             Shell.Status = project.Selection.Count switch {
                 0 => ProductName,
@@ -3954,7 +4234,22 @@ sealed partial class EditorApplication : IDisposable {
         // caches the prefab files it read, and a prefab saved between two selections must be re-read.
         var sources = new PrefabSource(document, project.Assets);
 
-        if (inspector is { } view) {
+        List<object> shown = [];
+
+        foreach (var entity in document.Selection) {
+            var target = new SceneEntity(document, entity);
+
+            sources.Link(target, entity);
+            shown.Add(target);
+        }
+
+        foreach (var (view, section) in inspectors) {
+            // ⚠ Skipped whole, both halves. See the asset branch above for what the second half of
+            // that closes.
+            if (view.IsLocked) {
+                continue;
+            }
+
             // ⚠ The document whose entities these are, not the editor's own scene. An inspector edit
             // is recorded on the stack of the document it changed, and a scene opened as an asset
             // has one of its own — so an edit made here with the wrong document set would be undone
@@ -3962,31 +4257,25 @@ sealed partial class EditorApplication : IDisposable {
             view.EditedDocument = document;
             view.Prefab = sources;
 
-            List<object> shown = [];
-
-            foreach (var entity in document.Selection) {
-                var target = new SceneEntity(document, entity);
-
-                sources.Link(target, entity);
-                shown.Add(target);
-            }
-
             // ⚠ Assigned before `Inspect`, because building the rows is what asks the source whether
             // each member is overridden. Setting it afterwards would draw one unmarked panel and only
             // start telling the truth at the next selection.
             // ⚠ Spread rather than passed, because `Inspect` takes `params ReadOnlySpan<object>` and a
             // `List<object>` binds to it as one element — an inspector showing the list.
             view.Inspect([.. shown]);
+
+            // ⚠ Only this editor's own scene. The foldouts write through `scene.Stack`, and a
+            // document opened as an asset has a stack of its own — showing its entity's components
+            // here would put the edit on the wrong one, which is the hazard the line above guards
+            // for the rows.
+            section.Pair(ReferenceEquals(document, scene) ? sources : null);
+
+            section.Show(
+                ReferenceEquals(document, scene) && document.Selection.Count > 0
+                    ? document.Selection[0]
+                    : Entity.Null
+            );
         }
-
-        // ⚠ Only this editor's own scene. The foldouts write through `scene.Stack`, and a document
-        // opened as an asset has a stack of its own — showing its entity's components here would put
-        // the edit on the wrong one, which is the hazard the line above guards for the rows.
-        components?.Pair(ReferenceEquals(document, scene) ? sources : null);
-
-        components?.Show(
-            ReferenceEquals(document, scene) && document.Selection.Count > 0 ? document.Selection[0] : Entity.Null
-        );
 
         Shell.Status = document.Selection.Count switch {
             0 => ProductName,

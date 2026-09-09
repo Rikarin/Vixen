@@ -55,6 +55,34 @@ sealed class ProjectBrowser {
     readonly Select sizes;
     readonly AssetGrid tiles;
 
+    /// <summary>The folders-only tree beside the grid.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A second view over the same <c>AssetTree</c> rather than the first one turned
+    ///         on, and doc 20 § B1 asks for exactly that: "a folder tree <i>beside</i> the grid".</b>
+    ///         <see cref="tree" /> is the browsing surface in list mode and shows assets as well as
+    ///         folders — its selection <i>is</i> the project's selection. This one shows folders
+    ///         only and its selection <b>narrows</b> the grid instead. Building the second by
+    ///         widening the first is how the two come to disagree about what is selected.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is the thing a user of either reference editor reaches for first.</b> The
+    ///         breadcrumb above the grid answers "where am I" and does not answer "what else is
+    ///         there", which is the question somebody has when they open a content browser.
+    ///     </para>
+    /// </remarks>
+    readonly TreeView folders;
+
+    /// <summary>Whether the folder tree is being brought into line rather than clicked in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Selecting a row raises <c>SelectionChanged</c>, and this panel writes that
+    ///     selection from three places</b> — a rebuild, a grid navigation, and the click itself. An
+    ///     unguarded restore would re-enter <see cref="Populate" /> from inside <see cref="Populate" />
+    ///     on every rebuild, which is the round trip `ProjectBrowser.TileSize` already documents one
+    ///     harmless instance of.
+    /// </remarks>
+    bool restoring;
+
     AssetTreeNode root;
 
     /// <summary>Which folder the grid is in, by path, so it survives a rescan.</summary>
@@ -209,7 +237,14 @@ sealed class ProjectBrowser {
             ViewChanged?.Invoke(on);
         };
 
-        tree = panel.Add<TreeView>();
+        // ⚠ A row holding the folder tree and whichever browsing surface is showing. The two views
+        // were direct children of the panel, which is a column — so a folder tree added beside them
+        // there would have been a strip *above* the grid rather than next to it. See `browser-body`
+        // in `BrowserTheme.vcss`; an element no stylesheet mentions lays its children out across,
+        // which is what this one wants and is said out loud all the same.
+        var body = panel.Add<UiElement>("browser-body");
+
+        tree = body.Add<TreeView>();
         tree.MultiSelect = true;
         tree.AllowDrag = true;
 
@@ -291,7 +326,7 @@ sealed class ProjectBrowser {
             }
         };
 
-        tiles = panel.Add<AssetGrid>();
+        tiles = body.Add<AssetGrid>();
         tiles.Containing = Containing;
         tiles.Art = Art;
         tiles.Picture = Pictured;
@@ -308,6 +343,31 @@ sealed class ProjectBrowser {
         tiles.Activated += node => {
             if (node.IsIndexed) {
                 Activated?.Invoke(node.Guid);
+            }
+        };
+
+        // ⚠ Built last and drawn first, which is `order: -1` in the stylesheet rather than an index
+        // here. Its handler writes to the grid, so a lambda closing over a field the constructor has
+        // not reached yet is a null the compiler is right to complain about — and putting the
+        // element first to fix that would make `Descendants(panel).OfType<TreeView>().First()` the
+        // *folder* tree, which is how the harness and three existing tests reach the browsing one.
+        // The layout has implemented `order` all along; see `.component-icon` in the same sheet for
+        // the other place this argument is made.
+        //
+        // ⚠ Single-select and no drags: it is a place to stand rather than a thing to act on, and a
+        // drop onto it would be a second, disagreeing answer to "where does this file go" — `tree`
+        // already takes those.
+        folders = body.Add<TreeView>();
+        folders.AddClass("browser-folders");
+
+        folders.SelectionChanged += changed => {
+            if (restoring) {
+                return;
+            }
+
+            if (changed.Selection.FirstOrDefault()?.Tag is AssetTreeNode { IsFolder: true } chosen) {
+                folder = chosen.Path;
+                Populate();
             }
         };
 
@@ -339,13 +399,117 @@ sealed class ProjectBrowser {
         Restate();
     }
 
-    /// <summary>Shows the tile-size picker only when there are tiles to size.</summary>
+    /// <summary>Shows the tile-size picker and the folder tree only when there are tiles.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The folder tree is the grid's, not the panel's.</b> In list mode <see cref="tree" />
+    ///     already shows the folders — it is the browsing surface — so a second folders-only column
+    ///     beside it would be the same information twice, with two selections to keep in step. What
+    ///     the grid has and the list does not is a view with no hierarchy in it at all.
+    /// </remarks>
     void Restate() {
         if (IsGrid) {
             sizes.RemoveClass("hidden");
+            folders.RemoveClass("hidden");
         } else {
             sizes.AddClass("hidden");
+            folders.AddClass("hidden");
         }
+    }
+
+    /// <summary>The folder tree, for the panel that holds it and for the harness.</summary>
+    public TreeView Folders => folders;
+
+    /// <summary>Which folder the grid is showing, by path.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A path rather than a node, for <see cref="folder" />'s reason</b>: a rescan rebuilds
+    ///     every <c>AssetTreeNode</c>, so a held reference names a folder that no longer exists.
+    /// </remarks>
+    public string Folder => folder;
+
+    /// <summary>Rebuilds the folders-only tree and puts the mark back on the folder being shown.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Unfiltered, deliberately, and it is the one thing here the search does not touch.</b>
+    ///         This column answers "what else is there", and a tree that shrank to the folders
+    ///         holding matches would answer "where are the matches" — which is what the grid beside
+    ///         it is already saying. A folder tree that moves while somebody types is one they
+    ///         cannot aim at.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The restore is guarded.</b> Selecting a row raises <c>SelectionChanged</c>, whose
+    ///         handler calls <see cref="Populate" /> — so without <see cref="restoring" /> every
+    ///         rebuild would re-enter the rebuild it is inside.
+    ///     </para>
+    /// </remarks>
+    void Trunk() {
+        var open = Expanded(folders);
+
+        restoring = true;
+
+        try {
+            while (folders.Root.Children.Count > 0) {
+                folders.Root.Remove(folders.Root.Children[^1]);
+            }
+
+            Only(folders.Root, root);
+            folders.Refresh();
+
+            TreeNode? showing = null;
+
+            foreach (var node in Descendants(folders.Root)) {
+                if (node.Tag is not AssetTreeNode { IsFolder: true } asset) {
+                    continue;
+                }
+
+                // The root and whatever the user had open, by path — a folder that has gone simply
+                // does not match, which is the right answer rather than a special case.
+                if (open.Count == 0 ? asset.Path == AssetTree.RootName : open.Contains(asset.Path)) {
+                    folders.Expand(node);
+                }
+
+                if (string.Equals(asset.Path, folder, StringComparison.Ordinal)) {
+                    showing = node;
+                }
+            }
+
+            // ⚠ Every ancestor of the shown folder, so a grid navigated three deep by double-click
+            // is a mark somebody can see rather than one inside a collapsed branch.
+            for (var walk = showing; walk is not null; walk = walk.Parent) {
+                folders.Expand(walk);
+            }
+
+            folders.Select(showing);
+        } finally {
+            restoring = false;
+        }
+    }
+
+    /// <summary>Adds a node's folders and nothing else.</summary>
+    static void Only(TreeNode parent, AssetTreeNode asset) {
+        if (!asset.IsFolder) {
+            return;
+        }
+
+        var node = parent.Add(asset.Name, asset);
+
+        node.Art = StandardIcons.Folder;
+
+        foreach (var child in asset.Children) {
+            Only(node, child);
+        }
+    }
+
+    /// <summary>Which of a tree's folders are open, by path.</summary>
+    static HashSet<string> Expanded(TreeView view) {
+        HashSet<string> open = new(StringComparer.Ordinal);
+
+        foreach (var node in Descendants(view.Root)) {
+            if (node.IsExpanded && node.Tag is AssetTreeNode { IsFolder: true } asset) {
+                open.Add(asset.Path);
+            }
+        }
+
+        return open;
     }
 
     /// <summary>Whether the grid is showing rather than the tree.</summary>
@@ -528,6 +692,12 @@ sealed class ProjectBrowser {
     void Populate() {
         var shown = AssetTree.Filter(root, search.Value);
         var kind = kinds.Value is { } value && value != AnyType ? value : null;
+
+        // ⚠ Before either view, and for both of them. The column is hidden in list mode rather than
+        // unbuilt, so that switching to tiles shows a tree that is already in the right place — a
+        // panel that builds its left-hand column on the frame you first look at it is one that
+        // flashes empty.
+        Trunk();
 
         if (IsGrid) {
             tree.AddClass("hidden");

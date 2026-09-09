@@ -178,6 +178,47 @@ public sealed class EditorPreferences {
     /// </remarks>
     public List<string> ComponentOrder { get; set; } = [];
 
+    /// <summary>Whether the inspector's component panel is in debug (raw) mode.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 20 § B1's "debug (raw) mode", and it is remembered for the reason
+    ///         <see cref="ProjectGridView" /> is</b>: a panel's factory runs again when it is
+    ///         reopened, so a mode the panel kept to itself would be turned off by closing the tab as
+    ///         well as by restarting — and somebody diagnosing a component that draws nothing does
+    ///         not need the diagnostic to switch itself off.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The mode announces itself, which is what makes remembering it safe.</b>
+    ///         <c>ComponentsView</c> draws a line saying the panel is showing every serialised member
+    ///         and marks the rows the ordinary panel would not have drawn, so coming back to a raw
+    ///         panel a week later is a panel that says what it is rather than a component that has
+    ///         mysteriously grown members.
+    ///     </para>
+    ///     <para>
+    ///         Not <c>[Inspector]</c>, for <see cref="ProjectGridView" />'s reason: the toggle in the
+    ///         panel is how it is changed.
+    ///     </para>
+    /// </remarks>
+    public bool InspectorRawMode { get; set; }
+
+    /// <summary>Which inspector members are kept at the top of their foldout, as <c>Component.Member</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Per member of a type rather than per object, which is why it is a preference and
+    ///         not a fact about a scene.</b> Pinning a light's <c>Intensity</c> says something about
+    ///         how somebody works, and it applies to the next light they click for exactly the reason
+    ///         <see cref="ComponentOrder" /> applies to the next entity. The two are the same shape
+    ///         and use the same spelling of a component's name, so a file where they disagreed would
+    ///         be one where a pin outlives a restart and lands on nothing.
+    ///     </para>
+    ///     <para>
+    ///         Not <c>[Inspector]</c>, for <see cref="ProjectGridView" />'s reason: the pin in the
+    ///         row is how it is changed. A name in here that no component answers to is harmless and
+    ///         is kept, as in <see cref="ComponentOrder" />.
+    ///     </para>
+    /// </remarks>
+    public List<string> PinnedMembers { get; set; } = [];
+
     /// <summary>What each viewport pane was drawing, in reading order.</summary>
     /// <remarks>
     ///     <para>
