@@ -110,9 +110,28 @@ using (Profiler.Begin(ProfilingKeys.Culling))
 
 ### Memory
 
-- Managed: `GC.GetGCMemoryInfo`, allocation-rate counters, and a `GCHeapAllocationEventSource` listener
-  in debug that attributes allocations to the frame phase (which is what makes the zero-allocation gates
-  actionable, per [12](12-build-ci-and-testing.md)).
+- Managed: `GC.GetGCMemoryInfo` and allocation-rate counters (both real — `MemorySnapshot.Take` reads
+  the first), plus a per-phase `GC.GetAllocatedBytesForCurrentThread` differential taken on the frame
+  thread, which is deterministic, exact, needs no listener, and is the thing that genuinely attributes
+  bytes to a phase. ⚠ **This bullet used to specify a `GCHeapAllocationEventSource` listener "that
+  attributes allocations to the frame phase", and both halves of that are wrong.** There is no such
+  event source — the runtime's provider is `Microsoft-Windows-DotNETRuntime` — and the event the
+  sentence meant, `GCAllocationTick`, is never delivered at all: not at keyword `GC` (0x1) at
+  Informational, not with all sixty-four keyword bits set at Verbose, not over a 96 MB window in which
+  nine hundred other runtime events arrived. What *is* delivered is `AllocationSampled`, at keyword bit
+  43 only, and it cannot do what the bullet asked: it samples one allocation in ~100 KB (941 samples
+  over 96,000,040 B, and *zero* over the 9,640 B and 48,040 B windows the gates in
+  [12](12-build-ci-and-testing.md) fail on), its payload carries no stack, and its callback runs on the
+  EventPipe dispatcher thread rather than the allocating one. Measured on .NET 10.0.11, macOS arm64,
+  workstation GC; `Testing/Measured.cs` § `AllocationNames` carries the numbers and the traps.
+  ⚠ **Naming the guilty *type* is still worth having and is built** — `Measured.NothingAllocated`
+  re-runs an already-failed reading with the sampler armed and scaled until enough of the same
+  allocation has gone past it — but that is an opt-in explanatory pass for a red gate, not something
+  every debug build can carry, and it names a type and never a call site. A call site needs a
+  profiler-grade capture. **Owed**: the frame-thread differential above is not wired to a phase or an
+  overlay yet, and if a type-naming overlay is ever added it must say its sampling rate in the UI
+  rather than let a user read zeros — and its test must assert on a *name* appearing, because a
+  listener that failed to attach reports exactly what a frame that allocated nothing reports.
 - Native: every `Vixen.Core.Memory` allocator reports live bytes, peak, and fragmentation by tag.
 - GPU: per-heap usage from `VK_EXT_memory_budget` / D3D12 residency, plus per-resource-category
   attribution (textures / vertex / index / uniform / storage / render target).
