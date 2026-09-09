@@ -130,8 +130,8 @@ be.
 
 That document's diagnostics section asks for the decorator *and* for it to be **on by default in dev
 builds with a modest profile**, and only the first half is here
-([#350](https://github.com/Rikarin/Vixen/issues/350)). Three of the four questions that issue asks
-have answers the tree gives on its own, and they narrow the decision rather than making it:
+([#350](https://github.com/Rikarin/Vixen/issues/350)). **All four of the questions that issue asks
+have answers the tree gives on its own, and exactly one decision is left over**: where the seam goes.
 
 - ⚠ **`SessionOptions` cannot be the home, though the issue proposes it.** A `NetworkSession` is
   *handed* a transport and reads its options afterwards — `NetworkSession.cs:162` takes the transport
@@ -152,6 +152,18 @@ have answers the tree gives on its own, and they narrow the decision rather than
   packets in the same order, and prints the loss, the latency and the seed at startup. That is the
   shape a default-on simulation wants, and it is worth copying rather than redesigning: the required
   `seed` argument stops being a burden the moment something prints it.
+- ⚠ **And "a modest profile, written down as a named profile rather than four numbers at a call
+  site" already exists and is already named for the job.** `NetworkSimulationProfile.Broadband`
+  (`Transport/NetworkSimulationProfile.cs:32-40`) says in its own summary that it is *"the profile a
+  development build should run with by default"* — 35 ms one way, 8 ms of jitter, 0.5 % loss. That
+  bullet of #350 is answered where the answer belongs and needs no new profile; adding a sixth named
+  one would be surface with no caller in a record that already has five.
+
+So the only open question is the seam, and until one exists there is nothing for a default to be
+default at. ⚠ **The two assemblies that reference both `Vixen.Net` and `Vixen.App.Hosting` are
+`Editor/Vixen.Editor.App` and `Tools/Vixen.AotProbe`** — an application and a trimming probe, neither
+of which is a library a game's own `Program` goes through. There is no shared library where the join
+could live today, which is why "put it in the host" is a project change rather than a wiring one.
 
 ## The tick
 
