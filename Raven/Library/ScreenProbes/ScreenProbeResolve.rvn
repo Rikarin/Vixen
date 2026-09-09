@@ -79,12 +79,14 @@ shader ScreenProbeResolve {
     groupshared var partialL10: float3[LaneCount]
     groupshared var partialL11: float3[LaneCount]
 
-    // ⚠ The literal 64, and it must equal `LaneCount`. `RVN2105` refuses anything but a positional
-    // integer literal here, so the one number this shader is built around cannot be spelled once —
-    // and a workgroup narrower than the map would silently drop the texels no lane loaded. The device
-    // comparison is what holds the two together: a dropped texel moves a coefficient by whole
-    // percents, not by the hundred-thousandth the reassociation costs.
-    [ComputeShader(64)]
+    // `LaneCount`, and not the 64 it folds to: the workgroup and the arrays it fills are the same
+    // number, so they are the same name. This read `[ComputeShader(64)]` while `RVN2105` took a
+    // literal only, which spelled the one number this shader is built around twice — and a workgroup
+    // narrower than the map drops the texels no lane loaded, silently and in the safe-looking
+    // direction, leaving a coefficient that is a fraction of the truth. The device comparison caught
+    // that (a dropped texel moves a coefficient by whole percents, not by the hundred-thousandth the
+    // reassociation costs), but a comparison is not a thing every shader has.
+    [ComputeShader(LaneCount)]
     func Main([Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupIndex")] lane: uint) {
         val probe = int2(int(group.x), int(group.y))
         val origin = ScreenProbeAtlas.Origin(probe, MapResolution)

@@ -8,6 +8,7 @@ using Vixen.Raven;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Reflection;
+using Vixen.Raven.Symbols;
 using Vixen.Raven.Syntax;
 using Xunit;
 
@@ -419,5 +420,34 @@ public class LibraryReflectionTests {
         Assert.Equal("0.5", Assert.Single(described["Bloom"].Parameters, p => p.Name == "knee").DefaultValue);
         Assert.Equal("1", Assert.Single(described["Tonemap"].Parameters, p => p.Name == "exposure").DefaultValue);
         Assert.Equal("4", Assert.Single(described["Tonemap"].Parameters, p => p.Name == "whitePoint").DefaultValue);
+    }
+
+    /// <summary>
+    ///     The two library shaders whose workgroup size is named by the constant the shader is built
+    ///     around still dispatch the number that constant folds to.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Both read <c>[ComputeShader(64)]</c> beside a <c>const</c> of 8, because <c>RVN2105</c>
+    ///         took an integer literal only. Naming the constant is only worth doing if the number
+    ///         that reaches the dispatch is the same one, and ⚠ <b>the reflection cannot say</b>: a
+    ///         workgroup size is in no <c>.reflect.json</c>, so the checked-in-reflection test above
+    ///         would have stayed green on a size that folded to something else entirely.
+    ///     </para>
+    ///     <para>
+    ///         The failure this guards is silent by construction and in the safe-looking direction — a
+    ///         workgroup narrower than the array it fills loads fewer texels and answers with a
+    ///         fraction of the truth, with no diagnostic and no validation error.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("ScreenProbeResolve", 64)]
+    [InlineData("VisibilityTiles", 64)]
+    public void A_workgroup_named_by_a_constant_dispatches_what_it_folds_to(string shader, int lanes) {
+        var module = Library(out _);
+        var lowered = Assert.Single(module.Shaders, s => s.Name == shader);
+        var entryPoint = Assert.Single(lowered.EntryPoints, e => e.Stage == ShaderStage.Compute);
+
+        Assert.Equal(new WorkgroupSize(lanes, 1, 1), entryPoint.WorkgroupSize);
     }
 }

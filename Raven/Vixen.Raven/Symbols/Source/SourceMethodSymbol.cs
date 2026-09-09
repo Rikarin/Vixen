@@ -15,6 +15,7 @@ namespace Vixen.Raven.Symbols.Source;
 internal sealed class SourceMethodSymbol : MethodSymbol {
     readonly Binder binder;
 
+    bool foldingWorkgroupSize;
     Binder? methodBinder;
     ParameterSymbol[]? parameters;
     bool resolvingReturnType;
@@ -22,6 +23,8 @@ internal sealed class SourceMethodSymbol : MethodSymbol {
     bool typeParameterConstraintsResolved;
     TypeParameterSymbol[]? typeParameters;
     Binder? typeScopedBinder;
+    WorkgroupSize? workgroupSize;
+    bool workgroupSizeComputed;
 
     /// <summary>The declaration this method came from.</summary>
     public SyntaxNode Syntax { get; }
@@ -48,7 +51,24 @@ internal sealed class SourceMethodSymbol : MethodSymbol {
 
     public override ShaderStage Stage => DeclarationFacts.GetShaderStage(AttributeLists);
 
-    public override WorkgroupSize? WorkgroupSize => DeclarationFacts.GetWorkgroupSize(AttributeLists);
+    /// <summary>The workgroup size on this method's stage attribute, folded and then remembered.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Cached because reading it can bind.</b> A dimension named by a <c>const</c> is bound in
+    ///     this method's containing scope to be folded, and this property is read three times over a
+    ///     compilation — the entry-point check, the lowerer and the IR verifier. Without the cache each
+    ///     reader would bind the same expression again, which means the same diagnostic three times for
+    ///     an argument that does not resolve, and three bound nodes recorded for one piece of syntax.
+    /// </remarks>
+    public override WorkgroupSize? WorkgroupSize {
+        get {
+            if (!workgroupSizeComputed) {
+                workgroupSize = DeclarationFacts.GetWorkgroupSize(AttributeLists, FoldWorkgroupDimension);
+                workgroupSizeComputed = true;
+            }
+
+            return workgroupSize;
+        }
+    }
 
     public override string? SemanticName => DeclarationFacts.GetSemanticName(AttributeLists);
 
@@ -206,6 +226,50 @@ internal sealed class SourceMethodSymbol : MethodSymbol {
             return BuiltInTypes.Void;
         } finally {
             resolvingReturnType = false;
+        }
+    }
+
+    /// <summary>
+    ///     One workgroup dimension that is not a literal, folded in this method's containing scope —
+    ///     or null when it has no compile-time value, which the caller turns into
+    ///     <see cref="Symbols.WorkgroupSize.Invalid" /> and the binder reports as <c>RVN2105</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The scope is the containing type's, which is the scope the <c>const</c> a size is named
+    ///         by lives in — <c>const val LaneCount = MapResolution * MapResolution</c> beside the
+    ///         entry point, or a <c>Tile.Size</c> reached through the package. Not the method binder:
+    ///         a parameter is per-invocation and can never be a workgroup dimension, and asking for
+    ///         one here would resolve the signature before the attribute has been read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Guarded against reentry</b> for the reason <see cref="ResolveReturnType" /> is:
+    ///         an argument may name this very method — <c>[ComputeShader(Size())]</c> — and a fold
+    ///         that recursed there would be a stack overflow rather than a diagnostic. A call folds
+    ///         to nothing anyway, so the guard costs a legal program nothing.
+    ///     </para>
+    /// </remarks>
+    int? FoldWorkgroupDimension(ExpressionSyntax syntax) {
+        if (foldingWorkgroupSize) {
+            return null;
+        }
+
+        foldingWorkgroupSize = true;
+        try {
+            var bound = binder.BindValue(syntax);
+
+            if (bound.Type.IsErrorType) {
+                // Already reported by BindValue; RVN2105 names the size on top of it.
+                return null;
+            }
+
+            return ConstantEvaluator.Evaluate(bound) switch {
+                int value => value,
+                uint value when value <= int.MaxValue => (int)value,
+                _ => null
+            };
+        } finally {
+            foldingWorkgroupSize = false;
         }
     }
 

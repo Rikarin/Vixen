@@ -88,6 +88,86 @@ public class ComputeTests {
     }
 
     /// <summary>
+    ///     ⚠ A dimension may be a <c>const</c> and not only a literal — including one whose value is
+    ///     an expression over other constants, which is how the number a reduction is built around is
+    ///     actually spelled.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The shape is <c>ScreenProbeResolve.rvn</c>'s and <c>VisibilityTiles.rvn</c>'s: a
+    ///         <c>const val</c> sizes a <c>groupshared</c> array and the same number sizes the
+    ///         workgroup that fills it. Refusing the constant here made the shader write the number
+    ///         twice, and the two spellings can disagree <em>in the safe-looking direction</em> — a
+    ///         workgroup narrower than its array never loads the texels the missing lanes would have,
+    ///         so the reduction is over fewer terms and the answer is a fraction of the truth, with no
+    ///         diagnostic and no validation error.
+    ///     </para>
+    ///     <para>
+    ///         The last case is the one the array length one line above already accepted, which is
+    ///         what made the refusal look arbitrary: the same folder answers both.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("Lanes", 64, 1, 1)]
+    [InlineData("Side, Side", 8, 8, 1)]
+    [InlineData("Side, Side, Half", 8, 8, 4)]
+    [InlineData("Side * Side", 64, 1, 1)]
+    [InlineData("Half + Half", 8, 1, 1)]
+    public void AWorkgroupDimensionMayBeAFoldedConstant(string arguments, int x, int y, int z) {
+        var compilation = ComputeWithConstants($"[ComputeShader({arguments})]");
+        Assert.Empty(compilation.GetDiagnostics());
+
+        var entryPoint = Assert.Single(compilation.GetEntryPoints());
+        Assert.Equal(new WorkgroupSize(x, y, z), entryPoint.WorkgroupSize);
+    }
+
+    /// <summary>
+    ///     And it reaches the backend, which is the half a symbol-level assertion cannot see: GLSL's
+    ///     <c>local_size</c> is where a size that folded to the wrong number becomes a wrong picture.
+    /// </summary>
+    [Fact]
+    public void AFoldedWorkgroupSizeReachesTheEmittedLocalSize() {
+        var source = ConstantSource("[ComputeShader(Side * Side)]");
+
+        var glsl = Assert.Single(GenerateClean(source, "glsl"));
+        Assert.Equal(ShaderStage.Compute, glsl.Stage);
+
+        Assert.Contains(
+            "layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;",
+            glsl.Code,
+            StringComparison.Ordinal
+        );
+    }
+
+    /// <summary>
+    ///     ⚠ Folding is not a loosening: the rule is still "a positive integer", now asked of the
+    ///     value rather than of the spelling.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         A <c>const</c> that folds to zero or to a float is the same mistake as the literal, and
+    ///         a <c>var</c> has no compile-time value at all — a uniform the host writes is not a
+    ///         workgroup size, and taking one would have been the loosening this is not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only two of the four discriminate.</b> Sabotaging the fold into an accept-anything
+    ///         turns <c>Fraction</c> and <c>Runtime</c> red and leaves the two zeroes green, because
+    ///         <see cref="WorkgroupSize.IsInvalid" /> refuses a non-positive dimension a second time
+    ///         downstream. They are kept anyway — they say what the rule is — but the two that bite
+    ///         are the two that carry it.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("[ComputeShader(Zero)]")]
+    [InlineData("[ComputeShader(Side - Side)]")]
+    [InlineData("[ComputeShader(Fraction)]")]
+    [InlineData("[ComputeShader(Runtime)]")]
+    public void AWorkgroupDimensionThatDoesNotFoldToAPositiveIntegerIsRefused(string attribute) {
+        var diagnostics = ComputeWithConstants(attribute).GetDiagnostics();
+        Assert.Contains(diagnostics, d => d.Id == "RVN2105" && d.IsError);
+    }
+
+    /// <summary>
     ///     A size on a graphics stage warns rather than being ignored: only a compute dispatch has
     ///     workgroups, so the author believes something untrue.
     /// </summary>
@@ -283,6 +363,33 @@ public class ComputeTests {
         Assert.False(IrVerifier.Verify(module, bag));
         Assert.Contains(bag.ToArray(), d => d.Id == "RVN3010");
     }
+
+    /// <summary>
+    ///     A compute shader whose constants are the ones a real reduction declares: a side, the
+    ///     lane count derived from it, and the three values a fold has to refuse.
+    /// </summary>
+    static string ConstantSource(string attribute) =>
+        $$"""
+          package A
+
+          shader S {
+              const val Side = 8
+              const val Lanes = Side * Side
+              const val Half = 4
+              const val Zero = 0
+              const val Fraction = 8f
+
+              var Runtime: int
+
+              {{attribute}}
+              func Main() {
+              }
+          }
+
+          """;
+
+    static Compilation ComputeWithConstants(string attribute) =>
+        Compilation.Create("Test", SyntaxTree.ParseText(ConstantSource(attribute), path: "Test.rvn"));
 
     static Compilation Compile(string attribute, string signature) {
         var source = $$"""
