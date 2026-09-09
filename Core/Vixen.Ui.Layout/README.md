@@ -21,9 +21,16 @@ and **none fail** — `Taffy/BlockKnownGaps.txt` is down to its refusal list, an
 count is zero, so the next block regression names itself. See
 [the block section](#block-layout-and-what-a-second-algorithm-cost) below.
 
-**Grid landed with doc 43 § B2 and is the third.** 2 038 of the 2 120 `grid`, `blockgrid` and
-`gridflex` fixtures pass, 40 are refused, and 42 fail in the buckets `Taffy/GridKnownGaps.txt`
-names one at a time. It is **partial and says which part**: placement (§8), the bulk of track
+**Grid landed with doc 43 § B2 and is the third.** How many of the 2 120 `grid`, `blockgrid` and
+`gridflex` fixtures pass, fail and are refused is the generated `# COUNTS` line at the top of
+`Taffy/GridKnownGaps.txt`, which `TaffyGapsSummary` holds to the constants
+`TaffyGridConformanceTests` pins; that file also names each remaining bucket one at a time.
+⚠ **This paragraph used to state those three figures and was three generations behind them** — it
+said 2 038 / 40 refused / 42 failing long after the suite pinned 2 104 / 0 / 16, and doc 43's § B2
+row quoted this paragraph as "the state" while it was wrong. A fourth copy of a measurement rots
+like the other three, so this one names none.
+
+It is **partial and says which part**: placement (§8), the bulk of track
 sizing (§12), §11.8's baseline alignment, CSS Grid §9's containing block for an out-of-flow child
 and §7.3's `grid-template-areas` are done; **named lines written into a track list** are not — see
 [the grid section](#grid-and-the-part-with-no-oracle).
@@ -50,6 +57,14 @@ read `BlockStaticLeft` only for a `block` or `flow-root` parent and an inline bo
 `isPhysicalParent`, so an un-inset out-of-flow child of a span no longer resolves its axes from a
 `flex-direction` that means nothing on an inline box — and the pair it now reads is §10.6.4's, the
 pen `PlaceLine` had reached when it passed the child, rather than the container's content edge.
+⚠ **That one branch serves two paths, and both are pinned now.** A flattened span's pen is written by
+the container's walk and rebased onto the union; an *atomic* `inline` box runs its own
+`CalculateInlineLayoutImpl` and writes the pen in its own coordinates, so there is nothing to rebase.
+⚠ Reaching the second is not one of the three arrangements `IsNonAtomicInline` records, because that
+predicate is only ever asked by a parent that is *already* walking lines — so a span that is a flex
+item, a grid item, or the node `CalculateLayout` was called on is never offered for flattening at all.
+That is also a box no browser can produce: CSS Display §2.7 blockifies every one of those contexts and
+this store does not blockify anywhere (#1149).
 What is still owed is generated boxes, a span with a FLOATED child, and a span's own strut. See
 [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down) and
 `InlineKnownGaps.txt`.

@@ -2286,12 +2286,21 @@ public sealed partial class UiDocument : IDisposable {
     ///         box</i>.
     ///     </para>
     ///     <para>
-    ///         Vixen has no shared line box to put them on. Every element measures and draws its own
-    ///         text independently — see <c>UiElement.Block</c> — and
-    ///         <c>Core/Vixen.Ui.Layout.Tests/InlineKnownGaps.txt</c> records why: one node produces
-    ///         one box, and a line box spanning several elements is the fragmentation work that
-    ///         invariant forbids. With no shared line, the only way a container's declaration can
-    ///         reach the glyphs CSS says it governs is to inherit to the element that owns them.
+    ///         Every element measures and draws its own text independently — see
+    ///         <c>UiElement.Block</c> — so the only way a container's declaration can reach the
+    ///         glyphs CSS says it governs is to inherit to the element that owns them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This paragraph used to open "Vixen has no shared line box to put them on", and
+    ///         that clause has expired — the conclusion has not.</b> It cited <i>one node produces
+    ///         one box</i> out of <c>InlineKnownGaps.txt</c>, and doc 43 § B3's fragmentation work
+    ///         relaxed exactly that invariant: <c>LayoutTree.Inline</c> builds line boxes shared by
+    ///         several inline-level boxes, <c>FragmentArena</c> stores them and
+    ///         <c>DrawListBuilder</c> reads them. What still separates a shared line from an ellipsis
+    ///         is the second sentence rather than the first — the glyphs are measured and cut by the
+    ///         element that owns them, and the walk that knows which element a line runs out on is in
+    ///         <c>Vixen.Ui.Layout</c>, which has no text. So the inherited reading stands, and the
+    ///         reason to keep for whoever revisits it is that one, not an invariant that is gone.
     ///     </para>
     ///     <para>
     ///         What that buys and what it costs: <c>class="truncate"</c> on a row whose text sits in

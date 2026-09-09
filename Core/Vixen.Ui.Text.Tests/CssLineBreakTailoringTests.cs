@@ -530,6 +530,62 @@ public class CssLineBreakTailoringTests {
         LineBreakStrictness strictness
     ) => Assert.Equal(Segment(text, strictness), Segment(text, strictness, "ja"));
 
+    /// <summary>
+    ///     ⚠ The twenty-eight this file says it moved out of a list and into two theories, counted
+    ///     off the theories.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="TheContentLocaleCases" /> was a <c>public static readonly</c> field
+    ///         with no reader anywhere in the tree</b> — the same defect
+    ///         <c>CssWordBreakTailoringTests.TheDictionaryCases</c> was found to have one batch
+    ///         earlier, left behind in the sibling file because the two were fixed apart. Every
+    ///         mention of it outside this line was a <c>see cref</c> in a doc comment, so a case
+    ///         quietly added to it — the shape a transcription takes when somebody gives up on one —
+    ///         or the whole list quietly emptied would have left the class remark's arithmetic true
+    ///         of nothing.
+    ///     </para>
+    ///     <para>
+    ///         Every number here is quoted from a sentence in this file rather than derived: the
+    ///         class remark's "those twenty-eight are
+    ///         <see cref="Normal_in_a_Japanese_document" /> and
+    ///         <see cref="Loose_in_a_Japanese_document" />", and the latter's own "twenty rows for
+    ///         twenty-two assertions", ICU4X asserting <c>文€文</c> and <c>文＄文</c> under two WPT
+    ///         files each and a duplicated <c>InlineData</c> being a duplicate rather than a second
+    ///         case.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this does NOT check, said plainly rather than implied:</b> the forty-four
+    ///         non-CJK assertions that make the other half of ICU4X's seventy-two. Their rows collapse
+    ///         several ways — one row standing for two WPT files, one theory standing for a strictness
+    ///         this store answers identically — and each collapse is recorded on the theory that owns
+    ///         it rather than in one place, so counting them here would mean deriving a total this
+    ///         file does not state. A number invented by the test that checks it is worse than no
+    ///         test.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_japanese_document_rows_account_for_the_twenty_eight_that_left_the_list() {
+        // ICU4X asserts `文€文` and `文＄文` twice each, under `line-break-*-018.xht` and under
+        // `css-text-line-break-ja-pr-loose.html`; a duplicated row would be a duplicate rather than a
+        // second case, so the two are transcribed once and counted twice.
+        const int duplicatedAssertions = 2;
+
+        var normal = RowsOf(nameof(Normal_in_a_Japanese_document));
+        var loose = RowsOf(nameof(Loose_in_a_Japanese_document));
+
+        Assert.Equal(6, normal);
+        Assert.Equal(20, loose);
+        Assert.Equal(28, normal + loose + duplicatedAssertions);
+        Assert.Single(TheContentLocaleCases);
+    }
+
+    /// <summary>How many <c>InlineData</c> rows a theory in this class carries.</summary>
+    /// <param name="method">The theory's name.</param>
+    /// <returns>Its row count.</returns>
+    static int RowsOf(string method) =>
+        typeof(CssLineBreakTailoringTests).GetMethod(method)!.GetCustomAttributes(typeof(InlineDataAttribute), false).Length;
+
     /// <summary>What is left out, which is now ICU4X's own three and nothing of this store's.</summary>
     /// <remarks>
     ///     ⚠ <b>This list held twenty-eight entries and holds one, and the difference is #897.</b>
