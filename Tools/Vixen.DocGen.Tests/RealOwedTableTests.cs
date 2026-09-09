@@ -160,7 +160,12 @@ public class RealOwedTableTests {
     ///         genuinely was not in § 1.x, so it was written there first — the second-window owned
     ///         surface and the binary chain that outranks a timeline wait into § 1.4's two rows, and
     ///         <c>EmitCompilerGeneratedFiles</c> into § 1.7's CLI-emit row — and only then was the
-    ///         cell reduced to a pointer.
+    ///         cell reduced to a pointer. Rows 61 and 81 went the same way the same day, and both
+    ///         were re-derived from the tree before being written down rather than copied: the four
+    ///         absent input device classes into § 1.10's <c>Vixen.Input</c> row, and the two-group
+    ///         drawing limit into § 1.11's selectable-wires row, where it belongs because it is
+    ///         <c>Vixen.Ui.Controls.Advanced</c>'s single <c>GraphNode.Group</c> back-pointer against
+    ///         the editor model's unconstrained <c>List&lt;NodeId&gt;</c>.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Where a row still sits here it is because deleting a cell whose facts exist
@@ -176,10 +181,8 @@ public class RealOwedTableTests {
         ("34", "#1125"),
         ("36", "#1125"),
         ("38", "#1125"),
-        ("61", "#1125"),
         ("78", "#1125"),
         ("79", "#1125"),
-        ("81", "#1125"),
         ("84", "#1125"),
         ("85", "#1125"),
     ];
