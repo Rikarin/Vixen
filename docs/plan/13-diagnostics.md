@@ -42,13 +42,28 @@ internal static partial class RenderLog
 ### Discipline
 
 - **Categories** are types (`ILogger<VulkanDevice>`), so filtering by subsystem is free.
-- **Per-category level configuration**, live-editable in the editor and via `vixen.log.yaml`, so
-  "turn on verbose asset loading without drowning in render spam" works.
+- **Per-category level configuration** via `vixen.log.yaml`, so "turn on verbose asset loading without
+  drowning in render spam" works. Built: `LogFilter` carries the rules (longest prefix wins) and
+  `AppBuilder` hands *one* filter to every sink, so a rule is set once rather than per sink. The host
+  reads `/app/vixen.log.yaml` and then `/data/vixen.log.yaml`, the machine's beating the shipped one,
+  and `--vixen-log-level` beats the file's `minimumLevel` while the file's per-category rules always
+  apply. ⚠ **The editor's live-editing panel over that filter is still owed** — the mechanism is
+  reachable (`services.Logs.Filter`) and nothing in the editor surfaces it.
 - **Rate limiting** on repeated identical events (`… (repeated 4 812 times)`), because one per-frame
   warning otherwise makes the log useless and costs real time.
-- **No logging in the innermost loops.** `[HotPath]`-marked methods are analyzer-blocked from logging;
-  they increment counters instead.
-- **Every `catch` either handles or logs with the exception object.** An analyzer flags silent catches.
+- **No logging in the innermost loops.** ⚠ **This is a convention and not a rule**, and this bullet
+  used to claim otherwise: `[HotPath]`-marked methods were said to be "analyzer-blocked from logging",
+  and there is no such analyzer. `HotPathAttribute` exists (`Core/Vixen.Core/Annotations`) and is
+  applied to nothing in the tree, so it blocks nothing either — its own summary says it is a contract
+  for an *allocation* analyzer, which also does not exist. What is actually true is weaker and is why
+  the cost has not bitten: logging does occur in per-frame code, and each such site is individually
+  latched, watermarked, de-duplicated or interval-throttled, so its steady-state cost is a compare.
+  `RingBufferSink`'s remarks carry the same correction.
+- **Every `catch` either handles or logs with the exception object.** ⚠ **Also a convention and not a
+  rule** — this bullet used to say "an analyzer flags silent catches" and no such analyzer exists.
+  `Core/Vixen.Core.IO.Analyzers` is the precedent for building one: a diagnostic that
+  `TreatWarningsAsErrors` turns into a build failure, with the legitimate exceptions turned off by
+  name in `.editorconfig`, each carrying a written reason.
 
 ## Profiling
 

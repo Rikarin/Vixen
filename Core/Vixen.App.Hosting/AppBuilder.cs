@@ -182,6 +182,18 @@ public sealed class AppBuilder {
         var fileSystem = new VirtualFileSystem();
         host.FileSystem.MountStandardLocations(fileSystem);
 
+        // The first thing done with the mounted file system, and it has to be: everything below
+        // this line logs, and a per-category rule that arrives after the subsystem it names has
+        // already spoken is a rule that did nothing on the run somebody was watching. What it
+        // cannot cover is the platform above — the mounts do not exist until the platform does —
+        // which is why `--vixen-log-level` stays the way to turn up a boot that never got this far.
+        LogConfigFile.ApplyStandardLocations(
+            fileSystem,
+            levels,
+            honourMinimumLevel: arguments.LogLevel is null,
+            loggerFactory.CreateLogger("Vixen.App")
+        );
+
         var workers = config.WorkerCount ?? Math.Max(1, host.Processors.AvailableProcessors - 1);
 
         // The other half of `IProcessorTopology`, and until now the unused one: the count has been

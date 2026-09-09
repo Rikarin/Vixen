@@ -32,6 +32,14 @@
         <ProjectReference Include="..\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
 
         <!--
+          vixen.log.yaml, and nothing else. Doc 13 names the file and the host is what reads it —
+          the per-category levels it carries go into the one LogFilter every sink shares, which is
+          a decision only the boot path can make. A hand-rolled reader for four lines of YAML would
+          be a second dialect of a format this repository already has one of.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
+
+        <!--
           PngCodec, for the capture flag. Reachable transitively through Vixen.Engine.Renderer
           already; named here because a transitive reference is somebody else's decision, and the
           somebody else could reasonably stop needing it.
