@@ -52,8 +52,20 @@ struct Ibl {
     /// Split into "sample the environment" and "combine" rather than doing both, because the sample
     /// needs a texture and a sampler while this does not — which keeps the arithmetic testable and
     /// lets a deferred pass reuse it with radiance from somewhere else entirely.
+    ///
+    /// ⚠ **The scale is `SpecularModels.MultiScatter` and not `f0 · dfg.x + dfg.y`, and the
+    /// difference is a whole material class.** The split sum counts one bounce between microfacets,
+    /// and at high roughness most of the light takes more than one: with this file's own fit a
+    /// `f0 = 1` surface keeps 0.835 of the light at perceptual roughness 0.3 and 0.450 at 1, so a
+    /// rough metal was rendered at half the radiance it sends and darker the rougher it got, which is
+    /// backwards. `docs/plan/06` described that compensation as on by default and it was not on at
+    /// all — it was a function in the library with no caller anywhere.
+    ///
+    /// It moves a dielectric by three to five per cent and a metal by up to a factor of two, which is
+    /// the signature to expect: the missing energy is `1 − Ess` weighted by the average Fresnel, and
+    /// a dielectric's average Fresnel is about a twentieth.
     static func Specular(prefiltered: float3, f0: float3, dfg: float2, specularOcclusion: float): float3 {
-        return prefiltered * (f0 * dfg.x + float3(dfg.y)) * saturate(specularOcclusion)
+        return prefiltered * SpecularModels.MultiScatter(f0, dfg) * saturate(specularOcclusion)
     }
 
     /// The diffuse contribution of an environment given its irradiance.

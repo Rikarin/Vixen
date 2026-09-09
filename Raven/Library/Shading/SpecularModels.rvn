@@ -61,19 +61,52 @@ struct SpecularModels {
         return Brdf.FresnelSchlick(f0, a.VdotH) * (d * v)
     }
 
-    /// The multiplier that restores the energy a single-scattering lobe loses.
+    /// The whole split-sum specular scale with the energy a single-scattering lobe loses put back.
     ///
     /// A microfacet model that accounts for one bounce loses light with roughness, because light that
-    /// bounces twice between facets is never counted: a rough metal comes out visibly darker than it
-    /// should, and darker than the same material at low roughness, which is physically backwards.
+    /// bounces twice between facets is never counted. With this library's own `Ibl.EnvironmentDfg`
+    /// at normal incidence the single-scatter energy is 1.000 at mirror roughness, 0.835 at 0.3,
+    /// 0.670 at 0.6 and 0.450 at 1 — so a rough metal comes out at *half* the light it should send,
+    /// and darker the rougher it is, which is physically backwards.
     ///
-    /// Fdez-Agüera's cheap compensation, which needs the split-sum `DFG` term `Ibl` supplies. Takes
-    /// the term rather than recomputing it, because the IBL path already has it and computing it
-    /// twice is how the two come to disagree.
+    /// Fdez-Agüera's compensation, which needs the split-sum `DFG` term `Ibl` supplies. Takes the
+    /// term rather than recomputing it, because the IBL path already has it and computing it twice is
+    /// how the two come to disagree.
+    ///
+    /// **It returns the whole scale and not a multiplier**: `f0 · dfg.x + dfg.y` with the missing
+    /// energy added back, so it *replaces* that expression rather than multiplying it.
+    ///
+    /// ⚠ **What was here before was not a compensation and not within a factor of a thousand of
+    /// one.** It read `(dfg.x + dfg.y) · (1 + max(f0)(1/dfg.y − 1))`, which is wrong three ways: the
+    /// single-scatter term dropped `f0`, so a copper mirror came back grey; the whole thing was
+    /// returned as one grey number, so a tinted metal lost its tint a second time; and `1/dfg.y`
+    /// diverges, because this library's analytic fit has `dfg.y` at 0.0059 at mirror roughness and
+    /// *negative* above about 0.75. Evaluated at `f0 = 1` and normal incidence it returns 170 at
+    /// roughness 0, 737 at 0.6 and 505000 at 0.9. It survived because nothing called it — every
+    /// shading model in the library calls `Ggx`, and `LibraryTreeTests` asserts the symbol exists,
+    /// which is satisfied by exactly the defect.
+    ///
+    /// **The white furnace is what pins it, and it is exact rather than a tolerance.** A perfect
+    /// white metal under a uniform environment of radiance one must reflect exactly one at every
+    /// roughness and every angle: at `f0 = 1` the average Fresnel is 1, so `Fms · Ems` is precisely
+    /// the `1 − Ess` the single scatter lost and the two sum to one whatever the fit says. That
+    /// identity is why the form below is written out rather than folded — folding it hides the one
+    /// property a test can hold it to.
     static func MultiScatter(f0: float3, dfg: float2): float3 {
-        val singleScatter = dfg.x + dfg.y
-        val energy = 1f + Math.MaxComponent(f0) * (1f / max(dfg.y, Const.Epsilon) - 1f)
-        return float3(singleScatter * energy)
+        // The energy a `f0 = 1` surface keeps after one bounce, and what it lost.
+        val ess = dfg.x + dfg.y
+        val ems = max(1f - ess, 0f)
+
+        // The average Fresnel over the hemisphere, Fdez-Agüera's closed form for Schlick.
+        val favg = f0 + (float3(1f) - f0) * (1f / 21f)
+
+        val fssEss = f0 * dfg.x + float3(dfg.y)
+        val fms = fssEss * favg / max(float3(1f) - ems * favg, float3(Const.Epsilon))
+
+        // ⚠ Floored, because the fit's bias term goes slightly negative above roughness 0.75 and a
+        // dielectric's whole answer there is that term: a specular scale of −0.0025 is a surface
+        // that subtracts the sky.
+        return max(fssEss + fms * ems, float3(0f))
     }
 
     /// The specular occlusion a horizon-facing normal implies.

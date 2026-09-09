@@ -437,7 +437,9 @@ shader AmbientCombine {
     /// plane is blended by, and the whole of the ⚠ at the head of this file.
     ///
     /// The split-sum specular integral, exactly as `Ibl.Specular` applies it to a prefiltered cube:
-    /// `f0 · dfg.x + dfg.y`, with `Ibl.EnvironmentDfg` answering for this roughness at this angle.
+    /// `SpecularModels.MultiScatter` over `Ibl.EnvironmentDfg`'s answer for this roughness at this
+    /// angle — the single-scatter scale with the energy a rough surface loses between facets added
+    /// back.
     /// Weighing the plane by *that* is what makes the addition read as *supplying* the pass's IBL
     /// specular from the trace — the two are the same term over the same integral, one filtered off
     /// a cube and one marched — rather than as painting radiance over a finished frame.
@@ -465,7 +467,11 @@ shader AmbientCombine {
 
         val dfg = Ibl.EnvironmentDfg(NdotV, perceptualRoughness)
 
-        return saturate(f0 * dfg.x + float3(dfg.y, dfg.y, dfg.y))
+        // ⚠ The same scale `Ibl.Specular` applies, which is `MultiScatter` and not the bare split
+        // sum: the two are estimates of one term and a pass that weighed the traced plane by the
+        // single-scatter scale while the shading pass weighed its cube by the compensated one would
+        // dim exactly the rough metals the trace exists to answer for.
+        return saturate(SpecularModels.MultiScatter(f0, dfg))
     }
 
     /// A reduced plane's four channels at this pixel: its four nearest texels, each weighted by
