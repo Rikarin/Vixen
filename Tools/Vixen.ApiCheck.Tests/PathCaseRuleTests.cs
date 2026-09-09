@@ -152,6 +152,24 @@ public sealed class PathCaseRuleTests {
         Assert.Equal(["Assets/Textures/CRATE.PNG", "Assets/Textures/Crate.png"], collision);
     }
 
+    /// <summary>
+    ///     ⚠ The exemption file is not scanned, and a binary one is not either.
+    /// </summary>
+    /// <remarks>
+    ///     Every exemption line quotes the literal it exempts, so scanning that file reports each of
+    ///     them a second time at a line number inside the exemption file — which no exemption covers,
+    ///     and which cannot be exempted without quoting the literal a third time. Found by running the
+    ///     gate over its own first commit, once the exemption file had been staged and
+    ///     <c>git ls-files</c> could see it.
+    /// </remarks>
+    [Fact]
+    public void TheExemptionFileAndBinariesAreNotScanned() {
+        Assert.False(PathCaseRule.IsScannable(PathCaseRule.ExemptionsFile));
+        Assert.False(PathCaseRule.IsScannable("Samples/03-Lighting/Assets/Crate.png"));
+        Assert.True(PathCaseRule.IsScannable("docs/WhitespaceExempt.txt"));
+        Assert.True(PathCaseRule.IsScannable("Core/Vixen.Ecs/World.cs"));
+    }
+
     /// <summary>Comment and blank lines in the exemption file are not exemptions.</summary>
     [Fact]
     public void ExemptionsSkipCommentsAndBlanks() {
@@ -183,7 +201,9 @@ public sealed class PathCaseRuleTests {
         Assert.True(committed.Count > 3000, $"`git ls-files` returned {committed.Count} paths, which is not this tree.");
 
         var index = PathCaseRule.Index(committed);
-        var exempt = PathCaseRule.ReadExemptions(File.ReadAllText(Path.Combine(root, "docs", "PathCaseExempt.txt")));
+        var exempt = PathCaseRule.ReadExemptions(
+            File.ReadAllText(Path.Combine(root, PathCaseRule.ExemptionsFile.Replace('/', Path.DirectorySeparatorChar)))
+        );
         var violations = new List<PathCaseRule.Violation>();
         var scanned = 0;
 

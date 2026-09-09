@@ -12,9 +12,6 @@ using Serilog;
 using Vixen.Build;
 
 partial class Build {
-    /// <summary>The exemption list, relative to the repository root.</summary>
-    const string PathCaseExemptions = "docs/PathCaseExempt.txt";
-
     /// <summary>
     ///     The floor below which the committed-path list is not this repository.
     /// </summary>
@@ -85,7 +82,7 @@ partial class Build {
         );
 
         var index = PathCaseRule.Index(committed);
-        var exemptFile = RootDirectory / PathCaseExemptions;
+        var exemptFile = RootDirectory / PathCaseRule.ExemptionsFile;
 
         var exempt = exemptFile.FileExists()
             ? PathCaseRule.ReadExemptions(File.ReadAllText(exemptFile))
@@ -130,7 +127,7 @@ partial class Build {
         }
 
         foreach (var key in stale) {
-            Log.Error("{Key} is exempt in {File} and is no longer reported — delete the line.", key, PathCaseExemptions);
+            Log.Error("{Key} is exempt in {File} and is no longer reported — delete the line.", key, PathCaseRule.ExemptionsFile);
         }
 
         Assert.True(
@@ -142,7 +139,7 @@ partial class Build {
 
         Assert.True(
             !stale.Any(),
-            $"Every line in {PathCaseExemptions} must name a reference this run reported. One that "
+            $"Every line in {PathCaseRule.ExemptionsFile} must name a reference this run reported. One that "
             + "does not means either the reference was fixed — delete the line — or the scan has "
             + "stopped matching, in which case a clean result is evidence about the scan."
         );

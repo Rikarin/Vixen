@@ -116,10 +116,17 @@ static partial class PathCaseRule {
     /// <param name="committed">Committed paths, relative to the repository root, <c>/</c>-separated.</param>
     /// <returns>Lowercase path to the single spelling the repository uses, for the unambiguous ones.</returns>
     /// <remarks>
-    ///     ⚠ <b>The ancestor directories are not padding.</b> A reference to
-    ///     <c>samples/13-ThirdPersonShooter</c> names no file and is exactly as broken on Linux as a
-    ///     mis-cased file; without the directories in the index it would resolve to nothing and be
-    ///     silently unjudged.
+    ///     ⚠ <b>The ancestor directories are not padding.</b> A reference whose <em>directory</em> is
+    ///     mis-cased — <c>Samples</c> spelled in lower case, say — names no file and is exactly as
+    ///     broken on Linux as a mis-cased file name; without the directories in the index it would
+    ///     resolve to nothing and be silently unjudged.
+    ///     <para>
+    ///         ⚠ <b>The first thing this rule ever caught was the sentence above.</b> It was written
+    ///         with the mis-cased path spelled out as an illustration, and the sweep — correctly —
+    ///         reported the illustration. Which is the positive on real content that the synthetic
+    ///         fixtures in <c>PathCaseRuleTests</c> can only imitate, and a reminder that a doc
+    ///         comment is committed text like any other.
+    ///     </para>
     ///     <para>
     ///         A lowercase key that two different spellings claim is dropped rather than resolved,
     ///         because with two committed spellings there is no single right answer and
@@ -174,11 +181,27 @@ static partial class PathCaseRule {
             .OrderBy(group => group[0], StringComparer.Ordinal)
             .ToList();
 
+    /// <summary>Where the exemptions live, relative to the repository root.</summary>
+    public const string ExemptionsFile = "docs/PathCaseExempt.txt";
+
     /// <summary>Whether a committed path is one whose bytes this rule reads as text.</summary>
     /// <param name="path">A committed path.</param>
-    /// <returns>False for the extensions in <see cref="BinaryExtensions" />.</returns>
+    /// <returns>
+    ///     False for the extensions in <see cref="BinaryExtensions" />, and for
+    ///     <see cref="ExemptionsFile" />.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>The exemption file excludes itself, and finding out why is the second thing this rule
+    ///     ever caught.</b> Every line in it quotes the literal it exempts, so scanning it reports
+    ///     each of those literals a second time — at a line number inside the exemption file, which no
+    ///     exemption covers, and which cannot be exempted without quoting the literal a third time.
+    ///     A list of strings that are not paths is by construction full of strings that are not paths.
+    ///     ⚠ It surfaced late because an uncommitted file is not in <c>git ls-files</c>: the sweep read
+    ///     clean until the exemption file was staged, which is the same one-commit lag recorded above.
+    /// </remarks>
     public static bool IsScannable(string path) =>
-        !BinaryExtensions.Any(extension => path.EndsWith(extension, StringComparison.OrdinalIgnoreCase));
+        !string.Equals(path.Replace('\\', '/'), ExemptionsFile, StringComparison.Ordinal)
+        && !BinaryExtensions.Any(extension => path.EndsWith(extension, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Every mis-cased reference in one file's text.</summary>
     /// <param name="path">The committed path of the file, which is also how a relative reference resolves.</param>

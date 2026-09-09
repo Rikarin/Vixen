@@ -14,6 +14,11 @@
 #
 # A line is `<committed file>: <literal as written>`. Add one only when the string is not a path.
 # A string that IS a path in the wrong case gets its case fixed; that is the whole point.
+#
+# ⚠ This file is excluded from the scan, and it has to be: every line below quotes the literal it
+# exempts, so scanning it would report each of them again at a line number in THIS file — which no
+# exemption covers, and which could not be exempted without quoting the literal a third time. It went
+# unnoticed until the file was staged, because `git ls-files` cannot see an uncommitted file.
 
 # A sentence in a comment, shouting, about a sample this leg deliberately does not run.
 .github/workflows/ci.yml: SAMPLES/15-AIVILLAGE
