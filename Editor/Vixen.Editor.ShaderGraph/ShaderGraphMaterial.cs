@@ -104,8 +104,36 @@ public static class ShaderGraphMaterial {
             Shader = source.Name,
             Numbers = [.. numbers],
             Vectors = [.. vectors],
-            Maps = [.. source.Maps.Select(map => new GraphSurfaceMap(map.Texture, map.Slot))]
+            Maps = Maps(source)
         };
+    }
+
+    /// <summary>The texture pairing a material composing this graph carries.</summary>
+    /// <param name="source">The compiled graph.</param>
+    /// <returns>One entry per slot the shader declares, in the order it declares them.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="source" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Public because <see cref="Feature" /> is not the only thing that has to build
+    ///         one</b> — <c>MaterialDocument.SetGraphValue</c> writes a feature an author is editing
+    ///         a value on, and that one cannot go through <see cref="Feature" />: it must leave a
+    ///         property the author has not touched <em>out</em> of the feature, where
+    ///         <see cref="Feature" /> writes every declared property at its type's zero and so would
+    ///         replace every graph default with black the moment a panel opened.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The maps are the half those two do agree on, and they were two spellings of one
+    ///         line</b> — the join from <c>ShaderGraphSource.Maps</c>' texture-and-slot pair to
+    ///         <see cref="GraphSurfaceMap" />. <c>AssetMaterialSource.Pair</c> keys the bindless
+    ///         table on <c>{shader}.{chain}.{graph}.{slot}</c>, so a copy that dropped or renamed a
+    ///         slot writes nothing for it and every read of that texture falls back to the table's
+    ///         placeholder view: a wrong picture with no error. One line is what this is for.
+    ///     </para>
+    /// </remarks>
+    public static GraphSurfaceMap[] Maps(ShaderGraphSource source) {
+        ArgumentNullException.ThrowIfNull(source);
+
+        return [.. source.Maps.Select(map => new GraphSurfaceMap(map.Texture, map.Slot))];
     }
 
     /// <summary>Every property a material is expected to set, and the width each is.</summary>

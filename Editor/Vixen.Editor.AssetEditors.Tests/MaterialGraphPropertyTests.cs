@@ -69,28 +69,86 @@ public class MaterialGraphPropertyTests {
         return YamlSerializer.ToYaml(NodeGraphDocument.Save(graph));
     }
 
-    /// <summary>A material linked to that graph, open.</summary>
+    /// <summary>A graph with a standalone master, which is a whole shader and not a surface.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>Master/Unlit</c> rather than a graph that fails to compile</b>, because the two
+    ///     failures the panel has to keep apart are "this does not compile" and "this compiles and is
+    ///     the wrong shape". Only the second has a sentence an author can act on — add a
+    ///     <c>Master/Surface</c> — and only the second can be lost by a record that carries a
+    ///     compilation for a surface graph alone.
+    /// </remarks>
+    static string Standalone() {
+        NodeGraphModel graph = new() { Name = "AuthoredStandalone" };
+        var tint = graph.Add("Input/Colour Property");
+        var master = graph.Add("Master/Unlit");
+
+        tint.SetText(ShaderProperties.Key, "tint");
+        graph.Connect(new(tint.Id, "Colour"), new(master.Id, "Colour"));
+
+        return YamlSerializer.ToYaml(NodeGraphDocument.Save(graph));
+    }
+
+    /// <summary>A material linked to the surface graph, open.</summary>
+    static MaterialDocument Open(ViewHarness harness, params IMaterialFeature[] features) =>
+        Open(harness, Graph(), features);
+
+    /// <summary>A material linked to a graph this test wrote, open.</summary>
+    /// <param name="harness">The project and UI the document is opened over.</param>
+    /// <param name="graph">The <c>.vxshadergraph</c>'s YAML.</param>
+    /// <param name="features">What the material already carries.</param>
+    /// <returns>The open document.</returns>
     /// <remarks>
     ///     ⚠ The sidecar and the rescan are what make the link <em>resolve</em>. The fixture opens the
     ///     project before a test writes anything, so a graph written and not scanned is
     ///     indistinguishable from one that was deleted — which is a real state this panel reports and
     ///     a useless one to test the property rows through.
     /// </remarks>
-    static MaterialDocument Open(ViewHarness harness, params IMaterialFeature[] features) {
-        var graph = AssetId.Parse("0123456789abcdef0123456789abcdef");
+    static MaterialDocument Open(ViewHarness harness, string graph, params IMaterialFeature[] features) {
+        var linked = AssetId.Parse("0123456789abcdef0123456789abcdef");
 
         harness.Project.WriteAsset(
             "Assets/AuthoredSurface.vxshadergraph",
-            Graph(),
+            graph,
             "guid: 0123456789abcdef0123456789abcdef\nmetaVersion: 1\n"
         );
 
-        MaterialAsset asset = new() { Shader = "AuthoredSurface", Graph = graph, Features = [.. features] };
+        MaterialAsset asset = new() { Shader = "AuthoredSurface", Graph = linked, Features = [.. features] };
         var path = harness.Project.WriteAsset("Assets/stone.vxmat", asset.ToYaml());
 
         harness.Project.Project.Assets.Scan();
 
         return new(harness.Project.Project, AssetId.New(), path);
+    }
+
+    /// <summary>A graph with a standalone master is named as one rather than called broken.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1117">#1117</a>'s trap, from the
+    ///         side that loses a sentence.</b> <c>ReadGraph</c> now takes its compilation from
+    ///         <c>ShaderGraphSources</c>, which packages a standalone graph as a record whose
+    ///         generated <em>text</em> is empty — deliberately, since a standalone graph contributes
+    ///         no Raven to a shader build. A panel that read "no text" as "did not compile" would
+    ///         answer an author who needs to add a <c>Master/Surface</c> with a sentence about a
+    ///         compilation that in fact succeeded, and there is nothing in that sentence to act on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves are asserted because either alone passes on the wrong tree.</b> The
+    ///         standalone sentence and the compile-failure sentence both leave
+    ///         <c>GraphSource</c> null, so a test reading only that cannot tell them apart — which is
+    ///         precisely the difference this case exists for.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AStandaloneGraphIsNamedAsOneRatherThanReportedAsABrokenCompile() {
+        using var harness = new ViewHarness();
+        var document = Open(harness, Standalone());
+
+        Assert.Null(document.GraphSource);
+
+        var problem = Assert.IsType<string>(document.GraphProblem);
+
+        Assert.Contains("standalone shader", problem, StringComparison.Ordinal);
+        Assert.DoesNotContain("does not compile", problem, StringComparison.Ordinal);
     }
 
     /// <summary>The linked graph compiles and reports the two properties a person fills in.</summary>

@@ -105,31 +105,18 @@ struct ComputeColor {
         )
     }
 
-    /// Saturation, around the colour's own luminance.
-    ///
-    /// ⚠ Four texture-graph kernels are pinned against the Rec. 709 triple in the line below:
-    /// `Grayscale` writes it as three parameter *defaults*, and `Hsl`, `Splatter` and `TileSampler`
-    /// write it inline as a `float3`. `TextureKernelLanguageSeamTests` reads this function's body off
-    /// disk and compares all four, so none of them can drift alone — #1077.
-    ///
-    /// ⚠ **#1077 says the library "does not have" a plain `Luminance(colour: float3): float` and
-    /// that the weights live inside this body. Both halves are false**, measured 2026-09-08:
-    /// `Core/ColorSpaces.rvn` declares `Luminance(linear: float3): float` and `PostFx/Fullscreen.rvn`
-    /// declares a second one. What is true is narrower and is a *build* fact rather than a language
-    /// one — `TextureKernelPrelude` puts `Core/Math.rvn`, `Core/Random.rvn` and this file in a
-    /// kernel's compilation and not `Core/ColorSpaces.rvn`, so the function a kernel would call is
-    /// simply not in the set it is bound against. So three of the four are not blocked on a widened
-    /// signature at all; they are blocked on one `EmbeddedResource` line — #1093. Filed rather than done
-    /// here, because adding a library file to that set changes what *every* kernel binds against.
-    ///
-    /// ⚠ **Nothing calls this function.** No `.rvn` in the tree does, and no shader-graph node emits
-    /// it — `Tonemap.rvn` grades saturation with an implementation of its own. So the numbers those
-    /// four kernels are held to are numbers no shader in the engine reads, which is the fact to know
-    /// before treating this as "the library's answer" a second time.
-    static func Saturation(color: float3, amount: float): float3 {
-        val luma = dot(color, float3(0.2126f, 0.7152f, 0.0722f))
-        return max(lerp(float3(luma), color, max(amount, 0f)), float3(0f))
-    }
+    // ⚠ **There is deliberately no `Saturation` here, removed 2026-09-09 — #1114.** It existed,
+    // was correct, and had no caller anywhere: no `.rvn` in the tree called it, no shader-graph node
+    // emitted it, and the only thing that referenced it at all was a test reading the Rec. 709
+    // triple out of its body to pin four texture kernels against — an anchor #1093 moved to
+    // `Core/ColorSpaces.rvn`'s `Luminance`. What it left behind was a *fourth* transcription of that
+    // triple inside the one set a texture kernel binds against, which is the drift this library
+    // spent #1033 and #1093 removing. ⚠ Restoring it as a call to `ColorSpaces.Luminance` is not the
+    // cheaper half it looks: this file's package is `Vixen.Shaders.Material`, and reaching that
+    // function would put `Core/ColorSpaces.rvn` into the compilation of every shader that imports
+    // the material library rather than only into the kernel prelude that already carries it.
+    // `TextureKernelLanguageSeamTests.The_prelude_declares_the_luminance_weights_once` is what
+    // notices a transcription coming back.
 
     // --- UV nodes ---------------------------------------------------------
 

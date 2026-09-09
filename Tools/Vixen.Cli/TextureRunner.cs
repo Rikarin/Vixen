@@ -56,6 +56,7 @@ public static class TextureRunner {
     /// <param name="folder">Which folder under <c>Assets/</c> to write into.</param>
     /// <param name="adapter">What to record as the adapter. Recorded, never asserted.</param>
     /// <param name="force">Overwrite outputs somebody has painted over.</param>
+    /// <param name="parallax">Turn the height march on for this material. See <see cref="BakeParallax" />.</param>
     /// <param name="output">Where to write what happened.</param>
     /// <param name="error">Where to complain.</param>
     /// <returns>The exit code.</returns>
@@ -67,6 +68,7 @@ public static class TextureRunner {
         string folder,
         string adapter,
         bool force,
+        bool parallax,
         TextWriter output,
         TextWriter error
     ) {
@@ -137,7 +139,7 @@ public static class TextureRunner {
             return ExitCode.Failed;
         }
 
-        foreach (var warning in set.Warnings) {
+        foreach (var warning in parallax ? BakeParallax.Requested(set, error) : set.Warnings) {
             error.WriteLine(warning);
         }
 

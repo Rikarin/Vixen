@@ -303,6 +303,7 @@ Doc 48 § M5's CLI row. Two ways in and one bake after the first step:
 |---|---|
 | `--from <folder>` | a folder of authored maps, each called `<anything>_<usage>.png` |
 | `--graph <file.vxtexgraph>` | a texture graph, compiled and evaluated on a GPU |
+| `--parallax` | compose a parallax occlusion feature for the height map this bake writes |
 
 Both end in one `ProjectMaterialBaker`: the ORM packing, the mip chain, the block compression, the
 scan-then-read-back GUID dance and the `texturing:` provenance block. It is the same baker the
@@ -316,6 +317,20 @@ artist's material. This tool therefore links `Vixen.Graphics.Vulkan` and deliber
 `Vixen.Graphics.Null`, so "no fallback" is a fact about what is in the package rather than a branch;
 `TextureCommandTests` reads the shipped assemblies and holds it. A CI image that wants `--graph` needs
 a Vulkan driver, and lavapipe is enough.
+
+⚠ **`--parallax` is how a *first* bake asks for a height march, and it is off by default.** A bake
+writes a height map for whatever wants it and composes no `ParallaxOcclusion` feature, because
+composing one would put a per-pixel march on every material any graph ever emitted a height output
+from — a picture change and a cost nobody authored. What it does instead is *preserve* one the
+material already carries, which by construction cannot help a material that does not exist yet, so
+the route was bake, paste `- !ParallaxOcclusion` into the `.vxmat`, bake again
+([#1103](https://github.com/Rikarin/Vixen/issues/1103)). The flag supplies that ask and decides
+nothing else: `BakeParallax` re-composes through `MaterialBake.Material`, which is what seats the
+feature at index 0 — `MaterialCompiler` refuses a coordinate-stage feature listed behind one that
+samples, so appending it writes a file this verb produced and the importer then rejects — re-points
+its `heightMap` at the name `WorldRenderer.Paired` keys on, and drops it again where the bake wrote
+no height map. ⚠ It is the CLI's half only; the editor's *Bake Material* verb still has no control,
+which is why #1103 stays open.
 
 ⚠ **`--adapter` is refused beside `--graph`.** It exists to record what ran a bake this tool did not
 do. A graph bake ran on the device this process opened, so a typed name would be a provenance block

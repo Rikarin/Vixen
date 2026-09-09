@@ -133,6 +133,16 @@ public static class VixenCommand {
     ///         § D4 records the adapter without ever comparing it, so nothing would catch that.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b><c>--parallax</c> is an authoring decision with a flag in front of it</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>. A bake writes a
+    ///         height map and composes no march for it, because composing one would put a per-pixel
+    ///         cost on every material any graph ever emitted a height output from; what it does
+    ///         instead is preserve one the material already carries, which cannot help a material
+    ///         that does not exist yet. So the flag is what a <em>first</em> bake says instead of
+    ///         baking, pasting a tag into the <c>.vxmat</c> and baking again. See
+    ///         <see cref="BakeParallax" />, which supplies the ask and decides nothing else.
+    ///     </para>
+    ///     <para>
     ///         A subcommand rather than a verb of its own, because <c>texture</c> is where the graph
     ///         verbs go and a promotion later would break every script that typed the shorter name.
     ///     </para>
@@ -170,6 +180,15 @@ public static class VixenCommand {
             Description = "Overwrite outputs whose bytes are not what the last bake wrote."
         };
 
+        // ⚠ Off by default and it is the ask rather than a quality knob — #1103. A bake writes a
+        // height map for whatever wants it and composes no march, because composing one would put a
+        // per-pixel cost on every material any graph ever emitted a height output from; without a
+        // flag the only way to turn one on was to bake, paste a feature into the .vxmat and bake
+        // again. See BakeParallax, which does not decide where the feature goes.
+        var parallax = new Option<bool>("--parallax") {
+            Description = "Compose a parallax occlusion feature for the height map this bake writes."
+        };
+
         var bake = new Command("bake", "Write a material from a folder of maps, or from a texture graph.") {
             project,
             from,
@@ -177,7 +196,8 @@ public static class VixenCommand {
             name,
             folder,
             adapter,
-            force
+            force,
+            parallax
         };
 
         bake.SetAction(parseResult => {
@@ -209,6 +229,7 @@ public static class VixenCommand {
                         parseResult.GetRequiredValue(folder),
                         parseResult.GetRequiredValue(adapter),
                         parseResult.GetValue(force),
+                        parseResult.GetValue(parallax),
                         output ?? Console.Out,
                         complain
                     );
@@ -229,6 +250,7 @@ public static class VixenCommand {
                     parseResult.GetRequiredValue(name),
                     parseResult.GetRequiredValue(folder),
                     parseResult.GetValue(force),
+                    parseResult.GetValue(parallax),
                     output ?? Console.Out,
                     complain
                 );

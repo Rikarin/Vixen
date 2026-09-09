@@ -65,6 +65,7 @@ static class TextureGraphRunner {
     /// <param name="name">What the material should be called.</param>
     /// <param name="folder">Which folder under <c>Assets/</c> to write into.</param>
     /// <param name="force">Overwrite outputs somebody has painted over.</param>
+    /// <param name="parallax">Turn the height march on for this material. See <see cref="BakeParallax" />.</param>
     /// <param name="output">Where to write what happened.</param>
     /// <param name="error">Where to complain.</param>
     /// <returns>The exit code.</returns>
@@ -75,6 +76,7 @@ static class TextureGraphRunner {
         string name,
         string folder,
         bool force,
+        bool parallax,
         TextWriter output,
         TextWriter error
     ) {
@@ -172,7 +174,10 @@ static class TextureGraphRunner {
         }
 
         using (device) {
-            return Run(editor, project, device!, plan, wanted, compiler, graph, model, name, folder, force, output, error);
+            return Run(
+                editor, project, device!, plan, wanted, compiler, graph, model, name, folder, force, parallax, output,
+                error
+            );
         }
     }
 
@@ -189,6 +194,7 @@ static class TextureGraphRunner {
         string name,
         string folder,
         bool force,
+        bool parallax,
         TextWriter output,
         TextWriter error
     ) {
@@ -256,7 +262,7 @@ static class TextureGraphRunner {
             return ExitCode.Failed;
         }
 
-        foreach (var warning in set.Warnings) {
+        foreach (var warning in parallax ? BakeParallax.Requested(set, error) : set.Warnings) {
             error.WriteLine(warning);
         }
 
