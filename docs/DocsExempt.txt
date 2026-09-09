@@ -2761,51 +2761,51 @@ T:Vixen.Shaders.EffectVertexInput sweep-pending
 T:Vixen.Shaders.EffectVertexInputData sweep-pending
 T:Vixen.Shaders.Generated.AutoExposureConstants generated — the shader's uniform block as a struct, emitted by Vixen.Shaders.Generators from AutoExposure.reflect.json
 T:Vixen.Shaders.Generated.AutoExposureKeys generated — the shader's typed parameter keys, emitted from the same reflection
-T:Vixen.Shaders.Generated.BloomConstants sweep-pending
-T:Vixen.Shaders.Generated.BloomKeys sweep-pending
-T:Vixen.Shaders.Generated.ClusterRasterConstants sweep-pending
-T:Vixen.Shaders.Generated.ClusterRasterKeys sweep-pending
-T:Vixen.Shaders.Generated.ClusterSoftwareRasterConstants sweep-pending
-T:Vixen.Shaders.Generated.ClusterSoftwareRasterKeys sweep-pending
-T:Vixen.Shaders.Generated.CullingKeys sweep-pending
+T:Vixen.Shaders.Generated.BloomConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.BloomKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ClusterRasterConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ClusterRasterKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ClusterSoftwareRasterConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ClusterSoftwareRasterKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.CullingKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
 T:Vixen.Shaders.Generated.DepthOfFieldConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/DepthOfField on rendering/post-processing
 T:Vixen.Shaders.Generated.DepthOfFieldKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
-T:Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.DistanceFieldAoKeys sweep-pending
-T:Vixen.Shaders.Generated.DistanceFieldAoPerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.DrawArgumentsKeys sweep-pending
-T:Vixen.Shaders.Generated.FogConstants sweep-pending
-T:Vixen.Shaders.Generated.FogKeys sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusCascadesElement sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusKeys sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusLightsElement sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusPerDrawConstants sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusPerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusPerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusPerViewConstants sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.FxaaConstants sweep-pending
-T:Vixen.Shaders.Generated.FxaaKeys sweep-pending
-T:Vixen.Shaders.Generated.HiZReduceKeys sweep-pending
-T:Vixen.Shaders.Generated.IndirectDiffuseKeys sweep-pending
-T:Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.IndirectDiffusePerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.IrradianceFillKeys sweep-pending
-T:Vixen.Shaders.Generated.IrradianceFillPerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.IrradianceRepairConstants sweep-pending
-T:Vixen.Shaders.Generated.IrradianceRepairKeys sweep-pending
+T:Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.DistanceFieldAoKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.DistanceFieldAoPerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.DrawArgumentsKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.FogConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.FogKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ForwardPlusCascadesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.ForwardPlusGlobalDistanceFieldDistanceFieldVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.ForwardPlusKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ForwardPlusLightsElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.ForwardPlusPerDrawConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ForwardPlusPerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ForwardPlusPerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ForwardPlusPerViewConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.FxaaConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.FxaaKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.HiZReduceKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.IndirectDiffuseKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.IndirectDiffusePerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.IrradianceFillKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.IrradianceFillPerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.IrradianceRepairConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.IrradianceRepairKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
 T:Vixen.Shaders.Generated.LensFlareConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/LensFlare on rendering/post-processing
 T:Vixen.Shaders.Generated.LensFlareKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
-T:Vixen.Shaders.Generated.LineFragmentKeys sweep-pending
-T:Vixen.Shaders.Generated.LineVertexKeys sweep-pending
+T:Vixen.Shaders.Generated.LineFragmentKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.LineVertexKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
 T:Vixen.Shaders.Generated.LocalExposureConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/LocalExposure on rendering/post-processing
 T:Vixen.Shaders.Generated.LocalExposureKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
-T:Vixen.Shaders.Generated.MeshInstancedKeys sweep-pending
-T:Vixen.Shaders.Generated.MeshKeys sweep-pending
+T:Vixen.Shaders.Generated.MeshInstancedKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.MeshKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
 T:Vixen.Shaders.Generated.MorphScatterConstants generated — the blend-shape kernel's uniform block as a struct, emitted by Vixen.Shaders.Generators from MorphScatter.reflect.json; the shader is documented as R:Pipeline/MorphScatter on rendering/blend-shapes
 T:Vixen.Shaders.Generated.MorphScatterKeys generated — the same kernel's typed parameter keys, emitted from the same reflection
 T:Vixen.Shaders.Generated.MotionBlurConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/MotionBlur on rendering/post-processing
@@ -2813,58 +2813,58 @@ T:Vixen.Shaders.Generated.MotionBlurKeys generated — the shader's parameter ke
 T:Vixen.Shaders.Generated.MotionVectorsKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
 T:Vixen.Shaders.Generated.MotionVectorsPerMaterialConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:Pipeline/MotionVectors on rendering/post-processing
 T:Vixen.Shaders.Generated.MotionVectorsPerViewConstants generated — set 1's block, which is a contract between shaders; documented as R:Pipeline/MotionVectors on rendering/post-processing
-T:Vixen.Shaders.Generated.NearestReduceKeys sweep-pending
-T:Vixen.Shaders.Generated.OutlineConstants sweep-pending
-T:Vixen.Shaders.Generated.OutlineKeys sweep-pending
-T:Vixen.Shaders.Generated.PlaceholderConstants sweep-pending
-T:Vixen.Shaders.Generated.PlaceholderKeys sweep-pending
-T:Vixen.Shaders.Generated.ReflectionTraceGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.ReflectionTraceKeys sweep-pending
-T:Vixen.Shaders.Generated.ReflectionTracePerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.ReflectionTracePerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeAccumulateConstants sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeAccumulateKeys sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeFilterConstants sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeFilterKeys sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeResolveKeys sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeTraceGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeTraceKeys sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeTracePerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeTracePerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeUpsampleConstants sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeUpsampleKeys sweep-pending
-T:Vixen.Shaders.Generated.SharpenConstants sweep-pending
-T:Vixen.Shaders.Generated.SharpenKeys sweep-pending
+T:Vixen.Shaders.Generated.NearestReduceKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.OutlineConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.OutlineKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.PlaceholderConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.PlaceholderKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ReflectionTraceGlobalDistanceFieldDistanceFieldVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.ReflectionTraceKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ReflectionTracePerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ReflectionTracePerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ScreenProbeAccumulateConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ScreenProbeAccumulateKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ScreenProbeFilterConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ScreenProbeFilterKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ScreenProbeResolveKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ScreenProbeTraceGlobalDistanceFieldDistanceFieldVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.ScreenProbeTraceKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ScreenProbeTracePerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ScreenProbeTracePerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ScreenProbeUpsampleConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ScreenProbeUpsampleKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.SharpenConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.SharpenKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
 T:Vixen.Shaders.Generated.SkyConstants generated from Sky.reflect.json; the shader is documented, this is its block
 T:Vixen.Shaders.Generated.SkyKeys generated from Sky.reflect.json; the shader is documented, these are its parameter names
-T:Vixen.Shaders.Generated.SsaoConstants sweep-pending
-T:Vixen.Shaders.Generated.SsaoKeys sweep-pending
-T:Vixen.Shaders.Generated.SurfaceCacheGatherGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.SurfaceCacheGatherKeys sweep-pending
-T:Vixen.Shaders.Generated.SurfaceCacheGatherPerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.SurfaceCacheGatherPerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.SurfaceCacheLightGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.SurfaceCacheLightKeys sweep-pending
-T:Vixen.Shaders.Generated.SurfaceCacheLightPerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.SurfaceCacheLightPerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.TaaConstants sweep-pending
-T:Vixen.Shaders.Generated.TaaKeys sweep-pending
-T:Vixen.Shaders.Generated.TonemapConstants sweep-pending
-T:Vixen.Shaders.Generated.TonemapKeys sweep-pending
-T:Vixen.Shaders.Generated.VignetteConstants sweep-pending
-T:Vixen.Shaders.Generated.VignetteKeys sweep-pending
-T:Vixen.Shaders.Generated.VirtualShadowMarkConstants sweep-pending
-T:Vixen.Shaders.Generated.VirtualShadowMarkKeys sweep-pending
-T:Vixen.Shaders.Generated.VisibilityResolveCascadesElement sweep-pending
-T:Vixen.Shaders.Generated.VisibilityResolveKeys sweep-pending
-T:Vixen.Shaders.Generated.VisibilityResolveLightsElement sweep-pending
-T:Vixen.Shaders.Generated.VisibilityResolvePerDrawConstants sweep-pending
-T:Vixen.Shaders.Generated.VisibilityResolvePerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.VisibilityResolvePerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.VisibilityResolvePerViewConstants sweep-pending
-T:Vixen.Shaders.Generated.VisibilityResolveProbeVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.VisibilityTilesConstants sweep-pending
-T:Vixen.Shaders.Generated.VisibilityTilesKeys sweep-pending
+T:Vixen.Shaders.Generated.SsaoConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.SsaoKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.SurfaceCacheGatherGlobalDistanceFieldDistanceFieldVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.SurfaceCacheGatherKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.SurfaceCacheGatherPerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.SurfaceCacheGatherPerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.SurfaceCacheLightGlobalDistanceFieldDistanceFieldVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.SurfaceCacheLightKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.SurfaceCacheLightPerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.SurfaceCacheLightPerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.TaaConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.TaaKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.TonemapConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.TonemapKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.VignetteConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.VignetteKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.VirtualShadowMarkConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.VirtualShadowMarkKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.VisibilityResolveCascadesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.VisibilityResolveKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.VisibilityResolveLightsElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.VisibilityResolvePerDrawConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.VisibilityResolvePerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.VisibilityResolvePerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.VisibilityResolvePerViewConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.VisibilityResolveProbeVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.VisibilityTilesConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.VisibilityTilesKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
 T:Vixen.Shaders.Generators.ShaderBindingsGenerator sweep-pending
 T:Vixen.Shaders.IEffectProvider sweep-pending
 T:Vixen.Shaders.IEffectSource sweep-pending
