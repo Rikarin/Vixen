@@ -219,6 +219,42 @@ component-drop-indicator {
 
 component-drop-indicator.hidden { display: none; }
 
+/* ── Debug (raw) mode ─────────────────────────────────────────────────
+   ⚠ Doc 20 § B1's third inspector row. `flex-direction: row` is the CSS initial and is what this
+   bar wants, but it is said out loud for the reason `component-list` above is: an element no
+   stylesheet mentions is built from the initial, and the next person to add a second control here
+   should not have to rediscover which way it lays out. `justify-content: flex-end` puts the toggle
+   on the right, away from the foldout labels it is not one of. */
+component-raw-bar {
+    flex-direction: row;
+    flex-shrink: 0;
+    justify-content: flex-end;
+    padding: 2px 4px;
+}
+
+/* ⚠ Said rather than implied. A raw panel is the ordinary panel with more rows in it, and without a
+   sentence saying so the difference between "this component has eleven members" and "this component
+   shows four of its eleven members" is a thing somebody has to already know. */
+component-raw-note {
+    flex-shrink: 0;
+    margin: 0px 4px 4px 4px;
+    padding: 4px 6px;
+    color: var(--text-muted);
+    font-size: 11px;
+    background-color: var(--surface-sunken);
+    border-radius: 3px;
+}
+
+/* ⚠ The rows the ordinary panel would not have drawn, marked — because raw mode is opened to find
+   out *which* member is undrawn, and a dump that does not say leaves that question exactly where it
+   was. The accent edge is `component-drop-indicator`'s colour for the same reason: it is the
+   editor's "look here". */
+inspector-row.raw-member {
+    border-width: 0px 0px 0px 2px;
+    border-color: var(--accent);
+    opacity: 0.75;
+}
+
 .add-component { align-self: stretch; margin: 8px 4px 4px 4px; }
 .add-component.hidden { display: none; }
 

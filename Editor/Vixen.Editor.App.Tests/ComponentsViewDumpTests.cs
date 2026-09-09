@@ -246,8 +246,16 @@ public sealed class ComponentsViewDumpTests {
     }
 
     /// <summary>The state the panel opens in: two foldouts, both open, nothing focused.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The Raw toggle is the first line of all four dumps, and it is up here rather than in
+    ///     a fifth state on purpose.</b> Debug (raw) mode is a second descriptor rather than a second
+    ///     panel — <c>ReflectedDescriptor.Raw</c> — so what these four states are recording is that
+    ///     adding it changed the panel by exactly one control and left the foldouts, the drag and the
+    ///     focus alone. <c>InspectorRawModeTests</c> is where the mode itself is asserted.
+    /// </remarks>
     const string Open =
         """
+        <toggle-button .raw-toggle .size-sm .variant-subtle> Label="Raw"
         <expander .component .open .size-md .variant-default> State=Open IsExpanded=True Label="Primitive Shape"
         <expander-header .size-md .variant-default> State=Checked Label="Primitive Shape"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
@@ -298,6 +306,7 @@ public sealed class ComponentsViewDumpTests {
     const string Shut =
         """
         <components .size-md .variant-default> State=FocusWithin
+        <toggle-button .raw-toggle .size-sm .variant-subtle> Label="Raw"
         <component-list> State=FocusWithin
         <expander .component .size-md .variant-default> State=FocusWithin Label="Primitive Shape"
         <expander-header .size-md .variant-default> State=Focus, FocusWithin Label="Primitive Shape"
@@ -349,6 +358,7 @@ public sealed class ComponentsViewDumpTests {
     const string Reopened =
         """
         <components .size-md .variant-default> State=FocusWithin
+        <toggle-button .raw-toggle .size-sm .variant-subtle> Label="Raw"
         <component-list> State=FocusWithin
         <expander .component .open .size-md .variant-default> State=FocusWithin, Open IsExpanded=True Label="Primitive Shape"
         <expander-header .size-md .variant-default> State=Focus, Checked, FocusWithin Label="Primitive Shape"
@@ -400,6 +410,7 @@ public sealed class ComponentsViewDumpTests {
     const string Swapped =
         """
         <components .size-md .variant-default> State=FocusWithin
+        <toggle-button .raw-toggle .size-sm .variant-subtle> Label="Raw"
         <component-list> State=FocusWithin
         <expander .component .open .size-md .variant-default> State=FocusWithin, Open IsExpanded=True Label="Light"
         <expander-header .size-md .variant-default> State=Focus, Checked, FocusWithin Label="Light"

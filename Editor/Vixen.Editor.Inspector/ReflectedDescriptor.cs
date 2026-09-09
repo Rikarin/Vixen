@@ -37,10 +37,34 @@ public sealed class ReflectedMember : InspectorMember {
     /// <inheritdoc />
     public override bool CanWrite => member.CanWrite;
 
+    /// <summary>Whether the ordinary panel hides this member and only raw mode draws it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The one thing a raw row has that an ordinary one does not, and the panel marks it.</b>
+    ///     A raw dump that looked exactly like the ordinary panel with more rows in it would answer
+    ///     the question it was opened to answer and leave nobody able to say <i>which</i> of the rows
+    ///     was the one the editor is not showing.
+    /// </remarks>
+    public bool IsHidden { get; }
+
     /// <summary>Describes a member from its serialization descriptor.</summary>
     /// <param name="owner">The type it belongs to.</param>
     /// <param name="member">What the generator recorded about it.</param>
-    public ReflectedMember(Type owner, MemberDescriptor member)
+    /// <param name="hidden">
+    ///     Whether this member is only here because the panel is in raw mode — that is, whether
+    ///     <see cref="MemberPresentation.IsEditorVisible" /> is false and something asked to see it
+    ///     anyway.
+    ///     <para>
+    ///         ⚠ <b>Such a member is drawn read-only, and that is the whole difference between
+    ///         looking under the panel and editing under it.</b> <c>[EditorVisible(false)]</c> is an
+    ///         author saying "this is written to a file and is not somebody's business to edit" —
+    ///         <c>Behavior.World</c> and <c>Behavior.Entity</c> carry it — and raw mode's argument is
+    ///         diagnostic rather than editorial: it exists so that "this value is wrong" and "this
+    ///         value is not drawn" stop being the same picture. Making the plumbing writable would
+    ///         answer a question nobody asked and offer a way to put a world reference into a
+    ///         behaviour by typing.
+    ///     </para>
+    /// </param>
+    public ReflectedMember(Type owner, MemberDescriptor member, bool hidden = false)
         : base(Named(member), Presented(member)) {
         ArgumentNullException.ThrowIfNull(owner);
 
@@ -52,7 +76,8 @@ public sealed class ReflectedMember : InspectorMember {
         Tooltip = presentation.Tooltip;
         Header = presentation.Category;
         Order = member.Order;
-        IsReadOnly = presentation.IsEditorReadOnly;
+        IsReadOnly = presentation.IsEditorReadOnly || hidden;
+        IsHidden = hidden;
 
         // ⚠ What <c>[AssetPicker]</c> says on an <c>[Inspector]</c> type, said by an annotation a
         // runtime assembly is allowed to carry. Without it every asset member on every component the
@@ -143,6 +168,7 @@ public sealed class ReflectedMember : InspectorMember {
 /// </remarks>
 public static class ReflectedDescriptor {
     static readonly ConcurrentDictionary<Type, InspectorDescriptor?> Cache = new();
+    static readonly ConcurrentDictionary<Type, InspectorDescriptor?> Unfiltered = new();
 
     /// <summary>The descriptor for a type, from whichever generator described it.</summary>
     /// <param name="type">The type.</param>
@@ -167,10 +193,53 @@ public static class ReflectedDescriptor {
         return descriptor is not null;
     }
 
-    /// <summary>Forgets what has been built. For tests that register descriptors of their own.</summary>
-    public static void Clear() => Cache.Clear();
+    /// <summary>Every serialised member of a type, whatever the editor was told to hide.</summary>
+    /// <param name="type">The type.</param>
+    /// <returns>The descriptor, or <see langword="null" /> when the generator never saw the type.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An alternative descriptor rather than a filter over rows, and it has to be one
+    ///         because both of the things it bypasses are decided before a row exists.</b>
+    ///         <see cref="For" /> answers with an <c>[Inspector]</c> descriptor where there is one —
+    ///         so a custom inspector drawing four of a type's eleven members is a case no filter over
+    ///         its output could reach — and <see cref="Build" /> drops an invisible member before it
+    ///         is described at all. This asks the serialization descriptor directly and keeps
+    ///         everything in it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it is for is telling an undrawn member from an unset one.</b>
+    ///         <c>[Inspector]</c> and the serialization generator decide what a component shows, so a
+    ///         member nobody annotated is invisible in the editor and present in the file — and
+    ///         without this, "this value is wrong" and "this value is not drawn" are the same
+    ///         picture. Doc 20 § B1 calls it debug (raw) mode.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it adds is what the <i>file</i> holds, which is narrower than every member
+    ///         there is.</b> A descriptor keeps <c>[DataMemberIgnore]</c> members — see
+    ///         <see cref="MemberDescriptor.IsSerialized" />, and <c>Behavior.Position</c> for why —
+    ///         so a hidden member reaches a raw descriptor only if it is serialised. Without that
+    ///         rule a behaviour's raw panel is thirteen rows of façade over one real one, and
+    ///         <c>Behavior.Coroutines</c> — a <c>[DataMemberIgnore]</c> getter that throws off the
+    ///         detached copy a component panel reads — takes the rest of the foldout down with it.
+    ///     </para>
+    ///     <para>
+    ///         The rows a raw descriptor adds are read-only; see <see cref="ReflectedMember" />'s
+    ///         <c>hidden</c> parameter for why.
+    ///     </para>
+    /// </remarks>
+    public static InspectorDescriptor? Raw(Type type) {
+        ArgumentNullException.ThrowIfNull(type);
 
-    static InspectorDescriptor? Build(Type type) {
+        return Unfiltered.GetOrAdd(type, static key => Build(key, raw: true));
+    }
+
+    /// <summary>Forgets what has been built. For tests that register descriptors of their own.</summary>
+    public static void Clear() {
+        Cache.Clear();
+        Unfiltered.Clear();
+    }
+
+    static InspectorDescriptor? Build(Type type, bool raw = false) {
         if (!TypeRegistry.TryGet(type, out var described)) {
             return null;
         }
@@ -181,11 +250,29 @@ public static class ReflectedDescriptor {
             // ⚠ What the *serializer* was told to hide stays hidden here too. `IsEditorVisible` is
             // already the annotation for "this is written to a file and is not somebody's business
             // to edit", and having the inspector re-decide would be a second answer to one question.
-            if (!member.Presentation.IsEditorVisible) {
+            //
+            // ⚠ Raw mode is not the inspector re-deciding, which is why it is a second descriptor
+            // rather than a flag on this one: it is somebody asking what the *file* holds, and the
+            // rows it adds say so and cannot be typed into.
+            //
+            // ⚠ **And "what the file holds" is `IsSerialized` and not "every member there is".** A
+            // descriptor keeps `[DataMemberIgnore]` members — `TypeDescriptor` says so at length,
+            // because a façade like `Behavior.Position` is useful to a script and wrong in a file —
+            // so a raw mode that showed everything would offer thirteen rows of plumbing over one
+            // real one and call it the file's contents. It would also *crash*: `Behavior.Coroutines`
+            // is a `[DataMemberIgnore]` getter that throws when the object has no store, and a
+            // component panel reads a detached copy, so drawing it took the rest of the foldout down
+            // with it. Both are the same mistake, and the fix is to mean the word.
+            //
+            // An editor-visible member is drawn either way, serialised or not: raw mode adds rows
+            // and never takes one away.
+            var hidden = !member.Presentation.IsEditorVisible;
+
+            if (hidden && !(raw && member.IsSerialized)) {
                 continue;
             }
 
-            members.Add(new ReflectedMember(type, member));
+            members.Add(new ReflectedMember(type, member, hidden));
         }
 
         if (members.Count == 0) {

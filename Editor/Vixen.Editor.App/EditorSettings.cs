@@ -178,6 +178,29 @@ public sealed class EditorPreferences {
     /// </remarks>
     public List<string> ComponentOrder { get; set; } = [];
 
+    /// <summary>Whether the inspector's component panel is in debug (raw) mode.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 20 § B1's "debug (raw) mode", and it is remembered for the reason
+    ///         <see cref="ProjectGridView" /> is</b>: a panel's factory runs again when it is
+    ///         reopened, so a mode the panel kept to itself would be turned off by closing the tab as
+    ///         well as by restarting — and somebody diagnosing a component that draws nothing does
+    ///         not need the diagnostic to switch itself off.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The mode announces itself, which is what makes remembering it safe.</b>
+    ///         <c>ComponentsView</c> draws a line saying the panel is showing every serialised member
+    ///         and marks the rows the ordinary panel would not have drawn, so coming back to a raw
+    ///         panel a week later is a panel that says what it is rather than a component that has
+    ///         mysteriously grown members.
+    ///     </para>
+    ///     <para>
+    ///         Not <c>[Inspector]</c>, for <see cref="ProjectGridView" />'s reason: the toggle in the
+    ///         panel is how it is changed.
+    ///     </para>
+    /// </remarks>
+    public bool InspectorRawMode { get; set; }
+
     /// <summary>What each viewport pane was drawing, in reading order.</summary>
     /// <remarks>
     ///     <para>

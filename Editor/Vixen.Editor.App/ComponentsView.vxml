@@ -69,6 +69,41 @@
 @using Vixen.Ui.Reactive
 @using Vixen.Editor.AssetEditors.Prefabs
 
+<!--
+    ⚠ Doc 20 § B1's "debug (raw) mode", and the diagnostic argument behind it is that an undrawn
+    member and an unset one are the same picture without it. `[Inspector]` and the serialization
+    generator between them decide what a component shows, so a member nobody annotated is invisible
+    in the editor and present in the file — and "this value is wrong" and "this value is not drawn"
+    then look identical. Raw mode is what tells them apart.
+
+    ⚠ **A second descriptor rather than a filter over rows.** `ReflectedDescriptor.For` answers with
+    an `[Inspector]` descriptor where there is one — so a custom inspector drawing four of a type's
+    eleven members is exactly the case a filter over its output cannot reach — and it drops an
+    invisible member before there is a row to filter. `ReflectedDescriptor.Raw` asks the serialization
+    descriptor and keeps everything in it.
+
+    ⚠ **And it says what it is showing.** A raw dump that looked like the ordinary panel with more
+    rows in it would answer the question it was opened to answer and leave nobody able to say which
+    row was the hidden one. The note below says the panel is showing the file, and `.raw-member`
+    marks the rows the ordinary panel would not have drawn.
+-->
+<component-raw-bar class="component-raw-bar">
+    <ToggleButton ref="@RawToggle"
+                  class="raw-toggle"
+                  Label="Raw"
+                  Size="Small"
+                  Variant="Subtle"
+                  IsChecked="@IsRaw"
+                  change:IsChecked="@Reveal" />
+</component-raw-bar>
+
+@if (IsRaw) {
+    <component-raw-note class="component-raw-note">
+        Showing every serialised member, including the ones the editor hides. Hidden members are
+        read-only here.
+    </component-raw-note>
+}
+
 <component-list ref="@host">
     @for (var row in Rows) {
         <Expander key="@row"
@@ -97,7 +132,7 @@
                         TabIndex="-1"
                         on:click.stop="@(() => Remove(row.Bridge))" />
 
-            @if (ReflectedDescriptor.For(row.Bridge.ComponentType) is null) {
+            @if (Describe(row.Bridge) is null) {
                 <!--
                     ⚠ Named rather than skipped. A component with no description is one whose
                     declaring assembly does not run the serialization generator, and a foldout that
@@ -159,6 +194,16 @@
 
     /// <summary>Whether there is a live entity to add a component to.</summary>
     readonly Signal<bool> alive = new(false);
+
+    /// <summary>Whether the panel is drawing what the file holds rather than what the author exposed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A signal because <see cref="Draw" /> reads it, and that is the entire redraw
+    ///     mechanism.</b> The bodies are filled by a <c>use</c> effect, so toggling this re-runs
+    ///     exactly the effects that draw rows and leaves the foldouts, their expansion and their
+    ///     scroll position alone. A rebuild would have collapsed the section somebody turned raw mode
+    ///     on to read.
+    /// </remarks>
+    readonly Signal<bool> raw = new(false);
 
     /// <summary>The boxes the rows are editing, one per shown component.</summary>
     /// <remarks>
@@ -242,6 +287,60 @@
 
     /// <summary>Whether the Add Component button is offered.</summary>
     bool Alive => alive.Value;
+
+    /// <summary>The Raw toggle, so a test can press the thing a person presses.</summary>
+    public ToggleButton RawToggle { get; private set; } = null!;
+
+    /// <summary>Whether the panel is in debug (raw) mode.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 20 § B1's third inspector row, and the one with a diagnostic argument rather
+    ///         than an ergonomic one.</b> A member nobody annotated is invisible in the editor and
+    ///         present in the file, so without this "this value is wrong" and "this value is not
+    ///         drawn" are the same picture. On, every foldout is drawn from
+    ///         <c>ReflectedDescriptor.Raw</c> — which bypasses an <c>[Inspector]</c> descriptor as
+    ///         well as <c>IsEditorVisible</c>, because a custom inspector drawing four of a type's
+    ///         eleven members is the case somebody reaches for this to diagnose.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The rows raw mode adds are read-only.</b> This is for looking under the panel and
+    ///         not for editing under it; see <c>ReflectedMember</c>'s <c>hidden</c> parameter.
+    ///     </para>
+    /// </remarks>
+    public bool IsRaw {
+        get => raw.Value;
+        set => raw.Value = value;
+    }
+
+    /// <summary>Raised when the Raw toggle is moved.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Because a panel's factory runs again when it is reopened</b>, exactly as
+    ///     <see cref="Reordered" /> is. Whoever built the panel is the one that can persist this;
+    ///     kept here it would be forgotten by closing the tab.
+    /// </remarks>
+    public event Action<bool>? RawChanged;
+
+    /// <summary>Turns raw mode on or off, and tells whoever is persisting it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Guarded, because the toggle is bound to <see cref="IsRaw" /> in both directions.</b>
+    ///     Restoring the mode writes <c>IsChecked</c>, which raises the control's change — so an
+    ///     unguarded handler would record the restore as the user having pressed the button, which is
+    ///     the mistake <c>ProjectBrowser.IsGrid</c>'s own note in <c>EditorApplication</c> records.
+    /// </remarks>
+    /// <param name="on">Whether raw mode is wanted.</param>
+    void Reveal(bool on) {
+        if (raw.Value == on) {
+            return;
+        }
+
+        raw.Value = on;
+        RawChanged?.Invoke(on);
+    }
+
+    /// <summary>Which descriptor a component's rows are drawn from, given the mode.</summary>
+    /// <inheritdoc cref="IsRaw" select="remarks" />
+    InspectorDescriptor? Describe(IComponentBridge bridge) =>
+        raw.Value ? ReflectedDescriptor.Raw(bridge.ComponentType) : ReflectedDescriptor.For(bridge.ComponentType);
 
     /// <summary>Points the section at a document and the components it may show.</summary>
     /// <param name="document">The document an edit is recorded against.</param>
@@ -378,10 +477,19 @@
 
     /// <summary>Fills one foldout's body with the component's rows.</summary>
     /// <remarks>
-    ///     ⚠ <b>Cleared first, so running twice is the same as running once.</b> <c>use</c> is an
-    ///     effect: it re-runs when something it read changes, and this reads no signal on purpose —
-    ///     but "on purpose" is a claim about today's code, and the cost of being wrong about it is a
-    ///     component drawn twice. Clearing is one line and makes the claim not matter.
+    ///     <para>
+    ///         ⚠ <b>Cleared first, so running twice is the same as running once.</b> <c>use</c> is an
+    ///         effect: it re-runs when something it read changes, and the cost of being wrong about
+    ///         what it reads is a component drawn twice. Clearing is one line and makes the claim not
+    ///         matter.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it reads exactly one signal on purpose, which is <see cref="raw" />.</b> That
+    ///         is what makes the raw toggle redraw the bodies without rebuilding the foldouts — an
+    ///         effect that re-runs is the whole mechanism, and the clear above is what makes a re-run
+    ///         safe. Nothing else here may read one: a second reader would redraw every component's
+    ///         rows on whatever it happened to be, under the pointer of somebody dragging a slider.
+    ///     </para>
     /// </remarks>
     void Draw(UiElement fields, IComponentBridge bridge) {
         while (fields.Children.Count > 0) {
@@ -390,7 +498,7 @@
 
         drawn.RemoveAll(entry => ReferenceEquals(entry.Bridge, bridge));
 
-        if (ReflectedDescriptor.For(bridge.ComponentType) is not { } descriptor) {
+        if (Describe(bridge) is not { } descriptor) {
             return;
         }
 
@@ -416,6 +524,13 @@
                     DrawerRegistry.Default,
                     made => field.Changed += _ => Commit(bridge, made)
                 ) is { } row) {
+                // ⚠ Marked, because a raw panel that looked like the ordinary one with more rows in
+                // it would leave nobody able to say *which* row is the one the editor does not draw
+                // — which is the entire question raw mode is opened to answer.
+                if (member is ReflectedMember { IsHidden: true }) {
+                    row.AddClass("raw-member");
+                }
+
                 drawn.Add((bridge, row));
             }
         }

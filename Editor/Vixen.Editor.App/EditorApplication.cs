@@ -2359,6 +2359,18 @@ sealed partial class EditorApplication : IDisposable {
                         WritePreferences();
                     };
 
+                    // ⚠ Restored before the subscription, on the same terms as the order above and as
+                    // the browser's view toggle: writing `IsRaw` moves the button, which raises the
+                    // control's change — so a subscription made first would record the restore as the
+                    // user having pressed it. `Reveal` guards the round trip as well, and both halves
+                    // are cheap next to the class of bug they close.
+                    components.IsRaw = preferences.InspectorRawMode;
+
+                    components.RawChanged += on => {
+                        preferences.InspectorRawMode = on;
+                        WritePreferences();
+                    };
+
                     // ⚠ After it is in the tree, because the menu is a child of the document root and a
                     // control has no document until it is added to one.
                     inspector.Contextualise();
