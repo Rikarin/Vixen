@@ -34,6 +34,13 @@ public static class ImportRunner {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(output);
 
+        // ⚠ Before the pool, and the order is load-bearing rather than tidy. `CompilerPool` reads
+        // `ImporterContributions.Default` in its constructor to work out which assemblies to name on
+        // each worker's command line, so a plugin contributed after it was built reaches this
+        // process and not the workers — which is the same in-process/out-of-process disagreement
+        // one door along, and the harder one to notice because `--isolated` is the rarer path.
+        using var plugins = ProjectPlugins.Load(project, complaint => output.Line($"  plugin  {complaint}"));
+
         // Worker processes, when asked for. Doc 08's reason is crash isolation and not speed: an
         // importer that *throws* is already caught, and an importer that takes its process down —
         // a malformed FBX inside a C++ library — is not catchable from inside that process. Off by

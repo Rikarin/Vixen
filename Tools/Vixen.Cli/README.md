@@ -227,6 +227,23 @@ the editor, here, and in a worker process. The list lives in `BuiltInImporters.C
 of those three calls it, because a worker whose registry differs from its coordinator's produces
 different artefacts for the same file.
 
+**Plus whatever the project's plugins declare.** `ProjectPlugins` scans `<project>/Plugins` — the same
+folder and the same `plugin.yaml` the editor reads, honouring the same `enabled:` switch — and loads
+the `[Importer]`s out of each plugin's assembly. Importers and nothing else: a plugin also registers
+commands, panels and menu items, and a command line has nowhere to put any of them, so this is
+`PluginDiscovery` for the files and `PluginImporters` for the load rather than `PluginHost`, which
+needs an `EditorShell` to activate anything against.
+
+⚠ **Without that, this tool and the editor disagreed about the same file and neither said so.** An
+asset only a plugin's importer claims fell through to `RawImporter` here, *succeeded*, and shipped as
+a chunk no typed reader resolves. That is the same divergence the worker processes had until they were
+told which plugin assemblies their coordinator had loaded — one door further out.
+
+⚠ **The project's folder and deliberately not the user's**, which is the one place this differs from
+the editor. The editor scans both so a globally-installed tool works everywhere; a content build has
+the stronger requirement that two machines with the same checkout produce the same bytes, and an asset
+imported differently because of what was installed on one of them is exactly what this closes.
+
 ## `new`, `build`, `run`
 
 A step-by-step version of this, including the dedicated server, is in

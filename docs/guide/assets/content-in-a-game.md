@@ -4,7 +4,7 @@ slug: assets/content-in-a-game
 kind: guide
 area: Assets
 summary: What a build has to know, what it ships, and the two shapes a shipped chunk comes in.
-api: [T:Vixen.Editor.Assets.Compositors.CompositorImporter, T:Vixen.Editor.Assets.Compositors.CompositorImportSettings, T:Vixen.Cli.GameAssemblies, T:Vixen.Assets.RawPayload, T:Vixen.Assets.LooseContentSource, T:Vixen.Editor.Assets.Gameplay.AddressConstants, T:Vixen.Editor.Assets.Gameplay.AddressConstantsResult, T:Vixen.Cli.AddressRunner]
+api: [T:Vixen.Editor.Assets.Compositors.CompositorImporter, T:Vixen.Editor.Assets.Compositors.CompositorImportSettings, T:Vixen.Cli.GameAssemblies, T:Vixen.Cli.ProjectPlugins, T:Vixen.Assets.RawPayload, T:Vixen.Assets.LooseContentSource, T:Vixen.Editor.Assets.Gameplay.AddressConstants, T:Vixen.Editor.Assets.Gameplay.AddressConstantsResult, T:Vixen.Cli.AddressRunner]
 tags: [assets, content, importers, build]
 since: 0.1
 status: stable
@@ -18,6 +18,7 @@ The three pieces that decide whether a file under `Assets/` becomes something a 
 | Piece | Answers |
 |---|---|
 | `GameAssemblies` | Which types the build knows about — including the ones the game itself declares |
+| `ProjectPlugins` | Which importers the build has — including the ones the project's plugins declare |
 | `CompositorImporter` | How a `.vxcompositor` becomes the chunk a host reads, rather than bytes |
 | `RawPayload` | What a dependency turns out to be when it was never a serialized object at all |
 
@@ -48,6 +49,28 @@ explicitly, then walks the assembly's `Vixen` references and does the same for e
 That walk is not thoroughness for its own sake. `MeshRenderable` lives in `Vixen.Rendering`, which the
 build tool references and may never touch, so whether a level naming one compiled came down to which
 importers happened to run — a full build worked and an incremental one did not.
+
+**A project's plugins reach the build through its `Plugins/` folder.** `vixen import` scans the same
+folder the editor scans, loads the `[Importer]`s each plugin declares and nothing else, and withdraws
+them again when the command ends. Nothing has to be passed on the command line, and a project with no
+`Plugins/` folder — which is most projects — pays nothing.
+
+⚠ **Without it a plugin-claimed asset built fine and shipped wrong.** The registry an import runs
+against folds in what plugins contributed, and in a command-line process nothing had contributed
+anything: the asset fell through to the raw-bytes fallback, *succeeded*, and produced a chunk no typed
+reader resolves — the editor and the build disagreeing about the same file, silently, with both
+exiting zero.
+
+⚠ **The project's folder and not the user's, which is the one place this differs from the editor.**
+The editor scans a per-user plugin folder as well, so that somebody can install a tool globally. A
+content build must not: two machines with the same checkout have to produce the same bytes, and an
+asset imported differently because of what one of them happened to have installed is the divergence
+this feature exists to end. A plugin a project's content depends on is one the project carries — and
+`enabled: false` in a `plugin.yaml` is honoured here exactly as it is in the editor.
+
+⚠ **A plugin that will not load is a line and not a failure.** A project with one broken plugin still
+has a build worth finishing; what it must not be is quiet, so the reason is printed and the sentence
+says which assets will arrive as raw bytes.
 
 ⚠ **The import that runs before the compiler cannot see the assembly, because the compiler has not
 produced it yet.** `Vixen.Sdk` therefore treats that pass as advisory and lets the content build after
