@@ -24,6 +24,22 @@ import Vixen.Shaders.Core
 // normal is the committed triangle's, reachable from the primitive index the query already
 // returns plus the vertex buffer the structure was built from; that read is owed, and the CPU
 // referee is where its reference lands first.
+//
+// The referee has landed: `QueriedHit` carries `Normal` and `Primitive`, and
+// `QueriedField.GradientField(in QueriedHit)` is the overload this protocol has to grow.
+//
+// What is still owed is issue 1169's device half, and it is a change to `DistanceFieldHit` rather
+// than to this file alone. `TraceField` below still drops `answer.y` and `answer.z` one line after
+// the intrinsic answered them, because the struct has nowhere to put either — and all three
+// consumers (`ScreenProbeTrace`, `ReflectionTrace`, `SurfaceCacheGather`) ask
+// `GradientField(hit.position)`, which is a position and names no triangle.
+//
+// It is not blocked on the language, which is worth knowing before anybody designs around it.
+// Raven has a read-only `Buffer<T>`, so the vertex and index buffers can be declared beside
+// `sceneStructure` and the cross product taken here; the primitive index survives the `float4`
+// exactly below 2^24, which is more primitives than a BLAS may hold. What is missing is a runner
+// with the ray-query extension: `AccelerationStructureDeviceTests` skips on MoltenVK and on
+// llvmpipe, so the correction would land where nothing in this repository can referee it.
 
 shader RayQueryField : IDistanceFieldSource {
     /// Further than any march is allowed to go — `NoDistanceField.Nothing`, by value.
