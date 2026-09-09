@@ -3329,4 +3329,89 @@ public class NegativeDiagnosticTests {
     [Fact]
     public void Group_shared_storage_with_no_initializer_is_allowed() =>
         Silent("RVN2134", Semantic(GroupSharedFixture));
+
+    // --- RVN2142: a global named after a GLSL built-in function -------------
+
+    /// <summary>
+    ///     Every scope a built-in's name is legal in: a local, a parameter, a struct member, a
+    ///     uniform value and a stream.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The mirror of
+    ///         <c>SemanticDiagnosticsTests.A_global_named_after_a_glsl_built_in_is_reported</c>, and
+    ///         it is the fixture that decides whether the rule is usable at all. ⚠ <b>The scope
+    ///         boundary is not a judgement call, it was measured:</b> at <c>#version 320 es</c>
+    ///         glslangValidator accepts <c>float distance = 1.0;</c> inside a function and
+    ///         <c>struct S { float distance; }</c>, and refuses the same names at file scope with
+    ///         <c>'distance' : redefinition</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A shader-level <c>var</c> of a plain type is on the legal side too, and finding
+    ///         out why is what narrowed this rule.</b> It is not a global: it is a member of the
+    ///         per-material uniform block, which SPIRV-Cross emits <em>instanced</em> for GLSL ES,
+    ///         so the identifier is <c>litPerMaterialUniforms.length</c> and is scoped. Two shipped
+    ///         shaders depend on that — <c>JumpFlood.rvn</c>'s <c>var step: float</c> and
+    ///         <c>DirectionalBlur.rvn</c>'s <c>var length: float</c> — and a first cut of this rule
+    ///         refused both. A <c>stream</c> is on the legal side for a different reason:
+    ///         <c>SpirvCrossTranspiler.NameVaryingsByLocation</c> renames both ends to
+    ///         <c>vary_&lt;location&gt;</c>, so the authored name never reaches the ESSL.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And none of this is hypothetical.</b> Sixty-two declarations across the tree's
+    ///         177 <c>.rvn</c> files are these shapes — <c>val distance = length(…)</c> in thirty
+    ///         files, <c>val step</c> in a dozen, <c>val average</c> in <c>Fxaa.rvn</c>,
+    ///         <c>val determinant</c>, <c>val inverse</c>, <c>val sign</c>, and
+    ///         <c>struct TerrainNode { var step: float }</c>. A rule that refused a name by
+    ///         searching the tree for it would refuse every one, and the shaders are correct.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_scope_a_built_in_name_is_legal_in_stays_legal() =>
+        Silent(
+            "RVN2142",
+            Semantic(
+                """
+                package A
+
+                struct Patch {
+                    var distance: float
+                    var step: float
+                }
+
+                shader S {
+                    var step: float = 1f
+                    var length: float = 4f
+
+                    stream var mix: float3
+
+                    func Measure(length: float, mix: float): float {
+                        val distance = length * 2f
+                        val average = (distance + mix) * 0.5f
+                        var step = average
+
+                        step = step + 1f
+
+                        return step
+                    }
+
+                    [VertexShader]
+                    func Vertex([Semantic("POSITION")] position: float3): float4 {
+                        var patch: Patch
+                        patch.distance = step
+                        patch.step = length
+
+                        mix = float3(Measure(patch.distance, patch.step), 0f, 0f)
+
+                        return float4(position.x, position.y, position.z, 1f)
+                    }
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Shade(): float4 => float4(mix.x, mix.y, mix.z, 1f)
+                }
+
+                """
+            )
+        );
 }

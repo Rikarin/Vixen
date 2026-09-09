@@ -3,6 +3,7 @@
 
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Raven.Binding;
+using Vixen.Raven.CodeGen.Glsl;
 using Vixen.Raven.Diagnostics;
 using Vixen.Raven.Symbols;
 using Vixen.Raven.Symbols.Metadata;
@@ -31,6 +32,7 @@ public sealed class Compilation {
     NamespaceSymbol? globalNamespace;
     MetadataLoader? metadata;
     bool recursionChecked;
+    bool reservedNamesChecked;
 
     readonly SortedSet<string> usedPermutationKeys = new(StringComparer.Ordinal);
 
@@ -260,6 +262,7 @@ public sealed class Compilation {
         }
 
         ReportRecursion();
+        ReportGlslBuiltInNames();
         all.AddRange(declarationDiagnostics.ToArray());
 
         return all
@@ -295,6 +298,84 @@ public sealed class Compilation {
             syntaxTrees.SelectMany(tree => GetSemanticModel(tree).GetBoundBodies()).ToArray(),
             declarationDiagnostics
         );
+    }
+
+    /// <summary>
+    ///     Refuses a global declaration named after a GLSL built-in function — <c>RVN2142</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Here rather than in the emitter, and as a refusal rather than a rename.</b> The
+    ///         collision belongs to the <em>name</em> and not to any one backend, and it is invisible
+    ///         on the two targets Raven itself emits: desktop GLSL and SPIR-V both accept
+    ///         <c>average</c> as a global, and only GLSL ES calls it a redefinition. So the choice is
+    ///         to say so at the <c>.rvn</c> line, or to let a cross-compiler four tools downstream
+    ///         name a line in a file nobody wrote — which is how <c>AutoExposure.rvn</c>'s
+    ///         <c>average</c> was diagnosed, twice, wrongly.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the declarations that reach GLSL's global scope</b>, which was measured
+    ///         against <c>glslangValidator</c> rather than assumed: a type name, a function name and
+    ///         a shader-level <c>var</c> all collide; a local and a struct member do not, at any
+    ///         version. Fifty of the library's <c>val distance</c> and <c>val step</c> locals are
+    ///         legal and stay legal, and a rule that refused them would be refusing correct code.
+    ///     </para>
+    ///     <para>
+    ///         Guarded like <see cref="ReportRecursion" />, for the same reason: the bag lives as
+    ///         long as the compilation and <see cref="GetDiagnostics" /> may be asked twice.
+    ///     </para>
+    /// </remarks>
+    void ReportGlslBuiltInNames() {
+        if (reservedNamesChecked) {
+            return;
+        }
+
+        reservedNamesChecked = true;
+
+        foreach (var type in GetAllTypes()) {
+            if (type is not SourceNamedTypeSymbol source) {
+                continue;
+            }
+
+            if (GlslBuiltIns.IsFunctionName(source.Name)) {
+                declarationDiagnostics.Add(
+                    SemanticDiagnostics.NameIsAGlslBuiltIn,
+                    source.Declaration.Identifier.GetLocation(),
+                    source.Name
+                );
+            }
+
+            foreach (var member in source.GetMembers()) {
+                if (!GlslBuiltIns.IsFunctionName(member.Name)) {
+                    continue;
+                }
+
+                // ⚠ Which shader fields actually reach global scope, measured on the emitted ESSL
+                // rather than assumed. A resource binding and a groupshared variable are file-scope
+                // declarations and collide. A plain uniform value does NOT: it is a member of the
+                // per-material block, which SPIRV-Cross emits *instanced* for GLSL ES, so
+                // `litPerMaterialUniforms.length` is scoped and legal — and two shipped editor
+                // shaders rely on that (`JumpFlood.step`, `DirectionalBlur.length`). A stream does
+                // not either, since `SpirvCrossTranspiler.NameVaryingsByLocation` renames both ends
+                // to `vary_<location>`. Refusing those would be refusing correct shaders.
+                var global = member switch {
+                    SourceMethodSymbol => true,
+                    SourceFieldSymbol when source.TypeKind != TypeKind.Shader => false,
+                    SourceFieldSymbol field => field.IsGroupShared || field.Type.ResourceKind != ResourceKind.None,
+                    _ => false
+                };
+
+                if (!global || member.DeclaringSyntax is not { } syntax) {
+                    continue;
+                }
+
+                declarationDiagnostics.Add(
+                    SemanticDiagnostics.NameIsAGlslBuiltIn,
+                    syntax.GetLocation(),
+                    member.Name
+                );
+            }
+        }
     }
 
     void EnsureDeclarations() {

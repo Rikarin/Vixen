@@ -1426,4 +1426,47 @@ public static class SemanticDiagnostics {
         Binding,
         DiagnosticSeverity.Error
     );
+
+    // --- Names the target language has already taken -----------------------
+
+    /// <summary>A global declaration named after a GLSL built-in function — <c>RVN2142</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A GLSL ES rule that desktop GLSL does not have, which is why it went unseen.</b>
+    ///         <c>uniform float dot;</c> compiles at <c>#version 450 core</c> and is
+    ///         <c>'dot' : redefinition</c> at <c>#version 320 es</c>; so is a <c>struct</c> of that
+    ///         name, and a function of it is <c>'function name is redeclaration of existing name'</c>.
+    ///         Raven emitted the declaration happily and the failure arrived four tools downstream,
+    ///         from a cross-compiler, naming a line in a file nobody wrote.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Found on a shipped shader.</b> <c>AutoExposure.rvn</c> declared
+    ///         <c>var average: RWTexture2D&lt;float4&gt;</c> and its cross-compiled GLSL ES was
+    ///         <c>'average' : redefinition</c> with exactly one <c>average</c> in the file — the
+    ///         collision is with <c>GL_EXT_shader_integer_functions2</c>'s <c>average(int, int)</c>,
+    ///         which glslang puts in the ESSL 3.10-and-above table whether the extension is enabled
+    ///         or not. Desktop GLSL 4.5 has no <c>average</c> at all, which is why that shader had
+    ///         always compiled.
+    ///     </para>
+    ///     <para>
+    ///         Refused rather than renamed. The obvious alternative — mangle it in the emitter, the
+    ///         way <c>GlslTypes.Identifier</c> mangles a keyword — is wrong for a binding: every GL
+    ///         profile below 3.1 binds by name after the link, so a silently renamed uniform is a
+    ///         resource the host cannot find, and it fails as texture unit zero rather than as an
+    ///         error. That is the <c>_112</c> failure this repository has already had once.
+    ///     </para>
+    ///     <para>
+    ///         Only global scope. A local and a struct member legally shadow a built-in at every
+    ///         version — <c>val distance = length(…)</c> is fine and the library has fifty of them.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor NameIsAGlslBuiltIn = new(
+        "RVN2142",
+        "Name is a GLSL built-in function",
+        "'{0}' is the name of a GLSL built-in function, so this declaration is a redefinition in "
+        + "GLSL ES — where a global may not share a name with a built-in, unlike desktop GLSL. "
+        + "Rename it; a local or a struct member of this name would be fine",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
 }
