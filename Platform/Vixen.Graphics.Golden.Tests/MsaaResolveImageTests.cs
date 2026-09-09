@@ -102,10 +102,12 @@ public sealed class MsaaResolveImageTests {
         int resolved;
 
         using (var multi = second!) {
-            if (!multi.Device.Features.SupportsSampleCount(Samples)) {
-                Assert.Skip($"the device does not support {Samples}× rasterisation");
-                return;
-            }
+            Capability.Require(
+                multi.Device,
+                Capability.Msaa,
+                multi.Device.Features.SupportsSampleCount(Samples),
+                $"the {Samples}× resolve A/B"
+            );
 
             resolved = Intermediates(Diagonal(multi, Samples));
         }
@@ -147,10 +149,12 @@ public sealed class MsaaResolveImageTests {
 
         using var owned = fixture!;
 
-        if (!owned.Device.Features.SupportsSampleCount(Samples)) {
-            Assert.Skip($"the device does not support {Samples}× rasterisation");
-            return;
-        }
+        Capability.Require(
+            owned.Device,
+            Capability.Msaa,
+            owned.Device.Features.SupportsSampleCount(Samples),
+            $"the {Samples}× resolved-edge golden"
+        );
 
         GoldenImage.Verify("msaa-resolve-4x", Diagonal(owned, Samples), new(16, 0.02));
     }
@@ -172,10 +176,12 @@ public sealed class MsaaResolveImageTests {
 
         using var owned = fixture!;
 
-        if (!owned.Device.Features.SupportsSampleCount(Samples)) {
-            Assert.Skip($"the device does not support {Samples}× rasterisation");
-            return;
-        }
+        Capability.Require(
+            owned.Device,
+            Capability.Msaa,
+            owned.Device.Features.SupportsSampleCount(Samples),
+            $"the {Samples}× fully-covered-pixel probe"
+        );
 
         var image = Diagonal(owned, Samples);
 

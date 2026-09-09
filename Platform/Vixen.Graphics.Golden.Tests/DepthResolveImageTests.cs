@@ -106,20 +106,31 @@ public sealed class DepthResolveImageTests {
     ///     the devices this skips on.
     /// </remarks>
     static bool CanChoose(ref Fixture? fixture) {
-        var features = fixture!.Device.Features;
+        var device = fixture!.Device;
+        var features = device.Features;
 
-        if (features.SupportsDepthResolveMode(DepthResolveMode.Min)
-            && features.SupportsDepthResolveMode(DepthResolveMode.Max)) {
+        var both = features.SupportsDepthResolveMode(DepthResolveMode.Min)
+            && features.SupportsDepthResolveMode(DepthResolveMode.Max);
+
+        if (both) {
             return true;
         }
 
-        fixture.Dispose();
-        fixture = null;
-
-        Assert.Skip(
-            "The device resolves depth by sample zero only, so Min and Max cannot disagree on it. "
-            + "AnUnsupportedRuleFallsBackRatherThanBeingSubmitted is what covers this device."
-        );
+        // ⚠ Disposed in a `finally`, because standing aside is a throw and the caller holds no
+        // `using` — it hands the fixture to this by reference precisely so that the answer and the
+        // cleanup are decided in one place. Require reads the adapter's name before it throws.
+        try {
+            Capability.Require(
+                device,
+                Capability.DepthResolveMinMax,
+                false,
+                "the Min-versus-Max depth-resolve A/B — AnUnsupportedRuleFallsBackRatherThanBeing"
+                + "Submitted is what covers a device that resolves by sample zero only"
+            );
+        } finally {
+            fixture.Dispose();
+            fixture = null;
+        }
 
         return false;
     }
@@ -212,6 +223,13 @@ public sealed class DepthResolveImageTests {
 
         using (var opened = fixture!) {
             var features = opened.Device.Features;
+
+            // ⚠ The canary rather than Capability.Require, and the direction is why: this test wants
+            // a mode the device DECLINES, so a promise that the device has one is meaningless here.
+            // What is not meaningless is that an undescribed device declines everything — it would
+            // pick Min, run this whole body, and report a fallback proved on a device nothing had
+            // asked a question of (#143).
+            Capability.Described(opened.Device);
 
             // Whichever of the two this device declines. A device that declines neither is one this
             // has nothing to say about — the A/B above is what covers it.

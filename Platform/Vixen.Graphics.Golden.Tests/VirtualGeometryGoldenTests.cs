@@ -169,10 +169,12 @@ public sealed class VirtualGeometryGoldenTests {
 
         using var owned = fixture!;
 
-        if (!owned.Device.Features.HasInt64Atomics) {
-            Assert.Skip("The device offers no 64-bit buffer atomics, which phase 6 is gated on.");
-            return;
-        }
+        Capability.Require(
+            owned.Device,
+            Capability.Int64Atomics,
+            owned.Device.Features.HasInt64Atomics,
+            "docs/plan/22 § phase 6's software rasteriser"
+        );
 
         var geometry = Plane();
 
