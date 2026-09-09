@@ -11,7 +11,45 @@ namespace Vixen.Rendering.RayTracing;
 /// <param name="Position">Where — on the triangle, or at the budget's end.</param>
 /// <param name="Steps">One. A query is one step, and the field's tracers report their cost, so
 ///     this reports its.</param>
-public readonly record struct QueriedHit(bool Hit, float Distance, Vector3 Position, int Steps);
+/// <param name="Normal">The committed triangle's geometric normal, facing the ray, or the up
+///     vector for a miss.</param>
+/// <param name="Primitive">Which triangle the query committed, as an index into the build's list,
+///     or −1 for a miss.</param>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The last two are what <c>RayQueryField.rvn</c> throws away one line after the
+///         intrinsic answers them</b>, and this is the reference half of #1169. A hardware
+///         <c>Trace</c> answers <c>(t, primitive, instance, hit)</c>; the shader keeps <c>t</c>,
+///         builds a <c>DistanceFieldHit</c> that has nowhere to put the rest, and every consumer
+///         then asks <c>GradientField(hit.position)</c> — a position, which names no triangle. So
+///         the honest answer there is the up vector, and
+///         <c>SurfaceRadiance(position, normal)</c> picks a card <em>by</em> normal: a constant
+///         upward answer picks every horizontal card in the atlas whatever the surface is, which
+///         reads as the surface cache being wrong rather than as a normal bug.
+///     </para>
+///     <para>
+///         ⚠ <b>And the CPU half turned out to be smaller than #1169 describes.</b> The issue says
+///         "the CPU pair can compute the geometric normal from the same triangle the BVH
+///         committed"; <see cref="TriangleBvh.Trace" /> already computes it, already faces it at
+///         the ray, and already returns the triangle index beside it — <c>QueriedField</c> was
+///         discarding both while constructing this. Nothing was computed here; two fields were
+///         carried.
+///     </para>
+///     <para>
+///         Both, rather than only the normal the consumers want. The index is the <em>mechanism</em>
+///         the device half has to use — a shader has no cross product to fall back on and must read
+///         the vertex buffer the structure was built from — so a referee that carries only the
+///         answer cannot referee the step that produces it.
+///     </para>
+/// </remarks>
+public readonly record struct QueriedHit(
+    bool Hit,
+    float Distance,
+    Vector3 Position,
+    int Steps,
+    Vector3 Normal,
+    int Primitive
+);
 
 /// <summary>The hardware tracer's answers, written first and device-free — doc 19 § L6's referee
 ///     for <c>RayQueryField.rvn</c>.</summary>
@@ -28,11 +66,20 @@ public readonly record struct QueriedHit(bool Hit, float Distance, Vector3 Posit
 ///         follow from that. The trace and the shadow are queries and exact. The point questions
 ///         are not askable: <c>SampleField</c> answers "nothing is near" — the same
 ///         <see cref="Nothing" /> <c>NoDistanceField</c> answers, a step any march may safely take
-///         — and <c>GradientField</c> answers the up vector, which is <c>NoDistanceField</c>'s
-///         answer too. A hit's true surface normal is the committed triangle's, reachable from the
-///         primitive index the query already returns plus the very vertex buffer the structure was
-///         built from; that read is owed, named in the package README, and this class is where its
-///         reference will land.
+///         — and <c>GradientField(Vector3)</c> answers the up vector, which is
+///         <c>NoDistanceField</c>'s answer too.
+///     </para>
+///     <para>
+///         ⚠ <b>A <em>hit</em> is a different question, and this is where its reference now
+///         lands.</b> A hit's true surface normal is the committed triangle's, and
+///         <see cref="QueriedHit.Normal" /> carries it beside the
+///         <see cref="QueriedHit.Primitive" /> a shader would have to read the vertex buffer with
+///         — the two things <c>RayQueryField.rvn</c> discards one line after the intrinsic answers
+///         them. <see cref="GradientField(in QueriedHit)" /> is the overload the shared protocol
+///         has to grow, expressed here first because here it can be checked. #1169's device half —
+///         a field on <c>DistanceFieldHit</c>, every <c>IDistanceFieldSource</c> filling it, and
+///         the vertex and index buffers bound beside <c>sceneStructure</c> — is still owed, and
+///         lands in the one place nothing in this repository can referee.
 ///     </para>
 /// </remarks>
 public sealed class QueriedField {
@@ -52,24 +99,53 @@ public sealed class QueriedField {
     }
 
     /// <summary>The signed distance at a world position — "nothing is near", always.</summary>
-    /// <remarks>Static, with <see cref="GradientField" /> and <see cref="OcclusionField" />,
+    /// <remarks>Static, with <see cref="GradientField(Vector3)" /> and <see cref="OcclusionField" />,
     ///     because these answers are the tracer kind's, not any one hierarchy's — every
     ///     <c>RayQueryField</c> answers them identically whatever was built.</remarks>
     public static float SampleField(Vector3 world) => Nothing;
 
     /// <summary>The distance gradient at a world position — the up vector, always.</summary>
-    public static Vector3 GradientField(Vector3 world) => new(0f, 1f, 0f);
+    public static Vector3 GradientField(Vector3 world) => Up;
+
+    /// <summary>The surface normal at a hit, which is the question a position cannot answer.</summary>
+    /// <param name="hit">What <see cref="TraceField" /> returned.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The overload #1169 names as the alternative to widening the protocol</b>, and it
+    ///         is here rather than only on the struct because it is the <em>shape</em> the shader
+    ///         side has to grow: a consumer holding a hit asks the tracer, and the tracer answers
+    ///         from whatever it committed. <see cref="GradientField(Vector3)" /> stays exactly as
+    ///         wrong as it was, deliberately — a position names no triangle in either language, and
+    ///         a method that guessed would be worse than one that says so.
+    ///     </para>
+    ///     <para>
+    ///         A miss answers up, which is the same <c>NoDistanceField</c> answer the position form
+    ///         gives: there is no surface, so there is no normal, and the caller's card lookup wants
+    ///         a unit vector rather than a zero.
+    ///     </para>
+    /// </remarks>
+    public static Vector3 GradientField(in QueriedHit hit) => hit.Hit ? hit.Normal : Up;
+
+    /// <summary>What every point question answers when there is no surface to answer from.</summary>
+    static Vector3 Up => new(0f, 1f, 0f);
 
     /// <summary>The trace, answered with a query: the nearest triangle within the budget.</summary>
     /// <param name="origin">Where the ray starts.</param>
     /// <param name="direction">Where it goes, normalised.</param>
     /// <param name="maxDistance">How far it looks.</param>
+    /// <remarks>
+    ///     ⚠ <b>The normal and the index are carried, not recomputed.</b>
+    ///     <see cref="TriangleBvh.Trace" /> already crosses the committed triangle's edges and
+    ///     already flips the result toward the ray; this used to construct its answer from the
+    ///     distance alone and drop both, which is the same line
+    ///     <c>RayQueryField.TraceField</c> drops <c>answer.y</c> and <c>answer.z</c> on.
+    /// </remarks>
     public QueriedHit TraceField(Vector3 origin, Vector3 direction, float maxDistance) {
         var hit = bvh.Trace(origin, direction, maxDistance);
 
         return hit.Hit
-            ? new(true, hit.Distance, origin + (direction * hit.Distance), 1)
-            : new(false, maxDistance, origin + (direction * maxDistance), 1);
+            ? new(true, hit.Distance, origin + (direction * hit.Distance), 1, hit.Normal, hit.Triangle)
+            : new(false, maxDistance, origin + (direction * maxDistance), 1, Up, -1);
     }
 
     /// <summary>How much of a light reaches a point: one or zero, from one query.</summary>

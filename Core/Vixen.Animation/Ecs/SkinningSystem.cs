@@ -46,6 +46,44 @@ namespace Vixen.Animation.Ecs;
 ///         <see href="https://github.com/Rikarin/Vixen/issues/451" />.
 ///     </para>
 ///     <para>
+///         ⚠ <b>But the paragraph above is true of the <em>classic</em> path only, and the
+///         virtualized one already has both of the links it calls load-bearing.</b> #451's record
+///         weighs "widen <c>SurfaceVertex</c>" against "route skinned meshes down the virtualized
+///         path" as two equally distant alternatives; they are not. A page vertex carries four
+///         influences (<c>MeshletPages.InfluenceOffset</c>, twenty-four bytes a vertex, round-tripped
+///         by <c>SkinnedClusterTests</c>); <c>MeshletBuilder</c> splits a cluster on differing bone
+///         indices and records the <c>[FirstBone, FirstBone + BoneCount)</c> range a traversal expands
+///         a bound by; <c>ClusterRaster.rvn</c> and <c>VisibilityResolve.rvn</c> both skin, gated on
+///         <c>instance.firstBone != Cull.NoBones</c>; and <c>ModelImporter</c> deliberately builds a
+///         hierarchy for skinned meshes, so an imported character already goes down that path.
+///         The one thing missing on that branch is the palette itself:
+///         <c>VirtualGeometryRenderFeature.SetBones</c> has no production caller, so
+///         <c>VirtualDrawRecord.FirstBone</c> stays zero and every instance reads
+///         <c>Cull.NoBones</c>.
+///     </para>
+///     <para>
+///         <b>And the shape that closes it is next door, complete.</b> <c>MorphWeightSystem</c> is
+///         this system's twin: it queries <see cref="Rendering.Ecs.RenderHandle" /> rather than a
+///         second component that repeats it, holds both a classic <c>Feature</c> and a
+///         <c>Virtualized</c> one, returns early only when <em>both</em> are null, and lets
+///         <c>SetMorphWeights</c> return a bool so the first feature that claims an object wins. Read
+///         against it, <c>SkinnedRenderer</c> is a component saying what <c>RenderHandle</c> already
+///         says, and <c>SkinningRenderFeature.SetBones</c>' <c>void</c> is the signature that has no
+///         fall-through to test.
+///     </para>
+///     <para>
+///         ⚠ <b>What makes this different from the morph and LOD wirings is an assembly boundary, and
+///         it is why <c>WorldRenderer.Register</c> cannot be where the join is made.</b>
+///         <c>MorphWeightSystem</c> and <c>LodExtractionSystem</c> live in <c>Vixen.Rendering</c> and
+///         <c>Vixen.Engine.Renderer</c>, which the renderer can name. This system lives in
+///         <c>Vixen.Animation</c>, which references <c>Vixen.Engine</c> — the dependency runs one way
+///         and <c>Vixen.Engine.Renderer</c> has no reference to this assembly at all, which is the
+///         same fact <c>AnimationSystems.AddAnimation</c> exists because of. So the wiring belongs
+///         where both are visible: the application host, or an <c>AddAnimation</c> overload taking
+///         the renderer's seams. That is a decision #451 still owes, and it is not "a line in
+///         Register".
+///     </para>
+///     <para>
 ///         <b>Matrices are computed into a rented buffer, not a per-entity one.</b> A skeleton's
 ///         palette is written and immediately copied into the feature's upload buffer, so it lives
 ///         for the length of one call; holding one per character would be a hundred matrices of

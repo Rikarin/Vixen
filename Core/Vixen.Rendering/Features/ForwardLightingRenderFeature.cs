@@ -104,9 +104,66 @@ public sealed class ForwardLightingRenderFeature
 
     /// <summary>Creates the feature, interning its permutation key.</summary>
     public ForwardLightingRenderFeature() {
-        keys = [ParameterKeys.NewPermutation(false, "Vixen.Clustered")];
+        keys = [ClusteredKey];
         contributed.AddRange(keys);
     }
+
+    /// <summary>What this feature calls the flag that says the frame is clustered.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The <em>renderer's</em> name, not a shader's</b>, which is the whole of
+    ///     <see cref="IPermutationSubFeature" />'s contract: one feature drives the same flag across
+    ///     every pass that has it, and <see cref="MaterialRenderFeature.PermutationSources" /> is what
+    ///     routes it to whatever each pass happens to call it. Setting a permutation under this name
+    ///     is a define no compiler can match.
+    /// </remarks>
+    internal const string ClusteredFlagName = "Vixen.Clustered";
+
+    /// <summary>The interned key <see cref="ClusteredFlagName" /> names.</summary>
+    /// <remarks>
+    ///     Keys are interned by name, so this is the same object the constructor puts in
+    ///     <see cref="PermutationKeys" /> — which is what lets <c>CompositorBuilder</c> name the
+    ///     source of the routing without reaching into a list by index.
+    /// </remarks>
+    internal static PermutationKey<bool> ClusteredKey =>
+        ParameterKeys.NewPermutation(false, ClusteredFlagName);
+
+    /// <summary>
+    ///     The shader permutation <see cref="Clustered" /> has to fill, for the pass named.
+    /// </summary>
+    /// <param name="shaderName">The shading pass, as <see cref="ShaderName" /> names it.</param>
+    /// <returns>The key, interned under <c>&lt;pass&gt;.UseClusteredLights</c>.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="MaxLightsKey" />'s defect, one permutation along, and it was worse:
+    ///         the budget at least reached the compiler under a wrong number, where this reached it
+    ///         under no name at all.</b> <see cref="Clustered" /> is contributed under
+    ///         <see cref="ClusteredFlagName" />, and until <c>CompositorBuilder</c> routed it nothing
+    ///         in the repository outside tests ever wrote
+    ///         <see cref="MaterialRenderFeature.PermutationSources" /> — so a frame that turned
+    ///         clustered lighting on resolved the variant <c>ClusteredShading.rvn</c>'s
+    ///         <c>= false</c> describes, dispatched the binning pass, filled the grid, and shaded out
+    ///         of the per-object uniform loop beside it.
+    ///     </para>
+    ///     <para>
+    ///         The same <c>&lt;pass&gt;.&lt;name&gt;</c> convention <see cref="MaxLightsKey" /> uses,
+    ///         and for the same reason it is safe here: both permutations are declared by the one
+    ///         module, <c>ClusteredShading.rvn</c>, so a pass that composes clustered shading has both
+    ///         under its own name and a pass that does not has neither.
+    ///     </para>
+    /// </remarks>
+    public static PermutationKey<bool> ClusteredPermutationKey(string shaderName) {
+        ArgumentException.ThrowIfNullOrEmpty(shaderName);
+
+        return ParameterKeys.NewPermutation(ShaderDefaultClustered, $"{shaderName}.UseClusteredLights");
+    }
+
+    /// <summary>What <c>ClusteredShading.rvn</c> declares <c>UseClusteredLights</c> as.</summary>
+    /// <remarks>
+    ///     <see cref="ShaderDefaultMaxLights" />' terms: the default a key is interned with is what a
+    ///     host that never sets one selects on, so it has to be the value the compiler would have
+    ///     used anyway.
+    /// </remarks>
+    const bool ShaderDefaultClustered = false;
 
     /// <inheritdoc />
     public override string Name => "ForwardLighting";

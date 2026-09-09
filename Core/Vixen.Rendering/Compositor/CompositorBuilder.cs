@@ -570,6 +570,11 @@ public sealed class CompositorBuilder(RenderSystem system) {
         // block holds is the host's number and the shader sizes an array from it.
         LightBudget();
 
+        // ⚠ And the same moment again for the flag that decides *which* of the two lighting paths a
+        // pass is compiled for — see `ClusteredLighting`, which is the join nothing in the repository
+        // outside tests had ever made.
+        ClusteredLighting();
+
         foreach (var resource in asset.Resources) {
             compositor.Resources.Add(resource);
         }
@@ -1313,6 +1318,85 @@ public sealed class CompositorBuilder(RenderSystem system) {
                 foreach (var subFeature in root.SubFeatures) {
                     if (subFeature is MaterialRenderFeature materials) {
                         materials.SetPermutation(shaderName, key, budget);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>Routes the lighting feature's own flag to each shading pass's clustered permutation.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>MaterialRenderFeature.PermutationSources</c> is the join between the two naming
+    ///         schemes, and nothing in the repository outside tests had ever written it.</b> A
+    ///         sub-feature contributes under the <em>renderer's</em> name —
+    ///         <c>Vixen.Clustered</c> — because one feature drives the same flag across every pass
+    ///         that has it; a shader's permutation is the shader's, <c>ForwardPlus.UseClusteredLights</c>.
+    ///         With the dictionary empty the contributed flag lands in the scratch collection under a
+    ///         name no compiler can match, and the variant takes the <c>.rvn</c>'s <c>= false</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Routing alone would still have reached no compiler, which is the trap one layer
+    ///         up.</b> The effect key is built from <c>PermutationKeys[shader]</c>, and no production
+    ///         line registers <c>UseClusteredLights</c> for a shading pass — the two shipped samples
+    ///         assign the generated <c>UsedPermutationKeys</c> for their own game and the editor
+    ///         assigns nothing. So both halves are done here, exactly as
+    ///         <c>MaterialRenderFeature.SetPermutation</c> does both for a value the frame states
+    ///         outright.
+    ///     </para>
+    ///     <para>
+    ///         <b>Here rather than in a renderer, because there are two of them.</b>
+    ///         <c>WorldRenderer</c> and <c>EditorWorldRenderer</c> both build their documents through
+    ///         this builder, and a join written in one of the two is the shape this repository keeps
+    ///         rediscovering. Over <see cref="splits" />' keys for <see cref="LightBudget" />'s
+    ///         reason: those are the shading passes the document actually declared, by the name their
+    ///         variants are qualified with.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Before anything draws, on <c>SetPermutation</c>'s terms: a variant is cached by its
+    ///         effect key, so a routing added after one resolved leaves it compiled for the old value.
+    ///     </para>
+    /// </remarks>
+    void ClusteredLighting() {
+        // The source is the feature's own contributed key, and its presence is the precondition: a
+        // frame with no forward lighting feature has nothing to route from, and registering the
+        // shader's permutation anyway would split the variant cache on a flag nothing ever writes.
+        var routed = false;
+
+        foreach (var feature in system.Features) {
+            if (feature is not RootRenderFeature root) {
+                continue;
+            }
+
+            foreach (var subFeature in root.SubFeatures) {
+                if (subFeature is ForwardLightingRenderFeature) {
+                    routed = true;
+                }
+            }
+        }
+
+        if (!routed) {
+            return;
+        }
+
+        var source = ForwardLightingRenderFeature.ClusteredKey;
+
+        foreach (var shaderName in splits.Keys) {
+            var key = ForwardLightingRenderFeature.ClusteredPermutationKey(shaderName);
+
+            foreach (var feature in system.Features) {
+                if (feature is not RootRenderFeature root) {
+                    continue;
+                }
+
+                foreach (var subFeature in root.SubFeatures) {
+                    if (subFeature is MaterialRenderFeature materials) {
+                        materials.PermutationSources[key] = source;
+
+                        // ⚠ Registered as well as routed. See the second paragraph above: a value
+                        // written under a key the effect key is not built from reaches no compiler,
+                        // and that is this whole method's subject one layer down.
+                        materials.PermutationKeys.Register(shaderName, key);
                     }
                 }
             }

@@ -219,6 +219,101 @@ public sealed class LodExtractionTests : IDisposable {
     }
 
     /// <summary>
+    ///     A cross-fade started by a level change ends, because the frame's clock reaches the feature.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>LodRenderFeature.DeltaTime</c> was fed by neither renderer</b>, so
+    ///         <c>CrossFadeDuration</c> was unreachable through <c>WorldRenderer</c>: a project that
+    ///         set one got a transition whose elapsed time never moved and therefore never ended —
+    ///         two levels of one object drawn on top of each other, for ever, from the moment the
+    ///         camera crossed a threshold. The default of zero is what kept it invisible, because a
+    ///         hard swap looks identical either way.
+    ///     </para>
+    ///     <para>
+    ///         <b>Counted in frames rather than measured in seconds.</b> The loop is handed a fixed
+    ///         16 ms per frame, so this is arithmetic rather than a wall-clock budget — and both
+    ///         halves are asserted, because the end-of-fade half alone would pass just as well on a
+    ///         fade that never started.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The margins are wide because the fade does not advance once per frame.</b>
+    ///         <c>LodRenderFeature.Select</c> calls <c>Advance</c> once per <em>visible member</em> of
+    ///         the group, and a fade is exactly the state in which two members are visible — so the
+    ///         elapsed time grows by roughly twice the frame's delta while a fade is running, and by
+    ///         one delta while it is not. That was unobservable while <c>DeltaTime</c> was always
+    ///         zero, and it is a defect of its own rather than something to encode here: see
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1183" />. This test asserts the
+    ///         order — started, still running, finished — which is true at either rate.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ACrossFadeEndsBecauseTheFramesDeltaReachesTheFeature() {
+        using var loop = new EngineLoop();
+        using var renderer = Build(loop, out var camera);
+
+        // A second, against a sixteen-millisecond frame: long enough that "a few frames in it is still
+        // fading" cannot be an accident of rounding, short enough that the bound below is not a hang
+        // check.
+        renderer.Lods.CrossFadeDuration = 1f;
+
+        var levels = Group(loop.World, new(0f, 0f, -3f), [0.5f, 0.1f]);
+
+        Frame(loop, renderer);
+
+        var objects = Objects(loop.World, levels);
+
+        Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[0]));
+        Assert.False(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[2]));
+
+        // The camera retreats until the group is at its coarsest level — the same distance
+        // `TheSameGroupFarAwayShowsItsCoarsestLevel` uses, reached by moving the view rather than the
+        // object so nothing about the group itself changes.
+        Retreat(camera, 397f);
+        Frame(loop, renderer);
+
+        // Both ends of the transition are drawn, which is what a cross-fade costs and is the only
+        // evidence from outside the feature that one started at all.
+        Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[0]));
+        Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[2]));
+
+        // Three more frames — a twentieth of the duration at most — and it is still fading. This is
+        // the half that cannot be satisfied by a fade that ends immediately, which is what a
+        // zero-length one does.
+        for (var frame = 0; frame < 3; frame++) {
+            Frame(loop, renderer);
+        }
+
+        Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[0]));
+        Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[2]));
+
+        // And well past it, the level it was fading out of is gone. Without the delta this is never
+        // true: the elapsed time never grows, so the transition never retires and both levels of the
+        // object are drawn on top of each other for the rest of the session.
+        for (var frame = 0; frame < 200; frame++) {
+            Frame(loop, renderer);
+        }
+
+        Assert.False(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[0]));
+        Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[2]));
+    }
+
+    /// <summary>Moves the camera back along +Z, rebuilding the frustum it culls with.</summary>
+    /// <remarks>
+    ///     The frustum as well as the position, because <c>LodRenderFeature</c> only reaches an object
+    ///     the visibility pass kept — a camera moved without one culls the group away and every "is
+    ///     visible" assertion below would be false for the wrong reason.
+    /// </remarks>
+    static void Retreat(RenderView camera, float distance) {
+        var position = new Vector3(0f, 0f, distance);
+        var view = Matrix4x4.LookAt(position, position + new Vector3(0f, 0f, -1f), new(0f, 1f, 0f));
+        var projection = Matrix4x4.PerspectiveFieldOfView(FieldOfView, 1f, 0.1f, 10000f);
+
+        camera.Position = position;
+        camera.Frustum = new(view * projection);
+    }
+
+    /// <summary>
     ///     A group whose thresholds do not descend is refused rather than thrown, and counted.
     /// </summary>
     /// <remarks>
