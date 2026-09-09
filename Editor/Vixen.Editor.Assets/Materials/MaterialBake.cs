@@ -164,6 +164,29 @@ public static class MaterialBake {
     ///         — the silent failure above rather than the visible one. A second sampling feature
     ///         wanting to survive a bake adds itself here, next to the map it reads.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A layered material is the second exception and it is a <em>different</em> shape,
+    ///         because a layered surface <em>is</em> the base surface</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1118">#1118</a>. Parallax is preserved
+    ///         <em>beside</em> what the bake composes; a <see cref="TexturedMaterialLayersFeature" />
+    ///         preserved that way would sit next to the <see cref="TexturedMetalRoughnessFeature" />
+    ///         this method always adds, and two base surfaces in one chain is not a refusal — both are
+    ///         <see cref="MaterialFeatureStage.Surface" />, both compose, and the later one writes over
+    ///         the earlier one's albedo, roughness and metalness. So it replaces the base surface
+    ///         rather than joining it, and the base-colour <em>file</em> the bake wrote is then left
+    ///         unbound on purpose: nothing in the chain samples <c>baseColorMap</c> any more, and
+    ///         binding it anyway is the resident-and-unread shape #1103 was refused over.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And its splat map is carried over from the material rather than written by this
+    ///         bake, which is the whole of why the preservation is owed.</b> A splat map's channels
+    ///         are the <em>material's layer indices</em> — see <see cref="MaterialMapTarget" /> — so
+    ///         no graph output produces one and the bake has no file to bind. Before this rule a
+    ///         re-bake of a hand-authored layered material replaced <c>Features</c> and
+    ///         <c>Textures</c> whole: the feature and its <c>splatMap</c> entry both went, and what
+    ///         came back was a plain textured metal-roughness material that shades perfectly and is
+    ///         not the material the artist made.
+    ///     </para>
     /// </remarks>
     public static MaterialContent Material(
         IReadOnlyDictionary<MaterialMapTarget, AssetReference> maps,
@@ -174,15 +197,18 @@ public static class MaterialBake {
         var features = new List<IMaterialFeature>();
         var textures = new List<MaterialTexture>();
         var parallax = Displacement(maps, existing);
+        var carried = new List<MaterialTexture>();
+        var layered = Layered(existing, carried);
 
         if (parallax is not null) {
             features.Add(parallax);
         }
 
         features.Add(
-            maps.ContainsKey(MaterialMapTarget.BaseColor)
+            layered
+            ?? (maps.ContainsKey(MaterialMapTarget.BaseColor)
                 ? new TexturedMetalRoughnessFeature()
-                : new MetalRoughnessFeature()
+                : (IMaterialFeature)new MetalRoughnessFeature())
         );
 
         if (maps.ContainsKey(MaterialMapTarget.Normal)) {
@@ -206,14 +232,28 @@ public static class MaterialBake {
             // not in `MaterialMapNaming.Parameter`. That answers "what does the feature that samples
             // this file call it" for the five the bake always composes; whether anything samples the
             // height file at all is this material's answer, not the target's — see the remarks.
-            var parameter = target == MaterialMapTarget.Height
-                ? parallax?.HeightMap
-                : MaterialMapNaming.Parameter(target);
+            // ⚠ And the base colour's name is conditional too, once a layered surface has replaced
+            // the feature that reads it. `TexturedOrmFeature` reads the albedo back out of the
+            // surface rather than out of the file, so with `TexturedMetalRoughnessFeature` gone
+            // nothing samples `baseColorMap` — an entry the build imports, a bundle carries and a
+            // pool makes resident for no reader.
+            var parameter = target switch {
+                MaterialMapTarget.Height => parallax?.HeightMap,
+                MaterialMapTarget.BaseColor when layered is not null => null,
+                _ => MaterialMapNaming.Parameter(target)
+            };
 
             if (maps.TryGetValue(target, out var reference) && parameter is not null) {
                 textures.Add(new(parameter, reference));
             }
         }
+
+        // ⚠ After the loop and not before it, so the maps this bake wrote keep the order
+        // `EveryTarget` gives them and the carried ones are visibly the tail. They cannot collide:
+        // a layered feature's two names are `splatMap` and `heightMap`, and the only conditional
+        // name the loop can emit is `parallaxHeightMap` — deliberately not `heightMap`, which is
+        // taken.
+        textures.AddRange(carried);
 
         return new() {
             Shader = existing?.Shader ?? new MaterialContent().Shader,
@@ -253,6 +293,85 @@ public static class MaterialBake {
                 // line redundant — it makes it upstream: a bake that handed an author a file the
                 // compiler will reject is not an improvement on one that quietly drew wrong.
                 return parallax with { HeightMap = new ParallaxOcclusionFeature().HeightMap };
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The author's layered surface, where the material still carries the map it paints from.</summary>
+    /// <param name="existing">The material as it already stood.</param>
+    /// <param name="carried">The texture entries the feature needs, appended to.</param>
+    /// <returns>The base surface to compose instead of this bake's own, or null.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Bound by the author's own spelling and rebound under the paired one.</b> The
+    ///         feature is looked up in <c>Textures</c> by the name the <em>feature instance</em>
+    ///         carries, because that is what the author wrote on both halves; what goes back is
+    ///         <see cref="TexturedMaterialLayersFeature.SplatMap" />'s default, because that is the
+    ///         only name <c>WorldRenderer.Paired</c> keys the texture index on. A material that
+    ///         renamed both halves consistently is bound and unread today, and comes back bound and
+    ///         read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An unbound splat map drops the feature, which is the parallax rule and not a new
+    ///         one.</b> A layered surface whose <c>splatIndex</c> stays at nought reads the bindless
+    ///         table's fallback checker as its weights: magenta and black are 1 and 0 in three
+    ///         channels, so the material becomes a hard-edged chequerboard of its first three layers
+    ///         and shades perfectly while doing it. Losing the feature is visible; keeping it is not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A missing height map costs the permutation rather than the feature</b>, which is
+    ///         the same argument one level down: <see cref="TexturedMaterialLayersFeature.HeightBlended" />
+    ///         is a permutation whose false variant emits no second sample at all, so turning it off
+    ///         is exactly the guard the feature's own remarks describe — where dropping the whole
+    ///         feature over a map that only biases a seam would throw away the layers as well.
+    ///     </para>
+    /// </remarks>
+    static TexturedMaterialLayersFeature? Layered(MaterialContent? existing, List<MaterialTexture> carried) {
+        foreach (var feature in existing?.Features ?? []) {
+            if (feature is not TexturedMaterialLayersFeature layers) {
+                continue;
+            }
+
+            if (Bound(existing, layers.SplatMap) is not { } splat) {
+                return null;
+            }
+
+            var paired = new TexturedMaterialLayersFeature();
+
+            carried.Add(new(paired.SplatMap, splat));
+
+            if (layers.HeightBlended && Bound(existing, layers.HeightMap) is { } height) {
+                carried.Add(new(paired.HeightMap, height));
+
+                return layers with { SplatMap = paired.SplatMap, HeightMap = paired.HeightMap };
+            }
+
+            return layers with {
+                SplatMap = paired.SplatMap,
+                HeightMap = paired.HeightMap,
+                HeightBlended = false
+            };
+        }
+
+        return null;
+    }
+
+    /// <summary>Which texture a material bound under a name, or null where it bound none.</summary>
+    /// <param name="existing">The material as it already stood.</param>
+    /// <param name="parameter">What the material calls the map.</param>
+    /// <returns>The reference, or <see langword="null" />.</returns>
+    /// <remarks>
+    ///     ⚠ <b><see cref="AssetReference.Null" /> counts as none.</b> It is the zero of a struct, so
+    ///     an entry left at it is a texture slot that resolves to nothing and samples the fallback —
+    ///     the same picture as no entry at all, and this repository's most-repeated defect shape.
+    /// </remarks>
+    static AssetReference? Bound(MaterialContent? existing, string parameter) {
+        foreach (var texture in existing?.Textures ?? []) {
+            if (string.Equals(texture.Parameter, parameter, StringComparison.Ordinal)
+                && texture.Texture != AssetReference.Null) {
+                return texture.Texture;
             }
         }
 

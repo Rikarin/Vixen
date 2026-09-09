@@ -6,6 +6,7 @@ using Vixen.Core.Imaging;
 using Vixen.Editor.Assets.Materials;
 using Vixen.Editor.Assets.Textures;
 using Vixen.Graphics;
+using Vixen.Rendering;
 using Vixen.Rendering.Materials;
 using Xunit;
 
@@ -538,6 +539,258 @@ public sealed class MaterialBakeTests {
             }
         }
     }
+
+    /// <summary>An author's layered surface survives a re-bake, and so does the map it paints from.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The whole of <a href="https://github.com/Rikarin/Vixen/issues/1118">#1118</a>'s
+    ///         answer, from the direction that fails.</b> A splat map is not a bake output — its
+    ///         channels are the material's layer indices and no graph has a layer list — so the one
+    ///         thing a bake owes a layered material is not to take it away. Before the rule this
+    ///         asserts, re-baking a hand-authored layered material replaced <c>Features</c> and
+    ///         <c>Textures</c> whole and handed back a plain textured metal-roughness material.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The composition is the assertion, and asserting over
+    ///         <c>material.Features</c> alone would not be one.</b> Both features are
+    ///         <see cref="MaterialFeatureStage.Surface" />, so a chain carrying the layered feature
+    ///         <em>beside</em> a <see cref="TexturedMetalRoughnessFeature" /> compiles without a
+    ///         diagnostic and draws the later slot's albedo, roughness and metalness over the
+    ///         earlier's. Reading the slots back out of <c>Composition</c> is what says only one base
+    ///         surface reached the shader.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_re_bake_keeps_the_authors_layered_surface_and_the_splat_map_it_paints_from() {
+        var existing = new MaterialContent {
+            Features = [
+                new TexturedMaterialLayersFeature {
+                    Layers = [
+                        new(new(1f, 0f, 0f), 0f, 0.4f, 1f),
+                        new(new(0f, 1f, 0f), 0f, 0.6f, 1f),
+                        new(new(0f, 0f, 1f), 1f, 0.2f, 1f)
+                    ],
+                    PaintedChannels = 3
+                }
+            ],
+            Textures = [new(new TexturedMaterialLayersFeature().SplatMap, Reference(7))]
+        };
+
+        var material = MaterialBake.Material(
+            new Dictionary<MaterialMapTarget, AssetReference> {
+                [MaterialMapTarget.BaseColor] = Reference(1),
+                [MaterialMapTarget.Normal] = Reference(2),
+                [MaterialMapTarget.Orm] = Reference(3)
+            },
+            existing
+        );
+
+        var layers = Assert.IsType<TexturedMaterialLayersFeature>(
+            Assert.Single(material.Features.OfType<TexturedMaterialLayersFeature>())
+        );
+
+        // The author's numbers, which no graph could have supplied.
+        Assert.Equal(3, layers.Layers.Count);
+        Assert.Equal(3, layers.PaintedChannels);
+
+        var bound = Assert.Single(
+            material.Textures,
+            texture => texture.Parameter == new TexturedMaterialLayersFeature().SplatMap
+        );
+
+        Assert.Equal(Reference(7), bound.Texture);
+
+        Assert.True(MaterialShading.TryResolve(material.Shading, out var shading));
+
+        var compilation = MaterialCompiler.Compile(material.ToDescriptor(shading));
+
+        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(one => one.Message)));
+
+        var composed = Slots(compilation.Material!);
+
+        Assert.Contains("TexturedMaterialLayersSurface", composed);
+
+        // ⚠ Two base surfaces is the failure this rule exists to prevent, and it is not an error the
+        // compiler reports: it is one slot's albedo written over another's.
+        Assert.DoesNotContain("TexturedMetalRoughnessSurface", composed);
+        Assert.DoesNotContain("MetalRoughnessSurface", composed);
+
+        // And the base-colour file the bake wrote is left unbound, because with the base surface
+        // replaced nothing in the chain samples it.
+        Assert.DoesNotContain(
+            material.Textures,
+            texture => texture.Parameter == new TexturedMetalRoughnessFeature().BaseColorMap
+        );
+    }
+
+    /// <summary>⚠ A renamed splat map is put back to the name the feature is paired on.</summary>
+    /// <remarks>
+    ///     The parallax rule one feature along: the author's spelling is half of a pairing
+    ///     <c>WorldRenderer</c> keys on the feature's default, so a material that renamed both halves
+    ///     consistently binds a texture nothing looks up, leaves <c>splatIndex</c> at nought and
+    ///     reads the fallback checker as its layer weights.
+    /// </remarks>
+    [Fact]
+    public void A_re_bake_puts_a_renamed_splat_map_back_to_the_name_the_feature_is_paired_on() {
+        var existing = new MaterialContent {
+            Features = [new TexturedMaterialLayersFeature { SplatMap = "weights", PaintedChannels = 4 }],
+            Textures = [new("weights", Reference(7))]
+        };
+
+        var material = MaterialBake.Material(
+            new Dictionary<MaterialMapTarget, AssetReference> { [MaterialMapTarget.BaseColor] = Reference(1) },
+            existing
+        );
+
+        var layers = Assert.Single(material.Features.OfType<TexturedMaterialLayersFeature>());
+
+        Assert.Equal(new TexturedMaterialLayersFeature().SplatMap, layers.SplatMap);
+        Assert.Equal(4, layers.PaintedChannels);
+
+        var bound = Assert.Single(
+            material.Textures,
+            texture => texture.Parameter == new TexturedMaterialLayersFeature().SplatMap
+        );
+
+        Assert.Equal(Reference(7), bound.Texture);
+        Assert.DoesNotContain(material.Textures, texture => texture.Parameter == "weights");
+    }
+
+    /// <summary>A layered feature the material never bound a splat map for is dropped.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half that is easy to lose, and the loud one.</b> An unbound splat map leaves
+    ///     <c>splatIndex</c> at nought, which is the bindless table's fallback checker: magenta and
+    ///     black are 1 and 0 across three channels, so every layered material in the frame becomes a
+    ///     hard chequerboard of its first three layers and shades perfectly while doing it.
+    /// </remarks>
+    /// <param name="entry">Whether the material carries a <c>splatMap</c> entry at all.</param>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_layered_feature_whose_splat_map_is_not_bound_is_dropped(bool entry) {
+        // ⚠ The two cases are one case, which is why the second is here. `AssetReference.Null` is a
+        // struct's zero, so an entry left at it names no texture and resolves to the same fallback
+        // an absent entry does — a distinction that only exists in the file.
+        var existing = new MaterialContent {
+            Features = [new TexturedMaterialLayersFeature()],
+            Textures = entry
+                ? [new(new TexturedMaterialLayersFeature().SplatMap, AssetReference.Null)]
+                : []
+        };
+
+        var material = MaterialBake.Material(
+            new Dictionary<MaterialMapTarget, AssetReference> { [MaterialMapTarget.BaseColor] = Reference(1) },
+            existing
+        );
+
+        Assert.DoesNotContain(material.Features, feature => feature is TexturedMaterialLayersFeature);
+        Assert.IsType<TexturedMetalRoughnessFeature>(material.Features[0]);
+
+        // The base surface came back, so the base-colour map is bound again.
+        Assert.Single(
+            material.Textures,
+            texture => texture.Parameter == new TexturedMetalRoughnessFeature().BaseColorMap
+        );
+    }
+
+    /// <summary>A height-blended stack with no height map keeps its layers and loses the blend.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The permutation and not the feature, which is the opposite call to the one above and
+    ///     for the same reason.</b> <c>HeightBlended</c>'s false variant emits no second sample at
+    ///     all — that is the guard the feature's own remarks describe — so turning it off costs a
+    ///     seam, where dropping the feature would cost every layer.
+    /// </remarks>
+    [Fact]
+    public void A_height_blended_layered_surface_with_no_height_map_keeps_its_layers_unblended() {
+        var existing = new MaterialContent {
+            Features = [
+                new TexturedMaterialLayersFeature {
+                    HeightBlended = true,
+                    HeightContrast = 0.4f,
+                    Layers = [new(new(1f, 0f, 0f), 0f, 0.4f, 1f), new(new(0f, 1f, 0f), 0f, 0.6f, 1f)]
+                }
+            ],
+            Textures = [new(new TexturedMaterialLayersFeature().SplatMap, Reference(7))]
+        };
+
+        var material = MaterialBake.Material(
+            new Dictionary<MaterialMapTarget, AssetReference> { [MaterialMapTarget.BaseColor] = Reference(1) },
+            existing
+        );
+
+        var layers = Assert.Single(material.Features.OfType<TexturedMaterialLayersFeature>());
+
+        Assert.False(layers.HeightBlended);
+        Assert.Equal(2, layers.Layers.Count);
+        Assert.Equal(0.4f, layers.HeightContrast);
+
+        Assert.DoesNotContain(
+            material.Textures,
+            texture => texture.Parameter == new TexturedMaterialLayersFeature().HeightMap
+        );
+    }
+
+    /// <summary>A height-blended stack that has its height map keeps both.</summary>
+    [Fact]
+    public void A_height_blended_layered_surface_keeps_the_height_map_it_was_bound_to() {
+        var existing = new MaterialContent {
+            Features = [new TexturedMaterialLayersFeature { HeightBlended = true }],
+            Textures = [
+                new(new TexturedMaterialLayersFeature().SplatMap, Reference(7)),
+                new(new TexturedMaterialLayersFeature().HeightMap, Reference(8))
+            ]
+        };
+
+        var material = MaterialBake.Material(
+            new Dictionary<MaterialMapTarget, AssetReference> {
+                [MaterialMapTarget.BaseColor] = Reference(1),
+                [MaterialMapTarget.Height] = Reference(4)
+            },
+            existing
+        );
+
+        var layers = Assert.Single(material.Features.OfType<TexturedMaterialLayersFeature>());
+
+        Assert.True(layers.HeightBlended);
+
+        // ⚠ The author's per-layer bundle and not the single-channel file this bake just wrote.
+        // Two textures with one English name, which is what `ParallaxOcclusionFeature` names
+        // `parallaxHeightMap` to keep apart.
+        var bound = Assert.Single(
+            material.Textures,
+            texture => texture.Parameter == new TexturedMaterialLayersFeature().HeightMap
+        );
+
+        Assert.Equal(Reference(8), bound.Texture);
+        Assert.DoesNotContain(material.Textures, texture => texture.Texture == Reference(4));
+    }
+
+    /// <summary>A material that never asked for layering does not get it.</summary>
+    [Fact]
+    public void A_bake_composes_no_layered_surface_for_a_material_that_did_not_ask() {
+        var material = MaterialBake.Material(
+            new Dictionary<MaterialMapTarget, AssetReference> { [MaterialMapTarget.BaseColor] = Reference(1) }
+        );
+
+        Assert.DoesNotContain(material.Features, feature => feature is TexturedMaterialLayersFeature);
+        Assert.IsType<TexturedMetalRoughnessFeature>(material.Features[0]);
+    }
+
+    /// <summary>Which shader filled each slot of the compiled chain.</summary>
+    /// <param name="material">The compiled material.</param>
+    /// <returns>The eight names, fillers included.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Read out of the composition rather than off <c>Features</c>.</b> The list of features
+    ///     is the input; what a slot resolves to is the output, and the failure being asserted
+    ///     against — two base surfaces in one chain — is one that leaves the input looking fine.
+    /// </remarks>
+    static string[] Slots(Material material) => [
+        .. Ordinals.Select(slot => material.Composition.Resolve("CompositeSurface." + slot) ?? "")
+    ];
+
+    static readonly string[] Ordinals = [
+        "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"
+    ];
 
     static AssetReference Reference(int seed) => new(new AssetId(Guid.Parse($"{seed:D8}-0000-0000-0000-000000000000")));
 

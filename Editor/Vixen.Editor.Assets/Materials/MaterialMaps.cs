@@ -82,6 +82,28 @@ public enum MaterialMapUsage {
 ///         displacement moves vertices on a pre-subdivided mesh and is therefore not a material
 ///         feature at all.
 ///     </para>
+///     <para>
+///         ⚠ <b>There is deliberately no <c>Splat</c> here, and that is
+///         <a href="https://github.com/Rikarin/Vixen/issues/1118">#1118</a>'s second answer rather
+///         than an omission.</b> <c>TexturedMaterialLayersFeature</c>'s splat map is a multi-channel
+///         weight map whose channel <c>i</c> is <em>layer <c>i</c></em> — an index into the
+///         material's own layer list. Every target above is a <em>measurement</em> of a surface, which
+///         is why a graph can produce one: albedo, roughness and occlusion mean the same thing
+///         whatever material samples them. A layer index does not. A graph has no layer list, an
+///         <c>Output</c> node names a usage rather than an ordinal, and a texture set's channels are
+///         keyed by that usage — so "which layer is this the weight of" is a question the whole
+///         authoring vocabulary is shaped not to be able to ask. Packing four of them the way
+///         <see cref="Orm" /> packs three would be a target no producer in this tree can fill.
+///     </para>
+///     <para>
+///         So a splat map is an ordinary imported RGBA texture, and what the bake owes is that a
+///         re-bake does not <em>destroy</em> the material that samples one — see
+///         <see cref="MaterialBake.Material" />, which is where the layered feature and its
+///         <c>splatMap</c> entry are carried across. ⚠ This also strikes
+///         <a href="https://github.com/Rikarin/Vixen/issues/1073">#1073</a>'s second option:
+///         finishing the paint route did not make the splat map bakeable, because what was missing
+///         was never the pixels.
+///     </para>
 /// </remarks>
 public enum MaterialMapTarget {
     /// <summary>The albedo map.</summary>
@@ -103,6 +125,13 @@ public enum MaterialMapTarget {
     Opacity,
 
     /// <summary>A mask for another graph. Written, and bound to nothing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Single-channel, and not the splat map a layered material paints from.</b>
+    ///     <see cref="MaterialMapNaming.CompressionOf" /> ships this as BC4 because a one-channel map
+    ///     in BC7 is four channels of nothing; a splat map is four channels that all mean something,
+    ///     and it is not a bake output at all — see the type's remarks for why the vocabulary cannot
+    ///     name one.
+    /// </remarks>
     Mask
 }
 
