@@ -62,6 +62,35 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!--
+          ⚠ The library a node preview is compiled beside — [#510](https://github.com/Rikarin/Vixen/issues/510).
+          The preview renderer handed Raven one source, so a node calling `ComputeColor.ValueNoise`
+          failed to bind with RVN2010 and five shipped nodes therefore declared no preview at all.
+          `FromSources` takes a *set* of texts and makes them one compilation, so the fix is the
+          library's own files in the same list — not a compiled `.rvnlib`, not a second copy of the
+          arithmetic.
+
+          The four are a closure and not a selection, exactly as `Vixen.Editor.TextureGraph`'s are:
+          `Material/ComputeColor.rvn` is the node vocabulary, it imports `Vixen.Shaders.Core`, and
+          `Core/Random.rvn` spells `Math.SphericalToCartesian` and `Const.TwoPi`, so `Core/Math.rvn`
+          comes with it. ⚠ Every file in a compilation is bound whether the preview calls into it or
+          not, so a set stopping one edge short fails on every previewed node at once rather than on
+          the one that called.
+
+          Embedded from the library's own path, so there is one copy of these functions in the
+          repository and editing the library edits what a preview compiles against.
+        -->
+        <EmbeddedResource Include="..\..\Raven\Library\Core\ColorSpaces.rvn"
+                          LogicalName="Vixen.Editor.ShaderGraph.Prelude.Core.ColorSpaces.rvn" />
+        <EmbeddedResource Include="..\..\Raven\Library\Core\Math.rvn"
+                          LogicalName="Vixen.Editor.ShaderGraph.Prelude.Core.Math.rvn" />
+        <EmbeddedResource Include="..\..\Raven\Library\Core\Random.rvn"
+                          LogicalName="Vixen.Editor.ShaderGraph.Prelude.Core.Random.rvn" />
+        <EmbeddedResource Include="..\..\Raven\Library\Material\ComputeColor.rvn"
+                          LogicalName="Vixen.Editor.ShaderGraph.Prelude.Material.ComputeColor.rvn" />
+    </ItemGroup>
+
+    <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Editor.ShaderGraph.Tests" />
 
         <!--

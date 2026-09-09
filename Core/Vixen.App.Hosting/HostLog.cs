@@ -168,6 +168,30 @@ static partial class HostLog {
     public static partial void CaptureWithoutFrameCount(ILogger logger, string path);
 
     /// <summary>
+    ///     ⚠ The <em>other</em> way to ask for a capture and get nothing, and the one that had no
+    ///     line at all: a presented image is created without the transfer-source flag, so a run with
+    ///     a window renders every frame, prints every counter, exits zero and writes no file.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b><c>--vixen-headless</c> and not <c>--vixen-offscreen</c>, which is a correction to
+    ///     what <a href="https://github.com/Rikarin/Vixen/issues/1108">#1108</a> proposed.</b> The
+    ///     two flags are orthogonal and <c>AppArguments</c> says so where it parses them: offscreen
+    ///     decides <em>which device opens</em> — it is what refuses the Null fall-through — and
+    ///     touches neither the window nor the surface, so a desktop run given it opens a window and
+    ///     lands right back here. <c>Headless</c> is the one <c>PlatformHost.Create</c> reads to
+    ///     choose a platform whose surfaces report <c>SurfaceKind.None</c>, and a null
+    ///     <c>AppConfig.Window</c> is the in-code spelling of the same thing.
+    /// </remarks>
+    [LoggerMessage(
+        EventId = 13033,
+        Level = LogLevel.Warning,
+        Message = "--vixen-capture was given but this run has a surface to present to, so nothing "
+        + "will be written to {Path}. Add --vixen-headless (⚠ not --vixen-offscreen, which chooses "
+        + "the device and not the surface), or leave AppConfig.Window null."
+    )]
+    public static partial void CaptureWithASurface(ILogger logger, string path);
+
+    /// <summary>
     ///     ⚠ Said out loud because it changes what the run <em>is</em>. A frame handed a constant
     ///     delta is not measuring anything about this machine, and a reader who does not know that is
     ///     a reader who will quote a frame time from a run that had none. It is also the line that

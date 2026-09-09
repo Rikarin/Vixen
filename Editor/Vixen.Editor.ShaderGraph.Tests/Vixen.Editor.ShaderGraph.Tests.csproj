@@ -30,5 +30,12 @@
         <!-- The preview renderer draws, so the tests that say what came out need a real backend.
              They skip without one, and VIXEN_REQUIRE_VULKAN=1 turns the skip into a failure. -->
         <ProjectReference Include="..\..\Platform\Vixen.Graphics.Vulkan\Vixen.Graphics.Vulkan.csproj" />
+
+        <!-- ⚠ And the device that draws nothing, for the question a real one cannot answer: how many
+             RHI objects are alive. `NullDevice.LiveResourceCount` is the only instrument in the tree
+             that counts what was created and not destroyed, which is what a leak test needs and what
+             no Vulkan device exposes. See `ShaderGraphPreviewLeakTests` — nothing there reads a
+             texel. -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
     </ItemGroup>
 </Project>

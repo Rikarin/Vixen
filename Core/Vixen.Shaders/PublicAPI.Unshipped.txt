@@ -157,6 +157,8 @@ Vixen.Shaders.EffectLoader.Device.get -> Vixen.Graphics.IGraphicsDevice
 Vixen.Shaders.EffectLoader.EffectLoader(Vixen.Graphics.IGraphicsDevice device) -> void
 Vixen.Shaders.EffectLoader.LayoutCount.get -> int
 Vixen.Shaders.EffectLoader.Load(Vixen.Shaders.EffectData data) -> Vixen.Shaders.Effect
+Vixen.Shaders.EffectLoader.PipelineLayoutCount.get -> int
+Vixen.Shaders.EffectLoader.Release() -> void
 Vixen.Shaders.EffectManifest -> sealed record
 Vixen.Shaders.EffectManifest : System.IEquatable<Vixen.Shaders.EffectManifest>
 Vixen.Shaders.EffectManifest.EffectManifest() -> void
