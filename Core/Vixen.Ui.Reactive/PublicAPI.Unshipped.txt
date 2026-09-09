@@ -87,6 +87,8 @@ Vixen.Ui.Reactive.EffectScheduler.MaximumRunsPerFlush.get -> int
 Vixen.Ui.Reactive.EffectScheduler.MaximumRunsPerFlush.set -> int
 Vixen.Ui.Reactive.EffectScheduler.PendingCount.get -> int
 Vixen.Ui.Reactive.EffectScheduler.Post(System.Action work) -> void
+Vixen.Ui.Reactive.EffectScheduler.Suspended.get -> System.Action<string, System.Exception?>?
+Vixen.Ui.Reactive.EffectScheduler.Suspended.set -> System.Action<string, System.Exception?>?
 Vixen.Ui.Reactive.IReadOnlySignal<T>.Peek() -> out T
 Vixen.Ui.Reactive.IReadOnlySignal<T>.Value.get -> out T
 Vixen.Ui.Reactive.IReadOnlySignal<out T> -> interface

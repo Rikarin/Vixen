@@ -255,6 +255,18 @@ sealed class LayerStackView : IDisposable {
     /// <summary>What each row re-reads when the document changed without changing shape.</summary>
     readonly List<Action> bindings = [];
 
+    /// <summary>What a row still owes once the elements a markup region makes actually exist.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A second phase of the build rather than a nicety, and it is what a markup row costs.</b>
+    ///     A <c>@for</c> or an <c>@if</c> in a <c>.vxml</c> is an <c>Effect</c>, and an effect never
+    ///     runs on the write — so the check boxes <c>LayerRowView</c>'s channel loop declares do not
+    ///     exist while <see cref="Build" /> is walking the layers. Anything that needs one goes here,
+    ///     and <see cref="Build" /> drains the document's queue and runs it before
+    ///     <see cref="Restate" /> reads a single row. Left as one phase the ticks would simply be
+    ///     absent from every closure, which no assertion about the row's shape could see.
+    /// </remarks>
+    readonly List<Action> pending = [];
+
     /// <summary>What the rows currently on the screen were built for. See <see cref="Shape" />.</summary>
     string shape = "";
 
@@ -1026,6 +1038,7 @@ sealed class LayerStackView : IDisposable {
         }
 
         bindings.Clear();
+        pending.Clear();
 
         built = null;
         shape = "";
@@ -1073,6 +1086,21 @@ sealed class LayerStackView : IDisposable {
         }
 
         Walk(set.Layers, 0);
+
+        // ⚠ The drain, and it is the whole of what porting a row to markup changed about this
+        // method. Every region a `.vxml` declares — `LayerRowView`'s channel loop and its refusal —
+        // is an `Effect`, and an effect only ever queues, so the elements those regions make do not
+        // exist until something flushes. `Present` restates every row immediately after this call
+        // and six test files read the tree synchronously after `Show` returns, so waiting for the
+        // frame's own flush would mean a first pass over rows that are half built. Draining here
+        // costs one extra flush on the passes where the shape actually changed.
+        root.Document.Effects.Flush();
+
+        foreach (var owed in pending) {
+            owed();
+        }
+
+        pending.Clear();
 
         void Walk(List<LayerAsset> layers, int depth) {
             for (var index = layers.Count - 1; index >= 0; index--) {
@@ -1196,15 +1224,20 @@ sealed class LayerStackView : IDisposable {
         // nothing left to refuse.
         var named = layer.Id.Length > 0;
 
-        var row = rows.Add("layer-stack-row");
+        // ⚠ `LayerRowView` and not `rows.Add("layer-stack-row")`, and the swap is element for
+        // element: the component's host tag *is* `layer-stack-row`, so this is the same direct child
+        // of `layer-stack-list` the stylesheet already reaches. #881.
+        var row = rows.Add<LayerRowView>();
 
+        row.Named = named;
+        row.Usages = [.. set.Channels.Select(channel => channel.Usage)];
+
+        // ⚠ Still written here and still `depth × 12px`, which is what `TexturingTheme.vcss` says
+        // about it: a computed length is not a class, and a `layer-stack-depth-N` rule per possible
+        // nesting would be a sheet that runs out at whatever N somebody guessed.
         row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
 
-        // ⚠ First on the row and a button rather than a click on the row itself. Every other control
-        // here marks its own pointer events handled, so a row-wide handler would have to be on the
-        // capture leg and would then swallow the press that was aimed at a tick box — the trap
-        // `PaintUvView`'s own handler documents, in the direction that breaks the rest of the panel.
-        var select = row.Add<Button>(null, null, "layer-stack-select");
+        var select = row.Choose;
 
         select.Clicked += _ => Choose(path);
 
@@ -1216,17 +1249,8 @@ sealed class LayerStackView : IDisposable {
         // file can reach.
         select.Disabled = !named;
 
-        if (!named) {
-            // The same tag an ambiguous row's sentence uses, because it is the same kind of thing in
-            // the same place — a control that is not there, and why.
-            row.Add("layer-stack-row-refusal").Text = Unnamed;
-        }
-
-        var up = row.Add<Button>(null, null, "layer-stack-move-up");
-        var down = row.Add<Button>(null, null, "layer-stack-move-down");
-
-        up.Label = "Move up";
-        down.Label = "Move down";
+        var up = row.Up;
+        var down = row.Down;
 
         // ⚠ Up is +1 in the file's order. `TextureSetAsset.Layers` is bottom first and this panel
         // draws it topmost first, so the button an artist reads as "over the one above it" is the one
@@ -1236,17 +1260,10 @@ sealed class LayerStackView : IDisposable {
         up.Clicked += _ => Move(document, path, +1, "Move Layer Up");
         down.Clicked += _ => Move(document, path, -1, "Move Layer Down");
 
-        // ⚠ On the row and never disabled, the last layer included. A stack with no layers compiles
-        // — every channel is its own default — so "you may not delete this one" would be a rule with
-        // nothing behind it, and the undo entry is what makes the gesture safe.
-        var delete = row.Add<Button>(null, null, "layer-stack-delete");
+        row.Delete.Clicked += _ => RemoveLayer(document, path);
 
-        delete.Label = "Delete";
-        delete.Clicked += _ => RemoveLayer(document, path);
+        var enabled = row.Enabled;
 
-        var enabled = row.Add<CheckBox>(null, null, "layer-stack-enabled");
-
-        enabled.Label = "Enabled";
         enabled.CheckedChanged += (_, value) => Set(
             document,
             path,
@@ -1254,9 +1271,8 @@ sealed class LayerStackView : IDisposable {
             value ? "Show Layer" : "Hide Layer"
         );
 
-        var name = row.Add("layer-stack-row-name");
-
-        var blend = row.Add<Select>(null, null, "layer-stack-blend");
+        var name = row.Name;
+        var blend = row.Blend;
 
         foreach (var mode in Enum.GetValues<LayerBlendMode>()) {
             blend.AddOption(mode.ToString());
@@ -1268,10 +1284,7 @@ sealed class LayerStackView : IDisposable {
             }
         };
 
-        var opacity = row.Add<Slider>(null, null, "layer-stack-opacity");
-
-        opacity.Minimum = 0f;
-        opacity.Maximum = 1f;
+        var opacity = row.Opacity;
 
         // ⚠ One undo entry for a drag, which is what the merge key buys and what nothing else here
         // needs. Every other control on this row reports one decision per gesture; a slider reports
@@ -1303,81 +1316,81 @@ sealed class LayerStackView : IDisposable {
             handledEventsToo: true
         );
 
-        var channels = row.Add("layer-stack-channels");
-
-        List<CheckBox> ticks = [];
-
-        foreach (var channel in set.Channels) {
-            var usage = channel.Usage;
-            var tick = channels.Add<CheckBox>(null, null, "layer-stack-channel");
-
-            tick.Label = usage;
-
-            tick.CheckedChanged += (_, value) => {
-                if (writing || LayerStackEdit.Find(document.Document, path) is not { } current) {
-                    return;
-                }
-
-                if (Restrict(set, current, usage, value) is not { } channels) {
-                    // ⚠ The last tick, refused in the model and not only greyed in the panel.
-                    // `ToggleBase.Activate` flips `IsChecked` before it asks about `Disabled` — a
-                    // real pointer never reaches it, because `Control.Refuse` stops the route, but
-                    // an access key or an automation peer calls `Activate()` directly. `Restate`
-                    // puts the box back from the document, which is the only copy that matters.
-                    Restate();
-
-                    return;
-                }
-
-                Set(
-                    document,
-                    path,
-                    layer => layer with { Channels = channels },
-                    value ? "Write Channel" : "Stop Writing Channel"
-                );
-            };
-
-            ticks.Add(tick);
-        }
-
-        bindings.Add(() => {
-            if (LayerStackEdit.Find(document.Document, path) is not { } current) {
-                return;
-            }
-
-            var chosen = Selected == path;
-
-            // The marker is in the row's own text rather than a style, so what the panel says about
-            // which layer the brush is aimed at is something a test can read.
-            name.Text = (chosen ? "● " : "") + Line(current, depth);
-            select.Label = named ? chosen ? "Selected" : "Select" : "Cannot select";
-            enabled.IsChecked = current.Enabled;
-            blend.Value = current.Blend.ToString();
-            opacity.Value = current.Opacity;
-
-            up.Disabled = !MoveLayerCommand.CanMove(document.Document, path, +1);
-            down.Disabled = !MoveLayerCommand.CanMove(document.Document, path, -1);
-
-            var written = 0;
-
-            foreach (var channel in set.Channels) {
-                if (current.Writes(channel.Usage)) {
-                    written++;
-                }
-            }
+        // ⚠ The ticks and this row's restating closure are deferred, and that deferral is the one
+        // thing a markup row costs. The ticks are a `@for` in `LayerRowView`, so they are made by an
+        // `Effect` and do not exist until `EffectScheduler.Flush` has run: a list read here would be
+        // empty, every box would stay unticked whatever the layer writes, and nothing anywhere would
+        // say so. `Build` drains the queue after the walk and then runs what is pending.
+        pending.Add(() => {
+            var ticks = row.Ticks();
 
             for (var index = 0; index < ticks.Count && index < set.Channels.Count; index++) {
-                var writes = current.Writes(set.Channels[index].Usage);
+                var usage = set.Channels[index].Usage;
 
-                ticks[index].IsChecked = writes;
+                ticks[index].CheckedChanged += (_, value) => {
+                    if (writing || LayerStackEdit.Find(document.Document, path) is not { } current) {
+                        return;
+                    }
 
-                // ⚠ The last remaining tick cannot be cleared, and this is where the ambiguity in
-                // the file is kept out of the panel. Clearing it would leave `Channels` empty — and
-                // empty means *all*, so the gesture an artist reads as "and now it writes nothing"
-                // would make the layer write everything. A layer that should write nothing is one
-                // that is switched off, which is the tick box two elements to the left.
-                ticks[index].Disabled = writes && written == 1;
+                    if (Restrict(set, current, usage, value) is not { } channels) {
+                        // ⚠ The last tick, refused in the model and not only greyed in the panel.
+                        // `ToggleBase.Activate` flips `IsChecked` before it asks about `Disabled` — a
+                        // real pointer never reaches it, because `Control.Refuse` stops the route, but
+                        // an access key or an automation peer calls `Activate()` directly. `Restate`
+                        // puts the box back from the document, which is the only copy that matters.
+                        Restate();
+
+                        return;
+                    }
+
+                    Set(
+                        document,
+                        path,
+                        layer => layer with { Channels = channels },
+                        value ? "Write Channel" : "Stop Writing Channel"
+                    );
+                };
             }
+
+            bindings.Add(() => {
+                if (LayerStackEdit.Find(document.Document, path) is not { } current) {
+                    return;
+                }
+
+                var chosen = Selected == path;
+
+                // The marker is in the row's own text rather than a style, so what the panel says
+                // about which layer the brush is aimed at is something a test can read.
+                name.Text = (chosen ? "● " : "") + Line(current, depth);
+                select.Label = named ? chosen ? "Selected" : "Select" : "Cannot select";
+                enabled.IsChecked = current.Enabled;
+                blend.Value = current.Blend.ToString();
+                opacity.Value = current.Opacity;
+
+                up.Disabled = !MoveLayerCommand.CanMove(document.Document, path, +1);
+                down.Disabled = !MoveLayerCommand.CanMove(document.Document, path, -1);
+
+                var written = 0;
+
+                foreach (var channel in set.Channels) {
+                    if (current.Writes(channel.Usage)) {
+                        written++;
+                    }
+                }
+
+                for (var index = 0; index < ticks.Count && index < set.Channels.Count; index++) {
+                    var writes = current.Writes(set.Channels[index].Usage);
+
+                    ticks[index].IsChecked = writes;
+
+                    // ⚠ The last remaining tick cannot be cleared, and this is where the ambiguity in
+                    // the file is kept out of the panel. Clearing it would leave `Channels` empty —
+                    // and empty means *all*, so the gesture an artist reads as "and now it writes
+                    // nothing" would make the layer write everything. A layer that should write
+                    // nothing is one that is switched off, which is the tick box two elements left.
+                    ticks[index].Disabled = writes && written == 1;
+                }
+            });
         });
     }
 

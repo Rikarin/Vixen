@@ -185,6 +185,11 @@ public sealed class Effect : ReactiveNode, IDisposable {
         if (runsInFlush >= owner.MaximumRunsPerEffect) {
             IsSuspended = true;
             ReactiveLog.EffectSuspended(logger, Origin, runsInFlush);
+
+            // ⚠ Reported with no exception, because there is none: this effect did not fail, it
+            // re-dirtied itself. The two are told apart by that null and by nothing else.
+            owner.Report(Origin, null);
+
             return false;
         }
 
@@ -200,6 +205,7 @@ public sealed class Effect : ReactiveNode, IDisposable {
             // hot reload, and the same answer.
             IsSuspended = true;
             ReactiveLog.EffectThrew(logger, Origin, exception);
+            owner.Report(Origin, exception);
         } finally {
             AfterComputation(previousConsumer);
         }
