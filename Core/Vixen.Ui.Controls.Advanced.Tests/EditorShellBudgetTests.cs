@@ -495,7 +495,18 @@ public class EditorShellBudgetTests {
         // storing a long into a `long[]` is not an allocation, so keeping the breakdown is free.
         var cost = new long[Frames];
 
+        // ⚠ And which frames a collection landed in, on the same terms, because that is the
+        // correlation the breakdown alone could not show and it is what this failure turns out to
+        // be. Reproduced on this machine in Release under a neighbour churning the heap: the one
+        // frame of ten that paid was the one frame of ten a collection happened in — 1 424 gen-0 and
+        // 2 gen-1 of them — and the nine that saw none paid nothing. `GC.CollectionCount` reads a
+        // counter and allocates no more inside the loop than outside it.
+        var collections = new int[Frames];
+        var promotions = new int[Frames];
+
         for (var i = 0; i < Frames; i++) {
+            var gen0 = GC.CollectionCount(0);
+            var gen1 = GC.CollectionCount(1);
             var before = GC.GetAllocatedBytesForCurrentThread();
 
             if (Shell.Document.Update()) {
@@ -505,17 +516,23 @@ public class EditorShellBudgetTests {
             Shell.Document.Draw();
 
             cost[i] = GC.GetAllocatedBytesForCurrentThread() - before;
+            collections[i] = GC.CollectionCount(0) - gen0;
+            promotions[i] = GC.CollectionCount(1) - gen1;
         }
 
         var allocated = 0L;
         var frames = 0;
+        var collected = 0;
 
-        foreach (var bytes in cost) {
-            allocated += bytes;
+        for (var i = 0; i < Frames; i++) {
+            allocated += cost[i];
 
-            if (bytes > 0) {
-                frames++;
+            if (cost[i] <= 0) {
+                continue;
             }
+
+            frames++;
+            collected += collections[i] + promotions[i];
         }
 
         // ⚠ First, because it is the premise of the sentence below it. Bytes bought by a frame that
@@ -529,19 +546,47 @@ public class EditorShellBudgetTests {
         );
 
         // ⚠ The shape before the size. Every frame paying is the draw walk; one frame paying is a
-        // one-off — a cache filled, a pool that missed, a buffer grown — and the two want opposite
-        // investigations. Saying which is the only thing #992's report could not do.
+        // one-off; and a paying frame a collection landed in is a third thing again — something the
+        // draw walk re-fills after a GC empties it. The three want opposite investigations, and
+        // saying which is the only thing #992's report could not do.
         Assert.True(
             allocated == 0,
             $"{Frames} settled frames of the shell allocated {allocated} bytes between them, and "
             + $"{frames} of the {Frames} paid: [{string.Join(", ", cost)}]. "
-            + (frames == 1
-                ? "One frame alone is a one-off rather than a per-frame object — look for something "
-                + "warmed, pooled or grown on the first pass through, not for a boxed enumerator."
-                : "Every frame paying is something on the draw walk asking the allocator per frame "
-                + "— a boxed enumerator over a collection typed as an interface is what it has been "
-                + "every time.")
+            + $"Collections inside each frame: gen-0 [{string.Join(", ", collections)}], "
+            + $"gen-1 [{string.Join(", ", promotions)}]. "
+            + Reading(frames, collected)
         );
+    }
+
+    /// <summary>What a breakdown of the cost means, which is three different investigations.</summary>
+    /// <param name="frames">How many of the measured frames paid.</param>
+    /// <param name="collected">How many collections landed inside the frames that paid.</param>
+    /// <returns>The sentence to put after the numbers.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The third reading is the one #992 turns out to be, and neither of the other two would
+    ///     have found it.</b> "One frame alone is a one-off — look for something warmed on the first
+    ///     pass" is wrong about a frame that pays after nine free ones, which is what both recorded
+    ///     failures did. What separates them is whether a collection happened inside the paying
+    ///     frame: it did, every time it was measured, and nine frames with no collection cost nothing
+    ///     in the same run. So the thing to look for is not a warm-up and not a boxed enumerator but
+    ///     something the draw walk re-fills after a GC empties it.
+    /// </remarks>
+    static string Reading(int frames, int collected) {
+        if (collected > 0) {
+            return "Every paying frame is a frame a collection landed in, so look for something on "
+                + "the draw walk that re-fills what a GC emptied — a weak cache, a pooled buffer, a "
+                + "Gen2GcCallback trim — rather than a boxed enumerator or a warm-up. ⚠ The counter "
+                + "itself is sound across all three generations, so these bytes were really "
+                + "allocated: see #992.";
+        }
+
+        return frames == 1
+            ? "One frame alone, with no collection in it, is a one-off — look for something warmed, "
+            + "pooled or grown on that pass, not for a boxed enumerator."
+            : "Every frame paying is something on the draw walk asking the allocator per frame — a "
+            + "boxed enumerator over a collection typed as an interface is what it has been every "
+            + "time.";
     }
 
     /// <summary>And the one draw that does allocate is buying the list's previous-frame snapshot.</summary>
