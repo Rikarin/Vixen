@@ -3509,8 +3509,8 @@ Vixen.Rendering.Materials.MaterialLayersFeature -> sealed record
 Vixen.Rendering.Materials.MaterialLayersFeature : System.IEquatable<Vixen.Rendering.Materials.MaterialLayersFeature>
 Vixen.Rendering.Materials.MaterialLayersFeature : Vixen.Rendering.Materials.IMaterialFeature
 Vixen.Rendering.Materials.MaterialLayersFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
-Vixen.Rendering.Materials.MaterialLayersFeature.Layers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.MaterialLayerValue>
-Vixen.Rendering.Materials.MaterialLayersFeature.Layers.init -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.MaterialLayerValue>
+Vixen.Rendering.Materials.MaterialLayersFeature.Layers.get -> Vixen.Rendering.Materials.MaterialLayerValue[]
+Vixen.Rendering.Materials.MaterialLayersFeature.Layers.init -> Vixen.Rendering.Materials.MaterialLayerValue[]
 Vixen.Rendering.Materials.MaterialLayersFeature.MaterialLayersFeature() -> void
 Vixen.Rendering.Materials.MaterialLayersFeature.ShaderName.get -> string
 Vixen.Rendering.Materials.MaterialShading -> static class
@@ -3660,8 +3660,8 @@ Vixen.Rendering.Materials.TexturedMaterialLayersFeature.HeightMap.get -> string
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.HeightMap.init -> string
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.HeightTransition.get -> float
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.HeightTransition.init -> float
-Vixen.Rendering.Materials.TexturedMaterialLayersFeature.Layers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.MaterialLayerValue>
-Vixen.Rendering.Materials.TexturedMaterialLayersFeature.Layers.init -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.MaterialLayerValue>
+Vixen.Rendering.Materials.TexturedMaterialLayersFeature.Layers.get -> Vixen.Rendering.Materials.MaterialLayerValue[]
+Vixen.Rendering.Materials.TexturedMaterialLayersFeature.Layers.init -> Vixen.Rendering.Materials.MaterialLayerValue[]
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.PaintedChannels.get -> int
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.PaintedChannels.init -> int
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.ShaderName.get -> string

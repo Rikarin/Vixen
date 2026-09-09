@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.Core.Imaging;
+using Vixen.Core.Serialization;
 using Vixen.Core.Yaml;
 using Vixen.Rendering.Materials;
 using Xunit;
@@ -98,8 +99,8 @@ public class PaintedLayersTests {
         // texel test below. A fourth layer here would be weighted by that alpha at 1 over the whole
         // surface and would win the normalisation, which is a lit, plausible surface of the wrong
         // stuff.
-        Assert.Equal(3, layered.Layers.Count);
-        Assert.Equal(layered.Layers.Count, layered.PaintedChannels);
+        Assert.Equal(3, layered.Layers.Length);
+        Assert.Equal(layered.Layers.Length, layered.PaintedChannels);
 
         // ⚠ And no height blend, because there is no second map. The permutation set without one
         // samples slot zero and biases every weight in the frame by the fallback.
@@ -125,6 +126,50 @@ public class PaintedLayersTests {
         foreach (var other in new[] { "wall", "pillar", "floor", "crate", "ramp" }) {
             Assert.Empty(Material(other).Features.OfType<TexturedMaterialLayersFeature>());
         }
+    }
+
+    /// <summary>The plaza survives the round trip the content build puts it through.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the check the whole of #1073 was missing, and it was red for a reason
+    ///         nobody had had the chance to find.</b> A <c>.vxmat</c> reaching a game is YAML on the
+    ///         way in and a chunk on the way out — <c>MaterialImporter</c> ends in
+    ///         <c>Serializer.ToBytes(content)</c> — and the two halves are different code. The YAML
+    ///         half had always worked; the binary half <em>threw</em> for any material carrying either
+    ///         layer feature, because <c>Layers</c> was declared as an <c>IReadOnlyList</c>, the
+    ///         generated serializer writes an interface-typed member polymorphically, and
+    ///         <c>MaterialLayerValue[]</c> has no <c>[DataContract]</c> alias to write. Nothing could
+    ///         see it: only an authored material is ever serialised, and until this batch there was no
+    ///         authored material with layers anywhere in the tree.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Compiling the descriptor is not this check and cannot become it.</b>
+    ///         <c>MaterialCompiler</c> reads the features in memory and is perfectly happy with an
+    ///         interface-typed collection — the test above passed against the broken build, as did the
+    ///         device golden. What failed was <c>dotnet build</c> of the sample, which is not a suite
+    ///         anything runs per project. So the round trip is asserted here.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_plaza_survives_being_written_as_a_chunk_and_read_back() {
+        var plaza = Material("plaza");
+        var restored = Serializer.Read<MaterialContent>(Serializer.ToBytes(plaza));
+
+        var before = Assert.Single(plaza.Features.OfType<TexturedMaterialLayersFeature>());
+        var after = Assert.Single(restored.Features.OfType<TexturedMaterialLayersFeature>());
+
+        // ⚠ The layers themselves and not just their count. A serializer that wrote an empty array
+        // would satisfy a count of zero against a count of zero, and the values are what a splat map
+        // has nothing to weight without.
+        Assert.Equal(before.Layers, after.Layers);
+        Assert.Equal(before.SplatMap, after.SplatMap);
+        Assert.Equal(before.PaintedChannels, after.PaintedChannels);
+        Assert.Equal(before.HeightBlended, after.HeightBlended);
+
+        var binding = Assert.Single(restored.Textures);
+
+        Assert.Equal(before.SplatMap, binding.Parameter);
+        Assert.False(binding.Texture.IsNull, "the splat map's reference did not survive the round trip");
     }
 
     /// <summary>The plaza is unwrapped into one tile and every other arena mesh is not.</summary>

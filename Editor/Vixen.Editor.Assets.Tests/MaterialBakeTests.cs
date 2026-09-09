@@ -590,7 +590,7 @@ public sealed class MaterialBakeTests {
         );
 
         // The author's numbers, which no graph could have supplied.
-        Assert.Equal(3, layers.Layers.Count);
+        Assert.Equal(3, layers.Layers.Length);
         Assert.Equal(3, layers.PaintedChannels);
 
         var bound = Assert.Single(
@@ -744,7 +744,7 @@ public sealed class MaterialBakeTests {
         var layers = Assert.Single(material.Features.OfType<TexturedMaterialLayersFeature>());
 
         Assert.False(layers.HeightBlended);
-        Assert.Equal(2, layers.Layers.Count);
+        Assert.Equal(2, layers.Layers.Length);
         Assert.Equal(0.4f, layers.HeightContrast);
 
         Assert.DoesNotContain(

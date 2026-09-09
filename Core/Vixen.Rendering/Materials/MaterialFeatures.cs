@@ -741,7 +741,18 @@ public readonly record struct MaterialLayerValue(
 [DataContract("MaterialLayers")]
 public sealed record MaterialLayersFeature : IMaterialFeature {
     /// <summary>The layers, innermost first.</summary>
-    public IReadOnlyList<MaterialLayerValue> Layers { get; init; } = [];
+    /// <remarks>
+    ///     ⚠ <b>An array and not an <c>IReadOnlyList</c>, because a material carrying this has to be
+    ///     writable to a chunk.</b> The generated serializer emits <c>WritePolymorphic</c> for a
+    ///     member whose declared type is an interface, and the runtime type is then
+    ///     <c>MaterialLayerValue[]</c> — which has no <c>[DataContract]</c> alias, so the write
+    ///     <em>throws</em>. Nobody could have hit it before doc 48's M11, because no authored material
+    ///     carried either layer feature and only an authored one is ever written; see
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1073">#1073</a>.
+    ///     <see cref="MaterialContent.Features" /> and <see cref="MaterialContent.Textures" /> are
+    ///     arrays for the same reason and had been since before this feature existed.
+    /// </remarks>
+    public MaterialLayerValue[] Layers { get; init; } = [];
 
     /// <inheritdoc />
     public string ShaderName => "MaterialLayersSurface";
@@ -753,10 +764,10 @@ public sealed record MaterialLayersFeature : IMaterialFeature {
         // At least one, because `LayerCount` sizes an array and a zero-length one is a shader that
         // does not compile — where an empty layer list is an unfinished material, which is a thing
         // an editor has on screen all the time.
-        var count = Math.Max(Layers.Count, 1);
+        var count = Math.Max(Layers.Length, 1);
         context.SetPermutation("LayerCount", MaterialKeys.DefaultLayerCount, count);
 
-        for (var i = 0; i < Layers.Count; i++) {
+        for (var i = 0; i < Layers.Length; i++) {
             var layer = Layers[i];
 
             // Indexed, because a key holds one value. Raven's reflection describes the array once —
@@ -829,7 +840,13 @@ public sealed record MaterialLayersFeature : IMaterialFeature {
 [DataContract("TexturedMaterialLayers")]
 public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
     /// <summary>The layers, innermost first. Layer <c>i</c> is painted by the map's <c>i</c>th channel.</summary>
-    public IReadOnlyList<MaterialLayerValue> Layers { get; init; } = [];
+    /// <remarks>
+    ///     ⚠ An array rather than an <c>IReadOnlyList</c>, for
+    ///     <see cref="MaterialLayersFeature.Layers" />'s reason: an interface-typed member is written
+    ///     polymorphically and <c>MaterialLayerValue[]</c> has no alias, so a material carrying this
+    ///     could not be written to a chunk at all.
+    /// </remarks>
+    public MaterialLayerValue[] Layers { get; init; } = [];
 
     /// <summary>What the material calls the splat map its weights are painted in.</summary>
     /// <remarks>
@@ -953,10 +970,10 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
 
         // At least one, for MaterialLayersFeature.Compile's reason: `LayerCount` sizes an array and a
         // zero-length one does not compile, where an empty layer list is an unfinished material.
-        var count = Math.Max(Layers.Count, 1);
+        var count = Math.Max(Layers.Length, 1);
         context.SetPermutation("LayerCount", MaterialKeys.DefaultLayerCount, count);
 
-        for (var i = 0; i < Layers.Count; i++) {
+        for (var i = 0; i < Layers.Length; i++) {
             var layer = Layers[i];
 
             // Indexed, for MaterialLayersFeature.Compile's reason: a key holds one value and a key
@@ -994,13 +1011,13 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
             context.Set("heightTransition", HeightTransition);
         }
 
-        if (Layers.Count > painted) {
+        if (Layers.Length > painted) {
             // ⚠ A warning rather than an error, and the shader paints nothing with the layers past the
             // count rather than reading a channel that is not there. The message names the fix because
             // the failure it replaces was a *lit surface of the wrong material* — see PaintedChannels.
             context.Report(
                 MaterialDiagnosticId.UnpaintedLayer,
-                $"This material has {Layers.Count} layers and says its splat map paints {painted} "
+                $"This material has {Layers.Length} layers and says its splat map paints {painted} "
                 + $"channel(s), so layer(s) {painted} and above have no weight anywhere and the rest "
                 + "are normalised without them. Set PaintedChannels to how many channels the map "
                 + "really has — and give it four, because a one- or three-channel texture samples "

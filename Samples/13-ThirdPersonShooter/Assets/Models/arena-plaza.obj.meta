@@ -5,6 +5,10 @@ importer: !ModelImporter
   sourceHash: ddf2f7abfad1d22c175880d78a3f6230
   generateDistanceFields: false
 subAssets:
-  - { id: 68167500, name: ArenaPlaza Clusters, type: Clusters }
-  - { id: adffa463, name: ArenaPlaza Pages, type: ClusterPages }
+  - id: '68167500'
+    name: ArenaPlaza Clusters
+    type: Clusters
+  - id: adffa463
+    name: ArenaPlaza Pages
+    type: ClusterPages
   - { id: 42bbdbf0, name: ArenaPlaza, type: Mesh }
