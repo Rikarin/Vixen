@@ -458,6 +458,8 @@ public class EditorCombinatorPairTests {
     /// </remarks>
     static HashSet<string> Sweep(Depth depth) {
         var pairs = new HashSet<string>(StringComparer.Ordinal);
+        var panelsAsked = 0;
+        var documentsOpened = 0;
 
         using (var fixture = EditorSession.Start()) {
             fixture.Settle();
@@ -469,7 +471,7 @@ public class EditorCombinatorPairTests {
                 // and an exception.
                 var registered = fixture.Shell.Workspace.Panels.Select(static panel => panel.Id).ToList();
 
-                asked = registered.Count;
+                asked = panelsAsked = registered.Count;
 
                 foreach (var id in registered) {
                     fixture.Open(id);
@@ -477,7 +479,7 @@ public class EditorCombinatorPairTests {
             }
 
             if (depth == Depth.Documents) {
-                Author(fixture);
+                authored = documentsOpened = Author(fixture);
             }
 
             Walk(fixture.Document.Root, pairs);
@@ -487,9 +489,23 @@ public class EditorCombinatorPairTests {
             walked = pairs.Count;
         }
 
+        var seen = pairs.Count;
         var domain = Domain(Path.Combine(Root(), DomainFile)).ToHashSet(StringComparer.Ordinal);
 
         pairs.IntersectWith(domain);
+
+        // ⚠ The work each sweep did, written where a reader of a run can see it — the same reason
+        // `Fixture.TryOpen` writes the adapter into the golden suite's output (#795). This class
+        // starts three editors and the third opens a document per registered extension, and until
+        // now the only numbers it published were the floors in its failure messages: every count
+        // below was invisible on a green run, so "how much does the document sweep actually do"
+        // could not be answered without editing the file. ⚠ It is a count of work and not a
+        // duration deliberately — #1184 asks how the class's minutes divide, and a wall clock on a
+        // machine running anything else answers a different question.
+        TestContext.Current.TestOutputHelper?.WriteLine(
+            $"sweep {depth}: 1 editor started, {panelsAsked} panels asked, {documentsOpened} documents opened, "
+            + $"{seen} pairings walked, {pairs.Count} of them declared"
+        );
 
         return pairs;
     }
@@ -536,7 +552,8 @@ public class EditorCombinatorPairTests {
     ///         different view — the markup editor's <c>.vxml</c> and <c>.vcss</c> are exactly that.
     ///     </para>
     /// </remarks>
-    static void Author(EditorSession fixture) {
+    /// <returns>How many assets it created and opened.</returns>
+    static int Author(EditorSession fixture) {
         var made = 0;
 
         foreach (var factory in fixture.Editor.Editors.Editors) {
@@ -560,7 +577,7 @@ public class EditorCombinatorPairTests {
             }
         }
 
-        authored = made;
+        return made;
     }
 
     static void Walk(UiElement element, HashSet<string> into) {
