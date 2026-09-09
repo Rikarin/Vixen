@@ -179,10 +179,22 @@ What `Vixen.Editor.App` publishes today is `EditorProject`, `SceneDocument`, `Dr
 `ImporterContributions`, `IEditorRegistry`, the editing state, the work plane, `IMeshBaker`,
 `IMeshMapBaker`, `IMeshSource`, `IActiveScene`, `IActiveView`, `IDeviceDeploy`,
 `AssetEditorRegistry`, `HotReloadHost`, `IEditorGraphics` and the `PluginHost` itself.
-**Importers and build steps are not published**, and the reason is upstream rather than here:
-`ContentPipeline` builds its `ImporterRegistry` per run, deliberately, so that the editor and the CLI
-and the compiler workers cannot disagree about the set. A registry that outlives a run is a change to
-`Vixen.Editor.Assets`.
+⚠ **This paragraph used to end "importers and build steps are not published", which contradicted the
+list two lines above it.** `ImporterContributions` is published, and has been since doc 36 § F8: the
+reason it could not be — `ContentPipeline` builds its `ImporterRegistry` per run, deliberately, so
+the editor, the CLI and the compiler workers cannot disagree — was answered by a set that *outlives*
+a run rather than by a registry that does not. The compiler workers agree too now: the coordinator
+names the assemblies its contributed importers came out of and `Tools/Vixen.AssetCompiler` loads them.
+
+**Build steps really are not published**, and that one is a missing mechanism rather than an
+unpublished registry: there is no `BuildStep` or `IBuildStep` type anywhere in the repository, so
+`EditorBuilds` has no contribution point for a plugin to reach. Doc 36 § D4.
+
+⚠ **A settings page goes through `IEditorRegistry` and not through a service.** `SettingsPage` is a
+record in `Vixen.Editor.Ui` — `registry.Add(new SettingsPage(SettingsScope.Preferences, category))`,
+owned by the plugin's scope like every other contribution — and `EditorApplication` re-reads on
+`IEditorRegistry.Changed`, so a page contributed while the window is open appears in it and one
+withdrawn leaves it.
 
 ## A built-in feature is a plugin that was not loaded from a folder
 

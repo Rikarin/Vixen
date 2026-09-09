@@ -522,8 +522,9 @@ game build cannot load. That is Unity's split and it is the right one: **`Editor
 **In-tree and first-party packages:** the generator sees the attribute and emits a registration —
 no reflection, ADR-002 intact, trimmable.
 
-**Out-of-tree plugins:** the plugin ships the same generator (packaged — F5's fix is one
-`IsPackable`) so its own build emits its registrations, and `Activate` runs them. A plugin that
+**Out-of-tree plugins:** the plugin ships the same generator (packaged — ⚠ **not** by an `IsPackable`
+on the generator, which is false for every generator here; `Vixen.Editor.Inspector` carries it in
+`analyzers/dotnet/cs`, as F5 records) so its own build emits its registrations, and `Activate` runs them. A plugin that
 does not use the generator can still call `context.Add*` by hand. ⚠ **No assembly-wide reflection
 scan at editor start**, which is the trap: it would cost startup time, break trimming, and make a
 plugin's failure a mystery rather than a message.
@@ -541,17 +542,37 @@ plugin's failure a mystery rather than a message.
 | ~~`AddTool(tool)`~~ | ✅ `SceneTool`, and `[EditorTool]` — F6 |
 | ~~`AddOverlay(overlay)`~~ | ✅ `SceneOverlay`, and `[Overlay]` — `ViewportChrome` was the only thing that could put a panel over a pane |
 | ~~`AddGizmo(type, draw)`~~ | ✅ `ComponentGizmo`, and `[DrawGizmo]` — ⚠ **"nothing" was wrong**: `SceneLines.LightShapes` is this, hardcoded for one component |
-| `AddSettingsPage(page)` | `EditorSettingsPanels` |
+| ~~`AddSettingsPage(page)`~~ | ✅ `SettingsPage`, read by `EditorSettingsPanels` and re-read on `IEditorRegistry.Changed` |
 | `AddPreview(type, thumbnail)` | nothing |
 
-⚠ **Seven of nine, and none of them is a method on `PluginContext`.** P2's departure held: a
+⚠ **Eight of nine, and none of them is a method on `PluginContext`.** P2's departure held: a
 contribution kind is a record in the assembly that owns it, and `Owns`/`With` are the whole surface.
 Adding `SceneOverlay` and `ComponentGizmo` changed nothing in the plugin contract, which is the
 property the table's shape would have destroyed.
 
-⚠ **The last two rows are real and unbuilt.** A settings page needs `EditorSettingsPanels` to become a
-registry the shell reads rather than a list it holds, and a preview needs the thumbnail cache to ask
-a registry before it falls back — both are the same move made twice more, and neither is done.
+✅ **The settings page is built and it was the same move once more.** `SettingsPage` is a record in
+`Vixen.Editor.Ui` — the assembly that owns `SettingsCategory` — carrying a `SettingsScope` because
+doc 20 § A4's two windows are one mechanism, and nothing in the plugin contract changed.
+`EditorSettingsPanels` adds the contributed pages after its own and re-reads on
+`IEditorRegistry.Changed`, which is the half that separates a registry from a list.
+
+⚠ **Three things the move needed that the earlier rows did not.** `SettingsView` gained a `Remove`,
+because a registry hands back the removal and a page left behind after an unload is a rail line whose
+`Build` closes over an unloaded assembly. The window has to be *held* while it is open — nulled in
+`PanelDescriptor.Closed`, on `historyView`'s terms — because a plugin activating three seconds after
+start-up is always after the factory ran. And a contributed page whose id collides with a built-in is
+**skipped rather than added**, since `SettingsView.Add` throws on a duplicate and nothing may fail
+the editor for a plugin's mistake.
+
+⚠ **Asserted on the window and not on the registry**, which is P2's rule about exactly this: the
+first `[Overlay]` test asserted the record was in the registry, "which passes with `ViewportChrome`
+never reading it". `SettingsPageContributionTests` opens Preferences, selects the contributed page and
+reads the text it drew — before the window opens, while it is open, and after the contribution is
+withdrawn.
+
+⚠ **One row left.** A preview needs the thumbnail cache to ask a registry before it falls back —
+`ThumbnailCache` asks `ImageDecoders.For(ImageDecoders.BuiltIn, extension)` and there is nothing to
+ask first.
 
 ### The authoring rule
 
@@ -1100,10 +1121,10 @@ Deliberately open, and named so the first project that needs one does not fork.
   serialization generator described and `[Inspector]` did not draws rows in the panel and has zero
   members through `EditTarget`. The pipeline is strictly narrower than the panel that draws it.
 
-  ⚠ **And it has no consumer until D4's `AddSettingsPage` row exists.** `EditorSettingsPanels` builds
-  the Preferences and Project Settings panels directly from the application; a provider written now
-  would be a fourth implementation nothing routes through. The order that pays is the registry first,
-  the pages through `EditProperty` second.
+  ⚠ **The registry that gives it a consumer exists now.** D4's `AddSettingsPage` row is built —
+  `SettingsPage`, read by `EditorSettingsPanels` — so a page drawn through `EditProperty` has
+  somewhere to be contributed from. What is still owed is the provider itself, which is #1162: the
+  fix is one step earlier than a fourth `IEditProvider`.
 * ~~**`IToolContext`**~~ — **struck, because what a scene-view tool is handed already has a name and
   the premise under this bullet is wrong.** It read "terrain's brushes and blockout's handles should
   be two implementations of the same thing; today they are two subsystems". Measured: they are
@@ -1244,7 +1265,8 @@ import without a plugin is not an editor. The criterion is `Core`, `Ui`, `Plugin
 
 ### The extension surface, last two rows
 
-* **`AddSettingsPage`** — `EditorSettingsPanels` is still a list in the application.
+* ~~**`AddSettingsPage`**~~ — ✅ built: `SettingsPage`, read by `EditorSettingsPanels` and re-read on
+  `IEditorRegistry.Changed`.
 * **`AddPreview`** — the thumbnail cache has no registry to ask before it falls back.
 * **A build-step contribution.** `EditorBuilds` has no contribution point, so a plugin cannot add a
   step to a player build. Named here rather than at F8, which was about importers.

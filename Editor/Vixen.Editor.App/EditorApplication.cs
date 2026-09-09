@@ -1498,6 +1498,7 @@ sealed partial class EditorApplication : IDisposable {
         // Two editors in one process is not hypothetical: it is every test run.
         Extensions.Changed -= RefreshAssetKinds;
         Extensions.Changed -= RefreshOverlays;
+        Extensions.Changed -= RefreshSettingsPages;
 
         // ⚠ And for the same reason. `MetadataUpdate` holds hosts weakly, so a missed unregister is
         // not a leak — but a reload delivered to a disposed shell's document is a rebuild into a
