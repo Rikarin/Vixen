@@ -778,7 +778,7 @@ criteria is met.** The modules are named in `Vixen.Editor.Host.EditorModules` an
 | `Assets` | the import pipeline — an editor that cannot import without a plugin is not an editor | nothing; ⚠ **the exit list is wrong to omit it**, and the criterion below is corrected |
 | `AssetEditors` | ⚠ **ten names, measured** — not the registry alone; see the corrected row below | ⚠ **nothing that is worth doing today**; the registry is one tenth of it |
 | `Profiler` | the **diagnostics report**, which aggregates the project, the scene, the log ring *and* the last profile capture | publishing the log ring and the data directory, and moving the report into the module |
-| `Debugger` | the report, **and** device deploy in `EditorBuilds` — two reasons, not one | the report moving, *and* a deploy contribution |
+| `Debugger` | the report, **and** device deploy in `EditorBuilds` — two reasons, not one | the report moving, *and* a deploy contribution. ⚠ The *mechanism* half is no longer owed: D4's `BuildStep` is built, so what is left is the move. The names that hold the reference are `IDeviceDeploy`, `DeviceEntry`, `DeviceKind` and `DeviceStatus` |
 | `Diagnostics` | the joining assembly the moves created; the app activates the module | nothing — it is a module, and its reference is the `Activate` call |
 
 ⚠ **This is a net increase of one, and an earlier revision of this row hid it.** The table used to
@@ -787,9 +787,15 @@ above said "Profiler + Debugger ✅ done". Both were true about the *panels* and
 the *references*: the module was created and the app kept referencing the two originals as well.
 Seven panels moved; three references stand where two did.
 
-⚠ **`EditorApplication.cs` is 5,282 lines** — measured 2026-09-09, and the exit wants under 800.
-`EditorParity.cs` is 2,997 beside it. This paragraph has said 3,601, 3,641, 3,675, 3,787 and 4,593 in
-turn; each was true when written and none of them is now. **The criterion is moving away from itself
+⚠ **`EditorApplication.cs` is 5,305 lines** — measured on master 2026-09-09, and the exit wants under
+800. `EditorParity.cs` is 3,124 beside it. This paragraph has said 3,601, 3,641, 3,675, 3,787, 4,593
+and 5,282 in turn; each was true when written and none of them is now.
+
+⚠ **The 5,282/2,997 pair was wrong on the day it was written, and the reason is worth more than the
+figures.** It was measured inside an agent's worktree, which is a checkout from before that batch's
+other branches merged — so `EditorParity.cs` was 127 lines out at the moment it was recorded. A
+measurement of the tree has to be taken *on master*, after the merge, or it is a measurement of one
+agent's starting point. **The criterion is moving away from itself
 at roughly 700 lines a revision**, and the file grows by tens of lines with each phase that gives it
 something to own — the reload host, the icon resolution, the plugin host, the gizmo pass — which is
 the shape of the problem rather than a lapse.
@@ -1352,7 +1358,7 @@ import without a plugin is not an editor. The criterion is `Core`, `Ui`, `Plugin
 
   ⚠ **This document's numbers go stale in both directions at once, which is the useful reading rather
   than either figure.** F7's is low because the markup path was adopted faster than the doc was
-  revised; `EditorApplication.cs` is high — 5,282 against a recorded 3,787 — because the application
+  revised; `EditorApplication.cs` is high — 5,305 against a recorded 3,787 — because the application
   kept growing. A count nobody can re-derive goes stale again, so the command is written beside the
   figure and the [panel
   ledger](../../Editor/Vixen.Editor.Ui/README.md#the-panel-ledger--what-is-markup-what-is-next-and-what-never-will-be)

@@ -96,8 +96,15 @@ static class ApplicationReferenceRule {
     ///         </item>
     ///         <item>
     ///             <c>Vixen.Editor.Debugger</c> — the report, <b>and</b> device deploy in
-    ///             <c>EditorBuilds</c>, which needs a build-step contribution point that does not
-    ///             exist. <a href="https://github.com/Rikarin/Vixen/issues/400">#400</a>.
+    ///             <c>EditorBuilds</c>. ⚠ <b>This bullet used to say the deploy was waiting on a
+    ///             build-step contribution point that does not exist; it exists now</b> —
+    ///             <c>BuildStep</c> in <c>Vixen.Editor.Assets.Content</c>, D4's last row — so what is
+    ///             left is the move rather than the mechanism. The names that keep the reference are
+    ///             <c>IDeviceDeploy</c>, <c>DeviceEntry</c>, <c>DeviceKind</c> and
+    ///             <c>DeviceStatus</c>, and a deploy expressed as a contribution still has to say
+    ///             <i>which device</i>.
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/400">#400</a>,
+    ///             <a href="https://github.com/Rikarin/Vixen/issues/399">#399</a>.
     ///         </item>
     ///         <item>
     ///             <c>Vixen.Editor.Diagnostics</c> — the module that joins the two above to a project,
