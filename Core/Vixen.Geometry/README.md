@@ -220,9 +220,24 @@ every meshlet of an asset that had one.
 coordinates, and a per-face group. A general layer system is what a DCC needs and is not what a
 blockout kernel needs yet; adding one is a change to this file rather than to everything that reads it.
 
-**No knife.** A free cut across faces is doc 24's P3 row that is still owed — the kernel primitive is
-"split this face between these two points" and the gesture round it is nearer to `MeshBoolean.PlaneCut`
-than to anything here.
+**The knife is here now** ([#373](https://github.com/Rikarin/Vixen/issues/373)), and it is the
+primitive doc 24 § P3 named rather than the gesture: `Knife` takes a `KnifeCut` per face — the face
+and two points on its boundary — and splits each one along that chord. The gesture that produces them
+is `Vixen.Editor.Blockout`'s, for this file's usual reason: what can be *wrong* is the chord, and a
+cube and an assertion can reach that.
+
+⚠ **A stroke goes in one call.** § P3: a cut's new vertices renumber the face table, so cutting face 0
+and then face 3 is cutting whatever face 3 has *become*. Everything is resolved before anything is
+written, and one pass rebuilds the table.
+
+⚠ **It ends in `Stitch` and reuses its own inserted positions.** A cut leaves T-junctions by
+construction — a point part-way along an edge is a corner on one face and the middle of a whole edge
+on the other — and a stroke leaves a face by the edge the next face enters by, so two faces meeting at
+one point have to get one position rather than two coincident ones. Neither is visible in a face
+count; both show up as boundary edges on a closed box.
+
+**No plane-cut-shaped knife.** Cutting a solid along a plane is `MeshBoolean.PlaneCut` and stays
+there; what this adds is the local case, which is the one a pointer draws.
 
 ## Tests
 

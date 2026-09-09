@@ -70,7 +70,16 @@ public sealed class BlockoutUvPanel {
     EditMesh? mesh;
 
     /// <summary>What the panel is looking at, or null.</summary>
-    /// <remarks>Setting it clears everything derived, because none of it describes the new mesh.</remarks>
+    /// <remarks>
+    ///     <para>Setting it clears everything derived, because none of it describes the new mesh.</para>
+    ///     <para>
+    ///         ⚠ <b>And it raises <see cref="Changed" />, which for two years it did not.</b> This is
+    ///         the one state change that empties every list at once, so a view that was not told about
+    ///         it went on drawing the previous selection's atlas — over a mesh it no longer describes
+    ///         — until the next verb happened to run. It could not be seen while nothing rendered the
+    ///         model: every existing test reads the lists back on the same line that emptied them.
+    ///     </para>
+    /// </remarks>
     public EditMesh? Mesh {
         get => mesh;
         set {
@@ -82,6 +91,8 @@ public sealed class BlockoutUvPanel {
             Views = [];
             Report = default;
             Messages = [];
+
+            Changed?.Invoke(this);
         }
     }
 

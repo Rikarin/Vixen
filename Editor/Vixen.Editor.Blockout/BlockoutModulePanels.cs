@@ -35,8 +35,24 @@ public sealed partial class BlockoutModule {
     /// <summary>What the blockout settings panel is called in an arrangement.</summary>
     internal const string SettingsPanel = BlockoutMode.PanelId;
 
+    /// <summary>What the UV panel is called in an arrangement.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <c>IEditorMode.Panel</c>'s, because that names exactly one.</b> A registered panel
+    ///     comes with its own toggle command and therefore its own View-menu line, which is what makes
+    ///     a second panel discoverable without the mode having to open it.
+    /// </remarks>
+    internal const string UvPanel = "blockout.uv";
+
     /// <summary>The mode the panel's three settings objects belong to.</summary>
     readonly BlockoutMode mode = new();
+
+    /// <summary>docs/plan/42 § D13's model, owned here because the view outlives no panel factory.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The module's and not the view's.</b> A panel factory runs again on every reopen, so a
+    ///     model made inside it would throw away the islands somebody had just unwrapped the moment
+    ///     they moved the tab. The view subscribes and unsubscribes; the model stays.
+    /// </remarks>
+    readonly BlockoutUvPanel uv = new();
 
     EditorShell? shell;
 
@@ -63,6 +79,21 @@ public sealed partial class BlockoutModule {
                 run.Label = "Retopologize";
                 run.Clicked += _ => Shell.Commands.Execute(BlockoutMode.RetopologizeCommand);
 
+                Section(panel, "Retopology Debug");
+
+                // ⚠ docs/plan/41 § R7's overlays, and the switches are here rather than in a viewport
+                // menu because they are read alongside the dials above them: which stage went wrong is
+                // a question about the settings that produced it.
+                var overlays = panel.Add<InspectorView>();
+
+                overlays.EditedDocument = null;
+                overlays.Inspect(mode.RemeshDebug);
+
+                var capture = panel.Add<Button>();
+
+                capture.Label = "Capture / Clear Overlays";
+                capture.Clicked += _ => Shell.Commands.Execute(BlockoutMode.RemeshDebugCommand);
+
                 Section(panel, "UV Charting");
 
                 var charting = panel.Add<InspectorView>();
@@ -76,6 +107,27 @@ public sealed partial class BlockoutModule {
 
                 packing.EditedDocument = null;
                 packing.Inspect(mode.Packing);
+            }
+        );
+
+        BlockoutTheme.Install(Shell.Document);
+
+        Shell.RegisterPanel(
+            UvPanel,
+            new StringId("editor.panel.blockout-uv", "Blockout UV"),
+            panel => {
+                var view = panel.Add<BlockoutUvView>();
+
+                // ⚠ The same two settings objects the inspector above edits, read at the moment a
+                // verb runs rather than copied now — see `BlockoutUvView.Configure`.
+                view.Source = () => mode.Editing?.Mesh;
+
+                view.Configure = model => {
+                    model.Settings = mode.Charting.ToUvSettings();
+                    model.Packing = mode.Packing.ToPackSettings();
+                };
+
+                view.Model = uv;
             }
         );
     }

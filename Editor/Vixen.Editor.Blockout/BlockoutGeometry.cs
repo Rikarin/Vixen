@@ -131,10 +131,18 @@ public static class BlockoutGeometry {
     ///         index, which is at least the same answer every time for the same selection.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What is still owed is the hover preview.</b> Blender's <c>Ctrl+R</c> shows the loop
-    ///         under the pointer before you commit and lets the pointer choose the direction; that is a
-    ///         drawing job on the overlay and a modal gesture round it, and it is what would make this
-    ///         a choice rather than a selection. Called out rather than implied.
+    ///         ⚠ <b>Half of what this paragraph called owed is built: the drawing is
+    ///         <see cref="BlockoutHover.LoopCut" />.</b> Blender's <c>Ctrl+R</c> shows the loop under
+    ///         the pointer before you commit, and hovering an edge in Edge mode now does — computed
+    ///         from the same ring and the same interpolation the verb below uses, so the picture and
+    ///         the cut cannot drift apart.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is still owed is the <i>modality</i> round it</b> — scroll to set the count
+    ///         and drag to slide before committing. <c>BlockoutMode.LoopCuts</c> and
+    ///         <c>BlockoutMode.LoopSlide</c> are the two numbers such a gesture would drive and the
+    ///         preview already reads them; what is missing is the gesture that owns the pointer while
+    ///         it does, which is a modal state this mode does not have.
     ///     </para>
     /// </remarks>
     public static bool LoopCut(MeshEdit editing, int cuts = 1, float slide = 0.5f) {
@@ -157,6 +165,60 @@ public static class BlockoutGeometry {
             },
             MeshElementKind.Face
         );
+    }
+
+    /// <summary>Cuts a stroke's worth of chords across faces, as one undo entry.</summary>
+    /// <param name="editing">What is being edited.</param>
+    /// <param name="cuts">The stroke, from <see cref="BlockoutKnife.Cuts" />.</param>
+    /// <returns>Whether anything was cut.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="editing" /> or <paramref name="cuts" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>doc 24 § P3's knife, which that section calls "the one row of the table left
+    ///         undone".</b> The gesture is <see cref="BlockoutKnife" /> and the arithmetic is
+    ///         <see cref="MeshOperations.Knife" />; this is the join — one transaction, the result
+    ///         selected, and the element mode left in Face.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It does not go through <c>Run</c>, and the difference is what it acts on.</b>
+    ///         Every other verb here takes an element selection and converts it; a knife's subject is
+    ///         a path a designer drew, which is not a selection and cannot be converted from one. What
+    ///         is shared is everything after the operation — the demotion, the recorded copy, the
+    ///         single undo entry — and that is copied deliberately rather than abstracted, because a
+    ///         <c>Run</c> overload taking "either a selection or a path" would be a parameter that is
+    ///         null half the time.
+    ///     </para>
+    /// </remarks>
+    public static bool Knife(MeshEdit editing, IReadOnlyList<KnifeCut> cuts) {
+        ArgumentNullException.ThrowIfNull(editing);
+        ArgumentNullException.ThrowIfNull(cuts);
+
+        if (cuts.Count == 0 || !editing.IsActive || editing.Mesh is not { } mesh) {
+            return false;
+        }
+
+        if (!editing.Demote()) {
+            return false;
+        }
+
+        var was = new EditMesh(mesh);
+        var made = MeshOperations.Knife(mesh, cuts);
+
+        if (made.Count == 0) {
+            return false;
+        }
+
+        var document = editing.Document;
+
+        document.TouchMesh(editing.Target);
+        document.Stack.Execute(EditMeshCommand.Rebuilt(document, editing.Target, was, "Knife"));
+
+        editing.Reconcile();
+
+        editing.Element = MeshElementKind.Face;
+        editing.Selection.Set(made);
+
+        return true;
     }
 
     /// <summary>Splits the selected faces into one face per corner.</summary>

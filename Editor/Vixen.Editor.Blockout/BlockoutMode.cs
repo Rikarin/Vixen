@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.SceneView;
+using Vixen.Engine.Transforms;
 using Vixen.Editor.Ui;
 using Vixen.Geometry;
 using Vixen.Input;
@@ -58,6 +59,48 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
 
     /// <summary>The element mode <c>Tab</c> goes back into, which is the last one that was not Object.</summary>
     BlockoutElement inside = BlockoutElement.Face;
+
+    /// <summary>The pane the pointer is in, which is the one drawing the preview.</summary>
+    SceneViewport? hoveredPane;
+
+    /// <summary>The loop-cut preview's segments, reused so a hover allocates nothing.</summary>
+    /// <remarks>
+    ///     <see cref="SceneViewport.Cursor" /> is read every frame and its remarks say plainly that it
+    ///     must not allocate; a list rebuilt per frame over a ring hundreds of edges long is exactly
+    ///     the cost that note is about.
+    /// </remarks>
+    readonly List<(Vector3 A, Vector3 B)> loop = [];
+
+    /// <summary>What the candidate cell is drawn in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Deliberately neither the selection's amber nor the element cage's.</b> A preview is a
+    ///     promise about the next click rather than a statement about what exists, and reading it as
+    ///     "this is selected" is the one misunderstanding it must not invite. The same cool cyan the
+    ///     shape tool's footprint reads as.
+    /// </remarks>
+    public Color4 CellColour { get; set; } = new(0.35f, 0.85f, 0.95f, 0.9f);
+
+    /// <summary>What the loop-cut preview is drawn in.</summary>
+    public Color4 LoopColour { get; set; } = new(0.98f, 0.85f, 0.35f, 0.95f);
+
+    /// <summary>What a knife segment already placed is drawn in.</summary>
+    public Color4 KnifeColour { get; set; } = new(1f, 0.35f, 0.30f, 1f);
+
+    /// <summary>What the knife segment following the pointer is drawn in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A different colour from <see cref="KnifeColour" /> on purpose.</b> What is behind the
+    ///     pointer is where the cut will go and what is in front of it is where it would go if you
+    ///     clicked now; one colour for both is a stroke a designer cannot tell they have placed.
+    /// </remarks>
+    public Color4 KnifePendingColour { get; set; } = new(1f, 0.72f, 0.55f, 0.85f);
+
+    /// <summary>doc 24 § P3's knife stroke, or an idle one while nothing is being cut.</summary>
+    /// <remarks>
+    ///     Exposed for the same reason <see cref="Drag" /> is: a test drives the gesture with points in
+    ///     the mesh's own space and asserts the mesh, which is the seam that makes the modality
+    ///     testable without a device.
+    /// </remarks>
+    public BlockoutKnife Knife { get; } = new();
 
     /// <inheritdoc />
     public string Id => ModeId;
@@ -281,6 +324,15 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// <summary>Splits the selected faces into one face per corner.</summary>
     public const string SubdivideCommand = "blockout.subdivide";
 
+    /// <summary>Arms the knife: a free cut across faces, snapping to edges and midpoints.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It arms a gesture rather than running a verb, which is what makes it the odd one in
+    ///     the Geometry table.</b> Every other row acts on the selection the moment the key is pressed;
+    ///     a knife has no subject until a path has been drawn, so <c>K</c> takes the pointer and the
+    ///     stroke is what runs. <c>Enter</c> commits it, <c>Escape</c> throws it away.
+    /// </remarks>
+    public const string KnifeCommand = "blockout.knife";
+
     /// <summary>Joins two selected faces with a tube.</summary>
     public const string BridgeCommand = "blockout.bridge";
 
@@ -381,6 +433,15 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// </remarks>
     public const string RetopologizeCommand = "blockout.retopologize";
 
+    /// <summary>Captures docs/plan/41 § D1's per-stage artefacts for the selected solid, or clears them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A toggle rather than two verbs, because what a person wants is one key.</b> Pressed with
+    ///     nothing captured it runs the stages; pressed again it throws the capture away. Nothing else
+    ///     in this mode has that shape, and the reason it does is that a debug overlay is the one thing
+    ///     here whose off state is as important as its on state.
+    /// </remarks>
+    public const string RemeshDebugCommand = "blockout.retopology-debug";
+
     /// <summary>Writes the selection into a mesh asset and points the entity at it.</summary>
     public const string BakeCommand = "blockout.bake";
 
@@ -406,6 +467,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// <summary>And every handoff verb.</summary>
     public static IReadOnlyList<string> HandoffCommands { get; } = [
         RetopologizeCommand,
+        RemeshDebugCommand,
         BakeCommand,
         EditableCommand,
         ExportObjCommand,
@@ -445,6 +507,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         BevelCommand,
         LoopCutCommand,
         SubdivideCommand,
+        KnifeCommand,
         BridgeCommand,
         FillCommand,
         FlipCommand,
@@ -466,6 +529,29 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
 
     /// <summary>How many faces across a bevel run from the keyboard is.</summary>
     public int BevelSegments { get; set; } = 1;
+
+    /// <summary>How many loops a loop cut puts in, which is also what the preview draws.</summary>
+    public int LoopCuts { get; set; } = 1;
+
+    /// <summary>Where a single loop cut sits along the ring, from 0 to 1.</summary>
+    public float LoopSlide { get; set; } = 0.5f;
+
+    /// <summary>The lattice cell the pointer is over, or null when it is over nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Nothing computed this before, which is why there was no preview.</b> The work plane
+    ///         was cast from the shape gesture and from nowhere else, so while hovering with no gesture
+    ///         in flight no ray was cast at all and there was nothing for a cell to be drawn at —
+    ///         doc 24 § P4's "what is not here" in one sentence, and the same absence
+    ///         <c>TerrainMode.Hover</c> had.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is also what <see cref="CubeGridCommand" /> now makes its box at.</b> A preview
+    ///         that showed one cell and a verb that built at the plane's origin would be two answers to
+    ///         "where is this going", and the wrong one would be the one that persisted.
+    ///     </para>
+    /// </remarks>
+    public GridBox? HoverCell { get; private set; }
 
     /// <summary>Which shape the shape tool makes.</summary>
     /// <remarks>What the palette's twelve "Create ⟨shape⟩" verbs set, and what a drag on the work
@@ -590,6 +676,20 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         Verb(DeleteCommand, "Delete Faces", BlockoutGeometry.Delete, InputKey.X);
         Verb(DetachCommand, "Detach Faces", editing => BlockoutGeometry.Detach(editing) is not null, InputKey.P);
 
+        // ⚠ The knife arms rather than runs, which is why it is a `Verb` whose body sets a flag. Every
+        // other row of the Geometry table has its subject before the key is pressed; this one goes and
+        // gets one. Blender's `K`, and the same key, because the gesture is the same gesture.
+        Verb(
+            KnifeCommand,
+            "Knife",
+            _ => {
+                Knife.IsArmed = true;
+
+                return true;
+            },
+            InputKey.K
+        );
+
         // ⚠ Doc 24's Surfaces table, and every one of these is an element verb like the ones above —
         // "project these faces" needs faces. Assigning a material is the one that is not here: it
         // comes from a palette rather than from a key, and the palette is the inspector's.
@@ -636,6 +736,21 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         // about it. No chord, deliberately — it is seconds of work and is run once a shape is
         // settled, which is a menu verb by the same rule the plan's own tables use.
         Make(RetopologizeCommand, "Retopologize", () => BlockoutRetopology.Run(Scene!, Retopology.ToRemeshSettings()));
+
+        // ⚠ docs/plan/41 § R7's debug overlays, and the settings it captures with are the *same* ones
+        // Retopologize runs with. A dump taken at other numbers would be a picture of a remesh that is
+        // not the one the next click is going to produce, which is worse than no picture.
+        Make(
+            RemeshDebugCommand,
+            "Retopology Debug Overlays",
+            () => {
+                if (RemeshDebug.Dump is not null) {
+                    RemeshDebug.Clear();
+                } else {
+                    RemeshDebug.Capture(Scene!, Retopology.ToRemeshSettings());
+                }
+            }
+        );
 
         Make(BakeCommand, "Bake To Mesh Asset", () => {
             if (Baker is { } baker) {
@@ -782,6 +897,14 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// </remarks>
     public BlockoutRetopologySettings Retopology { get; } = new();
 
+    /// <summary>docs/plan/41 § D1's artefacts and which of them are drawn.</summary>
+    /// <remarks>
+    ///     ⚠ <b>State on the mode for <see cref="Retopology" />'s reason, and held across a capture on
+    ///     purpose.</b> Which stages somebody is looking at is a question they answered once and want
+    ///     to keep answering; the capture is what comes and goes.
+    /// </remarks>
+    public BlockoutRemeshDebug RemeshDebug { get; } = new();
+
     /// <summary>Where to cut and how flat to make it, for the UV verbs.</summary>
     public BlockoutChartSettings Charting { get; } = new();
 
@@ -847,7 +970,19 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     ///     a shape made from a drag lands where the drag was.</remarks>
     Vector3 Where() => Plane?.Origin ?? Vector3.Zero;
 
+    /// <summary>Which cells a creation verb makes a box in: the hovered one, or the plane's origin.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The hover wins, and the fallback is what the verb used to do unconditionally.</b> A key
+    ///     pressed with the pointer outside the pane — or in a test, or from the palette — still has to
+    ///     mean something, and the plane's origin is the answer every other menu-run creation verb
+    ///     gives. What changes is that with the pointer on the plane the box lands where the preview
+    ///     said it would.
+    /// </remarks>
     GridBox Cell() {
+        if (HoverCell is { } hovered) {
+            return hovered;
+        }
+
         var cell = BlockoutCubeGrid.CellOf(Where(), Plane);
 
         return GridBox.At(cell.X, cell.Y, cell.Z);
@@ -862,10 +997,11 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// <summary>Pushes the selected box's side along the work plane's second axis.</summary>
     /// <remarks>
     ///     ⚠ <b>One axis and one side from the keyboard, which is the honest shape of a keyboard
-    ///     verb.</b> Unreal's cube grid pushes whichever face the pointer is over; picking that face
-    ///     needs a hover the tool does not draw yet — see <c>BlockoutCubeGrid</c> — so the keys push
-    ///     upwards, which is the direction a block-out grows nine times in ten, and the other five
-    ///     sides are a drag of the gizmo.
+    ///     verb.</b> Unreal's cube grid pushes whichever face the pointer is over; picking that face is
+    ///     a pick against the <i>box</i>, and what <see cref="HoverCell" /> answers is a pick against
+    ///     the work <i>plane</i> — so the candidate-cell preview that arrived with doc 24 § P4 does not
+    ///     settle this one. The keys still push upwards, which is the direction a block-out grows nine
+    ///     times in ten, and the other five sides are a drag of the gizmo.
     /// </remarks>
     void Pushed(int cells) {
         if (Scene is not { } scene) {
@@ -904,7 +1040,140 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     ///     re-entering blockout put the viewport straight back into face selection on whatever
     ///     happens to be selected now, which is rarely what was being edited a moment ago.
     /// </remarks>
-    public void Deactivated() => Element = BlockoutElement.Object;
+    /// <remarks>
+    ///     ⚠ <b>And the cursor comes off the pane with it.</b> <see cref="SceneViewport.Cursor" /> is a
+    ///     delegate the pane holds until something replaces it; a mode that left its own behind would
+    ///     draw a candidate cell over the terrain tools, in a mode with no lattice.
+    /// </remarks>
+    public void Deactivated() {
+        Forget();
+        Knife.Cancel();
+
+        Element = BlockoutElement.Object;
+    }
+
+    /// <summary>Draws the retopology artefacts over the entity they were captured from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only over that entity, and it goes when the entity does.</b> Every artefact is indexed
+    ///     against one solid's conditioned mesh, so a field and a patch partition drawn over anything
+    ///     else are a statement about geometry they do not describe — which reads as the remesher
+    ///     having produced nonsense rather than as the overlay being stale.
+    /// </remarks>
+    void Artefacts(GizmoDraw draw) {
+        if (!RemeshDebug.IsVisible || Scene is not { } scene) {
+            return;
+        }
+
+        var target = RemeshDebug.Target;
+
+        if (target.IsNull || !scene.World.IsAlive(target)) {
+            RemeshDebug.Clear();
+
+            return;
+        }
+
+        var placement = scene.World.Has<WorldTransform>(target)
+            ? scene.World.Read<WorldTransform>(target).Value
+            : Matrix4x4.Identity;
+
+        RemeshDebug.Draw(draw, placement);
+    }
+
+    /// <summary>Takes the preview off whichever pane is drawing it.</summary>
+    void Forget() {
+        if (hoveredPane is { } pane) {
+            pane.Cursor = null;
+            hoveredPane = null;
+        }
+
+        HoverCell = null;
+    }
+
+    /// <summary>Records where the pointer is and keeps the pane's cursor pointed at this mode.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The previous pane is cleared when the pointer moves to another one.</b> Two panes are
+    ///     two cameras looking at one scene, and a candidate cell left in the pane the pointer has left
+    ///     says the next click will land in two places. Only the pane the pointer is in draws one.
+    /// </remarks>
+    void Hovering(SceneViewport pane, PointerEvent args) {
+        if (!ReferenceEquals(hoveredPane, pane)) {
+            if (hoveredPane is { } previous) {
+                previous.Cursor = null;
+            }
+
+            hoveredPane = pane;
+            pane.Cursor = Cursor;
+        }
+
+        var plane = Plane ?? Ground;
+
+        if (Element == BlockoutElement.Object
+            && On(pane.Ray(pane.Control.ToRender(args.X, args.Y)), plane.AsPlane(), out var point)) {
+            var cell = BlockoutCubeGrid.CellOf(point, Plane);
+
+            HoverCell = GridBox.At(cell.X, cell.Y, cell.Z);
+        } else {
+            HoverCell = null;
+        }
+    }
+
+    /// <summary>Draws whatever the pointer is promising, once a frame, from the pane that owns it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two previews and one delegate, which is doc 24's own argument.</b> The cube grid's
+    ///     candidate cell and the loop cut's loop are the same job — a mode-owned overlay drawn from a
+    ///     hover — and they are mutually exclusive by element mode, so a second delegate would be a
+    ///     second answer to "what does the pointer mean right now" in one mode.
+    /// </remarks>
+    void Cursor(GizmoDraw draw) {
+        Artefacts(draw);
+
+        if (Knife.IsArmed && Editing is { IsActive: true } cutting) {
+            Knife.Preview(
+                draw,
+                cutting.Document.World.Has<WorldTransform>(cutting.Target)
+                    ? cutting.Document.World.Read<WorldTransform>(cutting.Target).Value
+                    : Matrix4x4.Identity,
+                KnifeColour,
+                KnifePendingColour
+            );
+
+            return;
+        }
+
+        if (Element == BlockoutElement.Object) {
+            if (HoverCell is { } cell) {
+                BlockoutHover.CubeGrid(draw, cell, Plane, CellColour);
+            }
+
+            return;
+        }
+
+        if (Element != BlockoutElement.Edge
+            || Editing is not { IsActive: true } editing
+            || editing.Mesh is not { } mesh
+            || editing.Hover is not { Kind: SubObjectKind.Edge } hover) {
+            return;
+        }
+
+        if (!BlockoutHover.LoopCut(mesh, hover.Index, LoopCuts, LoopSlide, loop)) {
+            return;
+        }
+
+        // ⚠ Through the entity's matrix, because a mesh's positions are its own. Every other element
+        // the cage draws goes through the same one — see `SceneLines.Elements` — and a preview drawn
+        // in mesh space sits at the world origin for any entity that has been moved.
+        var placement = editing.Document.World.Has<WorldTransform>(editing.Target)
+            ? editing.Document.World.Read<WorldTransform>(editing.Target).Value
+            : Matrix4x4.Identity;
+
+        foreach (var (a, b) in loop) {
+            draw.Line(
+                Matrix4x4.TransformPosition(a, placement),
+                Matrix4x4.TransformPosition(b, placement),
+                LoopColour
+            );
+        }
+    }
 
     /// <inheritdoc />
     /// <remarks>
@@ -950,6 +1219,20 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
             return true;
         }
 
+        // ⚠ And the knife takes it for the same reason and more strongly: while a stroke is being
+        // drawn every click is a point on the path, so a press that also started the pane's
+        // rubber-band would end the stroke by selecting whatever the band swept over.
+        if (Knife.IsArmed && Cutting(pane, args)) {
+            return true;
+        }
+
+        // ⚠ Before the Object-mode early return, because the cube grid's preview is an Object-mode
+        // thing and the element highlight is not. Reading the move in one mode and not the other is
+        // how the tool came to be keyboard-only in exactly the mode its reference is pointer-driven.
+        if (args.Action == PointerAction.Moved) {
+            Hovering(pane, args);
+        }
+
         if (Element == BlockoutElement.Object) {
             return false;
         }
@@ -989,6 +1272,30 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     public bool Key(SceneViewport pane, KeyEvent args) {
         ArgumentNullException.ThrowIfNull(args);
 
+        if (Knife.IsArmed) {
+            switch (args.Key) {
+                case InputKey.Escape:
+                    Knife.Cancel();
+
+                    return true;
+
+                // ⚠ The stroke commits as one command, which is § P3's own requirement: a cut's new
+                // vertices renumber the face table, so the whole stroke has to be one command with
+                // one moment at which nothing holds an index.
+                case InputKey.Enter or InputKey.KeypadEnter:
+                    if (Editing is { } cut) {
+                        BlockoutGeometry.Knife(cut, Knife.Cuts());
+                    }
+
+                    Knife.Cancel();
+
+                    return true;
+
+                default:
+                    break;
+            }
+        }
+
         if (args.Key != InputKey.Escape || drag is not { Stage: not ShapeStage.Idle }) {
             return false;
         }
@@ -997,6 +1304,45 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         IsArmed = false;
 
         return true;
+    }
+
+    /// <summary>Drives the knife stroke from a pointer over a pane.</summary>
+    /// <returns>Whether the event was taken.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A move is tracked and a press places a point; nothing here commits.</b> Committing on
+    ///     a release would make a stroke of one segment out of every stray click, and committing on a
+    ///     double click would put the gesture's end inside the pane's own click arbitration. The
+    ///     stroke ends where the designer says it does, which is Blender's rule and the one that lets
+    ///     a path be as long as it needs.
+    /// </remarks>
+    bool Cutting(SceneViewport pane, PointerEvent args) {
+        if (Editing is not { IsActive: true } editing || editing.Mesh is not { } mesh) {
+            Knife.Cancel();
+
+            return false;
+        }
+
+        var placement = editing.Document.World.Has<WorldTransform>(editing.Target)
+            ? editing.Document.World.Read<WorldTransform>(editing.Target).Value
+            : Matrix4x4.Identity;
+
+        switch (args.Action) {
+            case PointerAction.Moved:
+                Knife.Track(mesh, placement, pane.Ray(pane.Control.ToRender(args.X, args.Y)));
+
+                return true;
+
+            case PointerAction.Pressed when args.Button == PointerButton.Primary:
+                Knife.Track(mesh, placement, pane.Ray(pane.Control.ToRender(args.X, args.Y)));
+                Knife.Place();
+
+                return true;
+
+            default:
+                // Every other event while the knife holds the pointer, so a release does not reach the
+                // pane's rubber-band and end the stroke by selecting what it swept over.
+                return true;
+        }
     }
 
     /// <summary>Drives the two-stage shape gesture from a pointer over a pane.</summary>

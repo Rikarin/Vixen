@@ -25,6 +25,18 @@ namespace Vixen.Geometry;
 /// </remarks>
 public readonly record struct MeshLoop(int[] Loop, int Group, int Smooth = 0);
 
+/// <summary>One free cut: a face, and the two points on its boundary the cut runs between.</summary>
+/// <param name="Face">Which face.</param>
+/// <param name="From">Where the cut enters, on that face's boundary.</param>
+/// <param name="To">Where it leaves.</param>
+/// <remarks>
+///     ⚠ <b>Points and not parameters, because the caller is a gesture rather than an algorithm.</b>
+///     What a knife has is where the pointer was, snapped to an edge or a midpoint; asking it for
+///     "corner two, seven tenths along" would be asking it to resolve that twice and then disagree with
+///     <see cref="MeshOperations.Knife" /> about the answer.
+/// </remarks>
+public readonly record struct KnifeCut(int Face, Vector3 From, Vector3 To);
+
 /// <summary>Doc 24's geometry verbs, as functions over an <see cref="EditMesh" />.</summary>
 /// <remarks>
 ///     <para>
@@ -389,6 +401,255 @@ public static class MeshOperations {
         Replace(mesh, table);
         return made;
     }
+
+    /// <summary>Cuts faces in two, each along a chord between two points on its own boundary.</summary>
+    /// <param name="mesh">The mesh.</param>
+    /// <param name="cuts">One cut per face. A face named twice is cut once, by the first of them.</param>
+    /// <param name="tolerance">How far off the boundary a point may be and still be on it.</param>
+    /// <returns>The faces the cuts produced.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="mesh" /> or <paramref name="cuts" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>doc 24 § P3's knife, as the kernel primitive that section names: "split this face
+    ///         between these two points".</b> Every other verb of the Geometry table was here and this
+    ///         one was called out as owed rather than quietly dropped. The gesture — a path the pointer
+    ///         draws, snapped through <c>SnapContext</c> — is the editor's; what can be <i>wrong</i> is
+    ///         all here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every cut is resolved before anything is written, and one pass rebuilds the
+    ///         table.</b> A knife stroke crosses several faces, and cutting them one at a time would
+    ///         mean each cut renumbering the table the next one indexes into — which is the failure
+    ///         § P3 names in as many words: "a cut's new vertices renumber the face table". Resolve,
+    ///         then add the positions, then replace once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The winding comes from the face's own corner loop and never from the edge
+    ///         table.</b> An edge is stored low-to-high and says nothing about which way a face walks
+    ///         it, so a half assembled out of edges is a half that may come out inside out — which is
+    ///         why <see cref="MeshTopology.BoundaryLoop" /> orients itself from the rim's own face, and
+    ///         why this walks the loop.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It ends in <see cref="Stitch" />, because a cut leaves T-junctions by
+    ///         construction.</b> A point inserted part-way along an edge is a corner on this face and
+    ///         the middle of a whole edge on the face beside it: the two stop sharing an edge,
+    ///         <see cref="EditMesh.Validate" /> calls both halves boundaries, and the surface draws with
+    ///         a crack that opens and closes as the camera moves. Nothing about the geometry is wrong,
+    ///         which is why it survives every check that is not that one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A cut that does not cross the face is refused rather than made degenerate.</b> Both
+    ///         ends on one edge, both at one corner, or two adjacent corners each describe a chord that
+    ///         separates nothing — and a face table with a two-corner "face" in it is a mesh every later
+    ///         verb walks wrongly. The face is left exactly as it was.
+    ///     </para>
+    /// </remarks>
+    public static IReadOnlyList<int> Knife(
+        EditMesh mesh,
+        IReadOnlyList<KnifeCut> cuts,
+        float tolerance = DefaultStitchTolerance
+    ) {
+        ArgumentNullException.ThrowIfNull(mesh);
+        ArgumentNullException.ThrowIfNull(cuts);
+
+        // The resolution pass. Nothing reaches the mesh until every cut has an answer, so a stroke
+        // whose last face refuses does not leave the ones before it half cut.
+        var planned = new Dictionary<int, (int[] First, int[] Second)>();
+
+        // ⚠ Every position this call inserts, so that two faces meeting at one point get one position.
+        // A stroke leaves a face by the edge the next face enters by, and inserting a position apiece
+        // puts two coincident corners on one edge — which `Stitch` cannot repair, because each half is
+        // already a corner of the face that made it and neither lies on the *other's* edge any more.
+        // The result is a seam down the middle of a stroke that closes only when somebody welds by
+        // distance, and every count-shaped assertion stays green over it.
+        List<int> inserted = [];
+
+        foreach (var cut in cuts) {
+            if ((uint) cut.Face >= (uint) mesh.FaceCount || planned.ContainsKey(cut.Face)) {
+                continue;
+            }
+
+            if (Chord(mesh, cut, tolerance, inserted) is { } halves) {
+                planned[cut.Face] = halves;
+            }
+        }
+
+        if (planned.Count == 0) {
+            return [];
+        }
+
+        var table = new List<MeshLoop>(mesh.FaceCount + planned.Count);
+        List<int> made = [];
+
+        for (var face = 0; face < mesh.FaceCount; face++) {
+            var group = mesh.Faces[face].Group;
+            var smoothing = mesh.Faces[face].Smoothing;
+
+            if (!planned.TryGetValue(face, out var halves)) {
+                table.Add(new(mesh.CornersOf(face).ToArray(), group, smoothing));
+                continue;
+            }
+
+            made.Add(table.Count);
+            table.Add(new(halves.First, group, smoothing));
+            made.Add(table.Count);
+            table.Add(new(halves.Second, group, smoothing));
+        }
+
+        Replace(mesh, table);
+        Stitch(mesh, tolerance);
+
+        return made;
+    }
+
+    /// <summary>The two halves a cut makes, or null when it makes none.</summary>
+    static (int[] First, int[] Second)? Chord(EditMesh mesh, in KnifeCut cut, float tolerance, List<int> inserted) {
+        var loop = mesh.CornersOf(cut.Face).ToArray();
+
+        if (loop.Length < 3) {
+            return null;
+        }
+
+        if (Anchor(mesh, loop, cut.From, tolerance) is not { } from
+            || Anchor(mesh, loop, cut.To, tolerance) is not { } to) {
+            return null;
+        }
+
+        // The same corner, or the same edge: a chord that separates nothing.
+        if (from.Corner == to.Corner && from.IsCorner == to.IsCorner) {
+            return null;
+        }
+
+        // The loop with each end's new position inserted after the corner its edge starts at, so the
+        // walk below is a walk of one list rather than of a list plus two special cases.
+        var expanded = new List<int>(loop.Length + 2);
+        var first = -1;
+        var second = -1;
+
+        for (var corner = 0; corner < loop.Length; corner++) {
+            if (from.IsCorner && from.Corner == corner) {
+                first = expanded.Count;
+            }
+
+            if (to.IsCorner && to.Corner == corner) {
+                second = expanded.Count;
+            }
+
+            expanded.Add(loop[corner]);
+
+            if (!from.IsCorner && from.Corner == corner) {
+                first = expanded.Count;
+                expanded.Add(Insert(mesh, inserted, Between(mesh, loop, corner, from.Along), tolerance));
+            }
+
+            if (!to.IsCorner && to.Corner == corner) {
+                second = expanded.Count;
+                expanded.Add(Insert(mesh, inserted, Between(mesh, loop, corner, to.Along), tolerance));
+            }
+        }
+
+        if (first < 0 || second < 0) {
+            return null;
+        }
+
+        var one = Walk(expanded, first, second);
+        var other = Walk(expanded, second, first);
+
+        // Two adjacent corners: one half is the chord and the corner between them, which is two
+        // positions and a face that is a line.
+        return one.Length >= 3 && other.Length >= 3 ? (one, other) : null;
+    }
+
+    /// <summary>Where a point sits on a face's boundary, or null when it is not on it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A corner and a split of an edge have to be told apart, and the epsilon is relative to
+    ///     the edge.</b> Landing a cut a millionth of a unit from a corner and inserting a position
+    ///     there anyway makes a zero-length edge every later verb then has to survive; snapping it to
+    ///     the corner is what the designer meant and what leaves the mesh sound. Relative because an
+    ///     absolute one is a claim about how big the model is — <c>Vector3.Normalize</c>'s own 1e-6 is
+    ///     the trap this repository has been bitten by three times.
+    /// </remarks>
+    static KnifeAnchor? Anchor(EditMesh mesh, int[] loop, Vector3 point, float tolerance) {
+        var best = float.MaxValue;
+        KnifeAnchor? found = null;
+
+        for (var corner = 0; corner < loop.Length; corner++) {
+            var a = mesh.Positions[loop[corner]];
+            var b = mesh.Positions[loop[(corner + 1) % loop.Length]];
+            var along = b - a;
+            var length = along.LengthSquared();
+
+            if (length <= 0f) {
+                continue;
+            }
+
+            var t = Math.Clamp(Vector3.Dot(point - a, along) / length, 0f, 1f);
+            var distance = Vector3.DistanceSquared(a + (along * t), point);
+
+            if (distance >= best) {
+                continue;
+            }
+
+            var span = MathF.Sqrt(length);
+            var edge = span > 0f ? tolerance / span : 1f;
+
+            best = distance;
+
+            found = t <= edge
+                ? new(corner, 0f, true)
+                : t >= 1f - edge
+                    ? new((corner + 1) % loop.Length, 0f, true)
+                    : new(corner, t, false);
+        }
+
+        return best <= tolerance * tolerance ? found : null;
+    }
+
+    /// <summary>A position for a point this stroke has cut at, reusing one it has already made.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A linear scan and not a hash, because the comparison is a distance.</b> A stroke inserts
+    ///     two positions per face it crosses — tens, not thousands — and quantising coordinates into a
+    ///     key would put two points a rounding apart into different buckets exactly when they are the
+    ///     pair that has to be one.
+    /// </remarks>
+    static int Insert(EditMesh mesh, List<int> inserted, Vector3 point, float tolerance) {
+        foreach (var position in inserted) {
+            if (Vector3.DistanceSquared(mesh.Positions[position], point) <= tolerance * tolerance) {
+                return position;
+            }
+        }
+
+        var made = mesh.AddPosition(point);
+
+        inserted.Add(made);
+
+        return made;
+    }
+
+    static Vector3 Between(EditMesh mesh, int[] loop, int corner, float along) =>
+        Vector3.Lerp(mesh.Positions[loop[corner]], mesh.Positions[loop[(corner + 1) % loop.Length]], along);
+
+    /// <summary>One half of a cut face: the expanded loop walked from one end round to the other.</summary>
+    static int[] Walk(List<int> expanded, int from, int to) {
+        List<int> half = [];
+
+        for (var step = from; ; step = (step + 1) % expanded.Count) {
+            half.Add(expanded[step]);
+
+            if (step == to) {
+                break;
+            }
+        }
+
+        return [.. half];
+    }
+
+    /// <summary>Where in a face's loop a cut's end sits.</summary>
+    /// <param name="Corner">The corner it is at, or the corner the edge it splits starts from.</param>
+    /// <param name="Along">How far along that edge, when it is a split.</param>
+    /// <param name="IsCorner">Whether it is a corner rather than a split.</param>
+    readonly record struct KnifeAnchor(int Corner, float Along, bool IsCorner);
 
     /// <summary>Splits each face into one face per corner, round a new middle.</summary>
     /// <param name="mesh">The mesh.</param>

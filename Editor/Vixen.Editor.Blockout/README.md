@@ -56,6 +56,98 @@ that survives being edited, which a record replaced wholesale by every `with` ex
 model importer reached the same conclusion first, in `ModelImportEdits`, and `BlockoutSettingsTests`
 keeps the mirror honest member by member.
 
+## The UV panel
+
+⚠ **A second panel, registered rather than named by the mode, because `IEditorMode.Panel` names
+exactly one.** `blockout.uv` therefore comes with its own toggle command and its own View-menu line;
+it does not open and close with the mode, which is right for a reading somebody keeps beside the
+viewport while they work.
+
+`BlockoutUvPanel` is the model and was already whole — doc 42 § D13's three verbs, the island
+descriptions and the seam set — and `BlockoutUvView.vxml` is the drawing that was owed
+([#414](https://github.com/Rikarin/Vixen/issues/414)). Nothing in the view computes a metric: the
+atlas square, the rectangles and the ramp read the model's `Views` and add nothing to them.
+
+⚠ **The heat map is two channels and not one ramp.** `UvIslandView.IsBad` is a disjunction —
+a flipped triangle is a correctness failure however low the stretch is — so a flipped island takes
+`uv-flipped` and never a ramp bucket. Averaging the two into one score is the obvious simplification
+and it re-hides exactly the case the model was written to expose.
+
+⚠ **And building the view found the model's one real bug.** `Mesh`'s setter emptied every derived
+list without raising `Changed`, so a panel switched to a different selection went on drawing the last
+mesh's atlas. No model test could see it: they all read the lists back on the line that emptied them.
+
+## The knife
+
+⚠ **doc 24 § P3 called it "the one row of the table left undone"**
+([#373](https://github.com/Rikarin/Vixen/issues/373)), and it is the only verb in this assembly that
+is a *gesture* rather than a function of the selection. `K` arms it, each click places a point on the
+face's boundary under the pointer, `Enter` cuts and `Escape` throws the stroke away.
+
+`BlockoutKnife` holds the stroke and does the snapping; `MeshOperations.Knife` does the arithmetic.
+The split is the assembly's usual one — what can be wrong is the chord, and a cube and an assertion
+can reach that.
+
+⚠ **Every click lands on a boundary, and that is what makes the kernel primitive usable.** "Split this
+face between these two points" is only defined for points on its rim, so a click in the middle of a
+face becomes a click on its nearest edge. A snap that returned the hit point would produce a stroke
+every cut of which the kernel refuses: a tool that draws a preview and then does nothing.
+
+⚠ **A segment across a face boundary offers a cut for both faces and lets the kernel choose.** Which
+of the two faces sharing an edge the picker answered with is not a choice the designer made, and
+`MeshOperations.Knife` already knows what "on this face's boundary" means — one rule rather than two
+that can disagree.
+
+## The retopology debug overlays
+
+⚠ **`RemeshDump` was a finished model nothing drew** ([#413](https://github.com/Rikarin/Vixen/issues/413)) —
+referenced by its own tests, by a `RunawayGuard` comment, and by nothing under `Editor/`. Doc 41 § D1's
+argument for making each stage an artefact is that *a remesher is judged by a picture*, and the
+measurements in that document were obtained by parsing written `.obj` files, which is the workaround
+for not having one.
+
+`BlockoutRemeshDebug` is the drawing: six switches over the five stages, captured by
+`Retopology Debug Overlays` and drawn over the solid they were captured from. The capture remembers
+which entity it is of, because every artefact is indexed against that solid's conditioned mesh.
+
+⚠ **The overlay is drawn through `SceneViewport.Cursor`, the same seam the hover previews use** — so
+it appears in the pane the pointer is in, and comes off with the mode. That is a deliberate reuse: a
+second push seam would be a second thing to forget to clear.
+
+⚠ **What is still owed is § R7's live preview at the approximate quantization, and the blocker is not
+the editor.** `QuantizeMode` and `Quantizer` are internal to `Vixen.Geometry.Remeshing`, so nothing
+outside that assembly can ask for the cheap answer at all — the issue's "no `Approximate`-mode preview
+path exists in the editor" is true and understates it. That row is an API change before it is a panel.
+
+## The hover previews
+
+⚠ **Two tools were pointer-driven in their reference and keyboard-only here, and both are the same
+job** ([#374](https://github.com/Rikarin/Vixen/issues/374)). `SceneViewport.Cursor` is a delegate the
+pane holds and the mode sets on its first pointer move; `BlockoutHover` is what it draws.
+
+| Mode | What is drawn | What it commits to |
+|---|---|---|
+| Object | the lattice cell under the pointer, as a wire box | `Cube Grid Box` builds *there* |
+| Edge | the loop a cut through the hovered edge's ring would make | `Ctrl+Shift+R`'s cut |
+
+⚠ **The preview and the verb read the same numbers, which is the half that makes it a tool.** The
+cube-grid verb used to build at the work plane's origin whatever the pointer was over, so drawing a
+candidate cell and leaving that alone would have shown one answer and committed another. `Cell()`
+prefers `HoverCell` and falls back to the origin, which is what a key pressed with the pointer
+outside the pane still has to mean.
+
+⚠ **The loop preview is a pure function of the hover and never runs the operation.** A preview that
+cut a copy would pay a topology rebuild per pointer move and would be a second implementation of the
+verb; what `BlockoutHover.LoopCut` computes is the verb's *input* — the ring, and the positions the
+cut would insert — and `BlockoutHoverTests` pins the two together by running the real cut and asking
+whether every previewed point is one it made.
+
+⚠ **What is still owed**, and neither is a drawing: the loop cut's **modality** (scroll to set the
+count, drag to slide before committing — the two numbers exist as `LoopCuts` and `LoopSlide` and the
+preview reads them, but nothing owns the pointer while they move), and the cube grid's **face** pick
+(§ P4's "click a grid face, `Shift`+click for a rectangle" is a pick against a box, not against the
+plane, which is why `Pushed` still pushes upwards).
+
 ## What it owns
 
 | | |
@@ -66,6 +158,7 @@ keeps the mirror honest member by member.
 | `Ctrl+↑` `Ctrl+↓` | grow and shrink; `Ctrl+A`, `Alt+A`, `Ctrl+I` for all, none and invert |
 | `E`, `I`, `Ctrl+B` | extrude, inset and bevel — `Alt` for the per-face versions of the first two |
 | `Ctrl+Shift+R`, `Ctrl+E`, `F` | loop cut, bridge, fill hole |
+| `K` | the knife: click a path, `Enter` to cut, `Escape` to abandon it |
 | `M`, `X`, `Ctrl+X`, `P` | weld, delete, dissolve, detach |
 | `Ctrl`+drag the gizmo | extrude, and then drag what it made — doc 24's second binding for it |
 | `Shift+A` | arms the shape tool: drag a footprint on the work plane, then drag the height |

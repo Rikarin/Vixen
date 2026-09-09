@@ -20,5 +20,13 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Editor.Blockout\Vixen.Editor.Blockout.csproj" />
+
+        <!--
+            docs/plan/42 § D13's UV panel is a view, and a view is only testable against a document
+            that has laid itself out: this is the assembly that owns running frames and reading a
+            resolved box back. An island's rectangle is a claim about where it landed, and nothing
+            below a layout pass can check one.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
     </ItemGroup>
 </Project>

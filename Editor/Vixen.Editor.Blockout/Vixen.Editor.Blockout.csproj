@@ -10,6 +10,14 @@
         </Description>
         <PackageTags>editor;blockout;level-design;mode;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!--
+            docs/plan/42 § D13's UV panel is a `.vxml` and a `.vcss`, so this project needs the two
+            item types and the two UI generators. One line rather than an Import plus two analyzer
+            references: Directory.Build.targets turns this into both, and a project that named the
+            .targets by hand would then be the shape VX4002 exists to report.
+        -->
+        <VixenUi>true</VixenUi>
     </PropertyGroup>
 
     <ItemGroup>

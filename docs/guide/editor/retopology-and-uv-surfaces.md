@@ -4,7 +4,7 @@ slug: editor/retopology-and-uv-surfaces
 kind: guide
 area: Editor
 summary: Where a quad remesh and an unwrap are actually invoked from — the model importer, three command-line verbs, and the blockout mode's own verb and UV panel.
-api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models.ModelRetopology.MeshResult, T:Vixen.Editor.Assets.Models.ModelGeometry, T:Vixen.Editor.Assets.Models.ModelWriter, T:Vixen.Editor.Assets.Models.PolygonMesh, T:Vixen.Editor.Assets.Models.SymmetryAxis, T:Vixen.Editor.Assets.Models.UnwrapMode, T:Vixen.Editor.Assets.Models.RetopologyGuideReference, T:Vixen.Cli.GeometryRunner, T:Vixen.Editor.Blockout.BlockoutRetopology, T:Vixen.Editor.Blockout.BlockoutUvPanel, T:Vixen.Editor.Blockout.UvIslandView, T:Vixen.Editor.Blockout.BlockoutRetopologySettings, T:Vixen.Editor.Blockout.BlockoutChartSettings, T:Vixen.Editor.Blockout.BlockoutPackSettings]
+api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models.ModelRetopology.MeshResult, T:Vixen.Editor.Assets.Models.ModelGeometry, T:Vixen.Editor.Assets.Models.ModelWriter, T:Vixen.Editor.Assets.Models.PolygonMesh, T:Vixen.Editor.Assets.Models.SymmetryAxis, T:Vixen.Editor.Assets.Models.UnwrapMode, T:Vixen.Editor.Assets.Models.RetopologyGuideReference, T:Vixen.Cli.GeometryRunner, T:Vixen.Editor.Blockout.BlockoutRetopology, T:Vixen.Editor.Blockout.BlockoutUvPanel, T:Vixen.Editor.Blockout.UvIslandView, T:Vixen.Editor.Blockout.BlockoutRetopologySettings, T:Vixen.Editor.Blockout.BlockoutChartSettings, T:Vixen.Editor.Blockout.BlockoutPackSettings, T:Vixen.Editor.Blockout.BlockoutUvView, T:Vixen.Editor.Blockout.BlockoutRemeshDebug, T:Vixen.Editor.Blockout.BlockoutTheme]
 tags: [editor, importer, cli, blockout, retopology, uv, atlas]
 since: 0.1
 status: preview
@@ -193,6 +193,43 @@ mask and a symmetry plane are per-run data or a gizmo's business rather than num
 `UvSettings.Decomposition` is a plug point, not a dial. Each `To…Settings()` leaves those at the
 record's own defaults, so a caller that has one passes it *beside* the panel's values.
 
+### The debug overlays
+
+`BlockoutRemeshDebug` is `RemeshDump` on screen: doc 41 § D1's per-stage artefacts drawn over the
+solid they were captured from. Before it, `RemeshDump` had a full test suite and no consumer under
+`Editor/` at all — and § D1's own argument for making each stage an artefact is that a remesher is
+judged by a picture.
+
+| Switch | Stage | What it draws |
+|---|---|---|
+| `ShowConditioned` | ① | the conditioned triangles, as a wireframe |
+| `ShowFeatures` | ② | every feature polyline: the edges the remesh must reproduce |
+| `ShowField` | ③ | the 4-RoSy field, a cross per vertex — a cross and not an arrow, because the field has no sign |
+| `ShowSingularities` | ③ | where the field's singularities landed |
+| `ShowPatches` | ④ | the patch partition, one colour per patch; grey is a triangle nothing claimed |
+| `ShowQuantization` | ⑤ | each arc, red where the integer it got is far from what the density field asked |
+
+`Capture` runs the stages for the first selected solid and remembers *which* entity it is of, because
+every artefact is indexed against that solid's conditioned mesh — drawn over anything else it is a
+field and a patch partition laid over geometry they say nothing about. `BlockoutMode` draws it through
+`SceneViewport.Cursor`, on the pane the pointer is in, and the `Retopology Debug Overlays` command is
+a toggle: it captures when there is nothing and clears when there is.
+
+⚠ **It re-runs the stages rather than capturing them from a remesh in flight, and that costs what a
+remesh costs.** § D14's determinism is what makes it legitimate — the same input and settings give the
+same answer, so the artefacts captured are the artefacts the remesh had. A hook threaded through
+`Remesher` would put a debugging concern in the middle of a pipeline every caller pays for.
+
+⚠ **The colours are chosen here and not in `Core/`**, which is what `RemeshRegion` asks for in as many
+words: "a patch index rather than a colour … the index is the artefact; colouring it is one modulus
+away". Eight hues of one lightness, wrapped — a layout has hundreds of patches and no palette
+distinguishes hundreds of colours, and what the drawing is asked is "where does this patch end".
+
+⚠ **What is still owed is § R7's live preview at the approximate quantization**, and the blocker is
+not the editor: `QuantizeMode` and `Quantizer` are **internal** to `Vixen.Geometry.Remeshing`, so
+nothing outside that assembly can ask for the cheap answer. That is an API change before it is a
+panel.
+
 ### The UV panel
 
 `BlockoutUvPanel` holds what a UV panel shows and runs the three stages separately. `Chart()`,
@@ -215,6 +252,28 @@ score would hide exactly that case.
 ⚠ **This is not a drag-a-vertex-in-UV-space tool.** Every verb replaces the whole layout and nothing
 moves one coordinate. Editing an island by hand needs an undo model, a selection model and a snapping
 model, and is a different surface.
+
+### What draws it
+
+`BlockoutUvView` is the panel itself — the atlas square, one rectangle per island, the three verbs as
+buttons and whatever the last stage said. It is registered as `blockout.uv`, so it comes with its own
+toggle command and its own View-menu line rather than opening with the mode. `BlockoutTheme` carries
+the rules that colour it.
+
+Set `Model` to a `BlockoutUvPanel` and the view follows it: it subscribes to `Changed`, so a verb run
+from anywhere redraws the atlas, and it unsubscribes when it is removed. `Source` says where the mesh
+comes from and is read at the moment a verb runs; `Configure` does the same for the dials, so the
+inspector's resolution and margin are the ones a click uses rather than the ones that were current
+when the tab was opened.
+
+⚠ **The heat map is two channels rather than one ramp, and that is `IsBad`'s disjunction on screen.**
+An island with a flipped triangle takes `uv-flipped` and never a ramp bucket, however low its stretch
+is — folding the two into a single score is the simplification the model was written to refuse, and
+it would let a badly wound island wearing a distortion of 1.0 draw as the best island in the atlas.
+
+⚠ **v is flipped on the way to the square.** UV space puts `v = 0` at the bottom and the layout puts
+`y = 0` at the top, so an atlas drawn without the flip is vertically mirrored — and it looks entirely
+plausible, because a packed atlas is roughly symmetric and every count-shaped test stays green.
 
 ## Examples
 
