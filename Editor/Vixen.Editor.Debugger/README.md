@@ -294,6 +294,11 @@ in `Vixen.Net`, and the three turn out to need very different things:
   place to ask: `InterestChain` publishes `ConsideredCount`, `NominatedCount` and `HiddenCount` and
   nothing per player, and `ReplicationServer` resolves into **one shared scratch list** it clears per
   connection, so after a tick the only set that still exists is the last connection's.
+  ⚠ **Nor is the one reader that *is* public a way round it.** `BaselineOf(PlayerId)` returns a
+  `ConnectionBaseline`, and that type has no enumerator either — `TryGetBaseline(in BaselineKey)`
+  answers only for a key the caller already holds, which is the same shape of gap one level down. And
+  its `BaselineCount` is **a count of component records, not of entities**, so even the number that is
+  reachable answers a different question from "how many objects is this player being sent".
 - **A live RPC log needs a record that is not being kept**, and ⚠ **"so the ring belongs here rather
   than in `Vixen.Net`" — recorded twice above this line — cannot be acted on as it stands.** A ring
   in this assembly needs something to subscribe to, and `RpcRouter` publishes **no event, no callback

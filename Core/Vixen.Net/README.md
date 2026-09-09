@@ -646,6 +646,35 @@ public void OnMessage(PlayerId from, Channel channel, ReadOnlySpan<byte> payload
 implementing `IRpcTransport` directly, because wiring the two together without the marker would be a
 connection that looked right and mixed three streams into one.
 
+### The snapshot acknowledgement, and why it is not blocked on a protocol decision (#207)
+
+`ReplicationServer.Acknowledge` has to be told the newest tick a client applied cleanly, and the
+engine does not send it. [#207](https://github.com/Rikarin/Vixen/issues/207) says a `ReplicationChannel`
+helper cannot be written without first deciding *"whether the ack is the engine's protocol — a
+`PayloadKind` of its own, alongside `Replication` — or the game's; a helper that writes an opcode into
+the **game's** payload space would collide with the game's own messages, so there is no version that
+saves typing without taking that decision."*
+
+⚠ **That blocker does not hold, and the tree took the decision twice already.** `PayloadKind` is
+engine-owned and disjoint from `PayloadKind.Game`, and it has been extended past the `Replication`/`Rpc`
+pair that sentence names — `Broadcast = 3` and `Input = 4`, each bumping `Last`, with
+`EveryPayloadKindSurvivesTheWrapper` written after the `Last` staleness that silently refused every
+broadcast. So an engine-owned ack never has to touch the game's opcode space.
+
+⚠ **And it needs no sixth kind either, because the channel it wants already exists.**
+`BroadcastRouter` over `PayloadKind.Broadcast` is *"a typed message about nothing in particular"* —
+`IBroadcast<TSelf>` structs, a type id from `Identify<T>()`, `TryEncode`/`Receive`, and rate limits.
+An acknowledgement is exactly that, and a helper built on it takes no decision at all.
+
+⚠ **What is left is an ergonomics judgement, and the arithmetic argues against it.** The premise —
+every game writing the same six lines — has one genuine instance
+(`Samples/08-Multiplayer/MatchProtocol.cs`; `Samples/09-NetworkSoak` and `Core/Vixen.Fuzz` both
+fabricate the ack in-process). **And that instance would not get shorter**: the cost of an ack is not
+the opcode constant, it is the *dispatch arm* — `Samples/08` routes `Rpc`, `Game` and `Replication`
+and does not route `Broadcast` at all, so a broadcast-shaped ack trades one opcode for one new arm in
+the same `switch`. Every payload kind costs a game the same arm, which is why the helper saves nothing
+it does not also spend.
+
 ## Diagnostics
 
 "Thirty kilobits a second" is not an actionable number. `BandwidthLedger` answers the question that
