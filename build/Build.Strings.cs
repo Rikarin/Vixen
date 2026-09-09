@@ -430,7 +430,7 @@ partial class Build {
     ///         piece of work.
     ///     </para>
     /// </remarks>
-    const int ConstructedCeiling = 45;
+    const int ConstructedCeiling = 46;
 
     /// <summary>Applies <see cref="ConstructedCeiling" />.</summary>
     /// <param name="text">Every source file, by path.</param>
