@@ -34,16 +34,23 @@ Doc 43 § B0. Licence: MIT — see the repository `NOTICE` and ADR-015.
 | `float` | 84 | 84 | 0 | 0 |
 | | **5 524** | **5 508** | **16** | **0** |
 
-Every one of those numbers is asserted — the pass and fail columns by the four conformance suites,
-the refused column additionally by `TaffyUnsupportedCensusTests`, which requires the census to match
+⚠ **That table is generated — `VIXEN_REGENERATE=1` — and it is the only count here that is checked
+row by row rather than in total.** `TaffyReadmeTableTests` runs a census of each of the eight
+categories and holds every cell to it. The four conformance suites pin a total across the categories
+each of them owns, so they cannot see a row: `TaffyGridConformanceTests` pins 2 104 / 16 / 0 for
+`grid`, `blockgrid` and `gridflex` together, and a table that moved sixteen fixtures from one of
+those into another would agree with every constant in the project. The refused column is pinned a
+third time by `TaffyUnsupportedCensusTests`, which requires the census to match
 `UnsupportedFixtures.txt` line for line.
 
-⚠ **Asserted in the suites, not from this table** — and the difference is that this table had drifted
-by 14 fixtures before anyone noticed, while every suite was green. The numbers are copied here by
-hand; the suites are the record. ⚠ The gaps files no longer have that property and this table still
-does: each of the four now carries one generated `# COUNTS` line that `TaffyGapsSummary` holds to its
-suite's constants, after `GridKnownGaps.txt`'s hand-written summary sat two batches behind them
-(`Rikarin/Vixen#991`). This table is the last count in the directory that nothing contradicts.
+⚠ **This table had drifted by 14 fixtures before anyone noticed, while every suite was green**, which
+is what the generated form is for and is the same defect `GridKnownGaps.txt`'s hand-written summary
+had (`Rikarin/Vixen#991`). ⚠ **The shape is asserted before the digits**, for that fix's reason one
+dimension up: a sweep that reads whatever rows it finds agrees with a file the table was cut out of,
+so exactly one header, then exactly the eight categories in the corpus's own order, then the totals
+row — and regenerating repairs digits, never a missing row. ⚠ **It is free rather than a ninth pass
+over the corpus**: `TaffyCensus.TallyOf` memoises per category, and the four
+`The_corpus_stands_where_it_is_recorded_as_standing` tests already ask for all eight between them.
 
 ⚠ **The refused column is zero for the first time, and a zero there is the state
 `UnsupportedFixtures.txt` was written to warn about rather than to celebrate.** A census of nothing

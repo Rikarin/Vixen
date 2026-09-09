@@ -117,7 +117,7 @@ public class TaffyBlockConformanceTests {
         var unsupported = 0;
 
         foreach (var category in Categories) {
-            var tally = TaffyCensus.Run(category, 0).Tally;
+            var tally = TaffyCensus.TallyOf(category);
             passing += tally.Passed;
             failing += tally.Failed;
             unsupported += tally.Unsupported;
