@@ -117,7 +117,8 @@ public sealed partial class LayoutTree {
                 // never written. A grid parent resolved as `row-reverse` here while the child was
                 // placed on a physical `row` puts every RTL grid child at
                 // `container − child − Position[Right]`, with a stale zero for the right edge.
-                var isPhysicalParent = styles[currentNode].Display is Display.Block or Display.FlowRoot or Display.Grid;
+                var isPhysicalParent =
+                    styles[currentNode].Display is Display.Block or Display.FlowRoot or Display.Grid or Display.Inline;
                 var parentMainAxis = isPhysicalParent
                     ? FlexDirection.Row
                     : FlexAxis.Resolve(styles[currentNode].FlexDirection, currentNodeDirection);
@@ -197,12 +198,13 @@ public sealed partial class LayoutTree {
         var containingBlockWidth = containingBlock.Width;
         var containingBlockHeight = containingBlock.Height;
 
-        // ⚠ A block or grid container's `flex-direction` is meaningless and must not be consulted —
-        // it is whatever the stylesheet happened to leave there, and the corpus leaves `row`, which
-        // under RTL resolves to `row-reverse` and would send every un-inset absolute child to the
-        // wrong physical edge. Both box types are physical: inline is the row, block is the column,
-        // and the writing direction is applied by the `Inline*` helpers rather than by the axis.
-        var isPhysicalParent = styles[node].Display is Display.Block or Display.FlowRoot or Display.Grid;
+        // ⚠ A block, grid or inline container's `flex-direction` is meaningless and must not be
+        // consulted — it is whatever the stylesheet happened to leave there, and the corpus leaves
+        // `row`, which under RTL resolves to `row-reverse` and would send every un-inset absolute
+        // child to the wrong physical edge. All three box types are physical: inline is the row,
+        // block is the column, and the writing direction is applied by the `Inline*` helpers rather
+        // than by the axis.
+        var isPhysicalParent = styles[node].Display is Display.Block or Display.FlowRoot or Display.Grid or Display.Inline;
         var mainAxis = isPhysicalParent ? FlexDirection.Row : FlexAxis.Resolve(styles[node].FlexDirection, direction);
         var crossAxis = isPhysicalParent ? FlexDirection.Column : FlexAxis.ResolveCross(mainAxis, direction);
         var isMainAxisRow = FlexAxis.IsRow(mainAxis);
@@ -432,11 +434,21 @@ public sealed partial class LayoutTree {
             return;
         }
 
-        // ⚠ A block container has no alignment to fall back on, so it falls back on flow order.
-        // CSS 2.1 §10.6.4: the static position of an out-of-flow box is where its hypothetical box
-        // would have been — after every in-flow sibling before it. `WalkBlockChildren` records that
-        // as it goes, because by the time this pass runs the walk is over and the cursor is gone.
-        if (styles[parent].Display is Display.Block or Display.FlowRoot) {
+        // ⚠ A block or inline container has no alignment to fall back on, so it falls back on flow
+        // order. CSS 2.1 §10.6.4: the static position of an out-of-flow box is where its
+        // hypothetical box would have been — after every in-flow sibling before it. `WalkBlockChildren`
+        // records that as it goes, because by the time this pass runs the walk is over and the cursor
+        // is gone; `PlaceLine` records the inline-level form of the same thing, which is a pen
+        // position on a line box rather than a block-flow cursor.
+        //
+        // ⚠ <b><see cref="Display.Inline" /> was missing here and that absence was the whole defect,
+        // not the recording.</b> An inline box is neither `block` nor `flow-root`, so an un-inset
+        // out-of-flow child of a span fell through to the alignment branch below and resolved its
+        // axes from the span's `flex-direction` and `justify-content` — properties that mean nothing
+        // on an inline box and are whatever the stylesheet left there. It landed at the union's
+        // inline start whatever the flow had done, which is why rebasing the recorded pair onto the
+        // union looked obligatory and measured as dead code.
+        if (styles[parent].Display is Display.Block or Display.FlowRoot or Display.Inline) {
             var isRow = FlexAxis.IsRow(axis);
             var staticEdge = isRow ? Edge.Left : Edge.Top;
             var staticValue = isRow ? results[child].BlockStaticLeft : results[child].BlockStaticTop;
