@@ -1154,13 +1154,26 @@ public sealed partial class TreeView : Control {
 
     void Track(float x, float y) {
         dropTarget = null;
+        DropIndicator.RemoveClass("refused");
 
-        if (RowAt(x, y) is not { Node: { } node } row || dragging is not { } source || source.Contains(node)) {
+        if (RowAt(x, y) is not { Node: { } node } row || dragging is not { } source) {
+            // Nothing under the pointer. An absence is the right picture for an absence.
             DropIndicator.AddClass("hidden");
             return;
         }
 
         var bounds = row.Bounds;
+
+        if (source.Contains(node)) {
+            // ⚠ **Drawn, not hidden.** Dropping a folder into its own child would make a cycle
+            // and `MoveNode` refuses it — but hiding the indicator says that with an *absence*,
+            // which is the same picture as the pointer being over nothing at all. A person who
+            // meant it repeats the gesture three times and concludes the tree is broken. So the
+            // refusal is shown, over the whole illegal row, in a colour the sheet gives it; the
+            // branch above keeps the empty case looking empty.
+            Refuse(bounds);
+            return;
+        }
         var fraction = bounds.Height <= 0f ? 0.5f : (y - bounds.Y) / bounds.Height;
 
         dropPosition = fraction switch {
@@ -1188,10 +1201,28 @@ public sealed partial class TreeView : Control {
         DropIndicator.OffsetY += top - DropIndicator.AbsoluteTop;
     }
 
+    /// <summary>Draws the indicator over a row that cannot be dropped on, as a refusal.</summary>
+    /// <param name="bounds">The illegal row.</param>
+    /// <remarks>
+    ///     The whole row rather than the two-pixel line: "before" and "after" are not on offer here,
+    ///     so a line at one edge would be saying something about a position when the answer is about
+    ///     the row. <see cref="dropTarget" /> stays null, so a release still moves nothing — the
+    ///     picture is the only thing that changed.
+    /// </remarks>
+    void Refuse(Rectangle bounds) {
+        DropIndicator.RemoveClass("hidden");
+        DropIndicator.AddClass("refused");
+        DropIndicator.SetStyle("width", bounds.Width.ToString("0.##", CultureInfo.InvariantCulture) + "px");
+        DropIndicator.SetStyle("height", bounds.Height.ToString("0.##", CultureInfo.InvariantCulture) + "px");
+        DropIndicator.OffsetX += bounds.X - DropIndicator.AbsoluteLeft;
+        DropIndicator.OffsetY += bounds.Y - DropIndicator.AbsoluteTop;
+    }
+
     void Cancel() {
         dragging = null;
         dropTarget = null;
 
+        DropIndicator.RemoveClass("refused");
         DropIndicator.AddClass("hidden");
     }
 }

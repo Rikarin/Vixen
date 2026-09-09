@@ -341,6 +341,16 @@ tree-drop-indicator {
     pointer-events: none;
 }
 
+tree-drop-indicator.refused {
+    /* ⚠ A drawn "no" rather than a hidden indicator. The refusal a tree owes is the one a person
+       makes on purpose — drag a folder, release over one of its own children — and hiding the
+       indicator answers it with the same picture as the pointer being over nothing. Red fill, red
+       border, over the whole illegal row: distinguishable from the accent line at a glance and from
+       an empty area by existing at all. */
+    background-color: #d1414133;
+    border-color: #d14141;
+}
+
 /* ── Property grid ──────────────────────────────────────────────────── */
 property-grid { flex-direction: column; gap: 6px; }
 property-grid search-box { flex-shrink: 0; }

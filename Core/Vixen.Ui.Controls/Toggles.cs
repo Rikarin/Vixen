@@ -65,6 +65,48 @@ public abstract partial class ToggleBase : ButtonBase {
 
         IsChecked = !IsChecked;
         base.Activate(device, count, modifiers);
+
+        // ⚠ And then asked again, because the flip above was a guess. A bound command is the
+        // authority on its own check state and is entitled to refuse — a "wireframe" that cannot be
+        // turned on while the viewport is 2D runs, changes nothing and leaves its predicate where it
+        // was. Without this the toggle would sit flipped until something else invalidated the
+        // document, which for a preferences window is never. It costs one resolve per click on a
+        // bound toggle and nothing at all on an unbound one.
+        if (Command is not null) {
+            RefreshCommand();
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Into <see cref="IsChecked" />, not into
+    ///         <see cref="Vixen.Ui.Styling.ElementState.Checked" /> beside it.</b> The base
+    ///         implementation writes the style flag, which is right for a
+    ///         <see cref="ButtonBase" /> that has no other opinion — but a toggle does, and a
+    ///         binding that wrote only the flag left this control holding two independent facts
+    ///         about the same thing: a control that <i>looked</i> right because the theme draws
+    ///         <c>:checked</c>, and an <c>IsChecked</c> that every C# reader and every
+    ///         <c>bind:IsChecked</c> actually reads, still saying whatever the last click left it.
+    ///         Writing the property sets the flag on the way through
+    ///         (<see cref="OnCheckedChanged" />), so there is one fact and the theme is unaffected.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A command that is not checkable is told nothing, rather than told
+    ///         <c>false</c>.</b> Deferring to the base here would clear
+    ///         <see cref="Vixen.Ui.Styling.ElementState.Checked" /> on every refresh of a toggle
+    ///         bound to an ordinary command — un-drawing a control whose <c>IsChecked</c> is still
+    ///         <see langword="true" />, which is the same divergence in the other direction. A
+    ///         non-toggle command has no check state to show and this control's own is not its to
+    ///         overwrite.
+    ///     </para>
+    /// </remarks>
+    protected override void ShowCheck(bool checkable, bool isChecked) {
+        if (!checkable) {
+            return;
+        }
+
+        IsChecked = isChecked;
     }
 
     /// <summary>Called after the state changed, before it is reported.</summary>

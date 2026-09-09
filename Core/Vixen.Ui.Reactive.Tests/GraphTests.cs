@@ -271,4 +271,96 @@ public class GraphTests {
         static int Value(int[] sources, (int Left, int Right)[] inputs, int index) =>
             index < sources.Length ? sources[index] : Expected(sources, inputs, index - sources.Length);
     }
+
+    [Fact]
+    public void Two_graphs_on_two_threads_do_not_lose_each_other_s_epoch_increments() {
+        // ⚠ ReactiveGraph.Epoch is the one piece of ambient state on that type that is not
+        // [ThreadStatic], and OwningThread's own remarks bless the configuration that races it:
+        // two independent graphs, each correctly single-threaded, on two threads. A plain
+        // `Epoch++` is an unsynchronised read-modify-write, so an interleave loses an increment —
+        // and the increment lost belongs to the thread that wrote, which is why the stale value
+        // this produces shows up in the graph that WAS written rather than in its neighbour.
+        Assert.Null(ReactiveGraph.OwningThread);
+
+        const int threads = 4;
+        const int writesPerThread = 20_000;
+
+        // Work rather than wall clock: every write below stores an unequal value, so the counter
+        // owes exactly threads * writesPerThread increments and no timing enters the assertion.
+        var ready = new Barrier(threads);
+        var before = ReactiveGraph.Epoch;
+        var workers = new Thread[threads];
+
+        for (var t = 0; t < threads; t++) {
+            workers[t] = new Thread(() => {
+                    // Each thread owns its whole graph: nothing here is shared but the epoch.
+                    var source = new Signal<int>(0);
+                    ready.SignalAndWait();
+
+                    for (var i = 1; i <= writesPerThread; i++) {
+                        source.Value = i;
+                    }
+                }
+            );
+
+            workers[t].Start();
+        }
+
+        foreach (var worker in workers) {
+            worker.Join();
+        }
+
+        // >= and not ==, because the epoch is process-wide and any other signal written in this
+        // process is entitled to add to it. Landing UNDER the owed count is only possible by
+        // losing one, which is the half that has to be able to fail.
+        var advanced = ReactiveGraph.Epoch - before;
+        Assert.True(
+            advanced >= (uint)(threads * writesPerThread),
+            $"The epoch advanced by {advanced} for {threads * writesPerThread} changed writes; "
+            + $"{(uint)(threads * writesPerThread) - advanced} increments were lost."
+        );
+    }
+
+    [Fact]
+    public void A_computed_is_not_left_stale_by_an_epoch_increment_another_thread_swallowed() {
+        // The same defect stated as the value a caller actually sees, because a counter that is
+        // one short is not by itself a symptom. A computed nobody watches is not live, so a write
+        // does not push to it — NotifyConsumers walks live consumers only. It learns that its
+        // producer moved solely because ReactiveGraph.Epoch is no longer the one it was verified
+        // clean at, so a swallowed increment makes UpdateValueVersion take its fast path and
+        // return the previous answer, with nothing dirty, nothing logged and nothing thrown.
+        const int threads = 4;
+        const int iterations = 20_000;
+
+        var ready = new Barrier(threads);
+        var stale = 0;
+        var workers = new Thread[threads];
+
+        for (var t = 0; t < threads; t++) {
+            workers[t] = new Thread(() => {
+                    var source = new Signal<int>(0);
+                    var doubled = new Computed<int>(() => source.Value * 2);
+
+                    // Read once so the node is verified clean at some epoch before the race opens.
+                    _ = doubled.Value;
+                    ready.SignalAndWait();
+
+                    for (var i = 1; i <= iterations; i++) {
+                        source.Value = i;
+                        if (doubled.Value != i * 2) {
+                            Interlocked.Increment(ref stale);
+                        }
+                    }
+                }
+            );
+
+            workers[t].Start();
+        }
+
+        foreach (var worker in workers) {
+            worker.Join();
+        }
+
+        Assert.Equal(0, Volatile.Read(ref stale));
+    }
 }

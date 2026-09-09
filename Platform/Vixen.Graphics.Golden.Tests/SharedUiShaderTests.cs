@@ -908,4 +908,131 @@ public partial class SharedUiShaderTests {
 
         throw new DirectoryNotFoundException($"the repository root was not found above '{AppContext.BaseDirectory}'.");
     }
+
+    /// <summary>Which module the Raven compiler produced for each GLSL copy beside it.</summary>
+    static readonly (string Glsl, string Raven)[] Pairs = [
+        ("ui-blur.frag", "UiBlur.frag.spv"),
+        ("ui-box.frag", "UiBox.frag.spv"),
+        ("ui-colour.frag", "UiColour.frag.spv"),
+        ("ui-image.frag", "UiImage.frag.spv"),
+        ("ui-mask.frag", "UiMask.frag.spv"),
+        ("ui-solid.frag", "UiSolid.frag.spv"),
+        ("ui-text.frag", "UiText.frag.spv"),
+        ("ui.vert", "UiVertex.vert.spv")
+    ];
+
+    /// <summary>The screen-space derivative opcodes, which are the ones a driver may answer two ways.</summary>
+    /// <remarks>
+    ///     SPIR-V 1.0 &#167; 3.32.16. Three flavours &#8212; unqualified, <c>Fine</c> and <c>Coarse</c> &#8212; of
+    ///     three operations, and the unqualified three are the ones whose answer is the
+    ///     implementation's choice.
+    /// </remarks>
+    static readonly Dictionary<int, string> Derivatives = new() {
+        [207] = "OpDPdx",
+        [208] = "OpDPdy",
+        [209] = "OpFwidth",
+        [210] = "OpDPdxFine",
+        [211] = "OpDPdyFine",
+        [212] = "OpFwidthFine",
+        [213] = "OpDPdxCoarse",
+        [214] = "OpDPdyCoarse",
+        [215] = "OpFwidthCoarse"
+    };
+
+    /// <summary>How many of each derivative opcode a committed module contains.</summary>
+    /// <param name="module">The <c>.spv</c> to walk.</param>
+    /// <returns>The count of each derivative instruction it holds, by opcode name.</returns>
+    /// <remarks>
+    ///     A SPIR-V module is a five-word header followed by instructions whose first word packs the
+    ///     word count in the high half and the opcode in the low half. Walking that needs no
+    ///     reflection, no device and no compiler &#8212; which is the whole reason this can be asserted on
+    ///     every leg rather than only on the one that draws.
+    /// </remarks>
+    static Dictionary<string, int> DerivativesIn(string module) {
+        var bytes = File.ReadAllBytes(module);
+
+        Assert.True(bytes.Length > 20 && bytes.Length % 4 == 0, $"{module} is not a SPIR-V module.");
+
+        var words = new uint[bytes.Length / 4];
+        Buffer.BlockCopy(bytes, 0, words, 0, bytes.Length);
+
+        Assert.Equal(0x07230203u, words[0]);
+
+        var counts = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        for (var at = 5; at < words.Length;) {
+            var opcode = (int) (words[at] & 0xFFFF);
+            var length = (int) (words[at] >> 16);
+
+            Assert.True(length > 0, $"{module} has a zero-length instruction at word {at}.");
+
+            if (Derivatives.TryGetValue(opcode, out var name)) {
+                counts[name] = counts.GetValueOrDefault(name) + 1;
+            }
+
+            at += length;
+        }
+
+        return counts;
+    }
+
+    /// <summary>The GLSL copy and the Raven module ask for the same derivatives, instruction for instruction.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         &#9888; <b><c>fwidth(p)</c> and <c>abs(dFdx(p)) + abs(dFdy(p))</c> are the same formula and not
+    ///         the same instruction, and #1024 is what that cost.</b> The specification defines the
+    ///         first as the second &#8212; and then lets an implementation answer each of the three
+    ///         builtins with either a coarse or a fine derivative, independently of the others. So a
+    ///         copy that reached for <c>fwidth</c> where <c>Ui.rvn</c> spelled <c>Ui.PixelWidth</c>
+    ///         out compiled to <c>OpFwidth</c> against the shipping module's
+    ///         <c>OpDPdx</c>/<c>OpDPdy</c>, and on lavapipe &#8212; the only CI leg with a device &#8212; the
+    ///         two drew a bordered box differently on 24 of 16 384 texels. Nothing else in the two
+    ///         modules differed: same constants, same <c>GLSL.std.450</c> instructions, same counts.
+    ///     </para>
+    ///     <para>
+    ///         &#9888; <b>This is the check that would have caught it without a device, and that is the
+    ///         point of it.</b> <c>UiRavenAgreementTests</c> can only speak on the one leg that draws,
+    ///         and it took a driver whose two answers happen to differ before it spoke at all &#8212; this
+    ///         Mac's MoltenVK gives <c>OpFwidth</c> and the explicit pair bit-identical results, so
+    ///         the divergence was invisible here in the picture and plain in the bytes.
+    ///     </para>
+    ///     <para>
+    ///         &#9888; <b>And the empty case is asserted, because two modules that ask for no derivatives
+    ///         agree perfectly.</b> A walk that ran off the end, a path that moved, a module that
+    ///         stopped being SPIR-V &#8212; each would leave every comparison trivially true.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheGlslCopiesAskForTheSameDerivativesAsTheRavenModules() {
+        var root = RepositoryRoot();
+        var raven = Path.Combine(root, "Platform", "Vixen.Ui.Desktop", "Shaders");
+
+        var found = 0;
+
+        foreach (var (glsl, module) in Pairs) {
+            var copy = Path.Combine(root, Shaders, glsl + ".spv");
+            var shipped = Path.Combine(raven, module);
+
+            Assert.True(File.Exists(copy), $"{Relative(root, copy)} is missing.");
+            Assert.True(File.Exists(shipped), $"{Relative(root, shipped)} is missing.");
+
+            var here = DerivativesIn(copy);
+            var there = DerivativesIn(shipped);
+
+            found += here.Values.Sum() + there.Values.Sum();
+
+            foreach (var name in Derivatives.Values) {
+                Assert.True(
+                    here.GetValueOrDefault(name) == there.GetValueOrDefault(name),
+                    $"{glsl} uses {name} {here.GetValueOrDefault(name)} times and {module} uses it "
+                    + $"{there.GetValueOrDefault(name)} times. They are two implementations of one "
+                    + "specification and a derivative's flavour is the implementation's choice, so a "
+                    + "difference here is a difference in the picture on some driver -- which is #1024."
+                );
+            }
+        }
+
+        Assert.Equal(Names.Length, Pairs.Length);
+        Assert.True(found > 0, "no derivative instruction was found in any of the sixteen modules, so this compared nothing.");
+    }
 }

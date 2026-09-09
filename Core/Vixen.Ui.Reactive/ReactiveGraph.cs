@@ -38,6 +38,29 @@ public static class ReactiveGraph {
     ///     Bumped by every write that changed a value. A consumer that was verified clean at some
     ///     epoch and finds the epoch unchanged is clean without checking anything.
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the one piece of ambient state here that is deliberately <i>not</i>
+    ///         <c>[ThreadStatic]</c>, and it is bumped through <see cref="IncrementEpoch" />'s
+    ///         interlocked add for that reason.</b> <see cref="OwningThread" /> is off by default so
+    ///         that a test host — or an editor with more than one independent graph — may run two
+    ///         correctly single-threaded graphs on two threads. That blessed configuration has two
+    ///         threads writing this counter, and a plain <c>Epoch++</c> is an unsynchronised
+    ///         read-modify-write: interleave two and one increment is lost. A node verified clean
+    ///         between those two writes then finds the epoch equal to its
+    ///         <see cref="ReactiveNode.LastCleanEpoch" /> and returns a stale value from
+    ///         <see cref="ReactiveNode.UpdateValueVersion" /> having polled nothing — silently, with
+    ///         nothing dirty and no exception. The increment a thread loses that way is its
+    ///         <i>own</i>; this is not a cross-graph invalidation question.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Making it <c>[ThreadStatic]</c> would close the same hole but open a worse one: a
+    ///         document touched from a continuation that resumed on another pool thread would meet
+    ///         an epoch that is not its own and can be <i>lower</i> than the
+    ///         <c>LastCleanEpoch</c> it wrote, which the shared counter can never be. Monotonic
+    ///         beats private here.
+    ///     </para>
+    /// </remarks>
     internal static uint Epoch = 1;
 
     /// <summary>
@@ -149,7 +172,13 @@ public static class ReactiveGraph {
         return true;
     }
 
-    internal static void IncrementEpoch() => Epoch++;
+    /// <summary>Advances <see cref="Epoch" /> by one, atomically.</summary>
+    /// <remarks>
+    ///     One interlocked add per write that <i>changed</i> something, against a fast path that
+    ///     saves a whole producer poll. It is not free, but it is paid on the write side of a graph
+    ///     whose writes already walk their live consumers.
+    /// </remarks>
+    internal static void IncrementEpoch() => Interlocked.Increment(ref Epoch);
 
     /// <summary>Throws if the caller is not the thread that owns the graph.</summary>
     /// <exception cref="InvalidOperationException">Another thread touched a signal.</exception>

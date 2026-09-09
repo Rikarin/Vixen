@@ -493,4 +493,133 @@ public class CommandBindingTests {
 
         Assert.Null(fixture.Document.Focused);
     }
+
+
+    [Fact]
+    public void A_bound_toggle_holds_the_command_s_check_state_in_the_property_the_readers_read() {
+        using var fixture = new ControlFixture();
+
+        var grid = true;
+
+        var view = View(fixture.Document.Root);
+        view.AddCommandHandler("view.grid", () => grid = !grid, isChecked: () => grid);
+        fixture.Document.Focus(view);
+
+        var toggle = fixture.Document.Root.Add<ToggleButton>();
+        toggle.Command = "view.grid";
+        fixture.Update();
+
+        // ⚠ Both, and the second one is the point. `ElementState.Checked` is what the theme draws,
+        // so a binding that wrote only it produced a control that LOOKED right; `IsChecked` is what
+        // every C# reader and every `bind:IsChecked` reads, and it was left wherever the last click
+        // put it.
+        Assert.True(toggle.State.HasFlag(ElementState.Checked));
+        Assert.True(toggle.IsChecked);
+
+        grid = false;
+        // ⚠ `Advance` and not `Update`: `CommandsInvalidated` is coalesced and raised from
+        // `UiDocument.Tick`, so a test that only lays out never asks the route again and passes
+        // whatever the control was left holding.
+        fixture.Document.InvalidateCommands();
+        fixture.Advance(TimeSpan.FromMilliseconds(16));
+
+        Assert.False(toggle.State.HasFlag(ElementState.Checked));
+        Assert.False(toggle.IsChecked);
+    }
+
+    [Fact]
+    public void A_command_that_refuses_to_follow_the_click_leaves_the_bound_toggle_where_it_was() {
+        using var fixture = new ControlFixture();
+
+        // The command runs — it is not disabled — and declines to move its own check state. A
+        // "wireframe" that cannot be turned on while the viewport is 2D is exactly this shape.
+        var runs = 0;
+
+        var view = View(fixture.Document.Root);
+        view.AddCommandHandler("view.wireframe", () => runs++, isChecked: () => false);
+        fixture.Document.Focus(view);
+
+        var toggle = fixture.Document.Root.Add<ToggleButton>();
+        toggle.Command = "view.wireframe";
+        fixture.Update();
+
+        Assert.False(toggle.IsChecked);
+
+        toggle.Activate();
+        fixture.Update();
+
+        // ⚠ The optimistic flip in `ToggleBase.Activate` is a guess, and the command is the
+        // authority. It ran once and said no, so the control says no — without the surface keeping
+        // a hand-written read-back on `Clicked`, which is what every consumer had to do.
+        Assert.Equal(1, runs);
+        Assert.False(toggle.IsChecked);
+        Assert.False(toggle.State.HasFlag(ElementState.Checked));
+    }
+
+    [Fact]
+    public void A_command_that_does_follow_the_click_moves_the_bound_toggle_once_and_not_twice() {
+        using var fixture = new ControlFixture();
+
+        var wireframe = false;
+        var changes = 0;
+
+        var view = View(fixture.Document.Root);
+        view.AddCommandHandler("view.wireframe", () => wireframe = !wireframe, isChecked: () => wireframe);
+        fixture.Document.Focus(view);
+
+        var toggle = fixture.Document.Root.Add<ToggleButton>();
+        toggle.Command = "view.wireframe";
+        fixture.Update();
+
+        toggle.CheckedChanged += (_, _) => changes++;
+
+        toggle.Activate();
+        fixture.Update();
+
+        Assert.True(wireframe);
+        Assert.True(toggle.IsChecked);
+
+        // Order, not timing: the re-read after the command agrees with the optimistic flip, and the
+        // property only raises on a real change — so a consumer counting `CheckedChanged` sees one
+        // event per click and not the flip-plus-confirmation pair.
+        Assert.Equal(1, changes);
+
+        toggle.Activate();
+        fixture.Update();
+
+        Assert.False(wireframe);
+        Assert.False(toggle.IsChecked);
+        Assert.Equal(2, changes);
+    }
+
+    [Fact]
+    public void An_ordinary_command_does_not_un_draw_the_toggle_it_is_bound_to() {
+        using var fixture = new ControlFixture();
+
+        var view = View(fixture.Document.Root);
+        view.AddCommandHandler("edit.copy", () => { });
+        fixture.Document.Focus(view);
+
+        var toggle = fixture.Document.Root.Add<ToggleButton>();
+        toggle.IsChecked = true;
+        toggle.Command = "edit.copy";
+        fixture.Update();
+
+        // ⚠ The mirror image of the defect above, and the reason this override does not defer to
+        // the base for the non-checkable case. `RefreshCommand` calls `ShowCheck(false, false)` on
+        // every invalidation, and the base clears `ElementState.Checked` — so a toggle bound to a
+        // command that is not a toggle would be drawn off while `IsChecked` stayed true. A command
+        // with no check state has nothing to say about this control's.
+        Assert.True(toggle.IsChecked);
+        Assert.True(toggle.State.HasFlag(ElementState.Checked));
+
+        // ⚠ `Advance` and not `Update`: `CommandsInvalidated` is coalesced and raised from
+        // `UiDocument.Tick`, so a test that only lays out never asks the route again and passes
+        // whatever the control was left holding.
+        fixture.Document.InvalidateCommands();
+        fixture.Advance(TimeSpan.FromMilliseconds(16));
+
+        Assert.True(toggle.IsChecked);
+        Assert.True(toggle.State.HasFlag(ElementState.Checked));
+    }
 }

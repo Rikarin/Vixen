@@ -438,4 +438,214 @@ public class LiveCombinatorPairTests {
 
         throw new DirectoryNotFoundException($"the repository root was not found above '{AppContext.BaseDirectory}'.");
     }
+
+    // ── Seeded sweep ─────────────────────────────────────────────────────────────────────────────
+    //
+    // Increment (1) of Rikarin/Vixen#531's open list: the pairings a control assembles only once it
+    // has an item, which the bare sweep above provably cannot reach.
+
+    /// <summary>The proofs a seed adds: what a control builds once it has been given its first item.</summary>
+    const string SeededCensusFile = "Core/Vixen.Ui.Controls.Advanced.Tests/SeededCombinatorPairs.txt";
+
+    /// <summary>
+    ///     One state per control, and a sentence saying which — with the elements the seed
+    ///     introduced <i>by name</i>, which no recorded pairing may have as its child.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>That second half is the whole of what makes this a census rather than a record of
+    ///         what a test harness nested.</b> <c>A &gt; B</c> is "provable" for any pair by putting a
+    ///         <c>B</c> under an <c>A</c>, so a seed that is allowed to be the parent of the pairing
+    ///         it proves proves nothing. Each seed therefore hands back what it put in, and
+    ///         <see cref="WalkSeeded" /> refuses those as children. What survives is the control's
+    ///         <i>response</i>: <c>Tabs.Adopt</c> building a <c>tab-panel</c> under the
+    ///         <c>tab-panels</c> part (Tabs.cs:216) when a tab joins the strip, where the seed only
+    ///         ever added the tab.
+    ///     </para>
+    ///     <para>
+    ///         Every entry is "give it its first item", because that is the state a control that
+    ///         assembles per-item parts is waiting for and the one thing a bare construction cannot
+    ///         produce. A seed needing two sentences is doing something else and wants its own test.
+    ///     </para>
+    /// </remarks>
+    static (string Name, Func<UiElement, (UiElement Control, IReadOnlyList<UiElement> Introduced)> Seed)[] Seeds => [
+        ("tabs", parent => Poke<Tabs>(parent, static tabs => [tabs.AddTab("One")])),
+        ("segmented-control", parent => Poke<SegmentedControl>(parent, static bar => [bar.AddSegment("a", "A")])),
+        ("select", parent => Poke<Select>(parent, static select => [select.AddOption("a", "A")])),
+        ("multi-select", parent => Poke<MultiSelect>(parent, static select => [select.AddOption("a", "A")])),
+        ("combo-box", parent => Poke<ComboBox>(parent, static combo => [combo.AddOption("a", "A")])),
+        ("radio-group", parent => Poke<RadioGroup>(parent, static group => [group.AddOption("a", "A")])),
+        ("menu", parent => Poke<Menu>(parent, static menu => [menu.AddItem("Item")])),
+        ("context-menu", parent => Poke<ContextMenu>(parent, static menu => [menu.AddItem("Item")])),
+        ("radial-menu", parent => Poke<RadialMenu>(parent, static menu => [menu.AddItem("Item")])),
+
+        // ⚠ Nothing introduced by either of these: a `DataColumn` and a `TreeNode` are model objects
+        // rather than elements, so the header cell and the row the control realises for them are its
+        // own construction end to end.
+        (
+            "data-grid",
+            parent => Poke<DataGrid>(
+                parent,
+                static grid => {
+                    grid.AddColumn("Name");
+                    grid.SetItems(["one"]);
+
+                    return [];
+                }
+            )
+        ),
+        (
+            "tree-view",
+            parent => Poke<TreeView>(
+                parent,
+                static tree => {
+                    tree.Root.Add("node");
+                    tree.Refresh();
+
+                    return [];
+                }
+            )
+        )
+    ];
+
+    /// <summary>Every parent→child pairing a seeded control built, done once.</summary>
+    public static IReadOnlySet<string> SeededObserved => seededObserved ??= SeededSweep();
+
+    static IReadOnlySet<string>? seededObserved;
+
+    /// <summary>How many seeds the sweep applied.</summary>
+    static int seeded;
+
+    /// <summary>The premise the seeded assertions rest on: the seeds ran and the trees were walked.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Named pairings and their mirrors, not a floor</b>, for
+    ///     <see cref="The_control_sweep_actually_ran" />'s reason — and one of the three names here
+    ///     is the refusal rule itself, so a walk that stopped honouring it fails by name rather than
+    ///     by quietly growing the census.
+    /// </remarks>
+    [Fact]
+    public void The_seeded_sweep_actually_ran() {
+        _ = SeededObserved;
+
+        Assert.Equal(Seeds.Length, seeded);
+
+        Assert.True(
+            SeededObserved.Count >= 25,
+            $"the seeded sweep observed only {SeededObserved.Count} pairings across {seeded} controls, "
+            + "so it applied the seeds and did not walk the trees"
+        );
+
+        // `Tabs.cs:216`, and the bare sweep cannot see it: `tab-panels` is built with the control and
+        // stays empty until a tab is adopted. It is the pairing this whole addition exists for.
+        Assert.Contains("tab-panels > tab-panel", SeededObserved, StringComparer.Ordinal);
+        Assert.DoesNotContain("tab-panel > tab-panels", SeededObserved, StringComparer.Ordinal);
+
+        // ⚠ And the refusal, checked rather than promised. `AddTab` put a `TabItem` in the strip, so
+        // `tab-strip > tab` is the harness's own nesting; if it ever appears here, every row in the
+        // census below has become a statement about this file instead of about the controls.
+        Assert.DoesNotContain("tab-strip > tab", SeededObserved, StringComparer.Ordinal);
+    }
+
+    /// <summary>What a seeded control builds beyond what a bare one does is exactly the census.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only what the bare sweep did not already see.</b> A pairing both reach is the
+    ///         stronger claim and belongs to <see cref="CensusFile" />; a copy here would leave the
+    ///         two files disagreeing about which owns the row on the day a control starts building a
+    ///         part earlier.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A departed row has a second reading here that it does not have in the bare
+    ///         census</b>: either the control stopped building the part — the
+    ///         <c>compositor-editor &gt; node-canvas</c> defect — or the seed stopped putting it in
+    ///         the state that builds it. Both want a person; the seed is one line above.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_pairing_a_seeded_control_builds_is_in_the_committed_census() {
+        var root = Root();
+        var path = Path.Combine(root, SeededCensusFile);
+        var domain = Domain(Path.Combine(root, DomainFile));
+
+        var proved = domain
+            .Where(pair => SeededObserved.Contains(pair) && !Observed.Contains(pair))
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        if (Regenerating) {
+            Write(path, proved);
+        }
+
+        var census = Rows(path, SeededCensusFile).ToHashSet(StringComparer.Ordinal);
+
+        var arrived = proved.Where(pair => !census.Contains(pair)).ToList();
+        var departed = census.Where(pair => !proved.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+
+        Assert.True(
+            arrived.Count == 0 && departed.Count == 0,
+            $"""
+             The census of pairings a SEEDED control builds is out of date.
+
+             Built once the control had an item, and not in {SeededCensusFile}:
+             {Lines(arrived)}
+
+             In {SeededCensusFile} and built by nothing any more:
+             {Lines(departed)}
+
+             ⚠ A departed row is the loud one. Read the seed as well as the control before
+             regenerating: a seed that stopped reaching the state is the same silence as a control
+             that stopped building the part.
+             """
+        );
+    }
+
+    /// <summary>Builds each seeded control in its own fixture and reads the tree it grew.</summary>
+    static HashSet<string> SeededSweep() {
+        var pairs = new HashSet<string>(StringComparer.Ordinal);
+        var count = 0;
+
+        foreach (var (_, seed) in Seeds) {
+            using var ui = new AdvancedFixture();
+
+            var (control, introduced) = seed(ui.Document.Root);
+
+            ui.Update();
+            count++;
+            WalkSeeded(control, pairs, [.. introduced]);
+        }
+
+        seeded = count;
+        return pairs;
+    }
+
+    /// <summary>Constructs a control, applies its one state change, and reports what the seed added.</summary>
+    /// <typeparam name="T">The control type.</typeparam>
+    /// <param name="parent">Where the control goes.</param>
+    /// <param name="seed">The state change, returning the elements it introduced by name.</param>
+    /// <returns>The control and the elements no recorded pairing may have as a child.</returns>
+    static (UiElement Control, IReadOnlyList<UiElement> Introduced) Poke<T>(UiElement parent, Func<T, IReadOnlyList<UiElement>> seed)
+        where T : UiElement, new() {
+        var control = parent.Add<T>();
+
+        return (control, seed(control));
+    }
+
+    /// <summary>Records the tree, skipping every element the seed put there itself.</summary>
+    /// <param name="element">The subtree root.</param>
+    /// <param name="into">Where the pairings go.</param>
+    /// <param name="introduced">What the seed added by name, refused as a child.</param>
+    /// <remarks>
+    ///     ⚠ Refused as a <i>child</i> and still walked <i>through</i>: what a seeded item builds
+    ///     under itself — a menu item's own parts, a segment's label — is the control's construction
+    ///     and is exactly the kind of pairing a sheet writes a rule for.
+    /// </remarks>
+    static void WalkSeeded(UiElement element, HashSet<string> into, HashSet<UiElement> introduced) {
+        foreach (var child in element.Children) {
+            if (!introduced.Contains(child)) {
+                into.Add($"{element.Tag} > {child.Tag}");
+            }
+
+            WalkSeeded(child, into, introduced);
+        }
+    }
 }

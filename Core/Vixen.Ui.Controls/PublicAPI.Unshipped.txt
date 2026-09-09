@@ -1383,6 +1383,7 @@ override Vixen.Ui.Controls.ToastHost.TagName.get -> string
 override Vixen.Ui.Controls.ToggleBase.Activate(Vixen.Ui.Controls.ActivationDevice device, int count, Vixen.Ui.ModifierKeys modifiers) -> void
 override Vixen.Ui.Controls.ToggleBase.ActivatesOnEnter.get -> bool
 override Vixen.Ui.Controls.ToggleBase.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
+override Vixen.Ui.Controls.ToggleBase.ShowCheck(bool checkable, bool isChecked) -> void
 override Vixen.Ui.Controls.ToggleButton.ActivatesOnEnter.get -> bool
 override Vixen.Ui.Controls.ToggleButton.NativeAccessibleState.get -> Vixen.Ui.AccessibleStates
 override Vixen.Ui.Controls.ToggleButton.TagName.get -> string
