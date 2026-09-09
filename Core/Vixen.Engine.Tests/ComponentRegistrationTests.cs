@@ -71,6 +71,33 @@ public sealed class ComponentRegistrationTests {
         Assert.Contains(SceneComponentRegistry.Binders, binder => binder.ComponentType == typeof(Shield));
     }
 
+    /// <summary>The order a panel draws its foldouts in, which has to be an order and not an accident.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The store is a <c>ConcurrentDictionary</c> and its <c>Values</c> walks buckets</b>,
+    ///         so before this the order was a function of the alias hash codes — and
+    ///         <c>String.GetHashCode</c> is randomised per process, which is why the components panel
+    ///         drew "Light" above "Primitive Shape" on one machine and below it on another.
+    ///     </para>
+    ///     <para>
+    ///         The count is asserted because a sortedness check over an empty or one-element list is
+    ///         true for free; the engine's own components alone put dozens in here.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheBindersComeOutInNameOrder() {
+        var names = SceneComponentRegistry.Binders.Select(binder => binder.Name).ToArray();
+
+        Assert.True(names.Length > 1, "nothing was registered, so an order could not be observed");
+
+        for (var index = 1; index < names.Length; index++) {
+            Assert.True(
+                string.CompareOrdinal(names[index - 1], names[index]) < 0,
+                $"'{names[index - 1]}' came out before '{names[index]}', so the order is the dictionary's and not a name's"
+            );
+        }
+    }
+
     /// <remarks>
     ///     Declaring twice is what a plugin loading twice does, and it must not throw or leave two
     ///     binders claiming one name.

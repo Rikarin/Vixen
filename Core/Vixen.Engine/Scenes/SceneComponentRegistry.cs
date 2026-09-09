@@ -297,19 +297,41 @@ public static class SceneComponentRegistry {
     /// </remarks>
     static long resolved = -1;
 
-    /// <summary>Every component a scene may name, in the order they were registered.</summary>
+    /// <summary>Every component a scene may name, ordered by name.</summary>
     /// <remarks>
-    ///     ⚠ <b>What an "Add Component" menu is built from, and the only direction that works.</b> An
-    ///     archetype knows dense <see cref="ComponentTypeId" />s and an editor knows names, and there
-    ///     is no map from the first to the second — the ids are handed out in first-touch order, so
-    ///     they differ between two runs of the same program. Enumerating what is registered and
-    ///     asking each one <see cref="ISceneComponentBinder.Has" /> is how a panel finds out what an
-    ///     entity carries.
+    ///     <para>
+    ///         ⚠ <b>What an "Add Component" menu is built from, and the only direction that works.</b> An
+    ///         archetype knows dense <see cref="ComponentTypeId" />s and an editor knows names, and there
+    ///         is no map from the first to the second — the ids are handed out in first-touch order, so
+    ///         they differ between two runs of the same program. Enumerating what is registered and
+    ///         asking each one <see cref="ISceneComponentBinder.Has" /> is how a panel finds out what an
+    ///         entity carries.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Sorted here, because this said "in the order they were registered" and that was
+    ///         false.</b> The store is a <see cref="ConcurrentDictionary{TKey,TValue}" />, whose
+    ///         <c>Values</c> walks the internal buckets — so the order was a function of the alias hash
+    ///         codes and of how the table happened to grow, and <c>String.GetHashCode</c> is randomised
+    ///         per process. The components panel draws its foldouts in this order, which is why it moved
+    ///         between two runs of the same build and why five dump tests passed on a developer machine
+    ///         and failed on all three CI runners at once.
+    ///     </para>
+    ///     <para>
+    ///         <b>By name rather than by an insertion sequence</b>, because registration order is not
+    ///         stable either: a component is declared from its assembly's <c>[ModuleInitializer]</c>,
+    ///         and which assembly is touched first is a property of the run. A name is the one key that
+    ///         is the same in every process.
+    ///     </para>
     /// </remarks>
     public static IReadOnlyCollection<ISceneComponentBinder> Binders {
         get {
             Resolve();
-            return (IReadOnlyCollection<ISceneComponentBinder>) ByAlias.Values;
+
+            var binders = ByAlias.Values.ToArray();
+
+            Array.Sort(binders, static (left, right) => string.CompareOrdinal(left.Name, right.Name));
+
+            return binders;
         }
     }
 
