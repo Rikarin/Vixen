@@ -365,6 +365,17 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// <summary>The stack's view, on the same terms.</summary>
     LayerStackView? stackView;
 
+    /// <summary>The layers panel this module last built, or null when none is open.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Exposed so that what the panel factory <em>wires</em> can be asserted, which is this
+    ///     workstream's most-shipped defect turned into a test.</b> A resolver, a callback or a
+    ///     delegate set in that factory is invisible from outside: the panel looks identical whether
+    ///     the line ran or not, and every symptom of its absence — a row that accepts a path and
+    ///     changes nothing — reads as a broken feature rather than as a missing line. Reaching the
+    ///     view is what lets a test name the caller.
+    /// </remarks>
+    internal LayerStackView? Stack => stackView;
+
     /// <summary>The graph on the canvas, which outlives the panel showing it.</summary>
     TextureGraphDocument? document;
 
@@ -657,6 +668,17 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
                 // this line the artist selects a layer and the pane goes on showing the pixels of
                 // whichever one the brush found first, until something else happens to refresh it.
                 stackView.SelectionChanged = RefreshPaint;
+
+                // ⚠ #1090's resolution seam, and it is here because here is the only place in the
+                // chain that has a project. `PaintBrushInspector` has none, `LayerStackView` builds
+                // it and has none either — so the issue's stated blocker, #881 and `PropertyField`,
+                // is true and was never the operative one: a decoder had nowhere to be *called
+                // from*. Set across the panel's own property rather than threaded through
+                // `LayerStackView`'s constructor, because the layers panel does not need to learn
+                // what a brush alpha is to pass one along.
+                if (stackView.Brush is { } brush) {
+                    brush.Alphas = reference => PaintAlphaSource.Resolve(project, reference);
+                }
 
                 RefreshStack();
             }

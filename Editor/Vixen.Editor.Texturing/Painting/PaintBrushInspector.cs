@@ -51,6 +51,12 @@ sealed class PaintBrushInspector {
     readonly List<Readout> readouts = [];
     readonly List<(SegmentedControl Picker, Func<string> Value)> pickers = [];
 
+    /// <summary>The box an imported alpha's asset path is typed into.</summary>
+    readonly TextBox alphaAsset;
+
+    /// <summary>What the row under it says about the picture it read.</summary>
+    readonly UiElement alphaStatus;
+
     /// <summary>
     ///     ⚠ <b>Set while <see cref="Refresh" /> is writing the controls, and read by every handler
     ///     that writes the tool.</b> A control and a model that follow each other are a loop: a
@@ -144,7 +150,7 @@ sealed class PaintBrushInspector {
         Row("Spacing", 0.01f, 2f, () => tool.Brush.Spacing, tool.SetSpacing, () => Percent(tool.Brush.Spacing));
         Row("Smoothing", 0f, 0.999f, () => tool.Smoothing, tool.SetSmoothing, () => Percent(tool.Smoothing));
 
-        Stamp();
+        (alphaAsset, alphaStatus) = Stamp();
 
         var jitter = root.Add("world-title");
 
@@ -163,6 +169,33 @@ sealed class PaintBrushInspector {
 
     /// <summary>Everything this built, for a caller that has to hide or show the column.</summary>
     public UiElement Root => root;
+
+    /// <summary>How an asset path becomes a brush alpha, or null where nothing can resolve one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1090">#1090</a>'s real blocker,
+    ///         which is not the one the issue names.</b> The issue points at
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a> and
+    ///         <c>PropertyField</c>, and that is true and not operative: nothing in this column's
+    ///         construction chain carries an <c>EditorProject</c> at all. This type is built by
+    ///         <c>LayerStackView</c>, which is built by <c>TexturingModule</c>, and only the last of
+    ///         the three has ever resolved the project. So a decoder had nowhere to be <em>called
+    ///         from</em> until a resolution seam existed, and this is that seam.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A property set after construction rather than a constructor parameter, and the
+    ///         reason is an ownership boundary rather than taste.</b> Threading a project through
+    ///         <c>LayerStackView</c>'s constructor is an edit to the layers panel, which is a
+    ///         different slice's file this batch; the panel already exposes the inspector it built,
+    ///         so the module can reach across without either file learning about the other's
+    ///         subject. ⚠ It is <em>not</em> optional in production — <c>TexturingModule.Panel</c>
+    ///         sets it as soon as it has the view — and the row says plainly when nothing has.
+    ///     </para>
+    /// </remarks>
+    public Func<string, (IBrushMask? Mask, string Message)>? Alphas { get; set; }
+
+    /// <summary>What the row under the imported-alpha box reads.</summary>
+    public string AlphaStatus => alphaStatus.Text ?? string.Empty;
 
     /// <summary>The brush this edits.</summary>
     public PaintTool Tool => tool;
@@ -227,6 +260,13 @@ sealed class PaintBrushInspector {
             foreach (var (picker, value) in pickers) {
                 picker.Value = value();
             }
+
+            // ⚠ The box is deliberately *not* pushed from the tool, which is the one exception to
+            // the rule the sliders follow two blocks up. A path that will not resolve leaves
+            // `AlphaAsset` empty by design, so a refresh that wrote the tool back into the box would
+            // erase what the artist typed at the moment they most need to see it. The one state
+            // that does have to be pushed — a shelf shape chosen while an import is loaded — is
+            // cleared where it happens, in the picker's own handler.
         } finally {
             syncing = false;
         }
@@ -254,14 +294,27 @@ sealed class PaintBrushInspector {
     ///         reach them.
     ///     </para>
     /// </remarks>
-    void Stamp() {
+    /// <returns>The imported alpha's path box and the line under it.</returns>
+    (TextBox Asset, UiElement Status) Stamp() {
         var title = root.Add("world-title");
 
         title.Text = "Stamp";
 
         // The names from the shelf rather than a second list here, for the curve picker's reason: a
         // fifth alpha appears without an edit to this file.
-        Picker("Alpha", PaintAlphas.Names, () => tool.AlphaName, tool.SetAlpha);
+        //
+        // ⚠ The box is cleared here rather than in `Refresh`, because this is the one direction in
+        // which the tool overrules what the artist typed: `PaintTool.SetAlpha` clears `AlphaAsset`,
+        // and a box that went on showing the path would name a picture no texel is reading.
+        Picker("Alpha", PaintAlphas.Names, () => tool.AlphaName,
+            name => {
+                tool.SetAlpha(name);
+
+                alphaAsset.Value = "";
+                alphaStatus.Text = "";
+            });
+
+        var imported = Imported();
 
         Picker("Rotation", Enum.GetValues<BrushRotation>().Select(rotation => rotation.ToString()),
             () => tool.Brush.Rotation.ToString(),
@@ -274,6 +327,87 @@ sealed class PaintBrushInspector {
         Row("Angle", 0f, 360f, () => tool.AngleDegrees, tool.SetAngle,
             () => tool.AngleDegrees.ToString("0", CultureInfo.InvariantCulture) + "°"
                 + (tool.IsAngled ? "" : Inert));
+
+        return imported;
+    }
+
+    /// <summary>The row that points the brush at one of the project's own pictures.</summary>
+    /// <returns>The box and the line under it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1090">#1090</a>, in the shape this
+    ///         plugin already uses for naming an asset.</b> A typed project-relative path is what
+    ///         <c>LayerStackView</c>'s texture-fill row and its mask row both are — the browse dialog
+    ///         and the drag target live in <c>Vixen.Editor.App</c>'s <c>AssetPicker</c>, which is
+    ///         <see langword="internal" /> to that assembly and reached through the
+    ///         <c>[Inspector]</c>/<c>PropertyField</c> path #881 keeps out of a plugin's entry
+    ///         assembly. So this is the same affordance the rest of the plugin gives, rather than a
+    ///         second worse one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The sentence under it is the row, not a nicety.</b> Every way this fails —
+    ///         a path with a typo, a format nothing decodes, a picture that is black everywhere —
+    ///         produces a brush that either does not change or paints nothing, and both read as a
+    ///         broken brush. <c>PaintAlphaSource</c> answers a sentence for each; this shows it. And
+    ///         it says which channel the weight came from even on success, because "the alpha was in
+    ///         the luminance" is the thing an artist cannot see from the picture.
+    ///     </para>
+    /// </remarks>
+    (TextBox Asset, UiElement Status) Imported() {
+        var caption = root.Add("paint-brush-caption");
+
+        caption.Text = "Alpha image";
+
+        var box = root.Add<TextBox>();
+
+        box.Placeholder = "Assets/Brushes/scratches.png";
+        box.AddAccessibleRelation(AccessibleRelation.LabelledBy, caption);
+
+        var status = root.Add("paint-brush-note");
+
+        // ⚠ On Enter and not on every keystroke, which is the one place in this column where the two
+        // events differ in cost rather than in feel: resolving a path decodes a PNG, so a
+        // `ValueChanged` wiring would decode a file per character typed — and would spend most of
+        // those decodes on prefixes of a path that names nothing.
+        box.Submitted += field => {
+            if (syncing) {
+                return;
+            }
+
+            Load(field.Value ?? "", status);
+            Refresh();
+        };
+
+        return (box, status);
+    }
+
+    /// <summary>Resolves a typed path and puts the answer on the brush and on the line.</summary>
+    /// <param name="typed">What the artist typed.</param>
+    /// <param name="status">The line under the box.</param>
+    /// <remarks>
+    ///     ⚠ <b>An unset <see cref="Alphas" /> says so rather than doing nothing.</b> A row that
+    ///     accepted a path and silently left the brush alone is exactly the "finished thing nothing
+    ///     calls" this workstream keeps shipping, and it would look identical to a path that had a
+    ///     typo in it.
+    /// </remarks>
+    void Load(string typed, UiElement status) {
+        if (typed.Trim().Length == 0) {
+            tool.SetAlphaAsset("", null);
+            status.Text = "";
+
+            return;
+        }
+
+        if (Alphas is not { } resolve) {
+            status.Text = "This panel was built without a project, so an imported alpha cannot be read.";
+
+            return;
+        }
+
+        var (mask, message) = resolve(typed);
+
+        tool.SetAlphaAsset(typed, mask);
+        status.Text = message;
     }
 
     /// <summary>One captioned row of buttons, writing through the tool.</summary>

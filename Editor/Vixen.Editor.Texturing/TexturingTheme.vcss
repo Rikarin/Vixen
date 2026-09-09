@@ -159,4 +159,11 @@ paint-uv-status { flex-shrink: 0; }
    beside it every time the paint verb was toggled. */
 paint-brush { display: flex; flex-direction: column; width: 220px; }
 
+/* The sentence under the imported-alpha box — https://github.com/Rikarin/Vixen/issues/1090. ⚠ It
+   takes `flex-shrink: 0` for the two panes' status lines' reason and one more of its own: it is the
+   only element in this column whose text is a *whole sentence* rather than a word and a number, so
+   in a 220px column it is the one rule here that has more than one line to lose. Everything about
+   how it reads is `EditorTheme`'s, as this file's opening paragraph requires. */
+paint-brush-note { flex-shrink: 0; }
+
 }

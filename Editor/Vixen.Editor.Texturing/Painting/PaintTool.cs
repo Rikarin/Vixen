@@ -105,6 +105,18 @@ sealed class PaintTool {
     /// </remarks>
     public string AlphaName { get; private set; } = PaintAlphas.Round;
 
+    /// <summary>Which of the project's own pictures the brush stamps, or empty for none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside <see cref="AlphaName" /> rather than folded into it, because the two are
+    ///     answers to different questions and a picker has to keep showing both</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1090">#1090</a>. An asset path is not a
+    ///     shelf name: a segmented control cannot light a segment for it, and an artist who imports
+    ///     an alpha and then clears the row means to go back to the shape they had rather than to a
+    ///     round brush. Whichever of the two was set last is what the brush stamps, and both are
+    ///     readable so that the panel can say which won.
+    /// </remarks>
+    public string AlphaAsset { get; private set; } = "";
+
     /// <summary>Whether the brush has an alpha, which is when its rotation reaches anything.</summary>
     /// <remarks>
     ///     ⚠ <b>The predicate that keeps a live control from being a dead one</b> —
@@ -199,6 +211,31 @@ sealed class PaintTool {
         var mask = PaintAlphas.Find(name);
 
         AlphaName = mask is null ? PaintAlphas.Round : name!;
+        AlphaAsset = "";
+        Brush = Brush with { Alpha = mask };
+    }
+
+    /// <summary>Which of the project's own pictures the brush stamps.</summary>
+    /// <param name="reference">The asset's project-relative path, or empty to go back to the shelf.</param>
+    /// <param name="mask">What that picture reads as — <c>PaintAlphaSource.Resolve</c>'s answer.</param>
+    /// <remarks>
+    ///     ⚠ <b>A null mask clears the asset and falls back to the shelf selection rather than to a
+    ///     round brush.</b> That is the state an artist is in while they are still typing a path, and
+    ///     a brush that silently lost its Chisel on the first keystroke would be a panel that undoes
+    ///     a choice nobody changed. <see cref="SetAlpha" /> is the other direction and clears this,
+    ///     because picking a shelf shape while an import is loaded means the shape.
+    /// </remarks>
+    public void SetAlphaAsset(string? reference, IBrushMask? mask) {
+        var path = reference?.Trim() ?? "";
+
+        if (path.Length == 0 || mask is null) {
+            AlphaAsset = "";
+            Brush = Brush with { Alpha = PaintAlphas.Find(AlphaName) };
+
+            return;
+        }
+
+        AlphaAsset = path;
         Brush = Brush with { Alpha = mask };
     }
 
@@ -297,7 +334,9 @@ sealed class PaintTool {
             ? string.Create(CultureInfo.InvariantCulture, $"{AngleDegrees:0}°")
             : Brush.Rotation.ToString();
 
-        return line + " · " + AlphaName + " " + turn;
+        // ⚠ The asset when there is one, because that is the alpha the brush is stamping and the
+        // shelf name beside it would name a shape no texel is reading — #1090.
+        return line + " · " + (AlphaAsset.Length > 0 ? AlphaAsset : AlphaName) + " " + turn;
     }
 
     /// <summary>A 0…1 setting, with a not-a-number treated as zero rather than propagated.</summary>
