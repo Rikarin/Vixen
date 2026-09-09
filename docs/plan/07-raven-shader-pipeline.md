@@ -27,8 +27,8 @@ decision that has been made and built, kept because the reasons stay useful.
 | ⚪ | **Nuke is not stood up**: `CompileShaderLibrary`, the CI workflows | § A, § G | shipping the library as a package. SPDX enforcement is no longer part of this row — `CheckFormat` checks it, over `.cs`, `.g4`, `.vxml`, `.vcss` and `.ts`, and `.rvn` is deliberately outside that scope |
 | ⚪ | **The other four cross-compilation targets.** ⚠ This row said `Vixen.Raven.Transpile` and its test pass were both owed and **neither is**: the project ships (`Raven/Vixen.Raven.Transpile`, with `Vixen.Raven.Transpile.Tests` beside it) and every engine shader goes through SPIRV-Cross into a `glslangValidator` reading `#version 300 es`. What is owed is the rest of § G's row — GLSL 450, HLSL 60, MSL and WGSL, which ADR-012 says SPIRV-Cross owns too | § A, § G | HLSL/MSL/WGSL output |
 
-Two smaller ones recorded where they belong rather than here: streams have **no interpolation control**
-(§ Streams), and a library's **IR names share one flat namespace per module** (§ D).
+⚠ Both of the smaller ones this paragraph used to name have closed: streams take
+`[Interpolation("…")]` (§ Streams) and a library's IR names are keyed by their library (§ D).
 
 ## Consolidated change checklist
 
@@ -432,11 +432,14 @@ Honestly bounded:
   no longer collapse.** `LibraryIrCodec` indexes them by their artefact *key* rather than by name
   (`if (!functions.ContainsKey(function.Key))`), because two packages that each declared a
   `static func Of` collided here and the loser's callers silently got the winner's body — pinned by
-  `CompiledLibraryTests.SameNamedStaticsInTwoLibrariesEachKeepTheirOwnBody`. **Structs still do**:
-  `DecodeStructs` says "first declaration of a name wins", deliberately, so a struct two libraries
-  both mention has one identity across the linked module. What remains flat, then, is struct
-  identity and the emitted *name*, which is unqualified everywhere; the fix for the second is
-  qualifying IR names by declaring type, which is its own change. A library entity whose name the
+  `CompiledLibraryTests.SameNamedStaticsInTwoLibrariesEachKeepTheirOwnBody`. ⚠ **And structs no longer
+  do either, which this paragraph went on saying after it stopped being true.** `LibraryIrStruct`
+  carries a `Key` — `<library>::<struct>` — and `DecodeStructs` indexes by it, so two libraries'
+  `Shape` are two objects; a tuple and a monomorphised generic keep a *bare* key deliberately,
+  because a tuple's name **is** its structural identity and qualifying it prints `RVN3010: store:
+  Tuple_f32_f32 does not match Tuple_f32_f32#1`. What remains flat is the emitted *name*, which is
+  unqualified everywhere; the fix for that is qualifying IR names by declaring type, which is its
+  own change. A library entity whose name the
   compilation itself uses gives way, and only then is it renamed, so the GLSL in a frame debugger
   still says `Saturate`.
 - **A generic library type is exported but still not lowerable** — `Box<float>` is `RVN3001`/`RVN3003`
@@ -1489,11 +1492,16 @@ Honestly bounded:
   shader's stream list, so linking the function would mean matching two shaders' streams by name: the
   flattening half of the mixin problem (§ J), not a serialization gap. Within one compilation a stream
   crosses any number of functions freely.
-- **No interpolation control** — no `noperspective` or `centroid`, and no way to decline
-  interpolation on a float. ⚠ *"Every stream is smoothly interpolated"*, which this row said, is no
-  longer true: `flat` is applied automatically wherever an integer varying requires it
-  (`StageInterface.MustBeFlat`, asked by both backends). What is missing is the author's half, and
-  the syntax for it is an attribute on the declaration.
+- ✅ **Interpolation control** — `[Interpolation("smooth" | "flat" | "noperspective" | "centroid")]`
+  on the `stream` declaration, or on a fragment entry point's own parameter, which is the other
+  shape a varying arrives in. `StageInterface.Interpolation` is the one place the author's word and
+  the type's constraint meet, so neither backend re-derives it, and `flat` stays automatic wherever
+  an integer varying requires it (`MustBeFlat`). Three diagnostics come with it: `RVN2143` for a
+  word the language does not have, `RVN2144` for anything but `flat` on an integer varying — ⚠
+  refused at the declaration rather than obeyed, which emits a module `spirv-val` rejects, or
+  ignored, which is a silent override — and `RVN2145` for the attribute where nothing interpolates,
+  ⚠ **including a vertex stage's own parameter**, which is a vertex attribute read from a buffer
+  and not a varying at all.
 
   ⚠ *"An integer stream would want `flat` in GLSL"* understated it twice. It is not a want, it is a
   compile error in GLSL ES — `'int' : must be qualified as flat out` — and it applies to the
