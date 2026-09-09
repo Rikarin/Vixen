@@ -38,4 +38,17 @@ SPDX-License-Identifier: Apache-2.0
         <ProjectReference Include="..\Vixen.DocGen\Vixen.DocGen.csproj" />
     </ItemGroup>
 
+    <!--
+        ⚠ The build's own PublicAPI baseline reader, compiled in rather than re-implemented, so that
+        `RealApiIdTests` resolves a page's `api:` ids against the same id set `CheckDocsCoverage`
+        does (#1145). A second parser of the baseline format is how the two would come to disagree
+        about what a type line is — and that reader has already been wrong about exactly that once,
+        dropping every `X -> sealed class` line and reading 2 398 of 4 711 types while printing a
+        plausible number. `Tools/Vixen.ApiCheck.Tests` links the same file for the same reason; the
+        file is dependency-free on purpose so that linking it costs nothing and cannot drift.
+    -->
+    <ItemGroup>
+        <Compile Include="..\..\build\PublicApiTypeNames.cs" Link="PublicApiTypeNames.cs" />
+    </ItemGroup>
+
 </Project>
