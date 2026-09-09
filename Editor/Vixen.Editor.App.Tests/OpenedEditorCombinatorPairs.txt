@@ -1,0 +1,65 @@
+# The `A > B` pairings a committed stylesheet declares AND an editor with every registered panel
+# OPENED actually builds.
+#
+# Held against the observed set by
+# `EditorCombinatorPairTests.Every_declared_pairing_an_opened_editor_builds_is_in_the_committed_census`,
+# EXACTLY and in both directions. Derived: re-run that test with VIXEN_REGENERATE=1 to write it back.
+#
+# ⚠ THE SECOND CENSUS, AND WEAKER STANDING THAN THE FIRST. `EditorCombinatorPairs.txt` is what a
+# started editor builds with nothing poked; this is what one builds after a fixture has asked the
+# workspace to open every panel it registers. They are kept apart so that no row in the first
+# changes meaning — the same separation the controls' bare and seeded sweeps keep.
+#
+# ⚠ But it is far stronger than seeding, and the difference is the whole reason this file is worth
+# reading. Nothing here nests anything: the fixture opens a panel THE EDITOR ITSELF REGISTERED and
+# every element under it is built by that panel's own factory. There is no harness-built pairing to
+# refuse, so every row is still the editor's own construction.
+#
+# The decision, stated once because it is one decision: every panel the workspace has registered,
+# opened, and nothing else poked. Not a hand-written list — that would go stale the day a panel is
+# added and would say nothing about it.
+#
+# ⚠ STILL A SET OF PROOFS AND STILL NO NEGATIVE CLAIM. A pairing absent from here is UNJUDGED. Most
+# of what the domain declares lives under an asset editor, which exists only once a document of that
+# kind has been opened, and opening a panel reaches none of it.
+#
+# ⚠ A ROW LEAVING IS THE LOUD DIRECTION, for the reason the first census gives: a panel that has
+# stopped building a child while a committed sheet still declares the rule.
+asset-grid > asset-path
+asset-tile > icon
+asset-tile > image
+browser-filters > search-box
+browser-filters > select
+color-input > color-swatch
+debugger-body > tree-view
+device-manager > data-grid
+dock-guide > dock-hint
+dock-split > dock-splitter
+dock-tabstrip > icon-button
+editor-shell > menu-bar
+expander > expander-header
+expander-header > label
+fact-row > fact-value
+group-editor > tree-view
+inspector > scroll-view
+inspector-header > search-box
+inspector-row > icon-button
+inspector-row > inspector-editor
+inspector-row > inspector-label
+memory-view > scroll-view
+mode-bar > toolbar
+outliner-filters > search-box
+outliner-filters > select
+profiler-body > scroll-view
+profiler-view > data-grid
+remote-body > tree-view
+remote-write > textbox
+scroll-view > scroll-content
+segment > icon
+segmented-control > segment
+settings-rail > button
+status-bar > status-trailing
+task-center > text
+toolbar > segmented-control
+vector-component > text
+viewport-bar > toolbar
