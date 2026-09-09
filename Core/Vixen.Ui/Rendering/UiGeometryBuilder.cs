@@ -1972,6 +1972,18 @@ public sealed class UiGeometryBuilder {
     ///         format somewhere to put it.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>"Nothing reaches this" was re-checked rather than copied, and it holds — by an
+    ///         internal setter and not by the type.</b> <c>UiTransform</c>'s <c>M13</c>, <c>M23</c>
+    ///         and <c>M33</c> are public <c>init</c>, so anybody can build a homography; what they
+    ///         cannot do is put one on an element, because <c>UiElement.Transform</c>'s setter is
+    ///         internal and the style pipeline is its only writer, and <c>TransformReader</c> parses
+    ///         no <c>perspective()</c> yet (#550). One assembly away from a wrong picture is worth
+    ///         knowing, so how wrong is now a number rather than this paragraph:
+    ///         <c>UiTransformProjectiveTests.A_composited_group_under_a_homography_samples_the_wrong_texel_down_its_diagonal</c>
+    ///         builds exactly this quad under a mild perspective and reads 30.4 surface pixels of
+    ///         error at the group's own centre.
+    ///     </para>
+    ///     <para>
     ///         Null is the ordinary case and costs one null check per quad, on a path that already
     ///         does a gamut lookup per quad.
     ///     </para>

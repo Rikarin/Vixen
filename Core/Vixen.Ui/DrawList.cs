@@ -439,7 +439,7 @@ public readonly record struct DrawCommand(
     public UiBackdrop? Backdrop { get; init; }
 
     /// <summary>
-    ///     The affine a composited group's <c>rotate</c> and <c>scale</c> place its surface under, or
+    ///     The matrix a composited group's <c>rotate</c> and <c>scale</c> place its surface under, or
     ///     null where there is none. Unread on every kind but <see cref="DrawCommandKind.LayerPush" />.
     /// </summary>
     /// <remarks>
@@ -459,6 +459,16 @@ public readonly record struct DrawCommand(
     ///         ⚠ <b>Absolute, with <c>transform-origin</c> already folded in</b>, so that neither this
     ///         type nor its consumers carry a second opinion about where an element turns about. See
     ///         <see cref="UiTransform" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This summary said "the affine" until 2026-09-09 and the type has been a homography
+    ///         since #547.</b> Everything that <i>writes</i> this field today is still affine — the
+    ///         style pipeline is the only writer, <c>UiElement.Transform</c>'s setter is internal, and
+    ///         <c>TransformReader</c> parses no <c>perspective()</c> yet (#550) — so nothing wrong is
+    ///         drawn. But the field's type can carry one, and what happens when it does is measured
+    ///         rather than described: see
+    ///         <c>UiTransformProjectiveTests.A_composited_group_under_a_homography_samples_the_wrong_texel_down_its_diagonal</c>
+    ///         (#548).
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Nullable for <see cref="Filter" />'s reason, and the default is worse here than
