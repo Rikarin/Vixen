@@ -130,7 +130,15 @@ sealed class GlslEmitter {
         this.entryPoint = entryPoint;
         this.options = options;
         this.diagnostics = diagnostics;
+        imageAccess = ImageAccess.Of(entryPoint);
     }
+
+    /// <summary>What this stage does to each storage image it can reach.</summary>
+    /// <remarks>
+    ///     Computed once here rather than per declaration: it is a walk of the stage's whole call
+    ///     graph, and the declarations are emitted in one pass over the binding plan.
+    /// </remarks>
+    readonly ImageAccess.Access imageAccess;
 
     // --- Declarations ------------------------------------------------------
 
@@ -311,6 +319,19 @@ sealed class GlslEmitter {
                 // emitting the same declaration.
                 var format = resource.Type is IrStorageImageType image ? image.Format + ", " : string.Empty;
 
+                // ⚠ And the access qualifier, which GLSL ES does not treat as advice: an image that
+                // is both read and written is legal there only at r32f/r32i/r32ui, so the one a
+                // stage merely stores into has to say `writeonly` or the ES front end refuses the
+                // declaration. Derived from what the stage's reachable code does — see ImageAccess,
+                // which reports nothing at all rather than guess when a receiver cannot be traced.
+                var group = planned.Declarations.Select(declaration => declaration.Variable);
+
+                var access = resource.Type is IrStorageImageType
+                    ? imageAccess.IsWriteOnly(group) ? "writeonly "
+                    : imageAccess.IsReadOnly(group) ? "readonly "
+                    : string.Empty
+                    : string.Empty;
+
                 // The declaration alone needs the extension: its type is a word the extension owns.
                 rayQueryDeclared |= resource.Type is IrAccelerationStructureType;
 
@@ -323,7 +344,7 @@ sealed class GlslEmitter {
                     : Declare(resource.Type, name, resource.Name);
 
                 writer.Line(
-                    $"layout({format}{layout}) uniform {declaration};" + Comment(resource.Semantic)
+                    $"layout({format}{layout}) {access}uniform {declaration};" + Comment(resource.Semantic)
                 );
 
                 opaque = true;

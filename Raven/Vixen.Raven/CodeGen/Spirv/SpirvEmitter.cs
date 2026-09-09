@@ -130,7 +130,15 @@ sealed partial class SpirvEmitter {
 
         module = new(options.Version);
         types = new(module, (type, what) => Report(BackendDiagnostics.NotExpressible, Describe(type, what)));
+        imageAccess = ImageAccess.Of(entryPoint);
     }
+
+    /// <summary>What this stage does to each storage image it can reach.</summary>
+    /// <remarks>
+    ///     Computed once here rather than per declaration: it is a walk of the stage's whole call
+    ///     graph, and the bindings are declared in one pass over the plan.
+    /// </remarks>
+    readonly ImageAccess.Access imageAccess;
 
     // --- Declarations ------------------------------------------------------
 
@@ -375,6 +383,24 @@ sealed partial class SpirvEmitter {
 
         module.AddName(variable, resource.Name);
         DecorateBinding(variable, planned);
+
+        // ⚠ An access decoration is not documentation. `NonReadable` is what lets a driver skip the
+        // read-after-write hazard on this binding and what `spirv-opt` reads; the GLSL backend turns
+        // the same answer into `writeonly`, which GLSL ES requires outright on any image that is
+        // both read and written at a format outside r32f/r32i/r32ui. Derived from what this stage's
+        // reachable code does, per (stage, binding) — see ImageAccess, and note it declines to
+        // answer at all rather than guess, because NonReadable on an image something reads is a
+        // module a driver may miscompile rather than reject.
+        if (resource.Type is IrStorageImageType) {
+            var group = planned.Declarations.Select(declaration => declaration.Variable);
+
+            if (imageAccess.IsWriteOnly(group)) {
+                module.Decorate(variable, SpirvDecoration.NonReadable);
+            } else if (imageAccess.IsReadOnly(group)) {
+                module.Decorate(variable, SpirvDecoration.NonWritable);
+            }
+        }
+
         return variable;
     }
 

@@ -210,7 +210,19 @@ internal enum SpirvDecoration {
     Location = 30,
     Binding = 33,
     DescriptorSet = 34,
+    /// <summary>
+    ///     Nothing writes this binding: a read-only storage buffer, or a storage image a stage only
+    ///     loads. <c>readonly</c> in GLSL.
+    /// </summary>
     NonWritable = 24,
+
+    /// <summary>
+    ///     Nothing reads this binding — a storage image a stage only stores into. <c>writeonly</c>
+    ///     in GLSL, and the qualifier GLSL ES demands on any image whose format is not one of
+    ///     <c>r32f</c>, <c>r32i</c>, <c>r32ui</c>.
+    /// </summary>
+    NonReadable = 25,
+
     Offset = 35,
 
     /// <summary>
