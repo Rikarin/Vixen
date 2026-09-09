@@ -336,7 +336,8 @@ public sealed class NetworkMetricsTests {
     [Fact]
     public void APlayerDroppingDoesNotMakeTheOutboundCountersFall() {
         var options = new SessionOptions {
-            PingInterval = TimeSpan.FromMilliseconds(32), ReconnectWindow = TimeSpan.FromSeconds(30)
+            PingInterval = TimeSpan.FromMilliseconds(32),
+            ReconnectWindow = TimeSpan.FromSeconds(30)
         };
 
         using var harness = new SessionHarness();
@@ -382,7 +383,8 @@ public sealed class NetworkMetricsTests {
     [Fact]
     public void APlayerLeavingForGoodDoesNotMakeTheOutboundCountersFall() {
         var options = new SessionOptions {
-            PingInterval = TimeSpan.FromMilliseconds(32), ReconnectWindow = TimeSpan.Zero
+            PingInterval = TimeSpan.FromMilliseconds(32),
+            ReconnectWindow = TimeSpan.Zero
         };
 
         using var harness = new SessionHarness();
