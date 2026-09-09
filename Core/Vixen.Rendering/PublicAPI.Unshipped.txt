@@ -3713,6 +3713,16 @@ Vixen.Rendering.Materials.TexturedNormalMapFeature.ShaderName.get -> string
 Vixen.Rendering.Materials.TexturedNormalMapFeature.Strength.get -> float
 Vixen.Rendering.Materials.TexturedNormalMapFeature.Strength.init -> float
 Vixen.Rendering.Materials.TexturedNormalMapFeature.TexturedNormalMapFeature() -> void
+Vixen.Rendering.Materials.TexturedOcclusionFeature -> sealed record
+Vixen.Rendering.Materials.TexturedOcclusionFeature : System.IEquatable<Vixen.Rendering.Materials.TexturedOcclusionFeature>
+Vixen.Rendering.Materials.TexturedOcclusionFeature : Vixen.Rendering.Materials.IMaterialFeature
+Vixen.Rendering.Materials.TexturedOcclusionFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.TexturedOcclusionFeature.OcclusionMap.get -> string
+Vixen.Rendering.Materials.TexturedOcclusionFeature.OcclusionMap.init -> string
+Vixen.Rendering.Materials.TexturedOcclusionFeature.OcclusionStrength.get -> float
+Vixen.Rendering.Materials.TexturedOcclusionFeature.OcclusionStrength.init -> float
+Vixen.Rendering.Materials.TexturedOcclusionFeature.ShaderName.get -> string
+Vixen.Rendering.Materials.TexturedOcclusionFeature.TexturedOcclusionFeature() -> void
 Vixen.Rendering.Materials.TexturedOpacityFeature -> sealed record
 Vixen.Rendering.Materials.TexturedOpacityFeature : System.IEquatable<Vixen.Rendering.Materials.TexturedOpacityFeature>
 Vixen.Rendering.Materials.TexturedOpacityFeature : Vixen.Rendering.Materials.IMaterialFeature
@@ -6753,6 +6763,7 @@ static Vixen.Rendering.Materials.TexturedMaterialLayersFeature.HeightIndexParame
 static Vixen.Rendering.Materials.TexturedMaterialLayersFeature.SplatIndexParameter(string path) -> string
 static Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.BaseColorIndexParameter(string path) -> string
 static Vixen.Rendering.Materials.TexturedNormalMapFeature.NormalIndexParameter(string path) -> string
+static Vixen.Rendering.Materials.TexturedOcclusionFeature.OcclusionIndexParameter(string path) -> string
 static Vixen.Rendering.Materials.TexturedOpacityFeature.OpacityIndexParameter(string path) -> string
 static Vixen.Rendering.Materials.TexturedOrmFeature.OrmIndexParameter(string path) -> string
 static Vixen.Rendering.MeshInstance.NormalMatrix(in Vixen.Core.Mathematics.Matrix4x4 transform) -> Vixen.Core.Mathematics.Matrix4x4

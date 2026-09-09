@@ -1181,6 +1181,7 @@ public sealed class WorldRenderer : IDisposable {
         var baseColor = new TexturedMetalRoughnessFeature();
         var normal = new TexturedNormalMapFeature();
         var orm = new TexturedOrmFeature();
+        var occlusion = new TexturedOcclusionFeature();
         var emissive = new TexturedEmissiveFeature();
         var opacity = new TexturedOpacityFeature();
         var layers = new TexturedMaterialLayersFeature();
@@ -1189,6 +1190,13 @@ public sealed class WorldRenderer : IDisposable {
         Pair(TexturedMetalRoughnessFeature.BaseColorIndexParameter(Under(baseColor)), baseColor.BaseColorMap);
         Pair(TexturedNormalMapFeature.NormalIndexParameter(Under(normal)), normal.NormalMap);
         Pair(TexturedOrmFeature.OrmIndexParameter(Under(orm)), orm.OrmMap);
+
+        // ⚠ A second entry for what is often the same *file*, and it has to be a second entry. A bake
+        // behind a layered surface binds the ORM map it wrote under `occlusionMap` as well, because
+        // the layered surface cannot take the packed feature and the occlusion would otherwise be
+        // lost with it (#1130). Two texture entries naming one asset cost one resident page; two
+        // features naming one map name would be a pairing resolved by whichever was reached last.
+        Pair(TexturedOcclusionFeature.OcclusionIndexParameter(Under(occlusion)), occlusion.OcclusionMap);
         Pair(TexturedEmissiveFeature.EmissiveIndexParameter(Under(emissive)), emissive.EmissiveMap);
         Pair(TexturedOpacityFeature.OpacityIndexParameter(Under(opacity)), opacity.OpacityMap);
         Pair(TexturedMaterialLayersFeature.SplatIndexParameter(Under(layers)), layers.SplatMap);

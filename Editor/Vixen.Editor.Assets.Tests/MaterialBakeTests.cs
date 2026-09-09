@@ -646,6 +646,78 @@ public sealed class MaterialBakeTests {
         );
     }
 
+    /// <summary>
+    ///     ⚠ Behind a layered surface the packed map's red channel keeps its reader, under a
+    ///     different feature and a different name.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The cost of dropping <c>TexturedOrmFeature</c> there was never the roughness or the
+    ///         metalness — the layers supply both — it was the <em>occlusion</em>, which the layered
+    ///         surface does not write and which the packed feature was the only carrier of. A layered
+    ///         material therefore had no route to a baked AO map at all
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1130">#1130</a>), and the failure is
+    ///         a picture rather than a diagnostic: the material compiles, shades, and is uniformly
+    ///         unoccluded.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The same file, bound twice under two names, and that is the point rather than an
+    ///         accident.</b> A second baked output would be a second import, a second bundle entry and
+    ///         a second resident page for bytes that are already there.
+    ///         <see cref="TexturedOcclusionFeature" /> reads red and nothing else, so the ORM file is
+    ///         an occlusion map with two channels nobody looks at.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_layered_re_bake_keeps_the_packed_maps_occlusion_by_binding_it_under_its_own_feature() {
+        var existing = new MaterialContent {
+            Features = [new TexturedMaterialLayersFeature { PaintedChannels = 3 }],
+            Textures = [new(new TexturedMaterialLayersFeature().SplatMap, Reference(7))]
+        };
+
+        var maps = new Dictionary<MaterialMapTarget, AssetReference> {
+            [MaterialMapTarget.BaseColor] = Reference(1),
+            [MaterialMapTarget.Orm] = Reference(3)
+        };
+
+        var material = MaterialBake.Material(maps, existing);
+
+        Assert.True(MaterialShading.TryResolve(material.Shading, out var shading));
+
+        var compilation = MaterialCompiler.Compile(material.ToDescriptor(shading));
+
+        Assert.False(compilation.Failed, string.Join("; ", compilation.Diagnostics.Select(one => one.Message)));
+
+        var composed = Slots(compilation.Material!);
+
+        // The half that composes behind a layered surface, and the half that cannot.
+        Assert.Contains("TexturedOcclusionSurface", composed);
+        Assert.DoesNotContain("TexturedOrmSurface", composed);
+
+        // ⚠ The same reference the bake wrote for the packed target, under the occlusion feature's
+        // own name — not a second file, and not the packed name, which nothing samples any more.
+        var bound = Assert.Single(
+            material.Textures,
+            texture => texture.Parameter == new TexturedOcclusionFeature().OcclusionMap
+        );
+
+        Assert.Equal(maps[MaterialMapTarget.Orm], bound.Texture);
+        Assert.DoesNotContain(material.Textures, texture => texture.Parameter == new TexturedOrmFeature().OrmMap);
+
+        // ⚠ The instrument, and it is the half that makes the two assertions above about the *layered*
+        // branch rather than about the bake having stopped composing the packed feature at all. The
+        // same maps with no layered surface underneath still produce it, under its own name.
+        var flat = MaterialBake.Material(maps);
+
+        Assert.Contains(flat.Features, feature => feature is TexturedOrmFeature);
+        Assert.DoesNotContain(flat.Features, feature => feature is TexturedOcclusionFeature);
+
+        Assert.Contains(
+            flat.Textures,
+            texture => texture.Parameter == new TexturedOrmFeature().OrmMap
+        );
+    }
+
     /// <summary>⚠ A renamed splat map is put back to the name the feature is paired on.</summary>
     /// <remarks>
     ///     The parallax rule one feature along: the author's spelling is half of a pairing

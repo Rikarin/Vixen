@@ -382,7 +382,7 @@ public class MaterialCompilerTests {
     ///         shader's <c>uint</c> slot with a material-side texture name keyed off the feature's
     ///         <em>default</em> — one static table for the whole frame — so a material that renames
     ///         its map resolves no entry, keeps the index at zero and samples slot zero: the fallback
-    ///         checker. Eight map-name remarks say the name is not the author's and, until this,
+    ///         checker. Nine map-name remarks say the name is not the author's and, until this,
     ///         nothing enforced any of them. See
     ///         <a href="https://github.com/Rikarin/Vixen/issues/371">#371</a>.
     ///     </para>
@@ -398,7 +398,7 @@ public class MaterialCompilerTests {
 
         // ⚠ The instrument. An empty inventory is reflection that stopped finding features, and it
         // satisfies the loop below while examining nothing. What is *in* it is asserted separately,
-        // by TheInventoryIsTheEightMapNamesAndNothingElse.
+        // by TheInventoryIsTheNineMapNamesAndNothingElse.
         Assert.NotEmpty(names);
 
         foreach (var (type, property, paired) in names) {
@@ -517,7 +517,7 @@ public class MaterialCompilerTests {
     }
 
     /// <summary>
-    ///     And the inventory is exactly the eight, which is where two claims about it are decidable.
+    ///     And the inventory is exactly the nine, which is where two claims about it are decidable.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -539,7 +539,7 @@ public class MaterialCompilerTests {
     ///     </para>
     /// </remarks>
     [Fact]
-    public void TheInventoryIsTheEightMapNamesAndNothingElse() {
+    public void TheInventoryIsTheNineMapNamesAndNothingElse() {
         string[] expected = [
             $"{nameof(ParallaxOcclusionFeature)}.{nameof(ParallaxOcclusionFeature.HeightMap)}",
             $"{nameof(TexturedEmissiveFeature)}.{nameof(TexturedEmissiveFeature.EmissiveMap)}",
@@ -547,6 +547,7 @@ public class MaterialCompilerTests {
             $"{nameof(TexturedMaterialLayersFeature)}.{nameof(TexturedMaterialLayersFeature.SplatMap)}",
             $"{nameof(TexturedMetalRoughnessFeature)}.{nameof(TexturedMetalRoughnessFeature.BaseColorMap)}",
             $"{nameof(TexturedNormalMapFeature)}.{nameof(TexturedNormalMapFeature.NormalMap)}",
+            $"{nameof(TexturedOcclusionFeature)}.{nameof(TexturedOcclusionFeature.OcclusionMap)}",
             $"{nameof(TexturedOpacityFeature)}.{nameof(TexturedOpacityFeature.OpacityMap)}",
             $"{nameof(TexturedOrmFeature)}.{nameof(TexturedOrmFeature.OrmMap)}"
         ];

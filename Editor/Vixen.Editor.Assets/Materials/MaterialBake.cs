@@ -303,6 +303,17 @@ public static class MaterialBake {
     ///         binding it anyway is the resident-and-unread shape #1103 was refused over.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>The packed map behind a layered surface is the one file that is renamed rather
+    ///         than dropped.</b> <see cref="TexturedOrmFeature" /> cannot compose there — it assigns
+    ///         roughness and splits the albedo the layered surface has already split — but its red
+    ///         channel is the baked occlusion, and dropping the feature dropped that with it, leaving
+    ///         a layered material with no route to a baked AO map at all
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1130">#1130</a>). A
+    ///         <see cref="TexturedOcclusionFeature" /> takes its place and the same file is bound
+    ///         under <c>occlusionMap</c>: one resident page, one reader, and the two channels nothing
+    ///         can use simply unread.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>And its splat map is carried over from the material rather than written by this
     ///         bake, which is the whole of why the preservation is owed.</b> A splat map's channels
     ///         are the <em>material's layer indices</em> — see <see cref="MaterialMapTarget" /> — so
@@ -351,10 +362,14 @@ public static class MaterialBake {
         // metalness rule states the invariant this would break as a requirement rather than a
         // preference, and it is not one a compilation can refuse: the material compiles clean.
         //
-        // ⚠ The cost is the baked *occlusion*, which the layered surface does not write and which
-        // therefore has no route onto one of these materials at all — #1130.
-        if (maps.ContainsKey(MaterialMapTarget.Orm) && layered is null) {
-            features.Add(new TexturedOrmFeature());
+        // ⚠ The cost used to be the baked *occlusion*, which the layered surface does not write: with
+        // the packed feature dropped there was no route for a baked AO map onto a layered material at
+        // all (#1130). `TexturedOcclusionFeature` is the half of the packed feature that composes —
+        // it multiplies the map's red into `d.occlusion` and has no opinion about roughness,
+        // metalness or the albedo split, so none of the arithmetic above applies to it. The file it
+        // samples is the same one, bound a second time under its own name by the loop below.
+        if (maps.ContainsKey(MaterialMapTarget.Orm)) {
+            features.Add(layered is null ? new TexturedOrmFeature() : new TexturedOcclusionFeature());
         }
 
         if (maps.ContainsKey(MaterialMapTarget.Emissive)) {
@@ -374,13 +389,20 @@ public static class MaterialBake {
             // in one batch (#1132), so the rule is written rather than the cases.
             //
             // Height: sampled only by a `ParallaxOcclusionFeature` the author put there, under that
-            // instance's own name. Base colour and the packed map: unbound once a layered surface has
-            // replaced `TexturedMetalRoughnessFeature` and `TexturedOrmFeature`, because nothing then
-            // samples `baseColorMap` or `ormMap` — two entries the build imports, a bundle carries
-            // and a pool makes resident for no reader.
+            // instance's own name. Base colour: unbound once a layered surface has replaced
+            // `TexturedMetalRoughnessFeature`, because nothing then samples `baseColorMap` — an entry
+            // the build imports, a bundle carries and a pool makes resident for no reader. The packed
+            // map: renamed rather than unbound, because half of it still has a reader.
             var parameter = target switch {
                 MaterialMapTarget.Height => parallax?.HeightMap,
-                MaterialMapTarget.BaseColor or MaterialMapTarget.Orm when layered is not null => null,
+                MaterialMapTarget.BaseColor when layered is not null => null,
+
+                // ⚠ Behind a layered surface the packed map keeps its file and changes its *name*.
+                // `TexturedOrmFeature` is gone, so nothing samples `ormMap` any more — but
+                // `TexturedOcclusionFeature` above reads the same file's red channel, and it looks the
+                // entry up under `occlusionMap`. Renaming rather than dropping is what keeps one
+                // resident page doing the work of one.
+                MaterialMapTarget.Orm when layered is not null => new TexturedOcclusionFeature().OcclusionMap,
 
                 // ⚠ Never from here, even though `MaterialMapNaming.Parameter` names it. A graph bake
                 // cannot write a splat map — `MaterialMapNaming.Packed` gives it no channels, so
