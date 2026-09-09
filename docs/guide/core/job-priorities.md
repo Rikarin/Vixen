@@ -8,6 +8,7 @@ api: [T:Vixen.Core.Threading.JobPriority]
 tags: [threading, jobs, scheduler, concurrency, frame]
 since: 0.1
 status: preview
+related: [core/collections]
 ---
 
 ## What it is

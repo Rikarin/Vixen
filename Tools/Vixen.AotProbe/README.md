@@ -58,6 +58,20 @@ rooted set is `Vixen.App.Hosting`, `Vixen.Assets`, `Vixen.Audio` and its two cod
 drift apart silently — but nothing makes the *set* grow, which is why the paragraph above is a
 measurement and not a promise.
 
+⚠ **The 66 are written down now, and that is what turns the paragraph into a gate.**
+[`NotRooted.txt`](NotRooted.txt) names each one with a reason, and `nuke CheckAot` fails on a
+`net10.0` non-test assembly under `Core/` or `Platform/` that is neither rooted nor in that file —
+**and equally on a line in it that has become rooted**, so the list can only shrink. Comparing the
+probe against itself, which is all `AssertProbeRootsEveryAssemblyItReferences` could do, is satisfied
+by a probe that references three assemblies and roots the same three; comparing it against the tree
+is the only question that can notice an assembly nobody added. The rule is
+`build/AotRootingRule.cs`, a pure function that `AotRootingRuleTests` calls too — because a rule
+whose only answer comes from an ILC publish is a rule nobody has watched produce one.
+
+What the list does **not** do is demand the expansion. Removing a line is real work: each newly
+rooted assembly is a fresh set of IL2xxx/IL3xxx findings and, under `ILLinkTreatWarningsAsErrors`, a
+build break until every one is fixed.
+
 `Vixen.Audio.Codecs` is in the list for a reason worth stating: NVorbis and Concentus are third-party
 decoders, and rooting them here is what makes "both are pure managed and survive trimming" a checked
 fact rather than a claim on a NuGet page. Concentus would otherwise P/Invoke a system libopus when it
