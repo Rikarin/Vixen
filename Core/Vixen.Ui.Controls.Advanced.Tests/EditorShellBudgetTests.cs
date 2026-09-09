@@ -321,6 +321,18 @@ public class EditorShellBudgetTests {
     ///         in a case where the draw walk may be innocent. Both are asserted now: the frames did
     ///         no work, <i>and</i> they cost nothing. A red says which.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the bytes are counted per frame rather than across ten, because the sum
+    ///         cannot tell a per-frame object from a one-off and the message asserts that it can.</b>
+    ///         "Something on the draw walk is asking the allocator for a per-frame object" is one
+    ///         reading of a non-zero total; a single frame paying once for a cache, a pool that
+    ///         missed, or a buffer that grew is the other, and it is the reading that fits a failure
+    ///         seen under load and never alone. #992's 8 120 bytes over ten frames is either 812 a
+    ///         frame or 8 120 once, and nothing recorded says which. The breakdown costs nothing to
+    ///         keep — <c>GC.GetAllocatedBytesForCurrentThread</c> allocates no more inside the loop
+    ///         than outside it, and the array it fills is rented from nowhere and made before the
+    ///         measurement starts — so the next red names the shape as well as the size.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_settled_frame_allocates_nothing() {
@@ -345,17 +357,32 @@ public class EditorShellBudgetTests {
         // this loop can afford to be wrong about. An int is free.
         var worked = 0;
 
-        var before = GC.GetAllocatedBytesForCurrentThread();
+        // Made before the measurement, for the same reason, and written to by index inside it —
+        // storing a long into a `long[]` is not an allocation, so keeping the breakdown is free.
+        var cost = new long[Frames];
 
         for (var i = 0; i < Frames; i++) {
+            var before = GC.GetAllocatedBytesForCurrentThread();
+
             if (Shell.Document.Update()) {
                 worked++;
             }
 
             Shell.Document.Draw();
+
+            cost[i] = GC.GetAllocatedBytesForCurrentThread() - before;
         }
 
-        var allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        var allocated = 0L;
+        var frames = 0;
+
+        foreach (var bytes in cost) {
+            allocated += bytes;
+
+            if (bytes > 0) {
+                frames++;
+            }
+        }
 
         // ⚠ First, because it is the premise of the sentence below it. Bytes bought by a frame that
         // had layout to redo are not this test's subject, and reporting them as the draw walk's is
@@ -367,11 +394,19 @@ public class EditorShellBudgetTests {
             + "measured loop dirtied the shell"
         );
 
+        // ⚠ The shape before the size. Every frame paying is the draw walk; one frame paying is a
+        // one-off — a cache filled, a pool that missed, a buffer grown — and the two want opposite
+        // investigations. Saying which is the only thing #992's report could not do.
         Assert.True(
             allocated == 0,
-            $"{Frames} settled frames of the shell allocated {allocated} bytes between them, so "
-            + "something on the draw walk is asking the allocator for a per-frame object — a boxed "
-            + "enumerator over a collection typed as an interface is what it has been every time"
+            $"{Frames} settled frames of the shell allocated {allocated} bytes between them, and "
+            + $"{frames} of the {Frames} paid: [{string.Join(", ", cost)}]. "
+            + (frames == 1
+                ? "One frame alone is a one-off rather than a per-frame object — look for something "
+                + "warmed, pooled or grown on the first pass through, not for a boxed enumerator."
+                : "Every frame paying is something on the draw walk asking the allocator per frame "
+                + "— a boxed enumerator over a collection typed as an interface is what it has been "
+                + "every time.")
         );
     }
 

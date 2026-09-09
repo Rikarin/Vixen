@@ -53,7 +53,7 @@ normal build; the separate target exists to write diffs somewhere a human will f
 ## When one fails
 
 The failure names **which bound was crossed** — a count of badly-wrong pixels or the average channel
-— by how much, and where the worst pixel was. It also writes three files into `artifacts/golden-diff/`:
+— by how much, and where the worst pixel was. It also writes three files:
 
 | File | What it is |
 |---|---|
@@ -61,7 +61,20 @@ The failure names **which bound was crossed** — a count of badly-wrong pixels 
 | `<name>.expected.png` | what is committed |
 | `<name>.diff.png` | the differing pixels in red, over a dimmed reference |
 
-CI uploads that directory on failure.
+⚠️ **Where they land depends on how you ran the suite, and the shorter answer used to be the only one
+printed here.** `GoldenImage.DiffDirectory` reads `VIXEN_GOLDEN_DIFF`, and **`./build.sh GoldenImages`
+is the only thing in the repository that sets it** — to `artifacts/golden-diff/`. Under a plain
+`dotnet test`, and under `Test`, the variable is unset and the fallback is the directory beside the
+test binary:
+
+```
+Platform/Vixen.Graphics.Golden.Tests/bin/<configuration>/net10.0/golden-diff/
+```
+
+⚠️ **So `artifacts/golden-diff/` is empty after a red local `dotnet test`, and after every CI run**:
+no CI job runs `GoldenImages` at all. `ci.yml`'s upload step names both paths for that reason, and
+the second one — `**/bin/Release/net10.0/golden-diff/` — is the one a CI failure's diffs are actually
+in; `if-no-files-found: ignore` is what keeps the empty half quiet.
 
 ## Updating a reference
 

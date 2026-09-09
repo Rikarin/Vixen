@@ -68,14 +68,28 @@ needs_lock() {
 # distinction `NukeBuild.IsLocalBuild` makes inside the build. VIXEN_NO_BUILD_LOCK is the escape
 # hatch for someone who knows what else is running, and a machine with no python3 falls through it
 # rather than refusing to build.
-#
-# ⚠ `${1+"$@"}` rather than `"$@"`: with `set -u` and no arguments, bash 4.3 and earlier — which
-# includes the 3.2 macOS ships — treat an empty `"$@"` as an unbound variable and abort. That is the
-# bare `./build.sh` case, which is also the one this lock most wants to catch.
-if [ -n "${CI:-}" ] || [ -n "${VIXEN_NO_BUILD_LOCK:-}" ] || ! command -v python3 > /dev/null 2>&1 \
-    || ! needs_lock ${1+"$@"}; then
+if [ -n "${CI:-}" ] || [ -n "${VIXEN_NO_BUILD_LOCK:-}" ] || ! command -v python3 > /dev/null 2>&1; then
     exec dotnet run --project "${root}/build/_build.csproj" --no-launch-profile -- "$@"
 fi
 
-exec python3 "${root}/build/lock.py" \
+# ⚠ The machine lock is now the *second* of two, and `needs_lock` decides only that one. Every run
+# also takes a lock on this checkout, cheap target or not, because every run — down to `--help` —
+# opens `.nuke/temp/build.log`, and Nuke opens it with `FileShare.Read`, which on Unix is an
+# exclusive `flock`. Two runs in one checkout therefore never contended for the machine: they
+# contended for one log file, and the loser exited 255 in under a second having run nothing, which
+# is indistinguishable from a red gate (#1057). A cheap target now waits for a sweep in its own
+# checkout, which is worse than it was only if you believe the old behaviour was running.
+#
+# ⚠ `${1+"$@"}` rather than `"$@"`: with `set -u` and no arguments, bash 4.3 and earlier — which
+# includes the 3.2 macOS ships — treat an empty `"$@"` as an unbound variable and abort. That is the
+# bare `./build.sh` case, which is also the one the machine lock most wants to catch.
+machine=""
+
+if needs_lock ${1+"$@"}; then
+    machine="--machine"
+fi
+
+# ⚠ `${machine}` unquoted on purpose: quoted, an empty value is an empty *argument*, and lock.py
+# would read it as the command to run.
+exec python3 "${root}/build/lock.py" --checkout "${root}" ${machine} \
     dotnet run --project "${root}/build/_build.csproj" --no-launch-profile -- "$@"

@@ -149,9 +149,20 @@ public static class GoldenImage {
 
     /// <summary>Where a failure writes what it saw.</summary>
     /// <remarks>
-    ///     Under <c>artifacts/</c> so the CI workflow can upload the whole directory without knowing
-    ///     what is in it — which is what makes a failure diagnosable from a build page rather than
-    ///     only on the machine that produced it.
+    ///     <para>
+    ///         Beside the test binary, unless somebody says otherwise — which is what makes a
+    ///         failure diagnosable from a build page rather than only on the machine that produced
+    ///         it, because <c>ci.yml</c> uploads that path by glob.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This used to say "under <c>artifacts/</c> so the CI workflow can upload the
+    ///         whole directory", and both halves were wrong.</b> The <c>artifacts/</c> path is not
+    ///         the fallback but the override, and <c>./build.sh GoldenImages</c> is the only thing
+    ///         in the repository that sets <c>VIXEN_GOLDEN_DIFF</c> — while <i>no</i> CI job runs
+    ///         that target, so on CI this property is always the fallback and
+    ///         <c>artifacts/golden-diff/</c> is always empty. The workflow names both paths and
+    ///         ignores the missing one, which is why nobody noticed.
+    ///     </para>
     /// </remarks>
     public static string DiffDirectory =>
         Environment.GetEnvironmentVariable("VIXEN_GOLDEN_DIFF")
