@@ -20,12 +20,28 @@ namespace Vixen.Editor.ShaderGraph;
 ///         own, no second convention to keep in step.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The values are the shader's declared defaults, not a material's.</b> What a graph
-///         reports is the list of names it needs from outside; what each one *is* comes from the
-///         <c>.vxmat</c>, and until an author has set one the honest answer is the default the
-///         declaration carries. This produces the feature with every value at its type's zero, which
-///         a caller then overwrites from the material it is importing — see
-///         <see cref="Values" /> for why the zero is not left to mean something.
+///         ⚠ <b><see cref="Feature" /> has no production caller, and the sentence that used to be
+///         here named one that does not exist</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1126">#1126</a>. It said the zeros are
+///         "overwritten by a caller from the material it is importing"; there is no importer and no
+///         other caller, in <c>.cs</c> or in <c>.vxml</c>. <c>MaterialDocument.SetGraphValue</c> is
+///         the editor's only feature-writing path and cannot be it: a <c>GraphSurfaceNumber</c>
+///         entry <em>overrides</em> the generated shader's declared default, so writing every
+///         property out the moment a panel opened would replace every graph default with black.
+///         That panel therefore leaves an untouched property <em>out</em>, and this deliberately
+///         does not.
+///     </para>
+///     <para>
+///         ⚠ <b>The "first composition" that would justify the zeros is not a moment this editor
+///         has.</b> <c>MaterialHeaderEdits.Graph</c> is a bare <c>[Inspector]</c> property: linking
+///         a graph to a material writes the link and no feature at all, and a material with no
+///         <see cref="GraphSurfaceFeature" /> does not compose the graph's surface — nothing else
+///         reads <c>MaterialAsset.Graph</c> at draw time. So the graph does nothing until an author
+///         nudges a value, and the call that fixes that wants no numbers rather than zeroed ones.
+///         ⚠ Neither half is covered: the one fixture that composes this — the golden
+///         <c>GraphMaterialImageTests</c> — builds its surface from constants on the master node
+///         rather than property nodes, so <see cref="ShaderGraphSource.Properties" /> is empty and
+///         the picture cannot distinguish this projection from no projection at all.
 ///     </para>
 ///     <para>
 ///         <b>Here rather than in the importer</b>, because the names being joined are this

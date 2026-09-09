@@ -332,6 +332,53 @@ public sealed class TextureCommandTests : IDisposable {
         Assert.False(MaterialCompiler.Compile(content.ToDescriptor(shading)).Failed);
     }
 
+    /// <summary>⚠ <c>--parallax</c> drops the one warning it made false and keeps the others.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half the case above cannot see.</b> It asserts the tag is absent from what the
+    ///         verb printed — which is equally true of a
+    ///         <see cref="BakeParallax.Requested" /> that returned nothing at all. Sabotaged to
+    ///         <c>return []</c>, every other test in this file stays green: the two that assert the
+    ///         tag's presence never pass <c>--parallax</c>, and the one that does only asks for an
+    ///         absence. Selectivity is the property, and nothing held it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The second warning is a name clash, because it is the only other one a command
+    ///         line can provoke.</b> A differently-sourced set asking for a name already taken is
+    ///         renamed and told so, and that sentence is still true after a parallax feature is
+    ///         composed — where "nothing samples this height map" is not, which is the whole reason
+    ///         <see cref="BakeParallax" /> filters at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the filter matches on prose</b>, because <c>ProjectMaterialBaker</c> has no
+    ///         shared constant for that warning the way it has <c>Overpaint</c> for a refusal
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1127">#1127</a>). Until it does,
+    ///         this and <see cref="The_bakers_unfed_height_warning_still_names_the_tag" /> are the
+    ///         two halves that turn a reword in another assembly into a red test rather than into
+    ///         either a lost warning or a sentence telling an artist to do what the flag just did.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public async Task A_parallax_bake_drops_only_the_warning_it_made_false() {
+        Authored("hull_baseColor.png", 10);
+
+        Assert.Equal(ExitCode.Success, (await Bake()).Code);
+
+        var second = Path.Combine(root, "authored-again");
+
+        Directory.CreateDirectory(second);
+        File.WriteAllBytes(Path.Combine(second, "hull_baseColor.png"), PngCodec.Encode(Flat(40)));
+        File.WriteAllBytes(Path.Combine(second, "hull_height.png"), PngCodec.Encode(Flat(80)));
+
+        var (code, _, complaint) = await Run(
+            "texture", "bake", "--project", root, "--from", second, "--name", "Hull", "--parallax"
+        );
+
+        Assert.Equal(ExitCode.Success, code);
+        Assert.DoesNotContain(BakeParallax.Tag, complaint, StringComparison.Ordinal);
+        Assert.Contains("has already baked a material called", complaint, StringComparison.Ordinal);
+    }
+
     /// <summary>Without the flag a bake that wrote a height map still composes no march.</summary>
     /// <remarks>
     ///     ⚠ <b>The half that makes the case above a claim about the flag.</b> Both bakes write the
