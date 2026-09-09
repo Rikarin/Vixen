@@ -80,10 +80,15 @@ This is the part worth reading before writing a plugin, because three of the fou
    entry; it leaks the whole assembly, permanently, with no error anywhere. Register through
    `PluginContext` and it is recorded; register any other way and pair it with
    `PluginContext.OnUnload`.
-3. **The entry assembly is read into memory, not mapped.** `LoadFromAssemblyPath` holds the file
-   open until the context is collected, so the next `dotnet build` over the folder fails to write
-   the DLL it was asked to reload. Its dependencies *are* mapped — a plugin that changes a library
-   beside itself still needs a restart, which is a shadow-copy feature and this is not it.
+3. **Nothing in a plugin's folder is mapped — every assembly in it is read into memory.**
+   `LoadFromAssemblyPath` holds the file open until the context is collected, so the next
+   `dotnet build` over the folder fails to write the DLL it was asked to reload. ⚠ This used to be
+   true of the entry assembly alone, and a plugin that changed a library beside itself needed a
+   restart; the fix was written down as shadow-copying the folder, but a shadow copy is a second
+   copy on disk to keep in step and reading the bytes is the same guarantee with nothing to keep in
+   step. The cost is that an assembly loaded from a stream has no `Assembly.Location`, so a plugin
+   that wants a file beside itself asks its *directory* — `PluginLoadContext.AssemblyPath` or the
+   manifest — rather than asking the assembly where it lives.
 4. **The runtime says nothing when a context cannot be collected.** A plugin that left a static
    subscription behind unloads on paper, stays in memory in fact, and is not noticed until it is
    loaded a second time and its statics are not what it expected.

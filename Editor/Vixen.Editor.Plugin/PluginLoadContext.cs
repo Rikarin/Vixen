@@ -26,12 +26,22 @@ namespace Vixen.Editor.Plugin;
 ///         <c>Vixen.*</c>, comes from the default context.
 ///     </para>
 ///     <para>
-///         ⚠ <b>The entry assembly is read into memory rather than mapped from disk.</b>
-///         <c>LoadFromAssemblyPath</c> holds the file open until the context is collected, which on
-///         Windows means the developer's next build fails to write the DLL it has just been asked to
-///         reload. Its own dependencies <i>are</i> mapped, so a plugin that changes a library beside
-///         itself still needs a restart — that is a shadow-copy feature and this is not it, but the
-///         file a plugin author rebuilds ten times an hour is the one that is free.
+///         ⚠ <b>Nothing in a plugin's folder is mapped from disk — the entry assembly and every
+///         library beside it are read into memory.</b> <c>LoadFromAssemblyPath</c> holds the file
+///         open until the context is collected, which on Windows means the developer's next build
+///         fails to write the DLL it has just been asked to reload. This used to be true of the
+///         entry assembly only, so a plugin that changed a library beside itself needed a restart
+///         and the fix was written down as "shadow-copy the folder" — ⚠ <b>but a shadow copy is a
+///         second copy on disk to keep in step, and reading the bytes is the same guarantee with
+///         nothing to keep in step.</b> A plugin's dependency is loaded exactly the way its entry
+///         assembly always was.
+///     </para>
+///     <para>
+///         The cost is stated rather than hidden: an assembly loaded from a stream has no
+///         <see cref="Assembly.Location" />, so a plugin that finds a data file by asking its own
+///         assembly where it lives must ask its <i>directory</i> instead — which
+///         <see cref="AssemblyPath" /> and the manifest both give it. That trade was already made
+///         for the entry assembly, and a plugin folder is the unit anyway.
 ///     </para>
 ///     <para>
 ///         The <c>.deps.json</c> beside the assembly is what resolves everything else, through
@@ -80,14 +90,19 @@ public sealed class PluginLoadContext : AssemblyLoadContext {
 
     /// <summary>Loads the plugin's own assembly into this context.</summary>
     /// <returns>The assembly.</returns>
+    public Assembly LoadPlugin() => LoadUnmapped(AssemblyPath);
+
+    /// <summary>Reads one assembly's bytes into this context, leaving the file on disk unheld.</summary>
+    /// <param name="path">The assembly.</param>
+    /// <returns>It, loaded.</returns>
     /// <remarks>
-    ///     Read into memory, with the symbols beside it if there are any — a plugin whose exception
-    ///     arrives with line numbers is one whose bug reports are worth reading, and the cost is one
-    ///     file read of a file that is about to be loaded anyway.
+    ///     With the symbols beside it if there are any — a plugin whose exception arrives with line
+    ///     numbers is one whose bug reports are worth reading, and the cost is one file read of a
+    ///     file that is about to be loaded anyway.
     /// </remarks>
-    public Assembly LoadPlugin() {
-        var bytes = File.ReadAllBytes(AssemblyPath);
-        var symbolsPath = Path.ChangeExtension(AssemblyPath, ".pdb");
+    Assembly LoadUnmapped(string path) {
+        var bytes = File.ReadAllBytes(path);
+        var symbolsPath = Path.ChangeExtension(path, ".pdb");
 
         using var assembly = new MemoryStream(bytes);
 
@@ -120,7 +135,11 @@ public sealed class PluginLoadContext : AssemblyLoadContext {
 
         // Null means "ask the default context", which is the right answer for the framework
         // assemblies the resolver deliberately does not claim.
-        return path is null ? null : LoadFromAssemblyPath(path);
+        //
+        // ⚠ Read rather than mapped, which is the difference between a plugin author who rebuilds
+        // and reloads and one who rebuilds and restarts. A resolved path here is always inside the
+        // plugin's own folder, which is the thing being iterated on.
+        return path is null ? null : LoadUnmapped(path);
     }
 
     /// <inheritdoc />

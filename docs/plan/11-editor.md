@@ -686,20 +686,35 @@ inspector that attaches to a running build on a device to browse and mutate live
 > `PluginHost.WaitForCollection` is what turns the runtime's silence about a context that did not
 > collect into a warning the user sees.
 >
-> ⚠ **Importers and build steps are listed above and are not reachable.** `ContentPipeline` builds
-> its `ImporterRegistry` per run, deliberately, so the editor, the CLI and the compiler workers
-> cannot disagree about the set — which means there is no registry for a plugin to add to and giving
-> it one here would be the editor building a set the workers have not got. That is a change to
-> `Vixen.Editor.Assets`, not to this. Project templates are `Tools/Vixen.Templates`, which does not
-> exist yet either.
+> ~~⚠ **Importers and build steps are listed above and are not reachable.**~~ — **importers are, and
+> the fix was where this said it would be.** `ImporterContributions` in `Vixen.Editor.Assets` is a
+> set that outlives a run, `BuiltInImporters.Create` folds it into every registry built afterwards —
+> so the editor, the CLI and the compiler workers still cannot disagree about the set — and the
+> editor publishes it through `PluginServices`. A plugin that writes an importer references
+> `Vixen.Editor.Assets` itself and calls `Add`, which returns the scope that withdraws it again;
+> `OutOfTreePluginTests.The_editor_publishes_somewhere_for_a_plugin_to_add_an_importer` asserts the
+> point and `ImporterContributionTests` asserts the mechanism. ⚠ **Build steps are still not
+> reachable and, unlike importers, there is nothing to reach**: no `IBuildStep` or anything shaped
+> like one exists in the tree, so the row names an extension point to an abstraction that has not
+> been designed. Doc 36's D4 owes the player-build step itself; the plugin row is downstream of it.
 >
-> ⚠ **A rebuilt dependency still needs a restart.** The plugin's own assembly is read into memory
-> rather than mapped, so a `dotnet build` over the folder the editor is watching can rewrite it and
-> `Reload Plugins` picks the new one up; the libraries beside it are mapped and stay open. Shadow-
-> copying the folder is the fix and is a feature of its own.
+> ~~Project templates are `Tools/Vixen.Templates`, which does not exist yet either.~~ — it exists,
+> with its own `Tools/Vixen.Templates.Tests` and a `CheckTemplates` target.
 >
-> There is also no plugin-management panel — installed plugins, enable, disable, reload — which is a
-> view over `PluginHost.Plugins` and nothing more.
+> ~~⚠ **A rebuilt dependency still needs a restart.**~~ — **closed, and not by shadow-copying.** The
+> note read the fix as copying the plugin's folder somewhere else; ⚠ **a shadow copy is a second copy
+> on disk to keep in step, and reading the bytes is the same guarantee with nothing to keep in step.**
+> `PluginLoadContext.Load` reads a resolved dependency into memory exactly the way `LoadPlugin`
+> always read the entry assembly, so nothing in a plugin's folder is held open and a `dotnet build`
+> over any of it is followed by `Reload Plugins` rather than by a restart. The cost is stated where
+> the trade is: an assembly loaded from a stream has no `Assembly.Location`, so a plugin that finds a
+> data file by asking its own assembly where it lives asks its *directory* instead. ⚠ And that is
+> what the test asserts, because whether the rewrite *throws* is a fact about the operating system —
+> a sharing violation on Windows, and a mapped file on macOS or Linux can usually be replaced anyway,
+> so a test asserting only the rebuild would be green here and prove nothing.
+>
+> ~~There is also no plugin-management panel~~ — `PluginManagerView` is that panel, with enable,
+> disable, reload and the manifest columns, and it has its own tests.
 
 ## Editor-specific asset editors
 
