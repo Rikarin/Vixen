@@ -118,6 +118,169 @@ public class CrossCompilationTests {
     }
 
     /// <summary>
+    ///     ⚠ A varying loses its location <em>and</em> takes one name at ES 3.00, because below
+    ///     ES 3.10 a varying links by name and Raven names the two ends of one differently.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The fourth ESSL defect, and the one a per-stage front end cannot see.</b> GLSL ES
+    ///         3.00 allows <c>layout(location = …)</c> on a vertex <em>input</em> and a fragment
+    ///         <em>output</em> and nowhere else, so a varying carrying one is a compile error — that
+    ///         half SPIRV-Cross already handles, by dropping the qualifier when separate shader
+    ///         objects are off. ⚠ What it does <em>not</em> do, and what this suite believed it did,
+    ///         is rename. Raven emits <c>out_normalWS</c> in the producing stage and
+    ///         <c>in_normalWS</c> in the consuming one (<c>GlslEmitter.cs:550,567</c>), and both
+    ///         stages compiled perfectly well with names that could never link.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why the assertion is on the interface rather than on the oracle.</b>
+    ///         <c>glslangValidator -l</c> over the pair exits 0 — measured, not assumed: its linker
+    ///         does not enforce the ES name-matching rule, so every stage-at-a-time check in this
+    ///         file was green while the program would not have linked on a device. The set of names
+    ///         a vertex stage writes has to equal the set a fragment stage reads, and that is a fact
+    ///         about the two artefacts that no single-file compile can express.
+    ///     </para>
+    ///     <para>
+    ///         Held in both directions. Raven's own GLSL is asserted to have the disagreement, so a
+    ///         day when the emitter starts naming both ends alike fails here and this test's first
+    ///         half should be deleted rather than adjusted — and the vertex input and the fragment
+    ///         output are asserted to keep their names, because the host binds an attribute by name
+    ///         and renaming those would be the <c>_112</c> failure again.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_varying_loses_its_location_and_takes_one_name_at_es_300() {
+        var vulkan = Generate(Streamed, "glsl");
+        var vulkanVertex = Assert.Single(vulkan, unit => unit.Stage == ShaderStage.Vertex).Code;
+        var vulkanFragment = Assert.Single(vulkan, unit => unit.Stage == ShaderStage.Fragment).Code;
+
+        // What Raven emits, and why it cannot link below ES 3.10: a location at both ends, and two
+        // different names for one stream.
+        Assert.Contains("layout(location = 0) out vec3 out_normalWS;", vulkanVertex, StringComparison.Ordinal);
+        Assert.Contains("layout(location = 0) in vec3 in_normalWS;", vulkanFragment, StringComparison.Ordinal);
+
+        var essl = Generate(Streamed, EsslBackend.TargetName);
+        var vertex = Assert.Single(essl, unit => unit.Stage == ShaderStage.Vertex).Code;
+        var fragment = Assert.Single(essl, unit => unit.Stage == ShaderStage.Fragment).Code;
+
+        var written = StageInterface(vertex, "out");
+        var read = StageInterface(fragment, "in");
+
+        // ⚠ The count first. Both sides being empty is the shape this assertion takes on the day the
+        // regex stops matching, and an equality between two empty sets proves nothing at all.
+        Assert.Equal(2, written.Count);
+        Assert.Equal(written, read);
+
+        // No location on either end of the varying — that is the compile error half.
+        Assert.DoesNotMatch(@"layout\s*\([^)]*location[^)]*\)\s*(?:flat\s+)?out\s", vertex);
+        Assert.DoesNotMatch(@"layout\s*\([^)]*location[^)]*\)\s*(?:flat\s+)?in\s", fragment);
+
+        // And the two ends that are NOT varyings keep the names the host binds them by.
+        Assert.Contains("in_position", vertex, StringComparison.Ordinal);
+        Assert.Contains("out_result", fragment, StringComparison.Ordinal);
+
+        foreach (var unit in essl) {
+            var (accepted, log) = EsslOracle.Validate(unit.Code, unit.Stage);
+            Assert.True(accepted, $"{unit.Name} was refused by the ES front end:\n{log}\n\n{unit.Code}");
+        }
+    }
+
+    /// <summary>
+    ///     And over the whole library: every fragment input is written by its own vertex stage.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The library rather than a fixture, for the same reason the sweep below gives</b> —
+    ///         and with a sharper point here, because the name is derived from the location and a
+    ///         collision with some other identifier in one stage would let SPIRV-Cross uniquify one
+    ///         end and not the other. That is a per-shader accident a fixture cannot find.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A subset and not an equality, which is the rule rather than a weakening.</b>
+    ///         GLES 3.0 §11.1.2.1 makes a fragment input with no matching vertex output a link
+    ///         error; a vertex output nobody reads is legal and merely costs a varying slot. Three
+    ///         library shaders are in exactly that position today — <c>DepthOnly</c>,
+    ///         <c>UiQuad</c> and <c>ParticleBillboard</c> each write one more stream than their
+    ///         fragment stage reads, because a <c>stream</c> is declared on the shader and the
+    ///         location plan is shader-wide. Asserting equality would fail on legal shaders.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Shaders with only one raster stage are skipped rather than failed — a compute-only
+    ///         or vertex-only entry point has no interface to match — but the number of pairs
+    ///         actually compared is asserted, so a run that matched nothing is not a pass.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_library_shaders_fragment_inputs_are_written_by_its_vertex_stage() {
+        var bag = new DiagnosticBag();
+        var units = Backend(GlslDialect.Essl300).Generate(Library(), bag);
+
+        var vertices = units
+            .Where(unit => unit.Stage == ShaderStage.Vertex)
+            .ToDictionary(unit => unit.Name[..unit.Name.LastIndexOf('.')], unit => unit.Code, StringComparer.Ordinal);
+
+        List<string> mismatched = [];
+        var compared = 0;
+        var varyings = 0;
+
+        foreach (var fragment in units.Where(unit => unit.Stage == ShaderStage.Fragment)) {
+            if (!vertices.TryGetValue(fragment.Name[..fragment.Name.LastIndexOf('.')], out var vertex)) {
+                continue;
+            }
+
+            compared++;
+
+            var written = StageInterface(vertex, "out");
+            var read = StageInterface(fragment.Code, "in");
+
+            if (!read.IsSubsetOf(written)) {
+                mismatched.Add(
+                    $"--- {fragment.Name}: the fragment stage reads [{string.Join(", ", read.Order(StringComparer.Ordinal))}] "
+                    + $"and the vertex stage writes only [{string.Join(", ", written.Order(StringComparer.Ordinal))}]"
+                );
+            }
+
+            varyings += read.Count;
+        }
+
+        Assert.True(compared > 10, $"Only {compared} vertex/fragment pairs were compared; the sweep is not running.");
+
+        // ⚠ And the varyings, because a subset relation is satisfied by an empty left-hand side. A
+        // regex that stopped matching would report every shader as linking perfectly.
+        Assert.True(varyings > 20, $"Only {varyings} fragment inputs were found across {compared} shaders.");
+
+        Assert.True(
+            mismatched.Count == 0,
+            $"{mismatched.Count} of {compared} shaders would not link at ES 3.00 — a varying links by "
+            + $"name below ES 3.10:\n{string.Join("\n", mismatched)}"
+        );
+    }
+
+    /// <summary>
+    ///     The names one side of a stage interface declares, which is what ES 3.00 links by.
+    /// </summary>
+    /// <param name="source">The GLSL ES.</param>
+    /// <param name="direction">
+    ///     <c>in</c> or <c>out</c> — the caller picks the varying end, since a vertex input and a
+    ///     fragment output are declared the same way and are not varyings.
+    /// </param>
+    /// <returns>The declared identifiers.</returns>
+    /// <remarks>
+    ///     A regex over declarations rather than a parse, and deliberately narrow: it matches only a
+    ///     top-level scalar/vector/matrix declaration, which is every varying Raven can emit. A
+    ///     shape it cannot match would show up as an empty set, which is why every caller asserts
+    ///     the count before comparing.
+    /// </remarks>
+    static HashSet<string> StageInterface(string source, string direction) => Regex
+        .Matches(
+            source,
+            $@"^\s*(?:layout\s*\([^)]*\)\s*)?(?:(?:flat|smooth|centroid|noperspective|invariant|highp|mediump|lowp)\s+)*{direction}\s+\w+\s+(\w+)\s*;",
+            RegexOptions.Multiline
+        )
+        .Select(match => match.Groups[1].Value)
+        .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>
     ///     Every raster entry point in <c>Raven/Library</c> cross-compiles, and the ES front end
     ///     takes all of them.
     /// </summary>
@@ -454,6 +617,40 @@ public class CrossCompilationTests {
                 return float4(baseColor.rgb * sampled.rgb, sampled.a)
             }
         }
+        """;
+
+    /// <summary>
+    ///     A shader with a real stage boundary, which <see cref="Lambert" /> does not have.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Worth its own fixture rather than reusing <c>Lambert</c>: <c>Lambert</c>'s vertex stage
+    ///     returns only <c>SV_Position</c>, so it emits <em>no</em> varying at all and its fragment
+    ///     inputs are read from nothing. A stream written by one stage and read by the next is what
+    ///     the linking rule is about, and the library is full of them.
+    /// </remarks>
+    const string Streamed = """
+        package A
+
+        shader Lit {
+            stream var normalWS: float3
+            stream var uv: float2
+
+            var scale: float
+
+            [VertexShader]
+            func Vertex([Semantic("POSITION")] position: float3): float4 {
+                normalWS = float3(position.x, position.y, 1f) * scale
+                uv = float2(position.x, position.y)
+                return float4(position.x, position.y, position.z, 1f)
+            }
+
+            [FragmentShader]
+            func Shade(): float4 {
+                val n = normalize(normalWS)
+                return float4(n.x, n.y, uv.x, 1f)
+            }
+        }
+
         """;
 
     /// <summary>A compute entry point, which GLSL ES has only from 3.10.</summary>

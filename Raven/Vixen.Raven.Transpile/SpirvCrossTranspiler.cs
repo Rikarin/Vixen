@@ -4,6 +4,7 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
 using Silk.NET.SPIRV.Cross;
+using Vixen.Raven.Symbols;
 
 namespace Vixen.Raven.Transpile;
 
@@ -79,9 +80,10 @@ static unsafe class SpirvCrossTranspiler {
     /// <summary>Cross-compiles one SPIR-V module.</summary>
     /// <param name="spirv">The module, as the words <c>SpirvBackend</c> wrote.</param>
     /// <param name="dialect">Which GLSL to produce.</param>
+    /// <param name="stage">Which stage the module is, so its varyings can be told from its interface.</param>
     /// <returns>The source, and the texture/sampler pairs that had to be combined to get it.</returns>
     /// <exception cref="SpirvCrossException">SPIRV-Cross refused the module.</exception>
-    public static TranspiledShader Transpile(ReadOnlySpan<byte> spirv, GlslDialect dialect) {
+    public static TranspiledShader Transpile(ReadOnlySpan<byte> spirv, GlslDialect dialect, ShaderStage stage) {
         if (spirv.Length == 0 || spirv.Length % 4 != 0) {
             throw new SpirvCrossException(
                 $"A SPIR-V module is a whole number of 32-bit words; this is {spirv.Length} bytes."
@@ -141,6 +143,8 @@ static unsafe class SpirvCrossTranspiler {
             Check(cross, context, cross.CompilerBuildCombinedImageSamplers(compiler), "combine the samplers of");
 
             var combined = NameCombinedSamplers(cross, context, compiler);
+
+            NameVaryingsByLocation(cross, context, compiler, stage);
 
             byte* source = null;
             Check(cross, context, cross.CompilerCompile(compiler, &source), "compile");
@@ -241,6 +245,83 @@ static unsafe class SpirvCrossTranspiler {
         }
 
         return named;
+    }
+
+    /// <summary>
+    ///     Gives every cross-stage varying a name derived from its location, so the two stages agree.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>SPIRV-Cross does not do this, and the belief that it did is what made the GLES
+    ///         3.0 head look finished.</b> With <c>GlslSeparateShaderObjects</c> off it correctly
+    ///         drops <c>layout(location = …)</c> from a varying — the qualifier arrived for varyings
+    ///         in ES 3.10 and is a compile error below it — but it keeps whatever names the module
+    ///         carried. Raven names the same stream <c>out_normalWS</c> where it is written and
+    ///         <c>in_normalWS</c> where it is read (<c>GlslEmitter.cs:550,567</c>), and below ES 3.10
+    ///         a varying links <em>by name</em>. So the two halves compiled and the program did not
+    ///         link, with the fragment input unwritten.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And no per-stage front end can see it.</b> Each file is legal on its own;
+    ///         <c>glslangValidator -l</c> over the pair exits 0 as well, because its linker does not
+    ///         enforce the ES name-matching rule. The oracle for this is the interface itself — the
+    ///         names a vertex stage writes have to contain the names a fragment stage reads — which
+    ///         is what <c>CrossCompilationTests</c> asserts, on the library as well as on a fixture.
+    ///     </para>
+    ///     <para>
+    ///         <b>The location rather than the name</b>, because the location is the thing the two
+    ///         stages already agree on: <c>StreamPlan</c> assigns it per shader and both emitters
+    ///         decorate with it. Deriving the identifier from a shared number cannot disagree, where
+    ///         stripping Raven's <c>in_</c>/<c>out_</c> prefix would the first time a shader had a
+    ///         uniform of the same name and one stage's uniquifier moved.
+    ///     </para>
+    ///     <para>
+    ///         Only the varying ends are touched. A vertex <em>input</em> keeps its name because
+    ///         every GL profile binds attributes by name (<c>glGetAttribLocation</c>), and a fragment
+    ///         <em>output</em> keeps both its name and its location, which ES 3.00 allows there.
+    ///     </para>
+    /// </remarks>
+    static void NameVaryingsByLocation(Cross cross, Context* context, Compiler* compiler, ShaderStage stage) {
+        if (stage == ShaderStage.Compute) {
+            return;
+        }
+
+        Resources* resources = null;
+        Check(cross, context, cross.CompilerCreateShaderResources(compiler, &resources), "reflect the interface of");
+
+        if (stage != ShaderStage.Vertex) {
+            RenameByLocation(cross, context, compiler, resources, ResourceType.StageInput);
+        }
+
+        if (stage != ShaderStage.Fragment) {
+            RenameByLocation(cross, context, compiler, resources, ResourceType.StageOutput);
+        }
+    }
+
+    /// <summary>Renames one side of the stage interface to <c>vary_&lt;location&gt;</c>.</summary>
+    static void RenameByLocation(
+        Cross cross,
+        Context* context,
+        Compiler* compiler,
+        Resources* resources,
+        ResourceType type
+    ) {
+        ReflectedResource* list = null;
+        nuint count = 0;
+
+        Check(
+            cross,
+            context,
+            cross.ResourcesGetResourceListForType(resources, type, &list, &count),
+            "list the stage interface of"
+        );
+
+        for (nuint index = 0; index < count; index++) {
+            var id = list[index].Id;
+            var location = cross.CompilerGetDecoration(compiler, id, Silk.NET.SPIRV.Decoration.Location);
+
+            cross.CompilerSetName(compiler, id, $"vary_{location.ToString(CultureInfo.InvariantCulture)}");
+        }
     }
 
     /// <summary>A declaration's name, or a stable stand-in when the module stripped it.</summary>
