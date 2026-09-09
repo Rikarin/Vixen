@@ -159,6 +159,16 @@ internal enum SpirvStorageClass {
     /// </remarks>
     Workgroup = 4,
 
+    /// <summary>
+    ///     Module-scope storage private to one invocation.
+    /// </summary>
+    /// <remarks>
+    ///     What a <c>stream</c> nothing reads becomes. It keeps the store in the writing stage legal
+    ///     while costing no interface location — and it must stay out of the entry point's
+    ///     interface list, which before SPIR-V 1.4 may name only <c>Input</c> and <c>Output</c>.
+    /// </remarks>
+    Private = 6,
+
     Function = 7,
 
     /// <summary>
@@ -200,7 +210,19 @@ internal enum SpirvDecoration {
     Location = 30,
     Binding = 33,
     DescriptorSet = 34,
+    /// <summary>
+    ///     Nothing writes this binding: a read-only storage buffer, or a storage image a stage only
+    ///     loads. <c>readonly</c> in GLSL.
+    /// </summary>
     NonWritable = 24,
+
+    /// <summary>
+    ///     Nothing reads this binding — a storage image a stage only stores into. <c>writeonly</c>
+    ///     in GLSL, and the qualifier GLSL ES demands on any image whose format is not one of
+    ///     <c>r32f</c>, <c>r32i</c>, <c>r32ui</c>.
+    /// </summary>
+    NonReadable = 25,
+
     Offset = 35,
 
     /// <summary>

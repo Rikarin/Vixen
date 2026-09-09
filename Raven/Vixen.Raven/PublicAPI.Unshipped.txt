@@ -624,6 +624,7 @@ Vixen.Raven.IR.IrEntryPoint.InputsRead.get -> System.Collections.Generic.IReadOn
 Vixen.Raven.IR.IrEntryPoint.IrEntryPoint(Vixen.Raven.Symbols.ShaderStage stage, Vixen.Raven.IR.IrFunction function, System.Collections.Generic.IReadOnlyList<Vixen.Raven.IR.IrStageIo> inputs, System.Collections.Generic.IReadOnlyList<Vixen.Raven.IR.IrStageIo> outputs, Vixen.Raven.Symbols.WorkgroupSize? workgroupSize = null) -> void
 Vixen.Raven.IR.IrEntryPoint.Output.get -> Vixen.Raven.IR.IrStageIo?
 Vixen.Raven.IR.IrEntryPoint.Outputs.get -> System.Collections.Generic.IReadOnlyList<Vixen.Raven.IR.IrStageIo>
+Vixen.Raven.IR.IrEntryPoint.PrivateStreams.get -> System.Collections.Generic.IReadOnlyList<Vixen.Raven.IR.IrStream>
 Vixen.Raven.IR.IrEntryPoint.ReadsInput(int index) -> bool
 Vixen.Raven.IR.IrEntryPoint.SharedVariables.get -> System.Collections.Generic.IReadOnlyList<Vixen.Raven.IR.IrSharedVariable>
 Vixen.Raven.IR.IrEntryPoint.Stage.get -> Vixen.Raven.Symbols.ShaderStage

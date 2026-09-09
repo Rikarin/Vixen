@@ -118,6 +118,13 @@ sealed class GlslEmitter {
     /// </summary>
     IrFunction? currentFunction;
 
+    /// <summary>What this stage does to each storage image it can reach.</summary>
+    /// <remarks>
+    ///     Computed once here rather than per declaration: it is a walk of the stage's whole call
+    ///     graph, and the declarations are emitted in one pass over the binding plan.
+    /// </remarks>
+    readonly ImageAccess.Access imageAccess;
+
     internal GlslEmitter(
         IrModule module,
         IrShader shader,
@@ -130,6 +137,7 @@ sealed class GlslEmitter {
         this.entryPoint = entryPoint;
         this.options = options;
         this.diagnostics = diagnostics;
+        imageAccess = ImageAccess.Of(entryPoint);
     }
 
     // --- Declarations ------------------------------------------------------
@@ -311,6 +319,19 @@ sealed class GlslEmitter {
                 // emitting the same declaration.
                 var format = resource.Type is IrStorageImageType image ? image.Format + ", " : string.Empty;
 
+                // ⚠ And the access qualifier, which GLSL ES does not treat as advice: an image that
+                // is both read and written is legal there only at r32f/r32i/r32ui, so the one a
+                // stage merely stores into has to say `writeonly` or the ES front end refuses the
+                // declaration. Derived from what the stage's reachable code does — see ImageAccess,
+                // which reports nothing at all rather than guess when a receiver cannot be traced.
+                var group = planned.Declarations.Select(declaration => declaration.Variable);
+
+                var access = resource.Type is IrStorageImageType
+                    ? imageAccess.IsWriteOnly(group) ? "writeonly "
+                    : imageAccess.IsReadOnly(group) ? "readonly "
+                    : string.Empty
+                    : string.Empty;
+
                 // The declaration alone needs the extension: its type is a word the extension owns.
                 rayQueryDeclared |= resource.Type is IrAccelerationStructureType;
 
@@ -323,7 +344,7 @@ sealed class GlslEmitter {
                     : Declare(resource.Type, name, resource.Name);
 
                 writer.Line(
-                    $"layout({format}{layout}) uniform {declaration};" + Comment(resource.Semantic)
+                    $"layout({format}{layout}) {access}uniform {declaration};" + Comment(resource.Semantic)
                 );
 
                 opaque = true;
@@ -542,7 +563,9 @@ sealed class GlslEmitter {
     }
 
     void EmitStreamInterface() {
-        if (entryPoint.StreamInputs.Count == 0 && entryPoint.StreamOutputs.Count == 0) {
+        if (entryPoint.StreamInputs.Count == 0
+            && entryPoint.StreamOutputs.Count == 0
+            && entryPoint.PrivateStreams.Count == 0) {
             return;
         }
 
@@ -589,6 +612,19 @@ sealed class GlslEmitter {
                 + $"{Declare(stream.Type, name, stream.Name)};"
                 + Comment("stream")
             );
+        }
+
+        // A stream nothing reads takes no location and no qualifier — a plain module-scope global,
+        // which is what GLSL calls a variable at this scope with no storage word. The store that
+        // writes it stays legal and the linker never sees it, so the varying slot it used to hold is
+        // free. ⚠ Registered as both the read and the write name: one variable serves a stage that
+        // writes a stream and then reads its own value back, where the interface case has two.
+        foreach (var stream in entryPoint.PrivateStreams) {
+            var name = Reserve("out_" + stream.Name);
+            streamWrites[stream.Variable] = name;
+            streamReads[stream.Variable] = name;
+
+            writer.Line($"{Declare(stream.Type, name, stream.Name)};" + Comment("stream, unread"));
         }
 
         writer.Blank();

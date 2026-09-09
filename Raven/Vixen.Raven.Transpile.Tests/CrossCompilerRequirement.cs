@@ -35,6 +35,25 @@ namespace Vixen.Raven.Transpile.Tests;
 ///         not an explanation here, and the promise variable is what stops that turning into a
 ///         permanent shrug.
 ///     </para>
+///     <para>
+///         ⚠ <b>And the explanation, which was #1027's open half: shipping the native is not the
+///         same as finding it.</b> <c>Cross.GetApi()</c> does not go through a <c>DllImport</c>, so
+///         the .NET host's NATIVE_DLL_SEARCH_DIRECTORIES — which does include
+///         <c>runtimes/&lt;rid&gt;/native</c> — is not what resolves it. Silk.NET's own loader is,
+///         and what that finds differs per platform. <c>Directory.Packages.props</c> already
+///         records the same thing for Assimp, measured on Linux: the loader does not read
+///         <c>runtimes/</c> there, and the identical file beside the assembly loads. Deleting
+///         <c>runtimes/osx-arm64</c> out of this suite's output reproduces the ubuntu run here
+///         exactly — six skipped, three passed — and putting the dylib flat beside the assembly
+///         with that directory still gone turns all eleven green.
+///         <c>Raven/Directory.Build.targets</c> makes that copy at build time now.
+///     </para>
+///     <para>
+///         So a skip here should be rare rather than normal, and the ubuntu leg's skip count is
+///         what says whether the copy worked on the platform nobody here can run. The promise
+///         stays off on that leg until it reads zero, which is the one direction of evidence a
+///         leg that already skips can give.
+///     </para>
 /// </remarks>
 static class CrossCompilerRequirement {
     /// <summary>The environment variable a leg sets to say it has the library.</summary>

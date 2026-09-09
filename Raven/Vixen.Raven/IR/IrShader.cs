@@ -349,7 +349,61 @@ public sealed class IrEntryPoint(
     public IReadOnlyList<IrStream> StreamInputs { get; private set; } = [];
 
     /// <summary>The shader's streams this stage writes, in the shader's declaration order.</summary>
+    /// <remarks>
+    ///     Only the ones that reach somewhere: a stream this stage writes and no stage in the shader
+    ///     reads is in <see cref="PrivateStreams" /> instead.
+    /// </remarks>
     public IReadOnlyList<IrStream> StreamOutputs { get; private set; } = [];
+
+    /// <summary>
+    ///     The streams this stage writes that no stage in the shader reads, so they occupy no
+    ///     interface location.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>The stream half of <see cref="InputsRead" />, and it is the same defect one
+    ///         step further along the pipeline.</strong> A <c>stream</c> is declared on the shader
+    ///         and its direction is derived from what a stage's code touches, so a vertex stage that
+    ///         writes one is an output whatever the fragment stage does — and when the only read is
+    ///         inside a permutation that folded away, the fragment stage reads nothing and the
+    ///         vertex stage still declares a varying. All three library shaders that were in that
+    ///         position (<c>DepthOnly</c>, <c>UiQuad</c>, <c>ParticleBillboard</c>) were exactly
+    ///         this: a permutation-gated read, not a second fragment stage.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is a budget rather than tidiness.</b> GLSL ES 3.0 guarantees only 16 vec4 of
+    ///         varyings and a written-but-unread vertex output still counts against
+    ///         <c>MAX_VERTEX_OUTPUT_COMPONENTS</c>, so a slot spent here is a slot a real stream
+    ///         cannot have on the two shaders a phone runs most.
+    ///     </para>
+    ///     <para>
+    ///         Written rather than dropped, because the store is still in the stage's code and both
+    ///         backends resolve a stream to a variable: SPIR-V gives it <c>Private</c> storage and
+    ///         leaves it out of the entry point's interface, GLSL an unqualified module-scope
+    ///         global. Either way the store is legal, means nothing, and is dead code the driver
+    ///         removes — where dropping the declaration would leave a store to an identifier the
+    ///         translation unit never declared, which is the failure <c>RVN3006</c> exists for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Judged over the <em>whole shader after composition and permutation folding</em>,
+    ///         which is the only place the question has a true answer — a stream read by a
+    ///         <c>compose</c>d implementation, or by the other arm of a permutation, is read. It
+    ///         rests on one property of the build: a variant is compiled whole, so the stage that
+    ///         writes a stream and the stage that would read it are always folded with the same
+    ///         permutation values. Pairing a vertex module from one variant with a fragment module
+    ///         from another would already disagree about locations.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And only where the shader declares the consuming stage at all</b> — a shader
+    ///         with no stage downstream of the writer keeps every stream it writes, because its
+    ///         reader is in another <c>shader</c> declaration this compilation cannot see. That is
+    ///         not hypothetical: <c>Ui.rvn</c>'s <c>UiVertex</c> and <c>Line.rvn</c>'s
+    ///         <c>LineVertex</c> are both vertex-only, and both of their committed modules changed
+    ///         the first time this was written without the check. See
+    ///         <c>Lowerer.HasDownstreamStage</c>.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<IrStream> PrivateStreams { get; private set; } = [];
 
     /// <summary>
     ///     The shader's <c>groupshared</c> variables this stage's reachable code touches, in the
@@ -407,9 +461,14 @@ public sealed class IrEntryPoint(
 
     internal void SetInputsRead(IReadOnlyList<bool> read) => InputsRead = read;
 
-    internal void SetStreams(IReadOnlyList<IrStream> inputs, IReadOnlyList<IrStream> outputs) {
+    internal void SetStreams(
+        IReadOnlyList<IrStream> inputs,
+        IReadOnlyList<IrStream> outputs,
+        IReadOnlyList<IrStream> privates
+    ) {
         StreamInputs = inputs;
         StreamOutputs = outputs;
+        PrivateStreams = privates;
     }
 
     internal void SetSharedVariables(IReadOnlyList<IrSharedVariable> shared) => SharedVariables = shared;

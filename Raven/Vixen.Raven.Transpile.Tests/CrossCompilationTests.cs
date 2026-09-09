@@ -152,6 +152,8 @@ public class CrossCompilationTests {
     /// </remarks>
     [Fact]
     public void A_varying_loses_its_location_and_takes_one_name_at_es_300() {
+        CrossCompilerRequirement.Available();
+
         var vulkan = Generate(Streamed, "glsl");
         var vulkanVertex = Assert.Single(vulkan, unit => unit.Stage == ShaderStage.Vertex).Code;
         var vulkanFragment = Assert.Single(vulkan, unit => unit.Stage == ShaderStage.Fragment).Code;
@@ -198,13 +200,21 @@ public class CrossCompilationTests {
     ///         end and not the other. That is a per-shader accident a fixture cannot find.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A subset and not an equality, which is the rule rather than a weakening.</b>
-    ///         GLES 3.0 §11.1.2.1 makes a fragment input with no matching vertex output a link
-    ///         error; a vertex output nobody reads is legal and merely costs a varying slot. Three
-    ///         library shaders are in exactly that position today — <c>DepthOnly</c>,
-    ///         <c>UiQuad</c> and <c>ParticleBillboard</c> each write one more stream than their
-    ///         fragment stage reads, because a <c>stream</c> is declared on the shader and the
-    ///         location plan is shader-wide. Asserting equality would fail on legal shaders.
+    ///         ⚠ <b>An equality now, and the premise that moved is the compiler's rather than this
+    ///         test's.</b> This was a subset because <c>DepthOnly</c>, <c>UiQuad</c> and
+    ///         <c>ParticleBillboard</c> each wrote one more varying than their fragment stage read —
+    ///         legal under GLES 3.0 §11.1.2.1, which makes only the other direction a link error,
+    ///         but a wasted slot out of the sixteen vec4 ES guarantees. All three turned out to be
+    ///         one thing: a read inside a permutation that folded away. Lowering drops such a write
+    ///         to a private global now (<c>IrEntryPoint.PrivateStreams</c>), so a vertex stage of a
+    ///         shader that declares its own fragment stage writes exactly what that stage reads, and
+    ///         the equality is the invariant rather than a weakening of the subset.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The equality is over shaders that declare <em>both</em> stages, which is what this
+    ///         sweep pairs by name. A pipeline written as two <c>shader</c> declarations —
+    ///         <c>Ui.rvn</c>'s <c>UiVertex</c> and its seven fragment shaders — is not paired here
+    ///         and keeps every stream it writes, because no compilation can see both halves.
     ///     </para>
     ///     <para>
     ///         ⚠ Shaders with only one raster stage are skipped rather than failed — a compute-only
@@ -214,6 +224,8 @@ public class CrossCompilationTests {
     /// </remarks>
     [Fact]
     public void Every_library_shaders_fragment_inputs_are_written_by_its_vertex_stage() {
+        CrossCompilerRequirement.Available();
+
         var bag = new DiagnosticBag();
         var units = Backend(GlslDialect.Essl300).Generate(Library(), bag);
 
@@ -235,10 +247,10 @@ public class CrossCompilationTests {
             var written = StageInterface(vertex, "out");
             var read = StageInterface(fragment.Code, "in");
 
-            if (!read.IsSubsetOf(written)) {
+            if (!read.SetEquals(written)) {
                 mismatched.Add(
                     $"--- {fragment.Name}: the fragment stage reads [{string.Join(", ", read.Order(StringComparer.Ordinal))}] "
-                    + $"and the vertex stage writes only [{string.Join(", ", written.Order(StringComparer.Ordinal))}]"
+                    + $"and the vertex stage writes [{string.Join(", ", written.Order(StringComparer.Ordinal))}]"
                 );
             }
 
@@ -247,14 +259,16 @@ public class CrossCompilationTests {
 
         Assert.True(compared > 10, $"Only {compared} vertex/fragment pairs were compared; the sweep is not running.");
 
-        // ⚠ And the varyings, because a subset relation is satisfied by an empty left-hand side. A
-        // regex that stopped matching would report every shader as linking perfectly.
+        // ⚠ And the varyings, because two empty sets are equal. A regex that stopped matching would
+        // report every shader as linking perfectly.
         Assert.True(varyings > 20, $"Only {varyings} fragment inputs were found across {compared} shaders.");
 
         Assert.True(
             mismatched.Count == 0,
-            $"{mismatched.Count} of {compared} shaders would not link at ES 3.00 — a varying links by "
-            + $"name below ES 3.10:\n{string.Join("\n", mismatched)}"
+            $"{mismatched.Count} of {compared} shaders do not have matching stage interfaces. A "
+            + "varying links by name below ES 3.10, so a fragment input the vertex stage does not "
+            + "write is a link error; a vertex output nobody reads is legal and wastes one of the "
+            + $"sixteen vec4 ES guarantees:\n{string.Join("\n", mismatched)}"
         );
     }
 

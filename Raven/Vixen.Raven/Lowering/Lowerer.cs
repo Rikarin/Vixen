@@ -1139,6 +1139,11 @@ public sealed partial class Lowerer {
 
             var streams = shader.Streams.Select(stream => stream.Variable).ToHashSet();
 
+            // Every stage's answer first, because the second half of the question is shader-wide:
+            // whether *anything* reads a stream cannot be answered from inside one stage.
+            List<(IrEntryPoint EntryPoint, List<IrStream> Inputs, List<IrStream> Outputs)> resolved = [];
+            HashSet<IrVariable> readSomewhere = [];
+
             foreach (var entryPoint in shader.EntryPoints) {
                 Dictionary<IrVariable, bool> firstUseIsRead = [];
                 HashSet<IrVariable> written = [];
@@ -1146,10 +1151,28 @@ public sealed partial class Lowerer {
                 CollectStreamUses(entryPoint.Function.Body, streams, firstUseIsRead, written, []);
 
                 // Declaration order, so the locations a plan assigns come out ascending.
-                entryPoint.SetStreams(
+                resolved.Add((
+                    entryPoint,
                     [.. shader.Streams.Where(s => firstUseIsRead.GetValueOrDefault(s.Variable))],
                     [.. shader.Streams.Where(s => written.Contains(s.Variable))]
-                );
+                ));
+
+                foreach (var (variable, isRead) in firstUseIsRead) {
+                    if (isRead) {
+                        readSomewhere.Add(variable);
+                    }
+                }
+            }
+
+            foreach (var (entryPoint, inputs, outputs) in resolved) {
+                // ⚠ A stream nothing reads is still written, so it becomes a private global rather
+                // than disappearing — see IrEntryPoint.PrivateStreams for why, and why the question
+                // is only answerable here, after composition and permutation folding.
+                var privates = HasDownstreamStage(shader, entryPoint.Stage)
+                    ? outputs.Where(s => !readSomewhere.Contains(s.Variable)).ToList()
+                    : [];
+
+                entryPoint.SetStreams(inputs, [.. outputs.Except(privates)], privates);
 
                 ReportUnusableStreams(shader, entryPoint);
                 ReportUnconsumedStreams(shader, entryPoint);
@@ -1371,6 +1394,46 @@ public sealed partial class Lowerer {
     }
 
     /// <summary>
+    ///     Whether this shader declares a stage that could read what <paramref name="stage" />
+    ///     writes.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The reason "nobody in this shader reads it" is not on its own enough to make a
+    ///         stream private, and the engine's own two most-shipped modules are why.</b>
+    ///         <c>Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn</c> declares <c>UiVertex</c> with a
+    ///         vertex stage and seven fragment shaders beside it, and
+    ///         <c>Editor/Vixen.Editor.Host/Shaders/Line.rvn</c> splits <c>LineVertex</c> from
+    ///         <c>LineFragment</c> the same way — one pipeline written as two <c>shader</c>
+    ///         declarations, linked by the host and agreeing on locations only because
+    ///         <see cref="Reflection.StreamPlan" /> numbers by declaration order in each. So a
+    ///         vertex-only shader's every stream reads as unconsumed, and dropping them would leave
+    ///         the fragment module reading locations nothing writes. Both modules are committed and
+    ///         both drifted the first time this rule was written without this check.
+    ///     </para>
+    ///     <para>
+    ///         Hence: a stream is droppable only where the shader *contains* the stage that would
+    ///         consume it, which is the only case where the compiler is looking at the whole
+    ///         interface. A pipeline assembled from two declarations keeps every stream it writes.
+    ///     </para>
+    /// </remarks>
+    static bool HasDownstreamStage(IrShader shader, ShaderStage stage) =>
+        shader.EntryPoints.Any(other => Downstream(other.Stage) > Downstream(stage));
+
+    /// <summary>Where a stage sits in the rasterisation order, for stages that carry varyings.</summary>
+    /// <remarks>
+    ///     A compute stage is not on this pipeline at all — <c>RVN3006</c> refuses a stream there —
+    ///     so it is deliberately below every raster stage rather than given a position of its own.
+    /// </remarks>
+    static int Downstream(ShaderStage stage) =>
+        stage switch {
+            ShaderStage.Vertex => 1,
+            ShaderStage.Geometry => 2,
+            ShaderStage.Fragment => 3,
+            _ => 0
+        };
+
+    /// <summary>
     ///     Refuses a stream a compute stage touches, in either direction.
     /// </summary>
     /// <remarks>
@@ -1384,7 +1447,13 @@ public sealed partial class Lowerer {
             return;
         }
 
-        foreach (var stream in entryPoint.StreamInputs.Concat(entryPoint.StreamOutputs).Distinct()) {
+        // ⚠ The privates too. A compute stage's streams are all private now — nothing downstream
+        // reads them, because there is nothing downstream — so reading only the interface lists
+        // would have turned this refusal off for every shader it exists to catch.
+        foreach (var stream in entryPoint
+                     .StreamInputs.Concat(entryPoint.StreamOutputs)
+                     .Concat(entryPoint.PrivateStreams)
+                     .Distinct()) {
             diagnostics.Add(
                 LoweringDiagnostics.StreamInComputeStage,
                 LocationOf(SyntaxOf(shader, stream)),
@@ -1408,7 +1477,10 @@ public sealed partial class Lowerer {
             return;
         }
 
-        foreach (var stream in entryPoint.StreamOutputs) {
+        // ⚠ The privates too, and here they are the usual case rather than the exception: a stream a
+        // fragment stage writes has no stage after it to read it, so it lands in PrivateStreams and
+        // an interface-only sweep would report nothing at all.
+        foreach (var stream in entryPoint.StreamOutputs.Concat(entryPoint.PrivateStreams).Distinct()) {
             diagnostics.Add(
                 LoweringDiagnostics.StreamNotConsumed,
                 LocationOf(SyntaxOf(shader, stream)),
