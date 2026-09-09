@@ -45,6 +45,18 @@ public sealed record ScriptBuild(string? AssemblyPath, IReadOnlyList<ScriptDiagn
     /// <summary>Nothing to build.</summary>
     public static ScriptBuild None { get; } = new(null, [], 0);
 
+    /// <summary>How many of the sources this build had to parse, rather than reuse.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The honest measure of what <see cref="ScriptWorkspace" /> buys, and it is work rather
+    ///     than time.</b> Doc 36 § P5's own bound — "tens of milliseconds for a dozen files, and
+    ///     nothing here measures a project with hundreds" — is a wall-clock claim, and a wall-clock
+    ///     assertion calibrated on an idle machine is this repository's largest flake source. This is
+    ///     the same property said as a count: a rebuild after one edit parses one file, and a rebuild
+    ///     after none parses nothing. A one-shot <see cref="ScriptCompiler.Compile" /> keeps no
+    ///     workspace, so it reports every source.
+    /// </remarks>
+    public int Parsed { get; init; }
+
     /// <summary>Whether there were sources and no assembly came out of them.</summary>
     public bool Failed => Sources > 0 && AssemblyPath is null;
 
@@ -162,70 +174,7 @@ public static class ScriptCompiler {
     ///         usable; the cost is a file the editor deletes with the assembly.
     ///     </para>
     /// </remarks>
-    public static ScriptBuild Compile(string projectRoot, string output) {
-        ArgumentException.ThrowIfNullOrEmpty(projectRoot);
-        ArgumentException.ThrowIfNullOrEmpty(output);
-
-        var sources = Sources(projectRoot);
-
-        if (sources.Count == 0) {
-            return ScriptBuild.None;
-        }
-
-        List<SyntaxTree> trees = [];
-        List<ScriptDiagnostic> problems = [];
-
-        foreach (var file in sources) {
-            string text;
-
-            try {
-                text = File.ReadAllText(file);
-            } catch (IOException exception) {
-                // ⚠ Reported rather than thrown. A save in flight is the commonest reason a watched
-                // file cannot be read, and taking the editor down for it would make the loop the
-                // thing that is unreliable.
-                problems.Add(new(true, file, 1, 1, "VXS0001", $"could not be read: {exception.Message}"));
-                continue;
-            }
-
-            trees.Add(CSharpSyntaxTree.ParseText(text, Options, file, System.Text.Encoding.UTF8));
-        }
-
-        if (problems.Count > 0) {
-            return new(null, problems, sources.Count);
-        }
-
-        var compilation = CSharpCompilation.Create(
-            AssemblyName,
-            trees,
-            References(),
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, optimizationLevel: OptimizationLevel.Debug)
-        );
-
-        Directory.CreateDirectory(output);
-
-        var assemblyPath = Path.Combine(output, AssemblyName + ".dll");
-        var symbolsPath = Path.ChangeExtension(assemblyPath, ".pdb");
-
-        EmitResult result;
-
-        // ⚠ Emitted into memory and written afterwards, so a failed emit cannot leave half a file
-        // where the previous good one was. The loader would read it, and "the assembly is corrupt"
-        // is a much worse message than the error that actually happened.
-        using (var assembly = new MemoryStream())
-        using (var symbols = new MemoryStream()) {
-            result = compilation.Emit(assembly, symbols, options: new(debugInformationFormat: DebugInformationFormat.PortablePdb));
-
-            problems.AddRange(result.Diagnostics.Where(Reportable).Select(Describe));
-
-            if (result.Success) {
-                File.WriteAllBytes(assemblyPath, assembly.ToArray());
-                File.WriteAllBytes(symbolsPath, symbols.ToArray());
-            }
-        }
-
-        return new(result.Success ? assemblyPath : null, problems, sources.Count);
-    }
+    public static ScriptBuild Compile(string projectRoot, string output) => new ScriptWorkspace().Compile(projectRoot, output);
 
     /// <summary>The language the scripts are compiled as.</summary>
     /// <remarks>
@@ -234,10 +183,10 @@ public static class ScriptCompiler {
     ///     guide was written against, and a warning about a null they can actually get is worth more
     ///     in a script than anywhere else — nothing else in the process will catch it.
     /// </remarks>
-    static CSharpParseOptions Options { get; } = new(LanguageVersion.Preview);
+    internal static CSharpParseOptions Options { get; } = new(LanguageVersion.Preview);
 
     /// <summary>Everything the host has loaded that a script may call.</summary>
-    static IReadOnlyList<MetadataReference> References() {
+    internal static IReadOnlyList<MetadataReference> References() {
         List<MetadataReference> references = [];
         HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
 
@@ -256,6 +205,9 @@ public static class ScriptCompiler {
         return references;
     }
 
+    /// <summary>How many assemblies the default context holds, which is what invalidates a reference set.</summary>
+    internal static int LoadedAssemblies() => AssemblyLoadContext.Default.Assemblies.Count();
+
     static string Where(Assembly assembly) {
         try {
             return assembly.Location;
@@ -271,10 +223,10 @@ public static class ScriptCompiler {
     ///     the panel shows them, and <see cref="ScriptBuild.Errors" /> is what decides whether
     ///     anything loaded.
     /// </remarks>
-    static bool Reportable(Diagnostic diagnostic) =>
+    internal static bool Reportable(Diagnostic diagnostic) =>
         diagnostic.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Warning;
 
-    static ScriptDiagnostic Describe(Diagnostic diagnostic) {
+    internal static ScriptDiagnostic Describe(Diagnostic diagnostic) {
         var span = diagnostic.Location.GetLineSpan();
 
         return new(

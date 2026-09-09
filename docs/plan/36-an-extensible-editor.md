@@ -1090,15 +1090,30 @@ stopped refusing an id whose previous holder is unloaded — which is what a reb
 
 **What is not built, and is named rather than implied:**
 
-* **No incremental compilation.** A save rebuilds the folder — tens of milliseconds for a dozen
-  files, and nothing here measures a project with hundreds.
+* ~~**No incremental compilation.** A save rebuilds the folder — tens of milliseconds for a dozen
+  files, and nothing here measures a project with hundreds.~~ — ✅ built: `ScriptWorkspace`, held by
+  `EditorScripts` for the life of a project. What is kept is the two expensive things — the syntax
+  tree of every file whose *text* is unchanged, and the `MetadataReference` set, whose metadata
+  Roslyn caches per reference object — and `ScriptCompiler.Compile` is now a one-shot over a fresh
+  one. ⚠ **The measurement is a count of files parsed and not a duration**, deliberately: the bound
+  above is a wall-clock claim, and a wall-clock assertion calibrated on an idle machine is this
+  repository's largest flake source. `ScriptBuild.Parsed` is the same property expressed as work —
+  three on the first build, one after one edit, none after none. ⚠ **And staleness is the text
+  rather than a timestamp**, which is the classic file-cache bug avoided rather than reproduced: two
+  saves inside one filesystem tick that leave the file the same length are indistinguishable to a
+  stamp, and the symptom is an editor running the code somebody deleted.
 * ~~**No `[CustomEditor]`-shaped attribute set**~~ — ✅ built after this phase and listed in
   [D3](#d3--discovery-is-declared-not-listed). The bullet was true when P5 shipped `[EditorMenu]`
   alone; the set landed in the commit that made all eight symmetric, and D3's table is the current
   statement.
-* **No cross-assembly editor-only check.** The SDK keeps `Editor/` code out of the game's build; it
-  does not fail a build that references an `Editor/` type from runtime code, because nothing compiles
-  the two together to notice.
+* **No cross-assembly editor-only check.** The SDK keeps `Editor/` code out of the game's build —
+  `Vixen.Sdk.targets`'s `<Compile Remove="**/Editor/**/*.cs" />` — and does not name the *rule* when a
+  runtime file references an `Editor/` type; the error is a CS0246 about a type. ⚠ **The rest of this
+  bullet used to say the failure was "a game that builds in the editor and does not build for a
+  player", and that half is wrong.** It needs the two builds to differ. They do not: the editor's own
+  game build is `ProjectAssemblies` shelling out to `dotnet build`, which imports these same targets
+  and removes the same files, so a runtime file naming an editor type fails identically in the editor
+  and in a player build. What is owed is a better *message*, not a missing gate.
 
 ---
 
@@ -1322,7 +1337,14 @@ import without a plugin is not an editor. The criterion is `Core`, `Ui`, `Plugin
   generator writes. Filed as #1165 with the rule that would stop the next one.
 * ~~**`IToolContext`**~~ — struck, and the sentence under it was wrong: four modes already implement
   one `IViewportInput`, and the pane they are handed is the context. See [Part 5](#part-5--the-seams).
-* **No incremental compilation for project scripts**, and **no cross-assembly editor-only check**.
+* ~~**No incremental compilation for project scripts**~~ — ✅ built, see
+  [P5](#p5--project-editor-scripts-). **No cross-assembly editor-only check** is still owed, and ⚠
+  **its premise wants re-reading before anyone builds it.** The stated failure — "a game that builds
+  in the editor and does not build for a player" — needs the two builds to differ, and they do not:
+  the editor's game build is `ProjectAssemblies` shelling out to `dotnet build`, which imports the
+  same `Vixen.Sdk.targets` and removes the same `**/Editor/**/*.cs`. A runtime file naming an editor
+  type is the same CS0246 in both. What is genuinely missing is the rule being *named* rather than
+  the type — and that is a smaller claim than the row makes.
 * **F7's number.** ⚠ **Fifty-six `.vxml` under `Editor/`** — `git ls-files 'Editor/*.vxml' | wc -l`,
   measured 2026-09-09. This row has said three, then seventeen, then forty-nine; the ledger's own
   strike-through history reads twenty → twenty-seven → thirty-four → forty-one → forty-eight. The
