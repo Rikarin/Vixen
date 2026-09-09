@@ -154,11 +154,14 @@ public interface IEditorCommand
 > check was a localisation test naming it. The declaration now carries the text the editor shows and
 > the call site uses the declaration.
 >
-> ⚠ **The claim that a handful of these ids cannot be declared was true and irrelevant.**
-> `WaterMode.cs` builds `"editor.command." + id` in a loop over a mode's tools — but a concatenation
-> has no string literal where the id goes, so it was never in the 178 and is not under the ceiling
-> either. It is untranslatable and unmeasured, which is a separate gap wanting a declaration shape
-> that can express a family; `StringId`'s constructor stays public for it.
+> ⚠ **The claim that a handful of these ids cannot be declared was true and irrelevant** — and it is
+> now false as well. `WaterMode.cs` built `"editor.command." + id` in a loop over a mode's tools, and
+> a concatenation has no string literal where the id goes, so it was never in the 178 and was not
+> under the ceiling either: untranslatable and unmeasured. `Vixen.Ui.StringFamily` is the declaration
+> shape that can express a family — a prefix and a member per key — and `CheckStrings` now counts
+> the constructions that remain under a second ceiling of its own. The water toolset's nineteen are
+> declared in `WaterStrings` and reach a translator's template; forty-five in seven other files do
+> not yet. `StringId`'s constructor stays public.
 >
 > **The project browser is `ProjectBrowser` in `Vixen.Editor.App`**, not a shell panel, and for the
 > same reason as the first correction: it needs the asset database, and the shell may not see one.

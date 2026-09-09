@@ -4,7 +4,7 @@ slug: ui/strings
 kind: guide
 area: Core
 summary: A label is an id plus the English it was written as, so a missing translation shows the sentence rather than the id — and the catalogue in use is a signal, so a language change re-labels a running interface with no code at any call site.
-api: [T:Vixen.Ui.StringId, T:Vixen.Ui.StringCatalog, T:Vixen.Ui.Strings, T:Vixen.Ui.Controls.ControlStrings, T:Vixen.Editor.Ui.StringCatalogYaml, T:Vixen.Ui.Generators.StringDeclarationAnalyzer]
+api: [T:Vixen.Ui.StringId, T:Vixen.Ui.StringFamily, T:Vixen.Ui.StringCatalog, T:Vixen.Ui.Strings, T:Vixen.Ui.Controls.ControlStrings, T:Vixen.Editor.Ui.StringCatalogYaml, T:Vixen.Ui.Generators.StringDeclarationAnalyzer]
 tags: [ui, localisation, strings, i18n, signals]
 since: 0.2
 status: preview
@@ -108,9 +108,59 @@ no rule. In this repository that half is `./build.sh CheckStrings`, which reads 
 ⚠ **None of this asks the declaration class to be written differently.** The shape above — a
 property per string, an `All` list beside them — is the contract, so a class emitted by a generator
 and one written by hand are interchangeable and a string moved between two projects is a copy rather
-than a translation. A computed id is legitimate and is deliberately not compared: an editor mode that
-registers a command per tool builds `"editor.command." + tool`, which is a shape no declaration class
-can express.
+than a translation.
+
+### A family, when the id is computed
+
+An editor mode registers one command per tool, one per digit and one per debug flag, and builds each
+id from the command's own — `"editor.command." + id`. A property per string cannot express that, and
+what was written instead was a `StringId` at the registration:
+
+```csharp no-compile="what this section exists to replace"
+new EditorCommand(id, new StringId("editor.command." + id, "Finish Water Body"), Finish);
+```
+
+⚠ **That is not a style question — those words could not be translated at all.** `Strings.Template`
+exports `All` lists, and an id that exists only while the application runs is in no `All` list, so no
+translator's file ever contained one of them. `StringFamily` is the declaration shape for that case:
+a prefix, and a member per key the code already has.
+
+```csharp compile
+using Vixen.Ui;
+
+public static class ToolStrings {
+    public static StringFamily Commands { get; } = new(
+        "editor.command.",
+        [
+            new("water.finish", "Finish Water Body"),
+            new("water.cancel", "Cancel Water Draw")
+        ]
+    );
+
+    public static IReadOnlyList<StringId> All { get; } = [.. Commands.All];
+}
+```
+
+The registration then indexes it — `ToolStrings.Commands[id]` — and the members reach a template with
+the spread in `All`. The keys are usually computed at the declaration too: a family whose members come
+from `Enumerable.Range(0, SlotCount)` or from a tool list declares the whole set in one expression.
+
+⚠ **A key the family does not carry throws.** Answering with the key would put a dotted id on a menu
+and answering with an empty string would put nothing there; both leave every test about the surface
+green. It is thrown while the surface registers its commands, which is deterministic.
+
+⚠ **A family counts as a declaration for all three diagnostics.** One left out of `All` hides its
+whole set rather than one string, and a class whose only declarations are families is still the
+assembly's declaration class — before that was true, a toolset that moved every id into one stopped
+being checked by `VXS0312` altogether. Its first constructor argument is a *prefix* and is
+deliberately not read as an id: sharing `editor.command.` is the normal case, so comparing prefixes
+would make `VXS0311` fire on the one thing families have in common.
+
+In this repository `./build.sh CheckStrings` counts the constructions that are left — every
+`new StringId` whose id is not a literal, outside a declaration class — against a ceiling that can
+only be lowered. ⚠ That half is newer than the census beside it, and the census was measured without
+it: both of the literal patterns need a string where the id goes, so the ids that genuinely could not
+be declared were exactly the ones nothing was counting.
 
 Build a catalogue by hand, or read one from whatever format the application ships:
 

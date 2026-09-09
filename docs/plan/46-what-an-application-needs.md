@@ -639,13 +639,15 @@ owed on both sides of the fence.
 > what made the fix mechanical**: every one of them became a property on the same class with no call
 > site changing meaning.
 >
-> ⚠ **The computed-id point survives and is now the only thing under it.** `WaterMode` builds
-> `"editor.command." + id` in a loop over a mode's tools — and because that has no literal where the
-> id goes, it was never in the 178 and is not under the ceiling either. It is untranslatable and
-> *unmeasured*. **That is a fact about the declaration shape and belongs to this section**: a shape
-> that cannot express a computed id means `StringId`'s constructor has to stay public, in Vixen and
-> in Trinix's generated code alike — and a shape that could express a family is what would let a
-> gate see one.
+> ⚠ **The computed-id point survived the census and has since been answered by an addition to the
+> shape.** `WaterMode` built `"editor.command." + id` in a loop over a mode's tools; that has no
+> literal where the id goes, so it was never in the 178 and was under no ceiling — untranslatable
+> and *unmeasured*. **That was a fact about the declaration shape and belongs to this section**, and
+> so is the answer: `StringFamily` is a second declaration kind — a prefix and a member per key —
+> that a class carries beside its `StringId` properties and spreads into the same `All` list.
+> Nothing about the existing shape changes, which is the constraint this section states; a generator
+> that emits only properties emits a class this analyzer still accepts. `StringId`'s constructor
+> stays public either way, and `CheckStrings` now counts what is still built at a call site.
 
 ⚠ **Trinix is not asking Vixen to build it.** Trinix is building its own — a `Strings.yaml` →
 declarations generator in `Trinix.Sdk.Generators`, because the catalogue source and the tooling are

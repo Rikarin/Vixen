@@ -199,6 +199,35 @@ asset-status.conflicted { color: var(--danger); }
 asset-status.untracked { color: var(--text-muted, var(--text)); }
 
 
+/* The same column on the list view, where it is a mark at the trailing edge of a row
+   rather than a corner of a tile.
+
+   ⚠ In the flow rather than positioned, which is the whole difference from the rule
+   above: a row is a flex line whose `tree-label` grows, so a mark added after it lands
+   at the trailing edge and shortens the name instead of sitting on top of it. A row has
+   spare width and a tile does not, which is why the two answers differ.
+
+   ⚠ It does not shrink. A long file name is what gets clipped, on the outliner's rule —
+   the mark is the one thing on the row that cannot be inferred from anything else. */
+row-status {
+    flex-shrink: 0;
+    margin-left: 6px;
+    font-size: 0.75em;
+    font-weight: 700;
+    color: var(--text-muted, var(--text));
+}
+
+row-status.modified { color: var(--warning); }
+row-status.added { color: var(--success, var(--accent)); }
+row-status.deleted { color: var(--danger); }
+row-status.conflicted { color: var(--danger); }
+row-status.untracked { color: var(--text-muted, var(--text)); }
+
+/* ⚠ White on a selected row, on `tree-row:checked icon`'s terms: the accent fill is dark
+   and a warning-coloured letter on it is the one thing in the panel that cannot be read. */
+tree-row:checked row-status { color: #ffffff; }
+
+
 /* ── The component foldouts ─────────────────────────────────────────────
    One block per component, under the inspector's own rows and separated from them
    by a rule, because "what this entity is" and "what is on it" are two lists and a

@@ -5,7 +5,6 @@ using Vixen.Core;
 using Vixen.Editor.Core;
 using Vixen.Editor.Ui;
 using Vixen.Rendering.Water;
-using Vixen.Ui;
 using Vixen.Ui.Controls;
 
 namespace Vixen.Editor.Water;
@@ -39,6 +38,24 @@ namespace Vixen.Editor.Water;
 ///     </para>
 /// </remarks>
 public sealed partial class WaterModule {
+    /// <summary>Draws the patches a device selected.</summary>
+    public const string ShowTilesCommand = "water.showTiles";
+
+    /// <summary>Draws which LOD band each patch is in.</summary>
+    public const string ShowLodCommand = "water.showLod";
+
+    /// <summary>Draws the info channels.</summary>
+    public const string ShowInfoCommand = "water.showInfo";
+
+    /// <summary>Draws the flow field.</summary>
+    public const string ShowFlowCommand = "water.showFlow";
+
+    /// <summary>Draws what buoyancy reads.</summary>
+    public const string ShowBuoyancyCommand = "water.showBuoyancy";
+
+    /// <summary>Draws the ripple simulation only a game runs.</summary>
+    public const string ShowRipplesCommand = "water.showRipples";
+
     /// <summary>The six verbs, in the order the mode's menu lists them.</summary>
     /// <remarks>
     ///     ⚠ <b>Two of them are inert in a pane and are registered anyway.</b>
@@ -48,22 +65,22 @@ public sealed partial class WaterModule {
     ///     on which host they are in, which is worse than a toggle that draws nothing; what they do
     ///     get is a checkbox whose state travels into play mode.
     /// </remarks>
-    static readonly (string Id, string Label, Func<bool> Read, Action Toggle)[] DebugVerbs = [
-        ("water.showTiles", "Show Water Tiles", () => WaterDebug.ShowTiles, () => WaterDebug.ShowTiles = !WaterDebug.ShowTiles),
-        ("water.showLod", "Show Water LOD Bands", () => WaterDebug.ShowLod, () => WaterDebug.ShowLod = !WaterDebug.ShowLod),
-        ("water.showInfo", "Show Water Info Channels", () => WaterDebug.ShowInfo, () => WaterDebug.ShowInfo = !WaterDebug.ShowInfo),
-        ("water.showFlow", "Show Water Flow", () => WaterDebug.ShowFlow, () => WaterDebug.ShowFlow = !WaterDebug.ShowFlow),
-        ("water.showBuoyancy", "Show Buoyancy", () => WaterDebug.ShowBuoyancy, () => WaterDebug.ShowBuoyancy = !WaterDebug.ShowBuoyancy),
-        ("water.showRipples", "Show Water Ripples", () => WaterDebug.ShowRipples, () => WaterDebug.ShowRipples = !WaterDebug.ShowRipples)
+    static readonly (string Id, Func<bool> Read, Action Toggle)[] DebugVerbs = [
+        (ShowTilesCommand, () => WaterDebug.ShowTiles, () => WaterDebug.ShowTiles = !WaterDebug.ShowTiles),
+        (ShowLodCommand, () => WaterDebug.ShowLod, () => WaterDebug.ShowLod = !WaterDebug.ShowLod),
+        (ShowInfoCommand, () => WaterDebug.ShowInfo, () => WaterDebug.ShowInfo = !WaterDebug.ShowInfo),
+        (ShowFlowCommand, () => WaterDebug.ShowFlow, () => WaterDebug.ShowFlow = !WaterDebug.ShowFlow),
+        (ShowBuoyancyCommand, () => WaterDebug.ShowBuoyancy, () => WaterDebug.ShowBuoyancy = !WaterDebug.ShowBuoyancy),
+        (ShowRipplesCommand, () => WaterDebug.ShowRipples, () => WaterDebug.ShowRipples = !WaterDebug.ShowRipples)
     ];
 
     /// <summary>Puts them in the shell, and takes them back out when the module unloads.</summary>
     void WaterDebugCommands(Vixen.Editor.Plugin.PluginContext context) {
-        foreach (var (id, label, read, toggle) in DebugVerbs) {
+        foreach (var (id, read, toggle) in DebugVerbs) {
             var verb = id;
 
             Shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, label), toggle) {
+                new EditorCommand(id, WaterStrings.Commands[id], toggle) {
                     Category = EditorStrings.CategoryWater,
                     Checked = read
                 }

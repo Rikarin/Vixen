@@ -57,7 +57,7 @@ public sealed partial class WaterModule {
         Shell.Commands.Add(
             new EditorCommand(
                 CarveTerrainCommand,
-                new StringId("editor.command." + CarveTerrainCommand, "Carve Terrain From Water"),
+                WaterStrings.Commands[CarveTerrainCommand],
                 () => Carve()
             ) {
                 Category = EditorStrings.CategoryWater,

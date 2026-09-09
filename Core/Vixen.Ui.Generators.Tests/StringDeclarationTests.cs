@@ -132,9 +132,11 @@ public class StringDeclarationTests {
     ///     A computed id is not compared with anything, because it cannot be.
     /// </summary>
     /// <remarks>
-    ///     An editor mode registers a command per tool and builds the id from the tool's name. That is
-    ///     a legitimate shape a declaration class has no way to express, and a duplicate-id rule that
-    ///     guessed at it would report on a string it cannot read.
+    ///     An editor mode registers a command per tool and builds the id from the tool's name, and a
+    ///     duplicate-id rule that guessed at it would report on a string it cannot read. ⚠ <b>The
+    ///     older half of this remark said such a shape was one a declaration class had no way to
+    ///     express, and that stopped being true</b> — <c>StringFamily</c> is the way, and the tests
+    ///     below are what the analyzer says about one.
     /// </remarks>
     [Fact]
     public async Task A_computed_id_is_not_compared() {
@@ -155,5 +157,132 @@ public class StringDeclarationTests {
         );
 
         Assert.Empty(reported);
+    }
+
+    const string Family = """
+        using System.Collections.Generic;
+        using Vixen.Ui;
+
+        public static class ToolStrings {
+            public static StringFamily Commands { get; } = new(
+                "shop.command.",
+                [new("buy", "Buy"), new("sell", "Sell")]
+            );
+
+            public static IReadOnlyList<StringId> All { get; } = [.. Commands.All];
+        }
+        """;
+
+    /// <summary>A declaration class whose declarations are a family reports nothing.</summary>
+    [Fact]
+    public async Task A_family_in_the_All_list_reports_nothing() {
+        var reported = await AnalyzerHarness.RunAsync(Family);
+
+        Assert.Empty(reported);
+    }
+
+    /// <summary>
+    ///     ⚠ A family left out of <c>All</c> hides every string in it, not one.
+    /// </summary>
+    [Fact]
+    public async Task A_family_missing_from_All_is_an_error() {
+        var reported = await AnalyzerHarness.RunAsync(
+            """
+            using System.Collections.Generic;
+            using Vixen.Ui;
+
+            public static class ToolStrings {
+                public static StringId Title { get; } = new("shop.title", "Shop");
+
+                public static StringFamily Commands { get; } = new(
+                    "shop.command.",
+                    [new("buy", "Buy"), new("sell", "Sell")]
+                );
+
+                public static IReadOnlyList<StringId> All { get; } = [Title];
+            }
+            """
+        );
+
+        var diagnostic = Assert.Single(reported);
+
+        Assert.Equal(StringDeclarationAnalyzer.MissingFromAllId, diagnostic.Id);
+        Assert.Equal("Commands", AnalyzerHarness.Underlined(diagnostic));
+    }
+
+    /// <summary>
+    ///     ⚠ A class whose only declaration is a family is still a declaration class, so an id built
+    ///     at a call site beside it is still VXS0312.
+    /// </summary>
+    /// <remarks>
+    ///     This is the test that would have gone green for the wrong reason. Before a family counted
+    ///     as a declaration, a toolset that moved all of its ids into one reported <em>nothing</em> —
+    ///     the class had no <c>StringId</c> property, so it was not recognised at all, and the
+    ///     assembly that had just declared its ids most thoroughly was the one that stopped being
+    ///     checked.
+    /// </remarks>
+    [Fact]
+    public async Task A_string_built_beside_a_family_declaration_is_an_error() {
+        var reported = await AnalyzerHarness.RunAsync(
+            Family
+            + """
+
+            public static class Checkout {
+                public static string Label() => new StringId("shop.action.pay", "Pay").Source;
+            }
+            """
+        );
+
+        var diagnostic = Assert.Single(reported);
+
+        Assert.Equal(StringDeclarationAnalyzer.UndeclaredId, diagnostic.Id);
+        Assert.Contains("ToolStrings", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ Two families under one prefix are not two declarations under one id.
+    /// </summary>
+    /// <remarks>
+    ///     A family's first constructor argument is a prefix, and sharing one is the normal case —
+    ///     every editor toolset's commands are <c>editor.command.</c> something. Reading it the way
+    ///     an id is read would make the duplicate rule fire on the one thing families are supposed to
+    ///     have in common.
+    /// </remarks>
+    [Fact]
+    public async Task Two_families_under_one_prefix_are_not_a_duplicate() {
+        var reported = await AnalyzerHarness.RunAsync(
+            """
+            using System.Collections.Generic;
+            using Vixen.Ui;
+
+            public static class ToolStrings {
+                public static StringFamily Commands { get; } = new("shop.command.", [new("buy", "Buy")]);
+                public static StringFamily Verbs { get; } = new("shop.command.", [new("sell", "Sell")]);
+
+                public static IReadOnlyList<StringId> All { get; } = [.. Commands.All, .. Verbs.All];
+            }
+            """
+        );
+
+        Assert.Empty(reported);
+    }
+
+    /// <summary>A family built outside the declaration class is the same defect one size larger.</summary>
+    [Fact]
+    public async Task A_family_built_outside_the_declaration_class_is_an_error() {
+        var reported = await AnalyzerHarness.RunAsync(
+            Family
+            + """
+
+            public static class Checkout {
+                public static StringId Label() =>
+                    new StringFamily("shop.action.", [new("pay", "Pay")])["pay"];
+            }
+            """
+        );
+
+        var diagnostic = Assert.Single(reported);
+
+        Assert.Equal(StringDeclarationAnalyzer.UndeclaredId, diagnostic.Id);
     }
 }

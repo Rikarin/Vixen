@@ -252,7 +252,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
             var id = SlotCommand(slot);
 
             shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, $"Tool {slot + 1}"), () => SelectSlot(slot)) {
+                new EditorCommand(id, WaterStrings.Commands[id], () => SelectSlot(slot)) {
                     Category = EditorStrings.CategoryWater,
                     Context = WaterContext,
                     Enablement = () => IsActive() && slot < Tools.Count
@@ -267,7 +267,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
             var id = ToolCommand(chosen);
 
             shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, chosen + " Water"), () => Tool = chosen) {
+                new EditorCommand(id, WaterStrings.Commands[id], () => Tool = chosen) {
                     Category = EditorStrings.CategoryWater,
                     Context = WaterContext,
                     RadioGroup = ToolGroup,
@@ -280,7 +280,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
         shell.Commands.Add(
             new EditorCommand(
                 FinishCommand,
-                new StringId("editor.command." + FinishCommand, "Finish Water Body"),
+                WaterStrings.Commands[FinishCommand],
                 () => Finish()
             ) {
                 Category = EditorStrings.CategoryWater,
@@ -295,13 +295,13 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
 
         shell.Keys.SetDefault(FinishCommand, new KeyChord(InputKey.Enter, ModifierKeys.None));
 
-        Verb(UndoPointCommand, "Undo Water Point", () => Editing.Undo(), InputKey.Backspace);
-        Verb(CancelCommand, "Cancel Water Draw", Editing.Cancel, InputKey.Escape);
+        Verb(UndoPointCommand, () => Editing.Undo(), InputKey.Backspace);
+        Verb(CancelCommand, Editing.Cancel, InputKey.Escape);
 
         shell.Commands.Add(
             new EditorCommand(
                 CreateZoneCommand,
-                new StringId("editor.command." + CreateZoneCommand, "Create Water Zone"),
+                WaterStrings.Commands[CreateZoneCommand],
                 () => CreateZone()
             ) {
                 Category = EditorStrings.CategoryWater,
@@ -317,7 +317,7 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
         shell.Commands.Add(
             new EditorCommand(
                 PreviewCarveCommand,
-                new StringId("editor.command." + PreviewCarveCommand, "Preview Water Carve"),
+                WaterStrings.Commands[PreviewCarveCommand],
                 () => Editing.CarvePreview = !Editing.CarvePreview
             ) {
                 Category = EditorStrings.CategoryWater,
@@ -327,9 +327,9 @@ public sealed class WaterMode : IEditorMode, IViewportInput {
             }
         );
 
-        void Verb(string id, string label, Action run, InputKey key) {
+        void Verb(string id, Action run, InputKey key) {
             shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, label), run) {
+                new EditorCommand(id, WaterStrings.Commands[id], run) {
                     Category = EditorStrings.CategoryWater,
                     Context = WaterContext,
                     Enablement = IsActive
