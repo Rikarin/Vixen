@@ -185,10 +185,25 @@ the defect at all.
 
 ## The resolve is a dispatch, and its weights are the same table
 
-`ScreenProbeResolve.rvn` projects each probe's map into L1 — one workgroup per probe, walking the
-map in the exact order `ScreenProbeAtlas.Resolve` walks it, because a parallel reduction reorders a
-float sum and the first version of anything here is the one with nothing between it and the
-reference (making it wide is owed, with a baseline to hold it to). The solid angles arrive in a
+`ScreenProbeResolve.rvn` projects each probe's map into L1 — one workgroup per probe and **one lane
+per texel**, sixty-four partial projections reduced through shared memory in six pairwise steps. The
+first version walked the map in `ScreenProbeAtlas.Resolve`'s exact order on one invocation, because
+a parallel reduction reorders a float sum and the first version of anything here is the one with
+nothing between it and the reference; widening it was owed *with a baseline*, and the baseline is
+what made it cheap — the comparison already held all four coefficients of every probe, so the wide
+form had a referee the day it was written.
+
+⚠ **The widening cost nothing measurable, and that number was taken rather than assumed.** The
+device comparison now records the widest disagreement over every coefficient of every probe and
+holds it under a stated bound: measured at 2.3841858e-7, which is 2^-22 — one ulp at these
+magnitudes — and **the serial kernel measures exactly the same**, taken by running the comparison
+against the version this replaced. The drift is the `rgba32f` round trip, not the sum's shape. It
+was never going to be worse: a tree adding sixty-four non-negative terms in six pairwise steps
+accumulates O(log n · eps) where sixty-three sequential additions accumulate O(n · eps), so the tree
+is the *more* accurate order. The bound is asserted separately from the comparison's loose
+hundred-thousandth, which is what a device's filters may cost — this one is what the reduction does,
+so a later change to it fails on itself rather than hiding inside a tolerance sized for something
+else. The solid angles arrive in a
 buffer filled from `OctahedralMap.SolidAngles` — the same exact table, not a second derivation. The
 output is four grid-sized planes in the irradiance pool's own colour-major packing, validity in the
 constant plane's alpha, so whatever upsamples these probes interpolates coefficients exactly as the

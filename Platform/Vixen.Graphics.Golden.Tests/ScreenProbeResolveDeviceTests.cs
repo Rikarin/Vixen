@@ -89,6 +89,24 @@ public sealed class ScreenProbeResolveDeviceTests {
             );
         }
 
+        // ⚠ The widest disagreement over every coefficient of every probe, measured rather than
+        // assumed. The dispatch reduces sixty-four lanes through a shared-memory tree where
+        // `ScreenProbeAtlas.Resolve` adds sixty-four terms in sequence, so bit-exactness is not
+        // available and never will be: a parallel reduction reorders a float sum. What is available
+        // is a bound, and it has to be a number somebody measured — widening a reduction and then
+        // loosening the comparison until it passes is how a reduction wrong by more than
+        // reassociation ships.
+        //
+        // ⚠ **Measured at 2.3841858e-7, and the SERIAL kernel measured exactly the same number.**
+        // The baseline was taken by running this test against the one-lane version it replaced, and
+        // the widening cost nothing at all: 2.38e-7 is 2^-22, one ulp at these magnitudes, and it is
+        // what the rgba32f atlas round trip costs whatever order the sum runs in. That is the answer
+        // the doubt deserved rather than a tolerance chosen to fit — and it is the direction the
+        // arithmetic predicts, since a tree adding sixty-four non-negative terms in six pairwise
+        // steps is the more accurate order than sixty-three sequential ones, not the less.
+        var drift = 0f;
+        var compared = 0;
+
         for (var y = 0; y < grid.Y; y++) {
             for (var x = 0; x < grid.X; x++) {
                 var probe = new Int2(x, y);
@@ -98,21 +116,36 @@ public sealed class ScreenProbeResolveDeviceTests {
 
                 Assert.Equal(atlas.IsValid(probe) ? 1f : 0f, validities[index], 1e-4f);
 
-                Same(expected.L00, actual.L00, $"L00 of probe {probe}");
-                Same(expected.L1m1, actual.L1m1, $"L1m1 of probe {probe}");
-                Same(expected.L10, actual.L10, $"L10 of probe {probe}");
-                Same(expected.L11, actual.L11, $"L11 of probe {probe}");
+                drift = MathF.Max(drift, Same(expected.L00, actual.L00, $"L00 of probe {probe}"));
+                drift = MathF.Max(drift, Same(expected.L1m1, actual.L1m1, $"L1m1 of probe {probe}"));
+                drift = MathF.Max(drift, Same(expected.L10, actual.L10, $"L10 of probe {probe}"));
+                drift = MathF.Max(drift, Same(expected.L11, actual.L11, $"L11 of probe {probe}"));
+                compared++;
             }
         }
+
+        // A loop that asserts inside itself passes vacuously on an empty grid, so the count is part
+        // of what this claims.
+        Assert.Equal(grid.X * grid.Y, compared);
+
+        // Stated separately from the per-coefficient comparison above, and two orders tighter: the
+        // loose hundred-thousandth is what a *device's* filters may cost, and this is what the
+        // reduction does. It is here so a later change to the reduction fails on the reduction
+        // rather than hiding inside a tolerance sized for something else — this is the assertion
+        // that says the sum's shape changed rather than the hardware.
+        Assert.True(drift < 1e-6f, $"the tree reduction drifted by {drift}, which is more than reassociation costs");
     }
 
-    static void Same(Vector3 expected, Vector3 actual, string what) {
-        Assert.True(
-            MathF.Abs(expected.X - actual.X) < 1e-4f
-            && MathF.Abs(expected.Y - actual.Y) < 1e-4f
-            && MathF.Abs(expected.Z - actual.Z) < 1e-4f,
-            $"{what}: the reference says {expected} and the dispatch wrote {actual}"
+    /// <summary>Asserts two coefficients agree, and answers how far apart they were.</summary>
+    static float Same(Vector3 expected, Vector3 actual, string what) {
+        var apart = MathF.Max(
+            MathF.Abs(expected.X - actual.X),
+            MathF.Max(MathF.Abs(expected.Y - actual.Y), MathF.Abs(expected.Z - actual.Z))
         );
+
+        Assert.True(apart < 1e-4f, $"{what}: the reference says {expected} and the dispatch wrote {actual}");
+
+        return apart;
     }
 
     sealed class EmptyWorld : IDistanceField {

@@ -709,10 +709,20 @@ it traced before; the device comparison runs the reference's termination through
 `IrradianceField.TrySample` and the dispatch's through `IrradianceFieldProbes.Radiance`, inside the
 field and beyond its box, and the two agree either way.
 
-**And the resolve is a dispatch.** `ScreenProbeResolve.rvn` projects each probe's map into L1 — one
-workgroup per probe, walking the map in the exact order `ScreenProbeAtlas.Resolve` walks it,
-because a parallel reduction reorders a float sum and the first version is the one with nothing
-between it and the reference; widening it is an owed optimisation with a baseline. Its solid angles
+**And the resolve is a dispatch, now one lane per texel.** `ScreenProbeResolve.rvn` projects each
+probe's map into L1 — one workgroup per probe and sixty-four partial projections reduced through
+shared memory in six pairwise steps. The first version walked the map in the exact order
+`ScreenProbeAtlas.Resolve` walks it, because a parallel reduction reorders a float sum and the first
+version is the one with nothing between it and the reference; ⚠ **widening it was owed *with a
+baseline*, and the baseline is what made it cheap** — the comparison already held all four
+coefficients of every probe, so the wide form had a referee the day it was written, and one
+invocation walking a map while sixty-three lanes idled is exactly the SIMD-group argument this track
+has already paid for twice. The reassociation's cost was measured before it was stated:
+2.3841858e-7, one ulp at these magnitudes — and ⚠ **the serial kernel measures the same number**,
+taken by running the comparison against the version this replaced, so the drift is the `rgba32f`
+round trip rather than the sum's shape. It was never going to be worse: a tree over sixty-four
+non-negative terms accumulates O(log n · eps) where sixty-three sequential additions accumulate
+O(n · eps). Its solid angles
 are uploaded from `OctahedralMap.SolidAngles` — the same exact table, not a second derivation — and
 its output is four grid-sized planes in the pool's own colour-major packing, validity in the
 constant plane's alpha, shaped for the upsample pass that does not exist yet. The comparison seeds
