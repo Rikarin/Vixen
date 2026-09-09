@@ -526,6 +526,18 @@ need throughput. Both are first-class and documented as such.
 > declaration exists to schedule a job against *other* jobs, and `BehaviorStore.RunUpdate` runs at a
 > sync point where no system is running. Parallelising *within* one bucket is a different question
 > from parallelising a bucket against a system, and it is the first one that item 3 asks for.
+>
+> ⚠ **And "the refusal comes first" cannot mean it *ships* first, which the order above does not
+> say.** The refusal is an analyzer, and an analyzer needs `[BehaviorJob]` to key on — so landing the
+> refusal alone means landing the attribute alone, inert: a type marked with it would run on one
+> thread exactly as before while the mark says otherwise. This repository has that mistake written
+> down already. `HotPathAttribute`'s summary called itself "a contract for the allocation analyzer"
+> and there was no allocation analyzer for as long as it took [#1161](https://github.com/Rikarin/Vixen/issues/1161)
+> to be noticed; `HotPathAllocationAnalyzer`'s remarks are the lesson — *an attribute that names an
+> enforcement nobody wrote reads from a call site exactly like one that is checked, which is worse
+> than no attribute at all*. An attribute that names a **parallelism** nobody wrote is worse again,
+> because the call site is a batch of ten thousand and the difference is measurable. So the analyzer
+> may be written first and the attribute lands with the dispatch, in one change.
 
 ### The rule that keeps this coherent
 
