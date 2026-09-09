@@ -263,6 +263,27 @@
       what notices — which is the instrument working, not a reason to rely on it.
     -->
     <TestingPlatformCommandLineArguments Condition="'$(TestingPlatformDotnetTestSupport)' == 'true' AND '$(VSTestResultsDirectory)' != ''">$(TestingPlatformCommandLineArguments) --results-directory "$(VSTestResultsDirectory)"</TestingPlatformCommandLineArguments>
+    <!--
+      ⚠ **Exit code 8 is "zero tests ran", and an assembly whose every case skips ran none.** So a
+      macOS platform suite correctly skipping all twelve of its cases on Linux, and a GPU suite
+      correctly skipping all five where there is no device, were each reported as a *failed run* —
+      `Vixen.Platform.MacOS.Tests.dll : error run failed`, with `failed="0"` in the file (#1023).
+      This repository keeps writing down the opposite failure, a suite green on a day it did
+      nothing; this is the same cost from the other side, because a leg red for two harmless
+      reasons is a leg nobody reads.
+
+      ⚠ The flag #1023 proposed does not exist. The platform rejects a minimum-expected-tests of
+      zero outright — "expects a single non zero positive integer value" — so ignoring the code is
+      the only spelling available. Verified by running the built assembly both ways.
+
+      **What replaces the signal is in `Test`, not here**, because ignoring exit code 8 also
+      accepts a suite whose discovery returned nothing, which is the failure worth catching. The
+      TRX tells the two apart and the exit code cannot: a skipped case is still a case in the file,
+      so the macOS suite writes total 12 with executed 0, while a run that found no tests writes a
+      total of 0. `Test` fails on the second. Nothing else changes — a normal run's exit code is
+      untouched, measured on a five-case assembly that passes.
+    -->
+    <TestingPlatformCommandLineArguments Condition="'$(TestingPlatformDotnetTestSupport)' == 'true'">$(TestingPlatformCommandLineArguments) --ignore-exit-code 8</TestingPlatformCommandLineArguments>
 
     <VSTestLogger>trx%3bLogFileName=$(MSBuildProjectName).trx</VSTestLogger>
 

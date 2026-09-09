@@ -3,6 +3,7 @@
 
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using System.Xml.Linq;
 using Nuke.Common;
 using Nuke.Common.IO;
 using Nuke.Common.ProjectModel;
@@ -330,6 +331,33 @@ partial class Build : NukeBuild {
                     + "zero looks exactly like a fast one."
                 );
 
+                // ⚠ The instrument that replaces the exit code this build has stopped reading.
+                // Directory.Build.props tells the platform to ignore exit code 8 — "zero tests ran"
+                // — because an assembly whose every case skips ran none, and two suites that were
+                // skipping for exactly the right reason (a macOS platform suite on Linux, a GPU
+                // suite with no device) were failing their leg for it (#1023). ⚠ And the flag the
+                // issue proposed does not exist: the platform rejects
+                // `minimum-expected-tests 0` outright — "expects a single non-zero positive
+                // integer value" — so ignoring the code is the only spelling there is.
+                //
+                // Two different things look identical from that exit code, though, and the one this
+                // repository cares about is the other one: a suite whose discovery returned nothing
+                // at all. The TRX separates them and the exit code cannot, because a skipped case
+                // is still a case in the file — the macOS suite writes total="12" executed="0",
+                // while a run that found no tests writes total="0". Both shapes were produced and
+                // read before this was written.
+                var empty = TestResultsDirectory.GlobFiles("*.trx")
+                    .Where(result => TestCaseCount(result) == 0)
+                    .Select(result => result.NameWithoutExtension)
+                    .ToList();
+
+                Assert.True(
+                    empty.Count == 0,
+                    $"{string.Join(", ", empty)} wrote a TRX with no test case in it. An assembly "
+                    + "that skips every one of its cases still records every one of them, so a "
+                    + "total of zero is a suite that never found its tests."
+                );
+
                 // ⚠ And the second half of the same idea: those TRX also say whether the schedule
                 // the run was packed from is still true. Three guards over build/test-cost.txt were
                 // all about a project *name*, so a line whose name was real and whose number was 2x
@@ -338,6 +366,23 @@ partial class Build : NukeBuild {
                 AssertTestCostsStillDescribeTheRun();
             }
         );
+
+    /// <summary>How many test cases a TRX records, the skipped ones included.</summary>
+    /// <param name="result">The <c>.trx</c> one assembly wrote.</param>
+    /// <returns>The <c>total</c> counter, or zero if the file carries none.</returns>
+    /// <remarks>
+    ///     ⚠ <c>total</c> rather than <c>executed</c>, and that is the whole point of the reader: a
+    ///     skipped case counts towards the first and not the second, which is what lets a suite that
+    ///     legitimately skipped everything be told apart from one that never found a test. Read
+    ///     by local name because a TRX carries the Visual Studio namespace on every element.
+    /// </remarks>
+    static int TestCaseCount(AbsolutePath result) {
+        var counters = XDocument.Load(result)
+            .Descendants()
+            .FirstOrDefault(element => element.Name.LocalName == "Counters");
+
+        return int.TryParse(counters?.Attribute("total")?.Value, out var total) ? total : 0;
+    }
 
     [Parameter("Rewrite the golden reference images instead of checking them")]
     readonly bool UpdateGolden;
