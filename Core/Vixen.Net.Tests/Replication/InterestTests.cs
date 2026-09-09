@@ -41,11 +41,13 @@ public sealed class InterestTests : IDisposable {
         Assert.Equal(0, chain.HiddenCount);
     }
 
-    /// <summary>The first rule with an opinion wins, which is what "override" has to mean.</summary>
+    /// <summary>An explicit answer is the last word, including about something out of range.</summary>
     /// <remarks>
-    ///     An explicit answer placed before the grid is one the grid cannot argue with — a spectator
-    ///     seeing a player across the map, a quest marker visible at any range. If the grid could
-    ///     overrule it, it would not be an override.
+    ///     ⚠ The half that matters is the far one, and it did not work until <c>ExplicitInterestRule</c>
+    ///     became an <c>IInterestSource</c> as well (#1042). A rule is only asked about the candidates
+    ///     the source produced, so <c>Show</c> on a distant object used to be a call with no effect of
+    ///     any kind — which is every example the type's own remarks give: a spectator seeing a player
+    ///     across the map, a quest marker visible at any range.
     /// </remarks>
     [Fact]
     public void AnExplicitAnswerBeatsEverythingAfterIt() {
@@ -63,21 +65,63 @@ public sealed class InterestTests : IDisposable {
         chain.Resolve(world, Player, observed);
         Assert.Equal([near], observed);
 
-        // The grid is the source, so an override on something it never emits cannot show it — an
-        // override is the last word among the rules, not a way around the candidate set.
-        explicitly.Show(Player, world.Read<NetworkId>(far));
+        // ⚠ The grid never emits the far one, so this is the case the rule could not do at all
+        // until it became a source as well: Show nominates it, and the nomination is what makes the
+        // override the last word rather than a veto the source has already exercised.
+        explicitly.Show(Player, far, world.Read<NetworkId>(far));
         explicitly.Hide(Player, world.Read<NetworkId>(near));
 
         observed.Clear();
         chain.Resolve(world, Player, observed);
 
-        Assert.Empty(observed);
+        Assert.Equal([far], observed);
+        Assert.Equal(1, chain.NominatedCount);
 
         explicitly.Clear(Player, world.Read<NetworkId>(near));
+        explicitly.Clear(Player, world.Read<NetworkId>(far));
         observed.Clear();
         chain.Resolve(world, Player, observed);
 
         Assert.Equal([near], observed);
+        Assert.Equal(0, chain.NominatedCount);
+    }
+
+    /// <summary>A nomination is not a way to see a slot somebody else is now using.</summary>
+    /// <remarks>
+    ///     The entity handed to <c>Show</c> is a hint and the id is the key, so the pair is checked
+    ///     before anything is nominated. Without that check a destroyed object's override would show
+    ///     the player whatever entity had since been given its slot — the one failure a handle-keyed
+    ///     override has that an id-keyed one does not, arriving as a player seeing an unrelated object
+    ///     across the map.
+    /// </remarks>
+    [Fact]
+    public void ANominationIsRefusedWhenTheHandleNoLongerCarriesTheId() {
+        var explicitly = new ExplicitInterestRule();
+        var grid = new InterestGrid { Radius = 10f };
+        var chain = new InterestChain { Source = grid, Rules = { explicitly } };
+
+        var far = Spawn(500f);
+        var id = world.Read<NetworkId>(far);
+
+        explicitly.Show(Player, far, id);
+        grid.SetViewpoint(Player, Vector3.Zero);
+        grid.Rebuild(world);
+
+        chain.Resolve(world, Player, observed);
+        Assert.Equal([far], observed);
+
+        // The object goes, and something else takes the slot. The override outlives both, because an
+        // id is not reused within a session and nothing told the rule.
+        world.Destroy(far);
+        var stranger = Spawn(500f);
+
+        grid.Rebuild(world);
+        observed.Clear();
+        chain.Resolve(world, Player, observed);
+
+        Assert.Empty(observed);
+        Assert.DoesNotContain(stranger, observed);
+        Assert.Equal(0, chain.NominatedCount);
     }
 
     /// <summary>An override belongs to one player.</summary>
@@ -284,11 +328,94 @@ public sealed class InterestTests : IDisposable {
         Assert.True(busiest <= 15, $"The busiest tick carried {busiest} of 40.");
     }
 
-    Entity Spawn(float x) =>
-        world.Create(
-            ids.Next(),
-            new NetworkTransform { Position = new(x, 0f, 0f), Rotation = Quaternion.Identity }
-        );
+    /// <summary>A flat world does not pay for the empty layers above and below it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The window a query walks is a cube and this engine's worlds are a plane. At the cell
+    ///         size <c>InterestGrid</c>'s own remarks recommend the span is four, so an unclamped walk
+    ///         is 729 probes per connection per tick and — with everything standing on the ground —
+    ///         648 of them are in layers nothing is in. That was measured as three to four times the
+    ///         slice's cost for thirteen per cent more observed (#1043).
+    ///     </para>
+    ///     <para>
+    ///         Asserted as probes rather than as milliseconds on purpose: the count is the work, and
+    ///         it is the same number on an idle machine and a loaded one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AFlatWorldIsNotWalkedAsACube() {
+        var grid = new InterestGrid { CellSize = 32f, Radius = 96f, Hysteresis = 12f };
+        var chain = new InterestChain { Source = grid };
+
+        // Nine cells of occupancy in x and in z, so those two axes clamp to the whole window and the
+        // only axis this can be measuring is the empty one.
+        for (var x = -128f; x <= 128f; x += 32f) {
+            for (var z = -128f; z <= 128f; z += 32f) {
+                SpawnAt(new(x, 0f, z));
+            }
+        }
+
+        grid.SetViewpoint(Player, Vector3.Zero);
+        grid.Rebuild(world);
+        chain.Resolve(world, Player, observed);
+
+        Assert.Equal(81, grid.PositionedCount);
+
+        // Nine by nine by *one*, because one layer is all that has anything in it.
+        Assert.Equal(81, grid.ProbedCellCount);
+    }
+
+    /// <summary>A world with floors above it still pays for those floors, and finds them.</summary>
+    /// <remarks>
+    ///     The clamp is an intersection with what the rebuild filled, not a decision that the third
+    ///     dimension does not exist. Both halves are asserted: the object two cells up is observed,
+    ///     and the walk grew to the three layers that hold something rather than to the nine the
+    ///     window spans.
+    /// </remarks>
+    [Fact]
+    public void AStackedWorldStillReachesTheFloorAboveIt() {
+        var grid = new InterestGrid { CellSize = 32f, Radius = 96f, Hysteresis = 12f };
+        var chain = new InterestChain { Source = grid };
+
+        var ground = SpawnAt(Vector3.Zero);
+        var upstairs = SpawnAt(new(0f, 64f, 0f));
+
+        grid.SetViewpoint(Player, Vector3.Zero);
+        grid.Rebuild(world);
+        chain.Resolve(world, Player, observed);
+
+        Assert.Equal(2, observed.Count);
+        Assert.Contains(ground, observed);
+        Assert.Contains(upstairs, observed);
+
+        // One column, three layers: cells y = 0, 1 and 2, of which the middle one is empty and still
+        // walked because it is inside the occupied band.
+        Assert.Equal(3, grid.ProbedCellCount);
+    }
+
+    /// <summary>A world nobody has put anything in is walked not at all.</summary>
+    /// <remarks>
+    ///     The degenerate end of the same clamp, and the one that would go wrong quietly: with no
+    ///     occupancy the bounds are inverted, and a loop whose bounds cross has to run zero times
+    ///     rather than wrap around the whole of <c>int</c>.
+    /// </remarks>
+    [Fact]
+    public void AnEmptyWorldIsWalkedNotAtAll() {
+        var grid = new InterestGrid { CellSize = 32f, Radius = 96f, Hysteresis = 12f };
+        var chain = new InterestChain { Source = grid };
+
+        grid.SetViewpoint(Player, Vector3.Zero);
+        grid.Rebuild(world);
+        chain.Resolve(world, Player, observed);
+
+        Assert.Empty(observed);
+        Assert.Equal(0, grid.ProbedCellCount);
+    }
+
+    Entity Spawn(float x) => SpawnAt(new(x, 0f, 0f));
+
+    Entity SpawnAt(Vector3 position) =>
+        world.Create(ids.Next(), new NetworkTransform { Position = position, Rotation = Quaternion.Identity });
 
     void Move(Entity entity, float x) => world.Get<NetworkTransform>(entity).Position = new(x, 0f, 0f);
 }

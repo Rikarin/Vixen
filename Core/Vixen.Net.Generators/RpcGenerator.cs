@@ -120,6 +120,15 @@ public sealed class RpcGenerator : IIncrementalGenerator {
         isEnabledByDefault: true
     );
 
+    static readonly DiagnosticDescriptor CollidingIds = new(
+        "VXNET2008",
+        "Two remote calls in one type have the same id",
+        "'{0}' and '{1}' both hash to {2}. A packet carries a call's position in a table ordered by id, so two calls with one id cannot be told apart. Rename one of them.",
+        "Vixen.Net",
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true
+    );
+
     /// <inheritdoc />
     public void Initialize(IncrementalGeneratorInitializationContext context) {
         var server = Handlers(context, ServerRpcAttribute, "Server");
@@ -248,6 +257,7 @@ public sealed class RpcGenerator : IIncrementalGenerator {
             method.Name,
             WireCodec.Hash($"{declaringType}.{text}"),
             text,
+            SourceSpanInfo.Of(method.Locations),
             kind,
             settings.RequireOwnership,
             settings.Channel,
@@ -345,6 +355,31 @@ public sealed class RpcGenerator : IIncrementalGenerator {
                 diagnostics.Add(diagnostic);
                 failed |= diagnostic.Severity == DiagnosticSeverity.Error;
             }
+        }
+
+        // ⚠ Refused here rather than sorted around. The list arrives ordered by id, so a tie is two
+        // neighbours — and a tie is the one thing the ordering cannot survive: the wire carries a
+        // position, `List.Sort` does not promise which of two equal elements comes first, and two
+        // builds of the same source could therefore number the pair differently while the manifest
+        // hash — a hash of the same ids — reports them identical. `RpcManifest.Register` does refuse
+        // it at start-up, so this is a build error rather than a rescue; the point is that the
+        // build error names the two calls and the exception cannot.
+        for (var i = 1; i < handlers.Count; i++) {
+            if (handlers[i].MethodId != handlers[i - 1].MethodId) {
+                continue;
+            }
+
+            diagnostics.Add(
+                Report(
+                    CollidingIds,
+                    ImmutableArray.Create(handlers[i].Where.ToLocation()),
+                    handlers[i - 1].Signature,
+                    handlers[i].Signature,
+                    handlers[i].MethodId.ToString(CultureInfo.InvariantCulture)
+                )
+            );
+
+            failed = true;
         }
 
         var hint = $"{Sanitize(declaringType)}.Rpc.g.cs";
@@ -674,6 +709,7 @@ readonly record struct HandlerModel(
     string Name,
     uint MethodId,
     string Signature,
+    SourceSpanInfo Where,
     string Kind,
     bool RequireOwnership,
     string Channel,
@@ -689,6 +725,7 @@ readonly record struct HandlerModel(
         string.Empty,
         0,
         string.Empty,
+        default,
         "Server",
         false,
         "Reliable",

@@ -136,7 +136,7 @@ static class GoldenFile {
 
             if (Rewriting || !File.Exists(path)) {
                 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
-                File.WriteAllText(path, rendering);
+                File.WriteAllText(path, AsCommitted(rendering));
                 regenerated.Add(name);
 
                 return;
@@ -148,7 +148,7 @@ static class GoldenFile {
                 return;
             }
 
-            File.WriteAllText(path + ".actual", rendering);
+            File.WriteAllText(path + ".actual", AsCommitted(rendering));
             mismatched.Add($"{name}\n{Diff(expected, rendering)}");
         }
 
@@ -273,4 +273,17 @@ static class GoldenFile {
     ///     did not touch. Every hand-rolled copy of this in the tree normalises exactly these two.
     /// </remarks>
     static string Normalize(string text) => text.Replace("\r\n", "\n", StringComparison.Ordinal).TrimEnd('\n');
+
+    /// <summary>What a normalised rendering looks like on disk.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The trailing newline the comparison throws away has to be put back before writing.</b>
+    ///     <see cref="Normalize" /> trims it so that an editor adding one cannot fail a suite, and the
+    ///     writer used to commit the trimmed form — so regenerating one golden rewrote every other
+    ///     golden in the same run without a newline and produced a diff that says
+    ///     <c>\ No newline at end of file</c> on files the change never touched. The comparison was
+    ///     fine either way, which is exactly why it survived: the only symptom was noise in
+    ///     <c>git status</c>, on the one corpus whose whole argument is that its diff must be read
+    ///     line by line ([#1052](https://github.com/Rikarin/Vixen/issues/1052)).
+    /// </remarks>
+    static string AsCommitted(string rendering) => rendering + "\n";
 }

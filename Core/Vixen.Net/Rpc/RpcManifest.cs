@@ -90,7 +90,22 @@ public sealed class RpcManifest {
                 );
             }
 
-            if (i > 0 && methods[i].MethodId <= methods[i - 1].MethodId) {
+            // ⚠ Equal and descending are the same refusal and not the same fault, so they are not
+            // the same sentence. A descending pair is a table somebody sorted wrongly; an equal
+            // pair is two calls that hash the same — which is reachable with nothing exotic, since
+            // the id is a 32-bit hash of the signature and two ordinary method names can land on
+            // one. Saying "out of order" about that sends the reader to sort a table that is
+            // already sorted. `VXNET2008` is the build error that catches the generated case.
+            if (i > 0 && methods[i].MethodId == methods[i - 1].MethodId) {
+                throw new ArgumentException(
+                    $"'{methods[i - 1]}' and '{methods[i]}' both hash to {methods[i].MethodId}. A packet "
+                    + "carries a call's position in this table, so two calls with one id cannot be told "
+                    + "apart. Rename one of them.",
+                    nameof(methods)
+                );
+            }
+
+            if (i > 0 && methods[i].MethodId < methods[i - 1].MethodId) {
                 throw new ArgumentException(
                     $"'{methods[i]}' is out of order. A table is ordered by method id, so that two builds "
                     + "number the calls the same without having to agree on anything else.",
