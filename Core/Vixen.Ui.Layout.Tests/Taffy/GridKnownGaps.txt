@@ -666,4 +666,33 @@ chrome_issue_325928327
 # nothing to measure against. ⚠ That last sentence is read off the branch rather than measured —
 # nobody has built either half. What IS measured is the row sitting there present, definite and
 # unread, which the witness's second assertion pins.
+#
+# ⚠ <b>THE ENTRY PRICE IS MEASURED NOW, AND IT IS NOT PAID IN THIS PROJECT.</b> The field's arrival
+# detonates three prose refusals two projects away, and the tree already says so: `LayoutTree.Floats.cs`,
+# `Vixen.Ui.Styling.Utilities/UtilityFamilies.cs` and `Vixen.Ui.Styling.Utilities/README.md` each carry
+# `[expires-on Vixen.Ui.Layout.LayoutStyle.WritingMode]` on the argument that `float-start` resolves
+# against `direction` ALONE — which is true only while the inline axis is horizontal in every
+# configuration the engine can be in. Measured on 2026-09-09 by adding a bare `public int WritingMode`
+# to `LayoutStyle` and running `RefusalExpiryTests`, which went red at once and verbatim:
+#
+#   Core/Vixen.Ui.Layout/LayoutTree.Floats.cs is refused because
+#   'Vixen.Ui.Layout.LayoutStyle.WritingMode' does not exist, and it does now.
+#   Re-read the note: the thing it was waiting for has arrived.
+#
+# So the tripwire is real rather than decorative, and whoever lands this owes `ResolveFloatSide` a
+# writing-mode arm — under `vertical-lr`, `inline-start` is the TOP and no arm of that switch can
+# return it — before the suite will go green again. That is a third half beside the container's and
+# the probe's.
+#
+# ⚠ <b>And the anchor is a STRING, which is the trap under the tripwire.</b> `RefusalExpiry.Resolve`
+# is checked for a type that exists and a member name that is non-empty — not for a member that
+# exists — so the anti-typo half passes on `LayoutStyle` alone. A field landed under any other name
+# (`WritingModeAxis`, `BlockFlow`, a flag on `Direction`, a field on some other type) leaves all three
+# clauses green for ever, waiting on a symbol nobody will ever add. Name it `WritingMode` on
+# `LayoutStyle`, or move the three anchors in the same commit.
+#
+# ⚠ Also refuted, because it has been assumed twice: #282 did NOT close this by deciding the layout
+# store gains no writing mode. Its own close records the opposite in the same breath — "only
+# `grid_relayout_vertical_text` asks for a writing-mode field" — and the three clauses above exist
+# precisely to say that its decision is a premise these four classes rest on rather than a shut door.
 grid_relayout_vertical_text
