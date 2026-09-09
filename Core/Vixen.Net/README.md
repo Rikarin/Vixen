@@ -178,7 +178,7 @@ ends gives a round trip of twice it.
 profile's `LossChance` come back as an observation, which is the one thing those counters must not
 be.
 
-### On by default, which doc 16 asks for — the seam exists now, the default is still a line
+### On by default, which doc 16 asks for — the seam exists and is used, the default is still a line
 
 That document's diagnostics section asks for the decorator *and* for it to be **on by default in dev
 builds with a modest profile** ([#350](https://github.com/Rikarin/Vixen/issues/350)). Three of that
@@ -213,6 +213,26 @@ set, the session wraps and publishes the wrapper as `NetworkSession.Simulation`.
   that a game which never references it pays nothing. So the remaining decision is whether a host
   gains that reference or whether every game writes the line — and the line is now a field on the
   record it already configures, rather than a restructuring of how it builds its transport.
+- ⚠ **And that pair is a false dichotomy, which three audits have now repeated: there is a third
+  option nobody has stated.** `BuildVariant`, `BuildVariantAttribute` and `BuildVariants` are one
+  file — `Core/Vixen.App.Hosting/BuildVariant.cs` — whose only dependency is `System.Reflection` and
+  a `#if DEBUG` fallback. They do not *need* the assembly they are in; that assembly is where they
+  happen to be compiled, and it drags `Vixen.Engine`, `Vixen.Engine.Renderer`, `Vixen.Assets`,
+  `Vixen.Input`, `Vixen.Rendering.PostFx`, `Vixen.Rendering.Water` and `Vixen.Platform` with it.
+  **`Vixen.Net` and `Vixen.App.Hosting` both already reference `Vixen.Core`**, so moving those three
+  types down adds no edge to either graph and makes `NetworkSimulationSettings` able to ask which
+  variant is running without anything referencing anything new. What it costs is a public type moving
+  between two `PublicAPI` baselines — a decision, and Jiu's, not a wiring change. ⚠ It does *not*
+  remove the seed: a variant-aware helper still takes the seed from its caller and is still printed
+  by one, because a simulation whose seed was picked for you is a simulation whose failures cannot be
+  replayed.
+- ⚠ **The seam had no caller outside its own tests until `Samples/08-Multiplayer` was ported onto
+  it**, which is this repository's commonest defect wearing its usual clothes. That sample now asks
+  for the bad wire on `SessionOptions.Simulation` and reads its announcement off
+  `NetworkSession.Simulation` — so breaking the wrapping inside the session makes it print
+  `perfect wire — nothing is being injected` under `--loss 10` rather than running clean and claiming
+  otherwise. `Live/Vixen.Live.Realm.Tests` still constructs the decorator by hand; those are test
+  fixtures that hold the wrapper for its own counters, which is a different question.
 
 ⚠ **Off by default is the same shape `BytesPerSecondPerPlayer` already takes** and for the same
 reason: a behaviour that arrived switched on would change what an existing game does, and a game opts

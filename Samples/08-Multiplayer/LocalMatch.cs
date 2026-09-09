@@ -44,14 +44,22 @@ internal static class LocalMatch {
         var damage = new List<NetworkSimulation>();
 
         // Both directions, and that is not a detail. The simulation injects on the way out, so
-        // wrapping only the clients would lose their input and never lose a snapshot — which is the
-        // direction all the delta and acknowledgement machinery lives in, and the one a "tested
+        // simulating only the clients would lose their input and never lose a snapshot — which is
+        // the direction all the delta and acknowledgement machinery lives in, and the one a "tested
         // under packet loss" claim is about.
+        //
+        // ⚠ Asked for on the options rather than by wrapping the transport by hand, which is what
+        // this sample used to do. `SessionOptions.Simulation` is the seam doc 16's "on by default in
+        // dev builds" needs, and a seam with no caller outside its own tests is the shape this
+        // repository goes wrong in most often. The session wraps before it uses the transport and
+        // carries `ownsTransport` down, so nothing about disposal changes.
         using var server = new GameServer(
-            Wrap(new LocalTransport(network), settings, 0, damage),
-            options: null,
+            new LocalTransport(network),
+            Damage(settings, 0),
             settings.InterestRadius
         );
+
+        Collect(server.Session, damage);
 
         // Per-object attribution is off by default because its table grows with the world; eight
         // fighters is not a world, and "which object is expensive" is half the question being asked.
@@ -67,9 +75,16 @@ internal static class LocalMatch {
 
             Write(
                 $"{settings.Clients} clients, {settings.Ticks} frames at "
-                + $"{MatchSettings.FrameStep.TotalMilliseconds:N0} ms, "
-                + $"{settings.Loss:P0} loss, {settings.Latency.TotalMilliseconds:N0} ms latency, seed {settings.Seed}"
+                + $"{MatchSettings.FrameStep.TotalMilliseconds:N0} ms"
             );
+
+            // ⚠ Read off the session and not off the settings, and that is the whole point of
+            // printing it. A simulated link that is not obviously simulated is worse than none — it
+            // is the shape of a gate that reads green on the day it did not run — and settings that
+            // were *asked* for say nothing about whether anything was built from them.
+            // `NetworkSession.Simulation` is non-null only when the session actually wrapped, so
+            // this line is the announcement rather than an echo of the command line.
+            Write(Announce(server.Session, settings.Seed));
 
             Pump(server, clients, settings.Ticks);
 
@@ -98,38 +113,70 @@ internal static class LocalMatch {
         int index,
         List<NetworkSimulation> damage
     ) {
-        var client = new GameClient(Wrap(new LocalTransport(network), settings, index + 1, damage));
+        var client = new GameClient(new LocalTransport(network), Damage(settings, index + 1));
         client.StartClient();
+        Collect(client.Session, damage);
 
         return client;
     }
 
-    static ITransport Wrap(
-        ITransport transport,
-        in MatchSettings settings,
-        int index,
-        List<NetworkSimulation> damage
-    ) {
+    /// <summary>The bad wire one participant runs on, or nothing when the match asked for none.</summary>
+    /// <param name="settings">What the match was asked for.</param>
+    /// <param name="index">Which participant: the server is zero and the clients follow.</param>
+    /// <returns>Options carrying the simulation, or <see langword="null" /> for a perfect wire.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A seed per participant, derived from the match's</b>: eight clients handed the same
+    ///     seed lose the same packets in the same order, which is one run repeated eight times rather
+    ///     than eight bad links — and it will make a bug look like a server fault.
+    /// </remarks>
+    static SessionOptions? Damage(in MatchSettings settings, int index) {
         if (settings.Loss <= 0 && settings.Latency <= TimeSpan.Zero) {
-            return transport;
+            return null;
         }
 
-        // A seed per participant, derived from the match's: eight clients losing the same packets in
-        // the same order would be one run repeated eight times.
-        var simulation = new NetworkSimulation(
-            transport,
-            new() {
-                LossChance = settings.Loss,
-                Latency = settings.Latency,
-                Jitter = settings.Latency / 4,
-                DuplicateChance = settings.Loss / 4
-            },
-            settings.Seed + (ulong)index
+        return new() {
+            Simulation = new(
+                new NetworkSimulationProfile {
+                    LossChance = settings.Loss,
+                    Latency = settings.Latency,
+                    Jitter = settings.Latency / 4,
+                    DuplicateChance = settings.Loss / 4
+                },
+                settings.Seed + (ulong)index
+            )
+        };
+    }
+
+    /// <summary>Keeps the wrapper a session built, for the report at the end.</summary>
+    /// <param name="session">The session.</param>
+    /// <param name="damage">Where the wrappers are collected.</param>
+    /// <remarks>
+    ///     The counters are the wrapper's own — what it sent, threw away and duplicated — and a
+    ///     perfect wire has no wrapper to have them, which is why this adds nothing rather than
+    ///     adding a zeroed one.
+    /// </remarks>
+    static void Collect(NetworkSession session, List<NetworkSimulation> damage) {
+        if (session.Simulation is { } simulation) {
+            damage.Add(simulation);
+        }
+    }
+
+    /// <summary>The line that says what wire this match is actually on.</summary>
+    /// <param name="session">The session to read it off.</param>
+    /// <param name="seed">The seed the match was given, which is what makes a failure replayable.</param>
+    /// <returns>The line.</returns>
+    static string Announce(NetworkSession session, ulong seed) {
+        if (session.Simulation is not { } simulation) {
+            return "perfect wire — nothing is being injected, so nothing here is evidence about a real network";
+        }
+
+        var profile = simulation.Profile;
+
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"simulated wire: {profile.LossChance:P0} loss, {profile.Latency.TotalMilliseconds:N0} ms latency, "
+            + $"{profile.Jitter.TotalMilliseconds:N0} ms jitter, {profile.DuplicateChance:P0} duplication, seed {seed}"
         );
-
-        damage.Add(simulation);
-
-        return simulation;
     }
 
     static void Pump(GameServer server, List<GameClient> clients, int frames) {

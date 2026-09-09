@@ -45,6 +45,19 @@ so the same arguments produce the same match, byte for byte. It ends by checking
 agrees with the server, and **exits non-zero if they do not** — which is what makes it the mode worth
 putting in CI.
 
+⚠ **The bad wire is asked for on `SessionOptions.Simulation` rather than by wrapping the transport by
+hand**, which is what this sample used to do. That property is the seam doc 16's *"on by default in
+dev builds"* needs, and until this sample used it the seam had no caller outside its own tests — the
+shape this repository goes wrong in most often. A seed per participant is derived from the match's,
+because eight clients handed one seed lose the same packets in the same order and that is one run
+repeated eight times rather than eight bad links.
+
+⚠ **And the line that announces it is read off `NetworkSession.Simulation`, not off the arguments.** A
+simulated link that is not obviously simulated is worse than none, and arguments that were *asked*
+for say nothing about whether anything was built from them: break the wrapping inside the session and
+this sample prints `perfect wire — nothing is being injected` while `--loss 10` is on the command
+line, instead of running clean and claiming otherwise.
+
 **`--mode server`** and **`--mode client`** are the same `GameServer` and `GameClient` over real UDP
 sockets, driven by a `Stopwatch`. Nothing above the transport changes, and that is the claim being
 made: `TransportConformance` holds both transports to the same executable contract, so the session,
