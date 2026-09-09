@@ -565,6 +565,37 @@ public class UiGamutTests {
         Assert.Equal(display.A, lit.A);
     }
 
+    /// <summary>The frame says what white it was built at, because the colours no longer can.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A magnitude cannot be read back out of a colour, which is why the number rides the
+    ///     geometry.</b> The scale is spent inside <c>Show</c>, so a frame built for a scene-referred
+    ///     pass at a white of one and a frame built correctly differ by a factor nothing downstream
+    ///     can see — and the first of the two is black. <c>UiRenderFeature.Dim</c> is the reader:
+    ///     the pass knows what it wants and the geometry now says what it got. The default is
+    ///     asserted beside it, because a frame that says nothing about its white is claiming the
+    ///     display's rather than declining to answer.
+    /// </remarks>
+    [Fact]
+    public void A_frame_carries_the_white_level_it_was_built_at() {
+        var display = Build(
+            new UiGeometryBuilder { Gamut = ColorGamut.Srgb },
+            list => list.Add(Rect(0, 0, 10, 10, Blue500))
+        );
+
+        Assert.Equal(1f, display.WhiteLevel);
+
+        var lit = Build(
+            new UiGeometryBuilder { Gamut = ColorGamut.Srgb, WhiteLevel = 203f },
+            list => list.Add(Rect(0, 0, 10, 10, Blue500))
+        );
+
+        Assert.Equal(203f, lit.WhiteLevel);
+
+        // The instrument: the number the frame reports is the one that was actually spent on its
+        // colours, and not a field a caller could set on either side of the build.
+        Assert.Equal(display.Vertices[0].Color.B * 203f, lit.Vertices[0].Color.B, 2);
+    }
+
     static DrawCommand Rect(float x, float y, float width, float height, Color4 colour) =>
         new(DrawCommandKind.Rectangle, x, y, width, height, colour, 0, 0);
 

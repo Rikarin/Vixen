@@ -7,6 +7,12 @@
 # ⚠ THIS FILE IS A SET OF PROOFS AND MAKES NO NEGATIVE CLAIM. A pairing that is not here is
 # UNJUDGED, never dead. The editor builds panels on demand and the fixture opens a stated few, so
 # absence means "this run did not construct that parent" far more often than it means anything else.
+#
+# ⚠ AND THIS SWEEP OPENS NOTHING AT ALL — that is what its rows are worth. `OpenedEditorCombinatorPairs.txt`
+# beside it is the same walk over an editor with every registered panel opened, and it proves
+# seventeen more; they are two files rather than one so that a row here goes on meaning "a started
+# editor builds this with no state a fixture put it in", which is the sentence a departure from THIS
+# file is read against.
 # `Core/Vixen.Ui.Styling.Tests/CombinatorPairs.txt` holds the domain and says nothing about anybody
 # being alive; `Core/Vixen.Ui.Controls.Advanced.Tests/SuspectCombinatorPairs.txt` is the only file in
 # this question that suspects anything, and it is bounded to controls it built itself.

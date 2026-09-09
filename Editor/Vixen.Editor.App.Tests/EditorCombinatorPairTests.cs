@@ -55,6 +55,9 @@ public class EditorCombinatorPairTests {
     /// <summary>The proofs: the subset of that domain a running editor builds.</summary>
     const string CensusFile = "Editor/Vixen.Editor.App.Tests/EditorCombinatorPairs.txt";
 
+    /// <summary>The same, for an editor with every panel it registers opened.</summary>
+    const string OpenedCensusFile = "Editor/Vixen.Editor.App.Tests/OpenedEditorCombinatorPairs.txt";
+
     /// <summary>Set <c>VIXEN_REGENERATE=1</c> to write the census back instead of asserting it.</summary>
     static bool Regenerating => Environment.GetEnvironmentVariable("VIXEN_REGENERATE") is "1";
 
@@ -70,6 +73,19 @@ public class EditorCombinatorPairTests {
     /// </remarks>
     static readonly string[] Presenter = ["editor-shell > menu-bar", "mode-bar > toolbar", "viewport-bar > toolbar"];
 
+    /// <summary>
+    ///     Two pairings only the opening sweep reaches, one from each of two panels the default
+    ///     arrangement does not show.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Named rather than counted, and from two panels rather than one. The failure worth
+    ///     catching is an <see cref="EditorSession.Open" /> that stopped building a panel's contents:
+    ///     the opening sweep would then degrade to the bare one, and a census regenerated on that day
+    ///     would agree with it perfectly. A count of "more than the bare sweep" is satisfied by one
+    ///     panel still working, which is why two panels are named.
+    /// </remarks>
+    static readonly string[] Reached = ["debugger-body > tree-view", "profiler-view > data-grid"];
+
     /// <summary>How many declared pairings the editor is expected to prove, at least.</summary>
     /// <remarks>
     ///     Under the measured number rather than at it, so that a panel gaining a part is not a
@@ -79,12 +95,20 @@ public class EditorCombinatorPairTests {
     const int Floor = 16;
 
     /// <summary>Every parent→child tag pairing a started editor grows, done once for the class.</summary>
-    static IReadOnlySet<string> Observed => observed ??= Sweep();
+    static IReadOnlySet<string> Observed => observed ??= Sweep(opening: false);
 
     static IReadOnlySet<string>? observed;
 
+    /// <summary>The same for an editor with every registered panel opened, done once for the class.</summary>
+    static IReadOnlySet<string> Opened => opened ??= Sweep(opening: true);
+
+    static IReadOnlySet<string>? opened;
+
     /// <summary>How many pairings the walk saw altogether, declared or not.</summary>
     static int walked;
+
+    /// <summary>How many panels the opening sweep asked the workspace for.</summary>
+    static int asked;
 
     /// <summary>The premise every assertion below rests on: an editor was built and its tree read.</summary>
     /// <remarks>
@@ -142,7 +166,7 @@ public class EditorCombinatorPairTests {
             Write(path, Observed.Order(StringComparer.Ordinal));
         }
 
-        var census = Census(path);
+        var census = Census(path, CensusFile);
 
         var arrived = Observed.Where(pair => !census.Contains(pair)).Order(StringComparer.Ordinal).ToList();
         var departed = census.Where(pair => !Observed.Contains(pair)).Order(StringComparer.Ordinal).ToList();
@@ -164,6 +188,109 @@ public class EditorCombinatorPairTests {
         );
     }
 
+    /// <summary>The same census for an editor with every panel it registers opened.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A second census rather than more rows in the first, so that no existing row
+    ///         changes meaning.</b> The bare sweep's standing is "this is what a started editor
+    ///         builds with no state a fixture put it in", and that is the sentence a departure from
+    ///         it is read against. Opening panels is state a fixture put it in — weaker — so it gets
+    ///         a file of its own, exactly as the controls' seeded sweep is kept apart from its bare
+    ///         one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>But it is much stronger than seeding, and the difference is worth stating.</b>
+    ///         The controls' seeded sweep has to refuse the elements it nested, because
+    ///         <c>A &gt; B</c> is trivially "provable" by putting a B under an A. Nothing here nests
+    ///         anything: the fixture asks the workspace to open a panel <em>the editor itself
+    ///         registered</em>, and every element under it is built by that panel's own factory. So
+    ///         there is no harness-built pairing to refuse, and each row is still the editor's own
+    ///         construction.
+    ///     </para>
+    ///     <para>
+    ///         The decision, stated once because it is one decision: <b>every panel the workspace has
+    ///         registered, opened, and nothing else poked.</b> A hand-written list would go stale the
+    ///         day a panel is added and would say nothing about it; the registry is the editor's own
+    ///         answer to "what panels are there".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Still a set of proofs. A pairing absent from here is unjudged — most of what the
+    ///         domain declares lives under an asset editor, which exists only once a document of that
+    ///         kind has been opened, and none of that is reached by opening a panel.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_declared_pairing_an_opened_editor_builds_is_in_the_committed_census() {
+        var path = Path.Combine(Root(), OpenedCensusFile);
+
+        if (Regenerating) {
+            Write(path, Opened.Order(StringComparer.Ordinal));
+        }
+
+        var census = Census(path, OpenedCensusFile);
+
+        var arrived = Opened.Where(pair => !census.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+        var departed = census.Where(pair => !Opened.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+
+        Assert.True(
+            arrived.Count == 0 && departed.Count == 0,
+            $"""
+             The opened editor's census of proved pairings is out of date.
+
+             Built and not in {OpenedCensusFile} — regenerate once you have read them:
+             {Lines(arrived)}
+
+             ⚠ In {OpenedCensusFile} and NO LONGER BUILT — a sheet still declares each of these and
+             the editor stopped growing it, with its panel open:
+             {Lines(departed)}
+
+             Re-run with VIXEN_REGENERATE=1 to write this back, after reading the second list.
+             """
+        );
+    }
+
+    /// <summary>Opening the panels actually reached parts the default arrangement does not build.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The instrument, and the failure it exists for is the quiet one.</b> If
+    ///         <see cref="EditorSession.Open" /> stopped building a panel's contents — a factory that
+    ///         throws and is swallowed, a workspace that returns the descriptor without running it —
+    ///         the opened sweep would degrade to the bare one and its census would still be exactly
+    ///         satisfied by whatever was regenerated on that day. So the claim asserted is the
+    ///         <em>difference</em>: the opened sweep is a strict superset, and it proves at least one
+    ///         pairing by name that the bare sweep demonstrably does not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A superset and not merely a larger set. Opening a panel must not lose a pairing —
+    ///         a docked tab that is not in front keeps its elements and only loses its size — so a
+    ///         row that is in the bare census and not here is a panel whose contents were torn down
+    ///         by something else being opened, which is a finding rather than an update.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Opening_every_registered_panel_proves_more_than_the_default_arrangement() {
+        var lost = Observed.Where(pair => !Opened.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+
+        // ⚠ After the line above and not before it: `asked` is written by the sweep, and the sweep is
+        // lazy. Asserting on it first reads a zero that means "nothing has run yet" and prints it as
+        // "this editor registers no panels" — an instrument reporting on itself.
+        Assert.True(asked >= 5, $"the sweep asked for {asked} panels, which is not this editor's registry.");
+
+        Assert.True(lost.Count == 0, $"opening panels LOST pairings the default arrangement builds:\n{Lines(lost)}");
+
+        var gained = Opened.Where(pair => !Observed.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+
+        Assert.True(gained.Count > 0, "opening every registered panel proved nothing the default arrangement did not.");
+
+        // By name and from two different panels, because a count is what a sweep that opened one
+        // extra panel and a sweep that opened all of them both satisfy. Neither the profiler nor the
+        // debugger is in the default arrangement, and each is the whole of one panel's contribution.
+        foreach (var pair in Reached) {
+            Assert.Contains(pair, Opened, StringComparer.Ordinal);
+            Assert.DoesNotContain(pair, Observed, StringComparer.Ordinal);
+        }
+    }
+
     /// <summary>Every row is a pairing some committed sheet actually declares.</summary>
     /// <remarks>
     ///     ⚠ The confinement is what makes the file worth reading, and it is asserted rather than
@@ -173,7 +300,11 @@ public class EditorCombinatorPairTests {
     [Fact]
     public void Every_proved_pairing_is_one_a_sheet_declares() {
         var domain = Domain(Path.Combine(Root(), DomainFile));
-        var stray = Observed.Where(pair => !domain.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+        var stray = Observed.Concat(Opened)
+            .Where(pair => !domain.Contains(pair))
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToList();
 
         Assert.True(stray.Count == 0, $"proved but declared by no sheet:\n{Lines(stray)}");
 
@@ -198,16 +329,32 @@ public class EditorCombinatorPairTests {
     ///         accidentally prove <c>A &gt; B</c> by putting a B under an A.
     ///     </para>
     /// </remarks>
-    static HashSet<string> Sweep() {
+    static HashSet<string> Sweep(bool opening) {
         var pairs = new HashSet<string>(StringComparer.Ordinal);
 
         using (var fixture = EditorSession.Start()) {
             fixture.Settle();
 
+            if (opening) {
+                // ⚠ Read before the loop, because opening a panel can register another one — an
+                // asset document panel is registered the moment the browser opens it — and
+                // enumerating a collection the loop is growing is the difference between a census
+                // and an exception.
+                var registered = fixture.Shell.Workspace.Panels.Select(static panel => panel.Id).ToList();
+
+                asked = registered.Count;
+
+                foreach (var id in registered) {
+                    fixture.Open(id);
+                }
+            }
+
             Walk(fixture.Document.Root, pairs);
         }
 
-        walked = pairs.Count;
+        if (!opening) {
+            walked = pairs.Count;
+        }
 
         var domain = Domain(Path.Combine(Root(), DomainFile)).ToHashSet(StringComparer.Ordinal);
 
@@ -225,7 +372,7 @@ public class EditorCombinatorPairTests {
 
     static List<string> Domain(string path) => Rows(path, DomainFile).Select(static row => row.Split('\t')[0].Trim()).ToList();
 
-    static HashSet<string> Census(string path) => Rows(path, CensusFile).ToHashSet(StringComparer.Ordinal);
+    static HashSet<string> Census(string path, string name) => Rows(path, name).ToHashSet(StringComparer.Ordinal);
 
     static List<string> Rows(string path, string name) {
         var lines = File.ReadAllLines(path);

@@ -725,10 +725,22 @@ public sealed class UiRenderer : IDisposable {
         // sit inside it with no module recompiled.
         //
         // ⚠ 128 is exactly the push-constant size the Vulkan specification guarantees on every
-        // device, and `UiMask` is the widest consumer at 16 + 48 + 64. The number is a floor that was
-        // reached rather than a budget that was chosen, so the next thing to want a push constant here
-        // cannot simply be added: it either shares these bytes or moves to the storage buffer
-        // `UiShape` already uses.
+        // device, and it is a ceiling the range promises rather than one anything has reached.
+        //
+        // ⚠ <b>This comment said the opposite until 2026-09-09, and the sentence it said it in is the
+        // one four audits of #229 derived an expensive answer from.</b> It read "`UiMask` is the
+        // widest consumer at 16 + 48 + 64" — 128 exactly — and concluded that "the next thing to want
+        // a push constant here cannot simply be added". Measured off the committed reflection, the
+        // composite blocks are `UiBlur` 32, `UiColour` 64, `UiMask` 80 and `UiImage` none, so the
+        // widest is 80 and forty-eight bytes are free. Eleven lines above, this same block already
+        // said `UiMask` [0, 80] — the two sentences disagreed inside one comment.
+        //
+        // ⚠ Where the false one came from is a TRUE sentence about a different record: `MaskEntry`'s
+        // remark in `Ui.rvn` says a mask LIST cannot ride the push constants, because an entry is 64
+        // bytes and 16 + 48 + 64 is exactly 128 — which is right, and is why those went to a storage
+        // buffer. A sentence about a 64-byte record was read as one about the whole block, here and
+        // in three other places at once. `ShaderReflectionTests.ThereIsRoomForARoundedBackdropBox`
+        // holds the headroom, and is the test to read before believing either version again.
         layout = device.CreatePipelineLayout(
             new([atlasLayout], [new(PushStages, 0, 128)], "ui")
         );
@@ -778,6 +790,53 @@ public sealed class UiRenderer : IDisposable {
 
         layerFormat = output.ColourCount > 0 ? output.ColourFormats[0] : PixelFormat.Rgba8UNorm;
     }
+
+    /// <summary>BT.2408's reference white: what an SDR interface is worth in a scene-referred pass.</summary>
+    /// <remarks>
+    ///     The number an SDR interface composited into an HDR frame is normally given, in cd/m². It
+    ///     is a convention rather than a measurement, which is why it is named here once instead of
+    ///     being written at each host that needs it.
+    /// </remarks>
+    public const float ReferenceWhite = 203f;
+
+    /// <summary>What white is worth in a pass of this format, in that pass's own units.</summary>
+    /// <param name="format">The pass's colour format.</param>
+    /// <returns><c>1</c> for a display-referred target and <see cref="ReferenceWhite" /> for a
+    /// scene-referred one.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One derivation, because the failure of getting it wrong is invisible.</b> The
+    ///         renderer works in cd/m², so a HUD authored 0–1 and drawn into a float pass at a white
+    ///         of one is about one candela — black beside anything the renderer lit, and
+    ///         pixel-identical to a pass that never ran. That is this repository's standing
+    ///         photometric trap and there is no counter, no validation error and no exception in it:
+    ///         a host that reinvented the test and missed a format would ship a HUD nobody could see
+    ///         and nothing would say why. See #670 and <see cref="UiGeometryBuilder.WhiteLevel" />,
+    ///         which is where the number is spent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Float, not "HDR".</b> <see cref="PixelFormat.Rgb10A2UNorm" /> is the usual HDR10
+    ///         swapchain format and is display-referred — its encoding carries the absolute
+    ///         luminance, so an authored 0–1 colour is already in the units it wants and the answer
+    ///         is one. So is <see cref="PixelFormat.Rgba16UNorm" />. What earns the scale is a
+    ///         normalised range the pass does not have, which is exactly the three float colour
+    ///         formats the engine renders scenes into.
+    ///     </para>
+    /// </remarks>
+    public static float WhiteLevelFor(PixelFormat format) =>
+        format is PixelFormat.Rgba16Float or PixelFormat.Rgba32Float or PixelFormat.Rg11B10Float
+            ? ReferenceWhite
+            : 1f;
+
+    /// <summary>What white is worth in the pass this renderer draws into.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What a host hands <see cref="UiGeometryBuilder.WhiteLevel" /> before it builds.</b>
+    ///     The scale is spent at build time and cannot be applied afterwards — a colour holds no
+    ///     magnitude to recover — so this has to be read before the geometry exists rather than at
+    ///     the draw. Derived from the same output the pipelines were built for, so it cannot
+    ///     disagree with the surface the frame lands in.
+    /// </remarks>
+    public float WhiteLevel => WhiteLevelFor(layerFormat);
 
     /// <summary>How many draws the last <see cref="Record" /> submitted.</summary>
     /// <remarks>

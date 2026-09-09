@@ -529,6 +529,100 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         Assert.Equal(Doubled(one.Recorded), two.Recorded);
     }
 
+    /// <summary>A pass says what white is worth in it, and only a scene-referred one asks for more.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The derivation the whole of #670 rests on, asserted where it is cheapest — it is a
+    ///         pure function of a format and needs no device at all. Before it existed the test and
+    ///         the number lived in <c>UiWindowSurface</c>, so the desktop path was the only one that
+    ///         knew them and a game host had to reinvent both.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The display-referred half is the half worth writing down.</b>
+    ///         <c>Rgb10A2UNorm</c> is the usual HDR10 swapchain format and <c>Rgba16UNorm</c> is
+    ///         sixteen bits of normalised colour; both are "HDR" in the sense a reader means it and
+    ///         both want a white of one, because their encoding already carries the luminance. A
+    ///         rule written as "HDR gets 203" would over-brighten every colour on exactly the
+    ///         swapchain most HDR displays hand back.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void OnlyASceneReferredPassAsksForMoreThanTheDisplaysWhite() {
+        Assert.Equal(UiRenderer.ReferenceWhite, UiRenderer.WhiteLevelFor(PixelFormat.Rgba16Float));
+        Assert.Equal(UiRenderer.ReferenceWhite, UiRenderer.WhiteLevelFor(PixelFormat.Rgba32Float));
+        Assert.Equal(UiRenderer.ReferenceWhite, UiRenderer.WhiteLevelFor(PixelFormat.Rg11B10Float));
+
+        Assert.Equal(1f, UiRenderer.WhiteLevelFor(PixelFormat.Bgra8UNormSrgb));
+        Assert.Equal(1f, UiRenderer.WhiteLevelFor(PixelFormat.Rgba8UNorm));
+        Assert.Equal(1f, UiRenderer.WhiteLevelFor(PixelFormat.Rgb10A2UNorm));
+        Assert.Equal(1f, UiRenderer.WhiteLevelFor(PixelFormat.Rgba16UNorm));
+
+        // The instrument, not the measurement: a constant function would satisfy either group above
+        // on its own, and this is what says the two groups actually differ.
+        Assert.NotEqual(1f, UiRenderer.ReferenceWhite);
+
+        // And the renderer answers for the pass it was built for rather than for a default.
+        using var hdr = UiRendererFor(device, PixelFormat.Rgba16Float);
+        using var sdr = UiRendererFor(device, PixelFormat.Bgra8UNorm);
+
+        Assert.Equal(UiRenderer.ReferenceWhite, hdr.WhiteLevel);
+        Assert.Equal(1f, sdr.WhiteLevel);
+    }
+
+    /// <summary>A HUD built at the display's white and drawn into a scene-referred pass is counted.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The defect #670 names, and the only observer it can have.</b> A HUD authored 0–1
+    ///         and built at a white level of one is about one candela in a pass the renderer works
+    ///         in cd/m² for — which is not a dim interface, it is a black one, and it is
+    ///         pixel-identical to a pass that never ran. Nothing throws, nothing warns, every other
+    ///         counter reads healthy, and the frame presents. So the comparison is made where both
+    ///         halves are known and the answer is a number.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Three cases, because two of them would pass a counter that just says "float
+    ///         pass".</b> The same geometry into an eight-bit pass is not dim — its white is the
+    ///         display's and the frame is right. And geometry built at the pass's own white is not
+    ///         dim in the float pass either, which is the case that says <c>Dim</c> reads the
+    ///         geometry rather than the format. Take that half away and the counter would report
+    ///         every correct HDR frame.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AHudBuiltAtTheDisplaysWhiteIsDimInASceneReferredPass() {
+        Assert.Equal(1, DimAfterUploading(PixelFormat.Rgba16Float, white: 1f));
+        Assert.Equal(0, DimAfterUploading(PixelFormat.Bgra8UNorm, white: 1f));
+        Assert.Equal(0, DimAfterUploading(PixelFormat.Rgba16Float, white: UiRenderer.ReferenceWhite));
+    }
+
+    /// <summary>Uploads one interface into a pass of the given format and returns what it counted.</summary>
+    /// <param name="format">The pass's colour format, which is what its white level comes from.</param>
+    /// <param name="white">What the geometry was built at.</param>
+    int DimAfterUploading(PixelFormat format, float white) {
+        using var renderer = new WorldRenderer(device, effects, vertexCapacity: 4096, indexCapacity: 8192);
+        using var ui = UiRendererFor(device, format);
+
+        var system = renderer.Host.System;
+        var stage = system.AddStage(new("Ui", RenderSortMode.ByGroup));
+
+        renderer.Ui.Renderer = ui;
+
+        var id = renderer.Ui.Mount(stage.Mask);
+        var atlas = new GlyphAtlas(64, 64);
+
+        renderer.Ui.Set(id, new(Geometry(atlas, white), atlas, new Int2(400, 300), 0));
+
+        using var commands = device.BeginCommandList(QueueKind.Graphics, "ui");
+
+        renderer.Ui.Upload(commands);
+
+        // The frame really was uploaded, so a zero below is a verdict rather than a walk that did
+        // nothing — `Dim` is reset by the same loop that would have counted.
+        Assert.Equal(1, ui.AtlasUploads);
+
+        return renderer.Ui.Dim;
+    }
+
     /// <summary>One frame of one mounted interface, and the scissors each of its two phases set.</summary>
     /// <param name="scale">What the interface says one of its units is worth in framebuffer pixels.</param>
     /// <remarks>
@@ -628,7 +722,7 @@ public sealed class InterfaceInAWorldTests : IDisposable {
     ///     each and put nothing on screen. It is an <c>init</c> property rather than a fifth
     ///     positional argument, which is why the four-argument construction is still the shape here.
     /// </remarks>
-    static UiRenderer UiRendererFor(NullDevice device) =>
+    static UiRenderer UiRendererFor(NullDevice device, PixelFormat format = PixelFormat.Bgra8UNorm) =>
         new(
             device,
             new UiShaders(
@@ -643,10 +737,16 @@ public sealed class InterfaceInAWorldTests : IDisposable {
                 // test.
                 Image = device.CreateShader(ShaderStage.Fragment, [1, 2, 3, 4], "ui image")
             },
-            new RenderOutput([PixelFormat.Bgra8UNorm])
+            new RenderOutput([format])
         );
 
-    static UiGeometry Geometry(GlyphAtlas atlas) {
+    /// <summary>One frame holding a single rectangle.</summary>
+    /// <param name="atlas">The glyph atlas the frame's text would draw from.</param>
+    /// <param name="white">
+    ///     What the builder is told white is worth in the target. One — the display's — unless a
+    ///     caller is asking about a scene-referred pass.
+    /// </param>
+    static UiGeometry Geometry(GlyphAtlas atlas, float white = 1f) {
         var list = new DrawList();
 
         list.BeginFrame();
@@ -656,7 +756,11 @@ public sealed class InterfaceInAWorldTests : IDisposable {
         list.Add(new Vixen.Ui.DrawCommand(DrawCommandKind.Rectangle, 8f, 8f, 120f, 40f, Color4.White, 0f, 0f));
         list.EndFrame();
 
-        return new UiGeometryBuilder().Build(list, new GlyphFieldCache(atlas), new Rectangle(0, 0, 400, 300));
+        return new UiGeometryBuilder { WhiteLevel = white }.Build(
+            list,
+            new GlyphFieldCache(atlas),
+            new Rectangle(0, 0, 400, 300)
+        );
     }
 
 

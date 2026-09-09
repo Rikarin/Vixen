@@ -181,7 +181,11 @@ public class ShaderReflectionTests {
             + "being held for. If it has not, something else took the channel and the expensive answer "
             + "those audits gave (a fourth MaskEntry shape, routing every rounded backdrop through the "
             + "mask pipeline) is the right one again: re-read UiLayer.BackdropRadius, "
-            + "docs/guide/ui/compositing.md and docs/plan/43, all three of which now say it is not."
+            + "docs/guide/ui/compositing.md, docs/plan/43 and UiRenderer's pipeline-layout comment, "
+            + "all four of which now say it is not. ⚠ That fourth site was found on 2026-09-09, a "
+            + "batch after the other three were corrected, still carrying \"UiMask is the widest "
+            + "consumer at 16 + 48 + 64\" eleven lines below its own \"UiMask [0, 80]\" — and it is "
+            + "the one an implementer reads first, because it sits at the CreatePipelineLayout call."
         );
     }
 

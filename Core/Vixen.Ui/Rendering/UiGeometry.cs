@@ -572,4 +572,31 @@ public readonly record struct UiGeometry(
     ///     </para>
     /// </remarks>
     public IReadOnlyList<UiMask> Masks { get; init; } = [];
+
+    /// <summary>What the white in <see cref="UiVertex.Color" /> is worth, in the target's units.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Carried on the frame so that a consumer can tell a HUD that was scaled from one
+    ///         that was not, which is otherwise the difference between a picture and a pass that
+    ///         never ran.</b> <see cref="UiGeometryBuilder.WhiteLevel" /> is spent at build time —
+    ///         the colours in <see cref="Vertices" /> already hold it and no later stage can undo or
+    ///         apply it — so the number itself is the only thing that survives into the geometry,
+    ///         and without it the black frame and the correct one are byte-identical apart from a
+    ///         magnitude nothing states.
+    ///     </para>
+    ///     <para>
+    ///         One is the value a frame built for a display-referred target carries, and it is a
+    ///         statement rather than an absence: a swapchain's white <i>is</i> the display's. A
+    ///         scene-referred float pass is in cd/m², where the same white is about one candela —
+    ///         black beside anything the renderer lit. <c>UiRenderFeature.Dim</c> is what compares
+    ///         the two, and <c>UiRenderer.WhiteLevelFor</c> is where the number a pass implies comes
+    ///         from.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Init-only for <see cref="Layers" />' reason: every host and test that builds
+    ///         geometry by hand keeps its four-argument constructor, and a frame that says nothing
+    ///         about its white is a frame at the display's.
+    ///     </para>
+    /// </remarks>
+    public float WhiteLevel { get; init; } = 1f;
 }
