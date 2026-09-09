@@ -41,6 +41,8 @@ L:13018 sweep-pending
 L:13019 sweep-pending
 L:13020 sweep-pending
 L:13021 sweep-pending
+L:13034 no-host-logging-guide-page
+L:13035 no-host-logging-guide-page
 L:14001 sweep-pending
 L:14002 sweep-pending
 L:14003 sweep-pending

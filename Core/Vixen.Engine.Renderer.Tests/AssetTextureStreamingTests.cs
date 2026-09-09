@@ -68,7 +68,18 @@ public sealed class AssetTextureStreamingTests : IDisposable {
             Record(source);
         }
 
-        Assert.Equal(0, device.Recorder.Count);
+        // ⚠ By KIND, and not `Recorder.Count`, because that count used to be zero for the wrong
+        // reason. `NullSubmitter.Submit` recorded nothing until #633, so "the recorder saw nothing"
+        // and "the streamer did nothing" were the same sentence — and the first stopped being true
+        // the moment the submitter could be observed at all. Sixty frames submit sixty times whether
+        // anything streams or not; what this test is about is that none of them copy.
+        Assert.Equal(0, device.Recorder.CountOf(RecordedCommandKind.CopyBufferToTexture));
+        Assert.Equal(0, device.Recorder.CountOf(RecordedCommandKind.CopyBuffer));
+        Assert.Equal(0, device.Recorder.CountOf(RecordedCommandKind.Barrier));
+
+        // And nothing else either: the submissions are the whole of what sixty frames cost.
+        Assert.Equal(60, device.Recorder.CountOf(RecordedCommandKind.Submit));
+        Assert.Equal(60, device.Recorder.Count);
     }
 
     /// <summary>
