@@ -2377,54 +2377,6 @@ T:Vixen.Platform.Windows.WindowsDialogs sweep-pending
 T:Vixen.Platform.Windows.WindowsPlatformSupplement sweep-pending
 T:Vixen.Platform.Windows.WindowsPowerInfo sweep-pending
 T:Vixen.Platform.Windows.WindowsProcessorTopology sweep-pending
-T:Vixen.Raven.Symbols.ArrayTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.BufferTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.BuiltInNamedTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.BuiltInTypes raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ConstructedNamedTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.Conversion raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ConversionKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.Conversions raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ErrorTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.FieldSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ImageFormat raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ImageFormats raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.Intrinsics raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.LocalSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.MethodKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.MethodSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.NamedTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.NamespaceSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ParameterSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.PrimitiveTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.PropertySymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.RefKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ResourceKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ResourceSet raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SampledTextureTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SequenceTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ShaderStage raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SpecialType raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.StageBuiltIn raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.StageBuiltInInfo raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.StageBuiltIns raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.StorageImageTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SubstitutedFieldSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SubstitutedMethodSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SubstitutedParameterSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SubstitutedPropertySymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SubstitutedSymbols raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.Symbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SymbolKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SynthesizedFieldSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SynthesizedMethodSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SynthesizedParameterSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.TupleTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.TypeKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.TypeMap raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.TypeParameterSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.TypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.WorkgroupSize raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
 T:Vixen.Raven.Syntax.AccessorDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
 T:Vixen.Raven.Syntax.AccessorListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
 T:Vixen.Raven.Syntax.ArgumentListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
