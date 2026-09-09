@@ -937,8 +937,14 @@ K1  Compiled scene + prefab content (doc 08)                                 ✅
     │      marks and reverts from the claim list. Owed: model (B)
     ├──→ Networking: scene load/unload as session messages; scene-placed baked index
     ├──→ Samples/05-PlatformerGame — needs a shipped level
-    └──⛔ Navigation: bake placements from a scene — NOT K1's after all. An importer can
-           declare an asset GUID and cannot resolve one to a path
+    └──→ Navigation: bake placements from a scene. ⚠ **The wall is down** — this said "an
+           importer can declare an asset GUID and cannot resolve one to a path", and
+           `ImportContext.TryResolve` (#423) now resolves and declares in one call, so a
+           bake can open the scene it names. The bake itself is still owed, and so is the
+           out-of-process worker's half: `InProcessImportExecutor` takes an `IAssetSources`
+           and `Tools/Vixen.AssetCompiler`'s worker supplies none, so `CanResolve` is false
+           there and an importer that needs it says so rather than reporting the asset
+           missing
 
 K2  Compute node in the compositor + GPU buffer upload/readback              ✅ built, SPENT
     ComputeRenderer, BufferUploadRenderer, BufferReadbackRenderer, authored as !Compute,

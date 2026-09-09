@@ -71,6 +71,21 @@ call site, exactly what this section says in prose.
 
 ## 2. The constraint that decides the format
 
+> ⚠ **This constraint has since fallen, and the paragraphs below are kept because they are why
+> model (C) was chosen rather than because they are still true.**
+> `ImportContext.TryResolve(AssetId, out VirtualPath)` exists
+> ([#423](https://github.com/Rikarin/Vixen/issues/423)): it looks the id up through an
+> `IAssetSources` the executor supplies, and declares the asset edge *and* the file edge in the same
+> call so the two cannot come apart — a resolve that handed back a path without registering the edge
+> would let an importer read a template and never re-run when it changed, which is a silently stale
+> artefact rather than a refusal. ⚠ **Whether row 7 is now wanted is still its own question**, and
+> § 3 already argued both sides: model (C)'s cost is redundancy, which is bounded, visible and
+> repaired on open, and model (B)'s is a file that cannot be read without the pipeline. The wall
+> falling makes row 7 a writer and a format version bump; it does not decide it.
+> ⚠ And one half is genuinely still missing: the *out-of-process* worker
+> (`Tools/Vixen.AssetCompiler`) supplies no `IAssetSources`, so `ImportContext.CanResolve` is false
+> there. An importer that needs a resolve says exactly that rather than reporting the asset missing.
+
 ⚠ **An importer cannot turn an `AssetId` into a path, so it cannot open the prefab a scene names.**
 
 `ImportContext` (`Editor/Vixen.Editor.Assets/ImportContext.cs`) offers the importer its own `Guid`
