@@ -405,6 +405,69 @@ public class LodTests : IDisposable {
         Assert.Equal(1f, h.Lods.FadeOf(group, h.Camera.Index, 1));
     }
 
+    /// <summary>
+    ///     A fade's progress is the frames it has been given times the delta, over the duration.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It used to be twice that, because <c>Select</c> advanced the transition once per
+    ///         visible <em>member</em> of the group rather than once for the group</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1183">#1183</a>. A fade is precisely
+    ///         the state in which two members are visible, so the accumulator took two deltas per
+    ///         frame while fading and one while not; an author who typed 200 ms into
+    ///         <see cref="LodRenderFeature.CrossFadeDuration" /> got about 100 ms of picture. It was
+    ///         unreachable until the frame's delta was wired into the feature, because an accumulator
+    ///         adding zero adds it however many times it is called.
+    ///     </para>
+    ///     <para>
+    ///         <b>Closed form rather than a wall-clock budget.</b> The delta is handed in, so
+    ///         <c>FadeOf</c> after <em>n</em> frames is <c>n · delta / duration</c> exactly — and the
+    ///         frame the level changes on contributes nothing, because a transition that starts
+    ///         part-way through is a fade the picture never begins.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The first assertion is the whole instrument.</b> A fade whose progress is read
+    ///         only near the end is satisfied by any rate at all that finishes; the value on the
+    ///         starting frame is where a per-member accumulation is already visible, at one delta of
+    ///         head start.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_fades_progress_is_the_frames_it_was_given_times_the_delta() {
+        using var h = Build();
+        h.Lods.CrossFadeDuration = 1f;
+
+        var group = h.Lods.Add([0.5f]);
+        var fine = AddLevel(h, Vector3.Zero, group, 0);
+        var coarse = AddLevel(h, Vector3.Zero, group, 1);
+        var boundary = h.Camera.ScreenHeightScale / 0.5f;
+
+        Move(h, [fine, coarse], boundary * 0.5f);
+
+        h.Lods.DeltaTime = 0.25f;
+        Move(h, [fine, coarse], boundary * 2f);
+
+        // The frame the level changed on. Both levels are drawn and none of the fade has run, so the
+        // level it came from is still whole.
+        Assert.Equal(0, h.Lods.FadingFrom(group, h.Camera.Index));
+        Assert.Equal(0f, h.Lods.FadeOf(group, h.Camera.Index, 1), 5);
+        Assert.Equal(1f, h.Lods.FadeOf(group, h.Camera.Index, 0), 5);
+
+        // Then one quarter per frame, for as many frames as the duration holds.
+        for (var frame = 1; frame <= 3; frame++) {
+            Move(h, [fine, coarse], boundary * 2f);
+
+            Assert.Equal(frame * 0.25f, h.Lods.FadeOf(group, h.Camera.Index, 1), 5);
+        }
+
+        // And the fourth is the one that retires it: four quarters is the whole duration, and a
+        // transition that has run its length is not a transition.
+        Move(h, [fine, coarse], boundary * 2f);
+
+        Assert.Equal(-1, h.Lods.FadingFrom(group, h.Camera.Index));
+        Assert.False(h.System.Visibility.IsVisible(h.Camera.Index, fine));
+    }
+
     /// <summary>With no duration the swap is instant and nothing fades.</summary>
     /// <remarks>
     ///     The default, and not timidity: a fade doubles the draws for every object crossing a
