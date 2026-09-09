@@ -283,6 +283,29 @@ public sealed class RpcTests {
         Assert.Throws<ArgumentException>(() => out_of_order.Register(table));
     }
 
+    /// <summary>Two calls that hash the same are refused, and told apart from a table sorted wrongly.</summary>
+    /// <remarks>
+    ///     ⚠ The refusal was already there — <c>MethodId &lt;= previous</c> caught it — but it said
+    ///     "out of order", which sends the reader to re-sort a table that is correctly sorted. An id
+    ///     is a 32-bit hash of the signature, so a collision is reachable with two ordinary method
+    ///     names and is not a sorting mistake at all; <c>VXNET2008</c> is the build error that catches
+    ///     the generated case, and this is what a hand-written table gets.
+    /// </remarks>
+    [Fact]
+    public void AManifestRefusesTwoCallsThatHashTheSame() {
+        var colliding = new RpcManifest();
+
+        // The same call twice is the cheapest way to spell two entries with one id; a real collision
+        // is two different signatures that hash alike, and the manifest cannot tell the difference.
+        var call = new RpcMethod("Thing", "Fire()", RpcKind.Server, false, Channel.Reliable, RpcTarget.Observers);
+        var table = new[] { call, call };
+
+        var refused = Assert.Throws<ArgumentException>(() => colliding.Register(table));
+
+        Assert.Contains("hash to", refused.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("out of order", refused.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void AManifestRefusesTheSameTypeTwice() {
         var twice = new RpcManifest();

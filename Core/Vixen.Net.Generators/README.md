@@ -122,10 +122,22 @@ id fit in 32 bits.
 | `VXNET2005` | A handler is marked as both a `ServerRpc` and a `ClientRpc`. |
 | `VXNET2006` | A type declaring remote calls is nested, generic, or not a class. |
 | `VXNET2007` | `[Quantize]` is on an argument that is not a `float`. |
+| `VXNET2008` | Two remote calls in one type hash to the same id. |
 
 An error emits nothing for that component. A page of errors inside generated code the author cannot
 see buries the one line that is actually wrong — the same rule the VXML generator follows, for the
 same reason.
+
+⚠ **`VXNET2008` is about a 32-bit hash and not about two types with one name.** A method id is
+FNV-1a over `DeclaringType.Name(args)`, the table is sorted by it, and the wire carries the position
+— so two calls with one id cannot be told apart, and which of them gets which index depends on
+`List.Sort`'s treatment of equal elements, which is not promised to be stable. The obvious route to a
+tie is two argument types that share a *simple* name (the signature is minimally qualified, and
+`Vixen.Net.Sessions.PlayerId` and `Vixen.Gameplay.PlayerId` are exactly that pair), which no codec
+today accepts — but the plain hash collision needs nothing at all: `CallQBNs()` and `CallpHGJJI()`
+collide under one declaring type, which is what the test uses. `RpcManifest.Register` refuses the
+pair at start-up too, so the failure was never a misdispatch; the build error is what names the two
+methods instead of leaving an exception about ordering to be read as a sorting mistake.
 
 ⚠ **`VXNET2004` is not a gap, and its message used to read as one.** It said awaitable calls were
 "designed for and not built"; `RpcRouter.CallAsync<T>` has since been built, and the diagnostic is

@@ -345,6 +345,82 @@ public sealed class RpcGeneratorTests {
         Assert.Contains(diagnostics, diagnostic => diagnostic.Id == "VXNET2006");
     }
 
+    /// <summary>Two calls whose ids collide are a build error, not a table.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This needs nothing exotic, which is the correction to the issue that asked for it
+    ///         (#1051).</b> That reasoning was about two argument types sharing a simple name, and
+    ///         concluded the collision was unreachable until the codec accepts custom structs. But an
+    ///         id is a 32-bit FNV-1a hash of <c>type.Name(args)</c>, so any two names in one type can
+    ///         land on the same number — <c>CallQBNs()</c> and <c>CallpHGJJI()</c> both hash to
+    ///         2958406449 under <c>Subject.Colliding</c>. They were found by searching for a pair
+    ///         rather than invented, which is why they read like nothing anybody would type.
+    ///     </para>
+    ///     <para>
+    ///         What it costs without this: the table is ordered by id and the wire carries the
+    ///         position, so a tie makes the numbering depend on <c>List.Sort</c>'s treatment of equal
+    ///         elements, which is not promised to be stable. <c>RpcManifest.Register</c> refuses the
+    ///         pair at start-up, so the failure was never a silent misdispatch — but it arrives as an
+    ///         exception about ordering, a long way from the two method names that caused it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TwoCallsWhoseIdsCollide_AreAnError() {
+        var (diagnostics, sources) = GeneratorHarness.RunRpc(
+            $$"""
+            {{Preamble}}
+
+            public sealed partial class Colliding : IRpcObject {
+                public NetworkId NetworkId => default;
+                public RpcRouter? RpcRouter => null;
+
+                [ServerRpc]
+                void CallQBNs() { }
+
+                [ServerRpc]
+                void CallpHGJJI() { }
+            }
+            """
+        );
+
+        var collision = Assert.Single(diagnostics, diagnostic => diagnostic.Id == "VXNET2008");
+
+        Assert.Contains("CallQBNs()", collision.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("CallpHGJJI()", collision.GetMessage(), StringComparison.Ordinal);
+
+        // And nothing is emitted for the type, because a dispatch table for it cannot be written.
+        Assert.Empty(sources);
+    }
+
+    /// <summary>The other half: an ordinary pair of calls is not reported as colliding.</summary>
+    /// <remarks>
+    ///     A rule with no false positives can be satisfied by exactly the defect it exists to catch,
+    ///     so this asserts the negative — two names one character apart hash apart, and the type still
+    ///     generates.
+    /// </remarks>
+    [Fact]
+    public void TwoCallsWithOrdinaryNames_AreNotReportedAsColliding() {
+        var (diagnostics, sources) = GeneratorHarness.RunRpc(
+            $$"""
+            {{Preamble}}
+
+            public sealed partial class NotColliding : IRpcObject {
+                public NetworkId NetworkId => default;
+                public RpcRouter? RpcRouter => null;
+
+                [ServerRpc]
+                void CallQBNs() { }
+
+                [ServerRpc]
+                void CallQBNt() { }
+            }
+            """
+        );
+
+        Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Id == "VXNET2008");
+        Assert.NotEmpty(sources);
+    }
+
     [Fact]
     public void TheGeneratedCodeCompiles() {
         var diagnostics = GeneratorHarness.CompileWithGeneratedCode(

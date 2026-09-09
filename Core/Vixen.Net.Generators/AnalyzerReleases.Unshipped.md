@@ -16,3 +16,4 @@ VXNET2004 | Vixen.Net | Error | A remote call returns something other than void.
 VXNET2005 | Vixen.Net | Error | A handler is marked as both a ServerRpc and a ClientRpc.
 VXNET2006 | Vixen.Net | Error | A type declaring remote calls is nested, generic, or not a class.
 VXNET2007 | Vixen.Net | Error | [Quantize] is on an argument that is not a float.
+VXNET2008 | Vixen.Net | Error | Two remote calls in one type hash to the same id.
