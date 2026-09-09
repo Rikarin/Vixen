@@ -205,6 +205,31 @@
     /// </remarks>
     readonly Signal<bool> raw = new(false);
 
+    /// <summary>Which members are kept at the top of their foldout, as <c>Component.Member</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Per member of a type rather than per object, which is what makes it a
+    ///         preference.</b> Pinning <c>Intensity</c> on a light is a statement about how somebody
+    ///         works, and it applies to the next light they select for the same reason the foldout
+    ///         order applies to the next entity. The key is the component's <see cref="Row" /> name
+    ///         and the member's — the same spelling <c>ComponentOrder</c> uses for its half — so the
+    ///         two halves of one preferences file agree about what a component is called.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>To the top of its foldout, not to a section of its own, and that is a decision
+    ///         rather than a shortcut.</b> A separate pinned block above the list draws a second row
+    ///         over the <i>same</i> box — the panel edits one boxed copy per component — and the twin
+    ///         goes stale the moment either is typed into, because a value edit deliberately raises
+    ///         nothing. Two rows for one member that disagree is worse than a member two foldouts
+    ///         down.
+    ///     </para>
+    ///     <para>
+    ///         A signal for <see cref="raw" />'s reason: <see cref="Draw" /> reads it, so pinning
+    ///         redraws the bodies and leaves the foldouts and the scroll position where they are.
+    ///     </para>
+    /// </remarks>
+    readonly Signal<ImmutableArray<string>> pins = new([]);
+
     /// <summary>The boxes the rows are editing, one per shown component.</summary>
     /// <remarks>
     ///     ⚠ <b>Re-read on every rebuild rather than kept.</b> A gizmo drag, an undo and a play-mode
@@ -319,6 +344,171 @@
     ///     kept here it would be forgotten by closing the tab.
     /// </remarks>
     public event Action<bool>? RawChanged;
+
+    /// <summary>Which members are kept at the top of their foldout, as <c>Component.Member</c>.</summary>
+    /// <inheritdoc cref="pins" select="remarks" />
+    public IReadOnlyList<string> Pinned {
+        get => pins.Value;
+
+        set {
+            ArgumentNullException.ThrowIfNull(value);
+
+            pins.Value = [.. value];
+        }
+    }
+
+    /// <summary>Raised when a member is pinned or unpinned.</summary>
+    /// <inheritdoc cref="Reordered" select="remarks" />
+    public event Action<IReadOnlyList<string>>? PinsChanged;
+
+    /// <summary>The key a pin is filed under.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The component's name and not its alias.</b> <c>Link</c> below uses the
+    ///     <c>[DataContract]</c> alias, because that is the spelling a <c>.vxscene</c>'s
+    ///     <c>overrides:</c> list uses and a mark that does not match is a mark that never appears.
+    ///     This is the other kind of key — a line in the user's preferences file, beside
+    ///     <c>ComponentOrder</c>, which is a list of these same names — and a second spelling there
+    ///     would be a pin that survives a restart and lands on nothing.
+    /// </remarks>
+    /// <param name="bridge">The component.</param>
+    /// <param name="member">The member.</param>
+    /// <returns>The key.</returns>
+    static string PinKey(IComponentBridge bridge, InspectorMember member) => bridge.Name + "." + member.Name;
+
+    /// <summary>Whether a member is pinned.</summary>
+    /// <param name="bridge">The component.</param>
+    /// <param name="member">The member.</param>
+    /// <returns>Whether it is.</returns>
+    bool IsPinned(IComponentBridge bridge, InspectorMember member) =>
+        pins.Value.Contains(PinKey(bridge, member), StringComparer.Ordinal);
+
+    /// <summary>Pins a member or lets it go, and tells whoever is persisting it.</summary>
+    /// <param name="bridge">The component.</param>
+    /// <param name="member">The member.</param>
+    /// <param name="wanted">Whether it should be pinned.</param>
+    public void Pin(IComponentBridge bridge, InspectorMember member, bool wanted) {
+        ArgumentNullException.ThrowIfNull(bridge);
+        ArgumentNullException.ThrowIfNull(member);
+
+        var key = PinKey(bridge, member);
+        var held = pins.Value.Contains(key, StringComparer.Ordinal);
+
+        if (held == wanted) {
+            return;
+        }
+
+        pins.Value = wanted ? pins.Value.Add(key) : pins.Value.Remove(key, StringComparer.Ordinal);
+
+        PinsChanged?.Invoke(pins.Value);
+    }
+
+    /// <summary>The menu a secondary click in the panel opens, built once.</summary>
+    ContextMenu? menu;
+
+    /// <summary>The one line on it.</summary>
+    MenuItem pin = null!;
+
+    /// <summary>The row a secondary click landed on, which is what the menu acts upon.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read on the capture leg, so the row is known before the menu opens.</b> A handler
+    ///     that ran after the menu's own would decide which row the menu is about from whatever the
+    ///     pointer had been over previously — <c>InspectorView</c> records the same trap for its own
+    ///     menu, and this is the same arrangement over rows that panel cannot see.
+    /// </remarks>
+    InspectorRow? aimed;
+
+    /// <summary>Gives the panel its context menu, which is where a member is pinned.</summary>
+    /// <returns>The menu, so a caller can add to it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A menu rather than a button in the row, and the button is what was tried
+    ///         first.</b> The inspector's rows are already at their minimum width in a default
+    ///         layout — a label with a 72-pixel floor, an editor, a reset — so a pin control in every
+    ///         row made the panel's content wider than the panel. What that looked like was not a
+    ///         cramped row: a foldout's remove button slid outside the scroll region's clip and
+    ///         stopped taking clicks, three panels away from the change.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it cannot be <c>InspectorView</c>'s menu, which is the reason this exists at
+    ///         all.</b> That one is attached to the view's own <c>Body</c> and finds rows in the list
+    ///         the view built; this control is a <i>sibling</i> of that body inside the same scroll
+    ///         region, so a secondary click on a component row reached no menu whatsoever.
+    ///     </para>
+    /// </remarks>
+    public ContextMenu Contextualise() {
+        if (menu is not null) {
+            return menu;
+        }
+
+        menu = Document.Root.Add<ContextMenu>();
+        pin = menu.AddItem("Pin to Top");
+
+        pin.Clicked += _ => Toggle();
+
+        // ⚠ Asked on the way open rather than kept in step. Whether the row under the pointer is
+        // pinned is a question with a different answer per row, and pushing it would be a flag every
+        // path that draws a row has to remember to write.
+        menu.OpenChanged += (_, isOpen) => {
+            if (isOpen) {
+                Enable();
+            }
+        };
+
+        menu.Attach(this);
+
+        AddHandler<PointerEvent>(
+            static (element, args) => {
+                if (args is { Action: PointerAction.Pressed, Button: PointerButton.Secondary }) {
+                    ((ComponentsView) element).aimed = ((ComponentsView) element).RowAt(args.X, args.Y);
+                }
+            },
+            RoutingStrategy.Capture,
+            handledEventsToo: true
+        );
+
+        return menu;
+    }
+
+    /// <summary>Says what the one line does to the row under the pointer.</summary>
+    void Enable() {
+        var found = Aimed();
+
+        pin.Disabled = found is null;
+        pin.Label = found is { } row && IsPinned(row.Bridge, row.Member) ? "Unpin" : "Pin to Top";
+    }
+
+    /// <summary>Pins or unpins whatever the click landed on.</summary>
+    void Toggle() {
+        if (Aimed() is not { } row) {
+            return;
+        }
+
+        Pin(row.Bridge, row.Member, !IsPinned(row.Bridge, row.Member));
+    }
+
+    /// <summary>Which component and member the aimed row is, if it is still one of this panel's.</summary>
+    (IComponentBridge Bridge, InspectorMember Member)? Aimed() {
+        foreach (var (bridge, row) in drawn) {
+            if (ReferenceEquals(row, aimed)) {
+                return (bridge, row.Field.Member);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The row at a point in document space, or <see langword="null" />.</summary>
+    InspectorRow? RowAt(float x, float y) {
+        foreach (var (_, row) in drawn) {
+            var bounds = row.Bounds;
+
+            if (x >= bounds.X && x < bounds.X + bounds.Width && y >= bounds.Y && y < bounds.Y + bounds.Height) {
+                return row;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>Turns raw mode on or off, and tells whoever is persisting it.</summary>
     /// <remarks>
@@ -510,7 +700,11 @@
         working[bridge] = box;
         Link(bridge, box[0]);
 
-        foreach (var member in descriptor.Members) {
+        // ⚠ A stable sort on "is this pinned", so a foldout with nothing pinned is drawn in exactly
+        // the order it was before this existed. `OrderBy` is documented stable, which is the whole
+        // of what keeps a member's declared position — and its `[Header]` grouping — intact below
+        // the pins.
+        foreach (var member in descriptor.Members.OrderBy(candidate => IsPinned(bridge, candidate) ? 0 : 1)) {
             // ⚠ No document, and a prefab source all the same. The row writes into the box and
             // records nothing; the command below is the one thing that reaches the stack and it
             // carries the whole component. The claim a write records goes on the *scene's* stack
@@ -529,6 +723,17 @@
                 // — which is the entire question raw mode is opened to answer.
                 if (member is ReflectedMember { IsHidden: true }) {
                     row.AddClass("raw-member");
+                }
+
+                // ⚠ Marked rather than given a button, and the button is what was tried first.
+                // A pin toggle in every row costs a control's width in every row, and the inspector
+                // has none to spare: the panel's rows already reach their minimum at 320 px, so an
+                // extra 28 pushed the *content* wider than the panel and the remove button in a
+                // foldout header slid outside the clip — a click aimed at it landed on nothing.
+                // That is a real regression rather than a dump to re-record, and the affordance
+                // moved to <see cref="Contextualise" />, which costs no layout at all.
+                if (IsPinned(bridge, member)) {
+                    row.AddClass("pinned-member");
                 }
 
                 drawn.Add((bridge, row));

@@ -255,6 +255,18 @@ inspector-row.raw-member {
     opacity: 0.75;
 }
 
+/* ── Pinned members ───────────────────────────────────────────────────
+   ⚠ A tint and an edge rather than a control, and the control is what was tried first. A pin toggle
+   in every row costs a control's width in every row — and the inspector's rows are already at their
+   minimum in a default layout, so the panel's *content* became wider than the panel and a foldout's
+   remove button slid outside the scroll region's clip. The affordance is the context menu; this is
+   the state it sets, and it takes no space at all. */
+inspector-row.pinned-member {
+    background-color: var(--surface-sunken);
+    border-width: 0px 0px 0px 2px;
+    border-color: var(--accent);
+}
+
 .add-component { align-self: stretch; margin: 8px 4px 4px 4px; }
 .add-component.hidden { display: none; }
 

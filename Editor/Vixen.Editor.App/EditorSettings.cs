@@ -201,6 +201,24 @@ public sealed class EditorPreferences {
     /// </remarks>
     public bool InspectorRawMode { get; set; }
 
+    /// <summary>Which inspector members are kept at the top of their foldout, as <c>Component.Member</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Per member of a type rather than per object, which is why it is a preference and
+    ///         not a fact about a scene.</b> Pinning a light's <c>Intensity</c> says something about
+    ///         how somebody works, and it applies to the next light they click for exactly the reason
+    ///         <see cref="ComponentOrder" /> applies to the next entity. The two are the same shape
+    ///         and use the same spelling of a component's name, so a file where they disagreed would
+    ///         be one where a pin outlives a restart and lands on nothing.
+    ///     </para>
+    ///     <para>
+    ///         Not <c>[Inspector]</c>, for <see cref="ProjectGridView" />'s reason: the pin in the
+    ///         row is how it is changed. A name in here that no component answers to is harmless and
+    ///         is kept, as in <see cref="ComponentOrder" />.
+    ///     </para>
+    /// </remarks>
+    public List<string> PinnedMembers { get; set; } = [];
+
     /// <summary>What each viewport pane was drawing, in reading order.</summary>
     /// <remarks>
     ///     <para>
