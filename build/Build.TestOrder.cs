@@ -390,6 +390,22 @@ partial class Build {
         .Executes(() => {
             if (UpdateTestCost) {
                 var runs = MeasuredTestRuns();
+                var scheduled = SolutionTestProjects().Count;
+
+                // ⚠ `artifacts/test-results` is not only written by `Test`. `AffectedTests` and
+                // `RemeshBytes` write TRX into the same directory and neither cleans it first, so
+                // regenerating after one of those would rewrite the whole list from three
+                // measurements — dropping 175 rows, which the name guard cannot see because a
+                // removed line is not a stale name, and which then schedules those 175 assemblies
+                // first as "unmeasured". A cost list that describes a tenth of the run reads exactly
+                // like one that describes all of it.
+                Assert.True(
+                    runs.Count >= scheduled,
+                    $"{TestCostFile.Name} is written from a *full* run and {TestResultsDirectory} holds "
+                    + $"{runs.Count} TRX for {scheduled} test project(s). `AffectedTests` and "
+                    + "`RemeshBytes` write into the same directory, so this is most likely their "
+                    + "results rather than a short `Test`. Run `./build.sh Test` and try again."
+                );
 
                 var measured = runs
                     .Select(run => (run.Project, Seconds: (run.Finish - run.Start).TotalSeconds))
