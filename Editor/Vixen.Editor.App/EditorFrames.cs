@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.Extensions.Logging;
+using Vixen.Core.Diagnostics;
 using Vixen.Core.IO.Watch;
 using Vixen.Editor.AssetEditors.Frame;
 using Vixen.Graphics;
@@ -36,6 +37,14 @@ namespace Vixen.Editor.App;
 ///     </para>
 /// </remarks>
 sealed partial class EditorApplication {
+    /// <summary>What the scene view's degrades are filed under in the console's category picker.</summary>
+    /// <remarks>
+    ///     The render assembly's own name, not the editor's — see <see cref="AttachRenderer" />. Held
+    ///     as a constant so the test that proves a degrade arrives names the same string the panel
+    ///     filters on rather than a copy of it.
+    /// </remarks>
+    internal const string RenderCategory = "Vixen.Rendering";
+
     /// <summary>The editor's shader variants, once there is a device to load them onto.</summary>
     EditorEffects? effects;
 
@@ -48,6 +57,14 @@ sealed partial class EditorApplication {
 
     /// <summary>The renderer and its extraction, or null while the host has no device.</summary>
     internal EditorWorldRenderer? Frame => frame;
+
+    /// <summary>The ring the Console panel reads, for the suites that assert what reached it.</summary>
+    /// <remarks>
+    ///     The panel's own model is built over this same sink
+    ///     (<c>EditorApplication.consoleModel</c>), so a test that reads it is asking the question the
+    ///     panel asks rather than a parallel one.
+    /// </remarks>
+    internal RingBufferSink Logs => log.Sink;
 
     /// <summary>Builds or tears down everything device-shaped, as the host acquires and loses one.</summary>
     /// <param name="device">The device, or null for a host that is releasing.</param>
@@ -78,7 +95,19 @@ sealed partial class EditorApplication {
 
         try {
             effects = new EditorEffects(device, project);
-            frame = new EditorWorldRenderer(device, effects.System, SceneGeometry);
+
+            // ⚠ Under `Vixen.Rendering` rather than `EditorLog.Category`, and that is what makes it
+            // useful rather than tidy: the ids that arrive here are that assembly's — the 4 000 range
+            // in docs/manual/log-events.md — so a filter written against the register can name them,
+            // and the Console panel's category picker separates "the scene view degraded" from "the
+            // editor said something". It is the same category `AppGraphics` gives a game, so a
+            // question answered against a game's log is answered the same way against this one.
+            frame = new EditorWorldRenderer(
+                device,
+                effects.System,
+                SceneGeometry,
+                log.Sink.CreateLogger(RenderCategory)
+            );
         } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
             log.Write(LogLevel.Warning, $"The viewport's renderer could not be built. {failure.Message}");
 

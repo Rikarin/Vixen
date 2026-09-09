@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics.CodeAnalysis;
+using Microsoft.Extensions.Logging;
 using Vixen.Assets;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
@@ -168,21 +169,42 @@ sealed class EditorWorldRenderer : IDisposable {
     ///     Null is not an error: a project with no import cache yet has nothing to resolve, and the
     ///     entities wait rather than disappearing — see <see cref="Waiting" />.
     /// </param>
+    /// <param name="logger">
+    ///     Where the render system's degrades are said, or null to degrade in silence. See
+    ///     <see cref="Logger" /> for why it is a constructor argument rather than a property.
+    /// </param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public EditorWorldRenderer(IGraphicsDevice device, EffectSystem effects, IMeshSource? meshes = null) {
+    public EditorWorldRenderer(
+        IGraphicsDevice device,
+        EffectSystem effects,
+        IMeshSource? meshes = null,
+        ILogger? logger = null
+    ) {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(effects);
 
         this.device = device;
         geometry = meshes;
+        Logger = logger;
 
         // ⚠ A tenth of the geometry budget a game's default reserves. A scene open in an editor is
         // one level, and the buffers are allocated for real on the device the moment this is built —
         // whereas a game sizes them for whatever it streams. `Meshes.Dropped` is what says a level
         // outgrew them, and it is a number rather than a silent stop.
         Renderer = new(device, effects, vertexCapacity: 1 << 18, indexCapacity: 1 << 19) {
-            Source = meshes
+            Source = meshes,
+
+            // Events 4001 and 4002, the streaming pool's refusals. `WorldRenderer.Logger` forwards to
+            // whatever source is mounted now and `Mount` hands it to the one it builds, so this is
+            // not order-sensitive the way the three below are.
+            Logger = logger
         };
+
+        // ⚠ The mesh feature's one line is a *refusal* rather than a degrade — event 4005 — and the
+        // editor is the host most likely to hit it: `WorldRenderer` skips the bindless table on every
+        // device without `HasBindless`, which includes the MoltenVK tiers a Mac editor runs on. The
+        // mesh is then absent with `Meshes.DrawCount` healthy and nothing said.
+        Renderer.Meshes.Logger = logger;
 
         Fallback = CompileFallback();
 
@@ -245,9 +267,22 @@ sealed class EditorWorldRenderer : IDisposable {
         sky.Apply(ambient);
         Renderer.SceneEnvironment.Environment = ambient;
 
+        // ⚠ Event 4004, and the editor is where it is *true*: nothing in this file writes
+        // `SceneLighting.Camera`, so every shading pass here bins its lights against
+        // `ClusteredShading.rvn`'s declared defaults — a plausible 16:9 grid for a camera nobody has.
+        // Assigned once rather than per frame, unlike `AppGraphics`, because this renderer never
+        // replaces its `SceneEnvironment`.
+        Renderer.SceneEnvironment.Logger = logger;
+
         // ⚠ Registered before the build, because a node kind nothing has bound is not a warning —
         // it is a `CompositorBindingException` out of the middle of the build.
         Renderer.Host.Builder.Factories.Add(new PostEffectFactory());
+
+        // ⚠ And the builder's voice *before* the build, which is the one ordering rule in this
+        // paragraph: a node that degrades on purpose is handed the logger as it is created, so one
+        // assigned after `Build` reaches the next build and, for a viewport nobody reloads, never.
+        // `Reload` rebuilds through the same builder and inherits it.
+        Renderer.Host.Builder.Logger = logger;
 
         // ⚠ `Builder.Build` rather than `Host.Load`, and the difference is which graph draws.
         // `Host.Load` would put this compositor in `Host.Compositor`, and `WorldRenderer.Draw` would
@@ -596,6 +631,35 @@ sealed class EditorWorldRenderer : IDisposable {
     ///     two cases rather than saying "fallback" in both.
     /// </remarks>
     public Material? Fallback { get; }
+
+    /// <summary>Where this renderer's degrades are said, or null for nobody watching.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The scene view had no voice at all, which is the worse half of a degrade nobody
+    ///         reports.</b> <c>AppGraphics</c> gives a game's render system its own category and
+    ///         assigns it to three seams; this renderer owns the same <c>WorldRenderer</c> and the
+    ///         same features — the objects and the counters were all present — and nothing assigned a
+    ///         logger to any of them. So 4004 and 4005 were counted and not said in the one place a
+    ///         person is actually looking, and the Console panel's category filter was written for
+    ///         exactly those ids.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read-only, and taken at construction, because one of the four seams cannot be
+    ///         filled later.</b> <c>CompositorBuilder.Logger</c> is read by each node as the build
+    ///         creates it, and this class builds its document in its constructor — so a settable
+    ///         property would be one whose assignment silently reached no node in the frame that is
+    ///         already drawing. The other three would tolerate it; a member that works for three of
+    ///         four inputs is the shape this repository keeps rediscovering.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It does not cover the terrain's 4003.</b> That event is
+    ///         <c>TerrainSceneRenderer</c>'s and reaches it through <c>TerrainFactory</c>, which this
+    ///         renderer never registers — a <c>!Terrain</c> node cannot appear in the editor's
+    ///         document at all. When it can, the builder's logger above is already what the factory
+    ///         reads.
+    ///     </para>
+    /// </remarks>
+    public ILogger? Logger { get; }
 
     /// <summary>Which stages an extracted object appears in.</summary>
     /// <remarks>

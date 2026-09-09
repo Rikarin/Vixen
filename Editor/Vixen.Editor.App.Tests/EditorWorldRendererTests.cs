@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Microsoft.Extensions.Logging;
 using Vixen.Core.IO;
 using Vixen.Core.IO.Watch;
 using Vixen.Core.Mathematics;
@@ -482,6 +483,68 @@ public sealed class EditorWorldRendererTests : IDisposable {
             Rendering.Compositor.CompositorBuilder builder
         ) =>
             declared is ProbeAsset ? probe : null;
+    }
+
+    // ------------------------------------------------------------------ the voice
+
+    /// <summary>A degrade in the scene view reaches the panel a person is actually looking at.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every one of these was counted and none was said.</b> The editor owns the same
+    ///         <c>WorldRenderer</c> a game does, so <c>SceneLighting</c>, <c>MeshRenderFeature</c> and
+    ///         the compositor builder were all present and all silent — a diagnostic that only the
+    ///         non-interactive path prints is one nobody reads.
+    ///     </para>
+    ///     <para>
+    ///         The degrade driven here is a real one rather than a stand-in: nothing in
+    ///         <c>EditorWorldRenderer</c> writes <c>SceneLighting.Camera</c>, so 4004 is the honest
+    ///         state of the scene view and the line says so. Asserted through the sink the Console
+    ///         panel's own model is built over, and by <em>event id</em> rather than by message text.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_scene_view_degrade_is_said_on_the_render_category_the_console_filters_on() {
+        var editor = Running().Application;
+        var frame = editor.Frame!;
+
+        Assert.NotNull(frame.Logger);
+
+        // A pass shaped like nothing at all: `Extract` reads the shader's name off the key to qualify
+        // every parameter, and the branch under test is reached before any binding is consulted.
+        frame.Renderer.SceneEnvironment.Extract(
+            new ParameterCollection(),
+            new Effect { Key = EffectKey.Of("ForwardPlus"), Stages = [] }
+        );
+
+        var said = Assert.Single(
+            editor.Logs.Snapshot(),
+            record => record.EventId.Id == 4004 && record.Category == EditorApplication.RenderCategory
+        );
+
+        Assert.Equal(LogLevel.Warning, said.Level);
+        Assert.Contains("SceneLighting.Camera", said.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>All four seams carry the one logger, including the one that cannot be filled later.</summary>
+    /// <remarks>
+    ///     ⚠ <b><c>CompositorBuilder.Logger</c> is why this is a constructor argument.</b> A node is
+    ///     handed the builder's logger as the build creates it and this renderer builds its document
+    ///     in its constructor, so a settable property would work for three of the four and reach no
+    ///     node in the frame that is already drawing — which is a member that looks wired and is not.
+    ///     Identity rather than non-null: four categories would be four filters in the panel, and the
+    ///     ids that arrive are one assembly's.
+    /// </remarks>
+    [Fact]
+    public void The_render_logger_reaches_the_builder_the_mesh_feature_the_lighting_and_the_pool() {
+        var frame = Running().Application.Frame!;
+        var logger = frame.Logger;
+
+        Assert.NotNull(logger);
+
+        Assert.Same(logger, frame.Renderer.Host.Builder.Logger);
+        Assert.Same(logger, frame.Renderer.Meshes.Logger);
+        Assert.Same(logger, frame.Renderer.SceneEnvironment.Logger);
+        Assert.Same(logger, frame.Renderer.Logger);
     }
 
     // ------------------------------------------------------------------ helpers
