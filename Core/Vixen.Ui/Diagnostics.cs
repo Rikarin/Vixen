@@ -200,10 +200,20 @@ public readonly struct UiDiagnostics(UiDocument document) {
     ///     <para>
     ///         ⚠ <b>What it still cannot see is an effect queued somewhere else.</b> An
     ///         <c>Effect</c> constructed with no scheduler takes <c>EffectScheduler.Default</c>,
-    ///         which is per <i>thread</i> and belongs to no document — <c>UiWindowTitle.Bind</c>
-    ///         called without one is the shape in the tree. A zero here means "nothing this
+    ///         which is per <i>thread</i> and belongs to no document. A zero here means "nothing this
     ///         document schedules has stopped", which is what a panel wants and is not the same
     ///         sentence as "nothing has stopped".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And no production code does that, which is now a gate rather than a hope</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1129">#1129</a>.
+    ///         <c>SchedulerReachTests</c> sweeps <c>.cs</c> and <c>.vxml</c> for the three calls whose
+    ///         scheduler is optional — <c>new Effect</c>, <c>new AsyncComputed</c> and
+    ///         <c>UiWindowTitle.Bind</c> — and refuses one that does not name it. So the ambiguity
+    ///         above is a property of the API and not of this tree: everything the engine schedules
+    ///         belongs to a document, and a nought here has one reading. ⚠ The count of that exposure
+    ///         was believed to be ~58 sites; that figure is the test assemblies, where the thread's
+    ///         scheduler is correct, and the production surface was already nought.
     ///     </para>
     /// </remarks>
     public int BrokenBindings => document.BrokenBindings;

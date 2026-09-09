@@ -41,6 +41,16 @@ public sealed class Effect : ReactiveNode, IDisposable {
     ///     points at the effect rather than at this file.
     /// </param>
     /// <param name="line">Filled in by the compiler; the line half of <paramref name="origin" />.</param>
+    /// <remarks>
+    ///     ⚠ <b>The default is for tests, and production code may not take it</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1129">#1129</a>.
+    ///     <see cref="EffectScheduler.Default" /> is <c>[ThreadStatic]</c>, so an effect that takes it
+    ///     belongs to no <c>UiDocument</c>: nothing is wired to that scheduler's
+    ///     <see cref="EffectScheduler.Suspended" />, its logger is a <c>NullLogger</c>, and an effect
+    ///     suspended on it stops with no count and no line anywhere. A test host is one thread with
+    ///     one graph and is where that is the right answer; everything else names its document's, and
+    ///     <c>SchedulerReachTests</c> is the census that keeps it so.
+    /// </remarks>
     public Effect(
         Action action,
         EffectScheduler? scheduler = null,
