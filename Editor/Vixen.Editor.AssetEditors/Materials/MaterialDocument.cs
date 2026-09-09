@@ -403,9 +403,19 @@ public sealed class MaterialDocument : EditorDocument {
         if (compiled.Source is not { } source) {
             var said = string.Join("; ", compiled.Diagnostics);
 
+            // ⚠ No source *and* no diagnostic is not a failed compile — it is a file that has not
+            // been compiled at all. `ShaderGraphSources` short-circuits an empty document before it
+            // reaches the compiler, deliberately, because "create shader graph" leaves one behind and
+            // a build must not complain about it. That policy belongs to a build; here there is an
+            // author looking at the panel, and telling them their graph does not compile when the
+            // truth is that they have not opened it yet is the same class of message as an error
+            // nobody can act on.
             GraphProblem = said.Length > 0
                 ? "The shader graph does not compile, so it declares no properties: " + said
-                : "The shader graph does not compile, so it declares no properties.";
+                : compiled.Text.Length == 0
+                    ? "This shader graph is empty — it was created and has not been opened yet, so "
+                    + "there is nothing to declare. Open it and add a Master/Surface node."
+                    : "The shader graph does not compile, so it declares no properties.";
 
             return;
         }

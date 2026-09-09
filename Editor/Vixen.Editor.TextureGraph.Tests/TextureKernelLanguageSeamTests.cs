@@ -661,7 +661,7 @@ public class TextureKernelLanguageSeamTests {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The library half is <c>ColorSpaces.Luminance</c> and it used to be
-    ///         <c>ComputeColor.Saturation</c>'s body.</b> Both hold the same triple, and the second
+    ///         <c>ComputeColor.Saturation</c>'s body.</b> Both held the same triple, and the second had
     ///         has <em>no callers</em>: no <c>.rvn</c> in the tree calls it and no shader-graph node
     ///         emits it — <c>Tonemap.rvn</c> grades saturation with an implementation of its own. So
     ///         this test pinned a kernel against numbers no shader in the engine reads, which is the

@@ -185,10 +185,19 @@ public class LayerStackThemeTests {
             if (type != typeof(UiElement)) {
                 controls++;
 
-                // ⚠ `Vixen.Editor.Texturing` is where the panel's own markup parts are declared, and
-                // a part's tag *is* its identity: `LayerRowView` answers to `layer-stack-row` because
-                // that is the element it replaced. Everything else with a `layer-stack-` name was
-                // given one at a call site, which is the defect.
+                // ⚠ A part's tag *is* its identity, and this asks exactly that: does the element
+                // answer to the name its own type declares? `LayerRowView` answers to
+                // `layer-stack-row` because that is the element it replaced, so it passes; a control
+                // handed a `layer-stack-` name at a call site does not, which is #1071's defect.
+                //
+                // ⚠ **And the exemption is the declaring assembly, which is broader than the
+                // sentence above.** `UiElement.Add<T>`'s first argument is a tag override, so
+                // `rows.Add<LayerRowView>("layer-stack-fill")` would rename a local part out of its
+                // own rule — the very thing this rule is about — and this would call it exempt. The
+                // narrow test is the tag the type itself answers to, and `UiElement.TagName` is
+                // `protected`, so it is not reachable from a test assembly: #1131. No such call
+                // exists today, so this is a hole in the instrument rather than a live defect —
+                // written down because a hole nobody wrote down is how the next one gets through.
                 if (element.Tag.StartsWith("layer-stack-", StringComparison.Ordinal)
                     && type.Assembly != typeof(LayerStackView).Assembly) {
                     renamed.Add($"{type.Name} as '{element.Tag}'");

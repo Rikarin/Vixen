@@ -30,12 +30,17 @@ namespace Vixen.ApiCheck.Tests;
 ///         <c>NukeBuild</c> — so what is committed is read as text.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Comments are stripped before the assertion, and that is the half worth reading
-///         twice.</b> The change this covers explains itself in a comment naming the very variable
-///         being asserted, so a substring search over the raw slice would be satisfied by the prose
-///         that describes the guard rather than by the guard — an instrument a revert could not
-///         falsify. <see cref="TargetBody" /> therefore drops every <c>//</c> line first, and the
-///         slice is checked for a landmark of its own afterwards so that a rename which cut the
+///         ⚠ <b>The value is asserted and not only the name, which the first draft of this file got
+///         wrong.</b> A search stopping at the variable's closing quote is satisfied by
+///         <c>SetEnvironmentVariable("VIXEN_REQUIRE_VULKAN", "0")</c> — one character, and the hole
+///         this file exists to hold shut is open again with the test green, because every reader in
+///         the tree accepts only <c>"1"</c>, <c>"true"</c> or <c>"TRUE"</c>.
+///     </para>
+///     <para>
+///         Comments are stripped before the assertion. The target's own prose names the variable, so
+///         the stripping is cheap insurance rather than the thing that makes this falsifiable — the
+///         call and its argument are. <see cref="TargetBody" /> drops every <c>//</c> line first, and
+///         the slice is checked for a landmark of its own afterwards so that a rename which cut the
 ///         wrong text cannot pass by having found nothing.
 ///     </para>
 /// </remarks>
@@ -63,7 +68,7 @@ public sealed class GoldenImagesGuardTests {
         );
 
         Assert.True(
-            body.Contains("SetEnvironmentVariable(\"VIXEN_REQUIRE_VULKAN\"", StringComparison.Ordinal),
+            body.Contains("SetEnvironmentVariable(\"VIXEN_REQUIRE_VULKAN\", \"1\")", StringComparison.Ordinal),
             "GoldenImages does not set VIXEN_REQUIRE_VULKAN, so on a machine with no Vulkan device "
             + "every fixture skips, the target exits 0, and a run that compared no pictures at all "
             + "reports that the golden images are fine."

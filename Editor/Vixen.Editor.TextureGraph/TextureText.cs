@@ -69,8 +69,11 @@ internal enum TextureTextAlignment : byte {
 ///     <para>
 ///         ⚠ <b>What actually blocks the node is the font, and it is a question this assembly cannot
 ///         answer.</b> <see cref="Rasterize" /> takes a <c>FontFace</c>; a compilation runs on every
-///         edit and must not read an asset database, and the only face in the tree that reaches this
-///         code is an <c>EmbeddedResource</c> of the <em>test</em> project. So a node needs either a
+///         edit and must not read an asset database, and no face reaches <em>this assembly</em> —
+///         the only one that does is an <c>EmbeddedResource</c> of its own test project. ⚠ Not "in
+///         the tree": <c>Vixen.Editor.App</c> embeds Open Sans and installs it into the shell's
+///         document, in the same process that hosts this plugin, so the second shape below already
+///         has a production face behind it and only the *naming* is missing. So a node needs either a
 ///         face this assembly ships or a reference a host resolves the way <c>Source/Bitmap</c>'s
 ///         asset is — and which font a graph draws with is a project-and-document decision, which is
 ///         why <a href="https://github.com/Rikarin/Vixen/issues/687">#687</a> puts the node in M4 and

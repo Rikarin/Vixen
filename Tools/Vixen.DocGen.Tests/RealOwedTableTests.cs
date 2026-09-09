@@ -56,9 +56,13 @@ public class RealOwedTableTests {
     ///     The longest an <c>Owed</c> cell's prose may be, in characters.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>Four times the median row, measured, and not a style preference.</b> The median cell
-    ///     is 98 characters; the rows that went stale were 700 to 1 900. A cell that needs more than
-    ///     this is restating § 1.x, which is the thing #1116 is about — the evidence belongs in the
+    ///     ⚠ <b>A length, and not a style preference.</b> The rows that went stale were 700 to
+    ///     1 900 characters; the longest compliant one today is 328. ⚠ An earlier version of this
+    ///     remark called 400 "four times the median" and put the median at 98 — the real median is
+    ///     112, which makes it about three and a half, and a prose number in the file that
+    ///     mechanises a rule against prose numbers is worth correcting rather than re-deriving. What
+    ///     the cap is *for* is the durable half: a cell that needs more than this is restating
+    ///     § 1.x, which is the thing #1116 is about — the evidence belongs in the
     ///     § 1.x paragraph and the row points at it. Link targets are not counted: see
     ///     <see cref="Prose" />.
     /// </remarks>
@@ -110,7 +114,7 @@ public class RealOwedTableTests {
             "\"nothing calls X\" / \"X does not exist\"",
             new Regex(
                 @"\bnothing\b[^.|]{0,60}\b(?:calls?|reads?|uses?|constructs?|shows?|carries|writes?|implements?|registers?|consumes?|authors?)\b"
-                + @"|\bno (?:caller|consumer|reader|producer)s?\b"
+                + @"|\bno (?:caller|consumer|reader|producer|node|pane|host|verb|route|panel)s?\b"
                 + @"|\bdoes not exist\b|\bexists nowhere\b",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant
             )

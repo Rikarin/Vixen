@@ -1070,7 +1070,7 @@ drifts were one of them:
   grows without bound and buries the one sentence a reader came for.
 
 ⚠ **This is enforced now.** `Tools/Vixen.DocGen.Tests/RealOwedTableTests.cs` reads this table out
-of this file and fails on a cell over 400 characters of prose — four times the median row, and a
+of this file and fails on a cell over 400 characters of prose — about three and a half times the median row, and a
 link's target does not count — or carrying one of the three shapes above. It cannot check that a row
 *agrees* with § 1.x, which is a claim about two paragraphs; it checks the property that made the
 disagreement possible. The rows already over the cap when it landed are excused **by number, with the
@@ -1160,7 +1160,7 @@ done.
 | 89 | `Vixen.Video` | MP4; a material; frame-accurate seek; audio-track choice; subtitles; 10-bit / BT.2020; Vorbis; >2 channels | [#221](https://github.com/Rikarin/Vixen/issues/221) |
 | 90 | `Vixen.Xr` | A render feature; single-pass multiview; hand/eye tracking; passthrough; anchors. ⚠ `XrSession` has no reference… | [#222](https://github.com/Rikarin/Vixen/issues/222) |
 | 88 | Docs | Manual sweep; template verification; release automation; soak tests; triage + compatibility policy | [#223](https://github.com/Rikarin/Vixen/issues/223) |
-| 91 | `Vixen.Editor.TextureGraph` | **The graph's remaining seams**, none of them the evaluator's: § 4.1's `Text` and `Svg Path` have no node, and the plan's storable formats and the ceiling on the two position-carrying kernels are policy rather than capability. Evidence in § 1.11's kernel and node-library rows ([#687](https://github.com/Rikarin/Vixen/issues/687), [#753](https://github.com/Rikarin/Vixen/issues/753)) | [#577](https://github.com/Rikarin/Vixen/issues/577) |
+| 91 | `Vixen.Editor.TextureGraph` | **The graph's remaining seams**, none of them the evaluator's: § 4.1's two image sources, and two limits that are policy rather than capability. Evidence in § 1.11's kernel and node-library rows ([#687](https://github.com/Rikarin/Vixen/issues/687), [#753](https://github.com/Rikarin/Vixen/issues/753)) | [#577](https://github.com/Rikarin/Vixen/issues/577) |
 | 92 | `Vixen.Editor.Texturing` | ~~Registration, the compositing defects and the panel's undo~~ — **closed**, and the row stays because Part 4's numbers are cited elsewhere. Evidence in § 1.11's layer-stack and texturing-plugin rows | [#572](https://github.com/Rikarin/Vixen/issues/572) |
 | 93 | Material authoring | **M9 and M10 closed against the tree on 2026-09-09**; what is left of doc 48 is M11 ([#576](https://github.com/Rikarin/Vixen/issues/576)), and M11 is [#1073](https://github.com/Rikarin/Vixen/issues/1073). Evidence in § 1.11's material-authoring paragraph and rows | [#577](https://github.com/Rikarin/Vixen/issues/577) |
 

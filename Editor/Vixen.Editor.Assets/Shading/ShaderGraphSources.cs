@@ -24,7 +24,14 @@ public readonly record struct ShaderGraphSourceFile(
     /// <summary>Whether there is source to compile.</summary>
     public bool Compiled => Text.Length > 0;
 
-    /// <summary>The compilation itself, or null where the graph did not compile.</summary>
+    /// <summary>The compilation itself, or null where there is none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Null does not mean "did not compile", and a caller that reads it that way says the
+    ///     wrong thing to an author.</b> There are two nulls: a compile that failed, which carries
+    ///     <see cref="Diagnostics" />; and an <em>empty file</em>, which never reached the compiler at
+    ///     all because "create shader graph" leaves one behind and a build must not complain about
+    ///     it. The second carries no diagnostics, so <see cref="Compiled" /> is what tells them apart.
+    /// </remarks>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Carried because <see cref="Text" /> is not what every caller wants, and dropping

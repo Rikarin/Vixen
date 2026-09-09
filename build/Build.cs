@@ -371,10 +371,29 @@ partial class Build : NukeBuild {
                 // Set rather than forced — an explicit `VIXEN_REQUIRE_VULKAN=0` in the environment
                 // is left alone, because the escape hatch has to be reachable by somebody who has
                 // read this and meant it.
-                if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN"))) {
+                //
+                // ⚠ And scoped to this target with a restore, which the two neighbours above do not
+                // need. `VIXEN_GOLDEN_DIFF` and `VIXEN_UPDATE_GOLDEN` are inert outside this suite;
+                // this one is read tree-wide — `VulkanRequirement` in two projects and a CLI test all
+                // *fail* rather than skip on it — so leaving it set on the build process would make
+                // `./build.sh GoldenImages Test` fail suites that have nothing to do with pictures,
+                // on a machine with no device, with a message about a driver.
+                var required = Environment.GetEnvironmentVariable("VIXEN_REQUIRE_VULKAN");
+
+                if (string.IsNullOrEmpty(required)) {
                     Environment.SetEnvironmentVariable("VIXEN_REQUIRE_VULKAN", "1");
                 }
 
+                try {
+                    RunGoldenImages();
+                } finally {
+                    Environment.SetEnvironmentVariable("VIXEN_REQUIRE_VULKAN", required);
+                }
+            }
+        );
+
+    /// <summary>The body of <see cref="GoldenImages" />, so its environment can be restored around it.</summary>
+    void RunGoldenImages() {
                 ExportLayerLibraryPath();
 
                 // Run separately from `Test` rather than only as part of it. The fixtures need a
@@ -396,8 +415,7 @@ partial class Build : NukeBuild {
                         + "suite that updates its own expectations is a suite that always passes."
                     );
                 }
-            }
-        );
+    }
 
     Target CheckFormat => definition => definition
         .Description("Fails if a file deviates from .editorconfig, lacks its SPDX header, or is a dependency nothing attributes")

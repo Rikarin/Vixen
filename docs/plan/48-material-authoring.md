@@ -1276,9 +1276,14 @@ refuses the alternative.
 biasing every weight in the frame. The oracle that separates them from a working splat: a map that is
 pure red over one half of the surface and pure green over the other must render as **layer 0's
 material over the first half and layer 1's over the second**, each half matching a single-layer
-material of that layer drawn in the same frame. ⚠ And `PaintedChannels` defaults to **3**, so a
-four-layer stack given a four-channel map without setting it is the silent-wrong case the feature's
-own remarks warn about.
+material of that layer drawn in the same frame. ⚠ And `PaintedChannels` defaults to **3**. A
+four-layer stack that leaves it there is *diagnosed* — `MaterialDiagnosticId.UnpaintedLayer`, naming
+both numbers — so it is the loud case rather than the silent one. ⚠ **The silent one is the
+inverse**: `PaintedChannels = 4` over a splat map that is not really RGBA, whose alpha then samples as
+1 everywhere, weighting the last layer at full strength over the whole surface and — after
+normalisation — making the surface almost entirely that layer. Nothing checks it, because nothing in
+the material sees the texture's channel count. That is the mistake the asset for #1073 has to avoid,
+and the closed-form oracle above is what would catch it.
 
 ### Cost
 

@@ -190,11 +190,12 @@ it is no longer a constraint (see below) and the node keeps the two numbers it w
 sub-graph node with the graph's contents, and the node is where a parameter override is stored — so
 before #742 an expression inside a published graph folded against that graph's own declared default
 and turning the knob changed nothing. `NodeGraphInlining` now carries each expansion's settings and
-the compiler reads them, so **seven of the sixteen shipped compounds declare parameters and drive
-node ports through folded expressions**. ⚠ **That read "seven of the sixteen" and is now
-twenty-five of the thirty-one** — every shipped compound except `Generators/Curvature Edge Wear` ·
-`Dirt` · `Grunge Rough Dirty` and `Utility/Equalize` · `Highpass` · `Histogram Scan` declares at
-least one, so a knob is the norm here rather than the exception,
+the compiler reads them, so **a shipped compound declares parameters and drives node ports through
+folded expressions**. ⚠ **This sentence has carried two counts and both went stale** — it read "seven
+of the sixteen", then "twenty-five of the thirty-one", and the tree was 29 of 35 while the second was
+being typed. So it is a derivation now and not a number: every shipped compound *except*
+`Generators/Curvature Edge Wear` · `Dirt` · `Grunge Rough Dirty` and `Utility/Equalize` · `Highpass` ·
+`Histogram Scan` declares at least one, so a knob is the norm here rather than the exception,
 and the sentence a reader should take from this section is that a port is what you reach for when the
 knob has to be *wired*, not when it has to exist.
 

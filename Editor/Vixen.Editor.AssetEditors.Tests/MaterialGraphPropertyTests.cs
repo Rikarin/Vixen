@@ -151,6 +151,35 @@ public class MaterialGraphPropertyTests {
         Assert.DoesNotContain("does not compile", problem, StringComparison.Ordinal);
     }
 
+    /// <summary>⚠ A graph created and never opened is said to be empty, not said to be broken.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The third of the three ways <c>GraphSource</c> comes back null</b>, and the one a
+    ///         build and a panel want different answers to. <c>ShaderGraphSources</c> short-circuits
+    ///         an empty document before the compiler sees it and returns no diagnostics — that is a
+    ///         build's policy and it is right: <em>Create ▸ Shader Graph</em> leaves an empty file
+    ///         behind and a content build must not complain about it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Here there is an author looking at the panel.</b> Telling them the graph does not
+    ///         compile when the truth is that they have not opened it yet sends them to look for a
+    ///         defect in a file with nothing in it — an error nobody can act on, which is the shape
+    ///         this batch swept for and did not find because it arrived with the fix.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AnEmptyGraphIsSaidToBeEmptyRatherThanReportedAsABrokenCompile() {
+        using var harness = new ViewHarness();
+        var document = Open(harness, string.Empty);
+
+        Assert.Null(document.GraphSource);
+
+        var problem = Assert.IsType<string>(document.GraphProblem);
+
+        Assert.Contains("empty", problem, StringComparison.Ordinal);
+        Assert.DoesNotContain("does not compile", problem, StringComparison.Ordinal);
+    }
+
     /// <summary>The linked graph compiles and reports the two properties a person fills in.</summary>
     [Fact]
     public void TheRowsAreTheGraphSPropertiesAndNotEveryDeclaration() {
