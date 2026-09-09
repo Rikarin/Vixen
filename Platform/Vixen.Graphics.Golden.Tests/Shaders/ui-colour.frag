@@ -33,11 +33,19 @@ layout(push_constant) uniform Filter {
     vec4 blue;
 
     // The border box a `backdrop-filter` is clipped to: `xy` its centre and `zw` half its size, in
-    // document pixels. `UiLayer.BackdropBounds`, which is the element's border box and not the
-    // group's ink.
+    // <b>target texels</b>. `UiLayer.BackdropBounds`, which is the element's border box and not the
+    // group's ink, pre-multiplied by the frame's scale.
+    //
+    // ⚠ Texels and not document pixels, and the remark here said document pixels until #1200. A
+    // layer surface is `ceil(surface × scale)`, so the point below carries the display's scale in
+    // it; the box has to be in the same space or a rounded backdrop is drawn at half size in the
+    // top-left quadrant of its element on a 2× display. `UiRenderer.Corner` is where the multiply
+    // happens — the host, rather than this stage, because the coverage band below is one unit of its
+    // own argument wide and only a box in texels keeps it one texel.
     vec4 box;
 
-    // `x` the corner radius, uniform across the four corners or zero — `UiLayer.BackdropRadius`.
+    // `x` the corner radius, in target texels, uniform across the four corners or zero —
+    // `UiLayer.BackdropRadius` times the frame's scale.
     //
     // ⚠ Zero is the whole of the "this draw is not a rounded backdrop" test, and it has to be a
     // number rather than an absent push. This pipeline also serves every filtered group, and one of
@@ -127,9 +135,10 @@ void main() {
     // pixels alone. `UiColorMatrix.Apply` does this, once, in the same place.
     filtered = clamp(filtered, vec3(0.0), vec3(sampled.a));
 
-    // ⚠ The point comes from the texture coordinate times the surface size, which *is* the document
-    // pixel — `ui-mask.frag` argues it at length and this is the same expression for the same reason.
-    // `gl_FragCoord` would be right at a scale of one and wrong at every other.
+    // ⚠ The point comes from the texture coordinate times the surface size, which is a <i>target
+    // texel</i> — `ui-mask.frag` argues it at length and this is the same expression for the same
+    // reason. It is what `gl_FragCoord` would give and the two shaders' remarks claimed the opposite
+    // until #1200; the box above is pre-multiplied to meet it.
     float coverage = backdrop_coverage(varying_texcoord * vec2(textureSize(sampler2D(source, source_sampler), 0)));
 
     // The rest is `ui-image.frag`'s premultiplied path verbatim: the group's opacity is the composite

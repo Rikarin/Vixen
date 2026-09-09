@@ -170,7 +170,12 @@ public sealed class DitherImageTests {
     ///         picture, and two of them by more than the code this measures.
     ///     </para>
     /// </remarks>
-    static Bitmap Render(Fixture fixture, bool dither) {
+    static Bitmap Render(
+        Fixture fixture,
+        bool dither,
+        PixelFormat format = PixelFormat.Rgba8UNorm,
+        float? flat = null
+    ) {
         var device = fixture.Device;
 
         fixture.Graph.Reset();
@@ -181,14 +186,22 @@ public sealed class DitherImageTests {
             for (var x = 0; x < Side; x++) {
                 // Exactly one code across the frame, starting on one. Undithered this rounds to Base
                 // for the left half and Base + 1 for the right, with nothing in between to round to.
-                var value = (Base + ((x + 0.5f) / Side)) / 255f;
+                //
+                // ⚠ Or a flat field, for the sRGB fixture, whose question is the noise's *amplitude*
+                // rather than what the noise does to a gradient. A ramp would put a second source of
+                // spread in the same numbers.
+                var value = flat ?? (Base + ((x + 0.5f) / Side)) / 255f;
 
                 texels[(y * Side) + x] = new(value, value, value, 1f);
             }
         }
 
         var ramp = fixture.Sampled("ramp", Side, MemoryMarshal.AsBytes<Vector4>(texels), PixelFormat.Rgba32Float);
-        var display = fixture.Owned("display", TextureUsage.ColourTarget | TextureUsage.CopySource);
+        var display = fixture.Owned(
+            "display",
+            TextureUsage.ColourTarget | TextureUsage.CopySource,
+            format
+        );
 
         using var allocator = new DescriptorAllocator(device);
         using var samplers = new SamplerCache(device);
@@ -213,7 +226,7 @@ public sealed class DitherImageTests {
             Name = "Lens",
             Source = "Ramp",
             Output = "Display",
-            Format = PixelFormat.Rgba8UNorm,
+            Format = format,
             UseVignette = false,
             UseChromaticAberration = false,
             UseGrain = false,
@@ -266,6 +279,103 @@ public sealed class DitherImageTests {
                 );
             }
         );
+    }
+
+    /// <summary>A linear value dark enough that one stored sRGB code is a very small linear step.</summary>
+    /// <remarks>
+    ///     ⚠ <b>0.005 and not 0.01, because the separation this fixture rests on is the slope.</b>
+    ///     One stored code here is about <c>0.0004</c> of linear, so a dither sized as a flat
+    ///     <c>1/255</c> of linear is about nine and a half codes each side — a spread nothing could
+    ///     mistake for a dither. It is also comfortably clear of black: the undithered encode lands
+    ///     near code 16, so neither rail clips the noise and the range below measures the noise
+    ///     rather than the clamp.
+    /// </remarks>
+    const float Shadow = 0.005f;
+
+    /// <summary>A linear value where one stored sRGB code is a large linear step.</summary>
+    const float Highlight = 0.9f;
+
+    /// <summary>On an sRGB target the noise is one stored code at both ends of the range.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The half <c>DitherImageTests</c> deliberately said nothing about until #1181,
+    ///         and the half every shipped frame is in.</b> Every fixture above stages
+    ///         <c>Rgba8UNorm</c> so that "one code" is one number; <c>VignetteAsset.Format</c>
+    ///         defaults to <c>Rgba8UNormSrgb</c> and <c>StandardFrame</c>'s lens node takes that
+    ///         default, so the target a frame actually dithers into has a transfer curve on it. A
+    ///         stored code is then a <i>linear</i> step whose size changes across the range by a
+    ///         factor of forty-five, and a fixed <c>1/255</c> of the shader's own value is far too
+    ///         much noise in the shadows — which is exactly where banding is worst — and too little
+    ///         in the highlights.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The range and not the count, and not the mean.</b> A mean is unmoved by a dither
+    ///         of any size at all — that is what makes it a dither — so it cannot see this. A count
+    ///         of distinct codes saturates: a spread of nine codes and a spread of nineteen both
+    ///         report "many". The peak-to-peak range is the amplitude, which is the quantity that is
+    ///         wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two ends, because one of them alone is satisfiable by a dither that is simply
+    ///         off.</b> A shader that added nothing passes the shadow ceiling perfectly. The
+    ///         highlight floor is what refuses that, and it is also the end an over-correction would
+    ///         fail: the linear-sized noise is about half a code up there, so the frame that is too
+    ///         noisy in the shadows is too quiet in the highlights in the same picture.
+    ///     </para>
+    ///     <para>
+    ///         Arithmetic, so the numbers are the fixture's rather than a measurement copied back
+    ///         in. At <see cref="Shadow" /> the encode's slope is <c>dE/dL ≈ 9.67</c>, so a linear
+    ///         step of <c>1/255</c> is <c>9.67 × 255 / 255 ≈ 9.7</c> codes each side and one stored
+    ///         code is one. At <see cref="Highlight" /> the slope is <c>≈ 0.467</c>, so the same
+    ///         linear step is under half a code.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void OnAnSrgbTargetTheDitherIsOneStoredCodeAtBothEndsOfTheRange() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+
+        // The instrument: an undithered flat field is one code, so anything the dithered frames
+        // spread over is the noise and not the fixture.
+        Assert.Equal(1, Distinct(Render(owned, dither: false, PixelFormat.Rgba8UNormSrgb, Shadow), 0, Side));
+
+        var shadow = Range(Render(owned, dither: true, PixelFormat.Rgba8UNormSrgb, Shadow), 0, Side);
+        var highlight = Range(Render(owned, dither: true, PixelFormat.Rgba8UNormSrgb, Highlight), 0, Side);
+
+        Assert.True(
+            shadow <= 5,
+            $"the dither spans {shadow} stored codes at a linear {Shadow}, where about two is one code "
+            + "either side. A step sized in linear units is about nine and a half codes each side "
+            + "there — see `Vignette.rvn`'s `DitherStep`, and `VignetteRenderer.Configure`, which is "
+            + "what chooses the variant from the attachment format."
+        );
+
+        Assert.True(
+            highlight >= 2,
+            $"the dither spans {highlight} stored codes at a linear {Highlight}, so it cannot carry a "
+            + "value across the step beside it and the banding survives at reduced contrast. Under a "
+            + "step sized in linear units this end is where the noise is too small."
+        );
+    }
+
+    /// <summary>The peak-to-peak spread of the red channel over a column band, in codes.</summary>
+    static int Range(in Bitmap image, int from, int to) {
+        var low = 255;
+        var high = 0;
+
+        for (var y = 0; y < image.Height; y++) {
+            for (var x = from; x < to; x++) {
+                var value = image.Pixels[image.Offset(x, y)];
+
+                low = Math.Min(low, value);
+                high = Math.Max(high, value);
+            }
+        }
+
+        return high - low;
     }
 
     /// <summary>How many distinct red values a column band holds.</summary>

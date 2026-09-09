@@ -78,10 +78,22 @@ public enum MaskComposite {
 ///     <para>
 ///         ⚠ <b>Document pixels, and not the group's own UVs, because both executors have to arrive at
 ///         one number.</b> Every layer surface is the size of the viewport (see <see cref="UiLayer" />),
-///         so a composite quad's texture coordinate times the surface size <i>is</i> the document
-///         pixel — on the device and in <c>SoftwareUiRasterizer</c> alike. That leaves neither path an
+///         so a composite quad's texture coordinate times the surface size needs no origin subtracted
+///         — on the device and in <c>SoftwareUiRasterizer</c> alike. That leaves neither path an
 ///         origin to subtract and so neither can subtract it differently, which is the same argument
 ///         the viewport-sized surface was chosen for.
+///     </para>
+///     <para>
+///         ⚠ <b>That product is a <i>target texel</i> and this remark called it a document pixel until
+///         #1200.</b> A layer surface is <c>ceil(surface × scale)</c> — see <c>UiRenderer.Compose</c> —
+///         so on a 2× display the number the fragment recovers is twice the document pixel, and a mask
+///         evaluated at it was drawn at half size in the top-left quadrant of its element. The box
+///         stays in document pixels, because <c>UiRenderer.UploadGeometry</c> writes these entries
+///         before the scale is known; <c>ui-mask.frag</c> divides its point down instead, from a scale
+///         the host pushes beside the list. <c>SoftwareUiRasterizer</c> has no scale at all — it
+///         rasterises geometry units straight into the buffer — so the two agree wherever that
+///         renderer can be asked, which is a scale of one, and only a device fixture composing at two
+///         can see the difference.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>This does not commute with the Gaussian, and that is the one thing about it that is

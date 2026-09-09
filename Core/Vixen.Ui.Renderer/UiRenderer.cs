@@ -2534,19 +2534,30 @@ public sealed class UiRenderer : IDisposable {
             // in one frame to appear, and so survives every single-group test.
             var identity = matrix ?? UiColorMatrix.Identity;
 
-            // The packing `ui-mask.frag` declares: three matrix rows, then the index and the count.
+            // The packing `ui-mask.frag` declares: three matrix rows, then the index, the count and
+            // the scale.
             // ⚠ <b>The index is absolute within the buffer and carries this frame's own region with
             // it.</b> The binding covers the whole allocation rather than one frame's slice — a
             // ring of offsets would be a descriptor rewrite per frame on sets that are shared with
             // every image in the interface — so the arithmetic that picks the frame happens here,
             // once per masked draw, and `UploadGeometry` writes at the matching offset.
-            var corner = Corner(box);
+            //
+            // ⚠ <b>And the scale rides the third lane, which was documented as unused, because a
+            // mask entry is in document pixels and the surface is in target texels (#1200).</b>
+            // `UploadGeometry` writes the entries and is not told the scale — it runs before
+            // `Compose`, from a `Upload` overload that has no such parameter — so the box cannot be
+            // pre-multiplied the way `Corner` pre-multiplies the backdrop's. The fragment divides
+            // its point down instead, which costs one lane of a block that had two free and no
+            // change to any public signature. It is the *point* and not the box because a mask ramp
+            // has no antialiasing band to widen; see `Corner`, where the choice goes the other way
+            // for exactly that reason.
+            var corner = Corner(box, scale);
 
             Span<float> block = [
                 identity.Red.X, identity.Red.Y, identity.Red.Z, identity.Red.W,
                 identity.Green.X, identity.Green.Y, identity.Green.Z, identity.Green.W,
                 identity.Blue.X, identity.Blue.Y, identity.Blue.Z, identity.Blue.W,
-                (slot * MaskCapacity) + list.First, list.Count, 0f, 0f,
+                (slot * MaskCapacity) + list.First, list.Count, scale, 0f,
                 corner.CentreX, corner.CentreY, corner.HalfX, corner.HalfY,
                 corner.Radius, 0f, 0f, 0f
             ];
@@ -2565,7 +2576,7 @@ public sealed class UiRenderer : IDisposable {
             // clip itself to the previous draw's border box — a group that fades out at four corners
             // it does not have, in a frame that needs two composites to show it.
             var filter = matrix ?? UiColorMatrix.Identity;
-            var corner = Corner(box);
+            var corner = Corner(box, scale);
 
             Span<float> rows = [
                 filter.Red.X, filter.Red.Y, filter.Red.Z, filter.Red.W,
@@ -2637,25 +2648,56 @@ public sealed class UiRenderer : IDisposable {
     }
 
     /// <summary>A rounded backdrop's border box as the composite stages read it, or all zeros.</summary>
+    /// <param name="box">The border box in document pixels and its radius, or nothing.</param>
+    /// <param name="scale">Framebuffer pixels per document pixel, which the box is multiplied by.</param>
     /// <remarks>
-    ///     ⚠ <b>Centre and half rather than the rectangle's own origin and size, because that is what
-    ///     a signed distance wants and what <c>MaskEntry.box</c> beside it already carries.</b> Two
-    ///     records in one push block describing a box two different ways is how a transcription
-    ///     drifts. The radius rides its own <c>float4</c> and zero is the whole of the "not a rounded
-    ///     backdrop" test — see the block's remark in <c>ui-colour.frag</c> for why it must be a
-    ///     number that is pushed rather than a push that is skipped.
+    ///     <para>
+    ///         ⚠ <b>Centre and half rather than the rectangle's own origin and size, because that is
+    ///         what a signed distance wants and what <c>MaskEntry.box</c> beside it already
+    ///         carries.</b> Two records in one push block describing a box two different ways is how a
+    ///         transcription drifts. The radius rides its own <c>float4</c> and zero is the whole of
+    ///         the "not a rounded backdrop" test — see the block's remark in <c>ui-colour.frag</c> for
+    ///         why it must be a number that is pushed rather than a push that is skipped.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Pre-multiplied by <paramref name="scale" />, so what the fragment reads is in
+    ///         <i>target texels</i> and not in document pixels — and that is a correction rather than
+    ///         a convention (#1200).</b> A layer surface is <c>ceil(surface × scale)</c> — see
+    ///         <see cref="Compose" /> — so <c>varying_texcoord × textureSize(source)</c> is a
+    ///         framebuffer pixel, whatever the two shaders' remarks used to claim. Pushing the box in
+    ///         document pixels therefore put every rounded backdrop at half size in the top-left
+    ///         quadrant of its own element on a 2× display, and nothing could see it because every
+    ///         fixture composes at a scale of one, where the two spaces are the same number.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The box is scaled rather than the point divided, and the antialiasing is the
+    ///         reason.</b> <c>backdrop_coverage</c> is <c>clamp(0.5 - d)</c>, a band one <i>unit of
+    ///         its own argument</i> wide, and it is a one-texel band only when that argument is a
+    ///         texel. Dividing the point down into document pixels instead would leave the curve in
+    ///         the right place with a band <paramref name="scale" /> texels wide — a soft edge that
+    ///         grows with the display, which is exactly the kind of near-miss a comparison at a scale
+    ///         of one cannot report. The mask list has no such choice and takes the other road; see
+    ///         <c>ui-mask.frag</c>.
+    ///     </para>
     /// </remarks>
     static (float CentreX, float CentreY, float HalfX, float HalfY, float Radius) Corner(
-        (Rectangle Box, float Radius)? box
+        (Rectangle Box, float Radius)? box,
+        float scale
     ) {
         if (box is not { Radius: > 0f } rounded) {
             return (0f, 0f, 0f, 0f, 0f);
         }
 
-        var halfX = rounded.Box.Width * 0.5f;
-        var halfY = rounded.Box.Height * 0.5f;
+        var halfX = rounded.Box.Width * 0.5f * scale;
+        var halfY = rounded.Box.Height * 0.5f * scale;
 
-        return (rounded.Box.X + halfX, rounded.Box.Y + halfY, halfX, halfY, rounded.Radius);
+        return (
+            (rounded.Box.X * scale) + halfX,
+            (rounded.Box.Y * scale) + halfY,
+            halfX,
+            halfY,
+            rounded.Radius * scale
+        );
     }
 
     /// <summary>Makes sure there is a surface per group, at the size the frame is being drawn at.</summary>

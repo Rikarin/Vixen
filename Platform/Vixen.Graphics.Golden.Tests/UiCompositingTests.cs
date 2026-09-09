@@ -84,6 +84,18 @@ public sealed class UiCompositingTests {
     /// </remarks>
     static readonly Color4 Background = new(0.08f, 0.09f, 0.11f, 1f);
 
+    /// <summary>What the two scaled fixtures clear to, so a coverage reads straight off the pixel.</summary>
+    /// <remarks>
+    ///     ⚠ Opaque black rather than <see cref="Background" /> for the arithmetic's sake: a composite
+    ///     is premultiplied source-over, so over a zero destination the stored value <i>is</i> the
+    ///     coverage times the group's own white, and a threshold can be written down instead of
+    ///     measured.
+    /// </remarks>
+    static readonly Color4 Black = new(0f, 0f, 0f, 1f);
+
+    /// <summary>Framebuffer pixels per document pixel in the two scaled fixtures.</summary>
+    const float Scale = 2f;
+
     /// <summary>
     ///     A translucent group with another inside it, both holding overlapping children, drawn twice.
     /// </summary>
@@ -1000,6 +1012,265 @@ public sealed class UiCompositingTests {
 
         return list;
     }
+
+    /// <summary>A document half the target's size, so a document pixel and a target texel differ.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every other fixture in this file composes at a scale of one, and that is what let
+    ///     #1200 sit in three shaders and one host for as long as it did.</b> At a scale of one a
+    ///     document pixel <i>is</i> a target texel, so a stage that confuses the two draws a correct
+    ///     picture and every comparison of the two executors agrees — including the comparison of a
+    ///     wrong device against a software renderer that has no scale at all and therefore cannot
+    ///     reproduce the mistake. Two is the smallest number that separates them.
+    /// </remarks>
+    const int Document = Side / 2;
+
+    /// <summary>The document rectangle the two scaled fixtures below build against.</summary>
+    static readonly Rectangle Scaled = new(0, 0, Document, Document);
+
+    /// <summary>A <c>mask-image</c> ramp keeps its place when the display scale is two.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A closed-form oracle and not a comparison, because the software renderer cannot
+    ///         answer this one.</b> <c>SoftwareUiRasterizer.Render</c> takes a width and a height and
+    ///         no scale — it rasterises geometry units straight into the buffer — so there is no
+    ///         second executor to disagree with here. What replaces it is arithmetic: the ramp is
+    ///         <c>1</c> at the mask box's left edge and <c>0</c> at its right, linearly, so the
+    ///         coverage at any column is a number this test can write down.
+    ///     </para>
+    ///     <para>
+    ///         The document is <see cref="Document" /> wide and the target is <see cref="Side" />, so
+    ///         a fragment at column <c>x</c> sits at document pixel <c>(x + 0.5) / 2</c> and the
+    ///         coverage there is <c>1 - (x + 0.5) / Side</c>. Over black, and with the group's own
+    ///         paint opaque white, that number <i>is</i> the pixel. ⚠ Before #1200 the fragment read
+    ///         the texel as the document pixel, which halves the ramp's reach: the coverage was
+    ///         <c>1 - (x + 0.5) / Document</c>, so the right half of the frame was clamped to zero and
+    ///         the whole ramp was squeezed into the left half — the "drawn at half scale in the
+    ///         top-left quadrant" the issue describes, in one dimension.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Three assertions rather than one, and the crossing is the one that cannot be
+    ///         satisfied by a fixture that failed to mask at all.</b> An unmasked group is a flat
+    ///         white frame: it has no column where the value falls through half, so
+    ///         <see cref="Crossing" /> runs off the end and returns the width. A group masked with
+    ///         the wrong point has one, at half the right column. And the counter above them says the
+    ///         mask reached the draw, which neither pixel can distinguish from a ramp that happened
+    ///         to land there.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AMaskRampIsPlacedInDocumentPixelsWhenTheDisplayScaleIsTwo() {
+        if (!TryOpen(out var fixture, out _)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var colour = owned.ColourTarget("ui-mask-scaled");
+
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var geometry = new UiGeometryBuilder().Build(ScaledRamp(), cache, Scaled);
+
+        // The instrument: one group, and it carries the one mask entry the arithmetic below is about.
+        var layer = Assert.Single(geometry.Layers);
+
+        Assert.Equal(1, layer.MaskCount);
+
+        var renderer = Renderer(owned);
+
+        owned.Graph.AddPass("ui-mask-scaled", pass => {
+            pass.ColourAttachment(colour, LoadAction.Clear, Black);
+            pass.SideEffect();
+            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Document, Document), Scale));
+        });
+
+        var rendered = owned.Render(
+            colour,
+            commands => {
+                renderer.Upload(commands, geometry, cache.Atlas);
+                renderer.Compose(commands, geometry, new Int2(Document, Document), Scale, new UiBackdropSource(Black));
+            }
+        );
+
+        // ⚠ The second instrument. A composite that took the image pipeline draws an unmasked white
+        // frame, which has no crossing at all — but nor would a blank one, and this is what tells
+        // those two apart.
+        Assert.Equal(1, renderer.Composited);
+        Assert.Equal(1, renderer.Masked);
+
+        var row = Side / 2;
+
+        // The ramp reaches all the way across the frame, so its half-coverage column is the middle of
+        // the target and not the middle of the document. Half of this is the defect.
+        Assert.InRange(Crossing(rendered, row), (Side / 2) - 1, (Side / 2) + 1);
+
+        // And two named columns, because a crossing is one number and a ramp is a shape: a coverage
+        // that had already reached zero left of the last column would still cross in the right place.
+        Assert.InRange(Red(rendered, Side / 4, row), 186, 194);
+        Assert.InRange(Red(rendered, Side * 3 / 4, row), 59, 67);
+    }
+
+    /// <summary>A rounded backdrop keeps its curve when the display scale is two.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The other half of #1200, and it is in the host rather than in the fragment.</b>
+    ///         <c>UiRenderer.Corner</c> pre-multiplies the border box by the frame's scale, because
+    ///         <c>backdrop_coverage</c>'s band is one unit of its own argument wide and only a box in
+    ///         target texels keeps that one texel. Unscaled, the disc below has half its radius and
+    ///         sits at a quarter of the frame — so the point this test reads, which is comfortably
+    ///         inside the correct curve, falls outside the wrong one and the glass is not there at
+    ///         all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A disc rather than a rounded rectangle, so that the assertion is about a place
+    ///         and not about a corner's antialiasing.</b> The radius is half the box, which CSS's own
+    ///         clamp leaves untouched, and the point read is sixty texels above the centre of a
+    ///         sixty-four-texel disc — four texels inside the curve when the box is scaled and thirty
+    ///         outside it when it is not. Nothing here depends on where the band falls.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And the field is magenta under an <c>invert(1)</c>, so "the backdrop drew" and "the
+    ///         backdrop did not" differ in a channel that is full in one and empty in the other
+    ///         rather than in one a rounding could move.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ARoundedBackdropIsPlacedInTargetTexelsWhenTheDisplayScaleIsTwo() {
+        if (!TryOpen(out var fixture, out _)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var colour = owned.ColourTarget("ui-backdrop-scaled");
+
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var geometry = new UiGeometryBuilder().Build(ScaledDisc(), cache, Scaled);
+
+        // The instrument: the group asked for a backdrop and the radius survived the builder's clamp.
+        var layer = Assert.Single(geometry.Layers);
+
+        Assert.NotNull(layer.Backdrop);
+        Assert.Equal(Document / 2f, layer.BackdropRadius, 3);
+
+        var renderer = Renderer(owned);
+
+        owned.Graph.AddPass("ui-backdrop-scaled", pass => {
+            pass.ColourAttachment(colour, LoadAction.Clear, Black);
+            pass.SideEffect();
+            pass.Execute(context => renderer.Record(context.CommandList, geometry, new(Document, Document), Scale));
+        });
+
+        var rendered = owned.Render(
+            colour,
+            commands => {
+                renderer.Upload(commands, geometry, cache.Atlas);
+                renderer.Compose(commands, geometry, new Int2(Document, Document), Scale, new UiBackdropSource(Black));
+            }
+        );
+
+        // The capture ran and nothing went out square, so what is read below is the rounded path.
+        Assert.Equal(1, renderer.Backdropped);
+        Assert.Equal(0, renderer.SquareBackdrops);
+
+        // Four texels inside the top of the correct disc, thirty outside the unscaled one. An
+        // inverted magenta field is green; the field itself has no green in it at all.
+        Assert.InRange(Green(rendered, Side / 2, 4), 128, 255);
+    }
+
+    /// <summary>The renderer the scaled fixtures use, with every composite stage handed over.</summary>
+    static UiRenderer Renderer(Fixture owned) {
+        var renderer = new UiRenderer(
+            owned.Device,
+            new(
+                owned.Shader("ui.vert.spv", ShaderStage.Vertex),
+                owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+                owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+            ) {
+                Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment),
+                Blur = owned.Shader("ui-blur.frag.spv", ShaderStage.Fragment),
+                Colour = owned.Shader("ui-colour.frag.spv", ShaderStage.Fragment),
+                Mask = owned.Shader("ui-mask.frag.spv", ShaderStage.Fragment)
+            },
+            new Rendering.RenderOutput([PixelFormat.Rgba8UNorm])
+        );
+
+        owned.Owns(renderer.Dispose);
+
+        return renderer;
+    }
+
+    /// <summary>An opaque white group over the whole document, under a ramp from one to zero.</summary>
+    static DrawList ScaledRamp() {
+        var list = new DrawList();
+        list.BeginFrame();
+
+        var mask = new[] { Ramp(0, 0, Document, Document, 1f, 0f) };
+
+        list.Add(
+            new DrawCommand(DrawCommandKind.LayerPush, 0, 0, Document, Document, Color4.White, 0, 0) {
+                Offset = list.AddMasks(mask),
+                Length = mask.Length
+            }
+        );
+
+        list.Add(new(DrawCommandKind.Rectangle, 0, 0, Document, Document, Color4.White, 0, 0));
+        list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+        list.EndFrame();
+
+        return list;
+    }
+
+    /// <summary>A magenta field with an inverting disc of glass over the whole of it.</summary>
+    static DrawList ScaledDisc() {
+        var list = new DrawList();
+        list.BeginFrame();
+
+        list.Add(new(DrawCommandKind.Rectangle, 0, 0, Document, Document, new Color4(1f, 0f, 1f, 1f), 0, 0));
+
+        list.Add(
+            new DrawCommand(
+                DrawCommandKind.LayerPush,
+                0,
+                0,
+                Document,
+                Document,
+                Color4.White,
+                Document / 2f,
+                0
+            ) {
+                Backdrop = new UiBackdrop(0f, 1f, UiColorMatrix.Invert(1f))
+            }
+        );
+
+        list.Add(
+            new(DrawCommandKind.Rectangle, 0, 0, Document, Document, new Color4(1f, 1f, 1f, 0.25f), Document / 2f, 0)
+        );
+
+        list.Add(new(DrawCommandKind.LayerPop, 0, 0, 0, 0, Color4.White, 0, 0));
+        list.EndFrame();
+
+        return list;
+    }
+
+    /// <summary>The first column of a row whose red channel has fallen below half.</summary>
+    /// <remarks>
+    ///     ⚠ Returns the width when there is none, which is what makes an unmasked frame fail the
+    ///     range rather than pass it by accident.
+    /// </remarks>
+    static int Crossing(Bitmap bitmap, int row) {
+        for (var x = 0; x < bitmap.Width; x++) {
+            if (Red(bitmap, x, row) < 128) {
+                return x;
+            }
+        }
+
+        return bitmap.Width;
+    }
+
+    /// <summary>One pixel's red channel.</summary>
+    static int Red(Bitmap bitmap, int x, int y) => bitmap.Pixels[bitmap.Offset(x, y)];
+
+    /// <summary>One pixel's green channel.</summary>
+    static int Green(Bitmap bitmap, int x, int y) => bitmap.Pixels[bitmap.Offset(x, y) + 1];
 
     /// <summary>The three colour channels at the centre of the fixture.</summary>
     static (int Red, int Green, int Blue) Middle(Bitmap bitmap) {

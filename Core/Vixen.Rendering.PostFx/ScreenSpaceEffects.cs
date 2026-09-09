@@ -235,13 +235,15 @@ public sealed class VignetteRenderer() : PostEffectRenderer(
     ///         ten-bit output is a different number here and not a different shader.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It divides the value the shader outputs, which is one stored code only on a target
-    ///         with no transfer curve.</b> Against an <see cref="PixelFormat.Rgba8UNormSrgb" />
-    ///         attachment — which is <see cref="VignetteAsset" />'s own default — the hardware encodes
-    ///         on the way out, so a stored code is a linear step that changes size across the range,
-    ///         and a fixed <c>1/255</c> is far too much noise in the shadows and too little in the
-    ///         highlights. Correcting that needs the curve's local slope, which this pass does not
-    ///         carry, so a linear target is the case it is right for today.
+    ///         ⚠ <b>It counts codes of the <em>stored</em> value, and what one of those is worth in
+    ///         the units the shader writes depends on the target.</b> Against an
+    ///         <see cref="PixelFormat.Rgba8UNormSrgb" /> attachment — which is
+    ///         <see cref="VignetteAsset" />'s own default — the hardware encodes on the way out, so a
+    ///         stored code is a linear step that changes size across the range by a factor of
+    ///         forty-five. That is not this number's business: <see cref="Configure" /> sets a
+    ///         variant from <see cref="PostEffectRenderer.Format" /> and the shader divides by the
+    ///         curve's local slope. ⚠ The remark here said the sRGB case was simply not handled, and
+    ///         it was true until #1181.
     ///     </para>
     /// </remarks>
     public float DitherLevels { get; set; } = 255f;
@@ -289,6 +291,20 @@ public sealed class VignetteRenderer() : PostEffectRenderer(
         parameters.Set(VignetteKeys.UseGrain, UseGrain);
         parameters.Set(VignetteKeys.LuminanceWeightedGrain, LuminanceWeightedGrain);
         parameters.Set(VignetteKeys.UseDither, UseDither);
+
+        // ⚠ <b>From the attachment format rather than from an authored flag, because it is a fact
+        // about the target and not a preference.</b> <see cref="DitherLevels" /> counts codes of the
+        // <em>stored</em> value; on an sRGB attachment the hardware encodes on the way out, so one
+        // of those codes is a linear step that changes size by a factor of forty-five across the
+        // range and a fixed <c>1/255</c> is noise in the highlights and a surviving band in the
+        // shadows. The variant divides by the curve's local slope instead — see
+        // <c>Vignette.rvn</c>'s <c>DitherStep</c>.
+        //
+        // ⚠ Unconditional rather than gated on <see cref="UseDither" />, for the reason every other
+        // permutation here is: a key a variant declares and a frame does not set takes the
+        // <c>.rvn</c> default, and a host that set it only on the frames that dither would compile
+        // two variants where one is enough.
+        parameters.Set(VignetteKeys.SrgbTarget, Format.IsSrgb());
 
         parameters.Set(
             VignetteKeys.VignetteIntensity,

@@ -845,9 +845,18 @@ expensive items are.
    door — which is why five audits called this unphotographable. `RenderLinear` is the same frame
    with that store not taken, and `HudLuminanceTests` reads the defect out of it as an order rather
    than a threshold: a panel CSS calls white comes out at 1 cd/m² against a wall at 100, one code
-   value from a buffer nothing was drawn into, and at BT.2408's white it is 255. What is still owed
-   is the *device* executor's half of the same picture and a production host to mount a HUD at all.
-   See #670 and #627.
+   value from a buffer nothing was drawn into, and at BT.2408's white it is 255.
+   ⚠ **The device executor's half landed on 2026-09-10 and it needed no reference image.**
+   `HudLuminanceDeviceTests` renders the same fixture through `UiRenderer` into an `Rgba32Float`
+   attachment cleared to the wall and reads the floats back, so the assertion is the same order and
+   the same two magnitudes the software fixture makes — 1 cd/m² against 100 at a white level of one,
+   203 against 100 at BT.2408's. A float attachment is the device's `RenderLinear`: the eight-bit
+   target every other fixture in that suite uses is what made the two frames byte-identical, not the
+   absence of a GPU. Sabotage: clamping `WhiteLevel` to one inside `Lit` reds it at
+   `Expected: 203 / Actual: 1`.
+   What is still owed is a production host to mount a HUD at all — nothing in the tree mounts a
+   `UiDocument` in a world renderer's frame, so `UiRenderFeature.Dim` has a test and no production
+   reader. See #670 and #627.
 3. ⚠ **`prefers-color-scheme` is built and never fed.** The query works (`MediaQuery.cs:146,151`),
    the property exists per surface (`UiSurface.cs:152`, `Media.cs:80`), and **the only writers in the
    tree are two test files**. No platform assembly reads the OS appearance. The editor hides this by
