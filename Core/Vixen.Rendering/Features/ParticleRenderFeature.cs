@@ -68,6 +68,14 @@ public struct ParticleDraw {
 ///         shadow caster, so particles should not be in a shadow stage. The GPU path removes the
 ///         limitation rather than working around it, which is why it is not worked around here.
 ///     </para>
+///     <para>
+///         ⚠ <b>Once per <em>frame</em>, and it has been described as "once per view" — including in
+///         the issue tracking the fix.</b> The difference is the whole symptom: a second view does not
+///         pay for a second expansion, it draws the first view's geometry. Every draw involved is
+///         valid, so no command, counter or validation message distinguished the two cases until
+///         <see cref="ViewsFacingElsewhere" />, which is what says the limitation is biting this
+///         frame.
+///     </para>
 /// </remarks>
 public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
     readonly List<VfxSystem?> systems = [];
@@ -117,6 +125,45 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
 
     /// <summary>The view the quads are built to face, or null for the first one.</summary>
     public RenderView? View { get; set; }
+
+    /// <summary>Which view this frame's quads were actually built to face, or null if none were.</summary>
+    /// <remarks>
+    ///     <see cref="View" /> is what a host asked for and this is what it resolved to, which are
+    ///     different on the frame a host set nothing: the first view of the system, whichever that is.
+    ///     Read by <see cref="ViewsFacingElsewhere" /> and worth reading beside it.
+    /// </remarks>
+    public RenderView? ExpandedFor { get; private set; }
+
+    /// <summary>
+    ///     How many other views will draw this frame's quads, which face
+    ///     <see cref="ExpandedFor" /> and not them.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The number that says the one-expansion limitation is biting, and there was none.</b>
+    ///         A billboard is expanded once per <em>frame</em> — against <see cref="ExpandedFor" /> —
+    ///         and every other view draws those same quads, so a second view gets geometry built for
+    ///         somebody else's camera. In a reflection nobody inspects closely that is a saving; in a
+    ///         shadow cascade it is a sheet of quads edge-on to the light, and in a second editor pane
+    ///         it is a puff of smoke facing the wrong way. Nothing said which was happening, because
+    ///         every draw involved is perfectly valid — see
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/86" />.
+    ///     </para>
+    ///     <para>
+    ///         <b>Computed in <see cref="Prepare" /> from the masks rather than counted in
+    ///         <see cref="Draw" />.</b> A view draws a stage its own mask names, and this frame's
+    ///         camera-facing objects name theirs, so the intersection answers the question before a
+    ///         command list exists — which is what lets it be reported beside the light budget rather
+    ///         than after the frame that had the problem.
+    ///     </para>
+    ///     <para>
+    ///         Reported rather than prevented. Refusing the draw would make a reflection lose its
+    ///         particles to fix a shadow that should not have had them, and the actual fix is the
+    ///         expansion moving to the GPU, where a vertex stage faces whichever view is drawing.
+    ///         Mesh-renderer effects take no part: an instanced mesh is not built to face anything.
+    ///     </para>
+    /// </remarks>
+    public int ViewsFacingElsewhere { get; private set; }
 
     /// <summary>
     ///     Which vertex layout <see cref="ParticleVertex" /> is, as an index into the describer's
@@ -316,6 +363,9 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
         LastParticleCount = 0;
         quads = 0;
         lightEffects = 0;
+        ViewsFacingElsewhere = 0;
+
+        var facingStages = RenderStageMask.None;
 
         var draws = system.Objects.Data.Data(Draws);
         var indicesData = system.Objects.Data.Data(SystemIndices);
@@ -385,8 +435,16 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
             if (draws[index].Kind == VfxRendererKind.Billboard) {
                 quads += draws[index].ParticleCount;
             }
+
+            // Which stages this frame's camera-facing geometry is in, so the views that will draw it
+            // can be counted below. A mesh effect is left out on purpose: its instances carry a
+            // transform and face nothing, so a second view drawing them is correct.
+            if (draws[index].Kind != VfxRendererKind.Mesh) {
+                facingStages |= system.Objects[id].Stages;
+            }
         }
 
+        CountForeignViews(system, facingStages);
         ReportLights();
 
         if (facing is null) {
@@ -398,6 +456,29 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
         strips.Upload();
 
         EnsureIndices();
+    }
+
+    /// <summary>
+    ///     Counts the views that will draw this frame's quads without being the one they face.
+    /// </summary>
+    /// <param name="system">The render system.</param>
+    /// <param name="facingStages">Which stages hold camera-facing geometry this frame.</param>
+    /// <remarks>
+    ///     ⚠ <b>A view is counted for what it is <em>going</em> to draw, which is the only moment the
+    ///     answer is useful.</b> By the time a command list has the quads in it every draw is valid
+    ///     and nothing about it says the geometry faces somebody else's camera — see
+    ///     <see cref="ViewsFacingElsewhere" />.
+    /// </remarks>
+    void CountForeignViews(RenderSystem system, RenderStageMask facingStages) {
+        if (facingStages.IsEmpty || ExpandedFor is null) {
+            return;
+        }
+
+        foreach (var view in system.Views) {
+            if (!ReferenceEquals(view, ExpandedFor) && view.Stages.Intersects(facingStages)) {
+                ViewsFacingElsewhere++;
+            }
+        }
     }
 
     /// <summary>Says whether this frame's light effects reached the light list, and what it cost.</summary>
@@ -695,14 +776,21 @@ public sealed class ParticleRenderFeature : RootRenderFeature, IDisposable {
         }
     }
 
-    /// <summary>The camera the quads are built to face.</summary>
+    /// <summary>The camera the quads are built to face, recording which view it belongs to.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="ExpandedFor" /> is assigned here rather than beside the call.</b> Which
+    ///     view is used is <c>View ?? Views[0]</c>, and a second copy of that expression is a second
+    ///     place to change — which is how a counter comes to disagree with the thing it counts.
+    /// </remarks>
     VfxCamera? Camera(RenderSystem system) {
         var view = View ?? (system.Views.Count > 0 ? system.Views[0] : null);
 
         if (view?.Camera is not { } camera) {
+            ExpandedFor = null;
             return null;
         }
 
+        ExpandedFor = view;
         return VfxCamera.Looking(camera.Position, camera.Forward, camera.Up);
     }
 

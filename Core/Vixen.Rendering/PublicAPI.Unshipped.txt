@@ -2044,6 +2044,7 @@ Vixen.Rendering.Features.ParticleRenderFeature.Device.get -> Vixen.Graphics.IGra
 Vixen.Rendering.Features.ParticleRenderFeature.Device.set -> Vixen.Graphics.IGraphicsDevice?
 Vixen.Rendering.Features.ParticleRenderFeature.Dispose() -> void
 Vixen.Rendering.Features.ParticleRenderFeature.Draws.get -> Vixen.Rendering.RenderDataKey<Vixen.Rendering.Features.ParticleDraw>
+Vixen.Rendering.Features.ParticleRenderFeature.ExpandedFor.get -> Vixen.Rendering.RenderView?
 Vixen.Rendering.Features.ParticleRenderFeature.LastParticleCount.get -> int
 Vixen.Rendering.Features.ParticleRenderFeature.LightEffects.get -> int
 Vixen.Rendering.Features.ParticleRenderFeature.Lights.get -> System.Collections.Generic.IList<Vixen.Rendering.RenderLight>?
@@ -2063,6 +2064,7 @@ Vixen.Rendering.Features.ParticleRenderFeature.VertexLayout.get -> int
 Vixen.Rendering.Features.ParticleRenderFeature.VertexLayout.set -> int
 Vixen.Rendering.Features.ParticleRenderFeature.View.get -> Vixen.Rendering.RenderView?
 Vixen.Rendering.Features.ParticleRenderFeature.View.set -> Vixen.Rendering.RenderView?
+Vixen.Rendering.Features.ParticleRenderFeature.ViewsFacingElsewhere.get -> int
 Vixen.Rendering.Features.PermutationKeyDictionary -> sealed class
 Vixen.Rendering.Features.PermutationKeyDictionary : System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, System.Collections.Generic.IReadOnlyList<Vixen.Shaders.ParameterKey>>>
 Vixen.Rendering.Features.PermutationKeyDictionary : System.Collections.Generic.IReadOnlyCollection<System.Collections.Generic.KeyValuePair<string, System.Collections.Generic.IReadOnlyList<Vixen.Shaders.ParameterKey>>>

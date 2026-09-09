@@ -494,4 +494,94 @@ public class ParticleRenderFeatureTests : IDisposable {
         Assert.Equal(2, device.Recorder!.OfKind(RecordedCommandKind.DrawIndexed).Count);
         Assert.Equal(10, h.Particles.LastParticleCount);
     }
+
+    // --- One expansion, several views ---------------------------------------
+
+    /// <summary>One view drawing the quads it faces reports nothing.</summary>
+    /// <remarks>
+    ///     The half that keeps <see cref="ParticleRenderFeature.ViewsFacingElsewhere" /> from being a
+    ///     predicate that is always true. A frame with one camera is every frame this engine has
+    ///     shipped, and it must read zero.
+    /// </remarks>
+    [Fact]
+    public void OneViewDrawsTheQuadsItFaces() {
+        using var h = Build();
+        using var effect = Effect(5);
+
+        AddEffect(h, effect, new Material("Particle"));
+
+        Record(h);
+
+        Assert.Same(h.Camera, h.Particles.ExpandedFor);
+        Assert.Equal(0, h.Particles.ViewsFacingElsewhere);
+    }
+
+    /// <summary>
+    ///     A second view drawing the same stage is drawing quads built for the first one, and says so.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The expansion is once per <em>frame</em>, not once per view</b> — which is the
+    ///         opposite of what [#86](https://github.com/Rikarin/Vixen/issues/86) and
+    ///         <c>docs/overview.md</c> both said, and it changes the symptom from "a second view costs
+    ///         a second expansion" to "a second view draws geometry facing somebody else's camera".
+    ///         In a reflection that is a saving; in a shadow cascade it is a sheet of quads edge-on to
+    ///         the light.
+    ///     </para>
+    ///     <para>
+    ///         Asserted on the count rather than on a picture because the draws are all valid: there
+    ///         is no command, no counter and no validation message that differs between the two cases,
+    ///         which is exactly why the limitation was invisible.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ASecondViewOfTheSameStageIsDrawingSomebodyElsesQuads() {
+        using var h = Build();
+        using var effect = Effect(5);
+
+        AddEffect(h, effect, new Material("Particle"));
+
+        var reflection = new RenderView("reflection") {
+            Stages = h.Transparent.Mask,
+            Position = new(0f, 0f, 10f),
+            Camera = new(new(0f, 0f, 10f), -Vector3.UnitZ, Vector3.UnitY, MathF.PI / 3f, 1f, 0.1f, 1000f),
+            Frustum = h.Camera.Frustum
+        };
+
+        h.System.SetViews([h.Camera, reflection]);
+
+        Record(h);
+
+        Assert.Same(h.Camera, h.Particles.ExpandedFor);
+        Assert.Equal(1, h.Particles.ViewsFacingElsewhere);
+    }
+
+    /// <summary>A second view that draws no stage of this feature's is not counted.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What makes the number about this frame rather than about the view list.</b> The
+    ///     established advice is that particles are kept out of shadow stages precisely because of
+    ///     this limitation — so a frame that took the advice has a shadow view in
+    ///     <c>system.Views</c> and no problem, and a counter that read the view count would report one
+    ///     anyway and be ignored from then on.
+    /// </remarks>
+    [Fact]
+    public void AViewThatDrawsNoneOfTheseStagesIsNotCounted() {
+        using var h = Build();
+        using var effect = Effect(5);
+
+        AddEffect(h, effect, new Material("Particle"));
+
+        var cascade = new RenderView("cascade") {
+            Stages = RenderStageMask.None,
+            Position = new(0f, 10f, 0f),
+            Camera = new(new(0f, 10f, 0f), -Vector3.UnitY, Vector3.UnitZ, MathF.PI / 3f, 1f, 0.1f, 1000f),
+            Frustum = h.Camera.Frustum
+        };
+
+        h.System.SetViews([h.Camera, cascade]);
+
+        Record(h);
+
+        Assert.Equal(0, h.Particles.ViewsFacingElsewhere);
+    }
 }
