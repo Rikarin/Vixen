@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 using Vixen.Graphics;
+using Vixen.Rendering.Diagnostics;
 using Vixen.Shaders;
 
 namespace Vixen.Rendering.Features;
@@ -84,6 +86,51 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
 
     /// <inheritdoc cref="DrawCount" />
     public long IndexCount { get; private set; }
+
+    /// <summary>
+    ///     How many draws were refused because the effect declares the bindless table's set and no
+    ///     table was bound.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A five-set pipeline layout cannot be drawn with four sets bound</b>, so this
+    ///         counts a draw that did not happen rather than one that did. The pair it belongs with
+    ///         is <see cref="DrawCount" />: a stage whose draws all landed here recorded nothing, and
+    ///         nothing else in the frame says which of the two it was.
+    ///     </para>
+    ///     <para>
+    ///         The combination is a host's, never a material's:
+    ///         <c>docs/plan/23-bindless-materials.md</c> — "a binding is in the plan because it was
+    ///         declared" — so a variant compiled with the table declares set 4 whatever the device
+    ///         went on to provide. <see cref="MaterialRenderFeature.Textures" /> is what provides it,
+    ///         and <c>WorldRenderer</c> creates one only under
+    ///         <see cref="Graphics.GraphicsDeviceFeatures.HasBindless" />.
+    ///     </para>
+    ///     <para>
+    ///         A running total, on <see cref="DrawCount" />'s terms rather than
+    ///         <see cref="MaterialRenderFeature.UnresolvedTextureCount" />'s: an unresolved texture
+    ///         is a gauge that falls as a level streams in, and this is a fault that does not heal
+    ///         within a frame — the table is created once, at construction, or never.
+    ///     </para>
+    /// </remarks>
+    public long RefusedTableDrawCount { get; private set; }
+
+    /// <summary>Where <see cref="RefusedTableDrawCount" /> is said out loud. Optional.</summary>
+    /// <remarks>
+    ///     Optional because every other degrade in this layer is: a feature is constructed by a host
+    ///     that may have no logging at all, and a counter is the record either way. Set it and the
+    ///     first refused draw of each degrade names the effect and the stage — see
+    ///     <c>docs/manual/log-events.md</c> 4005.
+    /// </remarks>
+    public ILogger? Logger { get; set; }
+
+    /// <summary>Whether the refusal has already been logged for the degrade that is running.</summary>
+    /// <remarks>
+    ///     Once per degrade and not once per draw, which is the shape
+    ///     <c>SceneLighting.LightingCameraMissing</c> established: a frame that refuses ten thousand
+    ///     draws is one line, and a table that arrives and goes away again is two.
+    /// </remarks>
+    bool reportedNoTable;
 
     /// <inheritdoc />
     protected internal override void Initialize(RenderSystem system) =>
@@ -188,6 +235,12 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
         var instances = SubFeatures.OfType<IInstanceSource>().FirstOrDefault();
         var transforms = SubFeatures.OfType<ITransformRecordSource>().FirstOrDefault();
 
+        // Cleared while there is a table, so a degrade that ends and returns is two lines rather than
+        // one — the same once-per-degrade shape, and the same reason, as SceneLighting's camera.
+        if (materials is { Textures.Set.IsValid: true }) {
+            reportedNoTable = false;
+        }
+
         var boundPipeline = default(PipelineHandle);
         var boundDescriptors = default(DescriptorSetHandle);
         var boundVertices = default(BufferHandle);
@@ -244,6 +297,33 @@ public sealed class MeshRenderFeature : RootRenderFeature, Compositor.IDrawArgum
             // it with. Skipped rather than drawn with whatever was bound last, which would put one
             // object's shader on another's geometry — an image that is wrong rather than absent.
             if (materials?.EffectOf(system, node.Object, stage) is not { } effect) {
+                continue;
+            }
+
+            // ⚠ **A five-set pipeline layout cannot be drawn with four sets bound.** An effect that
+            // declares the table's set declares it because the material feature was composed with
+            // one — doc 23's "a binding is in the plan because it was declared" — and nothing about
+            // authoring or compiling that material asks whether the *host* has a table. The two come
+            // apart wherever `WorldRenderer` skipped the table: every device without
+            // `HasBindless`, which is GL, GLES, WebGL2 and MoltenVK below argument-buffer tier 2.
+            //
+            // ⚠ Refused rather than recorded, and this is the one place the difference is visible.
+            // The bind below is conditional on the table existing, so without this the draw is
+            // issued against a layout it cannot satisfy — a validation error on a real device and
+            // undefined sampling where the validation is off, which is the outcome doc 23 § *The one
+            // thing left* asks for a guard against.
+            //
+            // ⚠ And a refusal that says nothing is the other failure this repository knows well, so
+            // the skip is counted for the frame and named once per degrade. A mesh missing with a
+            // healthy `DrawCount` is what `RefusedTableDrawCount` exists to separate.
+            if (HasBindlessSet(effect) && materials.Textures is not { Set.IsValid: true }) {
+                RefusedTableDrawCount++;
+
+                if (Logger is { } log && !reportedNoTable) {
+                    reportedNoTable = true;
+                    RenderingLog.BindlessTableMissing(log, effect.Key.ShaderName, stage.Name);
+                }
+
                 continue;
             }
 

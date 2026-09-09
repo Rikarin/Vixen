@@ -4,7 +4,7 @@ slug: rendering/mesh-and-material
 kind: concept
 area: Rendering
 summary: Neither word names a type — each names a chain of them, one per stage, plus four subsystems that borrowed the same word.
-api: [T:Vixen.Rendering.MeshData, T:Vixen.Rendering.MeshDraw, T:Vixen.Rendering.Material, T:Vixen.Rendering.MeshPrimitives, T:Vixen.Rendering.MeshRenderer, T:Vixen.Rendering.MeshInstanceRenderer, T:Vixen.Rendering.MaterialRecords, T:Vixen.Rendering.Materials.MaterialDescriptor, T:Vixen.Rendering.Materials.MaterialContent, T:Vixen.Rendering.Materials.MaterialTexture, T:Vixen.Rendering.Materials.MaterialCompiler, T:Vixen.Rendering.Materials.MaterialCompilation, T:Vixen.Rendering.Materials.IMaterialFeature, T:Vixen.Rendering.Materials.MaterialFeatureStage, T:Vixen.Rendering.Materials.TexturedNormalMapFeature, T:Vixen.Rendering.Materials.TexturedOrmFeature, T:Vixen.Rendering.Materials.TexturedEmissiveFeature, T:Vixen.Rendering.Materials.TexturedOpacityFeature, T:Vixen.Rendering.Materials.TexturedMaterialLayersFeature, T:Vixen.Rendering.Materials.ParallaxOcclusionFeature, T:Vixen.Rendering.Materials.GraphSurfaceFeature, T:Vixen.Rendering.Materials.GraphSurfaceNumber, T:Vixen.Rendering.Materials.GraphSurfaceVector, T:Vixen.Rendering.Materials.GraphSurfaceMap, T:Vixen.Rendering.Materials.IMaterialShading, T:Vixen.Rendering.Materials.MaterialShading, T:Vixen.Rendering.Materials.MaterialSurface, T:Vixen.Rendering.Ecs.MeshRenderable, T:Vixen.Rendering.Ecs.MeshRenderables, T:Vixen.Rendering.Ecs.PrimitiveShape, T:Vixen.Rendering.Ecs.MeshExtractionSystem, T:Vixen.Rendering.Ecs.IMeshSource, T:Vixen.Rendering.Ecs.IMaterialSource, T:Vixen.Rendering.Ecs.ISurfaceSource, T:Vixen.Rendering.Features.MeshRenderFeature, T:Vixen.Rendering.Features.MaterialRenderFeature, T:Vixen.Rendering.Features.PermutationKeyDictionary, T:Vixen.Engine.Renderer.AssetMeshSource, T:Vixen.Engine.Renderer.AssetMaterialSource, T:Vixen.Editor.Assets.Content.ProjectMeshSource, T:Vixen.Editor.Assets.Content.ProjectSurfaceSource, T:Vixen.Editor.Assets.Materials.MaterialImporter, T:Vixen.Editor.AssetEditors.Materials.MaterialAsset]
+api: [T:Vixen.Rendering.MeshData, T:Vixen.Rendering.MeshDraw, T:Vixen.Rendering.Material, T:Vixen.Rendering.MeshPrimitives, T:Vixen.Rendering.MeshRenderer, T:Vixen.Rendering.MeshInstanceRenderer, T:Vixen.Rendering.MaterialRecords, T:Vixen.Rendering.Materials.MaterialDescriptor, T:Vixen.Rendering.Materials.MaterialContent, T:Vixen.Rendering.Materials.MaterialTexture, T:Vixen.Rendering.Materials.MaterialCompiler, T:Vixen.Rendering.Materials.MaterialCompilation, T:Vixen.Rendering.Materials.IMaterialFeature, T:Vixen.Rendering.Materials.MaterialFeatureStage, T:Vixen.Rendering.Materials.TexturedNormalMapFeature, T:Vixen.Rendering.Materials.TexturedOrmFeature, T:Vixen.Rendering.Materials.TexturedEmissiveFeature, T:Vixen.Rendering.Materials.TexturedOpacityFeature, T:Vixen.Rendering.Materials.TexturedMaterialLayersFeature, T:Vixen.Rendering.Materials.ParallaxOcclusionFeature, T:Vixen.Rendering.Materials.GraphSurfaceFeature, T:Vixen.Rendering.Materials.GraphSurfaceNumber, T:Vixen.Rendering.Materials.GraphSurfaceVector, T:Vixen.Rendering.Materials.GraphSurfaceMap, T:Vixen.Rendering.Materials.IMaterialShading, T:Vixen.Rendering.Materials.MaterialShading, T:Vixen.Rendering.Materials.MaterialSurface, T:Vixen.Rendering.Ecs.MeshRenderable, T:Vixen.Rendering.Ecs.MeshRenderables, T:Vixen.Rendering.Ecs.PrimitiveShape, T:Vixen.Rendering.Ecs.MeshExtractionSystem, T:Vixen.Rendering.Ecs.IMeshSource, T:Vixen.Rendering.Ecs.IMaterialSource, T:Vixen.Rendering.Ecs.ISurfaceSource, T:Vixen.Rendering.Features.MeshRenderFeature, T:Vixen.Rendering.Features.MaterialRenderFeature, T:Vixen.Rendering.Features.PermutationKeyDictionary, T:Vixen.Engine.Renderer.AssetMeshSource, T:Vixen.Engine.Renderer.AssetMaterialSource, T:Vixen.Editor.Assets.Content.ProjectMeshSource, T:Vixen.Editor.Assets.Content.ProjectSurfaceSource, T:Vixen.Editor.Assets.Materials.MaterialImporter, T:Vixen.Editor.AssetEditors.Materials.MaterialAsset, L:4005]
 tags: [rendering, materials, meshes, assets, naming]
 since: 0.1
 status: stable
@@ -323,6 +323,23 @@ public static class Sources {
 
 Leave either null and the corresponding entities are simply never extracted — which is what a project
 with no content mounted is, and why an unwired renderer draws an empty frame rather than throwing.
+
+## A textured material on a device with no table
+
+`MaterialRenderFeature.Textures` is the bindless table the whole frame samples through, and a host
+creates one only where the device reports `HasBindless` — which GL, GLES, WebGL2 and MoltenVK below
+argument-buffer tier 2 do not. Nothing refuses to *author* or to compile a material with a sampling
+feature for those targets: the variant declares the table's descriptor set because the feature was
+composed into it, and the table's absence is the host's answer arriving later.
+
+⚠ **The two together are a five-set pipeline layout drawn with four sets bound**, which is undefined
+rather than untextured — a validation error where the layers are on, and a descriptor read out of
+whatever the driver left at set 4 where they are not. So `MeshRenderFeature` refuses those draws
+rather than recording them, counts them in `RefusedTableDrawCount`, and says once per degrade — log
+event 4005 in `docs/manual/log-events.md`, through `MeshRenderFeature.Logger` — which shader and
+which stage. A mesh missing from a frame with nothing logged is the failure this pair exists to rule
+out: `DrawCount` says what was recorded and `RefusedTableDrawCount` says what was not, and a frame
+where the second is the whole scene is one material composed for a device that cannot draw it.
 
 ## See also
 

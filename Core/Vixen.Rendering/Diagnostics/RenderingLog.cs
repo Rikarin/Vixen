@@ -69,4 +69,33 @@ static partial class RenderingLog {
             + "the frame's view camera."
     )]
     public static partial void LightingCameraMissing(ILogger logger, string pass);
+
+    /// <summary>
+    ///     A variant declares the bindless table's set and the host has no table to bind there.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Once per degrade, said by the first draw that is refused.</b> The rest of the frame
+    ///         is silent and <see cref="Features.MeshRenderFeature.RefusedTableDrawCount" /> is what
+    ///         says how many there were.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The consequence of <em>not</em> refusing is not a missing texture. A pipeline layout
+    ///         with five sets drawn with four bound is undefined: a validation error where the layers
+    ///         are on, and a descriptor read out of whatever the driver left at set 4 where they are
+    ///         not. That is why this is the one degrade in this file that stops the draw rather than
+    ///         drawing something coarser.
+    ///     </para>
+    /// </remarks>
+    [LoggerMessage(
+        EventId = 4005,
+        Level = LogLevel.Error,
+        Message = "'{Shader}' declares the bindless texture table at set 4 and nothing bound one, so its "
+            + "draws in stage '{Stage}' are refused. A five-set pipeline layout drawn with four sets "
+            + "bound is undefined rather than untextured, which is why the mesh is absent instead of "
+            + "wrong. The table is created only on a device reporting HasBindless — GL, GLES, WebGL2 "
+            + "and MoltenVK below argument-buffer tier 2 report it absent — so a material composed "
+            + "with a bindless sampling feature cannot be drawn on this device."
+    )]
+    public static partial void BindlessTableMissing(ILogger logger, string shader, string stage);
 }

@@ -172,16 +172,27 @@ public sealed class BindlessFrameTests : IDisposable {
     ///     And it is not bound at all for an effect whose layout does not declare it.
     /// </summary>
     /// <remarks>
-    ///     <strong>The failure this rules out.</strong> A variant compiled without the table has a
-    ///     four-set pipeline layout, and binding a fifth set against one is a validation error rather
-    ///     than a harmless extra call. That is not a hypothetical mixed frame: the non-bindless
-    ///     variant of the same shader is what every device without descriptor indexing compiles, and
-    ///     a depth prepass overriding the shader produces one in the middle of a bindless frame.
+    ///     <para>
+    ///         <strong>The failure this rules out.</strong> A variant compiled without the table has a
+    ///         four-set pipeline layout, and binding a fifth set against one is a validation error
+    ///         rather than a harmless extra call. That is not a hypothetical mixed frame: the
+    ///         non-bindless variant of the same shader is what every device without descriptor
+    ///         indexing compiles, and a depth prepass overriding the shader produces one in the
+    ///         middle of a bindless frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <strong>The permutation is off here and that is what makes the effect four-set</strong>
+    ///         — not the missing table. <c>Build()</c> without a table on a device that reports
+    ///         bindless would still compile the five-set variant, because <c>Compiles</c> keys the
+    ///         shape on the permutation and the device rather than on anything the host owns; that
+    ///         combination is
+    ///         <see cref="A_declared_table_with_none_bound_is_a_refused_draw_rather_than_a_short_layout" />
+    ///         below and it is a refusal, not a bind of zero.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void An_effect_without_the_set_is_not_bound_one() {
         using var harness = Build();
-        harness.Materials.EnableRecords(UseRecords);
 
         AddMesh(harness, Material());
 
@@ -190,6 +201,81 @@ public sealed class BindlessFrameTests : IDisposable {
         RecordStage(harness);
 
         Assert.Equal(0, BindsAt(DescriptorSetSlot.Bindless));
+        Assert.NotEqual(0, harness.Meshes.DrawCount);
+        Assert.Equal(0, harness.Meshes.RefusedTableDrawCount);
+    }
+
+    /// <summary>
+    ///     An effect that declares set 4 with no table available refuses to draw, and says so.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <strong>doc 23 § The one thing left, and the case it says is "only reachable by
+    ///         hand".</strong> It is not: <c>WorldRenderer</c> creates the table inside
+    ///         <c>if (device.Features.HasBindless)</c>, and nothing refuses to compose or compile a
+    ///         material with a bindless sampling feature on a device that reports it absent — GL,
+    ///         GLES, WebGL2, MoltenVK below argument-buffer tier 2. The variant declares the set
+    ///         because it was declared, and the host has nothing to put there.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <strong>What made it invisible is that the bind was the conditional half.</strong>
+    ///         With no table the bind was skipped and the draw was recorded anyway — a five-set
+    ///         pipeline layout drawn with four sets bound, which is undefined rather than untextured,
+    ///         and which no counter in the frame distinguished from a healthy one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <strong>Both halves are asserted, because either alone is a defect.</strong> Zero
+    ///         draws with nothing counted is the silently-missing mesh this repository has spent the
+    ///         most time on; a nonzero count with a draw recorded is the undefined layout. The
+    ///         control is the assertion above that the same fixture with a table draws.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_declared_table_with_none_bound_is_a_refused_draw_rather_than_a_short_layout() {
+        using var harness = Build();
+        harness.Materials.EnableRecords(UseRecords);
+
+        AddMesh(harness, Material());
+
+        Frame(harness);
+
+        // The instrument first: the effect really does declare set 4, so the refusal below is about
+        // the missing table and not about a variant that never asked for one.
+        var key = Assert.Single(resolved, candidate => candidate.ShaderName == "Lit");
+        Assert.True(effects.TryResolve(key, out var effect));
+        Assert.True(effect.SetLayouts.Length > (int)DescriptorSetSlot.Bindless);
+        Assert.True(effect.SetLayouts[(int)DescriptorSetSlot.Bindless].IsValid);
+        Assert.Null(harness.Materials.Textures);
+
+        device.Recorder!.Clear();
+        RecordStage(harness);
+
+        Assert.Empty(device.Recorder.OfKind(RecordedCommandKind.Draw));
+        Assert.Empty(device.Recorder.OfKind(RecordedCommandKind.DrawIndexed));
+        Assert.Equal(0, BindsAt(DescriptorSetSlot.Bindless));
+        Assert.Equal(1, harness.Meshes.RefusedTableDrawCount);
+        Assert.Equal(0, harness.Meshes.DrawCount);
+    }
+
+    /// <summary>And the same mesh with a table draws, which is what makes the refusal a diagnosis.</summary>
+    /// <remarks>
+    ///     The control for the test above. A guard that refused every bindless draw would satisfy it
+    ///     exactly as well as the right one does, and would take the frame with it.
+    /// </remarks>
+    [Fact]
+    public void The_same_mesh_draws_once_a_table_is_there() {
+        using var harness = Build(table: true);
+        harness.Materials.EnableRecords(UseRecords);
+
+        AddMesh(harness, Material());
+
+        Frame(harness);
+        device.Recorder!.Clear();
+        RecordStage(harness);
+
+        Assert.Single(device.Recorder.OfKind(RecordedCommandKind.Draw));
+        Assert.Equal(1, BindsAt(DescriptorSetSlot.Bindless));
+        Assert.Equal(0, harness.Meshes.RefusedTableDrawCount);
     }
 
     /// <summary>A table registers a material's texture and the slot lands in the material.</summary>
@@ -362,7 +448,11 @@ public sealed class BindlessFrameTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Meshes_sharing_a_geometry_buffer_bind_it_once() {
-        using var harness = Build();
+        // ⚠ With a table, because the records path is what makes the variant declare set 4 and a
+        // five-set layout drawn with four sets bound is refused rather than recorded. This fixture
+        // asked for the bindless variant and gave the host no table for years, which drew — and is
+        // the defect the refusal above exists for.
+        using var harness = Build(table: true);
         harness.Materials.EnableRecords(UseRecords);
 
         using var geometry = new GeometryBuffer(device, vertexStride: 32, vertexCapacity: 256, indexCapacity: 256);
@@ -392,7 +482,8 @@ public sealed class BindlessFrameTests : IDisposable {
     /// </remarks>
     [Fact]
     public void Meshes_with_their_own_buffers_still_bind_per_object() {
-        using var harness = Build();
+        // With a table, for the reason its pair above states.
+        using var harness = Build(table: true);
         harness.Materials.EnableRecords(UseRecords);
 
         for (var index = 0; index < 3; index++) {

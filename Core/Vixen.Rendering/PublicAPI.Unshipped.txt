@@ -1952,9 +1952,12 @@ Vixen.Rendering.Features.MeshRenderFeature.Draws.get -> Vixen.Rendering.RenderDa
 Vixen.Rendering.Features.MeshRenderFeature.FillArguments(Vixen.Rendering.RenderSystem system, System.Span<Vixen.Rendering.DrawCommand> commands) -> void
 Vixen.Rendering.Features.MeshRenderFeature.FillBatches(Vixen.Rendering.RenderSystem system, System.Span<uint> batches) -> void
 Vixen.Rendering.Features.MeshRenderFeature.IndexCount.get -> long
+Vixen.Rendering.Features.MeshRenderFeature.Logger.get -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Rendering.Features.MeshRenderFeature.Logger.set -> Microsoft.Extensions.Logging.ILogger?
 Vixen.Rendering.Features.MeshRenderFeature.MeshRenderFeature() -> void
 Vixen.Rendering.Features.MeshRenderFeature.Pipelines.get -> Vixen.Rendering.PipelineCache?
 Vixen.Rendering.Features.MeshRenderFeature.Pipelines.set -> Vixen.Rendering.PipelineCache?
+Vixen.Rendering.Features.MeshRenderFeature.RefusedTableDrawCount.get -> long
 Vixen.Rendering.Features.MorphInstance -> readonly struct
 Vixen.Rendering.Features.MorphInstance : System.IEquatable<Vixen.Rendering.Features.MorphInstance>
 Vixen.Rendering.Features.MorphInstance.BaseVertex.get -> int
