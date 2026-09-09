@@ -369,7 +369,7 @@ public class VirtualShadowRendererTests : IDisposable {
     ///         walks one page of level zero — a third of a metre at the shipped extent — slides that
     ///         window by one and leaves thirty-one of its thirty-two columns over the same world. Under
     ///         the window-cell addressing this replaced, every page of the level was renamed by that
-    ///         slide and <see cref="VirtualShadowRenderer.Fit" /> unpublished all thousand and
+    ///         slide and <c>VirtualShadowRenderer.Fit</c> — private — unpublished all thousand and
     ///         twenty-four of them; against a budget that redraws sixteen, a walking camera's map could
     ///         not converge. Now the arriving column is the only address that means somewhere new.
     ///     </para>

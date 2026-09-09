@@ -196,7 +196,7 @@ public sealed class NetworkRigidBodyTests {
     ///         <c>LateUpdate</c>, so a test that drives the fixed passes by hand cannot see it.
     ///     </para>
     ///     <para>
-    ///         The complement is <see cref="AMisplacedBodyIsSteeredBackWithoutOvershooting" />, which
+    ///         The complement is <see cref="ABodyBehindIsSteeredToTheAuthorityWithoutOvershooting" />, which
     ///         is inside <c>HardSnapDistance</c> and therefore adds no tag: a soft correction is
     ///         steered through the velocity and stays smoothed, which is the half this could break.
     ///     </para>

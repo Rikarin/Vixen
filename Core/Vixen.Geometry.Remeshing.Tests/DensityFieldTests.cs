@@ -121,7 +121,7 @@ public class DensityFieldTests {
     ///         ⚠ <b>This asserted that a uniform mask of two halves every target, and that stopped
     ///         being true when <c>base</c> started being solved from the budget rather than assumed from
     ///         the area.</b> The mask is one of the three terms § D9 multiplies together and
-    ///         <see cref="DensityField.Normalise" /> divides all three back out, so <b>a uniform mask is
+    ///         <c>DensityField.Normalise</c> divides all three back out, so <b>a uniform mask is
     ///         now exactly a no-op</b> — the budget is the budget, and a mask that says "twice as dense
     ///         everywhere" says nothing. It is <i>where</i> the mask varies that moves quads, and a
     ///         painted region is paid for by the unpainted ones. That is the behaviour asserted here,

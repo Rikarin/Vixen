@@ -185,7 +185,7 @@ public class AmbientAcrossDockingTests {
     /// <summary>Just enough of a window host for a panel to be torn onto a second surface.</summary>
     /// <remarks>
     ///     ⚠ A double rather than a reparent the test performs itself: what is under test is where
-    ///     <see cref="DockingHost.Float" /> puts a panel, and a test that moved it by hand would be
+    ///     <see cref="DockingHost.Float(string, float, float, float, float)" /> puts a panel, and a test that moved it by hand would be
     ///     asserting its own arrangement. Trimmed to what the tear-out path calls — the docking host
     ///     asks for a window, reads its surface, and never moves it here.
     /// </remarks>

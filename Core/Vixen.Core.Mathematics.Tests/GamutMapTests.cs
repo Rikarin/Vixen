@@ -290,7 +290,7 @@ public sealed class GamutMapTests {
     }
 
     /// <summary>
-    ///     CSS Color 4 writes the lightness branches before the in-gamut test; <see cref="GamutMap.Map" />
+    ///     CSS Color 4 writes the lightness branches before the in-gamut test; <see cref="GamutMap.Map(Vector3, ColorGamut)" />
     ///     asks the in-gamut question first so that a showable colour never pays for
     ///     <see cref="Oklab.FromLinear" />'s three cube roots. This pins that the swap is free.
     /// </summary>

@@ -23,7 +23,7 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         until they are catastrophic.
 ///     </para>
 ///     <para>
-///         Serialised with the rest of the driver tests: <see cref="VulkanDiagnostics" /> is
+///         Serialised with the rest of the driver tests: <see cref="Vixen.Graphics.Vulkan.VulkanDiagnostics" /> is
 ///         process-wide, and a fixture that failed because of another test's validation error would
 ///         be the least useful failure in the suite.
 ///     </para>

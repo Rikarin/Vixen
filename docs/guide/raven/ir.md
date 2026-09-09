@@ -8,7 +8,7 @@ api: [T:Vixen.Raven.IR.IrModule, T:Vixen.Raven.IR.IrShader, T:Vixen.Raven.IR.IrF
 tags: [raven, shaders, compiler, codegen]
 since: 0.1
 status: preview
-related: [raven/compiling-a-shader, raven/library-ir, raven/compiled-artefacts]
+related: [raven/compiling-a-shader, raven/library-ir, raven/compiled-artefacts, raven/symbols]
 ---
 
 ## What it is
@@ -165,3 +165,5 @@ loop's header — a real answer, quietly short.
   rather than this one serialised: this is an in-memory graph with object references in it, and a
   wire format has to be readable by a program that has not built the thing being pointed at yet.
 - [Compiled artefacts](compiled-artefacts.md) — what a back end's output is packaged as.
+- [The Raven symbol model](symbols.md) — the model lowering reads *from*, why its type system is
+  larger than this one's, and ⚠ why its identity rule is the opposite of this one's.

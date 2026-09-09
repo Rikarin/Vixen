@@ -65,13 +65,13 @@ sealed record PaintTarget(
 ///             space; the mirrored point lands on a different triangle, which is in a different UV
 ///             island, at an unrelated place in the atlas. There is no transform of the atlas that
 ///             performs it. So the surface — which is the only thing holding the mesh — picks the
-///             mirrored ray's hit and hands over its UV, and <see cref="MoveAll" /> takes a
+///             mirrored ray's hit and hands over its UV, and <see cref="MoveAll(System.ReadOnlySpan{Vector2})" /> takes a
 ///             <em>set</em> of positions for that reason.
 ///         </item>
 ///     </list>
 ///     <para>
 ///         Everything else is here: spacing, jitter, smoothing, the cached composite, the dilation
-///         and the single undo entry. A curve or path stroke is <see cref="MoveAll" /> called along the
+///         and the single undo entry. A curve or path stroke is <see cref="MoveAll(System.ReadOnlySpan{Vector2})" /> called along the
 ///         curve, which is why doc 48 § D13 says it does not touch the kernel.
 ///     </para>
 ///     <para>

@@ -44,7 +44,7 @@ namespace Vixen.Testing;
 ///     </para>
 ///     <para>
 ///         <b>A caller whose work has a side effect must count it rather than predict it.</b> Because a
-///         non-zero reading is measured again, <paramref name="work" /> runs <i>at least</i>
+///         non-zero reading is measured again, the <c>work</c> delegate runs <i>at least</i>
 ///         <c>warmUp + passes</c> times and possibly several times that. Assert that a counter the work
 ///         advances is non-zero, or read it after the measurement — never against an arithmetic
 ///         expectation of how many times the work should have run.
@@ -241,7 +241,10 @@ sealed class AllocationNames : EventListener {
     /// </summary>
     const int Enough = WantedSamples / 4;
 
-    /// <summary>How many <see cref="Drain" /> objects are allocated between two checks of the drain.</summary>
+    /// <summary>
+    ///     How many <see cref="AllocationDrainSentinel" /> objects are allocated between two checks
+    ///     of the drain.
+    /// </summary>
     const int DrainBatch = 4_096;
 
     /// <summary>

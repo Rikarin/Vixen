@@ -25,7 +25,7 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         stack is evaluated once per stroke and resolved per dirty rectangle. A rasteriser that
 ///         redrew the mesh on every pointer move would put the model's triangle count straight back
 ///         into the per-stamp path and lose it again — which is the obvious way to miss it, and is
-///         what <see cref="Renders" /> is for. <see cref="Draw" /> is the geometry, run when the
+///         what <see cref="Renders" /> is for. <see cref="Draw(PaintProjection, PaintCamera, int, int)" /> is the geometry, run when the
 ///         camera or the pane moves; <see cref="Retexture" /> is the shading of one atlas rectangle,
 ///         run per stamp.
 ///     </para>
@@ -46,7 +46,7 @@ namespace Vixen.Editor.Texturing.Painting;
 ///         1600×900 over an eighteen-thousand-triangle model it was about eight of a thirteen-
 ///         millisecond pass, more than the projection, the fill and the shade together. Its only
 ///         reader is <see cref="Retexture" />, so an orbit was rebuilding an index it never looked
-///         in. <see cref="Draw" /> now marks it stale and the first stamp of a stroke pays for it.
+///         in. <see cref="Draw(PaintProjection, PaintCamera, int, int)" /> now marks it stale and the first stamp of a stroke pays for it.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Perspective-correct, because the alternative is invisible on a test fixture and
@@ -153,12 +153,12 @@ sealed class PaintMeshRaster {
     ///     eighteen-thousand-triangle model: the whole pass is about 13 ms and the counting sort is
     ///     about 8 of them — more than the fill, the shade and the projection together. And the only
     ///     reader of the buckets is <see cref="Retexture" />, which runs per <em>stamp</em>: an orbit
-    ///     rebuilds an index it never looks in. So <see cref="Draw" /> marks it stale and the first
+    ///     rebuilds an index it never looks in. So <see cref="Draw(PaintProjection, PaintCamera, int, int)" /> marks it stale and the first
     ///     stamp of a stroke pays for it once.
     /// </remarks>
     bool indexStale = true;
 
-    /// <summary>The picture, or null before the first <see cref="Draw" />.</summary>
+    /// <summary>The picture, or null before the first <see cref="Draw(PaintProjection, PaintCamera, int, int)" />.</summary>
     /// <remarks>
     ///     ⚠ <b>Reused across draws at one size rather than allocated per redraw.</b> A pane redraw
     ///     is every frame of an orbit, and the picture at a docked pane's size is a few megabytes —

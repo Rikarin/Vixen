@@ -10,7 +10,7 @@ namespace Vixen.Net.Transport.WebSocket.Browser.Tests;
 /// <summary>The browser client half, against a real server, over loopback.</summary>
 /// <remarks>
 ///     <para>
-///         The same bargain <see cref="Vixen.Net.Transport.WebSocket.Tests" />'s real-socket test
+///         The same bargain <c>Vixen.Net.Transport.WebSocket.Tests</c>'s real-socket test
 ///         makes, and the same one the UDP transport's makes: everything about the protocol above
 ///         the seam is asserted deterministically over an in-memory pair by the conformance suite,
 ///         and the only claim here is that <c>BrowserWebSocketFactory</c> can connect, upgrade and

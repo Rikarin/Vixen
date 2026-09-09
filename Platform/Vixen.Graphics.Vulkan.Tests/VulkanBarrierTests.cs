@@ -270,7 +270,7 @@ public sealed class VulkanBarrierTests {
 
     /// <summary>
     ///     A transfer family accepts copies and nothing else, which is what makes
-    ///     <see cref="PassKind.Transfer" /> the one kind whose queue can do <em>less</em> than the
+    ///     <c>PassKind.Transfer</c> the one kind whose queue can do <em>less</em> than the
     ///     graphics queue rather than differently.
     /// </summary>
     [Fact]

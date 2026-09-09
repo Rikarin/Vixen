@@ -20,6 +20,27 @@
         </Description>
         <PackageTags>shader;compiler;glsl;spirv;vulkan;raven;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!--
+            #821's ratchet, and the first project under `Raven/**` to take it. The TOOLING profile in
+            `Directory.Build.props` sets this false for `Editor/**`, `Tools/**` and `Raven/**` alike,
+            so no `<see cref>` in the compiler was ever checked. CS1591 and CS1573 stay suppressed —
+            "this public member has no comment" is a question about a packaged API surface and is not
+            what this is for; the rules that catch a *lie* are.
+
+            ⚠ This is the project a shipped package is cut from, so the XML it now emits is the
+            documentation a consumer of the NuGet package reads in their IDE. Before this, a
+            `<see cref>` in it resolved for nobody and was checked by nothing.
+
+            ⚠ One of the four it found was a doc block documenting a *different overload* than the
+            one it is attached to: `Create(string, PermutationValues, IEnumerable{SyntaxTree})`
+            carried a `<paramref name="composeBindings" />` for a parameter it does not have, and two
+            overloads that DO have it inherited that block. `CheckDocComments` cannot see this
+            variant — it counts `<summary>` blocks and reads `<param>`, not `<paramref>` — so this
+            flag is the only thing in the tree that can.
+        -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
     </PropertyGroup>
 
     <!--

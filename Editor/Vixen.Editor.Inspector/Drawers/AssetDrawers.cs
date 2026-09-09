@@ -147,7 +147,8 @@ public sealed class Color3Drawer : PropertyDrawer<Color3, ColorInput> {
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Every write is a separate copy per object, through
-///         <see cref="EditProperty.WriteEach" />, and one <see cref="EditProperty.Write" /> would
+///         <see cref="Vixen.Editor.Core.EditProperty.WriteEach(IReadOnlyList{object})" />, and one
+///         <see cref="Vixen.Editor.Core.EditProperty.Write(object)" /> would
 ///         have been wrong for a reason that has nothing to do with mixing.</b> A single write puts
 ///         the <i>same instance</i> on every selected object, and twenty objects sharing one curve
 ///         is not "they all have the same curve" — it is "editing any of them edits all of them",
@@ -382,7 +383,7 @@ public sealed class AssetDrawer : IPropertyDrawer {
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Boxing the right type is the whole of this method and it is not optional.</b>
-    ///         <see cref="InspectorField.Write" /> takes an <see cref="object" /> and hands it to a
+    ///         <see cref="Vixen.Editor.Core.EditProperty.Write(object)" /> takes an <see cref="object" /> and hands it to a
     ///         generated setter that casts; an <see cref="AssetId" /> written into an
     ///         <see cref="AssetReference" /> member is an <see cref="InvalidCastException" /> thrown
     ///         from inside a click handler, which in a UI framework means the frame dies rather than
@@ -402,7 +403,7 @@ public sealed class AssetDrawer : IPropertyDrawer {
         return field.Write(Box(field.Member, asset));
     }
 
-    /// <summary>An asset id as the member's own type, boxed for <see cref="InspectorField.Write" />.</summary>
+    /// <summary>An asset id as the member's own type, boxed for <see cref="Vixen.Editor.Core.EditProperty.Write(object)" />.</summary>
     /// <param name="member">The member being written.</param>
     /// <param name="asset">The asset.</param>
     /// <returns>The boxed value.</returns>

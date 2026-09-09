@@ -10,7 +10,7 @@ namespace Vixen.Editor.Assets.Tests;
 ///     <para>
 ///         <b>F8 said "importers are constructed and handed in; there is no registry for a plugin to
 ///         add to", and the second half was the part that mattered.</b> <see cref="ImporterRegistry" />
-///         has existed all along — it is built fresh per run by <see cref="BuiltInImporters.Create" />,
+///         has existed all along — it is built fresh per run by <see cref="BuiltInImporters.Create()" />,
 ///         inside a background task, so that the editor and the CLI cannot disagree about the set. A
 ///         plugin had nothing to add to because every registry it could reach was about to be thrown
 ///         away.

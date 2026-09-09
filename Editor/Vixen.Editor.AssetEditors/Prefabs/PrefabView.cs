@@ -20,8 +20,8 @@ namespace Vixen.Editor.AssetEditors.Prefabs;
 ///         ⚠ <b>The root count is checked as the structure changes and refused at the save.</b>
 ///         Refusing the edit that made a second root would mean an author cannot create an entity
 ///         before parenting it. So the banner turns into a complaint, and
-///         <see cref="PrefabFileWriter" /> is what actually refuses — which is the moment work would
-///         otherwise be lost.
+///         <see cref="Vixen.Editor.AssetEditors.Scenes.PrefabFileWriter" /> is what actually refuses
+///         — which is the moment work would otherwise be lost.
 ///     </para>
 /// </remarks>
 public sealed partial class PrefabView;

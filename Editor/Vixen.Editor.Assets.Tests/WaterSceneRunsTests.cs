@@ -39,7 +39,7 @@ namespace Vixen.Editor.Assets.Tests;
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The collider and the rigid body are authored in code and the water is not.</b> A
-///         <c>Collider</c> carries a <see cref="ShapeId" />, which names a shape in a physics scene's
+///         <c>Collider</c> carries a <see cref="Vixen.Physics.Shapes.ShapeId" />, which names a shape in a physics scene's
 ///         catalogue rather than anything a file can hold on its own — so what the scene proves is
 ///         that the *water* half survives a file, which is the half that had never been tried.
 ///     </para>

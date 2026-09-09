@@ -18,8 +18,9 @@ namespace Vixen.Ui.Controls.Tests;
 ///         ⚠ <b>Counting elements is still the other half.</b> The point of the index is that a
 ///         hundred thousand variable rows cost the same as a hundred thousand uniform ones; an
 ///         implementation that walked the list to find the offset would pass every arithmetic
-///         assertion below and be quadratic. <see cref="A_hundred_thousand_variable_rows_are_still_a
-///         _dozen_elements" /> is what says otherwise, and it says it by counting rather than by
+///         assertion below and be quadratic.
+///         <see cref="A_hundred_thousand_variable_rows_are_still_a_dozen_elements" /> is what says
+///         otherwise, and it says it by counting rather than by
 ///         timing — a clock here would be the flake this repository already knows about.
 ///     </para>
 ///     <para>

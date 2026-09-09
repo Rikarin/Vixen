@@ -8,7 +8,7 @@ api: [T:Vixen.Raven.Compilation, T:Vixen.Raven.ParseOptions, T:Vixen.Raven.Permu
 tags: [raven, shaders, compiler, tooling]
 since: 0.1
 status: preview
-related: [raven/shader-reflection, raven/compiled-artefacts, raven/ir]
+related: [raven/shader-reflection, raven/compiled-artefacts, raven/ir, raven/symbols, raven/syntax]
 ---
 
 ## What it is
@@ -129,6 +129,10 @@ var compilation = Compilation.Create("Brdf", [reference], trees);
   the shader it just produced, which is how a pipeline gets built.
 - [Compiled artefacts](compiled-artefacts.md) — `.rvnfx` and `.rvnlib`: what is in each, and which
   one a consumer wants.
+- [The Raven syntax tree](syntax.md) — what parsing produces, why the node classes are
+  generated from one grammar file, and the reuse gate an incremental reparse turns on.
+- [The Raven symbol model](symbols.md) — what binding produces and what a `SemanticModel` hands
+  back: the entity hierarchy, the type shapes, and the identity rule that differs from the IR's.
 - [The target-independent IR](ir.md) — what lowering produces and every back end consumes, and why
   the type system there is deliberately smaller than the symbol model's.
 - `Raven/README.md` in the repository — the language itself, the diagnostic ranking heuristic and

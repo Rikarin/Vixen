@@ -30,7 +30,7 @@ namespace Vixen.Samples.VirtualGeometry;
 ///         piece of drawing a frame existed and was tested, and nothing outside a test project put
 ///         them together: <c>Vixen.App.Game</c> was a window and a frame loop, and the samples opened
 ///         a device and issued draws directly. This is the join — a <see cref="Game" /> whose frame
-///         is <see cref="SceneRenderHost.Draw" />, with the frame's shape coming from a YAML document
+///         is <see cref="SceneRenderHost.Draw(ICommandList)" />, with the frame's shape coming from a YAML document
 ///         rather than from code.
 ///     </para>
 ///     <para>

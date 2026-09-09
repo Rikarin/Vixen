@@ -28,7 +28,7 @@ namespace Vixen.Editor.AssetEditors;
 ///         registered by <see cref="StandardEditors" /> and reached from the application; the
 ///         debugger has no document and no extension, so a factory registry has no seat for it. A
 ///         module that already owns a <see cref="PluginContext" /> does — and
-///         <see cref="PluginContext.AddPanel(string, StringId, Action{Vixen.Editor.Ui.Docking.DockPanel})" />
+///         <see cref="PluginContext.AddPanel(string, StringId, Action{Vixen.Ui.Controls.Advanced.DockPanel})" />
 ///         unregisters it again on unload, which <c>Shell.RegisterPanel</c> would not.
 ///     </para>
 ///     <para>

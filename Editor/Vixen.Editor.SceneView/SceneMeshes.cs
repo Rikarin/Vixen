@@ -37,7 +37,7 @@ public readonly record struct ShapeBatch(SceneShape Shape, int First, int Count,
 ///         entities that share geometry into one instanced draw, and whether that geometry came out of
 ///         <see cref="MeshPrimitives" /> or out of a bundle changes nothing about the grouping, the
 ///         instancing or the pipeline. What it changes is where the vertices come from, which is
-///         <see cref="SceneMeshes.Shape" />'s business alone.
+///         <see cref="SceneMeshes.Shape(SceneShape)" />'s business alone.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A <see cref="PrimitiveKind" /> of zero is <c>Cube</c>, so the discriminator has to be the
@@ -130,7 +130,7 @@ public readonly record struct SceneShape(
 ///         always had: rebuilding a sphere's four hundred vertices per entity would be the whole cost
 ///         of this pass and none of its output. What changed is that the cache is now consulted once
 ///         per shape rather than once per entity, and only to answer what the geometry <em>is</em> —
-///         see <see cref="Shape" />, which is what registers it with a device.
+///         see <see cref="Shape(SceneShape)" />, which is what registers it with a device.
 ///     </para>
 /// </remarks>
 public sealed class SceneMeshes {

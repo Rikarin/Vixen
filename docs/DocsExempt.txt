@@ -1303,10 +1303,10 @@ T:Vixen.Editor.Inspector.CurveUsage sweep-pending
 T:Vixen.Editor.Inspector.DrawerRegistry sweep-pending
 T:Vixen.Editor.Inspector.Drawers.AssetDrawer sweep-pending
 T:Vixen.Editor.Inspector.Drawers.BooleanDrawer sweep-pending
+T:Vixen.Editor.Inspector.Drawers.ChoiceDrawer sweep-pending
 T:Vixen.Editor.Inspector.Drawers.Color3Drawer sweep-pending
 T:Vixen.Editor.Inspector.Drawers.ColorDrawer sweep-pending
 T:Vixen.Editor.Inspector.Drawers.ComponentDrawer`1 sweep-pending
-T:Vixen.Editor.Inspector.Drawers.ChoiceDrawer sweep-pending
 T:Vixen.Editor.Inspector.Drawers.CompositeEditor sweep-pending
 T:Vixen.Editor.Inspector.Drawers.CurveDrawer sweep-pending
 T:Vixen.Editor.Inspector.Drawers.EnumDrawer sweep-pending
@@ -1347,7 +1347,6 @@ T:Vixen.Editor.Inspector.ReflectedMember sweep-pending
 T:Vixen.Editor.Inspector.SetMembersCommand`2 sweep-pending
 T:Vixen.Editor.Inspector.ShowIfAttribute sweep-pending
 T:Vixen.Editor.NodeGraph.AddCommentCommand sweep-pending
-T:Vixen.Editor.NodeGraph.GraphParameterAsset sweep-pending
 T:Vixen.Editor.NodeGraph.AddGroupCommand sweep-pending
 T:Vixen.Editor.NodeGraph.AddNodeCommand sweep-pending
 T:Vixen.Editor.NodeGraph.Bool sweep-pending
@@ -1369,6 +1368,7 @@ T:Vixen.Editor.NodeGraph.GraphGroup sweep-pending
 T:Vixen.Editor.NodeGraph.GraphGroupAsset sweep-pending
 T:Vixen.Editor.NodeGraph.GraphNode sweep-pending
 T:Vixen.Editor.NodeGraph.GraphNodeAsset sweep-pending
+T:Vixen.Editor.NodeGraph.GraphParameterAsset sweep-pending
 T:Vixen.Editor.NodeGraph.GraphPortAsset sweep-pending
 T:Vixen.Editor.NodeGraph.INodePreviewSource sweep-pending
 T:Vixen.Editor.NodeGraph.IPortValue sweep-pending
@@ -2383,156 +2383,6 @@ T:Vixen.Platform.Windows.WindowsDialogs sweep-pending
 T:Vixen.Platform.Windows.WindowsPlatformSupplement sweep-pending
 T:Vixen.Platform.Windows.WindowsPowerInfo sweep-pending
 T:Vixen.Platform.Windows.WindowsProcessorTopology sweep-pending
-T:Vixen.Raven.Symbols.ArrayTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.BufferTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.BuiltInNamedTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.BuiltInTypes raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ConstructedNamedTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.Conversion raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ConversionKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.Conversions raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ErrorTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.FieldSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ImageFormat raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ImageFormats raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.Intrinsics raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.LocalSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.MethodKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.MethodSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.NamedTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.NamespaceSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ParameterSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.PrimitiveTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.PropertySymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.RefKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ResourceKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ResourceSet raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SampledTextureTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SequenceTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.ShaderStage raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SpecialType raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.StageBuiltIn raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.StageBuiltInInfo raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.StageBuiltIns raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.StorageImageTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SubstitutedFieldSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SubstitutedMethodSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SubstitutedParameterSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SubstitutedPropertySymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SubstitutedSymbols raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.Symbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SymbolKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SynthesizedFieldSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SynthesizedMethodSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.SynthesizedParameterSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.TupleTypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.TypeKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.TypeMap raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.TypeParameterSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.TypeSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Symbols.WorkgroupSize raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
-T:Vixen.Raven.Syntax.AccessorDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.AccessorListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ArgumentListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ArgumentSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ArrayRankSpecifierSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ArrayTypeSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ArrowExpressionClauseSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.AssignmentExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.AttributeArgumentListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.AttributeArgumentSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.AttributeListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.AttributeSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.BaseArgumentListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.BaseExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.BaseFieldDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.BaseListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.BaseTypeSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.BinaryExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.BlockSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.BracketedArgumentListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.BreakStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.CaseSwitchLabelSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.CastExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.CollectionElementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.CollectionExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.CompilationUnitSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ConditionalExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ConstructorDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ContinueStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.DefaultConstraintSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.DefaultExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.DefaultSwitchLabelSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.DiscardStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ElementAccessExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ElseClauseSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.EmptyStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.EnumDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.EnumMemberDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.EqualsValueClauseSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ExpressionElementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ExpressionStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.FieldDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ForStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.GenericNameSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.IdentifierNameSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.IfStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ImportDirectiveSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.InstanceExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.InvocationExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.LiteralExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.LocalDeclarationStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.MemberAccessExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.MemberDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.MethodDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.NameColonSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.NameSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.OperatorDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.PackageDirectiveSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ParameterListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ParameterSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ParenthesizedExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.PostfixUnaryExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.PredefinedTypeSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.PrefixUnaryExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.PropertyDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ProtocolDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.QualifiedNameSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.RangeExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.RavenSyntaxExtensions raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.RavenSyntaxNode raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.RepeatStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ReturnStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.SelfExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.ShaderDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.SimpleBaseTypeSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.SimpleNameSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.SpreadElementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.StatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.StructDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.SwitchLabelSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.SwitchSectionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.SwitchStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.SyntaxFactory raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.SyntaxFacts raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.SyntaxKind raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.SyntaxRewriter raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.SyntaxTree raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.SyntaxVisitor raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.SyntaxVisitor`1 raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.TupleElementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.TupleExpressionSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.TupleTypeSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.TypeArgumentListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.TypeConstraintSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.TypeParameterConstraintClauseSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.TypeParameterConstraintSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.TypeParameterListSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.TypeParameterSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.TypeSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.VariableDeclarationSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
-T:Vixen.Raven.Syntax.WhileStatementSyntax raven syntax node, generated from Syntax.xml — the grammar is the subject, not one page per production
 T:Vixen.Rendering.AnimationChannel sweep-pending
 T:Vixen.Rendering.AnimationClipData sweep-pending
 T:Vixen.Rendering.Barycentrics sweep-pending
@@ -2917,53 +2767,53 @@ T:Vixen.Shaders.EffectVertexInput sweep-pending
 T:Vixen.Shaders.EffectVertexInputData sweep-pending
 T:Vixen.Shaders.Generated.AutoExposureConstants generated — the shader's uniform block as a struct, emitted by Vixen.Shaders.Generators from AutoExposure.reflect.json
 T:Vixen.Shaders.Generated.AutoExposureKeys generated — the shader's typed parameter keys, emitted from the same reflection
-T:Vixen.Shaders.Generated.BloomConstants sweep-pending
-T:Vixen.Shaders.Generated.BloomKeys sweep-pending
-T:Vixen.Shaders.Generated.ClusterRasterConstants sweep-pending
-T:Vixen.Shaders.Generated.ClusterRasterKeys sweep-pending
-T:Vixen.Shaders.Generated.ClusterSoftwareRasterConstants sweep-pending
-T:Vixen.Shaders.Generated.ClusterSoftwareRasterKeys sweep-pending
-T:Vixen.Shaders.Generated.CullingKeys sweep-pending
+T:Vixen.Shaders.Generated.BloomConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.BloomKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ClusterRasterConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ClusterRasterKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ClusterSoftwareRasterConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ClusterSoftwareRasterKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.CullingKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
 T:Vixen.Shaders.Generated.DepthOfFieldConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/DepthOfField on rendering/post-processing
 T:Vixen.Shaders.Generated.DepthOfFieldKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
-T:Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.DistanceFieldAoKeys sweep-pending
-T:Vixen.Shaders.Generated.DistanceFieldAoPerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.DrawArgumentsKeys sweep-pending
-T:Vixen.Shaders.Generated.FogConstants sweep-pending
-T:Vixen.Shaders.Generated.FogKeys sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusCascadesElement sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusKeys sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusLightsElement sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusPerDrawConstants sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusPerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusPerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusPerViewConstants sweep-pending
-T:Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.FxaaConstants sweep-pending
-T:Vixen.Shaders.Generated.FxaaKeys sweep-pending
-T:Vixen.Shaders.Generated.HiZReduceKeys sweep-pending
-T:Vixen.Shaders.Generated.IndirectDiffuseKeys sweep-pending
-T:Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.IndirectDiffusePerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.IrradianceFillKeys sweep-pending
-T:Vixen.Shaders.Generated.IrradianceFillPerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.IrradianceRepairConstants sweep-pending
-T:Vixen.Shaders.Generated.IrradianceRepairKeys sweep-pending
+T:Vixen.Shaders.Generated.DistanceFieldAoGlobalDistanceFieldDistanceFieldVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.DistanceFieldAoKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.DistanceFieldAoPerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.DistanceFieldAoPerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.DrawArgumentsKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.FogConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.FogKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ForwardPlusCascadesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.ForwardPlusGlobalDistanceFieldDistanceFieldVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.ForwardPlusKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ForwardPlusLightsElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.ForwardPlusPerDrawConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ForwardPlusPerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ForwardPlusPerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ForwardPlusPerViewConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ForwardPlusProbeVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.FxaaConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.FxaaKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.HiZReduceKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.IndirectDiffuseKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.IndirectDiffusePerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.IndirectDiffusePerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.IrradianceFillGlobalDistanceFieldDistanceFieldVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.IrradianceFillKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.IrradianceFillPerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.IrradianceRepairConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.IrradianceRepairKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
 T:Vixen.Shaders.Generated.LensFlareConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/LensFlare on rendering/post-processing
 T:Vixen.Shaders.Generated.LensFlareKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
 T:Vixen.Shaders.Generated.LightStreakConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/LightStreak on rendering/post-processing
 T:Vixen.Shaders.Generated.LightStreakKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
-T:Vixen.Shaders.Generated.LineFragmentKeys sweep-pending
-T:Vixen.Shaders.Generated.LineVertexKeys sweep-pending
+T:Vixen.Shaders.Generated.LineFragmentKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.LineVertexKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
 T:Vixen.Shaders.Generated.LocalExposureConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/LocalExposure on rendering/post-processing
 T:Vixen.Shaders.Generated.LocalExposureKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
-T:Vixen.Shaders.Generated.MeshInstancedKeys sweep-pending
-T:Vixen.Shaders.Generated.MeshKeys sweep-pending
+T:Vixen.Shaders.Generated.MeshInstancedKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.MeshKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
 T:Vixen.Shaders.Generated.MorphScatterConstants generated — the blend-shape kernel's uniform block as a struct, emitted by Vixen.Shaders.Generators from MorphScatter.reflect.json; the shader is documented as R:Pipeline/MorphScatter on rendering/blend-shapes
 T:Vixen.Shaders.Generated.MorphScatterKeys generated — the same kernel's typed parameter keys, emitted from the same reflection
 T:Vixen.Shaders.Generated.MotionBlurConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:PostFx/MotionBlur on rendering/post-processing
@@ -2971,58 +2821,58 @@ T:Vixen.Shaders.Generated.MotionBlurKeys generated — the shader's parameter ke
 T:Vixen.Shaders.Generated.MotionVectorsKeys generated — the shader's parameter keys; the shader itself is documented on rendering/post-processing
 T:Vixen.Shaders.Generated.MotionVectorsPerMaterialConstants generated — the shader's uniform block, described by Raven's reflection; documented as R:Pipeline/MotionVectors on rendering/post-processing
 T:Vixen.Shaders.Generated.MotionVectorsPerViewConstants generated — set 1's block, which is a contract between shaders; documented as R:Pipeline/MotionVectors on rendering/post-processing
-T:Vixen.Shaders.Generated.NearestReduceKeys sweep-pending
-T:Vixen.Shaders.Generated.OutlineConstants sweep-pending
-T:Vixen.Shaders.Generated.OutlineKeys sweep-pending
-T:Vixen.Shaders.Generated.PlaceholderConstants sweep-pending
-T:Vixen.Shaders.Generated.PlaceholderKeys sweep-pending
-T:Vixen.Shaders.Generated.ReflectionTraceGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.ReflectionTraceKeys sweep-pending
-T:Vixen.Shaders.Generated.ReflectionTracePerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.ReflectionTracePerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeAccumulateConstants sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeAccumulateKeys sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeFilterConstants sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeFilterKeys sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeResolveKeys sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeTraceGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeTraceKeys sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeTracePerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeTracePerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeUpsampleConstants sweep-pending
-T:Vixen.Shaders.Generated.ScreenProbeUpsampleKeys sweep-pending
-T:Vixen.Shaders.Generated.SharpenConstants sweep-pending
-T:Vixen.Shaders.Generated.SharpenKeys sweep-pending
+T:Vixen.Shaders.Generated.NearestReduceKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.OutlineConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.OutlineKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.PlaceholderConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.PlaceholderKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ReflectionTraceGlobalDistanceFieldDistanceFieldVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.ReflectionTraceKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ReflectionTracePerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ReflectionTracePerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ScreenProbeAccumulateConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ScreenProbeAccumulateKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ScreenProbeFilterConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ScreenProbeFilterKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ScreenProbeResolveKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ScreenProbeTraceGlobalDistanceFieldDistanceFieldVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.ScreenProbeTraceKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.ScreenProbeTracePerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ScreenProbeTracePerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ScreenProbeUpsampleConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.ScreenProbeUpsampleKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.SharpenConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.SharpenKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
 T:Vixen.Shaders.Generated.SkyConstants generated from Sky.reflect.json; the shader is documented, this is its block
 T:Vixen.Shaders.Generated.SkyKeys generated from Sky.reflect.json; the shader is documented, these are its parameter names
-T:Vixen.Shaders.Generated.SsaoConstants sweep-pending
-T:Vixen.Shaders.Generated.SsaoKeys sweep-pending
-T:Vixen.Shaders.Generated.SurfaceCacheGatherGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.SurfaceCacheGatherKeys sweep-pending
-T:Vixen.Shaders.Generated.SurfaceCacheGatherPerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.SurfaceCacheGatherPerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.SurfaceCacheLightGlobalDistanceFieldDistanceFieldVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.SurfaceCacheLightKeys sweep-pending
-T:Vixen.Shaders.Generated.SurfaceCacheLightPerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.SurfaceCacheLightPerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.TaaConstants sweep-pending
-T:Vixen.Shaders.Generated.TaaKeys sweep-pending
-T:Vixen.Shaders.Generated.TonemapConstants sweep-pending
-T:Vixen.Shaders.Generated.TonemapKeys sweep-pending
-T:Vixen.Shaders.Generated.VignetteConstants sweep-pending
-T:Vixen.Shaders.Generated.VignetteKeys sweep-pending
-T:Vixen.Shaders.Generated.VirtualShadowMarkConstants sweep-pending
-T:Vixen.Shaders.Generated.VirtualShadowMarkKeys sweep-pending
-T:Vixen.Shaders.Generated.VisibilityResolveCascadesElement sweep-pending
-T:Vixen.Shaders.Generated.VisibilityResolveKeys sweep-pending
-T:Vixen.Shaders.Generated.VisibilityResolveLightsElement sweep-pending
-T:Vixen.Shaders.Generated.VisibilityResolvePerDrawConstants sweep-pending
-T:Vixen.Shaders.Generated.VisibilityResolvePerFrameConstants sweep-pending
-T:Vixen.Shaders.Generated.VisibilityResolvePerMaterialConstants sweep-pending
-T:Vixen.Shaders.Generated.VisibilityResolvePerViewConstants sweep-pending
-T:Vixen.Shaders.Generated.VisibilityResolveProbeVolumesElement sweep-pending
-T:Vixen.Shaders.Generated.VisibilityTilesConstants sweep-pending
-T:Vixen.Shaders.Generated.VisibilityTilesKeys sweep-pending
+T:Vixen.Shaders.Generated.SsaoConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.SsaoKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.SurfaceCacheGatherGlobalDistanceFieldDistanceFieldVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.SurfaceCacheGatherKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.SurfaceCacheGatherPerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.SurfaceCacheGatherPerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.SurfaceCacheLightGlobalDistanceFieldDistanceFieldVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.SurfaceCacheLightKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.SurfaceCacheLightPerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.SurfaceCacheLightPerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.TaaConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.TaaKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.TonemapConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.TonemapKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.VignetteConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.VignetteKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.VirtualShadowMarkConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.VirtualShadowMarkKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.VisibilityResolveCascadesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.VisibilityResolveKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
+T:Vixen.Shaders.Generated.VisibilityResolveLightsElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.VisibilityResolvePerDrawConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.VisibilityResolvePerFrameConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.VisibilityResolvePerMaterialConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.VisibilityResolvePerViewConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.VisibilityResolveProbeVolumesElement generated — one element of a shader's uniform array, written by index because the count is the host's each frame; emitted by Vixen.Shaders.Generators from its .reflect.json
+T:Vixen.Shaders.Generated.VisibilityTilesConstants generated — the shader's uniform block as a struct with the offsets baked from the same reflection, emitted by Vixen.Shaders.Generators; the subject is the shader
+T:Vixen.Shaders.Generated.VisibilityTilesKeys generated — the shader's typed parameter keys, emitted by Vixen.Shaders.Generators from its .reflect.json; the subject is the shader, not this class
 T:Vixen.Shaders.Generators.ShaderBindingsGenerator sweep-pending
 T:Vixen.Shaders.IEffectProvider sweep-pending
 T:Vixen.Shaders.IEffectSource sweep-pending

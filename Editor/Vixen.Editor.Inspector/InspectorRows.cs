@@ -75,7 +75,7 @@ public static class InspectorRows {
     /// <summary>Reads a row's editor back off the objects.</summary>
     /// <param name="row">The row.</param>
     /// <remarks>
-    ///     ⚠ <b>Inside <see cref="InspectorField.Refreshing" />.</b> Putting a value into a control
+    ///     ⚠ <b>Inside <see cref="Vixen.Editor.Core.EditProperty.Refreshing" />.</b> Putting a value into a control
     ///     raises the control's own changed event, and for a <i>mixed</i> field the neutral position
     ///     it parks at would be written to every selected object the moment the row was drawn.
     /// </remarks>

@@ -22,7 +22,7 @@ namespace Tests;
 ///         ⚠ <b>§ 4.6 lists six nodes and this slice registers five kernels, deliberately.</b>
 ///         <c>Normal → Height</c> is a Poisson solve on the CPU — the plan document says so, and
 ///         names <c>ConjugateGradient</c> as what should run it — and
-///         <see cref="A_plan_cannot_express_an_operation_that_is_not_a_dispatch" /> is the finding
+///         <see cref="A_plan_expresses_exactly_one_operation_that_is_not_a_dispatch" /> is the finding
 ///         about why a plan cannot hold one, written as a test rather than as a paragraph.
 ///     </para>
 /// </remarks>

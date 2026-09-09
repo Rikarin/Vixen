@@ -20,7 +20,8 @@ public class ResizeTests {
     /// <summary>A document whose root fills whatever the viewport is, so a resize reaches the control.</summary>
     /// <remarks>
     ///     The stock fixture pins the root with a rule in pixels, which survives
-    ///     <see cref="UiDocument.Resize" /> and would make every test here resize nothing.
+    ///     <see cref="UiDocument.Resize(float, float)" /> and would make every test here resize
+    ///     nothing.
     /// </remarks>
     static AdvancedFixture Fluid(float width, float height) =>
         new(width, height, "root { width: 100%; height: 100%; }");

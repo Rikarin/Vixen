@@ -604,7 +604,7 @@ public sealed partial class TerrainModule {
     ///     spline component and no curve editor in the viewport — so "the roads on this terrain" is
     ///     "every road in the Project". A Project with two terrains and roads for both would lay all
     ///     of them onto whichever terrain is selected, which is wrong and is visible immediately,
-    ///     where the alternative — <see cref="Roads" /> answering nothing — is a button that silently
+    ///     where the alternative — <see cref="ProjectRoads" /> answering nothing — is a button that silently
     ///     does nothing.
     /// </remarks>
     internal List<(string Name, Spline Curve)> ProjectRoads() {

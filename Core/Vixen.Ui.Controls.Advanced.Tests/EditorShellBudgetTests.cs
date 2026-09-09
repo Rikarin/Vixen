@@ -428,7 +428,7 @@ public class EditorShellBudgetTests {
     ///         thread's own allocation context, and a test on another thread cannot add a byte to it.
     ///         Three process-wide channels that <i>could</i> have made these frames do work were
     ///         probed against this scene and each cost it nothing — ten
-    ///         <see cref="Signal{T}" /> writes interleaved with the ten measured frames (which bump
+    ///         <see cref="Vixen.Ui.Reactive.Signal{T}" /> writes interleaved with the ten measured frames (which bump
     ///         the non-thread-static <c>ReactiveGraph.Epoch</c> every time), ten
     ///         <c>Strings.Use</c> catalogue swaps, and both together: 0 bytes each.
     ///         <c>UiDocument.Fonts</c> is per document, <c>EdgePool</c> is <c>[ThreadStatic]</c>, and

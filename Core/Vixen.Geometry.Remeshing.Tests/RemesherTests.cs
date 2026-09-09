@@ -109,7 +109,7 @@ public class RemesherTests {
     ///         solved <c>base</c> at a budget that produces <i>more</i> quads than the old one did —
     ///         3,300 against 2,678 on a box — gives <c>1.98e-3</c>, worse still. The cause is
     ///         <see cref="DensityField.FeatureTighten" />: it is one of the three terms
-    ///         <see cref="DensityField.Normalise" /> divides back out, so a crease that used to be
+    ///         <c>DensityField.Normalise</c> divides back out, so a crease that used to be
     ///         quantized at half of a short <c>base</c> is now quantized at half of one about 2.4 times
     ///         longer — and the whole point of that term is that a hard edge is not straddled by one
     ///         enormous quad. <b>Excluding the feature band from the budget solve is the row this
@@ -117,7 +117,7 @@ public class RemesherTests {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>That row has now been tried, and it buys the creases back by giving the budget
-    ///         away.</b> Dropping <c>featureTerm</c> from <see cref="DensityField.Normalise" />'s sum
+    ///         away.</b> Dropping <c>featureTerm</c> from <c>DensityField.Normalise</c>'s sum
     ///         takes box to <c>7.6e-5</c> and union to <c>1.77e-4</c> — most of the regression undone —
     ///         and takes box to <b>1,675 quads against a 400 budget</b>, 4.2× and far past
     ///         <see cref="Remesher.BudgetTolerance" />. It is the naive <c>√(area / quads)</c> again by

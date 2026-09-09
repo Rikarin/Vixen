@@ -35,7 +35,8 @@ public class PageResidencyTests {
 
         /// <summary>How many more placements the sink will take, or -1 for a sink with no ceiling.</summary>
         /// <remarks>
-        ///     <see cref="TerrainTilePages.MaxPending" /> and <c>MeshletPagePool</c>'s staging ceiling in
+        ///     <c>TerrainTilePages.MaxPending</c> — in <c>Vixen.Rendering.Terrain</c>, which this assembly
+        ///     does not reference — and <c>MeshletPagePool</c>'s staging ceiling in
         ///     their smallest form: a store that says no, and says so honestly when asked in advance.
         /// </remarks>
         public int Ceiling { get; set; } = -1;

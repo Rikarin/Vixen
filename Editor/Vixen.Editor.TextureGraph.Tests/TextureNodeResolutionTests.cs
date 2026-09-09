@@ -228,7 +228,7 @@ public class TextureNodeResolutionTests {
     ///         from a bare grey input — a <c>Bitmap</c> needs an asset, an <c>Output</c> writes no
     ///         image of its own — and pinning the exact set that can would be a list that goes red on
     ///         the merge that adds a node rather than on the change that breaks one.
-    ///         <see cref="Covered" /> is the guard that keeps this from passing vacuously.
+    ///         The <c>covered</c> floor below is the guard that keeps this from passing vacuously.
     ///     </para>
     /// </remarks>
     [Fact]

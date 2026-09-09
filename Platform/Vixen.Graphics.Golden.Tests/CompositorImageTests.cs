@@ -583,12 +583,12 @@ public sealed class CompositorImageTests {
     ///         failure that shows is the other direction: a far fragment sent to a near cascade
     ///         projects outside that cascade's tile and comes back unshadowed. The whole ground plane
     ///         here is beyond cascade zero, so a selection that reversed its comparison loses the
-    ///         shadow entirely, which is what <see cref="AssertShadow" /> reports.
+    ///         shadow entirely, which is what <see cref="AssertShadow(in Bitmap)" /> reports.
     ///     </para>
     ///     <para>
     ///         The picture is a plan view: the receiver derives a world position on <c>y = 0</c> from
     ///         its own UV, so the shadow's position can be predicted from the light direction and the
-    ///         caster's height alone — which <see cref="AssertShadow" /> does, independently of any
+    ///         caster's height alone — which <see cref="AssertShadow(in Bitmap)" /> does, independently of any
     ///         matrix the renderer built. The camera exists for the cascades to be fitted to and for
     ///         the depth the selection is made on, not for the picture.
     ///     </para>
@@ -766,7 +766,7 @@ public sealed class CompositorImageTests {
     ///         that failure that looks like a bug rather than like a scene with no light in it.
     ///     </para>
     ///     <para>
-    ///         <b>The oracle is <see cref="AssertShadow" />'s, which is arithmetic.</b> A point on the
+    ///         <b>The oracle is <see cref="AssertShadow(in Bitmap)" />'s, which is arithmetic.</b> A point on the
     ///         caster reaches the ground at <c>P + tL</c> where <c>P.y + t·L.y = 0</c>, and the whole
     ///         rectangle is checked rather than its middle — so a shadow of the right size in the wrong
     ///         place and one of the wrong size in the right place both fail. Nothing the renderer

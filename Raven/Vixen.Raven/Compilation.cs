@@ -123,9 +123,9 @@ public sealed class Compilation {
         Create(assemblyName, PermutationValues.Empty, ComposeBindings.Empty, references, syntaxTrees);
 
     /// <summary>
-    ///     Creates one variant of a compilation. Each distinct combination of
-    ///     <paramref name="permutationValues" /> and <paramref name="composeBindings" /> is a
-    ///     separate compilation, because both change what the code means.
+    ///     Creates one variant of a compilation. Each distinct
+    ///     <paramref name="permutationValues" /> is a separate compilation, because a permutation
+    ///     value changes what the code means; this overload's compose bindings are empty.
     /// </summary>
     public static Compilation Create(
         string assemblyName,
@@ -134,7 +134,11 @@ public sealed class Compilation {
     ) =>
         Create(assemblyName, permutationValues, ComposeBindings.Empty, syntaxTrees);
 
-    /// <inheritdoc cref="Create(string,PermutationValues,IEnumerable{SyntaxTree})" />
+    /// <summary>
+    ///     Creates one variant of a compilation. Each distinct combination of
+    ///     <paramref name="permutationValues" /> and <paramref name="composeBindings" /> is a
+    ///     separate compilation, because both change what the code means.
+    /// </summary>
     public static Compilation Create(
         string assemblyName,
         PermutationValues permutationValues,
@@ -143,7 +147,7 @@ public sealed class Compilation {
     ) =>
         Create(assemblyName, permutationValues, composeBindings, [], syntaxTrees);
 
-    /// <inheritdoc cref="Create(string,PermutationValues,IEnumerable{SyntaxTree})" />
+    /// <inheritdoc cref="Create(string,PermutationValues,ComposeBindings,IEnumerable{SyntaxTree})" />
     public static Compilation Create(
         string assemblyName,
         PermutationValues permutationValues,

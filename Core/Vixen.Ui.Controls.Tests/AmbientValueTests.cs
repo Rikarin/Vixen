@@ -39,7 +39,7 @@ public partial class AmbientConsumer {
     /// <summary>What was injectable at the moment this component was mounted.</summary>
     /// <remarks>
     ///     ⚠ <b>Recorded because an <c>@expr</c> cannot witness the ordering.</b> Every markup
-    ///     expression is a queued effect, so a label bound to <see cref="Accent" /> reads it at the
+    ///     expression is a queued effect, so a label bound to <c>Accent</c> reads it at the
     ///     next flush — long after the whole tree, provider included, has been built. It is green
     ///     against a runtime that declares ambient values *after* <c>Build</c>, which is precisely
     ///     the arrangement the hook exists to avoid. This is read synchronously, inside the

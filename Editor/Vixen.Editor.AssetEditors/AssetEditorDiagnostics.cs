@@ -13,7 +13,7 @@ namespace Vixen.Editor.AssetEditors;
 ///         <a href="https://github.com/Rikarin/Vixen/issues/804">#804</a> gave
 ///         <c>Vixen.Editor.TextureGraph</c> and <a
 ///         href="https://github.com/Rikarin/Vixen/issues/936">#936</a> gave
-///         <c>Vixen.Editor.Texturing</c>, applied to the third assembly. The shape is copied; the
+///         <c>Vixen.Editor.Texturing</c>, applied to the third assembly.</b> The shape is copied; the
 ///         list is not, and that is the part the issue could not have known.
 ///     </para>
 ///     <para>

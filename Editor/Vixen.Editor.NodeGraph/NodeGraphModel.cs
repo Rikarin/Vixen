@@ -160,7 +160,7 @@ public sealed class GraphComment {
 ///     </para>
 ///     <para>
 ///         <b>It refuses cycles as they are made, not when they are compiled.</b> A graph that cannot
-///         contain a cycle is a graph <see cref="NodeGraphCompiler" /> can walk without a visited set
+///         contain a cycle is a graph <see cref="NodeGraphCompiler{TArtefact}" /> can walk without a visited set
 ///         and a graph a view can lay out without one. The alternative — allow it, report it later —
 ///         means every consumer has to be robust against a structure the model already knows is
 ///         wrong, and it means an author finds out about a mistake at a different time from making it.
@@ -273,7 +273,8 @@ public sealed class NodeGraphModel {
     ///     <para>
     ///         ⚠ <b>Here rather than at the one caller, because
     ///         <a href="https://github.com/Rikarin/Vixen/issues/780">#780</a> is what the other
-    ///         arrangement costs.</b> <see cref="SubGraphs.Flatten" /> built a fresh model and copied
+    ///         arrangement costs.</b>
+    ///         <see cref="SubGraphs.Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic})" /> built a fresh model and copied
     ///         <see cref="Groups" />, <see cref="Comments" /> and <see cref="Interface" /> — the
     ///         three side tables that existed when it was written — so the two
     ///         <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a> added on the same day

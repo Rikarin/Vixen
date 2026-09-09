@@ -94,7 +94,7 @@ public sealed class TestAppTests {
     ///     event stream.
     /// </summary>
     /// <remarks>
-    ///     <see cref="HeadlessInputSource.SetKey" /> is the obvious way to "press a key" and it posts
+    ///     <see cref="Vixen.Platform.Headless.HeadlessInputSource.SetKey" /> is the obvious way to "press a key" and it posts
     ///     nothing, while <c>Services.Input</c> is fed by <c>InputDeviceSet.Submit</c> from the events
     ///     <c>PumpEvents</c> drains. A test that pressed a key that way and then asserted an action
     ///     had fired would fail; one that asserted an action had <em>not</em> fired would pass for the

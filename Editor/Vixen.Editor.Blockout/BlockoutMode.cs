@@ -27,7 +27,7 @@ namespace Vixen.Editor.Blockout;
 ///         ⚠ <b>So far it owns its keys and nothing else, and that is doc 24's P0 exactly.</b> There
 ///         is no editable mesh in the engine yet — <c>Core/Vixen.Geometry</c> is P1 — so
 ///         <see cref="Element" /> is a statement about what a click <i>would</i> select rather than
-///         something that selects it, and <see cref="Pointer" /> declines every event. What is real
+///         something that selects it, and <see cref="Pointer(SceneViewport, PointerEvent)" /> declines every event. What is real
 ///         is the arbitration: while this mode is active <c>1</c>, <c>2</c>, <c>3</c> and <c>4</c> in
 ///         the viewport are the element modes, and while it is not they are view-bookmark recall. That
 ///         is the thing that could not be retrofitted, and it is the thing this mode is here to prove.

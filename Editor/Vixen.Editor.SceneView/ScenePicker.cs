@@ -253,7 +253,7 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
     ///         camera and is skipped.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Hidden and locked entities are skipped, exactly as <see cref="Under" /> skips
+    ///         ⚠ <b>Hidden and locked entities are skipped, exactly as <see cref="Under(Ray, EditorCamera, int, int)" /> skips
     ///         them.</b> A band is the gesture that most easily takes something the user cannot see,
     ///         and a marquee and a click disagreeing about what is selectable is worse than either
     ///         rule on its own.
@@ -489,7 +489,7 @@ public sealed class ScenePicker : IScenePicker, ISubObjectPicker {
     ///     world ray.</b> <c>Ray</c>'s constructor normalises, so the local ray's direction is a unit
     ///     vector in <i>local</i> units and the parameter it hands back is in local units too — a
     ///     shape scaled fourfold answers with a quarter of the distance, and a shape scaled to a
-    ///     tenth answers with ten times it. That made <see cref="Under" />'s comparison meaningless
+    ///     tenth answers with ten times it. That made <see cref="Under(Ray, EditorCamera, int, int)" />'s comparison meaningless
     ///     between two entities of different scale, and meaningless between a shape and a marker,
     ///     whose distance is already the world one. Taking the point through the matrix costs one
     ///     transform per entity and is exact.

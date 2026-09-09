@@ -25,7 +25,7 @@ namespace Tests;
 ///         <b>The patterns are chosen so that an assertion can be an equality.</b>
 ///         <see cref="Unique" /> gives every texel a different colour, so "this is a copy" is a claim
 ///         about 4 096 texels rather than about a flat fill that any broken kernel also produces;
-///         <see cref="Columns" /> is a one-texel checkerboard whose <em>mean is exactly one half</em>,
+///         <see cref="Columns(int)" /> is a one-texel checkerboard whose <em>mean is exactly one half</em>,
 ///         which is the closed form every minification in § 4.3 is measured against.
 ///     </para>
 /// </remarks>

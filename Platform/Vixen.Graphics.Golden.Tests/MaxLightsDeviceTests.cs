@@ -128,7 +128,7 @@ public sealed class MaxLightsDeviceTests {
     ///         The engine's own default pairing until this was wired: eight in the block against a
     ///         variant compiled for the <c>.rvn</c>'s sixteen. The shader has room for sixteen and is
     ///         told <c>lightCount</c> is eight, so it shades with eight — which is
-    ///         <see cref="ForwardLightingRenderFeature.Select" /> having dropped four before anything
+    ///         <c>ForwardLightingRenderFeature.Select</c> — private — having dropped four before anything
     ///         was written, not the shader reading anything it should not.
     ///     </para>
     ///     <para>

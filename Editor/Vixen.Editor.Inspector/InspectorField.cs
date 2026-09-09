@@ -303,7 +303,7 @@ public interface IPrefabSource {
     /// <returns>Whether the object came from a prefab that has this member.</returns>
     /// <remarks>
     ///     ⚠ <b>In the object's space, which is the implementation's problem and not the caller's.</b>
-    ///     <see cref="RevertToPrefab" /> feeds this straight back into the member's setter, so a
+    ///     <see cref="InspectorField.RevertToPrefab" /> feeds this straight back into the member's setter, so a
     ///     source that handed back a parent-relative position for a world-space property would move
     ///     the entity somewhere nobody asked for — see <c>PrefabSource</c>.
     /// </remarks>

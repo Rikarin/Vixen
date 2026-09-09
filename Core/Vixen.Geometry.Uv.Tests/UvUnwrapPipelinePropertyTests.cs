@@ -14,8 +14,10 @@ namespace Vixen.Geometry.Uv.Tests;
 ///     <para>
 ///         <b>Criterion 2 says "zero flipped triangles on 100 % of the corpus, or an explicit refusal
 ///         naming the chart. No exceptions, no hangs", and until this file existed nothing generative
-///         called <see cref="UvUnwrap.All" />.</b> <see cref="UvPackPropertyTests" /> states its half
-///         over <see cref="UvUnwrap.Pack" />, which is the <i>third</i> stage and is handed islands a
+///         called <see cref="UvUnwrap.All(EditMesh, UvSettings, PackSettings, out IReadOnlyList{Vector2})" />.</b>
+///         <see cref="UvPackPropertyTests" /> states its half
+///         over <see cref="UvUnwrap.Pack(IReadOnlyList{UvIsland}, PackSettings)" />, which is the <i>third</i> stage and is
+///         handed islands a
 ///         generator drew rather than islands a flattener produced. Every property that holds over a
 ///         stage can still fail over the composition: a packer that never overlaps islands it was given
 ///         says nothing about an atlas whose islands came out of a chart the charter had to split
@@ -79,7 +81,8 @@ public class UvUnwrapPipelinePropertyTests {
     ///         fused verb that quietly does something else makes "just repack these islands" a
     ///         different code path with different behaviour and the separability a fiction. It is also
     ///         what makes the atlas oracle legitimate: the islands rasterized below are the ones
-    ///         <see cref="UvUnwrap.All" /> packed, not a re-derivation that might not be.
+    ///         <see cref="UvUnwrap.All(EditMesh, UvSettings, PackSettings, out IReadOnlyList{Vector2})" />
+    ///         packed, not a re-derivation that might not be.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>An island the packer had to shrink below one texel is excluded from the margin

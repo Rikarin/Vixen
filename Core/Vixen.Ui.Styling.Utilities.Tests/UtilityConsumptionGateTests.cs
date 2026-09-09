@@ -42,7 +42,7 @@ namespace Vixen.Ui.Styling.Utilities.Tests;
 ///         extra declaration on the probe element — and four observables are compared:
 ///         <c>layout</c> (every element's rectangle), <c>paint</c> (the whole draw list, its glyph,
 ///         path and box-style side buffers included), <c>cursor</c> (<see cref="UiDocument.CursorOf" />)
-///         and <c>hit</c> (<see cref="UiDocument.HitTest" /> over a grid). A property that moves none
+///         and <c>hit</c> (<see cref="UiDocument.HitTest(float, float)" /> over a grid). A property that moves none
 ///         of the four, in any scene, at any value a utility can give it, is not acted on by anything.
 ///     </para>
 ///     <para>
@@ -442,7 +442,7 @@ public class UtilityConsumptionGateTests {
     /// <remarks>
     ///     ⚠ <b>Named after the scene rather than the property, like the ellipsis above it, because
     ///     the thing that can break is the scene.</b> <c>scrollbar-width</c> is read on exactly one
-    ///     condition — <see cref="Overflow.Scroll" /> on the axis — and until <c>scrollport</c> was
+    ///     condition — <see cref="Vixen.Ui.Layout.Overflow.Scroll" /> on the axis — and until <c>scrollport</c> was
     ///     added no scene put that on <c>#probe</c>. The <c>scrolled</c> scene looks as though it
     ///     would: its probe is a <c>ScrollView</c>. But <c>ControlTheme.vcss</c> gives a
     ///     <c>scroll-view</c> <c>overflow: hidden</c> and lays an absolutely positioned bar over the

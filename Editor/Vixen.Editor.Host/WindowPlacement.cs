@@ -141,7 +141,7 @@ static class WindowPlacement {
     ///         unplugged is one they cannot see, cannot move and will conclude did not start.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Deferred to <see cref="PlatformWindowHost.IsReachable" /> rather than repeated
+    ///         ⚠ <b>Deferred to <see cref="PlatformWindowHost.IsReachable(IPlatform, float, float, float, float)" /> rather than repeated
     ///         here.</b> A torn-off panel restored onto an unplugged display has exactly this problem
     ///         and the docking host has to answer it too — see <c>DockFloat</c> — so two copies of
     ///         the grip rule would be two places for "how much of a window counts as reachable" to

@@ -651,10 +651,10 @@ public class TextureKernelLanguageSeamTests {
     ///     <para>
     ///         ⚠ <b>One row, and it used to be four.</b> <c>Hsl</c>, <c>Splatter</c> and
     ///         <c>TileSampler</c> wrote the triple inline in a body; all three call
-    ///         <c>ColorSpaces.Luminance</c> now — <see cref="Three_kernels_read_their_luminance_out_of_the_library" />
+    ///         <c>ColorSpaces.Luminance</c> now — <see cref="The_kernels_that_weigh_a_luminance_call_the_library_s" />
     ///         is what holds that, and this is the one copy that stays.
     ///         <c>Grayscale.rvn</c> writes Rec. 709 as three separate parameter *defaults*, which is
-    ///         not a function, so it can be neither a row of <see cref="Parity" /> nor a call: ⚠ a
+    ///         not a function, so it can be neither a row of the parity theory nor a call: ⚠ a
     ///         parameter default has to be a literal. Its header says it uses these three numbers "so
     ///         a graph and a shader graph agree about what grey is". Three numbers agreeing is the
     ///         whole of that claim, so three numbers is what is checked.
@@ -794,7 +794,7 @@ public class TextureKernelLanguageSeamTests {
     ///         ⚠ <b>What it would say if it read nothing.</b> A prelude that came back empty finds no
     ///         copies at all and would report the library clean, so the file that is supposed to
     ///         carry the weights is named and asserted first — the same shape
-    ///         <see cref="Only_the_kernel_whose_weights_are_defaults_still_transcribes_the_library_s" />
+    ///         <see cref="Only_the_kernel_whose_weights_are_defaults_still_transcribes_the_library_s_luminance" />
     ///         uses for <c>Grayscale</c>. ⚠ And the needle is read off <c>Core/ColorSpaces.rvn</c> on
     ///         disk rather than written here, so a triple that moved reduces to nothing and fails the
     ///         length check instead of matching every file.

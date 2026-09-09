@@ -557,7 +557,8 @@ public class ForwardLightingTests : IDisposable {
     ///     </para>
     ///     <para>
     ///         Under the budget nothing is dropped, so nothing can churn — which is the whole of the
-    ///         fix and also its limit. <see cref="ForwardLightingRenderFeature.Select" /> says the
+    ///         fix and also its limit. <c>ForwardLightingRenderFeature.Select</c> — private, so this is prose rather than a link —
+///         says the
     ///         general answer is clustered lighting, where there is no per-object budget to overflow.
     ///     </para>
     /// </remarks>
@@ -630,7 +631,8 @@ public class ForwardLightingTests : IDisposable {
     ///     <para>
     ///         ⚠ <b>A phase requirement, not a convenience.</b> The earliest reader of
     ///         <c>ISunSource.Sun</c> is <c>ShadowMapRenderer.Collect</c>, which runs before the render
-    ///         system runs any phase at all — so a value this feature latched in <see cref="Prepare" />
+    ///         system runs any phase at all — so a value this feature latched in
+///         <c>ForwardLightingRenderFeature.Prepare</c>
     ///         answered with the previous frame's sun, and on the first frame with none.
     ///     </para>
     ///     <para>

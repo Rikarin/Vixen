@@ -235,7 +235,7 @@ public class VxmlGeneratorTests {
     ///     whenever the file's text differs, and Roslyn only downgrades that to
     ///     <see cref="IncrementalStepRunReason.Unchanged" /> if the result compares equal to the
     ///     one it cached — which for a file with diagnostics means comparing the diagnostic array
-    ///     by its contents. <see cref="ImmutableArray{T}" /> compares by reference and would say
+    ///     by its contents. <see cref="System.Collections.Immutable.ImmutableArray{T}" /> compares by reference and would say
     ///     "different" every time, re-adding the source and re-reporting the diagnostic on every
     ///     keystroke, silently and correctly.
     /// </summary>

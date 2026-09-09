@@ -238,7 +238,7 @@ public class UvPackPropertyTests {
     ///         asserting that two rasterizers agree, which nobody claimed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The subject is <see cref="UvUnwrap.Pack" />'s own placements, and saying so is not
+    ///         ⚠ <b>The subject is <see cref="UvUnwrap.Pack(IReadOnlyList{UvIsland}, PackSettings)" />'s own placements, and saying so is not
     ///         pedantry — <see cref="UvStacking" /> is this property's exact negation.</b> § D10's
     ///         symmetric stacking <i>deliberately</i> overlaps two mirrored islands so that both halves
     ///         share one region of texture: <see cref="UvStacking.Fold" /> drops the partner before the

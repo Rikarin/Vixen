@@ -121,6 +121,8 @@ readonly record struct SceneSignature(string Layout, string Paint, string Cursor
 ///         <c>"Ag jq Wm il"</c>; a numeric feature applied to a string with no figures in it changes
 ///         nothing, so the face alone would not have been enough. <c>0123456789</c> in a span of its
 ///         own, on a flag, leaving the other fourteen scenes byte-identical.
+///     </para>
+/// </param>
 /// <param name="Floated">
 ///     Whether the probe is preceded by a <c>#lead</c> sibling the scene floats. False for every
 ///     scene but <c>floated</c>.

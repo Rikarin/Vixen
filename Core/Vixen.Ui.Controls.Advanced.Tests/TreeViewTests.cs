@@ -563,7 +563,10 @@ public class TreeViewTests {
         return tree;
     }
 
-    /// <summary>Drags the row at <paramref name="from" /> and leaves the pointer over <paramref name="to" />.</summary>
+    /// <summary>
+    ///     Drags the row at <paramref name="from" /> and leaves the pointer over
+    ///     (<paramref name="toX" />, <paramref name="toY" />).
+    /// </summary>
     static void DragOver(AdvancedFixture fixture, TreeRow from, float toX, float toY) {
         // ⚠ Well clear of the chevron. `TreeView.Pointed` gives the press to the chevron rather than
         // to the row, so pressing 20 px in COLLAPSES the folder being dragged — the child row

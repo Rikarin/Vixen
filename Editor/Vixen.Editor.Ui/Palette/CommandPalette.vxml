@@ -252,7 +252,7 @@
         Document.Focus(Field);
     }
 
-    /// <inheritdoc cref="NodeSearchPopup" />
+    /// <summary>Wires the overlay up once its elements exist.</summary>
     /// <remarks>
     ///     ⚠ <b>The key handler is gone from here.</b> It is
     ///     <c>&lt;self on:keydown.capture&gt;</c> in the markup above, on the same element this

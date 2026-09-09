@@ -40,7 +40,7 @@ static class Coverage {
     /// <summary>Repository-relative, and named here rather than in three call sites.</summary>
     public const string RelativePath = "docs/DocsExempt.txt";
 
-    /// <summary>What <see cref="Seed" /> writes for every type that predates the gate.</summary>
+    /// <summary>What <see cref="Write" /> writes for every type that predates the gate.</summary>
     public const string SeedReason = "sweep-pending";
 
     const string Header =

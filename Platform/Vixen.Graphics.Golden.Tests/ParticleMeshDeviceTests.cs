@@ -265,7 +265,7 @@ public class ParticleMeshDeviceTests {
     /// <remarks>
     ///     <para>
     ///         <b>Written straight into device buffers rather than through
-    ///         <see cref="GeometryResidency" />.</b> What is under test is the vertex layout and the
+    ///         <see cref="Vixen.Rendering.Ecs.GeometryResidency" />.</b> What is under test is the vertex layout and the
     ///         shader, and a suballocator between the two would add a staging flush this frame has no
     ///         place to record.
     ///     </para>

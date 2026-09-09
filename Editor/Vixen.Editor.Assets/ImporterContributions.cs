@@ -9,7 +9,7 @@ namespace Vixen.Editor.Assets;
 ///         <b>Doc 36 § F8's fix.</b> That finding said "importers are constructed and handed in;
 ///         there is no registry for a plugin to add to", and the second half was the part that
 ///         mattered: <see cref="ImporterRegistry" /> has existed all along, but it is built fresh per
-///         run by <see cref="BuiltInImporters.Create" /> — inside a background task, deliberately, so
+///         run by <see cref="BuiltInImporters.Create()" /> — inside a background task, deliberately, so
 ///         that the editor and the CLI cannot disagree about the set. A plugin had nothing to add to
 ///         because every registry it could have reached was about to be thrown away.
 ///     </para>

@@ -56,7 +56,7 @@ public sealed class EditorShell : IDisposable {
 
     /// <summary>The task centre, which is a VXML component rather than a control.</summary>
     /// <remarks>
-    ///     Held for <see cref="Show" />'s sake and nothing else. Keeping a mounted component alive
+    ///     Held for <c>TaskCenter.Show</c>'s sake and nothing else. Keeping a mounted component alive
     ///     is <see cref="UiDocument.ComponentAt" />'s job now, not the caller's.
     ///     <para>
     ///         Not <c>readonly</c>, because <see cref="RemountTaskCenter" /> replaces it. See there
@@ -375,7 +375,7 @@ public sealed class EditorShell : IDisposable {
     ///     </para>
     ///     <para>
     ///         The old component's elements are taken out of the document first, so the popover holds
-    ///         one task centre rather than two — and <see cref="Show" />'s wiring is re-made here,
+    ///         one task centre rather than two — and <c>TaskCenter.Show</c>'s wiring is re-made here,
     ///         because it belongs to the instance and the instance is new.
     ///     </para>
     /// </remarks>

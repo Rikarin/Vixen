@@ -33,4 +33,17 @@
         <InternalsVisibleTo Include="Vixen.Editor.Gameplay.Loot.Tests" />
     </ItemGroup>
 
+    <PropertyGroup>
+        <!--
+            #821's ratchet. The TOOLING profile in `Directory.Build.props` sets this false for all of
+            `Editor/**`, `Tools/**` and `Raven/**`, so no `<see cref>` under any of them was ever
+            checked — ask what that gate printed on the day it did not run: `0 Warning(s)`. CS1591
+            and CS1573 stay suppressed: "this public member has no comment" is a question about a
+            packaged API surface and is not what this is for; the rules that catch a *lie* are.
+            Measured before flipping, and every diagnostic it reported is fixed in the same commit.
+        -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
+    </PropertyGroup>
+
 </Project>

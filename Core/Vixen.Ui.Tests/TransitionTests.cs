@@ -318,7 +318,7 @@ public class TransitionTests {
     /// <remarks>
     ///     ⚠ <b>The half that says the push is inheritance rather than a broadcast, and the half a
     ///     naive implementation gets wrong.</b> "This element inherited the property" is inferred from
-    ///     its cascaded value being its parent's — a <see cref="ComputedStyle" /> does not record
+    ///     its cascaded value being its parent's — a <see cref="Vixen.Ui.Styling.ComputedStyle" /> does not record
     ///     provenance — so an implementation that overwrote every descendant would repaint a label
     ///     that had asked for red. It would also then push <i>that</i> value on down, which is what the
     ///     grandchild here is for: it inherits from the child, whose colour is not moving.
