@@ -395,9 +395,18 @@ public sealed partial class ConsoleView : Control {
 
         var meta = Detail.Add<UiElement>("console-detail-meta");
 
+        // ⚠ The event id is here and not in the row, because the row is the one place it would cost
+        // width on every line — and it is here at all because until #1196 the number ADR-008's
+        // register is keyed by reached no surface a person reads. Omitted when zero: that is what an
+        // `ILogger` extension call that is not a `[LoggerMessage]` produces, and it has no entry in
+        // the register to look up.
+        var id = record.EventId.Id == 0
+            ? string.Empty
+            : string.Create(CultureInfo.InvariantCulture, $" · #{record.EventId.Id}");
+
         meta.Text = string.Create(
             CultureInfo.InvariantCulture,
-            $"{record.Level} · {record.Category} · {record.Timestamp.ToString(TimeFormat, CultureInfo.InvariantCulture)} · thread {record.ThreadId}"
+            $"{record.Level} · {record.Category} · {record.Timestamp.ToString(TimeFormat, CultureInfo.InvariantCulture)} · thread {record.ThreadId}{id}"
         );
 
         if (record.SuppressedCount > 0) {

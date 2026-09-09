@@ -44,11 +44,20 @@ public sealed class TriangleHost : IosApplicationHost {
     ///         the view out, which is why <see cref="TriangleGame" /> waits for one instead of
     ///         building a device here.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>WithLoggerProvider</c> rather than
+    ///         <c>WithServices(… LoggerFactory.AddProvider …)</c>, which is what this used to say.</b>
+    ///         Service callbacks run last, so the sink was installed after the platform, the mounts,
+    ///         the workers, the engine and the whole graphics build had logged — and the unified log
+    ///         is the only log there is on a device, so the half a bring-up is about was the half
+    ///         that never arrived (#1197). Built from the host's own filter, so
+    ///         <c>vixen.log.yaml</c> reaches it like it reaches the console.
+    ///     </para>
     /// </remarks>
     protected override Action Start(IosPlatform platform) {
         application = VixenApp.Create([])
             .WithPlatform(platform)
-            .WithServices(services => services.LoggerFactory.AddProvider(new PlatformSink()))
+            .WithLoggerProvider(levels => new PlatformSink(filter: levels))
             .Build(new TriangleGame());
 
         return application.RunFrame;

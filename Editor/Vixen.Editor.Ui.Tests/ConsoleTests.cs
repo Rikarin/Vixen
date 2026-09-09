@@ -283,8 +283,8 @@ public class ConsoleViewTests : IDisposable {
         GC.SuppressFinalize(this);
     }
 
-    void Log(LogLevel level, string message, Exception? failure = null) =>
-        sink.CreateLogger("Vixen.Editor.Tests").Log(level, default, message, failure, static (state, _) => state);
+    void Log(LogLevel level, string message, Exception? failure = null, int eventId = 0) =>
+        sink.CreateLogger("Vixen.Editor.Tests").Log(level, eventId, message, failure, static (state, _) => state);
 
     void Frame() {
         view.Tick();
@@ -370,6 +370,31 @@ public class ConsoleViewTests : IDisposable {
         Assert.Contains("it went wrong", text, StringComparison.Ordinal);
         Assert.Contains("because of this", text, StringComparison.Ordinal);
         Assert.Contains("InvalidOperationException", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_detail_pane_carries_the_event_id_the_register_is_keyed_by() {
+        Log(LogLevel.Warning, "device lost", eventId: 2001);
+        Log(LogLevel.Warning, "something an extension method logged");
+        Frame();
+
+        var withId = view.List.RowOf(0);
+
+        Assert.NotNull(withId);
+        Click(withId);
+
+        // ⚠ Asserted on the pane's text and not on LogRecord.EventId, which has been right the whole
+        // time — being right where nothing rendered it is what made #1196 invisible.
+        Assert.Contains("#2001", string.Join(" ", Texts(view.Detail)), StringComparison.Ordinal);
+
+        var withoutId = view.List.RowOf(1);
+
+        Assert.NotNull(withoutId);
+        Click(withoutId);
+
+        // "#0" is what every ILogger extension call would put here, on exactly the lines that have
+        // no entry in the register to look up.
+        Assert.DoesNotContain("#0", string.Join(" ", Texts(view.Detail)), StringComparison.Ordinal);
     }
 
     [Fact]

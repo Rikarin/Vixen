@@ -27,6 +27,8 @@ Chrome `trace_event` document. Drag it onto [ui.perfetto.dev](https://ui.perfett
 |---|---|
 | `--vixen-profile` | Turns the CPU profiler on. Nothing else changes. |
 | `--vixen-trace <path>` | Writes the run out at shutdown. **Implies `--vixen-profile`.** |
+| `--vixen-run-for <seconds>` | Stops the loop after that much of the frame clock. The duration form of `--vixen-frames`. |
+| `vixen trace record --duration 10s` | The two above and a build, from the CLI. Writes into `<project>/Traces/`. |
 | `AppConfig.Profiling` / `AppConfig.TracePath` | The same two from `OnConfigure`, for a head that always records. |
 | `Vixen.Core.Diagnostics.Profiler` | The recorder: `IsEnabled`, `Begin`, `BeginFrame`, `Collect`. |
 | `Vixen.Core.Diagnostics.ProfilingKey` | An interned scope name. An `int` at run time. |
@@ -121,6 +123,31 @@ Console.WriteLine(TraceExporter.Summarize(Profiler.Collect()));
 ```
 
 ⚠ It collects, so it is subject to the paragraph above.
+
+### From the command line
+
+```
+vixen trace record --duration 10s
+```
+
+builds for this machine the way `vixen run` does, runs it with `--vixen-trace` and
+`--vixen-run-for`, and prints where the document went. `--duration` takes `10s`, `500ms`, `2m` or a
+bare number of seconds; `-o` names the file; anything after `--` is passed to the game, and wins,
+because a command line is applied in order.
+
+⚠ **`--vixen-run-for` is spent on the frame clock, not on a wall clock.** It compares against
+`GameTime.Total`, so with `--vixen-fixed-step` the run ends on the same frame every time — the only
+form a test can assert — and without one it ends after the seconds an operator meant. A paused or
+scaled clock slows it down, which is what a capture wants: ten seconds of simulation.
+
+⚠ **The verb checks that the file is there before it names it.** The trace is written at shutdown, so
+a run that crashed or was killed leaves none, and an instrument that printed a path either way would
+be reporting success on the day it did not run.
+
+⚠ **Chrome `trace_event` JSON, which is not the Perfetto protobuf doc 13 names**
+([#25](https://github.com/Rikarin/Vixen/issues/25)). It opens in the same viewer. The editor's
+capture button — doc 13's other entry point — is still owed
+([#346](https://github.com/Rikarin/Vixen/issues/346)).
 
 ## Examples
 

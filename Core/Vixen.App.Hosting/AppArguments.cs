@@ -154,6 +154,31 @@ public sealed record AppArguments {
     /// </remarks>
     public int? MaxFrames { get; private init; }
 
+    /// <summary>How long to run before stopping, from <c>--vixen-run-for</c>, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The duration form of <see cref="MaxFrames" />, and what <c>vixen trace record
+    ///         --duration 10s</c> is built on: a trace is asked for in seconds, because what a person
+    ///         wants ten seconds of is the game running, not a frame count they would have to guess a
+    ///         frame rate to arrive at.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Measured on the frame clock rather than on a wall clock</b>, so it is
+    ///         <c>GameTime.Total</c> that is compared. Under <c>--vixen-fixed-step</c> that
+    ///         makes the stop deterministic — the same frame on every run of the same build, which is
+    ///         the only form a test can assert — and on a wall-clock run it is the same ten seconds an
+    ///         operator meant. ⚠ It follows that <c>--vixen-time-scale</c>-style scaling and a paused
+    ///         clock both slow it down, which is the behaviour a capture wants: ten seconds of
+    ///         <em>simulation</em>.
+    ///     </para>
+    ///     <para>
+    ///         In seconds. Zero and negative are refused by the parser rather than being taken as
+    ///         "stop immediately", because a run that ends before its first frame writes a trace with
+    ///         nothing in it and reads as a game that did nothing.
+    ///     </para>
+    /// </remarks>
+    public TimeSpan? RunFor { get; private init; }
+
     /// <summary>
     ///     How long every frame is told it took, from <c>--vixen-fixed-step</c>, or
     ///     <see langword="null" /> for the wall clock.
@@ -360,6 +385,14 @@ public sealed record AppArguments {
 
                 case "--vixen-frames" when Take(out var total) && int.TryParse(total, out var count2):
                     parsed = parsed with { MaxFrames = Math.Max(0, count2) };
+                    continue;
+
+                // Seconds, and strictly positive: zero would stop the loop before its first frame,
+                // which writes a trace with no events in it and reads as a game that did nothing.
+                case "--vixen-run-for" when Take(out var duration)
+                    && double.TryParse(duration, NumberStyles.Float, CultureInfo.InvariantCulture, out var runFor)
+                    && runFor > 0d:
+                    parsed = parsed with { RunFor = TimeSpan.FromSeconds(runFor) };
                     continue;
 
                 case "--vixen-log-level" when Take(out var level) && Enum.TryParse<LogLevel>(level, true, out var parsedLevel):

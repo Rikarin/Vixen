@@ -29,6 +29,7 @@ namespace Vixen.App;
 public sealed class AppBuilder {
     readonly AppArguments arguments;
     readonly List<Action<AppServices>> configurations = [];
+    readonly List<Func<LogFilter, ILoggerProvider>> loggerProviders = [];
 
     IPlatform? platform;
     IGraphicsDevice? device;
@@ -117,6 +118,48 @@ public sealed class AppBuilder {
         return this;
     }
 
+    /// <summary>Adds a log sink before the host has any logger of its own.</summary>
+    /// <param name="provider">
+    ///     The sink. The application takes ownership: the logger factory disposes every provider it
+    ///     holds, this one included.
+    /// </param>
+    /// <returns>This builder.</returns>
+    /// <remarks>
+    ///     ⚠ <b>This is not the same as
+    ///     <c>WithServices(services =&gt; services.LoggerFactory.AddProvider(…))</c>, and the
+    ///     difference is the whole boot.</b> <see cref="WithServices" /> callbacks are the last
+    ///     thing <see cref="Build" /> runs — after the platform, the mounts, the log-config read,
+    ///     the workers, the engine loop, the content mount, input and the whole graphics build,
+    ///     every one of which has already logged. A provider installed here is in the factory
+    ///     before the first of those lines is written, which on Android and iOS is the difference
+    ///     between a system log that has the bring-up in it and one that starts at
+    ///     <c>OnInitialise</c> (#1197).
+    /// </remarks>
+    public AppBuilder WithLoggerProvider(ILoggerProvider provider) {
+        ArgumentNullException.ThrowIfNull(provider);
+
+        return WithLoggerProvider(_ => provider);
+    }
+
+    /// <summary>Adds a log sink built over the host's own filter, before the host logs anything.</summary>
+    /// <param name="create">
+    ///     Given the filter every sink the host composes shares, returns the sink. The application
+    ///     takes ownership of what it returns.
+    /// </param>
+    /// <returns>This builder.</returns>
+    /// <remarks>
+    ///     The overload to reach for when the sink should answer to <c>--vixen-log-level</c> and
+    ///     <c>vixen.log.yaml</c> like the console and the file do: a sink constructed with a filter
+    ///     of its own is a sink those two settings cannot reach, which is the shape of "the switch
+    ///     did nothing" that this repository keeps finding.
+    /// </remarks>
+    public AppBuilder WithLoggerProvider(Func<LogFilter, ILoggerProvider> create) {
+        ArgumentNullException.ThrowIfNull(create);
+        loggerProviders.Add(create);
+
+        return this;
+    }
+
     /// <summary>Registers extra services once everything else exists.</summary>
     /// <param name="configure">Called with the built services.</param>
     /// <returns>This builder.</returns>
@@ -165,6 +208,10 @@ public sealed class AppBuilder {
         if (config.LogFileDirectory is { Length: > 0 } logDirectory) {
             sinks.Add(new ZLoggerFileSink(logDirectory, FileNamePrefix(config.Name), filter: levels));
         }
+
+        // Last in the list and still before every logger this method makes, which is the point of
+        // the seam: a platform sink installed after the boot is a platform sink that missed it.
+        sinks.AddRange(loggerProviders.Select(create => create(levels)));
 
         var loggerFactory = new HostLoggerFactory([.. sinks]);
 
@@ -458,7 +505,24 @@ public sealed class AppBuilder {
 ///     </para>
 /// </remarks>
 sealed class HostLoggerFactory(params ILoggerProvider[] providers) : ILoggerFactory {
+    readonly Lock gate = new();
     readonly List<ILoggerProvider> providers = [.. providers];
+
+    /// <summary>
+    ///     One logger per category, kept so that <see cref="AddProvider" /> can reach the loggers
+    ///     that already exist.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This used to be no cache and a snapshot, which made <see cref="AddProvider" /> a
+    ///     no-op for every logger already handed out.</b> The two mobile samples are exactly that
+    ///     shape — <c>WithServices(services =&gt; services.LoggerFactory.AddProvider(new
+    ///     PlatformSink()))</c>, and <c>WithServices</c> callbacks are the last thing
+    ///     <see cref="AppBuilder.Build" /> runs — so on the two platforms where the system log is
+    ///     the only log there is, the sink received nothing the platform, the graphics stack or the
+    ///     engine had written (#1197). <c>Microsoft.Extensions.Logging</c>'s own
+    ///     <c>LoggerFactory</c> caches by category for the same reason.
+    /// </remarks>
+    readonly Dictionary<string, Fanout> loggers = new(StringComparer.Ordinal);
 
     bool disposed;
 
@@ -473,24 +537,57 @@ sealed class HostLoggerFactory(params ILoggerProvider[] providers) : ILoggerFact
     public void AddProvider(ILoggerProvider provider) {
         ArgumentNullException.ThrowIfNull(provider);
         ObjectDisposedException.ThrowIf(disposed, this);
-        this.providers.Add(provider);
+
+        lock (gate) {
+            this.providers.Add(provider);
+
+            // The loggers that already exist, not just the ones made from here on. Everything the
+            // host built before this point is holding one of these.
+            foreach (var (category, logger) in loggers) {
+                logger.Add(provider.CreateLogger(category));
+            }
+        }
     }
 
-    public ILogger CreateLogger(string categoryName) =>
-        new Fanout(this, categoryName, [.. this.providers.Select(provider => provider.CreateLogger(categoryName))]);
+    public ILogger CreateLogger(string categoryName) {
+        lock (gate) {
+            // Not cached after the close: the diversion below needs a logger, and a closed factory
+            // is not going to gain providers that would want to find it again.
+            if (disposed) {
+                return new Fanout(this, categoryName, []);
+            }
+
+            if (loggers.TryGetValue(categoryName, out var existing)) {
+                return existing;
+            }
+
+            var created = new Fanout(
+                this,
+                categoryName,
+                [.. this.providers.Select(provider => provider.CreateLogger(categoryName))]
+            );
+
+            loggers[categoryName] = created;
+
+            return created;
+        }
+    }
 
     public void Dispose() {
-        if (disposed) {
-            return;
+        lock (gate) {
+            if (disposed) {
+                return;
+            }
+
+            disposed = true;
+
+            foreach (var provider in this.providers) {
+                provider.Dispose();
+            }
+
+            this.providers.Clear();
+            loggers.Clear();
         }
-
-        disposed = true;
-
-        foreach (var provider in this.providers) {
-            provider.Dispose();
-        }
-
-        this.providers.Clear();
     }
 
     /// <summary>Says out loud that a record arrived after the sinks were closed.</summary>
@@ -507,7 +604,19 @@ sealed class HostLoggerFactory(params ILoggerProvider[] providers) : ILoggerFact
     }
 
     /// <summary>One logger that writes to several — or, once the factory is closed, to none.</summary>
+    /// <remarks>
+    ///     The target array is replaced rather than mutated, so a record being written walks either
+    ///     the set before an <see cref="AddProvider" /> or the set after it and never a half-built
+    ///     one — and the per-record path stays a field read and an array walk, with no lock and no
+    ///     allocation.
+    /// </remarks>
     sealed class Fanout(HostLoggerFactory factory, string category, ILogger[] loggers) : ILogger {
+        volatile ILogger[] targets = loggers;
+
+        /// <summary>Adds a provider's logger to the set this one writes to.</summary>
+        /// <remarks>Called under the factory's lock, which is what makes the read-copy-write safe.</remarks>
+        internal void Add(ILogger logger) => targets = [.. targets, logger];
+
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
         public bool IsEnabled(LogLevel logLevel) {
@@ -518,7 +627,7 @@ sealed class HostLoggerFactory(params ILoggerProvider[] providers) : ILoggerFact
                 return true;
             }
 
-            foreach (var logger in loggers) {
+            foreach (var logger in targets) {
                 if (logger.IsEnabled(logLevel)) {
                     return true;
                 }
@@ -540,7 +649,7 @@ sealed class HostLoggerFactory(params ILoggerProvider[] providers) : ILoggerFact
                 return;
             }
 
-            foreach (var logger in loggers) {
+            foreach (var logger in targets) {
                 logger.Log(logLevel, eventId, state, exception, formatter);
             }
         }

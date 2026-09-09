@@ -18,6 +18,7 @@ Vixen.App.AppArguments.Overlays.get -> bool
 Vixen.App.AppArguments.PinWorkers.get -> bool
 Vixen.App.AppArguments.Profiling.get -> bool
 Vixen.App.AppArguments.Remaining.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.App.AppArguments.RunFor.get -> System.TimeSpan?
 Vixen.App.AppArguments.StartupScene.get -> string?
 Vixen.App.AppArguments.TracePath.get -> string?
 Vixen.App.AppArguments.Unrecognised.get -> System.Collections.Generic.IReadOnlyList<string>
@@ -30,6 +31,8 @@ Vixen.App.AppBuilder.Build(Vixen.App.Game game) -> Vixen.App.VixenApplication
 Vixen.App.AppBuilder.WithContent(Vixen.Assets.IContentTransport content) -> Vixen.App.AppBuilder
 Vixen.App.AppBuilder.WithGraphics(Vixen.Graphics.IGraphicsDevice graphics) -> Vixen.App.AppBuilder
 Vixen.App.AppBuilder.WithGraphicsBackend(Vixen.App.IGraphicsBackend graphics) -> Vixen.App.AppBuilder
+Vixen.App.AppBuilder.WithLoggerProvider(Microsoft.Extensions.Logging.ILoggerProvider provider) -> Vixen.App.AppBuilder
+Vixen.App.AppBuilder.WithLoggerProvider(System.Func<Vixen.Core.Diagnostics.LogFilter, Microsoft.Extensions.Logging.ILoggerProvider> create) -> Vixen.App.AppBuilder
 Vixen.App.AppBuilder.WithPlatform(Vixen.Platform.IPlatform host) -> Vixen.App.AppBuilder
 Vixen.App.AppBuilder.WithPlatformFactory(Vixen.App.IPlatformFactory factory) -> Vixen.App.AppBuilder
 Vixen.App.AppBuilder.WithServices(System.Action<Vixen.App.AppServices> configure) -> Vixen.App.AppBuilder
@@ -68,6 +71,8 @@ Vixen.App.AppConfig.PinWorkers.get -> bool
 Vixen.App.AppConfig.PinWorkers.set -> bool
 Vixen.App.AppConfig.Profiling.get -> bool
 Vixen.App.AppConfig.Profiling.set -> bool
+Vixen.App.AppConfig.RunFor.get -> System.TimeSpan?
+Vixen.App.AppConfig.RunFor.set -> System.TimeSpan?
 Vixen.App.AppConfig.StartupScene.get -> string?
 Vixen.App.AppConfig.StartupScene.set -> string?
 Vixen.App.AppConfig.TracePath.get -> string?

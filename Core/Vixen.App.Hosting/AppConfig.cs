@@ -99,6 +99,15 @@ public sealed class AppConfig {
     /// <remarks>See <see cref="AppArguments.MaxFrames" /> for why this exists.</remarks>
     public int MaxFrames { get; set; }
 
+    /// <summary>
+    ///     How long to run before stopping, or <see langword="null" /> to run until asked to stop.
+    /// </summary>
+    /// <remarks>
+    ///     See <see cref="AppArguments.RunFor" />. Measured on the frame clock, so it is deterministic
+    ///     under <see cref="FixedFrameTime" /> and is real seconds without one.
+    /// </remarks>
+    public TimeSpan? RunFor { get; set; }
+
     /// <summary>The lowest level the log ring keeps.</summary>
     public LogLevel LogLevel { get; set; } = LogLevel.Information;
 
@@ -398,6 +407,10 @@ public sealed class AppConfig {
 
         if (arguments.MaxFrames is { } total) {
             MaxFrames = total;
+        }
+
+        if (arguments.RunFor is { } duration) {
+            RunFor = duration;
         }
 
         if (arguments.FrameRateLimit is { } limit) {

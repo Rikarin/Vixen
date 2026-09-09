@@ -24,10 +24,25 @@ static class LogText {
     };
 
     /// <summary>
-    ///     Appends the message and, when a rate limiter dropped repeats before it, what it dropped.
+    ///     Appends the message, the event id when there is one, and — when a rate limiter dropped
+    ///     repeats before it — what it dropped.
     /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The id is here rather than in a column of its own because ADR-008's argument for
+    ///     numbered ids is that a number in a bug report is greppable, and until this it was not
+    ///     reachable from either sink a person reads</b> (#1196). A trailing <c>#2001</c> costs one
+    ///     token at the end of a line that is already read to its end, and does not move the
+    ///     level and category columns that make the log scannable by eye.
+    ///     Omitted when the id is zero, which is what every <c>ILogger</c> extension method that
+    ///     was not written as a <c>[LoggerMessage]</c> produces: <c>#0</c> identifies nothing and
+    ///     would appear on exactly the lines with no register entry to look up.
+    /// </remarks>
     public static void AppendMessage(StringBuilder builder, LogRecord record) {
         builder.Append(record.Message);
+
+        if (record.EventId.Id != 0) {
+            builder.Append(" #").Append(record.EventId.Id.ToString(CultureInfo.InvariantCulture));
+        }
 
         if (record.SuppressedCount > 0) {
             builder.Append(" (repeated ")

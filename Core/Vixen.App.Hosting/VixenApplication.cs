@@ -153,10 +153,18 @@ public sealed class VixenApplication : IDisposable {
     }
 
     /// <summary>Whether the loop has been asked to stop.</summary>
+    /// <remarks>
+    ///     ⚠ <c>RunFor</c> is compared against the frame clock and not against a wall clock, which is
+    ///     what makes it deterministic under <c>--vixen-fixed-step</c>: the run ends on the same frame
+    ///     on every run of the same build. It is asked at the top of a frame like every other
+    ///     condition here, so the frame that crosses the duration is the one that renders in full —
+    ///     which is what a trace of that run needs, since the last frame is the one being looked at.
+    /// </remarks>
     public bool IsStopping =>
         stopped
         || Services.Platform.Lifecycle.IsQuitRequested
-        || (Services.Config.MaxFrames > 0 && time.FrameCount >= Services.Config.MaxFrames);
+        || (Services.Config.MaxFrames > 0 && time.FrameCount >= Services.Config.MaxFrames)
+        || (Services.Config.RunFor is { } duration && time.Total >= duration);
 
     /// <summary>Runs until the application quits.</summary>
     /// <returns>A process exit code: <c>0</c> for a clean run, <c>1</c> for a crash.</returns>

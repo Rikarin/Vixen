@@ -30,6 +30,9 @@ namespace Vixen.Cli;
 ///     </para>
 /// </remarks>
 public static class VixenCommand {
+    /// <summary>How long `vixen trace record` records when nobody says. Doc 13's own example.</summary>
+    internal const string DefaultTraceDuration = "10s";
+
     /// <summary>Builds the command line.</summary>
     /// <param name="output">Where commands write, or <see langword="null" /> for the console.</param>
     /// <param name="error">Where commands complain, or <see langword="null" /> for the console.</param>
@@ -44,6 +47,7 @@ public static class VixenCommand {
         root.Subcommands.Add(New(output, error));
         root.Subcommands.Add(Build(output, error));
         root.Subcommands.Add(Run(output, error));
+        root.Subcommands.Add(Trace(output, error));
         root.Subcommands.Add(Live(output, error));
         root.Subcommands.Add(RemeshCommand(output, error));
         root.Subcommands.Add(UnwrapCommand(output, error));
@@ -1366,6 +1370,227 @@ public static class VixenCommand {
         );
 
         return command;
+    }
+
+    /// <summary>
+    ///     <c>vixen trace record</c> — build for this machine, run it for a while, and keep the
+    ///     profiler's document.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         [13](../../docs/plan/13-diagnostics.md) § Trace export names this line and it did not
+    ///         exist: <c>TraceExporter</c> is finished, <c>--vixen-trace</c> writes the file at
+    ///         shutdown, and the two ways a person asks for one — this verb and the editor's capture
+    ///         button — were both missing. This is the first of the two.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It says Chrome <c>trace_event</c> JSON rather than Perfetto, because that is what
+    ///         is written</b> (issue 25). The document opens in the same viewer, and a verb that named
+    ///         a format it does not produce would send somebody looking for a protobuf parser.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The file's existence is checked rather than assumed.</b> A run that crashed, was
+    ///         killed, or never reached shutdown writes nothing — and a verb that printed a path to a
+    ///         file that is not there is an instrument that reports success on the day it did not
+    ///         run.
+    ///     </para>
+    /// </remarks>
+    static Command Trace(TextWriter? output, TextWriter? error) {
+        var project = ProjectOption();
+        var variant = new Option<string>("--variant") {
+            Description = "Which build variant. Default: Debug.",
+            DefaultValueFactory = _ => "Debug"
+        };
+
+        var format = FormatOption();
+
+        var duration = new Option<string>("--duration") {
+            Description = "How long to record: 10s, 500ms, 2m. Default: 10s.",
+            DefaultValueFactory = _ => DefaultTraceDuration
+        };
+
+        var into = new Option<string?>("--output", "-o") {
+            Description = "Where the trace goes. Default: <project>/Traces/<name>-<timestamp>.json."
+        };
+
+        var passthrough = new Argument<string[]>("arguments") {
+            Description = "Passed to the application. Put them after `--`.",
+            Arity = ArgumentArity.ZeroOrMore
+        };
+
+        var record = new Command("record", "Run the game for a while and write a Chrome trace_event document.") {
+            project, variant, format, duration, into, passthrough
+        };
+
+        record.SetAction(async (parseResult, cancellationToken) => {
+                var writer = output ?? Console.Out;
+                var complaints = error ?? Console.Error;
+                var chosenFormat = parseResult.GetValue(format);
+
+                if (!TryParseDuration(parseResult.GetRequiredValue(duration), out var window)) {
+                    Complain(
+                        chosenFormat,
+                        complaints,
+                        $"'{parseResult.GetRequiredValue(duration)}' is not a duration. Write it as 10s, "
+                        + "500ms or 2m, and make it longer than nothing — a run that ends before its "
+                        + "first frame writes a trace with no events in it."
+                    );
+
+                    return (int)ExitCode.UsageError;
+                }
+
+                if (!Project.TryOpen(parseResult.GetValue(project), out var opened, out var why)) {
+                    Complain(chosenFormat, complaints, why);
+
+                    return (int)ExitCode.UsageError;
+                }
+
+                var forTarget = Project.HostTarget;
+                PlayerBuild.TryDescribe(forTarget, out var shape);
+
+                if (!PlayerBuild.TryFindProjectFile(opened.Paths.Root, out var projectFile)) {
+                    Complain(
+                        chosenFormat,
+                        complaints,
+                        $"There is no .csproj in '{opened.Paths.Root}', so there is nothing to record."
+                    );
+
+                    return (int)ExitCode.UsageError;
+                }
+
+                var name = Path.GetFileNameWithoutExtension(projectFile);
+                var trace = Path.GetFullPath(
+                    parseResult.GetValue(into) ?? DefaultTracePath(opened.Paths.Root, name, DateTimeOffset.Now)
+                );
+
+                Directory.CreateDirectory(Path.GetDirectoryName(trace)!);
+
+                var artefact = Path.Combine(opened.Paths.Root, "Build", forTarget);
+
+                var code = await BuildAsync(
+                    opened, projectFile, forTarget, shape, parseResult.GetRequiredValue(variant), artefact,
+                    chosenFormat, skipContent: false, writer, complaints, cancellationToken
+                ).ConfigureAwait(false);
+
+                if (code is not ExitCode.Success) {
+                    return (int)code;
+                }
+
+                writer.WriteLine();
+                writer.WriteLine($"  recording {window.TotalSeconds.ToString("0.###", CultureInfo.InvariantCulture)}s");
+                writer.WriteLine();
+
+                var exit = await PlayerBuild.LaunchAsync(
+                    artefact,
+                    name,
+                    TraceArguments(trace, window, parseResult.GetValue(passthrough) ?? []),
+                    writer,
+                    capture: false,
+                    cancellationToken
+                ).ConfigureAwait(false);
+
+                // ⚠ Asked rather than assumed. The trace is written when the loop shuts down, so a
+                // run that crashed or was killed leaves nothing — and the one thing this verb must
+                // not do is print a path to a file that is not there.
+                if (!File.Exists(trace)) {
+                    Complain(
+                        chosenFormat,
+                        complaints,
+                        $"The run finished with exit code {exit.ToString(CultureInfo.InvariantCulture)} and "
+                        + $"no trace was written to '{trace}'. A trace is written when the application "
+                        + "shuts down cleanly, so a crash, a kill or a head that never reached shutdown "
+                        + "leaves none."
+                    );
+
+                    return (int)ExitCode.Failed;
+                }
+
+                writer.WriteLine();
+                writer.WriteLine($"  {trace}");
+                writer.WriteLine("  Chrome trace_event JSON — opens in ui.perfetto.dev.");
+
+                return exit;
+            }
+        );
+
+        return new Command("trace", "Record and export what the profiler saw.") { record };
+    }
+
+    /// <summary>What the child is told, so that the composition is testable without a build.</summary>
+    /// <param name="trace">Where the child should write its trace.</param>
+    /// <param name="duration">How long the child should run.</param>
+    /// <param name="passthrough">What the caller put after <c>--</c>.</param>
+    /// <returns>The child's command line.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The caller's own arguments come last</b>, so a person recording a scene with
+    ///     <c>-- --vixen-scene arena</c> gets it — and so that somebody who passes their own
+    ///     <c>--vixen-run-for</c> overrides this one rather than being silently overridden by it.
+    ///     <c>AppArguments</c> applies a command line in order and the last statement of a value
+    ///     wins.
+    /// </remarks>
+    internal static string[] TraceArguments(string trace, TimeSpan duration, IReadOnlyList<string> passthrough) {
+        ArgumentNullException.ThrowIfNull(trace);
+        ArgumentNullException.ThrowIfNull(passthrough);
+
+        return [
+            "--vixen-trace",
+            trace,
+            "--vixen-run-for",
+            duration.TotalSeconds.ToString("R", CultureInfo.InvariantCulture),
+            .. passthrough
+        ];
+    }
+
+    /// <summary>Where a trace goes when nobody said.</summary>
+    /// <param name="root">The project directory.</param>
+    /// <param name="name">The application's assembly name.</param>
+    /// <param name="when">The moment the recording started.</param>
+    /// <returns>The path.</returns>
+    internal static string DefaultTracePath(string root, string name, DateTimeOffset when) =>
+        Path.Combine(
+            root,
+            "Traces",
+            $"{name}-{when.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture)}.json"
+        );
+
+    /// <summary>Reads <c>10s</c>, <c>500ms</c>, <c>2m</c> or a bare number of seconds.</summary>
+    /// <param name="text">What was typed.</param>
+    /// <param name="duration">The duration, when it is one.</param>
+    /// <returns><see langword="true" /> if it parsed and is longer than nothing.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Zero and negative are refused here rather than passed on.</b> The host refuses them
+    ///     too, but it refuses them by ignoring the argument — so a <c>--duration 0</c> that reached
+    ///     the child would run the game until somebody closed it and then write a trace, which is
+    ///     nothing like what was asked for.
+    /// </remarks>
+    internal static bool TryParseDuration(string? text, out TimeSpan duration) {
+        duration = default;
+
+        if (string.IsNullOrWhiteSpace(text)) {
+            return false;
+        }
+
+        var trimmed = text.Trim();
+
+        // Longest suffix first: "ms" ends in "s", and a check in the other order reads 500ms as 500
+        // seconds — which is the kind of silent factor-of-a-thousand this codebase asks to be
+        // written down rather than discovered.
+        var (digits, scale) = trimmed switch {
+            _ when trimmed.EndsWith("ms", StringComparison.OrdinalIgnoreCase) => (trimmed[..^2], 0.001d),
+            _ when trimmed.EndsWith('s') || trimmed.EndsWith('S') => (trimmed[..^1], 1d),
+            _ when trimmed.EndsWith('m') || trimmed.EndsWith('M') => (trimmed[..^1], 60d),
+            _ => (trimmed, 1d)
+        };
+
+        if (!double.TryParse(digits, NumberStyles.Float, CultureInfo.InvariantCulture, out var value)
+            || value <= 0d
+            || double.IsInfinity(value)) {
+            return false;
+        }
+
+        duration = TimeSpan.FromSeconds(value * scale);
+
+        return duration > TimeSpan.Zero;
     }
 
     /// <summary>Import, content build, publish — the sequence both `build` and `run` need.</summary>

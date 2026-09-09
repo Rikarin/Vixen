@@ -113,6 +113,103 @@ public sealed class HostLoggerFactoryTests {
         Assert.Throws<ObjectDisposedException>(() => factory.AddProvider(new RecordingProvider()));
     }
 
+    /// <summary>
+    ///     A provider added after the fact reaches the loggers that already exist, not only the ones
+    ///     made from then on.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The logger is taken <i>before</i> the <c>AddProvider</c> on purpose, and that is the
+    ///     only arrangement that asks the question.</b> Every test in this file used to create its
+    ///     loggers after construction, so the factory snapshotting its provider list into each
+    ///     logger it handed out was invisible — and it is exactly the shape the two mobile samples
+    ///     used, which is why their <c>PlatformSink</c> received nothing the host wrote at boot
+    ///     (#1197).
+    /// </remarks>
+    [Fact]
+    public void AProviderAddedLateReachesALoggerThatAlreadyExists() {
+        var first = new RecordingProvider();
+        using var factory = new HostLoggerFactory(first);
+        var cached = factory.CreateLogger("Vixen.Boot");
+
+        var late = new RecordingProvider();
+        factory.AddProvider(late);
+
+        Say(cached, "after the sink arrived", null);
+
+        Assert.Equal(["Warning: after the sink arrived"], late.Records);
+        Assert.Equal(["Warning: after the sink arrived"], first.Records);
+    }
+
+    /// <summary>
+    ///     And the records written before it arrived are gone, which is why the host has a seam that
+    ///     runs first rather than only this.
+    /// </summary>
+    [Fact]
+    public void AProviderAddedLateDoesNotReceiveWhatWasWrittenBeforeIt() {
+        using var factory = new HostLoggerFactory(new RecordingProvider());
+        var cached = factory.CreateLogger("Vixen.Boot");
+
+        Say(cached, "the whole boot", null);
+
+        var late = new RecordingProvider();
+        factory.AddProvider(late);
+
+        // A log has no rewind. AddProvider reaching existing loggers is necessary and not
+        // sufficient: what a mobile bring-up needs is the sink installed before the host logs, which
+        // is AppBuilder.WithLoggerProvider.
+        Assert.Empty(late.Records);
+    }
+
+    /// <summary>
+    ///     The same category twice is the same logger — which is what bounds the cache that
+    ///     <c>AddProvider</c> walks, and what <c>Microsoft.Extensions.Logging</c>'s own
+    ///     factory does.
+    /// </summary>
+    [Fact]
+    public void TheSameCategoryTwiceIsTheSameLogger() {
+        using var factory = new HostLoggerFactory(new RecordingProvider());
+
+        Assert.Same(factory.CreateLogger("Vixen.Boot"), factory.CreateLogger("Vixen.Boot"));
+        Assert.NotSame(factory.CreateLogger("Vixen.Boot"), factory.CreateLogger("Vixen.Other"));
+    }
+
+    /// <summary>
+    ///     A sink installed on the builder has the host's own boot in it; the same sink installed
+    ///     through <c>WithServices</c> does not.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The oracle is an order, not a count and not a duration</b>: how many records the
+    ///     early sink already held at the moment the service callbacks ran. That number is zero for
+    ///     any arrangement where the sink arrives after the host has logged, whatever the machine
+    ///     was doing, and it is what the two mobile samples were getting (#1197).
+    /// </remarks>
+    [Fact]
+    public void ASinkInstalledOnTheBuilderHasTheHostBootInIt() {
+        var early = new RecordingProvider();
+        var late = new RecordingProvider();
+        var earlyWhenTheCallbacksRan = -1;
+
+        using var application = VixenApp
+            .Create(["--vixen-headless", "--vixen-workers", "1", "--vixen-frame-limit", "0"])
+            .WithLoggerProvider(early)
+            .WithServices(services => {
+                earlyWhenTheCallbacksRan = early.Records.Count;
+                services.LoggerFactory.AddProvider(late);
+            })
+            .Build(new SilentGame());
+
+        Assert.True(
+            earlyWhenTheCallbacksRan > 0,
+            "a sink installed through WithLoggerProvider held nothing by the time the service "
+            + "callbacks ran, which means the host logged nothing during Build and this test cannot "
+            + "tell the two seams apart."
+        );
+
+        // And the other half, so the assertion above is not true by construction: this is what the
+        // samples used to do, and it is empty.
+        Assert.Empty(late.Records);
+    }
+
     /// <summary>Closing twice disposes each provider once.</summary>
     [Fact]
     public void DisposeIsIdempotent() {
@@ -150,4 +247,7 @@ public sealed class HostLoggerFactoryTests {
                 records.Add($"{logLevel}: {formatter(state, exception)}");
         }
     }
+
+    /// <summary>A game that does nothing, so the only records are the host's own.</summary>
+    sealed class SilentGame : Game;
 }
