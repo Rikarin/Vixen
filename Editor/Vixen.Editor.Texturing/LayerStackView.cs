@@ -1504,13 +1504,19 @@ sealed class LayerStackView : IDisposable {
         }
 
         LayerPath path = new(set.Name, layer.Id);
-        var source = rows.Add("layer-stack-fill-row");
+
+        // ⚠ `FillRowView` and not `rows.Add("layer-stack-fill-row")`, and the swap is element for
+        // element: the component's host tag *is* `layer-stack-fill-row`, so this is the same direct
+        // child of `layer-stack-list` the stylesheet already reaches. #881.
+        var source = rows.Add<FillRowView>();
 
         source.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
 
-        source.Add("layer-stack-fill-label").Text = "Fill";
-
-        var kind = source.Add<Select>(null, null, "layer-stack-fill-source");
+        // ⚠ Read straight away rather than through `pending`, and that is a property of this row
+        // rather than of the port. `FillRowView` declares no region — no `@if`, no `@for` — so every
+        // element it holds exists the moment `Add` returns. `LayerRowView`'s channel strip is a
+        // `@for` and its `ref`s therefore do not, which is what the drain in `Build` is for.
+        var kind = source.Kind;
 
         foreach (var choice in Enum.GetValues<LayerFillSource>()) {
             kind.AddOption(choice.ToString());
@@ -1524,7 +1530,7 @@ sealed class LayerStackView : IDisposable {
             Set(document, path, current => current with { Fill = wanted }, "Set Fill Source");
         };
 
-        var graph = source.Add<TextBox>(null, null, "layer-stack-fill-graph");
+        var graph = source.Graph;
 
         graph.ValueChanged += (_, typed) => Set(
             document,
@@ -1536,7 +1542,7 @@ sealed class LayerStackView : IDisposable {
 
         graph.Submitted += _ => document.Stack.Seal();
 
-        var projection = source.Add<Select>(null, null, "layer-stack-fill-projection");
+        var projection = source.Projection;
 
         foreach (var choice in Enum.GetValues<LayerProjection>()) {
             projection.AddOption(choice.ToString());
@@ -1564,7 +1570,7 @@ sealed class LayerStackView : IDisposable {
             );
         };
 
-        var axis = source.Add<Select>(null, null, "layer-stack-fill-axis");
+        var axis = source.Axis;
 
         foreach (var choice in Enum.GetValues<LayerAxis>()) {
             axis.AddOption(choice.ToString());
@@ -1660,13 +1666,15 @@ sealed class LayerStackView : IDisposable {
         }
 
         LayerPath path = new(set.Name, layer.Id);
-        var row = rows.Add("layer-stack-filter-row");
+
+        // ⚠ `FilterRowView`, on `FillRows`' reasoning and with `FillRowView`'s guarantee: the
+        // component's host tag *is* `layer-stack-filter-row`, and it declares no region, so its
+        // `ref`s are readable the moment `Add` returns. #881.
+        var row = rows.Add<FilterRowView>();
 
         row.SetStyle("padding-left", (depth * 12).ToString(CultureInfo.InvariantCulture) + "px");
 
-        row.Add("layer-stack-filter-label").Text = "Filter";
-
-        var source = row.Add<Select>(null, null, "layer-stack-filter-source");
+        var source = row.Source;
 
         // ⚠ **The chosen source is the row's own state and is not read back off the path.** It was,
         // and a node path is a field an artist clears with backspace — so the last keystroke made
@@ -1693,7 +1701,7 @@ sealed class LayerStackView : IDisposable {
             "Set Filter Source"
         );
 
-        var kind = row.Add<Select>(null, null, "layer-stack-filter-kind");
+        var kind = row.Kind;
 
         foreach (var choice in Enum.GetValues<LayerFilterKind>()) {
             kind.AddOption(choice.ToString());
@@ -1707,7 +1715,7 @@ sealed class LayerStackView : IDisposable {
             Set(document, path, current => current with { Filter = wanted }, "Set Filter");
         };
 
-        var node = row.Add<TextBox>(null, null, "layer-stack-filter-node");
+        var node = row.Node;
 
         // ⚠ Trimmed nowhere here and trimmed everywhere it is read: `LayerStackGraph` decides that a
         // layer names a node by `FilterNode.Trim().Length`, so a field holding spaces is a preset —

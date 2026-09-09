@@ -1,0 +1,56 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    Which adjustment a filter layer applies, as markup — the third row kind of
+    https://github.com/Rikarin/Vixen/issues/881, on `FillRowView`'s pattern and for its reasons.
+
+    ⚠ **`@inherits Vixen.Ui.UiElement` and `@tag layer-stack-filter-row`, so this file adds no
+    element.** `rows.Add<FilterRowView>()` stands where `rows.Add("layer-stack-filter-row")` stood,
+    as the same direct child of `layer-stack-list`, so `TexturingTheme.vcss` reaches it unchanged.
+
+    ⚠ **The picker's two fields are shown and hidden by `FilterRows`' binding and not by an `@if`,
+    and here that is load-bearing rather than merely consistent.** Which of the two is in force is
+    the *row's own* state — `FilterRows` keeps a `named` flag rather than re-reading the path,
+    because a node path is a field an artist clears with backspace and a row that re-read it would
+    watch the field vanish from under the caret on the last keystroke. An `@if` would do exactly
+    that, and worse: it would tear the `TextBox` down rather than hide it, so the value and the caret
+    would go with it.
+-->
+@component FilterRowView
+@namespace Vixen.Editor.Texturing
+@inherits Vixen.Ui.UiElement
+@tag layer-stack-filter-row
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+
+<!--
+    Its own child rather than the row's `Text`, on `FillRowView`'s trap — and, as that file records,
+    literal markup text is itself a `text` child of this label rather than the label's own `Text`.
+-->
+<layer-stack-filter-label>Filter</layer-stack-filter-label>
+
+<!--
+    ⚠ Preset or Node, and it is a picker rather than an inference from whether the path is empty.
+    The two ways of naming a filter are exclusive in the file — a path wins — so a row that showed
+    the five presets with a path box beside them would leave "which of these is in force" to be read
+    off whether a field happened to have anything in it.
+-->
+<Select ref="@Source" class="layer-stack-filter-source" />
+
+<!-- One of the five built-in adjustments. Shown for the Preset source. -->
+<Select ref="@Kind" class="layer-stack-filter-kind" />
+
+<!-- The published path of a node type. Shown for the Node source. -->
+<TextBox ref="@Node" class="layer-stack-filter-node" />
+
+@code {
+    /// <summary>Whether this layer names one of the five presets or a node type by path.</summary>
+    public Select Source { get; private set; } = null!;
+
+    /// <summary>Which of the five. Hidden while a node path is in force.</summary>
+    public Select Kind { get; private set; } = null!;
+
+    /// <summary>The node type's published path. Hidden while a preset is in force.</summary>
+    public TextBox Node { get; private set; } = null!;
+}
