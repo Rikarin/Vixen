@@ -575,9 +575,12 @@ reflection describes it as a plain one — incompatible layouts, and a GPU fault
 found it because the only device test drawing `ForwardPlus` uses the clustered variant, which never
 statically uses set 3 and therefore need not bind it. **Since fixed**, in `EffectLoader.KindOf`, which
 derives the kind where both the set layout and `Effect.Bindings` are built *because the two have to
-agree*; its remarks preserve the finding and why nothing caught it. ⚠ The residue is that the set index
-now carries two claims at once — where a binding lives and whether its contents change between draws —
-because Raven cannot say a block is bound at an offset ([#358](https://github.com/Rikarin/Vixen/issues/358)).
+agree*; its remarks preserve the finding and why nothing caught it. ⚠ That fix left a residue — the set index
+carrying two claims at once, where a binding lives and whether its contents change between draws — and
+the residue is closed too: Raven's `[DynamicOffset]` says where a block's bytes are,
+`ClusteredShading.rvn`'s light block declares it, and `KindOf` reads a declaration instead of a set
+number. The compute carve-out went with it, since the stage was only ever part of the question because
+the set index was answering something it does not know.
 
 **And a frame the dispatch lit.** Filler A had been checked by reading the pool back, and the shading
 models had been checked against a field the CPU filled. Two halves, each verified against the other's

@@ -556,7 +556,8 @@ Vixen.Raven.IR.IrBinaryOp.Subtract = 1 -> Vixen.Raven.IR.IrBinaryOp
 Vixen.Raven.IR.IrBinaryOp.UnsignedShiftRight = 8 -> Vixen.Raven.IR.IrBinaryOp
 Vixen.Raven.IR.IrBinding -> sealed class
 Vixen.Raven.IR.IrBinding.DefaultValue.get -> object?
-Vixen.Raven.IR.IrBinding.IrBinding(Vixen.Raven.IR.IrVariable variable, Vixen.Raven.IR.IrBindingKind kind, int slot, string? semantic, Vixen.Raven.Symbols.ResourceSet set = Vixen.Raven.Symbols.ResourceSet.PerMaterial, string? name = null, bool writable = false, object? defaultValue = null, bool shared = false, bool materialIndex = false) -> void
+Vixen.Raven.IR.IrBinding.IrBinding(Vixen.Raven.IR.IrVariable variable, Vixen.Raven.IR.IrBindingKind kind, int slot, string? semantic, Vixen.Raven.Symbols.ResourceSet set = Vixen.Raven.Symbols.ResourceSet.PerMaterial, string? name = null, bool writable = false, object? defaultValue = null, bool shared = false, bool materialIndex = false, bool dynamicOffset = false) -> void
+Vixen.Raven.IR.IrBinding.IsDynamicOffset.get -> bool
 Vixen.Raven.IR.IrBinding.IsMaterialIndex.get -> bool
 Vixen.Raven.IR.IrBinding.IsShared.get -> bool
 Vixen.Raven.IR.IrBinding.IsWritable.get -> bool
@@ -956,6 +957,8 @@ Vixen.Raven.Reflection.BindingInfo.Binding.init -> int
 Vixen.Raven.Reflection.BindingInfo.BindingInfo(int Binding, string Name, Vixen.Raven.Reflection.DescriptorType Type, int Count, Vixen.Raven.Reflection.ShaderStages Stages, System.Collections.Immutable.ImmutableArray<Vixen.Raven.Reflection.MemberInfo> Members) -> void
 Vixen.Raven.Reflection.BindingInfo.Count.get -> int
 Vixen.Raven.Reflection.BindingInfo.Count.init -> int
+Vixen.Raven.Reflection.BindingInfo.IsDynamicOffset.get -> bool
+Vixen.Raven.Reflection.BindingInfo.IsDynamicOffset.init -> bool
 Vixen.Raven.Reflection.BindingInfo.IsWritable.get -> bool
 Vixen.Raven.Reflection.BindingInfo.IsWritable.init -> bool
 Vixen.Raven.Reflection.BindingInfo.Members.get -> System.Collections.Immutable.ImmutableArray<Vixen.Raven.Reflection.MemberInfo>
@@ -3574,6 +3577,7 @@ virtual Vixen.Raven.Symbols.FieldSymbol.DeclaredValue.get -> object?
 virtual Vixen.Raven.Symbols.FieldSymbol.ImageFormat.get -> Vixen.Raven.Symbols.ImageFormat?
 virtual Vixen.Raven.Symbols.FieldSymbol.IsCompose.get -> bool
 virtual Vixen.Raven.Symbols.FieldSymbol.IsConst.get -> bool
+virtual Vixen.Raven.Symbols.FieldSymbol.IsDynamicOffset.get -> bool
 virtual Vixen.Raven.Symbols.FieldSymbol.IsGroupShared.get -> bool
 virtual Vixen.Raven.Symbols.FieldSymbol.IsMaterialIndex.get -> bool
 virtual Vixen.Raven.Symbols.FieldSymbol.IsPermutation.get -> bool

@@ -185,8 +185,17 @@ shader ClusteredShading {
     // of padding fill exactly the header `ForwardLightingRenderFeature.HeaderSize` already writes.
     // Declaring the array first would put the count after 1280 bytes of lights, and the feature that
     // fills this block writes it at zero.
+    //
+    // ⚠ `[DynamicOffset]` says WHERE this block's bytes are, and it is the shader saying it rather
+    // than the engine guessing. `ForwardLightingRenderFeature` writes one buffer for the whole frame
+    // and moves an offset per draw — the alternative is a descriptor set per object, which is the
+    // commonest reason a Vulkan renderer ends up slower than the D3D11 one it replaced. The engine
+    // used to read this off the set index instead, which made `[PerDraw]` carry two claims at once:
+    // where a binding lives, and whether its contents change between draws. Any marked uniform marks
+    // the set's block, because a set's loose uniforms are one binding bound once — it is written on
+    // every one of the four below anyway, so a reader of this block does not have to know that.
 
-    [PerDraw] var lightCount: int = 0
+    [PerDraw] [DynamicOffset] var lightCount: int = 0
 
 
     /// Which of `probes` lights this object.
@@ -195,7 +204,7 @@ shader ClusteredShading {
     /// because the cubes are one array bound for the frame. The alternative — a descriptor set per
     /// probe, bound per draw — is a set per object in all but name, which is the cost the four-set
     /// convention exists to refuse.
-    [PerDraw] var probeIndex: int = 0
+    [PerDraw] [DynamicOffset] var probeIndex: int = 0
 
 
     /// How much of the probe shows through, against the environment behind it.
@@ -203,12 +212,12 @@ shader ClusteredShading {
     /// What makes probes blend rather than pop: a surface deep inside a probe's volume takes it
     /// whole, and one near the edge fades back to the sky over the probe's falloff distance. Per
     /// object because that is what the falloff is a function of — where the object is.
-    [PerDraw] var probeWeight: float = 0f
+    [PerDraw] [DynamicOffset] var probeWeight: float = 0f
 
 
     /// The host-filled light list. Read `lightCount` entries, not `MaxLights` — the rest is stale
     /// memory. Unused when clustering is on.
-    [PerDraw] var lights: PunctualLight[MaxLights]
+    [PerDraw] [DynamicOffset] var lights: PunctualLight[MaxLights]
 
 
     /// Where the view is, which every specular term measures against.

@@ -44,7 +44,7 @@ internal static class DeclarationFacts {
     ///     ended that had to be able to enumerate what "recognised" means.
     /// </remarks>
     static readonly string[] MarkerAttributes =
-        ["Permutation", "PushConstant", "Shared", "MaterialIndex", "Format", "Semantic"];
+        ["Permutation", "PushConstant", "Shared", "MaterialIndex", "Format", "Semantic", "DynamicOffset"];
 
     /// <summary>Every attribute name Raven reads, in the order the message lists them.</summary>
     public static IReadOnlyList<string> KnownAttributeNames { get; } =
@@ -265,6 +265,36 @@ internal static class DeclarationFacts {
     public static bool IsShared(SyntaxList<AttributeListSyntax> attributeLists) {
         foreach (var attribute in GetAttributes(attributeLists)) {
             if (GetAttributeName(attribute) == "Shared") {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Whether the declaration is marked <c>[DynamicOffset]</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Where a block's bytes are, said by the shader instead of read off a set index.</b>
+    ///         A uniform block marked this way is bound through a dynamic descriptor: one buffer, one
+    ///         descriptor, and an offset moved per draw — the arrangement that keeps a Vulkan
+    ///         renderer from being slower than the D3D11 one it replaced, since the alternative is a
+    ///         descriptor set per object.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This existed as an inference, and the inference was two claims wearing one
+    ///         number.</b> <c>EffectLoader.KindOf</c> read "a uniform block in set 3, used by a
+    ///         graphics stage" as "dynamic", so the set index carried both <i>where a binding lives</i>
+    ///         and <i>whether its contents change between draws</i> — and a shader wanting the first
+    ///         without the second had no way to say so. It needed a carve-out for compute (a dispatch
+    ///         has no draws, so <c>BindlessProbe</c>'s <c>[PerDraw]</c> block is storage rather than a
+    ///         claim about draws), and the next shader wanting a plain per-draw block would have got a
+    ///         refusal it could not fix in the shader. Both disappear into this.
+    ///     </para>
+    /// </remarks>
+    public static bool IsDynamicOffset(SyntaxList<AttributeListSyntax> attributeLists) {
+        foreach (var attribute in GetAttributes(attributeLists)) {
+            if (GetAttributeName(attribute) == "DynamicOffset") {
                 return true;
             }
         }

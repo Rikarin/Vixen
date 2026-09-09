@@ -190,7 +190,14 @@ public static class ReflectionBuilder {
                 1,
                 stages,
                 members.ToImmutable()
-            ) { Size = size };
+            ) {
+                Size = size,
+
+                // Any marked uniform marks the block. A set's loose uniforms are gathered into one
+                // binding and bound once, so where its bytes are is a property of the block and not
+                // of a member — see BindingInfo.IsDynamicOffset.
+                IsDynamicOffset = uniforms.Any(u => u.IsDynamicOffset)
+            };
     }
 
     /// <summary>

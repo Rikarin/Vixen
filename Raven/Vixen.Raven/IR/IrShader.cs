@@ -69,7 +69,8 @@ public sealed class IrBinding(
     bool writable = false,
     object? defaultValue = null,
     bool shared = false,
-    bool materialIndex = false
+    bool materialIndex = false,
+    bool dynamicOffset = false
 ) {
     public IrVariable Variable { get; } = variable;
     public IrBindingKind Kind { get; } = kind;
@@ -167,6 +168,18 @@ public sealed class IrBinding(
     ///     per-material access, so knowing that a shader is indexed is not enough.
     /// </remarks>
     public bool IsMaterialIndex { get; } = materialIndex;
+
+    /// <summary>
+    ///     Whether this block is bound at an offset the host moves per draw — <c>[DynamicOffset]</c>.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Carried through the IR rather than derived downstream, because the engine's previous
+    ///     answer <em>was</em> derived: a uniform block in the per-draw set used by any graphics
+    ///     stage was called dynamic, which made one set index carry both where a binding lives and
+    ///     whether its contents change between draws. The two are separable claims and this is the
+    ///     second one, said by the shader.
+    /// </remarks>
+    public bool IsDynamicOffset { get; } = dynamicOffset;
 
     public IrType Type => Variable.Type;
 }

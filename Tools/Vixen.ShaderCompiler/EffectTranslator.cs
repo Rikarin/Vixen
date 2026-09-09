@@ -111,7 +111,8 @@ public static class EffectTranslator {
                     Stages(binding.Stages),
                     binding.Count,
                     binding.Size,
-                    SampleType(binding.Type)
+                    SampleType(binding.Type),
+                    binding.IsDynamicOffset
                 );
             }
         }

@@ -97,7 +97,8 @@ public sealed class ForwardFrameTests : IDisposable {
                         KindOf(binding.GetProperty("Type").GetString()!),
                         StagesOf(binding.GetProperty("Stages").GetString()!),
                         binding.GetProperty("Count").GetInt32(),
-                        binding.GetProperty("Size").GetInt32()
+                        binding.GetProperty("Size").GetInt32(),
+                        DynamicOffset: binding.TryGetProperty("IsDynamicOffset", out var dynamic) && dynamic.GetBoolean()
                     )
                 );
 

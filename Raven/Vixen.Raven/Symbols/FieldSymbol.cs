@@ -162,6 +162,17 @@ public abstract class FieldSymbol : Symbol {
     public virtual bool IsShared => false;
 
     /// <summary>
+    ///     Whether this block is bound at an offset that moves per draw — <c>[DynamicOffset]</c>.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ The engine used to infer this from the set index, which made one number carry two
+    ///     claims — where a binding lives, and whether its contents change between draws — with no
+    ///     way for a shader wanting the first to decline the second. See
+    ///     <see cref="Source.DeclarationFacts.IsDynamicOffset" />.
+    /// </remarks>
+    public virtual bool IsDynamicOffset => false;
+
+    /// <summary>
     ///     Whether this field is the index of the material record a draw reads —
     ///     <c>[MaterialIndex]</c>.
     /// </summary>

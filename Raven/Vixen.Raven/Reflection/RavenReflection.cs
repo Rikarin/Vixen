@@ -182,6 +182,29 @@ public sealed record BindingInfo(
     ///     the frame graph has to insert around the dispatch.
     /// </remarks>
     public bool IsWritable { get; init; }
+
+    /// <summary>
+    ///     Whether this block is bound at an offset the host moves per draw — <c>[DynamicOffset]</c>
+    ///     on any of its uniforms.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Reported because the engine's previous answer was an inference off the set
+    ///         index.</b> <c>EffectLoader.KindOf</c> called a uniform block in the per-draw set
+    ///         dynamic whenever a graphics stage used it, which made one number carry two claims —
+    ///         where a binding lives, and whether its contents change between draws — with no way for
+    ///         a shader wanting the first to decline the second. It needed a carve-out for compute,
+    ///         and the next shader wanting a plain per-draw block would have met a refusal it could
+    ///         not fix in the shader.
+    ///     </para>
+    ///     <para>
+    ///         <b>Any marked uniform marks the block, because a set's block is one binding.</b> The
+    ///         loose uniforms of a set are gathered into a single block and bound once; a shader
+    ///         marking one of them is saying where that block's bytes are, which is not a per-member
+    ///         property and cannot be.
+    ///     </para>
+    /// </remarks>
+    public bool IsDynamicOffset { get; init; }
 }
 
 /// <summary>The bindings of one descriptor set.</summary>
