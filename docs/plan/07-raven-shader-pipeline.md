@@ -963,12 +963,36 @@ is how two lists come to disagree.
 | 🟡 | SPIR-V | `spirv-val` on every emitted module; golden `spirv-dis` snapshots so codegen changes are reviewable | ✅ |
 | 🔴 | Both emitters | **Differential test**: Raven's SPIR-V vs `glslc`(Raven's GLSL), compared for semantic equivalence — the hard class of bug, an emitter internally consistent and semantically wrong | ✅ interface-level; blind to the shared IR, hence the numeric tests |
 | 🟡 | Cross-compile | Every module through SPIRV-Cross to GLSL 450 / ESSL 300 / HLSL 60 / MSL / WGSL without error; GLSL/ESSL additionally through `glslang` | not started |
-| 🟡 | Numeric | BRDF functions ported to C# and compared against a GPU compute readback over a parameter sweep, agreeing to 1e-4 — the test that catches "the shader is subtly wrong" | blocked on § F and on a writable resource; the compute stage itself landed |
-| 🟡 | Layout | Reflection offsets against a GPU readback of a known pattern, **per backend** | needs a device |
+| 🟡 | Numeric | BRDF functions ported to C# and compared against a GPU compute readback over a parameter sweep, agreeing to 1e-4 — the test that catches "the shader is subtly wrong" | ✅ `BrdfGateTests`, and `RandomGateTests` beside it pins `Random.rvn`'s bits — ⚠ that one is a golden vector rather than a port, because the CPU implementation § E named does not exist |
+| 🟡 | Layout | Reflection offsets against a GPU readback of a known pattern, **per backend** | ✅ `LayoutGateTests`; the std430 half is checked against glslang rather than a device, in `SpirvDifferentialTests` |
 | 🟡 | Permutations | An unused define produces a byte-identical module and the same cache key | ✅ |
 | ⚪ | Fuzz | `SharpFuzz` corpus over the Raven parser, alongside the VXML/VCSS/`.meta`/bundle readers ([12](12-build-ci-and-testing.md)) | not started |
-| ⚪ | Perf | Gates on full-library compile time and < 500 ms incremental recompile of a leaf shader | needs § F |
+| ⚪ | Perf | Gates on full-library compile time and < 500 ms incremental recompile of a leaf shader | ~~needs § F~~ — § F landed. The incremental half is gated as **work rather than time** (`IncrementalParseWorkTests`, below); the full-library number is still ungated |
 | ⚪ | CI | Nuke `CompileShaderLibrary`: Raven over `Raven/Library/**/*.rvn` → `.rvnlib`, `spirv-val` each, **fail on any diagnostic** | Nuke not stood up ([12](12-build-ci-and-testing.md)) |
+
+#### ✅ The incremental budget is gated as work, and the library number is not gated at all
+
+The `Perf` row asked for two gates and they are not the same kind of thing.
+
+**The one with the budget on it — < 500 ms to reparse a leaf shader — is now a counter.** ⚠ A
+wall-clock assertion would have been the wrong instrument, and this repository's own rule says so: a
+time budget calibrated on an idle machine is its single largest flake source, and a parse on a loaded
+runner is exactly that shape. What the incremental path *promises* is not a duration but that an edit
+inside one member reparses that member and reuses the rest — which is a count of green nodes, is
+machine-independent, and is what regresses first when the blender quietly stops reusing.
+
+`IncrementalParseWorkTests` measures it as a differential taken in one run: a one-character edit to
+the longest shipped `PostFx` leaf against a from-scratch parse of the same new text. **133 green nodes
+against 3109**, and the bound is an eighth, which is loose on purpose — a tighter one would be a golden
+number wearing a ratio's clothes and would go red the next time somebody edits that shader. Two
+instrument checks come with it: the negative control reparses against an *unrelated* tree, which can
+reuse nothing and has to fail the same bound; and offering the blender no candidates at all takes the
+number from 133 to 3109, the whole tree.
+
+**The full-library compile-time gate is still owed, and it is a duration with no counter standing in
+for it.** Saying so is better than a green wall-clock assertion that measures the runner: the honest
+version is a number recorded on one machine and compared against itself, which wants CI's own
+hardware and belongs beside `CheckShaders` rather than in a test assembly.
 
 ### H. Burden the plan *removes* from Raven
 
