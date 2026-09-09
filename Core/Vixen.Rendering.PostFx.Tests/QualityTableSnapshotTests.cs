@@ -76,6 +76,7 @@ public class QualityTableSnapshotTests {
           grassResidentCells = 128
           irradianceBudget = 2
           lensFlare = False
+          lightStreak = False
           localExposure = False
           localExposureTaps = 4
           lodBias = 1
@@ -138,6 +139,7 @@ public class QualityTableSnapshotTests {
           grassResidentCells = 192
           irradianceBudget = 4
           lensFlare = False
+          lightStreak = False
           localExposure = False
           localExposureTaps = 6
           lodBias = 0
@@ -200,6 +202,7 @@ public class QualityTableSnapshotTests {
           grassResidentCells = 256
           irradianceBudget = 8
           lensFlare = True
+          lightStreak = False
           localExposure = True
           localExposureTaps = 6
           lodBias = 0
@@ -262,6 +265,7 @@ public class QualityTableSnapshotTests {
           grassResidentCells = 384
           irradianceBudget = 16
           lensFlare = True
+          lightStreak = True
           localExposure = True
           localExposureTaps = 12
           lodBias = 0

@@ -766,6 +766,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             MotionBlurAsset blur => Blur(blur, builder),
             LocalExposureAsset local => Local(local, builder),
             LensFlareAsset flare => Flare(flare, builder),
+            LightStreakAsset streak => Streak(streak, builder),
             _ => null
         };
     }
@@ -1307,6 +1308,27 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             StarburstBlades = declared.StarburstBlades,
             StarburstIntensity = declared.StarburstIntensity,
             StarburstAngle = declared.StarburstAngle,
+            Tint = declared.Tint,
+            Modules = builder.Modules,
+            Device = builder.Device,
+            Descriptors = builder.Descriptors,
+            Samplers = builder.Samplers
+        };
+
+    static LightStreakRenderer Streak(LightStreakAsset declared, CompositorBuilder builder) =>
+        new() {
+            Name = declared.Name,
+            Enabled = declared.Enabled,
+            Source = declared.Source,
+            Output = declared.Output,
+            Format = declared.Format,
+            Scale = declared.Scale,
+            Threshold = declared.Threshold,
+            BlurPasses = declared.BlurPasses,
+            Samples = declared.Samples,
+            Direction = declared.Direction,
+            Attenuation = declared.Attenuation,
+            Intensity = declared.Intensity,
             Tint = declared.Tint,
             Modules = builder.Modules,
             Device = builder.Device,

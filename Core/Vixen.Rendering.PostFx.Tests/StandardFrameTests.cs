@@ -497,7 +497,7 @@ public class StandardFrameTests {
                 "Cull", "Clipmap", "Probes", "Cache", "Sun", "Lamps", "Volumetrics", "Sky", "Main", "Velocity",
                 "Sparks", "Occluders", "SunPages", "Gather", "Mirrors", "Occlusion",
                 "ContactOcclusion", "Combine", "Accumulate", "Air", "Defocus", "Shutter", "Meter",
-                "Adapt", "Flare", "Glow", "Tonemap", "Edges", "Recover", "Glass"
+                "Adapt", "Flare", "Streak", "Glow", "Tonemap", "Edges", "Recover", "Glass"
             ],
             Names(document)
         );
@@ -512,11 +512,16 @@ public class StandardFrameTests {
         Assert.Equal("SceneBlurred", Node<AutoExposureAsset>(document, "Meter").Source);
         Assert.Equal("SceneBlurred", Node<LocalExposureAsset>(document, "Adapt").Source);
         Assert.Equal("SceneAdapted", Node<LensFlareAsset>(document, "Flare").Source);
-        Assert.Equal("SceneFlared", Node<BloomAsset>(document, "Glow").Source);
+
+        // ⚠ The streak reads the *flared* frame and not the adapted one. The ghosts and the halo are
+        // light on the sensor too, and a real anamorphic element smears them along with everything
+        // else; a streak that took the frame before the flare would put the smear under the ghosts.
+        Assert.Equal("SceneFlared", Node<LightStreakAsset>(document, "Streak").Source);
+        Assert.Equal("SceneStreaked", Node<BloomAsset>(document, "Glow").Source);
 
         var tonemap = Node<TonemapAsset>(document, "Tonemap");
 
-        Assert.Equal("SceneFlared", tonemap.Source);
+        Assert.Equal("SceneStreaked", tonemap.Source);
         Assert.Equal(Node<BloomAsset>(document, "Glow").Output, tonemap.Bloom);
         Assert.Equal("Meter.Exposure", tonemap.ExposureBuffer);
 

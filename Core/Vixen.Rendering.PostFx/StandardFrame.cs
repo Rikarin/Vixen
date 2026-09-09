@@ -1134,6 +1134,22 @@ static class StandardFrame {
             colour = "SceneFlared";
         }
 
+        if (tier.LightStreak) {
+            // ⚠ After the flare and still before the bloom and the curve. After the flare because the
+            // ghosts and the halo are light on the sensor too and a real anamorphic element smears
+            // them along with everything else; before the curve because a streak that cannot blow out
+            // is a wash laid over the picture rather than light arriving at it.
+            nodes.Add(
+                new LightStreakAsset {
+                    Name = "Streak",
+                    Source = colour,
+                    Output = "SceneStreaked"
+                }
+            );
+
+            colour = "SceneStreaked";
+        }
+
         if (tier.Bloom) {
             // Publishes the pyramid and nothing else; the tonemap composites it. Wiring the
             // pyramid into `bloom:` rather than `source:` is the difference between a glow and a
@@ -1405,6 +1421,9 @@ static class StandardFrame {
                     + "publishes one number in a buffer the tonemap names.",
                 "Adapt" => "Local exposure over the metered frame, before the curve.",
                 "Flare" => "The lens answering the brightest sources, still in scene-referred light.",
+                "Streak" =>
+                    "The anamorphic smear, which bloom cannot make because bloom is isotropic — a "
+                    + "separable blur along one axis over the same bright pass, added back.",
                 "Glow" =>
                     "Publishes the pyramid and nothing else; the tonemap composites it. Wiring the pyramid "
                     + "into bloom: rather than source: is the difference between a glow and a black window.",

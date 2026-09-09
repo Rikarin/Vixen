@@ -56,6 +56,13 @@ public class LibraryReflectionTests {
         ("PostFx", "MotionBlur"),
         ("PostFx", "LocalExposure"),
         ("PostFx", "LensFlare"),
+
+        // The anamorphic streak. Published for `texelSize`'s sake above all: it is the *source's*
+        // texel and not the frame's, `LightStreakRenderer` sets it per pass by key, and a key
+        // interned from a string carries no declared default — so a pass whose host forgot it would
+        // step by zero and hand back a copy of its input, which reads as "the streak is subtle"
+        // rather than as a pass that summed one texel seventeen times.
+        ("PostFx", "LightStreak"),
         ("PostFx", "Sky"),
         ("PostFx", "Tonemap"),
         ("PostFx", "Fxaa"),

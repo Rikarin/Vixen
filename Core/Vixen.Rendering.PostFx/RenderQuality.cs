@@ -314,6 +314,14 @@ public sealed record PostFidelityQuality {
     /// <summary>Whether the lens flare runs.</summary>
     public bool? LensFlare { get; init; }
 
+    /// <summary>Whether the anamorphic light streak runs — <see cref="LightStreakAsset" />.</summary>
+    /// <remarks>
+    ///     A pass of its own rather than a permutation of the flare's, and five draws rather than the
+    ///     flare's two, so it sits with the tier's other whole-pass booleans and not beside them by
+    ///     accident.
+    /// </remarks>
+    public bool? LightStreak { get; init; }
+
     /// <summary>Whether the vignette runs.</summary>
     public bool? Vignette { get; init; }
 
@@ -652,6 +660,9 @@ public sealed record ResolvedQuality {
     /// <summary>See <see cref="PostFidelityQuality.LensFlare" />.</summary>
     public required bool LensFlare { get; init; }
 
+    /// <summary>See <see cref="PostFidelityQuality.LightStreak" />.</summary>
+    public required bool LightStreak { get; init; }
+
     /// <summary>See <see cref="PostFidelityQuality.Vignette" />.</summary>
     public required bool Vignette { get; init; }
 
@@ -780,6 +791,7 @@ public static class RenderQuality {
                 LocalExposure = false,
                 LocalExposureTaps = 4,
                 LensFlare = false,
+                LightStreak = false,
                 Vignette = false,
                 Fxaa = FxaaPreset.Performance
             },
@@ -844,6 +856,7 @@ public static class RenderQuality {
                 LocalExposure = false,
                 LocalExposureTaps = 6,
                 LensFlare = false,
+                LightStreak = false,
                 Vignette = false,
                 Fxaa = FxaaPreset.Balanced
             },
@@ -908,6 +921,7 @@ public static class RenderQuality {
                 LocalExposure = true,
                 LocalExposureTaps = 6,
                 LensFlare = true,
+                LightStreak = false,
                 Vignette = true,
                 Fxaa = FxaaPreset.Balanced
             },
@@ -975,6 +989,7 @@ public static class RenderQuality {
                 LocalExposure = true,
                 LocalExposureTaps = 12,
                 LensFlare = true,
+                LightStreak = true,
                 Vignette = true,
                 Fxaa = FxaaPreset.Quality
             },
@@ -1078,6 +1093,7 @@ public static class RenderQuality {
             LocalExposure = Pick(t => t.PostFidelity, g => g.LocalExposure, "post.localExposure"),
             LocalExposureTaps = Pick(t => t.PostFidelity, g => g.LocalExposureTaps, "post.localExposureTaps"),
             LensFlare = Pick(t => t.PostFidelity, g => g.LensFlare, "post.lensFlare"),
+            LightStreak = Pick(t => t.PostFidelity, g => g.LightStreak, "post.lightStreak"),
             Vignette = Pick(t => t.PostFidelity, g => g.Vignette, "post.vignette"),
             Fxaa = Pick(t => t.PostFidelity, g => g.Fxaa, "post.fxaa"),
             MaxLights = Pick(t => t.Lights, g => g.MaxLights, "lights.maxLights"),
