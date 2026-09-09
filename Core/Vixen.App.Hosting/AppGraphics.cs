@@ -242,6 +242,13 @@ public sealed class AppGraphics : IDisposable {
         // rather than a search through the host's own lines.
         Renderer.Host.Builder.Logger = renderLogger;
 
+        // ⚠ And the mesh feature, whose one line is a *refusal* rather than a degrade: a variant
+        // that declares the bindless table's set cannot be drawn by a host that has no table, and
+        // the alternative to refusing is a five-set pipeline layout issued with four sets bound.
+        // Counted in `MeshRenderFeature.RefusedTableDrawCount` either way — this is what makes the
+        // first of them say which shader and which stage. See log event 4005.
+        Renderer.Meshes.Logger = renderLogger;
+
         // ⚠ Also before Load, because a node takes it as it is built and a scheduler assigned
         // afterwards would reach the *next* build — which, for a project that never reloads its
         // compositor, is never. This is the application's one scheduler, the same object

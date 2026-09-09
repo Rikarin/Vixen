@@ -84,7 +84,7 @@ public sealed class VirtualGeometryGoldenTests {
 
         owned.Graph.Reset();
 
-        var virtualized = Virtualized(owned, geometry, softwareThreshold: 0f, out _);
+        var virtualized = Virtualized(owned, geometry, softwareThreshold: 0f, out _, out _);
 
         var drawn = Mask(forward, pixel => pixel.Span[0] != 0 || pixel.Span[1] != 0 || pixel.Span[2] != 0);
         var covered = Mask(virtualized, pixel => Word(pixel) != GpuClusterRaster.Nothing);
@@ -128,9 +128,13 @@ public sealed class VirtualGeometryGoldenTests {
     ///         frame.
     ///     </para>
     ///     <para>
-    ///         <b>A plane, for the reason the coverage comparison above uses one:</b> a flat quad's
-    ///         silhouette is LOD-invariant, so whichever cut the traversal chooses covers the same pixels
-    ///         and there is no "within the LOD error threshold" nobody can write down.
+    ///         <b>Two fixtures, and each answers a question the other cannot.</b> A plane, for the
+    ///         reason the coverage comparison above uses one: a flat quad's silhouette is
+    ///         LOD-invariant, so whichever cut the traversal chooses covers the same pixels and there
+    ///         is no "within the LOD error threshold" nobody can write down. And <see cref="Ramp" />,
+    ///         because a plane's cut is a single cluster and a single cluster is routed or it is not —
+    ///         so the plane can never produce the frame where the two rasters both drew and the merge
+    ///         has to arbitrate between them.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Both ends of the sweep are asserted to have happened.</b> A threshold that quietly
@@ -142,10 +146,18 @@ public sealed class VirtualGeometryGoldenTests {
     ///         could have said so is the only leg that runs the test at all.
     ///     </para>
     ///     <para>
-    ///         <b>What the sweep does not cover, stated where the numbers are.</b> A flat quad's cut is
-    ///         a single cluster, so every threshold either routes all of the frame or none of it, and
-    ///         the mixed frame — where the merge has to resolve the two rasters against each other —
-    ///         needs a fixture whose clusters differ in screen size. See the measurement in the method.
+    ///         ⚠ <b>The threshold that splits a cut is measured and not chosen</b>, because it is
+    ///         compared against a cluster's <em>own</em> projected size — see
+    ///         <see cref="The_routing_sweep_splits_the_cut_at_the_measured_threshold" />, which sweeps
+    ///         the ramp through the traversal's host mirror and is where <see cref="MixedThreshold" />
+    ///         comes from. It runs on every machine; this does not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Where this runs, corrected.</b> Doc 22 § phase 6 says the criterion is "unrun on a
+    ///         device" and that the fixture is "waiting for hardware that offers the atomic". It is
+    ///         not waiting for hardware — the goldens run on Linux, lavapipe offers the atomic, and the
+    ///         numbers in the method were measured there. What it lacked was a scene, and that is what
+    ///         the ramp is.
     ///     </para>
     /// </remarks>
 
@@ -164,7 +176,7 @@ public sealed class VirtualGeometryGoldenTests {
 
         var geometry = Plane();
 
-        var hardware = Virtualized(owned, geometry, softwareThreshold: 0f, out var none);
+        var hardware = Virtualized(owned, geometry, softwareThreshold: 0f, out var none, out _);
 
         Assert.Equal(0, none);
 
@@ -183,54 +195,181 @@ public sealed class VirtualGeometryGoldenTests {
         // and a million. A flat quad's cut is its root — that is the same LOD-invariance the coverage
         // test above relies on — and one cluster is either routed or it is not.
         //
-        // So the sweep is two thresholds that both route it, an order of magnitude apart, and what is
-        // asserted is phase 6's actual exit criterion: the software raster draws what the hardware
-        // raster draws, per pixel. **OWED: the mixed frame.** The merge resolving two rasters against
-        // each other needs a cut with more than one cluster in it, which needs a fixture whose
-        // clusters differ in screen size — a plane at an angle, or a mesh with depth — and choosing
-        // one is a measurement rather than a guess. Nothing here asserts that case today, and the
-        // paragraph above this method that says it does is wrong until it lands.
+        // So the plane's half of the sweep is two thresholds that both route its one cluster, an
+        // order of magnitude apart, and what it asserts is phase 6's criterion on a frame the merge
+        // is never asked to arbitrate.
+        //
+        // ⚠ **The mixed frame is the second half, below, and it is a different fixture rather than a
+        // different number.** `Ramp` recedes from three units to forty and ripples, so its cut is
+        // four clusters whose projected sizes differ by roughly the depth ratio — and
+        // `MixedThreshold` was *measured* against that cut by
+        // `The_routing_sweep_splits_the_cut_at_the_measured_threshold`, on the host, rather than
+        // chosen. Two of the four go to compute and two to the hardware raster, which is the only
+        // arrangement in which the merge decides anything at all.
         foreach (var threshold in (float[])[1e3f, 1e6f]) {
             owned.Graph.Reset();
 
-            var software = Virtualized(owned, geometry, threshold, out var routed);
+            var software = Virtualized(owned, geometry, threshold, out var routed, out _);
 
             Assert.True(routed > 0, $"A threshold of {threshold} routed nothing to the software raster.");
+            Agree(hardware, software, threshold, routed);
+        }
 
-            var differing = 0;
-            var covered = 0;
+        // ⚠ **The mixed frame, which no machine had ever run.** Everything above happens with the
+        // whole cut on one raster; here two of the ramp's four clusters are drawn by the hardware and
+        // two by the compute raster, into one visibility buffer, and the merge has to decide per
+        // pixel which of the two is nearer. That is the case phase 6's own text says "equal loses"
+        // about, and the case a seam would appear in.
+        var ramp = Ramp();
 
-            for (var index = 0; index < hardware.Pixels.Length; index += 4) {
-                var a = Word(hardware.Pixels.AsMemory(index, 4));
-                var b = Word(software.Pixels.AsMemory(index, 4));
+        owned.Graph.Reset();
 
-                if (GpuClusterRaster.Covered(a)) {
-                    covered++;
-                }
+        var whole = Virtualized(owned, ramp, softwareThreshold: 0f, out var unrouted, out var accepted);
 
-                if (GpuClusterRaster.Covered(a) != GpuClusterRaster.Covered(b)) {
-                    differing++;
-                    continue;
-                }
+        Assert.Equal(0, unrouted);
+        Assert.True(accepted > 1, $"The ramp's cut is {accepted} cluster(s), so it cannot be split.");
 
-                if (GpuClusterRaster.Covered(a) && GpuClusterRaster.Triangle(a) != GpuClusterRaster.Triangle(b)) {
-                    differing++;
-                }
+        owned.Graph.Reset();
+
+        var split = Virtualized(owned, ramp, MixedThreshold, out var partly, out var again);
+
+        // ⚠ The partition, asserted rather than assumed, and both ends of it. `partly == 0` is the
+        // plane's degenerate sweep again; `partly == again` is the whole cut on the compute raster,
+        // which the thresholds above already cover. Only strictly between the two is the merge asked
+        // anything, and the host mirror measured this threshold to land there.
+        Assert.Equal(accepted, again);
+        Assert.True(
+            partly > 0 && partly < again,
+            $"A threshold of {MixedThreshold} routed {partly} of {again} clusters, which is not a mixed frame."
+        );
+
+        Agree(whole, split, MixedThreshold, partly);
+    }
+
+    /// <summary>
+    ///     Two visibility buffers name the same triangle at the same pixels.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The slot cannot be compared across two runs — the two rasters fill opposite ends of the
+    ///         visible list and within an end the order is whichever atomic won — so what is compared
+    ///         is coverage and the triangle, which is the same number for the same surface however it
+    ///         was drawn.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The coverage floor is what stops this being a statement about two blank images, and
+    ///         it is checked against the reference rather than the subject: a subject that drew
+    ///         nothing then disagrees about every covered pixel, which is what the fraction says.
+    ///     </para>
+    /// </remarks>
+    static void Agree(in Bitmap reference, in Bitmap subject, float threshold, int routed) {
+        var differing = 0;
+        var covered = 0;
+
+        for (var index = 0; index < reference.Pixels.Length; index += 4) {
+            var a = Word(reference.Pixels.AsMemory(index, 4));
+            var b = Word(subject.Pixels.AsMemory(index, 4));
+
+            if (GpuClusterRaster.Covered(a)) {
+                covered++;
             }
 
-            Assert.True(covered > 512, $"The hardware raster covered {covered} pixels.");
+            if (GpuClusterRaster.Covered(a) != GpuClusterRaster.Covered(b)) {
+                differing++;
+                continue;
+            }
 
-            // The same slack the coverage comparison above allows, and for the same reason: the pixels
-            // that can legitimately differ are the ones an edge passes exactly through, where the
-            // hardware's fill rule and this one round the same tie from different arithmetic.
-            var fraction = (double)differing / (hardware.Pixels.Length / 4);
-
-            Assert.True(
-                fraction <= 0.01,
-                $"At a threshold of {threshold} the two rasters disagree about {differing} pixels "
-                + $"({fraction:P2}); {routed} clusters went to software."
-            );
+            if (GpuClusterRaster.Covered(a) && GpuClusterRaster.Triangle(a) != GpuClusterRaster.Triangle(b)) {
+                differing++;
+            }
         }
+
+        Assert.True(covered > 512, $"The hardware raster covered {covered} pixels.");
+
+        // The same slack the coverage comparison above allows, and for the same reason: the pixels
+        // that can legitimately differ are the ones an edge passes exactly through, where the
+        // hardware's fill rule and this one round the same tie from different arithmetic.
+        var fraction = (double)differing / (reference.Pixels.Length / 4);
+
+        Assert.True(
+            fraction <= 0.01,
+            $"At a threshold of {threshold} the two rasters disagree about {differing} pixels "
+            + $"({fraction:P2}); {routed} clusters went to software."
+        );
+    }
+
+    /// <summary>
+    ///     The measurement phase 6's sweep needs: a threshold that puts part of one cut on each raster.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>On the host, through the traversal's own mirror, so it runs everywhere.</b>
+    ///         <see cref="GpuClusterCulling.Traverse" /> is <c>Culling.rvn</c> transliterated and
+    ///         <see cref="GpuClusterCulling.IsSoftware" /> is its routing clause, so this is the same
+    ///         decision the dispatch makes — and it needs no device, which matters because the frame
+    ///         that consumes the answer needs one most machines do not have.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Three points and not one, because one proves nothing about a sweep.</b> A threshold
+    ///         of zero must route nothing — that is the capability gate, and a fixture where it routed
+    ///         something would mean the gate had stopped gating. A threshold of a million must route the
+    ///         whole cut. And between them there has to be a value that routes <em>some</em> of it,
+    ///         which is the case the merge is the only test of and the case the plane cannot produce at
+    ///         any threshold.
+    ///     </para>
+    ///     <para>
+    ///         The exact counts are asserted rather than the inequality alone: the cut is four clusters
+    ///         and two of them route at <see cref="MixedThreshold" />. A change to the builder, to the
+    ///         error metric or to the routing clause that moved those numbers would leave an inequality
+    ///         green while the fixture stopped being the fixture that was measured.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_routing_sweep_splits_the_cut_at_the_measured_threshold() {
+        var geometry = Ramp();
+        var scene = GpuClusterCulling.Flatten(geometry.Clusters.Hierarchy, geometry.Pages);
+
+        // One page, so the device fixture's cut is this one: the root page is pinned at registration
+        // and there is nothing else to stream. A ramp that outgrew a page would still settle, and the
+        // frame it settled on would no longer be the frame this measurement describes.
+        Assert.Single(geometry.Pages.Pages);
+
+        var instance = new CullInstance {
+            ClusterCount = (uint)scene.Clusters.Length,
+            RootCount = (uint)scene.Roots.Length,
+            Position = Vector3.Zero,
+            Scale = 1f,
+            Flags = GpuCulling.Alive,
+            StagesLow = 1u
+        };
+
+        Assert.Empty(Routed(scene, instance, 0f).Software);
+
+        var mixed = Routed(scene, instance, MixedThreshold);
+
+        Assert.Equal(4, mixed.Visible.Length);
+        Assert.Equal(2, mixed.Software.Length);
+
+        var all = Routed(scene, instance, 1e6f);
+
+        Assert.Equal(all.Visible.Length, all.Software.Length);
+        Assert.Equal(4, all.Visible.Length);
+    }
+
+    /// <summary>What the traversal accepts and routes for one threshold, at the fixture's camera.</summary>
+    /// <remarks>
+    ///     Every page resident, because the fixture is one page and the pinned root is it — see the
+    ///     assertion in the caller, which is what makes that predicate a statement rather than an
+    ///     assumption.
+    /// </remarks>
+    static GpuClusterCulling.TraversalResult Routed(ClusterScene scene, in CullInstance instance, float threshold) {
+        var camera = GpuCulling.Pack(View(new(1u)), 0, 0);
+
+        camera.ErrorScale = GpuClusterCulling.ErrorScaleFor(1f / MathF.Tan(FieldOfView * 0.5f), Fixture.Side);
+        camera.ErrorThreshold = VirtualGeometryRenderFeature.DefaultErrorThreshold;
+        camera.SoftwareThreshold = threshold;
+
+        return GpuClusterCulling.Traverse(scene, instance, camera, _ => true);
     }
 
     /// <summary>The plane drawn through the ordinary mesh feature.</summary>
@@ -338,6 +477,7 @@ public sealed class VirtualGeometryGoldenTests {
         Geometry geometry,
         float softwareThreshold,
         out int softwareClusters,
+        out int visibleClusters,
         MorphIndex? morphIndex = null,
         float weight = 0f
     ) {
@@ -484,6 +624,7 @@ public sealed class VirtualGeometryGoldenTests {
         );
 
         softwareClusters = clusters.Visibility.SoftwareClusters;
+        visibleClusters = clusters.Visibility.VisibleClusters;
 
         // ⚠ The records the device actually reads, asserted here rather than inferred from the
         // picture. Every one of these is a value whose wrong setting draws a plausible frame: a mesh
@@ -573,11 +714,11 @@ public sealed class VirtualGeometryGoldenTests {
         var geometry = Plane();
         var shapes = Shapes(geometry);
 
-        var rest = Virtualized(owned, geometry, softwareThreshold: 0f, out _, shapes, weight: 0f);
+        var rest = Virtualized(owned, geometry, softwareThreshold: 0f, out _, out _, shapes, weight: 0f);
 
         owned.Graph.Reset();
 
-        var morphed = Virtualized(owned, geometry, softwareThreshold: 0f, out _, shapes, weight: 1f);
+        var morphed = Virtualized(owned, geometry, softwareThreshold: 0f, out _, out _, shapes, weight: 1f);
 
         var restMask = Mask(rest, pixel => Word(pixel) != GpuClusterRaster.Nothing);
         var morphedMask = Mask(morphed, pixel => Word(pixel) != GpuClusterRaster.Nothing);
@@ -791,6 +932,83 @@ public sealed class VirtualGeometryGoldenTests {
 
     /// <summary>How many frames the streaming loop is given to settle.</summary>
     const int Frames = 6;
+
+    /// <summary>The routing threshold that splits <see cref="Ramp" />'s cut between the two rasters.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Measured, not chosen.</b> The threshold is compared against a cluster's <em>own</em>
+    ///     projected size, so a number picked by eye either routes the whole cut or none of it — which
+    ///     is what the plane's sweep did, and why phase 6's criterion had never been asked of a mixed
+    ///     frame. <see cref="The_routing_sweep_splits_the_cut_at_the_measured_threshold" /> is that
+    ///     measurement, and it runs on every machine because the traversal has a host mirror.
+    /// </remarks>
+    const float MixedThreshold = 512f;
+
+    /// <summary>
+    ///     A tessellated strip receding from the camera, whose clusters differ in screen size.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Everything the plane is not, and only where it has to be.</b> The plane's cut is its
+    ///         root — a flat quad simplifies exactly, so one cluster covers it at any error — and one
+    ///         cluster is routed or it is not. This one runs from three units away to forty and carries
+    ///         two sine ripples, so the simplification error is real and the cut refines; and because
+    ///         the near end is thirteen times closer than the far end, the clusters of that cut differ
+    ///         in projected size by about the same factor. That spread is the whole fixture: it is what
+    ///         lets one threshold put some of the cut on each raster.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Small enough to fit in one page, deliberately.</b> The root page is pinned at
+    ///         registration, so a mesh that fits in it is wholly resident on the first frame and the
+    ///         comparison is about the rasters rather than about how fast the streaming loop converged
+    ///         — which is the failure the plane's own history records ("a picture taken too early").
+    ///         Sixteen segments each way is seven meshlets in a single eight-kilobyte page.
+    ///     </para>
+    /// </remarks>
+    static Geometry Ramp(int across = 16, int along = 16) {
+        var vertices = new List<Vertex>();
+        var positions = new List<Vector3>();
+        var indices = new List<int>();
+
+        for (var j = 0; j <= along; j++) {
+            var t = (float)j / along;
+            var z = -3f + (-37f * t);
+
+            for (var i = 0; i <= across; i++) {
+                var u = (float)i / across;
+
+                var position = new Vector3(
+                    (u - 0.5f) * 4f,
+                    (0.35f * MathF.Sin(u * 12f)) + (0.35f * MathF.Sin(t * 18f)),
+                    z
+                );
+
+                positions.Add(position);
+                vertices.Add(new() { Position = position, Colour = new(1f, 1f, 1f, 1f) });
+            }
+        }
+
+        for (var j = 0; j < along; j++) {
+            for (var i = 0; i < across; i++) {
+                var a = (j * (across + 1)) + i;
+                var b = a + 1;
+                var c = a + across + 1;
+
+                indices.AddRange([a, b, c]);
+                indices.AddRange([b, c + 1, c]);
+            }
+        }
+
+        var input = new MeshletBuildInput { Positions = [.. positions], Indices = [.. indices] };
+        var mesh = MeshletBuilder.Build(input);
+        var pages = MeshletPageBuilder.Build(mesh, input.Positions, [], new() { PageSize = PageSize });
+
+        return new(
+            [.. vertices],
+            [.. indices.Select(index => (ushort)index)],
+            new(mesh, pages.WithoutData()),
+            pages
+        );
+    }
 
     /// <summary>A tessellated plane facing the camera, in clip space, with its clusters beside it.</summary>
     /// <remarks>

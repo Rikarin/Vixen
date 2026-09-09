@@ -780,13 +780,25 @@ instruction taken literally: where the crossover between a compute scanline rast
 fixed-function one falls is a property of the hardware, and a default that guessed would be a frame that
 is slower for a reason nothing reports.
 
-**The exit criterion is met on the host and unrun on a device, and the difference is stated rather
-than blurred.** `VirtualGeometryGoldenTests.The_software_raster_draws_what_the_hardware_raster_draws`
-is the per-pixel comparison across a swept threshold, and it **skips** on the only Vulkan device this
-repository can reach: MoltenVK on Apple silicon reports `shaderBufferInt64Atomics = false`, which is
-the capability gate working rather than failing. What runs is the half a host can assert —
-`SoftwareRasterTests` and `ClusterRoutingTests` — and the fixture is written and waiting for hardware
-that offers the atomic.
+**The exit criterion runs on the Linux leg and nowhere else, and the difference is stated rather than
+blurred.** `VirtualGeometryGoldenTests.The_software_raster_draws_what_the_hardware_raster_draws` is
+the per-pixel comparison across a swept threshold, and it **skips** on the only Vulkan device a
+developer here can reach: MoltenVK on Apple silicon reports `shaderBufferInt64Atomics = false`, which
+is the capability gate working rather than failing. ⚠ **It was never "waiting for hardware".** The
+goldens run on Linux, lavapipe offers the atomic, and it is the only leg that has ever executed this
+assertion — so what the fixture lacked was a *scene*, not a device, and closing that gap by finding
+hardware would have changed nothing.
+
+⚠ **The mixed frame is what the sweep was missing, and a plane cannot produce one.** A flat quad's cut
+is its root, so every threshold routes all of the frame or none of it and the merge is never asked to
+arbitrate — which is the one thing only a mixed frame tests. The second fixture is `Ramp`: a strip
+receding from three units to forty, whose four-cluster cut spans roughly the depth ratio in projected
+size, at a threshold **measured** against that cut rather than chosen — `IsSoftware` compares against
+a cluster's own size, so a guessed number lands on one side or the other. That measurement is
+`The_routing_sweep_splits_the_cut_at_the_measured_threshold`, which uses the traversal's host mirror
+and therefore runs on every machine; the picture it selects the threshold for still runs only where
+the atomic is. What also runs everywhere is the half a host can assert — `SoftwareRasterTests` and
+`ClusterRoutingTests`.
 
 What it compares, when it does run, is **coverage and the triangle index** rather than the whole
 identity word. The slot cannot be compared across two runs — the two rasters fill opposite ends of one
