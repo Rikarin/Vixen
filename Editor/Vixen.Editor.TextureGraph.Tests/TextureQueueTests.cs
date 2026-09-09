@@ -93,6 +93,18 @@ public class TextureQueueTests {
         Assert.Equal(before + 1, device.Recorder.CountOf(RecordedCommandKind.CopyTextureToBuffer));
         Assert.Same(device.ComputeQueue, bake.Queue);
 
+        // ⚠ And from the stream, not from the field the type under test was made to expose. Until
+        // the plain `Submit` recorded which queue it went to (#633) this half was unassertable, so
+        // the file could only ask the bake what it thought its queue was — and a bake that
+        // dispatched on compute and copied back on graphics, which is undefined on a discrete card
+        // and correct on every adapter this engine is developed on (#617), satisfies both
+        // `Assert.Same` above.
+        var submissions = device.Recorder.OfKind(RecordedCommandKind.Submit);
+
+        // The count first: `Assert.All` over an empty list asserts nothing at all.
+        Assert.NotEmpty(submissions);
+        Assert.All(submissions, submission => Assert.Equal((long)QueueKind.Compute, submission.A));
+
         device.Destroy(source);
     }
 }

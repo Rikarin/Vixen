@@ -22,7 +22,17 @@ namespace Vixen.Raven.Symbols;
 ///     the contract, which is why <c>rgba8</c> (eight bits, normalised) and <c>rgba32f</c> are both
 ///     <see cref="SpecialType.Float" />.
 /// </param>
-public sealed record ImageFormat(string Name, uint SpirvValue, SpecialType Component);
+/// <param name="RequiresExtendedFormats">
+///     Whether a module naming this format has to declare SPIR-V's
+///     <c>StorageImageExtendedFormats</c>, and so whether the device has to have
+///     <c>shaderStorageImageExtendedFormats</c>.
+/// </param>
+public sealed record ImageFormat(
+    string Name,
+    uint SpirvValue,
+    SpecialType Component,
+    bool RequiresExtendedFormats = false
+);
 
 /// <summary>
 ///     The storage-image formats Raven admits.
@@ -38,8 +48,28 @@ public sealed record ImageFormat(string Name, uint SpirvValue, SpecialType Compo
 ///     </para>
 ///     <para>
 ///         A subset rather than all forty: these are the ones a post-process or a VFX dispatch
-///         actually writes, and every one of them is in Vulkan's list of formats that
-///         <em>must</em> support storage. Adding one is a line here and nothing else.
+///         actually writes. Adding one is a line here and nothing else.
+///     </para>
+///     <para>
+///         ⚠ <b>Thirteen of the sixteen are in Vulkan's list of formats that <em>must</em> support
+///         storage, and this paragraph used to claim all sixteen were.</b> The mandatory set is
+///         <c>R32_{UINT,SINT,SFLOAT}</c>, <c>R32G32B32A32_{UINT,SINT,SFLOAT}</c>,
+///         <c>R16G16B16A16_{UINT,SINT,SFLOAT}</c> and <c>R8G8B8A8_{UNORM,SNORM,UINT,SINT}</c> —
+///         which does cover <c>rgba8_snorm</c>, so the exceptions are exactly <c>rg32f</c>,
+///         <c>rg16f</c> and <c>r16f</c>. Those three are the <em>extended</em> list, and a device
+///         offers them for storage only when <c>shaderStorageImageExtendedFormats</c> is set. SPIR-V
+///         draws the same line at the same place, which is what
+///         <see cref="ImageFormat.RequiresExtendedFormats" /> records: their <c>ImageFormat</c>
+///         enumerants require the <c>StorageImageExtendedFormats</c> capability and the other
+///         thirteen require only <c>Shader</c>.
+///     </para>
+///     <para>
+///         It is not pedantry, because the three are reachable. <c>Vixen.Editor.TextureGraph</c>'s
+///         <c>TextureFormats.RavenName</c> spells <c>R16Float</c> as <c>r16f</c> and rewrites a
+///         kernel's <c>[Format("…")]</c> to it, and <c>R16Float</c> is the recommended format for a
+///         height field. No committed <c>.rvn</c> names one of the three — <c>Ripples.rvn</c> says in
+///         so many words that it takes <c>rgba16f</c> over <c>rg16f</c> for exactly this reason — so
+///         the whole exposure is through kernels built at run time, which no shader gate compiles.
 ///     </para>
 /// </remarks>
 public static class ImageFormats {
@@ -49,9 +79,11 @@ public static class ImageFormats {
         new("r32f", 3, SpecialType.Float),
         new("rgba8", 4, SpecialType.Float),
         new("rgba8_snorm", 5, SpecialType.Float),
-        new("rg32f", 6, SpecialType.Float),
-        new("rg16f", 7, SpecialType.Float),
-        new("r16f", 9, SpecialType.Float),
+        // ⚠ The three that are not mandatory. SPIR-V's Rg32f, Rg16f and R16f enumerants require the
+        // StorageImageExtendedFormats capability; every other row here requires only Shader.
+        new("rg32f", 6, SpecialType.Float, RequiresExtendedFormats: true),
+        new("rg16f", 7, SpecialType.Float, RequiresExtendedFormats: true),
+        new("r16f", 9, SpecialType.Float, RequiresExtendedFormats: true),
 
         new("rgba32i", 21, SpecialType.Int),
         new("rgba16i", 22, SpecialType.Int),

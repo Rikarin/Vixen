@@ -94,7 +94,7 @@ sealed class NullSubmitter(QueueKind kind, CommandRecorder? recorder) : ICommand
             recorder?.Record(new(RecordedCommandKind.WaitForPoint, 0, (long)point.Queue, (long)point.Value));
         }
 
-        Submit(lists);
+        Flush(lists);
 
         // Advanced even for an empty submission, so that the value a caller is handed always names
         // *this* call. Handing back the previous value would be a point that is reached before the
@@ -108,7 +108,36 @@ sealed class NullSubmitter(QueueKind kind, CommandRecorder? recorder) : ICommand
         return new(kind, Issued);
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>This overload records a <see cref="RecordedCommandKind.Submit" /> too, and until it
+    ///     did no test could see which queue a list went to.</b> It is the overload almost every
+    ///     caller in the tree uses — <c>DrainingQueues</c> among them — so the stream showed
+    ///     <em>what</em> was recorded and never <em>where</em> it ran, on the one backend where the
+    ///     graphics and compute queues are distinguishable at all. A cross-queue mistake in a hoisted
+    ///     compute pass was therefore uncatchable on a machine with no GPU, which is the instrument
+    ///     gap behind #617.
+    ///     <para>
+    ///         Its <c>reached</c> slot is 0, and 0 is not a value any queue can issue: <c>Issued</c>
+    ///         is advanced <em>before</em> a point is recorded, so a real point is 1 or more. A
+    ///         reader can tell "submitted with no timeline" from "issued point 0" — which was the
+    ///         whole complaint about this stream in the first place.
+    ///     </para>
+    /// </remarks>
     public void Submit(ReadOnlySpan<ICommandList> lists) {
+        Flush(lists);
+        recorder?.Record(new(RecordedCommandKind.Submit, 0, (long)kind, lists.Length));
+    }
+
+    public void WaitIdle() => recorder?.Record(new(RecordedCommandKind.QueueWaitIdle, 0, (long)kind));
+
+    /// <summary>Validates each list and replays its calls into the recorder.</summary>
+    /// <remarks>
+    ///     Shared by both overloads so that each records exactly one <c>Submit</c> of its own. The
+    ///     timeline overload used to call the plain one, which is why moving the record into the
+    ///     plain overload could not have been the one-line change the issue expected.
+    /// </remarks>
+    void Flush(ReadOnlySpan<ICommandList> lists) {
         foreach (var list in lists) {
             if (!list.IsRecorded) {
                 throw new InvalidOperationException(
@@ -130,8 +159,6 @@ sealed class NullSubmitter(QueueKind kind, CommandRecorder? recorder) : ICommand
             }
         }
     }
-
-    public void WaitIdle() => recorder?.Record(new(RecordedCommandKind.QueueWaitIdle, 0, (long)kind));
 }
 
 /// <summary>A swapchain that presents to nothing.</summary>

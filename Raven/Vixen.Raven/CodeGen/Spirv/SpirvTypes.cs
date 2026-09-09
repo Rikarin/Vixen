@@ -313,6 +313,14 @@ sealed class SpirvTypes {
         var dimension = image.Dimension == IrTextureDimension.Texture3D ? SpirvDim.Dim3D : SpirvDim.Dim2D;
         var format = ImageFormats.Lookup(image.Format);
 
+        // ⚠ Three of the sixteen formats are outside SPIR-V's base set and a module naming one is
+        // invalid without this — rg32f, rg16f and r16f. Nothing in the tree declares one in a
+        // committed `.rvn`; the exposure is the texture graph, which rewrites a kernel's
+        // [Format("…")] to `r16f` at run time for an R16Float image.
+        if (format?.RequiresExtendedFormats == true) {
+            module.AddCapability(SpirvCapability.StorageImageExtendedFormats);
+        }
+
         return module.Intern(
             $"storage image {dimension} {image.TexelType.ComponentType.Name} {image.Format}",
             () => module.AddDeclaration(

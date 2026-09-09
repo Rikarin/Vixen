@@ -59,6 +59,21 @@ public static class IrCapability {
     public const string StorageImage = "StorageImage";
 
     /// <summary>
+    ///     Writing into a storage image whose format is outside the list every device must offer.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Three of <c>ImageFormats</c>' sixteen: <c>rg32f</c>, <c>rg16f</c> and
+    ///     <c>r16f</c>.</b> The table's own comment claimed for a long time that every format it
+    ///     admits is one Vulkan requires for storage, and that is true of the other thirteen only —
+    ///     these three want <c>shaderStorageImageExtendedFormats</c>, which is where SPIR-V draws
+    ///     the same line as <c>StorageImageExtendedFormats</c>. Separate from
+    ///     <see cref="StorageImage" /> for the reason <see cref="Int64Atomics" /> is separate from
+    ///     <see cref="Int64" />: a device can have the one without the other, and reporting only the
+    ///     broader feature is a pipeline that creates and a dispatch that does not run.
+    /// </remarks>
+    public const string StorageImageExtendedFormats = "StorageImageExtendedFormats";
+
+    /// <summary>
     ///     Tracing rays inline — an acceleration structure binding, or a <c>Trace</c> on one.
     /// </summary>
     /// <remarks>
@@ -272,6 +287,10 @@ public static class IrCapabilities {
 
             case IrStorageImageType image:
                 required.Add(IrCapability.StorageImage);
+
+                if (ImageFormats.Lookup(image.Format)?.RequiresExtendedFormats == true) {
+                    required.Add(IrCapability.StorageImageExtendedFormats);
+                }
 
                 if (image.Dimension == IrTextureDimension.Texture3D) {
                     required.Add(IrCapability.Texture3D);

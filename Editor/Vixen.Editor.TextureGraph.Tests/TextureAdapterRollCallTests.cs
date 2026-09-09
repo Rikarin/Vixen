@@ -82,9 +82,16 @@ public class TextureAdapterRollCallTests {
     ///         <c>Vixen.Editor.Texturing.Tests</c> — the other half of doc 48's area, five device
     ///         files — is its second caller. Scoping it through a project graph instead was the
     ///         wrong shape and is worth recording: every test project that reaches this one
-    ///         transitively pulls in <c>Vixen.Graphics.Golden.Tests</c>, whose nineteen device files
-    ///         name no adapter and are not doc 48's. See
+    ///         transitively pulls in <c>Vixen.Graphics.Golden.Tests</c>, which was not doc 48's and
+    ///         whose nineteen device files named no adapter. See
     ///         <see href="https://github.com/Rikarin/Vixen/issues/795" />.
+    ///     </para>
+    ///     <para>
+    ///         ✅ <b>That suite is named now, and not by a rule with a scope.</b> Its own
+    ///         <c>DeviceGuardTests.OnlyTheFixtureOpensADevice</c> had since held its door at one, so
+    ///         <c>Fixture.TryOpen</c> writes the adapter the way <see cref="TextureKernelHarness" />
+    ///         does — which is the third instance of the same shape and the reason the answer to "a
+    ///         gate cannot be scoped to this" keeps turning out to be "then it is not a gate".
     ///     </para>
     /// </remarks>
     [Fact]

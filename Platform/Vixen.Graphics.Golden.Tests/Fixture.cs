@@ -7,6 +7,7 @@ using Vixen.Core.Mathematics;
 using Vixen.Graphics.Vulkan;
 using Vixen.Rendering;
 using Vixen.Ui.Testing.Visual;
+using Xunit;
 using Graph = Vixen.Graphics.RenderGraph.RenderGraph;
 using GraphTexture = Vixen.Graphics.RenderGraph.GraphTexture;
 using TransientResourcePool = Vixen.Graphics.RenderGraph.TransientResourcePool;
@@ -48,14 +49,56 @@ sealed class Fixture : IDisposable {
     public VulkanDevice Device => device;
 
     /// <summary>Opens a device, or says why it could not.</summary>
+    /// <param name="fixture">The fixture, when one was opened.</param>
+    /// <param name="reason">Why not, when one was not.</param>
+    /// <returns>Whether a device was opened.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It writes the adapter into the running test's output itself, which is what makes
+    ///         a number out of this suite attributable</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/795" />). Nineteen device files here
+    ///         named no adapter at all, so a picture that differed, a timing that regressed or a leak
+    ///         that appeared could not be pinned to a machine — and this is the suite whose numbers
+    ///         are least attributable and the one where eighteen files <em>passed</em> rather than
+    ///         skipped without a device until 2026-08-21.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Here rather than in a rule over the files, and that is why it is possible at
+    ///         all.</b> #795 looked for a <c>build/</c> scope that covered this suite and found none
+    ///         that was not either too wide or a written list. It needs neither: <c>TryOpen</c> is
+    ///         the only door — <see cref="DeviceGuardTests.OnlyTheFixtureOpensADevice" /> holds it at
+    ///         one — so naming the adapter at the door names it for every device test in the
+    ///         assembly, including the twentieth.
+    ///     </para>
+    ///     <para>
+    ///         <c>?.</c>, because a fixture opened from a class fixture's constructor has no test in
+    ///         scope. A device opened there is still named by whichever test uses it.
+    ///     </para>
+    /// </remarks>
     public static bool TryOpen(out Fixture? fixture, out string? reason) {
         if (!VulkanDevice.TryCreate(new(), out var device, out reason)) {
             fixture = null;
             return false;
         }
 
+        TestContext.Current.TestOutputHelper?.WriteLine($"adapter: {Adapter(device!)}");
+
         fixture = new(device);
         return true;
+    }
+
+    /// <summary>How an adapter is named, so every message in this suite spells it one way.</summary>
+    /// <param name="device">The device.</param>
+    /// <returns>The adapter's name, kind and driver version.</returns>
+    /// <remarks>
+    ///     The same line <c>TextureKernelHarness.Adapter</c> and <c>TexturingDevice.Adapter</c>
+    ///     write, because a reader comparing a golden failure with a texture-graph one should not
+    ///     have to notice that two suites spell the same machine differently.
+    /// </remarks>
+    public static string Adapter(VulkanDevice device) {
+        ArgumentNullException.ThrowIfNull(device);
+
+        return $"{device.Adapter.Name} ({device.Adapter.Kind}, {device.Adapter.DriverVersion})";
     }
 
     /// <summary>Loads one of the fixture shaders.</summary>

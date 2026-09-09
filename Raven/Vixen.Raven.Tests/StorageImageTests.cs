@@ -103,6 +103,111 @@ public class StorageImageTests {
         Assert.Contains("OpImageQuerySize ", listing, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     ⚠ The table's claim that every format it admits is one Vulkan requires for storage is
+    ///     true of thirteen of the sixteen.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Vulkan's mandatory storage set is <c>R32_{UINT,SINT,SFLOAT}</c>,
+    ///         <c>R32G32B32A32_{UINT,SINT,SFLOAT}</c>, <c>R16G16B16A16_{UINT,SINT,SFLOAT}</c> and
+    ///         <c>R8G8B8A8_{UNORM,SNORM,UINT,SINT}</c>. <c>rg32f</c>, <c>rg16f</c> and <c>r16f</c>
+    ///         are not in it, and <c>rgba8_snorm</c> — which #714's title counted as a fourth — is.
+    ///     </para>
+    ///     <para>
+    ///         Both halves, because a flag that is true for everything or false for everything says
+    ///         nothing: the three are pinned by name and so is the exact size of the rest.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Three_of_the_sixteen_formats_are_outside_the_mandatory_list() {
+        var names = ImageFormats.Names.Split(", ");
+        var known = new List<ImageFormat>();
+
+        foreach (var name in names) {
+            var format = ImageFormats.Lookup(name);
+
+            Assert.NotNull(format);
+            known.Add(format);
+        }
+
+        Assert.Equal(16, known.Count);
+
+        Assert.Equal(
+            ["rg32f", "rg16f", "r16f"],
+            known.Where(format => format.RequiresExtendedFormats).Select(format => format.Name)
+        );
+
+        // The other direction, and the one the issue's own count got wrong: rgba8_snorm is in
+        // Vulkan's required list, so it is not one of these.
+        Assert.Equal(13, known.Count(format => !format.RequiresExtendedFormats));
+        Assert.False(ImageFormats.Lookup("rgba8_snorm")!.RequiresExtendedFormats);
+    }
+
+    /// <summary>
+    ///     ⚠ A module naming one of the three declares SPIR-V's <c>StorageImageExtendedFormats</c>,
+    ///     and one naming any of the other thirteen does not.
+    /// </summary>
+    /// <remarks>
+    ///     The capability is what turns a device without <c>shaderStorageImageExtendedFormats</c>
+    ///     from undefined into a refusal with a message — the trade <c>Int64Atomics</c> is declared
+    ///     for. ⚠ It reaches production through the texture graph rather than through any committed
+    ///     <c>.rvn</c>: <c>R16Float</c> is spelled <c>r16f</c> and those kernels are built at run
+    ///     time, so no shader gate ever compiles one.
+    /// </remarks>
+    [Theory]
+    [InlineData("r16f", true)]
+    [InlineData("rg16f", true)]
+    [InlineData("rg32f", true)]
+    [InlineData("rgba16f", false)]
+    [InlineData("rgba8", false)]
+    public void An_extended_format_declares_its_capability_and_a_mandatory_one_does_not(
+        string format,
+        bool extended
+    ) {
+        Assert.SkipUnless(SpirvTestBase.ValidatorAvailable, "spirv-val is not on PATH (brew install spirv-tools).");
+
+        var source = $$"""
+                       package A
+
+                       shader S {
+                           [Format("{{format}}")] var target: RWTexture2D<float4>
+
+                           [ComputeShader(8, 8, 1)]
+                           func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+                               target.Store(int2(int(id.x), int(id.y)), float4(1, 0, 0, 1))
+                           }
+                       }
+
+                       """;
+
+        var listing = ReferenceCompiler.Disassemble(Assert.Single(GenerateClean(source, "spirv")).Binary!);
+
+        Assert.Equal(
+            extended,
+            listing.Contains("OpCapability StorageImageExtendedFormats", StringComparison.Ordinal)
+        );
+    }
+
+    /// <summary>The same line, reported to the host so it can gate the pipeline before creating it.</summary>
+    [Theory]
+    [InlineData("r16f", true)]
+    [InlineData("rgba16f", false)]
+    public void The_host_is_told_which_storage_formats_need_the_extended_feature(string format, bool extended) {
+        var shader = LoweringTestBase.FindShader(
+            LoweringTestBase.Lower(
+                $"package A\n\nshader S {{\n    [Format(\"{format}\")] var target: RWTexture2D<float4>\n}}\n"
+            ),
+            "S"
+        );
+
+        var required = IrCapabilities.Of(shader);
+
+        // Broader one always; the narrower one only for the three.
+        Assert.Contains(IrCapability.StorageImage, required);
+        Assert.Equal(extended, required.Contains(IrCapability.StorageImageExtendedFormats));
+    }
+
     [Theory]
     [InlineData("glsl")]
     [InlineData("spirv")]
