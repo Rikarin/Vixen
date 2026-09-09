@@ -32,6 +32,13 @@ namespace Vixen.Editor.Scripts;
 ///         freezing the answer at whatever was loaded when the project opened.
 ///     </para>
 ///     <para>
+///         ⚠ <b>The cost is the source text of every script, held for the life of the project.</b>
+///         That is the price of comparing text rather than a stamp, and it is small against the thing
+///         beside it: a <see cref="SyntaxTree" /> is several times its own source, and the reference
+///         set dwarfs both. A project large enough for this to matter is one where the parse it
+///         avoids matters far more.
+///     </para>
+///     <para>
 ///         ⚠ <b>Not thread-safe, and it does not need to be.</b> A rebuild is raised by the asset
 ///         watcher's pump on the frame thread, which is the only caller — see <c>ScriptsModule</c>.
 ///     </para>
