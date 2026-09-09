@@ -859,6 +859,16 @@ public class InlineFragmentationTests {
     ///         with the same rule the flattened path does, measured from the box's own padding origin
     ///         rather than from a union's.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the numbers below turn out to be Chrome's after all, which is a correction to
+    ///         the paragraph above rather than a reason to delete it.</b>
+    ///         <see cref="BlockificationTests" /> measured §2.7's rewrite over 156 shapes covering all
+    ///         five of those contexts and it moves nothing here — a blockified <c>block</c> holding
+    ///         only inline-level children runs the same line walk this span runs, so 90 wide and two
+    ///         lines is what a browser gives too. What has no Chrome reading is the <i>route</i>: the
+    ///         box CSS sends through block layout arrives at these numbers through
+    ///         <c>IsNonAtomicInline</c> answering no, and that is the model this fixture pins.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void An_atomic_spans_out_of_flow_child_is_placed_by_its_own_line_walk() {

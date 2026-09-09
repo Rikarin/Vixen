@@ -56,6 +56,7 @@ public sealed partial class UiDocument : IDisposable {
     string language = string.Empty;
     readonly int ellipsis;
     readonly int nowrap;
+    readonly int preserved;
     readonly int balance;
     readonly int pretty;
     readonly int anywhere;
@@ -177,6 +178,7 @@ public sealed partial class UiDocument : IDisposable {
         hyphens = Styles.Properties.Intern("hyphens");
         ellipsis = Styles.Values.Intern("ellipsis");
         nowrap = Styles.Values.Intern("nowrap");
+        preserved = Styles.Values.Intern("pre");
         anywhere = Styles.Values.Intern("anywhere");
         breakWord = Styles.Values.Intern("break-word");
         breakAll = Styles.Values.Intern("break-all");
@@ -2211,11 +2213,27 @@ public sealed partial class UiDocument : IDisposable {
 
     /// <summary>Whether an element's text may be broken across lines at all.</summary>
     /// <remarks>
-    ///     ⚠ <b><c>pre</c> is treated as wrapping, and that is a stated gap rather than a reading of
-    ///     the specification.</b> <c>white-space</c> conflates three questions — whether to collapse
-    ///     runs of space, whether to keep newlines, and whether to wrap — and only the third is
-    ///     answered here. <c>nowrap</c> and <c>pre</c> agree about wrapping and disagree about the
-    ///     other two, so honouring <c>pre</c> for wrapping alone would be honouring a third of it.
+    ///     ⚠ <b><c>pre</c> does not wrap, and the refusal that said otherwise was arithmetic about
+    ///     this engine that had stopped being true.</b> It read: "<c>white-space</c> conflates three
+    ///     questions — whether to collapse runs of space, whether to keep newlines, and whether to
+    ///     wrap — and only the third is answered here, so honouring <c>pre</c> for wrapping alone
+    ///     would be honouring a third of it." The premise is right and the fraction is wrong. This
+    ///     engine collapses nothing and <c>LineWrapper</c> already breaks at every mandatory
+    ///     opportunity, so its behaviour with no declaration at all IS
+    ///     <c>white-space-collapse: preserve</c> plus <c>text-wrap-mode: wrap</c> — that is,
+    ///     <c>pre-wrap</c>. <c>pre</c> therefore differs from what an element already does in exactly
+    ///     ONE respect, and it is this one. Honouring it here is honouring all of it, not a third.
+    ///     <c>WhiteSpacePreTests</c> measures both halves of that premise rather than asserting the
+    ///     conclusion.
+    ///     <para>
+    ///         ⚠ And <c>pre</c> keeps its newlines on the way through, which is what makes this safe
+    ///         for the two things in the tree that write it — the editor's console stack trace and
+    ///         its message detail body, both of which want one frame per line and no wrapping.
+    ///         "Does not wrap" here is an infinite available width in
+    ///         <c>UiElement.Block</c>, and a mandatory break does not consult the
+    ///         width. What is still owed under <c>white-space</c> is the collapsing two thirds, which
+    ///         is CSS Text § 4 and moves every label in this tree; nothing here starts it.
+    ///     </para>
     /// </remarks>
     /// <remarks>
     ///     <para>
@@ -2246,7 +2264,7 @@ public sealed partial class UiDocument : IDisposable {
     ///     </para>
     /// </remarks>
     internal bool WrapsOf(ComputedStyle style) =>
-        (!style.TryGet(whiteSpace, out var collapsing) || collapsing != nowrap)
+        (!style.TryGet(whiteSpace, out var collapsing) || (collapsing != nowrap && collapsing != preserved))
         && (!style.TryGet(textWrap, out var wrapping) || wrapping != nowrap);
 
     /// <summary>Which of a paragraph's legal breaks it prefers. CSS Text 4's <c>text-wrap-style</c>.</summary>

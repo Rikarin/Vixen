@@ -15,7 +15,7 @@
 # corollary is the one rule that matters: a gap that closes comes off this file in the same commit
 # as it closes, and a gap that opens does not get added without a heading explaining it.
 #
-# COUNTS, generated — VIXEN_REGENERATE=1: 2 120 fixtures, 2 104 pass, 16 fail, 0 refused.
+# COUNTS, generated — VIXEN_REGENERATE=1: 2 120 fixtures, 2 108 pass, 12 fail, 0 refused.
 #
 # ⚠ That line is the ONE statement of the counts in this file, and it is generated because the
 # sentence it replaces was prose beside a pinned constant: it read "2 080 … pass, 40 fail" for two
@@ -24,14 +24,14 @@
 # rewording that loses the line fails rather than passing silently. The categories it counts are
 # grid, blockgrid and gridflex.
 #
-# ⚠ FOUR NAMES ARE LEFT IN THIS FILE AND NOT ONE OF THEM IS ARITHMETIC A READER COULD GO AND FIX,
+# ⚠ TWO NAMES ARE LEFT IN THIS FILE AND NEITHER IS ARITHMETIC A READER COULD GO AND FIX,
 # which is the answer to the question the file exists to answer and is worth stating before the
-# archaeology rather than after it. Eight of the sixteen are `grid_available_space_*`, a settled
+# archaeology rather than after it. Eight of the twelve are `grid_available_space_*`, a settled
 # decision about how a Vixen surface root is sized that must not be "fixed"; four are
-# `chrome_issue_325928327`, genuinely cyclic and named after the browser's own bug tracker; four are
 # `grid_relayout_vertical_text`, which is a missing layout FEATURE filed as `Rikarin/Vixen#952` and
-# is not grid's. So `Rikarin/Vixen#259`'s four rules stand at: §5.2.2 closed (#932), the RTL
-# percentage margin closed, the writing mode split out, and the cyclic one classified and refused.
+# is not grid's. So `Rikarin/Vixen#259`'s four rules are all closed: §5.2.2 (#932), the RTL
+# percentage margin, the writing mode split out to #952, and `chrome_issue_325928327` — which was
+# not cyclic, and which the section below now records as CSS Sizing §4.1 rather than as a refusal.
 #
 # ⚠ 76 → 40 most recently, and unlike the batch described below all 36 of them passed. They are the
 # `safe` alignment families, which were an ENGINE gap rather than a harness one — `OverflowAlignment`
@@ -509,38 +509,38 @@ grid_available_space_smaller_than_min_content
 #   easiest kind of entry to guess wrong about, because nothing else in the bucket contradicts it.
 #   Three of the four originals have now been guessed wrong about, which is a rate worth quoting.
 #
-# ⚠ `chrome_issue_325928327` is the one left, and it is at least classified now. A `height: 100%`
-#   item wrapping a `height: 100%; aspect-ratio: 1` child, in a grid whose height is a stated 40px:
-#   Chrome reads the item's inline max-content contribution as 40, this store as 0. The column pass
-#   measures items with the block axis indefinite — deliberately, per CSS Sizing §5.2.1 — so the
-#   inner percentage resolves to nothing and the ratio has no inline size to derive. Chrome resolves
-#   it because the CONTAINER's block size is definite even though the AREA's is not yet, which is a
-#   distinction §12 does not currently carry into the inline pass.
+# ⚠ <b>`chrome_issue_325928327` IS CLOSED, AND FOUR AUDITS REFUSED IT ON A DIAGNOSIS THAT WAS
+#   WRONG IN EVERY CLAUSE.</b> The entry read "genuinely cyclic: Chrome reads the item's inline
+#   max-content contribution off the CONTAINER's definite block size even though the AREA's is not
+#   yet known, a distinction §12 does not carry into the inline pass" — and the fifth audit softened
+#   it to "a phase, not a fact: the single `auto` row would have to be stretched before the column
+#   pass". Both readings put the whole of it inside §12. Neither is where it was.
 #
-#   ⚠ MEASURED, and the paragraph above is right about the cause and wrong about the blast radius.
-#   The only wrong number in the tree is the GRID's own width. The item comes out 40 × 40 and the
-#   ratio'd grandchild 40 × 40, both exactly Chrome's, because the definite second pass resolves
-#   their percentages once the row is known; the item's x of −20 is `justify-items: center` centring
-#   a 40-wide box in a 0-wide area, which is arithmetic on the first number rather than a second
-#   defect. All four suffixes give the identical two mismatches, RTL included. So whatever closes
-#   this touches the container's intrinsic inline size and nothing below it — which is a much smaller
-#   thing than "reads the contribution as 0" sounds.
+#   ⚠ THE DEFECT REPRODUCES WITH NO GRID ANYWHERE IN THE TREE. A flex row holding a `height: 40px`
+#   block holding a `height: 100%; aspect-ratio: 1` box measures the block ZERO wide, then lays that
+#   box out 40 × 40 inside it. Replace the ratio with `width: 40px` and the same tree is 40 wide, so
+#   nothing about percentages, direction or grid is involved: it is CSS Sizing §4.1's TRANSFERRED
+#   SIZE — a box with a preferred aspect ratio and a definite block size has a definite inline size —
+#   going missing in the pass that asks a container how wide it wants to be. Two paths dropped it:
+#   `DetermineBlockContentWidth` probed such a child for a max-content width instead of transferring,
+#   and `CalculateFlexLayoutImpl` read only the OFFERED block size, so a container measured for its
+#   inline size handed `NaN` down as the percentage basis while holding a `height` of its own.
 #
-#   ⚠ AND "GENUINELY CYCLIC" IS MORE THAN THE EVIDENCE CARRIES. `LayOutGrid` resolves the stated 40px
-#   into `innerHeight` BEFORE the inline pass runs, so the number Chrome uses is in hand at the
-#   moment it is wanted. What is missing is a phase and not a fact: the single `auto` row would have
-#   to be stretched to that definite height before the column pass, so that `height: 100%` has
-#   something to resolve against. That is real §12 surgery — the row pass currently consumes the
-#   column pass's output — and it is not attempted, but it is a different thing to refuse than a
-#   cycle. The fixture is named after Chrome's own bug tracker, which is a comment on how settled the
-#   answer is upstream, not on whether this store could reach it.
+#   What grid owed on top of that is one number, and it is the fifth audit's phase question answered
+#   without the phase: §5.2.1's "not yet known" is a claim about the AREA, and a grid with a definite
+#   content-box height and exactly one row that `align-content` stretches knows the area's block size
+#   before the column pass runs. `GridAxis.DefiniteCrossSpace` carries it and `MeasureGridItem` hands
+#   it to the probe. The row pass still consumes the column pass's output; nothing was reordered.
 #
-#   ⚠ `The_cyclic_gaps_only_wrong_box_is_the_container_itself` pins the two mismatches, because a
-#   known gap's failure is otherwise unasserted: `Fixture` asks only whether a failing name is in
-#   this file and never which boxes disagree. Measured with a sabotage that forces every grid item to
-#   `Align.FlexStart`: the item's x moves to 0, the fixture's own four `Fixture` rows stay GREEN, and
-#   the new theory is the only thing in the project that says the box moved.
-chrome_issue_325928327
+#   ⚠ The corpus moved by exactly these four and by nothing else — 2 104/16 to 2 108/12 across all
+#   three grid categories, with flex, block and float unmoved — which is the measurement that says a
+#   §4.1 transfer added to two intrinsic passes is not a licence the rest of the corpus was relying
+#   on being withheld. `TransferredSizeTests` pins the grid-free forms, because a corpus fixture is
+#   the only witness this had and it is the one shape where three algorithms are stacked.
+#
+#   ⚠ `The_gap_that_was_called_cyclic_stands_where_Chrome_puts_it` replaces the pin that asserted the
+#   failure. `Fixture` cannot tell these four passing from these four being listed here, so the
+#   assertion that they PASS is kept by name rather than folded into a count.
 
 
 # ── §5.2.2's SCROLLABLE-OVERFLOW EXCLUSION IS APPLIED TO THE MIN-CONTENT CONTRIBUTION, NOT ONLY TO

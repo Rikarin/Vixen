@@ -29,10 +29,10 @@ Doc 43 § B0. Licence: MIT — see the repository `NOTICE` and ADR-015.
 | `block` | 884 | 884 | 0 | 0 |
 | `blockflex` | 28 | 28 | 0 | 0 |
 | `blockgrid` | 56 | 56 | 0 | 0 |
-| `grid` | 2 040 | 2 024 | 16 | 0 |
+| `grid` | 2 040 | 2 028 | 12 | 0 |
 | `gridflex` | 24 | 24 | 0 | 0 |
 | `float` | 84 | 84 | 0 | 0 |
-| | **5 524** | **5 508** | **16** | **0** |
+| | **5 524** | **5 512** | **12** | **0** |
 
 ⚠ **That table is generated — `VIXEN_REGENERATE=1` — and it is the only count here that is checked
 row by row rather than in total.** `TaffyReadmeTableTests` runs a census of each of the eight
