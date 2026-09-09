@@ -10,11 +10,54 @@
         </Description>
         <PackageTags>editor;inspector;property-drawer;undo;multi-object;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+
+        <!--
+            ⚠ The generator travels inside this package, and doc 36 § F5's "`IsPackable` on
+            `Vixen.Editor.Inspector.Generator` is still unset" asked the wrong question. Every
+            `*.Generator` in this repository is `IsPackable=false` — `Directory.Build.props`'s COMPILER
+            PLUGIN profile sets it for all of them — because none of them ships as a package of its
+            own. What ships a generator is the library it belongs to, carrying its DLL in
+            `analyzers/dotnet/cs`: `Vixen.Core.Serialization`, `Vixen.Ui`, `Vixen.Input`, `Vixen.Net`
+            and `Vixen.Shaders` all do it this way and this one did not.
+
+            The consequence was the shape this repository keeps finding: it works here and is not
+            shipped. In-tree every consumer names the generator itself, because analyzers are not
+            transitive through a `ProjectReference` — so nothing in a green build could notice that a
+            plugin with a `PackageReference` to this assembly got the attributes and none of the code
+            they generate.
+
+            ⚠ Verified by unzipping the package and not by a test, which is worth saying plainly:
+            `dotnet pack` on this project, then `analyzers/dotnet/cs/Vixen.Editor.Inspector.Generator.dll`
+            in the `.nupkg` — present with this property, absent without it. The gate that would stop
+            the next one is #1165, which also names the four libraries still shipping without their
+            sibling generator.
+        -->
+        <TargetsForTfmSpecificContentInPackage>
+            $(TargetsForTfmSpecificContentInPackage);PackInspectorGenerator
+        </TargetsForTfmSpecificContentInPackage>
     </PropertyGroup>
 
     <ItemGroup>
         <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
     </ItemGroup>
+
+    <!--
+        GetTargetPath, not Build — as in Vixen.Ui and Vixen.Core.Serialization. Asking for Build here
+        fails a no-build `dotnet pack` with NETSDK1085, because NoBuild is a global property and the
+        MSBuild task hands global properties to the project it invokes.
+    -->
+    <Target Name="PackInspectorGenerator">
+        <MSBuild Projects="..\Vixen.Editor.Inspector.Generator\Vixen.Editor.Inspector.Generator.csproj"
+                 Targets="GetTargetPath"
+                 Properties="Configuration=$(Configuration)"
+                 RemoveProperties="TargetFramework">
+            <Output TaskParameter="TargetOutputs" ItemName="InspectorGeneratorAssembly" />
+        </MSBuild>
+
+        <ItemGroup>
+            <TfmSpecificPackageFile Include="@(InspectorGeneratorAssembly)" PackagePath="analyzers/dotnet/cs" />
+        </ItemGroup>
+    </Target>
 
     <ItemGroup>
         <!--

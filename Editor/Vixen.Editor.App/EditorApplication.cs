@@ -1498,6 +1498,7 @@ sealed partial class EditorApplication : IDisposable {
         // Two editors in one process is not hypothetical: it is every test run.
         Extensions.Changed -= RefreshAssetKinds;
         Extensions.Changed -= RefreshOverlays;
+        Extensions.Changed -= RefreshSettingsPages;
 
         // ⚠ And for the same reason. `MetadataUpdate` holds hosts weakly, so a missed unregister is
         // not a leak — but a reload delivered to a disposed shell's document is a rebuild into a
@@ -2647,8 +2648,9 @@ sealed partial class EditorApplication : IDisposable {
             // ⚠ And the importers, on the same terms and for the same reason. Doc 36 § F8: every
             // registry an import runs against is built by `BuiltInImporters.Create`, which folds this
             // in — so a plugin's importer reaches the editor's own import, the Project panel's type
-            // filter and the CLI's in-process path. It does not reach an out-of-process compiler
-            // worker, which has not loaded the plugin; `ImporterContributions` says so.
+            // filter and the CLI's in-process path. ⚠ And an out-of-process compiler worker, which
+            // used to be the exception: `CompilerPool` names the assemblies this set's importers came
+            // out of on each worker's command line and `PluginImporters` loads them there.
             .Add(ImporterContributions.Default)
 
             // ⚠ Doc 36 § D2's registry, and the reason the list above is no longer the extent of what

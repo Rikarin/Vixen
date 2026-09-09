@@ -42,6 +42,16 @@
         <Compile Include="..\..\build\DocCommentRule.cs" Link="DocCommentRule.cs" />
 
         <!--
+            ⚠ And doc 36 § P3's third exit criterion, which had never been written. Blockout and
+            Terrain were decoupled at real cost and nothing failed the build when either was
+            referenced again — so the rule is new code with no history of ever having produced an
+            answer, which is the state `PluginReferenceRule` shipped in. Linked here, it is measured
+            against this repository's own `Vixen.Editor.App.csproj` and against fixtures that make
+            both of its halves fire.
+        -->
+        <Compile Include="..\..\build\ApplicationReferenceRule.cs" Link="ApplicationReferenceRule.cs" />
+
+        <!--
             ⚠ And the same rule asked of the other half of this repository's source. `CheckDocComments`
             parses C#, so a doc block stapled to the wrong `func` in one of the 176 committed `.rvn`
             files was outside every gate here until #1076 — and the commit that quoted that blind spot

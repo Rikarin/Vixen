@@ -131,14 +131,30 @@ change belonged.
 through `PluginServices`, and removable, so a plugin's scope withdraws its importer on unload. Doc
 11's "a plugin can add an importer" is true now.
 
-⚠ **A contributed importer does not reach an out-of-process compiler worker, and this is the one
-place the claim has a hole an author would hit.** `Tools/Vixen.AssetCompiler` starts workers for
-crash isolation and [`WorkerHost.cs:34`](../../Tools/Vixen.AssetCompiler/WorkerHost.cs) builds each
-one's registry from the parameterless `Create` — which folds in `ImporterContributions.Default`, and
-in a worker process that set is empty because the worker never loaded the plugin. So an asset only a
-plugin can import works in the editor and fails in the pool. Closing it means the worker loading the
-same plugin set the coordinator has, which is a change to the worker's start-up and is named rather
-than done.
+✅ **A contributed importer reaches an out-of-process compiler worker now.** It did not: each worker
+built its registry from the parameterless `Create`, which folds in `ImporterContributions.Default`,
+and in a worker process that set is empty because the worker never loaded the plugin — so an asset
+only a plugin could import worked in the editor and failed in the pool.
+
+The close is the coordinator naming *files* rather than the worker discovering anything.
+`CompilerPool` reads the assemblies its own contributed importers came out of, adds a `--plugin` for
+each to the worker's command line, and
+[`PluginImporters`](../../Tools/Vixen.AssetCompiler/PluginImporters.cs) loads them at the far end into
+a set of its own. Nothing is cached in either process, so `BuiltInImporters`' rule that the registry
+is assembled per run survives; and a worker that cannot load what it was told to load exits before
+connecting rather than importing with a set its coordinator does not have.
+
+⚠ **Two things that fell out of doing it.** A wait on the pipe alone never ended when a worker exited
+before connecting — nothing could exit that early until a worker had work to do at start-up, so the
+hang had never been reachable and is now guarded. And one shape still cannot cross: an importer whose
+assembly has no file. A plugin is a `.dll` and a project's editor scripts are compiled to one, so both
+have a path; a dynamic assembly has none, and `CompilerPool.UnreachableImporters` names those rather
+than letting the asset import as a byte blob in silence.
+
+⚠ **The pool is not the only place the two paths disagree, and the other half is still open.** The
+editor is the only process that loads a plugin at all: `PluginHost` has no caller outside
+`EditorApplication`, so `vixen import` has an empty `ImporterContributions` whether or not it is
+`--isolated`. A worker now agrees with its coordinator; the CLI still does not agree with the editor.
 
 ⚠ **An earlier revision said "build steps are the same shape and are still not published".** There is
 no `BuildStep` or `IBuildStep` type anywhere in the repository, so that sentence named an omission in
@@ -506,8 +522,9 @@ game build cannot load. That is Unity's split and it is the right one: **`Editor
 **In-tree and first-party packages:** the generator sees the attribute and emits a registration —
 no reflection, ADR-002 intact, trimmable.
 
-**Out-of-tree plugins:** the plugin ships the same generator (packaged — F5's fix is one
-`IsPackable`) so its own build emits its registrations, and `Activate` runs them. A plugin that
+**Out-of-tree plugins:** the plugin ships the same generator (packaged — ⚠ **not** by an `IsPackable`
+on the generator, which is false for every generator here; `Vixen.Editor.Inspector` carries it in
+`analyzers/dotnet/cs`, as F5 records) so its own build emits its registrations, and `Activate` runs them. A plugin that
 does not use the generator can still call `context.Add*` by hand. ⚠ **No assembly-wide reflection
 scan at editor start**, which is the trap: it would cost startup time, break trimming, and make a
 plugin's failure a mystery rather than a message.
@@ -525,17 +542,37 @@ plugin's failure a mystery rather than a message.
 | ~~`AddTool(tool)`~~ | ✅ `SceneTool`, and `[EditorTool]` — F6 |
 | ~~`AddOverlay(overlay)`~~ | ✅ `SceneOverlay`, and `[Overlay]` — `ViewportChrome` was the only thing that could put a panel over a pane |
 | ~~`AddGizmo(type, draw)`~~ | ✅ `ComponentGizmo`, and `[DrawGizmo]` — ⚠ **"nothing" was wrong**: `SceneLines.LightShapes` is this, hardcoded for one component |
-| `AddSettingsPage(page)` | `EditorSettingsPanels` |
+| ~~`AddSettingsPage(page)`~~ | ✅ `SettingsPage`, read by `EditorSettingsPanels` and re-read on `IEditorRegistry.Changed` |
 | `AddPreview(type, thumbnail)` | nothing |
 
-⚠ **Seven of nine, and none of them is a method on `PluginContext`.** P2's departure held: a
+⚠ **Eight of nine, and none of them is a method on `PluginContext`.** P2's departure held: a
 contribution kind is a record in the assembly that owns it, and `Owns`/`With` are the whole surface.
 Adding `SceneOverlay` and `ComponentGizmo` changed nothing in the plugin contract, which is the
 property the table's shape would have destroyed.
 
-⚠ **The last two rows are real and unbuilt.** A settings page needs `EditorSettingsPanels` to become a
-registry the shell reads rather than a list it holds, and a preview needs the thumbnail cache to ask
-a registry before it falls back — both are the same move made twice more, and neither is done.
+✅ **The settings page is built and it was the same move once more.** `SettingsPage` is a record in
+`Vixen.Editor.Ui` — the assembly that owns `SettingsCategory` — carrying a `SettingsScope` because
+doc 20 § A4's two windows are one mechanism, and nothing in the plugin contract changed.
+`EditorSettingsPanels` adds the contributed pages after its own and re-reads on
+`IEditorRegistry.Changed`, which is the half that separates a registry from a list.
+
+⚠ **Three things the move needed that the earlier rows did not.** `SettingsView` gained a `Remove`,
+because a registry hands back the removal and a page left behind after an unload is a rail line whose
+`Build` closes over an unloaded assembly. The window has to be *held* while it is open — nulled in
+`PanelDescriptor.Closed`, on `historyView`'s terms — because a plugin activating three seconds after
+start-up is always after the factory ran. And a contributed page whose id collides with a built-in is
+**skipped rather than added**, since `SettingsView.Add` throws on a duplicate and nothing may fail
+the editor for a plugin's mistake.
+
+⚠ **Asserted on the window and not on the registry**, which is P2's rule about exactly this: the
+first `[Overlay]` test asserted the record was in the registry, "which passes with `ViewportChrome`
+never reading it". `SettingsPageContributionTests` opens Preferences, selects the contributed page and
+reads the text it drew — before the window opens, while it is open, and after the contribution is
+withdrawn.
+
+⚠ **One row left.** A preview needs the thumbnail cache to ask a registry before it falls back —
+`ThumbnailCache` asks `ImageDecoders.For(ImageDecoders.BuiltIn, extension)` and there is nothing to
+ask first.
 
 ### The authoring rule
 
@@ -748,11 +785,16 @@ above said "Profiler + Debugger ✅ done". Both were true about the *panels* and
 the *references*: the module was created and the app kept referencing the two originals as well.
 Seven panels moved; three references stand where two did.
 
-⚠ **`EditorApplication.cs` is 3,787 lines** — measured, and the exit wants under 800. The header of
-this document says 3,601 and two other places said 3,641 and 3,675; those were all true when written
-and none of them is now. The file grows by tens of lines with each phase that gives it something to
-own — the reload host, the icon resolution, the plugin host, the gizmo pass — which is the shape of
-the problem rather than a lapse.
+⚠ **`EditorApplication.cs` is 5,282 lines** — measured 2026-09-09, and the exit wants under 800.
+`EditorParity.cs` is 2,997 beside it. This paragraph has said 3,601, 3,641, 3,675, 3,787 and 4,593 in
+turn; each was true when written and none of them is now. **The criterion is moving away from itself
+at roughly 700 lines a revision**, and the file grows by tens of lines with each phase that gives it
+something to own — the reload host, the icon resolution, the plugin host, the gizmo pass — which is
+the shape of the problem rather than a lapse.
+
+⚠ **A number nobody can re-derive goes stale again**, which is the standing lesson from F7's count in
+the other direction. `wc -l Editor/Vixen.Editor.App/EditorApplication.cs` is the command; a revision
+that restates the figure without running it is writing down a memory.
 
 ⚠ **This phase was never going to fix that, and the plan conflated two jobs.** The five moves took
 3,299 lines out of the *assembly* — 20,175 to 16,876 — but almost all of it came from the other
@@ -760,11 +802,31 @@ partials and from the host. Splitting the god object is a different job from mov
 of it: a file of project opening, panels, selection, commands and play mode is long for reasons no
 feature move addresses.
 
-⚠ **`CheckArchitecture` has no rule for this and never gained one.** `build/Build.ArchitectureRules.cs`
-enforces the layer order (`Core` < `Platform` < `Editor`/`Tools`) and an editor-only package list;
-nothing fails the build when `Vixen.Editor.App` references a feature assembly again. Until it does,
-every row removed from the table above can come back without anybody noticing — which for F2, the
-finding this document says matters most, is the difference between a fix and a tidy-up.
+✅ **`CheckArchitecture` has the rule now** — [`ApplicationReferenceRule`](../../build/ApplicationReferenceRule.cs).
+It had never been written: the target enforced the layer order, an editor-only package list, the
+Orleans tiers and three named one-offs, and nothing failed the build when `Vixen.Editor.App`
+referenced a feature assembly again. Until it did, every row removed from the table above could come
+back without anybody noticing — which for F2, the finding this document says matters most, is the
+difference between a fix and a tidy-up.
+
+⚠ **Two lists, and the second is what makes the criterion move rather than describe.** `Allowed` is
+what the exit permits for ever — corrected to include `Assets`, per the table above. `NotYetMoved` is
+the five the application still names, each with the reason beside it — and **a name in that list
+which is no longer referenced fails too**. So the list can only shrink: the batch that finally
+dereferences the profiler is told to delete the line in the same run, rather than leaving a rule that
+has quietly stopped asserting anything. `CheckWhitespace`'s exemption file is the same shape for the
+same reason.
+
+⚠ **The table above lists four names and the rule lists five.** `Vixen.Editor.NodeGraph` is
+referenced too, for one call — `NodeGraphTheme.Install`, the user-agent sheet the four graph panels
+are drawn with (#917) — and it arrives transitively through the asset editors as well, so deleting
+the line would compile and lose the look. It belongs in the count either way.
+
+⚠ **And the rule is run by a test rather than only by the gate.** `ApplicationReferenceRuleTests`
+compiles the same file into `Vixen.Editor.Texturing.Tests` and calls it over this tree and over
+fixtures that make both halves fire, because a rule that can only answer by running a Release-mode
+Nuke target is one that ships without anybody having seen it produce an answer — which is exactly
+what happened to `PluginReferenceRule`.
 
 ✅ **The seam is built.** `PluginHost.Activate(id, name, module)` runs a compiled-in `IEditorPlugin`
 through the same `PluginContext`, the same registration scope, the same rollback-on-throw and the
@@ -1049,9 +1111,48 @@ Deliberately open, and named so the first project that needs one does not fork.
   `InspectorEditProvider` over the generator's descriptors, and `NodePortEditProvider` over a graph
   node's ports, which is the one that proves the seam takes weight: its members belong to no CLR
   type and the ordinary inspector panel draws them anyway. A settings file is still owed.
-* **`IToolContext`** — what a scene-view tool is handed. Terrain's brushes and blockout's handles
-  should be two implementations of the same thing; today they are two subsystems. ⚠ **This type does
-  not exist**, in any form — it is a proposal, not a seam something is already using.
+
+  ⚠ **But "owed" is the wrong shape for it, and saying so is what stops somebody writing the wrong
+  type.** The row is not a settings type nothing can describe: `ReflectedDescriptor.For`
+  (`Editor/Vixen.Editor.Inspector/ReflectedDescriptor.cs:180`) falls back from `InspectorRegistry` to
+  a descriptor built out of `TypeRegistry`, which is exactly "described by `Vixen.Core.Reflection`"
+  — the phrase `IEditProvider`'s own remarks use for this case. What is missing is one step earlier:
+  `InspectorEditProvider.MembersOf` reads `InspectorRegistry.Find(type)` **only**, so a type the
+  serialization generator described and `[Inspector]` did not draws rows in the panel and has zero
+  members through `EditTarget`. The pipeline is strictly narrower than the panel that draws it.
+
+  ⚠ **The registry that gives it a consumer exists now.** D4's `AddSettingsPage` row is built —
+  `SettingsPage`, read by `EditorSettingsPanels` — so a page drawn through `EditProperty` has
+  somewhere to be contributed from. What is still owed is the provider itself, which is #1162: the
+  fix is one step earlier than a fourth `IEditProvider`.
+* ~~**`IToolContext`**~~ — **struck, because what a scene-view tool is handed already has a name and
+  the premise under this bullet is wrong.** It read "terrain's brushes and blockout's handles should
+  be two implementations of the same thing; today they are two subsystems". Measured: they are
+  already two implementations of one interface, and there are four —
+  `BlockoutMode` (`Editor/Vixen.Editor.Blockout/BlockoutMode.cs:42`), `TerrainMode`
+  (`Editor/Vixen.Editor.Terrain/TerrainMode.cs:40`), `FoliageMode`
+  (`…/FoliageMode.cs:37`) and `WaterMode` (`Editor/Vixen.Editor.Water/WaterMode.cs:50`) are each
+  `IEditorMode, IViewportInput`.
+
+  What a tool is handed is `IViewportInput.Pointer(SceneViewport pane, …)`, and the pane is the
+  context: camera, gizmo, grid, work plane (`Placement`), document, selection, picking, sub-object
+  picking, mesh editing and the extension registry.
+
+  ⚠ **And the third tool — the one this bullet said would discover what a tool is actually handed —
+  has been written, out of tree, and needed no new type.** `OutOfTreePluginTests`' `SamplePlugin`
+  compiles a plugin assembly that registers `new SceneTool("sample.paint", "Paint", new SampleTool())`
+  and moves the camera's pivot through the pane it is given. That is the experiment this bullet
+  proposed, already run.
+
+  ⚠ **The two things terrain surfaced were answered by naming them, not by a context.**
+  `PluginContext.OnUpdate` (`Editor/Vixen.Editor.Plugin/PluginContext.cs:300`) and
+  `EditorDocument.Saved` (`Editor/Vixen.Editor.Core/EditorDocument.cs:156`) both exist. A tool
+  context would have been a third place to put them.
+
+  **What is genuinely left is a different, smaller question**, and it is not this one: `SceneViewport`
+  is a 1,635-line concrete class, so a plugin's tool is handed all of it. Narrowing it is worth doing
+  when a consumer can say which members matter; inventing the narrowing first is guessing, and the
+  guess would be this bullet.
 * ~~**Plugin API versioning**~~ — ✅ closed, and the bullet was stale. `PluginHost` calls
   `EditorApi.Explain(manifest.Api)` and refuses an incompatible plugin with the explanation. Widening
   the surface is what made it matter, which is what this bullet predicted.
@@ -1164,27 +1265,61 @@ import without a plugin is not an editor. The criterion is `Core`, `Ui`, `Plugin
 
 ### The extension surface, last two rows
 
-* **`AddSettingsPage`** — `EditorSettingsPanels` is still a list in the application.
+* ~~**`AddSettingsPage`**~~ — ✅ built: `SettingsPage`, read by `EditorSettingsPanels` and re-read on
+  `IEditorRegistry.Changed`.
 * **`AddPreview`** — the thumbnail cache has no registry to ask before it falls back.
 * **A build-step contribution.** `EditorBuilds` has no contribution point, so a plugin cannot add a
   step to a player build. Named here rather than at F8, which was about importers.
 
 ### Correctness gaps with a user-visible failure
 
-* **A contributed importer does not reach an out-of-process compiler worker.**
-  [`WorkerHost.cs:34`](../../Tools/Vixen.AssetCompiler/WorkerHost.cs) builds its registry from the
-  parameterless `Create`, and the worker never loaded the plugin. Imports in the editor, fails in the
-  pool — the worst shape on this list, because it is a difference between two paths that should agree.
+* ~~**A contributed importer does not reach an out-of-process compiler worker.**~~ ✅ Closed. The
+  coordinator names the assemblies its contributed importers came out of on each worker's command
+  line and [`PluginImporters`](../../Tools/Vixen.AssetCompiler/PluginImporters.cs) loads them there;
+  `PluginImporterTests` imports one asset both ways and compares the bytes. See
+  [F8](#f8--importers-are-constructed-and-handed-in) for the two things that fell out of doing it.
+* **The CLI loads no plugins at all, so it still disagrees with the editor.** `PluginHost` has no
+  caller outside `EditorApplication` — `Tools/Vixen.Cli` never scans for a plugin and never compiles a
+  project's `Editor/` scripts — so `vixen import` has an empty `ImporterContributions` whichever
+  executor it uses. ⚠ **This is the same shape as the row above and a wider one**, and closing the
+  worker's half made it the remaining difference between two paths that should agree: a content build
+  from the command line cannot produce what the editor showed for an asset only a plugin can import.
 
 ### Smaller, and each a deliberate question rather than a lapse
 
-* **`IsPackable` on `Vixen.Editor.Inspector.Generator`.** Now buys only the `[Inspector]`-specific
-  annotations and the reset button — see [what this document does not
-  do](#what-this-document-does-not-do).
-* **`IToolContext`** does not exist; terrain's brushes and blockout's handles are still two subsystems.
+* ~~**`IsPackable` on `Vixen.Editor.Inspector.Generator`.**~~ ✅ **Answered, and the question was the
+  wrong one.** `IsPackable` is not unset on that project: `Directory.Build.props`'s COMPILER PLUGIN
+  profile sets it to **false** for every `*.Generator`, `*.Generators` and `*.Analyzers` in the
+  repository, because no generator here ships as a package of its own. What ships one is the library
+  it belongs to, carrying its DLL in `analyzers/dotnet/cs` — `Vixen.Core.Serialization`, `Vixen.Ui`,
+  `Vixen.Input`, `Vixen.Net` and `Vixen.Shaders` each have a pack target for exactly that, and
+  `Vixen.Editor.Inspector` now has one too.
+
+  ⚠ **So the answer to "is a plugin's inspector allowed to be poorer" is no, and it cost a target
+  rather than a decision.** It was invisible in-tree for the reason this repository keeps meeting:
+  analyzers are not transitive through a `ProjectReference`, so every in-tree consumer names the
+  generator itself and a green build cannot tell you what a `PackageReference` gets. The only place
+  the answer exists is the `.nupkg` bytes.
+
+  ⚠ **And the walk that answered it found four more libraries in the same state** — `Vixen.Ecs`,
+  `Vixen.Core.IO`, `Vixen.Core.Syntax` and `Vixen.Editor.NodeGraph` — of which `Vixen.Ecs` is the one
+  that matters, since a game outside this repository gets `[Component]` and none of the code the
+  generator writes. Filed as #1165 with the rule that would stop the next one.
+* ~~**`IToolContext`**~~ — struck, and the sentence under it was wrong: four modes already implement
+  one `IViewportInput`, and the pane they are handed is the context. See [Part 5](#part-5--the-seams).
 * **No incremental compilation for project scripts**, and **no cross-assembly editor-only check**.
-* **F7's number.** Seventeen `.vxml` files against **34 registered panels** — the denominator this
-  row used to give, ~120,000 lines of editor C#, was the wrong one, and so was "three". The path is
+* **F7's number.** ⚠ **Fifty-six `.vxml` under `Editor/`** — `git ls-files 'Editor/*.vxml' | wc -l`,
+  measured 2026-09-09. This row has said three, then seventeen, then forty-nine; the ledger's own
+  strike-through history reads twenty → twenty-seven → thirty-four → forty-one → forty-eight. The
+  denominator this row used to give, ~120,000 lines of editor C#, was the wrong one.
+
+  ⚠ **This document's numbers go stale in both directions at once, which is the useful reading rather
+  than either figure.** F7's is low because the markup path was adopted faster than the doc was
+  revised; `EditorApplication.cs` is high — 5,282 against a recorded 3,787 — because the application
+  kept growing. A count nobody can re-derive goes stale again, so the command is written beside the
+  figure and the [panel
+  ledger](../../Editor/Vixen.Editor.Ui/README.md#the-panel-ledger--what-is-markup-what-is-next-and-what-never-will-be)
+  stays the maintained list this row cites rather than restates. The path is
   walked and now also *surveyed*: [the panel
   ledger](../../Editor/Vixen.Editor.Ui/README.md#the-panel-ledger--what-is-markup-what-is-next-and-what-never-will-be)
   goes through every panel once and says which are ready, which are half-portable and which never

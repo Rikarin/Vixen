@@ -43,6 +43,19 @@ public static class ImportRunner {
 
         if (pool is not null) {
             output.Line($"  Importing in {pool.WorkerCount} worker process(es).");
+
+            // ⚠ Doc 36 § Part 6's residue, said out loud. A worker is handed the assemblies this
+            // process's contributed importers came out of, so a plugin's importer reaches it — but
+            // one contributed from an assembly with no file cannot be named, and an asset it claims
+            // would fall through to the fallback in the worker and succeed as a byte blob. Silence
+            // there is the failure; a line here is not.
+            foreach (var importer in pool.UnreachableImporters) {
+                output.Line(
+                    $"  ⚠ {importer} was contributed by an assembly with no file, so no worker process can "
+                    + "load it. Assets it claims will be imported as raw bytes. Run without --isolated to "
+                    + "import them properly."
+                );
+            }
         }
 
         return await ContentPipeline.ImportAsync(

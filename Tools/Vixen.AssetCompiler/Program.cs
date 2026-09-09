@@ -11,9 +11,9 @@ using Vixen.AssetCompiler;
 // worker's and with the coordinator's, so anything it printed would arrive as noise in the middle of
 // a build log; what it has to say about an asset goes back over the pipe as a diagnostic against
 // that asset. Failures to *start* are the exception, because there is nowhere else for those to go.
-if (!WorkerHost.TryParse(args, out var pipe, out var root)) {
+if (!WorkerHost.TryParse(args, out var pipe, out var root, out var plugins)) {
     await Console.Error.WriteLineAsync(
-        "vixen-asset-compiler --pipe <name> --root <project>\n\n"
+        "vixen-asset-compiler --pipe <name> --root <project> [--plugin <assembly>]...\n\n"
         + "An import worker. It is started by whatever is coordinating a content build; running it by "
         + "hand does nothing useful."
     );
@@ -23,6 +23,19 @@ if (!WorkerHost.TryParse(args, out var pipe, out var root)) {
 
 if (!Directory.Exists(root)) {
     await Console.Error.WriteLineAsync($"There is no project directory at '{root}'.");
+    return 2;
+}
+
+// ⚠ Before the pipe is opened, so a plugin that will not load is a worker that never connects
+// rather than one that connects and then imports with a set its coordinator does not have. The
+// second is the failure this whole argument exists to end, and it would be invisible: every asset
+// the plugin claims would fall through to the fallback importer and succeed as a byte blob.
+WorkerHost host;
+
+try {
+    host = new(root, plugins);
+} catch (InvalidOperationException failure) {
+    await Console.Error.WriteLineAsync(failure.Message);
     return 2;
 }
 
@@ -38,5 +51,5 @@ try {
     return 2;
 }
 
-await new WorkerHost(root).ServeAsync(client);
+await host.ServeAsync(client);
 return 0;

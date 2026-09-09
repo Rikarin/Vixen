@@ -420,6 +420,7 @@ T:Vixen.AssetCompiler.CompilerPool sweep-pending
 T:Vixen.AssetCompiler.DiagnosticMessage sweep-pending
 T:Vixen.AssetCompiler.ImportRequestMessage sweep-pending
 T:Vixen.AssetCompiler.ImportResponseMessage sweep-pending
+T:Vixen.AssetCompiler.PluginImporters sweep-pending
 T:Vixen.AssetCompiler.SubAssetMessage sweep-pending
 T:Vixen.AssetCompiler.WorkerHost sweep-pending
 T:Vixen.Assets.AddressNotFoundException sweep-pending
@@ -1642,6 +1643,8 @@ T:Vixen.Editor.Ui.PaletteItem sweep-pending
 T:Vixen.Editor.Ui.PaletteRow sweep-pending
 T:Vixen.Editor.Ui.PanelDescriptor sweep-pending
 T:Vixen.Editor.Ui.SettingsCategory sweep-pending
+T:Vixen.Editor.Ui.SettingsPage sweep-pending
+T:Vixen.Editor.Ui.SettingsScope sweep-pending
 T:Vixen.Editor.Ui.SettingsView sweep-pending
 T:Vixen.Editor.Ui.ThemeMode sweep-pending
 T:Vixen.Editor.Ui.ThemeService sweep-pending

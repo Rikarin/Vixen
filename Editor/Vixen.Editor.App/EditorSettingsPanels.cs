@@ -60,6 +60,33 @@ sealed partial class EditorApplication {
     /// </remarks>
     UndoHistory? historyView;
 
+    /// <summary>The Preferences window while it is open, so a contributed page can reach it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Held for the reason <see cref="historyView" /> is, and released the same way.</b> Doc
+    ///     36 § D4's settings-page row is a registry, and a plugin activating three seconds after
+    ///     start-up is always after this window was built — so the alternative to holding the view is
+    ///     a page that appears only if the plugin happened to load first. Nulled in the descriptor's
+    ///     <c>Closed</c>, because a field pointing at a closed panel's control is the mistake that
+    ///     took the editor down when the Scene tab was closed.
+    /// </remarks>
+    SettingsView? preferencesView;
+
+    /// <summary>And the Project Settings window, on the same terms.</summary>
+    SettingsView? projectSettingsView;
+
+    /// <summary>The contributed page ids in each window, so a withdrawal can find them again.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Tracked rather than derived from the registry, because a withdrawal is exactly the
+    ///     moment the registry no longer mentions the page.</b> <c>IEditorRegistry.Changed</c> says
+    ///     which <i>kind</i> moved and not which contribution, so the difference between what a window
+    ///     is showing and what the registry now holds is the only thing that can name the page to
+    ///     remove.
+    /// </remarks>
+    readonly Dictionary<SettingsScope, HashSet<string>> contributedPages = new() {
+        [SettingsScope.Preferences] = new(StringComparer.Ordinal),
+        [SettingsScope.Project] = new(StringComparer.Ordinal)
+    };
+
     /// <summary>What the preferences panel is called in an arrangement.</summary>
     internal const string PreferencesPanel = "preferences";
 
@@ -81,31 +108,47 @@ sealed partial class EditorApplication {
         // shell raises this from the factory, which runs again on every reopen.
         Shell.KeyboardBuilt += WireKeymapFiles;
 
+        // ⚠ Doc 36 § D4's settings-page row. Subscribed once here rather than per panel factory: a
+        // factory runs again on every reopen, and a handler added there would be added again with it.
+        Extensions.Changed += RefreshSettingsPages;
+
         Shell.RegisterPanel(
-            PreferencesPanel,
-            EditorStrings.PanelPreferences,
-            panel => {
-                var view = panel.Add<SettingsView>();
+            new PanelDescriptor(
+                PreferencesPanel,
+                EditorStrings.PanelPreferences,
+                panel => {
+                    var view = panel.Add<SettingsView>();
 
-                view.Applied += _ => {
-                    SavePreferences();
-                    SaveTokens();
-                };
+                    view.Applied += _ => {
+                        SavePreferences();
+                        SaveTokens();
+                    };
 
-                view.Reverted += _ => {
-                    pendingTokens = null;
-                    LoadPreferences();
-                };
+                    view.Reverted += _ => {
+                        pendingTokens = null;
+                        LoadPreferences();
+                    };
 
-                // ⚠ Before the pages, because adding one rebuilds the rail and selects the first —
-                // which builds a pane this would otherwise not have been told about.
-                view.PageShown += (shown, pane) => Narrow(pane, shown.Query);
+                    // ⚠ Before the pages, because adding one rebuilds the rail and selects the first —
+                    // which builds a pane this would otherwise not have been told about.
+                    view.PageShown += (shown, pane) => Narrow(pane, shown.Query);
 
-                PreferencePages(view);
+                    PreferencePages(view);
+
+                    // ⚠ After the built-ins, so a contributed page cannot take an id one of them
+                    // wanted — `SettingsView.Add` throws on a duplicate, and a plugin that could fail
+                    // the editor's own window by naming "general" would be a plugin able to break the
+                    // shell from a string.
+                    preferencesView = view;
+                    ContributedPages(view, SettingsScope.Preferences);
+                }
+            ) {
+                Closed = () => Forget(SettingsScope.Preferences)
             }
         );
 
         Shell.RegisterPanel(
+            new PanelDescriptor(
             ProjectSettingsPanel,
             EditorStrings.PanelProjectSettings,
             panel => {
@@ -128,6 +171,12 @@ sealed partial class EditorApplication {
                 view.PageShown += (shown, pane) => Narrow(pane, shown.Query);
 
                 ProjectPages(view);
+
+                projectSettingsView = view;
+                ContributedPages(view, SettingsScope.Project);
+            }
+            ) {
+                Closed = () => Forget(SettingsScope.Project)
             }
         );
 
@@ -201,6 +250,82 @@ sealed partial class EditorApplication {
                 Closed = () => historyView = null
             }
         );
+    }
+
+    // ── Contributed pages, which are doc 36 § D4's `AddSettingsPage` row ────────────────────────
+
+    /// <summary>The window one scope's pages go in, or <see langword="null" /> when it is closed.</summary>
+    SettingsView? Window(SettingsScope scope) =>
+        scope == SettingsScope.Preferences ? preferencesView : projectSettingsView;
+
+    /// <summary>Puts everything the registry holds for a window into it.</summary>
+    /// <param name="view">The window.</param>
+    /// <param name="scope">Which one it is.</param>
+    /// <remarks>
+    ///     ⚠ <b>A duplicate id is skipped rather than thrown.</b> <c>SettingsView.Add</c> refuses one,
+    ///     and a plugin naming a page "general" would otherwise take the editor's own Preferences
+    ///     window down from inside a panel factory — a third party breaking the shell with a string.
+    ///     The rule the whole plugin arrangement runs on is that nothing throws for a plugin's
+    ///     mistake.
+    /// </remarks>
+    void ContributedPages(SettingsView view, SettingsScope scope) {
+        contributedPages[scope].Clear();
+        ContributedPagesAdded(view, scope);
+    }
+
+    /// <summary>Follows a contributed or withdrawn settings page into an open window.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside <c>RefreshAssetKinds</c> and <c>RefreshOverlays</c> because it is the same
+    ///     failure.</b> A window built when the panel opened reads the registry once, so a
+    ///     contribution arriving later — a project script's first build, a plugin enabled from the
+    ///     manager, a reload — registers and never appears. A withdrawal is the half that matters
+    ///     more: a page left behind closes over an unloaded assembly.
+    /// </remarks>
+    void RefreshSettingsPages(Type kind) {
+        if (kind != typeof(SettingsPage)) {
+            return;
+        }
+
+        foreach (var scope in contributedPages.Keys) {
+            if (Window(scope) is not { } view) {
+                continue;
+            }
+
+            var wanted = Extensions.All<SettingsPage>()
+                .Where(page => page.Scope == scope)
+                .Select(page => page.Category.Id)
+                .ToHashSet(StringComparer.Ordinal);
+
+            foreach (var gone in contributedPages[scope].Where(id => !wanted.Contains(id)).ToList()) {
+                view.Remove(gone);
+                contributedPages[scope].Remove(gone);
+            }
+
+            ContributedPagesAdded(view, scope);
+        }
+    }
+
+    /// <summary>Adds whatever the registry holds and this window does not.</summary>
+    void ContributedPagesAdded(SettingsView view, SettingsScope scope) {
+        foreach (var page in Extensions.All<SettingsPage>().Where(page => page.Scope == scope)) {
+            if (view.Categories.Any(category => string.Equals(category.Id, page.Category.Id, StringComparison.Ordinal))) {
+                continue;
+            }
+
+            view.Add(page.Category);
+            contributedPages[scope].Add(page.Category.Id);
+        }
+    }
+
+    /// <summary>Lets go of a closed settings window.</summary>
+    void Forget(SettingsScope scope) {
+        if (scope == SettingsScope.Preferences) {
+            preferencesView = null;
+        } else {
+            projectSettingsView = null;
+        }
+
+        contributedPages[scope].Clear();
     }
 
     // ── The keymap's two file verbs, which the shell cannot reach ───────────────────────────────

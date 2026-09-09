@@ -221,6 +221,48 @@
         return category;
     }
 
+    /// <summary>Takes a page back out.</summary>
+    /// <param name="id">Its id.</param>
+    /// <returns>Whether there was one by that id.</returns>
+    /// <remarks>
+    ///     ⚠ <b>What a contributed page needs and a built-in one never did.</b> Doc 36 § D4's
+    ///     settings-page row is a registry, and a registry hands back the removal — so a plugin
+    ///     unloaded while this window is open has to be able to take its page with it. Without this
+    ///     the rail would keep a line whose <c>Build</c> closes over an unloaded assembly, which is
+    ///     the one failure the whole plugin arrangement exists to prevent.
+    ///     <para>
+    ///         ⚠ <b>Removing the page that is showing shows another one, or the empty state.</b>
+    ///         <see cref="Retarget" /> only re-aims when the selection is no longer visible, and the
+    ///         removed id stops being visible the moment the array does not hold it — so the
+    ///         selection is cleared first and the pane rebuilt when nothing takes its place.
+    ///     </para>
+    /// </remarks>
+    public bool Remove(string id) {
+        ArgumentNullException.ThrowIfNull(id);
+
+        if (Find(id) is not { } page) {
+            return false;
+        }
+
+        var showing = string.Equals(chosen.Value, id, StringComparison.Ordinal);
+
+        pages.Value = pages.Value.Remove(page);
+
+        if (!showing) {
+            Retarget();
+            return true;
+        }
+
+        chosen.Value = null;
+        Retarget();
+
+        if (chosen.Value is null) {
+            Reload();
+        }
+
+        return true;
+    }
+
     /// <summary>Shows a page.</summary>
     /// <param name="id">Its id.</param>
     /// <returns>Whether there is one by that id.</returns>
