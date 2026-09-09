@@ -341,6 +341,13 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
             graph.Changed -= state.Handler;
         }
 
+        // ⚠ After the pipelines and the modules, and it was missing entirely — the second half of
+        // #1111's sweep, in the caller that issue said to go and look at. An `Effect`'s layouts are
+        // the loader's and shared by shape across every preview it has compiled, so no per-entry
+        // `Release` could ever have freed them and this renderer held a descriptor set layout and a
+        // pipeline layout per binding shape for the life of the device.
+        loader.Release();
+
         watched.Clear();
         entries.Clear();
         recent.Clear();
