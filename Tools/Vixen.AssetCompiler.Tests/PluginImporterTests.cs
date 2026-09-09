@@ -71,12 +71,60 @@ public sealed class PluginImporterTests : IDisposable {
             return;
         }
 
+        Discard(() => Directory.Delete(project, recursive: true));
+    }
+
+    /// <summary>Removes the fixture's folder, forgiving the one failure that is not a defect.</summary>
+    /// <param name="delete">The removal to attempt.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two exception types, and the missing second one is the whole of #1191.</b>
+    ///         <c>PluginImporters.Load</c> maps the plugin with <c>LoadFromAssemblyPath</c> into a
+    ///         context that is not collectible, so <c>WidgetPlugin.dll</c> stays mapped for the life
+    ///         of the test process — and Windows takes a <em>mandatory</em> lock on a mapped image.
+    ///         <c>RemoveDirectoryRecursive</c> therefore raises
+    ///         <see cref="UnauthorizedAccessException" /> ("Access to the path 'WidgetPlugin.dll' is
+    ///         denied"), which does <b>not</b> derive from <see cref="IOException" /> — so the catch
+    ///         written for exactly this case did not catch it, and the assertions all having passed,
+    ///         the test failed in its own cleanup.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Neither Unix leg could ever have shown that, and not because they succeed.</b>
+    ///         They unlink a mapped file happily, and when a Unix delete <i>is</i> refused — a
+    ///         read-only parent, measured on macOS — the runtime raises <c>IOException</c> rather
+    ///         than this type. So the leg that fails and the type it fails with are two separate
+    ///         platform facts, and both of them are invisible from here. Which is why the test below
+    ///         injects the throw instead of provoking one: a fixture that could only go red on the
+    ///         runner that has the defect is not an instrument.
+    ///     </para>
+    ///     <para>
+    ///         A retry loop would be the wrong answer to the same symptom: nothing releases that lock
+    ///         before the process exits, so a retry would spend its budget and fail anyway. Losing a
+    ///         temp directory is not a test failure.
+    ///     </para>
+    /// </remarks>
+    internal static void Discard(Action delete) {
+        ArgumentNullException.ThrowIfNull(delete);
+
         try {
-            Directory.Delete(project, recursive: true);
-        } catch (IOException) {
-            // A loaded plugin's dependencies stay mapped until its context is collected, which on
-            // Windows can hold the folder open. Losing a temp directory is not a test failure.
+            delete();
+        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
+            // Deliberately swallowed; see above.
         }
+    }
+
+    /// <summary>The cleanup forgives a locked plugin, and forgives nothing else.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The negative half is the half that matters.</b> A cleanup that swallowed everything
+    ///     would pass the two positives and hide the next real defect in <see cref="Dispose" /> —
+    ///     which is what a bare <c>catch</c> costs and why this states both bounds.
+    /// </remarks>
+    [Fact]
+    public void TheFixtureCleanupForgivesAMappedPluginAndNothingElse() {
+        Discard(() => throw new UnauthorizedAccessException("Access to the path 'WidgetPlugin.dll' is denied."));
+        Discard(() => throw new IOException("The process cannot access the file because it is being used."));
+
+        Assert.Throws<InvalidOperationException>(() => Discard(() => throw new InvalidOperationException("real")));
     }
 
     /// <summary>The claim: one asset, two processes, the same bytes.</summary>
