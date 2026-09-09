@@ -211,7 +211,7 @@ one that cannot count datagrams — an in-process transport has none to count �
 flat along the bottom would say the link is clean, which is the state this must never invent. Nothing
 is wired for any of it: a `NetworkSession` holds the transport it runs on, so the panel asks it.
 
-### What the outbound lane still has to become, now that the measurement exists
+### What the outbound lane became, once the measurement existed
 
 **resent** is an upper bound and is named that rather than "loss" because the far end acknowledges
 what it received and says nothing about what it did not. ⚠ **That is no longer where the tree
@@ -244,12 +244,30 @@ it could not is kept below because each of its three findings turned out to shap
   fifth measurement, taken by different evidence from all four of those, so it is a companion type —
   `LinkReport` — exactly as that struct's remarks demanded.
 
-**What this pane still owes**, tracked as [#1185](https://github.com/Rikarin/Vixen/issues/1185): the
-fifth lane itself, beside **resent** rather than replacing it — the two answer different questions,
-and a resend share far above the observed loss is a round-trip estimator that has fallen behind
-rather than an asymmetric network. ⚠ Behind [#120](https://github.com/Rikarin/Vixen/issues/120) like
-every other lane here: the editor is the only process holding a `DiagnosticsModule` and it runs no
-session, so a fifth lane built today draws the same nothing the four draw.
+**The fifth lane has landed** ([#1185](https://github.com/Rikarin/Vixen/issues/1185)): **lost
+outbound**, beside **resent** rather than replacing it — the two answer different questions, and a
+resend share far above the observed loss is a round-trip estimator that has fallen behind rather than
+an asymmetric network. ⚠ Behind [#120](https://github.com/Rikarin/Vixen/issues/120) like every other
+lane here: the editor is the only process holding a `DiagnosticsModule` and it runs no session, so it
+draws the same nothing the four draw until that is settled. Three things it turned out to need that
+were not obvious from the issue:
+
+- ⚠ **It is not behind `Link.Counting`, and putting it there hides it on exactly the pairing it is
+  for.** `Counting` is *this* end's transport; the report is counted by the *far* end. A session whose
+  own transport counts nothing and whose peer counts gets three lanes — the two timing ones and this —
+  so `Lanes` has four shapes rather than two. There are two "why not" sentences for the same reason:
+  they are facts about two different machines and a session is regularly in one state and not the
+  other.
+- ⚠ **Two readings are only subtractable when they are two readings of the same link.** A
+  `LinkReport` is cumulative for one connection's life and `NetworkSession` clears it the moment that
+  connection ends, so `NetworkLink` carries *which* link it read — the worst connected player's, or
+  `PlayerId.None` for the session's own on a client — and the lane starts again rather than
+  differencing when it changes. Without that, the worst player changing between two readings produces
+  a difference of two unrelated totals.
+- ⚠ **A client's report is on the session and on no player record.** A server writes what a peer said
+  onto that peer's `NetworkPlayer`; a client writes it onto the session, because the peer is the
+  server. Read only through `Players`, this lane would be blank on every client that ever opened the
+  panel — and a host, which is both ends of a loopback, shows whichever of its two links is worse.
 
 ### The three views doc 16 asks for and this panel does not have
 
@@ -276,6 +294,11 @@ in `Vixen.Net`, and the three turn out to need very different things:
   place to ask: `InterestChain` publishes `ConsideredCount`, `NominatedCount` and `HiddenCount` and
   nothing per player, and `ReplicationServer` resolves into **one shared scratch list** it clears per
   connection, so after a tick the only set that still exists is the last connection's.
+  ⚠ **Nor is the one reader that *is* public a way round it.** `BaselineOf(PlayerId)` returns a
+  `ConnectionBaseline`, and that type has no enumerator either — `TryGetBaseline(in BaselineKey)`
+  answers only for a key the caller already holds, which is the same shape of gap one level down. And
+  its `BaselineCount` is **a count of component records, not of entities**, so even the number that is
+  reachable answers a different question from "how many objects is this player being sent".
 - **A live RPC log needs a record that is not being kept**, and ⚠ **"so the ring belongs here rather
   than in `Vixen.Net`" — recorded twice above this line — cannot be acted on as it stands.** A ring
   in this assembly needs something to subscribe to, and `RpcRouter` publishes **no event, no callback

@@ -6,10 +6,12 @@ using Vixen.Ecs;
 using Vixen.Net.Diagnostics;
 using Vixen.Net.Messaging;
 using Vixen.Net.Replication;
+using Vixen.Net.Sessions;
 using Vixen.Net.Tests.Sessions;
 using Vixen.Net.Transport;
 using Vixen.Net.Transport.Local;
 using Xunit;
+using LinkCountingTransport = Vixen.Net.Tests.Sessions.CountingTransport;
 
 namespace Vixen.Net.Tests.Diagnostics;
 
@@ -39,6 +41,8 @@ public sealed class NetworkMetricsTests {
         Assert.Contains("vixen.net.datagrams.retransmitted", collector.Names);
         Assert.Contains("vixen.net.datagrams.expected", collector.Names);
         Assert.Contains("vixen.net.datagrams.lost", collector.Names);
+        Assert.Contains("vixen.net.datagrams.peer_expected", collector.Names);
+        Assert.Contains("vixen.net.datagrams.peer_lost", collector.Names);
     }
 
     /// <summary>The four loss totals are the transport's, unchanged and undivided.</summary>
@@ -240,6 +244,219 @@ public sealed class NetworkMetricsTests {
         Assert.Equal(1, collector.Value("vixen.net.client.snapshots.rejected"));
         Assert.Equal(0, collector.Value("vixen.net.client.entities"));
     }
+
+    /// <summary>What the peers say they missed of what this end sent, as two counters.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Over a real wire, because the report is a message and not a property.</b> A test that
+    ///     assigned <c>NetworkPlayer.ObservedOutbound</c> would prove the meter reads a field; what
+    ///     is worth proving is that the number a peer's transport counted reaches the meter, and the
+    ///     assertion above it — that the property is non-null before the meter is asked — is what
+    ///     keeps a passing zero from looking like agreement.
+    /// </remarks>
+    [Fact]
+    public void WhatThePeersSayTheyMissedIsPublishedAsTwoCounters() {
+        using var harness = new SessionHarness();
+        var server = harness.StartServer(Fast);
+
+        var counting = new LinkCountingTransport(harness.RawTransport());
+        counting.Report(ConnectionId.None, new(Sent: 40, Retransmitted: 3, Expected: 100, Missing: 7));
+
+        var client = harness.Add(counting, "client", Fast);
+        client.StartClient();
+        harness.Pump(24);
+
+        var player = Assert.Single(server.Players);
+        Assert.NotNull(player.ObservedOutbound);
+
+        using var metrics = new NetworkMetrics { Session = server };
+        using var collector = new Collector();
+
+        metrics.Sample();
+        collector.Collect();
+
+        // The client's inbound pair and neither of its outbound ones — 40 and 3 are the client's own
+        // bookkeeping about what it sent, and say nothing about what this server's packets did.
+        Assert.Equal(100, collector.Value("vixen.net.datagrams.peer_expected"));
+        Assert.Equal(7, collector.Value("vixen.net.datagrams.peer_lost"));
+    }
+
+    /// <summary>A client publishes its own report, which is on no player record anywhere.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half a meter walking <c>Session.Players</c> cannot see.</b> A server writes what
+    ///     a peer said onto that peer's <c>NetworkPlayer</c>; a client writes it onto the session,
+    ///     because the peer is the server and a client's player list is a roster rather than a set of
+    ///     links. Read only through the players, this counter would be flat at zero on every client
+    ///     in the fleet and nothing would say so.
+    /// </remarks>
+    [Fact]
+    public void AClientPublishesWhatTheServerSaidItMissedOfWhatTheClientSent() {
+        using var harness = new SessionHarness();
+
+        var counting = new LinkCountingTransport(harness.RawTransport());
+        var server = harness.Add(counting, "server", Fast);
+        server.StartServer();
+
+        var client = harness.StartClient(Fast);
+        harness.Pump(24);
+
+        counting.Report(Assert.Single(server.Players).Connection, new(0, 0, Expected: 300, Missing: 29));
+        harness.Pump(24);
+
+        Assert.NotNull(client.ObservedOutbound);
+
+        using var metrics = new NetworkMetrics { Session = client };
+        using var collector = new Collector();
+
+        metrics.Sample();
+        collector.Collect();
+
+        Assert.Equal(300, collector.Value("vixen.net.datagrams.peer_expected"));
+        Assert.Equal(29, collector.Value("vixen.net.datagrams.peer_lost"));
+    }
+
+    /// <summary>
+    ///     ⚠ A player dropping inside their reconnect window must not make the counters fall, and the
+    ///     naive implementation does exactly that.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>NetworkSession.LoseConnection</c> clears <c>ObservedOutbound</c> the moment the
+    ///         connection ends — the totals described that link — while leaving the player in the
+    ///         session for the whole reconnect window. So a meter that summed the live players would
+    ///         publish a hundred, then zero, on a server that has lost nothing at all: an
+    ///         <c>ObservableCounter</c> going down is what a collector reads as a process restart,
+    ///         and the rate it computes across that step is a negative one it throws away.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The clear is asserted before the meter is, and that is the instrument check.</b>
+    ///         Were the property still set, this test would pass against the very implementation it
+    ///         exists to refuse.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void APlayerDroppingDoesNotMakeTheOutboundCountersFall() {
+        var options = new SessionOptions {
+            PingInterval = TimeSpan.FromMilliseconds(32),
+            ReconnectWindow = TimeSpan.FromSeconds(30)
+        };
+
+        using var harness = new SessionHarness();
+        var server = harness.StartServer(options);
+
+        var counting = new LinkCountingTransport(harness.RawTransport());
+        counting.Report(ConnectionId.None, new(0, 0, Expected: 100, Missing: 7));
+
+        var client = harness.Add(counting, "client", options);
+        client.StartClient();
+        harness.Pump(24);
+
+        using var metrics = new NetworkMetrics { Session = server };
+
+        using (var before = new Collector()) {
+            metrics.Sample();
+            before.Collect();
+
+            Assert.Equal(100, before.Value("vixen.net.datagrams.peer_expected"));
+            Assert.Equal(7, before.Value("vixen.net.datagrams.peer_lost"));
+        }
+
+        client.Stop();
+        harness.Pump(8);
+
+        var player = Assert.Single(server.Players);
+        Assert.False(player.IsConnected);
+        Assert.Null(player.ObservedOutbound);
+
+        metrics.Sample();
+
+        using var after = new Collector();
+        after.Collect();
+
+        Assert.Equal(100, after.Value("vixen.net.datagrams.peer_expected"));
+        Assert.Equal(7, after.Value("vixen.net.datagrams.peer_lost"));
+    }
+
+    /// <summary>
+    ///     And a player removed outright — no reconnect window at all — is the same requirement one
+    ///     step further, where the record the naive sum walked is not there to be walked.
+    /// </summary>
+    [Fact]
+    public void APlayerLeavingForGoodDoesNotMakeTheOutboundCountersFall() {
+        var options = new SessionOptions {
+            PingInterval = TimeSpan.FromMilliseconds(32),
+            ReconnectWindow = TimeSpan.Zero
+        };
+
+        using var harness = new SessionHarness();
+        var server = harness.StartServer(options);
+
+        var counting = new LinkCountingTransport(harness.RawTransport());
+        counting.Report(ConnectionId.None, new(0, 0, Expected: 100, Missing: 7));
+
+        var client = harness.Add(counting, "client", options);
+        client.StartClient();
+        harness.Pump(24);
+
+        using var metrics = new NetworkMetrics { Session = server };
+        metrics.Sample();
+
+        Assert.NotEmpty(server.Players);
+
+        client.Stop();
+        harness.Pump(8);
+
+        Assert.Empty(server.Players);
+
+        metrics.Sample();
+
+        using var after = new Collector();
+        after.Collect();
+
+        Assert.Equal(100, after.Value("vixen.net.datagrams.peer_expected"));
+        Assert.Equal(7, after.Value("vixen.net.datagrams.peer_lost"));
+    }
+
+    /// <summary>
+    ///     ⚠ A report that arrives after a newer one must not walk a live link's totals backwards,
+    ///     because the message travels unreliable and is therefore free to be reordered.
+    /// </summary>
+    /// <remarks>
+    ///     The link is still up throughout — no drop, no clear — so the only thing that could lower
+    ///     the published counter is the meter believing the last report it saw rather than the
+    ///     largest. A link's totals are cumulative for its life, so the largest is the true one.
+    /// </remarks>
+    [Fact]
+    public void AReorderedReportDoesNotWalkALiveLinkBackwards() {
+        using var harness = new SessionHarness();
+        var server = harness.StartServer(Fast);
+
+        var counting = new LinkCountingTransport(harness.RawTransport());
+        counting.Report(ConnectionId.None, new(0, 0, Expected: 400, Missing: 40));
+
+        var client = harness.Add(counting, "client", Fast);
+        client.StartClient();
+        harness.Pump(24);
+
+        using var metrics = new NetworkMetrics { Session = server };
+        metrics.Sample();
+
+        // The same link, saying something it already said a while ago.
+        counting.Report(ConnectionId.None, new(0, 0, Expected: 100, Missing: 7));
+        harness.Pump(24);
+
+        Assert.Equal(new(100, 7), Assert.NotNull(Assert.Single(server.Players).ObservedOutbound));
+
+        metrics.Sample();
+
+        using var after = new Collector();
+        after.Collect();
+
+        Assert.Equal(400, after.Value("vixen.net.datagrams.peer_expected"));
+        Assert.Equal(40, after.Value("vixen.net.datagrams.peer_lost"));
+    }
+
+    /// <summary>Short enough that a handful of harness steps crosses the ping cadence.</summary>
+    static SessionOptions Fast => new() { PingInterval = TimeSpan.FromMilliseconds(32) };
 
     /// <summary>A transport that does nothing but count, which is all the meter asks of one.</summary>
     sealed class CountingTransport(TransportLoss counted) : ITransport {

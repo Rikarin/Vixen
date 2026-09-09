@@ -157,7 +157,7 @@
       "id": 22,
       "type": "timeseries",
       "title": "Loss, both directions",
-      "description": "⚠ All four flat at zero on a server that is plainly sending is a transport that does not count, not a clean link — a cumulative counter has no way to say \"not measured\". Read them beside the datagrams-sent rate below.",
+      "description": "⚠ All flat at zero on a server that is plainly sending is a transport that does not count, not a clean link — a cumulative counter has no way to say \"not measured\". Read them beside the datagrams-sent rate below. ⚠ The resent share is an upper bound and the observed outbound share is the measurement; the gap between them is a round-trip estimate that has fallen behind, resending datagrams that arrived.",
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
       "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
@@ -171,6 +171,11 @@
           "refId": "B",
           "expr": "sum(rate(vixen_net_datagrams_lost_total{service_instance_id=~\"$instance\"}[5m])) / clamp_min(sum(rate(vixen_net_datagrams_expected_total{service_instance_id=~\"$instance\"}[5m])), 1)",
           "legendFormat": "inbound lost (observed)"
+        },
+        {
+          "refId": "C",
+          "expr": "sum(rate(vixen_net_datagrams_peer_lost_total{service_instance_id=~\"$instance\"}[5m])) / clamp_min(sum(rate(vixen_net_datagrams_peer_expected_total{service_instance_id=~\"$instance\"}[5m])), 1)",
+          "legendFormat": "outbound lost (observed, as the peers counted it)"
         }
       ]
     },

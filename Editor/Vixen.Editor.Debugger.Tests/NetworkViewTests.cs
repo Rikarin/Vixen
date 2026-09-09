@@ -88,6 +88,7 @@ public sealed class NetworkViewTests : IDisposable {
 
     NetworkSession? session;
     NetworkPlayer? player;
+    CountingTransport? wire;
     double trip = 20;
 
     public NetworkViewTests() {
@@ -378,7 +379,7 @@ public sealed class NetworkViewTests : IDisposable {
         test.Advance(NetworkView.Interval * 2);
 
         Assert.Equal(2, Tagged(view.Root, "network-lane").Length);
-        Assert.Contains(Statuses(view), line => line.Contains("No loss lanes", StringComparison.Ordinal));
+        Assert.Contains(Statuses(view), line => line.Contains("No resent or lost-inbound lane", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -419,7 +420,7 @@ public sealed class NetworkViewTests : IDisposable {
         Assert.Equal(4, Tagged(view.Root, "network-lane").Length);
         Assert.NotEmpty(Samples(view, "resent"));
         Assert.NotEmpty(Samples(view, "lost inbound"));
-        Assert.DoesNotContain(Statuses(view), line => line.Contains("No loss lanes", StringComparison.Ordinal));
+        Assert.DoesNotContain(Statuses(view), line => line.Contains("No resent or lost-inbound lane", StringComparison.Ordinal));
 
         Assert.Equal("20.0 %", Reading(view, "resent"));
         Assert.Equal("10.0 %", Reading(view, "lost inbound"));
@@ -433,6 +434,104 @@ public sealed class NetworkViewTests : IDisposable {
         // And the half minute the ring holds still says it happened.
         Assert.Equal("0–20.0 %", Ceiling(view, "resent"));
         Assert.Equal("0–10.0 %", Ceiling(view, "lost inbound"));
+    }
+
+    /// <summary>
+    ///     What the peer says it missed is a fifth lane, and it stands beside <c>resent</c> rather
+    ///     than replacing it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The two are given deliberately different numbers, and the gap between them is
+    ///         the reading.</b> Twenty per cent of what went out went again; five per cent of what
+    ///         went out is what the far end says never arrived. A panel that had replaced the bound
+    ///         with the measurement, or wired both lanes to one source, would show one number twice
+    ///         — and the case somebody opens this pane for is exactly the one where they differ: a
+    ///         resend share far above the observed loss is a round-trip estimator that has fallen
+    ///         behind and is resending datagrams that arrived.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The report crosses a real wire.</b> <c>NetworkPlayer.ObservedOutbound</c> is
+    ///         <c>internal set</c> and no test in this assembly can reach it, which is the right
+    ///         shape: what is worth proving is that a number a peer's transport counted reaches the
+    ///         lane, and a test that assigned the property would prove the panel reads a field.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void What_the_peer_says_it_missed_is_a_fifth_lane_beside_the_bound() {
+        var counted = default(TransportLoss);
+        var peer = default(TransportLoss);
+        var lossy = true;
+
+        var view = Reported(
+            () => counted = new(
+                counted.Sent + 100,
+                counted.Retransmitted + (lossy ? 20 : 0),
+                counted.Expected + 200,
+                counted.Missing + (lossy ? 20 : 0)
+            ),
+            () => peer = new(0, 0, peer.Expected + 200, peer.Missing + (lossy ? 10 : 0))
+        );
+
+        test.Advance(NetworkView.Interval * 4);
+
+        Assert.Equal(5, Tagged(view.Root, "network-lane").Length);
+        Assert.NotEmpty(Samples(view, "resent"));
+        Assert.NotEmpty(Samples(view, "lost outbound"));
+        Assert.DoesNotContain(Statuses(view), line => line.Contains("No lost-outbound lane", StringComparison.Ordinal));
+
+        Assert.Equal("20.0 %", Reading(view, "resent"));
+        Assert.Equal("5.0 %", Reading(view, "lost outbound"));
+
+        lossy = false;
+        test.Advance(NetworkView.Interval * 4);
+
+        // A share of one interval and not a lifetime ratio: the totals still hold every loss.
+        Assert.Equal("0.0 %", Reading(view, "lost outbound"));
+        Assert.Equal("0–5.0 %", Ceiling(view, "lost outbound"));
+    }
+
+    /// <summary>
+    ///     ⚠ The measured lane is drawn by a session whose own transport counts nothing, because the
+    ///     peer is the one that counted it.
+    /// </summary>
+    /// <remarks>
+    ///     The two loss questions have two different answerers, one on each end of the link, and
+    ///     folding the peer's lane in behind this end's <c>Counting</c> would hide it on exactly that
+    ///     pairing. Three lanes: the two timing ones and this.
+    /// </remarks>
+    [Fact]
+    public void A_peer_that_counts_is_enough_even_when_this_end_counts_nothing() {
+        var peer = default(TransportLoss);
+
+        var view = Reported(null, () => peer = new(0, 0, peer.Expected + 200, peer.Missing + 10));
+
+        test.Advance(NetworkView.Interval * 4);
+
+        Assert.Equal(3, Tagged(view.Root, "network-lane").Length);
+        Assert.NotEmpty(Samples(view, "lost outbound"));
+        Assert.Equal("5.0 %", Reading(view, "lost outbound"));
+
+        // And the sentence about this end's own counters is still there, because it is still true.
+        Assert.Contains(Statuses(view), line => line.Contains("No resent or lost-inbound lane", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    ///     ⚠ A session nothing has reported on draws no outbound lane at all and says which of the
+    ///     two absences it is.
+    /// </summary>
+    /// <remarks>
+    ///     Drawn flat along the bottom it would claim the far end received everything, which is the
+    ///     one state this must never invent — the same argument the transport's own two lanes make,
+    ///     about a different machine.
+    /// </remarks>
+    [Fact]
+    public void A_peer_that_has_said_nothing_draws_no_outbound_lane_and_says_why() {
+        var view = Graphed();
+        test.Advance(NetworkView.Interval * 2);
+
+        Assert.Equal(2, Tagged(view.Root, "network-lane").Length);
+        Assert.Contains(Statuses(view), line => line.Contains("No lost-outbound lane", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -624,14 +723,54 @@ public sealed class NetworkViewTests : IDisposable {
     ///     decorator that answers <c>Loss</c> and forwards everything else, which is what a
     ///     <c>UdpTransport</c> is to this panel and nothing more.
     /// </remarks>
-    NetworkSession Host(Func<TransportLoss?>? counted = null) {
+    /// <summary>A panel over a host whose links carry a peer's report, scripted once a reading.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The session is pumped from inside the panel's own pull, and that is what makes this
+    ///     deterministic.</b> <c>NetworkView.Sample</c> invokes the delegate exactly once per
+    ///     reading, so a fixed number of <c>Update</c> calls at a fixed step is a fixed number of
+    ///     ping cadences per reading — an ordering property, the same on an idle machine and on one
+    ///     running fifteen other suites. Nothing here waits for a wall clock.
+    /// </remarks>
+    /// <param name="counted">What this end's own transport counts, or null when it counts nothing.</param>
+    /// <param name="peer">What the far end says it missed, asked once a reading.</param>
+    /// <returns>The panel, with one reading already taken.</returns>
+    NetworkView Reported(Func<TransportLoss?>? counted, Func<TransportLoss> peer) {
+        var host = Host(counted, reporting: true);
+        var built = BuildContext.Build<NetworkView>(test.Document, test.Document.Root);
+
+        built.Session = () => {
+            player!.RoundTrip.Add(TimeSpan.FromMilliseconds(trip += 5));
+            wire!.Reported = peer();
+
+            // Set before the pump, so the report that crosses in it carries this reading's number.
+            for (var round = 0; round < 8; round++) {
+                host.Update(TimeSpan.FromMilliseconds(16));
+            }
+
+            return host;
+        };
+
+        test.Frames(2);
+
+        return built;
+    }
+
+    NetworkSession Host(Func<TransportLoss?>? counted = null, bool reporting = false) {
         ITransport carrier = new LocalTransport(network);
 
-        if (counted is not null) {
-            carrier = new CountingTransport(carrier, counted);
+        if (counted is not null || reporting) {
+            carrier = wire = new CountingTransport(carrier, counted ?? (static () => null));
         }
 
-        var made = new NetworkSession(carrier, ownsTransport: true);
+        // ⚠ The ping cadence rather than the default second, because a report crosses on it and the
+        // harness's step is 16 ms: at a second, a reading would be forty steps of pumping and the
+        // test would be measuring how patient it was rather than what the panel drew.
+        var made = new NetworkSession(
+            carrier,
+            reporting ? new SessionOptions { PingInterval = TimeSpan.FromMilliseconds(32) } : null,
+            ownsTransport: true
+        );
+
         made.StartHost();
 
         for (var round = 0; round < 32 && made.Players.Count == 0; round++) {
@@ -693,9 +832,24 @@ public sealed class NetworkViewTests : IDisposable {
 
     /// <summary>A transport that counts, wrapped round one that does not.</summary>
     sealed class CountingTransport(ITransport inner, Func<TransportLoss?> counted) : ITransport {
+        /// <summary>
+        ///     What every link on it is pretending to have counted, which is what a session turns
+        ///     into the <c>LinkReport</c> it sends its peer.
+        /// </summary>
+        /// <remarks>
+        ///     ⚠ <b>A property the test sets once a reading rather than a delegate called per send.
+        ///     </b> A host sends two reports a cadence — the server half to its player and the client
+        ///     half to the server — and a delegate that moved on each call would give the two links
+        ///     different totals, so the worst of them would alternate and the panel would be right to
+        ///     refuse to difference them.
+        /// </remarks>
+        public TransportLoss? Reported { get; set; }
+
         public TransportCapabilities Capabilities => inner.Capabilities;
 
         public TransportLoss? Loss => counted();
+
+        public TransportLoss? LossFor(ConnectionId connection) => Reported;
 
         public TransportState ServerState => inner.ServerState;
 

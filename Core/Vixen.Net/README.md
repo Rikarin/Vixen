@@ -125,10 +125,29 @@ shape that breaks, and it breaks as *clock drift* rather than as a missing count
 read in one `&&` chain with `Clock.Synchronize` inside it and `PacketReader`'s first failure is
 sticky. "A value is never reused" is a rule about recycling a number, not about adding one.
 
-Still owed: the editor panel's outbound lane is still named `resent` and there is no counter for this
-in `NetworkMetrics` — a sum over players is not monotonic, because a departing player's reading is
-cleared. Both are [#1185](https://github.com/Rikarin/Vixen/issues/1185); the panel half is behind
+Both readers landed with [#1185](https://github.com/Rikarin/Vixen/issues/1185): a `lost outbound`
+lane on the editor panel *beside* `resent` rather than replacing it, and
+`vixen.net.datagrams.peer_expected` / `…peer_lost` on the meter. The panel half is behind
 [#120](https://github.com/Rikarin/Vixen/issues/120) like the rest of that pane.
+
+⚠ **The meter's counters are not a sum over `Session.Players`, and cannot be.** `ObservedOutbound` is
+cleared the instant a connection ends — the totals described that link — so a naive sum falls whenever
+somebody leaves, which is what a collector reads as a process restart. `NetworkMetrics` keeps a
+high-water mark per link plus a retired accumulator folded in when a link stops being reported on, the
+same shape `UdpTransport.Loss` keeps a `retired` total for. ⚠ And a *high-water mark* rather than the
+last report, because the message travels unreliable: a reordered report would otherwise walk a live
+link's totals backwards. A link that genuinely restarted cannot arrive smaller, because the connection
+ending clears the property and retires the old totals first.
+
+⚠ **A client's own report is on the session and on no player record**, so the meter folds
+`NetworkSession.ObservedOutbound` in under `PlayerId.None` beside the per-player ones. Read only
+through `Players`, both readers would be blank on every client in the fleet.
+
+⚠ **The issue's own proposed mechanism does not work, and the ordering is the reason.**
+`NetworkSession.LoseConnection` sets `player.ObservedOutbound = null` *before* it calls `Remove`
+(which raises `PlayerLeft`) or raises `PlayerConnectionChanged`, so a handler on either event reads
+null and has nothing to fold in. The accumulation has to happen where the value is still there, which
+is the meter's own `Sample`.
 
 ## NetworkSimulation
 
@@ -159,7 +178,7 @@ ends gives a round trip of twice it.
 profile's `LossChance` come back as an observation, which is the one thing those counters must not
 be.
 
-### On by default, which doc 16 asks for — the seam exists now, the default is still a line
+### On by default, which doc 16 asks for — the seam exists and is used, the default is still a line
 
 That document's diagnostics section asks for the decorator *and* for it to be **on by default in dev
 builds with a modest profile** ([#350](https://github.com/Rikarin/Vixen/issues/350)). Three of that
@@ -194,6 +213,26 @@ set, the session wraps and publishes the wrapper as `NetworkSession.Simulation`.
   that a game which never references it pays nothing. So the remaining decision is whether a host
   gains that reference or whether every game writes the line — and the line is now a field on the
   record it already configures, rather than a restructuring of how it builds its transport.
+- ⚠ **And that pair is a false dichotomy, which three audits have now repeated: there is a third
+  option nobody has stated.** `BuildVariant`, `BuildVariantAttribute` and `BuildVariants` are one
+  file — `Core/Vixen.App.Hosting/BuildVariant.cs` — whose only dependency is `System.Reflection` and
+  a `#if DEBUG` fallback. They do not *need* the assembly they are in; that assembly is where they
+  happen to be compiled, and it drags `Vixen.Engine`, `Vixen.Engine.Renderer`, `Vixen.Assets`,
+  `Vixen.Input`, `Vixen.Rendering.PostFx`, `Vixen.Rendering.Water` and `Vixen.Platform` with it.
+  **`Vixen.Net` and `Vixen.App.Hosting` both already reference `Vixen.Core`**, so moving those three
+  types down adds no edge to either graph and makes `NetworkSimulationSettings` able to ask which
+  variant is running without anything referencing anything new. What it costs is a public type moving
+  between two `PublicAPI` baselines — a decision, and Jiu's, not a wiring change. ⚠ It does *not*
+  remove the seed: a variant-aware helper still takes the seed from its caller and is still printed
+  by one, because a simulation whose seed was picked for you is a simulation whose failures cannot be
+  replayed.
+- ⚠ **The seam had no caller outside its own tests until `Samples/08-Multiplayer` was ported onto
+  it**, which is this repository's commonest defect wearing its usual clothes. That sample now asks
+  for the bad wire on `SessionOptions.Simulation` and reads its announcement off
+  `NetworkSession.Simulation` — so breaking the wrapping inside the session makes it print
+  `perfect wire — nothing is being injected` under `--loss 10` rather than running clean and claiming
+  otherwise. `Live/Vixen.Live.Realm.Tests` still constructs the decorator by hand; those are test
+  fixtures that hold the wrapper for its own counters, which is a different question.
 
 ⚠ **Off by default is the same shape `BytesPerSecondPerPlayer` already takes** and for the same
 reason: a behaviour that arrived switched on would change what an existing game does, and a game opts
@@ -606,6 +645,35 @@ public void OnMessage(PlayerId from, Channel channel, ReadOnlySpan<byte> payload
 `SessionRpcTransport` is the sending half of that. It is a class of its own rather than the session
 implementing `IRpcTransport` directly, because wiring the two together without the marker would be a
 connection that looked right and mixed three streams into one.
+
+### The snapshot acknowledgement, and why it is not blocked on a protocol decision (#207)
+
+`ReplicationServer.Acknowledge` has to be told the newest tick a client applied cleanly, and the
+engine does not send it. [#207](https://github.com/Rikarin/Vixen/issues/207) says a `ReplicationChannel`
+helper cannot be written without first deciding *"whether the ack is the engine's protocol — a
+`PayloadKind` of its own, alongside `Replication` — or the game's; a helper that writes an opcode into
+the **game's** payload space would collide with the game's own messages, so there is no version that
+saves typing without taking that decision."*
+
+⚠ **That blocker does not hold, and the tree took the decision twice already.** `PayloadKind` is
+engine-owned and disjoint from `PayloadKind.Game`, and it has been extended past the `Replication`/`Rpc`
+pair that sentence names — `Broadcast = 3` and `Input = 4`, each bumping `Last`, with
+`EveryPayloadKindSurvivesTheWrapper` written after the `Last` staleness that silently refused every
+broadcast. So an engine-owned ack never has to touch the game's opcode space.
+
+⚠ **And it needs no sixth kind either, because the channel it wants already exists.**
+`BroadcastRouter` over `PayloadKind.Broadcast` is *"a typed message about nothing in particular"* —
+`IBroadcast<TSelf>` structs, a type id from `Identify<T>()`, `TryEncode`/`Receive`, and rate limits.
+An acknowledgement is exactly that, and a helper built on it takes no decision at all.
+
+⚠ **What is left is an ergonomics judgement, and the arithmetic argues against it.** The premise —
+every game writing the same six lines — has one genuine instance
+(`Samples/08-Multiplayer/MatchProtocol.cs`; `Samples/09-NetworkSoak` and `Core/Vixen.Fuzz` both
+fabricate the ack in-process). **And that instance would not get shorter**: the cost of an ack is not
+the opcode constant, it is the *dispatch arm* — `Samples/08` routes `Rpc`, `Game` and `Replication`
+and does not route `Broadcast` at all, so a broadcast-shaped ack trades one opcode for one new arm in
+the same `switch`. Every payload kind costs a game the same arm, which is why the helper saves nothing
+it does not also spend.
 
 ## Diagnostics
 

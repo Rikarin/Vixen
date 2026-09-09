@@ -48,7 +48,20 @@ public sealed class NetworkMetrics : IDisposable {
     readonly Histogram<double> tickDuration;
     readonly Histogram<int> snapshotBytes;
 
+    /// <summary>The high-water mark of every link a peer is still reporting on, keyed by player.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Key zero is this session's own report and not a player</b> — <c>PlayerId.None</c> is
+    ///     zero and no player ever has it, so a client's <c>NetworkSession.ObservedOutbound</c> sits
+    ///     beside the server's per-player ones without colliding with either. A host has both, which
+    ///     is two real links in two directions and is exactly what <c>ITransport.Loss</c> already
+    ///     adds up for the same process.
+    /// </remarks>
+    readonly Dictionary<uint, PeerLink> peers = [];
+
     Reading reading;
+    long retiredPeerExpected;
+    long retiredPeerMissing;
+    int stamp;
 
     /// <summary>Creates the meter and registers every instrument.</summary>
     /// <param name="version">
@@ -171,6 +184,29 @@ public sealed class NetworkMetrics : IDisposable {
             description: "How many of those never arrived. Over the expected count, this is observed inbound loss."
         );
 
+        // The fifth measurement, and the only honest outbound loss there is: what this end's peers
+        // say they did not receive of what it sent them. Two counters and no share, on the same
+        // argument as the four above — and it is *not* a fifth field on TransportLoss, for the three
+        // reasons LinkReport gives.
+        //
+        // ⚠ These are not a sum over the live players, and cannot be. NetworkSession clears
+        // ObservedOutbound the moment a connection ends, because the totals described that link and
+        // a reconnecting player is a new one — so a naive sum falls whenever somebody leaves, which
+        // is precisely what a collector reads as a process restart. What is published instead is a
+        // running high-water mark per link plus a retired accumulator, the same shape UdpTransport
+        // keeps for the same reason.
+        meter.CreateObservableCounter(
+            "vixen.net.datagrams.peer_expected",
+            () => reading.PeerExpected,
+            description: "Datagrams this end's peers judged, across every link they have reported on — the denominator observed outbound loss needs."
+        );
+
+        meter.CreateObservableCounter(
+            "vixen.net.datagrams.peer_lost",
+            () => reading.PeerMissing,
+            description: "How many of those the peers say never arrived. Over the expected count, this is observed outbound loss."
+        );
+
         // The client's three, and they are the numbers that say a *player* is having a bad time
         // rather than that a server is. A gauge for what it is holding, counters for what went
         // wrong, on the same argument as everything above: a share cannot be re-aggregated.
@@ -255,11 +291,21 @@ public sealed class NetworkMetrics : IDisposable {
     public void Sample() {
         var next = default(Reading);
 
+        stamp++;
+        var reporting = 0;
+
         if (Session is not null) {
             next.Tick = Session.Tick.Value;
             var total = 0d;
 
             foreach (var player in Session.Players) {
+                // Before the IsConnected branch, though a disconnected player never has one: the
+                // property is cleared on the way out, so reading it here rather than below is what
+                // makes that a fact this loop does not have to depend on.
+                if (player.ObservedOutbound is { } peer) {
+                    Observe(player.Id.Value, peer, ref reporting);
+                }
+
                 if (!player.IsConnected) {
                     next.AwaitingPlayers++;
 
@@ -279,6 +325,26 @@ public sealed class NetworkMetrics : IDisposable {
             }
 
             next.MeanRoundTripSeconds = next.ConnectedPlayers == 0 ? 0 : total / next.ConnectedPlayers;
+
+            // A client's own report is not on any player record — the server sets NetworkPlayer's
+            // and the client sets the session's — so a meter that only walked Players would publish
+            // zero on exactly the half of the fleet that is not a server.
+            if (Session.ObservedOutbound is { } own) {
+                Observe(PlayerId.None.Value, own, ref reporting);
+            }
+        }
+
+        // Only when one went away, so the common tick is a lookup and a store per reporting link.
+        if (reporting != peers.Count) {
+            Retire();
+        }
+
+        next.PeerExpected = retiredPeerExpected;
+        next.PeerMissing = retiredPeerMissing;
+
+        foreach (var link in peers.Values) {
+            next.PeerExpected += link.Expected;
+            next.PeerMissing += link.Missing;
         }
 
         if (Client is not null) {
@@ -337,6 +403,56 @@ public sealed class NetworkMetrics : IDisposable {
     /// <summary>Closes the meter, so nothing collects from it again.</summary>
     public void Dispose() => meter.Dispose();
 
+    /// <summary>Folds one peer's latest report into the link it belongs to.</summary>
+    /// <param name="link">Whose link: a player's id, or zero for this session's own.</param>
+    /// <param name="report">What the peer said.</param>
+    /// <param name="reporting">How many links this pass has seen, incremented for a new one.</param>
+    /// <remarks>
+    ///     ⚠ <b>A high-water mark rather than the last reading, and the reason is the channel.</b>
+    ///     A report travels unreliable — cheap, superseded by the next one, and therefore free to
+    ///     arrive after a newer one. Storing whatever came last would let a reordered report walk a
+    ///     link's totals backwards, and the counter above would go down. The totals are cumulative
+    ///     for the life of a link, so the largest one seen is the true one; and a link that really
+    ///     did restart cannot reach here with smaller numbers, because a connection ending clears
+    ///     the property and <see cref="Retire" /> takes the old totals out of the live set first.
+    /// </remarks>
+    void Observe(uint link, LinkReport report, ref int reporting) {
+        if (peers.TryGetValue(link, out var held)) {
+            if (held.Stamp != stamp) {
+                reporting++;
+            }
+
+            held.Expected = Math.Max(held.Expected, report.Expected);
+            held.Missing = Math.Max(held.Missing, report.Missing);
+        } else {
+            reporting++;
+            held.Expected = report.Expected;
+            held.Missing = report.Missing;
+        }
+
+        held.Stamp = stamp;
+        peers[link] = held;
+    }
+
+    /// <summary>Moves every link nothing reported on this pass into the retired totals.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the whole reason the meter keeps state at all.</b> Without it the published
+    ///     counters would be a sum over the live players, and a player leaving would make them fall
+    ///     — which an <c>ObservableCounter</c>'s contract says is a process that restarted. The
+    ///     counters a departure retires are still counters: what was lost was lost.
+    /// </remarks>
+    void Retire() {
+        foreach (var (link, held) in peers) {
+            if (held.Stamp == stamp) {
+                continue;
+            }
+
+            retiredPeerExpected += held.Expected;
+            retiredPeerMissing += held.Missing;
+            peers.Remove(link);
+        }
+    }
+
     IEnumerable<Measurement<long>> Records() => [
         new(reading.Deltas, new KeyValuePair<string, object?>("kind", "delta")),
         new(reading.Wholes, new KeyValuePair<string, object?>("kind", "whole"))
@@ -378,8 +494,17 @@ public sealed class NetworkMetrics : IDisposable {
         public long Retransmitted;
         public long Expected;
         public long Missing;
+        public long PeerExpected;
+        public long PeerMissing;
         public int ClientEntities;
         public long SnapshotsRejected;
         public long SnapshotsStale;
+    }
+
+    /// <summary>One link's peer-reported totals, and the pass they were last confirmed on.</summary>
+    struct PeerLink {
+        public long Expected;
+        public long Missing;
+        public int Stamp;
     }
 }

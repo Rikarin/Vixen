@@ -25,7 +25,8 @@ related: [editor/index, editor/writing-a-plugin, ui/markup-panels, engine/measur
   [`RoundTripEstimator`](../engine/round-trip-and-jitter.md) smooths them, one strip of bars
   per measurement, sampled from every player in a
   [`NetworkSession`](../engine/network-sessions.md) — and, when the session's transport
-  counts datagrams, what was resent and what was lost coming in. Above each strip is the newest
+  counts datagrams, what was resent and what was lost coming in; and, when its peer has said, what
+  was lost going out. Above each strip is the newest
   reading and the scale it is drawn against; above them all is the worst round trip and the worst
   jitter anybody in the session has.
 * **The last snapshot** — one packet run through
@@ -81,8 +82,9 @@ diagnostics.NetworkSnapshot = server.LastBytes;   // the newest snapshot, as it 
 diagnostics.NetworkSession = server.Session;      // NetworkSession — round trip, jitter, and loss
 ```
 
-The loss lanes take no fourth line: a session holds the transport it runs on, and a transport that
-counts datagrams is asked. See [The two loss lanes](#the-two-loss-lanes).
+The loss lanes take no fourth line: a session holds the transport it runs on, a transport that
+counts datagrams is asked, and what the peer said is already on the session. See
+[The three loss lanes](#the-three-loss-lanes).
 
 ⚠ **Nothing in the engine's own tree writes those four lines, and that is a gap rather than a
 style.** They are settable properties with no assignment anywhere in the repository — the editor runs
@@ -153,27 +155,46 @@ nothing — so a panel that read its own `Session` property to tell them apart w
 once, against a property that was still null, and would never be told the host had arrived. Whether a
 source was supplied is therefore part of the reading, not read off the panel.
 
-### The two loss lanes
+### The three loss lanes
 
-A session whose transport counts datagrams gets two more lanes, and they are two rather than one
-because the two directions are known by different evidence — the whole of that argument is in
+A session whose transport counts datagrams gets two more lanes, and a session whose *peer* counts
+gets a third. They are three rather than one because the two directions are known by different
+evidence and one of the directions is known by a different machine — the whole of that argument is in
 [measuring packet loss](../engine/measuring-loss.md), and the short form is:
 
 | Lane | What it is | What it means |
 |---|---|---|
 | **resent** | `Retransmitted` over `Sent`, for the interval | An **upper bound** on outbound loss. One lost datagram resent three times counts three, and a lost *acknowledgement* resends one that arrived. |
-| **lost inbound** | `Missing` over `Expected`, for the interval | Loss that **happened**: sequences the far end numbered that never reached this process, on every channel including the unreliable ones. |
+| **lost inbound** | `Missing` over `Expected`, for the interval | Loss that **happened** coming in: sequences the far end numbered that never reached this process, on every channel including the unreliable ones. |
+| **lost outbound** | `LinkReport.Missing` over `Expected`, for the interval, of the worst link | Loss that **happened** going out, as the peer counted it and sent it back. The only observation of outbound loss there is. |
 
-Both are **shares of one interval's traffic** and neither is a running total. The transport publishes
-four cumulative counters on purpose — a total that has already been divided cannot be re-aggregated
-across a fleet, which is `NetworkMetrics`'s rule — so the division belongs to whoever has two
-readings, and on this pane that is the ring. A lane that divided the *totals* would still be reading
-five per cent long after the link went clean.
+⚠ **`lost outbound` stands beside `resent` rather than replacing it, and the gap between them is
+itself a reading.** A resend share far above the observed loss is a [round-trip
+estimate](../engine/round-trip-and-jitter.md) that has fallen behind and is resending datagrams that
+arrived — which is why the bound is still worth drawing once the measurement exists.
+
+All three are **shares of one interval's traffic** and none is a running total. The transport
+publishes four cumulative counters on purpose — a total that has already been divided cannot be
+re-aggregated across a fleet, which is `NetworkMetrics`'s rule — so the division belongs to whoever
+has two readings, and on this pane that is the ring. A lane that divided the *totals* would still be
+reading five per cent long after the link went clean.
+
+⚠ **The outbound lane's two readings have to be of the same link.** A `LinkReport` is cumulative for
+the life of one connection and is cleared the moment that connection ends, so the lane holds *which*
+link it last read — the worst connected player's, or the session's own on a client — and starts again
+rather than differencing when that changes. Subtracting one link's totals from another's is arithmetic
+on two unrelated numbers, and it goes negative as often as not.
 
 Give it a session on a transport that counts nothing — an in-process one, which is what a session
 with no socket in it is — and there are two lanes and a line saying why. A pair of lanes flat along
 the bottom would claim a clean link, and a transport that cannot count datagrams has not told anybody
 it lost none.
+
+⚠ **Two absences and two sentences, because they are facts about two different machines.** `resent`
+and `lost inbound` are missing when *this* end counts nothing; `lost outbound` is missing when nothing
+on the *far* end has spoken — a peer whose transport counts no datagrams sends no report, and a peer
+that has just connected has not sent its first. A session is regularly in one state and not the other,
+so a single line covering both would be wrong on whichever half it was not about.
 
 ### An empty column is parked, an absent ledger is not
 
@@ -292,8 +313,8 @@ for (var slot = 0; slot < before.Length - 1; slot++) {
 }
 ```
 
-⚠ **And the key rule read at the loop rather than at the row.** `Lanes` is two lanes or four,
-depending on whether the session's transport counts datagrams — so the `@for`'s own *source* changes,
+⚠ **And the key rule read at the loop rather than at the row.** `Lanes` is two, three, four or five
+lanes, depending on whether the session's transport counts datagrams and whether its peer has reported — so the `@for`'s own *source* changes,
 and a source read off a plain field is a loop that reconciles once and never again. It reads `Link`, which
 is a signal, for that reason. The first two rounds of these tests did not catch that, because every
 one of them held its source still for its whole length; a live panel never does, and three tests now
@@ -306,5 +327,5 @@ move it while the panel is open.
 * [`SnapshotInspector`](/docs/api/vixen.net.diagnostics/snapshotinspector) — reading a packet without applying it
 * [Round trip and jitter](../engine/round-trip-and-jitter.md) — the RFC 6298 filter behind both time lanes, and why the deviation is the number that matters
 * [Network sessions](../engine/network-sessions.md) — where the panel's players, ticks and transport come from
-* [Measuring packet loss](../engine/measuring-loss.md) — the four counters the loss lanes are differenced from, and what each direction can honestly claim
+* [Measuring packet loss](../engine/measuring-loss.md) — the four counters and the peer's report the loss lanes are differenced from, and what each direction can honestly claim
 * [Writing a plugin](writing-a-plugin.md) — `AddPanel`, `AddCommand`, and what a module joins together
