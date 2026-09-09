@@ -14,7 +14,65 @@
 
     <ItemGroup>
         <None Include="README.md" Pack="true" PackagePath="/" Visible="false" />
+
+        <!--
+            ⚠ A forward slash in the package path, and it is load-bearing rather than a style
+            choice — `Vixen.Ui.csproj` records why: `buildTransitive\` produces the entry
+            `buildTransitive//Vixen.Core.Syntax.targets`, which NU5129 reports as a folder that
+            does not contain the file it is looking at.
+        -->
+        <None Include="build\Vixen.Core.Syntax.targets" Pack="true" PackagePath="buildTransitive/" />
     </ItemGroup>
+
+    <!--
+        The generator travels inside the package, the same shape Vixen.Core.Reflection and
+        Vixen.Core.Serialization use.
+
+        ⚠ This was blocked rather than merely undecided until VXS0001 became opt-in (#1188). The
+        description above advertises the third-party case directly — "each supplies its own
+        Syntax.xml" — and a Syntax.xml without this generator produces nothing at all, so there was
+        no other way for a consumer outside this repository to get it. What stopped it was that the
+        diagnostic fired on every compilation that had no Syntax.xml, which is every consumer that
+        is not writing a language; with TreatWarningsAsErrors that is a build break. It now reads
+        VixenSyntaxXmlRequired, which the buildTransitive targets above make settable.
+
+        ⚠ The reference below is what BUILDS the generator so that PackSyntaxGenerator has an
+        assembly to point at, and it is Analyzer-typed with no output assembly. Vixen.Core.Syntax
+        has no Syntax.xml of its own and does not set VixenSyntaxXmlRequired, so the generator runs
+        over this compilation and emits nothing — which is the property that makes the opt-in
+        correct rather than merely convenient, and is the A/B the change was proved with.
+    -->
+    <ItemGroup>
+        <ProjectReference Include="..\Vixen.Core.Syntax.Generator\Vixen.Core.Syntax.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <PropertyGroup>
+        <TargetsForTfmSpecificContentInPackage>
+            $(TargetsForTfmSpecificContentInPackage);PackSyntaxGenerator
+        </TargetsForTfmSpecificContentInPackage>
+    </PropertyGroup>
+
+    <!--
+        GetTargetPath, not Build. The generator is already built by the time this runs — the
+        ProjectReference above builds it as part of *this* project's build — so all that is wanted
+        here is where its assembly landed. Asking for Build works locally and fails the packaging
+        leg: a no-build `dotnet pack` sets NoBuild=true as a global property, MSBuild passes global
+        properties down, and a project handed NoBuild=true and then asked for Build is NETSDK1085.
+    -->
+    <Target Name="PackSyntaxGenerator">
+        <MSBuild Projects="..\Vixen.Core.Syntax.Generator\Vixen.Core.Syntax.Generator.csproj"
+                 Targets="GetTargetPath"
+                 Properties="Configuration=$(Configuration)"
+                 RemoveProperties="TargetFramework">
+            <Output TaskParameter="TargetOutputs" ItemName="SyntaxGeneratorAssembly" />
+        </MSBuild>
+
+        <ItemGroup>
+            <TfmSpecificPackageFile Include="@(SyntaxGeneratorAssembly)" PackagePath="analyzers/dotnet/cs" />
+        </ItemGroup>
+    </Target>
 
     <ItemGroup>
         <InternalsVisibleTo Include="Vixen.Core.Syntax.Tests"/>

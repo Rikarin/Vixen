@@ -1,0 +1,29 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    What a consumer needs in order to turn `VXS0001` on, and nothing else.
+
+    The generator travels inside this package, so a project that supplies its own `Syntax.xml`
+    gets the node classes from a `PackageReference` alone — which is what the package description
+    has always advertised and what it could not do until the diagnostic became opt-in.
+
+    ⚠ **`VXS0001` is off unless a project says it is building a language.** It fires when a
+    compilation has no `Syntax.xml`, which is every consumer that merely references the syntax
+    tree; with `TreatWarningsAsErrors` — this repository's own profile, and a common one — that
+    was a build break rather than a warning, and it is why the package could not carry the
+    generator (#1188). A project sets `VixenSyntaxXmlRequired` to `true` and gets the guard back:
+    forgetting the `AdditionalFiles` line is then a diagnostic rather than a hundred CS0246s.
+
+    ⚠ **`buildTransitive/` and not `build/`, for the reason `Vixen.Ui.csproj` records at length**:
+    NuGet imports `build/<id>.targets` only for a direct `PackageReference`, and nothing
+    references `Vixen.Core.Syntax` by name — `Vixen.Ui.Markup` and `Vixen.Raven` depend on it, so
+    a consumer reaches it through one of those.
+-->
+<Project>
+
+    <ItemGroup>
+        <CompilerVisibleProperty Include="VixenSyntaxXmlRequired" />
+    </ItemGroup>
+
+</Project>

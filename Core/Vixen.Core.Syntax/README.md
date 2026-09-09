@@ -49,6 +49,24 @@ it back with a cast. Two rules follow from that:
   Roslyn's `CSharpSyntaxNode` does over `SyntaxNode`.
 
 Node classes are generated from a `Syntax.xml` model by `Vixen.Core.Syntax.Generator`,
-which reads your output namespace and base node from the `<Tree>` element.
+which reads your output namespace and base node from the `<Tree>` element. The generator
+travels inside this package, so a `PackageReference` and an `AdditionalFiles` line are the
+whole of the setup:
+
+```xml
+<ItemGroup>
+  <AdditionalFiles Include="Syntax\Syntax.xml" />
+</ItemGroup>
+
+<PropertyGroup>
+  <VixenSyntaxXmlRequired>true</VixenSyntaxXmlRequired>
+</PropertyGroup>
+```
+
+`VixenSyntaxXmlRequired` is the opt-in for `VXS0001`, which reports a project that imported
+the generator and forgot the `AdditionalFiles` line. It is off by default because a
+compilation that merely references this library is not building a language and has no
+`Syntax.xml` to forget — and under `TreatWarningsAsErrors` an unconditional warning is a
+build break.
 
 Licensed under Apache-2.0.
