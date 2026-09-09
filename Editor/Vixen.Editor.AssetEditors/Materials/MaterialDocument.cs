@@ -127,8 +127,16 @@ public sealed class MaterialParameterCommand : IEditorCommand {
 ///         trap, and it is the same call <c>LayerStackView</c> makes one panel over when a lane
 ///         returns to its port's default: the key comes out.
 ///     </para>
+///     <para>
+///         ⚠ <b><c>internal</c>, unlike <see cref="MaterialParameterCommand" /> beside it, and
+///         deliberately.</b> Nothing outside this assembly constructs one —
+///         <see cref="MaterialDocument.SetGraphValue" /> is the only caller and the only thing that
+///         could sensibly build the before-image — so publishing it would be a public type owing a
+///         guide page for a shape no other assembly can use. <c>MaterialGraphLink</c> in this same
+///         folder made the same call.
+///     </para>
 /// </remarks>
-public sealed class MaterialGraphValueCommand : IEditorCommand {
+internal sealed class MaterialGraphValueCommand : IEditorCommand {
     readonly MaterialDocument document;
     readonly GraphSurfaceFeature? before;
     readonly GraphSurfaceFeature after;
