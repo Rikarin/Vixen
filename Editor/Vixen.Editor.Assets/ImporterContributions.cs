@@ -29,12 +29,20 @@ namespace Vixen.Editor.Assets;
 ///         F8's own trap one level down.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A contributed importer does not reach an out-of-process compiler worker, and this
-///         does not pretend otherwise.</b> <c>Tools/Vixen.AssetCompiler</c> starts workers for crash
-///         isolation and each builds its registry from the same <c>Create</c> — but a worker process
-///         has not loaded the plugin, so its <c>Default</c> is empty and an asset only that plugin
-///         can import fails there. Closing it means the worker loading the same plugin set the
-///         coordinator has, which is a change to the worker's start-up and is not this.
+///         ✅ <b>A contributed importer reaches an out-of-process compiler worker now, and the
+///         change was the one this remark asked for.</b> It used to say a worker's <c>Default</c> is
+///         empty because that process never loaded the plugin, so an asset only that plugin can
+///         import failed there. <c>CompilerPool</c> reads the <i>files</i> its coordinator's
+///         contributed importers came out of and names each on the worker's command line, and
+///         <c>PluginImporters</c> loads them at the far end — so the worker's registry is assembled
+///         from the same assemblies without either process caching a set. Doc 36 § Part 6.
+///     </para>
+///     <para>
+///         ⚠ <b>One shape still cannot cross: an importer whose assembly has no file.</b> A plugin
+///         is a <c>.dll</c> and a project's editor scripts are compiled to one, so both have a path
+///         — but there is nothing to name for an importer contributed from a dynamic assembly.
+///         <c>CompilerPool.UnreachableImporters</c> is the list, said out loud rather than left to
+///         be discovered as an asset that imported as a byte blob.
 ///     </para>
 /// </remarks>
 public sealed class ImporterContributions {

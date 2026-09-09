@@ -131,14 +131,30 @@ change belonged.
 through `PluginServices`, and removable, so a plugin's scope withdraws its importer on unload. Doc
 11's "a plugin can add an importer" is true now.
 
-⚠ **A contributed importer does not reach an out-of-process compiler worker, and this is the one
-place the claim has a hole an author would hit.** `Tools/Vixen.AssetCompiler` starts workers for
-crash isolation and [`WorkerHost.cs:34`](../../Tools/Vixen.AssetCompiler/WorkerHost.cs) builds each
-one's registry from the parameterless `Create` — which folds in `ImporterContributions.Default`, and
-in a worker process that set is empty because the worker never loaded the plugin. So an asset only a
-plugin can import works in the editor and fails in the pool. Closing it means the worker loading the
-same plugin set the coordinator has, which is a change to the worker's start-up and is named rather
-than done.
+✅ **A contributed importer reaches an out-of-process compiler worker now.** It did not: each worker
+built its registry from the parameterless `Create`, which folds in `ImporterContributions.Default`,
+and in a worker process that set is empty because the worker never loaded the plugin — so an asset
+only a plugin could import worked in the editor and failed in the pool.
+
+The close is the coordinator naming *files* rather than the worker discovering anything.
+`CompilerPool` reads the assemblies its own contributed importers came out of, adds a `--plugin` for
+each to the worker's command line, and
+[`PluginImporters`](../../Tools/Vixen.AssetCompiler/PluginImporters.cs) loads them at the far end into
+a set of its own. Nothing is cached in either process, so `BuiltInImporters`' rule that the registry
+is assembled per run survives; and a worker that cannot load what it was told to load exits before
+connecting rather than importing with a set its coordinator does not have.
+
+⚠ **Two things that fell out of doing it.** A wait on the pipe alone never ended when a worker exited
+before connecting — nothing could exit that early until a worker had work to do at start-up, so the
+hang had never been reachable and is now guarded. And one shape still cannot cross: an importer whose
+assembly has no file. A plugin is a `.dll` and a project's editor scripts are compiled to one, so both
+have a path; a dynamic assembly has none, and `CompilerPool.UnreachableImporters` names those rather
+than letting the asset import as a byte blob in silence.
+
+⚠ **The pool is not the only place the two paths disagree, and the other half is still open.** The
+editor is the only process that loads a plugin at all: `PluginHost` has no caller outside
+`EditorApplication`, so `vixen import` has an empty `ImporterContributions` whether or not it is
+`--isolated`. A worker now agrees with its coordinator; the CLI still does not agree with the editor.
 
 ⚠ **An earlier revision said "build steps are the same shape and are still not published".** There is
 no `BuildStep` or `IBuildStep` type anywhere in the repository, so that sentence named an omission in
@@ -1171,10 +1187,17 @@ import without a plugin is not an editor. The criterion is `Core`, `Ui`, `Plugin
 
 ### Correctness gaps with a user-visible failure
 
-* **A contributed importer does not reach an out-of-process compiler worker.**
-  [`WorkerHost.cs:34`](../../Tools/Vixen.AssetCompiler/WorkerHost.cs) builds its registry from the
-  parameterless `Create`, and the worker never loaded the plugin. Imports in the editor, fails in the
-  pool — the worst shape on this list, because it is a difference between two paths that should agree.
+* ~~**A contributed importer does not reach an out-of-process compiler worker.**~~ ✅ Closed. The
+  coordinator names the assemblies its contributed importers came out of on each worker's command
+  line and [`PluginImporters`](../../Tools/Vixen.AssetCompiler/PluginImporters.cs) loads them there;
+  `PluginImporterTests` imports one asset both ways and compares the bytes. See
+  [F8](#f8--importers-are-constructed-and-handed-in) for the two things that fell out of doing it.
+* **The CLI loads no plugins at all, so it still disagrees with the editor.** `PluginHost` has no
+  caller outside `EditorApplication` — `Tools/Vixen.Cli` never scans for a plugin and never compiles a
+  project's `Editor/` scripts — so `vixen import` has an empty `ImporterContributions` whichever
+  executor it uses. ⚠ **This is the same shape as the row above and a wider one**, and closing the
+  worker's half made it the remaining difference between two paths that should agree: a content build
+  from the command line cannot produce what the editor showed for an asset only a plugin can import.
 
 ### Smaller, and each a deliberate question rather than a lapse
 

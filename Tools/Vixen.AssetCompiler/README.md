@@ -66,6 +66,15 @@ from its coordinator's produces different artefacts for the same file, and the d
 as a cache that never hits — or, worse, as a build whose output depends on how many cores the machine
 has. Moving that list out of `Vixen.Cli` is what makes the two provably the same.
 
+⚠ **The built-ins were never the half that differed; the *contributed* importers were.**
+`ImporterContributions` is process-wide, and a worker process has loaded no plugin, so an asset only a
+plugin could import used to succeed in the editor and fail here. The coordinator now reads the
+assemblies its contributed importers came out of and names each as a `--plugin` on the worker's
+command line; `PluginImporters` loads them at the far end. Neither side caches a set, so the
+per-run rule above is intact, and a worker that cannot load what it was told to load exits *before*
+connecting rather than serving with a registry nobody asked for. `PluginImporterTests` imports one
+asset both ways and compares the bytes.
+
 ## The pool is given N jobs, not one
 
 This section used to be the first entry under *Owed* and is not any more. `ImportPipeline` dispatches

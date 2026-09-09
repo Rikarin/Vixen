@@ -10,6 +10,14 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <!--
+          A plugin's importer is only testable against a real assembly on disk that this process did
+          not reference: the claim is that the *worker* loads it, and a type the test project already
+          references would be in the worker's default context whatever the worker did. So the test
+          compiles one, the way Vixen.Editor.Plugin.Tests compiles a plugin.
+        -->
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+
         <PackageReference Include="xunit.v3" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" />
         <PackageReference Include="xunit.runner.visualstudio">

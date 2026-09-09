@@ -420,6 +420,7 @@ T:Vixen.AssetCompiler.CompilerPool sweep-pending
 T:Vixen.AssetCompiler.DiagnosticMessage sweep-pending
 T:Vixen.AssetCompiler.ImportRequestMessage sweep-pending
 T:Vixen.AssetCompiler.ImportResponseMessage sweep-pending
+T:Vixen.AssetCompiler.PluginImporters sweep-pending
 T:Vixen.AssetCompiler.SubAssetMessage sweep-pending
 T:Vixen.AssetCompiler.WorkerHost sweep-pending
 T:Vixen.Assets.AddressNotFoundException sweep-pending

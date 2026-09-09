@@ -16,10 +16,18 @@ namespace Vixen.AssetCompiler;
 ///         copy of it and a worker cannot disagree with the process that started it.
 ///     </para>
 ///     <para>
-///         <b>Its registry comes from <see cref="BuiltInImporters" />, not from an argument.</b> A
+///         <b>Its built-ins come from <see cref="BuiltInImporters" />, not from an argument.</b> A
 ///         worker with a different importer set produces different artefacts for the same file, and
 ///         the disagreement surfaces as a cache that never hits — or as a build whose output depends
 ///         on how many cores the machine has.
+///     </para>
+///     <para>
+///         ⚠ <b>Its <i>contributed</i> importers do come from an argument, and that is doc 36 §
+///         Part 6's one correctness gap closed.</b> <c>BuiltInImporters.Create()</c> folds in
+///         <c>ImporterContributions.Default</c>, which in a process that has loaded no plugin is
+///         empty — so an asset only a plugin could import used to be imported by the editor and
+///         refused by the pool. The coordinator names the plugin assemblies it loaded and the worker
+///         loads the same files; see <see cref="PluginImporters" />.
 ///     </para>
 /// </remarks>
 public sealed class WorkerHost {
@@ -27,11 +35,22 @@ public sealed class WorkerHost {
 
     /// <summary>Serves imports out of a project directory.</summary>
     /// <param name="projectRoot">The project. Importer paths are relative to it.</param>
-    public WorkerHost(string projectRoot) {
+    /// <param name="pluginAssemblies">
+    ///     The assemblies the coordinator's contributed importers came out of, or none. Loading one
+    ///     of these that is not there, or that declares an importer this process cannot make, throws
+    ///     — a worker whose set silently differs from its coordinator's is the failure this argument
+    ///     exists to prevent, so it must not be survivable.
+    /// </param>
+    /// <exception cref="InvalidOperationException">A named plugin assembly could not be loaded.</exception>
+    public WorkerHost(string projectRoot, IReadOnlyList<string>? pluginAssemblies = null) {
         ArgumentException.ThrowIfNullOrEmpty(projectRoot);
 
+        var contributed = pluginAssemblies is { Count: > 0 }
+            ? PluginImporters.Load(pluginAssemblies)
+            : new ImporterContributions();
+
         executor = new InProcessImportExecutor(
-            BuiltInImporters.Create(),
+            BuiltInImporters.Create(contributed),
             new PhysicalFileProvider(projectRoot, isReadOnly: true)
         );
     }
@@ -128,18 +147,32 @@ public sealed class WorkerHost {
     /// <param name="arguments">What was on the command line.</param>
     /// <param name="pipe">The pipe to connect to.</param>
     /// <param name="root">The project directory.</param>
-    /// <returns>Whether both were given.</returns>
+    /// <param name="plugins">
+    ///     The plugin assemblies to load importers out of, in the order they were given. ⚠
+    ///     <c>--plugin</c> repeats rather than taking a separated list: a path may contain anything
+    ///     the file system allows, including whatever separator a list would have used, and a
+    ///     coordinator on one platform starting a worker that splits differently is a set that
+    ///     disagrees for a reason nobody would look for.
+    /// </param>
+    /// <returns>Whether the pipe and the root were both given.</returns>
     /// <remarks>
     ///     Hand-rolled rather than System.CommandLine, and that is the one place in the repository
     ///     where that is the right call: a worker is started by a coordinator and never by a person,
     ///     so there is no help text anybody reads and no completion anybody wants — and a parser is a
     ///     dependency this process would load on every start.
     /// </remarks>
-    public static bool TryParse(IReadOnlyList<string> arguments, out string pipe, out string root) {
+    public static bool TryParse(
+        IReadOnlyList<string> arguments,
+        out string pipe,
+        out string root,
+        out IReadOnlyList<string> plugins
+    ) {
         pipe = string.Empty;
         root = string.Empty;
 
         ArgumentNullException.ThrowIfNull(arguments);
+
+        List<string> loaded = [];
 
         for (var index = 0; index + 1 < arguments.Count; index++) {
             switch (arguments[index]) {
@@ -150,9 +183,14 @@ public sealed class WorkerHost {
                 case "--root":
                     root = arguments[index + 1];
                     break;
+
+                case "--plugin":
+                    loaded.Add(arguments[index + 1]);
+                    break;
             }
         }
 
+        plugins = loaded;
         return pipe.Length > 0 && root.Length > 0;
     }
 

@@ -52,6 +52,7 @@ public sealed class CompilerPool : IImportExecutor, IDisposable {
     readonly string projectRoot;
     readonly string executable;
     readonly IReadOnlyList<string> prefix;
+    readonly IReadOnlyList<string> plugins;
 
     bool disposed;
 
@@ -73,7 +74,26 @@ public sealed class CompilerPool : IImportExecutor, IDisposable {
     ///     What to run, as the executable followed by its leading arguments. Defaults to this
     ///     assembly under <c>dotnet</c>.
     /// </param>
-    public CompilerPool(string projectRoot, int workers = 0, IReadOnlyList<string>? workerCommand = null) {
+    /// <param name="contributed">
+    ///     The contributed importers this coordinator has, or <see langword="null" /> for
+    ///     <c>ImporterContributions.Default</c> — which is what any real coordinator's plugins and
+    ///     project scripts add to. A test hands its own for the reason every other caller of
+    ///     <c>BuiltInImporters.Create</c> does: the default is process-wide.
+    /// </param>
+    /// <remarks>
+    ///     ⚠ <b>The contributed set is read once, here, rather than per worker.</b> Every worker in
+    ///     one pool must have the same registry as every other and as the coordinator — that is the
+    ///     entire promise <c>BuiltInImporters</c> makes — and a plugin unloaded mid-build would
+    ///     otherwise give the worker started after it a different one. Snapshotting means a plugin
+    ///     unloaded during a build keeps importing until the build ends, which is the answer that
+    ///     produces one set of bytes.
+    /// </remarks>
+    public CompilerPool(
+        string projectRoot,
+        int workers = 0,
+        IReadOnlyList<string>? workerCommand = null,
+        ImporterContributions? contributed = null
+    ) {
         ArgumentException.ThrowIfNullOrEmpty(projectRoot);
 
         this.projectRoot = Path.GetFullPath(projectRoot);
@@ -83,7 +103,21 @@ public sealed class CompilerPool : IImportExecutor, IDisposable {
         var command = workerCommand ?? DefaultCommand();
         executable = command[0];
         prefix = [.. command.Skip(1)];
+
+        var contributions = contributed ?? ImporterContributions.Default;
+        plugins = PluginImporters.AssembliesBehind(contributions);
+        UnreachableImporters = PluginImporters.Missing(contributions);
     }
+
+    /// <summary>Contributed importers no worker can be given, because they have no file.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Named rather than dropped.</b> An importer contributed from a dynamic assembly cannot
+    ///     cross a process boundary — there is no path to hand a worker — so an asset it claims
+    ///     imports in the coordinator and falls through to the fallback in a worker, succeeding as a
+    ///     byte blob with nothing to say. That is precisely the editor-and-pool disagreement this
+    ///     pool was taught to avoid, so the residue of it is reported instead of being silent.
+    /// </remarks>
+    public IReadOnlyList<string> UnreachableImporters { get; }
 
     /// <summary>
     ///     How to start a worker when nobody said.
@@ -201,6 +235,14 @@ public sealed class CompilerPool : IImportExecutor, IDisposable {
         start.ArgumentList.Add("--root");
         start.ArgumentList.Add(projectRoot);
 
+        // ⚠ Doc 36 § Part 6. Without these the worker's `ImporterContributions` is empty — nothing in
+        // that process ever loaded a plugin — so an asset only a plugin can import succeeds in the
+        // editor and fails, or falls through to the fallback, here.
+        foreach (var plugin in plugins) {
+            start.ArgumentList.Add("--plugin");
+            start.ArgumentList.Add(plugin);
+        }
+
         Process process;
 
         try {
@@ -216,7 +258,7 @@ public sealed class CompilerPool : IImportExecutor, IDisposable {
         }
 
         try {
-            await server.WaitForConnectionAsync(cancellationToken).ConfigureAwait(false);
+            await ConnectAsync(server, process, cancellationToken).ConfigureAwait(false);
         } catch (Exception) {
             Kill(process);
             server.Dispose();
@@ -230,6 +272,48 @@ public sealed class CompilerPool : IImportExecutor, IDisposable {
         }
 
         return worker;
+    }
+
+    /// <summary>Waits for the worker to connect, or for it to die trying.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A wait on the pipe alone never ends when the worker exits before connecting.</b>
+    ///     Nothing could exit that early until a worker had work to do at start-up; loading the
+    ///     coordinator's plugin assemblies is that work, and a plugin that is not there is a worker
+    ///     that writes a reason to stderr and returns 2. Racing the process makes that a failed run
+    ///     with a message rather than a build that stops for ever with none.
+    /// </remarks>
+    static async Task ConnectAsync(
+        NamedPipeServerStream server,
+        Process process,
+        CancellationToken cancellationToken
+    ) {
+        using var stopped = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        var connected = server.WaitForConnectionAsync(stopped.Token);
+        var exited = process.WaitForExitAsync(stopped.Token);
+
+        var finished = await Task.WhenAny(connected, exited).ConfigureAwait(false);
+        await stopped.CancelAsync().ConfigureAwait(false);
+
+        // The loser is cancelled and nobody awaits it, so its fault is observed here rather than
+        // arriving later as an unobserved task exception with no context attached to it.
+        _ = (finished == connected ? exited : connected).ContinueWith(
+            static task => _ = task.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default
+        );
+
+        if (finished == connected) {
+            await connected.ConfigureAwait(false);
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"The asset-compiler worker exited with {process.ExitCode} before it connected. It says why on "
+            + "standard error; a worker that refuses to start is refusing to import with a different set of "
+            + "importers than the process that started it."
+        );
     }
 
     void Retire(Worker worker) {
