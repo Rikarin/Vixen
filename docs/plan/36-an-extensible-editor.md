@@ -156,11 +156,12 @@ editor is the only process that loads a plugin at all: `PluginHost` has no calle
 `EditorApplication`, so `vixen import` has an empty `ImporterContributions` whether or not it is
 `--isolated`. A worker now agrees with its coordinator; the CLI still does not agree with the editor.
 
-⚠ **An earlier revision said "build steps are the same shape and are still not published".** There is
-no `BuildStep` or `IBuildStep` type anywhere in the repository, so that sentence named an omission in
-something that does not exist. What is actually true is narrower: the player build in `EditorBuilds`
-has no contribution point at all, so a plugin cannot add a step to it — which is a *missing
-mechanism*, not an unpublished registry, and belongs with D4's last two rows rather than with F8.
+⚠ **An earlier revision said "build steps are the same shape and are still not published".** There
+was no `BuildStep` or `IBuildStep` type anywhere in the repository, so that sentence named an omission
+in something that did not exist. What was actually true was narrower — the player build in
+`EditorBuilds` had no contribution point at all — and it belonged with D4's last two rows rather than
+with F8. ✅ **Built there:** `BuildStep` is a record in `Vixen.Editor.Assets.Content`, contributed
+through `IEditorRegistry`, and nothing in the plugin contract changed.
 
 **F8 — Importers are constructed and handed in.** `ImportPipeline(database, importers, artifacts, …)`
 — whoever builds the pipeline decides what importers exist. There is no registry for a plugin to
@@ -543,9 +544,10 @@ plugin's failure a mystery rather than a message.
 | ~~`AddOverlay(overlay)`~~ | ✅ `SceneOverlay`, and `[Overlay]` — `ViewportChrome` was the only thing that could put a panel over a pane |
 | ~~`AddGizmo(type, draw)`~~ | ✅ `ComponentGizmo`, and `[DrawGizmo]` — ⚠ **"nothing" was wrong**: `SceneLines.LightShapes` is this, hardcoded for one component |
 | ~~`AddSettingsPage(page)`~~ | ✅ `SettingsPage`, read by `EditorSettingsPanels` and re-read on `IEditorRegistry.Changed` |
-| `AddPreview(type, thumbnail)` | nothing |
+| ~~`AddPreview(type, thumbnail)`~~ | ✅ `AssetPreview`, asked by `ThumbnailCache` **before** `ImageDecoders` rather than after |
+| ~~a build-step contribution~~ | ✅ `BuildStep`, read by `EditorBuilds` when Build is pressed — § Part 6's third row of the same shape |
 
-⚠ **Eight of nine, and none of them is a method on `PluginContext`.** P2's departure held: a
+⚠ **All nine, plus the build step § Part 6 added, and none of them is a method on `PluginContext`.** P2's departure held: a
 contribution kind is a record in the assembly that owns it, and `Owns`/`With` are the whole surface.
 Adding `SceneOverlay` and `ComponentGizmo` changed nothing in the plugin contract, which is the
 property the table's shape would have destroyed.
@@ -1267,9 +1269,22 @@ import without a plugin is not an editor. The criterion is `Core`, `Ui`, `Plugin
 
 * ~~**`AddSettingsPage`**~~ — ✅ built: `SettingsPage`, read by `EditorSettingsPanels` and re-read on
   `IEditorRegistry.Changed`.
-* **`AddPreview`** — the thumbnail cache has no registry to ask before it falls back.
-* **A build-step contribution.** `EditorBuilds` has no contribution point, so a plugin cannot add a
-  step to a player build. Named here rather than at F8, which was about importers.
+* ~~**`AddPreview`** — the thumbnail cache has no registry to ask before it falls back.~~ — ✅ built,
+  and ⚠ **"before it falls back" is the half that was worth writing down**: `AssetPreview` is asked
+  *first*, so a plugin can own an extension a built-in decoder also claims. ⚠ **And the refusal set
+  had to be cleared on `IEditorRegistry.Changed`.** `ThumbnailCache` refuses an extension permanently
+  — deliberately, or a folder of two hundred `.fbx` is two hundred background tasks per scroll — and
+  a plugin always activates *after* the grid has already refused every file it owns, so without the
+  subscription its own asset type shows type glyphs until the editor is restarted.
+* ~~**A build-step contribution.** `EditorBuilds` has no contribution point.~~ — ✅ built.
+  `BuildStep(id, stage, run)` in `Vixen.Editor.Assets.Content`, added through `IEditorRegistry`,
+  read by `EditorBuilds` on the frame thread and handed to the task in `PlayerBuildRequest`. ⚠ **A
+  record and not the `IBuildStep` doc 11 was waiting for**: a player build is a fixed sequence of
+  four things, so what a contributor needs is a moment and a delegate, and an interface would have
+  been a type to implement in order to hold one method. ⚠ **And the after-build stage needed a seam
+  to be testable at all** — it runs between a `dotnet publish` and a launch, and this suite does not
+  shell out, so `ContentTasks.Publisher` exists to stop that arm being a call site nothing ever
+  executed.
 
 ### Correctness gaps with a user-visible failure
 

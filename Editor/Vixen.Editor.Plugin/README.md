@@ -206,9 +206,21 @@ the editor, the CLI and the compiler workers cannot disagree — was answered by
 a run rather than by a registry that does not. The compiler workers agree too now: the coordinator
 names the assemblies its contributed importers came out of and `Tools/Vixen.AssetCompiler` loads them.
 
-**Build steps really are not published**, and that one is a missing mechanism rather than an
-unpublished registry: there is no `BuildStep` or `IBuildStep` type anywhere in the repository, so
-`EditorBuilds` has no contribution point for a plugin to reach. Doc 36 § D4.
+~~**Build steps really are not published**, and that one is a missing mechanism rather than an
+unpublished registry.~~ — **the mechanism exists now, and it is a record rather than a service.**
+`BuildStep(id, stage, run)` is in `Vixen.Editor.Assets.Content`, added through `IEditorRegistry` like
+a settings page, and `EditorBuilds` reads the registry when Build is pressed. ⚠ **The list is read on
+the frame thread and handed to the task**, for the reason the target and the variant are: a plugin can
+be unloaded while its build runs, so a list read on the pool two minutes in is a list that may name a
+delegate over an assembly that has gone. Two stages, `BeforeBuild` and `AfterBuild`; a step answers
+"why the build must stop, or null", and the refusal is reported with the step's id in front of it.
+Doc 36 § D4.
+
+⚠ **A preview is the same shape one row along.** `AssetPreview(extension, render)` is in
+`Vixen.Editor.Core` and `ThumbnailCache` asks it *before* `ImageDecoders` rather than after — a
+registry consulted only on the fallback path could never answer for an extension a built-in decoder
+also claims. `render` runs on a pool thread and every exception out of it is a type glyph, because a
+plugin must not be able to take the editor down from a thread nobody is watching.
 
 ⚠ **A settings page goes through `IEditorRegistry` and not through a service.** `SettingsPage` is a
 record in `Vixen.Editor.Ui` — `registry.Add(new SettingsPage(SettingsScope.Preferences, category))`,

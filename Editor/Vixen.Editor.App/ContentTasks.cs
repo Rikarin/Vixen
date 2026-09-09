@@ -93,6 +93,35 @@ sealed class ContentTasks {
     /// </remarks>
     public string Target { get; set; } = ProjectWorkspace.HostTarget;
 
+    /// <summary>What "publish" means, which is <c>dotnet publish</c> and once is something else.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A seam for one reason, stated rather than disguised: the after-build steps are
+    ///         otherwise a call site nothing can reach.</b> This suite deliberately never shells out —
+    ///         see <c>BuildSettingsTests</c> — so a <see cref="BuildStage.AfterBuild" /> step could be
+    ///         registered, ordered and unit-tested while the line in <see cref="BuildPlayer" /> that
+    ///         runs it had never once executed. That is this repository's commonest defect shape and
+    ///         it is not one a doc comment fixes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is not a more permissive double.</b> What a test substitutes is the boolean
+    ///         <c>dotnet publish</c> returns, and nothing else in the sequence changes — the import,
+    ///         the pack, the two step stages and the order they run in are the production ones. A
+    ///         double that also skipped the import would be one that proved the steps ran in a
+    ///         sequence no build performs.
+    ///     </para>
+    /// </remarks>
+    internal Func<PlayerBuildRequest, TextWriter, CancellationToken, Task<bool>> Publisher { get; set; } =
+        static (request, log, cancellationToken) => PlayerBuild.PublishAsync(
+            request.ProjectFile,
+            request.Shape,
+            request.Variant,
+            request.Output,
+            log,
+            capture: true,
+            cancellationToken
+        );
+
     /// <summary>Where a build for a target goes when nobody said.</summary>
     /// <param name="target">The target.</param>
     /// <returns>The directory.</returns>
@@ -368,6 +397,14 @@ sealed class ContentTasks {
     ///         carry. A project with a <c>Shaders.effects.json</c> is told so in the build log; one
     ///         without has no bundle either way and nothing to be told.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And doc 36 § D4's build-step contribution, at the two ends.</b> The
+    ///         <see cref="BuildStage.BeforeBuild" /> steps run before the import, which is the last
+    ///         moment a build costs nothing to refuse; the <see cref="BuildStage.AfterBuild" /> ones
+    ///         run once there is an artefact and before it is launched. A refusal from either stops
+    ///         the build with the step's own id in the message, because a build that stopped for a
+    ///         reason no surface attributes is a reason nobody can act on.
+    ///     </para>
     /// </remarks>
     public void BuildPlayer(PlayerBuildRequest request, TextWriter log, Action<bool>? completed = null) {
         ArgumentNullException.ThrowIfNull(log);
@@ -375,6 +412,24 @@ sealed class ContentTasks {
         Run(
             $"Building {request.Target}",
             async (task, diagnostics) => {
+                // ⚠ Defaulted rather than required, because this is a struct: `default` is a legal
+                // value of it and a null list here would be a NullReferenceException raised from a
+                // pool thread on a build nobody contributed anything to.
+                var contributed = request.Steps ?? [];
+
+                var steps = new BuildStepContext(
+                    request.Target,
+                    request.Variant,
+                    request.ProjectFile,
+                    request.Output,
+                    log
+                );
+
+                if (await BuildSteps.RunAsync(contributed, BuildStage.BeforeBuild, steps, task.Cancellation)
+                        .ConfigureAwait(false) is { } refused) {
+                    return new(NotificationSeverity.Error, "A build step stopped the build", refused);
+                }
+
                 task.Report(0f, "Importing");
 
                 var imported = await ContentPipeline.ImportAsync(
@@ -424,15 +479,7 @@ sealed class ContentTasks {
                     );
                 }
 
-                var published = await PlayerBuild.PublishAsync(
-                    request.ProjectFile,
-                    request.Shape,
-                    request.Variant,
-                    request.Output,
-                    log,
-                    capture: true,
-                    task.Cancellation
-                ).ConfigureAwait(false);
+                var published = await Publisher(request, log, task.Cancellation).ConfigureAwait(false);
 
                 if (!published) {
                     return new(
@@ -440,6 +487,14 @@ sealed class ContentTasks {
                         "The publish failed",
                         "dotnet publish said why — the console has its output."
                     );
+                }
+
+                // ⚠ After the artefact exists and before the launch, which is what makes a signing or
+                // packaging step possible at all: doc 17's packaging table is the work these are for,
+                // and one scheduled after the launch would run when the player was closed.
+                if (await BuildSteps.RunAsync(contributed, BuildStage.AfterBuild, steps, task.Cancellation)
+                        .ConfigureAwait(false) is { } stopped) {
+                    return new(NotificationSeverity.Error, "A build step stopped the build", stopped);
                 }
 
                 if (!request.Launch) {
@@ -680,11 +735,20 @@ sealed class ContentTasks {
 /// <param name="ProjectFile">The <c>.csproj</c> that is the game.</param>
 /// <param name="Output">Where the artefact goes.</param>
 /// <param name="Launch">Whether to run what was built.</param>
+/// <param name="Steps">The contributed build steps, of both stages, as the registry held them.</param>
 /// <remarks>
-///     Resolved on the frame thread and handed over whole, rather than read from the settings inside
-///     the task. A build has to be a build of what was on screen when the button was pressed: the
-///     panel is still editable while it runs, and a target read from the store two minutes later
-///     would produce an artefact nobody asked for.
+///     <para>
+///         Resolved on the frame thread and handed over whole, rather than read from the settings
+///         inside the task. A build has to be a build of what was on screen when the button was
+///         pressed: the panel is still editable while it runs, and a target read from the store two
+///         minutes later would produce an artefact nobody asked for.
+///     </para>
+///     <para>
+///         ⚠ <b>Which is why the steps travel here too, rather than being read from
+///         <c>IEditorRegistry</c> inside the task.</b> A plugin can be unloaded while a build runs —
+///         that is the whole point of the collectible load context — and a step list read on a pool
+///         thread two minutes in is a list that may name a delegate over an assembly that has gone.
+///     </para>
 /// </remarks>
 readonly record struct PlayerBuildRequest(
     string Target,
@@ -692,5 +756,6 @@ readonly record struct PlayerBuildRequest(
     string Variant,
     string ProjectFile,
     string Output,
-    bool Launch
+    bool Launch,
+    IReadOnlyList<BuildStep> Steps
 );

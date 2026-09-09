@@ -723,10 +723,14 @@ inspector that attaches to a running build on a device to browse and mutate live
 > editor publishes it through `PluginServices`. A plugin that writes an importer references
 > `Vixen.Editor.Assets` itself and calls `Add`, which returns the scope that withdraws it again;
 > `OutOfTreePluginTests.The_editor_publishes_somewhere_for_a_plugin_to_add_an_importer` asserts the
-> point and `ImporterContributionTests` asserts the mechanism. ⚠ **Build steps are still not
-> reachable and, unlike importers, there is nothing to reach**: no `IBuildStep` or anything shaped
-> like one exists in the tree, so the row names an extension point to an abstraction that has not
-> been designed. Doc 36's D4 owes the player-build step itself; the plugin row is downstream of it.
+> point and `ImporterContributionTests` asserts the mechanism. ⚠ ~~**Build steps are still not
+> reachable and, unlike importers, there is nothing to reach.**~~ — **there is now, and the thing to
+> reach turned out to be a record and not an interface.** `BuildStep(id, stage, run)` in
+> `Vixen.Editor.Assets.Content` is added through `IEditorRegistry` and `EditorBuilds` reads it when
+> Build is pressed, so both this row and doc 36 § D4's are the same eight lines. ⚠ **`IBuildStep` was
+> the wrong shape to have been waiting for**: a player build is a fixed sequence of four things, so
+> what a contributor needs is a moment and a delegate, and an interface would have been a type to
+> implement in order to hold one method.
 >
 > ~~Project templates are `Tools/Vixen.Templates`, which does not exist yet either.~~ — it exists,
 > with its own `Tools/Vixen.Templates.Tests` and a `CheckTemplates` target.

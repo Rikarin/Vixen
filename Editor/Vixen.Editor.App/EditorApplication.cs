@@ -226,6 +226,16 @@ sealed partial class EditorApplication : IDisposable {
 
     readonly ContentTasks content;
 
+    /// <summary>The import and build tasks, for the suite that has to substitute the publish.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal and for one thing.</b> Every other question about a build is asked through
+    ///     the window or the menu — see <c>BuildSettingsTests</c> — and this exists because doc 36
+    ///     § D4's after-build steps run between a <c>dotnet publish</c> and a launch, which is the one
+    ///     point in this application no test can reach without shelling out. See
+    ///     <see cref="ContentTasks.Publisher" />.
+    /// </remarks>
+    internal ContentTasks Content => content;
+
     /// <summary>What puts doc 48 § D12's baked mesh maps into the project as ordinary assets.</summary>
     /// <remarks>
     ///     ⚠ <b>Held as well as published, because it has two callers and they are different
@@ -764,7 +774,10 @@ sealed partial class EditorApplication : IDisposable {
             sequencer.Scene = () => scene;
         }
 
-        thumbnails = new ThumbnailCache(project);
+        // ⚠ With the registry, which is doc 36 § D4's `AddPreview` row: a module or a plugin owning
+        // its own file format is the one thing that can draw a picture of it, and without this the
+        // grid shows its files the generic glyph for ever.
+        thumbnails = new ThumbnailCache(project, Extensions);
 
         // ⚠ The surface is read through a lambda rather than handed over, because there is none yet:
         // the window has to be up before a Vulkan surface exists, so the host sets it after this
