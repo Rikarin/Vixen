@@ -78,6 +78,21 @@ foreach (var (mesh, level) in (ReadOnlySpan<(AssetReference, int)>)[(High, 0), (
 Both components are `[Component] [DataContract]`, so a scene serialises them and the inspector shows
 them; nothing here has to be built in code.
 
+**Or from the editor: select the levels and run Entity ▸ Group as LOD Group** (`entity.group-lod`).
+It puts a parent called *LOD Group* where the first selected entity was, hangs everything selected
+under it, numbers each child in selection order — first selected is level 0 — and writes a starting
+chain of halving thresholds (0.5, 0.25, …) for the parent.
+
+⚠ **Selection order is the only honest source for the numbering.** Three separately imported meshes
+have no relationship the editor can read, and guessing from triangle counts is a rule that is right
+until somebody's coarse level is denser than their fine one. `LodLevel` is a field on each child
+afterwards, so a wrong order costs one edit.
+
+⚠ **The whole gesture is one undo step.** It is a create, one reparent per level and one component
+write per level, and a Ctrl+Z that took back one of those would leave a group with four levels in it.
+The line greys itself out below two selected entities: a chain of one is a group whose only level is
+always the one drawn, which is what doing nothing already gives you.
+
 **Which children are levels.** A child with no `LodLevel` is not one — a light, a collider or a socket
 hanging off the same parent is drawn whatever the group is showing. A child with a `LodLevel` whose
 parent carries no `LodGroupComponent` is in no group and is drawn.
@@ -151,9 +166,10 @@ nothing in half the product.
   them. That is the owed half of
   [#1173](https://github.com/Rikarin/Vixen/issues/1173), and it is a content-build feature rather
   than an importer flag.
-- **No editor gesture builds a group.** The components serialise and inspect; there is no
-  Create ▸ LOD Group and no handle that shows where a threshold falls. Judging a screen-height
-  fraction by typing `0.06` and walking backwards is the authoring experience. Also #1173.
+- **No handle shows where a threshold falls.** Entity ▸ **Group as LOD Group** now builds a chain out
+  of a selection — see below — but judging whether `0.06` is the right number is still done by typing
+  it and walking backwards. A gizmo that drew each switch point as a distance in the viewport is the
+  remaining half of #1173's item (2).
 
 ⚠ **Until 2026-09-09 there was no producer at all.** `LodRenderFeature` was complete, tested and named
 by neither renderer, so nothing ever called `Add`, no group was ever registered, and a scene authored

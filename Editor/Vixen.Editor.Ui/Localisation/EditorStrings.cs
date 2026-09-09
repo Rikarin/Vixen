@@ -616,6 +616,10 @@ public static class EditorStrings {
     /// <summary>The <c>Group</c> command.</summary>
     public static StringId CommandEntityGroup { get; } = new("editor.command.entity.group", "Group");
 
+    /// <summary>The <c>Group as LOD Group</c> command.</summary>
+    public static StringId CommandEntityGroupLod { get; } =
+        new("editor.command.entity.group-lod", "Group as LOD Group");
+
     /// <summary>The <c>Make Prefab…</c> command.</summary>
     public static StringId CommandEntityMakePrefab { get; } = new("editor.command.entity.make-prefab", "Make Prefab…");
 
@@ -1236,6 +1240,7 @@ public static class EditorStrings {
         CommandEntityCreateVfx,
         CommandEntityDistribute,
         CommandEntityGroup,
+        CommandEntityGroupLod,
         CommandEntityMakePrefab,
         CommandEntityMoveToView,
         CommandEntityPasteTransform,

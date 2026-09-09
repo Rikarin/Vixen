@@ -19,6 +19,7 @@ using Vixen.Engine.Transforms;
 using Vixen.Input;
 using Vixen.Platform;
 using Vixen.Rendering;
+using Vixen.Rendering.Ecs;
 using Vixen.Ui;
 using Vixen.Ui.Controls;
 
@@ -694,6 +695,17 @@ sealed partial class EditorApplication {
             enabled: () => scene.Selection.Count > 0
         );
 
+        // ⚠ Two or more, unlike `entity.group` above, and the difference is what the verb means. A
+        // group of one is a perfectly ordinary thing to want; a LOD chain of one is a group whose
+        // only level is always the one drawn, which is what an author gets by doing nothing at all.
+        Verb(
+            "entity.group-lod",
+            EditorStrings.CommandEntityGroupLod,
+            EditorStrings.CategoryEntity,
+            GroupAsLod,
+            enabled: () => scene.Selection.Count > 1
+        );
+
         Verb(
             "entity.clear-parent",
             EditorStrings.CommandEntityClearParent,
@@ -1178,7 +1190,7 @@ sealed partial class EditorApplication {
             .AddSeparator()
             .Add("entity.make-prefab", "entity.unpack-prefab", "entity.apply-overrides")
             .AddSeparator()
-            .Add("entity.group", "entity.ungroup", "entity.set-parent", "entity.clear-parent")
+            .Add("entity.group", "entity.group-lod", "entity.ungroup", "entity.set-parent", "entity.clear-parent")
             .AddSeparator()
             .Add("entity.align-with-view", "entity.move-to-view", "entity.snap-to-floor")
             .AddSeparator()
@@ -2514,6 +2526,101 @@ sealed partial class EditorApplication {
         }
 
         scene.Selection.Set([group]);
+    }
+
+    /// <summary>What an entity's <c>LodLevel</c> is written through, so the write is undoable.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The same seam the component panel writes through, rather than a bare
+    ///     <c>World.Add</c>.</b> A command that added the component directly would put a change on
+    ///     the scene that Ctrl+Z cannot take back — and undoing the reparent beside it <em>would</em>
+    ///     work, so the half-undone state is five meshes back where they were, each still claiming to
+    ///     be a level of a group that no longer exists.
+    /// </remarks>
+    static readonly ComponentBridge<LodLevel> LodLevels = new("LodLevel");
+
+    /// <summary>Turns the selection into a LOD chain under a group of its own.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Issue 1173's item (2).</b> Both components are <c>[Component] [DataContract]</c>,
+    ///         so the inspector has always shown them and a scene has always serialised them — and
+    ///         that was the whole of the authoring story. A three-level chain was three meshes, one
+    ///         empty, three reparents, three <c>LodLevel</c> components typed in by hand and a
+    ///         threshold list typed into a fourth.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Selection order is level order, and the first selected is LOD 0.</b> There is no
+    ///         other honest source: the meshes are three separate imports with no relationship the
+    ///         editor can read, and guessing from triangle counts would be a rule that is right until
+    ///         the day somebody's coarse level is denser. The numbers are a field on each child
+    ///         afterwards, so a wrong guess costs one edit rather than an undo.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Halving thresholds, and they have to descend.</b> <c>LodRenderFeature.Add</c>
+    ///         throws on a list that does not, so a default that merely looked plausible would be a
+    ///         command whose output crashes the renderer. Halving from a half of the viewport's
+    ///         height is a chain an author edits rather than one they have to invent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One undo step for the whole gesture.</b> A create, n reparents and n component
+    ///         writes is 2n+1 commands, and Ctrl+Z that took back one of them would leave a group
+    ///         with four levels in it. <c>entity.group</c> beside this one still has that shape —
+    ///         filed rather than widened into here.
+    ///     </para>
+    /// </remarks>
+    void GroupAsLod() {
+        var members = scene.Selection.Where(world.IsAlive).ToList();
+
+        if (members.Count < 2) {
+            return;
+        }
+
+        using var batch = scene.Stack.BeginTransaction(EditorStrings.CommandEntityGroupLod.Text);
+
+        var parent = Hierarchy.ParentOf(world, members[0]);
+
+        var group = scene.Create(
+            "LOD Group",
+            LocalTransform.Identity,
+            parent,
+            entity => world.Add(entity, new LodGroupComponent { Thresholds = LodThresholds(members.Count) })
+        );
+
+        for (var level = 0; level < members.Count; level++) {
+            var member = members[level];
+
+            scene.Reparent(member, group);
+
+            scene.Stack.Execute(
+                new SetComponentCommand(
+                    scene,
+                    LodLevels,
+                    member,
+                    world.Has<LodLevel>(member) ? world.Read<LodLevel>(member) : null,
+                    new LodLevel { Level = level },
+                    EditorStrings.CommandEntityGroupLod.Text
+                )
+            );
+        }
+
+        scene.Selection.Set([group]);
+    }
+
+    /// <summary>The switch points a chain of <paramref name="levels" /> starts with.</summary>
+    /// <param name="levels">How many levels the group has.</param>
+    /// <returns>
+    ///     <paramref name="levels" /> − 1 screen-height fractions, descending — empty for a group of
+    ///     one, which <c>LodGroupComponent</c> reads as "one level" rather than as a mistake.
+    /// </returns>
+    static float[] LodThresholds(int levels) {
+        var thresholds = new float[Math.Max(levels - 1, 0)];
+        var fraction = 0.5f;
+
+        for (var index = 0; index < thresholds.Length; index++) {
+            thresholds[index] = fraction;
+            fraction *= 0.5f;
+        }
+
+        return thresholds;
     }
 
     /// <summary>Copies the selection in place, and selects what came out.</summary>
