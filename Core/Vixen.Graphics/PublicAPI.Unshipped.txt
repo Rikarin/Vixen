@@ -501,9 +501,11 @@ Vixen.Graphics.GpuScope.DurationTicks.get -> ulong
 Vixen.Graphics.GpuScope.EndTicks.get -> ulong
 Vixen.Graphics.GpuScope.EndTicks.init -> ulong
 Vixen.Graphics.GpuScope.GpuScope() -> void
-Vixen.Graphics.GpuScope.GpuScope(string Name, int Level, ulong BeginTicks, ulong EndTicks) -> void
+Vixen.Graphics.GpuScope.GpuScope(string Name, int Level, ulong BeginTicks, ulong EndTicks, bool Measured = true) -> void
 Vixen.Graphics.GpuScope.Level.get -> int
 Vixen.Graphics.GpuScope.Level.init -> int
+Vixen.Graphics.GpuScope.Measured.get -> bool
+Vixen.Graphics.GpuScope.Measured.init -> bool
 Vixen.Graphics.GpuScope.Name.get -> string
 Vixen.Graphics.GpuScope.Name.init -> string
 Vixen.Graphics.GpuShader -> abstract class

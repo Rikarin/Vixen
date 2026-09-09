@@ -155,6 +155,127 @@ public sealed class GpuProfilerTests : IDisposable {
         }
     }
 
+    /// <summary>
+    ///     ⚠ A region opened and never closed comes back unmeasured, and the recorder is the only
+    ///     thing that can say so.
+    /// </summary>
+    /// <remarks>
+    ///     The Null device's readings are a synthetic counter — every slot in the range answers,
+    ///     written or not — so the unclosed region's end reading is a perfectly plausible number.
+    ///     That is precisely the shape WebGPU has on real hardware, where there is no query reset and
+    ///     an untouched slot resolves to whatever was there. Reading the ticks cannot tell the two
+    ///     apart; only <see cref="GpuProfiler.Close" /> having run can.
+    /// </remarks>
+    [Fact]
+    public void ARegionThatWasNeverClosedComesBackUnmeasured() {
+        using GpuProfiler profiler = new(device);
+        using var list = device.BeginCommandList();
+
+        profiler.BeginFrame(list, 7);
+
+        profiler.Close(list, profiler.Begin(list, "closed"));
+        profiler.Begin(list, "abandoned");
+
+        list.Finish();
+        device.GraphicsQueue.Submit([list]);
+
+        Assert.True(Drain(profiler));
+        Assert.Equal(2, profiler.Latest.Scopes.Count);
+
+        // Both halves: the closed one must still say it was measured, or the flag would be a
+        // predicate that is false for everything and no timeline would ever draw.
+        Assert.True(profiler.Latest.Scopes[0].Measured);
+        Assert.False(profiler.Latest.Scopes[1].Measured);
+
+        // And the reading it came back with was not zero, which is the whole point — a test on the
+        // ticks would have called this scope measured.
+        Assert.True(profiler.Latest.Scopes[1].BeginTicks > 0);
+    }
+
+    /// <summary>
+    ///     ⚠ One unmeasured scope reading zero used to pin the frame's origin there, which reported
+    ///     the device's absolute clock as the frame time.
+    /// </summary>
+    [Fact]
+    public void AnUnmeasuredScopeDoesNotPinTheFramesOrigin() {
+        GpuFrame frame = new(
+            1,
+            [
+                new("shadows", 0, 1_000, 1_100),
+                new("never written", 0, 0, 0, Measured: false)
+            ],
+            1f
+        );
+
+        Assert.Equal(1_000ul, frame.BeginTicks);
+
+        // 100 ticks at a nanosecond each, and not the 1_100 the absolute clock would have given.
+        Assert.Equal(0.0001d, frame.Milliseconds, 9);
+
+        Assert.Equal(0f, frame.Fraction(1_000));
+        Assert.Equal(1f, frame.Fraction(1_100));
+    }
+
+    /// <summary>
+    ///     The other direction: a pair that genuinely read the same number is a measurement, and
+    ///     dropping it would be the ambiguity again with the sign flipped.
+    /// </summary>
+    /// <remarks>
+    ///     <c>ICommandList.WriteTimestamp</c> records bottom-of-pipe, so a pair around one small draw
+    ///     on a deeply pipelined GPU legitimately reads as zero ticks.
+    /// </remarks>
+    [Fact]
+    public void AMeasuredScopeThatTookNoTimeIsStillPartOfTheFrame() {
+        GpuFrame frame = new(
+            1,
+            [
+                new("tiny draw", 0, 500, 500),
+                new("shadows", 0, 1_000, 1_100)
+            ],
+            1f
+        );
+
+        Assert.Equal(500ul, frame.BeginTicks);
+        Assert.Equal(0.0006d, frame.Milliseconds, 9);
+        Assert.Equal(0d, frame.MillisecondsOf(frame.Scopes[0]));
+    }
+
+    /// <summary>
+    ///     ⚠ And a measured reading that happens to be zero is a reading, so the flag cannot be
+    ///     stood in for by testing the ticks against zero.
+    /// </summary>
+    /// <remarks>
+    ///     A GPU timestamp's zero point means nothing — it is a free-running counter whose origin is
+    ///     the driver's business — so nothing forbids a device from handing back a small number, and a
+    ///     rule that read <c>BeginTicks == 0</c> as "never written" would throw away the earliest pass
+    ///     in the frame on the day one did. That is the ambiguity again, one level up, which is
+    ///     exactly what <see cref="GpuScope.Measured" /> exists to avoid.
+    /// </remarks>
+    [Fact]
+    public void AMeasuredReadingOfZeroIsStillTheFramesOrigin() {
+        GpuFrame frame = new(
+            1,
+            [
+                new("first", 0, 0, 40),
+                new("shadows", 0, 1_000, 1_100)
+            ],
+            1f
+        );
+
+        Assert.Equal(0ul, frame.BeginTicks);
+        Assert.Equal(0.0011d, frame.Milliseconds, 9);
+    }
+
+    /// <summary>An unmeasured scope has no duration however far apart its two numbers are.</summary>
+    [Fact]
+    public void AnUnmeasuredScopeHasNoDuration() {
+        GpuScope measured = new("ui", 0, 10, 90);
+        GpuScope unmeasured = measured with { Measured = false };
+
+        Assert.Equal(80ul, measured.DurationTicks);
+        Assert.Equal(0ul, unmeasured.DurationTicks);
+    }
+
     [Fact]
     public void PoolsAreReturnedWhenItIsDisposed() {
         var before = device.LiveResourceCount;

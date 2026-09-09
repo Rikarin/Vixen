@@ -8,9 +8,24 @@ namespace Vixen.Graphics;
 /// <param name="Level">How deeply nested it is, for drawing.</param>
 /// <param name="BeginTicks">The GPU clock at its start.</param>
 /// <param name="EndTicks">The GPU clock at its end.</param>
-public readonly record struct GpuScope(string Name, int Level, ulong BeginTicks, ulong EndTicks) {
-    /// <summary>How many ticks it took.</summary>
-    public ulong DurationTicks => EndTicks >= BeginTicks ? EndTicks - BeginTicks : 0;
+/// <param name="Measured">Whether both readings came from the device.</param>
+/// <remarks>
+///     ⚠ <b><paramref name="Measured" /> exists because a zero duration is legitimate.</b>
+///     <see cref="ICommandList.WriteTimestamp" /> records bottom-of-pipe, so a pair around one small
+///     draw on a deeply pipelined GPU genuinely reads as zero — which means "both readings were the
+///     same" and "neither reading was ever written" are the same two numbers. Asking the ticks cannot
+///     tell them apart, and the difference is the whole of whether a timeline is showing a fast pass
+///     or nothing at all.
+/// </remarks>
+public readonly record struct GpuScope(
+    string Name,
+    int Level,
+    ulong BeginTicks,
+    ulong EndTicks,
+    bool Measured = true
+) {
+    /// <summary>How many ticks it took, or zero when it was never measured.</summary>
+    public ulong DurationTicks => Measured && EndTicks >= BeginTicks ? EndTicks - BeginTicks : 0;
 }
 
 /// <summary>One frame's GPU work, resolved and converted to a readable unit.</summary>
@@ -23,17 +38,30 @@ public sealed record GpuFrame(int FrameIndex, IReadOnlyList<GpuScope> Scopes, fl
 
     /// <summary>The earliest reading in the frame, which everything else is drawn relative to.</summary>
     /// <remarks>
-    ///     ⚠ <b>Relative, because a GPU timestamp's zero point means nothing.</b> It is comparable
-    ///     with another reading from the same device and with nothing on the CPU — lining the two up
-    ///     needs a calibrated pair, which is an extension a good many drivers do not have. See
-    ///     <see cref="GpuTimestamps" />.
+    ///     <para>
+    ///         ⚠ <b>Relative, because a GPU timestamp's zero point means nothing.</b> It is comparable
+    ///         with another reading from the same device and with nothing on the CPU — lining the two
+    ///         up needs a calibrated pair, which is an extension a good many drivers do not have. See
+    ///         <see cref="GpuTimestamps" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A scope that was never measured is not a scope that began at tick zero.</b> This
+    ///         is a minimum over the whole frame, so a single unwritten reading of 0 would pin the
+    ///         origin there — and then <see cref="Milliseconds" /> reports the device's absolute clock
+    ///         as the frame's duration and every <see cref="Fraction" /> collapses to one. One bad
+    ///         slot is enough to make every number in the panel wrong, which is why
+    ///         <see cref="GpuScope.Measured" /> is asked here rather than the ticks being tested
+    ///         against zero.
+    ///     </para>
     /// </remarks>
     public ulong BeginTicks {
         get {
             var earliest = ulong.MaxValue;
 
             foreach (var scope in Scopes) {
-                earliest = Math.Min(earliest, scope.BeginTicks);
+                if (scope.Measured) {
+                    earliest = Math.Min(earliest, scope.BeginTicks);
+                }
             }
 
             return earliest == ulong.MaxValue ? 0 : earliest;
@@ -43,20 +71,31 @@ public sealed record GpuFrame(int FrameIndex, IReadOnlyList<GpuScope> Scopes, fl
     /// <summary>How long the whole frame took on the GPU, in milliseconds.</summary>
     public double Milliseconds {
         get {
-            var last = 0ul;
             var first = BeginTicks;
-
-            foreach (var scope in Scopes) {
-                last = Math.Max(last, scope.EndTicks);
-            }
+            var last = LastTicks;
 
             return last <= first ? 0d : GpuTimestamps.ToMilliseconds(last - first, Period);
         }
     }
 
+    /// <summary>The latest reading in the frame, ignoring scopes that were never measured.</summary>
+    ulong LastTicks {
+        get {
+            var last = 0ul;
+
+            foreach (var scope in Scopes) {
+                if (scope.Measured) {
+                    last = Math.Max(last, scope.EndTicks);
+                }
+            }
+
+            return last;
+        }
+    }
+
     /// <summary>How long one scope took, in milliseconds.</summary>
     /// <param name="scope">The scope.</param>
-    /// <returns>Its duration.</returns>
+    /// <returns>Its duration, or zero when it was never measured.</returns>
     public double MillisecondsOf(GpuScope scope) => GpuTimestamps.ToMilliseconds(scope.DurationTicks, Period);
 
     /// <summary>Where a reading falls in the frame's window.</summary>
@@ -64,11 +103,7 @@ public sealed record GpuFrame(int FrameIndex, IReadOnlyList<GpuScope> Scopes, fl
     /// <returns>Zero at the frame's start, one at its end.</returns>
     public float Fraction(ulong ticks) {
         var first = BeginTicks;
-        var last = 0ul;
-
-        foreach (var scope in Scopes) {
-            last = Math.Max(last, scope.EndTicks);
-        }
+        var last = LastTicks;
 
         return last <= first || ticks <= first ? 0f : (float)Math.Clamp((ticks - first) / (double)(last - first), 0d, 1d);
     }
@@ -302,6 +337,15 @@ public sealed class GpuProfiler : IGpuScopeSink, IDisposable {
     /// <param name="commands">The list the region's work was recorded into.</param>
     /// <param name="token">What <see cref="Begin" /> returned. <see langword="null" /> does nothing.</param>
     /// <exception cref="ArgumentNullException"><paramref name="commands" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>This is the only place that knows a scope's second reading was written</b>, and it is
+    ///     why <see cref="GpuScope.Measured" /> is recorded here rather than inferred from the ticks
+    ///     later. A region opened and never closed has an untouched end slot, and what that slot then
+    ///     resolves to is the backend's business: Vulkan's reset makes it unavailable, so the whole
+    ///     range fails; ⚠ WebGPU has no query reset at all and an unwritten slot reads as an
+    ///     unspecified value, 0 in practice, and <c>NullDevice</c> answers from a synthetic counter
+    ///     that never knew the difference. Only the recorder can say.
+    /// </remarks>
     public void Close(ICommandList commands, int? token) {
         ArgumentNullException.ThrowIfNull(commands);
         ObjectDisposedException.ThrowIf(disposed, this);
@@ -311,6 +355,16 @@ public sealed class GpuProfiler : IGpuScopeSink, IDisposable {
         }
 
         open = Math.Max(0, open - 1);
+
+        var scopes = pending[slot];
+
+        // Guarded rather than indexed blindly: a scope closed after the frame it belongs to has been
+        // begun again is a caller error, and the token then names a slot in a list that has been
+        // cleared.
+        if ((uint)index < (uint)scopes.Count) {
+            scopes[index] = scopes[index] with { Closed = true };
+        }
+
         commands.WriteTimestamp(pools[slot], (index * 2) + 1);
     }
 
@@ -343,7 +397,8 @@ public sealed class GpuProfiler : IGpuScopeSink, IDisposable {
                 scopes[index].Name,
                 scopes[index].Level,
                 readings[index * 2],
-                readings[(index * 2) + 1]
+                readings[(index * 2) + 1],
+                scopes[index].Closed
             );
         }
 
@@ -369,5 +424,5 @@ public sealed class GpuProfiler : IGpuScopeSink, IDisposable {
         }
     }
 
-    readonly record struct PendingScope(string Name, int Level);
+    readonly record struct PendingScope(string Name, int Level, bool Closed = false);
 }
