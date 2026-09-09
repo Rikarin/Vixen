@@ -249,15 +249,32 @@ public class RefusalExpiryTests {
 
     /// <summary>No refusal outlives the condition it named.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both directions.</b> A clause fails when what it waits on arrives, and it also fails
-    ///     when the row carrying it stops being refused — because at that point the note says "refused
-    ///     with X" about a root that is not refused, which is prose describing a state the tree left.
-    ///     Leaving that half out is how <c>origin-*</c>'s page stayed authoritative for a year.
+    ///     <para>
+    ///         ⚠ <b>Both directions.</b> A clause fails when what it waits on arrives, and it also
+    ///         fails when the row carrying it stops being refused — because at that point the note
+    ///         says "refused with X" about a root that is not refused, which is prose describing a
+    ///         state the tree left. Leaving that half out is how <c>origin-*</c>'s page stayed
+    ///         authoritative for a year.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every clause is evaluated and they are reported together, which is not a tidying
+    ///         of the message.</b> This asserted per clause until 2026-09-10, so the first expiry
+    ///         threw and the rest of the sweep never ran — and <c>RefusalExpiry.txt</c>'s own header
+    ///         says the pattern to look for is <i>rows sharing an anchor</i>, because "when that
+    ///         premise closes, they all rot at once and the suite reports only the first". The
+    ///         instrument had exactly the defect the census it reads on warns about. Three rows name
+    ///         <c>UiVertex.W</c> directly and four more reach it through <c>expires-with</c>, so the
+    ///         day #548 lands this used to print one root's name; a reader would size a seven-row
+    ///         decision as a one-row one, fix the row they were shown, and be told about the next
+    ///         one on the next run. It was measured on that exact anchor rather than predicted
+    ///         (#548's fifth pass), and it prints all of them now.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void No_refusal_outlives_the_condition_it_names() {
         var (_, rows) = ParityLedger.Read(ParityLedger.Locate());
         var state = rows.ToDictionary(row => row.Root, row => row.State, StringComparer.Ordinal);
+        var expired = new List<string>();
 
         // ⚠ The sweep is the WIDE one — the ledger plus every README and doc comment — because a
         // refusal in prose rots exactly as a note does, and four false ones were found in prose in
@@ -273,45 +290,63 @@ public class RefusalExpiryTests {
 
             // A prose refusal has no row, so there is no state to hold it to — only the condition
             // below. That is the whole of the difference between the two sources.
-            Assert.True(
-                clause.Prose || standing.Contains(state[clause.Root]),
-                $"{clause.Root} is '{(clause.Prose ? "prose" : state[clause.Root])}' and still declares an "
-                + "expiry clause. It is not refused any more, so the clause and the sentence it "
-                + "formalises both want deleting."
-            );
-
-            if (clause.Kind == ExpiryKind.WhenRead) {
-                var read = UtilityConsumptionProbe.Take().Consumers.TryGetValue(clause.Anchor, out var consumers);
-
-                Assert.False(
-                    read,
-                    $"{clause.Root}'s gap rests on nothing reading '{clause.Anchor}', and "
-                    + $"{string.Join(", ", consumers ?? [])} reads it now. Re-read {clause.Root}'s note "
-                    + "and re-measure the row: the allow-list line it cites has expired, and this is the "
-                    + "sentence one dependency edge out from it."
+            if (!clause.Prose && !standing.Contains(state[clause.Root])) {
+                expired.Add(
+                    $"{clause.Root} is '{state[clause.Root]}' and still declares an expiry clause. It is "
+                    + "not refused any more, so the clause and the sentence it formalises both want "
+                    + "deleting."
                 );
 
                 continue;
             }
 
+            if (clause.Kind == ExpiryKind.WhenRead) {
+                if (UtilityConsumptionProbe.Take().Consumers.TryGetValue(clause.Anchor, out var consumers)) {
+                    expired.Add(
+                        $"{clause.Root}'s gap rests on nothing reading '{clause.Anchor}', and "
+                        + $"{string.Join(", ", consumers)} reads it now. Re-read {clause.Root}'s note "
+                        + "and re-measure the row: the allow-list line it cites has expired, and this is "
+                        + "the sentence one dependency edge out from it."
+                    );
+                }
+
+                continue;
+            }
+
             if (clause.Kind == ExpiryKind.With) {
-                Assert.True(
-                    RefusalExpiry.Refusing.Contains(state[clause.Anchor]),
-                    $"{clause.Root} is refused on the strength of {clause.Anchor} being refused, and "
-                    + $"{clause.Anchor} is '{state[clause.Anchor]}' now. Re-read {clause.Root}'s note: "
-                    + "the premise it rests on has closed."
-                );
+                if (!RefusalExpiry.Refusing.Contains(state[clause.Anchor])) {
+                    expired.Add(
+                        $"{clause.Root} is refused on the strength of {clause.Anchor} being refused, and "
+                        + $"{clause.Anchor} is '{state[clause.Anchor]}' now. Re-read {clause.Root}'s note: "
+                        + "the premise it rests on has closed."
+                    );
+                }
 
                 continue;
             }
 
             var (type, member) = RefusalExpiry.Resolve(clause.Anchor);
 
-            Assert.False(
-                type is not null && RefusalExpiry.Has(type, member),
-                $"{clause.Root} is refused because '{clause.Anchor}' does not exist, and it does now. "
-                + "Re-read the note: the thing it was waiting for has arrived."
-            );
+            if (type is not null && RefusalExpiry.Has(type, member)) {
+                expired.Add(
+                    $"{clause.Root} is refused because '{clause.Anchor}' does not exist, and it does now. "
+                    + "Re-read the note: the thing it was waiting for has arrived."
+                );
+            }
         }
+
+        Assert.True(
+            expired.Count == 0,
+            $"""
+             {expired.Count} refusal clause(s) have outlived the condition they name:
+
+             {string.Join("\n\n", expired.Select(static line => "  " + line))}
+
+             ⚠ Read the WHOLE list before deciding anything. Rows here share an anchor on purpose,
+             so one arriving member can come due for several roots at once, and each of them is a
+             separate decision about a separate refusal — fixing only the first name printed is how
+             a shared premise closes while the notes resting on it stay as they were.
+             """
+        );
     }
 }
