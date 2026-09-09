@@ -1,0 +1,65 @@
+# The plaza: the engine's first shipping material whose weights are painted rather than authored.
+#
+# ⚠ **This is the asset doc 48's M11 was waiting on** — https://github.com/Rikarin/Vixen/issues/1073.
+# `TexturedMaterialLayersFeature` and its Raven surface have been complete since M11 landed and a
+# device golden has photographed them since 2026-09-07, and until this file existed no material an
+# artist could open carried one: a feature waiting for a caller, which is the shape doc 48 § D14 warns
+# about. The caller is `Assets/Scenes/Arena.vxscene`'s `Plaza` entity.
+#
+# ⚠ **It needed a mesh of its own and that is not a preference.** A splat map is the one kind of map
+# that must be unique per surface — its content is *where on this surface layer 2 is* — and every other
+# arena mesh is box-projected by `Content/boxuv.py` in metres of world over a 2 m tile, so
+# `arena-floor.obj` runs -16..16 and this map would repeat thirty-two times per axis and place nothing.
+# `SurfaceVertex` carries exactly one `TexCoord`, so the usual answer — splat on uv0, detail on uv1 —
+# is a vertex-format change rather than a material one. `arena-plaza.obj` is 0..1 across its 24 m.
+#
+# ⚠ **A layer names no map, so this surface has none, and that is the feature's shape rather than an
+# omission here.** A `MaterialLayerValue` is a base colour, a metalness, a roughness and a weight —
+# four scalars. Putting this feature on any of the five *textured* arena materials would therefore mean
+# giving up that surface's base-colour map, which is a regression; the plaza is a new surface instead,
+# so nothing was taken away to add it. (The plan document's "layers carry their own detail tiling" is
+# not expressible today — see #1073.)
+shader: ForwardPlus
+shading: StandardShading
+features:
+  # ⚠ `splatMap` is not a name this material may choose. `WorldRenderer.Paired` keys the entry in
+  # `MaterialRenderFeature.TextureIndices` off `new TexturedMaterialLayersFeature().SplatMap` — the
+  # feature's *default* — so a material that called it `weights` would resolve nothing, take slot zero
+  # and blend its layers by the table's magenta checker, which shades and does not fail.
+  # `MaterialDiagnosticId.RenamedTextureMap` refuses it at import; `FrameDocumentTests` is the half
+  # that checks the `textures:` entry below agrees with it.
+  #
+  # ⚠ **`paintedChannels` is left at its default of three and the map has three painted channels.**
+  # This is the silent wrong picture this feature has: a one- or three-channel texture samples alpha as
+  # 1, so a fourth layer declared over a map with no painted alpha weighs 1 *everywhere* and — after
+  # the normalisation — becomes the whole surface. A lit, plausible surface of the wrong stuff, with
+  # nothing in the frame to say so. Three layers, three channels, and `plaza-splat.png`'s alpha is 255
+  # in every texel precisely so that this file's default is the true statement rather than the lucky
+  # one.
+  #
+  # ⚠ **And no `heightBlended`.** The height map is a *second* four-channel per-layer bundle and there
+  # is none here; setting the permutation without one samples slot zero — the checker again — and
+  # biases every weight in the frame. It is off by default and stays off.
+  #
+  # The three colours are the arena's dusk palette read straight, not tinted: unlike the textured
+  # materials, whose `baseColor` multiplies a map with a mean of 0.1725, a layer's base colour *is* the
+  # albedo. `floor.vxmat`'s effective 0.19 is what the stone below sits beside.
+  - !TexturedMaterialLayers
+    splatMap: splatMap
+    paintedChannels: 3
+    layers:
+      # R — worn limestone, the plaza's ground state and whatever the other two leave.
+      - { baseColor: 0.22 0.21 0.19, metalness: 0, roughness: 0.72, weight: 1 }
+      # G — moss, creeping in from the rim where nobody walks.
+      - { baseColor: 0.055 0.105 0.042, metalness: 0, roughness: 0.90, weight: 1 }
+      # B — trodden earth along two crossing desire lines.
+      - { baseColor: 0.11 0.078 0.052, metalness: 0, roughness: 0.94, weight: 1 }
+
+# ⚠ Imported `content: Linear`, not `Colour`. A splat weight is a number and not a colour: an sRGB view
+# over the same bytes hands the shader 0 and 1 unchanged and every value between them transferred,
+# which is a blend curve nobody authored. `compression: None` for the second half of the same argument
+# — BC7 endpoints would move a pure channel off 255 and the closed-form check in
+# `LayeredMaterialImageTests` compares a painted zone against a single-layer material exactly.
+textures:
+  - parameter: splatMap
+    texture: vx:cbbf94b1d0964cae8ffd9a118664517b
