@@ -911,6 +911,7 @@ sealed partial class EditorApplication : IDisposable {
         // to stacks that exist by now, and because `SavePreferences` is reachable from a panel the
         // line above has just registered.
         LoadPreferences();
+        LoadPresets();
         ApplyProjectSettings();
 
         // ⚠ Plugins go here and not later, and the two reasons are the two lines below. A plugin's
@@ -2880,11 +2881,17 @@ sealed partial class EditorApplication : IDisposable {
                 // control has no document until it is added to one.
                 view.Contextualise();
 
+                // Doc 20 § B5's curve presets, on the row's own menu because that is where a curve
+                // is — and on both menus, because a curve can be a member of the inspected object or
+                // a member of a component on it, and those are two panels. See `CurvePresetLibrary`
+                // for where the library lives and why.
+                CurvePresetLines(view.Contextualise(), () => view.AimedRow);
+
                 // ⚠ And the component section's own, which is a second menu rather than a second
                 // caller of the first. `InspectorView`'s is attached to its `Body`, and this control
                 // is a sibling of that body inside the same scroll region — so until now a secondary
                 // click on a component row reached no menu at all.
-                section.Contextualise();
+                CurvePresetLines(section.Contextualise(), () => section.AimedRow);
 
                 // ⚠ The panel refused every selection while it was locked, so it is showing
                 // something stale the moment the lock comes off — and nothing else would tell it,
@@ -2915,6 +2922,141 @@ sealed partial class EditorApplication : IDisposable {
                 opened = null;
             }
         };
+    }
+
+    /// <summary>Adds the curve-preset lines to a panel's context menu.</summary>
+    /// <param name="menu">The menu to add to.</param>
+    /// <param name="aimed">What row a secondary click landed on, asked at the moment it is needed.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Doc 20 § B5's last row, and the surface is the row's own menu because that is
+    ///         where the curve is.</b> A preset is applied through <c>CurveEditor.Apply</c>, which
+    ///         copies the keys into the curve the object already holds rather than swapping the
+    ///         object — that is what makes applying one an undoable edit rather than an alias, and it
+    ///         is why the drawer's <c>CurveChanged</c> is what writes it home.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Rebuilt every time the menu opens.</b> A submenu filled once holds the presets
+    ///         that existed when the panel was built, and the first thing anybody does after saving
+    ///         one is look for it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both menus, because there are two panels drawing rows and a curve can be in
+    ///         either.</b> <c>InspectorView</c> draws the members of one described type — a scene
+    ///         entity, an asset — and <c>ComponentsView</c> draws what is on an entity; they are
+    ///         siblings inside one scroll region with a context menu each. Lines added to one only
+    ///         would be a feature that works on a curve in a custom inspector and silently does not
+    ///         on a curve in a component, which is the shape of gap nobody reports.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Curves only, and the gradient half of the doc row is refused rather than
+    ///         forgotten</b> — see <see cref="CurvePresetLibrary" /> for the sweep that settles it.
+    ///     </para>
+    /// </remarks>
+    void CurvePresetLines(ContextMenu menu, Func<InspectorRow?> aimed) {
+        menu.AddSeparator();
+
+        var apply = menu.AddSubmenu("Curve Presets");
+        var save = menu.AddItem("Save Curve as Preset…");
+        var forget = menu.AddSubmenu("Forget Curve Preset");
+
+        save.Clicked += _ => Keep(aimed);
+
+        menu.OpenChanged += (_, isOpen) => {
+            if (!isOpen) {
+                return;
+            }
+
+            var editing = Curve(aimed) is not null;
+
+            save.Disabled = !editing;
+            if (apply.Opener is { } applyLine) {
+                applyLine.Disabled = !editing;
+            }
+            if (forget.Opener is { } forgetLine) {
+                forgetLine.Disabled = !editing || presets.Curves.Count == 0;
+            }
+
+            Fill(apply, editing ? presets.Offered() : [], name => Apply(aimed, name));
+
+            Fill(
+                forget,
+                editing ? [.. presets.Curves.Select(saved => (saved.Name, CurvePresetLibrary.ToCurve(saved)))] : [],
+                name => {
+                    if (presets.Forget(name)) {
+                        WritePresets();
+                    }
+                }
+            );
+        };
+
+        static void Fill(Menu submenu, IReadOnlyList<(string Name, AnimationCurve Curve)> offered, Action<string> run) {
+            while (submenu.Items.Count > 0) {
+                submenu.Items[^1].Remove();
+            }
+
+            foreach (var (name, _) in offered) {
+                var line = submenu.AddItem(name);
+
+                line.Clicked += _ => run(name);
+            }
+        }
+    }
+
+    /// <summary>The curve editor the aimed row is drawing, if it is drawing one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The control rather than the member's value.</b> <c>CurveEditor.Apply</c> is what
+    ///     keeps the object the caller is holding, and it is also what raises the change the drawer
+    ///     writes home; reaching past it to the boxed value would edit a copy nothing is bound to.
+    /// </remarks>
+    static CurveEditor? Curve(Func<InspectorRow?> aimed) => aimed()?.Editor as CurveEditor;
+
+    /// <summary>Puts a named shape into the aimed row's curve.</summary>
+    /// <param name="aimed">What row the click landed on.</param>
+    /// <param name="name">Which shape.</param>
+    void Apply(Func<InspectorRow?> aimed, string name) {
+        if (Curve(aimed) is not { } editor) {
+            return;
+        }
+
+        foreach (var (offered, curve) in presets.Offered()) {
+            if (string.Equals(offered, name, StringComparison.Ordinal)) {
+                editor.Apply(curve);
+                return;
+            }
+        }
+    }
+
+    /// <summary>Asks for a name and keeps the aimed row's curve under it.</summary>
+    /// <param name="aimed">What row the click landed on.</param>
+    /// <remarks>
+    ///     ⚠ <b>The keys are copied out of the control's curve.</b> A library holding the object an
+    ///     inspector row is editing would be a preset that changed every time somebody dragged the
+    ///     key it was made from.
+    /// </remarks>
+    void Keep(Func<InspectorRow?> aimed) {
+        if (Curve(aimed) is not { } editor) {
+            return;
+        }
+
+        var shape = editor.Curve;
+
+        _ = Ask();
+
+        async Task Ask() {
+            var typed = await Shell.Dialogs.PromptAsync(
+                "Save Curve as Preset",
+                "It is kept beside your layouts and keymap rather than in the project.",
+                confirm: "Save"
+            ).ConfigureAwait(true);
+
+            if (typed is not { Length: > 0 } name || string.IsNullOrWhiteSpace(name)) {
+                return;
+            }
+
+            presets.Save(name.Trim(), shape);
+            WritePresets();
+        }
     }
 
     /// <summary>Brings every open inspector's component section into line with the preferences.</summary>

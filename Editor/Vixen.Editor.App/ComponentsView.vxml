@@ -417,6 +417,15 @@
     /// </remarks>
     InspectorRow? aimed;
 
+    /// <summary>The row a secondary click landed on, which is what the menu acts upon.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Published so a host can add lines to <see cref="Contextualise" />'s menu that act on
+    ///     the same row this panel's own line does</b> — the curve presets are the first, and they go
+    ///     on both this menu and <c>InspectorView</c>'s because a curve can be a member of the
+    ///     inspected object or a member of a component on it.
+    /// </remarks>
+    public InspectorRow? AimedRow => aimed;
+
     /// <summary>Gives the panel its context menu, which is where a member is pinned.</summary>
     /// <returns>The menu, so a caller can add to it.</returns>
     /// <remarks>

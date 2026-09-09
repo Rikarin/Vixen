@@ -39,6 +39,18 @@ sealed partial class EditorApplication {
     /// <summary>What the preferences window edits, which is the user's rather than the project's.</summary>
     EditorPreferences preferences = new();
 
+    /// <summary>The curves somebody has kept, which are the user's too.</summary>
+    /// <inheritdoc cref="CurvePresetLibrary" select="remarks" />
+    CurvePresetLibrary presets = new();
+
+    /// <summary>The curve presets, for the harness and for whatever else asks.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The library rather than a copy of it, because the menu reads it every time it
+    ///     opens.</b> A test that saved into a copy would be asserting about an object no menu is
+    ///     built from — which is the shape of test that passes while the feature does nothing.
+    /// </remarks>
+    public CurvePresetLibrary Curves => presets;
+
     /// <summary>The undo history while its panel is open, which is the one of the four that is polled.</summary>
     /// <remarks>
     ///     The other three are not held at all. A settings window and a plugin manager are driven by
@@ -338,6 +350,36 @@ sealed partial class EditorApplication {
         }
 
         ApplyPreferences();
+    }
+
+    /// <summary>Reads the saved curve presets.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Defaults rather than a refusal to start, on <see cref="LoadPreferences" />'s
+    ///     reasoning</b>: a mistyped line in a user file must not be an editor that will not open.
+    ///     What is lost is the saved shapes — and the shipped ones are still offered, because they
+    ///     are not in the file. That is the whole argument for <c>CurvePresetLibrary.Shipped</c>
+    ///     being a property rather than a seeded store.
+    /// </remarks>
+    void LoadPresets() {
+        if (store.Read(EditorUserStore.PresetsFile) is not { } yaml) {
+            return;
+        }
+
+        try {
+            presets = YamlSerializer.Parse<CurvePresetLibrary>(yaml);
+        } catch (YamlParseException) {
+            presets = new CurvePresetLibrary();
+        }
+    }
+
+    /// <summary>Writes the saved curve presets.</summary>
+    /// <returns>Whether it worked.</returns>
+    void WritePresets() {
+        try {
+            store.Write(EditorUserStore.PresetsFile, YamlSerializer.ToYaml(presets));
+        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+            Shell.Notifications.Show("Could not save the curve presets", NotificationSeverity.Error, exception.Message);
+        }
     }
 
     /// <summary>Writes the preferences and says so, which is what the window's Apply means.</summary>

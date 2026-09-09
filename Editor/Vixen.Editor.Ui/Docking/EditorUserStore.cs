@@ -35,6 +35,17 @@ public sealed class EditorUserStore {
     /// <summary>The file the shell's own preferences go in.</summary>
     public const string PreferencesFile = "preferences.yaml";
 
+    /// <summary>The file the saved curve presets go in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Here rather than in the project, which doc 20 § B5 decided and which has a
+    ///     consequence worth stating.</b> A library of saved curves is a user-store file rather than
+    ///     an editor surface — it belongs beside the layouts and the keymap — so presets are not
+    ///     project assets, get no importer, and travel with the person rather than with the
+    ///     repository. A team-shared library is a different feature and should not be smuggled in by
+    ///     making this one an asset.
+    /// </remarks>
+    public const string PresetsFile = "presets.yaml";
+
     /// <summary>The file recording which plugins the user has switched off.</summary>
     /// <remarks>
     ///     ⚠ <b>The user's rather than the plugin's, and that is the whole reason it is a second

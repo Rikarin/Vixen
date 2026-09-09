@@ -172,6 +172,16 @@ public sealed class InspectorView : Control {
     /// <summary>The rows, in order.</summary>
     public IReadOnlyList<InspectorRow> Rows => rows;
 
+    /// <summary>The row a secondary click landed on, which is what the context menu acts upon.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Published so that a host can add lines to <see cref="Contextualise" />'s menu that
+    ///     act on the same row the built-in ones do.</b> The alternative on offer was for a host to
+    ///     hit-test the rows itself from the pointer position, which is a second answer to a question
+    ///     this class already answers — and one that would disagree the moment a menu is opened by
+    ///     the keyboard rather than by a click.
+    /// </remarks>
+    public InspectorRow? AimedRow => aimed;
+
     /// <summary>The type every target has in common, if they have one.</summary>
     public InspectorDescriptor? Descriptor { get; private set; }
 
