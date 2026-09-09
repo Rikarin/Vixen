@@ -326,4 +326,104 @@ public class MaterialGraphPropertyTests {
         Assert.False(document.SetGraphValue("albedoIndex", new(3f, 0f, 0f, 0f)));
         Assert.Null(document.Surface);
     }
+
+    /// <summary>⚠ Clearing the link takes the rows with it, and the rows stop being able to write.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>One click on the asset field's <em>Clear</em>, which is a gesture and not an edge
+    ///         case.</b> The rebuild first went in after <c>Restate</c>'s existing early return for
+    ///         an empty link, so the unlinked branch never reached it: the previous graph's rows
+    ///         stayed on screen, still bound, and nudging one wrote a <c>GraphSurfaceFeature</c>
+    ///         naming a shader the material no longer links — beside a <c>Graph:</c> of all zeroes in
+    ///         the same file.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, because the visible one is not the dangerous one.</b> Rows nobody
+    ///         can see are a cosmetic defect; a <c>SetGraphValue</c> that still succeeds is a
+    ///         <c>.vxmat</c> the content build then has to resolve a surface for. So this asserts the
+    ///         panel is empty <em>and</em> that the document refuses the write.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ClearingTheLinkTakesTheRowsAndTheWritesWithIt() {
+        using var harness = new ViewHarness();
+        var document = Open(harness);
+        var view = harness.Ui.Document.Root.Add<MaterialView>();
+
+        view.Show(document);
+        harness.Ui.Frames(3);
+
+        Assert.Equal(2, view.GraphProperties.Children.Count);
+
+        document.Header.Graph = AssetId.Empty;
+
+        view.Show(document);
+        harness.Ui.Frames(3);
+
+        Assert.Empty(view.GraphProperties.Children);
+        Assert.False(document.SetGraphValue("roughness", new(0.5f, 0f, 0f, 0f)));
+    }
+
+    /// <summary>⚠ Moving the link to another graph does not carry the old graph's texture slots over.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half of a relink that is invisible.</b> The numbers are obviously the old
+    ///         graph's and an author would see them; the <c>Maps</c> are not, and they decide where
+    ///         the bindless table is written: <c>AssetMaterialSource.Pair</c> keys every slot on
+    ///         <c>{shader}.{chain}.{graph}.{slot}</c>. A feature carrying graph A's slots under graph
+    ///         B's name means none of B's own slots is ever written, and each one falls back to the
+    ///         table's placeholder view — a wrong texture on the surface, with nothing logged.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The old code took <c>before.Maps</c> whenever a feature existed while always
+    ///         re-reading <c>Shader</c> from the fresh compilation, so the two halves of the feature
+    ///         came from two different graphs.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void RelinkingToAnotherGraphReSeedsTheFeatureRatherThanKeepingTheOldOnes() {
+        using var harness = new ViewHarness();
+        var document = Open(harness);
+
+        Assert.True(document.SetGraphValue("roughness", new(0.25f, 0f, 0f, 0f)));
+
+        var first = Assert.IsType<GraphSurfaceFeature>(document.Surface);
+
+        Assert.Equal("AuthoredSurface", first.Shader);
+        Assert.NotEmpty(first.Numbers);
+
+        // A second graph, under its own guid and its own name, with one property and no texture — so
+        // "the maps came from the other graph" is a difference this fixture can see.
+        NodeGraphModel second = new() { Name = "SecondSurface" };
+        var rough = second.Add("Input/Float Property");
+        var master = second.Add("Master/Surface");
+
+        rough.SetText(ShaderProperties.Key, "roughness");
+        second.Connect(new(rough.Id, "Out"), new(master.Id, "Roughness"));
+
+        harness.Project.WriteAsset(
+            "Assets/SecondSurface.vxshadergraph",
+            YamlSerializer.ToYaml(NodeGraphDocument.Save(second)),
+            "guid: fedcba9876543210fedcba9876543210\nmetaVersion: 1\n"
+        );
+
+        harness.Project.Project.Assets.Scan();
+
+        document.Header.Graph = AssetId.Parse("fedcba9876543210fedcba9876543210");
+        document.ReadGraph();
+
+        Assert.True(document.SetGraphValue("roughness", new(0.75f, 0f, 0f, 0f)));
+
+        var after = Assert.IsType<GraphSurfaceFeature>(document.Surface);
+
+        Assert.Equal("SecondSurface", after.Shader);
+
+        // The instrument: the first graph *had* a map, so an empty list here is a re-seed and not a
+        // fixture that never had one to carry.
+        Assert.NotEmpty(first.Maps);
+        Assert.Empty(after.Maps);
+
+        // And the numbers are the new graph's own, not the old graph's entry kept and shadowed.
+        Assert.Equal(0.75f, Assert.Single(after.Numbers).Value);
+    }
 }

@@ -133,6 +133,45 @@ public class BrokenBindingTests {
         Assert.Contains("label", record, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///     ⚠ The helpers that bind on the author's behalf name the author's file too.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The shape the first fix missed, and it is the commonest one in the tree.</b>
+    ///         <c>BuildContext.Bind</c> was given a <c>[CallerFilePath]</c> — but
+    ///         <c>Text(parent, () =&gt; …)</c>, <c>Use</c> and <c>Help</c> call it themselves, so
+    ///         those three let it default and every binding made through them went on reporting
+    ///         <c>BuildContext.cs</c>. ⚠ A markup interpolation compiles to exactly the first of
+    ///         them — <c>ComponentEmitter</c> emits <c>ctx.Text(parent, () =&gt; expr)</c> under a
+    ///         <c>#line</c> directive naming the <c>.vxml</c> — so the one binding shape an author is
+    ///         most likely to break was the one shape the origin could not name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A case per helper and not one</b>, because forwarding is per-method: a fix that
+    ///         threaded the arguments through <c>Text</c> alone would leave the other two exactly as
+    ///         they were, and a single case would be green for it. <c>Help</c>'s case lives in
+    ///         <c>Vixen.Ui.Controls.Tests</c> rather than here — a description needs an
+    ///         implementation, and this assembly references only <c>Vixen.Ui</c>, so the call throws
+    ///         before it ever reaches a binding.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("text")]
+    [InlineData("use")]
+    public void A_binding_made_through_a_helper_records_the_callers_file(string helper) {
+        using var document = new UiDocument(200f, 200f);
+
+        BuildContext.BuildInto(new Helped(helper), document, document.Root);
+        document.Effects.Flush();
+
+        var record = document.Diagnostics.LastBrokenBinding;
+
+        Assert.NotNull(record);
+        Assert.StartsWith("BrokenBindingTests.cs:", record, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildContext.cs", record, StringComparison.Ordinal);
+    }
+
     /// <summary>⚠ Text on an element that has children is refused before the layout tree sees it.</summary>
     /// <remarks>
     ///     The refusal outside a binding was always there and was good; what it could not do is name
@@ -195,6 +234,32 @@ public class BrokenBindingTests {
     ///     first value and the wrong second one is the same picture as an element whose model has
     ///     not moved.
     /// </remarks>
+    /// <summary>A component that breaks one binding, made through whichever helper is named.</summary>
+    /// <param name="helper">Which of the three to use.</param>
+    /// <remarks>
+    ///     ⚠ The failures are deliberately identical, so the only thing that differs between the
+    ///     cases is which method built the effect.
+    /// </remarks>
+    sealed class Helped(string helper) : Component {
+        protected override void Build(BuildContext ctx) {
+            var row = ctx.Element(null, "row");
+
+            switch (helper) {
+                case "text":
+                    ctx.Text(row, Boom);
+
+                    break;
+
+                default:
+                    ctx.Use(row, _ => Boom());
+
+                    break;
+            }
+        }
+
+        static object? Boom() => throw new InvalidOperationException("this binding is meant to throw.");
+    }
+
     sealed class Frozen : Component {
         public Signal<string> Name { get; } = new("first");
 

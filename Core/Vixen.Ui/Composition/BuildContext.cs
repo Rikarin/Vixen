@@ -788,12 +788,28 @@ public sealed class BuildContext {
     /// <summary>Creates an element holding text that follows an expression.</summary>
     /// <param name="parent">Its parent, or null for the mount point.</param>
     /// <param name="text">What to show. Re-read whenever something it read changes.</param>
+    /// <param name="origin">Where the binding was written. Supplied by the compiler.</param>
+    /// <param name="line">Which line of it. Supplied by the compiler.</param>
     /// <returns>The element.</returns>
-    public UiElement Text(UiElement? parent, Func<object?> text) {
+    /// <remarks>
+    ///     ⚠ <b>The two caller arguments are forwarded rather than allowed to default, and this is
+    ///     the shape that matters most.</b> A markup interpolation compiles to a call to this method
+    ///     under a <c>#line</c> directive naming the <c>.vxml</c>, so forwarding them makes a broken
+    ///     text binding report the markup an author wrote. Letting <see cref="Bind(Action, string?,
+    ///     int)" /> fill them in from <em>its own</em> call site names this file and this line for
+    ///     every text binding in the tree — which is the defect the origin was added to remove, kept
+    ///     alive in the one place a reader would meet it first.
+    /// </remarks>
+    public UiElement Text(
+        UiElement? parent,
+        Func<object?> text,
+        [CallerFilePath] string? origin = null,
+        [CallerLineNumber] int line = 0
+    ) {
         ArgumentNullException.ThrowIfNull(text);
 
         var element = Element(parent, "text");
-        Bind(() => element.Text = Format(text()));
+        Bind(() => element.Text = Format(text()), origin, line);
         return element;
     }
 
@@ -1018,11 +1034,18 @@ public sealed class BuildContext {
     ///         expression.
     ///     </para>
     /// </remarks>
-    public void Use<T>(T target, Action<T> action) {
+    /// <param name="origin">Where the binding was written. Supplied by the compiler.</param>
+    /// <param name="line">Which line of it. Supplied by the compiler.</param>
+    public void Use<T>(
+        T target,
+        Action<T> action,
+        [CallerFilePath] string? origin = null,
+        [CallerLineNumber] int line = 0
+    ) {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(action);
 
-        Bind(() => action(target));
+        Bind(() => action(target), origin, line);
     }
 
     // ================================================================== Attachments
@@ -1145,11 +1168,18 @@ public sealed class BuildContext {
     ///     accessible relation; re-attaching on every change would add a second handler and a second
     ///     relation per flush. So only the text is inside the effect.
     /// </remarks>
-    public void Help(UiElement target, Func<object?> text) {
+    /// <param name="origin">Where the binding was written. Supplied by the compiler.</param>
+    /// <param name="line">Which line of it. Supplied by the compiler.</param>
+    public void Help(
+        UiElement target,
+        Func<object?> text,
+        [CallerFilePath] string? origin = null,
+        [CallerLineNumber] int line = 0
+    ) {
         ArgumentNullException.ThrowIfNull(text);
 
         var description = Described(target);
-        Bind(() => description.Text = Format(text()));
+        Bind(() => description.Text = Format(text()), origin, line);
     }
 
     /// <summary>Makes a secondary click on an element open a menu, which is markup's <c>context-menu</c>.</summary>

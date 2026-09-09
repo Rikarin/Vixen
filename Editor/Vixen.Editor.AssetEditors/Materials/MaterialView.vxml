@@ -127,7 +127,15 @@
     ///     and remove; re-reading the linked graph off disk and compiling it there would put a file
     ///     read and a whole graph compilation behind a button that changes a different list.
     /// </remarks>
-    AssetId built;
+    /// <remarks>
+    ///     ⚠ <b>Nullable, and the null is not tidiness.</b> <see cref="Show" /> has to say "nothing
+    ///     is built" so the next <see cref="Restate" /> reads the graph for the document it was just
+    ///     handed — and it said it by writing <c>default</c>, which is
+    ///     <see cref="AssetId.Empty" />, which is also what a material with <em>no</em> graph carries.
+    ///     So showing an unlinked material compared empty with empty, took the equal branch, and left
+    ///     whatever rows the previous document had put there.
+    /// </remarks>
+    AssetId? built;
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => false;
@@ -248,7 +256,7 @@
         HeaderView.EditedDocument = material;
         HeaderView.Inspect(material.Header);
 
-        built = default;
+        built = null;
 
         Rebuild();
     }
@@ -327,6 +335,13 @@
 
         var graph = material.Header.Graph;
 
+        // ⚠ Before the early return and not after it, which is where this call first went. Clearing
+        // the Graph row is one click on the asset field, and it reaches here with an empty guid — so
+        // a rebuild that ran only on the *linked* branch left the previous graph's rows on screen,
+        // still bound, still writing a `GraphSurfaceFeature` naming a shader the material no longer
+        // links. The link and the rows are one fact and both branches have to say it.
+        RebuildGraph(material);
+
         if (graph.IsEmpty) {
             link.Value = new("hidden", false, "Open shader graph");
             return;
@@ -342,8 +357,6 @@
             !known,
             known ? "Open shader graph" : "Shader graph is missing from this project"
         );
-
-        RebuildGraph(material);
     }
 
     /// <summary>Rebuilds the graph-property rows, and only when the link has actually moved.</summary>

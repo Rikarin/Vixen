@@ -450,12 +450,16 @@ public sealed class MaterialDocument : EditorDocument {
 
         var before = Surface;
 
-        // ⚠ The shader name comes from the compilation and not from `Header.Shader`. A material's
-        // `Shader` is the effect it draws with — `ForwardPlus` — and a feature's is the generated
-        // surface the graph compiled to; writing the first into the second is a composition Raven
-        // cannot resolve, reported against a material whose author never saw the generated text.
-        var numbers = (before?.Numbers ?? []).ToList();
-        var vectors = (before?.Vectors ?? []).ToList();
+        // ⚠ Only a feature naming *this* graph carries anything forward. A material whose link has
+        // been moved to another graph still holds the old one's feature, and keeping its entries
+        // would write the previous graph's values and — worse — its texture *slots* under the new
+        // shader's name: `AssetMaterialSource.Pair` keys the bindless table on
+        // `{shader}.{chain}.{graph}.{slot}`, so the new graph's own slots would never be written and
+        // every one of them would fall back to the table's placeholder view. A wrong picture, no
+        // error.
+        var carried = before is not null && string.Equals(before.Shader, source.Name, StringComparison.Ordinal);
+        var numbers = (carried ? before!.Numbers : []).ToList();
+        var vectors = (carried ? before!.Vectors : []).ToList();
 
         if (string.Equals(declared.Type, "float", StringComparison.Ordinal)) {
             numbers.RemoveAll(entry => string.Equals(entry.Name, property, StringComparison.Ordinal));
@@ -466,11 +470,14 @@ public sealed class MaterialDocument : EditorDocument {
         }
 
         GraphSurfaceFeature after = new() {
+            // ⚠ The shader name comes from the compilation and not from `Header.Shader`. A material's
+            // `Shader` is the effect it draws with — `ForwardPlus` — and a feature's is the generated
+            // surface the graph compiled to; writing the first into the second is a composition Raven
+            // cannot resolve, reported against a material whose author never saw the generated text.
             Shader = source.Name,
             Numbers = [.. numbers],
             Vectors = [.. vectors],
-            Maps = before is null ? [.. source.Maps.Select(map => new GraphSurfaceMap(map.Texture, map.Slot))]
-                : before.Maps
+            Maps = carried ? before!.Maps : [.. source.Maps.Select(map => new GraphSurfaceMap(map.Texture, map.Slot))]
         };
 
         Stack.Execute(new MaterialGraphValueCommand(this, before, after, property));

@@ -222,6 +222,38 @@ public class DiagnosticsPanelTests {
     ///     count made this file green with `KeyValueList.Trim` deleted — the stale row was still
     ///     shown and the instrument could not see past the number the defect had already moved.
     /// </remarks>
+    /// <summary>⚠ <c>Help</c>'s binding names the caller's file too, and it is tested here.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The third of the three helpers that construct an effect on the author's behalf</b>
+    ///         — <c>Text</c> and <c>Use</c> are covered in <c>Vixen.Ui.Tests</c>. This one cannot be:
+    ///         <c>Described</c> needs a description implementation, which <c>Vixen.Ui.Controls</c>
+    ///         registers from a module initializer, so in an assembly referencing only
+    ///         <c>Vixen.Ui</c> the call throws before it reaches a binding at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Forwarding is per-method and there is no compiler check on it.</b> A helper that
+    ///         calls <c>Bind</c> without passing its own <c>[CallerFilePath]</c> compiles, runs, and
+    ///         reports <c>BuildContext.cs</c> — silently, and only when something breaks.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_help_binding_records_the_callers_file() {
+        using var document = new UiDocument(200f, 200f);
+
+        // Touches the assembly, which is what registers the description implementation.
+        ControlTheme.Install(document);
+
+        BuildContext.BuildInto(new Describes(), document, document.Root);
+        document.Effects.Flush();
+
+        var record = document.Diagnostics.LastBrokenBinding;
+
+        Assert.NotNull(record);
+        Assert.StartsWith("DiagnosticsPanelTests.cs:", record, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildContext.cs", record, StringComparison.Ordinal);
+    }
+
     static KeyValueRow? Find(DiagnosticsPanel panel, string key) {
         for (var i = 0; i < panel.Rows.Count; i++) {
             if (panel.Rows.Rows[i].Key == key) {
@@ -230,6 +262,17 @@ public class DiagnosticsPanelTests {
         }
 
         return null;
+    }
+
+    /// <summary>A component whose description binding throws.</summary>
+    sealed class Describes : Component {
+        protected override void Build(BuildContext ctx) {
+            var row = ctx.Element(null, "row");
+
+            ctx.Help(row, Boom);
+        }
+
+        static object? Boom() => throw new InvalidOperationException("this binding is meant to throw.");
     }
 
     /// <summary>A row that binds its own text, which is the natural spelling and the trap.</summary>
