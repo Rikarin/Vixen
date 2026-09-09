@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using Vixen.Core.Mathematics;
 using Vixen.Ui.Rendering;
+using Vixen.Ui.Text.Rasterizing;
 using Xunit;
 
 namespace Vixen.Ui.Tests;
@@ -36,6 +38,9 @@ namespace Vixen.Ui.Tests;
 ///     </para>
 /// </remarks>
 public class UiTransformProjectiveTests {
+    /// <summary>The viewport every geometry below is built against.</summary>
+    static readonly Rectangle Viewport = new(0, 0, 800, 600);
+
     /// <summary>A perspective-shaped homography: <c>w</c> grows with <i>y</i>, so far edges shrink.</summary>
     /// <remarks>
     ///     ⚠ <b>Written as nine numbers rather than composed from a <c>rotateX</c> and a
@@ -336,4 +341,195 @@ public class UiTransformProjectiveTests {
         // point has no image at all, and dividing would put an infinity into every edge of the box.
         Assert.False(perspective.TryBounds(new Rectangle(0f, 0f, 1f, 1f), out _));
     }
+
+    /// <summary>
+    ///     The composite quad's four positions are the homography's, and the texture coordinate
+    ///     between them is not — measured, at the one point where the error is largest and has a
+    ///     closed form.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Issue #548, and the half of it that needs no device.</b> Every previous pass on
+    ///         that issue described this defect and none measured it. What
+    ///         <c>UiGeometryBuilder.Quad</c> does under a homography is right about the four corners
+    ///         and wrong everywhere between them: it calls <see cref="UiTransform.Apply" />, which
+    ///         divides by <c>w</c> and throws it away, so both executors then interpolate the texture
+    ///         coordinate <i>linearly</i> across a quad whose correct interpolation is projective.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The oracle is the diagonal, which is where the two answers differ most and where
+    ///         the difference is a single number.</b> The quad is two triangles sharing the corner-0
+    ///         to corner-2 diagonal, and a homography maps the midpoint of that diagonal in element
+    ///         space to the intersection of the <i>image</i> diagonals — the property
+    ///         <see cref="The_image_of_a_square_s_centre_is_the_diagonal_intersection_and_not_the_centroid" />
+    ///         pins. That image point lies on the drawn diagonal, so what a linear interpolator
+    ///         samples there is <c>lerp(t0, t2, λ)</c> for the point's <i>screen</i> parameter λ, and
+    ///         what it should sample is the midpoint of the two coordinates. An affine has λ = ½
+    ///         exactly; a perspective does not, and the gap between them <b>is</b> the defect.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, so the predicate can be false.</b> The same measurement is taken
+    ///         with an affine in the same place, and it has to come out at ½ and zero — otherwise
+    ///         this test is measuring the arithmetic of its own oracle rather than the transform.
+    ///     </para>
+    ///     <para>
+    ///         The error is reported in <i>surface pixels</i> rather than in texture units, because
+    ///         that is the quantity somebody looking at the picture would see, and because a
+    ///         normalised coordinate makes a 30-pixel smear read as 0.04.
+    ///     </para>
+    ///     <para>
+    ///         <b>Measured:</b> λ is <b>0.5604</b> where it should be a half, and what a
+    ///         400×300 group's centre samples is <b>30.4 surface pixels</b> away from the texel that
+    ///         belongs there. Both bounds are set well under those, because the number that matters is
+    ///         "not a rounding difference" and pinning either to four figures would make a change to
+    ///         the fringe or to the ink bounds fail this rather than the thing it is about. The
+    ///         readings are here so that a later pass can see whether they moved.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_composited_group_under_a_homography_samples_the_wrong_texel_down_its_diagonal() {
+        var box = new Rectangle(200, 100, 400, 300);
+        var centre = new Vector2(box.X + (box.Width / 2f), box.Y + (box.Height / 2f));
+
+        // Strong enough that the far edge is visibly nearer the vanishing point than the near one,
+        // and nowhere near the eye plane — a corner behind it has no finite image at all, which is
+        // the separate half of #548 and not what this measures.
+        var projective = Perspective(0.0008f).About(centre);
+        var affine = new UiTransform(1.2f, 0.15f, -0.2f, 0.9f, 11f, -6f).About(centre);
+
+        var (skew, skewed) = Diagonal(box, projective);
+        var (flat, unskewed) = Diagonal(box, affine);
+
+        // The instrument first: the affine case is the control, and it is the reading that says the
+        // measurement below is of the transform and not of the arithmetic that takes it.
+        Assert.Equal(0.5f, flat, 1e-4f);
+        Assert.True(unskewed < 0.05f, $"the affine control smeared by {unskewed:0.###} px, so this measures itself.");
+
+        // And the defect, as a number. λ is well away from a half, and what that costs at the centre
+        // of a 400×300 group is tens of pixels — not a rounding difference, and not something a
+        // tolerance on a reference image would absorb.
+        Assert.True(MathF.Abs(skew - 0.5f) > 0.02f, $"the projective diagonal parameter was {skew:0.####}.");
+        Assert.True(skewed > 10f, $"the projective case smeared by only {skewed:0.###} px.");
+    }
+
+    /// <summary>
+    ///     The vertex format has nowhere to put the <c>w</c>, which is the whole of why the
+    ///     measurement above stands.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A tripwire and not a preference.</b> <see cref="UiVertex" /> is
+    ///         position/texture/colour/shape, so <c>UiGeometryBuilder.Quad</c> has no field to write
+    ///         <see cref="UiTransform.Project" />'s third component into even if it wanted to — and
+    ///         until it has one, neither executor can divide per fragment. Naming the four members
+    ///         here rather than counting them means a <c>W</c> arriving is reported as the arrival it
+    ///         is, by name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The day this goes red is the day a reader has work to do in three other
+    ///         places</b>, and it is written down here because a reflection assertion with no
+    ///         instructions attached is the one that gets deleted: the measurement above becomes an
+    ///         agreement rather than a divergence, <c>SoftwareUiRasterizer.Triangle</c> owes
+    ///         <c>u/w</c>, <c>v/w</c>, <c>1/w</c> and a clip against <c>w = 0</c> before it
+    ///         rasterises, and <c>RefusalExpiry.txt</c> anchors <c>perspective-*</c>,
+    ///         <c>scale-*</c> and <c>translate-*</c> directly on this member's absence with four more
+    ///         rows behind them.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_vertex_format_has_no_w_and_three_refusals_rest_on_that() {
+        var members = typeof(UiVertex)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Select(static property => property.Name)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        Assert.Equal(["Color", "Position", "Shape", "Texture"], members);
+    }
+
+    /// <summary>
+    ///     Builds one composited group under a transform and measures its diagonal.
+    /// </summary>
+    /// <param name="box">The group's box.</param>
+    /// <param name="placed">What the composite quad is placed under.</param>
+    /// <returns>
+    ///     The screen parameter of the element centre's image along the drawn diagonal, and how far
+    ///     the linear interpolation's answer is from the right one there, in surface pixels.
+    /// </returns>
+    /// <remarks>
+    ///     ⚠ <b>The four element-space corners are recovered from the texture coordinates rather than
+    ///     from <paramref name="box" />.</b> A layer's composite quad covers the group's <i>ink</i>
+    ///     bounds, which the builder outsets for antialiasing and clips to the viewport, so a corner
+    ///     assumed from the box would be the wrong point and the measurement would be of that
+    ///     mistake. The coordinates are the untransformed position over the viewport by construction,
+    ///     which makes the recovery exact and makes the assertion below a check on both.
+    /// </remarks>
+    static (float Parameter, float Pixels) Diagonal(Rectangle box, UiTransform placed) {
+        var list = new DrawList();
+
+        list.BeginFrame();
+
+        list.Add(
+            new DrawCommand(
+                DrawCommandKind.LayerPush,
+                box.X,
+                box.Y,
+                box.Width,
+                box.Height,
+                new Color4(1f, 1f, 1f, 0.5f),
+                0f,
+                0f
+            ) {
+                Transform = placed
+            }
+        );
+
+        list.Add(
+            new DrawCommand(DrawCommandKind.Rectangle, box.X, box.Y, box.Width, box.Height, Color4.White, 0f, 0f)
+        );
+
+        list.Add(new DrawCommand(DrawCommandKind.LayerPop, 0f, 0f, 0f, 0f, Color4.White, 0f, 0f));
+        list.EndFrame();
+
+        var geometry = new UiGeometryBuilder().Build(list, new GlyphFieldCache(new GlyphAtlas(512, 512)), Viewport);
+        var layer = Assert.Single(geometry.Layers);
+        var composite = geometry.Draws[layer.First + layer.Count];
+
+        Assert.Equal(BatchKind.Image, composite.Kind);
+
+        var quad = Enumerable.Range(0, 4)
+            .Select(corner => geometry.Vertices[(int)geometry.Indices[composite.First + corner]])
+            .ToList();
+
+        // Vertices 0 and 2 are the diagonal the two triangles share; `Quad` winds 0-1-2 and 0-2-3.
+        var first = quad[0];
+        var third = quad[2];
+
+        var cornerOfFirst = Untransformed(first.Texture);
+        var cornerOfThird = Untransformed(third.Texture);
+
+        // The positions are the homography's, exactly — which is what makes the corners right and the
+        // middle wrong rather than everything being wrong.
+        Assert.Equal(placed.Apply(cornerOfFirst).X, first.Position.X, 1e-2f);
+        Assert.Equal(placed.Apply(cornerOfFirst).Y, first.Position.Y, 1e-2f);
+        Assert.Equal(placed.Apply(cornerOfThird).X, third.Position.X, 1e-2f);
+        Assert.Equal(placed.Apply(cornerOfThird).Y, third.Position.Y, 1e-2f);
+
+        var middle = placed.Apply((cornerOfFirst + cornerOfThird) / 2f);
+        var along = third.Position - first.Position;
+        var parameter = Vector2.Dot(middle - first.Position, along) / along.LengthSquared();
+
+        var sampled = Vector2.Lerp(first.Texture, third.Texture, parameter);
+        var wanted = (first.Texture + third.Texture) / 2f;
+        var error = sampled - wanted;
+
+        return (
+            parameter,
+            new Vector2(error.X * Viewport.Width, error.Y * Viewport.Height).Length()
+        );
+    }
+
+    /// <summary>Where a composite quad's texture coordinate came from, in document pixels.</summary>
+    static Vector2 Untransformed(Vector2 texture) =>
+        new(Viewport.X + (texture.X * Viewport.Width), Viewport.Y + (texture.Y * Viewport.Height));
 }

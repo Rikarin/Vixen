@@ -23,6 +23,11 @@
 # of what the domain declares lives under an asset editor, which exists only once a document of that
 # kind has been opened, and opening a panel reaches none of it.
 #
+# ⚠ THAT LAST SENTENCE IS NO LONGER WHERE THE TRAIL ENDS. `DocumentEditorCombinatorPairs.txt` is the
+# third rung: the same walk over an editor that also holds an empty document of every registered
+# asset-editor kind, and it proves 77 against this file's 38. This one is still read on its own
+# terms, because a row here is what an editor builds with nothing on disk that a fixture put there.
+#
 # ⚠ A ROW LEAVING IS THE LOUD DIRECTION, for the reason the first census gives: a panel that has
 # stopped building a child while a committed sheet still declares the rule.
 asset-grid > asset-path

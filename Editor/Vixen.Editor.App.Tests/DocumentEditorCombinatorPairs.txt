@@ -1,0 +1,109 @@
+# The `A > B` pairings a committed stylesheet declares AND an editor holding a document of every
+# registered asset-editor kind actually builds.
+#
+# Held against the observed set by
+# `EditorCombinatorPairTests.Every_declared_pairing_an_editor_holding_every_document_kind_builds_is_in_the_committed_census`,
+# EXACTLY and in both directions. Derived: re-run that test with VIXEN_REGENERATE=1 to write it back.
+#
+# ⚠ THE THIRD CENSUS, AND WHERE THE DOMAIN ACTUALLY LIVES. `EditorCombinatorPairs.txt` is 21 rows —
+# what a started editor builds; `OpenedEditorCombinatorPairs.txt` is 38 — what one builds after every
+# registered panel is opened — and its own header says most of what the sheets declare is under an
+# asset editor that does not exist until a document of that kind is open. This is the sweep that goes
+# on, and it is 77 of the domain's 89. Six source-reading passes reached 14 at best.
+#
+# ⚠ WEAKER STANDING THAN THE SECOND, and kept a separate file for that reason alone — so that no row
+# in either of the other two changes meaning. The ladder is Started ⊂ Panels ⊂ Documents, and
+# `Opening_a_document_of_every_kind_proves_more_than_opening_every_panel` asserts both halves of the
+# inclusion: nothing may be lost, and three named parts from three different asset editors must
+# arrive.
+#
+# ⚠ STILL NOTHING THE HARNESS NESTED. The fixture writes an empty file with a registered extension
+# and asks the editor to open it; every element beneath the panel that appears is built by that
+# asset editor's own factory. There is no harness-built pairing to refuse — the thing the controls'
+# seeded sweep has to spend an assertion on.
+#
+# ⚠ STILL A SET OF PROOFS AND STILL NO NEGATIVE CLAIM. Every probe file is EMPTY, so a part an editor
+# builds only once its asset has content — a sprite sheet's rectangles, a palette's rows, a
+# compiled scene's diagnostics — is UNJUDGED here, never dead.
+#
+# ⚠ A ROW LEAVING IS THE LOUD DIRECTION, for the reason the first census gives: an asset editor that
+# has stopped building a child while a committed sheet still declares the rule is a selector that
+# matches nothing, which draws nothing and reports nothing. That is `compositor-editor > node-canvas`
+# (#525) exactly. Read the diff; do not regenerate past it.
+animation-body > animation-stage
+animation-stage > curve-editor
+animation-stage > timeline
+animgraph-body > state-map
+asset-field > icon-button
+asset-grid > asset-path
+asset-tile > icon
+asset-tile > image
+behaviortree-body > node-canvas
+browser-filters > search-box
+browser-filters > select
+code-column > code-editor
+code-editor-pane > code-column
+color-input > color-swatch
+compositor-editor > node-graph
+debugger-body > tree-view
+device-manager > data-grid
+dock-guide > dock-hint
+dock-split > dock-splitter
+dock-tabstrip > icon-button
+editor-shell > menu-bar
+expander > expander-header
+expander-header > label
+fact-row > fact-value
+fact-value > numeric-input
+font-body > font-atlas
+frame-editor > scroll-view
+group-editor > tree-view
+import-settings > scroll-view
+input-body > tree-view
+inspector > scroll-view
+inspector-header > search-box
+inspector-row > icon-button
+inspector-row > inspector-editor
+inspector-row > inspector-label
+material-bar > textbox
+material-editor > image
+memory-view > scroll-view
+mixer-body > mixer-strips
+mixer-strip > slider
+mode-bar > toolbar
+model-editor > tree-view
+moveset-bar > textbox
+node-graph > node-canvas
+outliner-filters > search-box
+outliner-filters > select
+override-bar > textbox
+override-body > override-row
+override-cell > checkbox
+override-cell > numeric-input
+override-cell > select
+override-row > override-cell
+profiler-body > scroll-view
+profiler-view > data-grid
+remote-body > tree-view
+remote-write > textbox
+scroll-view > scroll-content
+segment > icon
+segmented-control > segment
+sequence-body > timeline
+settings-rail > button
+shadergraph-editor > node-graph
+shadergraph-source > code-editor
+shape-stage > viewport
+sprite-canvas > image
+sprite-field-row > numeric-input
+sprite-field-row > textbox
+sprite-toolbar > numeric-input
+sprite-toolbar > select
+status-bar > status-trailing
+tab-panels > tab-panel
+tabs > tab-panels
+task-center > text
+toolbar > segmented-control
+vector-component > text
+vfx-editor > node-graph
+viewport-bar > toolbar

@@ -196,12 +196,19 @@ public static class TextureLadder {
             return decoder.Decode(stream, extension);
         } catch (Exception exception) when (exception is IOException or InvalidDataException
             or NotSupportedException or UnauthorizedAccessException or InvalidOperationException
-            or ArgumentException or IndexOutOfRangeException) {
+            or ArgumentException or IndexOutOfRangeException or Ktx2Exception) {
             // ⚠ A wide net, at a boundary that earns one. The decoder is a third-party codec reading
             // a file an artist may have half-written, renamed from another format, or truncated on
             // the way out of a DCC tool — and what it throws for those is not a documented set.
             // A settings panel that would not open because the pixels were unreadable is the one
             // outcome that helps nobody, since the settings are how the file gets fixed.
+            //
+            // ⚠ And `Ktx2Exception` is on the list because it was the hole: of the three decoders
+            // that ship, it is the only one whose failures carry a type of its own rather than
+            // `InvalidDataException`, so a `.ktx2` that was not one threw straight out of
+            // `TextureImportView.Show` and took the whole panel — and, in the editor, the run — with
+            // it. Found by #531's document sweep, which opens an empty file of every registered
+            // extension and was the first thing ever to hand this method a bad KTX2.
             reason = exception.Message;
             return null;
         }
