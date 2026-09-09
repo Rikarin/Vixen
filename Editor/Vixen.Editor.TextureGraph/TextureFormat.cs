@@ -83,6 +83,16 @@ public static class TextureFormats {
     ///         conformant device.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>But the three that are storable are not all mandatory either, and
+    ///         <see cref="TextureFormat.R16Float" /> is the one that is not.</b> Vulkan's required
+    ///         storage set covers <c>rgba8</c> and <c>rgba16f</c>; <c>r16f</c> is in the
+    ///         <em>extended</em> list, so a plan computing in <c>R16Float</c> — which is what a
+    ///         height field wants — needs <c>shaderStorageImageExtendedFormats</c>. It is set on
+    ///         every adapter this engine has been developed on, which is exactly why nothing said so
+    ///         until #714. Raven declares SPIR-V's <c>StorageImageExtendedFormats</c> for it now, so
+    ///         a device without the feature refuses the module rather than being undefined.
+    ///     </para>
+    ///     <para>
     ///         <b>Reading one is fine</b>, which is why they stay in the enum rather than being
     ///         deleted: an imported bitmap is sampled, and <c>Load</c> hands back
     ///         <c>(r, 0, 0, 1)</c> whatever the storage was. A plan may therefore take an R8 map in

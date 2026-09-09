@@ -1236,9 +1236,11 @@ Vixen.Raven.Symbols.ImageFormat -> sealed record
 Vixen.Raven.Symbols.ImageFormat : System.IEquatable<Vixen.Raven.Symbols.ImageFormat>
 Vixen.Raven.Symbols.ImageFormat.Component.get -> Vixen.Raven.Symbols.SpecialType
 Vixen.Raven.Symbols.ImageFormat.Component.init -> Vixen.Raven.Symbols.SpecialType
-Vixen.Raven.Symbols.ImageFormat.ImageFormat(string Name, uint SpirvValue, Vixen.Raven.Symbols.SpecialType Component) -> void
+Vixen.Raven.Symbols.ImageFormat.ImageFormat(string Name, uint SpirvValue, Vixen.Raven.Symbols.SpecialType Component, bool RequiresExtendedFormats = false) -> void
 Vixen.Raven.Symbols.ImageFormat.Name.get -> string
 Vixen.Raven.Symbols.ImageFormat.Name.init -> string
+Vixen.Raven.Symbols.ImageFormat.RequiresExtendedFormats.get -> bool
+Vixen.Raven.Symbols.ImageFormat.RequiresExtendedFormats.init -> bool
 Vixen.Raven.Symbols.ImageFormat.SpirvValue.get -> uint
 Vixen.Raven.Symbols.ImageFormat.SpirvValue.init -> uint
 Vixen.Raven.Symbols.ImageFormats -> static class
@@ -2558,6 +2560,7 @@ const Vixen.Raven.IR.IrCapability.Int64 = "Int64" -> string
 const Vixen.Raven.IR.IrCapability.Int64Atomics = "Int64Atomics" -> string
 const Vixen.Raven.IR.IrCapability.RayQuery = "RayQuery" -> string
 const Vixen.Raven.IR.IrCapability.StorageImage = "StorageImage" -> string
+const Vixen.Raven.IR.IrCapability.StorageImageExtendedFormats = "StorageImageExtendedFormats" -> string
 const Vixen.Raven.IR.IrCapability.Texture3D = "Texture3D" -> string
 const Vixen.Raven.IR.IrCapability.TextureCube = "TextureCube" -> string
 const Vixen.Raven.Symbols.BufferTypeSymbol.ReadOnlyName = "Buffer" -> string

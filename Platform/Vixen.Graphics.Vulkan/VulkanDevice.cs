@@ -1216,7 +1216,18 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
             // layers loaded, where the two virtual-geometry goldens failed on every push for weeks.
             ShaderInt64 = adapter.Supported.ShaderInt64,
             PipelineStatisticsQuery = adapter.Supported.PipelineStatisticsQuery,
-            FragmentStoresAndAtomics = adapter.Supported.FragmentStoresAndAtomics
+            FragmentStoresAndAtomics = adapter.Supported.FragmentStoresAndAtomics,
+
+            // ⚠ Storage images outside Vulkan's *required* list — `rg32f`, `rg16f` and `r16f` of
+            // Raven's sixteen. `ImageFormats` asserted for a long time that every format it admits
+            // is mandatory, and three are not (#714); the texture graph reaches all the way to
+            // `r16f` because that is what `R16Float` is spelled as, and it builds those kernels at
+            // run time, so no shader gate ever compiles one. A module naming such a format declares
+            // SPIR-V's StorageImageExtendedFormats, and a capability a module declares must be
+            // enabled here or pipeline creation is invalid usage —
+            // VUID-VkShaderModuleCreateInfo-pCode-08740, the same rule ShaderInt64 above is here
+            // for.
+            ShaderStorageImageExtendedFormats = adapter.Supported.ShaderStorageImageExtendedFormats
         };
 
         // Exactly the four bits VulkanFeatures.Bindless asked about, and no more. Enabling a feature

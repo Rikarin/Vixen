@@ -25,6 +25,19 @@ internal enum SpirvCapability {
     /// </remarks>
     Int64Atomics = 12,
 
+    /// <summary>
+    ///     A storage image whose format is outside SPIR-V's base set.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Three of <see cref="ImageFormats" />' sixteen need it — <c>rg32f</c>, <c>rg16f</c>
+    ///     and <c>r16f</c> — and the table's own comment claimed for a long time that none did.</b>
+    ///     Vulkan draws the line in the same place, as <c>shaderStorageImageExtendedFormats</c>:
+    ///     a device offers those three for storage only when it is set. Declaring the capability is
+    ///     what turns a device that does not have it from undefined into a refusal with a message,
+    ///     which is the trade <see cref="Int64Atomics" /> is here for too.
+    /// </remarks>
+    StorageImageExtendedFormats = 49,
+
     /// <summary>Asking an image about itself — <c>OpImageQuerySizeLod</c> and its siblings.</summary>
     ImageQuery = 50,
 
