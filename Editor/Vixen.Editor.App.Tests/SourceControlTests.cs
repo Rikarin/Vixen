@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using Vixen.Editor.Testing;
 using Vixen.Ui;
+using Vixen.Ui.Controls.Advanced;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -378,6 +379,102 @@ public class SourceControlColumnTests {
 
         Assert.NotNull(editor.Shell.Commands["assets.revert"]);
         Assert.False(editor.CanRun("assets.revert"));
+    }
+
+    /// <summary>
+    ///     The list view carries the same column, at the trailing edge of a row.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>The claim that a tree row had nowhere to put one is refuted by the outliner.</b> A
+    ///     <c>TreeRow</c> is a control with children and <c>tree-label</c> grows, so an element added
+    ///     after it lands at the trailing edge — which is what the eye and the padlock have been
+    ///     doing since doc 20 § Part D landed, and <c>TreeView.RowBound</c>'s own remarks name a
+    ///     source-control mark as the second case it exists for. No control change was needed.
+    /// </remarks>
+    [Fact]
+    public void The_list_marks_a_modified_asset_and_leaves_a_clean_one_alone() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("project");
+
+        var scenes = editor.Project.Assets.Entries
+            .Where(entry => entry.Path.EndsWith(".vxscene", StringComparison.Ordinal))
+            .ToList();
+
+        if (scenes.Count == 0) {
+            throw editor.Fail("the fixture project has no scene to mark");
+        }
+
+        var scene = scenes[0];
+
+        editor.Editor.UseSourceControl(new Fake(new Dictionary<string, SourceControlStatus> {
+            [scene.Path] = SourceControlStatus.Modified
+        }));
+
+        editor.Editor.Sweep();
+        editor.Settle();
+
+        Assert.True(editor.Editor.SourceControl.IsKnown, "the sweep never landed");
+
+        // ⚠ `editor.Assets` puts the panel in front of the tree, which is what this asks about. The
+        // panel opens on the grid.
+        var tree = editor.Assets;
+
+        editor.Settle();
+
+        var rows = Marks(tree);
+
+        // ⚠ The count of *rows* is asserted first. A tree showing nothing would satisfy every
+        // assertion below by having no unmarked row either, which is the vacuous shape a loop that
+        // asserts inside itself takes on an empty collection.
+        Assert.NotEmpty(rows);
+
+        var marked = rows.Where(mark => !mark.HasClass("hidden")).ToList();
+
+        Assert.NotEmpty(marked);
+        Assert.All(marked, mark => Assert.Equal("M", mark.Text));
+        Assert.All(marked, mark => Assert.True(mark.HasClass("modified")));
+
+        // And the folds do not mark the whole project: something under the tree is clean.
+        Assert.True(marked.Count < rows.Count, "every row in the list is marked, so the column says nothing");
+    }
+
+    /// <summary>A project with no provider draws no column on the list either.</summary>
+    [Fact]
+    public void The_list_marks_nothing_without_a_provider() {
+        using var editor = EditorSession.Start();
+
+        editor.Open("project");
+
+        var tree = editor.Assets;
+
+        editor.Settle();
+
+        Assert.False(editor.Editor.SourceControl.IsKnown);
+
+        var rows = Marks(tree);
+
+        Assert.NotEmpty(rows);
+        Assert.All(rows, mark => Assert.True(mark.HasClass("hidden")));
+    }
+
+    /// <summary>Every live row's status mark, which excludes the pool's parked rows.</summary>
+    static IReadOnlyList<UiElement> Marks(TreeView tree) {
+        List<UiElement> marks = [];
+
+        foreach (var row in Descendants(tree).OfType<TreeRow>()) {
+            if (row.Node is null || row.HasClass("parked")) {
+                continue;
+            }
+
+            foreach (var child in row.Children) {
+                if (string.Equals(child.Tag, "row-status", StringComparison.Ordinal)) {
+                    marks.Add(child);
+                }
+            }
+        }
+
+        return marks;
     }
 
     /// <summary>The grid's own live tiles, which excludes the pool's parked ones.</summary>

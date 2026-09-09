@@ -416,6 +416,11 @@ sealed class ProjectBrowser {
         // default in, and the column would be permanently blank in exactly the arrangement that
         // ships.
         tiles.Status = node => Status(node.Path);
+
+        // ⚠ The list view's half of the same column, and it is a hook rather than a property because
+        // the rows are pooled — see `TreeView.RowBound`, whose own remarks name a source-control mark
+        // as the case it exists for.
+        tree.RowBound += Mark;
         tiles.Navigated += entered => {
             folder = entered.Path;
             Populate();
@@ -529,7 +534,58 @@ sealed class ProjectBrowser {
     ///     which for something that runs whenever a file changes on disk is the panel jumping under
     ///     the pointer.
     /// </remarks>
-    public void Restated() => tiles.Refresh();
+    public void Restated() {
+        tiles.Refresh();
+
+        // ⚠ Both surfaces, because only one of them is showing and the other one is what the user
+        // switches to. A `Restated` that refreshed the grid alone left the list carrying whatever
+        // the sweep before last had said, which is the "sometimes right" column doc 20 refuses.
+        tree.Refresh();
+    }
+
+    /// <summary>Doc 20 § B7's status column, which on a list is a mark at the trailing edge of a row.</summary>
+    /// <param name="row">The pooled row.</param>
+    /// <param name="node">What it is showing now.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The element is made once per <i>row</i> and found again by its tag, never made per
+    ///         bind.</b> Thirty rows serve a tree of any size and this runs on every rebind, so a
+    ///         handler that added an element would add one per scrolled row for the life of the
+    ///         panel — <c>TreeView.RowBound</c> says so and the outliner's eye and padlock are the
+    ///         same shape one panel over.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It was believed this needed a new part on <c>TreeRow</c>, and it does not.</b> A
+    ///         row is a control with children and <c>tree-label</c> grows, so anything added after it
+    ///         lands at the trailing edge — which is what the outliner has been doing since its two
+    ///         columns landed. The letters and the classes are <c>AssetGrid.Mark</c>'s, so the two
+    ///         views cannot disagree about what a status looks like.
+    ///     </para>
+    /// </remarks>
+    void Mark(TreeRow row, TreeNode node) {
+        var mark = StatusMark(row);
+
+        var status = node.Tag is AssetTreeNode { IsIndexed: true } asset
+            ? Status(asset.Path)
+            : SourceControlStatus.Unknown;
+
+        AssetGrid.Letter(mark, status);
+    }
+
+    /// <summary>The row's mark, made on its first bind and reused after that.</summary>
+    static UiElement StatusMark(TreeRow row) {
+        foreach (var child in row.Children) {
+            if (string.Equals(child.Tag, "row-status", StringComparison.Ordinal)) {
+                return child;
+            }
+        }
+
+        var mark = row.Add("row-status");
+
+        mark.AddClass("hidden");
+
+        return mark;
+    }
 
     /// <summary>Which folder a point in the panel means, for a drop that has to land somewhere.</summary>
     /// <param name="x">Where, in document space.</param>

@@ -405,9 +405,22 @@ sealed partial class AssetGrid : Control {
     ///         column which is sometimes right is worse than no column.
     ///     </para>
     /// </remarks>
-    static void Mark(AssetTile tile, SourceControlStatus status) {
+    static void Mark(AssetTile tile, SourceControlStatus status) => Letter(tile.Status, status);
+
+    /// <summary>Writes a status onto whichever element is drawing it.</summary>
+    /// <param name="mark">The element — a tile's corner, or a list row's trailing mark.</param>
+    /// <param name="status">What source control says.</param>
+    /// <remarks>
+    ///     ⚠ <b>Shared with the list view rather than copied into it</b>, which is the whole reason
+    ///     this is not written inside <c>Mark</c>: the two surfaces show the same column, and
+    ///     two switch statements over the same enum are how one of them ends up spelling "conflicted"
+    ///     with a different letter than the other. <c>ProjectBrowser.Mark</c> is the second caller.
+    /// </remarks>
+    internal static void Letter(UiElement mark, SourceControlStatus status) {
+        ArgumentNullException.ThrowIfNull(mark);
+
         foreach (var name in StatusClasses) {
-            tile.Status.RemoveClass(name);
+            mark.RemoveClass(name);
         }
 
         var letter = status switch {
@@ -420,13 +433,13 @@ sealed partial class AssetGrid : Control {
         };
 
         if (letter is null) {
-            tile.Status.AddClass("hidden");
+            mark.AddClass("hidden");
             return;
         }
 
-        tile.Status.Text = letter;
-        tile.Status.RemoveClass("hidden");
-        tile.Status.AddClass(Class(status));
+        mark.Text = letter;
+        mark.RemoveClass("hidden");
+        mark.AddClass(Class(status));
     }
 
     static string Class(SourceControlStatus status) => status switch {
