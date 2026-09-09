@@ -77,6 +77,27 @@ and it re-hides exactly the case the model was written to expose.
 list without raising `Changed`, so a panel switched to a different selection went on drawing the last
 mesh's atlas. No model test could see it: they all read the lists back on the line that emptied them.
 
+## The retopology debug overlays
+
+⚠ **`RemeshDump` was a finished model nothing drew** ([#413](https://github.com/Rikarin/Vixen/issues/413)) —
+referenced by its own tests, by a `RunawayGuard` comment, and by nothing under `Editor/`. Doc 41 § D1's
+argument for making each stage an artefact is that *a remesher is judged by a picture*, and the
+measurements in that document were obtained by parsing written `.obj` files, which is the workaround
+for not having one.
+
+`BlockoutRemeshDebug` is the drawing: six switches over the five stages, captured by
+`Retopology Debug Overlays` and drawn over the solid they were captured from. The capture remembers
+which entity it is of, because every artefact is indexed against that solid's conditioned mesh.
+
+⚠ **The overlay is drawn through `SceneViewport.Cursor`, the same seam the hover previews use** — so
+it appears in the pane the pointer is in, and comes off with the mode. That is a deliberate reuse: a
+second push seam would be a second thing to forget to clear.
+
+⚠ **What is still owed is § R7's live preview at the approximate quantization, and the blocker is not
+the editor.** `QuantizeMode` and `Quantizer` are internal to `Vixen.Geometry.Remeshing`, so nothing
+outside that assembly can ask for the cheap answer at all — the issue's "no `Approximate`-mode preview
+path exists in the editor" is true and understates it. That row is an API change before it is a panel.
+
 ## The hover previews
 
 ⚠ **Two tools were pointer-driven in their reference and keyboard-only here, and both are the same

@@ -79,6 +79,21 @@ public sealed partial class BlockoutModule {
                 run.Label = "Retopologize";
                 run.Clicked += _ => Shell.Commands.Execute(BlockoutMode.RetopologizeCommand);
 
+                Section(panel, "Retopology Debug");
+
+                // ⚠ docs/plan/41 § R7's overlays, and the switches are here rather than in a viewport
+                // menu because they are read alongside the dials above them: which stage went wrong is
+                // a question about the settings that produced it.
+                var overlays = panel.Add<InspectorView>();
+
+                overlays.EditedDocument = null;
+                overlays.Inspect(mode.RemeshDebug);
+
+                var capture = panel.Add<Button>();
+
+                capture.Label = "Capture / Clear Overlays";
+                capture.Clicked += _ => Shell.Commands.Execute(BlockoutMode.RemeshDebugCommand);
+
                 Section(panel, "UV Charting");
 
                 var charting = panel.Add<InspectorView>();

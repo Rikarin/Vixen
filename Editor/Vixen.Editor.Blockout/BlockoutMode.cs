@@ -405,6 +405,15 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// </remarks>
     public const string RetopologizeCommand = "blockout.retopologize";
 
+    /// <summary>Captures docs/plan/41 § D1's per-stage artefacts for the selected solid, or clears them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A toggle rather than two verbs, because what a person wants is one key.</b> Pressed with
+    ///     nothing captured it runs the stages; pressed again it throws the capture away. Nothing else
+    ///     in this mode has that shape, and the reason it does is that a debug overlay is the one thing
+    ///     here whose off state is as important as its on state.
+    /// </remarks>
+    public const string RemeshDebugCommand = "blockout.retopology-debug";
+
     /// <summary>Writes the selection into a mesh asset and points the entity at it.</summary>
     public const string BakeCommand = "blockout.bake";
 
@@ -430,6 +439,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// <summary>And every handoff verb.</summary>
     public static IReadOnlyList<string> HandoffCommands { get; } = [
         RetopologizeCommand,
+        RemeshDebugCommand,
         BakeCommand,
         EditableCommand,
         ExportObjCommand,
@@ -684,6 +694,21 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         // settled, which is a menu verb by the same rule the plan's own tables use.
         Make(RetopologizeCommand, "Retopologize", () => BlockoutRetopology.Run(Scene!, Retopology.ToRemeshSettings()));
 
+        // ⚠ docs/plan/41 § R7's debug overlays, and the settings it captures with are the *same* ones
+        // Retopologize runs with. A dump taken at other numbers would be a picture of a remesh that is
+        // not the one the next click is going to produce, which is worse than no picture.
+        Make(
+            RemeshDebugCommand,
+            "Retopology Debug Overlays",
+            () => {
+                if (RemeshDebug.Dump is not null) {
+                    RemeshDebug.Clear();
+                } else {
+                    RemeshDebug.Capture(Scene!, Retopology.ToRemeshSettings());
+                }
+            }
+        );
+
         Make(BakeCommand, "Bake To Mesh Asset", () => {
             if (Baker is { } baker) {
                 BlockoutHandoff.Bake(Scene!, baker);
@@ -828,6 +853,14 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     ///     </para>
     /// </remarks>
     public BlockoutRetopologySettings Retopology { get; } = new();
+
+    /// <summary>docs/plan/41 § D1's artefacts and which of them are drawn.</summary>
+    /// <remarks>
+    ///     ⚠ <b>State on the mode for <see cref="Retopology" />'s reason, and held across a capture on
+    ///     purpose.</b> Which stages somebody is looking at is a question they answered once and want
+    ///     to keep answering; the capture is what comes and goes.
+    /// </remarks>
+    public BlockoutRemeshDebug RemeshDebug { get; } = new();
 
     /// <summary>Where to cut and how flat to make it, for the UV verbs.</summary>
     public BlockoutChartSettings Charting { get; } = new();
@@ -975,6 +1008,33 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         Element = BlockoutElement.Object;
     }
 
+    /// <summary>Draws the retopology artefacts over the entity they were captured from.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only over that entity, and it goes when the entity does.</b> Every artefact is indexed
+    ///     against one solid's conditioned mesh, so a field and a patch partition drawn over anything
+    ///     else are a statement about geometry they do not describe — which reads as the remesher
+    ///     having produced nonsense rather than as the overlay being stale.
+    /// </remarks>
+    void Artefacts(GizmoDraw draw) {
+        if (!RemeshDebug.IsVisible || Scene is not { } scene) {
+            return;
+        }
+
+        var target = RemeshDebug.Target;
+
+        if (target.IsNull || !scene.World.IsAlive(target)) {
+            RemeshDebug.Clear();
+
+            return;
+        }
+
+        var placement = scene.World.Has<WorldTransform>(target)
+            ? scene.World.Read<WorldTransform>(target).Value
+            : Matrix4x4.Identity;
+
+        RemeshDebug.Draw(draw, placement);
+    }
+
     /// <summary>Takes the preview off whichever pane is drawing it.</summary>
     void Forget() {
         if (hoveredPane is { } pane) {
@@ -1021,6 +1081,8 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     ///     second answer to "what does the pointer mean right now" in one mode.
     /// </remarks>
     void Cursor(GizmoDraw draw) {
+        Artefacts(draw);
+
         if (Element == BlockoutElement.Object) {
             if (HoverCell is { } cell) {
                 BlockoutHover.CubeGrid(draw, cell, Plane, CellColour);

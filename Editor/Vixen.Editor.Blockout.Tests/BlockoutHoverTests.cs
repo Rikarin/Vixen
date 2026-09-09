@@ -301,6 +301,114 @@ public sealed class BlockoutHoverTests : IDisposable {
         Assert.Empty(segments);
     }
 
+    // ── The retopology artefacts ────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    ///     docs/plan/41 § D1's stages reach the viewport: a capture draws, and turning every stage off
+    ///     draws nothing.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>This is the assertion <c>RemeshDumpTests</c> cannot make.</b> <c>RemeshDump</c> had a
+    ///     full suite over its artefacts and no consumer under <c>Editor/</c> at all
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/413">#413</a>), and every one of those
+    ///     tests stays green over a tree where nothing draws them — which is the whole of what was
+    ///     wrong, since § D1's argument for making each stage an artefact is that a remesher is judged
+    ///     by a picture.
+    ///     <para>
+    ///         ⚠ <b>And both directions, because only the pair says the switches are wired.</b> An
+    ///         overlay that ignored them and always drew would pass the first half.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_captured_dump_reaches_the_overlay_and_the_switches_take_it_away() {
+        var (mode, pane) = Hovered(Vector3.Zero);
+
+        var entity = Box();
+        var before = Overlay(pane).Count;
+
+        Assert.False(mode.RemeshDebug.IsVisible);
+        Assert.True(commands!.Execute(BlockoutMode.RemeshDebugCommand));
+
+        Assert.NotNull(mode.RemeshDebug.Dump);
+        Assert.Equal(entity, mode.RemeshDebug.Target);
+        Assert.True(mode.RemeshDebug.IsVisible);
+
+        var drawn = Overlay(pane).Count;
+
+        Assert.True(drawn > before, $"the capture drew nothing: {drawn} segments against {before}");
+
+        // Every switch off: the capture is still there and the picture is not, which is the half that
+        // says the switches are read rather than the capture being drawn unconditionally.
+        mode.RemeshDebug.ShowConditioned = false;
+        mode.RemeshDebug.ShowFeatures = false;
+        mode.RemeshDebug.ShowField = false;
+        mode.RemeshDebug.ShowSingularities = false;
+        mode.RemeshDebug.ShowPatches = false;
+        mode.RemeshDebug.ShowQuantization = false;
+
+        Assert.False(mode.RemeshDebug.IsVisible);
+        Assert.Equal(before, Overlay(pane).Count);
+        Assert.NotNull(mode.RemeshDebug.Dump);
+
+        // And the command is a toggle: pressed again it throws the capture away.
+        Assert.True(commands.Execute(BlockoutMode.RemeshDebugCommand));
+        Assert.Null(mode.RemeshDebug.Dump);
+        Assert.True(mode.RemeshDebug.Target.IsNull);
+    }
+
+    /// <summary>
+    ///     Each stage is drawn by its own switch, so what is on screen is the stage a person asked
+    ///     for.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A missing arm in a drawing switch does not fail to build; it silently never draws.</b>
+    ///     Six booleans read in one method is exactly the shape where one of them gets left out, and
+    ///     "the overlay is not empty" cannot see it — so each is turned on alone and counted.
+    /// </remarks>
+    [Fact]
+    public void Every_stage_switch_draws_something_of_its_own() {
+        var (mode, pane) = Hovered(Vector3.Zero);
+
+        Box();
+
+        Assert.True(mode.RemeshDebug.Capture(scene, mode.Retopology.ToRemeshSettings()));
+
+        var debug = mode.RemeshDebug;
+        Action<bool>[] switches = [
+            on => debug.ShowConditioned = on,
+            on => debug.ShowFeatures = on,
+            on => debug.ShowField = on,
+            on => debug.ShowSingularities = on,
+            on => debug.ShowPatches = on,
+            on => debug.ShowQuantization = on
+        ];
+
+        foreach (var stage in switches) {
+            stage(false);
+        }
+
+        var baseline = Overlay(pane).Count;
+
+        var drew = 0;
+
+        foreach (var stage in switches) {
+            stage(true);
+
+            if (Overlay(pane).Count > baseline) {
+                drew++;
+            }
+
+            stage(false);
+        }
+
+        // ⚠ All six, not "at least one", and measured rather than hoped for: a unit box conditions to
+        // a mesh with features, a field, singularities, a patch partition and labelled arcs, so every
+        // stage has something to say about it. A count that allowed one to be silent would be a count
+        // that could not see the switch somebody forgot to read.
+        Assert.Equal(6, switches.Length);
+        Assert.Equal(switches.Length, drew);
+    }
+
     // ============================================================ Harness
 
     /// <summary>A pane the size of a window, looking straight down at a point on the ground.</summary>
@@ -364,6 +472,26 @@ public sealed class BlockoutHoverTests : IDisposable {
         mode.Pointer(pane, Move());
 
         return (mode, pane);
+    }
+
+    /// <summary>A parametric box in the scene, selected — which is what a retopology verb takes.</summary>
+    /// <remarks>
+    ///     ⚠ <c>BlockoutCreate.Shape</c> and not <c>SceneDocument.CreateShape</c>: only the first gives
+    ///     the entity a mesh <c>MeshOf</c> can read, and a capture over the second finds nothing to
+    ///     condition and reports no artefacts — silently, since a refusal here is an empty dump.
+    /// </remarks>
+    Entity Box() {
+        var entity = BlockoutCreate.Shape(
+            scene,
+            new ShapeParameters { Kind = ShapeKind.Box, Size = Vector3.One },
+            Vector3.Zero
+        );
+
+        new TransformSystem().Resolve(world);
+        world.AdvanceVersion();
+        scene.Selection.Set(entity);
+
+        return entity;
     }
 
     static PointerEvent Move(float x = 400f, float y = 300f) =>
