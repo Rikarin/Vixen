@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
@@ -43,6 +44,26 @@ public sealed class LodExtractionTests : IDisposable {
 
     const float FieldOfView = MathF.PI / 3f;
 
+    /// <summary>Where a group's near fixture sits, and where its far one does.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Three of these four numbers used to put the near group <em>exactly</em> on its own
+    ///     first threshold, and that is the whole of #1189.</b> A unit cube's bounding sphere has
+    ///     radius √3⁄2, this camera's <c>ScreenHeightScale</c> is 1⁄tan 30° = √3, and
+    ///     <c>LodRenderFeature.Height</c> is radius × scale ÷ distance — so a group at z = −3 covered
+    ///     (√3⁄2 × √3) ÷ 3 = <b>0.5 of the viewport, bit for bit</b>, against a first threshold of
+    ///     0.5. <c>Choose</c> takes <c>height &gt;= threshold</c>, so the whole test turned on the
+    ///     last bit of <c>MathF.Tan(π⁄6)</c> — whose true value sits within a hair of a rounding tie,
+    ///     so glibc's <c>tanf</c> answers one ulp above what Windows's and Apple's answer. One ulp
+    ///     above flips <c>ScreenHeightScale</c> one ulp below √3, the height to 0.49999997, and the
+    ///     near group from level 0 to level 1 — on Linux only, which is exactly the leg it failed on
+    ///     and neither of the two it passed. Nothing about LOD was wrong: the fixture was standing on
+    ///     the fence. The margin below is 25 % of the threshold, against an error of about 6 × 10⁻⁸.
+    /// </remarks>
+    static readonly float[] Thresholds = [0.4f, 0.1f];
+
+    /// <summary>The same list, out of order, for the group that has to be refused.</summary>
+    static readonly float[] Ascending = [0.1f, 0.4f];
+
     const string Document = """
         version: 2
         resources:
@@ -82,7 +103,7 @@ public sealed class LodExtractionTests : IDisposable {
         using var loop = new EngineLoop();
         using var renderer = Build(loop, out var camera);
 
-        var levels = Group(loop.World, new(0f, 0f, -3f), [0.5f, 0.1f]);
+        var levels = Group(loop.World, new(0f, 0f, -3f), Thresholds);
 
         Frame(loop, renderer);
 
@@ -91,9 +112,7 @@ public sealed class LodExtractionTests : IDisposable {
 
         var objects = Objects(loop.World, levels);
 
-        Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[0]));
-        Assert.False(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[1]));
-        Assert.False(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[2]));
+        Shows(renderer, camera, objects, level: 0);
     }
 
     /// <summary>
@@ -109,15 +128,13 @@ public sealed class LodExtractionTests : IDisposable {
         using var loop = new EngineLoop();
         using var renderer = Build(loop, out var camera);
 
-        var levels = Group(loop.World, new(0f, 0f, -400f), [0.5f, 0.1f]);
+        var levels = Group(loop.World, new(0f, 0f, -400f), Thresholds);
 
         Frame(loop, renderer);
 
         var objects = Objects(loop.World, levels);
 
-        Assert.False(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[0]));
-        Assert.False(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[1]));
-        Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[2]));
+        Shows(renderer, camera, objects, level: 2);
     }
 
     /// <summary>
@@ -146,8 +163,12 @@ public sealed class LodExtractionTests : IDisposable {
         Assert.Equal(0, renderer.LodExtraction!.GroupCount);
         Assert.Equal(0, renderer.LodExtraction.Assigned);
 
+        var orphaned = loop.World.Read<RenderHandle>(level).Object;
+
         Assert.True(
-            renderer.Host.System.Visibility.IsVisible(camera.Index, loop.World.Read<RenderHandle>(level).Object)
+            renderer.Host.System.Visibility.IsVisible(camera.Index, orphaned),
+            "a level whose parent carries no thresholds is in no group, so nothing may hide it: "
+            + Shown(renderer, camera, [orphaned])
         );
     }
 
@@ -165,8 +186,8 @@ public sealed class LodExtractionTests : IDisposable {
         using var loop = new EngineLoop();
         using var renderer = Build(loop, out var camera);
 
-        var near = Group(loop.World, new(0f, 0f, -3f), [0.5f, 0.1f]);
-        var far = Group(loop.World, new(0f, 0f, -400f), [0.5f, 0.1f]);
+        var near = Group(loop.World, new(0f, 0f, -3f), Thresholds);
+        var far = Group(loop.World, new(0f, 0f, -400f), Thresholds);
 
         Frame(loop, renderer);
 
@@ -176,9 +197,8 @@ public sealed class LodExtractionTests : IDisposable {
         var nearObjects = Objects(loop.World, near);
         var farObjects = Objects(loop.World, far);
 
-        Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, nearObjects[0]));
-        Assert.False(renderer.Host.System.Visibility.IsVisible(camera.Index, farObjects[0]));
-        Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, farObjects[2]));
+        Shows(renderer, camera, nearObjects, level: 0, "the near group");
+        Shows(renderer, camera, farObjects, level: 2, "the far group");
     }
 
     /// <summary>
@@ -194,7 +214,7 @@ public sealed class LodExtractionTests : IDisposable {
         using var loop = new EngineLoop();
         using var renderer = Build(loop, out _);
 
-        var first = Group(loop.World, new(0f, 0f, -3f), [0.5f, 0.1f]);
+        var first = Group(loop.World, new(0f, 0f, -3f), Thresholds);
 
         Frame(loop, renderer);
 
@@ -211,7 +231,7 @@ public sealed class LodExtractionTests : IDisposable {
 
         Assert.Equal(0, renderer.LodExtraction!.GroupCount);
 
-        Group(loop.World, new(0f, 0f, -3f), [0.5f, 0.1f]);
+        Group(loop.World, new(0f, 0f, -3f), Thresholds);
         Frame(loop, renderer);
 
         Assert.Equal(1, renderer.LodExtraction.GroupCount);
@@ -257,14 +277,13 @@ public sealed class LodExtractionTests : IDisposable {
         // check.
         renderer.Lods.CrossFadeDuration = 1f;
 
-        var levels = Group(loop.World, new(0f, 0f, -3f), [0.5f, 0.1f]);
+        var levels = Group(loop.World, new(0f, 0f, -3f), Thresholds);
 
         Frame(loop, renderer);
 
         var objects = Objects(loop.World, levels);
 
-        Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[0]));
-        Assert.False(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[2]));
+        Fading(renderer, camera, objects, fine: true, coarse: false, "before the camera moved, only the finest level");
 
         // The camera retreats until the group is at its coarsest level — the same distance
         // `TheSameGroupFarAwayShowsItsCoarsestLevel` uses, reached by moving the view rather than the
@@ -274,8 +293,7 @@ public sealed class LodExtractionTests : IDisposable {
 
         // Both ends of the transition are drawn, which is what a cross-fade costs and is the only
         // evidence from outside the feature that one started at all.
-        Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[0]));
-        Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[2]));
+        Fading(renderer, camera, objects, fine: true, coarse: true, "the frame the cross-fade started on");
 
         // Three more frames — a twentieth of the duration at most — and it is still fading. This is
         // the half that cannot be satisfied by a fade that ends immediately, which is what a
@@ -284,8 +302,7 @@ public sealed class LodExtractionTests : IDisposable {
             Frame(loop, renderer);
         }
 
-        Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[0]));
-        Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[2]));
+        Fading(renderer, camera, objects, fine: true, coarse: true, "three frames into a one-second cross-fade");
 
         // And well past it, the level it was fading out of is gone. Without the delta this is never
         // true: the elapsed time never grows, so the transition never retires and both levels of the
@@ -294,8 +311,7 @@ public sealed class LodExtractionTests : IDisposable {
             Frame(loop, renderer);
         }
 
-        Assert.False(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[0]));
-        Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, objects[2]));
+        Fading(renderer, camera, objects, fine: false, coarse: true, "well past the end of the cross-fade");
     }
 
     /// <summary>Moves the camera back along +Z, rebuilding the frustum it culls with.</summary>
@@ -328,7 +344,7 @@ public sealed class LodExtractionTests : IDisposable {
         using var loop = new EngineLoop();
         using var renderer = Build(loop, out var camera);
 
-        var levels = Group(loop.World, new(0f, 0f, -3f), [0.1f, 0.5f]);
+        var levels = Group(loop.World, new(0f, 0f, -3f), Ascending);
 
         Frame(loop, renderer);
 
@@ -338,9 +354,15 @@ public sealed class LodExtractionTests : IDisposable {
 
         // And every level is drawn, rather than one of them being hidden by a group that was never
         // registered.
+        var objects = Objects(loop.World, levels);
+
         Assert.All(
-            Objects(loop.World, levels),
-            id => Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, id))
+            objects,
+            id => Assert.True(
+                renderer.Host.System.Visibility.IsVisible(camera.Index, id),
+                "a group whose thresholds ascend is never registered, so every level of it draws: "
+                + Shown(renderer, camera, objects)
+            )
         );
     }
 
@@ -348,6 +370,115 @@ public sealed class LodExtractionTests : IDisposable {
     public void Dispose() {
         device.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    // --- Diagnosis ----------------------------------------------------------
+
+    /// <summary>Asserts a group drew one level and hid the rest, saying which it drew if it did not.</summary>
+    /// <param name="renderer">The renderer that drew the frame.</param>
+    /// <param name="view">The view whose choice is being asked about.</param>
+    /// <param name="objects">One group's levels, finest first.</param>
+    /// <param name="level">The level this group should have chosen.</param>
+    /// <param name="group">What to call it, for a test with more than one.</param>
+    /// <remarks>
+    ///     ⚠ <b>Written because the whole of what CI reported was <c>Assert.True() Failure /
+    ///     Expected: True / Actual: False</c>, and that is the first defect in #1189.</b> A bare
+    ///     <c>Assert.True</c> on a LOD selection says nothing about which level was shown, which was
+    ///     hidden, or — in the two-group test — which group decided wrongly, and the two runners it
+    ///     failed on are not on anybody's desk. Every assertion in this file carries the numbers the
+    ///     choice was made from now, which is what identified the fixture as the defect rather than
+    ///     the feature.
+    /// </remarks>
+    static void Shows(
+        WorldRenderer renderer,
+        RenderView view,
+        RenderObjectId[] objects,
+        int level,
+        string group = "the group"
+    ) {
+        for (var candidate = 0; candidate < objects.Length; candidate++) {
+            var visible = renderer.Host.System.Visibility.IsVisible(view.Index, objects[candidate]);
+
+            Assert.True(
+                visible == (candidate == level),
+                $"{group} should draw level {level} and hide the rest. " + Shown(renderer, view, objects)
+            );
+        }
+    }
+
+    /// <summary>Asserts which ends of a cross-fade a view is drawing.</summary>
+    /// <param name="renderer">The renderer that drew the frame.</param>
+    /// <param name="view">The view whose choice is being asked about.</param>
+    /// <param name="objects">The group's levels, finest first.</param>
+    /// <param name="fine">Whether level 0 should be drawn.</param>
+    /// <param name="coarse">Whether level 2 should be drawn.</param>
+    /// <param name="when">Where in the transition this is, for the message.</param>
+    /// <remarks>
+    ///     A cross-fade is the one state in which two members of a group are visible at once, so
+    ///     <see cref="Shows" />'s "one and only one" is the wrong shape for it. The middle level is
+    ///     asserted hidden throughout either way: it is neither end of this transition.
+    /// </remarks>
+    static void Fading(
+        WorldRenderer renderer,
+        RenderView view,
+        RenderObjectId[] objects,
+        bool fine,
+        bool coarse,
+        string when
+    ) {
+        var visibility = renderer.Host.System.Visibility;
+        var drawn = $"{when}, the group should draw " + Wanted(fine, coarse) + ". " + Shown(renderer, view, objects);
+
+        Assert.True(visibility.IsVisible(view.Index, objects[0]) == fine, drawn);
+        Assert.False(visibility.IsVisible(view.Index, objects[1]), drawn);
+        Assert.True(visibility.IsVisible(view.Index, objects[2]) == coarse, drawn);
+
+        static string Wanted(bool fine, bool coarse) => (fine, coarse) switch {
+            (true, true) => "both ends of the transition",
+            (true, false) => "level 0 alone",
+            (false, true) => "level 2 alone",
+            _ => "nothing at all"
+        };
+    }
+
+    /// <summary>What a view drew of one group, and the three numbers that decided it.</summary>
+    /// <param name="renderer">The renderer that drew the frame.</param>
+    /// <param name="view">The view whose choice is being reported.</param>
+    /// <param name="objects">The levels to report on, finest first.</param>
+    /// <returns>A sentence a reader with no machine in front of them can diagnose from.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The radius, the distance and the scale rather than the screen height itself.</b>
+    ///     <c>LodRenderFeature.Height</c> is private and re-computing it here would be a second
+    ///     implementation of the thing under test — the shape this repository files under "verify the
+    ///     instrument first". These three are the feature's own inputs, read back off the objects it
+    ///     read, and their quotient is the number to compare against the thresholds by hand.
+    /// </remarks>
+    static string Shown(WorldRenderer renderer, RenderView view, RenderObjectId[] objects) {
+        List<string> levels = [];
+
+        for (var level = 0; level < objects.Length; level++) {
+            var bounds = renderer.Host.System.Objects[objects[level]].Bounds;
+            var seen = renderer.Host.System.Visibility.IsVisible(view.Index, objects[level]) ? "shown" : "hidden";
+            var distance = Vector3.Distance(bounds.Center, view.Position);
+
+            levels.Add(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"level {level} {seen} (radius {bounds.Radius:R}, distance {distance:R})"
+                )
+            );
+        }
+
+        var thresholds = string.Join(
+            ", ",
+            Thresholds.Select(value => value.ToString("R", CultureInfo.InvariantCulture))
+        );
+
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"It drew: {string.Join("; ", levels)}. Thresholds [{thresholds}], "
+            + $"screen-height scale {view.ScreenHeightScale:R}."
+        );
     }
 
     // --- Fixture ------------------------------------------------------------
