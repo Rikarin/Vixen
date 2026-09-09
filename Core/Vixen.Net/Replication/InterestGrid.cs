@@ -47,11 +47,21 @@ public sealed class InterestGrid : IInterestSource {
     readonly Dictionary<uint, HashSet<uint>> observing = [];
     readonly HashSet<uint> current = [];
 
-    // The bounding box of the cells the last rebuild put anything in, in cell coordinates. Empty
-    // until a rebuild, and deliberately inverted when nothing is positioned so a query's loop
+    // The layers the last rebuild put anything in — the set rather than its extent, because the
+    // extent is what one outlier destroys. `layers` is `occupied` sorted, so a query can walk the
+    // part of it inside its window with one binary search.
+    readonly HashSet<int> occupied = [];
+    readonly List<int> layers = [];
+
+    // The horizontal extent of the cells the last rebuild put anything in, in cell coordinates.
+    // Empty until a rebuild, and deliberately inverted when nothing is positioned so a query's loop
     // bounds cross and it walks nothing at all.
-    (int X, int Y, int Z) low = (int.MaxValue, int.MaxValue, int.MaxValue);
-    (int X, int Y, int Z) high = (int.MinValue, int.MinValue, int.MinValue);
+    //
+    // ⚠ Only x and z. A min/max pair is the right shape for an axis a world is genuinely spread
+    // along — it is one number per end and the query is dense in it. It is the wrong shape for the
+    // axis a world is *flat* along, which is the one the clamp was bought for: see `layers`.
+    (int X, int Z) low = (int.MaxValue, int.MaxValue);
+    (int X, int Z) high = (int.MinValue, int.MinValue);
 
     /// <summary>How large a cell is, in world units.</summary>
     /// <remarks>
@@ -94,6 +104,26 @@ public sealed class InterestGrid : IInterestSource {
     /// <summary>How many had no position and go to everybody.</summary>
     public int UnpositionedCount => unpositioned.Count;
 
+    /// <summary>How many distinct layers hold anything, after the last rebuild.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The bound on the vertical half of a query's price, and the number that says why a tick
+    ///         got slower. A query walks at most <c>min(OccupiedLayerCount, 2 · span + 1)</c> layers,
+    ///         so a world standing on the ground reads one here whatever else is in it, and a world
+    ///         with real floors reads the number of floors.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ It counts layers, not their <i>extent</i>. That distinction is the whole of #1144:
+    ///         an earlier version of this grid clamped a query to the min/max band of occupied
+    ///         layers, and one entity parked at <c>y = 1000</c> — a flying camera, a projectile, a
+    ///         transform left on a sentinel — made that band thirty-two cells deep and handed every
+    ///         connection the whole cube back. A set has no such outlier: the stray layer is one
+    ///         entry, it is outside every window that does not contain it, and it costs one probe to
+    ///         the queries it does reach.
+    ///     </para>
+    /// </remarks>
+    public int OccupiedLayerCount => layers.Count;
+
     /// <summary>Cells looked up by every query since this grid was made.</summary>
     /// <remarks>
     ///     <para>
@@ -103,8 +133,11 @@ public sealed class InterestGrid : IInterestSource {
     ///         what a soak wants to print.
     ///     </para>
     ///     <para>
-    ///         ⚠ It is <b>not</b> <c>(2 · span + 1)³</c>: a query walks only the part of its window that
-    ///         the last rebuild put something in, so a flat world costs one layer rather than nine.
+    ///         ⚠ It is <b>not</b> <c>(2 · span + 1)³</c>: a query walks only the part of its window
+    ///         that the last rebuild put something in, so a flat world costs one layer rather than
+    ///         nine. The bound is
+    ///         <c>(2 · span + 1)² · min(<see cref="OccupiedLayerCount" />, 2 · span + 1)</c>, and it
+    ///         holds however far apart the occupied layers are.
     ///     </para>
     /// </remarks>
     public long ProbedCellCount { get; private set; }
@@ -146,9 +179,11 @@ public sealed class InterestGrid : IInterestSource {
         }
 
         unpositioned.Clear();
+        occupied.Clear();
+        layers.Clear();
         PositionedCount = 0;
-        low = (int.MaxValue, int.MaxValue, int.MaxValue);
-        high = (int.MinValue, int.MinValue, int.MinValue);
+        low = (int.MaxValue, int.MaxValue);
+        high = (int.MinValue, int.MinValue);
 
         foreach (var chunk in world.Chunks(Networked)) {
             var entities = chunk.Entities;
@@ -164,11 +199,17 @@ public sealed class InterestGrid : IInterestSource {
 
                 Cell(Pack(at.X, at.Y, at.Z)).Add(entities[index]);
                 PositionedCount++;
+                occupied.Add(at.Y);
 
-                low = (Math.Min(low.X, at.X), Math.Min(low.Y, at.Y), Math.Min(low.Z, at.Z));
-                high = (Math.Max(high.X, at.X), Math.Max(high.Y, at.Y), Math.Max(high.Z, at.Z));
+                low = (Math.Min(low.X, at.X), Math.Min(low.Z, at.Z));
+                high = (Math.Max(high.X, at.X), Math.Max(high.Z, at.Z));
             }
         }
+
+        // Sorted once a tick and then read by every connection, which is the trade the whole grid is
+        // built on. A world has as many layers as it has floors, so this sorts single digits.
+        layers.AddRange(occupied);
+        layers.Sort();
     }
 
     /// <inheritdoc />
@@ -211,13 +252,23 @@ public sealed class InterestGrid : IInterestSource {
         // floors it has, and only for those.
         var lowX = Math.Max(centre.X - span, low.X);
         var highX = Math.Min(centre.X + span, high.X);
-        var lowY = Math.Max(centre.Y - span, low.Y);
-        var highY = Math.Min(centre.Y + span, high.Y);
         var lowZ = Math.Max(centre.Z - span, low.Z);
         var highZ = Math.Min(centre.Z + span, high.Z);
 
+        // ⚠ And the vertical axis is intersected against the *set* of occupied layers, not against
+        // their extent (#1144). An extent is one outlier away from being the whole window again: a
+        // single entity at y = 1000 in an otherwise flat world made the band thirty-two cells deep
+        // and gave every connection back the cube the clamp had just removed, with nothing in the
+        // grid reporting why the tick had trebled. Over the set, that entity is one layer, it is
+        // outside this window unless the eye is up there with it, and the price of finding that out
+        // is one binary search.
+        var first = FirstLayerFrom(centre.Y - span);
+        var lastY = centre.Y + span;
+
         for (var x = lowX; x <= highX; x++) {
-            for (var y = lowY; y <= highY; y++) {
+            for (var index = first; index < layers.Count && layers[index] <= lastY; index++) {
+                var y = layers[index];
+
                 for (var z = lowZ; z <= highZ; z++) {
                     ProbedCellCount++;
 
@@ -265,6 +316,15 @@ public sealed class InterestGrid : IInterestSource {
 
         current.Add(id.Value);
         into.Add(entity);
+    }
+
+    // The index of the first occupied layer at or above `from`, which is `layers.Count` when there
+    // is none — so a window entirely above everything walks nothing rather than clamping onto the
+    // top layer and walking it.
+    int FirstLayerFrom(int from) {
+        var found = layers.BinarySearch(from);
+
+        return found < 0 ? ~found : found;
     }
 
     List<Entity> Cell(long key) {

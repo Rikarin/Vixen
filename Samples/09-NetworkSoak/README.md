@@ -113,6 +113,16 @@ in a world that is a plane, and fifteen sixteenths of those probes were in layer
 so — it is the grid's cost expressed as work, and unlike the tick time it reads the same on a busy
 machine.
 
+⚠ **And the third column is one outlier away from being the second again, or was**
+([#1144](https://github.com/Rikarin/Vixen/issues/1144)). The first version of that clamp intersected a
+query's window with the *bounding box* of the filled cells, and everything in this soak stands at
+`y = 0`, so the box was one layer deep. One entity at `y = 1000` — a flying camera, a projectile, a
+transform left on a sentinel — would have made the box thirty-two layers deep, stopped the clamp
+biting, and handed the middle column's 1 331 probes back with nothing reporting why. The vertical axis
+is now intersected against the *set* of occupied layers rather than its extent, so a stray costs one
+layer and only the queries that reach it. `occupied layers` is printed beside `probes` because it is
+the number that explains a probe count that has grown.
+
 **Bandwidth is per connection, and the interest slice is doing the work.** Two hundred and fifty
 observed entities at 30 Hz is what 75 kbit/s buys. `--interest all` is the same run without an
 interest resolver and is worth doing once, to see the shape of the number that makes interest

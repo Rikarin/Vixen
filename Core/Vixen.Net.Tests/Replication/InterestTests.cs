@@ -367,10 +367,20 @@ public sealed class InterestTests : IDisposable {
 
     /// <summary>A world with floors above it still pays for those floors, and finds them.</summary>
     /// <remarks>
-    ///     The clamp is an intersection with what the rebuild filled, not a decision that the third
-    ///     dimension does not exist. Both halves are asserted: the object two cells up is observed,
-    ///     and the walk grew to the three layers that hold something rather than to the nine the
-    ///     window spans.
+    ///     <para>
+    ///         The clamp is an intersection with what the rebuild filled, not a decision that the
+    ///         third dimension does not exist. Both halves are asserted: the object two cells up is
+    ///         observed, and the walk is the two layers that hold something rather than the nine the
+    ///         window spans.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ This expected two, and the premise moved rather than the test being wrong: it read
+    ///         three while the grid clamped a query to the min/max <i>band</i> of occupied layers, so
+    ///         the empty <c>y = 1</c> between the ground and the floor above was walked for being
+    ///         inside the band. #1144 replaced the band with the set, and an empty layer inside it is
+    ///         no longer in the set. The observed half of the assertion is unchanged, which is the
+    ///         half that would catch the fix having dropped a floor.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void AStackedWorldStillReachesTheFloorAboveIt() {
@@ -388,9 +398,64 @@ public sealed class InterestTests : IDisposable {
         Assert.Contains(ground, observed);
         Assert.Contains(upstairs, observed);
 
-        // One column, three layers: cells y = 0, 1 and 2, of which the middle one is empty and still
-        // walked because it is inside the occupied band.
-        Assert.Equal(3, grid.ProbedCellCount);
+        // One column, two layers: cells y = 0 and y = 2. The empty y = 1 between them is inside the
+        // window and inside the band, and is not in the set.
+        Assert.Equal(2, grid.OccupiedLayerCount);
+        Assert.Equal(2, grid.ProbedCellCount);
+    }
+
+    /// <summary>One entity in the sky does not hand every connection the cube back.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ The failure mode of the clamp that #1043 bought, filed as #1144 the day it landed. A
+    ///         min/max band is one outlier away from being the whole window again: park a single
+    ///         entity at <c>y = 1000</c> and another at <c>y = -1000</c> in an otherwise flat world —
+    ///         a flying camera, a projectile, a respawn placeholder, a transform left on a sentinel —
+    ///         and the occupied band spans sixty-four cells, the clamp stops biting, and every
+    ///         connection pays the full <c>(2 · span + 1)³</c> again. The old code walked 729 cells
+    ///         here; the set walks 81, because the two strays are two entries and neither is inside
+    ///         this window.
+    ///     </para>
+    ///     <para>
+    ///         The instrument is asserted beside the work, because the point of #1144 was that the
+    ///         degradation was silent: <c>OccupiedLayerCount</c> is three, and three layers with a
+    ///         nine-cell window is what bounds the walk at <c>81 · 1</c> rather than <c>81 · 9</c>.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AnOutlierInTheSkyCostsOneLayerAndNotAllOfThem() {
+        var grid = new InterestGrid { CellSize = 32f, Radius = 96f, Hysteresis = 12f };
+        var chain = new InterestChain { Source = grid };
+
+        // The same flat nine-by-nine as AFlatWorldIsNotWalkedAsACube, so the only difference between
+        // the two numbers is the outliers.
+        for (var x = -128f; x <= 128f; x += 32f) {
+            for (var z = -128f; z <= 128f; z += 32f) {
+                SpawnAt(new(x, 0f, z));
+            }
+        }
+
+        SpawnAt(new(0f, 1000f, 0f));
+        SpawnAt(new(0f, -1000f, 0f));
+
+        grid.SetViewpoint(Player, Vector3.Zero);
+        grid.Rebuild(world);
+        chain.Resolve(world, Player, observed);
+
+        Assert.Equal(83, grid.PositionedCount);
+        Assert.Equal(3, grid.OccupiedLayerCount);
+        Assert.Equal(81, grid.ProbedCellCount);
+
+        // And the stray is still reachable from up there — the set is a smaller walk, not a shorter
+        // reach. A second query from the sky finds it, and pays for the one layer it is in.
+        var before = grid.ProbedCellCount;
+
+        observed.Clear();
+        grid.SetViewpoint(Other, new(0f, 1000f, 0f));
+        chain.Resolve(world, Other, observed);
+
+        Assert.Single(observed);
+        Assert.Equal(81, grid.ProbedCellCount - before);
     }
 
     /// <summary>A world nobody has put anything in is walked not at all.</summary>
