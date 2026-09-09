@@ -983,7 +983,13 @@ public sealed record LightStreakAsset : ISceneRendererAsset {
     public float Scale { get; init; } = 0.25f;
 
     /// <summary>Luminance above which a pixel streaks, in the source's units.</summary>
-    public float Threshold { get; init; } = 1f;
+    /// <remarks>
+    ///     ⚠ <b>Photometric, and not the one <see cref="LensFlareAsset.Threshold" /> and
+    ///     <c>!Bloom</c> default to.</b> The renderer works in cd/m², where nothing is near one, so a
+    ///     threshold of one streaks the floor and the smear becomes a second copy of the picture
+    ///     rather than a shape put where a highlight is.
+    /// </remarks>
+    public float Threshold { get; init; } = 40_000f;
 
     /// <summary>How many blur passes run, each reaching further than the last.</summary>
     public int BlurPasses { get; init; } = 3;

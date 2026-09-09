@@ -80,10 +80,13 @@ shader LightStreak {
 
     /// Luminance above which a pixel streaks, in the source's units.
     ///
-    /// ⚠ In a physically lit frame that is cd/m² and nothing is near one, so the usual value of one
-    /// would streak the floor. Wants to sit above what the exposure calls white — the same argument
-    /// `Bloom`'s threshold makes, and the same failure if it is left at the default.
-    var threshold: float = 1f
+    /// ⚠ **The default is photometric and not one**, which is the opposite of every other threshold
+    /// in this library and is the correction rather than the exception. This renderer works in cd/m²,
+    /// where nothing is near one — so a threshold of one streaks the *floor*, and the smear stops
+    /// being a shape put where a highlight is and becomes a second copy of the whole picture. Forty
+    /// thousand is the number sample 13's hand-authored frame gives its flare, which is about a stop
+    /// over the brightest sunlit surface in it.
+    var threshold: float = 40000f
 
     /// How bright the finished streak is added back.
     var intensity: float = 0.6f

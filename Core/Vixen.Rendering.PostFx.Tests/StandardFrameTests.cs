@@ -242,6 +242,30 @@ public class StandardFrameTests {
         Assert.False(Node<AmbientCombineAsset>(bare, "Combine").ContactBentNormal);
     }
 
+    /// <summary>The streak is Epic's alone, and it takes the flared frame rather than the raw one.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Its threshold is photometric and the node is emitted without one</b>, so it runs at
+    ///     <see cref="LightStreakAsset" />'s own default of 40 000 cd/m². That is the correction
+    ///     rather than the exception: <c>!Bloom</c> and <c>!LensFlare</c> are both emitted here at
+    ///     <em>their</em> defaults of one, which in a frame measured in cd/m² is every pixel — sample
+    ///     13's hand-authored document sets 3 000 and 40 000 for exactly that reason and the
+    ///     expansion sets neither. Measured on the Epic tier fixture, a streak at a threshold of one
+    ///     moves the frame's average channel by 23.1 of 255; at the photometric default the same
+    ///     picture stays inside the golden's tolerance.
+    /// </remarks>
+    [Fact]
+    public void The_light_streak_is_the_top_tiers_and_reads_the_flared_frame() {
+        foreach (var tier in (QualityTier[])[QualityTier.Low, QualityTier.Medium, QualityTier.High]) {
+            Assert.DoesNotContain("Streak", Names(Expand(AllOn with { Quality = tier })));
+        }
+
+        var document = Expand(AllOn);
+        var streak = Node<LightStreakAsset>(document, "Streak");
+
+        Assert.Equal(Node<LensFlareAsset>(document, "Flare").Output, streak.Source);
+        Assert.Equal(40_000f, streak.Threshold);
+    }
+
     [Fact]
     public void Ambient_gi_runs_the_occlusion_pair_without_the_probe_machinery() {
         var document = Expand(AllOff with { Gi = GiMode.Ambient });

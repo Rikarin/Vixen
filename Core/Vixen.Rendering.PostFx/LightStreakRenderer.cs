@@ -76,7 +76,16 @@ public sealed class LightStreakRenderer : SceneRenderer, IDisposable, IPostProce
     public float Scale { get; set; } = 0.25f;
 
     /// <summary>Luminance above which a pixel streaks, in the source's units.</summary>
-    public float Threshold { get; set; } = 1f;
+    /// <remarks>
+    ///     ⚠ <b>Photometric, and deliberately not the one every other threshold in this assembly
+    ///     defaults to.</b> The renderer works in cd/m² and nothing there is near one, so a threshold
+    ///     of one streaks the floor — the smear stops being a shape put where a highlight is and
+    ///     becomes a second copy of the whole picture. Measured on the Epic tier fixture: at one it
+    ///     moves the frame's average channel by 23.1 of 255, which is a whole-frame shading change
+    ///     rather than an effect. Forty thousand is what sample 13's hand-authored frame gives its
+    ///     flare.
+    /// </remarks>
+    public float Threshold { get; set; } = 40_000f;
 
     /// <summary>How many blur passes run, each reaching further than the last.</summary>
     /// <remarks>
