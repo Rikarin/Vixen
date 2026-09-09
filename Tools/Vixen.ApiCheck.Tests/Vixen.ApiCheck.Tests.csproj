@@ -60,6 +60,17 @@
         <Compile Include="..\..\build\AotProbeProjectFile.cs" Link="AotProbeProjectFile.cs" />
 
         <!--
+            ⚠ And the rule that compares the probe against the TREE rather than against itself
+            (#506). `AssertProbeRootsEveryAssemblyItReferences` asks whether every reference has a
+            root, which a probe referencing three assemblies and rooting the same three passes — so
+            nothing could see that the gate roots 29 of 95 runtime assemblies while its README said
+            it rooted them all. Linked here for the reason the probe reader above is: the gate this
+            belongs to is an ILC publish measured in minutes, so a rule that only answers inside it
+            is a rule nobody has watched produce an answer.
+        -->
+        <Compile Include="..\..\build\AotRootingRule.cs" Link="AotRootingRule.cs" />
+
+        <!--
             ⚠ And the build's baseline reader, for the same reason and after the same kind of
             failure: it dropped every `X -> sealed class` line as "a member, not a type", which is
             how this repository spells a type declaration, so CheckDocsCoverage read 2 398 of 4 711

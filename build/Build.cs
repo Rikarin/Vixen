@@ -899,6 +899,7 @@ partial class Build : NukeBuild {
         .DependsOn(Restore)
         .Executes(() => {
                 AssertProbeRootsEveryAssemblyItReferences(AotProbeProject, atLeast: 25);
+                AssertEveryRuntimeAssemblyIsRootedOrWrittenDown();
                 AssertProbePublishesAheadOfTime(AotProbeProject);
 
                 DotNetPublish(settings => settings
@@ -1032,6 +1033,67 @@ partial class Build : NukeBuild {
         );
 
         Log.Information("{Probe} roots all {Count} assemblies it references.", probe.Name, referenced.Count);
+    }
+
+    /// <summary>
+    ///     Fails when a runtime assembly is neither rooted by the probe nor written down as not
+    ///     rooted, and equally when a written-down assembly has become rooted.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The check above compares the probe against itself; this one compares it against
+    ///         the tree, and that is the difference between a gate and a paragraph</b> (#506). A
+    ///         probe that references three assemblies and roots the same three satisfies
+    ///         <see cref="AssertProbeRootsEveryAssemblyItReferences" /> completely — so nothing here
+    ///         could see that the probe roots 29 of 95 runtime assemblies while its README said it
+    ///         rooted every one of them.
+    ///     </para>
+    ///     <para>
+    ///         <b>What it does not do is demand the expansion.</b> Sixty-six assemblies are in
+    ///         <c>Tools/Vixen.AotProbe/NotRooted.txt</c> with a reason each, because
+    ///         <c>ILLinkTreatWarningsAsErrors</c> makes each newly rooted one a fresh set of IL2xxx
+    ///         findings and a build break until they are fixed. What it stops is the set growing
+    ///         again in silence, which is how it reached sixty-six — and the list can only shrink,
+    ///         so the expansion has a scoreboard.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Before the publish rather than after, like its neighbour: it costs milliseconds and
+    ///         the publish costs minutes. The rule itself is <c>AotRootingRule</c>, a pure function
+    ///         that <c>AotRootingRuleTests</c> also calls — because a rule whose only answer comes
+    ///         from an ILC publish is a rule nobody has watched produce one.
+    ///     </para>
+    /// </remarks>
+    void AssertEveryRuntimeAssemblyIsRootedOrWrittenDown() {
+        var runtime = AotRootingRule.RuntimeAssemblies(RootDirectory);
+
+        // The floor is the same instrument-check the neighbour carries: a walk that stopped reading
+        // target frameworks reports nothing unrooted and means "I read nothing".
+        Assert.True(
+            runtime.Count >= 90,
+            $"found only {runtime.Count} net10.0 runtime projects under Core/ and Platform/, which is too "
+            + "few to be the whole tree — the target framework is probably written some other way now."
+        );
+
+        var violations = AotRootingRule.Violations(RootDirectory, AotProbeProject);
+
+        foreach (var violation in violations) {
+            Log.Error("{Violation}", violation);
+        }
+
+        Assert.True(
+            violations.Count == 0,
+            $"{violations.Count} disagreement(s) between the runtime assemblies in this tree and "
+            + $"{AotRootingRule.LedgerFile}."
+        );
+
+        var unrooted = AotRootingRule.Unrooted(RootDirectory, AotProbeProject).Count;
+
+        Log.Information(
+            "CheckAot roots {Rooted} of {Total} runtime assemblies; {Unrooted} are written down as not rooted.",
+            runtime.Count - unrooted,
+            runtime.Count,
+            unrooted
+        );
     }
 
     /// <summary>
