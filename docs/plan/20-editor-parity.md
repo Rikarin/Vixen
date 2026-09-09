@@ -583,9 +583,20 @@ dragged object's own surface for the whole of every drag — a snap that never m
 
 ### Hierarchy
 
-Create, delete, rename, duplicate ✅ (three of five undoable), **reparent by drag** ⛔ (the primitive
-exists), **reorder among siblings** (`Hierarchy.SetParentAfter` exists), group/ungroup, **multi-select
-operations**, **filter by component type**, **visibility and lock per entity**.
+Create, delete, rename, duplicate ✅ (three of five undoable), **reparent by drag** ✅, **reorder among
+siblings** ✅, group/ungroup, **multi-select operations**, **filter by component type**, **visibility
+and lock per entity**.
+
+⚠ **This row said "reparent by drag ⛔ (the primitive exists)" long after the gesture existed, and the
+parenthesis is what made it look plausible.** `EditorApplication.Dropped` has taken `TreeView.Moved`
+and turned it into an undoable `scene.Reparent` for the whole selection; what was genuinely missing
+was one call short of the document — the drop's *position* among its new siblings was read off the
+tree and then discarded, so every drop landed the entity first. `OutlinerDragTests` covers all four
+halves of the gesture: a drop between rows reorders, a drop on a row makes a child, a row cannot be
+dropped inside its own subtree and the refusal is *drawn* rather than ignored, and a multi-row drag is
+one undo step. ⚠ And the verb this row was said to block is not blocked either: `entity.set-parent` is
+a live command over a `ChooseAsync` picker, and its recorded reason — *"needs the entity picker the
+outliner's drag will bring"* — was never what it needed.
 
 ### Content
 
