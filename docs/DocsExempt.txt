@@ -646,6 +646,7 @@ T:Vixen.ContentServer.ContentReply sweep-pending
 T:Vixen.ContentServer.ContentServer sweep-pending
 T:Vixen.ContentServer.ContentServerHost sweep-pending
 T:Vixen.ContentServer.ContentStatus sweep-pending
+T:Vixen.Core.Analyzers.HotPathAllocationAnalyzer sweep-pending
 T:Vixen.Core.AssetId sweep-pending
 T:Vixen.Core.AssetReference sweep-pending
 T:Vixen.Core.AssetTypeAttribute sweep-pending

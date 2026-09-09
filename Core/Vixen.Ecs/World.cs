@@ -147,6 +147,7 @@ public sealed class World : IDisposable {
     ///     matters to "did this change since I last looked" is the phase, and a per-write counter
     ///     would make two writes in the same frame look like different generations.
     /// </remarks>
+    [HotPath]
     public uint AdvanceVersion() => ++Version;
 
     // ---------------------------------------------------------------- creation
@@ -640,6 +641,7 @@ public sealed class World : IDisposable {
     ///     what makes "a system that writes nothing must not mark chunks dirty" a property the
     ///     compiler helps with rather than a convention.
     /// </remarks>
+    [HotPath]
     public ref T Get<T>(Entity entity) {
         ref var info = ref Live(entity);
         var column = Column<T>(entity, in info);
@@ -653,6 +655,7 @@ public sealed class World : IDisposable {
     /// <returns>A read-only reference to the value.</returns>
     /// <exception cref="EntityNotFoundException">The handle is stale, or from another world.</exception>
     /// <exception cref="ComponentNotFoundException">The entity has no such component.</exception>
+    [HotPath]
     public ref readonly T Read<T>(Entity entity) {
         ref var info = ref Live(entity);
         var column = Column<T>(entity, in info);

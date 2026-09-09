@@ -104,6 +104,7 @@ public sealed class Chunk {
     ///     renderer's culling path uses directly: a <see cref="Span{T}" /> over a chunk is what lets
     ///     a caller run SIMD over the components without the ECS knowing anything about it.
     /// </remarks>
+    [HotPath]
     public Span<T> Values<T>() {
         var column = PublicColumn<T>();
         MarkWritten(column, Archetype.World.Version);
@@ -117,6 +118,7 @@ public sealed class Chunk {
     ///     The archetype has no such component, or it is a tag or a managed type.
     /// </exception>
     /// <remarks>Does not mark the column changed, which is what makes a change filter mean anything.</remarks>
+    [HotPath]
     public ReadOnlySpan<T> ReadValues<T>() => Column<T>(PublicColumn<T>());
 
     int PublicColumn<T>() {

@@ -113,8 +113,11 @@ Full ruleset lives in `.editorconfig` + `Directory.Build.props`. The intent:
   ceremony that currently pushes people to public fields.
 - **Extension members** (C# 14) for the "fluent descriptor" APIs (`RenderTargetDescription`,
   `PipelineStateDescription`), keeping the core structs minimal.
-- **`static` lambdas everywhere in hot paths**; no closure allocation. An analyzer enforces
-  `VSTHRD`-style rules plus a custom "no implicit closure in `[HotPath]` method" rule.
+- **`static` lambdas everywhere in hot paths**; no closure allocation. ✅ The custom "no implicit
+  closure in a `[HotPath]` method" rule is `VXHP0001` (`Core/Vixen.Core.Analyzers`, #1161), and it is
+  wider than that bullet asked for: a closure is one of six allocation shapes it reports in a marked
+  body. ⚠ It reports a lambda that *captures*, not every lambda — a capture-free one is cached in a
+  static field and `static` changes nothing about it. The `VSTHRD`-style half is not implemented.
 - **`[MethodImpl(AggressiveInlining)]`** only with a benchmark in the PR proving it.
 - **No `async`/`await` in the frame loop.** Async is for asset loading, editor I/O, and tooling.
   Frame work uses the job system ([03](03-core-foundation.md)).

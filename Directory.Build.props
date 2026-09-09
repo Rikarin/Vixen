@@ -486,6 +486,14 @@
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all" />
+    <!--
+      VXHP0001. Unlike VXIO0001 this one reports nothing until a member is marked [HotPath], so
+      referencing it everywhere costs a compilation that has marked nothing exactly nothing.
+    -->
+    <ProjectReference Include="$(MSBuildThisFileDirectory)Core\Vixen.Core.Analyzers\Vixen.Core.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
   </ItemGroup>
 
   <!--

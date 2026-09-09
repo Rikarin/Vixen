@@ -81,12 +81,13 @@ public sealed record LogRecord(
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The claim that used to stand here — that logging never happens on a hot path,
-///         because <c>[HotPath]</c> methods are barred from it — was not true.</b> The attribute is
-///         applied to no method anywhere in the tree and no analyzer enforces it, so it bars
-///         nothing. What is actually true is weaker, and is the real reason the cost does not
-///         matter: logging <i>does</i> occur in per-frame code, and each such site is individually
-///         latched, watermarked, de-duplicated or interval-throttled, so its steady-state cost is a
-///         compare rather than a record.
+///         because <c>[HotPath]</c> methods are barred from it — was not true, and is still not.</b>
+///         The attribute has an analyzer now (<c>VXHP0001</c>, #1161) and members marked with it, but
+///         that rule is about <i>allocation</i> and says nothing whatever about logging. What is
+///         actually true is weaker, and is the real reason the cost does not matter: logging
+///         <i>does</i> occur in per-frame code, and each such site is individually latched,
+///         watermarked, de-duplicated or interval-throttled, so its steady-state cost is a compare
+///         rather than a record.
 ///     </para>
 /// </remarks>
 public sealed class RingBufferSink : LogRecordSink {
