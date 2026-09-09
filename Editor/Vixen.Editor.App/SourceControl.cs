@@ -36,14 +36,50 @@ enum SourceControlStatus : byte {
     Untracked
 }
 
+/// <summary>One commit that touched a file, as a history row shows it.</summary>
+/// <param name="Id">The full revision, which is what a later command is given.</param>
+/// <param name="ShortId">The abbreviation a person reads and quotes.</param>
+/// <param name="Author">Who wrote it.</param>
+/// <param name="When">When they did, in their own offset as the provider recorded it.</param>
+/// <param name="Summary">The first line of the message, which is the row's label.</param>
+/// <remarks>
+///     ⚠ <b>Both ids, rather than one and an abbreviation rule.</b> How many characters are enough
+///     to be unambiguous is a property of the repository — git decides it per repository and grows
+///     it as the repository does — so a panel that truncated the full one itself would print an id
+///     that resolves to two commits in exactly the repositories where that matters.
+/// </remarks>
+sealed record SourceControlRevision(string Id, string ShortId, string Author, DateTimeOffset When, string Summary);
+
+/// <summary>What changed in one file, at one revision or since the last commit.</summary>
+/// <param name="IsText">Whether <see cref="Text" /> is a patch or a sentence about one.</param>
+/// <param name="Text">The unified diff, or what there is to say when there cannot be one.</param>
+/// <remarks>
+///     <para>
+///         ⚠ <b>The flag is the whole design decision, and it is the one the issue said had to be
+///         made first.</b> Most of a game project is not text: a diff line for a <c>.png</c>, a mesh
+///         or a compiled <c>.vxscene</c> is a promise the viewer breaks the first time somebody uses
+///         it. So a binary asset's diff is <em>not</em> a patch with the bytes elided — it is one
+///         honest sentence saying it is binary and how its size moved, which is what git's own
+///         <c>--stat</c> says about one and is the most any viewer can say without a per-format
+///         comparer.
+///     </para>
+///     <para>
+///         ⚠ <b>And that is why <see cref="IsText" /> is a field rather than something a reader
+///         infers.</b> A panel that decided by looking for a leading <c>@@</c> would call an empty
+///         diff binary, and a text file whose only change is a trailing newline produces exactly
+///         that.
+///     </para>
+/// </remarks>
+sealed record SourceControlDiff(bool IsText, string Text);
+
 /// <summary>What the editor needs from a version-control system, and no more.</summary>
 /// <remarks>
 ///     <para>
 ///         <b>The seam doc 20 § B7 asks for.</b> Nothing in the tree spelled <c>SourceControl</c>
 ///         before this, so the four verbs the row lists — status, revert, diff, history — had nowhere
-///         to hang. This is the first two of them; diff and history over a real repository want a
-///         viewer and a log panel and are their own work, and inventing their signatures here would
-///         be designing a panel nobody has drawn.
+///         to hang. All four are here now, and the last two arrived together because they are one
+///         panel: <c>RevisionsView</c> lists what <see cref="HistoryAsync" /> answered and draws
+///         what <see cref="DiffAsync" /> says about whichever row is picked.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Status is asked for the whole working tree at once rather than per path, and that is
@@ -76,6 +112,39 @@ interface ISourceControl {
     /// <param name="path">Project-relative, forward slashes.</param>
     /// <returns>Null when it worked, or what went wrong.</returns>
     ValueTask<string?> RevertAsync(string path);
+
+    /// <summary>The commits that touched a file, newest first.</summary>
+    /// <param name="path">Project-relative, forward slashes.</param>
+    /// <param name="limit">At most this many.</param>
+    /// <returns>The revisions, or empty for a file the provider has never seen.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Bounded, and the bound is not a performance nicety.</b> An engine's own repository
+    ///     has files with four figures of commits behind them, and a panel that asked for all of
+    ///     them would spend the time and then draw a list nobody scrolls to the end of. What a
+    ///     person is looking for is nearly always in the last few dozen.
+    /// </remarks>
+    ValueTask<IReadOnlyList<SourceControlRevision>> HistoryAsync(string path, int limit);
+
+    /// <summary>What changed in a file, at a revision or since the last commit.</summary>
+    /// <param name="path">Project-relative, forward slashes.</param>
+    /// <param name="revision">
+    ///     A <see cref="SourceControlRevision.Id" />, or empty for the working tree's own changes.
+    /// </param>
+    /// <returns>The patch, or the sentence that stands in for one.</returns>
+    ValueTask<SourceControlDiff> DiffAsync(string path, string revision);
+
+    /// <summary>Puts a file back as it was at a revision.</summary>
+    /// <param name="path">Project-relative, forward slashes.</param>
+    /// <param name="revision">A <see cref="SourceControlRevision.Id" />.</param>
+    /// <returns>Null when it worked, or what went wrong.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Into the working tree, not a checkout of the whole revision.</b> What a history row
+    ///     offers is "give me back this version of this asset", which leaves everything else alone
+    ///     and leaves the result as an ordinary uncommitted change somebody can look at and revert.
+    ///     Moving the whole project to an old commit is a thing git clients do and an editor should
+    ///     not do behind a row in an asset panel.
+    /// </remarks>
+    ValueTask<string?> RestoreAsync(string path, string revision);
 }
 
 /// <summary>Git, over the command-line client the user already has.</summary>
@@ -202,6 +271,178 @@ sealed class GitSourceControl : ISourceControl {
 
     /// <inheritdoc />
     public ValueTask<string?> RevertAsync(string path) => new(Task.Run(() => Revert(path)));
+
+    /// <inheritdoc />
+    public ValueTask<IReadOnlyList<SourceControlRevision>> HistoryAsync(string path, int limit) =>
+        new(Task.Run(() => History(path, limit)));
+
+    /// <inheritdoc />
+    public ValueTask<SourceControlDiff> DiffAsync(string path, string revision) =>
+        new(Task.Run(() => Diff(path, revision)));
+
+    /// <inheritdoc />
+    public ValueTask<string?> RestoreAsync(string path, string revision) =>
+        new(Task.Run(() => Restore(path, revision)));
+
+    /// <summary>What a history row is made of, as one record git prints without quoting anything.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A NUL between the fields and a NUL between the records, which is what <c>%x00</c>
+    ///     buys.</b> A commit message is arbitrary text — it has newlines and tabs in it by
+    ///     construction — so every separator that occurs in ordinary prose splits a record in the
+    ///     wrong place, and the author line is the one that then reads as a subject.
+    /// </remarks>
+    const string LogFormat = "%H%x00%h%x00%an%x00%aI%x00%s%x00";
+
+    IReadOnlyList<SourceControlRevision> History(string path, int limit) {
+        if (string.IsNullOrWhiteSpace(path) || limit <= 0) {
+            return [];
+        }
+
+        // ⚠ `--follow`, which is the whole reason this is worth doing over an asset rather than over
+        // a repository. An asset that was renamed — which every asset is, the first time somebody
+        // tidies a folder — has its history end at the rename without it, and the panel would say a
+        // file with three years behind it was created last Tuesday.
+        var (code, output, _) = Run(
+            root,
+            "log",
+            "--follow",
+            "--max-count=" + limit.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            "--format=" + LogFormat,
+            "--",
+            path
+        );
+
+        if (code != 0) {
+            return [];
+        }
+
+        List<SourceControlRevision> revisions = [];
+        var fields = output.Split('\0');
+
+        // Five fields per record, and the trailing NUL leaves a final empty element the stride steps
+        // straight past.
+        for (var index = 0; index + 4 < fields.Length; index += 5) {
+            var id = fields[index].Trim('\n', '\r');
+
+            if (id.Length == 0) {
+                continue;
+            }
+
+            revisions.Add(
+                new SourceControlRevision(
+                    id,
+                    fields[index + 1],
+                    fields[index + 2],
+                    DateTimeOffset.TryParse(
+                        fields[index + 3],
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.None,
+                        out var when
+                    )
+                        ? when
+                        : default,
+                    fields[index + 4]
+                )
+            );
+        }
+
+        return revisions;
+    }
+
+    /// <summary>The one git invocation a diff needs, with the revision deciding which verb it is.</summary>
+    /// <param name="path">The file.</param>
+    /// <param name="revision">The commit, or empty for the working tree.</param>
+    /// <param name="extra">A flag to add before the path separator, or empty for the patch itself.</param>
+    /// <returns>What git said, and whether it said it.</returns>
+    /// <remarks>
+    ///     ⚠ <b><c>show</c> and not <c>diff &lt;rev&gt;</c>, and they answer different questions.</b>
+    ///     <c>git diff &lt;rev&gt; -- path</c> is "how does the file differ from that commit *now*",
+    ///     which for a row three years back is every change since. What a history row means is "what
+    ///     did this commit do to this file", which is <c>show</c> — and <c>--format=</c> is what
+    ///     drops the commit header so the answer is the patch and not the patch under a letter.
+    /// </remarks>
+    (int Code, string Output) Patch(string path, string revision, string extra) {
+        List<string> arguments = revision.Length > 0 ? ["show", "--format="] : ["diff"];
+
+        // ⚠ Before the revision, not after it. Options that follow a positional argument are read
+        // as more of them by several git verbs, and the failure is an "ambiguous argument" that
+        // reads like the path being wrong.
+        if (extra.Length > 0) {
+            arguments.Add(extra);
+        }
+
+        arguments.Add(revision.Length > 0 ? revision : "HEAD");
+        arguments.Add("--");
+        arguments.Add(path);
+
+        var (code, output, _) = Run(root, [.. arguments]);
+        return (code, output);
+    }
+
+    SourceControlDiff Diff(string path, string revision) {
+        if (string.IsNullOrWhiteSpace(path)) {
+            return new(true, string.Empty);
+        }
+
+        // ⚠ Asked before the patch rather than sniffed out of it. `--numstat` answers "-\t-" for a
+        // binary file and a pair of counts for a text one, which is git's own decision about which
+        // this is — made with the same attributes and the same heuristics it will use a moment later
+        // when it either writes a patch or refuses to.
+        var (code, counts) = Patch(path, revision, "--numstat");
+
+        if (code != 0) {
+            return new(true, string.Empty);
+        }
+
+        if (counts.StartsWith("-\t-", StringComparison.Ordinal)) {
+            // git's own sentence about a binary file, which is `<path> | Bin 1234 -> 5678 bytes`.
+            // Nothing here computes it: the sizes are the blobs' and git already has them.
+            var (statCode, stat) = Patch(path, revision, "--stat");
+
+            return new(
+                false,
+                statCode == 0 && Line(stat) is { Length: > 0 } summary
+                    ? summary
+                    : $"{path} is binary, and there is no line-by-line diff for it."
+            );
+        }
+
+        var (patchCode, patch) = Patch(path, revision, string.Empty);
+
+        return new(true, patchCode == 0 ? patch : string.Empty);
+    }
+
+    /// <summary>The first line of <c>--stat</c> that names the file, without its total line.</summary>
+    static string Line(string stat) {
+        foreach (var line in stat.Split('\n')) {
+            var trimmed = line.Trim();
+
+            if (trimmed.Length > 0 && trimmed.Contains('|', StringComparison.Ordinal)) {
+                return trimmed;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    string? Restore(string path, string revision) {
+        if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(revision)) {
+            return "There is no revision to restore from.";
+        }
+
+        // ⚠ `--` again, and here it matters twice over: the revision is already spelled out as its
+        // own argument, so a path that also names a branch would otherwise be read as a second
+        // revision and git would complain about an ambiguous argument rather than doing the work.
+        var (code, _, error) = Run(root, "checkout", revision, "--", path);
+
+        if (code == 0) {
+            return null;
+        }
+
+        return error.Trim() is { Length: > 0 } message
+            ? message
+            : "git could not restore that version of the file.";
+    }
 
     IReadOnlyDictionary<string, SourceControlStatus> Status() {
         // ⚠ `--untracked-files=all` rather than the default, which reports a directory once and

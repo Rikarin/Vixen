@@ -238,6 +238,233 @@ public class GitSourceControlTests : IDisposable {
         Assert.DoesNotContain("Game/Assets/wood.png", swept.Keys);
     }
 
+    /// <summary>The third verb: what has been committed to one asset, newest first.</summary>
+    [Fact]
+    public async Task History_lists_the_commits_that_touched_one_file_newest_first() {
+        Write("Assets/Notes.txt", "one");
+        Write("Assets/Other.txt", "unrelated");
+
+        Assert.True(Git("add", "."));
+        Assert.True(Git("commit", "--quiet", "-m", "first"));
+
+        Write("Assets/Notes.txt", "two");
+
+        Assert.True(Git("add", "."));
+        Assert.True(Git("commit", "--quiet", "-m", "second"));
+
+        Write("Assets/Other.txt", "still unrelated");
+
+        Assert.True(Git("add", "."));
+        Assert.True(Git("commit", "--quiet", "-m", "third"));
+
+        var history = await GitSourceControl.For(root)!.HistoryAsync("Assets/Notes.txt", 50);
+
+        // ⚠ Two and not three. A `git log` with no pathspec would answer every commit in the
+        // repository, which is what a panel showing an asset's history must not do — and it would
+        // satisfy an assertion that only looked for "second" somewhere in the list.
+        Assert.Equal(2, history.Count);
+        Assert.Equal("second", history[0].Summary);
+        Assert.Equal("first", history[1].Summary);
+
+        Assert.Equal("Suite", history[0].Author);
+        Assert.NotEqual(default, history[0].When);
+        Assert.Equal(40, history[0].Id.Length);
+        Assert.True(history[0].ShortId.Length is > 0 and < 40);
+        Assert.StartsWith(history[0].ShortId, history[0].Id, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ <b>A renamed asset keeps its history, which is the whole reason this is worth asking per
+    ///     asset.</b> Every asset is renamed the first time somebody tidies a folder, and without
+    ///     <c>--follow</c> the log stops at the rename — so a file with three years behind it reads
+    ///     as having been created last Tuesday, which is worse than no panel.
+    /// </summary>
+    [Fact]
+    public async Task History_follows_a_file_across_a_rename() {
+        Write("Assets/Before.txt", "one");
+
+        Assert.True(Git("add", "."));
+        Assert.True(Git("commit", "--quiet", "-m", "first"));
+
+        Assert.True(Git("mv", "Assets/Before.txt", "Assets/After.txt"));
+        Assert.True(Git("commit", "--quiet", "-m", "renamed"));
+
+        var history = await GitSourceControl.For(root)!.HistoryAsync("Assets/After.txt", 50);
+
+        Assert.Equal(2, history.Count);
+        Assert.Equal("renamed", history[0].Summary);
+        Assert.Equal("first", history[1].Summary);
+    }
+
+    /// <summary>A history bounded is a history bounded, because a panel is not an archive.</summary>
+    [Fact]
+    public async Task History_stops_at_the_limit_it_was_given() {
+        for (var index = 0; index < 4; index++) {
+            Write("Assets/Notes.txt", "version " + index.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+            Assert.True(Git("add", "."));
+            Assert.True(Git("commit", "--quiet", "-m", "commit " + index.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        }
+
+        Assert.Equal(2, (await GitSourceControl.For(root)!.HistoryAsync("Assets/Notes.txt", 2)).Count);
+        Assert.Equal(4, (await GitSourceControl.For(root)!.HistoryAsync("Assets/Notes.txt", 50)).Count);
+    }
+
+    /// <summary>
+    ///     The fourth verb, and the design decision the issue said had to be made before the viewer:
+    ///     a text asset's diff is a patch and a binary asset's is one honest sentence.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Most of a game project is not text.</b> A unified diff for a <c>.png</c> or a mesh
+    ///     is a promise the viewer breaks the first time somebody uses it, so the answer for one is
+    ///     not a patch with the bytes elided — it is git's own <c>--stat</c> sentence, which says it
+    ///     is binary and how its size moved. Both halves are asserted here because a flag that was
+    ///     always <c>true</c> would pass the first half and a flag that was always <c>false</c>
+    ///     would pass the second.
+    /// </remarks>
+    [Fact]
+    public async Task A_text_diff_is_a_patch_and_a_binary_one_is_a_sentence_about_bytes() {
+        Write("Assets/Notes.txt", "before\n");
+        WriteBytes("Assets/Blob.bin", [0, 1, 2, 3]);
+
+        Assert.True(Git("add", "."));
+        Assert.True(Git("commit", "--quiet", "-m", "first"));
+
+        Write("Assets/Notes.txt", "after\n");
+        WriteBytes("Assets/Blob.bin", [0, 1, 2, 3, 4, 5, 6, 7]);
+
+        Assert.True(Git("add", "."));
+        Assert.True(Git("commit", "--quiet", "-m", "second"));
+
+        var provider = GitSourceControl.For(root)!;
+        var newest = (await provider.HistoryAsync("Assets/Notes.txt", 50))[0].Id;
+
+        var text = await provider.DiffAsync("Assets/Notes.txt", newest);
+
+        Assert.True(text.IsText);
+        Assert.Contains("-before", text.Text, StringComparison.Ordinal);
+        Assert.Contains("+after", text.Text, StringComparison.Ordinal);
+
+        var binary = await provider.DiffAsync("Assets/Blob.bin", newest);
+
+        Assert.False(binary.IsText);
+        Assert.Contains("Bin", binary.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("@@", binary.Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     A revision's diff is what <em>that commit</em> did to the file, not everything since. The
+    ///     two are the same string only for the newest commit, which is why the assertion is on the
+    ///     older one.
+    /// </summary>
+    [Fact]
+    public async Task An_older_revisions_diff_is_what_that_commit_changed() {
+        Write("Assets/Notes.txt", "one\n");
+
+        Assert.True(Git("add", "."));
+        Assert.True(Git("commit", "--quiet", "-m", "first"));
+
+        Write("Assets/Notes.txt", "two\n");
+
+        Assert.True(Git("add", "."));
+        Assert.True(Git("commit", "--quiet", "-m", "second"));
+
+        Write("Assets/Notes.txt", "three\n");
+
+        Assert.True(Git("add", "."));
+        Assert.True(Git("commit", "--quiet", "-m", "third"));
+
+        var provider = GitSourceControl.For(root)!;
+        var history = await provider.HistoryAsync("Assets/Notes.txt", 50);
+
+        // The middle commit: it turned "one" into "two" and knows nothing about "three".
+        var middle = await provider.DiffAsync("Assets/Notes.txt", history[1].Id);
+
+        Assert.Contains("-one", middle.Text, StringComparison.Ordinal);
+        Assert.Contains("+two", middle.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain("three", middle.Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>The working tree's own changes are the diff with no revision named.</summary>
+    [Fact]
+    public async Task An_empty_revision_diffs_the_working_tree_against_the_last_commit() {
+        Write("Assets/Notes.txt", "committed\n");
+
+        Assert.True(Git("add", "."));
+        Assert.True(Git("commit", "--quiet", "-m", "first"));
+
+        var provider = GitSourceControl.For(root)!;
+
+        // Nothing has changed, so there is no patch — and that is not the same as a binary refusal.
+        var clean = await provider.DiffAsync("Assets/Notes.txt", string.Empty);
+
+        Assert.True(clean.IsText);
+        Assert.Equal(string.Empty, clean.Text);
+
+        Write("Assets/Notes.txt", "edited\n");
+
+        var dirty = await provider.DiffAsync("Assets/Notes.txt", string.Empty);
+
+        Assert.True(dirty.IsText);
+        Assert.Contains("-committed", dirty.Text, StringComparison.Ordinal);
+        Assert.Contains("+edited", dirty.Text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     Restore writes one old version into the working tree and leaves everything else alone,
+    ///     which is what a row in an asset's history can honestly offer.
+    /// </summary>
+    [Fact]
+    public async Task Restore_writes_one_old_version_into_the_working_tree() {
+        Write("Assets/Notes.txt", "one");
+        Write("Assets/Other.txt", "untouched");
+
+        Assert.True(Git("add", "."));
+        Assert.True(Git("commit", "--quiet", "-m", "first"));
+
+        Write("Assets/Notes.txt", "two");
+        Write("Assets/Other.txt", "moved on");
+
+        Assert.True(Git("add", "."));
+        Assert.True(Git("commit", "--quiet", "-m", "second"));
+
+        var provider = GitSourceControl.For(root)!;
+        var history = await provider.HistoryAsync("Assets/Notes.txt", 50);
+
+        Assert.Null(await provider.RestoreAsync("Assets/Notes.txt", history[1].Id));
+
+        Assert.Equal("one", File.ReadAllText(Path.Combine(root, "Assets", "Notes.txt")));
+
+        // ⚠ The other file is the assertion that this was not a checkout of the whole revision,
+        // which is the thing an editor must not do behind a row in an asset panel.
+        Assert.Equal("moved on", File.ReadAllText(Path.Combine(root, "Assets", "Other.txt")));
+
+        // ⚠ And the result is an ordinary uncommitted change, which is what makes the button safe to
+        // offer at all: the file is Modified, so the browser marks it and Revert to Source Control
+        // undoes it. (`checkout <rev> -- <path>` stages what it writes, so this is git's `M ` rather
+        // than its ` M` — one status either way, which is the point of the column being six answers
+        // and not git's whole vocabulary.)
+        Assert.Equal(SourceControlStatus.Modified, (await provider.StatusAsync())["Assets/Notes.txt"]);
+    }
+
+    /// <summary>A file git has never heard of has no history, rather than the repository's.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The instrument check on every assertion above.</b> A <c>log</c> that lost its
+    ///     pathspec would answer the whole repository for this too, and the panel would show a
+    ///     freshly dropped texture as having twelve commits behind it.
+    /// </remarks>
+    [Fact]
+    public async Task An_uncommitted_file_has_no_history() {
+        Write("Assets/Committed.txt", "one");
+
+        Assert.True(Git("add", "."));
+        Assert.True(Git("commit", "--quiet", "-m", "first"));
+
+        Write("Assets/Dropped.png", "just arrived");
+
+        Assert.Empty(await GitSourceControl.For(root)!.HistoryAsync("Assets/Dropped.png", 50));
+    }
+
     /// <summary>A directory that is not a working tree has no provider, rather than a silent one.</summary>
     /// <remarks>
     ///     ⚠ <b>The difference is what the browser draws.</b> No provider means no column; a provider
@@ -261,6 +488,14 @@ public class GitSourceControlTests : IDisposable {
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, text);
+    }
+
+    /// <summary>A file git will call binary, which is a file with a NUL near the front of it.</summary>
+    void WriteBytes(string relative, byte[] bytes) {
+        var path = Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar));
+
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllBytes(path, bytes);
     }
 
     bool Git(params string[] arguments) {
@@ -518,5 +753,13 @@ public class SourceControlColumnTests {
         public ValueTask<IReadOnlyDictionary<string, SourceControlStatus>> StatusAsync() => new(statuses);
 
         public ValueTask<string?> RevertAsync(string path) => new((string?)null);
+
+        public ValueTask<IReadOnlyList<SourceControlRevision>> HistoryAsync(string path, int limit) =>
+            new((IReadOnlyList<SourceControlRevision>)[]);
+
+        public ValueTask<SourceControlDiff> DiffAsync(string path, string revision) =>
+            new(new SourceControlDiff(true, string.Empty));
+
+        public ValueTask<string?> RestoreAsync(string path, string revision) => new((string?)null);
     }
 }

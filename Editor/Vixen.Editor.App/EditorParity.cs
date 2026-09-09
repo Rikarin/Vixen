@@ -523,6 +523,19 @@ sealed partial class EditorApplication {
             enabled: () => SourceControl.IsKnown && project.Selection.Count > 0
         );
 
+        // ⚠ Doc 20 § B7's third and fourth verbs, which arrive as one line because they are one
+        // panel. A history row is only worth clicking for what it shows and what it can put back, so
+        // "Diff" is not a command of its own — it is what the panel draws under whichever row is
+        // picked. One asset, because the panel has a Restore button on it and a panel that showed
+        // whichever file happened to be first in a selection of forty would be right by accident.
+        Verb(
+            "assets.history",
+            EditorStrings.CommandAssetsHistory,
+            EditorStrings.CategoryAssets,
+            ShowRevisionsPanel,
+            enabled: () => SourceControl.IsKnown && project.Selection.Count == 1
+        );
+
         Planned(
             "assets.reimport",
             EditorStrings.CommandAssetsReimport,
@@ -1165,7 +1178,7 @@ sealed partial class EditorApplication {
         assets.AddSeparator()
             .Add("assets.show-in-explorer", "assets.open", "assets.rename", "assets.delete", "assets.move-to")
             .AddSeparator()
-            .Add("assets.revert")
+            .Add("assets.revert", "assets.history")
             .AddSeparator()
             .Add("assets.reimport", "assets.reimport-all", "assets.bake-mesh-maps")
             .AddSeparator()

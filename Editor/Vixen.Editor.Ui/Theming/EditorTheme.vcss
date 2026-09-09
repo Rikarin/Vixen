@@ -1457,6 +1457,53 @@ history-view scroll-view { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
 
 .history-entry.current { background-color: var(--accent-soft); color: var(--text); }
 
+/* Doc 20 § B7's other two verbs, which are one panel: a list of commits with the picked
+   one's patch under it. The list and the patch both grow and both scroll, so both need
+   the zero basis — a column of three growing children where one of them has no basis
+   gives that one its content height, and a diff's content height is the whole patch. */
+revisions-view { flex-direction: column; flex-grow: 1; flex-basis: 0px; min-height: 0px; gap: 0px; }
+
+revisions-toolbar {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 6px;
+    padding: 4px 6px;
+    border-bottom-width: 1px;
+    border-color: var(--border);
+}
+
+.revisions-subject { flex-grow: 1; color: var(--text-muted); font-size: 0.9em; }
+
+revisions-view .revisions-list { flex-grow: 1; flex-basis: 0px; min-height: 0px; }
+
+.revisions-entry {
+    justify-content: flex-start;
+    border-radius: 0px;
+    flex-shrink: 0;
+    font-size: 0.9em;
+}
+
+.revisions-entry.current { background-color: var(--accent-soft); color: var(--text); }
+
+/* ⚠ The patch is fixed-pitch and the sentence that stands in for a binary file's is not.
+   A unified diff only reads as one when its `+`, `-` and `@@` columns line up; the binary
+   answer is a sentence about a file, and setting it in a code face would be dressing a
+   refusal as an output. */
+revisions-diff {
+    flex-direction: column;
+    flex-grow: 1;
+    flex-basis: 0px;
+    min-height: 0px;
+    padding: 6px 8px;
+    border-top-width: 1px;
+    border-color: var(--border);
+    background-color: var(--surface-sunken);
+}
+
+.revisions-patch { font-family: monospace; font-size: 0.85em; color: var(--text-muted); }
+.revisions-patch.binary { font-family: OpenSans; color: var(--text-muted); }
+
 plugin-detail {
     flex-direction: column;
     flex-shrink: 0;
