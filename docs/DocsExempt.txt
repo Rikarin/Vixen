@@ -750,6 +750,7 @@ T:Vixen.Core.Serialization.ContentResolution sweep-pending
 T:Vixen.Core.Serialization.ContentResolution.Scope sweep-pending
 T:Vixen.Core.Serialization.DataSerializer sweep-pending
 T:Vixen.Core.Serialization.DataSerializer`1 sweep-pending
+T:Vixen.Core.Serialization.EnumSerializer`1 sweep-pending
 T:Vixen.Core.Serialization.Framing sweep-pending
 T:Vixen.Core.Serialization.Generator.DataContractGenerator sweep-pending
 T:Vixen.Core.Serialization.IContentResolver sweep-pending

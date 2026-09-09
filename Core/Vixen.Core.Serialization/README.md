@@ -126,6 +126,20 @@ value of such a member that serialised at all.** They now emit `WriteSequence<T>
 `T[]`, which every one of the five interfaces is satisfied by. Since nothing could be written in the
 old shape, no bytes exist in it.
 
+⚠ **A collection of an *enum* was the same shape one level down, and for the same reason.** An enum
+*member* is written inline as its underlying primitive — the generator resolves it to
+`MemberShape.Enum` and emits `writer.WriteInt32((int)value.Direction)` — which is why
+`DataContractGenerator.Describe` returns nothing for `TypeKind.Enum` and why no enum type has ever
+had a registered serializer. An enum *element* takes the other path: `WriteArray<T>`,
+`WriteList<T>`, `WriteDictionary<K,V>` and `WriteNullable<T>` ask the registry, found nothing, and
+threw a message telling the author to annotate the enum with `[DataContract]` — **which generates
+nothing, on purpose**, so the advice could not be followed. `EnumSerializer<TEnum>` closes it, and
+the generator instantiates one per enum any member of the assembly holds as an element, the same way
+it instantiates a `ContentReferenceSerializer<T>` and for the same reason: there is no
+`MakeGenericType` under NativeAOT, so the closed generic has to be one the compiler saw. The bytes
+are the member path's bytes — fixed width, little-endian, at the enum's own underlying width — so an
+enum moved between a member and a collection element does not change the stream.
+
 ## The object database
 
 `ObjectId` is the xxh128 of a chunk's content, and that one decision buys three things at once:

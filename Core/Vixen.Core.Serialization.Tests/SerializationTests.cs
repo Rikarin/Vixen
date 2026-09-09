@@ -83,6 +83,61 @@ public class SerializationTests {
         Assert.Equal(Facing.West, result.Direction);
     }
 
+    /// <summary>A collection of an enum, which had no value that serialised at all.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is not a variation on <see cref="CollectionsRoundTrip" />; it is the shape that
+    ///     threw.</b> An enum <i>member</i> is written inline as its underlying primitive, so no
+    ///     enum type has ever needed a registered serializer — and the generator returns nothing for
+    ///     <c>TypeKind.Enum</c> deliberately. An enum <i>element</i> asks the registry, found
+    ///     nothing, and threw a <c>SerializationException</c> telling the author to annotate the
+    ///     enum with <c>[DataContract]</c>, which generates nothing. Both widths are here because
+    ///     the number of bytes an element occupies is the enum's underlying type: a serializer that
+    ///     read the wrong count would round-trip <c>Facing</c> and corrupt everything after
+    ///     <c>Tone</c>.
+    /// </remarks>
+    [Fact]
+    public void CollectionsOfAnEnumRoundTrip() {
+        var value = new CollectionsClass {
+            Numbers = [7],
+            Directions = [Facing.West, Facing.North, Facing.South],
+            Headings = [Facing.East, Facing.East],
+            Palette = new() { ["dawn"] = Tone.Warm, ["dusk"] = Tone.Cool },
+            Accent = Tone.Neutral
+        };
+
+        var result = RoundTrip(value);
+
+        Assert.Equal(value.Directions, result.Directions);
+        Assert.Equal(value.Headings, result.Headings);
+        Assert.Equal(value.Palette, result.Palette);
+        Assert.Equal(Tone.Neutral, result.Accent);
+
+        // The member after them still reads, which is what says the element width was right rather
+        // than merely self-consistent: a serializer reading four bytes where one was written would
+        // pass every assertion above on a stream it had already desynchronised.
+        Assert.NotNull(result.Numbers);
+        Assert.Equal([7], result.Numbers);
+    }
+
+    /// <summary>An enum element is the same bytes as an enum member.</summary>
+    /// <remarks>
+    ///     The width and the byte order come from the enum's underlying type either way, so a
+    ///     one-element array of an enum is a length prefix followed by exactly what the inline
+    ///     member path would have written. Asserted against a hand-built stream rather than against
+    ///     a second round trip, because two paths through the same defect agree with each other.
+    /// </remarks>
+    [Fact]
+    public void AnEnumElementIsTheSameBytesAsAnEnumMember() {
+        var buffer = new ArrayBufferWriter<byte>();
+        var writer = new SerializationWriter(buffer);
+        writer.WriteArray<Facing>([Facing.South, Facing.West]);
+        writer.WriteArray<Tone>([Tone.Cool]);
+        writer.Flush();
+
+        // Length + 1 as a varint, then the underlying value at its own width, little-endian.
+        Assert.Equal([3, (byte)Facing.South, (byte)Facing.West, 2, (byte)Tone.Cool, 0, 0, 0], buffer.WrittenSpan.ToArray());
+    }
+
     [Fact]
     public void NullAndEmptyCollectionsStayDistinct() {
         var empty = RoundTrip(new CollectionsClass { Numbers = [], Names = [], Scores = [] });
