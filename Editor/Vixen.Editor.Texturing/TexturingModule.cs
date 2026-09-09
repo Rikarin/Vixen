@@ -208,6 +208,32 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     public const string ForceBakeCommand = "texturing.bake-material-force";
 
+    /// <summary>The verb that bakes the graph and turns the height march on.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>'s editor half, and
+    ///         the ask a <em>first</em> bake had no way to make.</b> <c>MaterialBake.Material</c>
+    ///         preserves and re-seats a <c>ParallaxOcclusionFeature</c> the material already carries,
+    ///         which by construction cannot help a material that does not exist yet — so an artist's
+    ///         route was bake, hand-edit the <c>.vxmat</c>, bake again. The command line grew
+    ///         <c>vixen texture bake --parallax</c> for that; this is the same
+    ///         <see cref="MaterialBakeParallax" /> rule behind a verb.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A second verb rather than a control, which is <see cref="ForceBakeCommand" />'s
+    ///         shape and is taken here for its reason.</b> These bakes run from command handlers and
+    ///         have no pane to put a tick-box in — <see cref="SaveSmartMaterial" />'s remarks say the
+    ///         same thing about a name control. A verb is the one form this module can offer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it is off everywhere else.</b> <see cref="BakeCommand" /> composes no parallax
+    ///         and neither does the layer-stack bake, so a material that did not ask still does not
+    ///         get a per-pixel march — the whole reason the bake was refused the decision in the first
+    ///         place.
+    ///     </para>
+    /// </remarks>
+    public const string ParallaxBakeCommand = "texturing.bake-material-parallax";
+
     /// <summary>The verb that saves the open stack's chosen texture set as a <c>.vxsmartmat</c>.</summary>
     /// <remarks>
     ///     <b>Doc 48 § M10, and until <see cref="SmartMaterial" /> the extension existed in the plan,
@@ -781,6 +807,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         );
 
         context.AddCommand(
+            ParallaxBakeCommand,
+            new StringId("editor.command." + ParallaxBakeCommand, "Bake Material with Parallax"),
+            BakeParallaxMaterial
+        );
+
+        context.AddCommand(
             SaveSmartCommand,
             new StringId("editor.command." + SaveSmartCommand, "Save as Smart Material"),
             SaveSmartMaterial
@@ -806,6 +838,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             // ⚠ Under the two it answers, which is where #1019 asks for it: an artist reads a refusal
             // naming a file they painted over and looks for the control in the menu they just used.
             context.AddMenuItem(tools, ForceBakeCommand);
+            context.AddMenuItem(tools, ParallaxBakeCommand);
             context.AddMenuItem(tools, SaveSmartCommand);
             context.AddMenuItem(tools, ApplySmartCommand);
         }
@@ -844,6 +877,16 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     void BakeMaterial() => BakeGraph(document, force: false);
 
+    /// <summary>Turns the graph on the canvas into a material that marches its own height map.</summary>
+    /// <remarks>
+    ///     <b><a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>.</b> The same bake as
+    ///     <see cref="BakeMaterial" /> with the one ask <c>MaterialBake.Material</c> is deliberately
+    ///     not allowed to make for itself. ⚠ A bake that wrote no height map says so rather than
+    ///     composing a march with nothing to sample, which is <see cref="MaterialBakeParallax" />'s
+    ///     rule and not this verb's.
+    /// </remarks>
+    void BakeParallaxMaterial() => BakeGraph(document, force: false, parallax: true);
+
     /// <summary>Turns the graph on the canvas into a material, forcing or not.</summary>
     /// <param name="subject">The document to bake.</param>
     /// <param name="force">Whether to overwrite outputs somebody has painted over.</param>
@@ -863,7 +906,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     ///         overwriting the <em>wrong</em> work.
     ///     </para>
     /// </remarks>
-    void BakeGraph(TextureGraphDocument? subject, bool force) {
+    void BakeGraph(TextureGraphDocument? subject, bool force, bool parallax = false) {
         if (subject is null) {
             shell.Notifications.Show(
                 "No graph is open",
@@ -885,9 +928,17 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             return;
         }
 
-        var outcome = baker.Bake(subject, Path.GetFileNameWithoutExtension(subject.AssetPath), force: force);
+        var outcome = baker.Bake(
+            subject,
+            Path.GetFileNameWithoutExtension(subject.AssetPath),
+            force: force,
+            parallax: parallax
+        );
 
-        Refused(outcome.Painted ? () => BakeGraph(subject, force: true) : null);
+        // ⚠ The forced repeat carries the ask, for the same reason it carries the document: an artist
+        // who asked for a march and met a painted-over refusal would otherwise press Force and get a
+        // material without one, with nothing saying the second bake answered a different question.
+        Refused(outcome.Painted ? () => BakeGraph(subject, force: true, parallax: parallax) : null);
 
         shell.Notifications.Show(
             outcome.Set is null ? "Nothing baked" : "Baked '" + outcome.Set.Name + "'",

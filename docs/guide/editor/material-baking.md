@@ -4,7 +4,7 @@ slug: editor/material-baking
 kind: guide
 area: Editor
 summary: How a texture graph's outputs become files the engine already understands — the nine usages and the seven files they land in, the ORM packing, PNG or KTX2, the .vxmat, the GUID dance, and the provenance block that stops a painted-over map being regenerated.
-api: [T:Vixen.Editor.Assets.Materials.MaterialMapUsage, T:Vixen.Editor.Assets.Materials.MaterialMapTarget, T:Vixen.Editor.Assets.Materials.MaterialMapNaming, T:Vixen.Editor.Assets.Materials.MaterialMapImage, T:Vixen.Editor.Assets.Materials.MaterialBake, T:Vixen.Editor.Assets.Materials.MaterialBakeRecord, T:Vixen.Editor.Assets.Materials.MaterialProvenance, T:Vixen.Editor.Assets.Materials.MaterialBakeSet, T:Vixen.Editor.Assets.Materials.ProjectMaterialBaker, T:Vixen.Cli.TextureRunner]
+api: [T:Vixen.Editor.Assets.Materials.MaterialMapUsage, T:Vixen.Editor.Assets.Materials.MaterialMapTarget, T:Vixen.Editor.Assets.Materials.MaterialMapNaming, T:Vixen.Editor.Assets.Materials.MaterialMapImage, T:Vixen.Editor.Assets.Materials.MaterialBake, T:Vixen.Editor.Assets.Materials.MaterialBakeRecord, T:Vixen.Editor.Assets.Materials.MaterialProvenance, T:Vixen.Editor.Assets.Materials.MaterialBakeSet, T:Vixen.Editor.Assets.Materials.MaterialBakeParallax, T:Vixen.Editor.Assets.Materials.ProjectMaterialBaker, T:Vixen.Cli.TextureRunner]
 tags: [editor, bake, materials, textures, material-authoring, texture-graph, cli]
 since: 0.1
 status: preview
@@ -123,6 +123,21 @@ first — produce a `.vxmat` `MaterialCompiler` refuses, because the coordinate 
 ⚠ **This paragraph said "there is no textured height feature" until 2026-09-09**, which was true when
 [#615](https://github.com/Rikarin/Vixen/issues/615) was decided and stopped being true when parallax
 landed.
+
+⚠ **So a *first* bake needs somebody to ask, and both hosts now have the ask.** The preservation rule
+above keeps a feature the material already carries, which by construction cannot help a material that
+does not exist yet — the route was bake, hand-edit the `.vxmat`, bake again.
+`MaterialBakeParallax.Requested` is that ask, and it is one rule with two front doors: the command
+line's `vixen texture bake --parallax` and the editor's *Bake Material with Parallax*, on the Tools
+menu under *Bake Material*. ⚠ **It decides nothing but the ask**: it re-reads the `.vxmat` the bake
+just wrote, puts a `ParallaxOcclusionFeature` on it and re-composes through `MaterialBake.Material`,
+which is what seats the feature at index 0, re-points its `HeightMap`, and drops it again where no
+height map was written. Appending the feature instead produces a file the verb itself wrote and the
+compiler then refuses with `CoordinateFeatureOutOfOrder`. ⚠ It is applied **after** the write and
+never seeded before it, because the path the material lands at is `ProjectMaterialBaker`'s: a name a
+different source already owns becomes `Name_2`, so a seed guessing the path can land on somebody
+else's material. ⚠ And it is a second *verb* rather than a tick-box, for the reason *Bake Material
+(Force)* is: these bakes run from command handlers and there is no bake pane to put a control in.
 
 ⚠ **A material may not rename its maps.** `WorldRenderer.Paired` pairs one shader parameter with one
 material-side name and keys that on the feature's *default*, so a renamed map resolves nothing, takes
