@@ -982,10 +982,10 @@ is how two lists come to disagree.
 | 🟡 | Layout | Reflection offsets against a GPU readback of a known pattern, **per backend** | ✅ `LayoutGateTests`; the std430 half is checked against glslang rather than a device, in `SpirvDifferentialTests` |
 | 🟡 | Permutations | An unused define produces a byte-identical module and the same cache key | ✅ |
 | ⚪ | Fuzz | `SharpFuzz` corpus over the Raven parser, alongside the VXML/VCSS/`.meta`/bundle readers ([12](12-build-ci-and-testing.md)) | ⚠ **not "not started"** — `Core/Vixen.Fuzz`'s `RavenTarget` mutates trees and runs four differential oracles over them (round-trip, incremental-vs-full reparse, diagnostic identity, `spirv-val` on what generated), and has closed real defects: a binder recursion that killed the host, and an implicit-LOD substitution nothing else could see. What is still owed is **`SharpFuzz` itself** — real coverage-guided instrumentation rather than this harness's own mutation ([#104](https://github.com/Rikarin/Vixen/issues/104)) |
-| ⚪ | Perf | Gates on full-library compile time and < 500 ms incremental recompile of a leaf shader | ~~needs § F~~ — § F landed. The incremental half is gated as **work rather than time** (`IncrementalParseWorkTests`, below); the full-library number is still ungated |
+| ⚪ | Perf | Gates on full-library compile time and < 500 ms incremental recompile of a leaf shader | ~~needs § F~~ — § F landed, and **both halves are now gated as work rather than time**: `IncrementalParseWorkTests` for the leaf reparse and `LibraryCompileWorkTests` for the library. ⚠ The second is a bound on how much IR the library lowers to *per unit of source*, not the duration this row asked for, and it says so |
 | ⚪ | CI | Nuke `CompileShaderLibrary`: Raven over `Raven/Library/**/*.rvn` → `.rvnlib`, `spirv-val` each, **fail on any diagnostic** | Nuke not stood up ([12](12-build-ci-and-testing.md)) |
 
-#### ✅ The incremental budget is gated as work, and the library number is not gated at all
+#### ✅ Both perf gates are counters, because neither number can honestly be a duration here
 
 The `Perf` row asked for two gates and they are not the same kind of thing.
 
@@ -1004,10 +1004,25 @@ instrument checks come with it: the negative control reparses against an *unrela
 reuse nothing and has to fail the same bound; and offering the blender no candidates at all takes the
 number from 133 to 3109, the whole tree.
 
-**The full-library compile-time gate is still owed, and it is a duration with no counter standing in
-for it.** Saying so is better than a green wall-clock assertion that measures the runner: the honest
-version is a number recorded on one machine and compared against itself, which wants CI's own
-hardware and belongs beside `CheckShaders` rather than in a test assembly.
+**And the full-library half is a ratio, which is the counter this paragraph said did not exist.**
+⚠ It said *"a duration with no counter standing in for it"*, and one stands in for most of it:
+`LibraryCompileWorkTests` lowers the whole tree in one compilation and holds the SSA values it
+produces to a quarter of the green nodes it parsed — **28 276 against 184 915**, so a 39% margin.
+A ratio rather than a total, because the library grows: a new shader adds to both halves, and what
+moves it is the compiler emitting more IR for the same source, which is the regression the row is
+about — an inline where there was a call, an unroll, a check that became three instructions.
+
+⚠ **The negative control took three attempts and that is worth recording**: a fixture of short
+statements cannot exceed the bound at all, because a statement's punctuation and its line break are
+green nodes that buy no IR. What clears it is a long *expression* — ten operands on one line
+amortise the statement over nine operations, and the ratio goes from 0.26 to 0.44. A bound set from
+the first attempt would have been a predicate no input could falsify, which is worse than the flake
+it replaced.
+
+What the ratio still cannot see, and what is therefore still owed: time in the binder, in the
+emitters or in `spirv-val` leaves no trace in it, and a lowering that got slower without getting
+larger passes. That number is a duration, wants CI's own hardware and a comparison against itself,
+and belongs beside `CheckShaders` rather than in a test assembly.
 
 ### H. Burden the plan *removes* from Raven
 
