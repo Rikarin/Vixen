@@ -104,9 +104,10 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
     ///     <para>
     ///         ⚠ <b>An <see cref="InterestGrid" /> is the chain's <i>source</i> and
     ///         <see cref="ExplicitInterestRule" /> is a rule after it, and the order is not
-    ///         decoration.</b> A rule only ever sees the candidates the source produced, so
-    ///         <c>Show</c> can keep something visible that a later rule would have hidden and cannot
-    ///         resurrect an object the grid never offered. In an arena forty metres across with a
+    ///         decoration.</b> A rule only ever sees the candidates the source produced — which is
+    ///         why the rule is a source as well, and why <c>Show</c> is given the entity: without the
+    ///         nomination it could keep something visible that a later rule would have hidden and
+    ///         could not resurrect an object the grid never offered. In an arena forty metres across with a
     ///         ninety-six metre radius nothing is ever out of range, which is the point of the
     ///         default: the chain runs, the grid buckets, and the match still converges. Narrow the
     ///         radius (<c>--interest-radius</c>) and fighters start being hidden — and
@@ -256,12 +257,12 @@ internal sealed class GameServer : ISessionMessageHandler, IDisposable {
         foreach (var player in joining) {
             var fighter = arena.Spawn(player);
 
-            // The override the rule exists for, in the one direction it can work: a player is never
-            // told to stop watching their own avatar, whatever the grid would have said about the
-            // distance between them and themselves. ⚠ The other direction does not work at all —
-            // Show cannot resurrect an object the source never offered as a candidate, which is
-            // every example in ExplicitInterestRule's own remarks. Issue #1042.
-            overrides.Show(player, fighter.Id);
+            // The override the rule exists for: a player is never told to stop watching their own
+            // avatar, whatever the grid would have said about the distance between them and
+            // themselves. ⚠ It now works in the other direction too (#1042) — the rule is a source
+            // as well, so the entity handed in here is nominated as a candidate and an override on
+            // something the grid never offered is honoured rather than silently doing nothing.
+            overrides.Show(player, fighter.Entity, fighter.Id);
         }
 
         foreach (var player in leaving) {

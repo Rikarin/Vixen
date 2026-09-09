@@ -41,11 +41,13 @@ public sealed class InterestTests : IDisposable {
         Assert.Equal(0, chain.HiddenCount);
     }
 
-    /// <summary>The first rule with an opinion wins, which is what "override" has to mean.</summary>
+    /// <summary>An explicit answer is the last word, including about something out of range.</summary>
     /// <remarks>
-    ///     An explicit answer placed before the grid is one the grid cannot argue with — a spectator
-    ///     seeing a player across the map, a quest marker visible at any range. If the grid could
-    ///     overrule it, it would not be an override.
+    ///     ⚠ The half that matters is the far one, and it did not work until <c>ExplicitInterestRule</c>
+    ///     became an <c>IInterestSource</c> as well (#1042). A rule is only asked about the candidates
+    ///     the source produced, so <c>Show</c> on a distant object used to be a call with no effect of
+    ///     any kind — which is every example the type's own remarks give: a spectator seeing a player
+    ///     across the map, a quest marker visible at any range.
     /// </remarks>
     [Fact]
     public void AnExplicitAnswerBeatsEverythingAfterIt() {
@@ -63,21 +65,63 @@ public sealed class InterestTests : IDisposable {
         chain.Resolve(world, Player, observed);
         Assert.Equal([near], observed);
 
-        // The grid is the source, so an override on something it never emits cannot show it — an
-        // override is the last word among the rules, not a way around the candidate set.
-        explicitly.Show(Player, world.Read<NetworkId>(far));
+        // ⚠ The grid never emits the far one, so this is the case the rule could not do at all
+        // until it became a source as well: Show nominates it, and the nomination is what makes the
+        // override the last word rather than a veto the source has already exercised.
+        explicitly.Show(Player, far, world.Read<NetworkId>(far));
         explicitly.Hide(Player, world.Read<NetworkId>(near));
 
         observed.Clear();
         chain.Resolve(world, Player, observed);
 
-        Assert.Empty(observed);
+        Assert.Equal([far], observed);
+        Assert.Equal(1, chain.NominatedCount);
 
         explicitly.Clear(Player, world.Read<NetworkId>(near));
+        explicitly.Clear(Player, world.Read<NetworkId>(far));
         observed.Clear();
         chain.Resolve(world, Player, observed);
 
         Assert.Equal([near], observed);
+        Assert.Equal(0, chain.NominatedCount);
+    }
+
+    /// <summary>A nomination is not a way to see a slot somebody else is now using.</summary>
+    /// <remarks>
+    ///     The entity handed to <c>Show</c> is a hint and the id is the key, so the pair is checked
+    ///     before anything is nominated. Without that check a destroyed object's override would show
+    ///     the player whatever entity had since been given its slot — the one failure a handle-keyed
+    ///     override has that an id-keyed one does not, arriving as a player seeing an unrelated object
+    ///     across the map.
+    /// </remarks>
+    [Fact]
+    public void ANominationIsRefusedWhenTheHandleNoLongerCarriesTheId() {
+        var explicitly = new ExplicitInterestRule();
+        var grid = new InterestGrid { Radius = 10f };
+        var chain = new InterestChain { Source = grid, Rules = { explicitly } };
+
+        var far = Spawn(500f);
+        var id = world.Read<NetworkId>(far);
+
+        explicitly.Show(Player, far, id);
+        grid.SetViewpoint(Player, Vector3.Zero);
+        grid.Rebuild(world);
+
+        chain.Resolve(world, Player, observed);
+        Assert.Equal([far], observed);
+
+        // The object goes, and something else takes the slot. The override outlives both, because an
+        // id is not reused within a session and nothing told the rule.
+        world.Destroy(far);
+        var stranger = Spawn(500f);
+
+        grid.Rebuild(world);
+        observed.Clear();
+        chain.Resolve(world, Player, observed);
+
+        Assert.Empty(observed);
+        Assert.DoesNotContain(stranger, observed);
+        Assert.Equal(0, chain.NominatedCount);
     }
 
     /// <summary>An override belongs to one player.</summary>

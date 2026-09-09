@@ -499,6 +499,8 @@ Vixen.Net.Replication.DistanceReplicationRate.ShouldSend(Vixen.Ecs.World world, 
 Vixen.Net.Replication.DistanceReplicationRate.SkippedCount.get -> long
 Vixen.Net.Replication.ExplicitInterestRule -> sealed class
 Vixen.Net.Replication.ExplicitInterestRule : Vixen.Net.Replication.IInterestRule
+Vixen.Net.Replication.ExplicitInterestRule : Vixen.Net.Replication.IInterestSource
+Vixen.Net.Replication.ExplicitInterestRule.Candidates(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, System.Collections.Generic.List<Vixen.Core.Entity> into) -> void
 Vixen.Net.Replication.ExplicitInterestRule.Clear(Vixen.Net.Sessions.PlayerId player, Vixen.Net.Replication.NetworkId id) -> bool
 Vixen.Net.Replication.ExplicitInterestRule.Decide(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, Vixen.Core.Entity entity) -> Vixen.Net.Replication.Interest
 Vixen.Net.Replication.ExplicitInterestRule.ExplicitInterestRule() -> void
@@ -506,7 +508,7 @@ Vixen.Net.Replication.ExplicitInterestRule.Forget(Vixen.Net.Replication.NetworkI
 Vixen.Net.Replication.ExplicitInterestRule.Forget(Vixen.Net.Sessions.PlayerId player) -> void
 Vixen.Net.Replication.ExplicitInterestRule.Hide(Vixen.Net.Sessions.PlayerId player, Vixen.Net.Replication.NetworkId id) -> void
 Vixen.Net.Replication.ExplicitInterestRule.PlayerCount.get -> int
-Vixen.Net.Replication.ExplicitInterestRule.Show(Vixen.Net.Sessions.PlayerId player, Vixen.Net.Replication.NetworkId id) -> void
+Vixen.Net.Replication.ExplicitInterestRule.Show(Vixen.Net.Sessions.PlayerId player, Vixen.Core.Entity shown, Vixen.Net.Replication.NetworkId id) -> void
 Vixen.Net.Replication.IComponentReplicator -> interface
 Vixen.Net.Replication.IComponentReplicator.Apply(Vixen.Ecs.World world, Vixen.Core.Entity entity, ref Vixen.Net.Messaging.BitReader reader) -> bool
 Vixen.Net.Replication.IComponentReplicator.ChangedQuery.get -> Vixen.Ecs.QueryDescription
@@ -539,6 +541,7 @@ Vixen.Net.Replication.InterestChain.Fallback.get -> Vixen.Net.Replication.Intere
 Vixen.Net.Replication.InterestChain.Fallback.set -> Vixen.Net.Replication.Interest
 Vixen.Net.Replication.InterestChain.HiddenCount.get -> int
 Vixen.Net.Replication.InterestChain.InterestChain() -> void
+Vixen.Net.Replication.InterestChain.NominatedCount.get -> int
 Vixen.Net.Replication.InterestChain.Resolve(Vixen.Ecs.World world, Vixen.Net.Sessions.PlayerId player, System.Collections.Generic.List<Vixen.Core.Entity> observed) -> void
 Vixen.Net.Replication.InterestChain.Rules.get -> System.Collections.Generic.IList<Vixen.Net.Replication.IInterestRule>
 Vixen.Net.Replication.InterestChain.Source.get -> Vixen.Net.Replication.IInterestSource

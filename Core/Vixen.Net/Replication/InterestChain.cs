@@ -28,10 +28,18 @@ public enum Interest : byte {
 
 /// <summary>One opinion about whether a player is told about an object.</summary>
 /// <remarks>
-///     Rules are asked in order and <b>the first definite answer wins</b>, which is what
-///     [16](../../../docs/plan/16-networking.md)'s "scene scope → explicit overrides → distance grid"
-///     ordering means: an explicit answer placed before the grid is one the grid cannot overrule, and
-///     that is exactly what "explicit override" has to mean to be worth having.
+///     <para>
+///         Rules are asked in order and <b>the first definite answer wins</b>.
+///     </para>
+///     <para>
+///         ⚠ That is <i>not</i> the whole of [16](../../../docs/plan/16-networking.md)'s "scene scope →
+///         explicit overrides → distance grid" ordering, and reading it as though it were is the
+///         mistake this comment used to make. The distance grid is an <see cref="IInterestSource" />
+///         rather than a rule, so "before the grid" is not a position in this list — every rule runs
+///         after the source, on the candidates it produced. A rule that has to make something visible
+///         the source never offered implements <see cref="IInterestSource" /> as well and nominates
+///         it; <see cref="ExplicitInterestRule" /> is the one that does.
+///     </para>
 /// </remarks>
 public interface IInterestRule {
     /// <summary>Decides, or declines to.</summary>
@@ -100,6 +108,15 @@ public sealed class AllNetworkedSource : IInterestSource {
 ///         <see cref="IReplicationRate" />.
 ///     </para>
 ///     <para>
+///         <b>A rule that is also an <see cref="IInterestSource" /> may nominate.</b> ⚠ Rules
+///         otherwise only ever see what the source offered, so before this existed an override could
+///         hide anything and could show only what was going to be shown anyway — every example in
+///         <see cref="ExplicitInterestRule" />'s own remarks (a spectator seeing a player across the
+///         map, a marker at any range) is <i>distant</i>, and distance is exactly what the source had
+///         already refused. A nomination is deduplicated against the source's candidates and counted
+///         in <see cref="NominatedCount" />, so a game can see that its overrides are arriving.
+///     </para>
+///     <para>
 ///         <b>The fallback is <see cref="Interest.Observed" /></b>, so a chain with no rules is the
 ///         behaviour a new project already had. Adding a rule can then only ever <i>hide</i> things,
 ///         which is the direction in which mistakes are visible: an object that should not be there is
@@ -108,6 +125,10 @@ public sealed class AllNetworkedSource : IInterestSource {
 /// </remarks>
 public sealed class InterestChain : IInterestResolver {
     readonly List<Entity> candidates = [];
+
+    // Only ever filled when a rule nominated something, which is the uncommon case — a chain whose
+    // rules nominate nothing never hashes a candidate.
+    readonly HashSet<Entity> offered = [];
 
     /// <summary>The rules, asked in order until one has an opinion.</summary>
     public IList<IInterestRule> Rules { get; } = [];
@@ -120,6 +141,14 @@ public sealed class InterestChain : IInterestResolver {
 
     /// <summary>How many candidates the last resolve considered.</summary>
     public int ConsideredCount { get; private set; }
+
+    /// <summary>How many candidates the rules nominated that the source had not offered.</summary>
+    /// <remarks>
+    ///     The thing an override is for, counted — a run where a game calls <c>Show</c> on distant
+    ///     objects and this stays at zero is one where the nomination is not reaching the chain, which
+    ///     is a silent failure with no other symptom than the object simply not being there.
+    /// </remarks>
+    public int NominatedCount { get; private set; }
 
     /// <summary>How many of them were hidden.</summary>
     /// <remarks>
@@ -138,6 +167,8 @@ public sealed class InterestChain : IInterestResolver {
         candidates.Clear();
         Source.Candidates(world, player, candidates);
 
+        Nominate(world, player);
+
         ConsideredCount = candidates.Count;
         HiddenCount = 0;
 
@@ -148,6 +179,42 @@ public sealed class InterestChain : IInterestResolver {
                 HiddenCount++;
             }
         }
+    }
+
+    // A rule that is also a source may add to the candidate list, which is the only way an override
+    // can reach an object the source refused. Deduplicated against what the source offered, because
+    // the usual case is that the nominated object was in range anyway and a chain that considered it
+    // twice would report twice the work it did.
+    void Nominate(World world, PlayerId player) {
+        var fromSource = candidates.Count;
+        NominatedCount = 0;
+
+        foreach (var rule in Rules) {
+            if (rule is IInterestSource nominating) {
+                nominating.Candidates(world, player, candidates);
+            }
+        }
+
+        if (candidates.Count == fromSource) {
+            return;
+        }
+
+        offered.Clear();
+
+        for (var index = 0; index < fromSource; index++) {
+            offered.Add(candidates[index]);
+        }
+
+        var kept = fromSource;
+
+        for (var index = fromSource; index < candidates.Count; index++) {
+            if (offered.Add(candidates[index])) {
+                candidates[kept++] = candidates[index];
+            }
+        }
+
+        NominatedCount = kept - fromSource;
+        candidates.RemoveRange(kept, candidates.Count - kept);
     }
 
     /// <summary>What the chain says about one object, for a test or a diagnostic.</summary>
@@ -176,31 +243,55 @@ public sealed class InterestChain : IInterestResolver {
 ///     <para>
 ///         The escape hatch every interest scheme needs and few have: a spectator who should see a
 ///         player across the map, a quest marker that stays visible at any range, an object revealed
-///         by a scripted event, a teammate shown through walls. Placed <b>before</b> the distance grid
-///         in the chain, which is the whole point — an override the grid could overrule would not be
-///         one.
+///         by a scripted event, a teammate shown through walls.
+///     </para>
+///     <para>
+///         ⚠ <b>It is a rule <i>and</i> a source, and it has to be both for any of those examples to
+///         work.</b> This is where these remarks were a promise the type could not keep: they said
+///         "placed before the distance grid in the chain", and the grid is not in the chain's rule
+///         list at all — it is the <see cref="IInterestSource" /> ahead of every rule, so a rule is
+///         only ever asked about what the grid already decided to offer. Hiding therefore always
+///         worked and showing worked only for something that was in range anyway, which is to say for
+///         nothing anyone reaches for an override to do. <see cref="Candidates" /> is the other half:
+///         it nominates the entities this rule has been told to show, and
+///         <see cref="InterestChain" /> adds them to the candidates the source produced.
 ///     </para>
 ///     <para>
 ///         Keyed by <see cref="NetworkId" /> rather than by <c>Entity</c>, because an override is a
 ///         decision about the object rather than about the row it currently occupies, and because it
-///         is the id a game has in hand when a rule fires.
+///         is the id a game has in hand when a rule fires. <b>The entity handed to
+///         <see cref="Show" /> is a nomination rather than the key</b>: it is checked against the id
+///         before it is offered, so a handle whose object has been destroyed and whose slot has been
+///         reused nominates nothing rather than the wrong thing.
 ///     </para>
 /// </remarks>
-public sealed class ExplicitInterestRule : IInterestRule {
-    readonly Dictionary<uint, Dictionary<uint, Interest>> byPlayer = [];
+public sealed class ExplicitInterestRule : IInterestRule, IInterestSource {
+    readonly Dictionary<uint, Dictionary<uint, Override>> byPlayer = [];
 
     /// <summary>How many players have an override of any kind.</summary>
     public int PlayerCount => byPlayer.Count;
 
-    /// <summary>Shows an object to a player whatever anything after this would say.</summary>
+    /// <summary>Shows an object to a player, whatever the source and the rest of the chain say.</summary>
     /// <param name="player">Who.</param>
-    /// <param name="id">What.</param>
-    public void Show(PlayerId player, NetworkId id) => Set(player, id, Interest.Observed);
+    /// <param name="shown">
+    ///     The object. Held so it can be nominated as a candidate — an override that could not do
+    ///     that could only ever keep visible what was going to be visible anyway.
+    /// </param>
+    /// <param name="id">
+    ///     Its network id, which is the key. The pair is checked before anything is nominated, so an
+    ///     entity that no longer carries this id is quietly ignored.
+    /// </param>
+    public void Show(PlayerId player, Entity shown, NetworkId id) =>
+        Set(player, id, new(Interest.Observed, shown));
 
     /// <summary>Hides one from them whatever anything after this would say.</summary>
     /// <param name="player">Who.</param>
     /// <param name="id">What.</param>
-    public void Hide(PlayerId player, NetworkId id) => Set(player, id, Interest.Hidden);
+    /// <remarks>
+    ///     No entity, and that asymmetry is the mechanism rather than an oversight: hiding is a
+    ///     verdict on a candidate somebody else produced, and there is nothing to nominate.
+    /// </remarks>
+    public void Hide(PlayerId player, NetworkId id) => Set(player, id, new(Interest.Hidden, Entity.Null));
 
     /// <summary>Takes an override off, leaving the rest of the chain to decide.</summary>
     /// <param name="player">Who.</param>
@@ -234,17 +325,51 @@ public sealed class ExplicitInterestRule : IInterestRule {
         }
 
         return byPlayer.TryGetValue(player.Value, out var overrides)
-            && overrides.TryGetValue(id.Value, out var verdict)
-                ? verdict
+            && overrides.TryGetValue(id.Value, out var decided)
+                ? decided.Verdict
                 : Interest.Undecided;
     }
 
-    void Set(PlayerId player, NetworkId id, Interest verdict) {
+    /// <summary>Offers the objects this player has been told to see, wherever they are.</summary>
+    /// <param name="world">The server's world.</param>
+    /// <param name="player">Who is being told.</param>
+    /// <param name="into">Where to put them. The chain drops the ones the source already offered.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="world" /> or <paramref name="into" /> is null.</exception>
+    /// <remarks>
+    ///     Costs one lookup per override rather than a sweep of the world: the entity came in with
+    ///     the override, so nothing here has to search for it. That is why <see cref="Show" /> asks
+    ///     for one — the alternative is an id-to-entity map the sending side does not have, and
+    ///     building one per player per tick is the cost the source/rule split exists to remove.
+    /// </remarks>
+    public void Candidates(World world, PlayerId player, List<Entity> into) {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(into);
+
+        if (!byPlayer.TryGetValue(player.Value, out var overrides)) {
+            return;
+        }
+
+        foreach (var (id, shown) in overrides) {
+            if (shown.Verdict != Interest.Observed || shown.Entity.IsNull || !world.IsAlive(shown.Entity)) {
+                continue;
+            }
+
+            // The id is the key and the entity is a hint, so the hint is checked. A slot reused by
+            // something else is the case that would otherwise show a player an unrelated object.
+            if (world.TryGet<NetworkId>(shown.Entity, out var carried) && carried.Value == id) {
+                into.Add(shown.Entity);
+            }
+        }
+    }
+
+    void Set(PlayerId player, NetworkId id, Override decided) {
         if (!byPlayer.TryGetValue(player.Value, out var overrides)) {
             overrides = [];
             byPlayer[player.Value] = overrides;
         }
 
-        overrides[id.Value] = verdict;
+        overrides[id.Value] = decided;
     }
+
+    readonly record struct Override(Interest Verdict, Entity Entity);
 }

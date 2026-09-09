@@ -66,7 +66,10 @@ Apple M-series, .NET 10, Release. Eight players, thirty seconds of play, 30 Hz t
 Eight fighters at 30 Hz for **under 10 kbit/s a client**. The server resolves interest through an
 `InterestChain` — an `InterestGrid` source with an `ExplicitInterestRule` after it — and at the
 default ninety-six metre radius nothing in a forty-metre arena is ever out of range, so every player
-is still told about every other one. `--interest-radius 20` narrows it and fighters start being
+is still told about every other one. ⚠ The rule is a *source* as well, which is what makes
+`Show(player, entity, id)` here mean anything: a rule is only asked about the candidates the source
+produced, so before [#1042](https://github.com/Rikarin/Vixen/issues/1042) an override could hide
+anything and could show only what was in range anyway. `--interest-radius 20` narrows it and fighters start being
 hidden; the convergence check follows, because it asks the chain what each connection is owed rather
 than assuming the answer is everybody.
 
@@ -179,13 +182,6 @@ backwards and an acknowledgement that is lost costs one tick.
   [docs/plan/16](../../docs/plan/16-networking.md). The owner's fighter is interpolated like everyone
   else's, so it answers a round trip late; `OwnerSmoothing` is built and this sample does not need
   it, because a bot does not mind.
-- **A rule that can show what the grid never offered.** `ExplicitInterestRule`'s own remarks promise
-  "a quest marker that stays visible at any range", and with an `InterestGrid` under it that is not
-  what happens: `InterestChain.Resolve` asks the *source* for candidates and only then asks the
-  rules, so `Show` can keep something visible that a later rule would have hidden and cannot
-  resurrect an object the grid dropped. This sample uses the override in the direction that works —
-  a player is never told to stop watching their own avatar — and the other direction is
-  [#1042](https://github.com/Rikarin/Vixen/issues/1042).
 - **A `SceneInterestRule`.** There is one scene here and no `SceneTag` on anything, so the rule would
   return `Undecided` for every object and cost a virtual call to do it.
 - **Anything drawn.** There is an `EngineLoop` here now — it is what runs the behaviours — but no
