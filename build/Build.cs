@@ -1260,9 +1260,17 @@ partial class Build : NukeBuild {
     ///         with it.
     ///     </para>
     ///     <para>
-    ///         Android builds anywhere the workload is installed; the iOS half is skipped elsewhere
-    ///         rather than failing, because a Linux CI leg not building an iOS assembly is the
-    ///         expected outcome and not a broken build.
+    ///         Android builds anywhere the workload is installed; the iOS half is skipped on a
+    ///         developer's non-macOS machine rather than failing, because a Linux box not building
+    ///         an iOS assembly is the expected outcome and not a broken build.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>On a CI runner the same skip is a failure, and that half is new.</b> This target
+    ///         reported success on Linux having built the Android half and logged one line about the
+    ///         other — so the first <c>mobile</c> job anybody wired to it on <c>ubuntu-latest</c>
+    ///         would have gone green while covering none of the row it was added for. #327 says to
+    ///         ask what a leg prints on the day it does not run, and the answer here was "success".
+    ///         ⚠ It is inert today: no workflow invokes this target, which is the rest of #327.
     ///     </para>
     /// </remarks>
     Target CompileMobile => definition => definition
@@ -1279,7 +1287,25 @@ partial class Build : NukeBuild {
                 );
 
                 if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX)) {
+                    // ⚠ A skip is a fair answer on a developer's Linux box and never on a runner.
+                    // The whole of a CI leg's report is this target's exit code, so a `mobile` job
+                    // pointed at ubuntu would build Android, log one line about iOS and go green
+                    // having proved half of what the target's own name claims — which is the shape
+                    // #327 says to close before wiring the leg, and the same shape as the Null
+                    // device that let a headless GPU run print healthy counters.
+                    //
+                    // A leg that wants only Android wants a target that only claims Android; this
+                    // one says iOS in its name, its description and its remarks.
+                    Assert.True(
+                        IsLocalBuild,
+                        "CompileMobile cannot build Vixen.Platform.iOS off macOS, and a CI leg that "
+                        + "let it skip would report success having built only the Android half. Run "
+                        + "this target on a macOS runner with Xcode and the `ios` workload, or split "
+                        + "the Android half into a target that claims only Android."
+                    );
+
                     Log.Information("Skipping Vixen.Platform.iOS: it needs macOS and Xcode.");
+
                     return;
                 }
 
