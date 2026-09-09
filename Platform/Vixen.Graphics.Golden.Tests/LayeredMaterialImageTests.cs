@@ -3,6 +3,7 @@
 
 using Vixen.Core.Imaging;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Yaml;
 using Vixen.Rendering;
 using Vixen.Rendering.Compositor;
 using Vixen.Rendering.Materials;
@@ -84,6 +85,18 @@ public class LayeredMaterialImageTests {
         new(0.13f, 0.24f, 0.81f),
         new(0.86f, 0.81f, 0.09f)
     ];
+
+    /// <summary>How wide a square of the project's own splat map the painted comparisons upload.</summary>
+    /// <remarks>
+    ///     The same 48 <c>PaintedLayersTests.PureSide</c> asserts is pure in the committed PNG. Two
+    ///     files rather than one shared constant because they are in different assemblies and neither
+    ///     may reference the other; what keeps them honest is that the sample's test fails first if
+    ///     the map's pure zones move, rather than this one passing over a blend.
+    /// </remarks>
+    const int PureSide = 48;
+
+    /// <summary>Where the project's splat map is purely one channel — R, then G, then B.</summary>
+    static readonly (int Top, int Left)[] PurelyPaintedAt = [(320, 296), (8, 416), (184, 264)];
 
     /// <summary>The frame all of these renderings share. Deliberately the tier suite's own.</summary>
     static StandardFrameAsset Frame => new() {
@@ -262,6 +275,144 @@ public class LayeredMaterialImageTests {
         }
     }
 
+    /// <summary>
+    ///     The project's own painted material, with the project's own map, draws the layer that map
+    ///     paints.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every claim above this one is about a material this file constructed</b>, and
+    ///         that was the whole of doc 48's M11 remainder —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1073">#1073</a>: the feature was
+    ///         lowered, bound and photographed, and no material an artist could open carried one. So
+    ///         this reads <c>Samples/13-ThirdPersonShooter</c>'s <c>plaza.vxmat</c> and
+    ///         <c>plaza-splat.png</c> off disk — the authored files, not the imported artefacts —
+    ///         and photographs the surface a player sees.
+    ///     </para>
+    ///     <para>
+    ///         <b>The oracle is the plan document's, on production pixels.</b> Doc 48 § M11 asks for
+    ///         "a map that is pure in one channel over one region, drawn as that layer's material and
+    ///         matching a single-layer material of that layer in the same frame". The map's pure
+    ///         zones are where that region is, and a 48-texel square of each is uploaded rather than
+    ///         the whole map, because the slab is one surface and a region of it cannot be addressed
+    ///         from here — the crop is which part of the map is under test, exactly as a screen
+    ///         rectangle would be. <c>PaintedLayersTests</c> asserts those same squares are pure in
+    ///         the committed PNG, so a regenerated map cannot leave this comparison quietly
+    ///         photographing a blend.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The layer values come out of the file too</b>, and the reference is built from
+    ///         them. A test that compared the plaza against colours retyped here would agree with
+    ///         itself about what the plaza is made of, which is the one thing it must not do: the
+    ///         claim is that <em>this material</em> draws <em>its own</em> layer 1 where its map is
+    ///         green, and the roughness differs per layer in the authored file where this suite's
+    ///         own fixtures hold it constant.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the instrument first, as everywhere in this file.</b> Two of the project's
+    ///         layers are rendered untextured and asserted to differ before any painted frame is
+    ///         compared — two frames in which nothing drew agree perfectly, and a missing variant, an
+    ///         unpaired name and a culled pass all look like that.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_projects_own_painted_material_draws_the_layer_its_own_map_paints() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using (fixture) {
+            var authored = Authored();
+            var layered = Assert.Single(authored.Features.OfType<TexturedMaterialLayersFeature>());
+            var map = PngCodec.Load(Path.Combine(AppContext.BaseDirectory, "Authored", "plaza-splat.png"));
+
+            var references = layered.Layers
+                .Select(layer => Render(fixture!, _ => Library(layer.BaseColor, layer.Metalness, layer.Roughness)))
+                .ToArray();
+
+            var control = GoldenImage.Compare(references[0], references[1], Tolerance.Shaded);
+
+            Assert.False(
+                control.Matches,
+                $"Two of the plaza's own layers drew the same frame on {Adapter(fixture!)}, so this "
+                + "scene is not a picture of its material and nothing below it means anything."
+            );
+
+            for (var channel = 0; channel < PurelyPaintedAt.Length; channel++) {
+                var (top, left) = PurelyPaintedAt[channel];
+                var painted = Render(
+                    fixture!,
+                    scene => Project(scene, authored, layered, Crop(map, top, left))
+                );
+
+                var comparison = GoldenImage.Compare(references[channel], painted, Tolerance.Shaded);
+
+                Assert.True(
+                    comparison.Matches,
+                    $"plaza.vxmat over the part of plaza-splat.png that is pure in channel {channel} "
+                    + $"drew a surface that is not its own layer {channel} on {Adapter(fixture!)}: "
+                    + $"{comparison.DifferingPixels} of {comparison.TotalPixels} pixels differ, worst "
+                    + $"channel {comparison.WorstChannel} at {comparison.WorstAt}, mean "
+                    + $"{comparison.MeanChannel:F3}."
+                );
+            }
+        }
+    }
+
+    /// <summary>The material the project ships, read as its author wrote it.</summary>
+    /// <remarks>
+    ///     The source document rather than the imported chunk, for <c>FrameDocumentTests</c>' reason:
+    ///     what is under test is the material an artist edits, and reading the artefact would test
+    ///     the importer instead.
+    /// </remarks>
+    static MaterialContent Authored() {
+        MathScalars.Register();
+
+        return YamlSerializer.Parse<MaterialContent>(
+            File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Authored", "plaza.vxmat"))
+        );
+    }
+
+    /// <summary>The authored material, with a piece of its own splat map on the device.</summary>
+    /// <param name="scene">The scene that owns the upload.</param>
+    /// <param name="content">The material as its file describes it.</param>
+    /// <param name="layered">Its painted-layer feature, for the name the map is bound under.</param>
+    /// <param name="crop">The square of the map to sample, RGBA, row-major.</param>
+    static Material Project(
+        TierScene scene,
+        MaterialContent content,
+        TexturedMaterialLayersFeature layered,
+        byte[] crop
+    ) {
+        Assert.True(MaterialShading.TryResolve(content.Shading, out var shading));
+
+        var material = Compiled(content.ToDescriptor(shading));
+
+        // ⚠ Named by the feature and not by this file. `WorldRenderer.Paired` keys the frame's one
+        // entry off the feature's default, so a material that renamed its map resolves nothing and
+        // samples slot zero's checker — and a test that spelled the name itself would still pass.
+        material.Parameters.Set(
+            ParameterKeys.New<TextureViewHandle>(layered.SplatMap),
+            scene.Map($"Plaza.{crop.GetHashCode()}", PureSide, crop, PixelFormat.Rgba8UNorm)
+        );
+
+        return material;
+    }
+
+    /// <summary>One square of a decoded map, as texels a scene can upload.</summary>
+    /// <param name="map">The whole picture.</param>
+    /// <param name="top">The square's first row.</param>
+    /// <param name="left">The square's first column.</param>
+    static byte[] Crop(Bitmap map, int top, int left) {
+        var texels = new byte[PureSide * PureSide * 4];
+
+        for (var row = 0; row < PureSide; row++) {
+            map.Pixels.AsSpan(map.Offset(left, top + row), PureSide * 4).CopyTo(texels.AsSpan(row * PureSide * 4));
+        }
+
+        return texels;
+    }
+
     /// <summary>A splat map painting R and G equally, so two layers tie.</summary>
     /// <returns>The texels, RGBA, row-major.</returns>
     static byte[] Split() {
@@ -345,6 +496,24 @@ public class LayeredMaterialImageTests {
 
         return material;
     }
+
+    /// <summary>The same surface spelled with the library's own untextured feature, layer by layer.</summary>
+    /// <param name="colour">The layer's base colour.</param>
+    /// <param name="metalness">Its metalness.</param>
+    /// <param name="roughness">Its roughness — a per-layer number in an authored material.</param>
+    /// <remarks>
+    ///     ⚠ Separate from the overload above rather than a default on it, because the project's
+    ///     layers differ in roughness where this file's fixtures deliberately do not: a comparison
+    ///     that held roughness at <see cref="Roughness" /> would be against a surface the plaza is
+    ///     not, and would fail for a reason that has nothing to do with which layer was painted.
+    /// </remarks>
+    static Material Library(Vector3 colour, float metalness, float roughness) =>
+        Compiled(
+            new() {
+                ShaderName = "ForwardPlus",
+                Features = [new MetalRoughnessFeature { BaseColor = colour, Metalness = metalness, Roughness = roughness }]
+            }
+        );
 
     /// <summary>The same surface spelled with the library's own untextured feature.</summary>
     static Material Library(Vector3 colour) =>
