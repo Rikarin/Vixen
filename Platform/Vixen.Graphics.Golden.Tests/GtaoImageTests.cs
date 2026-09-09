@@ -268,6 +268,75 @@ public sealed class GtaoImageTests {
         );
     }
 
+    /// <summary>
+    ///     And the bent normal leans away from the wall where the wall occludes, and nowhere else.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half of the pass nothing used to read.</b> Occlusion says how much light arrives;
+    ///         the bent normal says where it arrives from, and it is the second that makes a corner
+    ///         take its ambient from the room rather than uniformly from a hemisphere half of which is
+    ///         wall. Until <c>AmbientCombine.rvn</c> grew a <c>useBentNormal</c> nothing in the tree
+    ///         sampled this plane's rgb at all, so the direction could have been anything.
+    ///     </para>
+    ///     <para>
+    ///         <b>An ordering with one closed-form end, on the corner fixture's own terms.</b> At the
+    ///         exact foot of a wall meeting a floor at right angles the visible set is a quarter
+    ///         sphere, whose symmetry axis bisects the two normals — 45° off the floor. The march does
+    ///         not reach it, for the same three reasons the occlusion does not reach a half: the steps
+    ///         are discrete, <c>bias</c> rejects the nearest samples, and the falloff weights an
+    ///         occluder down by distance. What is asserted is the direction of the lean and that it
+    ///         decays: it points toward the wall's normal beside the wall, and two metres away it is
+    ///         the floor's normal again.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The far-field half is the load-bearing one, and it caught a real defect the first
+    ///         time it ran.</b> A bent normal that leaned toward the wall everywhere would satisfy the
+    ///         contact assertion perfectly and be the same defect a halo is — a direction taken from
+    ///         horizons the surface cannot see. The open floor came back at
+    ///         <c>(0.005, 0.933, 0.359)</c>: 21° off its own normal, at a pixel whose occlusion reads
+    ///         0.944. It was not a halo but the slice sum's own view bias, which
+    ///         <c>Ssao.rvn</c> now inverts — see the ⚠ beside <c>corrected</c> there. With the
+    ///         correction, measured on MoltenVK: the contact row is <c>(0.002, 0.952, 0.305)</c> and
+    ///         the open floor <c>(0.007, 0.999, 0.039)</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The plane is read at eight bits, because that is what the fixture's display target is
+    ///         — one level of the unsigned encoding is 1/128 of a direction component, which is far
+    ///         below the tenths this asserts.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheBentNormalLeansAwayFromTheWallAndOnlyBesideIt() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var image = Render(owned, new(0f, 0f, 1f), wall: true, falloff: WallFalloff, bentNormal: true);
+
+        var contact = Direction(image, 94);
+        var open = Direction(image, 126);
+
+        Assert.True(
+            contact.Z > 0.15f,
+            $"beside the wall the bent normal came back at {contact}, which does not lean off the "
+            + "floor's own normal — so the direction is the geometric one under another name."
+        );
+
+        Assert.True(
+            open.Z < 0.08f,
+            $"two metres from the wall the bent normal came back at {open}, leaning toward an occluder "
+            + "that is more than twice the search radius away — that is the halo, in the direction."
+        );
+
+        Assert.True(
+            contact.Z - open.Z > 0.1f,
+            $"the contact ({contact.Z:F3}) and the open floor ({open.Z:F3}) lean the same way, so "
+            + "whatever tilted one tilted both — which is a constant, not an occluder."
+        );
+    }
+
     /// <summary>The picture, so the shape of the contact shadow is pinned and not only its ends.</summary>
     /// <remarks>
     ///     ⚠ Its tolerance is not <see cref="Tolerance.Edges" />. The signal is a soft gradient across
@@ -311,8 +380,18 @@ public sealed class GtaoImageTests {
     ///         mistake in the rotation and a mistake in the estimator are the same picture.
     ///     </para>
     /// </remarks>
-    static Bitmap Render(Fixture fixture, Vector3 normal, bool wall = false, float falloff = 1f) {
+    static Bitmap Render(
+        Fixture fixture,
+        Vector3 normal,
+        bool wall = false,
+        float falloff = 1f,
+        bool bentNormal = false
+    ) {
         var device = fixture.Device;
+
+        // ⚠ One graph, several renders in the bent-normal fixture, and a compiled graph refuses the
+        // next frame's imports rather than reusing the last one's.
+        fixture.Graph.Reset();
         var projection = Matrix4x4.PerspectiveFieldOfView(FieldOfView, 1f, Near, Far);
         Assert.True(Matrix4x4.Invert(projection, out var inverse));
 
@@ -416,6 +495,11 @@ public sealed class GtaoImageTests {
             // the band tens of rows wide and still leaves the bottom of the picture outside every
             // search, which is the half that catches a halo.
             Radius = 1f,
+
+            // ⚠ Which changes the plane's whole layout, not just what is in it: with this on the
+            // occlusion moves to alpha and rgb carries the direction, unsigned-encoded. Every other
+            // fixture here reads the red channel and therefore must leave it off.
+            BentNormal = bentNormal,
             // The corner scene raises this; see there. The flat planes keep the shipped one, so
             // what they assert about the normalisation is asserted at the settings that ship.
             Falloff = falloff,
@@ -531,6 +615,30 @@ public sealed class GtaoImageTests {
             MathF.Abs(worst - expected) <= tolerance,
             $"{what} should read {expected:F2} everywhere and ({at.X}, {at.Y}) came back {worst:F3}."
         );
+    }
+
+    /// <summary>The bent normal along one row, decoded and averaged across the middle columns.</summary>
+    /// <remarks>
+    ///     Averaged before normalising, which is what the consumer does too: the encoding is affine in
+    ///     the direction, so a mean of encodings is the encoding of the mean — a shorter vector than
+    ///     either, which normalising restores.
+    /// </remarks>
+    static Vector3 Direction(in Bitmap image, int y) {
+        var total = Vector3.Zero;
+        var from = image.Width / 4;
+        var to = image.Width * 3 / 4;
+
+        for (var x = from; x < to; x++) {
+            var at = image.Offset(x, y);
+
+            total += new Vector3(
+                (image.Pixels[at] / 255f * 2f) - 1f,
+                (image.Pixels[at + 1] / 255f * 2f) - 1f,
+                (image.Pixels[at + 2] / 255f * 2f) - 1f
+            );
+        }
+
+        return Vector3.Normalize(total / (to - from));
     }
 
     /// <summary>

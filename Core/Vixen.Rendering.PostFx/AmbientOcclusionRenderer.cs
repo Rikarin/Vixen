@@ -59,7 +59,14 @@ public sealed class AmbientOcclusionRenderer() : PostEffectRenderer(
     ///     <para>
     ///         A bent normal is what turns occlusion from a multiplier into a direction to sample the
     ///         environment along, which is the difference between a crease that is uniformly darker
-    ///         and one that reflects the wall beside it. Off by default: nothing consumes it yet.
+    ///         and one that reflects the wall beside it. Off by default, and
+    ///         <see cref="AmbientCombineRenderer.ContactBentNormal" /> is what consumes it — the two
+    ///         are set together or the plane's layout and its reader disagree.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It moves the occlusion into alpha, because the direction takes rgb.</b> A consumer
+    ///         that keeps reading <c>r</c> is not reading a degraded occlusion but the x of a
+    ///         direction — unsigned-encoded, so always in [0, 1] and always plausible.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A view-space direction</b>, encoded unsigned into rgb. Whatever eventually consumes

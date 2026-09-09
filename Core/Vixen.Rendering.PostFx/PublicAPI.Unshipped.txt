@@ -5,6 +5,8 @@ Vixen.Rendering.PostFx.AmbientCombineAsset : Vixen.Rendering.Compositor.ISceneRe
 Vixen.Rendering.PostFx.AmbientCombineAsset.Albedo.get -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.Albedo.init -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.AmbientCombineAsset() -> void
+Vixen.Rendering.PostFx.AmbientCombineAsset.ContactBentNormal.get -> bool
+Vixen.Rendering.PostFx.AmbientCombineAsset.ContactBentNormal.init -> bool
 Vixen.Rendering.PostFx.AmbientCombineAsset.ContactOcclusion.get -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.ContactOcclusion.init -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.Depth.get -> string
@@ -36,12 +38,16 @@ Vixen.Rendering.PostFx.AmbientCombineAsset.View.init -> string
 Vixen.Rendering.PostFx.AmbientCombineRenderer -> sealed class
 Vixen.Rendering.PostFx.AmbientCombineRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
 Vixen.Rendering.PostFx.AmbientCombineRenderer.AmbientCombineRenderer() -> void
+Vixen.Rendering.PostFx.AmbientCombineRenderer.ContactBentNormal.get -> bool
+Vixen.Rendering.PostFx.AmbientCombineRenderer.ContactBentNormal.set -> bool
 Vixen.Rendering.PostFx.AmbientCombineRenderer.ContactOcclusion.get -> string?
 Vixen.Rendering.PostFx.AmbientCombineRenderer.ContactOcclusion.set -> string?
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Depth.get -> string?
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Depth.set -> string?
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Intensity.get -> float
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Intensity.set -> float
+Vixen.Rendering.PostFx.AmbientCombineRenderer.InverseView.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.AmbientCombineRenderer.InverseView.set -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.PostFx.AmbientCombineRenderer.InverseViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.PostFx.AmbientCombineRenderer.InverseViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Irradiance.get -> string?

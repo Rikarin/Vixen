@@ -577,6 +577,19 @@ public sealed record AmbientCombineAsset : ISceneRendererAsset {
     /// <summary><c>!Ssao</c>'s plane: occlusion in r, contact scale over the field's room scale. Empty reads one.</summary>
     public string ContactOcclusion { get; init; } = string.Empty;
 
+    /// <summary>
+    ///     Whether that plane carries a bent normal — direction in rgb, occlusion in alpha — which is
+    ///     what <c>!Ssao</c> writes with its own <c>BentNormal</c> on.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>It has to be said twice, once on each node, and the document is what keeps the two
+    ///     agreeing.</b> The producer's permutation decides the layout and this decides how it is
+    ///     read; setting only the producer's moves the occlusion into a channel nothing reads and
+    ///     leaves the direction being multiplied into the ambient term as though it were occlusion.
+    ///     There is no third place that knows both, because the two nodes are separate assets.
+    /// </remarks>
+    public bool ContactBentNormal { get; init; }
+
     /// <summary><c>!Reflections</c>' plane: radiance in rgb, validity in a. Empty blends none in.</summary>
     public string Reflections { get; init; } = string.Empty;
 
@@ -905,6 +918,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             Irradiance = declared.Irradiance is { Length: > 0 } irradiance ? irradiance : null,
             Occlusion = declared.Occlusion is { Length: > 0 } occlusion ? occlusion : null,
             ContactOcclusion = declared.ContactOcclusion is { Length: > 0 } contact ? contact : null,
+            ContactBentNormal = declared.ContactBentNormal,
             Reflections = declared.Reflections is { Length: > 0 } mirrors ? mirrors : null,
             Depth = declared.Depth is { Length: > 0 } depth ? depth : null,
             View = declared.View is { Length: > 0 } view ? builder.Views.GetValueOrDefault(view) : null,

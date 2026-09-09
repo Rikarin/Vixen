@@ -157,6 +157,12 @@ shader AmbientCombine {
 
     /// `!Ssao`'s plane: occlusion in `r`. A second, contact-scale term over the field's room-scale
     /// one. Stand-in semantics: `useContactOcclusion` 0 reads it as 1.
+    ///
+    /// ⚠ **Its layout is not fixed — `useBentNormal` is which of the two it is.** With `!Ssao`'s
+    /// `BentNormal` permutation on the pass writes the average unoccluded direction into `rgb`,
+    /// unsigned and view-space, and moves the occlusion into `a`. Reading `r` regardless is not a
+    /// degraded answer but a different quantity: the x of a direction, which lands in `[0, 1]` and
+    /// therefore looks exactly like an occlusion value.
     var contactOcclusion: Texture2D
 
     /// `!Reflections`' plane: radiance in `rgb`, **validity** in `a` — not reflectance, see above.
@@ -191,6 +197,26 @@ shader AmbientCombine {
     var useOcclusion: float = 0f
 
     var useContactOcclusion: float = 0f
+
+    /// 1 where `contactOcclusion` is a bent-normal plane: direction in `rgb`, occlusion in `a`.
+    ///
+    /// ⚠ **The whole of what a bent normal buys is here, and until this switch existed the pass
+    /// paid for it and threw it away.** Occlusion says how much light arrives; a bent normal says
+    /// where it arrives *from*, and only the second changes the shading direction — which is most
+    /// of what makes GTAO look better than SSAO on a curved surface. `!Ssao`'s permutation produced
+    /// the direction, `AmbientOcclusionRenderer.BentNormal` exposed it, a document could turn it on,
+    /// and no shader in the tree read it: an output nothing consumes is indistinguishable, to every
+    /// gate here, from an output nothing produces.
+    ///
+    /// ⚠ **It also moves the occlusion channel, which is why one switch does both.** With the
+    /// permutation off the plane's `r` is occlusion; with it on `r` is the direction's x and the
+    /// occlusion is in `a`. A host that turned the permutation on without this reading `a` would
+    /// have modulated its whole ambient term by a direction component.
+    ///
+    /// The direction is view-space — the space the horizons are found in — so `inverseView` is what
+    /// makes it a world direction the sky's coefficients can be evaluated against. At zero the sky
+    /// is evaluated against the geometric normal, which is what this pass has always done.
+    var useBentNormal: float = 0f
 
     /// 1 where the traced plane *replaces* the split pass's own specular ambient, 0 otherwise.
     ///
@@ -258,6 +284,15 @@ shader AmbientCombine {
     /// reflection weight's view direction is unprojected from.
     var inverseViewProjection: mat4
 
+    /// View back into world, for the bent normal alone — the inverse of the rotation `!Ssao` was
+    /// given.
+    ///
+    /// ⚠ Direction-only, so the translation it also carries is harmless: the multiply below is with
+    /// `w = 0`. Read only above zero `useBentNormal`, and the host sets that switch to zero when it
+    /// has no camera to invert — a view-space direction evaluated against world coefficients is a
+    /// sky read from the wrong side, which is smooth, plausible and lit from nowhere.
+    var inverseView: mat4
+
     /// 1 where `inverseViewProjection` is a camera's, 0 where nothing drove it.
     ///
     /// The reflection weight needs a view angle — a dielectric reflects four per cent head-on and
@@ -309,7 +344,7 @@ shader AmbientCombine {
 
         val material = albedo.Sample(pointSampler, uv)
         var field = float2(1f, 1f)
-        var contact = 1f
+        var contactPlane = float4(1f, 1f, 1f, 1f)
 
         if (useBilateral > 0f) {
             // The pixel's own surface, reconstructed the way the AO passes reconstructed theirs, so
@@ -317,11 +352,40 @@ shader AmbientCombine {
             val deviceDepth = depthBuffer.Sample(pointSampler, uv).r
             val world = Transform.UvDepthToWorld(inverseViewProjection, uv, deviceDepth)
 
-            field = Upsample(occlusion, occlusionTexel, world, n)
-            contact = Upsample(contactOcclusion, contactTexel, world, n).x
+            field = Upsample(occlusion, occlusionTexel, world, n).rg
+            contactPlane = Upsample(contactOcclusion, contactTexel, world, n)
         } else {
             field = occlusion.Sample(linearSampler, uv).rg
-            contact = contactOcclusion.Sample(linearSampler, uv).r
+            contactPlane = contactOcclusion.Sample(linearSampler, uv)
+        }
+
+        // Which channel the contact term is in, which the layout decides — `r` for a plain occlusion
+        // plane and `a` for a bent-normal one. See `useBentNormal`.
+        val contact = lerp(contactPlane.x, contactPlane.w, useBentNormal)
+
+        // ⚠ **The direction the ambient arrives from, which is the half of GTAO that was being
+        // discarded.** The bent normal is the middle of what each slice can see, and on an
+        // unoccluded surface it is exactly the geometric normal — so turning the permutation on
+        // cannot move an open surface, whatever its tilt. ⚠ That identity is not free and did not
+        // hold when this consumer was written: the raw slice sum leans toward the camera on a
+        // slanted surface, and `Ssao.rvn` now inverts that bias where `corrected` is computed.
+        // Where the surface *is* occluded the direction leans away from the occluder, which is what
+        // makes a corner take its light from the room rather than uniformly from a hemisphere half
+        // of which is wall.
+        //
+        // Unorm-decoded and rotated back into world space. Interpolated and bilaterally averaged
+        // encodings are affine in the direction, so an average of encoded directions decodes to the
+        // encoding of their average — a shorter vector than either, which normalising restores.
+        var ambientNormal = n
+
+        if (useBentNormal > 0f) {
+            val bent = (inverseView * float4(Math.FromUnorm(contactPlane.xyz), 0f)).xyz
+
+            // A texel the pass never marched decodes to the zero direction, and normalising it
+            // would aim the sky at the x axis. The geometric normal is the honest fallback.
+            if (dot(bent, bent) > Const.Epsilon) {
+                ambientNormal = Math.SafeNormalize(bent)
+            }
         }
 
         // ⚠ **The sky, where no screen plane answers — the term the split would otherwise drop.**
@@ -329,7 +393,11 @@ shader AmbientCombine {
         // below is by albedo alone, so the Lambert `1/π` that `Ibl.Diffuse` applies for the unsplit
         // pass has to be applied here instead. Without it every ambient-lit surface is π times too
         // bright, which reads as a badly exposed frame rather than as a missing constant.
-        val sky = Ibl.IrradianceSh9(n, environmentSh) * (Const.InvPi * ambientIntensity * useEnvironmentSh)
+        //
+        // ⚠ The scale is hoisted rather than trailing the call, because a newline ends a statement
+        // here and a leading `*` on the next line is a second statement that is discarded.
+        val skyScale = Const.InvPi * ambientIntensity * useEnvironmentSh
+        val sky = Ibl.IrradianceSh9(ambientNormal, environmentSh) * skyScale
 
         // A lerp rather than a sum, and `useIrradiance` is only ever 0 or 1: a screen plane's
         // irradiance already contains what the sky sends — the gather's rays hit it and the field's
@@ -400,9 +468,14 @@ shader AmbientCombine {
         return saturate(f0 * dfg.x + float3(dfg.y, dfg.y, dfg.y))
     }
 
-    /// A reduced plane's `rg` at this pixel: its four nearest texels, each weighted by bilinear
-    /// coverage and kept only if the surface it measured lies on this pixel's plane —
+    /// A reduced plane's four channels at this pixel: its four nearest texels, each weighted by
+    /// bilinear coverage and kept only if the surface it measured lies on this pixel's plane —
     /// `ScreenProbeUpsample`'s tap rule, one lattice down.
+    ///
+    /// ⚠ All four channels rather than `rg`, because the contact plane's layout is not fixed: with
+    /// `!Ssao`'s bent normal on it carries a direction in `rgb` and its occlusion in `a`. Filtering
+    /// two of the four and reading a third would upsample the direction's x and point-sample the
+    /// occlusion, which is a plane test applied to whichever channels the reader happened to name.
     ///
     /// Each texel's surface is re-read rather than carried: the AO pass point-sampled the
     /// full-resolution depth at its own texel centre, so point-sampling the same buffer at the same
@@ -411,12 +484,12 @@ shader AmbientCombine {
     /// texel rejects takes the plain linear blend — a smeared answer over a hole, the fallback the
     /// probe upsample also takes. A full-resolution plane degenerates to its own texel at weight
     /// one, so the path costs nothing wrong when a host runs AO at scale 1.
-    func Upsample(plane: Texture2D, texel: float2, world: float3, n: float3): float2 {
+    func Upsample(plane: Texture2D, texel: float2, world: float3, n: float3): float4 {
         val continuous = uv / texel - 0.5f
         val anchor = floor(continuous)
         val fraction = continuous - anchor
 
-        var kept = float2(0f, 0f)
+        var kept = float4(0f, 0f, 0f, 0f)
         var keptWeight = 0f
 
         for (corner in 0 .. 3) {
@@ -436,7 +509,7 @@ shader AmbientCombine {
                         val theirs = Transform.UvDepthToWorld(inverseViewProjection, tapUv, tapDepth)
 
                         if (abs(dot(world - theirs, n)) <= planeTolerance) {
-                            kept += plane.Sample(pointSampler, tapUv).rg * coverage
+                            kept += plane.Sample(pointSampler, tapUv) * coverage
                             keptWeight += coverage
                         }
                     }
@@ -445,7 +518,7 @@ shader AmbientCombine {
         }
 
         if (keptWeight <= 0f) {
-            return plane.Sample(linearSampler, uv).rg
+            return plane.Sample(linearSampler, uv)
         }
 
         return kept / keptWeight
