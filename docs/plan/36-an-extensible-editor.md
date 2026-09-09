@@ -1090,9 +1090,48 @@ Deliberately open, and named so the first project that needs one does not fork.
   `InspectorEditProvider` over the generator's descriptors, and `NodePortEditProvider` over a graph
   node's ports, which is the one that proves the seam takes weight: its members belong to no CLR
   type and the ordinary inspector panel draws them anyway. A settings file is still owed.
-* **`IToolContext`** — what a scene-view tool is handed. Terrain's brushes and blockout's handles
-  should be two implementations of the same thing; today they are two subsystems. ⚠ **This type does
-  not exist**, in any form — it is a proposal, not a seam something is already using.
+
+  ⚠ **But "owed" is the wrong shape for it, and saying so is what stops somebody writing the wrong
+  type.** The row is not a settings type nothing can describe: `ReflectedDescriptor.For`
+  (`Editor/Vixen.Editor.Inspector/ReflectedDescriptor.cs:180`) falls back from `InspectorRegistry` to
+  a descriptor built out of `TypeRegistry`, which is exactly "described by `Vixen.Core.Reflection`"
+  — the phrase `IEditProvider`'s own remarks use for this case. What is missing is one step earlier:
+  `InspectorEditProvider.MembersOf` reads `InspectorRegistry.Find(type)` **only**, so a type the
+  serialization generator described and `[Inspector]` did not draws rows in the panel and has zero
+  members through `EditTarget`. The pipeline is strictly narrower than the panel that draws it.
+
+  ⚠ **And it has no consumer until D4's `AddSettingsPage` row exists.** `EditorSettingsPanels` builds
+  the Preferences and Project Settings panels directly from the application; a provider written now
+  would be a fourth implementation nothing routes through. The order that pays is the registry first,
+  the pages through `EditProperty` second.
+* ~~**`IToolContext`**~~ — **struck, because what a scene-view tool is handed already has a name and
+  the premise under this bullet is wrong.** It read "terrain's brushes and blockout's handles should
+  be two implementations of the same thing; today they are two subsystems". Measured: they are
+  already two implementations of one interface, and there are four —
+  `BlockoutMode` (`Editor/Vixen.Editor.Blockout/BlockoutMode.cs:42`), `TerrainMode`
+  (`Editor/Vixen.Editor.Terrain/TerrainMode.cs:40`), `FoliageMode`
+  (`…/FoliageMode.cs:37`) and `WaterMode` (`Editor/Vixen.Editor.Water/WaterMode.cs:50`) are each
+  `IEditorMode, IViewportInput`.
+
+  What a tool is handed is `IViewportInput.Pointer(SceneViewport pane, …)`, and the pane is the
+  context: camera, gizmo, grid, work plane (`Placement`), document, selection, picking, sub-object
+  picking, mesh editing and the extension registry.
+
+  ⚠ **And the third tool — the one this bullet said would discover what a tool is actually handed —
+  has been written, out of tree, and needed no new type.** `OutOfTreePluginTests`' `SamplePlugin`
+  compiles a plugin assembly that registers `new SceneTool("sample.paint", "Paint", new SampleTool())`
+  and moves the camera's pivot through the pane it is given. That is the experiment this bullet
+  proposed, already run.
+
+  ⚠ **The two things terrain surfaced were answered by naming them, not by a context.**
+  `PluginContext.OnUpdate` (`Editor/Vixen.Editor.Plugin/PluginContext.cs:300`) and
+  `EditorDocument.Saved` (`Editor/Vixen.Editor.Core/EditorDocument.cs:156`) both exist. A tool
+  context would have been a third place to put them.
+
+  **What is genuinely left is a different, smaller question**, and it is not this one: `SceneViewport`
+  is a 1,635-line concrete class, so a plugin's tool is handed all of it. Narrowing it is worth doing
+  when a consumer can say which members matter; inventing the narrowing first is guessing, and the
+  guess would be this bullet.
 * ~~**Plugin API versioning**~~ — ✅ closed, and the bullet was stale. `PluginHost` calls
   `EditorApi.Explain(manifest.Api)` and refuses an incompatible plugin with the explanation. Widening
   the surface is what made it matter, which is what this bullet predicted.
@@ -1229,7 +1268,8 @@ import without a plugin is not an editor. The criterion is `Core`, `Ui`, `Plugin
 * **`IsPackable` on `Vixen.Editor.Inspector.Generator`.** Now buys only the `[Inspector]`-specific
   annotations and the reset button — see [what this document does not
   do](#what-this-document-does-not-do).
-* **`IToolContext`** does not exist; terrain's brushes and blockout's handles are still two subsystems.
+* ~~**`IToolContext`**~~ — struck, and the sentence under it was wrong: four modes already implement
+  one `IViewportInput`, and the pane they are handed is the context. See [Part 5](#part-5--the-seams).
 * **No incremental compilation for project scripts**, and **no cross-assembly editor-only check**.
 * **F7's number.** Seventeen `.vxml` files against **34 registered panels** — the denominator this
   row used to give, ~120,000 lines of editor C#, was the wrong one, and so was "three". The path is
