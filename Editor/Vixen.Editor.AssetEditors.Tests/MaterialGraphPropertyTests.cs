@@ -189,6 +189,16 @@ public class MaterialGraphPropertyTests {
         // samples the table's placeholder view for every texture the graph reads.
         Assert.Equal("albedo", Assert.Single(surface.Maps).Texture);
 
+        // ⚠ And it survives the file, which is the half a document-only assertion cannot see: a
+        // feature whose two value lists are empty is exactly the shape a round trip is most likely to
+        // drop, and the content build reads the file rather than this object.
+        var written = MaterialAsset.FromYaml(document.ToYaml());
+        var read = Assert.IsType<GraphSurfaceFeature>(Assert.Single(written.Features));
+
+        Assert.Equal("AuthoredSurface", read.Shader);
+        Assert.Equal("albedoIndex", Assert.Single(read.Maps).Slot);
+        Assert.Empty(read.Numbers);
+
         // One undo step of its own, and it is the whole feature that goes.
         Assert.True(document.Stack.Undo());
         Assert.Null(document.Surface);
