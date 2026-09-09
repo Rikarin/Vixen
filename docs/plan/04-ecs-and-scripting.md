@@ -379,6 +379,36 @@ This is measurably slower than a pure ECS system and dramatically faster than Un
 MonoBehaviour path. It is the honest trade: convenience where users want it, `ISystem` where they
 need throughput. Both are first-class and documented as such.
 
+> ⚠ **Item 3 is not built, and its stated blocker has *moved* rather than expired.**
+> `BehaviorJob` appears nowhere in the tree — [#294](https://github.com/Rikarin/Vixen/issues/294) —
+> so `BehaviorStore.RunUpdate` walks the buckets in order on the calling thread and ten thousand
+> instances of one type run on one core. Bucketing bought the cache locality; parallelism is a
+> separate axis and item 2 does not dispose of it.
+>
+> The blocker this section names is "the read/write safety check", and both issues it pointed at are
+> **closed**: `JobScheduler` has `DeclareAccess`, `JobAccess` and `ParallelFor` today, and
+> `SystemAccessInferenceGenerator` infers a declaration from a body. ⚠ **But neither reaches a
+> behaviour**, and saying which half is missing is the point:
+>
+> - **The inference is `ISystem`-shaped and reads queries.** It is gated on `[InferAccess]` on a type
+>   implementing `ISystem` (`VXS0407`) and collects from `QueryDescription`, `World`, `Chunk` and
+>   `WorldQueryExtensions` calls. A behaviour reaches components through `Behavior.Get<T>()` /
+>   `Read<T>()` and through the `Transform` façade, which is none of those — and the generator's own
+>   `VXS0412` already refuses a body that hands a world to a call it cannot read, rather than
+>   assuming it harmless. So a declaration for a behaviour type is new inference, not a reused one.
+> - **A declaration is not enough on its own, because `Update` may touch the store.**
+>   `Enabled` queues into a plain `List<Behavior?>` through `QueueEnabledChange`, `Destroy()` and
+>   `Run(coroutine)` do the same to their own queues, and none of it is synchronised — deliberately,
+>   because the whole lifecycle is deferred to a single-threaded drain. So `[BehaviorJob]` needs a
+>   **refusal** — the analyzer shape this file's other three rules already have — as much as it needs
+>   a declaration: inside a `[BehaviorJob]` `Update`, a lifecycle call is a data race and not a slow
+>   path.
+>
+> **What is owed is therefore four things, in order**: the access declaration for a behaviour type,
+> the refusal, dispatch through `ParallelFor` in `BehaviorBucket<T>`, and the measurement — because
+> "measurably slower than a pure ECS system and dramatically faster than Unity's MonoBehaviour path"
+> is a claim this section makes and nothing checks.
+
 ### The rule that keeps this coherent
 
 > ✅ **Built.** `Core/Vixen.Engine/` with 58 tests: the frame loop and its fixed-step accumulator,
