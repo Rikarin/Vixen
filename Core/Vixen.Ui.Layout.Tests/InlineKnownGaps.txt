@@ -653,7 +653,15 @@ a text leaf's first line          ⚠ STILL NOT shortened to the space left on t
 line-height on the container      ⚠ LANDED with the strut above — it is the strut's half-leading,
                                   and nothing else in this walk reads a line height. `The_containers
                                   _leading_moves_the_baseline_and_the_line_height` is the test
-white-space / nowrap              the container-level suppression of line breaking
+white-space / nowrap              the container-level suppression of line breaking, and `pre`
+                                  since it is `nowrap`'s wrapping answer — ⚠ the refusal that kept
+                                  `pre` out ("honouring it for wrapping alone is honouring a third
+                                  of it") was arithmetic about this engine that had stopped being
+                                  true: nothing collapses and every mandatory break is taken, so an
+                                  undeclared element already behaves as `pre-wrap` and wrapping is
+                                  the only third `pre` was missing. `WhiteSpacePreTests` measures
+                                  both halves rather than asserting the conclusion. What is still
+                                  owed is `pre-line` and `break-spaces`, which need the collapsing
 text-overflow: ellipsis           ⚠ THE ROW IS THE INLINE-LEVEL HALF AND THE PROPERTY IS NOT OWED,
                                   which is worth saying first because doc 43's B3 row and #249's own
                                   comments have listed the bare property name as owed since weeks

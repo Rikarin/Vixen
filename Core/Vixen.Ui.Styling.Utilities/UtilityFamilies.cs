@@ -1154,12 +1154,17 @@ public static class UtilityFamilies {
 
         // ⚠ <b>The two that were missing are the two the reader is RIGHT about</b>, which inverts the
         // usual argument for leaving a keyword out. `UiDocument.WrapsOf` answers one of
-        // `white-space`'s three questions — whether the text may break across lines — and its own
-        // remark records that `pre` is registered while being answered wrongly, because `pre` does
-        // not wrap and this reader says it does. `pre-line` and `break-spaces` both DO wrap, so the
-        // one third of the property that is read gives the specified answer for them; what they
-        // share with `pre` and `pre-wrap` is the two thirds nobody reads yet — collapsing runs of
-        // space and keeping newlines. Registering them adds no new gap and closes a spelling gap.
+        // `white-space`'s three questions — whether the text may break across lines — and `pre-line`
+        // and `break-spaces` both DO wrap, so the one third of the property that is read gives the
+        // specified answer for them; what they share with `pre-wrap` is the two thirds nobody reads
+        // yet — collapsing runs of space and keeping newlines. Registering them adds no new gap and
+        // closes a spelling gap.
+        //
+        // ⚠ <b>This paragraph used to say `pre` was registered while being answered wrongly, and
+        // that stopped being true.</b> `WrapsOf` honours it now: because this engine collapses
+        // nothing and already breaks at every mandatory opportunity, an element with no declaration
+        // is already `pre-wrap`, so wrapping is the ONLY third `pre` was missing. See
+        // `WhiteSpacePreTests`, which measures both halves of that premise.
         Keywords("whitespace", "white-space", new() {
             ["normal"] = "normal", ["nowrap"] = "nowrap", ["pre"] = "pre", ["pre-wrap"] = "pre-wrap",
             ["pre-line"] = "pre-line", ["break-spaces"] = "break-spaces"
