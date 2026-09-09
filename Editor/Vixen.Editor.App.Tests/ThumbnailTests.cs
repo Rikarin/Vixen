@@ -253,6 +253,146 @@ public class ThumbnailTests {
         Assert.Equal(0, cache.Count);
     }
 
+    /// <summary>⚠ A repainted file gets a new picture, and it used to keep the old one all session.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1187">#1187</a>. <c>ThumbnailCache</c>
+    ///         removed an entry in exactly one place — <c>Evict</c>, on capacity — and nothing in the
+    ///         editor ever told it a file had changed. So repainting a <c>.png</c> in another program
+    ///         left the content browser and the asset picker drawing the version from before the
+    ///         edit, until 512 other assets pushed it out or the editor was restarted.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The middle assertion is the instrument and it asserts the <em>defect</em>.</b>
+    ///         Nothing has told the cache yet, so it still answers with the old picture — which is
+    ///         what makes the last assertion about <c>Forget</c> rather than about a cache that
+    ///         happened never to hold anything. Two shades neither of which is a decoder's default,
+    ///         because a picture read back at 0 would pass against a path that uploaded nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_repainted_file_is_forgotten_rather_than_kept_for_the_session() {
+        using var editor = EditorSession.Start();
+
+        var crate = Paint(editor, "Assets/Textures/crate.png", 16, 16, static (_, _) => 40);
+        var surface = new Recording();
+        var cache = new ThumbnailCache(editor.Project) { Surface = surface };
+
+        cache.TryGet(crate, out _);
+
+        Assert.True(Settle(cache, () => surface.Uploads.Count > 0), "no thumbnail was uploaded");
+        Assert.Equal(40, surface.Uploads[0].Pixels[0]);
+
+        Paint(editor, "Assets/Textures/crate.png", 16, 16, static (_, _) => 200);
+
+        Assert.True(cache.TryGet(crate, out _), "the cache did not hold the picture it decoded");
+        Assert.Single(surface.Uploads);
+
+        cache.Forget();
+
+        Assert.False(cache.TryGet(crate, out _), "the picture survived being forgotten");
+        Assert.True(Settle(cache, () => surface.Uploads.Count > 1), "the repainted file was not decoded again");
+
+        Assert.Equal(200, surface.Uploads[1].Pixels[0]);
+
+        // And the image the old picture held is given back rather than leaked, which is the half a
+        // `ready.Clear()` on its own would get wrong.
+        Assert.Equal([1ul], surface.Released);
+    }
+
+    /// <summary>⚠ A decode already in flight when the file changed is dropped, not uploaded.</summary>
+    /// <remarks>
+    ///     <b>The half clearing the ready set cannot reach.</b> A task started before the file
+    ///     changed carries the old bytes on a pool thread and lands in a later <c>Pump</c>; uploaded
+    ///     there, it would be cached and drawn as the current picture and the forgetting would have
+    ///     made the staleness slower rather than fixed it. ⚠ The asset comes back neither ready nor
+    ///     refused, which is what lets the next look decode the file as it now is — a drop that
+    ///     refused it instead would leave a type glyph in the grid for the rest of the session.
+    /// </remarks>
+    [Fact]
+    public void A_decode_in_flight_when_the_pictures_were_forgotten_is_dropped() {
+        using var editor = EditorSession.Start();
+
+        var crate = Paint(editor, "Assets/Textures/crate.png", 16, 16, static (_, _) => 40);
+        var surface = new Recording();
+        var cache = new ThumbnailCache(editor.Project) { Surface = surface };
+
+        // Requested and *not* pumped, so the decode is in flight and its answer has not been taken.
+        Assert.False(cache.TryGet(crate, out _));
+
+        cache.Forget();
+
+        Paint(editor, "Assets/Textures/crate.png", 16, 16, static (_, _) => 200);
+
+        // The answer comes back and is dropped. This is the assertion: without it there is one
+        // upload here, of the bytes the file had before it was repainted.
+        Assert.True(Settle(cache, () => !cache.IsBusy), "the decode in flight never came back");
+        Assert.Empty(surface.Uploads);
+        Assert.Equal(0, cache.Count);
+
+        // And it left nothing behind — not a picture and not a refusal — so the next ask starts a
+        // decode of the file as it now is.
+        Assert.False(cache.TryGet(crate, out _));
+        Assert.True(Settle(cache, () => surface.Uploads.Count > 0), "the repainted file was never decoded");
+
+        Assert.Equal(200, Assert.Single(surface.Uploads).Pixels[0]);
+    }
+
+    /// <summary>
+    ///     ⚠ And the editor is what calls it: refreshing the project draws the repainted file.
+    /// </summary>
+    /// <remarks>
+    ///     <b>The caller, which is the half that was missing rather than the verb.</b> #1187's
+    ///     measurement was that <c>EditorApplication</c> touches the cache four times and none of them
+    ///     is about content — <c>assets.refresh</c>, the file watcher and an import all left it alone.
+    ///     A <c>Forget</c> nothing called would be this repository's commonest defect wearing the
+    ///     fix's clothes, so this goes through the command a person presses and reads the pixels the
+    ///     application's own cache uploaded.
+    /// </remarks>
+    [Fact]
+    public void Refreshing_the_project_draws_a_repainted_file() {
+        using var editor = EditorSession.Start();
+        var surface = new Recording();
+
+        editor.Editor.ThumbnailSurface = surface;
+
+        var crate = Paint(editor, "Assets/crate.png", 16, 16, static (_, _) => 40);
+
+        editor.Open("project");
+        editor.Settle();
+
+        Assert.True(Pumped(editor, () => surface.Uploads.Count > 0), "the grid never decoded the file");
+        Assert.Equal(40, surface.Uploads[0].Pixels[0]);
+
+        // `Paint` ends with `assets.refresh`, which is the command somebody presses precisely because
+        // they have just repainted a file outside the editor.
+        Paint(editor, "Assets/crate.png", 16, 16, static (_, _) => 200);
+
+        Assert.True(Pumped(editor, () => surface.Uploads.Count > 1), "the repainted file was never decoded again");
+        Assert.Equal(200, surface.Uploads[^1].Pixels[0]);
+        Assert.NotEqual(AssetId.Empty, crate);
+    }
+
+    /// <summary>Runs frames until something a pool thread does has happened, or gives up.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The caller's own condition and a clock, for <see cref="Settle" />'s reasons.</b> The
+    ///     decode is on the thread pool, so a turn count is a fixed amount of <em>work</em> rather
+    ///     than of time and lasts a fifteenth as long on a loaded machine — which is the failure that
+    ///     appears only under load. This one drives the application rather than a bare cache, because
+    ///     what is under test is the wiring.
+    /// </remarks>
+    static bool Pumped(EditorSession editor, Func<bool> until) {
+        var waited = Stopwatch.StartNew();
+        var patience = TimeSpan.FromSeconds(30);
+
+        while (!until() && waited.Elapsed < patience) {
+            editor.Frame();
+            Thread.Yield();
+        }
+
+        return until();
+    }
+
     [Fact]
     public void With_no_surface_nothing_is_decoded_at_all() {
         using var editor = EditorSession.Start();

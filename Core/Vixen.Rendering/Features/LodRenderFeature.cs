@@ -48,6 +48,12 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
     // than a stack because releasing one twice has to be free to detect, and the list is as long as
     // the number of LOD groups a level has unloaded and not yet replaced — single digits.
     readonly List<int> free = [];
+
+    // One view's measuring walk: the screen height last measured for each group, NaN for a group no
+    // visible member named, and the groups that did get one. Fields rather than locals so a frame
+    // allocates nothing, and cleared at the top of every `Select` because they mean one view's pass.
+    readonly List<float> heights = [];
+    readonly List<int> measured = [];
     int viewStride;
 
     /// <inheritdoc />
@@ -297,11 +303,24 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
 
     /// <summary>Decides each group's level for one view, then hides every other level.</summary>
     /// <remarks>
-    ///     Two passes over the view's visible objects rather than one, because a level cannot be
-    ///     hidden until the group's choice is known and the choice is made from whichever member
-    ///     happens to be seen first. The alternative — an index of groups to their members — is a
-    ///     structure rebuilt every frame to save a second walk of a list that culling already
-    ///     shortened.
+    ///     <para>
+    ///         Two passes over the view's visible objects rather than one, because a level cannot be
+    ///         hidden until the group's choice is known and the choice is made from whichever member
+    ///         happens to be seen last. The alternative — an index of groups to their members — is a
+    ///         structure rebuilt every frame to save a second walk of a list that culling already
+    ///         shortened.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The measuring walk decides nothing; the group's transition is advanced once,
+    ///         afterwards</b> — <a href="https://github.com/Rikarin/Vixen/issues/1183">#1183</a>.
+    ///         <see cref="Advance" /> accumulates the frame's delta, and calling it inside the walk
+    ///         called it once per visible <em>member</em>: outside a fade exactly one level of a
+    ///         group is visible, but during one <em>two</em> are — that is what a cross-fade is — so
+    ///         the elapsed time grew by two deltas a frame while fading and by one while not, and a
+    ///         fade took about half the duration its author typed. It was unreachable until the
+    ///         frame's delta was wired into the feature, because an accumulator adding zero adds it
+    ///         however many times it is called.
+    ///     </para>
     /// </remarks>
     void Select(
         RenderSystem system,
@@ -309,6 +328,14 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
         ReadOnlySpan<RenderObject> objects,
         ReadOnlySpan<LodMembership> membership
     ) {
+        heights.Clear();
+
+        while (heights.Count < groups.Count) {
+            heights.Add(float.NaN);
+        }
+
+        measured.Clear();
+
         for (var index = 0; index < objects.Length; index++) {
             ref readonly var candidate = ref objects[index];
 
@@ -326,8 +353,27 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
                 continue;
             }
 
-            var slot = (member.Group * viewStride) + view.Index;
-            current[slot] = Advance(current[slot], groups[member.Group], Height(candidate.Bounds, view));
+            if (float.IsNaN(heights[member.Group])) {
+                measured.Add(member.Group);
+            }
+
+            var height = Height(candidate.Bounds, view);
+
+            // ⚠ Never NaN, because NaN is what marks a group as not yet measured. `Height` cannot
+            // produce one from finite bounds, and a mesh whose bounds had gone bad would otherwise
+            // put its group in the list twice — bringing back exactly the double advance this walk
+            // was rearranged to stop, in the one case nobody would think to look at. Zero is what a
+            // NaN already chose anyway: no threshold compares true against it, so both take the
+            // coarsest level.
+            heights[member.Group] = float.IsNaN(height) ? 0f : height;
+        }
+
+        // One advance per (group, view) pair, which is what a transition belongs to. A group with no
+        // visible member is not here at all, and is left exactly as the last frame that could see it
+        // left it — a fade does not run on for a group behind the camera.
+        foreach (var group in measured) {
+            var slot = (group * viewStride) + view.Index;
+            current[slot] = Advance(current[slot], groups[group], heights[group]);
         }
 
         for (var index = 0; index < objects.Length; index++) {

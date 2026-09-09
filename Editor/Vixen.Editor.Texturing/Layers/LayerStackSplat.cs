@@ -132,6 +132,18 @@ static class LayerStackSplat {
     ///         contributes to the picture would come back weighing zero everywhere.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>All the way down, and it used to be the top layer only</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1182">#1182</a>. A group's children
+    ///         are layers, <c>LayerStackGraph.Composite</c> asks each of them the same question, and
+    ///         a group whose children are each restricted to a real usage — which is exactly how an
+    ///         artist builds a group that paints base colour from one child and roughness from
+    ///         another — had every child turned away, composited nothing onto its backdrop and came
+    ///         back weighing <b>zero</b> while painting perfectly in the picture. ⚠ Silently: the
+    ///         verb wrote a splat map with one channel at nought and said nothing, and the remaining
+    ///         weights were then normalised over a total that is short — the very picture
+    ///         <see cref="Crowded" /> refuses to write for the "more than four layers" case.
+    ///     </para>
+    ///     <para>
     ///         <b>Everything else is the author's and is kept</b>: the mask stack, its effects, the
     ///         opacity, the children of a group and the layer's own kind. Those are what a coverage
     ///         <em>is</em>.
@@ -143,7 +155,23 @@ static class LayerStackSplat {
 
         return set with {
             Channels = [new ChannelAsset { Usage = Usage, Default = [0f, 0f, 0f, 1f] }],
-            Layers = [layer with { Blend = LayerBlendMode.Copy, Channels = [] }]
+            Layers = [Unrestricted(layer) with { Blend = LayerBlendMode.Copy }]
         };
+    }
+
+    /// <summary>The layer with its channel enables cleared, and its children's, and theirs.</summary>
+    /// <remarks>
+    ///     Recursive because <c>Children</c> is the one recursive member of a layer and a group nests:
+    ///     clearing one level answers for a group of fills and not for a group of groups, which is the
+    ///     same arrangement one row further in a panel.
+    /// </remarks>
+    static LayerAsset Unrestricted(LayerAsset layer) {
+        List<LayerAsset> children = [];
+
+        foreach (var child in layer.Children) {
+            children.Add(Unrestricted(child));
+        }
+
+        return layer with { Channels = [], Children = children };
     }
 }

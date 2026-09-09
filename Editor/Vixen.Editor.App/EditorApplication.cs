@@ -829,6 +829,11 @@ sealed partial class EditorApplication : IDisposable {
                 // texture source, so it belongs where the panels are touched rather than beside the
                 // planner that wrote the catalog.
                 MountContent();
+
+                // ⚠ And the pictures — #1187. A bake writes PNGs into `Assets/` and an import can
+                // repair a sidecar under a file the grid has already drawn, so "the panels are
+                // stale" includes the thumbnails. Nothing invalidated them at all before this.
+                thumbnails.Forget();
             },
 
             // ⚠ On the pool. See the property: writing a catalog plans the whole project.
@@ -1923,6 +1928,13 @@ sealed partial class EditorApplication : IDisposable {
         Sweep();
 
         RefreshBuildPanel();
+
+        // ⚠ And the pictures, which nothing invalidated at all until #1187: an entry left the cache
+        // on capacity and on nothing else, so a texture repainted in another program kept the
+        // thumbnail it had when it was first looked at, for the session. Wholesale rather than by
+        // path, on this method's own argument two paragraphs up — the drained changes are read to
+        // find out *whether*, and an overflow has no paths to read at all.
+        thumbnails.Forget();
 
         // ⚠ After the rescan, and this is the one ordering constraint in the seam. A path becomes a
         // document through the GUID index, and a rename is exactly the change that moves an entry in
@@ -5292,6 +5304,11 @@ sealed partial class EditorApplication : IDisposable {
             // Refresh is the user saying "the project may have changed underneath you", which is the
             // same sentence a status sweep answers.
             Sweep();
+
+            // ⚠ And the same sentence a held thumbnail is wrong on — #1187. This is the command
+            // somebody presses precisely because they repainted a file outside the editor, and until
+            // now it rescanned the index and left every picture exactly as it was.
+            thumbnails.Forget();
 
             if (report.Issues.Count == 0) {
                 Shell.Notifications.Success($"{report.Assets} assets");

@@ -257,14 +257,14 @@ public sealed class LodExtractionTests : IDisposable {
     ///         fade that never started.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The margins are wide because the fade does not advance once per frame.</b>
-    ///         <c>LodRenderFeature.Select</c> calls <c>Advance</c> once per <em>visible member</em> of
-    ///         the group, and a fade is exactly the state in which two members are visible — so the
-    ///         elapsed time grows by roughly twice the frame's delta while a fade is running, and by
-    ///         one delta while it is not. That was unobservable while <c>DeltaTime</c> was always
-    ///         zero, and it is a defect of its own rather than something to encode here: see
-    ///         <see href="https://github.com/Rikarin/Vixen/issues/1183" />. This test asserts the
-    ///         order — started, still running, finished — which is true at either rate.
+    ///         <b>The margins are wide because this test asserts the order — started, still running,
+    ///         finished — and not the rate.</b> They were wide for a second reason until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1183">#1183</a>: the fade did not
+    ///         advance once per frame at all, because <c>LodRenderFeature.Select</c> called
+    ///         <c>Advance</c> once per <em>visible member</em> and a fade is exactly the state in
+    ///         which two members are visible. The rate is now
+    ///         <c>LodTests.A_fades_progress_is_the_frames_it_was_given_times_the_delta</c>'s, in
+    ///         closed form, against a feature with no engine around it.
     ///     </para>
     /// </remarks>
     [Fact]

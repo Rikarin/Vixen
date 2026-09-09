@@ -692,4 +692,74 @@ public class MaterialGraphPropertyTests {
         // And the numbers are the new graph's own, not the old graph's entry kept and shadowed.
         Assert.Equal(0.75f, Assert.Single(after.Numbers).Value);
     }
+
+    /// <summary>⚠ Editing the header repaints the preview, and it used to repaint nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1180">#1180</a>.
+    ///         <c>MaterialView</c> raised <c>PreviewChanged</c> from the shape picker, from a
+    ///         parameter row and from the end of <c>Rebuild</c> — and the header from none of them:
+    ///         <c>HeaderView.ValueChanged</c> ran <c>Restate</c>, and <c>Restate</c> raises nothing.
+    ///         So editing <c>Shader</c>, <c>Shading</c> or <c>Graph</c> left the picture beside the
+    ///         panel showing the material as it was, until something unrelated happened to call
+    ///         <c>Rebuild</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It got worse with #1133 rather than staying cosmetic.</b> Linking a graph used to
+    ///         change nothing about the drawn surface, so a stale preview after a header edit was
+    ///         invisible by construction; <c>LinkGraph</c> now composes the graph's
+    ///         <c>GraphSurfaceFeature</c> on that same edit — the surface the preview draws changes on
+    ///         exactly the gesture that did not repaint it. The link half below is that case.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This reads the <em>event</em>, where every other case in this file reads the
+    ///         document.</b> A preview that never repaints leaves the document identical, so nothing
+    ///         written the usual way here could have seen it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The last assertion is what makes the obvious fix wrong.</b> <c>Restate</c> is
+    ///         reached from <c>Rebuild</c> as well as from the header, and <c>Rebuild</c> raises for
+    ///         itself two lines later — so a raise put inside <c>Restate</c> renders <em>twice</em>
+    ///         for every parameter add, and the header cases above cannot tell the two placements
+    ///         apart. Counting <c>Rebuild</c>'s own raises is the half that can.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void EditingTheHeaderRepaintsThePreview() {
+        using var harness = new ViewHarness();
+        var document = Unlinked(harness);
+        var view = harness.Ui.Document.Root.Add<MaterialView>();
+
+        view.Show(document);
+        harness.Ui.Frames(3);
+
+        var previews = 0;
+
+        // Subscribed after `Show`, so what is counted below is edits rather than the panel opening.
+        view.PreviewChanged += _ => previews++;
+
+        Assert.Equal(0, previews);
+
+        // The shader row.
+        Assert.True(view.HeaderView.Edited!.Find("Shader")!.Write("Unlit"));
+        harness.Ui.Frames(3);
+
+        Assert.Equal(1, previews);
+
+        // And the graph row, which is #1133's gesture: this one composes the surface the preview
+        // draws, so a stale picture here is a picture of a different material.
+        Assert.True(view.HeaderView.Edited!.Find("Graph")!.Write(Linked));
+        harness.Ui.Frames(3);
+
+        Assert.Equal(2, previews);
+        Assert.IsType<GraphSurfaceFeature>(document.Surface);
+
+        // And a rebuild — the parameter-list path — still repaints once and not twice.
+        previews = 0;
+
+        view.Rebuild();
+        harness.Ui.Frames(3);
+
+        Assert.Equal(1, previews);
+    }
 }
