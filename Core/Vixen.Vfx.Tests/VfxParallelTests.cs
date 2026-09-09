@@ -60,18 +60,31 @@ public class VfxParallelTests : IDisposable {
     }
 
     /// <summary>Across threads and on one, the particles are the same — not close, the same.</summary>
-    [Fact]
-    public void The_parallel_sweep_is_the_serial_one() {
+    /// <param name="workers">How many worker threads the scheduler owns, or nought for the browser.</param>
+    /// <remarks>
+    ///     ⚠ <b>The nought row is a separate claim and not a cheaper version of the other.</b> A
+    ///     scheduler with no workers runs nothing on a thread of its own — work runs when somebody
+    ///     reaches <c>Complete</c> — so a sweep that was scheduled and never completed ages no
+    ///     particle at all there while being invisible on four workers, which run it anyway.
+    ///     <c>LastStepWasParallel</c> below is the instrument: without it a row that never reached
+    ///     the scheduler would compare the serial system with itself and pass.
+    /// </remarks>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(4)]
+    public void The_parallel_sweep_is_the_serial_one(int workers) {
         const int Count = 8192;
 
+        using var jobs = new JobScheduler(workers);
         using var serial = new VfxSystem(Storm(Count), seed: 31);
-        using var parallel = new VfxSystem(Storm(Count), seed: 31) { Scheduler = scheduler, ParallelThreshold = 1 };
+        using var parallel = new VfxSystem(Storm(Count), seed: 31) { Scheduler = jobs, ParallelThreshold = 1 };
 
         for (var step = 0; step < 40; step++) {
             serial.Step(1f / 60f);
             parallel.Step(1f / 60f);
         }
 
+        Assert.True(parallel.LastStepWasParallel, "the sweeps never reached the scheduler at all.");
         Assert.True(serial.Count > Count / 2, $"Only {serial.Count} particles survived, which proves little.");
         Assert.Equal(serial.Count, parallel.Count);
 

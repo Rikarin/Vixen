@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using Vixen.Ai.Ecs;
 using Vixen.Core;
+using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Xunit;
 
@@ -339,6 +340,73 @@ public class GoapThroughputTests {
         Assert.True(queue.Submit(in context).IsNull);
         Assert.True(queue.Cancel(first));
         Assert.False(queue.Submit(in context).IsNull);
+    }
+
+    /// <summary>
+    ///     A queue handed a scheduler resolves the same batch on two workers and on none.
+    /// </summary>
+    /// <param name="workers">How many worker threads the scheduler owns, or nought for the browser.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The nought row is the browser, and it is where this queue's shape is dangerous.</b>
+    ///         A scheduler with no workers runs nothing on a thread of its own — scheduled work runs
+    ///         when somebody reaches <c>Complete</c> — and <see cref="GoapPlanQueue.Update" /> marks
+    ///         every taken slot <see cref="GoapRequestState.Ready" /> after the dispatch whether or
+    ///         not a search ran. So a dispatch that was not completed hands every agent an empty plan
+    ///         <i>and says it is ready</i>, which no state assertion can see.
+    ///     </para>
+    ///     <para>
+    ///         That is why the comparison is against the same batch resolved on the caller's thread,
+    ///         step for step, and why <see cref="GoapPlanQueue.LastExpanded" /> is asserted to be
+    ///         non-zero first: an empty plan is a plausible-looking answer here and an unexpanded
+    ///         search is not.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public void AQueueOnJobsResolvesTheSameBatchWhateverItsWorkerCount(int workers) {
+        const int Batch = 4;
+
+        var domain = Wide();
+        var settings = new GoapSettings { NodeBudget = 256, DepthLimit = 8 };
+
+        using var jobs = new JobScheduler(workers);
+
+        var alone = new GoapPlanQueue(domain, settings, capacity: 16);
+        var scheduled = new GoapPlanQueue(domain, settings, capacity: 16) { Scheduler = jobs };
+        var context = GoapHarness.Context();
+        var first = new GoapPlanRequest[Batch];
+        var second = new GoapPlanRequest[Batch];
+
+        for (var index = 0; index < Batch; index++) {
+            first[index] = alone.Submit(in context);
+            second[index] = scheduled.Submit(in context);
+        }
+
+        alone.Update(Batch);
+        scheduled.Update(Batch);
+
+        Assert.Equal(Batch, scheduled.LastResolves);
+        Assert.True(scheduled.LastExpanded > 0, "not one node was expanded, so no search ran at all.");
+        Assert.Equal(alone.LastExpanded, scheduled.LastExpanded);
+
+        var left = new GoapPlan();
+        var right = new GoapPlan();
+
+        for (var index = 0; index < Batch; index++) {
+            Assert.True(alone.TryTakeResult(first[index], left), $"the inline queue lost request {index}.");
+            Assert.True(scheduled.TryTakeResult(second[index], right), $"the scheduled queue lost request {index}.");
+
+            Assert.Equal(PlanFailure.None, right.Failure);
+            Assert.True(right.Count > 0, $"request {index} came back with an empty plan the queue called ready.");
+            Assert.Equal(left.Count, right.Count);
+            Assert.Equal(left.Cost, right.Cost);
+
+            for (var step = 0; step < left.Count; step++) {
+                Assert.Equal(left.Steps[step], right.Steps[step]);
+            }
+        }
     }
 
     /// <summary>Forty actions over twenty keys, fourteen of which are already true.</summary>

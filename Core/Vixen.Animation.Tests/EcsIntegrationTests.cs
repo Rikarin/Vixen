@@ -126,11 +126,25 @@ public class EcsIntegrationTests {
         TestRigs.Near(new(0f, 0f, -1f), slow.Pose[0].Translation);
     }
 
-    [Fact]
-    public void Run_AcrossTheScheduler_GivesTheSameAnswerAsInline() {
-        using var serial = new World(nameof(Run_AcrossTheScheduler_GivesTheSameAnswerAsInline) + "Serial");
-        using var parallel = new World(nameof(Run_AcrossTheScheduler_GivesTheSameAnswerAsInline) + "Parallel");
-        using var jobs = new JobScheduler(4);
+    /// <summary>
+    ///     The scheduler moves where the evaluation happens and nothing else — on four workers, and
+    ///     on none.
+    /// </summary>
+    /// <param name="workers">How many worker threads the scheduler owns.</param>
+    /// <remarks>
+    ///     ⚠ <b>The nought row is the browser and is not implied by the four row.</b> A scheduler
+    ///     with no workers runs work only when a thread reaches <c>Complete</c>, so evaluation that
+    ///     was scheduled and not completed does nothing there while being invisible on four —
+    ///     every pose would stay at frame zero. <c>LastEvaluatedCount</c> below is what stops this
+    ///     passing on a run that evaluated nobody.
+    /// </remarks>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(4)]
+    public void Run_AcrossTheScheduler_GivesTheSameAnswerAsInline(int workers) {
+        using var serial = new World(nameof(Run_AcrossTheScheduler_GivesTheSameAnswerAsInline) + "Serial" + workers);
+        using var parallel = new World(nameof(Run_AcrossTheScheduler_GivesTheSameAnswerAsInline) + "Parallel" + workers);
+        using var jobs = new JobScheduler(workers);
 
         const int Characters = 64;
         var inline = new Animator[Characters];
