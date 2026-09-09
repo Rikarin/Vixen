@@ -440,6 +440,7 @@ shader AmbientCombine {
     /// `SpecularModels.MultiScatter` over `Ibl.EnvironmentDfg`'s answer for this roughness at this
     /// angle — the single-scatter scale with the energy a rough surface loses between facets added
     /// back.
+    ///
     /// Weighing the plane by *that* is what makes the addition read as *supplying* the pass's IBL
     /// specular from the trace — the two are the same term over the same integral, one filtered off
     /// a cube and one marched — rather than as painting radiance over a finished frame.
