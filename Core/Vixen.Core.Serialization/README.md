@@ -116,6 +116,16 @@ Writing a derived instance through its *base* serializer directly — rather tha
 polymorphic member — is still refused rather than silently truncated, because that path has no name
 to write and would drop everything the derived type adds.
 
+⚠ **A member declared as a collection *interface* is a sequence, not a polymorphic reference**, and
+it used to be read as the second. `IReadOnlyList<T>` and the four that read like it —
+`IReadOnlyCollection<T>`, `IList<T>`, `ICollection<T>`, `IEnumerable<T>` — are interfaces, so the
+generator fell through to the run-time-name path and asked for the serialised name of whatever the
+member happened to hold. That is `T[]`, a `List<T>`, or the compiler's own synthesised
+`<>z__ReadOnlyArray<T>` for a collection expression, none of which can be annotated: **there was no
+value of such a member that serialised at all.** They now emit `WriteSequence<T>` and read back a
+`T[]`, which every one of the five interfaces is satisfied by. Since nothing could be written in the
+old shape, no bytes exist in it.
+
 ## The object database
 
 `ObjectId` is the xxh128 of a chunk's content, and that one decision buys three things at once:

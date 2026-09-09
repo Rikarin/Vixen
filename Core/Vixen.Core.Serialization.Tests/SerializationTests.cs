@@ -525,6 +525,54 @@ public class SerializationTests {
         Assert.Equal(2 + 4 + 4, Serializer.ToBytes(new Extent(1920, 1080)).Length);
     }
 
+    /// <summary>
+    ///     A member declared as a collection <em>interface</em> is a sequence, not a polymorphic
+    ///     reference. It used to be the second: the declared type is an interface, so the generator
+    ///     fell through to the run-time-name path, and the run-time type of every value such a
+    ///     member can hold is an array or a <c>List&lt;T&gt;</c> — neither of which has a
+    ///     <c>[DataContract]</c>, and neither of which can be given one. There was no value of an
+    ///     <c>IReadOnlyList&lt;T&gt;</c> member that serialised at all.
+    /// </summary>
+    [Fact]
+    public void ACollectionInterfaceMemberIsWrittenAsASequenceRatherThanByItsRunTimeType() {
+        var value = new SequenceClass {
+            Numbers = [1, 2, 3],
+            Shapes = [new Circle { Radius = 1f }, new Box { Width = 2f, Height = 3f }, null],
+            Names = ["a", null],
+            Positions = [new(1, 2f, "a")],
+            Counted = [7],
+            Lazy = [4, 5]
+        };
+
+        var result = RoundTrip(value);
+
+        Assert.Equal([1, 2, 3], result.Numbers);
+
+        // The element type is an interface too, so each element carries its own run-time name — the
+        // path that does work, and the one the member was wrongly taking.
+        Assert.Equal(3, result.Shapes.Count);
+        Assert.Equal(1f, Assert.IsType<Circle>(result.Shapes[0]).Radius);
+        Assert.Equal(3f, Assert.IsType<Box>(result.Shapes[1]).Height);
+        Assert.Null(result.Shapes[2]);
+
+        Assert.Equal(["a", null], result.Names);
+        Assert.Equal([new PositionalStruct(1, 2f, "a")], result.Positions);
+        Assert.Equal([7], result.Counted);
+        Assert.Equal([4, 5], result.Lazy!);
+    }
+
+    /// <summary>
+    ///     Empty and null stay distinct through the same path, because the count is written as
+    ///     <c>length + 1</c> and zero is the null marker.
+    /// </summary>
+    [Fact]
+    public void AnEmptyCollectionInterfaceMemberIsNotANullOne() {
+        var result = RoundTrip(new SequenceClass { Numbers = [], Lazy = null });
+
+        Assert.Empty(result.Numbers);
+        Assert.Null(result.Lazy);
+    }
+
     static T RoundTrip<T>(T value) => Serializer.Read<T>(Serializer.ToBytes(value));
 
     sealed class Unregistered {

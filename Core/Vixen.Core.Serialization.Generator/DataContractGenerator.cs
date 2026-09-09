@@ -282,6 +282,24 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
                 case "global::System.Collections.Generic.List<T>":
                     return new(name, qualified, MemberShape.List, string.Empty, first, string.Empty, settable, initOnly, computed, declaring, order, sequence);
 
+                // ⚠ A collection declared as one of its interfaces is a *sequence*, not a
+                // polymorphic reference. Falling through to the bottom of this method made it the
+                // second, and the run-time type of every value such a member can hold — `T[]`,
+                // `List<T>`, or the compiler's own `<>z__ReadOnlyArray<T>` for a collection
+                // expression — has no `[DataContract]` and cannot be given one. There was no value
+                // of an `IReadOnlyList<T>` member that serialised at all, so no bytes exist in the
+                // old shape and this cannot be a compatibility break.
+                //
+                // ⚠ The dictionary and set interfaces are deliberately *not* here. They have the
+                // same latent defect and no instance anywhere in the tree, and emitting a shape
+                // nothing exercises is how an untested path ships.
+                case "global::System.Collections.Generic.IReadOnlyList<T>":
+                case "global::System.Collections.Generic.IReadOnlyCollection<T>":
+                case "global::System.Collections.Generic.IList<T>":
+                case "global::System.Collections.Generic.ICollection<T>":
+                case "global::System.Collections.Generic.IEnumerable<T>":
+                    return new(name, qualified, MemberShape.Sequence, string.Empty, first, string.Empty, settable, initOnly, computed, declaring, order, sequence);
+
                 case "global::System.Collections.Generic.Dictionary<TKey, TValue>":
                     return new(name, qualified, MemberShape.Dictionary, string.Empty, first, Argument(generic, 1), settable, initOnly, computed, declaring, order, sequence);
 
@@ -626,6 +644,7 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             MemberShape.BlittableArray => $"writer.WriteBlittableArray<{member.ElementType}>(value.{member.Name});",
             MemberShape.Array => $"writer.WriteArray<{member.ElementType}>(value.{member.Name});",
             MemberShape.List => $"writer.WriteList<{member.ElementType}>(value.{member.Name});",
+            MemberShape.Sequence => $"writer.WriteSequence<{member.ElementType}>(value.{member.Name});",
             MemberShape.Dictionary => $"writer.WriteDictionary<{member.ElementType}, {member.SecondElementType}>(value.{member.Name});",
             MemberShape.Nullable => $"writer.WriteNullable<{member.ElementType}>(value.{member.Name});",
             MemberShape.Value => $"writer.WriteValue<{member.TypeName}>(value.{member.Name});",
@@ -640,6 +659,10 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             MemberShape.BlittableArray => $"reader.ReadBlittableArray<{member.ElementType}>()",
             MemberShape.Array => $"reader.ReadArray<{member.ElementType}>()",
             MemberShape.List => $"reader.ReadList<{member.ElementType}>()",
+
+            // An array satisfies all five of the interfaces Sequence covers, so the read side is the
+            // array read and the assignment is implicit.
+            MemberShape.Sequence => $"reader.ReadArray<{member.ElementType}>()",
             MemberShape.Dictionary => $"reader.ReadDictionary<{member.ElementType}, {member.SecondElementType}>()",
             MemberShape.Nullable => $"reader.ReadNullable<{member.ElementType}>()",
             MemberShape.Value => $"reader.ReadValue<{member.TypeName}>()",
