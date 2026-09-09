@@ -512,7 +512,7 @@ Get these wrong and every shader is subtly incorrect in a way that is painful to
 | 🔴 | **Reverse-Z, depth range 0..1** | ✅ nothing to do, and now asserted |
 | 🟡 | UV origin top-left | ✅ `OriginUpperLeft` |
 | 🟡 | Linear working space; sRGB decoded on sample; HDR render targets | not the compiler's — format and § F |
-| 🟡 | `Random.rvn` must match the CPU implementation **bit-for-bit** — the VFX system compiles one graph to both a C# job and a Raven compute shader, and their outputs are compared in a test ([06](06-rendering-pipeline.md)) | § F; the compute stage landed, but reading the result back needs a writable resource |
+| 🟡 | ~~`Random.rvn` must match the CPU implementation **bit-for-bit**~~ — ⚠ **there is no CPU implementation of it**, and this row named the wrong pair for months. Replaced by a **golden-vector gate**: `RandomGateTests` runs the hash on a device and pins the bits. The parity doc 06 asks for is `Vixen.Vfx.VfxRandom` against what `VfxShaderEmitter` transcribes, which is a different mixer and still unchecked | ✅ for `Random.rvn`; the VFX pair is [#315](https://github.com/Rikarin/Vixen/issues/315) |
 
 Two of these are the compiler's to bake in, and both are done. The other three are not, which is worth
 saying plainly rather than leaving them looking outstanding.
@@ -579,9 +579,24 @@ Still owed, and not the compiler's to give:
   is nothing for Raven to bake in — only something to avoid disturbing, which is asserted.
 - **Linear working space, sRGB decode, HDR targets** are image-format decisions plus `ColorSpaces.rvn`
   in § F. A shader never decodes sRGB itself; the view format does.
-- **`Random.rvn` bit-for-bit** needs § F's library, a CPU port to compare against, and a writable
-  resource to read the GPU side back out of. The compute stage itself is no longer the blocker. It is a
-  § F exit criterion, not a § E one.
+- **`Random.rvn` bit-for-bit** — ~~needs § F's library, a CPU port to compare against, and a writable
+  resource to read the GPU side back out of~~. Two of those three arrived and the middle one turned out
+  not to exist: ⚠ **there is no CPU port of `Random.rvn`, and there never was.**
+  `Random.Multiplier` appears in exactly one file in the tree, which is `Random.rvn` itself, so the
+  sentence "must match the CPU implementation" was matching nothing. What doc 06's dual-target parity
+  is about is `Vixen.Vfx.VfxRandom` (lowbias32) against the constants `VfxShaderEmitter` transcribes
+  inline into the generated shader — a different mixer, in the one function that genuinely exists
+  twice, and still unchecked.
+  - **What landed instead is what the file's exactness rules actually buy**: `RandomGateTests` beside
+    `BrdfGateTests` and `LayoutGateTests`, running `Hash`, `Combine`, `ToFloat01` and `Float01` on a
+    device over sixteen seeds and pinning the thirty-two bits of each — recovered as two halves below
+    2^16, so the readback's floats lose nothing. The float conversion is compared with `==` and not a
+    tolerance, because "a shift and a multiply by a power of two" is an exactness claim and a
+    tolerance would pass the division it forbids. Sabotage: one digit of `Multiplier` moves every
+    entry, and a kernel that drops the output xorshift moves all sixteen.
+  - ⚠ **The seed step is not `0x9E3779B9`**, which is what `Combine` multiplies its second operand
+    by. Seeding by that constant makes `Combine(seed, i)` fold to `Hash(0)` for every i, so the table
+    would have pinned one number sixteen times while reading like a sweep.
 - **Numeric agreement on a real device** — the GPU-readback tests in § G. Everything above pins the
   *convention*; only a device proves the arithmetic.
 
@@ -2130,7 +2145,7 @@ Raven/Library/                          — shipped with the engine, compiled in
 │   ├── Math.rvn                        — trig/vector/matrix helpers, packing, encoding
 │   ├── Sampling.rvn                    — Hammersley, importance sampling, blue noise, Halton
 │   ├── ColorSpaces.rvn                 — sRGB/linear, ACES, AgX, PQ, octahedral encode
-│   └── Random.rvn                      — hash-based PRNG matching the CPU implementation bit-for-bit
+│   └── Random.rvn                      — hash-based PRNG, pinned bit-for-bit by RandomGateTests
 ├── Shading/
 │   ├── Brdf.rvn                        — NDF/visibility/Fresnel primitives
 │   ├── DiffuseModels.rvn               — Lambert, OrenNayar, Burley
