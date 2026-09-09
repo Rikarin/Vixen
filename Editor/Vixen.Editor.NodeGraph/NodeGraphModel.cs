@@ -273,7 +273,8 @@ public sealed class NodeGraphModel {
     ///     <para>
     ///         ⚠ <b>Here rather than at the one caller, because
     ///         <a href="https://github.com/Rikarin/Vixen/issues/780">#780</a> is what the other
-    ///         arrangement costs.</b> <see cref="SubGraphs.Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic})" /> built a fresh model and copied
+    ///         arrangement costs.</b>
+    ///         <see cref="SubGraphs.Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic})" /> built a fresh model and copied
     ///         <see cref="Groups" />, <see cref="Comments" /> and <see cref="Interface" /> — the
     ///         three side tables that existed when it was written — so the two
     ///         <a href="https://github.com/Rikarin/Vixen/issues/719">#719</a> added on the same day

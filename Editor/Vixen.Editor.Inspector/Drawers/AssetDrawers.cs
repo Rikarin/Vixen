@@ -147,7 +147,8 @@ public sealed class Color3Drawer : PropertyDrawer<Color3, ColorInput> {
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Every write is a separate copy per object, through
-///         <see cref="Vixen.Editor.Core.EditProperty.WriteEach(IReadOnlyList{object})" />, and one <see cref="Vixen.Editor.Core.EditProperty.Write(object)" /> would
+///         <see cref="Vixen.Editor.Core.EditProperty.WriteEach(IReadOnlyList{object})" />, and one
+///         <see cref="Vixen.Editor.Core.EditProperty.Write(object)" /> would
 ///         have been wrong for a reason that has nothing to do with mixing.</b> A single write puts
 ///         the <i>same instance</i> on every selected object, and twenty objects sharing one curve
 ///         is not "they all have the same curve" — it is "editing any of them edits all of them",

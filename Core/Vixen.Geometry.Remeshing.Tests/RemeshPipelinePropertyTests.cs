@@ -64,7 +64,8 @@ public class TimedCases {
 ///         <b>Exit criterion 7 says "a corpus of 200 deliberately broken meshes … produces a valid
 ///         all-quad result <i>or</i> a <c>RemeshReport</c> naming the stage that refused, and
 ///         <b>never</b> an exception or a hang", and until this file existed nothing generative called
-///         <see cref="Remesher.Remesh(EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler)" />.</b> <see cref="ConditioningPropertyTests" /> states the
+///         <see cref="Remesher.Remesh(EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler)" />.</b>
+///         <see cref="ConditioningPropertyTests" /> states the
 ///         criterion over <see cref="MeshConditioner.Condition" />, which is stage <i>one</i> of seven,
 ///         and <see cref="FieldPropertyTests" /> reaches stages two and three. Every property that
 ///         holds over a stage can still fail over the composition — a layout is built on a field that
@@ -424,7 +425,8 @@ public class RemeshPipelinePropertyTests {
     /// <summary>The same criterion through § D11's mirror, which is a second entry point into all seven.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="SymmetryPass" /> is a wrapper around <see cref="Remesher.Remesh(EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler)" />
+    ///         ⚠ <b><see cref="SymmetryPass" /> is a wrapper around
+    ///         <see cref="Remesher.Remesh(EditMesh, RemeshSettings, out RemeshReport, Vixen.Core.Threading.JobScheduler)" />
     ///         rather than a stage inside it, so nothing above reaches it.</b> It cuts the source with
     ///         <see cref="MeshBoolean.PlaneCut" />, calls back in with the setting cleared, reflects
     ///         what comes out and recounts the faces — which is four opportunities to produce a mesh

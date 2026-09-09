@@ -65,7 +65,8 @@ public sealed record MaterialBakeSet(
 ///         ⚠ <b>A file goes only when the bake can prove it wrote it.</b> Both hazards this handles —
 ///         a map whose extension changed and an output that is no longer produced — are answered by
 ///         the digest in this material's own sidecar, never by the file's name. See
-///         <see cref="Prune(string, string, IReadOnlyList{MaterialMapImage}, IReadOnlyDictionary{string, string}, List{string})" /> for what deleting on the name alone destroyed.
+///         <see cref="Prune(string, string, IReadOnlyList{MaterialMapImage}, IReadOnlyDictionary{string, string}, List{string})" />
+///         for what deleting on the name alone destroyed.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>And a painted-over output stops the bake.</b> § D4's digest exists so that a file
@@ -570,7 +571,8 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
     ///         painted over. A file the bake is not writing cannot be the evidence that the file it is
     ///         writing was painted on; see
     ///         <a href="https://github.com/Rikarin/Vixen/issues/723">#723</a>'s second defect. What
-    ///         becomes of the loser is <see cref="Prune(string, string, IReadOnlyList{MaterialMapImage}, IReadOnlyDictionary{string, string}, List{string})" />'s question, not this one's.
+    ///         becomes of the loser is
+    ///         <see cref="Prune(string, string, IReadOnlyList{MaterialMapImage}, IReadOnlyDictionary{string, string}, List{string})" />'s question, not this one's.
     ///     </para>
     /// </remarks>
     static Dictionary<MaterialMapTarget, byte[]> OnDisk(

@@ -66,7 +66,8 @@ public sealed record ToolbarBox(params string[] CommandIds) : ToolbarEntry;
 /// <param name="CommandIds">What is on the menu, with <see langword="null" /> for a separator.</param>
 /// <remarks>
 ///     What a snap-value picker, a build-target picker and a camera-speed picker are. The menu is
-///     built from the registry through <see cref="MenuPresenter.Context(UiDocument, CommandRegistry, KeyMap, System.ReadOnlySpan{string})" />, so its lines get their
+///     built from the registry through
+///     <see cref="MenuPresenter.Context(UiDocument, CommandRegistry, KeyMap, System.ReadOnlySpan{string})" />, so its lines get their
 ///     labels, ticks, shortcuts and enablement from the same place every other view does.
 /// </remarks>
 public sealed record ToolbarDropdown(StringId Title, string? Icon, params string?[] CommandIds) : ToolbarEntry;

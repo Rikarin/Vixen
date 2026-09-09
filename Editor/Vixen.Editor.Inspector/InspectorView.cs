@@ -62,7 +62,8 @@ public sealed class InspectorRow : Control {
 ///         objects and setting one field on all of them is the operation; showing the first one's
 ///         values and silently editing only that is the bug. Where the targets disagree the editors
 ///         say so, and typing into one writes to every one of them —
-///         <see cref="Vixen.Editor.Core.EditProperty.Read" /> and <see cref="Vixen.Editor.Core.EditProperty.Write(object)" /> are where that
+///         <see cref="Vixen.Editor.Core.EditProperty.Read" /> and
+///         <see cref="Vixen.Editor.Core.EditProperty.Write(object)" /> are where that
 ///         lives, so a third-party drawer gets it for free.
 ///     </para>
 ///     <para>
