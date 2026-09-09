@@ -258,7 +258,9 @@ public sealed class LightStreakRenderer : SceneRenderer, IDisposable, IPostProce
         pass.Descriptors.Bindings.Clear();
 
         pass.Descriptors.Bindings.Add(new() {
-            Binding = LightStreakKeys.SourceBinding, Kind = DescriptorKind.SampledTexture, Resource = source
+            Binding = LightStreakKeys.SourceBinding,
+            Kind = DescriptorKind.SampledTexture,
+            Resource = source
         });
 
         pass.Descriptors.Bindings.Add(new() {
