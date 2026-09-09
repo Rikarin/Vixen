@@ -189,6 +189,21 @@ public sealed partial class LayoutTree {
         var collapsibleWithParent = BlockMarginsCollapsibleWithParent(index);
         var isFormattingContextRoot = !collapsibleWithParent;
 
+        // What a child's percentage height resolves against: this container's own definite inner
+        // height, or nothing. An indefinite one makes a percentage height behave as `auto`
+        // (CSS Sizing §5.2.1), which is the same rule the flex path applies one file over.
+        //
+        // ⚠ <b>It is settled HERE, above the inline axis, because CSS Sizing §4.1's transferred size
+        // runs from the block axis to the inline one and the intrinsic inline pass needs it.</b> It
+        // depends on nothing this box measures — a stretch-fit request, or the node's own stated
+        // height against its owner — so reading it before the width rather than after is a move and
+        // not a computation.
+        var definiteHeight = heightSizingMode == SizingMode.StretchFit
+            ? availableHeight - marginAxisColumn
+            : ResolvedDimension(index, Dimension.Height, ownerHeight, ownerWidth, direction);
+
+        var innerHeightForPercentages = float.IsNaN(definiteHeight) ? float.NaN : MathF.Max(0f, definiteHeight - insetColumn);
+
         // ── The inline axis: CSS 2.1 §10.3.3 ────────────────────────────────────────────────────
         // `width: auto` on a block box in normal flow is *not* shrink-to-fit; it is whatever makes
         // the equation balance, i.e. the containing block's width. So a StretchFit request is taken
@@ -218,6 +233,7 @@ public sealed partial class LayoutTree {
                 direction,
                 widthSizingMode,
                 probeWidth,
+                innerHeightForPercentages,
                 ownerWidth,
                 ownerHeight,
                 currentDepth
@@ -233,15 +249,6 @@ public sealed partial class LayoutTree {
         var outerWidth = BoundAxis(index, FlexDirection.Row, direction, rawWidth, ownerWidth, ownerWidth);
 
         var innerWidth = MathF.Max(0f, outerWidth - insetRow);
-
-        // What a child's percentage height resolves against: this container's own definite inner
-        // height, or nothing. An indefinite one makes a percentage height behave as `auto`
-        // (CSS Sizing §5.2.1), which is the same rule the flex path applies one file over.
-        var definiteHeight = heightSizingMode == SizingMode.StretchFit
-            ? availableHeight - marginAxisColumn
-            : ResolvedDimension(index, Dimension.Height, ownerHeight, ownerWidth, direction);
-
-        var innerHeightForPercentages = float.IsNaN(definiteHeight) ? float.NaN : MathF.Max(0f, definiteHeight - insetColumn);
 
         // ── Whether this box's own margins take part ────────────────────────────────────────────
         // §8.3.1: a margin collapses with its parent's only when nothing separates them — no border,
@@ -1100,6 +1107,7 @@ public sealed partial class LayoutTree {
         Direction direction,
         SizingMode widthSizingMode,
         float availableInnerWidth,
+        float innerHeight,
         float ownerWidth,
         float ownerHeight,
         int currentDepth
@@ -1154,6 +1162,36 @@ public sealed partial class LayoutTree {
             float childWidth;
             if (HasDefiniteLength(child, Dimension.Width, availableInnerWidth)) {
                 childWidth = BoundAxis(child, FlexDirection.Row, direction, ResolvedDimension(child, Dimension.Width, availableInnerWidth, availableInnerWidth, direction), availableInnerWidth, availableInnerWidth);
+            } else if (!float.IsNaN(styles[child].AspectRatio)
+                && styles[child].AspectRatio > 0f
+                && HasDefiniteLength(child, Dimension.Height, innerHeight)) {
+                // ⚠ <b>CSS Sizing §4.1's TRANSFERRED SIZE, and this loop is where it was missing.</b>
+                // A box with a preferred aspect ratio and a definite block size has a definite inline
+                // size, so its contribution to its container's max-content width is the ratio's
+                // answer — not the width it would report if asked how wide its contents want to be,
+                // which for a childless box is its padding and border and for most others is far too
+                // small. `ResolveBlockChildBox` has always done this transfer for the box's own
+                // layout, one screen down; the intrinsic pass in front of it did not, so an
+                // `aspect-ratio` box with a stated or inherited height made its container ZERO wide
+                // and then laid out at the ratio's width inside it. The other direction — width to
+                // height for a stretched box — is the note in `WalkBlockChildren`.
+                var childHeight = BoundAxis(
+                    child,
+                    FlexDirection.Column,
+                    direction,
+                    ResolvedDimension(child, Dimension.Height, innerHeight, availableInnerWidth.OrZero(), direction),
+                    innerHeight,
+                    availableInnerWidth.OrZero()
+                );
+
+                childWidth = BoundAxis(
+                    child,
+                    FlexDirection.Row,
+                    direction,
+                    WidthAcrossRatio(child, direction, childHeight, availableInnerWidth.OrZero()),
+                    availableInnerWidth,
+                    availableInnerWidth
+                );
             } else {
                 var offered = float.IsNaN(availableInnerWidth) ? float.NaN : MathF.Max(0f, availableInnerWidth - marginRow);
                 var mode = widthSizingMode == SizingMode.MaxContent || float.IsNaN(offered)

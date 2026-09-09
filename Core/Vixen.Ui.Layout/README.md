@@ -26,9 +26,10 @@ count is zero, so the next block regression names itself. See
 `Taffy/GridKnownGaps.txt`, which `TaffyGapsSummary` holds to the constants
 `TaffyGridConformanceTests` pins; that file also names each remaining bucket one at a time.
 ⚠ **This paragraph used to state those three figures and was three generations behind them** — it
-said 2 038 / 40 refused / 42 failing long after the suite pinned 2 104 / 0 / 16, and doc 43's § B2
-row quoted this paragraph as "the state" while it was wrong. A fourth copy of a measurement rots
-like the other three, so this one names none.
+said 2 038 / 40 refused / 42 failing long after the suite had moved twice, and doc 43's § B2 row
+quoted this paragraph as "the state" while it was wrong. A fourth copy of a measurement rots like
+the other three, so this one names none. ⚠ The figures it used to quote have moved AGAIN since that
+sentence was written, which is the argument rather than a footnote to it.
 
 It is **partial and says which part**: placement (§8), the bulk of track
 sizing (§12), §11.8's baseline alignment, CSS Grid §9's containing block for an out-of-flow child

@@ -177,6 +177,10 @@ public sealed partial class LayoutTree {
 
         CollapseAutoFitTracks(in styles[index].GridTemplateColumns, in placement, columnsAt, templateColumns, inline: true);
 
+        var definiteRowSpace = placement.Rows == 1 && !float.IsNaN(innerHeight) && StretchesTracks(styles[index].AlignContent)
+            ? innerHeight
+            : float.NaN;
+
         // ── The inline axis ─────────────────────────────────────────────────────────────────────
         var columnAxis = new GridAxis(
             Inline: true,
@@ -187,7 +191,8 @@ public sealed partial class LayoutTree {
             innerWidth,
             columnGap,
             ConstraintFor(widthSizingMode, innerWidth),
-            StretchesTracks(styles[index].JustifyContent)
+            StretchesTracks(styles[index].JustifyContent),
+            definiteRowSpace
         );
 
         SizeGridTracks(in columnAxis, direction, ownerWidth, ownerHeight, currentDepth);
@@ -301,7 +306,8 @@ public sealed partial class LayoutTree {
             innerHeight,
             rowGap,
             ConstraintFor(heightSizingMode, innerHeight),
-            StretchesTracks(styles[index].AlignContent)
+            StretchesTracks(styles[index].AlignContent),
+            float.NaN
         );
 
         SizeGridTracks(in rowAxis, direction, ownerWidth, ownerHeight, currentDepth);
@@ -745,7 +751,9 @@ public sealed partial class LayoutTree {
                 columnGap,
                 GridSizingConstraint.MinContent,
                 // Nothing to stretch into: an intrinsic pass has no free space by definition.
-                StretchAuto: false
+                StretchAuto: false,
+                // …and nothing definite on the other axis either, for the same reason.
+                DefiniteCrossSpace: float.NaN
             );
 
             SizeGridTracks(in columnAxis, direction, ownerWidth, ownerHeight, currentDepth);
@@ -788,7 +796,8 @@ public sealed partial class LayoutTree {
                 float.NaN,
                 rowGap,
                 GridSizingConstraint.MinContent,
-                StretchAuto: false
+                StretchAuto: false,
+                DefiniteCrossSpace: float.NaN
             );
 
             SizeGridTracks(in rowAxis, direction, ownerWidth, ownerHeight, currentDepth);
@@ -1488,7 +1497,15 @@ public sealed partial class LayoutTree {
         // The probe width is the owner width here for the same reason the block path above uses it:
         // a grid item's inline size is the track's, which is what this measurement is being taken to
         // decide, so the containing block's inline size is the nearest honest bound.
-        var minContent = MinContentContribution(child, FlexDirection.Row, direction, ownerWidth, ownerHeight, ownerWidth, currentDepth) + margin;
+        // ⚠ <b>…and the block basis is the grid's own, where the grid HAS one before the column pass
+        // runs.</b> §5.2.1's "not yet known" is a claim about the AREA, and for one shape the area's
+        // block size is known in advance: a grid with a definite content-box height and exactly one
+        // row that `align-content` stretches ends up with that row exactly `innerHeight` tall. That
+        // is `chrome_issue_325928327`, which this file called cyclic for four generations — the
+        // number Chrome uses was in hand the whole time and nothing carried it into the inline pass.
+        var blockBasis = float.IsNaN(axis.DefiniteCrossSpace) ? ownerHeight : axis.DefiniteCrossSpace;
+
+        var minContent = MinContentContribution(child, FlexDirection.Row, direction, ownerWidth, blockBasis, ownerWidth, currentDepth) + margin;
 
         // ⚠ <b>The owner size handed to the max-content probe is NaN, and passing the real one is a
         // bug that looks like a track-sizing bug.</b> CSS Sizing §5.2.1: while an intrinsic
@@ -1506,7 +1523,7 @@ public sealed partial class LayoutTree {
             SizingMode.MaxContent,
             SizingMode.MaxContent,
             float.NaN,
-            float.NaN,
+            axis.DefiniteCrossSpace,
             performLayout: false,
             currentDepth
         );

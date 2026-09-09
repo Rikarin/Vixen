@@ -585,11 +585,22 @@ public sealed partial class LayoutTree {
             ownerWidth
         );
 
+        // ⚠ <b>A flex container measured for its INLINE size is offered no block size, and its own
+        // stated one is still definite.</b> CSS Sizing §4.1 transfers a definite block size across a
+        // preferred aspect ratio into a definite inline size, and §5.2.1's "behaves as auto" is about
+        // a containing block whose size is NOT YET KNOWN — which a `height: 40px` container's is.
+        // Reading only the offer made an intrinsic pass hand `NaN` down as the percentage basis, so a
+        // `height: 100%; aspect-ratio: 1` item contributed its padding and border and the container
+        // measured ZERO wide, then laid the same item out at the ratio's width inside it.
+        var offeredHeight = availableHeight - marginAxisColumn;
+
         var availableInnerHeight = AvailableInnerDimension(
             index,
             direction,
             Dimension.Height,
-            availableHeight - marginAxisColumn,
+            float.IsNaN(offeredHeight)
+                ? ResolvedDimension(index, Dimension.Height, ownerHeight, ownerWidth, direction)
+                : offeredHeight,
             contentInsetAxisColumn,
             ownerHeight,
             ownerWidth

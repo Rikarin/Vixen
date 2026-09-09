@@ -53,7 +53,8 @@ public sealed partial class LayoutTree {
         float AvailableSpace,
         float Gap,
         GridSizingConstraint Constraint,
-        bool StretchAuto
+        bool StretchAuto,
+        float DefiniteCrossSpace
     );
 
     /// <summary>
