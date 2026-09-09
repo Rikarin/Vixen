@@ -107,14 +107,21 @@ public static class BlockoutHover {
     ///         quad at three cuts.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And no shape this toolset makes reaches that branch, which is worth writing down
-    ///         because it means neither copy of the rule is covered.</b> Probed over every ring seed of
-    ///         <c>Box</c>, <c>Cylinder</c>, <c>Stairs</c> and <c>Torus</c>: the two crossed edges of a
-    ///         ring quad are stored in the <i>same</i> sense every time, so the flip never fires and a
-    ///         sabotage that removes it leaves every assertion green. It is kept because the operation
-    ///         keeps it and a preview that disagreed with the verb on some mesh nobody has tried is
-    ///         worse than a branch nobody has run — see
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1167">#1167</a>.
+    ///         ⚠ <b>This paragraph used to say no shape this toolset makes reaches that branch, and
+    ///         that was wrong twice over</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1167">#1167</a>). Counted over every
+    ///         ring seed of every <c>ShapeKind</c>, the flip fires on nine of the twelve; the old
+    ///         probe covered four and <c>Box</c> was the only one of those where it does not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The half that decides whether the rule is load-bearing is narrower than "does it
+    ///         fire".</b> A quad whose two crossed edges <i>both</i> flip is unharmed by removing the
+    ///         rule — the strip is built from the other end and comes out the same. What crosses the
+    ///         segments over is a quad where one side flips and the other does not, and
+    ///         <c>DoorFrame</c> (40 quads) and <c>Arch</c> (128) are the shapes that have any.
+    ///         <c>BlockoutHoverTests.The_previewed_cuts_across_one_quad_stay_parallel_when_its_edges_disagree</c>
+    ///         is that fixture here, and <c>MeshOperationTests.A_loop_cut_never_leaves_a_face_with_no_area</c>
+    ///         is the verb's.
     ///     </para>
     /// </remarks>
     public static bool LoopCut(EditMesh mesh, int edge, int cuts, float slide, List<(Vector3 A, Vector3 B)> into) {

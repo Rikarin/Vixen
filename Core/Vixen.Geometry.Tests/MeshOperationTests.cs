@@ -304,6 +304,60 @@ public class MeshOperationTests {
         AssertSound(mesh);
     }
 
+    /// <summary>
+    ///     ⚠ <b>#1167 said <c>LoopCut</c>'s <c>Ordered</c> flip was reached by no shape
+    ///     <c>MeshShapes</c> makes. It is reached by nine of the twelve, and two of them reach the
+    ///     case that matters.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The measurement that said otherwise probed four shapes — <c>Box</c>, <c>Cylinder</c>,
+    ///         <c>Stairs</c>, <c>Torus</c> — and <c>Box</c> is the only one of those where the flip
+    ///         never fires. Counted over every ring seed of every shape, the flip is taken on
+    ///         <c>Cylinder</c>, <c>Sphere</c>, <c>Capsule</c>, <c>Torus</c>, <c>Stairs</c>,
+    ///         <c>Ramp</c>, <c>Arch</c>, <c>Pipe</c> and <c>DoorFrame</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>But a flip on both crossed edges of a quad is harmless</b>, which is why the
+    ///         fixture is a <c>DoorFrame</c> and not a <c>Sphere</c> with its five thousand of them:
+    ///         reversing both sides reverses the order the strip is built in and produces the same
+    ///         quads. What crosses the segments over is a quad where <i>one</i> side flips and the
+    ///         other does not, and only <c>Arch</c> (128 such quads) and <c>DoorFrame</c> (40) have any.
+    ///     </para>
+    ///     <para>
+    ///         <b>Area is the wrong oracle here, and it was tried first.</b> A crossed pairing turns
+    ///         two of the four strips into bowties whose halves cancel, so the mesh's total area is
+    ///         preserved to the last float while the cut is destroyed. A <i>degenerate</i> face is what
+    ///         it leaves behind: with the flip removed a DoorFrame's side strip is
+    ///         <c>1.125, 0, 0, 1.125</c> where it should be four of <c>0.5625</c>.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(ShapeKind.DoorFrame)]
+    [InlineData(ShapeKind.Arch)]
+    public void A_loop_cut_never_leaves_a_face_with_no_area(ShapeKind kind) {
+        var seeds = MeshShapes.Create(kind).Edges.Count;
+        var looked = 0;
+
+        for (var seed = 0; seed < seeds; seed++) {
+            var mesh = MeshShapes.Create(kind);
+            var made = MeshOperations.LoopCut(mesh, seed, cuts: 3);
+
+            foreach (var face in made) {
+                looked++;
+
+                Assert.True(
+                    mesh.Area(face) > 1e-4f,
+                    $"{kind} seed {seed} face {face} has no area: the two sides of the cut crossed over"
+                );
+            }
+        }
+
+        // ⚠ The loop asserts inside itself, so the count is part of what it has to say: a ring seed
+        // that stopped producing faces would leave every assertion above unreached and green.
+        Assert.True(looked > 200, $"only {looked} faces were looked at");
+    }
+
     [Fact]
     public void Subdividing_a_quad_makes_four() {
         var mesh = TestShapes.Box();
