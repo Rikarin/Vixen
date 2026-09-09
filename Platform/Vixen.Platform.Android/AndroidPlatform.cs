@@ -115,6 +115,9 @@ public sealed class AndroidPlatform : IPlatform {
     public SystemAccessibility Accessibility => SystemAccessibility.Unknown;
 
     /// <inheritdoc />
+    public SystemAccent Accent => SystemAccent.Unknown;
+
+    /// <inheritdoc />
     public IFileSystemHost FileSystem { get; }
 
     /// <inheritdoc />

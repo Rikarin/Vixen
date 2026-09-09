@@ -72,6 +72,18 @@ static unsafe partial class ObjC {
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool SendBool(nint receiver, nint selector);
 
+    /// <summary>A one-argument message whose return type is a <c>BOOL</c> — <c>respondsToSelector:</c>.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asking first is not defensiveness here, it is the difference between a missing
+    ///     feature and a dead process.</b> Sending a selector a class does not implement raises
+    ///     <c>NSInvalidArgumentException</c>, and an Objective-C exception crossing back into
+    ///     managed code aborts — so a colour that arrived in a later macOS than the one this is
+    ///     running on has to be probed rather than tried.
+    /// </remarks>
+    [LibraryImport(Runtime, EntryPoint = "objc_msgSend")]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool SendBool(nint receiver, nint selector, nint argument);
+
     [LibraryImport(Runtime, EntryPoint = "objc_msgSend")]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool SendBool(nint receiver, nint selector, nint first, nint second);

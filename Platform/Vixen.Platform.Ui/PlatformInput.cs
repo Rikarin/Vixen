@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics;
+using Vixen.Core.Mathematics;
 using Vixen.Ui;
 using Vixen.Ui.Styling;
 using PointerButton = Vixen.Ui.PointerButton;
@@ -156,6 +157,79 @@ public static class PlatformInput {
                     ? SystemPalette.Dark
                     : SystemPalette.Light
         );
+    }
+
+    /// <summary>Puts the operating system's accent colour into the document's palette.</summary>
+    /// <param name="document">The document.</param>
+    /// <param name="accent">What <see cref="IPlatform.Accent" /> says.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The last link of a chain whose every other link already existed.</b>
+    ///         <c>ControlTheme.vcss</c> draws the focus ring, the switch, the spinner and the
+    ///         selection with <c>--accent</c>; <c>SystemPalette</c> has carried an
+    ///         <c>AccentColor</c>/<c>AccentColorText</c> pair and a
+    ///         <see cref="SystemPalette.SetPlatform" /> written for exactly this since the palette
+    ///         landed. What was missing was a caller: <c>SetPlatform</c> had none anywhere in the
+    ///         repository outside its own tests, and no reader of any platform's accent existed at
+    ///         all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="SystemPalette.SetPlatform" /> and not <c>Set</c>, and the difference
+    ///         is the whole of why this works.</b> <see cref="Repalette" /> re-applies a default
+    ///         table on every appearance change <i>and</i> every contrast change, from two places on
+    ///         two cadences. An accent written with <c>Set</c> would therefore last until the user
+    ///         next toggled dark mode and then silently go back to Chromium's blue.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The class is toggled on the pair, not on the accent alone.</b>
+    ///         <c>root.system-accent</c> points <i>both</i> tokens at the platform, and a rule that
+    ///         fired on half a read would leave the theme's own text colour sitting on a colour the
+    ///         theme did not choose — which for a light accent is white on yellow. A platform that
+    ///         can answer only the accent still supplies it here, so anything writing
+    ///         <c>AccentColor</c> directly gets the real value; what it does not do is repaint the
+    ///         theme's token.
+    ///     </para>
+    ///     <para>
+    ///         Called once before the first frame and again on each
+    ///         <see cref="PlatformEventKind.SystemColorSchemeChanged" />, beside
+    ///         <see cref="ApplyColorScheme" /> — an accent change arrives as an appearance change,
+    ///         because from a sheet's point of view that is what it is.
+    ///     </para>
+    /// </remarks>
+    public static void ApplyAccent(UiDocument document, SystemAccent accent) {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var palette = document.SystemColors;
+
+        // ⚠ sRGB in, linear out, once and here. Every platform reports its accent in sRGB and
+        // `SystemPalette` holds linear; its own remarks record that handing it an sRGB colour makes
+        // a palette that is visibly too bright with nothing anywhere reporting it.
+        var forgotten = Fill(palette, SystemColor.AccentColor, accent.Color)
+            | Fill(palette, SystemColor.AccentColorText, accent.Text);
+
+        // ⚠ Because forgetting is not reverting. `ClearPlatform` drops the claim and leaves the
+        // colour standing — the palette holds no memory of which of the three tables it was last
+        // filled from, so it cannot invent one — and without this a host that stopped being able to
+        // read an accent would keep painting the last one it read until the user next toggled dark
+        // mode. `Reset` honours the roles still supplied, so this cannot disturb a wider read.
+        if (forgotten) {
+            Repalette(document);
+        }
+
+        if (accent.Color is not null && accent.Text is not null) {
+            document.Root.AddClass(SystemPalette.PlatformAccentClass);
+        } else {
+            document.Root.RemoveClass(SystemPalette.PlatformAccentClass);
+        }
+
+        static bool Fill(SystemPalette palette, SystemColor role, Color4? srgb) {
+            if (srgb is { } value) {
+                palette.SetPlatform(role, Color4.FromSrgb(value));
+                return false;
+            }
+
+            return palette.ClearPlatform(role);
+        }
     }
 
     /// <summary>Tells every one of a document's surfaces which accessibility settings are on.</summary>

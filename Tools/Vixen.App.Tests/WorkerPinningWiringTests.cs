@@ -91,6 +91,8 @@ public class WorkerPinningWiringTests {
         public IDisplayInfo Displays => inner.Displays;
         public SystemColorScheme ColorScheme => inner.ColorScheme;
         public SystemAccessibility Accessibility => inner.Accessibility;
+
+        public SystemAccent Accent => inner.Accent;
         public IFileSystemHost FileSystem => inner.FileSystem;
         public IClipboard Clipboard => inner.Clipboard;
         public INativeDialogs Dialogs => inner.Dialogs;

@@ -589,16 +589,17 @@ sealed partial class EditorApplication {
             // computed when the page was built is one that is right when it is drawn and never
             // again, and this window stays open while somebody opens and closes the viewport a
             // preference here is about. A bound `ButtonBase` follows `CommandsInvalidated`.
+            // ⚠ **And the read-back that used to follow this line is gone, because the binding now
+            // does it.** `ToggleBase.ShowCheck` writes `IsChecked` rather than only
+            // `ElementState.Checked` (#1046) and `ToggleBase.Activate` re-asks the route after
+            // running, so a command that refuses to follow the click leaves the toggle where it was
+            // with no help from this page — which is the behaviour doc 20 asks of it. What had to be
+            // checked rather than assumed is that the two paths meet: the line above reads
+            // `Shell.Commands` directly and `RefreshCommand` resolves through
+            // `CommandRoute.Resolve(Document, id)`, which reaches that same registry only because
+            // `EditorShell` installs it as the document's `ApplicationCommandResponder`. Both halves
+            // are asserted in `SettingsWindowTests`.
             button.Command = commandId;
-
-            // ⚠ **And the read-back stays, which the binding does <i>not</i> make redundant here.**
-            // `ButtonBase.RefreshCommand` writes a bound command's check state through `ShowCheck`,
-            // and `ToggleBase` does not override it — so the binding writes `ElementState.Checked`,
-            // which is what the theme draws, and leaves `IsChecked` wherever the click left it. That
-            // is the property this panel and its tests read. Until a bound toggle writes its own
-            // `IsChecked` (#1046) this line is what makes a command that refused leave the toggle
-            // where it was, which is the behaviour doc 20 asks of this page.
-            button.Clicked += control => ((ToggleButton)control).IsChecked = command.IsChecked;
         }
     }
 

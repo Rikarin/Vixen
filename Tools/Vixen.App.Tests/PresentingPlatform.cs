@@ -59,6 +59,8 @@ sealed class PresentingPlatform : IPlatform {
     /// <inheritdoc />
     public SystemAccessibility Accessibility => inner.Accessibility;
 
+    public SystemAccent Accent => inner.Accent;
+
     /// <inheritdoc />
     public IFileSystemHost FileSystem => inner.FileSystem;
 

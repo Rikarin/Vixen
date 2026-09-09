@@ -201,6 +201,7 @@ Vixen.Platform.INativeDialogs.SaveFileAsync(Vixen.Platform.FileDialogOptions opt
 Vixen.Platform.INativeDialogs.ShowMessageAsync(Vixen.Platform.MessageBoxOptions options, Vixen.Platform.IWindow? owner = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Vixen.Platform.MessageBoxResult>
 Vixen.Platform.IPlatform -> interface
 Vixen.Platform.IPlatform : System.IDisposable
+Vixen.Platform.IPlatform.Accent.get -> Vixen.Platform.SystemAccent
 Vixen.Platform.IPlatform.Accessibility.get -> Vixen.Platform.SystemAccessibility
 Vixen.Platform.IPlatform.Capabilities.get -> Vixen.Platform.PlatformCapabilities
 Vixen.Platform.IPlatform.Clipboard.get -> Vixen.Platform.IClipboard
@@ -605,6 +606,15 @@ Vixen.Platform.StandardFileSystemHost.MountStandardLocations(Vixen.Core.IO.Virtu
 Vixen.Platform.StandardFileSystemHost.RequestPermissionAsync(Vixen.Platform.PermissionKind permission, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<bool>
 Vixen.Platform.StandardFileSystemHost.StandardFileSystemHost(string organisation, string application, string? applicationDirectory = null) -> void
 Vixen.Platform.StandardFileSystemHost.TemporaryDirectory.get -> string
+Vixen.Platform.SystemAccent -> readonly struct
+Vixen.Platform.SystemAccent : System.IEquatable<Vixen.Platform.SystemAccent>
+Vixen.Platform.SystemAccent.Color.get -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemAccent.Color.init -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemAccent.IsKnown.get -> bool
+Vixen.Platform.SystemAccent.SystemAccent() -> void
+Vixen.Platform.SystemAccent.SystemAccent(Vixen.Core.Mathematics.Color4? Color = null, Vixen.Core.Mathematics.Color4? Text = null) -> void
+Vixen.Platform.SystemAccent.Text.get -> Vixen.Core.Mathematics.Color4?
+Vixen.Platform.SystemAccent.Text.init -> Vixen.Core.Mathematics.Color4?
 Vixen.Platform.SystemAccessibility -> readonly struct
 Vixen.Platform.SystemAccessibility : System.IEquatable<Vixen.Platform.SystemAccessibility>
 Vixen.Platform.SystemAccessibility.HighContrast.get -> bool?
@@ -694,4 +704,5 @@ static Vixen.Platform.PlatformEvent.WindowResized(uint windowId, long timestamp,
 static Vixen.Platform.PlatformExtensions.FocusedWindow(this Vixen.Platform.IPlatform platform) -> Vixen.Platform.IWindow?
 static Vixen.Platform.PlatformExtensions.Has(this Vixen.Platform.IPlatform platform, Vixen.Platform.PlatformCapabilities required) -> bool
 static Vixen.Platform.PlatformExtensions.Pickers(this Vixen.Platform.IPlatform platform) -> Vixen.Platform.INativeDialogs?
+static Vixen.Platform.SystemAccent.Unknown.get -> Vixen.Platform.SystemAccent
 static Vixen.Platform.SystemAccessibility.Unknown.get -> Vixen.Platform.SystemAccessibility

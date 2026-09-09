@@ -5,6 +5,7 @@ using Vixen.Editor.Inspector;
 using Vixen.Editor.Testing;
 using Vixen.Editor.Ui;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -98,6 +99,109 @@ public class SettingsWindowTests {
 
         Assert.NotEqual(before, command.IsChecked);
         Assert.Equal(command.IsChecked, toggle.IsChecked);
+    }
+
+    /// <summary>
+    ///     ⚠ The page's toggles carry no read-back of their own any more (#1140), so this is the
+    ///     assertion that the binding reaches the registry at all.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A click cannot show this and the click test above does not.</b> A command that
+    ///         follows agrees with the toggle's own guess, so <c>IsChecked</c> is right after a click
+    ///         whether the binding wrote it or the flip did. What only the binding can do is follow a
+    ///         change nobody made through this page — the same command run from a menu, a keystroke
+    ///         or the palette, which is the case doc 20's "two writers to one setting" rule exists
+    ///         for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two resolutions are not the same walk and that is what had to be checked.</b>
+    ///         <c>EditorSettingsPanels.Toggles</c> reads <see cref="Vixen.Ui.Controls.CommandRegistry" />
+    ///         directly to draw the label, while <c>ButtonBase.RefreshCommand</c> goes through
+    ///         <c>CommandRoute.Resolve(Document, id)</c> and reaches that registry only because
+    ///         <c>EditorShell</c> installs it as the document's <c>ApplicationCommandResponder</c>.
+    ///         Deleting the read-back on the strength of #1046 alone would have rested on the two
+    ///         meeting; this is the test that says they do.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_settings_toggle_follows_its_command_when_something_else_runs_it() {
+        using var fixture = EditorSession.Start();
+
+        fixture.Open("scene");
+
+        var view = fixture.Control<SettingsView>("preferences");
+
+        Assert.True(view.Select("scene-view"));
+        fixture.Settle();
+
+        var command = fixture.Shell.Commands["scene.zoom-to-cursor"]!;
+        var toggle = Toggle(view.Pane, command.Title.Text);
+
+        Assert.Equal(command.IsChecked, toggle.IsChecked);
+
+        // Run from outside the window, the way a keystroke or the palette would.
+        var before = command.IsChecked;
+
+        fixture.Run("scene.zoom-to-cursor");
+        fixture.Document.InvalidateCommands();
+        fixture.Settle();
+
+        Assert.NotEqual(before, command.IsChecked);
+        Assert.Equal(command.IsChecked, toggle.IsChecked);
+    }
+
+    /// <summary>
+    ///     ⚠ Doc 20: a command is entitled to refuse, and the toggle then stays where it was. With
+    ///     the page's read-back gone (#1140) this is <see cref="Vixen.Ui.Controls.ToggleBase" />'s
+    ///     job, and nothing in the editor asserted it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A command bound to nothing rather than one of the page's five, because none of the
+    ///     five can refuse.</b> The scene toggles all write the flag their own predicate reads, so a
+    ///     click on one is always followed; the refusal doc 20 asks about is a command whose check
+    ///     state is decided elsewhere — a "wireframe" a 2D viewport will not turn on. This is that
+    ///     command, drawn as a bound toggle in the preferences pane so that it resolves through the
+    ///     same route, the same document and the same registry the page's own toggles do.
+    /// </remarks>
+    [Fact]
+    public void A_bound_toggle_the_command_refused_to_follow_goes_back() {
+        using var fixture = EditorSession.Start();
+
+        var view = fixture.Control<SettingsView>("preferences");
+
+        Assert.True(view.Select("appearance"));
+        fixture.Settle();
+
+        var ran = 0;
+
+        fixture.Shell.Commands.Add(
+            new EditorCommand(
+                "test.refuses",
+                new StringId("editor.command.test.refuses", "Refuses"),
+                () => ran++
+            ) {
+                // Runs, changes nothing, and keeps saying no — which is exactly a command whose
+                // check state is not the click's to decide.
+                Checked = () => false
+            }
+        );
+
+        var toggle = view.Pane.Add<ToggleButton>();
+
+        toggle.Label = "Refuses";
+        toggle.Command = "test.refuses";
+        fixture.Settle();
+
+        Assert.False(toggle.Disabled);
+        Assert.False(toggle.IsChecked);
+
+        fixture.Click(toggle);
+        fixture.Settle();
+
+        // It ran, so this is a refusal rather than a command that never got the click.
+        Assert.Equal(1, ran);
+        Assert.False(toggle.IsChecked);
     }
 
     [Fact]

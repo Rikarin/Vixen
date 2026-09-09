@@ -595,6 +595,7 @@ public sealed class UiApplication : IDisposable {
         // handled `SystemColorSchemeChanged` would draw every frame of a session against the wrong
         // palette on a machine whose appearance never changed, which is most of them.
         PlatformInput.ApplyColorScheme(Document, platform.ColorScheme);
+        PlatformInput.ApplyAccent(Document, platform.Accent);
         PlatformInput.ApplyAccessibility(Document, platform.Accessibility);
 
         Started?.Invoke(this);
@@ -748,6 +749,12 @@ public sealed class UiApplication : IDisposable {
                     // (prefers-color-scheme: …)` with it — falling through to the default branch
                     // would resolve window 0, find nothing, and drop the change silently.
                     PlatformInput.ApplyColorScheme(Document, platform.ColorScheme);
+
+                    // ⚠ On the same event, because there is no other one. A user picking a new
+                    // accent does not change the appearance, and the platform reports both across
+                    // this kind rather than inventing a second — so a host that handled the scheme
+                    // and not the accent would follow dark mode and never follow the colour.
+                    PlatformInput.ApplyAccent(Document, platform.Accent);
                     break;
 
                 case PlatformEventKind.SystemAccessibilityChanged:

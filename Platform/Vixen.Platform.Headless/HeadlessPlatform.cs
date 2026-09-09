@@ -150,6 +150,29 @@ public sealed class HeadlessPlatform : IPlatform {
         }
     }
 
+    /// <summary>The accent a headless run reports, and the seam a test drives it through.</summary>
+    /// <remarks>
+    ///     ⚠ <b><see cref="SystemAccent.Unknown" /> by default, and it queues the <i>appearance</i>
+    ///     event rather than one of its own</b> — which is what the desktop does, because an accent
+    ///     change moves what a sheet resolves and nothing else. A test that set this and waited for
+    ///     an event of its own would be waiting for one no real platform posts.
+    /// </remarks>
+    public SystemAccent Accent {
+        get;
+
+        set {
+            if (field == value) {
+                return;
+            }
+
+            field = value;
+
+            events.Post(
+                PlatformEvent.Application(PlatformEventKind.SystemColorSchemeChanged, Stopwatch.GetTimestamp())
+            );
+        }
+    }
+
     /// <inheritdoc />
     public IFileSystemHost FileSystem { get; }
 
