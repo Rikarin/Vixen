@@ -1190,6 +1190,8 @@ T:Vixen.Editor.Assets.Audio.AudioFormatException sweep-pending
 T:Vixen.Editor.Assets.Audio.AudioImportSettings sweep-pending
 T:Vixen.Editor.Assets.Audio.AudioImporter sweep-pending
 T:Vixen.Editor.Assets.Audio.IAudioDecoder sweep-pending
+T:Vixen.Editor.Assets.Audio.MixerImportSettings sweep-pending
+T:Vixen.Editor.Assets.Audio.MixerImporter sweep-pending
 T:Vixen.Editor.Assets.Audio.WaveDecoder sweep-pending
 T:Vixen.Editor.Assets.BuiltInImporters sweep-pending
 T:Vixen.Editor.Assets.Content.AddressableGroup sweep-pending
@@ -1217,6 +1219,7 @@ T:Vixen.Editor.Assets.ExecutedImport sweep-pending
 T:Vixen.Editor.Assets.FolderImportSettings sweep-pending
 T:Vixen.Editor.Assets.FolderImporter sweep-pending
 T:Vixen.Editor.Assets.IAssetImporter sweep-pending
+T:Vixen.Editor.Assets.IAssetSources sweep-pending
 T:Vixen.Editor.Assets.IImportExecutor sweep-pending
 T:Vixen.Editor.Assets.ImportCache sweep-pending
 T:Vixen.Editor.Assets.ImportContext sweep-pending
@@ -1240,6 +1243,7 @@ T:Vixen.Editor.Assets.NativeFormatImportSettings sweep-pending
 T:Vixen.Editor.Assets.NativeFormatImporter sweep-pending
 T:Vixen.Editor.Assets.Navigation.NavMeshImportSettings sweep-pending
 T:Vixen.Editor.Assets.Navigation.NavMeshImporter sweep-pending
+T:Vixen.Editor.Assets.ProjectAssetSources sweep-pending
 T:Vixen.Editor.Assets.RawImportSettings sweep-pending
 T:Vixen.Editor.Assets.RawImporter sweep-pending
 T:Vixen.Editor.Assets.Scenes.SceneCompiler sweep-pending
