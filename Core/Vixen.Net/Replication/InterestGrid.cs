@@ -47,6 +47,12 @@ public sealed class InterestGrid : IInterestSource {
     readonly Dictionary<uint, HashSet<uint>> observing = [];
     readonly HashSet<uint> current = [];
 
+    // The bounding box of the cells the last rebuild put anything in, in cell coordinates. Empty
+    // until a rebuild, and deliberately inverted when nothing is positioned so a query's loop
+    // bounds cross and it walks nothing at all.
+    (int X, int Y, int Z) low = (int.MaxValue, int.MaxValue, int.MaxValue);
+    (int X, int Y, int Z) high = (int.MinValue, int.MinValue, int.MinValue);
+
     /// <summary>How large a cell is, in world units.</summary>
     /// <remarks>
     ///     Wants to be about the radius, not much smaller. Too small and a query walks hundreds of
@@ -88,6 +94,21 @@ public sealed class InterestGrid : IInterestSource {
     /// <summary>How many had no position and go to everybody.</summary>
     public int UnpositionedCount => unpositioned.Count;
 
+    /// <summary>Cells looked up by every query since this grid was made.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The grid's cost, expressed as work rather than as milliseconds — a query's price is one
+    ///         dictionary probe per cell it walks plus a distance test per object it finds, and this is
+    ///         the first half. Divide by ticks and connections to get the per-query figure, which is
+    ///         what a soak wants to print.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ It is <b>not</b> <c>(2 · span + 1)³</c>: a query walks only the part of its window that
+    ///         the last rebuild put something in, so a flat world costs one layer rather than nine.
+    ///     </para>
+    /// </remarks>
+    public long ProbedCellCount { get; private set; }
+
     /// <summary>Queries answered for a player whose viewpoint nobody had set.</summary>
     public long ViewpointlessCount { get; private set; }
 
@@ -126,6 +147,8 @@ public sealed class InterestGrid : IInterestSource {
 
         unpositioned.Clear();
         PositionedCount = 0;
+        low = (int.MaxValue, int.MaxValue, int.MaxValue);
+        high = (int.MinValue, int.MinValue, int.MinValue);
 
         foreach (var chunk in world.Chunks(Networked)) {
             var entities = chunk.Entities;
@@ -137,8 +160,13 @@ public sealed class InterestGrid : IInterestSource {
                     continue;
                 }
 
-                Cell(Key(transform.Position)).Add(entities[index]);
+                var at = Coordinates(transform.Position);
+
+                Cell(Pack(at.X, at.Y, at.Z)).Add(entities[index]);
                 PositionedCount++;
+
+                low = (Math.Min(low.X, at.X), Math.Min(low.Y, at.Y), Math.Min(low.Z, at.Z));
+                high = (Math.Max(high.X, at.X), Math.Max(high.Y, at.Y), Math.Max(high.Z, at.Z));
             }
         }
     }
@@ -175,9 +203,24 @@ public sealed class InterestGrid : IInterestSource {
         var near = Radius * Radius;
         var far = reach * reach;
 
-        for (var x = centre.X - span; x <= centre.X + span; x++) {
-            for (var y = centre.Y - span; y <= centre.Y + span; y++) {
-                for (var z = centre.Z - span; z <= centre.Z + span; z++) {
+        // ⚠ The window is intersected with what the rebuild actually filled, because a world is wide
+        // and flat and the window is a cube. At the cell size these remarks recommend the span is
+        // four, so walking the whole window is 729 probes per connection per tick and every object
+        // standing on the ground puts 648 of them in layers nothing is in. The clamp is not a
+        // decision to drop the third dimension — a world with stacked floors still pays for the
+        // floors it has, and only for those.
+        var lowX = Math.Max(centre.X - span, low.X);
+        var highX = Math.Min(centre.X + span, high.X);
+        var lowY = Math.Max(centre.Y - span, low.Y);
+        var highY = Math.Min(centre.Y + span, high.Y);
+        var lowZ = Math.Max(centre.Z - span, low.Z);
+        var highZ = Math.Min(centre.Z + span, high.Z);
+
+        for (var x = lowX; x <= highX; x++) {
+            for (var y = lowY; y <= highY; y++) {
+                for (var z = lowZ; z <= highZ; z++) {
+                    ProbedCellCount++;
+
                     if (!cells.TryGetValue(Pack(x, y, z), out var cell) || cell.Count == 0) {
                         continue;
                     }
@@ -231,12 +274,6 @@ public sealed class InterestGrid : IInterestSource {
         }
 
         return cell;
-    }
-
-    long Key(in Vector3 position) {
-        var at = Coordinates(position);
-
-        return Pack(at.X, at.Y, at.Z);
     }
 
     (int X, int Y, int Z) Coordinates(in Vector3 position) =>

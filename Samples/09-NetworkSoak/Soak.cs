@@ -242,6 +242,14 @@ internal sealed class Soak(SoakSettings settings) : IDisposable {
                 + $"({lastObserved / (double)settings.Clients:N0} a connection), "
                 + $"{bucketed.ViewpointlessCount:N0} queries from nowhere"
             );
+
+            // The other half of the grid's price, and the half a stopwatch cannot separate from the
+            // machine. A query walks the part of its window the rebuild filled, so this is the
+            // number that says whether the layout or the code is what a slow tick is made of.
+            Write(
+                $"probes    {bucketed.ProbedCellCount:N0} cells looked up over the run — "
+                + $"{bucketed.ProbedCellCount / (double)settings.Ticks / settings.Clients:N0} a query"
+            );
         }
 
         Write($"records   {records:N0}, {ledger.DeltaCount:N0} as a difference ({(records == 0 ? 0 : ledger.DeltaCount / (double)records):P0})");

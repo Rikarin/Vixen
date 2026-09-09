@@ -91,22 +91,27 @@ of that collection, so asserting on it measures the garbage collector and calls 
 however fast the pipeline is. The pause is real and is still printed; what keeps it honest is the
 allocation budget, which is its cause.
 
-**The distance grid costs about three times the slice for the same amount seen.** Four runs
-alternating the two modes, 5 000 entities and 100 connections, on a machine with a dozen other builds
-on it — so read the ratio and not the absolute microseconds:
+**The distance grid costs about twice the slice for the same amount seen.** Runs alternating the two
+modes, 5 000 entities and 100 connections, `--ticks 600`, on a machine with other builds on it — so
+read the ratio and not the absolute microseconds:
 
-| | slice | grid |
-|---|---|---|
-| Observed per connection | 250 | 282 |
-| Mean tick | 8.4 ms / 4.9 ms | 27.8 ms / 21.9 ms |
+| | slice | grid, walking a cube | grid |
+|---|---|---|---|
+| Observed per connection | 250 | 282 | 282 |
+| Cells probed per query | — | 1 331 | 87 |
+| Mean tick | 4.3 ms | 24.9 ms | 10.5 ms |
 
 That is the honest shape of the claim in `InterestGrid`'s remarks. The grid is not free and is not
 supposed to be: what it buys is that the cost stops being *connections × the whole world*, which is
 what `--interest all` measures. Against a fixed slice — a resolver that already knows the answer and
 does no work to find it — a grid that has to bucket five thousand entities and then walk a
-neighbourhood of cells per connection is three to four times the price for thirteen per cent more
-observed. ⚠ The neighbourhood walk is a cube of cells (`span³`) even when the world is a plane, which
-is where most of that goes; see [#1043](https://github.com/Rikarin/Vixen/issues/1043).
+neighbourhood of cells per connection is about twice the price for thirteen per cent more observed.
+
+⚠ **The middle column is what this sample was for.** The walk used to be a cube of cells (`span³`)
+in a world that is a plane, and fifteen sixteenths of those probes were in layers nothing was in
+([#1043](https://github.com/Rikarin/Vixen/issues/1043)). The `probes` line is the counter that says
+so — it is the grid's cost expressed as work, and unlike the tick time it reads the same on a busy
+machine.
 
 **Bandwidth is per connection, and the interest slice is doing the work.** Two hundred and fifty
 observed entities at 30 Hz is what 75 kbit/s buys. `--interest all` is the same run without an

@@ -554,6 +554,7 @@ Vixen.Net.Replication.InterestGrid.Hysteresis.get -> float
 Vixen.Net.Replication.InterestGrid.Hysteresis.set -> float
 Vixen.Net.Replication.InterestGrid.InterestGrid() -> void
 Vixen.Net.Replication.InterestGrid.PositionedCount.get -> int
+Vixen.Net.Replication.InterestGrid.ProbedCellCount.get -> long
 Vixen.Net.Replication.InterestGrid.Radius.get -> float
 Vixen.Net.Replication.InterestGrid.Radius.set -> float
 Vixen.Net.Replication.InterestGrid.Rebuild(Vixen.Ecs.World world) -> void

@@ -284,11 +284,94 @@ public sealed class InterestTests : IDisposable {
         Assert.True(busiest <= 15, $"The busiest tick carried {busiest} of 40.");
     }
 
-    Entity Spawn(float x) =>
-        world.Create(
-            ids.Next(),
-            new NetworkTransform { Position = new(x, 0f, 0f), Rotation = Quaternion.Identity }
-        );
+    /// <summary>A flat world does not pay for the empty layers above and below it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         The window a query walks is a cube and this engine's worlds are a plane. At the cell
+    ///         size <c>InterestGrid</c>'s own remarks recommend the span is four, so an unclamped walk
+    ///         is 729 probes per connection per tick and — with everything standing on the ground —
+    ///         648 of them are in layers nothing is in. That was measured as three to four times the
+    ///         slice's cost for thirteen per cent more observed (#1043).
+    ///     </para>
+    ///     <para>
+    ///         Asserted as probes rather than as milliseconds on purpose: the count is the work, and
+    ///         it is the same number on an idle machine and a loaded one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AFlatWorldIsNotWalkedAsACube() {
+        var grid = new InterestGrid { CellSize = 32f, Radius = 96f, Hysteresis = 12f };
+        var chain = new InterestChain { Source = grid };
+
+        // Nine cells of occupancy in x and in z, so those two axes clamp to the whole window and the
+        // only axis this can be measuring is the empty one.
+        for (var x = -128f; x <= 128f; x += 32f) {
+            for (var z = -128f; z <= 128f; z += 32f) {
+                SpawnAt(new(x, 0f, z));
+            }
+        }
+
+        grid.SetViewpoint(Player, Vector3.Zero);
+        grid.Rebuild(world);
+        chain.Resolve(world, Player, observed);
+
+        Assert.Equal(81, grid.PositionedCount);
+
+        // Nine by nine by *one*, because one layer is all that has anything in it.
+        Assert.Equal(81, grid.ProbedCellCount);
+    }
+
+    /// <summary>A world with floors above it still pays for those floors, and finds them.</summary>
+    /// <remarks>
+    ///     The clamp is an intersection with what the rebuild filled, not a decision that the third
+    ///     dimension does not exist. Both halves are asserted: the object two cells up is observed,
+    ///     and the walk grew to the three layers that hold something rather than to the nine the
+    ///     window spans.
+    /// </remarks>
+    [Fact]
+    public void AStackedWorldStillReachesTheFloorAboveIt() {
+        var grid = new InterestGrid { CellSize = 32f, Radius = 96f, Hysteresis = 12f };
+        var chain = new InterestChain { Source = grid };
+
+        var ground = SpawnAt(Vector3.Zero);
+        var upstairs = SpawnAt(new(0f, 64f, 0f));
+
+        grid.SetViewpoint(Player, Vector3.Zero);
+        grid.Rebuild(world);
+        chain.Resolve(world, Player, observed);
+
+        Assert.Equal(2, observed.Count);
+        Assert.Contains(ground, observed);
+        Assert.Contains(upstairs, observed);
+
+        // One column, three layers: cells y = 0, 1 and 2, of which the middle one is empty and still
+        // walked because it is inside the occupied band.
+        Assert.Equal(3, grid.ProbedCellCount);
+    }
+
+    /// <summary>A world nobody has put anything in is walked not at all.</summary>
+    /// <remarks>
+    ///     The degenerate end of the same clamp, and the one that would go wrong quietly: with no
+    ///     occupancy the bounds are inverted, and a loop whose bounds cross has to run zero times
+    ///     rather than wrap around the whole of <c>int</c>.
+    /// </remarks>
+    [Fact]
+    public void AnEmptyWorldIsWalkedNotAtAll() {
+        var grid = new InterestGrid { CellSize = 32f, Radius = 96f, Hysteresis = 12f };
+        var chain = new InterestChain { Source = grid };
+
+        grid.SetViewpoint(Player, Vector3.Zero);
+        grid.Rebuild(world);
+        chain.Resolve(world, Player, observed);
+
+        Assert.Empty(observed);
+        Assert.Equal(0, grid.ProbedCellCount);
+    }
+
+    Entity Spawn(float x) => SpawnAt(new(x, 0f, 0f));
+
+    Entity SpawnAt(Vector3 position) =>
+        world.Create(ids.Next(), new NetworkTransform { Position = position, Rotation = Quaternion.Identity });
 
     void Move(Entity entity, float x) => world.Get<NetworkTransform>(entity).Position = new(x, 0f, 0f);
 }
