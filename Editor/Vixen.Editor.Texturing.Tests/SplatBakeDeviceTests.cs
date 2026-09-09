@@ -208,6 +208,13 @@ public class SplatBakeDeviceTests(ITestOutputHelper output) {
             ),
             "a stack with no material wrote a splat map, so the refusal happens after the write."
         );
+
+        // ⚠ And what it refused *for*, which the assertion above cannot see. This fixture publishes
+        // an `IEditorGraphics` with a null device, so "no file" is equally true of a stack whose
+        // material is right there — the route refuses a missing device too. The sentence is the only
+        // thing that says which of the two ran, and it says the project-shaped one: a missing
+        // material is a fact about the project rather than about the host, so it is asked first.
+        Assert.Contains(Name + MaterialImporter.Extension, Say(fixture), StringComparison.Ordinal);
     }
 
     /// <summary>Scans the committed fixture in and opens it through the verb.</summary>

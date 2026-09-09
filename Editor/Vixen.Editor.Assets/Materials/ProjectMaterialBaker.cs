@@ -291,8 +291,8 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
         var name = Safe(material);
         var materialFile = Path.Combine(directory, name + MaterialImporter.Extension);
 
-        if (!File.Exists(materialFile)) {
-            throw new IOException(Unbound(name, directory));
+        if (Unbindable(material) is { } missing) {
+            throw new IOException(missing);
         }
 
         var sidecar = AssetMetaFile.PathFor(materialFile);
@@ -399,11 +399,32 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
         AssetMetaFile.WriteFile(sidecar, meta with { Extensions = extensions });
     }
 
-    /// <summary>What a splat write says when there is no material of that name to bind it onto.</summary>
-    static string Unbound(string name, string directory) =>
-        $"There is no \"{name}{MaterialImporter.Extension}\" in {directory}, so a splat map written here would be a "
-        + "texture nothing samples. A splat map's channels are one material's layer indices — bake or author the "
-        + "layered material first, then bake its weights.";
+    /// <summary>Why <see cref="WriteSplat" /> could not bind a map onto this material, or null.</summary>
+    /// <param name="material">What the material is called. Sanitised here, as the write sanitises it.</param>
+    /// <returns>The sentence to tell the artist, or <see langword="null" /> when there is one to bind onto.</returns>
+    /// <exception cref="ArgumentException"><paramref name="material" /> is null or empty.</exception>
+    /// <remarks>
+    ///     ⚠ <b>Public so that a caller can ask <em>before</em> it evaluates anything, and shared so
+    ///     that the two askings cannot disagree.</b> A splat write refuses on this whatever order it
+    ///     is asked in, but a route that only found out at the end would answer a project-shaped
+    ///     mistake — "there is no layered material yet" — with whatever refusal it happened to hit
+    ///     first, and on a host with no device that is a message about the window not being up.
+    ///     Writing the sentence twice is the alternative, and two sentences drift.
+    /// </remarks>
+    public string? Unbindable(string material) {
+        ArgumentException.ThrowIfNullOrEmpty(material);
+
+        var directory = Path.Combine(project.Paths.Assets, Folder);
+        var name = Safe(material);
+
+        if (File.Exists(Path.Combine(directory, name + MaterialImporter.Extension))) {
+            return null;
+        }
+
+        return $"There is no \"{name}{MaterialImporter.Extension}\" in {directory}, so a splat map written here "
+            + "would be a texture nothing samples. A splat map's channels are one material's layer indices — bake "
+            + "or author the layered material first, then bake its weights.";
+    }
 
     /// <summary>And when the material is there and cannot be read.</summary>
     static string Unreadable(string name) =>

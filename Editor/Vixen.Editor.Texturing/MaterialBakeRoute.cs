@@ -378,6 +378,17 @@ sealed class MaterialBakeRoute {
                 continue;
             }
 
+            // ⚠ Before the device, which is `Bake`'s rule for its own compile: a project with no
+            // layered material to bind onto has none on any host, and answering that with a message
+            // about the window not being up is what asking the other way round produces. The
+            // sentence is `ProjectMaterialBaker`'s rather than a second copy of it, because the
+            // write refuses on the same question at the end whatever this says here.
+            if (new ProjectMaterialBaker(document.Project, folder).Unbindable(names[index]) is { } missing) {
+                outcomes.Add(new(null, "Nothing baked: " + missing));
+
+                continue;
+            }
+
             if (graphics.Device is not { } device) {
                 outcomes.Add(Said("nothing baked: " + TexturePreview.Describe(TexturePreview.Blocking(graphics))));
 

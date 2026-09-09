@@ -154,8 +154,13 @@ public sealed class MaterialSplatTests {
         Assert.Empty(MaterialMapNaming.Packed(MaterialMapTarget.Splat));
 
         var every = MaterialMapNaming.Every.ToDictionary(usage => usage, _ => Everywhere());
+        var written = MaterialBake.Encode(every);
 
-        Assert.DoesNotContain(MaterialBake.Encode(every), image => image.Target == MaterialMapTarget.Splat);
+        // ⚠ The instrument first: `DoesNotContain` is true of an empty list, so an `Encode` that
+        // stopped producing anything would satisfy the assertion below while proving nothing. Every
+        // target but the splat map is written when every usage is supplied.
+        Assert.Equal(MaterialMapNaming.EveryTarget.Count - 1, written.Count);
+        Assert.DoesNotContain(written, image => image.Target == MaterialMapTarget.Splat);
         Assert.DoesNotContain(MaterialMapNaming.Every, usage => MaterialMapNaming.TargetOf(usage) is
             MaterialMapTarget.Splat);
     }
