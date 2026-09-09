@@ -259,10 +259,12 @@ sealed class ThumbnailCache : IDisposable {
 
     /// <summary>Forgets what was refused, because something new may now be able to draw it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Only the refusals, and never what is already drawn.</b> A picture that has been
-    ///     uploaded is a texture the grid is drawing this frame; dropping it here would release an
-    ///     image number a tile still holds. What a new contributor changes is the answer for the
-    ///     files that had none.
+    ///     ⚠ <b>Only the refusals, and never what is already drawn.</b> A new contributor changes the
+    ///     answer for the files that had <em>none</em>; a picture that has been uploaded is still the
+    ///     right picture of its file, so dropping it would be a re-decode of every asset on screen
+    ///     for nothing. ⚠ <b>That is a statement about this event and not about releasing in
+    ///     general</b> — <see cref="Forget()" /> does release what is drawn, because a file that
+    ///     changed on disk makes the picture wrong rather than merely older.
     /// </remarks>
     void Reconsider(Type kind) {
         if (kind != typeof(AssetPreview) || refused.Count == 0) {
@@ -287,12 +289,12 @@ sealed class ThumbnailCache : IDisposable {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Everything rather than one asset, and that is
-    ///         <c>EditorApplication.FollowDisk</c>'s own argument rather than laziness.</b> The two
-    ///         callers — a rescan the watcher asked for and one a person asked for — know
-    ///         <em>whether</em> the project changed and deliberately not what: resolving a watched
-    ///         path back to an asset here would be a second, worse copy of the arithmetic
-    ///         <c>ExternalEdits</c> already owns, and an overflow has no paths to resolve at all. A
-    ///         per-asset verb with no caller would be worse than this.
+    ///         <c>EditorApplication.FollowDisk</c>'s own argument rather than laziness.</b> The three
+    ///         callers — the watcher's drain, <c>assets.refresh</c> and the frame-thread half of a
+    ///         finished import — know <em>whether</em> the project changed and deliberately not what:
+    ///         resolving a watched path back to an asset here would be a second, worse copy of the
+    ///         arithmetic <c>ExternalEdits</c> already owns, and an overflow has no paths to resolve
+    ///         at all. A per-asset verb with no caller would be worse than this.
     ///     </para>
     ///     <para>
     ///         <b>The refusals go too.</b> A file that could not be decoded is exactly a file

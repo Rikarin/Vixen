@@ -357,7 +357,15 @@ public sealed class LodRenderFeature : SubRenderFeature, IDrawSubFeature {
                 measured.Add(member.Group);
             }
 
-            heights[member.Group] = Height(candidate.Bounds, view);
+            var height = Height(candidate.Bounds, view);
+
+            // ⚠ Never NaN, because NaN is what marks a group as not yet measured. `Height` cannot
+            // produce one from finite bounds, and a mesh whose bounds had gone bad would otherwise
+            // put its group in the list twice — bringing back exactly the double advance this walk
+            // was rearranged to stop, in the one case nobody would think to look at. Zero is what a
+            // NaN already chose anyway: no threshold compares true against it, so both take the
+            // coarsest level.
+            heights[member.Group] = float.IsNaN(height) ? 0f : height;
         }
 
         // One advance per (group, view) pair, which is what a transition belongs to. A group with no
