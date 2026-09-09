@@ -363,6 +363,15 @@ send whatever it drives into the next county.
 ⚠ **The value axis points up.** It is the one place in an interface where the mathematical
 convention wins, because a graph with its value axis upside down is unreadable.
 
+⚠ **A secondary press pans, and it marks the event handled.** Middle and right are the same gesture
+here — a graph is a thing you move around, and reserving the right button for a menu would leave
+panning to a modifier nobody discovers. `Pointed` marks every press handled and `Begin` captures the
+pointer for the pan — so a `ContextMenu` attached to this control is competing with a gesture that has
+already claimed the button, and the surface for a menu over a curve has to be a control *beside* the
+graph. That is why the editor's curve presets reach the inspector's rows and not the three asset
+editors that build a `CurveEditor` directly — see
+[#1148](https://github.com/Rikarin/Vixen/issues/1148).
+
 ### GradientEditor
 
 Two rails of stops, a sampled bar, three interpolation spaces and a picker beside the selection.
