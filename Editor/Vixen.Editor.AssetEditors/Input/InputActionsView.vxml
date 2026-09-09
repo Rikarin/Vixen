@@ -69,7 +69,14 @@
 @using Vixen.Ui.Controls.Advanced
 @using Vixen.Ui.Reactive
 
-<self on:keydown.capture.handled="@((KeyEvent e) => Keyed(e))" />
+<!--
+    ⚠ `keyup` as well as `keydown`, and it is load-bearing rather than symmetry: `Keydown_and_keyup
+    split one event on its action`, so a release never reaches a `keydown` handler. A modifier let
+    go on its own is how the mode records a binding of the modifier itself, and without this line
+    that arm is unreachable — the shape of #468's own bug, one level up.
+-->
+<self on:keydown.capture.handled="@((KeyEvent e) => Keyed(e))"
+      on:keyup.capture.handled="@((KeyEvent e) => Keyed(e))" />
 
 <input-bar>
     <Button ref="@AddMap" Label="Add Map" Size="Small" Variant="Subtle" />
@@ -119,6 +126,16 @@
 
     InputActionsDocument? document;
     InputRow selected;
+
+    /// <summary>The modifier keys held since Listen mode was entered, in the order they went down.</summary>
+    readonly List<InputKey> held = [];
+
+    /// <summary>Whether anything has been pressed under those modifiers.</summary>
+    /// <remarks>
+    ///     What tells "Shift, let go" — a binding of Shift — from "Shift+S, let go of Shift", which
+    ///     is already recorded and must not record a second time on the way up.
+    /// </remarks>
+    bool chorded;
 
     /// <inheritdoc />
     protected override bool AcceptsFocus => true;
@@ -529,12 +546,39 @@
     /// <summary>Records the pressed control, on the capture leg and ahead of the dispatcher.</summary>
     /// <param name="args">The key press.</param>
     /// <remarks>
-    ///     ⚠ <b><c>handled</c> is why the binding above carries the modifier.</b> Without it,
-    ///     pressing S to bind S would run whatever S is bound to in the editor and this would never
-    ///     see the key — the dispatcher is on the document and gets there first.
+    ///     <para>
+    ///         ⚠ <b><c>handled</c> is why the binding above carries the modifier.</b> Without it,
+    ///         pressing S to bind S would run whatever S is bound to in the editor and this would
+    ///         never see the key — the dispatcher is on the document and gets there first.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A modifier key going down is not a recording, and until this landed it was.</b>
+    ///         Holding Control produces a <see cref="KeyEvent" /> whose key <i>is</i> Control —
+    ///         <c>KeyChord.Of</c>'s remarks say so and this file did not act on it — so an author
+    ///         pressing Ctrl+S in Listen mode bound <c>&lt;Keyboard&gt;/leftCtrl</c> and dropped
+    ///         out of the mode before S was ever pressed. A chord could not be recorded at all
+    ///         ([#468](https://github.com/Rikarin/Vixen/issues/468)).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is why a bare modifier is recorded on <i>release</i> instead.</b> Binding
+    ///         sprint to Shift is a real binding and refusing modifier keys outright would take it
+    ///         away; a modifier let go with nothing pressed underneath is unambiguously the author
+    ///         asking for the modifier itself.
+    ///     </para>
     /// </remarks>
     void Keyed(KeyEvent args) {
-        if (!IsListening || args.Action != KeyAction.Pressed) {
+        if (!IsListening) {
+            // Leaving the mode — by Escape, by the toggle, or by moving the selection — forgets what
+            // was being held, so a chord cannot be assembled out of two separate visits.
+            held.Clear();
+            chorded = false;
+
+            return;
+        }
+
+        if (args.Action != KeyAction.Pressed) {
+            Released(args);
+
             return;
         }
 
@@ -542,14 +586,159 @@
         // capture with no way out is one whoever started it cannot stop.
         if (args.Key == InputKey.Escape) {
             Listen.IsChecked = false;
+            held.Clear();
+            chorded = false;
             args.Handled = true;
 
             return;
         }
 
-        Record(InputControlPath.Format(InputControl.Key(args.Key)));
+        if (Modifier(args.Key)) {
+            if (!held.Contains(args.Key)) {
+                held.Add(args.Key);
+            }
+
+            args.Handled = true;
+
+            return;
+        }
+
+        chorded = held.Count > 0 || args.Modifiers != ModifierKeys.None;
+
+        if (chorded) {
+            Chord(args);
+        } else {
+            Record(InputControlPath.Format(InputControl.Key(args.Key)));
+        }
+
         args.Handled = true;
     }
+
+    /// <summary>A modifier coming up with nothing pressed underneath binds the modifier itself.</summary>
+    void Released(KeyEvent args) {
+        if (!Modifier(args.Key) || !held.Remove(args.Key)) {
+            return;
+        }
+
+        if (held.Count == 0 && !chorded) {
+            Record(InputControlPath.Format(InputControl.Key(args.Key)));
+            args.Handled = true;
+        }
+
+        if (held.Count == 0) {
+            chorded = false;
+        }
+    }
+
+    /// <summary>Whether a key is one of the eight that only ever qualify another.</summary>
+    static bool Modifier(InputKey key) =>
+        key is InputKey.LeftControl or InputKey.RightControl
+            or InputKey.LeftShift or InputKey.RightShift
+            or InputKey.LeftAlt or InputKey.RightAlt
+            or InputKey.LeftMeta or InputKey.RightMeta;
+
+    /// <summary>Records a chord as the composite it is.</summary>
+    /// <param name="args">The key press, whose modifiers are the ones held.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A chord is not a path, so this cannot be a longer string.</b>
+    ///         <see cref="InputControl" /> is one device and one code and
+    ///         <see cref="InputControlPath.TryParse" /> refuses anything that is not one
+    ///         <c>&lt;Device&gt;/control</c>. A modifier is a <i>composite part</i> —
+    ///         <see cref="InputCompositeKind.ButtonWithModifiers" />, whose parts are named
+    ///         <c>modifier</c> and <c>button</c> — which the reader, the writer and
+    ///         <c>InputBinding.ReadComposite</c> have all understood since the format was written.
+    ///         Nothing here changes the format; what was missing was the decision to build one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <i>physical</i> keys held, not the sides <c>ModifierKeys</c> cannot tell
+    ///         apart.</b> <c>KeyEvent.Modifiers</c> says "either Control", and a part has to name one
+    ///         control — so the keys seen going down are used, and only a mode entered with a
+    ///         modifier already down falls back to the left-hand key.
+    ///     </para>
+    /// </remarks>
+    void Chord(KeyEvent args) {
+        if (document is not { } asset || selected.Binding < 0) {
+            return;
+        }
+
+        if (asset.Actions.Maps.FirstOrDefault(map => string.Equals(map.Name, selected.Map, StringComparison.Ordinal))
+                is not { } found
+            || found.Actions.FirstOrDefault(entry => string.Equals(entry.Name, selected.Action, StringComparison.Ordinal))
+                is not { } action
+            || selected.Binding >= action.Bindings.Count) {
+            return;
+        }
+
+        var button = InputControlPath.Format(InputControl.Key(args.Key));
+        var binding = action.Bindings[selected.Binding];
+
+        // ⚠ A part is one control, so a chord cannot fill one — an Axis1D's `negative` has nowhere
+        // to put Control. The button still goes in, because binding WASD with a stray Shift held
+        // must not do nothing; what changes is that the drop is stated rather than silent.
+        if (binding.Composite is not (InputCompositeKind.None or InputCompositeKind.ButtonWithModifiers)) {
+            reported.Value = [
+                .. reported.Value,
+                new Note(
+                    "listen",
+                    $"A part of a {binding.Composite} composite is one control, so the modifiers held with "
+                    + $"{button} were not recorded. Bind the chord on a binding of its own."
+                )
+            ];
+
+            Record(button);
+
+            return;
+        }
+
+        List<InputBindingPartData> parts = [];
+
+        foreach (var modifier in Chorded(args.Modifiers)) {
+            parts.Add(new("modifier", InputControlPath.Format(InputControl.Key(modifier))));
+        }
+
+        parts.Add(new("button", button));
+
+        asset.SetBinding(
+            "Bind Chord",
+            found.Name,
+            action.Name,
+            selected.Binding,
+            binding with {
+                // Empty, because a composite's value comes from its parts and a path beside them
+                // would be a second answer to what this binding reads.
+                Path = string.Empty,
+                Composite = InputCompositeKind.ButtonWithModifiers,
+                Parts = parts
+            }
+        );
+
+        Listen.IsChecked = false;
+        held.Clear();
+        chorded = false;
+    }
+
+    /// <summary>The modifier keys a chord is qualified by, in a fixed order.</summary>
+    /// <param name="modifiers">What the event says was held.</param>
+    /// <returns>One key per modifier, preferring the one actually seen going down.</returns>
+    IEnumerable<InputKey> Chorded(ModifierKeys modifiers) {
+        // Fixed rather than press order, so Ctrl+Shift+S and Shift+Ctrl+S are the same binding and
+        // a diff of the asset does not depend on which hand moved first.
+        foreach (var (flag, left, right) in Pairs) {
+            if ((modifiers & flag) == 0 && !held.Contains(left) && !held.Contains(right)) {
+                continue;
+            }
+
+            yield return held.Contains(right) && !held.Contains(left) ? right : left;
+        }
+    }
+
+    static readonly (ModifierKeys Flag, InputKey Left, InputKey Right)[] Pairs = [
+        (ModifierKeys.Control, InputKey.LeftControl, InputKey.RightControl),
+        (ModifierKeys.Shift, InputKey.LeftShift, InputKey.RightShift),
+        (ModifierKeys.Alt, InputKey.LeftAlt, InputKey.RightAlt),
+        (ModifierKeys.Meta, InputKey.LeftMeta, InputKey.RightMeta)
+    ];
 
     /// <summary>Writes a recorded path into whatever is selected, and leaves the mode.</summary>
     /// <param name="path">The control's path.</param>
