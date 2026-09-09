@@ -2350,6 +2350,7 @@ T:Vixen.Platform.IWindow sweep-pending
 T:Vixen.Platform.Key sweep-pending
 T:Vixen.Platform.KeyModifierExtensions sweep-pending
 T:Vixen.Platform.KeyModifiers sweep-pending
+T:Vixen.Platform.Linux.LinuxAccent	the accent read that fills --accent; documented on IPlatform.Accent and on SystemAccent, beside LinuxAppearance for the same reason
 T:Vixen.Platform.Linux.LinuxAppearance	the three appearance sources are documented together on IPlatform.ColorScheme
 T:Vixen.Platform.Linux.LinuxClipboard sweep-pending
 T:Vixen.Platform.Linux.LinuxDialogs sweep-pending
@@ -2396,6 +2397,7 @@ T:Vixen.Platform.Ui.PlatformUiWindow sweep-pending
 T:Vixen.Platform.Ui.PlatformWindowHost sweep-pending
 T:Vixen.Platform.WindowMode sweep-pending
 T:Vixen.Platform.WindowOptions sweep-pending
+T:Vixen.Platform.Windows.WindowsAccent	the accent read that fills --accent; documented on IPlatform.Accent and on SystemAccent, beside WindowsAppearance for the same reason
 T:Vixen.Platform.Windows.WindowsAppearance	the three appearance sources are documented together on IPlatform.ColorScheme
 T:Vixen.Platform.Windows.WindowsClipboard sweep-pending
 T:Vixen.Platform.Windows.WindowsDialogs sweep-pending

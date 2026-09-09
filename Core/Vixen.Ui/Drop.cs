@@ -22,12 +22,20 @@ namespace Vixen.Ui;
 ///         in the same line of code.
 ///     </para>
 ///     <para>
-///         ⚠ <b>One event per file, and a five-file drop is five of them.</b> SDL 2 posts an
-///         <c>SDL_DROPFILE</c> per path with no coordinates and brackets a group with
-///         <c>SDL_DROPBEGIN</c>/<c>SDL_DROPCOMPLETE</c>, which the desktop backend does not yet
-///         forward — so a handler that creates a document per drop creates five. <see cref="Files" />
-///         is a list rather than a string because that is the shape the grouping will arrive in and
-///         not because anything fills it with more than one today.
+///         <b>A five-file drop is one event with five <see cref="Files" />.</b> The platforms do not
+///         hand it over that way — SDL 2 posts an <c>SDL_DROPFILE</c> per path with no coordinates,
+///         and the browser posts one per name — so the grouping is reconstructed from the brackets
+///         SDL puts round a run (<c>SDL_DROPBEGIN</c>/<c>SDL_DROPCOMPLETE</c>, mirrored on the web)
+///         and coalesced in <c>PlatformInput</c>. ⚠ <b>Until that landed a handler that created a
+///         document per drop created five for one gesture</b>, and it was invisible because five
+///         windows is what a user who dragged five files half expects.
+///     </para>
+///     <para>
+///         ⚠ <b>A single-file drop from a backend with no brackets is still one event with one
+///         file, and that is the arrangement rather than an accident.</b> The coalescing only ever
+///         starts when a group is opened, so a platform that cannot bracket loses nothing — which is
+///         the opposite of the failure a delivery deferred to <c>DropComplete</c> unconditionally
+///         would have had, where a backend that never sends one delivers no drops at all.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Not routed to a captured element.</b> Everything else positional consults

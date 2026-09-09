@@ -225,7 +225,33 @@ back. That is a **wire change** and stays one at HEAD:
   counters and sending them.
 - `SystemMessage` is the first byte of every packet and its numbers *are* the wire format, so both a
   new `LinkReport` value and a lengthened `Pong` — which already runs at `PingInterval`, one second,
-  which is the cadence the panel differences at anyway — mean a `ProtocolVersion` bump.
+  which is the cadence the panel differences at anyway — were recorded here as meaning a
+  `ProtocolVersion` bump. ⚠ **Both halves of that are wrong, and the correction is what makes this
+  smaller than it reads.** See below.
+
+⚠ **There is no engine protocol version to bump.** The only one is `SessionOptions.ProtocolVersion`
+(`Core/Vixen.Net/Sessions/SessionOptions.cs:44`), which defaults to `1` and is documented as *"the
+version of the wire protocol **and of the game's own messages**"* — a number the host sets and the
+handshake compares. Bumping it is not something the engine can do on a game's behalf, so "this needs a
+version bump" is advice to every game that upgrades, and a game that does not take it gets a
+new-engine server talking to an old-engine client under the same declared number. The wire shape has
+to be chosen so that no bump is needed, and the tree says which one that is:
+
+⚠ **A new `SystemMessage` value is already compatible in both directions, by construction.** Both
+dispatch switches end in a `default:` that drops an unknown message without comment —
+`NetworkSession.cs:534-537` on the server (*"a message only a server sends… neither is something a
+client of ours does"*) and `:595-596` on the client — so a `LinkReport` sent to a peer that has never
+heard of it is ignored, and the only thing lost is the measurement.
+
+⚠ **Lengthening `Pong` is the shape that breaks, and it breaks silently as clock drift.** The client's
+`Pong` arm (`NetworkSession.cs:575-585`) reads its fields in one `&&` chain and calls
+`Clock.Synchronize` inside it. `PacketReader` never throws and its first failure is sticky, so a
+lengthened read of an *older* peer's `Pong` fails the chain — and what is lost is not the new counters
+but the tick synchronisation, on a path where the symptom is interpolation drifting rather than
+anything reporting an error. It could be written safely, by reading the addition after the existing
+chain and treating its absence as "the peer is older", but that is a discipline rather than a
+property, and the new-value shape needs no discipline at all.
+
 - ⚠ And it cannot land inside `TransportLoss`. "What the peer says it missed of what I sent" is a
   fifth measurement, taken by different evidence from all four of those, and folding it in beside
   `Retransmitted` is exactly the conflation that struct's remarks refuse.
@@ -237,11 +263,18 @@ Ownership, interest sets and a live RPC log
 `BandwidthLedger` or `SnapshotInspector` can answer, which is true — but they are not the only models
 in `Vixen.Net`, and the three turn out to need very different things:
 
-- ⚠ **Ownership needs no new surface at all.** `NetworkOwnership` (`Core/Vixen.Net/Rpc/`) already has
-  `Count`, an `OwnerChanged` event, `TryGetOwner` and `OwnedBy(PlayerId, List<NetworkId>)`, and
-  `RpcRouter.Ownership` publishes the instance. What is missing is the *pointer* — a
-  `DiagnosticsModule` property beside `NetworkLedger` and `NetworkRegistry`, set the same way — which
-  makes this the cheapest of the three and not a design question.
+- ⚠ **Ownership needs a *pointer and one accessor*, and the claim above it that it needs no new
+  surface at all is wrong.** `NetworkOwnership` (`Core/Vixen.Net/Rpc/NetworkOwnership.cs`) has
+  `Count`, an `OwnerChanged` event, `TryGetOwner`, `IsOwnedBy`, `OwnedBy(PlayerId, List<NetworkId>)`
+  and `TransferAll`, and `RpcRouter.Ownership` publishes the instance — but **the map cannot be
+  enumerated**. There is no indexer over the pairs and no "every owner" accessor; the only walks of
+  the dictionary are `OwnedBy` and `TransferAll`, both `private`-facing in the sense that both take a
+  player and filter to it. So a table of *id → owner* can only be built by a caller that already has
+  the full roster of `PlayerId`s and asks once per player, and nothing in the debugger has one.
+  ⚠ The distance between "already has the data" and "already exposes it" is exactly the mistake an
+  audit that greps for members rather than for a **caller's question** makes. What is owed is the
+  `DiagnosticsModule` property *and* an `OwnedBy`-shaped accessor over all of them — still much the
+  cheapest of the three, and still not a design question.
 - **Interest sets need a small accessor that does not exist.** `ReplicationServer` keeps
   `Connection.Holding`, the set of ids a connection currently has, but `Connection` is a private
   nested class and `BaselineOf(PlayerId)` is the only per-connection reader. ⚠ The resolver is not the

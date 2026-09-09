@@ -59,6 +59,8 @@ const Kind = {
     displaysChanged: 60,
     dropFile: 80,
     dropText: 81,
+    dropBegin: 82,
+    dropComplete: 83,
 
     // Internal.
     pageHidden: 200,
@@ -711,11 +713,19 @@ function attach(canvas) {
         event.preventDefault();
         const [x, y] = pointInCanvas(event);
 
+        // The browser has the whole list in one event and this used to flatten it into one event
+        // per name, which threw the grouping away that the desktop backend has to reconstruct from
+        // SDL's brackets. Bracketing here is cheap and puts both backends on the same wire, so
+        // PlatformInput coalesces a five-file drop into one DropEvent on the web too.
+        push(Kind.dropBegin, canvas.handle, event.timeStamp, state.modifiers, x, y, 0, 0, 0, 0, 0);
+
         for (const file of event.dataTransfer?.files ?? []) {
             state.droppedFiles.push(file);
             push(Kind.dropFile, canvas.handle, event.timeStamp, state.modifiers,
                 x, y, 0, 0, holdString(file.name), 0, 0);
         }
+
+        push(Kind.dropComplete, canvas.handle, event.timeStamp, state.modifiers, x, y, 0, 0, 0, 0, 0);
 
         const text = event.dataTransfer?.getData("text/plain");
 

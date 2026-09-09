@@ -710,6 +710,23 @@ public sealed unsafe class DesktopPlatform : IPlatform {
 
                 break;
 
+            // ⚠ SDL brackets a group of drops and this discarded the brackets, so five files
+            // selected together arrived as five drops nothing could tell from five drags. The
+            // per-file events are unchanged and still stand on their own; what these add is the
+            // knowledge that a run of them was one gesture, which `PlatformInput` coalesces on.
+            case EventType.Dropbegin or EventType.Dropcomplete:
+                events.Post(
+                    PlatformEvent.Drop(
+                        kind == EventType.Dropbegin ? PlatformEventKind.DropBegin : PlatformEventKind.DropComplete,
+                        sdlEvent->Drop.WindowID,
+                        TimestampOf(sdlEvent->Drop.Timestamp),
+                        string.Empty,
+                        DropPosition(sdlEvent->Drop.WindowID)
+                    )
+                );
+
+                break;
+
             case EventType.Dropfile or EventType.Droptext: {
                 // SDL allocated this string and hands ownership over; not freeing it leaks one path
                 // per dropped file, which is small and permanent.

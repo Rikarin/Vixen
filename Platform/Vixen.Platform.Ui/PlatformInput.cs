@@ -44,6 +44,24 @@ public static class PlatformInput {
     /// </remarks>
     public const float WheelLineHeight = 48f;
 
+    /// <summary>The paths of the drop group currently open, if one is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Static, and that is defensible for exactly the reason a second one would not
+    ///         be.</b> A drop bracket is opened and closed within a single backend pump on the
+    ///         thread that pumps, and <c>Vixen.Ui</c>'s graph is single-threaded by contract, so
+    ///         there is never a second group open at the same time — not even across two windows,
+    ///         because a window system delivers one drag at a time. Keying this by surface would be
+    ///         a map that never held two entries.
+    ///     </para>
+    ///     <para>
+    ///         <see langword="null" /> means no group is open, which is not the same as an open
+    ///         group with nothing in it — a bracket that ends up carrying no files delivers no
+    ///         event, and telling those two apart is what makes that possible.
+    ///     </para>
+    /// </remarks>
+    static List<string>? group;
+
     /// <summary>Tells every one of a document's surfaces what the system's appearance is now.</summary>
     /// <param name="document">The document.</param>
     /// <param name="scheme">What <see cref="IPlatform.ColorScheme" /> says.</param>
@@ -526,7 +544,29 @@ public static class PlatformInput {
             // through the `default` below — so dragging a file onto the window was inert on every
             // platform this engine runs on. As with `TextEditing`, both halves were tested and the
             // join was neither, because a producer with no consumer has nothing to disagree with.
+            // ⚠ <b>And the grouping, which the wire above discarded.</b> Selecting five files in a
+            // file manager and dragging them once is five `DropFile` events, so a handler that
+            // opens a document per drop opened five windows for one gesture. `DropEvent.Files` is a
+            // list precisely because that is the shape a drop arrives in, and nothing ever filled
+            // it with more than one entry.
+            case PlatformEventKind.DropBegin:
+                group = [];
+                return true;
+
             case PlatformEventKind.DropFile:
+                // ⚠ Inside a bracket the file joins the group and nothing is dispatched yet;
+                // outside one it stands on its own exactly as it did before. That is not a
+                // nicety — a backend that produces `DropFile` and no brackets would otherwise
+                // deliver nothing at all, and the failure would be a silent one, because a drop
+                // that does nothing looks the same as a drop nobody handled.
+                if (group is not null) {
+                    group.Add(platformEvent.Text);
+
+                    return true;
+                }
+
+                goto case PlatformEventKind.DropText;
+
             case PlatformEventKind.DropText:
                 document.Dispatch(
                     surface,
@@ -542,6 +582,30 @@ public static class PlatformInput {
                 );
 
                 return true;
+
+            case PlatformEventKind.DropComplete: {
+                var files = group;
+                group = null;
+
+                // A bracket that carried nothing delivers nothing. SDL brackets a drag whose
+                // payload it could not turn into a path, and a `DropEvent` with an empty `Files`
+                // and a null `Text` is a drop of nothing that a handler has no way to refuse.
+                if (files is not { Count: > 0 }) {
+                    return true;
+                }
+
+                document.Dispatch(
+                    surface,
+                    new DropEvent {
+                        X = platformEvent.Position.X,
+                        Y = platformEvent.Position.Y,
+                        Files = files,
+                        Timestamp = when
+                    }
+                );
+
+                return true;
+            }
 
             default:
                 return false;
