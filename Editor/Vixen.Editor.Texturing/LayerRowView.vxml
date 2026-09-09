@@ -1,0 +1,165 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    A layer's own row, as markup — the third half of
+    https://github.com/Rikarin/Vixen/issues/881, after the panel's frame (`LayerStackChrome.vxml`)
+    and the row layout the stylesheet already carries.
+
+    ⚠ **There is no `@for` over the layers anywhere in this port, and that is the finding rather
+    than an omission.** Four slices measured `BuildContext.For` against this panel and stopped: a
+    matched key keeps its region and does not re-run its body, so a row keyed on `LayerAsset.Id`
+    goes stale, and a row keyed on the layer's *value* is torn down under the pointer of the artist
+    dragging the slider that changed it — both written down in `LayerRowKeyTests`. Neither is what
+    blocks the rows, because **the row list is not a projection of a sequence**:
+    `LayerStackView.Build` walks the layer *tree* depth-first, emitting up to four different row
+    kinds per layer — this one, then the fill rows, the filter rows and the mask rows — as flat
+    siblings of one `layer-stack-list`, with nesting shown by `padding-left` rather than by
+    containment. No `@for` produces that, and one `@for` per row kind would produce four
+    interleaved regions where the walk needs one order. So the rows become markup one *component*
+    per row kind, instantiated by the walk that already knows the order, and the key question does
+    not arise.
+
+    ⚠ **`@inherits Vixen.Ui.UiElement` and `@tag layer-stack-row`, so this file adds no element** —
+    `LayerStackChrome`'s reason exactly. `rows.Add<LayerRowView>()` stands where
+    `rows.Add("layer-stack-row")` stood, as the same direct child of `layer-stack-list`, so
+    `TexturingTheme.vcss`'s `layer-stack-row { display: flex; flex-direction: row }` reaches it and
+    the `padding-left` the walk writes still lands on the same element.
+
+    ⚠ **The values are still written by `LayerStackView`'s `bindings` list and not bound here, and
+    that is a deliberate refusal.** A markup binding is an `Effect`, and an effect never runs on the
+    write; `LayerStackView.Present` calls `Restate()` — which re-reads every row from the document —
+    *before* `Show` drains the queue, and six test files read this panel's tree synchronously after
+    `Show` returns. Binding the row's values here would move each of them one flush later for no
+    gain: `bindings` + `Restate` is already a live model, hand-written — one closure per row, re-run
+    on every refresh, over elements whose identity never changes. What markup buys this row is the
+    *shape*: nine controls declared instead of nine `row.Add<T>(null, null, "class")` calls, the
+    conditional refusal as an `@if` instead of a branch, and the per-channel ticks as a loop.
+
+    ⚠ **The two regions here — the `@if` and the `@for` — are why `Build` drains the queue before it
+    restates.** A `ref` inside a region does not exist until the region's effect has run, so
+    `Restate` reading `Ticks` before the flush would find an empty list and every channel tick would
+    be a box that never says what the layer writes. That is the one ordering this port introduces,
+    and `LayerStackEditingTests`' channel cases are what hold it.
+-->
+@component LayerRowView
+@namespace Vixen.Editor.Texturing
+@inherits Vixen.Ui.UiElement
+@tag layer-stack-row
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+
+<!--
+    ⚠ First on the row and a button rather than a click on the row itself. Every other control here
+    marks its own pointer events handled, so a row-wide handler would have to be on the capture leg
+    and would then swallow the press that was aimed at a tick box — the trap `PaintUvView`'s own
+    handler documents, in the direction that breaks the rest of the panel.
+-->
+<Button ref="@Choose" class="layer-stack-select" />
+
+<!--
+    ⚠ The same tag an ambiguous row's sentence uses, because it is the same kind of thing in the
+    same place — a control that is not there, and why. Absent rather than empty, because
+    `LayerStackPanelTests` reads the row's children to say what the panel refused.
+-->
+@if (!Named) {
+    <layer-stack-row-refusal use="@(refusal => refusal.Text = LayerStackView.Unnamed)" />
+}
+
+<!--
+    ⚠ Up is +1 in the file's order. `TextureSetAsset.Layers` is bottom first and this panel draws it
+    topmost first, so the button an artist reads as "over the one above it" is the one that moves
+    the layer *later* in the composite. Getting this backwards is invisible on a one-layer stack and
+    silent on two identical ones, which is why the test that covers it compares compiled plans.
+-->
+<Button ref="@Up" class="layer-stack-move-up" Label="Move up" />
+<Button ref="@Down" class="layer-stack-move-down" Label="Move down" />
+
+<!--
+    ⚠ On the row and never disabled, the last layer included. A stack with no layers compiles — every
+    channel is its own default — so "you may not delete this one" would be a rule with nothing behind
+    it, and the undo entry is what makes the gesture safe.
+-->
+<Button ref="@Delete" class="layer-stack-delete" Label="Delete" />
+
+<CheckBox ref="@Enabled" class="layer-stack-enabled" Label="Enabled" />
+
+<layer-stack-row-name ref="@Name" />
+
+<Select ref="@Blend" class="layer-stack-blend" />
+<Slider ref="@Opacity" class="layer-stack-opacity" Minimum="0" Maximum="1" />
+
+<layer-stack-channels ref="@ChannelStrip">
+    <!--
+        ⚠ Keyed on the usage, which is a key rather than an index because a set's channels are
+        unique by usage — `LayerAsset.Writes` and `LayerStackView.Restrict` both address a channel by
+        that string and nothing else. ⚠ And the loop is over the channels of the *set*, not over the
+        ones this layer writes: which channels a layer writes is the state of these very ticks, so
+        building only the written ones would rebuild the strip from inside a tick's own handler.
+    -->
+    @for (var usage in Usages) {
+        <CheckBox key="@usage" class="layer-stack-channel" Label="@usage" />
+    }
+</layer-stack-channels>
+
+@code {
+    /// <summary>Whether the layer this row draws has an id, and can therefore be selected.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A plain property and not a <c>Signal</c>, read once by the <c>@if</c>'s effect on the
+    ///     first flush.</b> Whether a layer has an id is <em>structure</em> rather than a value:
+    ///     <c>LayerStackView.Shape</c> carries it, so a layer that gained or lost one has already
+    ///     torn this row down and built another. A signal here would be a reactive edge that can
+    ///     never fire, which is worse than none — it reads as though something watches it.
+    /// </remarks>
+    public bool Named { get; set; } = true;
+
+    /// <summary>The usages of the set's channels, one tick each, in the set's own order.</summary>
+    /// <remarks>
+    ///     Structure for the same reason: <c>Shape</c> lists every channel of the shown set, so a
+    ///     set that gained one rebuilds the rows rather than growing this strip.
+    /// </remarks>
+    public IReadOnlyList<string> Usages { get; set; } = [];
+
+    /// <summary>The button that aims the brush at this layer.</summary>
+    /// <remarks>
+    ///     ⚠ Named for what it does rather than for the control it is, because <c>Select</c> is a
+    ///     control type this file also uses: a member of that name and a type of that name in one
+    ///     class is the <c>CS0118</c> every reader would have to work out afresh.
+    /// </remarks>
+    public Button Choose { get; private set; } = null!;
+
+    /// <summary>Later in the composite.</summary>
+    public Button Up { get; private set; } = null!;
+
+    /// <summary>Earlier in it.</summary>
+    public Button Down { get; private set; } = null!;
+
+    /// <summary>Removes the layer, with an undo entry.</summary>
+    public Button Delete { get; private set; } = null!;
+
+    /// <summary>Whether the layer contributes at all.</summary>
+    public CheckBox Enabled { get; private set; } = null!;
+
+    /// <summary>Where the layer's name, depth marker and selection marker are written.</summary>
+    public UiElement Name { get; private set; } = null!;
+
+    /// <summary>How the layer is combined with what is under it.</summary>
+    public Select Blend { get; private set; } = null!;
+
+    /// <summary>How much of it. The one control an artist can be holding across a refresh.</summary>
+    public Slider Opacity { get; private set; } = null!;
+
+    /// <summary>The box the channel ticks are in.</summary>
+    public UiElement ChannelStrip { get; private set; } = null!;
+
+    /// <summary>The ticks, in the set's channel order — empty until the loop's region has run.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Read off the strip rather than collected by the loop, and it is a method rather than
+    ///     a property so that nobody caches it.</b> A <c>@for</c> body has no <c>ref</c> to give — its
+    ///     rows are regions, made when the effect runs — so the only honest source is the element
+    ///     tree after the flush. Calling this before <c>EffectScheduler.Flush</c> returns an empty
+    ///     list, which is exactly why <c>LayerStackView.Build</c> drains the queue before it restates.
+    /// </remarks>
+    /// <returns>One check box per channel of the set, or nothing if the loop has not run yet.</returns>
+    public List<CheckBox> Ticks() => [.. ChannelStrip.Children.OfType<CheckBox>()];
+}
