@@ -135,7 +135,7 @@ public sealed class MaterialImporter : AssetImporter<MaterialImportSettings> {
         MaterialContent content;
 
         try {
-            content = YamlSerializer.Parse<MaterialContent>(text);
+            content = context.BindYaml<MaterialContent>(text, "a material");
         } catch (Exception failure) when (failure is YamlBindingException or FormatException) {
             // A feature tag this build has never heard of lands here, which is the honest message: the
             // material names something the engine does not have, and no artefact should be written.

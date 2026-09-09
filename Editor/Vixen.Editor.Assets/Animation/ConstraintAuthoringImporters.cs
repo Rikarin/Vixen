@@ -46,7 +46,8 @@ public sealed class PriorityLadderImporter : AssetImporter<PriorityLadderImportS
     ) {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (await ShapeYaml.ReadAsync<PriorityLadderContent>(context, cancellationToken).ConfigureAwait(false)
+        if (await ShapeYaml.ReadAsync<PriorityLadderContent>(context, "a priority ladder", cancellationToken)
+                .ConfigureAwait(false)
             is not { } ladder) {
             return context.Finish();
         }
@@ -119,7 +120,8 @@ public sealed class ConstraintTemplateImporter : AssetImporter<ConstraintTemplat
     ) {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (await ShapeYaml.ReadAsync<ConstraintTemplateContent>(context, cancellationToken).ConfigureAwait(false)
+        if (await ShapeYaml.ReadAsync<ConstraintTemplateContent>(context, "a constraint template", cancellationToken)
+                .ConfigureAwait(false)
             is not { } template) {
             return context.Finish();
         }

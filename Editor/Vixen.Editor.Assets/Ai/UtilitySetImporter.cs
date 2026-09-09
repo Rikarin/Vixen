@@ -62,7 +62,7 @@ public sealed class UtilitySetImporter : AssetImporter<UtilitySetImportSettings>
         UtilitySetContent set;
 
         try {
-            set = YamlSerializer.Parse<UtilitySetContent>(text);
+            set = context.BindYaml<UtilitySetContent>(text, "a utility set");
         } catch (Exception exception) when (exception is YamlBindingException or YamlParseException) {
             context.Report(ImportSeverity.Error, exception.Message);
 

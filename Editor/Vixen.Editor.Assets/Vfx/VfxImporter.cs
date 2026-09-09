@@ -114,7 +114,7 @@ public sealed class VfxImporter : AssetImporter<VfxImportSettings> {
         NodeGraphAsset stored;
 
         try {
-            stored = YamlSerializer.Parse<NodeGraphAsset>(text);
+            stored = context.BindYaml<NodeGraphAsset>(text, "an effect graph");
         } catch (Exception failure) when (failure is YamlParseException or YamlBindingException or FormatException) {
             // Reported rather than thrown, so the run continues and the author gets every broken file
             // in one pass instead of one per build.

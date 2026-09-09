@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.IO;
+using Vixen.Core.Yaml;
 using Vixen.Core.Yaml.Meta;
 
 namespace Vixen.Editor.Assets;
@@ -127,6 +128,51 @@ public sealed class ImportContext {
     public void Report(ImportSeverity severity, string message) {
         ArgumentException.ThrowIfNullOrEmpty(message);
         diagnostics.Add(new(severity, message));
+    }
+
+    /// <summary>Binds a document to the type an importer reads it as, saying so when a key named nothing.</summary>
+    /// <typeparam name="T">What the document is.</typeparam>
+    /// <param name="yaml">The document's text.</param>
+    /// <param name="what">What to call the thing in the warning — <c>a material</c>, <c>a compositor</c>.</param>
+    /// <returns>The bound value.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="yaml" /> is null.</exception>
+    /// <exception cref="YamlBindingException">It is YAML that is not a <typeparamref name="T" />.</exception>
+    /// <exception cref="YamlParseException">It is not YAML.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This exists because <see cref="YamlSerializer.Parse{T}(string, YamlSerializerOptions)" />
+    ///         drops an unknown key unless the caller asks, and eleven importers did not ask.</b>
+    ///         <see cref="YamlSerializerOptions.OnUnknownKey" /> documents that default as deliberate —
+    ///         a project opened in an older editor has to load — and says in its own words that
+    ///         dropping silently is the other failure. For an <em>asset</em> there is no forward
+    ///         compatibility argument to weigh against it: a <c>.vxmat</c> is read by the same build
+    ///         that wrote it, so a key nothing read is a typo and the value the author meant to set is
+    ///         on its default with no diagnostic anywhere.
+    ///     </para>
+    ///     <para>
+    ///         <b>One method rather than one fix per importer, because the defect was one line
+    ///         repeated.</b> Every call site that reads its source as text and binds it goes through
+    ///         here, so an importer added tomorrow is warned about by construction rather than by
+    ///         someone remembering.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A key that names a member the binder cannot write reaches the same callback</b>,
+    ///         which is not a false positive: a get-only member is a key nothing read, which is the
+    ///         thing the warning is about.
+    ///     </para>
+    /// </remarks>
+    public T BindYaml<T>(string yaml, string what) {
+        ArgumentNullException.ThrowIfNull(yaml);
+        ArgumentException.ThrowIfNullOrEmpty(what);
+
+        return YamlSerializer.Parse<T>(yaml, YamlSerializerOptions.Default with { OnUnknownKey = Unknown });
+
+        void Unknown(string key) =>
+            Report(
+                ImportSeverity.Warning,
+                $"'{key}' is not a field of {what}, so nothing read it and whatever it was meant to set is "
+                + "on its default. Check the spelling against the guide for this asset kind."
+            );
     }
 
     /// <summary>Declares a sub-asset and derives its stable id.</summary>

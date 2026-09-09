@@ -67,7 +67,7 @@ public sealed class QueryImporter : AssetImporter<QueryImportSettings> {
         QueryContent query;
 
         try {
-            query = YamlSerializer.Parse<QueryContent>(text);
+            query = context.BindYaml<QueryContent>(text, "a spatial query");
         } catch (Exception exception) when (exception is YamlBindingException or YamlParseException) {
             context.Report(ImportSeverity.Error, exception.Message);
 

@@ -74,7 +74,7 @@ public sealed class DefinitionImporter : AssetImporter<DefinitionImportSettings>
         Definition definition;
 
         try {
-            definition = YamlSerializer.Parse<Definition>(text);
+            definition = context.BindYaml<Definition>(text, "a definition");
         } catch (Exception exception) when (exception is YamlBindingException or YamlParseException) {
             context.Report(ImportSeverity.Error, exception.Message);
 

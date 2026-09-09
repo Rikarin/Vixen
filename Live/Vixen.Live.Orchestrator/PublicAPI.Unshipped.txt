@@ -518,4 +518,4 @@ static Vixen.Live.Orchestration.OrchestratorHost.UseDevelopmentCluster(this Micr
 static Vixen.Live.Orchestration.OrchestratorHost.UseVixenOrchestrator(this Microsoft.Extensions.Hosting.IHostApplicationBuilder builder, Vixen.Live.Orchestration.OrchestratorOptions options) -> Microsoft.Extensions.Hosting.IHostApplicationBuilder
 static Vixen.Live.Orchestration.PlacementDirector.Reject(Vixen.Live.Orchestration.PlacementRequest request, Vixen.Live.Orchestration.ShardCandidate candidate) -> Vixen.Live.Orchestration.PlacementFilter
 static Vixen.Live.Orchestration.PlacementWeights.Default.get -> Vixen.Live.Orchestration.PlacementWeights
-static Vixen.Live.Orchestration.PlacementWeights.Parse(string yaml) -> Vixen.Live.Orchestration.PlacementWeights
+static Vixen.Live.Orchestration.PlacementWeights.Parse(string yaml, System.Action<string>? onUnknownKey = null) -> Vixen.Live.Orchestration.PlacementWeights

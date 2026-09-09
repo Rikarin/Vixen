@@ -88,7 +88,7 @@ public sealed class WaterWavesImporter : AssetImporter<WaterWavesImportSettings>
         WaterWavesAsset waves;
 
         try {
-            waves = YamlSerializer.Parse<WaterWavesAsset>(text);
+            waves = context.BindYaml<WaterWavesAsset>(text, "a water waves asset");
         } catch (Exception exception) when (exception is YamlBindingException or YamlParseException) {
             // Reported rather than thrown, so an author gets every broken file in one pass.
             context.Report(ImportSeverity.Error, exception.Message);

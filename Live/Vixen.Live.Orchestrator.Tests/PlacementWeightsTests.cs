@@ -46,6 +46,48 @@ public sealed class PlacementWeightsTests {
         Assert.Equal(PlacementWeights.Default.AntiFlap, weights.AntiFlap);
     }
 
+    /// <summary>
+    ///     ⚠ A key that names no weight is dropped, and a reader that wants to know can now be told.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Both halves, because the interesting one is the default.</b> A typo'd
+    ///         <c>heathyFill:</c> scores exactly like a file that never mentioned fill, so a
+    ///         <c>.vxplacement</c> of nothing but typos and no <c>.vxplacement</c> at all are the same
+    ///         fleet — which is what makes the silence worth a callback. What it is not worth is a
+    ///         refusal: this is operator config, and a file written for a newer engine has to boot on
+    ///         an older shard mid-upgrade rather than take it down for a spelling.
+    ///     </para>
+    ///     <para>
+    ///         The consequence is asserted alongside the key, so this cannot pass against a reader
+    ///         that reports the key and then binds it anyway.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AKeyThatNamesNoWeightIsReportedWhenTheReaderAsksAndDroppedWhenItDoesNot() {
+        List<string> unknown = [];
+
+        var told = PlacementWeights.Parse("heathyFill: 9\n", unknown.Add);
+
+        Assert.Equal("heathyFill", Assert.Single(unknown));
+        Assert.Equal(PlacementWeights.Default.HealthyFill, told.HealthyFill);
+
+        var quiet = PlacementWeights.Parse("heathyFill: 9\n");
+
+        Assert.Equal(PlacementWeights.Default.HealthyFill, quiet.HealthyFill);
+    }
+
+    /// <summary>And a file that spells every weight right reports none, so the list means something.</summary>
+    [Fact]
+    public void AWellSpelledDocumentReportsNoUnknownKey() {
+        List<string> unknown = [];
+
+        var weights = PlacementWeights.Parse(PlacementWeights.Default.ToYaml(), unknown.Add);
+
+        Assert.Empty(unknown);
+        Assert.Equal(PlacementWeights.Default, weights);
+    }
+
     [Fact]
     public void AGameThatTurnsATermOffTurnsItOff() {
         var weights = PlacementWeights.Parse("party: 0\nfriend: 0\nguildMember: 0\n");

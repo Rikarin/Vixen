@@ -49,7 +49,8 @@ public sealed class ShapeVocabularyImporter : AssetImporter<ShapeVocabularyImpor
     ) {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (await ShapeYaml.ReadAsync<ShapeVocabularyContent>(context, cancellationToken).ConfigureAwait(false)
+        if (await ShapeYaml.ReadAsync<ShapeVocabularyContent>(context, "a shape vocabulary", cancellationToken)
+                .ConfigureAwait(false)
             is not { } vocabulary) {
             return context.Finish();
         }
@@ -109,7 +110,8 @@ public sealed class ProxyShapeSetImporter : AssetImporter<ProxyShapeSetImportSet
     ) {
         ArgumentNullException.ThrowIfNull(context);
 
-        if (await ShapeYaml.ReadAsync<ProxyShapeSetContent>(context, cancellationToken).ConfigureAwait(false)
+        if (await ShapeYaml.ReadAsync<ProxyShapeSetContent>(context, "a proxy shape set", cancellationToken)
+                .ConfigureAwait(false)
             is not { } set) {
             return context.Finish();
         }
@@ -200,6 +202,10 @@ public sealed class ProxyShapeSetImporter : AssetImporter<ProxyShapeSetImportSet
             await using var source = await context.Files.OpenReadAsync(path, cancellationToken).ConfigureAwait(false);
             using var reader = new StreamReader(source);
 
+            // ⚠ Plain `Parse` and not `BindYaml`, deliberately: this is a *cross-read* of another
+            // asset's file for the name check, and that asset's own import already warns about a key
+            // nothing read. Warning here too would put one typo on every set that names the
+            // vocabulary, which is how a warning becomes noise an author learns to scroll past.
             declared = YamlSerializer.Parse<ShapeVocabularyContent>(
                 await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false)
             );
@@ -242,7 +248,11 @@ public sealed class ProxyShapeSetImporter : AssetImporter<ProxyShapeSetImportSet
 
 /// <summary>Reading one of these files, which both do the same way.</summary>
 static class ShapeYaml {
-    public static async ValueTask<T?> ReadAsync<T>(ImportContext context, CancellationToken cancellationToken)
+    public static async ValueTask<T?> ReadAsync<T>(
+        ImportContext context,
+        string what,
+        CancellationToken cancellationToken
+    )
         where T : class, new() {
         string text;
 
@@ -276,7 +286,7 @@ static class ShapeYaml {
         }
 
         try {
-            return YamlSerializer.Parse<T>(text);
+            return context.BindYaml<T>(text, what);
         } catch (Exception failure) when (failure is YamlBindingException or FormatException or NotSupportedException) {
             context.Report(ImportSeverity.Error, failure.Message);
             return null;

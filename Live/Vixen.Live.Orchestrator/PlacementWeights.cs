@@ -95,18 +95,46 @@ public sealed record PlacementWeights {
 
     /// <summary>Reads a <c>.vxplacement</c>.</summary>
     /// <param name="yaml">The document.</param>
+    /// <param name="onUnknownKey">
+    ///     Called with every key that named no weight, or <see langword="null" /> to drop them
+    ///     quietly.
+    /// </param>
     /// <returns>The weights, with anything unnamed left at its default.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="yaml" /> is null.</exception>
     /// <exception cref="YamlParseException">It is not YAML.</exception>
     /// <exception cref="YamlBindingException">It is YAML that is not this.</exception>
     /// <remarks>
-    ///     Boot-time configuration, which is what <c>YamlSerializer</c> is for — every member read
-    ///     boxes, and one allocation per property once per fleet is invisible.
+    ///     <para>
+    ///         Boot-time configuration, which is what <c>YamlSerializer</c> is for — every member read
+    ///         boxes, and one allocation per property once per fleet is invisible.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A key that names no weight is dropped, and unlike an asset importer that default
+    ///         is kept on purpose.</b> Every field here has a legitimate-looking default, so
+    ///         <c>heathyFill:</c> scores exactly like a file that does not mention fill at all — and
+    ///         since a shard scored on <see cref="Default" /> is indistinguishable from one scored on
+    ///         a file of nothing but typos, the silence really does hide the whole failure. What stops
+    ///         this becoming <c>ImportContext.BindYaml</c>'s answer — warn always — is that an
+    ///         <em>asset</em> is read by the build that wrote it and an operator's config
+    ///         is not: a <c>.vxplacement</c> written for a newer engine and fed to an older shard
+    ///         during a rolling upgrade must still boot, and a refusal there takes a fleet down for a
+    ///         spelling.
+    ///     </para>
+    ///     <para>
+    ///         So the decision is <b>warn, at the reader's choice, rather than strict</b>:
+    ///         <paramref name="onUnknownKey" /> is what a tool with somewhere to log — an editor
+    ///         importing the asset, a <c>placement explain</c>, a boot that logs and continues —
+    ///         hands in. Leaving it null is a caller stating that it would rather boot than complain,
+    ///         which is the only position a shard mid-upgrade can take.
+    ///     </para>
     /// </remarks>
-    public static PlacementWeights Parse(string yaml) {
+    public static PlacementWeights Parse(string yaml, Action<string>? onUnknownKey = null) {
         ArgumentNullException.ThrowIfNull(yaml);
 
-        return YamlSerializer.Parse<PlacementWeights>(yaml);
+        return YamlSerializer.Parse<PlacementWeights>(
+            yaml,
+            onUnknownKey is null ? null : YamlSerializerOptions.Default with { OnUnknownKey = onUnknownKey }
+        );
     }
 
     /// <summary>Writes them back, which is what an editor's inspector saves.</summary>
