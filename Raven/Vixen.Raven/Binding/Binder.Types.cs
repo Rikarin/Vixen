@@ -358,10 +358,37 @@ internal abstract partial class Binder {
     ///     constraint names a base or a protocol; an argument that is neither the
     ///     constraint, derived from it, nor an implementer is <c>RVN2096</c>.
     /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The constraint is substituted first, and it was not.</b> A constraint may name
+    ///         another parameter of the same declaration — <c>struct Relay&lt;T, U&gt; where U :
+    ///         Shaded where T : U</c> — and comparing the argument against <c>U</c> <em>as
+    ///         declared</em> asks whether <c>Leaf</c> derives from a type parameter, which nothing
+    ///         does. So every concrete instantiation of such a type was refused, the identity one
+    ///         <c>Relay&lt;Leaf, Leaf&gt;</c> included: a constraint form the parser and the binder
+    ///         both accept, that no program could use.
+    ///     </para>
+    ///     <para>
+    ///         One substitution and not a fixed point, which is enough for a chain
+    ///         (<c>where T : U where U : V</c>) because the map is from a parameter to the
+    ///         <em>argument</em> supplied for it, and an argument is never a parameter of the
+    ///         declaration being constructed except in a recursive construction — where
+    ///         <see cref="SatisfiesConstraint" />'s type-parameter arm answers it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Matched by identity against this declaration's own parameter list rather than by
+    ///         <c>Ordinal</c>. A nested generic's constraint may name the <em>containing</em>
+    ///         type's parameter, whose ordinal indexes a different list entirely — so an ordinal
+    ///         lookup would substitute the wrong argument silently, which is worse than the bug
+    ///         being fixed.
+    ///     </para>
+    /// </remarks>
     void CheckConstraints(NamedTypeSymbol type, IReadOnlyList<TypeSymbol> typeArguments, SyntaxNode syntax) {
         var parameters = type.TypeParameters;
         for (var i = 0; i < typeArguments.Count && i < parameters.Count; i++) {
-            foreach (var constraint in parameters[i].ConstraintTypes) {
+            foreach (var declared in parameters[i].ConstraintTypes) {
+                var constraint = Substitute(declared, parameters, typeArguments);
+
                 if (!SatisfiesConstraint(typeArguments[i], constraint)) {
                     Report(
                         SemanticDiagnostics.TypeArgumentDoesNotSatisfyConstraint,
@@ -374,6 +401,29 @@ internal abstract partial class Binder {
                 }
             }
         }
+    }
+
+    /// <summary>The argument supplied for a constraint that names one of these parameters.</summary>
+    /// <param name="constraint">The constraint as declared.</param>
+    /// <param name="parameters">The declaration's own type parameters.</param>
+    /// <param name="typeArguments">What is being supplied for them.</param>
+    /// <returns>The constraint, with a parameter of this declaration replaced by its argument.</returns>
+    static TypeSymbol Substitute(
+        TypeSymbol constraint,
+        IReadOnlyList<TypeParameterSymbol> parameters,
+        IReadOnlyList<TypeSymbol> typeArguments
+    ) {
+        if (constraint is not TypeParameterSymbol parameter) {
+            return constraint;
+        }
+
+        for (var i = 0; i < parameters.Count && i < typeArguments.Count; i++) {
+            if (ReferenceEquals(parameters[i], parameter)) {
+                return typeArguments[i];
+            }
+        }
+
+        return constraint;
     }
 
     static bool SatisfiesConstraint(TypeSymbol argument, TypeSymbol constraint) {

@@ -2960,11 +2960,12 @@ public class NegativeDiagnosticTests {
     ///         would have started refusing a program the language accepts.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What it cannot do yet is be instantiated</b>, which is
-    ///         <see href="https://github.com/Rikarin/Vixen/issues/1055">#1055</see>:
-    ///         <c>Relay&lt;Leaf, Leaf&gt;</c> is refused, because <c>CheckConstraints</c> compares
+    ///         ⚠ <b>It can be instantiated now, and could not when this fixture was written.</b>
+    ///         <c>Relay&lt;Leaf, Leaf&gt;</c> was <c>RVN2096</c> — <c>CheckConstraints</c> compared
     ///         the argument against the parameter's constraint <em>as declared</em> and never
-    ///         substitutes the argument given for <c>U</c>. That is why nothing here constructs one.
+    ///         substituted the argument given for <c>U</c>, so every concrete instantiation of such
+    ///         a type was refused, the identity one included. That is why nothing here constructs
+    ///         one; <c>ModifierAndConstraintTests</c> now does, both ways round.
     ///     </para>
     /// </remarks>
     [Fact]
