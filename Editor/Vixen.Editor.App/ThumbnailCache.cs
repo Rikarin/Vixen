@@ -119,12 +119,29 @@ sealed class ThumbnailCache : IDisposable {
     /// <summary>Raised on the frame thread when a picture became available.</summary>
     public event Action? Changed;
 
+    /// <summary>What has been contributed, or <see langword="null" /> when nothing can be.</summary>
+    readonly IEditorRegistry? extensions;
+
     /// <summary>Builds a cache over a project.</summary>
     /// <param name="project">Where the files are.</param>
-    public ThumbnailCache(EditorProject project) {
+    /// <param name="extensions">Where doc 36 § D4's <c>AddPreview</c> contributions are, if any.</param>
+    /// <remarks>
+    ///     ⚠ <b>The registry is subscribed to and not merely read.</b> A plugin activating three
+    ///     seconds after start-up is always after the grid has already asked about, and refused, every
+    ///     file of the kind it draws — <see cref="refused" /> is permanent by design, so without the
+    ///     subscription the plugin's own asset type would show type glyphs until the editor was
+    ///     restarted. This is the same failure <c>RefreshOverlays</c> and <c>RefreshSettingsPages</c>
+    ///     exist to avoid, arriving for a kind whose consumer is a cache rather than a window.
+    /// </remarks>
+    public ThumbnailCache(EditorProject project, IEditorRegistry? extensions = null) {
         ArgumentNullException.ThrowIfNull(project);
 
         this.project = project;
+        this.extensions = extensions;
+
+        if (extensions is not null) {
+            extensions.Changed += Reconsider;
+        }
     }
 
     /// <summary>What can upload, or <see langword="null" /> for a headless editor.</summary>
@@ -222,9 +239,29 @@ sealed class ThumbnailCache : IDisposable {
         }
     }
 
+    /// <summary>Forgets what was refused, because something new may now be able to draw it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only the refusals, and never what is already drawn.</b> A picture that has been
+    ///     uploaded is a texture the grid is drawing this frame; dropping it here would release an
+    ///     image number a tile still holds. What a new contributor changes is the answer for the
+    ///     files that had none.
+    /// </remarks>
+    void Reconsider(Type kind) {
+        if (kind != typeof(AssetPreview) || refused.Count == 0) {
+            return;
+        }
+
+        refused.Clear();
+        Changed?.Invoke();
+    }
+
     /// <inheritdoc />
     public void Dispose() {
         closed = true;
+
+        if (extensions is not null) {
+            extensions.Changed -= Reconsider;
+        }
 
         if (Surface is { } surface) {
             foreach (var image in ready.Values) {
@@ -250,7 +287,12 @@ sealed class ThumbnailCache : IDisposable {
 
         var extension = Path.GetExtension(entry.Path);
 
-        if (ImageDecoders.For(ImageDecoders.BuiltIn, extension) is null) {
+        // ⚠ Resolved here, on the frame thread, and captured — see `AssetPreview`. The delegate
+        // belongs to a plugin that can be unloaded, so a task that read the registry when it got
+        // round to decoding could be reading a list that has since lost the entry it wanted.
+        var preview = Preview(extension);
+
+        if (preview is null && ImageDecoders.For(ImageDecoders.BuiltIn, extension) is null) {
             pending.Remove(asset);
             refused.Add(asset);
 
@@ -262,8 +304,20 @@ sealed class ThumbnailCache : IDisposable {
         // ⚠ Long-running is not asked for and would be wrong: these are short, there are many, and
         // the pool's own scheduling is what keeps a folder of two hundred from starting two hundred
         // threads.
-        _ = Task.Run(() => finished.Enqueue(Decode(asset, path, extension)));
+        _ = Task.Run(() => finished.Enqueue(Decode(asset, path, extension, preview)));
     }
+
+    /// <summary>Which contributed preview claims an extension, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     Ordered rather than first-found, so that two plugins claiming one extension is a settled
+    ///     question rather than a race between load orders. <c>OrderBy</c> is stable, which is what
+    ///     makes the tie-break "whoever registered first".
+    /// </remarks>
+    AssetPreview? Preview(string extension) =>
+        extensions?.All<AssetPreview>()
+            .Where(preview => string.Equals(preview.Extension, extension, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(static preview => preview.Order)
+            .FirstOrDefault();
 
     /// <summary>Reads a file and reduces it to a thumbnail, off the frame thread.</summary>
     /// <remarks>
@@ -272,8 +326,15 @@ sealed class ThumbnailCache : IDisposable {
     ///     them are ordinary, all of them arrive here, and a background task that threw would take
     ///     the editor down from a thread nobody was watching.
     /// </remarks>
-    static Decoded Decode(AssetId asset, string path, string extension) {
+    static Decoded Decode(AssetId asset, string path, string extension, AssetPreview? preview) {
         try {
+            // ⚠ Before the built-in decoders, not after. A registry consulted only where
+            // `ImageDecoders` gave up could never answer for an extension a decoder also claims,
+            // which is precisely what a plugin owning its own image-shaped format needs.
+            if (preview is not null) {
+                return Contributed(asset, path, preview);
+            }
+
             if (ImageDecoders.For(ImageDecoders.BuiltIn, extension) is not { } decoder) {
                 return new Decoded(asset, 0, 0, null);
             }
@@ -298,6 +359,25 @@ sealed class ThumbnailCache : IDisposable {
         }
     }
 
+    /// <summary>Asks a contributed preview for a picture, and survives it however it behaves.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Every exception, not the five ordinary ones.</b> The list <see cref="Decode" /> filters
+    ///     on is what <i>this</i> code and the built-in decoders can raise; what a plugin's delegate
+    ///     raises is unbounded, and this runs on a pool thread nobody is watching, so an unfiltered
+    ///     one would take the editor down with a stack in somebody else's assembly. A plugin must not
+    ///     be able to break the shell with a bad file — the same rule that makes a colliding settings
+    ///     page a skipped page rather than a throw.
+    /// </remarks>
+    static Decoded Contributed(AssetId asset, string path, AssetPreview preview) {
+        try {
+            return preview.Render(path) is { Rgba.Length: > 0 } drawn && drawn.Width > 0 && drawn.Height > 0
+                ? Reduce(asset, drawn.Width, drawn.Height, drawn.Rgba)
+                : new Decoded(asset, 0, 0, null);
+        } catch (Exception) {
+            return new Decoded(asset, 0, 0, null);
+        }
+    }
+
     /// <summary>Box-filters a decoded image down to a square thumbnail.</summary>
     /// <remarks>
     ///     <para>
@@ -313,28 +393,36 @@ sealed class ThumbnailCache : IDisposable {
     ///         to check.
     ///     </para>
     /// </remarks>
-    static Decoded Reduce(AssetId asset, TextureData texture) {
-        var source = texture.Level(0);
+    static Decoded Reduce(AssetId asset, TextureData texture) =>
+        Reduce(asset, texture.Width, texture.Height, texture.Level(0));
 
-        var scale = Math.Min((float) Size / texture.Width, (float) Size / texture.Height);
-        var width = Math.Max(1, (int) (texture.Width * scale));
-        var height = Math.Max(1, (int) (texture.Height * scale));
+    /// <summary>The same reduction over pixels a contributor supplied rather than a decoder.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One filter for both sources, and that is the point of the split.</b> A contributed
+    ///     preview that reduced its own picture would be a second box filter to get wrong, and the way
+    ///     that shows up is one plugin's thumbnails being soft or aliased against everything else in
+    ///     the same grid.
+    /// </remarks>
+    static Decoded Reduce(AssetId asset, int sourceWidth, int sourceHeight, ReadOnlySpan<byte> source) {
+        var scale = Math.Min((float) Size / sourceWidth, (float) Size / sourceHeight);
+        var width = Math.Max(1, (int) (sourceWidth * scale));
+        var height = Math.Max(1, (int) (sourceHeight * scale));
 
         var pixels = new byte[width * height * 4];
 
         for (var y = 0; y < height; y++) {
-            var top = y * texture.Height / height;
-            var bottom = Math.Max(top + 1, (y + 1) * texture.Height / height);
+            var top = y * sourceHeight / height;
+            var bottom = Math.Max(top + 1, (y + 1) * sourceHeight / height);
 
             for (var x = 0; x < width; x++) {
-                var left = x * texture.Width / width;
-                var right = Math.Max(left + 1, (x + 1) * texture.Width / width);
+                var left = x * sourceWidth / width;
+                var right = Math.Max(left + 1, (x + 1) * sourceWidth / width);
 
                 long r = 0, g = 0, b = 0, a = 0;
                 var taken = 0;
 
                 for (var sy = top; sy < bottom; sy++) {
-                    var row = sy * texture.Width * 4;
+                    var row = sy * sourceWidth * 4;
 
                     for (var sx = left; sx < right; sx++) {
                         var at = row + (sx * 4);

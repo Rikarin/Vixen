@@ -334,7 +334,20 @@ sealed partial class EditorApplication {
         }
 
         content.BuildPlayer(
-            new PlayerBuildRequest(target, shape, settings.Variant, projectFile, OutputDirectory(settings, target), launch),
+            new PlayerBuildRequest(
+                target,
+                shape,
+                settings.Variant,
+                projectFile,
+                OutputDirectory(settings, target),
+                launch,
+
+                // ⚠ Doc 36 § D4's build-step row, read here for the reason everything else on this
+                // line is read here: on the frame thread, once, and handed over. A plugin can be
+                // unloaded while its build runs, so a list read later is a list that may name a
+                // delegate over an assembly that has gone.
+                Extensions.All<BuildStep>()
+            ),
             buildLog ??= new BuildLog(log),
             _ => {
                 if (device is not null) {

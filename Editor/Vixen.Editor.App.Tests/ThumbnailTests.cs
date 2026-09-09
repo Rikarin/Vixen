@@ -89,7 +89,7 @@ public class ThumbnailTests {
     }
 
     /// <summary>Writes a PNG into the project and makes the editor notice it.</summary>
-    static AssetId Paint(EditorSession editor, string path, int width, int height, Func<int, int, byte> shade) {
+    internal static AssetId Paint(EditorSession editor, string path, int width, int height, Func<int, int, byte> shade) {
         var absolute = Path.Combine(editor.ProjectRoot, path.Replace('/', Path.DirectorySeparatorChar));
 
         Directory.CreateDirectory(Path.GetDirectoryName(absolute)!);

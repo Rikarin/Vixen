@@ -156,11 +156,12 @@ editor is the only process that loads a plugin at all: `PluginHost` has no calle
 `EditorApplication`, so `vixen import` has an empty `ImporterContributions` whether or not it is
 `--isolated`. A worker now agrees with its coordinator; the CLI still does not agree with the editor.
 
-⚠ **An earlier revision said "build steps are the same shape and are still not published".** There is
-no `BuildStep` or `IBuildStep` type anywhere in the repository, so that sentence named an omission in
-something that does not exist. What is actually true is narrower: the player build in `EditorBuilds`
-has no contribution point at all, so a plugin cannot add a step to it — which is a *missing
-mechanism*, not an unpublished registry, and belongs with D4's last two rows rather than with F8.
+⚠ **An earlier revision said "build steps are the same shape and are still not published".** There
+was no `BuildStep` or `IBuildStep` type anywhere in the repository, so that sentence named an omission
+in something that did not exist. What was actually true was narrower — the player build in
+`EditorBuilds` had no contribution point at all — and it belonged with D4's last two rows rather than
+with F8. ✅ **Built there:** `BuildStep` is a record in `Vixen.Editor.Assets.Content`, contributed
+through `IEditorRegistry`, and nothing in the plugin contract changed.
 
 **F8 — Importers are constructed and handed in.** `ImportPipeline(database, importers, artifacts, …)`
 — whoever builds the pipeline decides what importers exist. There is no registry for a plugin to
@@ -543,9 +544,10 @@ plugin's failure a mystery rather than a message.
 | ~~`AddOverlay(overlay)`~~ | ✅ `SceneOverlay`, and `[Overlay]` — `ViewportChrome` was the only thing that could put a panel over a pane |
 | ~~`AddGizmo(type, draw)`~~ | ✅ `ComponentGizmo`, and `[DrawGizmo]` — ⚠ **"nothing" was wrong**: `SceneLines.LightShapes` is this, hardcoded for one component |
 | ~~`AddSettingsPage(page)`~~ | ✅ `SettingsPage`, read by `EditorSettingsPanels` and re-read on `IEditorRegistry.Changed` |
-| `AddPreview(type, thumbnail)` | nothing |
+| ~~`AddPreview(type, thumbnail)`~~ | ✅ `AssetPreview`, asked by `ThumbnailCache` **before** `ImageDecoders` rather than after |
+| ~~a build-step contribution~~ | ✅ `BuildStep`, read by `EditorBuilds` when Build is pressed — § Part 6's third row of the same shape |
 
-⚠ **Eight of nine, and none of them is a method on `PluginContext`.** P2's departure held: a
+⚠ **All nine, plus the build step § Part 6 added, and none of them is a method on `PluginContext`.** P2's departure held: a
 contribution kind is a record in the assembly that owns it, and `Owns`/`With` are the whole surface.
 Adding `SceneOverlay` and `ComponentGizmo` changed nothing in the plugin contract, which is the
 property the table's shape would have destroyed.
@@ -776,7 +778,7 @@ criteria is met.** The modules are named in `Vixen.Editor.Host.EditorModules` an
 | `Assets` | the import pipeline — an editor that cannot import without a plugin is not an editor | nothing; ⚠ **the exit list is wrong to omit it**, and the criterion below is corrected |
 | `AssetEditors` | ⚠ **ten names, measured** — not the registry alone; see the corrected row below | ⚠ **nothing that is worth doing today**; the registry is one tenth of it |
 | `Profiler` | the **diagnostics report**, which aggregates the project, the scene, the log ring *and* the last profile capture | publishing the log ring and the data directory, and moving the report into the module |
-| `Debugger` | the report, **and** device deploy in `EditorBuilds` — two reasons, not one | the report moving, *and* a deploy contribution |
+| `Debugger` | the report, **and** device deploy in `EditorBuilds` — two reasons, not one | the report moving, *and* a deploy contribution. ⚠ The *mechanism* half is no longer owed: D4's `BuildStep` is built, so what is left is the move. The names that hold the reference are `IDeviceDeploy`, `DeviceEntry`, `DeviceKind` and `DeviceStatus` |
 | `Diagnostics` | the joining assembly the moves created; the app activates the module | nothing — it is a module, and its reference is the `Activate` call |
 
 ⚠ **This is a net increase of one, and an earlier revision of this row hid it.** The table used to
@@ -785,9 +787,15 @@ above said "Profiler + Debugger ✅ done". Both were true about the *panels* and
 the *references*: the module was created and the app kept referencing the two originals as well.
 Seven panels moved; three references stand where two did.
 
-⚠ **`EditorApplication.cs` is 5,282 lines** — measured 2026-09-09, and the exit wants under 800.
-`EditorParity.cs` is 2,997 beside it. This paragraph has said 3,601, 3,641, 3,675, 3,787 and 4,593 in
-turn; each was true when written and none of them is now. **The criterion is moving away from itself
+⚠ **`EditorApplication.cs` is 5,305 lines** — measured on master 2026-09-09, and the exit wants under
+800. `EditorParity.cs` is 3,124 beside it. This paragraph has said 3,601, 3,641, 3,675, 3,787, 4,593
+and 5,282 in turn; each was true when written and none of them is now.
+
+⚠ **The 5,282/2,997 pair was wrong on the day it was written, and the reason is worth more than the
+figures.** It was measured inside an agent's worktree, which is a checkout from before that batch's
+other branches merged — so `EditorParity.cs` was 127 lines out at the moment it was recorded. A
+measurement of the tree has to be taken *on master*, after the merge, or it is a measurement of one
+agent's starting point. **The criterion is moving away from itself
 at roughly 700 lines a revision**, and the file grows by tens of lines with each phase that gives it
 something to own — the reload host, the icon resolution, the plugin host, the gizmo pass — which is
 the shape of the problem rather than a lapse.
@@ -1088,15 +1096,30 @@ stopped refusing an id whose previous holder is unloaded — which is what a reb
 
 **What is not built, and is named rather than implied:**
 
-* **No incremental compilation.** A save rebuilds the folder — tens of milliseconds for a dozen
-  files, and nothing here measures a project with hundreds.
+* ~~**No incremental compilation.** A save rebuilds the folder — tens of milliseconds for a dozen
+  files, and nothing here measures a project with hundreds.~~ — ✅ built: `ScriptWorkspace`, held by
+  `EditorScripts` for the life of a project. What is kept is the two expensive things — the syntax
+  tree of every file whose *text* is unchanged, and the `MetadataReference` set, whose metadata
+  Roslyn caches per reference object — and `ScriptCompiler.Compile` is now a one-shot over a fresh
+  one. ⚠ **The measurement is a count of files parsed and not a duration**, deliberately: the bound
+  above is a wall-clock claim, and a wall-clock assertion calibrated on an idle machine is this
+  repository's largest flake source. `ScriptBuild.Parsed` is the same property expressed as work —
+  three on the first build, one after one edit, none after none. ⚠ **And staleness is the text
+  rather than a timestamp**, which is the classic file-cache bug avoided rather than reproduced: two
+  saves inside one filesystem tick that leave the file the same length are indistinguishable to a
+  stamp, and the symptom is an editor running the code somebody deleted.
 * ~~**No `[CustomEditor]`-shaped attribute set**~~ — ✅ built after this phase and listed in
   [D3](#d3--discovery-is-declared-not-listed). The bullet was true when P5 shipped `[EditorMenu]`
   alone; the set landed in the commit that made all eight symmetric, and D3's table is the current
   statement.
-* **No cross-assembly editor-only check.** The SDK keeps `Editor/` code out of the game's build; it
-  does not fail a build that references an `Editor/` type from runtime code, because nothing compiles
-  the two together to notice.
+* **No cross-assembly editor-only check.** The SDK keeps `Editor/` code out of the game's build —
+  `Vixen.Sdk.targets`'s `<Compile Remove="**/Editor/**/*.cs" />` — and does not name the *rule* when a
+  runtime file references an `Editor/` type; the error is a CS0246 about a type. ⚠ **The rest of this
+  bullet used to say the failure was "a game that builds in the editor and does not build for a
+  player", and that half is wrong.** It needs the two builds to differ. They do not: the editor's own
+  game build is `ProjectAssemblies` shelling out to `dotnet build`, which imports these same targets
+  and removes the same files, so a runtime file naming an editor type fails identically in the editor
+  and in a player build. What is owed is a better *message*, not a missing gate.
 
 ---
 
@@ -1267,9 +1290,22 @@ import without a plugin is not an editor. The criterion is `Core`, `Ui`, `Plugin
 
 * ~~**`AddSettingsPage`**~~ — ✅ built: `SettingsPage`, read by `EditorSettingsPanels` and re-read on
   `IEditorRegistry.Changed`.
-* **`AddPreview`** — the thumbnail cache has no registry to ask before it falls back.
-* **A build-step contribution.** `EditorBuilds` has no contribution point, so a plugin cannot add a
-  step to a player build. Named here rather than at F8, which was about importers.
+* ~~**`AddPreview`** — the thumbnail cache has no registry to ask before it falls back.~~ — ✅ built,
+  and ⚠ **"before it falls back" is the half that was worth writing down**: `AssetPreview` is asked
+  *first*, so a plugin can own an extension a built-in decoder also claims. ⚠ **And the refusal set
+  had to be cleared on `IEditorRegistry.Changed`.** `ThumbnailCache` refuses an extension permanently
+  — deliberately, or a folder of two hundred `.fbx` is two hundred background tasks per scroll — and
+  a plugin always activates *after* the grid has already refused every file it owns, so without the
+  subscription its own asset type shows type glyphs until the editor is restarted.
+* ~~**A build-step contribution.** `EditorBuilds` has no contribution point.~~ — ✅ built.
+  `BuildStep(id, stage, run)` in `Vixen.Editor.Assets.Content`, added through `IEditorRegistry`,
+  read by `EditorBuilds` on the frame thread and handed to the task in `PlayerBuildRequest`. ⚠ **A
+  record and not the `IBuildStep` doc 11 was waiting for**: a player build is a fixed sequence of
+  four things, so what a contributor needs is a moment and a delegate, and an interface would have
+  been a type to implement in order to hold one method. ⚠ **And the after-build stage needed a seam
+  to be testable at all** — it runs between a `dotnet publish` and a launch, and this suite does not
+  shell out, so `ContentTasks.Publisher` exists to stop that arm being a call site nothing ever
+  executed.
 
 ### Correctness gaps with a user-visible failure
 
@@ -1307,7 +1343,14 @@ import without a plugin is not an editor. The criterion is `Core`, `Ui`, `Plugin
   generator writes. Filed as #1165 with the rule that would stop the next one.
 * ~~**`IToolContext`**~~ — struck, and the sentence under it was wrong: four modes already implement
   one `IViewportInput`, and the pane they are handed is the context. See [Part 5](#part-5--the-seams).
-* **No incremental compilation for project scripts**, and **no cross-assembly editor-only check**.
+* ~~**No incremental compilation for project scripts**~~ — ✅ built, see
+  [P5](#p5--project-editor-scripts-). **No cross-assembly editor-only check** is still owed, and ⚠
+  **its premise wants re-reading before anyone builds it.** The stated failure — "a game that builds
+  in the editor and does not build for a player" — needs the two builds to differ, and they do not:
+  the editor's game build is `ProjectAssemblies` shelling out to `dotnet build`, which imports the
+  same `Vixen.Sdk.targets` and removes the same `**/Editor/**/*.cs`. A runtime file naming an editor
+  type is the same CS0246 in both. What is genuinely missing is the rule being *named* rather than
+  the type — and that is a smaller claim than the row makes.
 * **F7's number.** ⚠ **Fifty-six `.vxml` under `Editor/`** — `git ls-files 'Editor/*.vxml' | wc -l`,
   measured 2026-09-09. This row has said three, then seventeen, then forty-nine; the ledger's own
   strike-through history reads twenty → twenty-seven → thirty-four → forty-one → forty-eight. The
@@ -1315,7 +1358,7 @@ import without a plugin is not an editor. The criterion is `Core`, `Ui`, `Plugin
 
   ⚠ **This document's numbers go stale in both directions at once, which is the useful reading rather
   than either figure.** F7's is low because the markup path was adopted faster than the doc was
-  revised; `EditorApplication.cs` is high — 5,282 against a recorded 3,787 — because the application
+  revised; `EditorApplication.cs` is high — 5,305 against a recorded 3,787 — because the application
   kept growing. A count nobody can re-derive goes stale again, so the command is written beside the
   figure and the [panel
   ledger](../../Editor/Vixen.Editor.Ui/README.md#the-panel-ledger--what-is-markup-what-is-next-and-what-never-will-be)

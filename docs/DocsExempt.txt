@@ -1197,6 +1197,10 @@ T:Vixen.Editor.Assets.BuiltInImporters sweep-pending
 T:Vixen.Editor.Assets.Content.AddressableGroup sweep-pending
 T:Vixen.Editor.Assets.Content.BuildPlan sweep-pending
 T:Vixen.Editor.Assets.Content.BuildPlanner sweep-pending
+T:Vixen.Editor.Assets.Content.BuildStage sweep-pending
+T:Vixen.Editor.Assets.Content.BuildStep sweep-pending
+T:Vixen.Editor.Assets.Content.BuildStepContext sweep-pending
+T:Vixen.Editor.Assets.Content.BuildSteps sweep-pending
 T:Vixen.Editor.Assets.Content.BuildableAsset sweep-pending
 T:Vixen.Editor.Assets.Content.BuiltBundle sweep-pending
 T:Vixen.Editor.Assets.Content.BundleNaming sweep-pending
@@ -1264,6 +1268,8 @@ T:Vixen.Editor.Core.AssetIssue sweep-pending
 T:Vixen.Editor.Core.AssetIssueKind sweep-pending
 T:Vixen.Editor.Core.AssetOperation sweep-pending
 T:Vixen.Editor.Core.AssetOperations sweep-pending
+T:Vixen.Editor.Core.AssetPreview sweep-pending
+T:Vixen.Editor.Core.AssetPreviewImage sweep-pending
 T:Vixen.Editor.Core.AssetTree sweep-pending
 T:Vixen.Editor.Core.AssetTreeNode sweep-pending
 T:Vixen.Editor.Core.CommandStack sweep-pending

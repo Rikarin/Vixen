@@ -70,6 +70,9 @@ public sealed class EditorScripts {
         this.output = output;
     }
 
+    /// <summary>What is kept between builds, which is what makes a save cheaper than the first one.</summary>
+    readonly ScriptWorkspace workspace = new();
+
     /// <summary>What the last build produced, and what it loaded.</summary>
     public ScriptState State { get; private set; } = new(ScriptBuild.None, Loaded: false, 0);
 
@@ -84,7 +87,11 @@ public sealed class EditorScripts {
     /// <summary>Compiles the project's editor scripts and loads what came out.</summary>
     /// <returns>What happened.</returns>
     public ScriptState Rebuild() {
-        var build = ScriptCompiler.Compile(projectRoot, output);
+        // ⚠ The workspace and not `ScriptCompiler.Compile`, and this is the whole of doc 36 § P5's
+        // incremental row: a rebuild is raised per save, and the static entry point re-reads, re-parses
+        // and re-loads the metadata of every assembly the editor has open, every time. See
+        // `ScriptWorkspace`, and `ScriptBuild.Parsed` for the property that says it worked.
+        var build = workspace.Compile(projectRoot, output);
 
         if (build.AssemblyPath is null) {
             // ⚠ The previous assembly is left alone. See the class remarks: an editor whose tools

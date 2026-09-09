@@ -4,7 +4,7 @@ slug: editor/editor-scripts
 kind: guide
 area: Editor
 summary: A .cs file in your project's Editor/ folder is compiled by the running editor and loaded like a plugin — drop it in, and its menu item is there.
-api: [T:Vixen.Editor.Plugin.EditorMenuAttribute, T:Vixen.Editor.Inspector.CustomInspectorAttribute, T:Vixen.Editor.Inspector.CustomDrawerAttribute, T:Vixen.Editor.SceneView.EditorToolAttribute, T:Vixen.Editor.Core.CreateAssetMenuAttribute, T:Vixen.Editor.SceneView.OverlayAttribute, T:Vixen.Editor.SceneView.DrawGizmoAttribute, T:Vixen.Editor.SceneView.SceneOverlay, T:Vixen.Editor.SceneView.ComponentGizmo, T:Vixen.Editor.SceneView.GizmoDraw, T:Vixen.Editor.SceneView.GizmoPlacement, T:Vixen.Editor.SceneView.OverlayCorner, T:Vixen.Editor.SceneView.ComponentGizmos, T:Vixen.Editor.Plugin.IContributionScanner, T:Vixen.Editor.Scripts.ScriptCompiler, T:Vixen.Editor.Scripts.EditorScripts, T:Vixen.Editor.Scripts.ScriptsModule, T:Vixen.Editor.Scripts.ScriptBuild, T:Vixen.Editor.Scripts.ScriptDiagnostic, T:Vixen.Editor.Scripts.ScriptState]
+api: [T:Vixen.Editor.Plugin.EditorMenuAttribute, T:Vixen.Editor.Inspector.CustomInspectorAttribute, T:Vixen.Editor.Inspector.CustomDrawerAttribute, T:Vixen.Editor.SceneView.EditorToolAttribute, T:Vixen.Editor.Core.CreateAssetMenuAttribute, T:Vixen.Editor.SceneView.OverlayAttribute, T:Vixen.Editor.SceneView.DrawGizmoAttribute, T:Vixen.Editor.SceneView.SceneOverlay, T:Vixen.Editor.SceneView.ComponentGizmo, T:Vixen.Editor.SceneView.GizmoDraw, T:Vixen.Editor.SceneView.GizmoPlacement, T:Vixen.Editor.SceneView.OverlayCorner, T:Vixen.Editor.SceneView.ComponentGizmos, T:Vixen.Editor.Plugin.IContributionScanner, T:Vixen.Editor.Scripts.ScriptCompiler, T:Vixen.Editor.Scripts.ScriptWorkspace, T:Vixen.Editor.Scripts.EditorScripts, T:Vixen.Editor.Scripts.ScriptsModule, T:Vixen.Editor.Scripts.ScriptBuild, T:Vixen.Editor.Scripts.ScriptDiagnostic, T:Vixen.Editor.Scripts.ScriptState]
 tags: [editor, scripting, plugins, extensibility, roslyn]
 since: 0.1
 status: preview
@@ -178,6 +178,20 @@ still have the menu you were about to use. The errors are in the panel; the tool
 
 **Window ▸ Editor Scripts** opens the panel, and **Rebuild Editor Scripts** compiles the folder
 again — which is also the fallback on a machine where the file watcher could not be opened.
+
+## What a rebuild actually redoes
+
+A save does not recompile the folder from nothing. `ScriptWorkspace` — one per open project, held by
+`EditorScripts` — keeps the parsed form of every file whose **text** has not changed and the set of
+assembly references the compiler is given, so an edit to one file is one file parsed. `ScriptBuild`
+reports it: `Parsed` is how many of `Sources` had to be read again.
+
+⚠ **Staleness is the text and not the file's timestamp**, which matters if you generate scripts. Two
+writes inside one filesystem tick that leave the file the same length are indistinguishable to a
+timestamp, and the failure would be the editor running code you had already replaced.
+
+`ScriptCompiler.Compile` is the one-shot form and keeps nothing; it is what a tool outside the editor
+calls.
 
 ## What the game build sees
 
