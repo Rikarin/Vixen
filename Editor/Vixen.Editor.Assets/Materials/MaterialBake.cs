@@ -366,14 +366,18 @@ public static class MaterialBake {
         }
 
         foreach (var target in MaterialMapNaming.EveryTarget) {
-            // ⚠ The height map's name is conditional and every other one is not, which is why it is
-            // not in `MaterialMapNaming.Parameter`. That answers "what does the feature that samples
-            // this file call it" for the five the bake always composes; whether anything samples the
-            // height file at all is this material's answer, not the target's — see the remarks.
-            // ⚠ And the base colour's and the packed map's names are conditional too, once a layered
-            // surface has replaced the features that read them: with `TexturedMetalRoughnessFeature`
-            // and `TexturedOrmFeature` both gone, nothing samples `baseColorMap` or `ormMap` — two
-            // entries the build imports, a bundle carries and a pool makes resident for no reader.
+            // ⚠ **A map's parameter name is the target's answer except where a feature this material
+            // carries decides it**, which is the general rule and the reason `MaterialMapNaming.Parameter`
+            // cannot be the whole of it: that table answers "what does the feature that samples this
+            // file call it", and *whether* anything samples it is a fact about the chain rather than
+            // about the file. Four of the eight are decided here today and the list has grown twice
+            // in one batch (#1132), so the rule is written rather than the cases.
+            //
+            // Height: sampled only by a `ParallaxOcclusionFeature` the author put there, under that
+            // instance's own name. Base colour and the packed map: unbound once a layered surface has
+            // replaced `TexturedMetalRoughnessFeature` and `TexturedOrmFeature`, because nothing then
+            // samples `baseColorMap` or `ormMap` — two entries the build imports, a bundle carries
+            // and a pool makes resident for no reader.
             var parameter = target switch {
                 MaterialMapTarget.Height => parallax?.HeightMap,
                 MaterialMapTarget.BaseColor or MaterialMapTarget.Orm when layered is not null => null,
