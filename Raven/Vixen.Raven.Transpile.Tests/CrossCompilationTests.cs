@@ -110,6 +110,8 @@ public class CrossCompilationTests {
     /// </remarks>
     [Fact]
     public void The_same_shader_cross_compiled_is_accepted() {
+        CrossCompilerRequirement.Available();
+
         foreach (var unit in Generate(Lambert, EsslBackend.TargetName)) {
             var (accepted, log) = EsslOracle.Validate(unit.Code, unit.Stage);
 
@@ -135,6 +137,8 @@ public class CrossCompilationTests {
     /// </remarks>
     [Fact]
     public void Every_raster_entry_point_in_the_library_survives_the_es_front_end() {
+        CrossCompilerRequirement.Available();
+
         var bag = new DiagnosticBag();
         var units = Backend(GlslDialect.Essl300).Generate(Library(), bag);
 
@@ -195,6 +199,8 @@ public class CrossCompilationTests {
     /// </remarks>
     [Fact]
     public void At_es_320_only_a_feature_gles_lacks_entirely_keeps_a_library_shader_out() {
+        CrossCompilerRequirement.Available();
+
         var atEs300 = new DiagnosticBag();
         var raster = Backend(GlslDialect.Essl300).Generate(Library(), atEs300);
 
@@ -318,6 +324,8 @@ public class CrossCompilationTests {
     /// </remarks>
     [Fact]
     public void A_compute_entry_point_is_refused_by_es_300_and_emitted_by_es_310() {
+        CrossCompilerRequirement.Available();
+
         var module = Lower(Compute);
 
         var refusals = new DiagnosticBag();
@@ -356,6 +364,8 @@ public class CrossCompilationTests {
     /// </remarks>
     [Fact]
     public void A_storage_buffer_is_refused_by_es_300_even_in_a_vertex_stage() {
+        CrossCompilerRequirement.Available();
+
         var refusals = new DiagnosticBag();
 
         Assert.Empty(Backend(GlslDialect.Essl300).Generate(Lower(StorageBufferVertex), refusals));
@@ -385,6 +395,8 @@ public class CrossCompilationTests {
     /// </remarks>
     [Fact]
     public void A_combined_sampler_takes_the_name_of_its_texture() {
+        CrossCompilerRequirement.Available();
+
         var fragment = Assert.Single(
             Generate(Lambert, EsslBackend.TargetName),
             unit => unit.Stage == ShaderStage.Fragment

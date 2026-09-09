@@ -81,6 +81,43 @@ static unsafe class SpirvCrossTranspiler {
     /// <param name="dialect">Which GLSL to produce.</param>
     /// <returns>The source, and the texture/sampler pairs that had to be combined to get it.</returns>
     /// <exception cref="SpirvCrossException">SPIRV-Cross refused the module.</exception>
+    /// <summary>Whether SPIRV-Cross's native library can be loaded on this machine.</summary>
+    /// <param name="reason">What the loader said, when it could not.</param>
+    /// <returns>Whether <see cref="Transpile" /> has a compiler to call.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The library is a restored NuGet asset and not an installed tool, so this is not
+    ///         the same shape as a missing driver</b> — and that is exactly why it is worth asking
+    ///         out loud rather than letting the exception escape. <c>Silk.NET.SPIRV.Cross.Native</c>
+    ///         ships SPIRV-Cross for eight RIDs, and on the ubuntu leg it nevertheless fails to load:
+    ///         six of nine cases in <c>Vixen.Raven.Transpile.Tests</c> die inside
+    ///         <c>Cross.GetApi()</c> with <c>FileNotFoundException</c> and read as six defects in the
+    ///         shader compiler (#1027). They are not; the three that pass are the three that never
+    ///         reach the native library.
+    ///     </para>
+    ///     <para>
+    ///         Loading rather than probing a path, because "the file is there" and "the loader took
+    ///         it" are different claims and only the second one matters. The result is not cached:
+    ///         the loader caches, and a caller that wants to know twice is asking twice for a reason.
+    ///     </para>
+    /// </remarks>
+    internal static bool TryLoad(out string? reason) {
+        try {
+            using var cross = Cross.GetApi();
+            reason = null;
+
+            return true;
+        } catch (FileNotFoundException exception) {
+            reason = exception.Message;
+
+            return false;
+        } catch (DllNotFoundException exception) {
+            reason = exception.Message;
+
+            return false;
+        }
+    }
+
     public static TranspiledShader Transpile(ReadOnlySpan<byte> spirv, GlslDialect dialect) {
         if (spirv.Length == 0 || spirv.Length % 4 != 0) {
             throw new SpirvCrossException(

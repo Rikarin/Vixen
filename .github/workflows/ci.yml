@@ -253,6 +253,20 @@ jobs:
           # then add ubuntu-latest to this condition.
           VIXEN_REQUIRE_WEBGPU: ${{ matrix.os == 'macos-14' && '1' || '' }}
 
+          # ⚠ And the same shape a third time, for a library that is *restored* rather than
+          # installed — which is why the ubuntu leg is missing from this condition and that is the
+          # honest state rather than an omission. `Silk.NET.SPIRV.Cross.Native` ships SPIRV-Cross
+          # for eight RIDs and its linux-x64 `libspirv-cross.so` needs nothing but glibc, libm,
+          # libpthread and libdl — and on this runner it still fails to load, so six of nine cases
+          # in Vixen.Raven.Transpile.Tests died inside `Cross.GetApi()` and read as six defects in
+          # the shader compiler (#1027). They now skip there, with the library named.
+          #
+          # macOS and Windows have been observed to load it — those two legs pass all nine today —
+          # so on them a skip is a regression and is treated as one. Nobody has yet found out what
+          # ubuntu is doing differently; when that is answered, add ubuntu-latest here, and until
+          # then the skip count on that leg is the record that this is owed.
+          VIXEN_REQUIRE_SPIRV_CROSS: ${{ matrix.os == 'ubuntu-latest' && '' || '1' }}
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

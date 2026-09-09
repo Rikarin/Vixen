@@ -38,6 +38,14 @@
         -->
         <InternalsVisibleTo Include="raven"/>
         <InternalsVisibleTo Include="Vixen.Raven.Transpile.Tests"/>
+
+        <!--
+          ⚠ And the CLI's own suite, which reaches the transpiler through `raven` rather than
+          directly. `CliTests.The_essl_target_is_registered_and_writes_gles` is the one case that
+          proves the backend is registered at all, so it runs the native library too — and it needs
+          the same "did the library load" answer the transpile suite asks (#1027).
+        -->
+        <InternalsVisibleTo Include="Vixen.Raven.Tests"/>
     </ItemGroup>
 
     <ItemGroup>

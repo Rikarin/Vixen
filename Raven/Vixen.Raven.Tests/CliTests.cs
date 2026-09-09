@@ -3,6 +3,7 @@
 
 using System.CommandLine;
 using Vixen.Raven.Cli;
+using Vixen.Raven.Transpile;
 using Xunit;
 
 namespace Tests;
@@ -57,6 +58,21 @@ public class CliTests : IDisposable {
     /// </remarks>
     [Fact]
     public void The_essl_target_is_registered_and_writes_gles() {
+        // ⚠ The same environment fact as the six in `Vixen.Raven.Transpile.Tests`, one level up:
+        // this target *is* the transpiler, so on a leg where SPIRV-Cross's native library does not
+        // load the CLI exits 1 and the assertion reads as a registration defect (#1027). Gated on a
+        // promise rather than skipped outright, for the reason `CrossCompilerRequirement` gives —
+        // ci.yml sets it where the library is known to load, so a leg that loses it stays red.
+        if (!SpirvCrossTranspiler.TryLoad(out var reason)) {
+            var said = $"SPIRV-Cross's native library did not load, so the essl target cannot run: {reason}";
+
+            if (Environment.GetEnvironmentVariable("VIXEN_REQUIRE_SPIRV_CROSS") is "1" or "true" or "TRUE") {
+                Assert.Fail($"VIXEN_REQUIRE_SPIRV_CROSS is set, so this may not be skipped. {said}");
+            }
+
+            Assert.Skip(said);
+        }
+
         Assert.Equal(0, Invoke("compile", "--target", "essl", Fixture("lambert.rvn"), At("")));
 
         Assert.StartsWith("#version 300 es", File.ReadAllText(At("Lambert.vert.glsl")), StringComparison.Ordinal);
