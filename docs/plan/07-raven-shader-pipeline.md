@@ -2195,8 +2195,8 @@ the broken ones.
 **The smaller half is built; the larger one is still not worth it.** Making `override` work *is* part
 of the mixin mechanism — a base's callers have to reach the derived member, which means flattening —
 and that half landed once monomorphisation showed it was the same machinery over a different axis.
-What is still unbuilt is *choosing the chain per effect*, and the arguments against that are
-unchanged:
+What is still unbuilt is *choosing the chain per effect*, and three of the four arguments against that
+are unchanged — the fourth has expired, which is what made writing the verdict below urgent:
 
 - Reimplementing what this document calls *"the least-understood, most-load-bearing part of Stride"* is
   a poor bet.
@@ -2205,14 +2205,56 @@ unchanged:
 - Linearization makes errors non-local — a mixin list assembled in one file changes the meaning of a
   method in a file that never mentions it. Everything else here went the other way: `compose` resolved
   statically, one `BindingPlan`, one `StreamPlan`, a differential oracle.
-- **There is no consumer yet.** Building a resolver before writing § F's library is designing against
-  Stride's shape rather than against a requirement.
+- ~~**There is no consumer yet.** Building a resolver before writing § F's library is designing against
+  Stride's shape rather than against a requirement.~~ — **expired.** There is a consumer:
+  `Core/Vixen.Rendering/Materials/MaterialCompiler.cs` assembles a real material's feature list into a
+  real composition, and `Raven/Library/Material/MaterialFeatures.rvn` is what it composes into. The
+  argument had an expiry date and nothing was watching it; the other three do not, which is why they
+  are the ones that carry the verdict.
 
-The trigger to watch for: write § F's material library against `compose`, protocols, streams and
-non-inheriting shaders, and see what cannot be expressed. The likely candidate is a *chain* of
-surface-modifying features where each needs the previous one's result — which is also what `stream`
-was built for, so try that first. The two halves were separable, as predicted: **flattening a
-source-declared chain** was the smaller one and landed alone.
+##### ✅ The trigger fired, and the answer is that the resolver stays unbuilt
+
+The condition this section ended on was: *"write § F's library against `compose`, protocols, streams
+and non-inheriting shaders, and see what cannot be expressed."* § F is written — **112 committed
+`.rvn` files** under `Raven/Library` across all eight packages — and § F's own
+[*What the library could not express*](#what-the-library-could-not-express) is the list of what it ran
+into. Every entry there is now either struck through as landed (sized arrays, writable resources, MRT,
+`SampleLevel`, `SampleGrad`, `SV_VertexID`, `discard`) or a standing refusal that has nothing to do
+with mixins (a texture is a descriptor and cannot be a struct field, `RVN2053`; no line continuation).
+**⚠ Not one entry on that list is the predicted candidate.** The experiment ran, and it came back
+without the finding it was run to look for. Recording that is the whole of what was owed here.
+
+The predicted candidate — *a chain of surface-modifying features where each needs the previous one's
+result* — is `Raven/Library/Material/MaterialFeatures.rvn:564`, and it is eleven lines:
+
+```
+shader CompositeSurface : IMaterialSurface {
+    compose val first: IMaterialSurface
+    …
+    func Compute(inout d: MaterialData) {
+        first.Compute(d)
+        second.Compute(d)
+        …
+    }
+}
+```
+
+⚠ **And the mechanism it wanted was not `stream`, which is what this section guessed.** It is
+`compose` plus `inout`: the surface is one value threaded through the chain by reference, so a feature
+reads it as the previous feature left it and adding a feature changes no other feature's signature.
+`stream` carries a value between *stages*, and every link in this chain is inside one stage, so it was
+never the answer — the prediction named the right problem and the wrong tool. Two consequences of
+`compose`'s own rules shaped the result rather than the language needing to grow: every declared slot
+must be bound (`RVN2073`), so there is one fixed arity with an `IdentitySurface` filler rather than a
+chain type per feature count; and a composed shader's parameters belong to its type rather than to the
+slot, so a chain cannot nest and cannot hold the same feature twice — `MaterialCompiler` refuses the
+second case with a diagnostic rather than compiling a material whose parameters silently alias.
+
+So: **the resolver is not built, and the three surviving arguments above are why.** A resolver would
+be a second, untyped composition mechanism for a problem the typed one covers, in the part of Stride
+this document calls the least-understood, with linearization making errors non-local in a compiler
+whose every other decision went the other way. This row is closed by deciding not to; reopening it
+wants a *new* thing the library cannot express, not the old prediction, which has now been tested.
 
 ## Generated C# bindings
 
