@@ -109,9 +109,10 @@ public class IncrementalParseWorkTests {
     ///         above green for ever.
     ///     </para>
     ///     <para>
-    ///         Asserted as a range rather than as equality with <c>full</c>: the two parses still
-    ///         share nothing but may differ by a node or two in how the blender frames the result,
-    ///         and pinning that would be pinning an implementation detail rather than the property.
+    ///         Asserted as the bound's negation rather than as equality with <c>full</c>: the two
+    ///         parses share nothing, but pinning them to the same number would pin how the blender
+    ///         frames a result it could not reuse, which is an implementation detail rather than the
+    ///         property.
     ///     </para>
     /// </remarks>
     [Fact]

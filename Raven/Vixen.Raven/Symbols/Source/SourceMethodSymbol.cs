@@ -232,7 +232,7 @@ internal sealed class SourceMethodSymbol : MethodSymbol {
     /// <summary>
     ///     One workgroup dimension that is not a literal, folded in this method's containing scope —
     ///     or null when it has no compile-time value, which the caller turns into
-    ///     <see cref="Symbols.WorkgroupSize.Invalid" /> and the binder reports as <c>RVN2105</c>.
+    ///     <see cref="WorkgroupSize.Invalid" /> and the binder reports as <c>RVN2105</c>.
     /// </summary>
     /// <remarks>
     ///     <para>
