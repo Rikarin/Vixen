@@ -70,9 +70,12 @@ public sealed class ProjectSettingsStore {
     /// <returns>The settings. Every caller gets the same instance.</returns>
     /// <remarks>
     ///     One instance, so an inspector editing it and a subsystem reading it are looking at the same
-    ///     object. A file that cannot be read is a <see cref="YamlException" /> and not a silent
+    ///     object. A file that cannot be read is a <see cref="YamlParseException" /> and not a silent
     ///     fall-back to defaults: settings that quietly reset themselves because of a stray tab
-    ///     character are how a project's build configuration disappears.
+    ///     character are how a project's build configuration disappears. ⚠ Not YamlDotNet's
+    ///     <c>YamlException</c>, which this said and which no caller could ever have caught:
+    ///     <c>YamlReader</c> translates that type at its own boundary, and its remarks argue that the
+    ///     translation is what makes its documented refusal set true.
     /// </remarks>
     public T Get<T>() where T : class, new() {
         if (loaded.TryGetValue(typeof(T), out var existing)) {

@@ -19,7 +19,19 @@
           everywhere, which is a worse declaration for no benefit: these types are compile-time
           scaffolding built and thrown away by the compiler, never a public API anyone holds.
         -->
-        <NoWarn>$(NoWarn);CA1051</NoWarn>
+        <!--
+            #821's ratchet, and this one is the case where the answer is nothing: forced on across
+            this project's whole reference closure the tree reports thirty diagnostics and **not one
+            of them is in this assembly**. So the flag lands as a latch rather than a repair — the
+            forty-odd node classes here carry the densest `<see cref>` prose in the editor, and
+            keeping them checked is worth more than the day they were found clean.
+
+            CS1591 and CS1573 are suppressed for the reason `Vixen.Editor.TextureGraph.csproj` gives:
+            a node is compile-time scaffolding and not a packaged API, so "this public member has no
+            comment" is not a question worth asking of it, while the rules that catch a *lie* are.
+        -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);CA1051;CS1591;CS1573</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

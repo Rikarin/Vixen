@@ -173,7 +173,12 @@ partial class Build {
     }
 
     /// <summary>Writes the table, and logs it, and asserts nothing about any number in it.</summary>
-    /// <param name="rows">What <see cref="Measure" /> returned, one per project.</param>
+    /// <param name="rows">
+    ///     What <see cref="Measure(AbsolutePath, AbsolutePath)" /> returned, one per project. ⚠ The
+    ///     signature and not the bare name: <c>Build</c> is partial and <c>Build.Worktrees.cs</c>
+    ///     declares a <c>Measure</c> of its own, so the unqualified link resolved to a worktree
+    ///     footprint about half the time and said nothing about it.
+    /// </param>
     /// <remarks>
     ///     ⚠ The table itself is <see cref="CoverageReport.Summary" />, which is a static method over
     ///     values in a file with no Nuke in it — so its ordering and its arithmetic are asserted by
