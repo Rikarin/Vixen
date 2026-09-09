@@ -265,14 +265,14 @@ public sealed class TextureCommandTests : IDisposable {
 
     /// <summary>
     ///     ⚠ The bake's own "nothing samples this height map" warning still names the tag
-    ///     <see cref="BakeParallax" /> matches on.
+    ///     <see cref="MaterialBakeParallax" /> matches on.
     /// </summary>
     /// <remarks>
     ///     <b>The anchor for a match across an assembly seam, and it is here because there is no
     ///     shared constant to match on.</b> <c>ProjectMaterialBaker.Overpaint</c> is a public const
     ///     for exactly this reason one refusal over — a caller has to tell one of that type's
     ///     messages from the others — and the unfed-height warning has none, so
-    ///     <c>BakeParallax.Requested</c> drops it by looking for the YAML tag in its text. A reword
+    ///     <c>MaterialBakeParallax.Requested</c> drops it by looking for the YAML tag in its text. A reword
     ///     in <c>Vixen.Editor.Assets</c> would otherwise leave <c>--parallax</c> printing a sentence
     ///     telling an artist to do the thing the flag has just done, silently and for ever.
     /// </remarks>
@@ -284,7 +284,7 @@ public sealed class TextureCommandTests : IDisposable {
         var (code, _, complaint) = await Bake();
 
         Assert.Equal(ExitCode.Success, code);
-        Assert.Contains(BakeParallax.Tag, complaint, StringComparison.Ordinal);
+        Assert.Contains(MaterialBakeParallax.Tag, complaint, StringComparison.Ordinal);
     }
 
     /// <summary>⚠ A first bake can ask for the march, and what it writes compiles.</summary>
@@ -321,7 +321,7 @@ public sealed class TextureCommandTests : IDisposable {
         Assert.Equal(ExitCode.Success, code);
 
         // The bake's warning has become false and is not printed beside the thing that made it false.
-        Assert.DoesNotContain(BakeParallax.Tag, complaint, StringComparison.Ordinal);
+        Assert.DoesNotContain(MaterialBakeParallax.Tag, complaint, StringComparison.Ordinal);
 
         var content = Material();
         var parallax = Assert.IsType<ParallaxOcclusionFeature>(content.Features[0]);
@@ -337,7 +337,7 @@ public sealed class TextureCommandTests : IDisposable {
     ///     <para>
     ///         <b>The half the case above cannot see.</b> It asserts the tag is absent from what the
     ///         verb printed — which is equally true of a
-    ///         <see cref="BakeParallax.Requested" /> that returned nothing at all. Sabotaged to
+    ///         <see cref="MaterialBakeParallax.Requested" /> that returned nothing at all. Sabotaged to
     ///         <c>return []</c>, every other test in this file stays green: the two that assert the
     ///         tag's presence never pass <c>--parallax</c>, and the one that does only asks for an
     ///         absence. Selectivity is the property, and nothing held it.
@@ -347,7 +347,7 @@ public sealed class TextureCommandTests : IDisposable {
     ///         line can provoke.</b> A differently-sourced set asking for a name already taken is
     ///         renamed and told so, and that sentence is still true after a parallax feature is
     ///         composed — where "nothing samples this height map" is not, which is the whole reason
-    ///         <see cref="BakeParallax" /> filters at all.
+    ///         <see cref="MaterialBakeParallax" /> filters at all.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And the filter matches on prose</b>, because <c>ProjectMaterialBaker</c> has no
@@ -375,7 +375,7 @@ public sealed class TextureCommandTests : IDisposable {
         );
 
         Assert.Equal(ExitCode.Success, code);
-        Assert.DoesNotContain(BakeParallax.Tag, complaint, StringComparison.Ordinal);
+        Assert.DoesNotContain(MaterialBakeParallax.Tag, complaint, StringComparison.Ordinal);
         Assert.Contains("has already baked a material called", complaint, StringComparison.Ordinal);
     }
 

@@ -2,23 +2,22 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core.Yaml;
-using Vixen.Editor.Assets.Materials;
 using Vixen.Rendering.Materials;
 
-namespace Vixen.Cli;
+namespace Vixen.Editor.Assets.Materials;
 
-/// <summary>`vixen texture bake --parallax` — the ask a first bake had no way to make.</summary>
+/// <summary>The ask a <em>first</em> bake had no way to make: turn the height march on.</summary>
 /// <remarks>
 ///     <para>
 ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>'s remainder, and it is
 ///         an authoring route rather than a rendering change.</b> A bake writes a height map for
 ///         whatever wants it and composes no <see cref="ParallaxOcclusionFeature" /> for it, because
 ///         composing one would put a per-pixel march on <em>every</em> material any graph ever
-///         emitted a height output from. What it does instead is preserve and re-seat a feature the
-///         material already carries — which by construction cannot help a material that does not
-///         exist yet. So the route was two steps, bake and add the feature and bake again, and since
-///         the last batch the bake at least says so in a warning naming the tag to paste. A route a
-///         tool describes is not a route the tool offers; this is the offer.
+///         emitted a height output from. What <see cref="MaterialBake.Material" /> does instead is
+///         preserve and re-seat a feature the material already carries — which by construction cannot
+///         help a material that does not exist yet. So the route was two steps, bake and add the
+///         feature and bake again, and the baker at least says so in a warning naming the tag to
+///         paste. A route a tool describes is not a route the tool offers; this is the offer.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Nothing here decides where the feature goes, and that is the whole of why it is
@@ -34,17 +33,25 @@ namespace Vixen.Cli;
 ///     <para>
 ///         ⚠ <b>Applied after the write rather than seeded before it.</b> A seed <c>.vxmat</c> would
 ///         have to be written at the path the bake is going to choose, and that path is
-///         <c>ProjectMaterialBaker</c>'s: a name already owned by a different source becomes
+///         <see cref="ProjectMaterialBaker" />'s: a name already owned by a different source becomes
 ///         <c>Name_2</c>, so a seed guessing the name either lands beside the set or on somebody
 ///         else's material. Re-composing what the bake actually wrote needs no guess.
 ///     </para>
 ///     <para>
-///         ⚠ <b>A material that did not ask still does not get one.</b> The flag is the ask, it is
-///         off by default, and a bake without it is byte-identical to the bake before this file
+///         ⚠ <b>A material that did not ask still does not get one.</b> The flag is the ask, it is off
+///         by default in both hosts, and a bake without it is byte-identical to the bake before this
 ///         existed.
 ///     </para>
+///     <para>
+///         ⚠ <b>It lives here rather than in <c>Vixen.Cli</c>, which is where it shipped, and the move
+///         is what let the editor have it.</b> <c>Vixen.Cli</c> is an executable and
+///         <c>build/Build.ArchitectureRules.cs</c> treats <c>Editor</c> and <c>Tools</c> as peers, so
+///         the editor could not reference the rule and a second copy of it in
+///         <c>Vixen.Editor.Texturing</c> would be a second answer to "where does a coordinate feature
+///         go". Both hosts call this one.
+///     </para>
 /// </remarks>
-static class BakeParallax {
+public static class MaterialBakeParallax {
     /// <summary>The YAML tag an author would paste, and what the bake's own warning names.</summary>
     /// <remarks>
     ///     ⚠ <b>Matched against <see cref="MaterialBakeSet.Warnings" /> because that warning becomes
@@ -52,20 +59,31 @@ static class BakeParallax {
     ///     <c>ProjectMaterialBaker.Overpaint</c> exists for exactly this reason one refusal over — a
     ///     caller has to tell one of that type's messages from the others — and the unfed-height
     ///     warning has no such anchor yet, so this matches on the actionable half of its text.
-    ///     <c>TextureCommandTests.The_bakers_unfed_height_warning_still_names_the_tag</c> is
-    ///     what turns a reword into a red test rather than into a sentence telling an artist to do
-    ///     something this verb already did.
+    ///     <c>TextureCommandTests.The_bakers_unfed_height_warning_still_names_the_tag</c> is what turns
+    ///     a reword into a red test rather than into a sentence telling an artist to do something the
+    ///     verb already did.
     /// </remarks>
     public const string Tag = "!ParallaxOcclusion";
 
     /// <summary>Puts a parallax feature on the material a bake just wrote.</summary>
     /// <param name="set">What the bake put in the project.</param>
-    /// <param name="error">Where to say why it could not.</param>
+    /// <param name="refused">
+    ///     Why nothing was turned on, or <see langword="null" /> when there was nothing to say. Set
+    ///     only where the ask itself could not be met — a bake with no height output, or a material
+    ///     that cannot be re-read — never where the material already carried the feature.
+    /// </param>
     /// <returns>The bake's warnings that are still true of the material now on disk.</returns>
-    /// <exception cref="ArgumentNullException">An argument is null.</exception>
-    public static IReadOnlyList<string> Requested(MaterialBakeSet set, TextWriter error) {
+    /// <exception cref="ArgumentNullException"><paramref name="set" /> is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b>An <c>out</c> sentence rather than a <c>TextWriter</c>, which is what it took while
+    ///     this lived in the command line.</b> A writer is one host's answer: the editor has no
+    ///     stderr, and its bake verbs put every refusal in a notification's detail. Both hosts can
+    ///     take a sentence.
+    /// </remarks>
+    public static IReadOnlyList<string> Requested(MaterialBakeSet set, out string? refused) {
         ArgumentNullException.ThrowIfNull(set);
-        ArgumentNullException.ThrowIfNull(error);
+
+        refused = null;
 
         var file = set.Files.FirstOrDefault(written =>
             written.EndsWith(MaterialImporter.Extension, StringComparison.Ordinal)
@@ -80,11 +98,10 @@ static class BakeParallax {
             // march with no height field is not a smaller effect, it is a feature whose map index
             // stays at nought and which marches the bindless table's fallback checker. What is
             // missing is upstream — an Output node naming the height usage.
-            error.WriteLine(
-                "--parallax was given and this bake wrote no height map, so no parallax was turned on. A "
+            refused =
+                "Parallax was asked for and this bake wrote no height map, so no march was turned on. A "
                 + "parallax march reads a height field, and an Output node naming the height usage is what "
-                + "writes one."
-            );
+                + "writes one.";
 
             return set.Warnings;
         }
@@ -95,7 +112,7 @@ static class BakeParallax {
             written = YamlSerializer.Parse<MaterialContent>(File.ReadAllText(file));
         } catch (Exception failure)
             when (failure is YamlParseException or YamlBindingException or NotSupportedException or IOException) {
-            error.WriteLine($"--parallax could not re-read the material this bake wrote: {failure.Message}");
+            refused = $"Parallax could not re-read the material this bake wrote: {failure.Message}";
 
             return set.Warnings;
         }

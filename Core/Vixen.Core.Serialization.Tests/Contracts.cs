@@ -212,3 +212,23 @@ public readonly struct Extent {
 
     public int Area => Width * Height;
 }
+
+/// <summary>
+///     Collection members declared as the interface rather than the concrete type. Every one of
+///     these was written <em>polymorphically</em> — the declared type is an interface, so the
+///     generator fell through to the run-time-name path, and the run-time type of the value is
+///     <c>T[]</c>, which has no <c>[DataContract]</c> and cannot be given one. There was no value of
+///     such a member that serialised.
+/// </summary>
+[DataContract]
+public sealed class SequenceClass {
+    public IReadOnlyList<int> Numbers { get; init; } = [];
+
+    /// <summary>An interface element type as well, so the elements are the polymorphic ones.</summary>
+    public IReadOnlyList<Shape?> Shapes { get; init; } = [];
+
+    public IList<string?> Names { get; set; } = [];
+    public IReadOnlyCollection<PositionalStruct> Positions { get; init; } = [];
+    public ICollection<int> Counted { get; set; } = [];
+    public IEnumerable<int>? Lazy { get; set; }
+}

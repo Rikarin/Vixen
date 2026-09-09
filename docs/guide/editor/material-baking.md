@@ -4,7 +4,7 @@ slug: editor/material-baking
 kind: guide
 area: Editor
 summary: How a texture graph's outputs become files the engine already understands — the nine usages and the seven files they land in, the ORM packing, PNG or KTX2, the .vxmat, the GUID dance, and the provenance block that stops a painted-over map being regenerated.
-api: [T:Vixen.Editor.Assets.Materials.MaterialMapUsage, T:Vixen.Editor.Assets.Materials.MaterialMapTarget, T:Vixen.Editor.Assets.Materials.MaterialMapNaming, T:Vixen.Editor.Assets.Materials.MaterialMapImage, T:Vixen.Editor.Assets.Materials.MaterialBake, T:Vixen.Editor.Assets.Materials.MaterialBakeRecord, T:Vixen.Editor.Assets.Materials.MaterialProvenance, T:Vixen.Editor.Assets.Materials.MaterialBakeSet, T:Vixen.Editor.Assets.Materials.ProjectMaterialBaker, T:Vixen.Cli.TextureRunner]
+api: [T:Vixen.Editor.Assets.Materials.MaterialMapUsage, T:Vixen.Editor.Assets.Materials.MaterialMapTarget, T:Vixen.Editor.Assets.Materials.MaterialMapNaming, T:Vixen.Editor.Assets.Materials.MaterialMapImage, T:Vixen.Editor.Assets.Materials.MaterialBake, T:Vixen.Editor.Assets.Materials.MaterialBakeRecord, T:Vixen.Editor.Assets.Materials.MaterialProvenance, T:Vixen.Editor.Assets.Materials.MaterialBakeSet, T:Vixen.Editor.Assets.Materials.MaterialBakeParallax, T:Vixen.Editor.Assets.Materials.ProjectMaterialBaker, T:Vixen.Cli.TextureRunner]
 tags: [editor, bake, materials, textures, material-authoring, texture-graph, cli]
 since: 0.1
 status: preview
@@ -73,9 +73,9 @@ length, because three usages share one file.
 |---|---|---|
 | `baseColor` | `<name>_baseColor` | `baseColorMap` |
 | `normal` | `<name>_normal` | `normalMap` |
-| `occlusion` | `<name>_orm` — red | `ormMap` |
-| `roughness` | `<name>_orm` — green | `ormMap` |
-| `metalness` | `<name>_orm` — blue | `ormMap` |
+| `occlusion` | `<name>_orm` — red | `ormMap`, or `occlusionMap` behind a layered surface — same file, different reader |
+| `roughness` | `<name>_orm` — green | `ormMap`, and nothing behind a layered surface |
+| `metalness` | `<name>_orm` — blue | `ormMap`, and nothing behind a layered surface |
 | `emissive` | `<name>_emissive` | `emissiveMap` |
 | `opacity` | `<name>_opacity` | `opacityMap` |
 | `height` | `<name>_height` | `parallaxHeightMap`, **only** where the material carries `ParallaxOcclusionFeature` |
@@ -95,16 +95,23 @@ for the other two.
 ⚠ **One of the nine binds to nothing on every material, and is written anyway.** A mask is § 4.10's
 input to another graph or to a layer stack, and a material never samples one.
 
-⚠ **And on a *layered* material, four more of them bind to nothing — the table above is the plain
-case.** A material carrying a `TexturedMaterialLayersFeature` gets no base surface composed behind it
-(the layered surface *is* the base surface) and, since 2026-09-09, no `TexturedOrmFeature` either —
-that feature assigns `d.perceptualRoughness` and re-splits the albedo by metalness, over per-layer
-values the author's surface has already answered. So `MaterialBake.Material` returns a null parameter
-for `baseColor` **and** for the three usages that share the packed map, and a re-bake of a layered
-material writes those files and names none of them in `textures:`. ⚠ **The cost is occlusion**, which
-has no other carrier and which a layered surface does not write, so a baked AO map has no route onto
-one of these materials at all — [#1130](https://github.com/Rikarin/Vixen/issues/1130), filed rather
-than answered by re-composing ORM.
+⚠ **And on a *layered* material the table above is the plain case.** A material carrying a
+`TexturedMaterialLayersFeature` gets no base surface composed behind it (the layered surface *is* the
+base surface) and, since 2026-09-09, no `TexturedOrmFeature` either — that feature assigns
+`d.perceptualRoughness` and re-splits the albedo by metalness, over per-layer values the author's
+surface has already answered. So `MaterialBake.Material` returns a null parameter for `baseColor`,
+and a re-bake of a layered material writes that file and does not name it in `textures:`.
+
+⚠ **The packed map is the one that is renamed rather than dropped**, and until 2026-09-09 it was
+dropped too. Its red channel is the baked occlusion, which the layered surface does not write and
+which `TexturedOrmFeature` was the only carrier of — so dropping the feature left a layered material
+with no route to a baked AO map at all
+([#1130](https://github.com/Rikarin/Vixen/issues/1130)). A `TexturedOcclusionFeature` takes its place:
+it reads the map's red and multiplies it into `d.occlusion`, has no opinion about roughness,
+metalness or the albedo split, and so composes behind a layered surface where the packed one cannot.
+The bake binds the **same file** under `occlusionMap` — one import, one bundle entry, one resident
+page, and two channels nothing looks at. ⚠ Not by re-composing ORM, which is the arithmetic above and
+is stated as a requirement rather than a preference.
 
 ⚠ **The height map's name is the author's answer and not the target's, which is why it is not in the
 naming table.** A material that carries `ParallaxOcclusionFeature` gets its height output bound to
@@ -116,6 +123,21 @@ first — produce a `.vxmat` `MaterialCompiler` refuses, because the coordinate 
 ⚠ **This paragraph said "there is no textured height feature" until 2026-09-09**, which was true when
 [#615](https://github.com/Rikarin/Vixen/issues/615) was decided and stopped being true when parallax
 landed.
+
+⚠ **So a *first* bake needs somebody to ask, and both hosts now have the ask.** The preservation rule
+above keeps a feature the material already carries, which by construction cannot help a material that
+does not exist yet — the route was bake, hand-edit the `.vxmat`, bake again.
+`MaterialBakeParallax.Requested` is that ask, and it is one rule with two front doors: the command
+line's `vixen texture bake --parallax` and the editor's *Bake Material with Parallax*, on the Tools
+menu under *Bake Material*. ⚠ **It decides nothing but the ask**: it re-reads the `.vxmat` the bake
+just wrote, puts a `ParallaxOcclusionFeature` on it and re-composes through `MaterialBake.Material`,
+which is what seats the feature at index 0, re-points its `HeightMap`, and drops it again where no
+height map was written. Appending the feature instead produces a file the verb itself wrote and the
+compiler then refuses with `CoordinateFeatureOutOfOrder`. ⚠ It is applied **after** the write and
+never seeded before it, because the path the material lands at is `ProjectMaterialBaker`'s: a name a
+different source already owns becomes `Name_2`, so a seed guessing the path can land on somebody
+else's material. ⚠ And it is a second *verb* rather than a tick-box, for the reason *Bake Material
+(Force)* is: these bakes run from command handlers and there is no bake pane to put a control in.
 
 ⚠ **A material may not rename its maps.** `WorldRenderer.Paired` pairs one shader parameter with one
 material-side name and keys that on the feature's *default*, so a renamed map resolves nothing, takes

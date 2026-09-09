@@ -123,6 +123,12 @@ sealed class MaterialBakeRoute {
     /// <param name="name">What the material should be called. Sanitised by the baker.</param>
     /// <param name="folder">Which folder under <c>Assets/</c> to write into.</param>
     /// <param name="force">Overwrite outputs somebody has painted over.</param>
+    /// <param name="parallax">
+    ///     Compose a <c>ParallaxOcclusionFeature</c> onto the material this bake writes, so that a
+    ///     <em>first</em> bake can turn the height march on. See <see cref="MaterialBakeParallax" />,
+    ///     which is the same rule the command line's <c>--parallax</c> asks for and which decides
+    ///     nothing beyond the ask.
+    /// </param>
     /// <returns>What happened, and what to say about it. Never null.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="document" /> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="name" /> is empty.</exception>
@@ -136,7 +142,8 @@ sealed class MaterialBakeRoute {
         TextureGraphDocument document,
         string name,
         string folder = MaterialMapNaming.DefaultFolder,
-        bool force = false
+        bool force = false,
+        bool parallax = false
     ) {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentException.ThrowIfNullOrEmpty(name);
@@ -174,7 +181,8 @@ sealed class MaterialBakeRoute {
             Record(document, device),
             name,
             folder,
-            force
+            force,
+            parallax
         );
     }
 
@@ -289,7 +297,13 @@ sealed class MaterialBakeRoute {
                     Record(document, stackDevice, set.Name),
                     material,
                     folder,
-                    force
+                    force,
+
+                    // ⚠ Never from the stack route, and it is a gap rather than a decision: the
+                    // editor's parallax ask is a verb on the *graph* bake, matching the command
+                    // line's `--parallax`, and a layer stack has no such verb to pass one from.
+                    // See #1103.
+                    parallax: false
                 )
             );
         }
@@ -535,7 +549,8 @@ sealed class MaterialBakeRoute {
         MaterialBakeRecord record,
         string name,
         string folder,
-        bool force
+        bool force,
+        bool parallax
     ) {
         MaterialBakeOutcome Said(string status) => new(null, status) { Diagnostics = diagnostics };
 
@@ -645,11 +660,28 @@ sealed class MaterialBakeRoute {
             ? " ⚠ " + string.Join(" · ", bake.Warnings)
             : "";
 
-        var warnings = set.Warnings.Count > 0
-            ? " ⚠ " + string.Join(" · ", set.Warnings)
+        // ⚠ After the write and never before it, which is `MaterialBakeParallax`'s rule rather than
+        // an ordering chosen here: the path the material lands at is the baker's, and a name a
+        // different source already owns becomes `Name_2` — so an ask applied beforehand would have to
+        // guess a path and could land on somebody else's material.
+        var kept = set.Warnings;
+        var asked = "";
+
+        if (parallax) {
+            kept = MaterialBakeParallax.Requested(set, out var refused);
+
+            // ⚠ Said either way. A bake that turned the march on looks identical to one that did not,
+            // and the artist pressed a verb whose whole content is that difference.
+            asked = refused is null
+                ? $" The height march is on: this material carries {MaterialBakeParallax.Tag}."
+                : " ⚠ " + refused;
+        }
+
+        var warnings = kept.Count > 0
+            ? " ⚠ " + string.Join(" · ", kept)
             : "";
 
-        return new MaterialBakeOutcome(set, Reported(set) + dropped + cautions + warnings) {
+        return new MaterialBakeOutcome(set, Reported(set) + dropped + cautions + warnings + asked) {
             Diagnostics = diagnostics
         };
     }

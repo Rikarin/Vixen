@@ -99,6 +99,7 @@ Vixen.Core.Serialization.SerializationWriter.WriteNullable<T>(T? value) -> void
 Vixen.Core.Serialization.SerializationWriter.WritePolymorphic<TBase>(TBase? value) -> void
 Vixen.Core.Serialization.SerializationWriter.WriteReference<T>(T? value) -> void
 Vixen.Core.Serialization.SerializationWriter.WriteSByte(sbyte value) -> void
+Vixen.Core.Serialization.SerializationWriter.WriteSequence<T>(System.Collections.Generic.IEnumerable<T>? value) -> void
 Vixen.Core.Serialization.SerializationWriter.WriteSingle(float value) -> void
 Vixen.Core.Serialization.SerializationWriter.WriteString(string? value) -> void
 Vixen.Core.Serialization.SerializationWriter.WriteTimeSpan(System.TimeSpan value) -> void

@@ -109,6 +109,44 @@ public ref partial struct SerializationWriter {
         }
     }
 
+    /// <summary>Writes a collection declared as one of its interfaces, element by element.</summary>
+    /// <typeparam name="T">The element type.</typeparam>
+    /// <param name="value">The collection, which may be <see langword="null" />.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Byte-for-byte <see cref="WriteArray{T}" />'s format, and read back by
+    ///         <see cref="SerializationReader.ReadArray{T}" /> — which is what lets the generator
+    ///         give an <c>IReadOnlyList&lt;T&gt;</c> member an array on the way in, since every
+    ///         collection interface it emits this for is satisfied by a <c>T[]</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ A member declared this way used to be written <em>polymorphically</em>, by the
+    ///         run-time type of whatever it held — and that type is an array, a
+    ///         <see cref="List{T}" />, or the compiler's synthesised read-only array for a collection
+    ///         expression, none of which has a serialised name and none of which can be annotated. No
+    ///         value of such a member serialised, so there are no bytes in the old shape to keep
+    ///         reading.
+    ///     </para>
+    /// </remarks>
+    public void WriteSequence<T>(IEnumerable<T>? value) {
+        if (value is null) {
+            WriteVarUInt64(0);
+            return;
+        }
+
+        // The count has to be known before the elements are, and the interface does not carry one.
+        // Buffering is the honest answer for a sequence that cannot be counted without walking it;
+        // everything the generator actually emits this for arrives already counted.
+        var counted = value as IReadOnlyCollection<T> ?? [.. value];
+
+        WriteVarUInt64((ulong)counted.Count + 1);
+        SerializerRegistry.TryGet<T>(out var serializer);
+
+        foreach (var item in counted) {
+            WriteElement(serializer, item);
+        }
+    }
+
     /// <summary>Writes a dictionary in its enumeration order.</summary>
     /// <typeparam name="TKey">The key type.</typeparam>
     /// <typeparam name="TValue">The value type.</typeparam>

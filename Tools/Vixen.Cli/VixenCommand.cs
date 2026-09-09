@@ -140,7 +140,7 @@ public static class VixenCommand {
     ///         instead is preserve one the material already carries, which cannot help a material
     ///         that does not exist yet. So the flag is what a <em>first</em> bake says instead of
     ///         baking, pasting a tag into the <c>.vxmat</c> and baking again. See
-    ///         <see cref="BakeParallax" />, which supplies the ask and decides nothing else.
+    ///         <see cref="MaterialBakeParallax" />, which supplies the ask and decides nothing else.
     ///     </para>
     ///     <para>
     ///         A subcommand rather than a verb of its own, because <c>texture</c> is where the graph
@@ -184,7 +184,7 @@ public static class VixenCommand {
         // height map for whatever wants it and composes no march, because composing one would put a
         // per-pixel cost on every material any graph ever emitted a height output from; without a
         // flag the only way to turn one on was to bake, paste a feature into the .vxmat and bake
-        // again. See BakeParallax, which does not decide where the feature goes.
+        // again. See MaterialBakeParallax, which does not decide where the feature goes.
         var parallax = new Option<bool>("--parallax") {
             Description = "Compose a parallax occlusion feature for the height map this bake writes."
         };

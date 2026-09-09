@@ -587,6 +587,83 @@ public sealed record TexturedOpacityFeature : IMaterialFeature {
     }
 }
 
+/// <summary>Baked ambient occlusion from a map, on its own.</summary>
+/// <remarks>
+///     <para>
+///         What <see cref="TexturedOrmFeature" /> could not be. That feature carries occlusion,
+///         roughness and metalness together because it reads all three out of one packed file — and
+///         the packing is exactly why a <em>layered</em> material had no baked occlusion at all. A
+///         <see cref="TexturedMaterialLayersFeature" /> has already blended per-layer roughness and
+///         metalness and split the diffuse itself, so composing the packed feature behind it writes
+///         the author's per-layer answer over with a flattened one and splits the albedo twice. The
+///         packed feature has to be dropped there, and until this existed the occlusion went with it.
+///         See <a href="https://github.com/Rikarin/Vixen/issues/1130">#1130</a>.
+///     </para>
+///     <para>
+///         ⚠ <b>It reads the map's red channel</b>, which is <see cref="TexturedOpacityFeature" />'s
+///         decision for the same reason: an occlusion map is one channel — BC4, R8, or the R of a
+///         packed ORM file, which is the one a bake actually writes — and a one-channel texture
+///         samples alpha as 1, so reading <c>.a</c> would make every AO map fully unoccluded. That is
+///         a map that arrived and did nothing, which is the failure this library spends its fallback
+///         checker on making visible.
+///     </para>
+///     <para>
+///         Multiplied into whatever occlusion is already there rather than assigned, on
+///         <see cref="OcclusionFeature" />'s argument: a baked map and a screen-space term compose
+///         without either knowing about the other. It is therefore not a base workflow and has no
+///         opinion about anything the surface before it decided — which is what lets it sit behind a
+///         layered surface where the packed one cannot.
+///     </para>
+///     <para>
+///         Same conditions as every other sampling feature: a name rather than a handle, a device with
+///         <c>HasBindless</c>, and a host that paired the name through
+///         <c>MaterialRenderFeature.TextureIndices</c>.
+///     </para>
+/// </remarks>
+[DataContract("TexturedOcclusion")]
+public sealed record TexturedOcclusionFeature : IMaterialFeature {
+    /// <summary>What the material calls the occlusion map it wants sampled.</summary>
+    /// <remarks>
+    ///     ⚠ Not a name a material may choose freely, for <see cref="TexturedMetalRoughnessFeature" />
+    ///     's reason: a host pairs one name with one name, keyed off this default. ⚠ And deliberately
+    ///     not <c>ormMap</c>, even where a bake binds the same file under both: two sampling features
+    ///     sharing one map name is a pairing a host resolves by whichever it reached last.
+    /// </remarks>
+    /// <seealso cref="MaterialDiagnosticId.RenamedTextureMap" />
+    public string OcclusionMap { get; init; } = PairedOcclusionMap;
+
+    /// <summary>The one name a host pairs this map under, and therefore the only one it may have.</summary>
+    internal const string PairedOcclusionMap = "occlusionMap";
+
+    /// <summary>How much of the map is applied, 0 for none and 1 for the map exactly.</summary>
+    public float OcclusionStrength { get; init; } = 1f;
+
+    /// <inheritdoc />
+    public string ShaderName => "TexturedOcclusionSurface";
+
+    /// <summary>What the shader calls the slot, under a composition path.</summary>
+    /// <param name="path">
+    ///     The qualified prefix the feature was composed under, as
+    ///     <see cref="MaterialCompilationContext" /> builds it.
+    /// </param>
+    public static string OcclusionIndexParameter(string path) {
+        ArgumentNullException.ThrowIfNull(path);
+        return path + "occlusionIndex";
+    }
+
+    /// <inheritdoc />
+    public void Compile(MaterialCompilationContext context) {
+        ArgumentNullException.ThrowIfNull(context);
+        MaterialMapNames.Check(context, ShaderName, nameof(OcclusionMap), OcclusionMap, PairedOcclusionMap);
+
+        context.Set("occlusionStrength", OcclusionStrength);
+
+        // Zero until a host with a table writes a slot over it — see
+        // TexturedMetalRoughnessFeature.Compile for what the zero is and why it is not nothing.
+        context.Set("occlusionIndex", 0u);
+    }
+}
+
 /// <summary>Adds emitted radiance, unaffected by lighting.</summary>
 [DataContract("Emissive")]
 public sealed record EmissiveFeature : IMaterialFeature {

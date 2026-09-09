@@ -27,6 +27,13 @@ enum MemberShape {
     /// <summary>A <c>List&lt;T&gt;</c>.</summary>
     List,
 
+    /// <summary>
+    ///     A collection declared as one of its interfaces — <c>IReadOnlyList&lt;T&gt;</c> and the
+    ///     four that read like it. Written as an array and read back as one, because every one of
+    ///     those interfaces is satisfied by a <c>T[]</c>.
+    /// </summary>
+    Sequence,
+
     /// <summary>A <c>Dictionary&lt;TKey,TValue&gt;</c>.</summary>
     Dictionary,
 

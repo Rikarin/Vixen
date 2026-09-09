@@ -650,6 +650,40 @@ shader TexturedOpacitySurface : MaterialTextures, IMaterialSurface {
     }
 }
 
+/// Ambient occlusion from a map, on its own.
+///
+/// What `TexturedOrmSurface` could not be. That shader carries occlusion, roughness and metalness
+/// because it reads all three out of one packed file — and the packing is why a *layered* material
+/// has no baked occlusion at all. `TexturedMaterialLayersSurface` has already blended per-layer
+/// roughness and metalness and split the diffuse itself, so composing the ORM shader behind it
+/// writes over the author's answer with a flattened one and splits the albedo a second time. The
+/// packed shader has to be dropped there, and the occlusion goes with it — see
+/// <https://github.com/Rikarin/Vixen/issues/1130>.
+///
+/// This one reads the same red channel and nothing else, so it composes behind a layered surface
+/// without having an opinion about anything the layers decided.
+///
+/// ⚠ **Red, and not alpha or luminance.** An occlusion map is one channel — BC4, or R8, or the R of
+/// a packed ORM file, which is the one a bake actually writes — and a one-channel texture samples
+/// alpha as 1. Reading `.a` would make every AO map fully unoccluded, which is a map that arrived
+/// and did nothing.
+///
+/// Multiplied into whatever is already there rather than assigned, on `OcclusionSurface`'s argument:
+/// a baked map and a screen-space term compose without either knowing about the other.
+shader TexturedOcclusionSurface : MaterialTextures, IMaterialSurface {
+    /// Which slot of the frame's table holds this material's occlusion map.
+    var occlusionIndex: uint = 0u
+
+    /// How much of the map is applied, 0 for none and 1 for the map exactly.
+    var occlusionStrength: float = 1f
+
+    func Compute(inout d: MaterialData) {
+        val sampled = SampleSurface(occlusionIndex, d)
+
+        d.occlusion = d.occlusion * lerp(1f, saturate(sampled.r), saturate(occlusionStrength))
+    }
+}
+
 /// Applies ambient occlusion.
 ///
 /// Multiplies into whatever is already there rather than overwriting, so two occlusion sources —

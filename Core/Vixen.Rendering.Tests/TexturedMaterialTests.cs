@@ -215,6 +215,44 @@ public class TexturedMaterialTests {
         Assert.Equal(1f, feature.Metalness);
     }
 
+    /// <summary>Occlusion alone is a sampling feature, and it composes where the packed one cannot.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Composed <em>behind a layered surface</em>, which is the whole reason this feature
+    ///         exists</b> — <a href="https://github.com/Rikarin/Vixen/issues/1130">#1130</a>.
+    ///         <c>TexturedOrmSurface</c> assigns <c>d.perceptualRoughness</c> and splits the albedo by
+    ///         the map's metalness, both of which <c>TexturedMaterialLayersSurface</c> has already
+    ///         done per layer, so the bake drops it there and the baked occlusion went with it. This
+    ///         one reads and multiplies, so the chain is legal and the layers keep their answer.
+    ///     </para>
+    ///     <para>
+    ///         Its strength is a multiplier rather than a value, for the packed feature's reason: a
+    ///         zero would read as "no occlusion", which is what a map that never arrived looks like.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Occlusion_from_a_map_composes_behind_a_layered_surface() {
+        var material = Compiled(new TexturedMaterialLayersFeature(), new TexturedOcclusionFeature());
+        var names = material.Parameters.Keys.Select(key => key.Name).ToArray();
+
+        Assert.Contains("ForwardPlus.CompositeSurface.TexturedOcclusionSurface.occlusionIndex", names);
+        Assert.Contains("ForwardPlus.CompositeSurface.TexturedOcclusionSurface.occlusionStrength", names);
+
+        Assert.Equal(
+            "ForwardPlus.CompositeSurface.TexturedOcclusionSurface.occlusionIndex",
+            TexturedOcclusionFeature.OcclusionIndexParameter("ForwardPlus.CompositeSurface.TexturedOcclusionSurface.")
+        );
+
+        Assert.Equal("TexturedMaterialLayersSurface", material.Composition.Resolve("CompositeSurface.first"));
+        Assert.Equal("TexturedOcclusionSurface", material.Composition.Resolve("CompositeSurface.second"));
+
+        Assert.Equal(1f, new TexturedOcclusionFeature().OcclusionStrength);
+
+        // ⚠ And its map name is its own. A bake binds the same *file* under both names behind a
+        // layered surface, and one shared name would be two indices filled from one pairing entry.
+        Assert.NotEqual(new TexturedOrmFeature().OrmMap, new TexturedOcclusionFeature().OcclusionMap);
+    }
+
     /// <summary>All three sampling features compose, under three distinct names.</summary>
     /// <remarks>
     ///     <para>
