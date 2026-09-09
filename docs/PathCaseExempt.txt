@@ -1,0 +1,26 @@
+# Strings that look like a path, fold onto a committed path, and are not references to it.
+#
+# `nuke CheckPathCase` (also run inside CheckFormat) fails when
+#
+#   * a committed file names a committed path in a case the repository does not use — that is
+#     the gate, and it is doc 10 § Cross-platform discipline's Case sensitivity row;
+#   * a line here names a reference the scan no longer reports: delete the line in the same commit.
+#
+# ⚠ So this file is also the check's positive control, and that is the reason it is not empty. The
+# scan finds three things on this tree and all three are false positives; if it ever finds none,
+# these three lines go stale and the gate fails, instead of reporting a clean tree because it read
+# nothing. An instrument with no positive is one nobody has watched work — the Null device, the
+# skipped golden, the comparator that called three empty manifests identical.
+#
+# A line is `<committed file>: <literal as written>`. Add one only when the string is not a path.
+# A string that IS a path in the wrong case gets its case fixed; that is the whole point.
+
+# A sentence in a comment, shouting, about a sample this leg deliberately does not run.
+.github/workflows/ci.yml: SAMPLES/15-AIVILLAGE
+
+# The `raven` CLI at a shell prompt, inside a fenced code block. `Raven` is the source directory.
+Raven/README.md: ./raven
+
+# An entry inside the produced .nupkg, where NuGet's `tools/` folder is lowercase by convention.
+# Nothing here resolves against this repository's `Tools/`.
+Tools/Vixen.Sdk.Tests/PackagedToolTests.cs: tools/Vixen.AssetCompiler
