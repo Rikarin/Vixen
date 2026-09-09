@@ -48,6 +48,64 @@ public static class MaterialKeys {
     }
 }
 
+/// <summary>The one string in a material a host has already decided.</summary>
+/// <remarks>
+///     <para>
+///         ⚠ <b>A sampling feature's map name is not the author's to choose, and eight remarks said
+///         so in prose that nothing enforced.</b> A host joins a sampling shader's <c>uint</c> slot to
+///         a material-side texture name — <c>WorldRenderer.Paired</c> — and it keys that join off the
+///         feature's <em>default</em>, one static entry per name for the whole frame, because a
+///         per-material pairing would be a per-material effect key. So a material that spells its map
+///         anything else resolves no entry, keeps the index at zero, and samples slot zero: the
+///         table's fallback checker, on every device, with nothing reported. See
+///         <a href="https://github.com/Rikarin/Vixen/issues/371">#371</a>, which asked for this at
+///         import, where the author is at a keyboard.
+///     </para>
+///     <para>
+///         ⚠ <b>Stated by each feature rather than discovered from the type.</b> Reflecting over a
+///         feature's properties is the obvious shape and this assembly refuses it: it is trim
+///         annotated, and <c>Type.GetProperties</c> on a type reached through
+///         <see cref="IMaterialFeature" /> is <c>IL2070</c>. Suppressing that would be the worst of
+///         both — a check that is compiled away in exactly the shipping build it was meant to protect,
+///         which is an instrument reporting success on the day it does not run. What holds the list
+///         complete instead is <c>MaterialCompilerTests</c>, which reflects in the <em>test</em>
+///         assembly over every feature this one declares and renames each string it finds.
+///     </para>
+/// </remarks>
+static class MaterialMapNames {
+    /// <summary>Refuses a map called something no host pairs.</summary>
+    /// <param name="context">Where the refusal is recorded.</param>
+    /// <param name="shader">The feature's shader, which is how a message names it.</param>
+    /// <param name="property">Which of the feature's names this is, as the file spells it.</param>
+    /// <param name="authored">What the material called it.</param>
+    /// <param name="paired">What the host paired it under, which is the feature's own default.</param>
+    /// <remarks>
+    ///     ⚠ Compared as a nullable rather than pattern-matched to <c>string</c>, so a name set to
+    ///     null trips this instead of falling through unexamined — a null name resolves exactly as
+    ///     little as a wrong one.
+    /// </remarks>
+    internal static void Check(
+        MaterialCompilationContext context,
+        string shader,
+        string property,
+        string? authored,
+        string paired
+    ) {
+        if (string.Equals(authored, paired, StringComparison.Ordinal)) {
+            return;
+        }
+
+        context.Report(
+            MaterialDiagnosticId.RenamedTextureMap,
+            $"'{shader}' calls its {property} '{authored}', and a host pairs that map under "
+            + $"'{paired}'. The pairing is one static entry per name for the whole frame, so a "
+            + "renamed map resolves nothing, leaves the index at zero and samples slot zero — the "
+            + $"fallback checker, on every device, with nothing reported. Call it '{paired}' and "
+            + "rename the textures entry that binds it."
+        );
+    }
+}
+
 /// <summary>
 ///     The metalness/roughness workflow: one base colour, one metalness, one roughness.
 /// </summary>
@@ -122,7 +180,11 @@ public sealed record TexturedMetalRoughnessFeature : IMaterialFeature {
     ///     see <see cref="BaseColorIndexParameter" /> — and the pairing is explicit for the reason
     ///     every other name-to-name join in the renderer is.
     /// </remarks>
-    public string BaseColorMap { get; init; } = "baseColorMap";
+    /// <seealso cref="MaterialDiagnosticId.RenamedTextureMap" />
+    public string BaseColorMap { get; init; } = PairedBaseColorMap;
+
+    /// <summary>The one name a host pairs this map under, and therefore the only one it may have.</summary>
+    internal const string PairedBaseColorMap = "baseColorMap";
 
     /// <inheritdoc />
     public string ShaderName => "TexturedMetalRoughnessSurface";
@@ -146,6 +208,8 @@ public sealed record TexturedMetalRoughnessFeature : IMaterialFeature {
     /// <inheritdoc />
     public void Compile(MaterialCompilationContext context) {
         ArgumentNullException.ThrowIfNull(context);
+
+        MaterialMapNames.Check(context, ShaderName, nameof(BaseColorMap), BaseColorMap, PairedBaseColorMap);
 
         context.Set("baseColor", BaseColor);
         context.Set("metalness", Metalness);
@@ -239,7 +303,11 @@ public sealed record TexturedNormalMapFeature : IMaterialFeature {
     ///     's reason: a host pairs one name with one name, keyed off this default, so a material that
     ///     renamed its map resolves nothing and takes slot zero.
     /// </remarks>
-    public string NormalMap { get; init; } = "normalMap";
+    /// <seealso cref="MaterialDiagnosticId.RenamedTextureMap" />
+    public string NormalMap { get; init; } = PairedNormalMap;
+
+    /// <summary>The one name a host pairs this map under, and therefore the only one it may have.</summary>
+    internal const string PairedNormalMap = "normalMap";
 
     /// <summary>How far the normal is bent, where 1 is as authored.</summary>
     public float Strength { get; init; } = 1f;
@@ -265,6 +333,7 @@ public sealed record TexturedNormalMapFeature : IMaterialFeature {
     /// <inheritdoc />
     public void Compile(MaterialCompilationContext context) {
         ArgumentNullException.ThrowIfNull(context);
+        MaterialMapNames.Check(context, ShaderName, nameof(NormalMap), NormalMap, PairedNormalMap);
 
         context.Set("strength", Strength);
 
@@ -306,7 +375,11 @@ public sealed record TexturedOrmFeature : IMaterialFeature {
     ///     ⚠ Not a name a material may choose freely, for <see cref="TexturedMetalRoughnessFeature" />
     ///     's reason: a host pairs one name with one name, keyed off this default.
     /// </remarks>
-    public string OrmMap { get; init; } = "ormMap";
+    /// <seealso cref="MaterialDiagnosticId.RenamedTextureMap" />
+    public string OrmMap { get; init; } = PairedOrmMap;
+
+    /// <summary>The one name a host pairs this map under, and therefore the only one it may have.</summary>
+    internal const string PairedOrmMap = "ormMap";
 
     /// <summary>How much of the map's occlusion is applied, 0 for none.</summary>
     public float OcclusionStrength { get; init; } = 1f;
@@ -333,6 +406,7 @@ public sealed record TexturedOrmFeature : IMaterialFeature {
     /// <inheritdoc />
     public void Compile(MaterialCompilationContext context) {
         ArgumentNullException.ThrowIfNull(context);
+        MaterialMapNames.Check(context, ShaderName, nameof(OrmMap), OrmMap, PairedOrmMap);
 
         context.Set("occlusionStrength", OcclusionStrength);
         context.Set("roughness", Roughness);
@@ -371,7 +445,11 @@ public sealed record TexturedEmissiveFeature : IMaterialFeature {
     ///     ⚠ Not a name a material may choose freely, for <see cref="TexturedMetalRoughnessFeature" />
     ///     's reason: a host pairs one name with one name, keyed off this default.
     /// </remarks>
-    public string EmissiveMap { get; init; } = "emissiveMap";
+    /// <seealso cref="MaterialDiagnosticId.RenamedTextureMap" />
+    public string EmissiveMap { get; init; } = PairedEmissiveMap;
+
+    /// <summary>The one name a host pairs this map under, and therefore the only one it may have.</summary>
+    internal const string PairedEmissiveMap = "emissiveMap";
 
     /// <summary>Multiplied into the map, so a shared map can be tinted per material.</summary>
     public Vector3 EmissiveColor { get; init; } = Vector3.One;
@@ -401,6 +479,7 @@ public sealed record TexturedEmissiveFeature : IMaterialFeature {
     /// <inheritdoc />
     public void Compile(MaterialCompilationContext context) {
         ArgumentNullException.ThrowIfNull(context);
+        MaterialMapNames.Check(context, ShaderName, nameof(EmissiveMap), EmissiveMap, PairedEmissiveMap);
 
         context.Set("emissiveColor", EmissiveColor);
         context.Set("intensity", Intensity);
@@ -441,7 +520,11 @@ public sealed record TexturedOpacityFeature : IMaterialFeature {
     ///     ⚠ Not a name a material may choose freely, for <see cref="TexturedMetalRoughnessFeature" />
     ///     's reason: a host pairs one name with one name, keyed off this default.
     /// </remarks>
-    public string OpacityMap { get; init; } = "opacityMap";
+    /// <seealso cref="MaterialDiagnosticId.RenamedTextureMap" />
+    public string OpacityMap { get; init; } = PairedOpacityMap;
+
+    /// <summary>The one name a host pairs this map under, and therefore the only one it may have.</summary>
+    internal const string PairedOpacityMap = "opacityMap";
 
     /// <summary>What the map is scaled by, so a whole surface can be faded. One is the map exactly.</summary>
     public float Opacity { get; init; } = 1f;
@@ -462,6 +545,7 @@ public sealed record TexturedOpacityFeature : IMaterialFeature {
     /// <inheritdoc />
     public void Compile(MaterialCompilationContext context) {
         ArgumentNullException.ThrowIfNull(context);
+        MaterialMapNames.Check(context, ShaderName, nameof(OpacityMap), OpacityMap, PairedOpacityMap);
 
         context.Set("opacity", Opacity);
 
@@ -747,7 +831,11 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
     ///     ⚠ Not a name a material may choose freely, for <see cref="TexturedMetalRoughnessFeature" />
     ///     's reason: a host pairs one name with one name, keyed off this default.
     /// </remarks>
-    public string SplatMap { get; init; } = "splatMap";
+    /// <seealso cref="MaterialDiagnosticId.RenamedTextureMap" />
+    public string SplatMap { get; init; } = PairedSplatMap;
+
+    /// <summary>The one name a host pairs this map under, and therefore the only one it may have.</summary>
+    internal const string PairedSplatMap = "splatMap";
 
     /// <summary>How many of the splat map's channels carry a painted weight.</summary>
     /// <remarks>
@@ -805,7 +893,11 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
     ///     one static entry per name for <see cref="TexturedMetalRoughnessFeature.BaseColorMap" />'s
     ///     reason, so what decides whether the map is sampled is the permutation and not this name.
     /// </remarks>
-    public string HeightMap { get; init; } = "heightMap";
+    /// <seealso cref="MaterialDiagnosticId.RenamedTextureMap" />
+    public string HeightMap { get; init; } = PairedHeightMap;
+
+    /// <summary>The one name a host pairs this map under, and therefore the only one it may have.</summary>
+    internal const string PairedHeightMap = "heightMap";
 
     /// <summary>How far a full-height texel can push a layer, in splat-weight units.</summary>
     /// <remarks>
@@ -851,6 +943,8 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
     /// <inheritdoc />
     public void Compile(MaterialCompilationContext context) {
         ArgumentNullException.ThrowIfNull(context);
+        MaterialMapNames.Check(context, ShaderName, nameof(SplatMap), SplatMap, PairedSplatMap);
+        MaterialMapNames.Check(context, ShaderName, nameof(HeightMap), HeightMap, PairedHeightMap);
 
         // At least one, for MaterialLayersFeature.Compile's reason: `LayerCount` sizes an array and a
         // zero-length one does not compile, where an empty layer list is an unfinished material.
@@ -963,6 +1057,22 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
 ///         the material, which knows nothing about the mesh it is put on; see
 ///         <a href="https://github.com/Rikarin/Vixen/issues/1104">#1104</a>.
 ///     </para>
+///     <para>
+///         ⚠ <b>And the silhouette is decided rather than owed, because a <c>discard</c> in the
+///         shading pass would not produce one.</b> Coverage for this surface is settled in more
+///         passes than the one that shades it: a depth prepass and every shadow caster rasterise it
+///         too, and <c>DepthOnly</c> and <c>ShadowCaster</c> <em>deliberately</em> compose no
+///         material chain — <see cref="Compositor.RenderStageAsset.ComposeFromMaterial" /> is
+///         false for both, because handing them a material's features splits their variant cache
+///         once per material for shaders that compile to the same bytes. So a forward pass that cut
+///         the silhouette away would leave the prepass's depth written across the hole and the
+///         shadow uncut: a notch that occludes what is behind it and still shades nothing. Fixing it
+///         properly means making those two passes material-composed and marching the height field
+///         two more times per frame per light, in the two passes whose whole purpose is to be cheap.
+///         That is the cost, and it buys a case no shipped material is in — the artefact needs a
+///         genuine silhouette <em>and</em> a single 0..1 island, and this feature's carrier is a
+///         box-projected wall.
+///     </para>
 /// </remarks>
 [DataContract("ParallaxOcclusion")]
 public sealed record ParallaxOcclusionFeature : IMaterialFeature {
@@ -982,7 +1092,12 @@ public sealed record ParallaxOcclusionFeature : IMaterialFeature {
     ///     <see cref="TexturedMetalRoughnessFeature" />'s reason: a host pairs one name with one name,
     ///     keyed off this default.
     /// </remarks>
-    public string HeightMap { get; init; } = "parallaxHeightMap";
+    /// <seealso cref="MaterialDiagnosticId.RenamedTextureMap" />
+    public string HeightMap { get; init; } = PairedHeightMap;
+
+    /// <summary>The one name a host pairs this map under, and therefore the only one it may have.</summary>
+    /// <remarks>⚠ Deliberately not <c>heightMap</c>, which is the layered feature's — see the type.</remarks>
+    internal const string PairedHeightMap = "parallaxHeightMap";
 
     /// <summary>How deep the field's floor is, in the surface's own UV units.</summary>
     /// <remarks>
@@ -1026,6 +1141,7 @@ public sealed record ParallaxOcclusionFeature : IMaterialFeature {
     /// <inheritdoc />
     public void Compile(MaterialCompilationContext context) {
         ArgumentNullException.ThrowIfNull(context);
+        MaterialMapNames.Check(context, ShaderName, nameof(HeightMap), HeightMap, PairedHeightMap);
 
         context.Set("heightScale", HeightScale);
 

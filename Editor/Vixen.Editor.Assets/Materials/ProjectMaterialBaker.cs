@@ -193,7 +193,13 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
             maps[images[at].Target] = new AssetReference(entry.Guid);
         }
 
-        File.WriteAllText(materialFile, YamlSerializer.ToYaml(MaterialBake.Material(maps, Material(materialFile))));
+        var content = MaterialBake.Material(maps, Material(materialFile));
+
+        if (Unmarched(maps, content)) {
+            warnings.Add(Unsampled(name));
+        }
+
+        File.WriteAllText(materialFile, YamlSerializer.ToYaml(content));
         files.Add(materialFile);
         Written = files;
 
@@ -212,6 +218,44 @@ public sealed class ProjectMaterialBaker(EditorProject project, string folder = 
 
         return new(name, new AssetReference(found.Guid), maps, files, warnings);
     }
+
+    /// <summary>Whether this bake wrote a height map that the material it wrote samples nowhere.</summary>
+    /// <param name="maps">What the bake wrote, by target.</param>
+    /// <param name="content">The material the bake just composed for them.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The height output is the one a bake can write and leave unread</b>, and that is by
+    ///         design rather than by omission: <c>MaterialBake.Material</c> composes a textured
+    ///         feature for each of the other five targets, and deliberately composes none for height,
+    ///         because doing so would put a per-pixel march on every material any graph ever emitted a
+    ///         height map from. Parallax is the author's — kept across a re-bake, re-seated and bound
+    ///         — so a material that already carries one is fed and this says nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which leaves a first bake with no way to ask, and silence was the whole of the
+    ///         problem.</b> A first bake has no existing material to read the author's intent out of,
+    ///         so the route is two steps — bake, add the feature, bake again — and nothing anywhere
+    ///         said so. The file is written either way; what this adds is the sentence naming the
+    ///         second step. See <a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>,
+    ///         which stays open: a route the tool describes is not yet a route the tool offers.
+    ///     </para>
+    ///     <para>
+    ///         <b>Read off the composed material rather than off the existing one</b>, which is what
+    ///         makes it true of what was written. <c>Material</c> drops a preserved feature when this
+    ///         bake wrote no height map, so asking the input would say "fed" about a material whose
+    ///         output carries nothing.
+    ///     </para>
+    /// </remarks>
+    static bool Unmarched(IReadOnlyDictionary<MaterialMapTarget, AssetReference> maps, MaterialContent content) =>
+        maps.ContainsKey(MaterialMapTarget.Height)
+        && !content.Features.Any(feature => feature is ParallaxOcclusionFeature);
+
+    /// <summary>What it says, which has to name the step rather than the state.</summary>
+    static string Unsampled(string name) =>
+        $"'{name}' was baked with a height map and nothing in the material samples it — a height "
+        + "output is written for whatever wants it, and the feature that marches one is the author's. "
+        + $"Add '- !ParallaxOcclusion' as the first feature of {name}{MaterialImporter.Extension} and "
+        + "bake again: the next bake keeps it, keeps its heightScale, and binds this map to it.";
 
     /// <summary>What a bake says when the database did not pick a file it wrote back up.</summary>
     /// <remarks>

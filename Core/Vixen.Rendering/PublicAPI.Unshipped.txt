@@ -3483,6 +3483,7 @@ Vixen.Rendering.Materials.MaterialDiagnosticId.CoordinateFeatureOutOfOrder = 5 -
 Vixen.Rendering.Materials.MaterialDiagnosticId.DuplicateFeature = 0 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialDiagnosticId.MaterialDiagnosticId() -> void
 Vixen.Rendering.Materials.MaterialDiagnosticId.NoFeatures = 2 -> Vixen.Rendering.Materials.MaterialDiagnosticId
+Vixen.Rendering.Materials.MaterialDiagnosticId.RenamedTextureMap = 6 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialDiagnosticId.TooManyFeatures = 1 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialDiagnosticId.UnnamedShader = 3 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialDiagnosticId.UnpaintedLayer = 4 -> Vixen.Rendering.Materials.MaterialDiagnosticId

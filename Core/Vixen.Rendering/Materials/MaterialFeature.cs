@@ -157,7 +157,36 @@ public enum MaterialDiagnosticId {
     ///     already sampled, so what it produces is half a parallaxed surface, on every device, with
     ///     nothing reported. See <see cref="MaterialFeatureStage" />.
     /// </remarks>
-    CoordinateFeatureOutOfOrder
+    CoordinateFeatureOutOfOrder,
+
+    /// <summary>A feature's map is called something other than the one name a host pairs.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An error, and the only one here whose subject is a string an author is free to
+    ///         type.</b> A host joins a sampling shader's <c>uint</c> slot to a material-side texture
+    ///         name, and it keys that join off the feature's <em>default</em> — one static entry per
+    ///         name, built from <c>new TexturedMetalRoughnessFeature()</c> and its siblings, because
+    ///         the pairing is one table for the whole frame and cannot be per material. So a material
+    ///         that spells its map anything else resolves no entry, leaves the index at zero, and
+    ///         samples slot zero: the fallback checker, on every device, with nothing reported. See
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/371">#371</a>, which asked for this at
+    ///         import, where the author is at a keyboard.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reached by a rename that looks like a fix.</b> The two maps called "height" are
+    ///         the case that already happened: a re-bake that copied its own texture entry's name onto
+    ///         a preserved <c>ParallaxOcclusionFeature</c> bound a real texture under
+    ///         <c>heightMap</c> — which is the <em>layered</em> feature's name — and marched the
+    ///         checker. Four map-name remarks in <c>MaterialFeatures</c> say the name is not the
+    ///         author's; until this, nothing enforced any of them.
+    ///     </para>
+    ///     <para>
+    ///         <b>A name whose default is empty is exempt</b>, because there is nothing to be renamed
+    ///         away from: that is <see cref="GraphSurfaceFeature" />, whose slot names are its graph's
+    ///         and whose pairing entries are added per material rather than statically.
+    ///     </para>
+    /// </remarks>
+    RenamedTextureMap
 }
 
 /// <summary>One thing the compiler has to say about a material.</summary>
