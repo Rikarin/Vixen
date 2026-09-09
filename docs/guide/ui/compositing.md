@@ -504,22 +504,31 @@ keeps its square backdrop.
 ⚠ **The distance field is the easy half of the *device* half, and this used to price only that.**
 Measured 2026-09-06: there is no way to *tell* a composite fragment where the rounded box is. A
 composite quad has no
-`UiShape` — an image descriptor set's storage binding never points at the box buffer. The push
-constants are at the ceiling: `UiMask`'s forty-eight-byte matrix plus the vertex stage's sixteen is
-16 + 112, exactly the 128 bytes Vulkan guarantees on every device, which is why the mask entries went
-into a storage buffer in the first place. And the quad's `shape` stream has three free lanes —
-`shape.x` is already the premultiplied flag — where a *backdrop* quad needs the box's centre as well
-as its half-size and four elliptical radii, because its `uv` is viewport-relative rather than
-box-relative.
+`UiShape` — an image descriptor set's storage binding never points at the box buffer. And the quad's
+`shape` stream has three free lanes — `shape.x` is already the premultiplied flag — where a *backdrop*
+quad needs the box's centre, its half-size and a radius, because its `uv` is viewport-relative rather
+than box-relative.
 
-⚠ **What does have room is `MaskEntry`, and it is free of every one of those costs.** It rides a
-binding each composite draw already has bound, already carries the border box as a centre and a half
-in document pixels, and already discriminates on `ramp.z` — so a fourth shape beside linear, radial
-and conic can spend the stop lanes, which a non-ramp shape never reads, on the four radii. The cost is
-routing rather than layout: only `ui-mask.frag` reads entries, so a rounded backdrop would composite
-through the mask pipeline whether or not the element has a `mask-image`. The rest is what was already
-priced — the signed distance in the fragment, its committed copies, and
-`SoftwareUiRasterizer.Composite`.
+⚠ **The third cost in that list — "the push constants are at the ceiling" — is false, and it is the
+one the expensive answer was derived from.** It stood in four places until 2026-09-09 and it conflates
+two different blocks. Measured off the committed `.reflect.json`: `UiBlur`'s push block is **32**
+bytes, `UiColour`'s **64**, `UiMask`'s **80** — the widest — and `UiImage` declares none at all,
+against the **128** Vulkan guarantees everywhere. That is 48 free bytes on the worst composite stage,
+where a box as a centre and a half plus a uniform-or-zero radius is two `float4` and spends 32. The
+pipeline layout is already one `Vertex | Fragment` range over the whole 128, so no host change attends
+it. What *is* at the ceiling is a **mask list**: an entry is sixty-four bytes, so sixteen reserved
+plus a forty-eight-byte matrix plus one entry is exactly 128 and a second will not fit — which is what
+`MaskEntry`'s remark in `Ui.rvn` says, correctly, and why those entries went to a storage buffer. Four
+audits read a true sentence about a sixty-four-byte record as a statement about a spare `float4`.
+
+So the channel is two push constants on `UiImage`, `UiColour` and `UiMask`, and **not** the fourth
+`MaskEntry` shape this paragraph used to recommend — which would have routed every rounded backdrop
+through the mask pipeline whether or not the element has a `mask-image`, to buy a record that has room
+where there was already room. `ShaderReflectionTests.ThereIsRoomForARoundedBackdropBox` holds the
+headroom, so the day something spends it the expensive answer becomes the right one visibly rather
+than silently. The rest is what was already priced — the signed distance in the three fragments, their
+committed copies, `SoftwareUiRasterizer.Composite` (which has it as of 2026-09-08) and a device to
+photograph the corner.
 
 ⚠ **An element that paints nothing of its own used to get no backdrop, and the reason recorded for it
 was a claim about these two executors that was not true of either.** The claim was that both walk the

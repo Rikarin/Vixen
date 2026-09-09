@@ -983,11 +983,24 @@ public sealed class UiRenderer : IDisposable {
     ///     <para>
     ///         ⚠ <b>What the divergence costs to close is a channel and not a distance function</b>,
     ///         which four audits of #229 priced and one of them got the seam wrong: a composite quad
-    ///         carries no <c>UiShape</c>, the push constants are at Vulkan's guaranteed 128 bytes, and
-    ///         the quad's <c>shape</c> stream has three free lanes where a viewport-relative backdrop
-    ///         needs seven. The cheapest measured channel is a fourth <c>MaskEntry</c> shape, whose
-    ///         price is routing every rounded backdrop through the mask pipeline. See
+    ///         carries no <c>UiShape</c>, and the quad's <c>shape</c> stream has three free lanes
+    ///         where a viewport-relative backdrop needs five. See
     ///         <see cref="UiLayer.BackdropRadius" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>But "the push constants are at Vulkan's guaranteed 128 bytes" is false and stood
+    ///         in four places until 2026-09-09, and it is the sentence the expensive answer was
+    ///         derived from.</b> Measured off the committed reflection: <c>UiBlur</c>'s block is 32
+    ///         bytes, <c>UiColour</c>'s 64, <c>UiMask</c>'s 80 — the widest — and <c>UiImage</c>
+    ///         declares none. So 48 bytes are free on the worst composite stage where a box as a
+    ///         centre and a half plus a uniform-or-zero radius needs 32, and the pipeline layout is
+    ///         already one <c>Vertex | Fragment</c> range over the whole 128. What is genuinely at the
+    ///         ceiling is a <i>mask list</i> — an entry is 64 bytes, which is what <c>MaskEntry</c>'s
+    ///         remark in <c>Ui.rvn</c> says and why those went to a storage buffer — and four audits
+    ///         read that as a statement about a spare <c>float4</c>. So the fourth <c>MaskEntry</c>
+    ///         shape, and the routing of every rounded backdrop through the mask pipeline that it
+    ///         costs, is not needed. <c>ShaderReflectionTests.ThereIsRoomForARoundedBackdropBox</c>
+    ///         holds the headroom so the day it is spent this changes visibly.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Non-zero is a claim about this renderer rather than about the frame, and it exists

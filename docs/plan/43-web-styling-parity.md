@@ -634,10 +634,18 @@ same `BoxDistance` the element's own background goes through so the two curves c
 
 ⚠ **The device half is what keeps the ten rows `partial`, and it is now a counted divergence rather
 than a paragraph.** `UiRenderer` still draws a rectangle, for the reason the audits established — a
-composite quad has no `UiShape`, the push constants are at Vulkan's guaranteed 128 bytes, and the
-quad's `shape` stream has three free lanes where a viewport-relative backdrop needs seven; the
-cheapest measured channel is a fourth `MaskEntry` shape, whose price is routing every rounded backdrop
-through the mask pipeline. `UiRenderer.SquareBackdrops` counts every quad that goes out square and is
+composite quad has no `UiShape`, and the quad's `shape` stream has three free lanes where a
+viewport-relative backdrop needs five. ⚠ **The third reason in that list was false and the channel is
+cheap**: "the push constants are at Vulkan's guaranteed 128 bytes" stood in four places until
+2026-09-09 and is a true sentence about a sixty-four-byte *mask entry* read as one about a spare
+`float4`. Measured off the committed reflection, the composite blocks are `UiBlur` 32, `UiColour` 64,
+`UiMask` 80 and `UiImage` none, of the guaranteed 128 — 48 free bytes where a box as a centre and a
+half plus a uniform radius spends 32, over a pipeline layout that is already one `Vertex | Fragment`
+range across the whole 128. So the channel is two push constants on the three composite stages and
+**not** the fourth `MaskEntry` shape earlier audits recommended, which would have routed every rounded
+backdrop through the mask pipeline. `ShaderReflectionTests.ThereIsRoomForARoundedBackdropBox` pins the
+headroom so the day it is spent the expensive answer becomes the right one visibly.
+`UiRenderer.SquareBackdrops` counts every quad that goes out square and is
 read by `UiCompositingTests.ARoundedBackdropIsClippedOnTheSoftwarePathAndGoesOutSquareOnTheDevice`,
 which is `mix-blend-mode`'s arrangement word for word and exists because a corner of filtered scene
 against unfiltered scene is frequently the identity — no screenshot can report it.
