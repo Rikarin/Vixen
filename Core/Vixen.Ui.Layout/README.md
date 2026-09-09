@@ -21,9 +21,16 @@ and **none fail** — `Taffy/BlockKnownGaps.txt` is down to its refusal list, an
 count is zero, so the next block regression names itself. See
 [the block section](#block-layout-and-what-a-second-algorithm-cost) below.
 
-**Grid landed with doc 43 § B2 and is the third.** 2 038 of the 2 120 `grid`, `blockgrid` and
-`gridflex` fixtures pass, 40 are refused, and 42 fail in the buckets `Taffy/GridKnownGaps.txt`
-names one at a time. It is **partial and says which part**: placement (§8), the bulk of track
+**Grid landed with doc 43 § B2 and is the third.** How many of the 2 120 `grid`, `blockgrid` and
+`gridflex` fixtures pass, fail and are refused is the generated `# COUNTS` line at the top of
+`Taffy/GridKnownGaps.txt`, which `TaffyGapsSummary` holds to the constants
+`TaffyGridConformanceTests` pins; that file also names each remaining bucket one at a time.
+⚠ **This paragraph used to state those three figures and was three generations behind them** — it
+said 2 038 / 40 refused / 42 failing long after the suite pinned 2 104 / 0 / 16, and doc 43's § B2
+row quoted this paragraph as "the state" while it was wrong. A fourth copy of a measurement rots
+like the other three, so this one names none.
+
+It is **partial and says which part**: placement (§8), the bulk of track
 sizing (§12), §11.8's baseline alignment, CSS Grid §9's containing block for an out-of-flow child
 and §7.3's `grid-template-areas` are done; **named lines written into a track list** are not — see
 [the grid section](#grid-and-the-part-with-no-oracle).

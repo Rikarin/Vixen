@@ -122,6 +122,66 @@ public class TaffyGridConformanceTests {
         TaffyGapsSummary.Check("GridKnownGaps.txt", ExpectedPassing, ExpectedFailing, ExpectedUnsupported);
     }
 
+    /// <summary>
+    ///     The last unclassified gap fails on ONE box — the container's own width — and every
+    ///     descendant under it already stands where Chrome puts it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A known gap's failure is unasserted, so a regression inside one is invisible.</b>
+    ///         <see cref="Fixture" /> asks only whether a failing name is listed in the gaps file; it
+    ///         never looks at WHICH boxes disagree. So the four fixtures below could start getting a
+    ///         second box wrong — or twenty — and every suite in this project would stay green, with
+    ///         the gaps file still describing the failure it used to have. This is that check for the
+    ///         one entry whose heading is a diagnosis rather than a decision.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And running it refuted the heading's own summary.</b> That heading said Chrome
+    ///         reads the item's inline max-content contribution as 40 and "this store as 0", which
+    ///         reads as a tree laid out at zero. Measured, the only wrong number in the tree is the
+    ///         GRID's width: the item is 40 × 40 and the ratio'd grandchild is 40 × 40, both exactly
+    ///         Chrome's, because the definite second pass resolves their percentages once the row is
+    ///         known. The x of −20 is not a second defect either — it is <c>justify-items: center</c>
+    ///         centring a 40-wide item in a 0-wide area, which is arithmetic on the first number. So
+    ///         whatever closes this touches the container's intrinsic inline size and nothing below
+    ///         it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>"Genuinely cyclic" is also more than the evidence carries.</b> The container's
+    ///         block size is a stated 40px and <c>LayOutGrid</c> resolves it into <c>innerHeight</c>
+    ///         BEFORE the inline pass runs, so the number Chrome uses is already in hand at the
+    ///         moment it is wanted. What is missing is a phase, not a fact: the single <c>auto</c>
+    ///         row would have to be stretched to that definite height before the column pass, so that
+    ///         the item's <c>height: 100%</c> has something to resolve against and the ratio has a
+    ///         block size to derive an inline one from. That is real §12 surgery and it is not
+    ///         attempted here — but it is a different thing to refuse than a cycle.
+    ///     </para>
+    ///     <para>
+    ///         All four suffixes give the identical pair of mismatches, RTL included, which is what
+    ///         says the direction mirror is not involved.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("border_box_ltr")]
+    [InlineData("border_box_rtl")]
+    [InlineData("content_box_ltr")]
+    [InlineData("content_box_rtl")]
+    public void The_cyclic_gaps_only_wrong_box_is_the_container_itself(string suffix) {
+        var name = $"chrome_issue_325928327__{suffix}";
+        var fixture = TaffyCorpus.Load("grid").Single(fixture => fixture.Name == name);
+        var result = TaffyFixtureRunner.Run(fixture);
+
+        Assert.Equal(TaffyOutcome.Fail, result.Outcome);
+
+        var mismatches = result
+            .Detail.Split('\n')
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0)
+            .ToArray();
+
+        Assert.Equal(["root.width: expected 40, got 0", "root.0.x: expected 0, got -20"], mismatches);
+    }
+
     /// <summary>Strips the border-box/content-box and ltr/rtl suffix Taffy appends to every fixture.</summary>
     static string BaseName(string name) {
         var separator = name.IndexOf("__", StringComparison.Ordinal);

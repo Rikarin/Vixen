@@ -515,8 +515,31 @@ grid_available_space_smaller_than_min_content
 #   measures items with the block axis indefinite — deliberately, per CSS Sizing §5.2.1 — so the
 #   inner percentage resolves to nothing and the ratio has no inline size to derive. Chrome resolves
 #   it because the CONTAINER's block size is definite even though the AREA's is not yet, which is a
-#   distinction §12 does not currently carry into the inline pass. Genuinely cyclic; the fixture is
-#   named after Chrome's own bug tracker, which is its own comment on how settled the answer is.
+#   distinction §12 does not currently carry into the inline pass.
+#
+#   ⚠ MEASURED, and the paragraph above is right about the cause and wrong about the blast radius.
+#   The only wrong number in the tree is the GRID's own width. The item comes out 40 × 40 and the
+#   ratio'd grandchild 40 × 40, both exactly Chrome's, because the definite second pass resolves
+#   their percentages once the row is known; the item's x of −20 is `justify-items: center` centring
+#   a 40-wide box in a 0-wide area, which is arithmetic on the first number rather than a second
+#   defect. All four suffixes give the identical two mismatches, RTL included. So whatever closes
+#   this touches the container's intrinsic inline size and nothing below it — which is a much smaller
+#   thing than "reads the contribution as 0" sounds.
+#
+#   ⚠ AND "GENUINELY CYCLIC" IS MORE THAN THE EVIDENCE CARRIES. `LayOutGrid` resolves the stated 40px
+#   into `innerHeight` BEFORE the inline pass runs, so the number Chrome uses is in hand at the
+#   moment it is wanted. What is missing is a phase and not a fact: the single `auto` row would have
+#   to be stretched to that definite height before the column pass, so that `height: 100%` has
+#   something to resolve against. That is real §12 surgery — the row pass currently consumes the
+#   column pass's output — and it is not attempted, but it is a different thing to refuse than a
+#   cycle. The fixture is named after Chrome's own bug tracker, which is a comment on how settled the
+#   answer is upstream, not on whether this store could reach it.
+#
+#   ⚠ `The_cyclic_gaps_only_wrong_box_is_the_container_itself` pins the two mismatches, because a
+#   known gap's failure is otherwise unasserted: `Fixture` asks only whether a failing name is in
+#   this file and never which boxes disagree. Measured with a sabotage that forces every grid item to
+#   `Align.FlexStart`: the item's x moves to 0, the fixture's own four `Fixture` rows stay GREEN, and
+#   the new theory is the only thing in the project that says the box moved.
 chrome_issue_325928327
 
 
