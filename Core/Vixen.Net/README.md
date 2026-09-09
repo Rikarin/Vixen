@@ -125,10 +125,29 @@ shape that breaks, and it breaks as *clock drift* rather than as a missing count
 read in one `&&` chain with `Clock.Synchronize` inside it and `PacketReader`'s first failure is
 sticky. "A value is never reused" is a rule about recycling a number, not about adding one.
 
-Still owed: the editor panel's outbound lane is still named `resent` and there is no counter for this
-in `NetworkMetrics` — a sum over players is not monotonic, because a departing player's reading is
-cleared. Both are [#1185](https://github.com/Rikarin/Vixen/issues/1185); the panel half is behind
+Both readers landed with [#1185](https://github.com/Rikarin/Vixen/issues/1185): a `lost outbound`
+lane on the editor panel *beside* `resent` rather than replacing it, and
+`vixen.net.datagrams.peer_expected` / `…peer_lost` on the meter. The panel half is behind
 [#120](https://github.com/Rikarin/Vixen/issues/120) like the rest of that pane.
+
+⚠ **The meter's counters are not a sum over `Session.Players`, and cannot be.** `ObservedOutbound` is
+cleared the instant a connection ends — the totals described that link — so a naive sum falls whenever
+somebody leaves, which is what a collector reads as a process restart. `NetworkMetrics` keeps a
+high-water mark per link plus a retired accumulator folded in when a link stops being reported on, the
+same shape `UdpTransport.Loss` keeps a `retired` total for. ⚠ And a *high-water mark* rather than the
+last report, because the message travels unreliable: a reordered report would otherwise walk a live
+link's totals backwards. A link that genuinely restarted cannot arrive smaller, because the connection
+ending clears the property and retires the old totals first.
+
+⚠ **A client's own report is on the session and on no player record**, so the meter folds
+`NetworkSession.ObservedOutbound` in under `PlayerId.None` beside the per-player ones. Read only
+through `Players`, both readers would be blank on every client in the fleet.
+
+⚠ **The issue's own proposed mechanism does not work, and the ordering is the reason.**
+`NetworkSession.LoseConnection` sets `player.ObservedOutbound = null` *before* it calls `Remove`
+(which raises `PlayerLeft`) or raises `PlayerConnectionChanged`, so a handler on either event reads
+null and has nothing to fold in. The accumulation has to happen where the value is still there, which
+is the meter's own `Sample`.
 
 ## NetworkSimulation
 

@@ -302,6 +302,23 @@ readonly record struct NetworkPacket(bool Present, SnapshotContents Contents, IR
 ///         of the link now.
 ///     </para>
 /// </param>
+/// <param name="PeerReported">
+///     Whether anything on the other end of this session's links has said what it missed. ⚠
+///     <b>Absent is not zero here either</b>, and twice over: a peer whose transport counts nothing
+///     sends no report at all, and a peer that has only just connected has not sent its first.
+/// </param>
+/// <param name="PeerLink">
+///     Which link <see cref="PeerExpected" /> describes — a player's id on a server, or zero for the
+///     session's own report on a client.
+///     <para>
+///         ⚠ <b>In the record because a share of it is a difference, and a difference across two
+///         different links is arithmetic on two unrelated totals.</b> The reports are cumulative for
+///         the life of one connection, so the worst link changing between two readings has to reset
+///         the lane rather than subtract one link's totals from another's.
+///     </para>
+/// </param>
+/// <param name="PeerExpected">What that peer judged: the denominator of observed outbound loss.</param>
+/// <param name="PeerMissing">How many of them it says never arrived.</param>
 readonly record struct NetworkLink(
     bool Pointed,
     bool Attached,
@@ -312,7 +329,11 @@ readonly record struct NetworkLink(
     double WorstMilliseconds,
     double JitterMilliseconds,
     bool Counting,
-    TransportLoss Counted
+    TransportLoss Counted,
+    bool PeerReported,
+    uint PeerLink,
+    long PeerExpected,
+    long PeerMissing
 ) {
     /// <summary>Nothing pointed at anything, which is what a bare editor shows.</summary>
     public static NetworkLink None { get; }
@@ -341,7 +362,22 @@ readonly record struct NetworkLink(
         }
 
         if (source.Invoke() is not { } session) {
-            return new(Pointed: true, Attached: false, Sampled: false, 0, 0, 0, 0, 0, Counting: false, default);
+            return new(
+                Pointed: true,
+                Attached: false,
+                Sampled: false,
+                0,
+                0,
+                0,
+                0,
+                0,
+                Counting: false,
+                default,
+                PeerReported: false,
+                0,
+                0,
+                0
+            );
         }
 
         var counted = session.Transport.Loss;
@@ -352,6 +388,7 @@ readonly record struct NetworkLink(
         var total = 0d;
         var worst = 0d;
         var jitter = 0d;
+        var peer = (Link: 0u, Expected: 0L, Missing: 0L);
 
         foreach (var player in session.Players) {
             if (!player.IsConnected) {
@@ -361,6 +398,12 @@ readonly record struct NetworkLink(
             }
 
             connected++;
+
+            // Before the round-trip gate, because the two measurements are independent: a player
+            // whose first ping has not come back can already have told this end what it missed.
+            if (player.ObservedOutbound is { } report) {
+                peer = Worse(peer, player.Id.Value, report);
+            }
 
             if (!player.RoundTrip.HasSamples) {
                 continue;
@@ -372,6 +415,14 @@ readonly record struct NetworkLink(
             total += trip;
             worst = Math.Max(worst, trip);
             jitter = Math.Max(jitter, player.RoundTrip.Jitter.TotalMilliseconds);
+        }
+
+        // ⚠ A client's own report is on the session and on no player record, because the peer is the
+        // server: read only through Players, this lane would be blank on every client that ever
+        // opened the panel. Considered beside the players rather than instead of them, so a host —
+        // which is both ends of a loopback — shows whichever of its two links is worse.
+        if (session.ObservedOutbound is { } own) {
+            peer = Worse(peer, PlayerId.None.Value, own);
         }
 
         return new(
@@ -387,8 +438,42 @@ readonly record struct NetworkLink(
             worst,
             jitter,
             counted.HasValue,
-            counted ?? default
+            counted ?? default,
+            peer.Expected > 0,
+            peer.Link,
+            peer.Expected,
+            peer.Missing
         );
+    }
+
+    /// <summary>The worse of a link already held and one being offered, by the share each lost.</summary>
+    /// <param name="held">What is held, or all zeroes when nothing is.</param>
+    /// <param name="link">Whose the offered one is.</param>
+    /// <param name="report">What that peer said.</param>
+    /// <returns>Whichever of the two lost the larger share.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The worst rather than a sum, for the reason <c>Linked</c> gives about the mean: eight
+    ///         players' totals added together is the number that hides the one who is complaining.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Cross-multiplied rather than divided</b>, so a report with nothing expected in it
+    ///         is never a denominator. Such a report is not a clean link — it is a peer that has
+    ///         judged nothing yet — and dividing by it would be an exception on the panel's own tick.
+    ///     </para>
+    /// </remarks>
+    static (uint Link, long Expected, long Missing) Worse(
+        (uint Link, long Expected, long Missing) held,
+        uint link,
+        LinkReport report
+    ) {
+        if (report.Expected <= 0) {
+            return held;
+        }
+
+        return held.Expected <= 0 || report.Missing * (double)held.Expected > held.Missing * (double)report.Expected
+            ? (link, report.Expected, report.Missing)
+            : held;
     }
 }
 

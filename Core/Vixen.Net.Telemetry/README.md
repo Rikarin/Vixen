@@ -86,17 +86,26 @@ dozen bytes of copying a tick and one line in the loop.
 | `vixen.net.datagrams.retransmitted` | counter | what went again: an **upper bound** on outbound loss, not a count of it |
 | `vixen.net.datagrams.expected` | counter | inbound sequences past the ack window, which either came or did not |
 | `vixen.net.datagrams.lost` | counter | how many did not — **observed** inbound loss, over the row above |
+| `vixen.net.datagrams.peer_expected` | counter | what this end's peers judged of what it sent them, across every link they reported on |
+| `vixen.net.datagrams.peer_lost` | counter | how many of those the peers say never came — **observed** outbound loss, over the row above |
 | `vixen.net.client.entities` | gauge | what interest management left a client holding |
 | `vixen.net.client.snapshots.rejected` | counter | snapshots a client could not decode — two peers disagreeing about a wire format |
 | `vixen.net.client.snapshots.stale` | counter | snapshots that arrived after a newer one; reordering, normal in small amounts |
 
-⚠ **The last four are four counters and not two ratios**, for the reason every counter here is
-cumulative: a number that has already been divided cannot be re-aggregated across a fleet. And
+⚠ **The six `datagrams` rows are six counters and not three ratios**, for the reason every counter
+here is cumulative: a number that has already been divided cannot be re-aggregated across a fleet. And
 ⚠ **a transport that counts nothing leaves them at zero**, because a cumulative counter has no way to
 say "not measured" and registering them conditionally would make the scrape schema depend on which
-transport a server happened to run. All four flat at zero on a server that is plainly sending is a
+transport a server happened to run. All of them flat at zero on a server that is plainly sending is a
 transport that does not count — not a clean link. See
 [measuring packet loss](../../docs/guide/engine/measuring-loss.md).
+
+⚠ **The `peer_` pair is the only outbound loss anybody observes, and it is not a sum over the live
+players.** It is what this end's peers say they missed of what it sent them, carried back on the wire
+— so `NetworkMetrics` keeps a high-water mark per link plus a retired accumulator, because the reading
+is cleared when a connection ends and a naive sum would *fall* whenever somebody left. Chart it beside
+`retransmitted / sent` rather than instead of it: that share is an upper bound, and a gap between the
+two is a round-trip estimate that has fallen behind.
 
 ⚠ **The last three are a client's and they go out the same way, which corrects what this file used to
 say.** It said a client "wants a different route out than this one" — and the argument behind that was

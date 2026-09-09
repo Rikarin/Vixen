@@ -122,10 +122,16 @@
     Its own remarks argue why the ring is not beside the estimator, why the chart is drawn as a
     sweep rather than scrolled, and why the scale is snapped to a ladder.
 
-    ⚠ **`Lanes` reads `Link`, and it has to.** The two loss lanes are only there when the session's
-    transport counts what it lost, so the loop's own source changes — and a `@for` whose source is
-    read off a plain field is a loop that reconciles once and never again. `Link` is a signal, so
-    reading it here is what puts this loop in the dependency graph.
+    ⚠ **`Lanes` reads `Link`, and it has to.** Two of the three loss lanes are only there when the
+    session's transport counts what it lost, and the third only when the far end has said what it
+    missed, so the loop's own source changes — and a `@for` whose source is read off a plain field is
+    a loop that reconciles once and never again. `Link` is a signal, so reading it here is what puts
+    this loop in the dependency graph.
+
+    ⚠ **Two absences and two sentences.** `resent` and `lost inbound` are missing when *this* end
+    counts nothing; `lost outbound` is missing when nothing on the *far* end has spoken. Those are
+    facts about two different machines and a session is regularly in one state and not the other, so
+    one sentence covering both would be wrong on whichever half it was not about.
 -->
 <network-graph>
     <network-heading>the link, over the last @Window()</network-heading>
@@ -165,6 +171,10 @@
 
         @if (!Link.Counting) {
             <network-status>@Unmeasured()</network-status>
+        }
+
+        @if (!Link.PeerReported) {
+            <network-status>@Unreported()</network-status>
         }
     }
 </network-graph>
@@ -229,32 +239,56 @@
     readonly Signal<NetworkLink> link = new(NetworkLink.None);
 
     /// <summary>
-    ///     The three lanes, made once and never replaced — which is what makes the graph's outer
+    ///     The five lanes, made once and never replaced — which is what makes the graph's outer
     ///     <c>@for</c> key survive, exactly as the five tables above do.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The last two are shares of one interval's traffic and not running totals, which is
-    ///     the whole reason the transport publishes four counters instead of two ratios.</b> Resent
-    ///     is what went again as a fraction of what went — an <i>upper bound</i> on outbound loss,
-    ///     because one lost datagram can be resent three times and a lost acknowledgement resends a
-    ///     datagram that arrived. Lost is the honest one: a fraction of the sequences the far end
-    ///     numbered that never reached this process. Two lanes and not one for exactly that reason,
-    ///     and named for what they are rather than both called loss.
+    ///     <para>
+    ///         ⚠ <b>The last three are shares of one interval's traffic and not running totals, which
+    ///         is the whole reason the transport publishes four counters instead of two ratios.</b>
+    ///         Resent is what went again as a fraction of what went — an <i>upper bound</i> on
+    ///         outbound loss, because one lost datagram can be resent three times and a lost
+    ///         acknowledgement resends a datagram that arrived. Lost inbound is the honest one in
+    ///         this direction: a fraction of the sequences the far end numbered that never reached
+    ///         this process.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Lost outbound is a measurement rather than a bound, and it stands <i>beside</i>
+    ///         resent rather than replacing it.</b> It is what the peer says it missed of what this
+    ///         end sent, carried back over the wire — the only honest outbound loss there is. The two
+    ///         answer different questions and the gap between them is itself the reading: a resend
+    ///         share far above the observed loss is a round-trip estimator that has fallen behind and
+    ///         is retransmitting datagrams that arrived.
+    ///     </para>
     /// </remarks>
     readonly NetworkTrend[] lanes = [
         new("round trip", " ms"),
         new("jitter", " ms"),
         new("resent", " %"),
-        new("lost inbound", " %")
+        new("lost inbound", " %"),
+        new("lost outbound", " %")
     ];
 
-    /// <summary>The first two of them, for a session whose transport counts nothing.</summary>
+    /// <summary>The first two of them, for a session that measures neither kind of loss.</summary>
     /// <remarks>
     ///     Built on first use rather than beside <c>lanes</c> because a field initialiser cannot read
     ///     another field, and made once rather than per read because it is a <c>@for</c> source: a
-    ///     fresh array every reading would be a fresh set of keys every reading.
+    ///     fresh array every reading would be a fresh set of keys every reading. The same is true of
+    ///     the two mixed shapes below.
     /// </remarks>
     NetworkTrend[]? timing;
+
+    /// <summary>The timing lanes and the two the transport's own counters fill.</summary>
+    NetworkTrend[]? counting;
+
+    /// <summary>The timing lanes and the one a peer's report fills.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A real shape and not a defensive one.</b> The two conditions are independent — this
+    ///     end's transport counting is what draws <c>resent</c> and <c>lost inbound</c>, and the
+    ///     <i>peer's</i> counting is what draws <c>lost outbound</c> — so a session whose peer counts
+    ///     and whose own transport does not shows exactly this.
+    /// </remarks>
+    NetworkTrend[]? reported;
 
     /// <summary>The counters as they were one reading ago, which is what makes a share a share.</summary>
     /// <remarks>
@@ -265,6 +299,17 @@
     ///     two readings, and on this pane that is this.
     /// </remarks>
     (bool Any, TransportLoss Counted) counted;
+
+    /// <summary>The peer's report as it was one reading ago, and which link it described.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The link's identity is held beside the totals, and the lane is wrong without it.</b>
+    ///     A report is cumulative for the life of one connection — <c>NetworkSession</c> clears it
+    ///     the moment that connection ends, on purpose — so two readings are only subtractable when
+    ///     they are two readings of the <i>same</i> link. The worst player changing between two
+    ///     readings, or the same player reconnecting, resets this rather than producing a difference
+    ///     of two unrelated totals.
+    /// </remarks>
+    (bool Any, uint Link, long Expected, long Missing) peer;
 
     /// <summary>
     ///     The ledger's five answers, as five objects that outlive every reading — which is what
@@ -374,9 +419,21 @@
     /// <summary>What the link is doing.</summary>
     NetworkLink Link => link.Value;
 
-    /// <summary>The lanes on screen, which is two of them or four.</summary>
+    /// <summary>The lanes on screen, which is two, three, four or all five.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Four shapes rather than two, because the two loss questions have two different
+    ///     answerers.</b> <c>Counting</c> is this end's transport; <c>PeerReported</c> is whatever is
+    ///     on the far end of the link, which is a different machine running different code. Each
+    ///     shape is built once and kept, because this is a <c>@for</c> source and a fresh array is a
+    ///     fresh set of keys.
+    /// </remarks>
     IReadOnlyList<NetworkTrend> Lanes =>
-        Link.Counting ? lanes : timing ??= [lanes[0], lanes[1]];
+        (Link.Counting, Link.PeerReported) switch {
+            (true, true) => lanes,
+            (true, false) => counting ??= [lanes[0], lanes[1], lanes[2], lanes[3]],
+            (false, true) => reported ??= [lanes[0], lanes[1], lanes[4]],
+            _ => timing ??= [lanes[0], lanes[1]]
+        };
 
     /// <summary>The five columns, in the order the ledger's own remarks ask the question in.</summary>
     IReadOnlyList<NetworkTable> Tables => tables;
@@ -480,12 +537,18 @@
             }
 
             counted = default;
+            peer = default;
 
             return;
         }
 
         lanes[0].Push(reading.MeanMilliseconds);
         lanes[1].Push(reading.JitterMilliseconds);
+
+        // Before the Counting gate and not after it: what the peer reports is measured by the peer,
+        // so a session whose own transport counts nothing still has this lane when the far end's
+        // does. Folded in after that gate it would be invisible on exactly that pairing.
+        Peer(reading);
 
         if (!reading.Counting) {
             lanes[2].Clear();
@@ -509,6 +572,35 @@
 
         lanes[2].Push(Share(now.Retransmitted - was.Retransmitted, now.Sent - was.Sent));
         lanes[3].Push(Share(now.Missing - was.Missing, now.Expected - was.Expected));
+    }
+
+    /// <summary>Puts one point on the outbound-loss lane, when there are two readings of one link.</summary>
+    /// <param name="reading">The reading just taken.</param>
+    /// <remarks>
+    ///     ⚠ <b>The identity check is the whole of this method that is not obvious, and dropping it
+    ///     draws a number nobody measured.</b> A report belongs to one connection and its totals are
+    ///     cumulative for that connection's life; the worst link can change between two readings, and
+    ///     a player who reconnects comes back with a report that starts again from nothing. Either
+    ///     way the difference of the two readings is a difference of two unrelated totals — negative
+    ///     as often as not — so the lane starts again instead, exactly as it does on its first
+    ///     reading.
+    /// </remarks>
+    void Peer(NetworkLink reading) {
+        if (!reading.PeerReported) {
+            lanes[4].Clear();
+            peer = default;
+
+            return;
+        }
+
+        var previous = peer;
+        peer = (Any: true, reading.PeerLink, reading.PeerExpected, reading.PeerMissing);
+
+        if (!previous.Any || previous.Link != reading.PeerLink || reading.PeerExpected < previous.Expected) {
+            return;
+        }
+
+        lanes[4].Push(Share(reading.PeerMissing - previous.Missing, reading.PeerExpected - previous.Expected));
     }
 
     /// <summary>One interval's losses over the same interval's traffic, as a percentage.</summary>
@@ -584,7 +676,7 @@
             : string.Create(CultureInfo.InvariantCulture, $"{line}, {reading.Awaiting:N0} awaiting reconnect");
     }
 
-    /// <summary>Why there are two lanes rather than four.</summary>
+    /// <summary>Why the two lanes this end's own counters fill are not there.</summary>
     /// <remarks>
     ///     ⚠ <b>Absent rather than flat, and the sentence is about this transport rather than about
     ///     the engine.</b> Loss is measured now — a transport that numbers its own datagrams sees
@@ -592,9 +684,23 @@
     ///     would say the link is clean, which is a claim nothing here has made.
     /// </remarks>
     static string Unmeasured() =>
-        "No loss lanes. This session's transport does not count datagrams: an in-process one has "
-        + "none to count, and one over a stream has a stack underneath it hiding them. UdpTransport "
-        + "counts both directions, and a session running on one draws them here.";
+        "No resent or lost-inbound lane. This session's transport does not count datagrams: an "
+        + "in-process one has none to count, and one over a stream has a stack underneath it hiding "
+        + "them. UdpTransport counts both directions, and a session running on one draws them here.";
+
+    /// <summary>Why the lane that measures outbound loss is not there.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A different absence from <see cref="Unmeasured" />'s, and two sentences rather than
+    ///     one for that reason.</b> The other lanes are missing because <i>this</i> end counts
+    ///     nothing; this one is missing because nothing on the <i>far</i> end has spoken, which is a
+    ///     fact about a different machine. A session can easily be in one state and not the other,
+    ///     and a single sentence covering both would be wrong on whichever half it was not about.
+    /// </remarks>
+    static string Unreported() =>
+        "No lost-outbound lane. Nothing on the other end of this link has said what it missed: a "
+        + "peer whose transport counts no datagrams sends no report, and a peer that has just "
+        + "connected has not sent its first. Until one does, resent is the only outbound number "
+        + "there is — and it is an upper bound rather than a measurement.";
 
     /// <summary>How much of the dearest row's cost this row is, from zero to one.</summary>
     /// <remarks>

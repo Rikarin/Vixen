@@ -42,10 +42,11 @@ anybody there are none.
 Three questions, and they are asked in different places.
 
 * **"Is this player's connection bad?"** — the editor's [network panel](../editor/network-panel.md)
-  draws both shares as lanes on its graph, beside round trip and jitter. That is the one a person
+  draws all three shares as lanes on its graph, beside round trip and jitter. That is the one a person
   looks at while somebody is complaining.
 * **"Is the fleet's loss climbing?"** — `NetworkMetrics` publishes all four as cumulative counters,
-  so an OpenTelemetry collector differences them the way it differences everything else.
+  plus two more for the peer's half, so an OpenTelemetry collector differences them the way it
+  differences everything else.
 * **"Did my change help?"** — the totals are on the transport itself, so a soak test can print them
   at the end of a run without an editor or a collector anywhere near it.
 
@@ -160,6 +161,24 @@ metrics.Sample();
 
 That registers `vixen.net.datagrams.sent`, `…retransmitted`, `…expected` and `…lost`, all as
 cumulative counters.
+
+Hand it the session too — which the line above already does — and it publishes the peer's half as two
+more: `vixen.net.datagrams.peer_expected` and `…peer_lost`. `peer_lost / peer_expected` is observed
+outbound loss across everything this process's peers have reported on, and it is the counter to chart
+beside `retransmitted / sent` rather than instead of it.
+
+⚠ **A sum over `Session.Players` of `ObservedOutbound` is not a counter, and the meter does not
+publish one.** The property is cleared the instant a connection ends — the totals described that link
+— so a naive sum *falls* whenever somebody leaves, which is exactly what a collector reads as a
+process restart. What the meter keeps instead is a high-water mark per link plus a retired
+accumulator, folded in when a link stops being reported on; the published totals only ever go up. A
+client's own report is folded in the same way, because on a client the peer is the server and the
+report is on the session rather than on any player.
+
+⚠ **A high-water mark rather than the last report, because the message travels unreliable.** A report
+that arrives after a newer one would otherwise walk a live link's totals backwards. The totals are
+cumulative for the life of one link, so the largest seen is the true one — and a link that really did
+restart cannot arrive smaller, because the connection ending clears the property first.
 
 ⚠ **They are totals and never rates or shares**, which is `NetworkMetrics`'s rule and not a
 simplification: a number that has already been differenced cannot be re-aggregated across three
