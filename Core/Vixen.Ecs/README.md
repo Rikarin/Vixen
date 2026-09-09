@@ -227,6 +227,25 @@ or not one happens, because there is no way to find out afterwards. That makes "
 nothing must not mark chunks dirty" something the call site declares rather than something a
 convention hopes for.
 
+⚠ **And on a managed component `Read` used to do something stronger than mark — it wrote**
+([#1198](https://github.com/Rikarin/Vixen/issues/1198)). A managed row's chunk cell is a handle into
+a store the *world* owns, zero meaning "no slot yet", and both accessors went through the same lazy
+allocation: reading a component nobody had written created the world's store for that type, possibly
+grew the world's table of stores, popped an unsynchronised free list and wrote the handle back into
+the chunk. The value the caller saw was `default` either way, which is what kept it invisible for as
+long as it lasted — and what it cost is the sentence one paragraph of `World`'s own remarks makes,
+that reads parallelise across chunks. They did not, for this storage class: two workers reading the
+same component type in different chunks shared that free list. `Read` and `TryGet` now resolve a
+managed cell without writing one, and an unwritten row reads as the shared default. The lazy
+allocation is still there and is still what makes `Add<T>()` with no value land on a real reference;
+it is now on the write path only.
+
+⚠ **`[HotPath]`'s analyzer could not have caught it, and `Read` was already marked.** `VXHP0001`
+reads one method body — the allocation was two calls away, in `World.Managed<T>` — which is the blind
+spot `HotPathAllocationAnalyzer`'s own remarks state and not a gap in its coverage. A rule that reads
+a body cannot see a callee; that half of the question belongs to `Vixen.Testing.Measured`, and here
+to the chunk cell itself, which `WorldTests` asserts on directly.
+
 **The world id is in the handle.** Passing an entity from the editor's world to the play world is a
 real mistake with no other way to detect it: both slots exist, and the versions agree far more often
 than anyone expects.

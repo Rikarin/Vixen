@@ -46,7 +46,7 @@ internal static class SystemsRunner {
         ArgumentNullException.ThrowIfNull(assemblyPaths);
 
         var findings = new List<Finding>();
-        var assemblies = Load(assemblyPaths, findings);
+        var assemblies = Load(assemblyPaths, findings, "a frame");
 
         if (assemblies.Count == 0) {
             return findings;
@@ -67,6 +67,13 @@ internal static class SystemsRunner {
     }
 
     /// <summary>Loads each assembly, and says so when one is not where it was said to be.</summary>
+    /// <param name="paths">The assembly paths, as <c>--assembly</c> gave them.</param>
+    /// <param name="findings">Where to put a complaint about one that could not be read.</param>
+    /// <param name="subject">
+    ///     What the caller was going to read out of them — "a frame", "a behaviour" — so the
+    ///     complaint about a missing file names the thing that is missing rather than this command.
+    /// </param>
+    /// <returns>The assemblies that loaded.</returns>
     /// <remarks>
     ///     ⚠ <b>A path that does not exist is broken here and skipped everywhere else.</b>
     ///     <see cref="GameAssemblies" /> skips it on purpose — the first build of a project imports
@@ -74,7 +81,7 @@ internal static class SystemsRunner {
     ///     examined nothing and printed a clean report would be the exact failure this command is
     ///     supposed to catch, so the same event has to mean something different here.
     /// </remarks>
-    static List<Assembly> Load(IReadOnlyList<string> paths, List<Finding> findings) {
+    internal static List<Assembly> Load(IReadOnlyList<string> paths, List<Finding> findings, string subject) {
         var missing = paths.Where(path => !File.Exists(Path.GetFullPath(path))).ToArray();
 
         foreach (var path in missing) {
@@ -82,7 +89,7 @@ internal static class SystemsRunner {
                 new(
                     Health.Broken,
                     "assembly",
-                    $"there is nothing at '{path}'. Build the project first; a frame cannot be read "
+                    $"there is nothing at '{path}'. Build the project first; {subject} cannot be read "
                     + "from an assembly that does not exist yet."
                 )
             );
@@ -115,7 +122,7 @@ internal static class SystemsRunner {
         }
 
         if (loaded.Count == 0 && missing.Length == 0) {
-            findings.Add(new(Health.Broken, "assembly", "nothing was loaded, so there is no frame to look at."));
+            findings.Add(new(Health.Broken, "assembly", $"nothing was loaded, so there is no {subject} to look at."));
         }
 
         return loaded;

@@ -20,6 +20,15 @@ namespace Vixen.Ecs;
 ///         one of those cost something to buy safety in a case the design already rules out.
 ///     </para>
 ///     <para>
+///         ⚠ <b>That sentence was not true of a managed component until #1198.</b> A managed
+///         component's chunk cell is a handle into a store the <em>world</em> owns, and the read path
+///         used to take the row a slot when it had none — so two workers reading the same component
+///         type in different chunks shared a free list and an array resize, which is precisely the
+///         case the paragraph above says the design rules out. <see cref="Read{T}" /> and
+///         <see cref="TryGet{T}" /> now resolve a managed cell without writing one; <em>writing</em>
+///         a managed component still touches the store, and that is a write, declared as one.
+///     </para>
+///     <para>
 ///         Worlds are numbered, and the number is in every entity handle, so passing an entity from
 ///         the editor's world to the play world is caught rather than silently addressing whatever
 ///         shares the slot.
@@ -655,11 +664,22 @@ public sealed class World : IDisposable {
     /// <returns>A read-only reference to the value.</returns>
     /// <exception cref="EntityNotFoundException">The handle is stale, or from another world.</exception>
     /// <exception cref="ComponentNotFoundException">The entity has no such component.</exception>
+    /// <remarks>
+    ///     ⚠ <b>"Does not mark anything as changed" used to be true of the change filter and false of
+    ///     everything else</b>, on a <em>managed</em> component:
+    ///     <see cref="Reference{T}" /> allocates the row's store slot when the handle is still zero,
+    ///     which writes the chunk row, may create the world's store for that type and may resize the
+    ///     world's table of stores — three mutations on a path reached through a read, and the reason
+    ///     two workers reading a component neither had written could corrupt one free list
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1198">#1198</a>). It reads through
+    ///     <see cref="ReadReference{T}" /> now, which takes no slot: an unwritten managed component
+    ///     reads as its default, which is the value the freshly allocated slot held anyway.
+    /// </remarks>
     [HotPath]
     public ref readonly T Read<T>(Entity entity) {
         ref var info = ref Live(entity);
         var column = Column<T>(entity, in info);
-        return ref Reference<T>(info.Chunk!, column, info.Row);
+        return ref ReadReference<T>(info.Chunk!, column, info.Row);
     }
 
     /// <summary>Reads a component if the entity has one.</summary>
@@ -680,7 +700,9 @@ public sealed class World : IDisposable {
             return info.Archetype.Has(ComponentType<T>.Id);
         }
 
-        value = Reference<T>(info.Chunk!, column, info.Row);
+        // ReadReference and not Reference: this hands back a copy, so it is a read, and a read of a
+        // managed component must not take the row a slot. See Read<T>.
+        value = ReadReference<T>(info.Chunk!, column, info.Row);
         return true;
     }
 
@@ -953,11 +975,111 @@ public sealed class World : IDisposable {
             // never been written has no slot yet. Taking one lazily here is what makes `Add<T>()`
             // with no value, and a move that gains the component, both land on a real reference
             // rather than a null handle nobody can write through.
+            //
+            // ⚠ This is a *write* path and only a write path. Every caller of this either marked the
+            // column written or is about to assign through the reference it returns; a reader goes
+            // through `ReadReference` instead. See #1198 for what it cost when `Read<T>` came here.
             handle = store.Allocate(default!);
         }
 
         return ref store.Get(handle);
     }
+
+    /// <summary>The read half of <see cref="Reference{T}" />: resolves a cell without writing one.</summary>
+    /// <typeparam name="T">The component type.</typeparam>
+    /// <param name="chunk">The chunk the entity is in.</param>
+    /// <param name="column">Its column.</param>
+    /// <param name="row">Its row.</param>
+    /// <returns>A read-only reference to the value.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    ref readonly T ReadReference<T>(Chunk chunk, int column, int row) {
+        // Same closed-generic constant the write path tests, so one arm disappears entirely.
+        if (ComponentType<T>.Info.IsManaged) {
+            return ref ReadManaged<T>(chunk, column, row);
+        }
+
+        return ref chunk.At<T>(column, row);
+    }
+
+    /// <summary>A managed component's value, without taking it a slot if it has none.</summary>
+    /// <typeparam name="T">The component type.</typeparam>
+    /// <param name="chunk">The chunk the entity is in.</param>
+    /// <param name="column">Its column.</param>
+    /// <param name="row">Its row.</param>
+    /// <returns>The stored value, or the shared default when the row has never been written.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         The handle is read <em>by value</em>, and the store is looked up without growing the
+    ///         world's table — so a read of a managed component now touches nothing outside the chunk
+    ///         it was already reading. That is what makes "reads parallelise across chunks" true of a
+    ///         managed component rather than only of a blittable one (#1198).
+    ///     </para>
+    ///     <para>
+    ///         An unwritten row reads as <see langword="default" />, which is exactly what the slot
+    ///         the old path allocated held. So this changes what the world does and not what the
+    ///         caller sees — except that the caller can no longer make the *next* writer's slot
+    ///         number depend on how many times something was read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The default lives in one static per closed generic, shared by every world, and the
+    ///         reference handed out is <c>ref readonly</c> for that reason. Writing through it with
+    ///         <c>Unsafe.AsRef</c> would give every unwritten row of that component type in the
+    ///         process the same value — the same bargain as <see cref="ReadOnlySpan{T}" /> over a
+    ///         static, and the reason a writer is required to go through <see cref="Get{T}" />.
+    ///     </para>
+    /// </remarks>
+    ref readonly T ReadManaged<T>(Chunk chunk, int column, int row) {
+        var handle = chunk.At<int>(column, row);
+
+        if (handle == 0 || ExistingStore<T>() is not { } store) {
+            return ref ManagedDefault<T>.Value;
+        }
+
+        return ref store.Get(handle);
+    }
+
+    /// <summary>The store for a component type, or <see langword="null" /> if the world has none yet.</summary>
+    /// <typeparam name="T">The component type.</typeparam>
+    /// <returns>The store, or <see langword="null" />.</returns>
+    /// <remarks>
+    ///     <see cref="StoreFor{T}" /> without the two mutations: no <see cref="Array.Resize{T}" /> of
+    ///     the world's table and no store created. A non-zero handle implies a store, so the null
+    ///     answer is only ever reached by a reader of a row nothing has written.
+    /// </remarks>
+    ManagedComponentStore<T>? ExistingStore<T>() {
+        var id = ComponentType<T>.Id.Value;
+        return id < managedStores.Length ? managedStores[id] as ManagedComponentStore<T> : null;
+    }
+
+    /// <summary>What an unwritten managed row reads as: one shared, never-written value per type.</summary>
+    /// <typeparam name="T">The component type.</typeparam>
+    static class ManagedDefault<T> {
+        // A field initializer and no explicit static constructor, so the type stays `beforefieldinit`
+        // and the read path pays no class-constructor check. `default!` is the whole value: this is
+        // never written, and the `!` is only there because T may be a non-nullable reference type
+        // whose default is null — which is exactly what a row with no slot has always read as.
+        internal static readonly T Value = default!;
+    }
+
+    /// <summary>The store handle a managed component's chunk cell holds. Zero means it has no slot.</summary>
+    /// <typeparam name="T">The component type.</typeparam>
+    /// <param name="entity">The handle.</param>
+    /// <returns>The one-based slot handle, or zero.</returns>
+    /// <remarks>
+    ///     For the tests, and it exists because the defect it is there to catch is invisible from the
+    ///     public surface: a read that takes a slot returns the same value a read that does not, so
+    ///     nothing but the cell itself distinguishes them. See <c>WorldTests</c>' managed section.
+    /// </remarks>
+    internal int ManagedHandleOf<T>(Entity entity) {
+        ref var info = ref Live(entity);
+        return info.Chunk!.At<int>(Column<T>(entity, in info), info.Row);
+    }
+
+    /// <summary>Whether this world has made a managed store for a component type.</summary>
+    /// <typeparam name="T">The component type.</typeparam>
+    /// <returns>Whether a store exists.</returns>
+    /// <remarks>The other half of what a read must not do: creating one resizes a world-wide array.</remarks>
+    internal bool HasManagedStore<T>() => ExistingStore<T>() is not null;
 
     void ReleaseManaged(ComponentTypeId id, int handle) {
         if (handle != 0 && id.Value < managedStores.Length) {

@@ -1105,7 +1105,8 @@ public static class VixenCommand {
         var command = new Command("doctor", "Say what is wrong with the project, and change nothing.") {
             project,
             target,
-            DoctorSystems(output, error)
+            DoctorSystems(output, error),
+            DoctorBehaviors(output, error)
         };
 
         command.SetAction(parseResult => {
@@ -1159,6 +1160,55 @@ public static class VixenCommand {
                 }
 
                 var findings = SystemsRunner.Examine(paths);
+
+                return (int)(DoctorRunner.Report(findings, output ?? Console.Out)
+                    ? ExitCode.Success
+                    : ExitCode.Failed);
+            }
+        );
+
+        return command;
+    }
+
+    /// <summary>
+    ///     <c>vixen doctor behaviors</c> — which behaviour types exist, and how many of each a scene
+    ///     authors.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>An assembly <em>and</em> a scene, unlike its sibling.</b> A frame is entirely in a
+    ///     project's code; an instance count is not in the code at all — it is in the levels. So this
+    ///     takes both, and says plainly when the scenes it was given author no behaviours, which in
+    ///     this repository is all of them.
+    /// </remarks>
+    static Command DoctorBehaviors(TextWriter? output, TextWriter? error) {
+        var assemblies = AssemblyOption();
+
+        var scenes = new Option<string[]>("--scene") {
+            Description =
+                "An authored .vxscene to count behaviour instances in. Repeatable. Without one this "
+                + "lists the behaviour types and counts nothing.",
+            AllowMultipleArgumentsPerToken = false,
+            DefaultValueFactory = _ => []
+        };
+
+        var command = new Command(
+            "behaviors",
+            "Read a built game assembly's behaviours: which types there are, and how many of each a scene has."
+        ) { assemblies, scenes };
+
+        command.SetAction(parseResult => {
+                var paths = parseResult.GetValue(assemblies) ?? [];
+
+                if (paths.Length == 0) {
+                    (error ?? Console.Error).WriteLine(
+                        "Name at least one built game assembly with --assembly. A behaviour is a type in "
+                        + "a project's code, so there is nothing to read without one."
+                    );
+
+                    return (int)ExitCode.UsageError;
+                }
+
+                var findings = BehaviorsRunner.Examine(paths, parseResult.GetValue(scenes) ?? []);
 
                 return (int)(DoctorRunner.Report(findings, output ?? Console.Out)
                     ? ExitCode.Success

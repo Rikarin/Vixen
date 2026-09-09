@@ -84,6 +84,55 @@ public sealed class BehaviorStore {
         }
     }
 
+    /// <summary>How many behaviours of each concrete type there are, most numerous first.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The number [04](../../../docs/plan/04-ecs-and-scripting.md)'s authoring rule is
+    ///         written about.</b> "One instance, or a handful" versus "many instances, the same
+    ///         operation over all of them" is the whole basis for choosing a behaviour over a
+    ///         component and a system, and until this existed an author who guessed had no way to
+    ///         find out afterwards whether they were right: the per-type count lived on
+    ///         <c>BehaviorBucket&lt;T&gt;</c>, which is a private nested class, and
+    ///         <see cref="Count" /> summed it away. Discovery is the remedy doc 04 records for the
+    ///         choice being irreversible ([#297](https://github.com/Rikarin/Vixen/issues/297)) — what
+    ///         hurts is not that re-authoring is work, it is finding out at ten thousand instead of
+    ///         at two hundred.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="BehaviorPopulation.Enabled" /> is the bucket's partition and not the
+    ///         sum of <see cref="Behavior.Enabled" />.</b> A behaviour that has been attached and not
+    ///         yet drawn through a lifecycle drain is in neither state the author means: it is past
+    ///         the enabled prefix because nothing has activated it. So a store that has never run a
+    ///         drain reports every behaviour disabled, which is correct about the loop and would be a
+    ///         lie about the authoring — anything reading this outside a running frame should say so
+    ///         rather than print the number.
+    ///     </para>
+    ///     <para>
+    ///         Built per call rather than kept: this is a diagnostic, its callers are a panel and a
+    ///         command-line verb, and a maintained table would be bookkeeping in
+    ///         <see cref="Add{T}(Entity, T)" /> — a hot path — for a number nothing reads per frame.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<BehaviorPopulation> Population {
+        get {
+            var population = new List<BehaviorPopulation>(buckets.Count);
+
+            foreach (var (type, bucket) in buckets) {
+                population.Add(new(type, bucket.Count, bucket.Enabled));
+            }
+
+            // Most numerous first, and ties by name so the report does not reorder between runs of
+            // the same world — `buckets` is a dictionary and its order is nobody's business.
+            population.Sort(
+                static (left, right) => right.Total != left.Total
+                    ? right.Total.CompareTo(left.Total)
+                    : string.CompareOrdinal(left.BehaviorType.FullName, right.BehaviorType.FullName)
+            );
+
+            return population;
+        }
+    }
+
     /// <summary>The scheduler this store's behaviours run their coroutines on.</summary>
     public CoroutineScheduler Coroutines { get; }
 
@@ -557,6 +606,9 @@ public sealed class BehaviorStore {
     interface IBehaviorBucket {
         int Count { get; }
 
+        /// <summary>How many of them are in the enabled prefix, which is what the update loop walks.</summary>
+        int Enabled { get; }
+
         void Update();
 
         void LateUpdate();
@@ -576,6 +628,8 @@ public sealed class BehaviorStore {
         int enabled;
 
         public int Count { get; private set; }
+
+        public int Enabled => enabled;
 
         public void Add(T behavior) {
             if (Count == items.Length) {
