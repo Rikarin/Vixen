@@ -432,21 +432,35 @@ also what keeps a depth prepass binding nothing. Every binding or none, because 
 is a validation error on one backend and a sampled black texture on another. Through the frame
 allocator, because a value that changes must not be rewritten under a frame still reading it.
 
-| Layer | Options |
-|---|---|
-| Diffuse | Lambert, Oren–Nayar, Burley (Disney), energy-conserving variants |
-| Specular | Cook–Torrance microfacet with pluggable NDF (GGX, Beckmann), visibility (Smith-correlated, Schlick, Implicit), Fresnel (Schlick, Schlick-with-f90, Complex/Gulbrandsen for metals) |
-| Multi-scatter | Energy compensation for GGX (Fdez-Agüera / Turquin), on by default — the difference between "looks like 2015" and "looks right" |
-| Clearcoat | second GGX lobe with its own normal map, IOR 1.5 default |
-| Anisotropy | tangent-space aligned GGX |
-| Sheen | Charlie / Ashikhmin for cloth |
-| Hair | Kajiya–Kay (cheap) and Marschner R/TT/TRT (quality) |
-| Subsurface | pre-integrated skin LUT + Burley separable SSS blur (Stride has both) |
-| Transmission / thin-film | refraction with rough transmission, thin-walled option |
-| Displacement | vertex displacement + parallax occlusion mapping |
-| Layering | Stride's `IMaterialLayers` — N materials blended by mask, resolved at shader-compile time |
-| Cel / stylised | Stride's `CelShading` — proves the model handles non-PBR |
-| Workflows | metallic-roughness (primary), specular-glossiness (import compatibility) |
+⚠ **This table had no status column** — the only inventory in the document without one, which let a
+reader assume the whole list ships. Audited against `Raven/Library/Shading`,
+`Raven/Library/Material` and `Core/Vixen.Rendering/Materials` and marked below. **Seven shading models
+are authorable** (`MaterialShading.All`) and both surface workflows are, which is the ✅ half;
+`overview.md` § 1.x already said as much.
+
+⚠ **The recurring failure here is not an unwritten layer but an unreachable one.** Four functions in
+the BSDF library are correct, tested by nothing that shades, and callable from no material —
+`DiffuseModels.OrenNayar`, `DiffuseModels.Burley`, `SpecularModels.Beckmann` and
+`SpecularModels.MultiScatter`. Every `IShadingModel` in `ShadingModels.rvn` calls
+`DiffuseModels.Lambert` and `SpecularModels.Ggx` or `GgxAnisotropic`, and nothing calls the other four
+— [#1155](https://github.com/Rikarin/Vixen/issues/1155). A layer written and unreachable looks exactly
+like a layer that ships, from the shader library and from this table alike.
+
+| Layer | Status | Options, and what is actually in the tree |
+|---|---|---|
+| Diffuse | 🟡 | Lambert, Oren–Nayar, Burley (Disney), energy-conserving variants. All four are in `DiffuseModels.rvn`; ⚠ **only Lambert and `EnergyRemaining` are ever called** — no material can select Oren–Nayar or Burley, because a diffuse model is not a slot anything composes |
+| Specular | 🟡 | Cook–Torrance microfacet with pluggable NDF, visibility and Fresnel. `Brdf.rvn` has GGX, anisotropic GGX and Beckmann NDFs; ⚠ visibility is **Smith-correlated only** (plus a fast approximation nothing calls) — no Schlick and no Implicit — and Fresnel is Schlick and Schlick-with-f90, with **no Complex/Gulbrandsen for metals**. Beckmann is written and reachable from nothing |
+| Multi-scatter | 🟡 **and the "on by default" is false** | Energy compensation for GGX (Fdez-Agüera / Turquin) — the difference between "looks like 2015" and "looks right". ⚠ `SpecularModels.MultiScatter(f0, dfg)` **exists and has no caller anywhere**: not in `ShadingModels.rvn`, not in `Ibl.rvn`'s split-sum, not in `Deferred.rvn`. So it is off everywhere and cannot be turned on, which is the worst of the three states this row could be in — a GGX lobe without it loses energy at high roughness, and rough metals read too dark across the whole material class |
+| Clearcoat | ✅ | Second GGX lobe with its own normal map, IOR 1.5 default. `ClearCoat.rvn`, `ClearCoatSurface` and `ClearCoatNormalMapSurface`, `ClearCoatShading`. The coat has its own angles, because computing them from the base's makes a scratched coat over smooth metal look like a smooth coat over scratched metal |
+| Anisotropy | ✅ | Tangent-space aligned GGX. `Brdf.DistributionGgxAnisotropic` → `SpecularModels.GgxAnisotropic` → `AnisotropicShading`, fed by `AnisotropySurface`; `MaterialData.anisotropy` splits one alpha into two by Burley's remapping, the one Filament and glTF's extension both use |
+| Sheen | ✅ | Charlie / Ashikhmin for cloth. `Sheen.rvn` + `SheenSurface` + `SheenShading`, and the base gives up exactly what the sheen lobe takes, because a fabric brighter at the rim than a white surface reads as glowing |
+| Hair | 🟡 | Kajiya–Kay (cheap) and Marschner R/TT/TRT (quality). ⚠ **Kajiya–Kay ships and Marschner is a two-lobe approximation, not R/TT/TRT**: `Hair.Primary` and `Hair.Secondary` are the R and TRT highlights off one shifted tangent, and there is no TT term |
+| Subsurface | 🟡 | Pre-integrated skin LUT + Burley separable SSS blur (Stride has both). ⚠ **Neither of the two named halves is what shipped.** What runs is wrapped diffuse and back-lit transmission in `SubsurfaceShading` — enough to make an ear red and a leaf glow. `Subsurface.BurleyProfile` is the *kernel* a separable blur would sample and no pass samples it (see the post-processing table's own "Subsurface-scattering blur | P2"), and there is no pre-integrated skin LUT in the tree |
+| Transmission / thin-film | ⬜ | Refraction with rough transmission, thin-walled option. ⚠ `Raven/Library/Shading/Transmission.rvn` is written — refract, screen offset, absorption, rough `BlurLod` — and **nothing imports it**; no `IShadingModel` reaches it and `MaterialShading.All` has no entry. Thin-film and the thin-walled option are absent outright. [#191](https://github.com/Rikarin/Vixen/issues/191), [#192](https://github.com/Rikarin/Vixen/issues/192) |
+| Displacement | 🟡 | Vertex displacement + parallax occlusion mapping. ⚠ **The parallax half ships and the vertex half does not**: `ParallaxSurface` (`MaterialFeatures.rvn`) is POM against a height map with a matching C# feature, and nothing displaces a vertex from a material. Water's displacement is its own path and not this |
+| Layering | ✅ | Stride's `IMaterialLayers` — N materials blended by mask, resolved at shader-compile time. `MaterialLayersSurface` and `TexturedMaterialLayersSurface`, with `BlendSurface` and `CompositeSurface` as the composition primitives underneath; `overview.md` § 1.x calls it "both layering forms" |
+| Cel / stylised | ✅ | Stride's `CelShading` — proves the model handles non-PBR. `CelShading` in `ShadingModels.rvn` and in `MaterialShading.All`, with an authorable band count |
+| Workflows | ✅ | Metallic-roughness (primary), specular-glossiness (import compatibility). `MetalRoughnessSurface`/`TexturedMetalRoughnessSurface` and `SpecularGlossinessSurface` |
 
 Colour management, stated once and enforced: **linear working space, sRGB textures decoded on sample,
 HDR render targets (`R16G16B16A16_Float` or `R11G11B10_Float`), ACES-fitted or AgX tonemap, sRGB or
