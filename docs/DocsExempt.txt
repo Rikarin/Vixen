@@ -996,6 +996,9 @@ T:Vixen.Editor.App.AssetFieldDropOutcome sweep-pending
 T:Vixen.Editor.App.AssetFieldDropResult sweep-pending
 T:Vixen.Editor.App.AssetTile sweep-pending
 T:Vixen.Editor.App.ContentBuildSettings sweep-pending
+T:Vixen.Editor.App.CurvePreset sweep-pending
+T:Vixen.Editor.App.CurvePresetKey sweep-pending
+T:Vixen.Editor.App.CurvePresetLibrary sweep-pending
 T:Vixen.Editor.App.EditorPreferences sweep-pending
 T:Vixen.Editor.App.EnvironmentSettings sweep-pending
 T:Vixen.Editor.App.LightingSettings sweep-pending
