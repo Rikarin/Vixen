@@ -93,6 +93,16 @@ public sealed class GlslTranslatorEsslTests {
     ///         they are in the emitter, or they are in the cross-compiler that renames both ends.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>The cross-compiler half has since landed and this is still red, which is the
+    ///         point.</b> <c>SpirvCrossTranspiler.NameVaryingsByLocation</c> now names both ends
+    ///         <c>vary_&lt;location&gt;</c>, and ⚠ SPIRV-Cross had <em>not</em> been doing that on
+    ///         its own — 31 of the library's 32 vertex/fragment pairs came out with mismatched
+    ///         varying names, which no per-stage front end and not even <c>glslangValidator -l</c>
+    ///         can see. What is left is #475's wiring: this backend is still handed Raven's own
+    ///         Vulkan GLSL rather than the transpiled ESSL, so nothing that fix produces reaches
+    ///         here yet.
+    ///     </para>
+    ///     <para>
     ///         Held in both directions: the day this starts compiling, this test fails and should be
     ///         deleted rather than adjusted.
     ///     </para>

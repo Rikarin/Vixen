@@ -1155,6 +1155,59 @@ public class SemanticDiagnosticsTests {
             """
         );
 
+    // --- RVN2142: a global named after a GLSL built-in function -------------
+
+    /// <summary>
+    ///     A resource binding, a groupshared variable, a function and a type named after a GLSL
+    ///     built-in are refused — the four shapes that reach GLSL's file scope.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The names are real and the rule is a GLSL <em>ES</em> one.</b> Every case here
+    ///         compiles at <c>#version 450 core</c> and is a redefinition at
+    ///         <c>#version 320 es</c> — which is why nothing saw it until the library met an ES
+    ///         front end, and why the check cannot live in a backend that emits desktop GLSL.
+    ///     </para>
+    ///     <para>
+    ///         <c>average</c> is the one that was shipped: <c>AutoExposure.rvn</c> declared
+    ///         <c>var average: RWTexture2D&lt;float4&gt;</c> and its cross-compiled GLSL ES was
+    ///         <c>'average' : redefinition</c> with exactly one <c>average</c> in the file. It is in
+    ///         <c>GL_EXT_shader_integer_functions2</c>, which glslang puts in the ESSL 3.10 table
+    ///         whether the extension is enabled or not, and which desktop GLSL 4.5 does not have at
+    ///         all — so the table this rule reads has to be the union over dialects.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("shader S {\n    [Format(\"r32f\")] var average: RWTexture2D<float4>\n}")]
+    [InlineData("shader S {\n    var dot: Texture2D\n}")]
+    [InlineData("shader S {\n    var mix: RWBuffer<float>\n}")]
+    [InlineData("shader S {\n    groupshared var step: float[4]\n}")]
+    [InlineData("shader S {\n    func length(): float => 1f\n}")]
+    [InlineData("struct texture {\n    var v: float\n}")]
+    public void A_global_named_after_a_glsl_built_in_is_reported(string declaration) =>
+        Assert.Single(AssertDiagnostics($"package A\n\n{declaration}\n", "RVN2142"));
+
+    /// <summary>The message names the identifier and says where a name of it would be legal.</summary>
+    [Fact]
+    public void The_built_in_name_message_names_it_and_the_scope_that_would_be_legal() {
+        var diagnostic = Assert.Single(
+            AssertDiagnostics(
+                """
+                package A
+
+                shader S {
+                    [Format("r32f")] var average: RWTexture2D<float4>
+                }
+
+                """,
+                "RVN2142"
+            )
+        );
+
+        Assert.Contains("'average'", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("struct member", diagnostic.GetMessage(), StringComparison.Ordinal);
+    }
+
     /// <summary>Wraps a method body in a shader so error cases stay readable.</summary>
     static string InMethod(string body, string members = "") =>
         $$"""

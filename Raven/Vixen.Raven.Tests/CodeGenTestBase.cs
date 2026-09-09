@@ -101,7 +101,26 @@ public static class CodeGenTestBase {
         return bag.ToArray();
     }
 
-    /// <summary>Generates and asserts the backend reported no errors.</summary>
+    /// <summary>Generates, asserts the backend reported no errors, and refuses an empty result.</summary>
+    /// <param name="source">The shader.</param>
+    /// <param name="target">Which backend to run.</param>
+    /// <returns>At least one <see cref="GeneratedSource" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The count is asserted here because a dozen callers only assert inside a
+    ///         <c>foreach</c> over what comes back.</b> Every such loop reports a pass on the day the
+    ///         backend emitted nothing at all — it compiled nothing, validated nothing, and said a
+    ///         reference front end had accepted it. That is the shape <c>#828</c> fixed in the golden
+    ///         suites and this is the same shape in the rest of the code-gen tests.
+    ///     </para>
+    ///     <para>
+    ///         Deliberately <em>not</em> in <see cref="Generate(string, out IReadOnlyList{Diagnostic}, string)" />,
+    ///         for two reasons. A caller of <c>Generate</c> may be asserting a <em>refusal</em>, where
+    ///         zero units is the correct answer; and keeping the refusal one layer above the compile
+    ///         is what lets a sabotage of the backend prove that the refusal fires rather than
+    ///         tripping over itself.
+    ///     </para>
+    /// </remarks>
     public static IReadOnlyList<GeneratedSource> GenerateClean(string source, string target = "glsl") {
         var generated = Generate(source, out var diagnostics, target);
 
@@ -111,8 +130,18 @@ public static class CodeGenTestBase {
             "Expected no code generation errors, got:\n" + string.Join("\n", errors.Select(d => d.ToString()))
         );
 
+        Assert.True(generated.Count > 0, EmptyResult(target));
+
         return generated;
     }
+
+    /// <summary>The message a generation that produced nothing fails with.</summary>
+    /// <param name="target">Which backend was asked.</param>
+    /// <returns>Why an empty result is the failure rather than a vacuous pass.</returns>
+    public static string EmptyResult(string target) =>
+        $"The '{target}' backend reported no errors and generated no units. A loop over the result "
+        + "asserts nothing and the test reports a pass, so an empty result is the failure this "
+        + "assertion exists to name.";
 
     /// <summary>The single generated unit, for shaders with one entry point.</summary>
     public static string GenerateOne(string source, string target = "glsl") =>

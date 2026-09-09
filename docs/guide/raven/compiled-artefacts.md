@@ -8,7 +8,7 @@ api: [T:Vixen.Raven.Artefacts.CompiledEffect, T:Vixen.Raven.Artefacts.EffectModu
 tags: [raven, shaders, packaging, content-build]
 since: 0.1
 status: preview
-related: [raven/compiling-a-shader, raven/shader-reflection]
+related: [raven/compiling-a-shader, raven/shader-reflection, raven/library-ir]
 ---
 
 ## What it is
@@ -106,3 +106,5 @@ with no container around it — readable in a diff, and deliberately *not* accep
   and `RavenReference`, which is how a `.rvnlib` reaches the next compilation.
 - [Reading a shader's reflection](shader-reflection.md) — the `Reflection` an effect carries, and
   what a host does with it.
+- [The `.rvnlib` IR](library-ir.md) — the lowered half a library carries beside its declarations,
+  and why every cross-reference in it is a key or an index rather than an object.

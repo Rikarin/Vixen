@@ -109,13 +109,13 @@ Exit codes are `0` for success, `1` when the input produced errors, and `2` when
 the command line or a path was wrong — so a build script can tell "you invoked
 me wrong" from "the shader is wrong".
 
-There are 128 diagnostic ids. Each is meant to have two tests and not one: a **trigger** showing it
+There are 129 diagnostic ids. Each is meant to have two tests and not one: a **trigger** showing it
 fires, and a **negative** — a shader that comes within one predicate of it and must stay silent.
 The second is the one that matters more, because an over-firing rule refuses correct work and cannot
-be argued with, while a missing rule only lets a mistake through. 79 ids have a negative today and 49
-do not; `Raven/Vixen.Raven.Tests/NegativeDiagnosticTests.cs` holds 72 of the 79 and explains the
+be argued with, while a missing rule only lets a mistake through. 80 ids have a negative today and 49
+do not; `Raven/Vixen.Raven.Tests/NegativeDiagnosticTests.cs` holds 73 of the 80 and explains the
 method. Of the 49 owed, two — `RVN2003` and `RVN2014` — cannot fire on any input and so can never
-have one, which puts the reachable ceiling at 126.
+have one, which puts the reachable ceiling at 127.
 
 ⚠ **Those five numbers are derived rather than typed, and this paragraph is held to them.** Four
 batches of this work have run and every one found a figure in its brief wrong, twice in a correction
@@ -349,6 +349,21 @@ state — `GrassScatter.comp.spv` held the jitter as an `OpFMul` with no consume
 stood on the exact centre of its cell whatever `GrassType.Jitter` said, and the host-side parity
 test was green because it re-implements the shader's arithmetic in C# rather than reading it.
 `RVN2141` refuses the second statement now. Name the operand in a `val`, or use `+=`.
+
+⚠ **A binding may not be named after a GLSL built-in function, and that is a GLSL *ES* rule.**
+`uniform float dot;` compiles at `#version 450 core` and is `'dot' : redefinition` at
+`#version 320 es`; so is a `struct` of that name, and a function of it is
+`'function name is redeclaration of existing name'`. The set that matters is the *union* over
+dialects and is bigger than any one of them — `GL_EXT_shader_integer_functions2`'s `average`,
+`addSaturate`, `countLeadingZeros` and the rest are in glslang's ESSL 3.10 table whether the
+extension is enabled or not, and desktop GLSL 4.5 has none of them. `AutoExposure.rvn` shipped
+`var average: RWTexture2D<float4>` and cross-compiled to `'average' : redefinition` with exactly one
+`average` in the file. `RVN2142` says so at the `.rvn` line now, for a resource binding, a
+`groupshared`, a `func` and a type name. It is a refusal rather than a rename because a binding is
+bound *by name* on every GL profile below 3.1, so a silently renamed uniform is a resource the host
+cannot find. A local, a parameter, a struct member, a plain uniform value and a `stream` are all
+fine — measured, not assumed: the first three shadow a built-in legally at every version, the fourth
+is a member of an instanced block, and the fifth is renamed by the cross-compiler.
 
 ### `compose`
 

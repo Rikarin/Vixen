@@ -3453,6 +3453,7 @@ static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.MemberOutsideAType -
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.MissingReturnValue -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.MissingTypeOrInitializer -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.ModifierHasNoEffect -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
+static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.NameIsAGlslBuiltIn -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.NoApplicableOverload -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.NoBaseType -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor
 static readonly Vixen.Raven.Diagnostics.SemanticDiagnostics.NoConstructor -> Vixen.Core.Syntax.Diagnostics.DiagnosticDescriptor

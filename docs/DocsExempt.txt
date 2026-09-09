@@ -2394,38 +2394,6 @@ T:Vixen.Platform.Windows.WindowsDialogs sweep-pending
 T:Vixen.Platform.Windows.WindowsPlatformSupplement sweep-pending
 T:Vixen.Platform.Windows.WindowsPowerInfo sweep-pending
 T:Vixen.Platform.Windows.WindowsProcessorTopology sweep-pending
-T:Vixen.Raven.Artefacts.LibraryIr one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrAccess one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrArgument one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrBinary one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrBlock one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrBreak one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrCall one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrConstant one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrConstruct one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrContinue one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrConvert one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrDiscard one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrExtract one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrField one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrFieldAccess one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrFunction one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrIf one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrIndexAccess one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrIntrinsic one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrLoad one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrLoop one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrPlace one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrReturn one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrSelect one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrStatement one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrStore one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrStruct one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrSwizzleAccess one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrTypeReference one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrUnary one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrValue one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
-T:Vixen.Raven.Artefacts.LibraryIrVariable one .rvnlib wire record per IR shape — the container is raven/compiled-artefacts
 T:Vixen.Raven.IR.IrAccess raven IR, the model both back ends consume — public for a backend author, documented as one model
 T:Vixen.Raven.IR.IrArgument raven IR, the model both back ends consume — public for a backend author, documented as one model
 T:Vixen.Raven.IR.IrArrayLengthInstruction raven IR, the model both back ends consume — public for a backend author, documented as one model

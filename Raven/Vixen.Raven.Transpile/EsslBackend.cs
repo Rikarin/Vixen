@@ -105,7 +105,7 @@ sealed class EsslBackend(GlslDialect dialect = GlslDialect.Essl300) : ITargetBac
             }
 
             try {
-                var transpiled = SpirvCrossTranspiler.Transpile(binary, dialect);
+                var transpiled = SpirvCrossTranspiler.Transpile(binary, dialect, module.Stage);
                 generated.Add(new(module.Name, module.Stage, Annotate(transpiled, module)));
             } catch (SpirvCrossException exception) {
                 diagnostics.Add(
