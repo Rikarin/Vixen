@@ -97,10 +97,12 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     ///     engine and glslang's disagree anywhere, it is here.
     /// </summary>
     /// <remarks>
-    ///     No array, because Raven cannot yet declare one with a length — its
-    ///     <c>array_rank_specifier</c> is <c>[]</c> only — and an unsized array is not legal in a
-    ///     uniform block. So <c>ArrayStride</c> is covered by <c>ShaderLayoutTests</c> against
-    ///     the spec, but not yet against a second implementation.
+    ///     ⚠ <b>The claim that used to stand here — "no array, because Raven cannot yet declare one
+    ///     with a length" — expired.</b> Sized arrays landed, and so did storage buffers, so the
+    ///     second half of it ("<c>ArrayStride</c> is covered against the spec but not against a
+    ///     second implementation") is now <see cref="Storage" />'s job. This block stays as it is:
+    ///     it is the std140 case, and an array in a uniform block would fold two rules into one
+    ///     fixture.
     /// </remarks>
     const string Packing = """
                            package A
@@ -114,6 +116,51 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
                                [FragmentShader]
                                func Fragment(): float4 {
                                    return transform * tint * roughness + float4(direction, 1)
+                               }
+                           }
+
+                           """;
+
+    /// <summary>
+    ///     The same hazards under std430, which is a different set of rules and not a relaxation of
+    ///     the one above.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>weights</c> is the member that separates the two: std140 rounds an array's stride
+    ///         up to sixteen whatever the element is, std430 packs it at four. A wrong stride in a
+    ///         storage buffer is not an error anywhere — the block still compiles, the module still
+    ///         validates, and the host reads every element after the first from the wrong address.
+    ///     </para>
+    ///     <para>
+    ///         <c>position</c> then <c>age</c> keeps the <c>float3</c> hazard in the fixture, because
+    ///         std430 does <em>not</em> relax that one: a <c>float3</c> still aligns to sixteen, so
+    ///         the scalar packs into its tail at 12 and the array starts at 16. And the outer runtime
+    ///         array's own stride is the element's size rounded to the struct's alignment, which is
+    ///         the third number and the one a host strides a <c>Sample[]</c> by.
+    ///     </para>
+    /// </remarks>
+    const string Storage = """
+                           package A
+
+                           struct Sample {
+                               var position: float3
+                               var age: float
+                               var weights: float[3]
+                               var tint: float4
+                               var seed: float
+                           }
+
+                           shader S {
+                               var samples: RWBuffer<Sample>
+
+                               [ComputeShader(64)]
+                               func Main([Semantic("SV_DispatchThreadID")] id: uint3) {
+                                   val index = int(id.x)
+                                   var s = samples[index]
+                                   s.age = s.age + s.weights[0] + s.weights[1] + s.weights[2]
+                                   s.tint = s.tint + float4(s.position, s.seed)
+                                   samples[index] = s
                                }
                            }
 
@@ -496,6 +543,66 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     }
 
     /// <summary>
+    ///     And the same for std430, which nothing produced until there was a storage buffer to
+    ///     produce it: the strides and offsets a host reads a <c>Sample[]</c> by, against glslang
+    ///     computing the same layout from Raven's own GLSL.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Deliberately its own test rather than a case in
+    ///         <see cref="The_two_paths_agree_on_the_interface" />.</b> That theory compares
+    ///         <see cref="SpirvInterface.Members" />, which is keyed by the struct's <em>name</em>,
+    ///         and the two front ends genuinely spell this one differently: Raven emits a type per
+    ///         layout rule and calls it <c>Sample.Std430</c>, glslang emits <c>Sample_0</c>. Adding
+    ///         the fixture there would have reported a difference that is only a spelling — and,
+    ///         worse, it would have compared no stride at all, because <c>ArrayStride</c> is a
+    ///         decoration on the array <em>type</em> and never a member decoration.
+    ///         <see cref="SpirvInterface.Layout" /> is what reads it.
+    ///     </para>
+    ///     <para>
+    ///         The numbers are spelled out before the two sides are compared, for the reason the
+    ///         std140 test spells its own: a set-equality failure says "these differ" where a wrong
+    ///         stride should say "4 became 16".
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_two_paths_agree_on_a_storage_buffers_std430_offsets_and_strides() {
+        Assert.SkipUnless(ReferenceCompiler.Available, ReferenceCompiler.HowToInstall);
+
+        var mine = Assert.Single(CodeGenTestBase.GenerateClean(Storage, "spirv"));
+        var theirs = Assert.Single(CodeGenTestBase.GenerateClean(Storage, "glsl"));
+
+        var ravens = SpirvInterface.Layout(ReferenceCompiler.Disassemble(mine.Binary!));
+        var oracles = SpirvInterface.Layout(
+            ReferenceCompiler.Disassemble(ReferenceCompiler.GlslToSpirv(theirs.Code, theirs.Stage))
+        );
+
+        const string Element = "position|age|weights|tint|seed :: ";
+
+        // std430's headline rule: a `float[3]` is packed at 4, where std140 would round it to 16.
+        Assert.Equal("4", ravens[Element + "weights.ArrayStride"]);
+
+        // And the rule std430 does *not* relax — a float3 still aligns to 16, so `age` packs into
+        // its tail and `weights` starts at the next slot.
+        Assert.Equal("0", ravens[Element + "position.Offset"]);
+        Assert.Equal("12", ravens[Element + "age.Offset"]);
+        Assert.Equal("16", ravens[Element + "weights.Offset"]);
+        Assert.Equal("32", ravens[Element + "tint.Offset"]);
+        Assert.Equal("48", ravens[Element + "seed.Offset"]);
+
+        // The outer runtime array's stride, which is what a host walks the buffer by — and the
+        // reason `seed` is in the fixture at all. The members end at 52 and the struct aligns to 16,
+        // so this number is a ROUND-UP and not the sum: without a member past the last sixteen-byte
+        // boundary the two are equal and the round-up is unobservable. Measured — dropping it makes
+        // this read 52 against the oracle's 64, and with `seed` removed the same fault is green.
+        Assert.Equal("64", ravens["samples :: samples.ArrayStride"]);
+
+        // A layout of nothing would satisfy every "the two agree" assertion ever written.
+        Assert.Equal(8, ravens.Count);
+        Assert.Equal(ravens, oracles);
+    }
+
+    /// <summary>
     ///     The precondition for everything above, asserted on its own so a failure says
     ///     "the GLSL does not compile" rather than "the interfaces differ".
     /// </summary>
@@ -513,6 +620,7 @@ public class SpirvDifferentialTests(ITestOutputHelper output) {
     [InlineData("monomorphised generics", Generics)]
     [InlineData("flattened inheritance", Inheritance)]
     [InlineData("cutout by discard", Cutout)]
+    [InlineData("std430 storage buffer", Storage)]
     public void A_reference_compiler_accepts_Ravens_GLSL(string what, string source) {
         // Only glslc: this half never disassembles anything, so spirv-dis being absent must not
         // take it out too.

@@ -288,8 +288,23 @@ Honestly bounded:
   same lowered IR; the oracle compares emitters, not the lowering.
 - **`ArrayStride` is now covered.** `SizedArrayTests` puts a `float4[4]` and a `float[8]` in a uniform
   block and asserts the stride, and both reference tools read the result — so the std140 round-up to 16
-  is checked against two full front ends rather than only against the spec as literals. What is still
-  uncovered is `std430`, which nothing produces until there is a storage buffer to produce it.
+  is checked against two full front ends rather than only against the spec as literals.
+  ~~What is still uncovered is `std430`, which nothing produces until there is a storage buffer to
+  produce it.~~ **Covered too**, since there is a storage buffer now: `SpirvDifferentialTests`'
+  `Storage` fixture is an `RWBuffer<Sample>` whose element carries the three numbers std430 decides
+  differently, and `The_two_paths_agree_on_a_storage_buffers_std430_offsets_and_strides` compares them
+  against glslang computing std430 itself. Injected faults: an array stride rounded up like std140 reads
+  `4` against the oracle's `16`, and a struct size left unrounded reads `52` against `64`.
+  - ⚠ **Two things had to change before the oracle could see std430 at all**, and both were silent.
+    `SpirvInterface.Read` collects `OpMemberDecorate`, and `ArrayStride` is an `OpDecorate` on the
+    array *type* — so the decoration std430 is entirely about was invisible to it however many storage
+    buffers it was pointed at. And its member map is keyed by the struct's *name*, which the two front
+    ends genuinely spell differently for a laid-out struct: Raven emits one type per layout rule
+    (`Sample.Std430`), glslang emits `Sample_0`. `SpirvInterface.Layout` keys a struct by its member
+    names in order instead, which both take from the source.
+  - ⚠ **The fixture's last member is load-bearing.** A struct whose members happen to end on a
+    sixteen-byte boundary makes the size round-up unobservable — the sum and the rounded size are the
+    same number — so the trailing scalar is what turns that rule into something a fault can move.
 - **The tools are found on PATH, not restored.** `glslc` (brew install shaderc, apt-get install
   glslc) and `spirv-dis` (brew install spirv-tools); the CLI tools rather than `Silk.NET.Shaderc`,
   so shaderc's native binaries never enter the restore graph of a project that must not ship them.
@@ -497,7 +512,7 @@ Get these wrong and every shader is subtly incorrect in a way that is painful to
 | 🔴 | **Reverse-Z, depth range 0..1** | ✅ nothing to do, and now asserted |
 | 🟡 | UV origin top-left | ✅ `OriginUpperLeft` |
 | 🟡 | Linear working space; sRGB decoded on sample; HDR render targets | not the compiler's — format and § F |
-| 🟡 | `Random.rvn` must match the CPU implementation **bit-for-bit** — the VFX system compiles one graph to both a C# job and a Raven compute shader, and their outputs are compared in a test ([06](06-rendering-pipeline.md)) | § F; the compute stage landed, but reading the result back needs a writable resource |
+| 🟡 | ~~`Random.rvn` must match the CPU implementation **bit-for-bit**~~ — ⚠ **there is no CPU implementation of it**, and this row named the wrong pair for months. Replaced by a **golden-vector gate**: `RandomGateTests` runs the hash on a device and pins the bits. The parity doc 06 asks for is `Vixen.Vfx.VfxRandom` against what `VfxShaderEmitter` transcribes, which is a different mixer and still unchecked | ✅ for `Random.rvn`; the VFX pair is [#315](https://github.com/Rikarin/Vixen/issues/315) |
 
 Two of these are the compiler's to bake in, and both are done. The other three are not, which is worth
 saying plainly rather than leaving them looking outstanding.
@@ -564,9 +579,24 @@ Still owed, and not the compiler's to give:
   is nothing for Raven to bake in — only something to avoid disturbing, which is asserted.
 - **Linear working space, sRGB decode, HDR targets** are image-format decisions plus `ColorSpaces.rvn`
   in § F. A shader never decodes sRGB itself; the view format does.
-- **`Random.rvn` bit-for-bit** needs § F's library, a CPU port to compare against, and a writable
-  resource to read the GPU side back out of. The compute stage itself is no longer the blocker. It is a
-  § F exit criterion, not a § E one.
+- **`Random.rvn` bit-for-bit** — ~~needs § F's library, a CPU port to compare against, and a writable
+  resource to read the GPU side back out of~~. Two of those three arrived and the middle one turned out
+  not to exist: ⚠ **there is no CPU port of `Random.rvn`, and there never was.**
+  `Random.Multiplier` appears in exactly one file in the tree, which is `Random.rvn` itself, so the
+  sentence "must match the CPU implementation" was matching nothing. What doc 06's dual-target parity
+  is about is `Vixen.Vfx.VfxRandom` (lowbias32) against the constants `VfxShaderEmitter` transcribes
+  inline into the generated shader — a different mixer, in the one function that genuinely exists
+  twice, and still unchecked.
+  - **What landed instead is what the file's exactness rules actually buy**: `RandomGateTests` beside
+    `BrdfGateTests` and `LayoutGateTests`, running `Hash`, `Combine`, `ToFloat01` and `Float01` on a
+    device over sixteen seeds and pinning the thirty-two bits of each — recovered as two halves below
+    2^16, so the readback's floats lose nothing. The float conversion is compared with `==` and not a
+    tolerance, because "a shift and a multiply by a power of two" is an exactness claim and a
+    tolerance would pass the division it forbids. Sabotage: one digit of `Multiplier` moves every
+    entry, and a kernel that drops the output xorshift moves all sixteen.
+  - ⚠ **The seed step is not `0x9E3779B9`**, which is what `Combine` multiplies its second operand
+    by. Seeding by that constant makes `Combine(seed, i)` fold to `Hash(0)` for every i, so the table
+    would have pinned one number sixteen times while reading like a sweep.
 - **Numeric agreement on a real device** — the GPU-readback tests in § G. Everything above pins the
   *convention*; only a device proves the arithmetic.
 
@@ -933,12 +963,36 @@ is how two lists come to disagree.
 | 🟡 | SPIR-V | `spirv-val` on every emitted module; golden `spirv-dis` snapshots so codegen changes are reviewable | ✅ |
 | 🔴 | Both emitters | **Differential test**: Raven's SPIR-V vs `glslc`(Raven's GLSL), compared for semantic equivalence — the hard class of bug, an emitter internally consistent and semantically wrong | ✅ interface-level; blind to the shared IR, hence the numeric tests |
 | 🟡 | Cross-compile | Every module through SPIRV-Cross to GLSL 450 / ESSL 300 / HLSL 60 / MSL / WGSL without error; GLSL/ESSL additionally through `glslang` | not started |
-| 🟡 | Numeric | BRDF functions ported to C# and compared against a GPU compute readback over a parameter sweep, agreeing to 1e-4 — the test that catches "the shader is subtly wrong" | blocked on § F and on a writable resource; the compute stage itself landed |
-| 🟡 | Layout | Reflection offsets against a GPU readback of a known pattern, **per backend** | needs a device |
+| 🟡 | Numeric | BRDF functions ported to C# and compared against a GPU compute readback over a parameter sweep, agreeing to 1e-4 — the test that catches "the shader is subtly wrong" | ✅ `BrdfGateTests`, and `RandomGateTests` beside it pins `Random.rvn`'s bits — ⚠ that one is a golden vector rather than a port, because the CPU implementation § E named does not exist |
+| 🟡 | Layout | Reflection offsets against a GPU readback of a known pattern, **per backend** | ✅ `LayoutGateTests`; the std430 half is checked against glslang rather than a device, in `SpirvDifferentialTests` |
 | 🟡 | Permutations | An unused define produces a byte-identical module and the same cache key | ✅ |
 | ⚪ | Fuzz | `SharpFuzz` corpus over the Raven parser, alongside the VXML/VCSS/`.meta`/bundle readers ([12](12-build-ci-and-testing.md)) | not started |
-| ⚪ | Perf | Gates on full-library compile time and < 500 ms incremental recompile of a leaf shader | needs § F |
+| ⚪ | Perf | Gates on full-library compile time and < 500 ms incremental recompile of a leaf shader | ~~needs § F~~ — § F landed. The incremental half is gated as **work rather than time** (`IncrementalParseWorkTests`, below); the full-library number is still ungated |
 | ⚪ | CI | Nuke `CompileShaderLibrary`: Raven over `Raven/Library/**/*.rvn` → `.rvnlib`, `spirv-val` each, **fail on any diagnostic** | Nuke not stood up ([12](12-build-ci-and-testing.md)) |
+
+#### ✅ The incremental budget is gated as work, and the library number is not gated at all
+
+The `Perf` row asked for two gates and they are not the same kind of thing.
+
+**The one with the budget on it — < 500 ms to reparse a leaf shader — is now a counter.** ⚠ A
+wall-clock assertion would have been the wrong instrument, and this repository's own rule says so: a
+time budget calibrated on an idle machine is its single largest flake source, and a parse on a loaded
+runner is exactly that shape. What the incremental path *promises* is not a duration but that an edit
+inside one member reparses that member and reuses the rest — which is a count of green nodes, is
+machine-independent, and is what regresses first when the blender quietly stops reusing.
+
+`IncrementalParseWorkTests` measures it as a differential taken in one run: a one-character edit to
+the longest shipped `PostFx` leaf against a from-scratch parse of the same new text. **133 green nodes
+against 3109**, and the bound is an eighth, which is loose on purpose — a tighter one would be a golden
+number wearing a ratio's clothes and would go red the next time somebody edits that shader. Two
+instrument checks come with it: the negative control reparses against an *unrelated* tree, which can
+reuse nothing and has to fail the same bound; and offering the blender no candidates at all takes the
+number from 133 to 3109, the whole tree.
+
+**The full-library compile-time gate is still owed, and it is a duration with no counter standing in
+for it.** Saying so is better than a green wall-clock assertion that measures the runner: the honest
+version is a number recorded on one machine and compared against itself, which wants CI's own
+hardware and belongs beside `CheckShaders` rather than in a test assembly.
 
 ### H. Burden the plan *removes* from Raven
 
@@ -2115,7 +2169,7 @@ Raven/Library/                          — shipped with the engine, compiled in
 │   ├── Math.rvn                        — trig/vector/matrix helpers, packing, encoding
 │   ├── Sampling.rvn                    — Hammersley, importance sampling, blue noise, Halton
 │   ├── ColorSpaces.rvn                 — sRGB/linear, ACES, AgX, PQ, octahedral encode
-│   └── Random.rvn                      — hash-based PRNG matching the CPU implementation bit-for-bit
+│   └── Random.rvn                      — hash-based PRNG, pinned bit-for-bit by RandomGateTests
 ├── Shading/
 │   ├── Brdf.rvn                        — NDF/visibility/Fresnel primitives
 │   ├── DiffuseModels.rvn               — Lambert, OrenNayar, Burley
@@ -2195,8 +2249,8 @@ the broken ones.
 **The smaller half is built; the larger one is still not worth it.** Making `override` work *is* part
 of the mixin mechanism — a base's callers have to reach the derived member, which means flattening —
 and that half landed once monomorphisation showed it was the same machinery over a different axis.
-What is still unbuilt is *choosing the chain per effect*, and the arguments against that are
-unchanged:
+What is still unbuilt is *choosing the chain per effect*, and three of the four arguments against that
+are unchanged — the fourth has expired, which is what made writing the verdict below urgent:
 
 - Reimplementing what this document calls *"the least-understood, most-load-bearing part of Stride"* is
   a poor bet.
@@ -2205,14 +2259,56 @@ unchanged:
 - Linearization makes errors non-local — a mixin list assembled in one file changes the meaning of a
   method in a file that never mentions it. Everything else here went the other way: `compose` resolved
   statically, one `BindingPlan`, one `StreamPlan`, a differential oracle.
-- **There is no consumer yet.** Building a resolver before writing § F's library is designing against
-  Stride's shape rather than against a requirement.
+- ~~**There is no consumer yet.** Building a resolver before writing § F's library is designing against
+  Stride's shape rather than against a requirement.~~ — **expired.** There is a consumer:
+  `Core/Vixen.Rendering/Materials/MaterialCompiler.cs` assembles a real material's feature list into a
+  real composition, and `Raven/Library/Material/MaterialFeatures.rvn` is what it composes into. The
+  argument had an expiry date and nothing was watching it; the other three do not, which is why they
+  are the ones that carry the verdict.
 
-The trigger to watch for: write § F's material library against `compose`, protocols, streams and
-non-inheriting shaders, and see what cannot be expressed. The likely candidate is a *chain* of
-surface-modifying features where each needs the previous one's result — which is also what `stream`
-was built for, so try that first. The two halves were separable, as predicted: **flattening a
-source-declared chain** was the smaller one and landed alone.
+##### ✅ The trigger fired, and the answer is that the resolver stays unbuilt
+
+The condition this section ended on was: *"write § F's library against `compose`, protocols, streams
+and non-inheriting shaders, and see what cannot be expressed."* § F is written — **112 committed
+`.rvn` files** under `Raven/Library` across all eight packages — and § F's own
+[*What the library could not express*](#what-the-library-could-not-express) is the list of what it ran
+into. Every entry there is now either struck through as landed (sized arrays, writable resources, MRT,
+`SampleLevel`, `SampleGrad`, `SV_VertexID`, `discard`) or a standing refusal that has nothing to do
+with mixins (a texture is a descriptor and cannot be a struct field, `RVN2053`; no line continuation).
+**⚠ Not one entry on that list is the predicted candidate.** The experiment ran, and it came back
+without the finding it was run to look for. Recording that is the whole of what was owed here.
+
+The predicted candidate — *a chain of surface-modifying features where each needs the previous one's
+result* — is `Raven/Library/Material/MaterialFeatures.rvn:564`, and it is eleven lines:
+
+```
+shader CompositeSurface : IMaterialSurface {
+    compose val first: IMaterialSurface
+    …
+    func Compute(inout d: MaterialData) {
+        first.Compute(d)
+        second.Compute(d)
+        …
+    }
+}
+```
+
+⚠ **And the mechanism it wanted was not `stream`, which is what this section guessed.** It is
+`compose` plus `inout`: the surface is one value threaded through the chain by reference, so a feature
+reads it as the previous feature left it and adding a feature changes no other feature's signature.
+`stream` carries a value between *stages*, and every link in this chain is inside one stage, so it was
+never the answer — the prediction named the right problem and the wrong tool. Two consequences of
+`compose`'s own rules shaped the result rather than the language needing to grow: every declared slot
+must be bound (`RVN2073`), so there is one fixed arity with an `IdentitySurface` filler rather than a
+chain type per feature count; and a composed shader's parameters belong to its type rather than to the
+slot, so a chain cannot nest and cannot hold the same feature twice — `MaterialCompiler` refuses the
+second case with a diagnostic rather than compiling a material whose parameters silently alias.
+
+So: **the resolver is not built, and the three surviving arguments above are why.** A resolver would
+be a second, untyped composition mechanism for a problem the typed one covers, in the part of Stride
+this document calls the least-understood, with linearization making errors non-local in a compiler
+whose every other decision went the other way. This row is closed by deciding not to; reopening it
+wants a *new* thing the library cannot express, not the old prediction, which has now been tested.
 
 ## Generated C# bindings
 

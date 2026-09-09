@@ -703,10 +703,18 @@ public static class SemanticDiagnostics {
     );
 
     /// <summary>A workgroup size that could not be read.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Constants, not literals.</b> The rule is about the value a dimension folds to and not
+    ///     about how it is spelled: <c>[ComputeShader(LaneCount)]</c> is the size a reduction is
+    ///     actually built around, and refusing it made the shader write the number twice — where the
+    ///     two can disagree in the safe-looking direction, a workgroup narrower than the array it
+    ///     fills producing a fraction of the answer with nothing reported.
+    /// </remarks>
     public static readonly DiagnosticDescriptor WorkgroupSizeNotValid = new(
         "RVN2105",
         "Workgroup size is not valid",
-        "The workgroup size on '{0}' must be one to three positive integer literals, given positionally",
+        "The workgroup size on '{0}' must be one to three positive integer constants, given "
+        + "positionally — a literal, or anything that folds to one",
         Shader,
         DiagnosticSeverity.Error
     );

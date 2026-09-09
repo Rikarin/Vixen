@@ -131,4 +131,88 @@ public sealed record SpirvInterface(
     }
 
     static int Number(string text) => int.Parse(text, CultureInfo.InvariantCulture);
+
+    /// <summary>
+    ///     Every laid-out struct in a module, as member name → offset and, where the member is an
+    ///     array, its stride — identified by <em>what the struct holds</em> rather than by its name.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Why this exists beside <see cref="Members" />, which already reads offsets.</b>
+    ///         Two things defeat that map on a storage buffer, and both are silent. The first is that
+    ///         <c>ArrayStride</c> is an <c>OpDecorate</c> on the <em>array type</em> and never an
+    ///         <c>OpMemberDecorate</c>, so the decoration std430 is entirely about is not something
+    ///         <see cref="Read" /> can ever see, however many storage buffers it is pointed at. The
+    ///         second is that <see cref="Members" /> is keyed by the struct's name, and the two front
+    ///         ends do not agree about that: Raven emits one type per layout rule and calls it
+    ///         <c>Sample.Std430</c>, where glslang emits <c>Sample_0</c>, so a comparison keyed by
+    ///         name reports a difference that is only a spelling.
+    ///     </para>
+    ///     <para>
+    ///         So a struct is keyed by its member names in order — <c>position|age|weights|tint</c> —
+    ///         which both spell identically because both take them from the source. Only structs
+    ///         carrying an <c>Offset</c> decoration are returned, which is what keeps the undecorated
+    ///         function-local copy of the same struct from arriving as a second entry with no numbers
+    ///         in it.
+    ///     </para>
+    /// </remarks>
+    public static ImmutableSortedDictionary<string, string> Layout(string disassembly) {
+        ArgumentNullException.ThrowIfNull(disassembly);
+
+        var lines = disassembly.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+
+        var memberNames = new Dictionary<string, SortedDictionary<int, string>>(StringComparer.Ordinal);
+        var memberTypes = new Dictionary<string, string[]>(StringComparer.Ordinal);
+        var offsets = new Dictionary<string, Dictionary<int, string>>(StringComparer.Ordinal);
+        var strides = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var raw in lines) {
+            var tokens = raw.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+            switch (tokens) {
+                // OpMemberName %Sample 2 "weights"
+                case ["OpMemberName", var type, var index, .. var name]:
+                    memberNames.TryAdd(type, []);
+                    memberNames[type][Number(index)] = string.Join(' ', name).Trim('"');
+                    break;
+
+                // %11 = OpTypeStruct %7 %5 %9 %10
+                case [var type, "=", "OpTypeStruct", .. var members]:
+                    memberTypes[type] = members;
+                    break;
+
+                // OpMemberDecorate %Sample 1 Offset 12
+                case ["OpMemberDecorate", var type, var index, "Offset", var value]:
+                    offsets.TryAdd(type, []);
+                    offsets[type][Number(index)] = value;
+                    break;
+
+                // OpDecorate %_arr_float_uint_3 ArrayStride 4 — on the array type, never the member.
+                case ["OpDecorate", var type, "ArrayStride", var value]:
+                    strides[type] = value;
+                    break;
+            }
+        }
+
+        var layout = ImmutableSortedDictionary.CreateBuilder<string, string>(StringComparer.Ordinal);
+
+        foreach (var (type, byIndex) in offsets) {
+            if (!memberNames.TryGetValue(type, out var names) || !memberTypes.TryGetValue(type, out var types)) {
+                continue;
+            }
+
+            var signature = string.Join('|', names.Values);
+
+            foreach (var (index, offset) in byIndex) {
+                var name = names.GetValueOrDefault(index, index.ToString(CultureInfo.InvariantCulture));
+                layout[$"{signature} :: {name}.Offset"] = offset;
+
+                if (index < types.Length && strides.TryGetValue(types[index], out var stride)) {
+                    layout[$"{signature} :: {name}.ArrayStride"] = stride;
+                }
+            }
+        }
+
+        return layout.ToImmutable();
+    }
 }

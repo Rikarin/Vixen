@@ -128,7 +128,13 @@ shader VisibilityTiles {
     /// The dispatch is `(tileCount.x, tileCount.y, 1)` with a workgroup of `Size * Size`, so a tile is
     /// a workgroup exactly and a pixel is a lane. Out-of-range pixels — the screen's right and bottom
     /// edges, where a tile hangs over — read nothing and set no bit.
-    [ComputeShader(64)]
+    ///
+    /// The size is written as that product and not as the 64 it folds to, which is what makes the
+    /// sentence above checkable rather than a claim: changing `Size` moves the workgroup with it. It
+    /// read `[ComputeShader(64)]` while `RVN2105` took an integer literal only, and the two spellings
+    /// could have disagreed in the direction nothing reports — a workgroup narrower than the tile
+    /// leaves pixels nobody read, so a material present only there is missing from the tile's list.
+    [ComputeShader(VisibilityTile.Size * VisibilityTile.Size)]
     func Main([Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupIndex")] lane: uint) {
         if (lane < 2u) {
             present[int(lane)] = 0u

@@ -127,12 +127,30 @@ internal static class DeclarationFacts {
     ///     <para>
     ///         One to three arguments; a dimension not written is 1, which is what both targets
     ///         default to and what a 1-D dispatch means. Anything that is not a positive integer
-    ///         literal returns as <see cref="WorkgroupSize.Invalid" /> rather than being silently
+    ///         constant returns as <see cref="WorkgroupSize.Invalid" /> rather than being silently
     ///         rounded into range — the binder reports it, because a wrong workgroup size is a
     ///         correctness bug in every invocation.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A dimension may be a folded constant and not only a literal</b>, which is what
+    ///         <paramref name="fold" /> is for. The number a reduction is built around is usually
+    ///         already spelled as a <c>const</c> — a lane count, a tile size — and refusing it here
+    ///         made the shader spell it twice, in two places that could disagree <em>in the
+    ///         safe-looking direction</em>: a workgroup narrower than the array it fills simply never
+    ///         loads the texels the missing lanes would have, so the answer is a fraction of the
+    ///         truth with no diagnostic and no validation error. A literal still takes the fast path
+    ///         and binds nothing, so a size written as a number costs exactly what it did.
+    ///     </para>
     /// </remarks>
-    public static WorkgroupSize? GetWorkgroupSize(SyntaxList<AttributeListSyntax> attributeLists) {
+    /// <param name="attributeLists">The declaration's attributes.</param>
+    /// <param name="fold">
+    ///     Folds a non-literal argument to its compile-time value, or null when it has none. Absent
+    ///     for a caller with no binder to fold in, which then reads literals only.
+    /// </param>
+    public static WorkgroupSize? GetWorkgroupSize(
+        SyntaxList<AttributeListSyntax> attributeLists,
+        Func<ExpressionSyntax, int?>? fold = null
+    ) {
         foreach (var attribute in GetAttributes(attributeLists)) {
             if (!StageAttributes.ContainsKey(GetAttributeName(attribute))) {
                 continue;
@@ -150,7 +168,7 @@ internal static class DeclarationFacts {
             var index = 0;
 
             foreach (var argument in arguments.Arguments) {
-                if (Dimension(argument) is not { } value) {
+                if (Dimension(argument, fold) is not { } value) {
                     return WorkgroupSize.Invalid;
                 }
 
@@ -163,23 +181,25 @@ internal static class DeclarationFacts {
         return null;
     }
 
-    /// <summary>One workgroup dimension, or null when it is not a positive integer literal.</summary>
-    static int? Dimension(AttributeArgumentSyntax argument) {
+    /// <summary>One workgroup dimension, or null when it is not a positive integer constant.</summary>
+    static int? Dimension(AttributeArgumentSyntax argument, Func<ExpressionSyntax, int?>? fold) {
         // A named argument is refused rather than matched by name: `[ComputeShader(y: 8)]`
         // would have to mean "x is 1", which reads as a size of 8 to everyone who writes it.
         if (argument.NameColon is not null) {
             return null;
         }
 
-        if (argument.Expression is not LiteralExpressionSyntax {
-                Kind: SyntaxKind.NumericLiteralExpression
-            } literal) {
-            return null;
-        }
+        // The positivity check is here rather than in `fold`, so a literal and a folded constant are
+        // held to one rule: `[ComputeShader(0)]` and a `const val Size = 0` are the same mistake.
+        object? value = argument.Expression is LiteralExpressionSyntax {
+            Kind: SyntaxKind.NumericLiteralExpression
+        } literal
+            ? LiteralParser.Parse(literal).Value
+            : fold?.Invoke(argument.Expression);
 
-        return LiteralParser.Parse(literal).Value switch {
-            int value and > 0 => value,
-            uint value and > 0 and <= int.MaxValue => (int)value,
+        return value switch {
+            int folded and > 0 => folded,
+            uint folded and > 0 and <= int.MaxValue => (int)folded,
             _ => null
         };
     }
