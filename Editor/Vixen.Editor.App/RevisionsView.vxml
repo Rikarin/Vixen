@@ -1,0 +1,187 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+-->
+@component RevisionsView
+@namespace Vixen.Editor.App
+@tag revisions-view
+@using Vixen.Editor.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<revisions-toolbar>
+    <TextBlock class="revisions-subject">@Subject</TextBlock>
+
+    <Button Variant="Subtle"
+            Label="@EditorStrings.RevisionsRestore.Text"
+            Disabled="@(Chosen is null)"
+            on:click="@Restore" />
+</revisions-toolbar>
+
+<ScrollView class="revisions-list">
+    @for (var row in Rows) {
+        <Button key="@row"
+                class="revisions-entry @(row.Id == ChosenId ? "current" : string.Empty)"
+                Variant="Subtle"
+                Label="@row.Label"
+                on:click="@(() => Choose(row.Id))" />
+    }
+</ScrollView>
+
+<revisions-diff>
+    <TextBlock class="revisions-patch @(IsText ? string.Empty : "binary")">@Patch</TextBlock>
+</revisions-diff>
+
+@code {
+    /// <summary>What the list shows, newest first.</summary>
+    readonly Signal<IReadOnlyList<SourceControlRevision>> revisions = new([]);
+
+    /// <summary>The full id of the row the diff below belongs to, or empty.</summary>
+    readonly Signal<string> chosen = new(string.Empty);
+
+    /// <summary>The line above the list: the asset, or why there is nothing to show.</summary>
+    readonly Signal<string> subject = new(string.Empty);
+
+    /// <summary>The patch, or the sentence that stands in for one.</summary>
+    readonly Signal<SourceControlDiff> patch = new(new(true, string.Empty));
+
+    /// <summary>The asset the panel is showing, project-relative.</summary>
+    public string Path { get; private set; } = string.Empty;
+
+    /// <summary>Raised when a row is picked, so the host can fetch that revision's diff.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The view runs no process and holds no provider, which is the whole reason it can be
+    ///     tested.</b> Every git invocation is seconds on a cold cache and belongs on the pool; a
+    ///     panel that started one from a click handler would be a panel that stalls the frame it was
+    ///     clicked on, and a test over it would be a test of this machine's git.
+    /// </remarks>
+    public event Action<SourceControlRevision>? Picked;
+
+    /// <summary>Raised when somebody asks for the chosen version back.</summary>
+    public event Action<SourceControlRevision>? Restoring;
+
+    /// <summary>Shows one asset's history.</summary>
+    /// <param name="path">The asset, project-relative, for the line above the list.</param>
+    /// <param name="found">What the provider said, newest first.</param>
+    public void Show(string path, IReadOnlyList<SourceControlRevision> found) {
+        ArgumentNullException.ThrowIfNull(path);
+        ArgumentNullException.ThrowIfNull(found);
+
+        Path = path;
+        revisions.Value = found;
+        chosen.Value = string.Empty;
+        patch.Value = new(true, string.Empty);
+
+        subject.Value = found.Count > 0
+            ? path
+            : $"{path} — {EditorStrings.RevisionsNoHistory.Text}";
+    }
+
+    /// <summary>Shows the patch for whichever row was last picked.</summary>
+    /// <param name="diff">What the provider said.</param>
+    public void ShowDiff(SourceControlDiff diff) {
+        ArgumentNullException.ThrowIfNull(diff);
+        patch.Value = diff;
+    }
+
+    /// <summary>Empties the panel and says why.</summary>
+    /// <param name="why">The sentence to put where the asset's name goes.</param>
+    public void Clear(string why) {
+        Path = string.Empty;
+        revisions.Value = [];
+        chosen.Value = string.Empty;
+        patch.Value = new(true, string.Empty);
+        subject.Value = why;
+    }
+
+    /// <summary>The rows, as the list draws them.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An immutable record keyed on itself, which is the rule for a row that holds no
+    ///     signals.</b> A surviving key keeps its region and its body is never re-run, so a key that
+    ///     is only part of the row would freeze every binding beside it at the values the row had
+    ///     when that key first appeared — which is what <c>VXML2011</c> refuses. A commit's id and
+    ///     its label never move together, so value equality re-uses exactly the rows that have not
+    ///     changed and rebuilds the ones that have.
+    /// </remarks>
+    IEnumerable<Row> Rows {
+        get {
+            foreach (var revision in revisions.Value) {
+                yield return new(
+                    revision.Id,
+                    $"{revision.ShortId}  {revision.Summary}  —  {revision.Author}, {revision.When.LocalDateTime:yyyy-MM-dd}"
+                );
+            }
+        }
+    }
+
+    /// <summary>One row: the id it acts on, and what it says.</summary>
+    sealed record Row(string Id, string Label);
+
+    /// <summary>The full id of the picked row, or empty.</summary>
+    public string ChosenId => chosen.Value;
+
+    /// <summary>The picked revision, or <see langword="null" /> when nothing is picked.</summary>
+    public SourceControlRevision? Chosen {
+        get {
+            var id = chosen.Value;
+
+            foreach (var revision in revisions.Value) {
+                if (string.Equals(revision.Id, id, StringComparison.Ordinal)) {
+                    return revision;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    /// <summary>How many rows the list drew, for a test to count.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The elements, not the model.</b> Counting the revisions would be asking the panel to
+    ///     confirm its own arithmetic; what a test needs to know is whether the rows reached the
+    ///     tree, which for a <c>@for</c> means the effect ran and the frame flushed.
+    /// </remarks>
+    public int Count {
+        get {
+            foreach (var child in Root.Children) {
+                if (child is ScrollView list) {
+                    return list.Content.Children.Count;
+                }
+            }
+
+            return 0;
+        }
+    }
+
+    /// <summary>What the line above the list says.</summary>
+    public string Subject => subject.Value;
+
+    /// <summary>The diff text as drawn, which is a patch or the sentence standing in for one.</summary>
+    public string Patch => patch.Value.Text;
+
+    /// <summary>Whether what is drawn below is a patch.</summary>
+    public bool IsText => patch.Value.IsText;
+
+    /// <summary>Picks a row, and asks the host for its diff.</summary>
+    /// <param name="id">The revision's full id.</param>
+    public void Choose(string id) {
+        chosen.Value = id ?? string.Empty;
+        patch.Value = new(true, string.Empty);
+
+        if (Chosen is { } revision) {
+            Picked?.Invoke(revision);
+        }
+    }
+
+    /// <summary>Asks the host to put the picked version back.</summary>
+    /// <remarks>
+    ///     Public for the same reason <see cref="Choose" /> is: the harness drives the panel through
+    ///     the two things a person can do to it, and a click handler nothing can call is a panel
+    ///     whose verbs are only reachable through a pointer.
+    /// </remarks>
+    public void Restore() {
+        if (Chosen is { } revision) {
+            Restoring?.Invoke(revision);
+        }
+    }
+}

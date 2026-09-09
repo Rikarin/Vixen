@@ -84,6 +84,17 @@ namespace Vixen.Animation.Ecs;
 ///         Register".
 ///     </para>
 ///     <para>
+///         ⚠ <b>And the overload cannot be the answer on its own, because
+///         <c>AnimationSystems.AddAnimation</c> has no production caller either</b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/1221">#1221</a>). One call in the tree
+///         and it is <c>GizmoTests</c>; no system here carries <c>[GameSystem]</c>, so the generated
+///         registry does not register them and <c>[UpdateInGroup]</c> only orders a system something
+///         has already added. <c>PhysicsSystems.AddPhysics</c> — the shape the remarks on
+///         <c>AnimationSystems</c> quote — <em>is</em> called, by Sample 13. So this system is not in
+///         any game's loop at all, which is a link below the three #451 names: widening
+///         <c>AddAnimation</c> would put the renderer's seams on a method nothing calls.
+///     </para>
+///     <para>
 ///         <b>Matrices are computed into a rented buffer, not a per-entity one.</b> A skeleton's
 ///         palette is written and immediately copied into the feature's upload buffer, so it lives
 ///         for the length of one call; holding one per character would be a hundred matrices of

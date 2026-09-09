@@ -880,6 +880,7 @@ sealed partial class EditorApplication : IDisposable {
 
         SettingsPanels();
         BuildPanels();
+        RevisionsPanel();
 
         // And doc 48 § D12's, which is where a mesh-map bake is set up and where what it produced is
         // read afterwards.
@@ -4205,6 +4206,12 @@ sealed partial class EditorApplication : IDisposable {
         shownAssets.AddRange(project.Selection);
 
         ShowSelection();
+
+        // ⚠ Here rather than on a timer or in the panel's own tick. A history is a `git log` per
+        // asset, and a panel that asked for one every frame would run a process every frame; what
+        // it follows is the selection changing, which is this method's whole job and which has just
+        // been established to have happened. It is a no-op unless the panel is open.
+        ShowRevisions();
     }
 
     /// <summary>Fills <see cref="scenes" /> with every scene the editor has open, its own first.</summary>

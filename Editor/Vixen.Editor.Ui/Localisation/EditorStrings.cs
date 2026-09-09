@@ -247,6 +247,14 @@ public static class EditorStrings {
     /// <summary>The undo history's.</summary>
     public static StringId PanelHistory { get; } = new("editor.panel.history", "Undo History");
 
+    /// <summary>The source-control history's, which is a different history entirely.</summary>
+    /// <remarks>
+    ///     ⚠ <b>"Revisions" rather than "History", because the editor already has a History panel
+    ///     and it is the undo stack.</b> Two panels called History in one Window menu is a menu
+    ///     where the one you want is a coin toss.
+    /// </remarks>
+    public static StringId PanelRevisions { get; } = new("editor.panel.revisions", "Revisions");
+
     /// <summary>What the keybinding editor's filter box says when it is empty.</summary>
     public static StringId KeysFilter { get; } = new("editor.keys.filter", "Filter commands…");
 
@@ -402,6 +410,17 @@ public static class EditorStrings {
     /// <summary>What the history calls the point before anything was done.</summary>
     public static StringId HistoryOriginal { get; } = new("editor.history.original", "Opened");
 
+    /// <summary>The revisions panel's button, which writes an old version into the working tree.</summary>
+    public static StringId RevisionsRestore { get; } =
+        new("editor.revisions.restore", "Restore This Version");
+
+    /// <summary>What the revisions panel says beside an asset source control has never seen.</summary>
+    public static StringId RevisionsNoHistory { get; } = new("editor.revisions.none", "no commits yet");
+
+    /// <summary>What the revisions panel says with nothing selected.</summary>
+    public static StringId RevisionsPick { get; } =
+        new("editor.revisions.pick", "Select one asset to see what has been committed to it.");
+
     /// <summary>The heading over the startup project browser.</summary>
     public static StringId ProjectsTitle { get; } = new("editor.projects.title", "Open a Project");
 
@@ -461,6 +480,10 @@ public static class EditorStrings {
     /// <summary>The <c>Revert to Source Control</c> command.</summary>
     public static StringId CommandAssetsRevert { get; } =
         new("editor.command.assets.revert", "Revert to Source Control");
+
+    /// <summary>The <c>Show History</c> command.</summary>
+    public static StringId CommandAssetsHistory { get; } =
+        new("editor.command.assets.history", "Show History");
 
     /// <summary>The <c>Delete</c> command.</summary>
     public static StringId CommandAssetsDelete { get; } = new("editor.command.assets.delete", "Delete");
@@ -615,6 +638,10 @@ public static class EditorStrings {
 
     /// <summary>The <c>Group</c> command.</summary>
     public static StringId CommandEntityGroup { get; } = new("editor.command.entity.group", "Group");
+
+    /// <summary>The <c>Group as LOD Group</c> command.</summary>
+    public static StringId CommandEntityGroupLod { get; } =
+        new("editor.command.entity.group-lod", "Group as LOD Group");
 
     /// <summary>The <c>Make Prefab…</c> command.</summary>
     public static StringId CommandEntityMakePrefab { get; } = new("editor.command.entity.make-prefab", "Make Prefab…");
@@ -1124,6 +1151,7 @@ public static class EditorStrings {
         PanelProjectSettings,
         PanelPlugins,
         PanelHistory,
+        PanelRevisions,
         KeysFilter,
         KeysRecord,
         KeysRecording,
@@ -1173,6 +1201,9 @@ public static class EditorStrings {
         PluginsManifestOff,
         HistoryHint,
         HistoryOriginal,
+        RevisionsRestore,
+        RevisionsNoHistory,
+        RevisionsPick,
         ProjectsTitle,
         ProjectsEmpty,
         ProjectsBrowse,
@@ -1192,6 +1223,7 @@ public static class EditorStrings {
         CommandAssetsBakeMeshMaps,
         CommandAssetsCreate,
         CommandAssetsRevert,
+        CommandAssetsHistory,
         CommandAssetsDelete,
         CommandAssetsFindReferences,
         CommandAssetsImportFiles,
@@ -1236,6 +1268,7 @@ public static class EditorStrings {
         CommandEntityCreateVfx,
         CommandEntityDistribute,
         CommandEntityGroup,
+        CommandEntityGroupLod,
         CommandEntityMakePrefab,
         CommandEntityMoveToView,
         CommandEntityPasteTransform,

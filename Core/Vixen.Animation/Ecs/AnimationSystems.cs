@@ -11,6 +11,18 @@ namespace Vixen.Animation.Ecs;
 /// <summary>The animation passes, as a set a game registers in one line.</summary>
 /// <remarks>
 ///     <para>
+///         ⚠ <b>Nobody makes that call</b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/1221">#1221</a>). The one caller of
+///         <see cref="AddAnimation(Vixen.Engine.Frames.EngineLoop)" /> anywhere in the tree is
+///         <c>GizmoTests</c>, so none of the three passes below is in any game's loop — and because
+///         none of them carries <c>[GameSystem]</c>, the generated registry does not add them
+///         either. <c>[UpdateInGroup]</c> orders a system that has already been added and does not
+///         add one. The consequence is wider than skinning: an <c>AnimatorComponent</c> in a
+///         shipping game is never evaluated, so clip playback and root motion are unreachable too.
+///         <c>PhysicsSystems.AddPhysics</c>, whose argument the paragraph below borrows, <em>is</em>
+///         called — by Sample 13 — and that asymmetry is the whole diagnosis.
+///     </para>
+///     <para>
 ///         ⚠ <b>Three passes now, not two.</b> <see cref="BlendShapeAnimationSystem" /> is the third
 ///         and it needs no renderer — it writes a component the render side reads — so it is added
 ///         unconditionally like the other two. A game with no morphed meshes walks a query that

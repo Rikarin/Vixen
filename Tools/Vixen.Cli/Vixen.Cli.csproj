@@ -98,6 +98,22 @@
         -->
         <ProjectReference Include="..\..\Live\Vixen.Live.Cluster\Vixen.Live.Cluster.csproj" />
 
+        <!--
+            ⚠ The plugin contract, so `vixen import` claims what the editor claims. The audit that
+            filed issue 1160 called this reference the decision to be made, on the grounds that it
+            "drags Vixen.Editor.Ui into a headless tool" — measured against the shipped output, that
+            is refuted: every assembly Vixen.Editor.Ui references (Vixen.Ui.Controls.Advanced,
+            Vixen.Ui.Styling.Utilities, Vixen.Input, Vixen.Core.Yaml, Vixen.Core.Diagnostics) is
+            already beside `vixen`, because Vixen.Editor.Core brings Vixen.Ui and Vixen.Editor.
+            NodeGraph brings the rest. The marginal cost of this line is two files.
+
+            ⚠ And it is PluginDiscovery that is wanted, not PluginHost. Discovery is a folder walk
+            and a YAML read with no shell in it; the host needs an EditorShell to register a
+            plugin's commands, panels and menus against, and a CLI has nowhere to put any of them.
+            See ProjectPlugins.
+        -->
+        <ProjectReference Include="..\..\Editor\Vixen.Editor.Plugin\Vixen.Editor.Plugin.csproj" />
+
         <!-- The out-of-process import mode runs importers in worker processes. This reference is
              what puts the worker assembly beside this one, which is where CompilerPool looks. -->
         <ProjectReference Include="..\Vixen.AssetCompiler\Vixen.AssetCompiler.csproj" />

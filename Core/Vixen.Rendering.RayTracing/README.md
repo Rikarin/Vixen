@@ -97,6 +97,13 @@ closing this needs, since nothing in the repository can conjure a device that ha
   `DistanceFieldHit`, every `IDistanceFieldSource` filling it, the three consuming kernels asking
   the hit rather than the position, and the vertex and index buffers bound beside `sceneStructure`.
   ⚠ That lands in the one place nothing in this repository can referee — see the skip above.
+
+  ⚠ **It is not blocked on Raven, which is worth knowing before anybody designs around it.**
+  `BufferTypeSymbol` gives the language a read-only `Buffer<T>`, so a shader can declare the vertex
+  and index buffers beside `sceneStructure` and cross two edges itself — the primitive index is a
+  `float` in the `Trace` answer and exact below 2²⁴, which is more primitives than a BLAS may hold.
+  The three pieces are all reachable: the field, the binding on the host that fills the slot, and a
+  runner with `VK_KHR_ray_query`. Only the third is missing.
 - **SAH.** The median build is the baseline and the referee; the surface-area heuristic is the
   optimisation measured against it.
 - **Refit.** A build per change is the baseline; updating in place is the optimisation, and it
