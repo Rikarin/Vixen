@@ -77,6 +77,27 @@ and it re-hides exactly the case the model was written to expose.
 list without raising `Changed`, so a panel switched to a different selection went on drawing the last
 mesh's atlas. No model test could see it: they all read the lists back on the line that emptied them.
 
+## The knife
+
+⚠ **doc 24 § P3 called it "the one row of the table left undone"**
+([#373](https://github.com/Rikarin/Vixen/issues/373)), and it is the only verb in this assembly that
+is a *gesture* rather than a function of the selection. `K` arms it, each click places a point on the
+face's boundary under the pointer, `Enter` cuts and `Escape` throws the stroke away.
+
+`BlockoutKnife` holds the stroke and does the snapping; `MeshOperations.Knife` does the arithmetic.
+The split is the assembly's usual one — what can be wrong is the chord, and a cube and an assertion
+can reach that.
+
+⚠ **Every click lands on a boundary, and that is what makes the kernel primitive usable.** "Split this
+face between these two points" is only defined for points on its rim, so a click in the middle of a
+face becomes a click on its nearest edge. A snap that returned the hit point would produce a stroke
+every cut of which the kernel refuses: a tool that draws a preview and then does nothing.
+
+⚠ **A segment across a face boundary offers a cut for both faces and lets the kernel choose.** Which
+of the two faces sharing an edge the picker answered with is not a choice the designer made, and
+`MeshOperations.Knife` already knows what "on this face's boundary" means — one rule rather than two
+that can disagree.
+
 ## The retopology debug overlays
 
 ⚠ **`RemeshDump` was a finished model nothing drew** ([#413](https://github.com/Rikarin/Vixen/issues/413)) —
@@ -137,6 +158,7 @@ plane, which is why `Pushed` still pushes upwards).
 | `Ctrl+↑` `Ctrl+↓` | grow and shrink; `Ctrl+A`, `Alt+A`, `Ctrl+I` for all, none and invert |
 | `E`, `I`, `Ctrl+B` | extrude, inset and bevel — `Alt` for the per-face versions of the first two |
 | `Ctrl+Shift+R`, `Ctrl+E`, `F` | loop cut, bridge, fill hole |
+| `K` | the knife: click a path, `Enter` to cut, `Escape` to abandon it |
 | `M`, `X`, `Ctrl+X`, `P` | weld, delete, dissolve, detach |
 | `Ctrl`+drag the gizmo | extrude, and then drag what it made — doc 24's second binding for it |
 | `Shift+A` | arms the shape tool: drag a footprint on the work plane, then drag the height |

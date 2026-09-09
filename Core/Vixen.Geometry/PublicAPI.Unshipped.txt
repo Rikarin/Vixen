@@ -38,6 +38,16 @@ Vixen.Geometry.EditMesh.SetTexCoords(System.ReadOnlySpan<Vixen.Core.Mathematics.
 Vixen.Geometry.EditMesh.TexCoords.get -> System.ReadOnlySpan<Vixen.Core.Mathematics.Vector2>
 Vixen.Geometry.EditMesh.Triangulate() -> int[]
 Vixen.Geometry.EditMesh.Validate() -> Vixen.Geometry.MeshReport
+Vixen.Geometry.KnifeCut -> readonly struct
+Vixen.Geometry.KnifeCut : System.IEquatable<Vixen.Geometry.KnifeCut>
+Vixen.Geometry.KnifeCut.Face.get -> int
+Vixen.Geometry.KnifeCut.Face.init -> int
+Vixen.Geometry.KnifeCut.From.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Geometry.KnifeCut.From.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Geometry.KnifeCut.KnifeCut() -> void
+Vixen.Geometry.KnifeCut.KnifeCut(int Face, Vixen.Core.Mathematics.Vector3 From, Vixen.Core.Mathematics.Vector3 To) -> void
+Vixen.Geometry.KnifeCut.To.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Geometry.KnifeCut.To.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Geometry.MeshBoolean -> static class
 Vixen.Geometry.MeshCollision -> static class
 Vixen.Geometry.MeshEdge -> readonly struct
@@ -203,6 +213,7 @@ static Vixen.Geometry.MeshOperations.ExtrudeAlong(Vixen.Geometry.EditMesh mesh, 
 static Vixen.Geometry.MeshOperations.FillHole(Vixen.Geometry.EditMesh mesh, int edge) -> int
 static Vixen.Geometry.MeshOperations.Flip(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyCollection<int>? faces = null) -> int
 static Vixen.Geometry.MeshOperations.Inset(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyCollection<int> faces, float amount, bool individually = false) -> System.Collections.Generic.IReadOnlyList<int>
+static Vixen.Geometry.MeshOperations.Knife(Vixen.Geometry.EditMesh mesh, System.Collections.Generic.IReadOnlyList<Vixen.Geometry.KnifeCut> cuts, float tolerance = 1E-05) -> System.Collections.Generic.IReadOnlyList<int>
 static Vixen.Geometry.MeshOperations.LoopCut(Vixen.Geometry.EditMesh mesh, int edge, int cuts = 1, float slide = 0.5) -> System.Collections.Generic.IReadOnlyList<int>
 static Vixen.Geometry.MeshOperations.MergeByDistance(Vixen.Geometry.EditMesh mesh, float distance) -> int
 static Vixen.Geometry.MeshOperations.Stitch(Vixen.Geometry.EditMesh mesh, float tolerance = 1E-05) -> int

@@ -167,6 +167,60 @@ public static class BlockoutGeometry {
         );
     }
 
+    /// <summary>Cuts a stroke's worth of chords across faces, as one undo entry.</summary>
+    /// <param name="editing">What is being edited.</param>
+    /// <param name="cuts">The stroke, from <see cref="BlockoutKnife.Cuts" />.</param>
+    /// <returns>Whether anything was cut.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="editing" /> or <paramref name="cuts" /> is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>doc 24 § P3's knife, which that section calls "the one row of the table left
+    ///         undone".</b> The gesture is <see cref="BlockoutKnife" /> and the arithmetic is
+    ///         <see cref="MeshOperations.Knife" />; this is the join — one transaction, the result
+    ///         selected, and the element mode left in Face.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It does not go through <c>Run</c>, and the difference is what it acts on.</b>
+    ///         Every other verb here takes an element selection and converts it; a knife's subject is
+    ///         a path a designer drew, which is not a selection and cannot be converted from one. What
+    ///         is shared is everything after the operation — the demotion, the recorded copy, the
+    ///         single undo entry — and that is copied deliberately rather than abstracted, because a
+    ///         <c>Run</c> overload taking "either a selection or a path" would be a parameter that is
+    ///         null half the time.
+    ///     </para>
+    /// </remarks>
+    public static bool Knife(MeshEdit editing, IReadOnlyList<KnifeCut> cuts) {
+        ArgumentNullException.ThrowIfNull(editing);
+        ArgumentNullException.ThrowIfNull(cuts);
+
+        if (cuts.Count == 0 || !editing.IsActive || editing.Mesh is not { } mesh) {
+            return false;
+        }
+
+        if (!editing.Demote()) {
+            return false;
+        }
+
+        var was = new EditMesh(mesh);
+        var made = MeshOperations.Knife(mesh, cuts);
+
+        if (made.Count == 0) {
+            return false;
+        }
+
+        var document = editing.Document;
+
+        document.TouchMesh(editing.Target);
+        document.Stack.Execute(EditMeshCommand.Rebuilt(document, editing.Target, was, "Knife"));
+
+        editing.Reconcile();
+
+        editing.Element = MeshElementKind.Face;
+        editing.Selection.Set(made);
+
+        return true;
+    }
+
     /// <summary>Splits the selected faces into one face per corner.</summary>
     /// <param name="editing">What is being edited.</param>
     /// <param name="count">How many times.</param>

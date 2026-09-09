@@ -102,13 +102,15 @@ public sealed partial class BlockoutModule : IEditorPlugin {
             .AddSeparator()
             .Add(BlockoutMode.SelectGroupCommand, BlockoutMode.SelectCoplanarCommand, BlockoutMode.SelectLinkedCommand);
 
-        // ⚠ Doc 24's P3 Geometry table, all fourteen of it, where the mode's toolbar shows four. A
-        // strip of fourteen buttons is one nobody reads; a menu of fourteen verbs is where somebody
-        // goes to find out what a mode can do, and the shortcuts are drawn beside them.
+        // ⚠ Doc 24's P3 Geometry table, all fifteen of it — fourteen verbs and the knife, which was
+        // the row left undone — where the mode's toolbar shows four. A strip of fifteen buttons is one
+        // nobody reads; a menu of them is where somebody goes to find out what a mode can do, and the
+        // shortcuts are drawn beside them.
         context.AddSubmenu(scene, new StringId("editor.menu.geometry", "Geometry"), at++)
             .Add(BlockoutMode.ExtrudeCommand, BlockoutMode.ExtrudeIndividualCommand)
             .Add(BlockoutMode.InsetCommand, BlockoutMode.InsetIndividualCommand)
             .Add(BlockoutMode.BevelCommand, BlockoutMode.LoopCutCommand, BlockoutMode.SubdivideCommand)
+            .Add(BlockoutMode.KnifeCommand)
             .AddSeparator()
             .Add(BlockoutMode.BridgeCommand, BlockoutMode.FillCommand, BlockoutMode.WeldCommand)
             .Add(BlockoutMode.DissolveCommand, BlockoutMode.DeleteCommand)

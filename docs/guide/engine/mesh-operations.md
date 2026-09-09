@@ -3,8 +3,8 @@ title: Mesh operations
 slug: engine/mesh-operations
 kind: guide
 area: Engine
-summary: Extrude, inset, bevel, loop cut, bridge, weld, dissolve — the modelling verbs, as functions over a mesh.
-api: [T:Vixen.Geometry.MeshOperations, T:Vixen.Geometry.MeshLoop]
+summary: Extrude, inset, bevel, loop cut, knife, bridge, weld, dissolve — the modelling verbs, as functions over a mesh.
+api: [T:Vixen.Geometry.MeshOperations, T:Vixen.Geometry.MeshLoop, T:Vixen.Geometry.KnifeCut]
 tags: [geometry, mesh, blockout, modelling]
 since: 0.1
 status: preview
@@ -13,8 +13,8 @@ related: [engine/edit-meshes, editor/element-selection, engine/blockout-shapes, 
 
 ## What it is
 
-`MeshOperations` is the geometry verbs: extrude, inset, bevel, loop cut, subdivide, bridge, fill hole,
-flip, weld, merge by distance, dissolve, delete, detach and append. Each takes an `EditMesh` and a set
+`MeshOperations` is the geometry verbs: extrude, inset, bevel, loop cut, knife, subdivide, bridge,
+fill hole, flip, weld, merge by distance, dissolve, delete, detach and append. Each takes an `EditMesh` and a set
 of element indices, changes the mesh, and returns the faces it made. `MeshLoop` is the small record
 each of them assembles the new face table out of.
 
@@ -50,6 +50,35 @@ topology change drops an element selection.
 ⚠ **Positions no face uses are left behind rather than compacted.** `EditMesh.Validate` reports them
 as orphans, and `Compact` is what removes them — run between gestures, when nothing holds an index,
 because it renumbers the position table and hands back the map.
+
+### The knife
+
+`Knife` is doc 24 § P3's last row, and its primitive is *split this face between these two points on
+its boundary*. `KnifeCut` is one of those; a stroke is a list of them and goes in one call:
+
+```csharp no-compile="a fragment; the points come from a gesture that snapped them"
+MeshOperations.Knife(mesh, [new KnifeCut(face, entry, exit), new KnifeCut(next, exit, further)]);
+```
+
+⚠ **A stroke is one call because each cut renumbers the table the next would index into.** Cutting
+face 0 and then face 3 is cutting whatever face 3 has *become* after a rebuild, which is usually a
+face the stroke never crossed. Everything is resolved before anything is written, so a stroke whose
+last face refuses does not leave the ones before it half cut.
+
+⚠ **It ends in `Stitch`, because a cut leaves T-junctions by construction.** A point part-way along an
+edge is a corner on the face that was cut and the middle of a whole edge on the face beside it: the
+two stop sharing an edge, `Validate` calls both halves boundaries, and the surface draws with a crack
+that opens and closes as the camera moves. Nothing about the geometry is wrong, which is why it
+survives every check that is not that one.
+
+⚠ **Two faces meeting at one point get one position.** A stroke leaves a face by the edge the next
+face enters by; inserting a position apiece would put two coincident corners on one edge, which
+`Stitch` cannot repair because each is already a corner of the face that made it. Every count-shaped
+assertion stays green over that, and the seam only closes when somebody welds by distance.
+
+⚠ **A chord that separates nothing is refused rather than made degenerate.** Both ends on one edge,
+both at one corner, or two adjacent corners each describe a cut that divides the face into itself and
+a line — and a face table with a two-corner face in it is one every later verb walks wrongly.
 
 ⚠ **A region and a set of individual faces are different answers, and both are wanted.** Extruding
 four faces as a region gives one box; individually gives four boxes with walls between them. What

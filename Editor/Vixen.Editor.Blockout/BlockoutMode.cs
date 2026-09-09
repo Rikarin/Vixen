@@ -83,6 +83,25 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// <summary>What the loop-cut preview is drawn in.</summary>
     public Color4 LoopColour { get; set; } = new(0.98f, 0.85f, 0.35f, 0.95f);
 
+    /// <summary>What a knife segment already placed is drawn in.</summary>
+    public Color4 KnifeColour { get; set; } = new(1f, 0.35f, 0.30f, 1f);
+
+    /// <summary>What the knife segment following the pointer is drawn in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A different colour from <see cref="KnifeColour" /> on purpose.</b> What is behind the
+    ///     pointer is where the cut will go and what is in front of it is where it would go if you
+    ///     clicked now; one colour for both is a stroke a designer cannot tell they have placed.
+    /// </remarks>
+    public Color4 KnifePendingColour { get; set; } = new(1f, 0.72f, 0.55f, 0.85f);
+
+    /// <summary>doc 24 § P3's knife stroke, or an idle one while nothing is being cut.</summary>
+    /// <remarks>
+    ///     Exposed for the same reason <see cref="Drag" /> is: a test drives the gesture with points in
+    ///     the mesh's own space and asserts the mesh, which is the seam that makes the modality
+    ///     testable without a device.
+    /// </remarks>
+    public BlockoutKnife Knife { get; } = new();
+
     /// <inheritdoc />
     public string Id => ModeId;
 
@@ -305,6 +324,15 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// <summary>Splits the selected faces into one face per corner.</summary>
     public const string SubdivideCommand = "blockout.subdivide";
 
+    /// <summary>Arms the knife: a free cut across faces, snapping to edges and midpoints.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It arms a gesture rather than running a verb, which is what makes it the odd one in
+    ///     the Geometry table.</b> Every other row acts on the selection the moment the key is pressed;
+    ///     a knife has no subject until a path has been drawn, so <c>K</c> takes the pointer and the
+    ///     stroke is what runs. <c>Enter</c> commits it, <c>Escape</c> throws it away.
+    /// </remarks>
+    public const string KnifeCommand = "blockout.knife";
+
     /// <summary>Joins two selected faces with a tube.</summary>
     public const string BridgeCommand = "blockout.bridge";
 
@@ -479,6 +507,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         BevelCommand,
         LoopCutCommand,
         SubdivideCommand,
+        KnifeCommand,
         BridgeCommand,
         FillCommand,
         FlipCommand,
@@ -646,6 +675,20 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         Verb(DissolveCommand, "Dissolve Edges", BlockoutGeometry.Dissolve, InputKey.X, ModifierKeys.Control);
         Verb(DeleteCommand, "Delete Faces", BlockoutGeometry.Delete, InputKey.X);
         Verb(DetachCommand, "Detach Faces", editing => BlockoutGeometry.Detach(editing) is not null, InputKey.P);
+
+        // ⚠ The knife arms rather than runs, which is why it is a `Verb` whose body sets a flag. Every
+        // other row of the Geometry table has its subject before the key is pressed; this one goes and
+        // gets one. Blender's `K`, and the same key, because the gesture is the same gesture.
+        Verb(
+            KnifeCommand,
+            "Knife",
+            _ => {
+                Knife.IsArmed = true;
+
+                return true;
+            },
+            InputKey.K
+        );
 
         // ⚠ Doc 24's Surfaces table, and every one of these is an element verb like the ones above —
         // "project these faces" needs faces. Assigning a material is the one that is not here: it
@@ -1004,6 +1047,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// </remarks>
     public void Deactivated() {
         Forget();
+        Knife.Cancel();
 
         Element = BlockoutElement.Object;
     }
@@ -1082,6 +1126,19 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// </remarks>
     void Cursor(GizmoDraw draw) {
         Artefacts(draw);
+
+        if (Knife.IsArmed && Editing is { IsActive: true } cutting) {
+            Knife.Preview(
+                draw,
+                cutting.Document.World.Has<WorldTransform>(cutting.Target)
+                    ? cutting.Document.World.Read<WorldTransform>(cutting.Target).Value
+                    : Matrix4x4.Identity,
+                KnifeColour,
+                KnifePendingColour
+            );
+
+            return;
+        }
 
         if (Element == BlockoutElement.Object) {
             if (HoverCell is { } cell) {
@@ -1162,6 +1219,13 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
             return true;
         }
 
+        // ⚠ And the knife takes it for the same reason and more strongly: while a stroke is being
+        // drawn every click is a point on the path, so a press that also started the pane's
+        // rubber-band would end the stroke by selecting whatever the band swept over.
+        if (Knife.IsArmed && Cutting(pane, args)) {
+            return true;
+        }
+
         // ⚠ Before the Object-mode early return, because the cube grid's preview is an Object-mode
         // thing and the element highlight is not. Reading the move in one mode and not the other is
         // how the tool came to be keyboard-only in exactly the mode its reference is pointer-driven.
@@ -1208,6 +1272,30 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     public bool Key(SceneViewport pane, KeyEvent args) {
         ArgumentNullException.ThrowIfNull(args);
 
+        if (Knife.IsArmed) {
+            switch (args.Key) {
+                case InputKey.Escape:
+                    Knife.Cancel();
+
+                    return true;
+
+                // ⚠ The stroke commits as one command, which is § P3's own requirement: a cut's new
+                // vertices renumber the face table, so the whole stroke has to be one command with
+                // one moment at which nothing holds an index.
+                case InputKey.Enter or InputKey.KeypadEnter:
+                    if (Editing is { } cut) {
+                        BlockoutGeometry.Knife(cut, Knife.Cuts());
+                    }
+
+                    Knife.Cancel();
+
+                    return true;
+
+                default:
+                    break;
+            }
+        }
+
         if (args.Key != InputKey.Escape || drag is not { Stage: not ShapeStage.Idle }) {
             return false;
         }
@@ -1216,6 +1304,45 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         IsArmed = false;
 
         return true;
+    }
+
+    /// <summary>Drives the knife stroke from a pointer over a pane.</summary>
+    /// <returns>Whether the event was taken.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A move is tracked and a press places a point; nothing here commits.</b> Committing on
+    ///     a release would make a stroke of one segment out of every stray click, and committing on a
+    ///     double click would put the gesture's end inside the pane's own click arbitration. The
+    ///     stroke ends where the designer says it does, which is Blender's rule and the one that lets
+    ///     a path be as long as it needs.
+    /// </remarks>
+    bool Cutting(SceneViewport pane, PointerEvent args) {
+        if (Editing is not { IsActive: true } editing || editing.Mesh is not { } mesh) {
+            Knife.Cancel();
+
+            return false;
+        }
+
+        var placement = editing.Document.World.Has<WorldTransform>(editing.Target)
+            ? editing.Document.World.Read<WorldTransform>(editing.Target).Value
+            : Matrix4x4.Identity;
+
+        switch (args.Action) {
+            case PointerAction.Moved:
+                Knife.Track(mesh, placement, pane.Ray(pane.Control.ToRender(args.X, args.Y)));
+
+                return true;
+
+            case PointerAction.Pressed when args.Button == PointerButton.Primary:
+                Knife.Track(mesh, placement, pane.Ray(pane.Control.ToRender(args.X, args.Y)));
+                Knife.Place();
+
+                return true;
+
+            default:
+                // Every other event while the knife holds the pointer, so a release does not reach the
+                // pane's rubber-band and end the stroke by selecting what it swept over.
+                return true;
+        }
     }
 
     /// <summary>Drives the two-stage shape gesture from a pointer over a pane.</summary>

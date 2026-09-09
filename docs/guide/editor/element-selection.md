@@ -4,7 +4,7 @@ slug: editor/element-selection
 kind: guide
 area: Editor
 summary: Vertex, edge and face modes over one mesh — what a click takes, what a loop walks, and what survives an edit.
-api: [T:Vixen.Editor.SceneView.MeshEdit, T:Vixen.Editor.SceneView.MeshGizmoTarget, T:Vixen.Editor.Blockout.BlockoutSelection, T:Vixen.Editor.Blockout.BlockoutGeometry]
+api: [T:Vixen.Editor.SceneView.MeshEdit, T:Vixen.Editor.SceneView.MeshGizmoTarget, T:Vixen.Editor.Blockout.BlockoutSelection, T:Vixen.Editor.Blockout.BlockoutGeometry, T:Vixen.Editor.Blockout.BlockoutKnife, T:Vixen.Editor.Blockout.KnifePoint]
 tags: [editor, blockout, selection, mesh, viewport]
 since: 0.1
 status: preview
@@ -98,7 +98,30 @@ wall that had been scaled.
 ⚠ **Which way a loop cut runs is decided by the edge you picked.** The cut goes across the ring that
 edge is part of, so picking a different edge gives the other direction. Asked for in *face* mode there
 is no edge you picked — only a converted list — so it takes the lowest-numbered one, which is at least
-the same answer every time. The hover preview that would let the pointer choose is not built.
+the same answer every time. Hovering an edge in Edge mode now draws the loop the cut would make,
+computed from the same ring and the same interpolation the verb uses; what is still owed is the
+modality round it — scroll for the count, drag to slide before committing.
+
+### The knife
+
+`BlockoutKnife` is § P3's last row and the one verb here that is a *gesture* rather than a function of
+the selection. `K` arms it, each click places a point, `Enter` cuts and `Escape` throws the stroke
+away; the stroke is drawn as it is built, in two colours — what is behind the pointer is where the cut
+will go, what is in front of it is where it would go if you clicked now.
+
+⚠ **Every point lands on a face's boundary, and that is what makes the kernel primitive usable.**
+"Split this face between these two points" is only defined for points on its rim, so a click in the
+middle of a face becomes a click on its nearest edge. Corners and midpoints win inside a fraction of
+the edge's own length, which is § P3's "snapping to edges and midpoints" — and a fraction rather than a
+radius, because an absolute one is a claim about how big the model is.
+
+⚠ **A segment across a face boundary produces a cut for both faces, and the kernel is the arbiter.** A
+click on a shared edge belongs to the face on either side of it, and which one the picker happened to
+answer with is not something a designer chose. `MeshOperations.Knife` refuses whichever of the two the
+segment does not actually cross — one rule about what is on a boundary rather than two.
+
+⚠ **The whole stroke is one command.** § P3: a cut's new vertices renumber the face table, so a knife
+applied a segment at a time is one whose second segment indexes a table its first rewrote.
 
 ⚠ **A verb can leave you in a different element mode, and the mode bar follows it.** Weld leaves a
 vertex, bevel leaves faces. `MeshEdit.ElementChanged` is what keeps the segmented control, the keys
