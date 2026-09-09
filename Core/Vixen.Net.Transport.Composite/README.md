@@ -35,7 +35,8 @@ there cannot be one. `ClientsOnDifferentTransports_AreNumberedApart` is the test
 **The client half is a single choice, not a race.** Composing servers is the useful direction — a
 client knows what it is and which address it was given. Starting every inner client at once and
 keeping whichever answers first is a different feature, transport fallback, and it is not smuggled in
-here. ⚠ It used to be filed under the relay work; it is not any more — see Owed.
+here. ⚠ It used to be filed under the relay work; it is not any more — see Owed, which also records
+why it is a smaller change here than it is in `Vixen.Net`.
 
 **Capabilities are the pessimistic answer to all three questions.** The smallest `MaxPayloadBytes` of
 any of them, in-process only if all of them are, lossy if any of them is. A caller sizing a buffer
@@ -64,6 +65,45 @@ transport it came in on, and that the capabilities are the conservative ones.
   client transports go to different kinds of server rather than to the same one by different routes"* —
   true of the two transports, and never true of **this** package's own server: a composite listening on
   UDP and on WebSocket 443 is one server reachable two ways, and a client racing them is a client that
-  gets through a corporate firewall. What the work costs is the semantics of a race, not a decision:
-  which connection wins, what happens to the loser mid-handshake, and which `TransportCapabilities` the
-  layers above are told about before it resolves.
+  gets through a corporate firewall.
+
+  ⚠ **What it costs is not the three questions [#518](https://github.com/Rikarin/Vixen/issues/518)
+  lists, and two of the three are posed on premises that do not hold.** Audited at HEAD:
+
+  - ⚠ *"first transport-level connect, or first completed handshake? The second is the useful one and
+    the expensive one."* **The second is not available at this layer at all.** A handshake is
+    `NetworkSession`'s — `SystemMessage.ConnectRequest` and `ConnectAccepted` — and an `ITransport`
+    sees `OnConnected`, `OnDisconnected` and opaque payload bytes. The transport-observable proxy is
+    *first inbound data*, which does cover the firewall that accepts the SYN and drops the payload,
+    and it is a different signal with different failure modes rather than an expensive version of the
+    same one.
+  - ⚠ *"`CompositeTransport` already rewrites connection ids, so the map is the place."* **The map is
+    the server path only.** `Router.OnConnected` passes a `TransportRole.Client` connection through
+    *unrewritten*, deliberately, with a comment saying renumbering "would break the contract that says
+    both ends agree about it". ⚠ And that comment is itself refutable: `NetworkSession`'s client arm
+    (`Sessions/NetworkSession.cs:492`) ignores the id entirely — it stamps `ConnectionId.None` on the
+    handshake span and sends through `SendToServer` — so nothing above reads the number the comment is
+    protecting.
+  - **Pessimistic capabilities before the race resolves: confirmed, and already true today.** A
+    composite used as a client already reports the smallest `MaxPayloadBytes` across every inner
+    transport, including the ones its client half will never touch. Racing changes nothing here; what
+    is owed is a sentence, not a behaviour.
+
+  ⚠ **And there is a fourth question, in `Vixen.Net` rather than here, which both implementable shapes
+  run into.** The client arm of `NetworkSession` assumes exactly one connect per client lifetime.
+
+  - *Fan out the handshake* — tell the session `OnConnected` once, send its `ConnectRequest` on every
+    connected candidate, keep whichever answers — and the cost lands on the **server**: it sees two
+    connect requests from one client, admits two players and raises two `PlayerJoined`. That is not a
+    client-side cost and #518 does not name it.
+  - *Fail over sequentially* — one candidate live at a time, stop it and raise `OnConnected` again on
+    the next — and two things break. Forwarding the loser's `OnDisconnected` drives a pure client to
+    `SessionState.Stopped` (`NetworkSession.cs:522`), so the composite must swallow it; and the second
+    `OnConnected` overwrites `clientHandshake` with a fresh `Activity` without abandoning the first
+    (`NetworkSession.cs:494`), which is a span that is never ended — invisible with no
+    `ActivityListener` and a leak with one.
+
+  So the shape of the work is: a stagger policy here, measured in the `elapsed` `Poll` is handed
+  rather than in wall clock (which is what makes it testable at all — the same argument
+  `NetworkSimulation` is built on), **plus** a `NetworkSession` that tolerates a second client connect.
+  The second half is [#1213](https://github.com/Rikarin/Vixen/issues/1213).
