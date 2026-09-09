@@ -163,7 +163,9 @@ public class ShaderReflectionTests {
 
         foreach (var shader in new[] { "UiImage", "UiBlur", "UiColour", "UiMask" }) {
             foreach (var block in Reflection(shader).GetProperty("PushConstants").EnumerateArray()) {
-                widest = Math.Max(widest, block.GetProperty("Offset").GetInt32() + block.GetProperty("Size").GetInt32());
+                var end = block.GetProperty("Offset").GetInt32() + block.GetProperty("Size").GetInt32();
+
+                widest = Math.Max(widest, end);
                 blocks++;
             }
         }
