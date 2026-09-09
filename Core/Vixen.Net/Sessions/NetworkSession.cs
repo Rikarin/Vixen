@@ -87,7 +87,27 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
     public SessionOptions Options { get; }
 
     /// <summary>The transport underneath.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The <see cref="Simulation" /> when there is one, not the transport that was handed
+    ///     in.</b> That is what makes the loss counters and the capabilities read here agree with
+    ///     what this session is actually running on; <c>NetworkSimulation.Inner</c> is the way down
+    ///     to the real one.
+    /// </remarks>
     public ITransport Transport => transport;
+
+    /// <summary>
+    ///     The bad network this session is pretending to be on, or <see langword="null" /> when it is
+    ///     on the real one.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Non-null is the announcement, and something has to make it.</b> A simulated link
+    ///     that is not obviously simulated is worse than none — it is the shape of a gate that reads
+    ///     green on the day it did not run. <c>Vixen.Net</c> has no logger to say it with, so this is
+    ///     the property a host prints: the profile and <see cref="SessionOptions.Simulation" />'s
+    ///     seed, at startup, exactly as <c>Samples/08-Multiplayer</c> already does at its own call
+    ///     site.
+    /// </remarks>
+    public NetworkSimulation? Simulation { get; }
 
     /// <summary>
     ///     What the server last said it did not receive of what this client sent it, or
@@ -177,13 +197,31 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
         ISessionAuthenticator? authenticator = null,
         bool ownsTransport = false
     ) {
-        this.transport = transport;
         this.authenticator = authenticator;
-        this.ownsTransport = ownsTransport;
 
         Options = options ?? new SessionOptions();
+
+        // ⚠ The options are read *before* the transport is stored, which is what two audits recorded
+        // as impossible: they are two parameters of one call, so nothing about a profile living on
+        // the options record makes it arrive too late. The decorator has to wrap before the session
+        // uses the transport, and this is that moment.
+        if (Options.Simulation is { } settings) {
+            // ownsInner carries the caller's answer down: the session always disposes the wrapper it
+            // made here, and the wrapper disposes the transport underneath only if the caller said
+            // this session owned it.
+            Simulation = new(transport, settings.Profile, settings.Seed, ownsTransport);
+            this.transport = Simulation;
+            this.ownsTransport = true;
+        } else {
+            this.transport = transport;
+            this.ownsTransport = ownsTransport;
+        }
+
         Clock = new(Options.TickRate);
-        scratch = new byte[transport.Capabilities.MaxPayloadBytes];
+
+        // The wrapper's, which forwards the inner transport's — a simulation changes when a payload
+        // arrives and never how large one may be.
+        scratch = new byte[this.transport.Capabilities.MaxPayloadBytes];
     }
 
     /// <summary>Starts listening, without playing.</summary>

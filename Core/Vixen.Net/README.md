@@ -159,44 +159,45 @@ ends gives a round trip of twice it.
 profile's `LossChance` come back as an observation, which is the one thing those counters must not
 be.
 
-### Why it is not on by default, which doc 16 says it should be
+### On by default, which doc 16 asks for — the seam exists now, the default is still a line
 
 That document's diagnostics section asks for the decorator *and* for it to be **on by default in dev
-builds with a modest profile**, and only the first half is here
-([#350](https://github.com/Rikarin/Vixen/issues/350)). **All four of the questions that issue asks
-have answers the tree gives on its own, and exactly one decision is left over**: where the seam goes.
+builds with a modest profile** ([#350](https://github.com/Rikarin/Vixen/issues/350)). Three of that
+issue's four questions are answered; the fourth is one line at a host.
 
-- ⚠ **`SessionOptions` cannot be the home, though the issue proposes it.** A `NetworkSession` is
-  *handed* a transport and reads its options afterwards — `NetworkSession.cs:162` takes the transport
-  as its first argument and `:174` sizes the scratch buffer off `transport.Capabilities` — so a
-  profile carried on the options record would arrive after the decision it is meant to make. The
-  decorator has to wrap before a session exists.
-- ⚠ **And `Vixen.App.Hosting` cannot be it as things stand, which is the part that is work rather
-  than a preference.** `BuildVariants.Current` — the runtime answer to "is this a development
-  build" — lives in that assembly, and that assembly does not reference `Vixen.Net` at all. Nothing
-  in between joins them either: `NetworkModule` is a sync-field layout and holds no transport, and
-  every program that runs one constructs it at its own call site (`Samples/08`, `Samples/10`,
-  `Live/Vixen.Live.Realm`, the `vixen-mmo` template). **"On by default" has no seam to be default
-  at** — the same shape as [#120](https://github.com/Rikarin/Vixen/issues/120), where the panel has
-  no session for the same reason.
-- **The seed and the announcement are already answered, by the one program that wraps a transport
-  in this.** `Samples/08-Multiplayer/LocalMatch.cs:107` wraps only when `--loss` or `--latency` asks
-  for it, derives a seed per participant from the match's so that eight clients do not lose the same
-  packets in the same order, and prints the loss, the latency and the seed at startup. That is the
-  shape a default-on simulation wants, and it is worth copying rather than redesigning: the required
-  `seed` argument stops being a burden the moment something prints it.
-- ⚠ **And "a modest profile, written down as a named profile rather than four numbers at a call
-  site" already exists and is already named for the job.** `NetworkSimulationProfile.Broadband`
+⚠ **`SessionOptions` is the home, and the recorded reason it could not be was wrong.** Two audits
+wrote here that a session "is *handed* a transport and reads its options afterwards", so a profile on
+the options record "would arrive after the decision it is meant to make". That confuses the order the
+constructor assigns its fields in — which is the constructor's own choice — with when the values are
+*available*: `transport` and `options` are two parameters of one call, both in hand before the first
+statement runs. The decorator has to wrap before the session **uses** the transport, and the
+constructor is exactly that moment. `SessionOptions.Simulation` is a `NetworkSimulationSettings?`;
+set, the session wraps and publishes the wrapper as `NetworkSession.Simulation`.
+
+- **The profile needed no new profile.** `NetworkSimulationProfile.Broadband`
   (`Transport/NetworkSimulationProfile.cs:32-40`) says in its own summary that it is *"the profile a
-  development build should run with by default"* — 35 ms one way, 8 ms of jitter, 0.5 % loss. That
-  bullet of #350 is answered where the answer belongs and needs no new profile; adding a sixth named
-  one would be surface with no caller in a record that already has five.
+  development build should run with by default"* — 35 ms one way, 8 ms of jitter, 0.5 % loss.
+  `NetworkSimulationSettings.Development(seed)` is that profile with a name to grep for; a sixth
+  named profile in a record that already has five would be surface with no caller.
+- **The seed and the announcement had already been solved at the one call site that wraps a
+  transport.** `Samples/08-Multiplayer/LocalMatch.cs` wraps only when `--loss` or `--latency` asks,
+  derives a seed per participant from the match's so that eight clients do not lose the same packets
+  in the same order, and prints loss, latency and seed at startup. The settings record keeps the
+  first half by construction — profile and seed together, so neither can be forgotten — and
+  `NetworkSession.Simulation` is what a host prints for the second. ⚠ There is no logger in this
+  assembly to say it for you, and an `Activity` would be the wrong channel: `StartActivity` returns
+  null with no listener, so an announcement made that way is absent exactly when nobody configured a
+  collector.
+- ⚠ **What is still owed is only "in a dev build", and it cannot live here.** `BuildVariants.Current`
+  is in `Vixen.App.Hosting`; that assembly does not reference `Vixen.Net`, and making it do so would
+  put networking in every single-player game's dependency graph, against this package's own promise
+  that a game which never references it pays nothing. So the remaining decision is whether a host
+  gains that reference or whether every game writes the line — and the line is now a field on the
+  record it already configures, rather than a restructuring of how it builds its transport.
 
-So the only open question is the seam, and until one exists there is nothing for a default to be
-default at. ⚠ **The two assemblies that reference both `Vixen.Net` and `Vixen.App.Hosting` are
-`Editor/Vixen.Editor.App` and `Tools/Vixen.AotProbe`** — an application and a trimming probe, neither
-of which is a library a game's own `Program` goes through. There is no shared library where the join
-could live today, which is why "put it in the host" is a project change rather than a wiring one.
+⚠ **Off by default is the same shape `BytesPerSecondPerPlayer` already takes** and for the same
+reason: a behaviour that arrived switched on would change what an existing game does, and a game opts
+in and then reads what it turned on.
 
 ## The tick
 
