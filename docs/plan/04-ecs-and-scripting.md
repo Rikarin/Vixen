@@ -404,10 +404,34 @@ need throughput. Both are first-class and documented as such.
 >   a declaration: inside a `[BehaviorJob]` `Update`, a lifecycle call is a data race and not a slow
 >   path.
 >
-> **What is owed is therefore four things, in order**: the access declaration for a behaviour type,
-> the refusal, dispatch through `ParallelFor` in `BehaviorBucket<T>`, and the measurement — because
-> "measurably slower than a pure ECS system and dramatically faster than Unity's MonoBehaviour path"
-> is a claim this section makes and nothing checks.
+> - ⚠ **And a third blocker the list above did not have, which is the one that decides the order.**
+>   `Behavior.Get<T>()` and `Read<T>()` are the *only* way a behaviour reaches a component, and on a
+>   **managed** component both of them mutate world-wide state. `World.Read<T>` reaches
+>   `World.Managed<T>` (`World.cs:947`) exactly as `Get<T>` does; that method calls `StoreFor<T>()`,
+>   which can `Array.Resize(ref managedStores, …)` and `managedStores[id] ??= new …`
+>   (`World.cs:978-986`), and then `store.Allocate(default!)` when the row's handle is still zero,
+>   which pops an unsynchronised `Stack<int>` or appends to a `ChunkedArray<T>`
+>   (`ManagedComponentStore.cs:78-84`). ⚠ **So a behaviour that only *reads* a managed component it
+>   has never written races two other behaviours doing the same**, and nothing about the call site
+>   says so — the lazy allocation is what makes `Add<T>()` with no value work, and it is invisible
+>   from `Read`. `BehaviorRef` is itself a managed component, so this is not a corner of the design
+>   that behaviours avoid. Filed on its own as
+>   [#1198](https://github.com/Rikarin/Vixen/issues/1198), because it is not about behaviours: any
+>   `[InferAccess]` system declaring a *read* of a managed component has the same exposure.
+>
+> **What is owed is therefore five things, and ⚠ the order is not the one the list was first written
+> in**: the *refusal* comes first, because it is what makes any dispatch safe and it is the half that
+> can be written and tested on its own; then either a synchronised or a pre-warmed managed-component
+> path, or a refusal that also bars a managed `Get`/`Read` inside a `[BehaviorJob]` `Update`; then
+> the access declaration for a behaviour type; then dispatch through `ParallelFor` in
+> `BehaviorBucket<T>`; and last the measurement — because "measurably slower than a pure ECS system
+> and dramatically faster than Unity's MonoBehaviour path" is a claim this section makes and nothing
+> checks.
+>
+> ⚠ **The access declaration is lower down that list than it reads**, and saying why matters: a
+> declaration exists to schedule a job against *other* jobs, and `BehaviorStore.RunUpdate` runs at a
+> sync point where no system is running. Parallelising *within* one bucket is a different question
+> from parallelising a bucket against a system, and it is the first one that item 3 asks for.
 
 ### The rule that keeps this coherent
 
