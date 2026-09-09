@@ -458,6 +458,10 @@ public static class EditorStrings {
     /// <summary>The <c>New Asset…</c> command.</summary>
     public static StringId CommandAssetsCreate { get; } = new("editor.command.assets.create", "New Asset…");
 
+    /// <summary>The <c>Revert to Source Control</c> command.</summary>
+    public static StringId CommandAssetsRevert { get; } =
+        new("editor.command.assets.revert", "Revert to Source Control");
+
     /// <summary>The <c>Delete</c> command.</summary>
     public static StringId CommandAssetsDelete { get; } = new("editor.command.assets.delete", "Delete");
 
@@ -1184,6 +1188,7 @@ public static class EditorStrings {
         CategoryWater,
         CommandAssetsBakeMeshMaps,
         CommandAssetsCreate,
+        CommandAssetsRevert,
         CommandAssetsDelete,
         CommandAssetsFindReferences,
         CommandAssetsImportFiles,

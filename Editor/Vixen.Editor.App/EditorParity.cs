@@ -516,8 +516,8 @@ sealed partial class EditorApplication {
         // behind it.
         Verb(
             "assets.revert",
-            new StringId("editor.command.assets.revert", "Revert to Source Control"),
-            CategoryAssets,
+            EditorStrings.CommandAssetsRevert,
+            EditorStrings.CategoryAssets,
             RevertToSourceControl,
             enabled: () => SourceControl.IsKnown && project.Selection.Count > 0
         );
