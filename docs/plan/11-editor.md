@@ -664,12 +664,24 @@ inspector that attaches to a running build on a device to browse and mutate live
 > - **Render-target inspection is not built.** Stepping to draw N replays the *state*, which a
 >   recorded command stream has; presenting what the frame had drawn by then needs a device that
 >   executed the calls, and `Vixen.Graphics.Null` is the only recording path there is.
+>   ⚠ **The narrower statement, checked 2026-09-09: the readback is not what is missing.**
+>   `ICommandList.CopyTextureToBuffer` and `MemoryAccess.HostReadback` are both in the RHI, the render
+>   graph emits GPU scopes, and `--vixen-capture` already gets a real device's picture out of a
+>   headless run. What is missing is a recording adapter beside `NullFrameCapture` that a real backend
+>   fills — which is [13](13-diagnostics.md) § Frame debugger's *"the render graph is recorded per
+>   frame"* row, the same piece, owed once rather than twice.
 > - **The remote inspector's runtime half is not written** — it is doc 13's — and neither is device
 >   discovery. The editor's half is complete over any `ITransport`, and the tests drive it against a
 >   `FakeBuild` written only to the protocol.
 > - **GPU heaps are absent from the memory view**, because reporting them needs
 >   `VK_EXT_memory_budget` and the Vulkan backend does not query it. The arena is missing rather than
 >   zero, which is the difference between "not measured" and "nothing allocated".
+>   ⚠ **Checked 2026-09-09 and the seam is the deliberate half, not the missing one.**
+>   `MemoryProviders.Gpu` is a delegate `DiagnosticsModule` leaves null with the reason written at the
+>   call site, so this is a gap that says so rather than a finished thing nothing calls. What it needs
+>   is a *reading* to be delegated to: `IGraphicsAdapter.DeviceMemory` is a capacity and there is no
+>   usage anywhere in the RHI, so the work is a new public surface on `Vixen.Graphics` — an answer a
+>   backend that cannot measure must be able to refuse — before either end of the plumb.
 
 ### `Vixen.Editor.Plugin`
 
