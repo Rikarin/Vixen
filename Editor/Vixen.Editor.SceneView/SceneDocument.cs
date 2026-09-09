@@ -1113,12 +1113,19 @@ public sealed class SceneDocument : EditorDocument {
         return false;
     }
 
-    /// <summary>Forgets the names of entities that are no longer alive.</summary>
+    /// <summary>Forgets everything this document holds about entities that are no longer alive.</summary>
     /// <returns>How many were forgotten.</returns>
     /// <remarks>
-    ///     What a play-mode stop calls, after the selection has been translated: the restored world
-    ///     has new handles, and the old ones name nothing. Not automatic, because "is this handle
-    ///     still alive" per name per frame is a scan nobody asked for.
+    ///     <para>
+    ///         What a play-mode stop calls, after the selection has been translated: the restored world
+    ///         has new handles, and the old ones name nothing. Not automatic, because "is this handle
+    ///         still alive" per name per frame is a scan nobody asked for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And what every undo that destroys an entity calls</b> — <c>CreateEntityCommand</c>,
+    ///         <c>PlaceEntityCommand</c> and <c>DestroyEntitiesCommand</c> all end here, which is why
+    ///         this is where the selection is pruned rather than in <see cref="Delete" />.
+    ///     </para>
     /// </remarks>
     public int PruneNames() {
         List<Entity> dead = [];
@@ -1155,6 +1162,25 @@ public sealed class SceneDocument : EditorDocument {
         // written into the file as that entity's provenance. `Prune` walks its own keys rather than
         // the dead list above, because a linked entity need never have been named.
         Prefabs.Prune(World);
+
+        // ⚠⚠ And the selection, whose stale entry crashes the editor rather than merely lying. Reading
+        // a component off a dead handle *throws* — `World.Has<T>` goes through `Live`, which raises
+        // EntityNotFoundException rather than answering false — and an enablement predicate runs from
+        // inside `UiDocument.RaiseCommandsInvalidated`, so a selection holding what an undo destroyed
+        // takes the frame down when a button asks whether it can be pressed. `Delete` clears the
+        // selection itself; undoing a Duplicate is the ordinary way to reach the state it cannot see,
+        // because there the handles die inside a command rather than in the verb.
+        //
+        // Backwards, because removing shortens the list. Nothing is re-selected on the way back: an
+        // undo restores the same handles, but selection is where you are looking and not what was
+        // changed — `Selection<T>` and `Delete` both already turn on that.
+        for (var index = Selection.Count - 1; index >= 0; index--) {
+            var selected = Selection[index];
+
+            if (!World.IsAlive(selected)) {
+                Selection.Remove(selected);
+            }
+        }
 
         return dead.Count;
     }
