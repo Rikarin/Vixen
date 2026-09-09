@@ -241,6 +241,36 @@ vixen build --target iOS     # content, then dotnet publish
 vixen run -- --vixen-frames 5
 ```
 
+## `trace record`
+
+```
+vixen trace record --duration 10s              # into <project>/Traces/<name>-<timestamp>.json
+vixen trace record --duration 500ms -o run.json
+vixen trace record -- --vixen-scene arena      # the game's own arguments still go after --
+```
+
+Builds for this machine the way `run` does, then runs it with `--vixen-trace` and
+`--vixen-run-for`, so the profiler's document is written when the loop shuts down.
+[docs/plan/13](../../docs/plan/13-diagnostics.md) § Trace export asks for this line; the exporter and
+the flag were both finished long before either way of asking for a trace existed.
+
+⚠ **It says Chrome `trace_event` JSON because that is what is written**
+([#25](https://github.com/Rikarin/Vixen/issues/25)). The document opens in `ui.perfetto.dev`, which
+is what doc 13 wants it for, but it is not the Perfetto protobuf that section names — and a verb that
+claimed a format it does not produce would send somebody looking for the wrong parser.
+
+⚠ **The duration is spent on the frame clock, not on a wall clock.** `--vixen-run-for` compares
+against `GameTime.Total`, so a run under `--vixen-fixed-step` stops on the same frame every time and
+a run without one stops after the seconds an operator meant. A paused or scaled clock slows it down,
+which is the behaviour a capture wants: ten seconds of simulation.
+
+⚠ **The file is checked for rather than announced.** A trace is written at shutdown, so a run that
+crashed or was killed leaves none — and the verb says the run's exit code and that nothing was
+written, rather than printing a path to a file that is not there.
+
+The editor's capture button is the other entry point doc 13 names, and it is still owed
+([#346](https://github.com/Rikarin/Vixen/issues/346)).
+
 ⚠ **`TemplateCatalog` and the scaffold moved to `Vixen.Editor.Core`**, for the reason `PublishRunner`
 and `ContentPipeline` did before them: the editor's New Project needs the same scaffold, and an
 editor whose new projects have no `.csproj` is one whose Build and Run is greyed for every project it

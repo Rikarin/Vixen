@@ -293,6 +293,10 @@ sealed class TestApp : IDisposable {
             return $"--vixen-frames {config.MaxFrames} was reached";
         }
 
+        if (config.RunFor is { } duration && application.Time.Total >= duration) {
+            return $"--vixen-run-for {duration.TotalSeconds} was reached on the frame clock";
+        }
+
         return Services.Window is { IsClosed: true }
             ? "the window was closed, which stops the application"
             : "the application was stopped, by Game.Stop or by an event";

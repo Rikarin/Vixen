@@ -18,6 +18,7 @@ Vixen.App.AppArguments.Overlays.get -> bool
 Vixen.App.AppArguments.PinWorkers.get -> bool
 Vixen.App.AppArguments.Profiling.get -> bool
 Vixen.App.AppArguments.Remaining.get -> System.Collections.Generic.IReadOnlyList<string>
+Vixen.App.AppArguments.RunFor.get -> System.TimeSpan?
 Vixen.App.AppArguments.StartupScene.get -> string?
 Vixen.App.AppArguments.TracePath.get -> string?
 Vixen.App.AppArguments.Unrecognised.get -> System.Collections.Generic.IReadOnlyList<string>
@@ -70,6 +71,8 @@ Vixen.App.AppConfig.PinWorkers.get -> bool
 Vixen.App.AppConfig.PinWorkers.set -> bool
 Vixen.App.AppConfig.Profiling.get -> bool
 Vixen.App.AppConfig.Profiling.set -> bool
+Vixen.App.AppConfig.RunFor.get -> System.TimeSpan?
+Vixen.App.AppConfig.RunFor.set -> System.TimeSpan?
 Vixen.App.AppConfig.StartupScene.get -> string?
 Vixen.App.AppConfig.StartupScene.set -> string?
 Vixen.App.AppConfig.TracePath.get -> string?
