@@ -2456,6 +2456,15 @@ sealed partial class EditorApplication : IDisposable {
     /// <summary>The panel that reads <c>UiDocument.Diagnostics</c> for the shell's own document.</summary>
     public const string UiDiagnosticsPanel = "ui-diagnostics";
 
+    /// <summary>The asset editors this editor registered, for a caller outside this class.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The registered registry rather than a second one built the same way</b>, for
+    ///     <see cref="OpenAsset" />'s reason: a sweep that enumerated
+    ///     <c>StandardEditors.CreateWorldless()</c> would agree with itself on the day this editor
+    ///     stopped registering an editor, and say nothing about it.
+    /// </remarks>
+    internal AssetEditorRegistry Editors => editors;
+
     /// <summary>Opens an asset in whatever editor claims it, for a caller outside this class.</summary>
     /// <remarks>
     ///     The same path a double-click in the browser takes — see <see cref="Open(AssetId)" /> — and

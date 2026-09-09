@@ -52,13 +52,25 @@ namespace Vixen.Ui.Styling.Tests;
 ///         suggests is the only proposal left that does not need one.
 ///     </para>
 ///     <para>
-///         ⚠ <b>Nine of the 88 have since been decided, and not by a scan.</b>
+///         ⚠ <b>Seventy-eight of the 89 have since been decided, and not one of them by a scan.</b>
 ///         <c>Vixen.Ui.Controls.Advanced.Tests.LiveCombinatorPairTests</c> builds every public element
 ///         type in the two control assemblies, lays each one out, and reads the parent→child tags off
-///         the tree it grew — so <c>scroll-view &gt; scroll-content</c> and eight others are live by
+///         the tree it grew — so <c>scroll-view &gt; scroll-content</c> and nine others are live by
 ///         construction rather than by inference, and a control that stopped building one of those
-///         parts would take a row out of that census loudly. It cannot see an editor tag, and its file
+///         parts would take a row out of that census loudly. It cannot see an editor tag, and
+///         <c>Vixen.Editor.App.Tests.EditorCombinatorPairTests</c> is the same idea inside a running
+///         editor: 21 rows for a started one, 38 with every registered panel opened, and <b>77</b>
+///         with a document of every registered asset-editor kind open as well — which is where the
+///         bulk of this domain always was, since 84 of its rows come from editor sheets and most of
+///         those from asset editors that do not exist until a document is. Every one of those files
 ///         says at length that a pairing missing from it is unjudged rather than dead.
+///     </para>
+///     <para>
+///         ⚠ <b>The domain is 89 rows and the paragraph above this one says 88</b>, which is the
+///         reason this file commits a set rather than a count: a row arrived, the committed set said
+///         so in a diff, and the two prose numbers around it are dated measurements rather than
+///         claims about today. The 88/72/75/70 and the 3-then-14 are what four parsers and one
+///         markup model measured on the days they ran, and they are kept as written.
 ///     </para>
 ///     <para>
 ///         <b>Child combinators only.</b> A descendant pairing is a much weaker claim — an ancestor at

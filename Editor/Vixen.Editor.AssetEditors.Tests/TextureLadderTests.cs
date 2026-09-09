@@ -106,4 +106,32 @@ public class TextureLadderTests {
         Assert.NotNull(reason);
         Assert.Contains(".exr", reason, StringComparison.Ordinal);
     }
+
+    /// <summary>A file with a decoder and the wrong bytes in it is a sentence too.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The neighbouring case above answers a format with NO decoder, and that is a
+    ///         different code path.</b> A <c>.ktx2</c> has one, so the bytes reach the codec — and of
+    ///         the three decoders that ship, KTX2 is the only one whose failures carry a type of its
+    ///         own instead of <c>InvalidDataException</c>. It was therefore the one exception the
+    ///         catch list did not name, and an empty or renamed <c>.ktx2</c> threw straight out of
+    ///         <c>TextureImportView.Show</c> and took the panel with it — the one outcome this
+    ///         method's own remark says helps nobody.
+    ///     </para>
+    ///     <para>
+    ///         Both halves are asserted: nothing came back, <em>and</em> the reason is the codec's
+    ///         own sentence rather than the "nothing decodes this" one, which is what says the file
+    ///         reached the decoder at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AFileWithADecoderAndTheWrongBytesSaysSoRatherThanThrowing() {
+        using var fixture = new EditorFixture();
+        var path = fixture.Write("Assets/atlas.ktx2", "not really a ktx2");
+
+        Assert.Null(TextureLadder.TryDecode(path, out var reason));
+        Assert.NotNull(reason);
+        Assert.Contains("KTX2", reason, StringComparison.Ordinal);
+        Assert.DoesNotContain("Nothing in this build decodes", reason, StringComparison.Ordinal);
+    }
 }

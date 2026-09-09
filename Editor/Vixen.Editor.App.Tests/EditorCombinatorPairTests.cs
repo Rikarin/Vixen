@@ -58,6 +58,9 @@ public class EditorCombinatorPairTests {
     /// <summary>The same, for an editor with every panel it registers opened.</summary>
     const string OpenedCensusFile = "Editor/Vixen.Editor.App.Tests/OpenedEditorCombinatorPairs.txt";
 
+    /// <summary>The same again, with a document of every registered asset-editor kind open too.</summary>
+    const string DocumentCensusFile = "Editor/Vixen.Editor.App.Tests/DocumentEditorCombinatorPairs.txt";
+
     /// <summary>Set <c>VIXEN_REGENERATE=1</c> to write the census back instead of asserting it.</summary>
     static bool Regenerating => Environment.GetEnvironmentVariable("VIXEN_REGENERATE") is "1";
 
@@ -86,6 +89,21 @@ public class EditorCombinatorPairTests {
     /// </remarks>
     static readonly string[] Reached = ["debugger-body > tree-view", "profiler-view > data-grid"];
 
+    /// <summary>
+    ///     Three pairings only an open <em>document</em> reaches, one from each of three different
+    ///     asset editors.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Named rather than counted, and from three editors rather than one, for
+    ///     <see cref="Reached" />'s reason turned up a level: if opening a document stopped building
+    ///     its view — a factory that throws into a load-diagnostics placeholder, an asset database
+    ///     that never sees the file — the third sweep would degrade to the second and a census
+    ///     regenerated that day would agree with it perfectly. Each of these is a part only one
+    ///     asset editor builds, so one working editor cannot stand in for the rest.
+    /// </remarks>
+    static readonly string[] Authored =
+        ["animation-stage > timeline", "font-body > font-atlas", "mixer-strip > slider"];
+
     /// <summary>How many declared pairings the editor is expected to prove, at least.</summary>
     /// <remarks>
     ///     Under the measured number rather than at it, so that a panel gaining a part is not a
@@ -95,14 +113,22 @@ public class EditorCombinatorPairTests {
     const int Floor = 16;
 
     /// <summary>Every parent→child tag pairing a started editor grows, done once for the class.</summary>
-    static IReadOnlySet<string> Observed => observed ??= Sweep(opening: false);
+    static IReadOnlySet<string> Observed => observed ??= Sweep(Depth.Started);
 
     static IReadOnlySet<string>? observed;
 
     /// <summary>The same for an editor with every registered panel opened, done once for the class.</summary>
-    static IReadOnlySet<string> Opened => opened ??= Sweep(opening: true);
+    static IReadOnlySet<string> Opened => opened ??= Sweep(Depth.Panels);
 
     static IReadOnlySet<string>? opened;
+
+    /// <summary>The same again with a document of every registered kind open, done once for the class.</summary>
+    static IReadOnlySet<string> Documents => documents ??= Sweep(Depth.Documents);
+
+    static IReadOnlySet<string>? documents;
+
+    /// <summary>How many assets the document sweep created and asked the editor to open.</summary>
+    static int authored;
 
     /// <summary>How many pairings the walk saw altogether, declared or not.</summary>
     static int walked;
@@ -291,6 +317,107 @@ public class EditorCombinatorPairTests {
         }
     }
 
+    /// <summary>The same census again, for an editor holding a document of every registered kind.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The third census, and where the domain actually lives.</b> Six passes of this
+    ///         question reached 14 of 88 at best from source, and the two runtime sweeps before this
+    ///         one reach 38 of the domain's 89 — because <b>most of what the editor sheets declare is
+    ///         under an asset editor, which does not exist until a document of that kind is open.</b>
+    ///         The opened census says exactly that in its own header and stops there; this is the
+    ///         sweep that goes on, and it proves <b>77</b>. Of the eleven it still leaves unjudged,
+    ///         one is proved by the controls' own sweep and the rest want an asset with content in it
+    ///         or a menu somebody has to open.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Weaker standing than the second census, and it is the same ladder.</b> The bare
+    ///         sweep is what a started editor builds; the opened one is what one builds after a
+    ///         fixture asked the workspace for every panel; this one is what one builds after a
+    ///         fixture also put a file of every registered extension on disk and opened it. Three
+    ///         files rather than one so that no existing row changes meaning.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Still nothing nested by the harness.</b> The fixture writes an empty file and
+    ///         asks the editor to open it — every element under the resulting panel is built by the
+    ///         asset editor's own factory, exactly as a panel's contents are. There is no
+    ///         harness-built pairing to refuse, which is what separates this from the controls'
+    ///         seeded sweep.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And still a set of PROOFS.</b> Every file is empty, so a part an editor builds
+    ///         only for content that is there — a sprite sheet's rectangles, a palette's rows — is
+    ///         unproved and stays unjudged. A row leaving is the loud direction, for the reason the
+    ///         first census gives.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_declared_pairing_an_editor_holding_every_document_kind_builds_is_in_the_committed_census() {
+        var path = Path.Combine(Root(), DocumentCensusFile);
+
+        if (Regenerating) {
+            Write(path, Documents.Order(StringComparer.Ordinal));
+        }
+
+        var census = Census(path, DocumentCensusFile);
+
+        var arrived = Documents.Where(pair => !census.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+        var departed = census.Where(pair => !Documents.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+
+        Assert.True(
+            arrived.Count == 0 && departed.Count == 0,
+            $"""
+             The document-holding editor's census of proved pairings is out of date.
+
+             Built and not in {DocumentCensusFile} — regenerate once you have read them:
+             {Lines(arrived)}
+
+             ⚠ In {DocumentCensusFile} and NO LONGER BUILT — a sheet still declares each of these and
+             the editor stopped growing it, with a document of its kind open:
+             {Lines(departed)}
+
+             Re-run with VIXEN_REGENERATE=1 to write this back, after reading the second list.
+             """
+        );
+    }
+
+    /// <summary>Opening a document of every kind reached parts no panel builds.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The instrument for the third sweep, and its quiet failure is the one worth
+    ///         naming.</b> If <c>OpenAsset</c> stopped building views — a factory that throws into a
+    ///         load-diagnostics placeholder, an asset database that stopped seeing new files — this
+    ///         sweep would degrade to the opened one and its census would be exactly satisfied by
+    ///         whatever was regenerated that day. So what is asserted is the <em>difference</em>,
+    ///         and by name from three separate asset editors, because one editor still working
+    ///         satisfies any count.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A strict superset, and a lost row is a finding rather than an update.</b> An
+    ///         open document must not tear a panel's contents down; a row in the opened census and
+    ///         not here means something did.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Opening_a_document_of_every_kind_proves_more_than_opening_every_panel() {
+        var lost = Opened.Where(pair => !Documents.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+
+        // After the line above and not before it, for `asked`'s reason: `authored` is written by the
+        // sweep and the sweep is lazy, so reading it first reports "this editor registers no asset
+        // editors" when what happened is that nothing has run yet.
+        Assert.True(authored >= 25, $"the sweep opened {authored} documents, which is not this editor's registry.");
+
+        Assert.True(lost.Count == 0, $"opening documents LOST pairings an opened editor builds:\n{Lines(lost)}");
+
+        foreach (var pair in Authored) {
+            Assert.Contains(pair, Documents, StringComparer.Ordinal);
+            Assert.DoesNotContain(pair, Opened, StringComparer.Ordinal);
+
+            var halves = pair.Split(" > ");
+
+            Assert.DoesNotContain($"{halves[1]} > {halves[0]}", Documents, StringComparer.Ordinal);
+        }
+    }
+
     /// <summary>Every row is a pairing some committed sheet actually declares.</summary>
     /// <remarks>
     ///     ⚠ The confinement is what makes the file worth reading, and it is asserted rather than
@@ -300,7 +427,7 @@ public class EditorCombinatorPairTests {
     [Fact]
     public void Every_proved_pairing_is_one_a_sheet_declares() {
         var domain = Domain(Path.Combine(Root(), DomainFile));
-        var stray = Observed.Concat(Opened)
+        var stray = Observed.Concat(Opened).Concat(Documents)
             .Where(pair => !domain.Contains(pair))
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
@@ -329,13 +456,13 @@ public class EditorCombinatorPairTests {
     ///         accidentally prove <c>A &gt; B</c> by putting a B under an A.
     ///     </para>
     /// </remarks>
-    static HashSet<string> Sweep(bool opening) {
+    static HashSet<string> Sweep(Depth depth) {
         var pairs = new HashSet<string>(StringComparer.Ordinal);
 
         using (var fixture = EditorSession.Start()) {
             fixture.Settle();
 
-            if (opening) {
+            if (depth != Depth.Started) {
                 // ⚠ Read before the loop, because opening a panel can register another one — an
                 // asset document panel is registered the moment the browser opens it — and
                 // enumerating a collection the loop is growing is the difference between a census
@@ -349,10 +476,14 @@ public class EditorCombinatorPairTests {
                 }
             }
 
+            if (depth == Depth.Documents) {
+                Author(fixture);
+            }
+
             Walk(fixture.Document.Root, pairs);
         }
 
-        if (!opening) {
+        if (depth == Depth.Started) {
             walked = pairs.Count;
         }
 
@@ -361,6 +492,75 @@ public class EditorCombinatorPairTests {
         pairs.IntersectWith(domain);
 
         return pairs;
+    }
+
+    /// <summary>How much of the editor a sweep has woken up before it reads the tree.</summary>
+    /// <remarks>
+    ///     Three states rather than two booleans, because they are ordered: each does everything the
+    ///     one before it does and then more, which is what makes the "nothing was lost" assertions
+    ///     between the three censuses mean anything.
+    /// </remarks>
+    enum Depth {
+        /// <summary>A started editor, with nothing a fixture put it in.</summary>
+        Started,
+
+        /// <summary>Every panel the workspace registers, opened.</summary>
+        Panels,
+
+        /// <summary>That, and a document of every asset-editor kind the editor registers.</summary>
+        Documents,
+    }
+
+    /// <summary>
+    ///     Creates one asset for every extension the editor's own registry claims, and opens each in
+    ///     whatever editor claims it.
+    /// </summary>
+    /// <param name="fixture">The running editor.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The registered registry, not a second one built the same way.</b>
+    ///         <c>StandardEditors.CreateWorldless()</c> would enumerate the same names and would
+    ///         still agree with itself on the day this editor stopped registering one of them — the
+    ///         same argument the opening sweep makes for reading the workspace's own panel list.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Empty files, and that is a limit on what the census proves rather than a
+    ///         shortcut.</b> Every document here loads its own defaults, so a part an editor only
+    ///         builds once its asset has content in it — a sprite's rectangles, a palette's rows —
+    ///         is unproved by this sweep and stays unjudged. What an empty file buys is that the
+    ///         editor's <em>own</em> factory builds the whole view, with nothing the fixture nested.
+    ///     </para>
+    ///     <para>
+    ///         One file per <em>extension</em> rather than per factory: an editor is chosen by
+    ///         extension, and two extensions on one factory are two chances for it to build a
+    ///         different view — the markup editor's <c>.vxml</c> and <c>.vcss</c> are exactly that.
+    ///     </para>
+    /// </remarks>
+    static void Author(EditorSession fixture) {
+        var made = 0;
+
+        foreach (var factory in fixture.Editor.Editors.Editors) {
+            foreach (var extension in factory.Extensions) {
+                var path = Path.Combine(fixture.Project.Paths.Assets, "CombinatorProbe" + made + extension);
+
+                File.WriteAllText(path, string.Empty);
+                fixture.Project.Assets.Scan();
+
+                // Loud rather than skipped: a file the database does not see is a sweep that opened
+                // fewer editors than it says it did, and `authored` below is what reports the count.
+                Assert.True(
+                    fixture.Project.Assets.TryGetByPath(fixture.Project.Paths.Relative(path), out var entry),
+                    $"the asset database did not see the '{extension}' probe it was just handed."
+                );
+
+                fixture.Editor.OpenAsset(entry!.Guid);
+                fixture.Settle();
+
+                made++;
+            }
+        }
+
+        authored = made;
     }
 
     static void Walk(UiElement element, HashSet<string> into) {
