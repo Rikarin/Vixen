@@ -741,6 +741,27 @@ public sealed record SubsurfaceFeature : IMaterialFeature {
 /// <param name="Metalness">How much of a conductor this layer is.</param>
 /// <param name="Roughness">Perceptual roughness.</param>
 /// <param name="Weight">How much of the layer shows, before normalisation — a splat channel.</param>
+/// <remarks>
+///     <para>
+///         ⚠ <b>Four scalars, and a layer therefore names no map and no tiling of its own</b> —
+///         <a href="https://github.com/Rikarin/Vixen/issues/1136">#1136</a>, which is where doc 48
+///         § M11's "layers carry their own detail tiling" was corrected rather than implemented.
+///         <c>TexturedMaterialLayersSurface</c> blends these constants by the splat weights and the
+///         only textures it samples are the splat map and, under its permutation, the per-layer
+///         height bundle — so a painted surface reads correctly at a distance and has no detail at
+///         all up close.
+///     </para>
+///     <para>
+///         ⚠ <b>Which is also why a layer stack cannot be added to a material that already has a
+///         base-colour map</b> without taking that map away: this is a base surface and it writes
+///         <c>diffuseColor</c> from these numbers. Whatever closes it has to be <em>indexed</em>
+///         rather than named — <c>WorldRenderer.Paired</c> keys one static
+///         <c>MaterialRenderFeature.TextureIndices</c> entry per map name, off each feature's own
+///         default, so N per-layer names would be N entries a material may not choose.
+///         <c>TerrainRenderer</c>'s <c>layerMaps</c> array and <c>layerScales</c> buffer are the
+///         precedent, and <c>LayerCount</c> is already a permutation an array could be sized by.
+///     </para>
+/// </remarks>
 [DataContract("MaterialLayer")]
 public readonly record struct MaterialLayerValue(
     Vector3 BaseColor,

@@ -17,8 +17,8 @@
 # omission here.** A `MaterialLayerValue` is a base colour, a metalness, a roughness and a weight —
 # four scalars. Putting this feature on any of the five *textured* arena materials would therefore mean
 # giving up that surface's base-colour map, which is a regression; the plaza is a new surface instead,
-# so nothing was taken away to add it. (The plan document's "layers carry their own detail tiling" is
-# not expressible today — see #1073.)
+# so nothing was taken away to add it. (The plan document said "layers carry their own detail tiling";
+# that is not expressible today and § M11 now says so — see #1136.)
 shader: ForwardPlus
 shading: StandardShading
 features:
