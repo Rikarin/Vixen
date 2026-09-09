@@ -508,8 +508,19 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 > subsystem with device tests and no production caller, which closing the umbrella made untracked —
 > [#1015](https://github.com/Rikarin/Vixen/issues/1015) is where it lives now. The ledger is worth
 > doing and its failure mode is exactly this, so it is recorded rather than quietly corrected.
-> ⚠ **What is genuinely owed, re-measured 2026-09-08, is three milestones and each is owed a
-> different kind of thing.** **M9** ([#574](https://github.com/Rikarin/Vixen/issues/574)) is owed a
+> ⚠ **What is genuinely owed, re-measured 2026-09-09, is one milestone and one issue.** **M9**
+> ([#574](https://github.com/Rikarin/Vixen/issues/574)) and **M10**
+> ([#575](https://github.com/Rikarin/Vixen/issues/575)) both closed that day, against the tree; what
+> is left of doc 48 is **M11** ([#576](https://github.com/Rikarin/Vixen/issues/576)), and M11 is
+> [#1073](https://github.com/Rikarin/Vixen/issues/1073) — nothing an artist can make carries the
+> layered material feature. ⚠ **That is owed a hand-authored asset rather than a diff**: a
+> `MaterialLayerValue` is four scalars naming no map, `SurfaceVertex` carries exactly one `TexCoord`,
+> and the arena's box-projected uv repeats a painted weight map thirty-two times per axis — so the
+> remainder is a mesh with a real unwrap and someone to paint weights onto it. The tool to paint them
+> with is M9, which now exists. The paragraphs below record how each of the two got closed, because
+> both were closed wrongly once first.
+>
+> **M9** was owed a
 > *host*, not a mechanism: `PaintProjection`, `PaintFootprint`, `PaintSymmetry` and `PaintProjector`
 > all exist with 35 tests. ⚠ **They had no caller for two batches and got one on 2026-09-08**:
 > `PaintMeshView` is a pane of the plugin's own, drawing the stack's mesh through a depth-buffered
@@ -524,10 +535,19 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 > camera path is now measured and the picture capped at 1600 px on its longest side, and at that cap
 > a 16:9 pane is still about 30 ms of single-threaded rasterising per orbit frame, so a parallel
 > raster or a reduced draw while a gesture is in flight is owed
-> ([#1107](https://github.com/Rikarin/Vixen/issues/1107)). ⚠ **#574 was closed on 2026-09-08 and
-> reopened**: the fixes were on unmerged sibling branches at the moment it was closed, which is the
-> one thing this repository's own rule says an issue may not be closed on. **M10** ([#575](https://github.com/Rikarin/Vixen/issues/575)) is owed
-> *content*, and less of it every batch. ⚠ **The compound count has been written into this paragraph
+> ([#1107](https://github.com/Rikarin/Vixen/issues/1107)) — ⚠ **and both of those landed on
+> 2026-09-09 along with the finding neither this paragraph nor the issue had**: the largest number in
+> an orbit frame was the *atlas counting sort*, rebuilt on every camera move and read only by the
+> per-stamp path. It is lazy now, the fill and shade are banded across threads, and the frame is a
+> few milliseconds. ⚠ **#574 was closed on 2026-09-08, reopened, and closed again on 2026-09-09**:
+> the first time its fixes were on unmerged sibling branches, which is the one thing this
+> repository's own rule says an issue may not be closed on; the second time every scope box and all
+> three exits were resolved to a file and a test on master. **M10** was owed
+> *content*, and closed on 2026-09-09 at 35 compounds against § 4.9's 35 marks. ⚠ **Its last apparent
+> remainder was a misreading of the plan rather than a missing file**: *"Delight / Equalize"* is one ●
+> for one compound under two names — the slash is an alias, as in the row above it — so the folder had
+> been complete for a batch while three documents said otherwise
+> ([#1110](https://github.com/Rikarin/Vixen/issues/1110), refuted). ⚠ **The compound count has been written into this paragraph
 > four times and been wrong four times** — 4, then 16, then 31, then 34, each a snapshot of the day it
 > was typed and each contradicted by the tree within a batch. It is not written here a fifth time:
 > `TextureCompoundLibrary.Shipped` is the derived list and the tracked files under
