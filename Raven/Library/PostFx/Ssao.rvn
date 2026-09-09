@@ -38,10 +38,18 @@ import Vixen.Shaders.Geometry
 // behind itself, and a horizon found there is a depth sample in front of a *different* surface — and the
 // arc between them is integrated in closed form against the cosine lobe.
 //
-// The bent normal falls out of the same search for free, and is what makes indirect specular respond to
-// occlusion rather than only indirect diffuse. ⚠ It is a **view-space** direction, which is the space
-// the horizons are found in; the old spelling accumulated screen-space xy against a constant z and was
-// not a direction in any space at all.
+// The bent normal falls out of the same search for free, and is what makes the ambient term respond to
+// *where* light arrives rather than only to how much of it does. ⚠ It is a **view-space** direction,
+// which is the space the horizons are found in; the old spelling accumulated screen-space xy against a
+// constant z and was not a direction in any space at all.
+//
+// ⚠ **And "for free" was the trap: the raw slice sum is not the bent normal.** Each slice contributes
+// the middle of its own arc, in a plane that contains the view vector — so the view direction is
+// counted by every slice and everything perpendicular to it by half of them. On an unoccluded floor
+// seen at a slant that reads 21° toward the camera rather than straight up, which is a diffuse term
+// that swims as the camera turns. The inverse of that one linear operator is applied below, and it is
+// what gives the direction the same normalisation property the occlusion has: exactly the geometric
+// normal on an unoccluded surface, at every tilt.
 
 shader Ssao {
     /// Directions to search. 4 is the mobile setting, 8 the default.
@@ -199,7 +207,27 @@ shader Ssao {
         occlusion = pow(occlusion, max(intensity, Const.Epsilon))
 
         if (BentNormal) {
-            return float4(Math.ToUnorm(Math.SafeNormalize(bent)), occlusion)
+            // ⚠ **The slice sum is not the bent normal, and reading it as one tilts every slanted
+            // surface toward the camera.** Each slice contributes the middle of its own visible arc,
+            // which lies in that slice's plane — so the accumulation is a sum of two-dimensional
+            // centroids in planes that all contain the view vector, and the view vector is therefore
+            // counted by every slice while everything perpendicular to it is counted by half of
+            // them. Written out, the sum over an *unoccluded* surface is `(D/2)(n + v(n·v))` and not
+            // `D·n`: exactly right where the surface faces the camera, and 21° off toward the camera
+            // on a floor seen at a slant, which is a diffuse term that swims as the camera turns.
+            //
+            // The over-weighting is one linear operator — `½(I + vvᵀ)` — and it is invertible, so the
+            // correction is exact rather than a fudge: `2s − v(s·v)` maps that sum back to `n`, is
+            // the identity when the surface faces the camera, and leaves the direction alone in the
+            // plane the slices cover evenly.
+            //
+            // ⚠ This is the same claim about *normalisation* the occlusion term makes above — an
+            // unoccluded surface has to read exactly one at every tilt, and its bent normal has to be
+            // exactly its geometric normal at every tilt — and the second half was missing. Nothing
+            // could see it while no shader read the direction.
+            val corrected = bent * 2f - toCamera * dot(bent, toCamera)
+
+            return float4(Math.ToUnorm(Math.SafeNormalize(corrected)), occlusion)
         }
 
         return float4(occlusion, occlusion, occlusion, 1f)

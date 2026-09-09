@@ -77,7 +77,7 @@ public class AmbientCombineTests {
 
         // The plane's stand-in is a dielectric, which is the weight this pass used before it existed.
         var f0 = Vector3.Lerp(new(0.04f), specular, useSpecular);
-        var reflectance = Vector3.Clamp(f0 * dfg.X + new Vector3(dfg.Y), Vector3.Zero, Vector3.One);
+        var reflectance = Vector3.Clamp(MultiScatter(f0, dfg), Vector3.Zero, Vector3.One);
         var validity = Math.Clamp(reflections.W, 0f, 1f) * useReflections;
 
         color += new Vector3(reflections.X, reflections.Y, reflections.Z) * reflectance * validity;
@@ -86,6 +86,29 @@ public class AmbientCombineTests {
     }
 
     static float Lerp(float a, float b, float t) => a + (b - a) * t;
+
+    /// <summary>
+    ///     <c>SpecularModels.MultiScatter</c>, restated: the split-sum scale with the energy a rough
+    ///     surface loses between microfacets added back.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <c>f0 · dfg.x + dfg.y</c> any more, and that is a change to the picture rather
+    ///     than to this file.</b> The split sum counts one bounce; at perceptual roughness 0.6 a
+    ///     white metal keeps two thirds of the light and at 1 it keeps under half, so every rough
+    ///     metal was rendered at up to half the radiance it sends. The property that pins the form is
+    ///     the white furnace — at <c>f0 = 1</c> the answer is exactly one at every roughness — and
+    ///     <c>MultiScatterFurnaceImageTests</c> holds the shader itself to it on a device. What this
+    ///     restatement is for is the pixels below, which are hand-computed.
+    /// </remarks>
+    static Vector3 MultiScatter(Vector3 f0, Vector2 dfg) {
+        var ess = dfg.X + dfg.Y;
+        var ems = Math.Max(1f - ess, 0f);
+        var favg = f0 + ((Vector3.One - f0) * (1f / 21f));
+        var fssEss = (f0 * dfg.X) + new Vector3(dfg.Y);
+        var fms = fssEss * favg / Vector3.Max(Vector3.One - (ems * favg), new(1e-6f));
+
+        return Vector3.Max(fssEss + (fms * ems), Vector3.Zero);
+    }
 
     static readonly Vector4 Surface = new(0f, 0f, 1f, 0.5f);
 
@@ -145,9 +168,11 @@ public class AmbientCombineTests {
     ///     By hand: open = 0.5 × 0.5 × 0.8 = 0.2, sun = 0.5;
     ///     ambient = albedo × irradiance × open × intensity = (0.064, 0.048, 0.064);
     ///     direct × sun = (0.25, 0.125, 0.0625); summed = (0.314, 0.173, 0.1265).
-    ///     The plane's f0 of 0.5 against dfg (0.8, 0.05) is a reflectance of 0.45, and the traced
-    ///     red at validity 0.25 therefore <em>adds</em> 0.1125 to the red channel and nothing to
-    ///     the other two — where a lerp would have taken 11.25 per cent off all three.
+    ///     The plane's f0 of 0.5 against dfg (0.8, 0.05) is a reflectance of 0.4883721 — single
+    ///     scatter 0.45, plus the 0.15 of energy one bounce loses returned at an average Fresnel of
+    ///     0.5238095, which is 0.2558140 × 0.15 — and the traced red at validity 0.25 therefore
+    ///     <em>adds</em> 0.1220930 to the red channel and nothing to the other two, where a lerp
+    ///     would have taken that fraction off all three.
     /// </remarks>
     [Fact]
     public void One_pixel_through_every_term() {
@@ -169,7 +194,7 @@ public class AmbientCombineTests {
             intensity: 2f
         );
 
-        Assert.Equal(0.314f + 0.45f * 0.25f, result.X, 1e-5f);
+        Assert.Equal(0.314f + (0.4883721f * 0.25f), result.X, 1e-5f);
         Assert.Equal(0.173f, result.Y, 1e-5f);
         Assert.Equal(0.1265f, result.Z, 1e-5f);
         Assert.Equal(1f, result.W, 1e-5f);
@@ -183,7 +208,7 @@ public class AmbientCombineTests {
     ///     <para>
     ///         Two facts in one pixel, and both are why the plane and the addition had to land
     ///         together. The stand-in weighs the traced plane at a dielectric's 0.04; the ramp
-    ///         material's f0 of 0.56 weighs it at fourteen times that, which is the whole point of
+    ///         material's f0 of 0.56 weighs it at eight times that, which is the whole point of
     ///         carrying three channels rather than deriving them from an albedo that is black on a
     ///         metal.
     ///     </para>
@@ -215,15 +240,17 @@ public class AmbientCombineTests {
                 useSpecular: useSpecular
             );
 
-        // The stand-in: 0.04 × 0.9 + 0.03 = 0.066, so the trace adds 0.132 over the direct one.
-        Assert.Equal(1f + 2f * 0.066f, At(new(0.56f), 0f).X, 1e-5f);
+        // The stand-in: single scatter 0.04 × 0.9 + 0.03 = 0.066, and an average Fresnel of
+        // 0.0857143 returns almost none of the 0.07 one bounce lost — 0.0663984 in all.
+        Assert.Equal(1f + (2f * 0.0663984f), At(new(0.56f), 0f).X, 1e-5f);
 
-        // The plane: 0.56 × 0.9 + 0.03 = 0.534, which is 8.1 times as much of the same radiance.
-        Assert.Equal(1f + 2f * 0.534f, At(new(0.56f), 1f).X, 1e-5f);
+        // The plane: single scatter 0.534, and an average Fresnel of 0.5809524 returns 0.3233793 of
+        // that same 0.07 — 0.5566366, which is 8.4 times as much of the same radiance.
+        Assert.Equal(1f + (2f * 0.5566366f), At(new(0.56f), 1f).X, 1e-5f);
 
-        // And what a lerp would have made of that weight: 46.6 per cent of the surface's own light
+        // ⚠ And what a lerp would have made of that weight: 44.3 per cent of the surface's own light
         // left standing, which is the frame this addition exists to avoid.
-        Assert.Equal(1f * (1f - 0.534f) + 2f * 0.534f, Lerp(1f, 2f, 0.534f), 1e-5f);
+        Assert.Equal((1f * (1f - 0.5566366f)) + (2f * 0.5566366f), Lerp(1f, 2f, 0.5566366f), 1e-5f);
     }
 
     /// <summary>Sun visibility multiplies direct only, and occlusion multiplies ambient only.</summary>

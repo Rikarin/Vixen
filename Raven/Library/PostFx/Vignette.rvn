@@ -30,6 +30,21 @@ shader Vignette {
     /// Whether grain scales with darkness, as real film does.
     [Permutation] val LuminanceWeightedGrain: bool = true
 
+    /// Whether a triangular-PDF noise of about one code is added just before the encode.
+    ///
+    /// ⚠ **Last, and the ordering is the one thing here that can be silently wrong.** Lens distortion
+    /// runs first because it moves where a pixel comes from; this runs after the tonemap, after the
+    /// vignette and after the grain, because the quantisation step it exists to break up is the one
+    /// the *final encode* makes. Dithering before a curve dithers the wrong quantity: the curve
+    /// stretches the noise where it is steep and swallows it where it is flat, so the banding
+    /// survives in exactly the shallow gradients that had it.
+    ///
+    /// ⚠ **Not grain, and the difference is not a matter of degree.** Grain is a look — it has an
+    /// intensity an artist dials and it is weighted by luminance. This is a quantisation fix of a
+    /// fixed size: one code of the target, whatever the target is. A frame that turns grain up does
+    /// not stop needing it.
+    [Permutation] val UseDither: bool = false
+
     var source: Texture2D
     var linearSampler: Sampler
 
@@ -74,6 +89,27 @@ shader Vignette {
 
     var screenSize: float2 = float2(1920f, 1080f)
 
+    /// How many steps the target quantises to — 255 for the usual eight-bit encode.
+    ///
+    /// ⚠ The dither's whole size is one of these, so a value that does not match the swap chain is
+    /// either noise nobody asked for or a dither too small to cross a step. It is a uniform rather
+    /// than a constant because a ten-bit output is a different number and not a different shader.
+    ///
+    /// ⚠ **It divides the value this shader outputs, which is only one code of the stored value on a
+    /// target with no transfer curve.** Against an `Rgba8UNormSrgb` attachment the hardware encodes
+    /// on the way out, so one stored code is a *linear* step that varies across the range — small in
+    /// the shadows and large in the highlights — and a fixed `1/255` here is far too much noise at
+    /// the bottom of the range and too little at the top. Correcting it needs the curve's local
+    /// slope, which this does not carry; until it does, a host with an sRGB target is the case this
+    /// is not yet right for.
+    var ditherLevels: float = 255f
+
+    /// How many codes of noise, peak to peak either side. One is the value the arithmetic is for.
+    ///
+    /// ⚠ Below one the noise cannot always carry a value across the step it sits next to, which is
+    /// the banding surviving at reduced contrast; above one it is visible as noise in flat areas.
+    var ditherIntensity: float = 1f
+
     stream var uv: float2
 
     [VertexShader]
@@ -103,6 +139,12 @@ shader Vignette {
 
         if (UseGrain) {
             color = Grained(color)
+        }
+
+        // ⚠ After the grain and after everything else, because it is about the encode and not about
+        // the picture — see `UseDither`.
+        if (UseDither) {
+            color = Dithered(color)
         }
 
         return float4(color, 1f)
@@ -162,6 +204,51 @@ shader Vignette {
 
         offset = float2(offset.x * lerp(1f, warp, distortionScale.x), offset.y * lerp(1f, warp, distortionScale.y))
         return offset + distortionCenter
+    }
+
+    /// Adds a triangular-PDF noise of `ditherIntensity` codes, so the encode's step stops being a band.
+    ///
+    /// **What a dither actually does is trade amplitude for density.** An eight-bit encode of a
+    /// shallow gradient rounds a long run of pixels to one code and then steps: the eye finds the
+    /// step, because a straight edge in a smooth field is the one thing it is best at. Adding noise
+    /// of about the size of a step makes each pixel round up with a probability equal to how far
+    /// through the step it really was, so a run that is a quarter of the way up comes out a quarter
+    /// covered — the value survives in the *density* of the higher code rather than in a code that
+    /// does not exist.
+    ///
+    /// ⚠ **Triangular and not uniform, which is what makes it unbiased in the second moment too.**
+    /// A single uniform sample of one code makes the error's *variance* depend on where in the step
+    /// the value sat — the noise modulates with the signal, which is audible as hiss following the
+    /// music in the sound version of this and visible as noise that swells and fades across a
+    /// gradient here. The difference of two independent uniforms is triangular over ±1 code and
+    /// leaves both the mean and the variance of the error independent of the input, which is the
+    /// standard result and the reason it is two hashes rather than one.
+    ///
+    /// ⚠ **Static, deliberately: no `frameIndex`.** The banding is spatial and a still frame has it,
+    /// so a pattern that changes every frame would add crawl to a still image to fix something a
+    /// fixed pattern fixes. Grain is the one that moves, and it moves because film does.
+    ///
+    /// Per channel rather than one number for all three: a common offset is a luminance dither, which
+    /// leaves the banding in any gradient that changes hue rather than brightness.
+    func Dithered(color: float3): float3 {
+        val pixel = uv * screenSize
+        val x = uint(int(pixel.x))
+        val y = uint(int(pixel.y))
+
+        val low = float3(
+            Random.Float01(Random.Hash3(x, y, 0u)),
+            Random.Float01(Random.Hash3(x, y, 1u)),
+            Random.Float01(Random.Hash3(x, y, 2u))
+        )
+
+        val high = float3(
+            Random.Float01(Random.Hash3(x, y, 3u)),
+            Random.Float01(Random.Hash3(x, y, 4u)),
+            Random.Float01(Random.Hash3(x, y, 5u))
+        )
+
+        val step = ditherIntensity / max(ditherLevels, Const.Epsilon)
+        return color + (low - high) * step
     }
 
     /// Adds grain, optionally weighted so shadows are grainier than highlights.

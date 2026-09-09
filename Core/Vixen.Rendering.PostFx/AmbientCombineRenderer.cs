@@ -105,6 +105,36 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
     /// <summary><c>!Ssao</c>'s plane: occlusion in r, a contact-scale term over the field's room-scale one.</summary>
     public string? ContactOcclusion { get; set; }
 
+    /// <summary>
+    ///     Whether that plane is a bent-normal one — direction in rgb, occlusion in alpha — which is
+    ///     what <c>!Ssao</c> writes with <see cref="AmbientOcclusionRenderer.BentNormal" /> on.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Until this existed the bent normal was produced and discarded, and the expensive
+    ///         half of GTAO was paid for in every frame that asked for it.</b> Occlusion says how much
+    ///         light arrives and a bent normal says where it arrives from; only the second changes the
+    ///         shading direction, which is most of what makes the horizon integral look better than
+    ///         hemisphere sampling on a curved surface. With this on the shader evaluates the
+    ///         environment's coefficients along the bent direction instead of along the geometric
+    ///         normal — and on an unoccluded surface the two are the same vector, so an open plane
+    ///         renders identically either way.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It also moves the occlusion channel, and that is not a detail.</b> The permutation
+    ///         writes the direction over rgb, so a consumer reading <c>r</c> regardless reads the
+    ///         direction's x — a number in [0, 1] that looks exactly like an occlusion value and
+    ///         modulates the whole ambient term. One switch does both halves so the two can never
+    ///         disagree.
+    ///     </para>
+    ///     <para>
+    ///         Needs a <see cref="View" />: the direction is view-space, and the sky's coefficients
+    ///         are world-space. Without one the switch stays off rather than rotating through an
+    ///         identity, and the node degrades with a reason that says so.
+    ///     </para>
+    /// </remarks>
+    public bool ContactBentNormal { get; set; }
+
     /// <summary><c>!Reflections</c>' plane: radiance in rgb, validity in alpha. Null blends none in.</summary>
     /// <remarks>
     ///     ⚠ <b>Validity, and the shader weighs it by the surface's own specular reflectance</b> —
@@ -184,6 +214,14 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
     /// <summary>Clip space back to world space, when no <see cref="View" /> supplies it.</summary>
     public Matrix4x4 InverseViewProjection { get; set; } = Matrix4x4.Identity;
 
+    /// <summary>View space back to world space, for <see cref="ContactBentNormal" /> alone.</summary>
+    /// <remarks>
+    ///     Direction-only in the shader — the multiply is with <c>w = 0</c> — so the translation this
+    ///     also carries never reaches the answer. A <see cref="View" /> supplies it; set it by hand
+    ///     for a host that drives the matrices itself.
+    /// </remarks>
+    public Matrix4x4 InverseView { get; set; } = Matrix4x4.Identity;
+
     /// <summary>How far off a pixel's plane a reduced texel's surface may stand and still count, in metres.</summary>
     public float PlaneTolerance { get; set; } = 0.05f;
 
@@ -199,6 +237,7 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
         parameters.Set(AmbientCombineKeys.UseIrradiance, Irradiance is null ? 0f : 1f);
         parameters.Set(AmbientCombineKeys.UseOcclusion, Occlusion is null ? 0f : 1f);
         parameters.Set(AmbientCombineKeys.UseContactOcclusion, ContactOcclusion is null ? 0f : 1f);
+
         parameters.Set(AmbientCombineKeys.UseSpecular, Specular is null ? 0f : 1f);
 
         // ⚠ **One condition for both halves, and it is not "is there a reflections plane".** The
@@ -247,6 +286,30 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
 
         parameters.Set(AmbientCombineKeys.InverseViewProjection, InverseViewProjection);
 
+        // And view back to world, which only the bent normal wants. Derived from the same view
+        // rather than from the unprojection above: a view-projection's inverse carries the
+        // projection too, and a direction pushed through that is not a rotation of anything.
+        if (View?.Camera is { } eye && Matrix4x4.Invert(eye.View, out var toWorld)) {
+            InverseView = toWorld;
+        }
+
+        parameters.Set(AmbientCombineKeys.InverseView, InverseView);
+
+        // ⚠ **Three conditions, because a bent normal is a plane layout, a direction and a space all
+        // at once.** There has to be a contact plane; the pass that wrote it has to have been asked
+        // for the direction; and there has to be a rotation to take the direction out of view space
+        // with. Rotating through an identity nobody drove would evaluate the sky's world
+        // coefficients against a view-space vector — smooth, plausible, and lit from nowhere.
+        //
+        // ⚠ The camera test is `View?.Camera`, not `InverseView != Identity`: a camera at the origin
+        // looking down −Z has the identity for its view matrix, which is a real rotation and the one
+        // every image fixture in this repository uses.
+        var bent = ContactOcclusion is not null
+            && ContactBentNormal
+            && (View?.Camera is not null || InverseView != Matrix4x4.Identity);
+
+        parameters.Set(AmbientCombineKeys.UseBentNormal, bent ? 1f : 0f);
+
         // ⚠ And whether that matrix is a camera's, which the reflection weight needs and the plane
         // test does not. The upsample degrades gracefully through an identity — every tap fails the
         // plane test and it falls back to the linear read — but the reflection weight does not: a
@@ -260,12 +323,20 @@ public sealed class AmbientCombineRenderer() : PostEffectRenderer(
         // ⚠ And on the CPU too, because until this line the whole of what the node knew went into a
         // shader uniform and stayed there. `driven` is a node that has already worked out that it is
         // about to combine ambient light the wrong way; nothing outside the fragment could ask.
-        Degrade(
-            driven
-                ? null
-                : "no View and no InverseViewProjection, so the reflection weight is taken at normal "
-                + "incidence for every surface instead of at the real view angle"
-        );
+        // ⚠ And the bent normal's own half, which fails the other way round: a document that asked
+        // for the direction and gave this node no camera does not get a wrong sky, it gets the
+        // geometric one — the whole cost of the permutation paid for a term that was thrown away,
+        // which is exactly the defect this consumer exists to end. Silent is how it stayed hidden.
+        var reason = !driven
+            ? "no View and no InverseViewProjection, so the reflection weight is taken at normal "
+            + "incidence for every surface instead of at the real view angle"
+            : ContactBentNormal && !bent
+                ? "ContactBentNormal is set but there is no ContactOcclusion plane or no camera to "
+                + "rotate its direction out of view space, so the ambient term reads the geometric "
+                + "normal and the bent normal the AO pass computed is discarded"
+                : null;
+
+        Degrade(reason);
 
         // Each AO plane's own texel, measured off the plane the graph actually declared — the
         // upsample has to find that plane's texel centres, and guessing a scale here would break

@@ -196,6 +196,21 @@ public sealed record VignetteAsset : ISceneRendererAsset {
     /// <summary>Whether grain scales with darkness, as real film does.</summary>
     public bool LuminanceWeightedGrain { get; init; } = true;
 
+    /// <summary>Whether about one code of triangular noise is added just before the encode.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not grain, though it shares the pass.</b> Grain is a look with an intensity; this is
+    ///     what stops an eight-bit encode banding a shallow gradient, and it is a fixed size — one
+    ///     code of the target. It runs last of the five for that reason: the step it breaks up is the
+    ///     one the final encode makes, and dithering before a curve dithers the wrong quantity.
+    /// </remarks>
+    public bool UseDither { get; init; }
+
+    /// <summary>How many steps the output quantises to — 255 for the usual eight-bit encode.</summary>
+    public float DitherLevels { get; init; } = 255f;
+
+    /// <summary>How many codes of noise, either side. One is the value the arithmetic is for.</summary>
+    public float DitherIntensity { get; init; } = 1f;
+
     /// <summary>0 is no darkening, 1 is fully dark at the corners.</summary>
     public float VignetteIntensity { get; init; } = 0.4f;
 

@@ -59,7 +59,7 @@
               "DefaultValue": "0"
             },
             {
-              "Name": "useReflections",
+              "Name": "useBentNormal",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -75,7 +75,7 @@
               "DefaultValue": "0"
             },
             {
-              "Name": "useSpecular",
+              "Name": "useReflections",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -91,7 +91,7 @@
               "DefaultValue": "0"
             },
             {
-              "Name": "intensity",
+              "Name": "useSpecular",
               "Type": {
                 "Scalar": "Float",
                 "Rows": 1,
@@ -101,6 +101,22 @@
                 "IsStruct": false
               },
               "Offset": 20,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
+              "Name": "intensity",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 24,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -332,6 +348,22 @@
               "DefaultValue": ""
             },
             {
+              "Name": "inverseView",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 4,
+                "Columns": 4,
+                "IsMatrix": true,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 256,
+              "Size": 64,
+              "ArrayStride": 0,
+              "MatrixStride": 16,
+              "DefaultValue": ""
+            },
+            {
               "Name": "useView",
               "Type": {
                 "Scalar": "Float",
@@ -341,7 +373,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 256,
+              "Offset": 320,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -357,7 +389,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 264,
+              "Offset": 328,
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -373,7 +405,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 272,
+              "Offset": 336,
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -389,14 +421,14 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 280,
+              "Offset": 344,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "0.05"
             }
           ],
-          "Size": 288,
+          "Size": 352,
           "IsWritable": false,
           "IsDynamicOffset": false
         },
@@ -600,7 +632,7 @@
       "DefaultValue": "0"
     },
     {
-      "Name": "useReflections",
+      "Name": "useBentNormal",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -618,7 +650,7 @@
       "DefaultValue": "0"
     },
     {
-      "Name": "useSpecular",
+      "Name": "useReflections",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -636,7 +668,7 @@
       "DefaultValue": "0"
     },
     {
-      "Name": "intensity",
+      "Name": "useSpecular",
       "Type": {
         "Scalar": "Float",
         "Rows": 1,
@@ -648,6 +680,24 @@
       "Set": 2,
       "Binding": 0,
       "Offset": 20,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
+      "Name": "intensity",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 24,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -888,6 +938,24 @@
       "DefaultValue": ""
     },
     {
+      "Name": "inverseView",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 4,
+        "Columns": 4,
+        "IsMatrix": true,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 256,
+      "Size": 64,
+      "ArrayStride": 0,
+      "MatrixStride": 16,
+      "DefaultValue": ""
+    },
+    {
       "Name": "useView",
       "Type": {
         "Scalar": "Float",
@@ -899,7 +967,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 256,
+      "Offset": 320,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -917,7 +985,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 264,
+      "Offset": 328,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -935,7 +1003,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 272,
+      "Offset": 336,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -953,7 +1021,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 280,
+      "Offset": 344,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,

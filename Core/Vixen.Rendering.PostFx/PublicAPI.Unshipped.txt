@@ -5,6 +5,8 @@ Vixen.Rendering.PostFx.AmbientCombineAsset : Vixen.Rendering.Compositor.ISceneRe
 Vixen.Rendering.PostFx.AmbientCombineAsset.Albedo.get -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.Albedo.init -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.AmbientCombineAsset() -> void
+Vixen.Rendering.PostFx.AmbientCombineAsset.ContactBentNormal.get -> bool
+Vixen.Rendering.PostFx.AmbientCombineAsset.ContactBentNormal.init -> bool
 Vixen.Rendering.PostFx.AmbientCombineAsset.ContactOcclusion.get -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.ContactOcclusion.init -> string
 Vixen.Rendering.PostFx.AmbientCombineAsset.Depth.get -> string
@@ -36,12 +38,16 @@ Vixen.Rendering.PostFx.AmbientCombineAsset.View.init -> string
 Vixen.Rendering.PostFx.AmbientCombineRenderer -> sealed class
 Vixen.Rendering.PostFx.AmbientCombineRenderer : Vixen.Rendering.PostFx.PostEffectRenderer
 Vixen.Rendering.PostFx.AmbientCombineRenderer.AmbientCombineRenderer() -> void
+Vixen.Rendering.PostFx.AmbientCombineRenderer.ContactBentNormal.get -> bool
+Vixen.Rendering.PostFx.AmbientCombineRenderer.ContactBentNormal.set -> bool
 Vixen.Rendering.PostFx.AmbientCombineRenderer.ContactOcclusion.get -> string?
 Vixen.Rendering.PostFx.AmbientCombineRenderer.ContactOcclusion.set -> string?
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Depth.get -> string?
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Depth.set -> string?
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Intensity.get -> float
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Intensity.set -> float
+Vixen.Rendering.PostFx.AmbientCombineRenderer.InverseView.get -> Vixen.Core.Mathematics.Matrix4x4
+Vixen.Rendering.PostFx.AmbientCombineRenderer.InverseView.set -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.PostFx.AmbientCombineRenderer.InverseViewProjection.get -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.PostFx.AmbientCombineRenderer.InverseViewProjection.set -> Vixen.Core.Mathematics.Matrix4x4
 Vixen.Rendering.PostFx.AmbientCombineRenderer.Irradiance.get -> string?
@@ -1550,6 +1556,10 @@ Vixen.Rendering.PostFx.VignetteAsset.DistortionScale.get -> Vixen.Core.Mathemati
 Vixen.Rendering.PostFx.VignetteAsset.DistortionScale.init -> Vixen.Core.Mathematics.Vector2
 Vixen.Rendering.PostFx.VignetteAsset.DistortionZoom.get -> float
 Vixen.Rendering.PostFx.VignetteAsset.DistortionZoom.init -> float
+Vixen.Rendering.PostFx.VignetteAsset.DitherIntensity.get -> float
+Vixen.Rendering.PostFx.VignetteAsset.DitherIntensity.init -> float
+Vixen.Rendering.PostFx.VignetteAsset.DitherLevels.get -> float
+Vixen.Rendering.PostFx.VignetteAsset.DitherLevels.init -> float
 Vixen.Rendering.PostFx.VignetteAsset.Enabled.get -> bool
 Vixen.Rendering.PostFx.VignetteAsset.Enabled.init -> bool
 Vixen.Rendering.PostFx.VignetteAsset.Format.get -> Vixen.Graphics.PixelFormat
@@ -1568,6 +1578,8 @@ Vixen.Rendering.PostFx.VignetteAsset.Source.get -> string
 Vixen.Rendering.PostFx.VignetteAsset.Source.init -> string
 Vixen.Rendering.PostFx.VignetteAsset.UseChromaticAberration.get -> bool
 Vixen.Rendering.PostFx.VignetteAsset.UseChromaticAberration.init -> bool
+Vixen.Rendering.PostFx.VignetteAsset.UseDither.get -> bool
+Vixen.Rendering.PostFx.VignetteAsset.UseDither.init -> bool
 Vixen.Rendering.PostFx.VignetteAsset.UseGrain.get -> bool
 Vixen.Rendering.PostFx.VignetteAsset.UseGrain.init -> bool
 Vixen.Rendering.PostFx.VignetteAsset.UseLensDistortion.get -> bool
@@ -1599,6 +1611,10 @@ Vixen.Rendering.PostFx.VignetteRenderer.DistortionScale.get -> Vixen.Core.Mathem
 Vixen.Rendering.PostFx.VignetteRenderer.DistortionScale.set -> Vixen.Core.Mathematics.Vector2
 Vixen.Rendering.PostFx.VignetteRenderer.DistortionZoom.get -> float
 Vixen.Rendering.PostFx.VignetteRenderer.DistortionZoom.set -> float
+Vixen.Rendering.PostFx.VignetteRenderer.DitherIntensity.get -> float
+Vixen.Rendering.PostFx.VignetteRenderer.DitherIntensity.set -> float
+Vixen.Rendering.PostFx.VignetteRenderer.DitherLevels.get -> float
+Vixen.Rendering.PostFx.VignetteRenderer.DitherLevels.set -> float
 Vixen.Rendering.PostFx.VignetteRenderer.FrameIndex.get -> float
 Vixen.Rendering.PostFx.VignetteRenderer.FrameIndex.set -> float
 Vixen.Rendering.PostFx.VignetteRenderer.GrainIntensity.get -> float
@@ -1609,6 +1625,8 @@ Vixen.Rendering.PostFx.VignetteRenderer.LuminanceWeightedGrain.get -> bool
 Vixen.Rendering.PostFx.VignetteRenderer.LuminanceWeightedGrain.set -> bool
 Vixen.Rendering.PostFx.VignetteRenderer.UseChromaticAberration.get -> bool
 Vixen.Rendering.PostFx.VignetteRenderer.UseChromaticAberration.set -> bool
+Vixen.Rendering.PostFx.VignetteRenderer.UseDither.get -> bool
+Vixen.Rendering.PostFx.VignetteRenderer.UseDither.set -> bool
 Vixen.Rendering.PostFx.VignetteRenderer.UseGrain.get -> bool
 Vixen.Rendering.PostFx.VignetteRenderer.UseGrain.set -> bool
 Vixen.Rendering.PostFx.VignetteRenderer.UseLensDistortion.get -> bool
