@@ -9,10 +9,14 @@ Vixen.Rendering.RayTracing.QueriedHit.Distance.get -> float
 Vixen.Rendering.RayTracing.QueriedHit.Distance.init -> float
 Vixen.Rendering.RayTracing.QueriedHit.Hit.get -> bool
 Vixen.Rendering.RayTracing.QueriedHit.Hit.init -> bool
+Vixen.Rendering.RayTracing.QueriedHit.Normal.get -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.RayTracing.QueriedHit.Normal.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.RayTracing.QueriedHit.Position.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.RayTracing.QueriedHit.Position.init -> Vixen.Core.Mathematics.Vector3
+Vixen.Rendering.RayTracing.QueriedHit.Primitive.get -> int
+Vixen.Rendering.RayTracing.QueriedHit.Primitive.init -> int
 Vixen.Rendering.RayTracing.QueriedHit.QueriedHit() -> void
-Vixen.Rendering.RayTracing.QueriedHit.QueriedHit(bool Hit, float Distance, Vixen.Core.Mathematics.Vector3 Position, int Steps) -> void
+Vixen.Rendering.RayTracing.QueriedHit.QueriedHit(bool Hit, float Distance, Vixen.Core.Mathematics.Vector3 Position, int Steps, Vixen.Core.Mathematics.Vector3 Normal, int Primitive) -> void
 Vixen.Rendering.RayTracing.QueriedHit.Steps.get -> int
 Vixen.Rendering.RayTracing.QueriedHit.Steps.init -> int
 Vixen.Rendering.RayTracing.RayHit -> readonly struct
@@ -39,5 +43,6 @@ Vixen.Rendering.RayTracing.TriangleBvh.TriangleBvh(System.ReadOnlySpan<Vixen.Cor
 Vixen.Rendering.RayTracing.TriangleBvh.TriangleCount.get -> int
 const Vixen.Rendering.RayTracing.QueriedField.Nothing = 100000000 -> float
 static Vixen.Rendering.RayTracing.QueriedField.GradientField(Vixen.Core.Mathematics.Vector3 world) -> Vixen.Core.Mathematics.Vector3
+static Vixen.Rendering.RayTracing.QueriedField.GradientField(in Vixen.Rendering.RayTracing.QueriedHit hit) -> Vixen.Core.Mathematics.Vector3
 static Vixen.Rendering.RayTracing.QueriedField.OcclusionField(Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 normal) -> float
 static Vixen.Rendering.RayTracing.QueriedField.SampleField(Vixen.Core.Mathematics.Vector3 world) -> float

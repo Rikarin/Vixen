@@ -81,8 +81,22 @@ closing this needs, since nothing in the repository can conjure a device that ha
   atlas whatever the surface is: under the hardware tracer that is a **wrong colour, not a rough
   one**, and it will not look like a normal bug — it will look like the surface cache being wrong.
   Filed as [#1169](https://github.com/Rikarin/Vixen/issues/1169) rather than left here,
-  because the protocol change is its own piece of work — and its CPU half, the geometric normal off
-  the triangle the BVH committed, is device-free and testable today.
+  because the protocol change is its own piece of work.
+
+  ⚠ **The CPU half has landed, and it was smaller than that paragraph made it sound.** `QueriedHit`
+  now carries `Normal` and `Primitive`, and `QueriedField.GradientField(in QueriedHit)` is the
+  overload the shared protocol has to grow. Nothing was computed to do it: `TriangleBvh.Trace`
+  already crosses the committed triangle's edges and already faces the answer at the ray, and
+  already returns the index beside it — `QueriedField.TraceField` was discarding both while
+  building its answer, which is the *same discard* the shader makes one line after the intrinsic.
+  So the reference for the owed device read exists and is held to a closed form: the fixture wall is
+  vertical, so its normal is perpendicular to the up vector and the old answer is not a worse
+  approximation of the new one but unrelated to it.
+
+  What is still owed is the device half, and it is still the protocol change: a field on
+  `DistanceFieldHit`, every `IDistanceFieldSource` filling it, the three consuming kernels asking
+  the hit rather than the position, and the vertex and index buffers bound beside `sceneStructure`.
+  ⚠ That lands in the one place nothing in this repository can referee — see the skip above.
 - **SAH.** The median build is the baseline and the referee; the surface-area heuristic is the
   optimisation measured against it.
 - **Refit.** A build per change is the baseline; updating in place is the optimisation, and it
