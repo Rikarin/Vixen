@@ -15,6 +15,9 @@ internal sealed class SourceParameterSymbol : ParameterSymbol {
     bool resolving;
     TypeSymbol? type;
 
+    /// <summary>The declaration's attribute lists, for validation that reads them directly.</summary>
+    internal SyntaxList<AttributeListSyntax> AttributeLists => syntax.AttributeLists;
+
     public override string Name => syntax.Identifier.ValueText;
     public override Symbol? ContainingSymbol { get; }
     public override int Ordinal { get; }
@@ -27,6 +30,15 @@ internal sealed class SourceParameterSymbol : ParameterSymbol {
     public override TypeSymbol Type => type ??= ResolveType();
 
     public override string? SemanticName => DeclarationFacts.GetSemanticName(syntax.AttributeLists);
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     An unrecognised word falls back to <c>Smooth</c> here and is reported once, at the
+    ///     declaration, by <c>ReportInterpolationIssues</c> — the same division every other
+    ///     attribute on this symbol lives under, so lowering can ask freely.
+    /// </remarks>
+    public override InterpolationMode Interpolation =>
+        DeclarationFacts.GetInterpolation(syntax.AttributeLists, out _) ?? InterpolationMode.Smooth;
 
     public override RefKind RefKind =>
         DeclarationFacts.Has(syntax.Modifiers, SyntaxKind.InOutKeyword) ? RefKind.InOut : RefKind.None;

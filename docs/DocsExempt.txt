@@ -2389,6 +2389,7 @@ T:Vixen.Raven.Symbols.ErrorTypeSymbol raven symbol model, the binder's output �
 T:Vixen.Raven.Symbols.FieldSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
 T:Vixen.Raven.Symbols.ImageFormat raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
 T:Vixen.Raven.Symbols.ImageFormats raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
+T:Vixen.Raven.Symbols.InterpolationMode raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
 T:Vixen.Raven.Symbols.Intrinsics raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
 T:Vixen.Raven.Symbols.LocalSymbol raven symbol model, the binder's output — public for tooling; no per-symbol page is owed
 T:Vixen.Raven.Symbols.MethodKind raven symbol model, the binder's output — public for tooling; no per-symbol page is owed

@@ -44,6 +44,18 @@ public abstract class ParameterSymbol : Symbol {
     /// <summary>The pipeline semantic from a <c>[Semantic("…")]</c> attribute, or null.</summary>
     public virtual string? SemanticName => null;
 
+    /// <summary>
+    ///     How this parameter is interpolated when it is a stage input — from
+    ///     <c>[Interpolation("…")]</c>, and <see cref="InterpolationMode.Smooth" /> otherwise.
+    /// </summary>
+    /// <remarks>
+    ///     An entry point's own parameters are the other half of the stage interface a
+    ///     <c>stream</c> makes: a fragment stage may receive a varying either way, so an
+    ///     interpolation that only one of the two could carry would be a hole an author falls into
+    ///     without a diagnostic.
+    /// </remarks>
+    public virtual InterpolationMode Interpolation => InterpolationMode.Smooth;
+
     public override string ToDisplayString() {
         var direction = RefKind == RefKind.InOut ? "inout " : string.Empty;
         return $"{direction}{Name}: {Type.ToDisplayString()}";

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Raven.IR;
+using Vixen.Raven.Symbols;
 
 namespace Vixen.Raven.Reflection;
 
@@ -89,6 +90,30 @@ public static class StageInterface {
     public static bool MustBeFlat(IrType type) =>
         type is IrScalarType { Kind: IrTypeKind.Int or IrTypeKind.UInt }
             or IrVectorType { Component.Kind: IrTypeKind.Int or IrTypeKind.UInt };
+
+    /// <summary>
+    ///     The interpolation a varying actually gets: what the author asked for, unless the type
+    ///     leaves only one answer.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The one place the two halves meet, so neither backend re-derives it. An integer is
+    ///         <see cref="InterpolationMode.Flat" /> whatever the declaration says — and the
+    ///         declaration cannot say otherwise, because <c>RVN2144</c> refuses it at the source
+    ///         span rather than letting a backend override an author silently.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Which makes this override unreachable from any accepted source, and it stays
+    ///         because the rule it enforces belongs to the emitters: a module is invalid without
+    ///         <c>Flat</c> on an integer fragment input, and an IR built by anything other than
+    ///         <c>Lowerer</c> — a library read back, a test — has no binder in front of it.
+    ///     </para>
+    /// </remarks>
+    /// <param name="type">What the varying carries.</param>
+    /// <param name="declared">What the declaration asked for.</param>
+    /// <returns>The mode both backends must emit.</returns>
+    public static InterpolationMode Interpolation(IrType type, InterpolationMode declared) =>
+        MustBeFlat(type) ? InterpolationMode.Flat : declared;
 
     /// <summary>
     ///     The reason a type cannot be carried, phrased for <c>RVN4001</c>'s <c>{0}</c>.

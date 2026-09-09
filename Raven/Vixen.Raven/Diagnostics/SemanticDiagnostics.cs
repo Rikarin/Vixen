@@ -1477,4 +1477,80 @@ public static class SemanticDiagnostics {
         Declaration,
         DiagnosticSeverity.Error
     );
+
+    // --- Interpolation -----------------------------------------------------
+
+    /// <summary>An <c>[Interpolation]</c> whose word is not one of the four — <c>RVN2143</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         An error rather than a fallback to <c>smooth</c>, because a fallback would hand the
+    ///         author exactly the default they wrote the attribute to decline — and it would do it
+    ///         to a spelling mistake. <c>[Interpolation("nopersective")]</c> is a screen-space value
+    ///         silently interpolated with the perspective divide, which is not a compile error
+    ///         anywhere downstream and is a wrong picture rather than a missing one.
+    ///     </para>
+    ///     <para>
+    ///         The four words are GLSL's rather than names of our own, so an author reads the
+    ///         reference they already have. <c>centroid</c> is a sampling qualifier in both targets
+    ///         rather than a third interpolation function; Raven spells it as a mode anyway — see
+    ///         <see cref="Symbols.InterpolationMode" />.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor InterpolationNotRecognised = new(
+        "RVN2143",
+        "Unrecognised interpolation",
+        "'{0}' is not an interpolation; expected one of {1}. Writing nothing means smooth, which is "
+        + "what a varying does when it is not told otherwise",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>
+    ///     An interpolation on an integer varying that is not <c>flat</c> — <c>RVN2144</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The rasteriser weights its inputs by barycentric coordinates, which produces a
+    ///         fraction, so there is no interpolation an integer could take: SPIR-V requires
+    ///         <c>Flat</c> on an integer fragment input and GLSL ES requires <c>flat</c> at both
+    ///         ends of the link. <c>Reflection.StageInterface.MustBeFlat</c> applies it without
+    ///         being asked, which is right — and it means an author who writes
+    ///         <c>[Interpolation("noperspective")]</c> on an <c>int</c> would otherwise have the
+    ///         attribute they wrote quietly overruled.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Reported rather than obeyed, and rather than ignored. Obeying it emits a module
+    ///         <c>spirv-val</c> refuses — <c>VUID-StandaloneSpirv-Flat-04744</c> — and ignoring it
+    ///         is the silent-override this language does not do anywhere else. <c>flat</c> written
+    ///         out on an integer is accepted and says the same thing the compiler was going to say.
+    ///     </para>
+    /// </remarks>
+    public static readonly DiagnosticDescriptor InterpolationNotAvailable = new(
+        "RVN2144",
+        "Interpolation not available for this type",
+        "'{0}' is of integer type '{1}', which has no interpolation to take — every fragment reads "
+        + "the provoking vertex's value. Write [Interpolation(\"flat\")] or nothing at all",
+        Declaration,
+        DiagnosticSeverity.Error
+    );
+
+    /// <summary>
+    ///     An <c>[Interpolation]</c> on a declaration that is not a varying — <c>RVN2145</c>.
+    /// </summary>
+    /// <remarks>
+    ///     A warning rather than an error, on the policy <see cref="ResourceSetOnNonBinding" />
+    ///     already sets for a marker that cannot mean anything where it stands: the shader is
+    ///     well-formed and compiles to exactly what it says, and what is wrong is that the author
+    ///     believes something is happening. A binding, a <c>const</c>, a <c>groupshared</c> and a
+    ///     compute stage's parameters are all reached this way; only a <c>stream</c> field and a
+    ///     graphics entry point's own parameters cross the rasteriser.
+    /// </remarks>
+    public static readonly DiagnosticDescriptor InterpolationOnNonVarying = new(
+        "RVN2145",
+        "Interpolation has no effect here",
+        "[Interpolation] on '{0}' has no effect: {1}. Only a stream field and a graphics entry "
+        + "point's own parameters are interpolated",
+        Declaration,
+        DiagnosticSeverity.Warning
+    );
 }

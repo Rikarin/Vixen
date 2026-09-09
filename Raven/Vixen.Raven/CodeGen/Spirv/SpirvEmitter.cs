@@ -593,7 +593,7 @@ sealed partial class SpirvEmitter {
 
     uint DeclareStream(IrStream stream, SpirvStorageClass storage, string prefix) {
         var variable = DeclareStageVariable(
-            new(stream.Name, stream.Type, null),
+            new(stream.Name, stream.Type, null, Interpolation: stream.Interpolation),
             storage,
             prefix + stream.Name,
             located: true
@@ -651,11 +651,24 @@ sealed partial class SpirvEmitter {
         module.AddName(variable, name);
         interfaceIds.Add(variable);
 
-        if (located
-            && storage == SpirvStorageClass.Input
-            && entryPoint.Stage == ShaderStage.Fragment
-            && StageInterface.MustBeFlat(io.Type)) {
-            module.Decorate(variable, SpirvDecoration.Flat);
+        // ⚠ The input only, and only a located one. A decoration says how a value is *received*, so
+        // the producing stage carries none — which is where SPIR-V and GLSL stop agreeing, since a
+        // linked GL program needs the qualifier at both ends. A built-in is not received through
+        // the rasteriser at all.
+        if (located && storage == SpirvStorageClass.Input && entryPoint.Stage == ShaderStage.Fragment) {
+            switch (StageInterface.Interpolation(io.Type, io.Interpolation)) {
+                case InterpolationMode.Flat:
+                    module.Decorate(variable, SpirvDecoration.Flat);
+                    break;
+
+                case InterpolationMode.NoPerspective:
+                    module.Decorate(variable, SpirvDecoration.NoPerspective);
+                    break;
+
+                case InterpolationMode.Centroid:
+                    module.Decorate(variable, SpirvDecoration.Centroid);
+                    break;
+            }
         }
 
         return variable;

@@ -197,6 +197,18 @@ public abstract class FieldSymbol : Symbol {
     /// <summary>The pipeline semantic from a <c>[Semantic("…")]</c> attribute, or null.</summary>
     public virtual string? SemanticName => null;
 
+    /// <summary>
+    ///     How this field is interpolated when it is a varying — from
+    ///     <c>[Interpolation("…")]</c>, and <see cref="InterpolationMode.Smooth" /> when nothing
+    ///     says otherwise.
+    /// </summary>
+    /// <remarks>
+    ///     Only a <c>stream</c> field can be a varying, so this answers <c>Smooth</c> for every
+    ///     other field and <c>RVN2145</c> is what tells an author who wrote the attribute somewhere
+    ///     it cannot mean anything.
+    /// </remarks>
+    public virtual InterpolationMode Interpolation => InterpolationMode.Smooth;
+
     public override string ToDisplayString() => ContainingType is { } type ? $"{type.ToDisplayString()}.{Name}" : Name;
 }
 

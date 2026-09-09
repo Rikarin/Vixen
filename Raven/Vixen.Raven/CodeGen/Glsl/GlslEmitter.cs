@@ -438,8 +438,8 @@ sealed class GlslEmitter {
             // as a parameter of the fragment entry point, and GLSL rejects the declaration without
             // it. Its SPIR-V twin is `VUID-StandaloneSpirv-Flat-04744`, which is what the nightly's
             // `Corpus/raven/5cc192ddcce49da6.bin` reduces to once its splat is emitted correctly.
-            var flat = entryPoint.Stage == ShaderStage.Fragment && StageInterface.MustBeFlat(input.Type)
-                ? "flat "
+            var flat = entryPoint.Stage == ShaderStage.Fragment
+                ? Qualifier(input.Type, input.Interpolation)
                 : string.Empty;
 
             writer.Line(
@@ -470,8 +470,8 @@ sealed class GlslEmitter {
             // stream. A fragment stage's outputs are render targets and take no qualifier; anything
             // else is a varying a fragment stage will declare `flat`, and in a linked GL program
             // the two declarations have to agree.
-            var flat = entryPoint.Stage != ShaderStage.Fragment && StageInterface.MustBeFlat(output.Type)
-                ? "flat "
+            var flat = entryPoint.Stage != ShaderStage.Fragment
+                ? Qualifier(output.Type, output.Interpolation)
                 : string.Empty;
 
             // The member index rather than the list position, so a target lowering pruned as
@@ -489,6 +489,44 @@ sealed class GlslEmitter {
             writer.Blank();
         }
     }
+
+    /// <summary>
+    ///     The interpolation qualifier a varying's declaration takes, with its trailing space, or
+    ///     the empty string when it takes none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The caller decides whether the declaration is on a side of the boundary that takes a
+    ///         qualifier at all — a fragment stage's outputs are render targets and a vertex stage's
+    ///         inputs are attributes, and neither is interpolated — and this decides the word.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both ends carry it, which is the half GLSL does not share with SPIR-V.</b> A
+    ///         SPIR-V decoration says how a fragment input is <em>received</em>, so only that input
+    ///         carries one; GLSL is linked as a single program by the GL backend, and a program
+    ///         whose two halves disagree about an interpolation qualifier is a link error.
+    ///     </para>
+    ///     <para>
+    ///         <c>smooth</c> is emitted as nothing rather than as the word: it is GLSL's default at
+    ///         every version, and writing it would move every golden file in the tree for a
+    ///         declaration that asked for nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <c>noperspective</c> has no GLSL ES spelling. It reaches a GLES head through
+    ///         SPIRV-Cross rather than through this emitter's text, which is Vulkan GLSL and is
+    ///         where the qualifier is legal.
+    ///     </para>
+    /// </remarks>
+    /// <param name="type">What the varying carries.</param>
+    /// <param name="declared">What its declaration asked for.</param>
+    /// <returns>The qualifier and a space, or the empty string.</returns>
+    static string Qualifier(IrType type, InterpolationMode declared) =>
+        StageInterface.Interpolation(type, declared) switch {
+            InterpolationMode.Flat => "flat ",
+            InterpolationMode.NoPerspective => "noperspective ",
+            InterpolationMode.Centroid => "centroid ",
+            _ => string.Empty
+        };
 
     /// <summary>
     ///     Refuses a stage input or output GLSL cannot declare.
@@ -575,8 +613,8 @@ sealed class GlslEmitter {
 
             // The same rule SPIR-V states as `Flat`: an integer has no interpolation to take, so GLSL
             // requires the qualifier here and rejects the declaration without it.
-            var flat = entryPoint.Stage == ShaderStage.Fragment && StageInterface.MustBeFlat(stream.Type)
-                ? "flat "
+            var flat = entryPoint.Stage == ShaderStage.Fragment
+                ? Qualifier(stream.Type, stream.Interpolation)
                 : string.Empty;
 
             writer.Line(
@@ -603,8 +641,8 @@ sealed class GlslEmitter {
             // `!= Fragment` rather than `== Vertex`: a fragment stage's outputs are render targets,
             // which are not interpolated and which `flat out` would be an error on — and a compute
             // stage cannot carry a stream at all (RVN3006).
-            var flat = entryPoint.Stage != ShaderStage.Fragment && StageInterface.MustBeFlat(stream.Type)
-                ? "flat "
+            var flat = entryPoint.Stage != ShaderStage.Fragment
+                ? Qualifier(stream.Type, stream.Interpolation)
                 : string.Empty;
 
             writer.Line(
