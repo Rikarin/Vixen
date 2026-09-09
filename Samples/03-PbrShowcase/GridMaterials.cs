@@ -112,11 +112,20 @@ sealed class GridMaterials : IMaterialSource {
         permutations.Set(ForwardPlusKeys.UseShadows, true);
         permutations.Set(ForwardPlusKeys.CascadeCount, 4);
 
-        // On, because ShowcaseFrame bakes the sky both feed from: the cube's prefiltered chain is
+        // On, because ShowcaseFrame bakes the sky it feeds from: the cube's prefiltered chain is
         // the specular ambient — the thing that makes a rough metal and a smooth one different on
-        // their unlit sides — and the probe array falls back to the same cube.
+        // their unlit sides.
         permutations.Set(ForwardPlusKeys.UseImageBasedLighting, true);
-        permutations.Set(ForwardPlusKeys.UseReflectionProbe, true);
+
+        // ⚠ **UseReflectionProbe used to be on here, and it bought a second variant of the whole
+        // shading pass for a picture that could not change.** Nothing in this repository constructs
+        // a `ReflectionProbe` — `ReflectionProbeSelector.Probes` has no writer outside a test — so
+        // every object record's `probeWeight` is zero, `ClusteredShading.Ambient`'s
+        // `lerp(prefiltered, Probe(…), saturate(ProbeWeight(p)))` resolves to `prefiltered`, and the
+        // cube array and its sampler were bound every frame to be lerped away at weight zero. The
+        // fallback the old comment relied on is real, and that is exactly the point: falling back to
+        // the same cube is what makes the variant free of visual effect and not free of cost. It
+        // goes back on when this sample has a probe. See #1194.
 
         // Off, each for a stated reason: no probe field exists at `gi: Ambient`, and the frame's
         // one ambient-occlusion march is the document's !DistanceFieldAo node — marching the same

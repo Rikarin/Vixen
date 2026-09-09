@@ -3,6 +3,7 @@
 
 using Vixen.Core;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Vixen.Ecs.Systems;
 using Vixen.Engine.Transforms;
@@ -119,6 +120,59 @@ public sealed class VfxExtractionTests : IDisposable {
                 $"a particle was born at {effect.Particles.Position[index]} rather than near {at}"
             );
         }
+    }
+
+    /// <summary>An extracted effect sweeps on the render system's scheduler, not on none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>VfxSystem.Scheduler</c> was assigned only by <c>Vixen.Vfx.Tests</c> and
+    ///         <c>Vixen.Benchmarks.Vfx</c></b> — #456. Every effect a level actually contains is built
+    ///         here, and this constructor set every field but that one, so the parallel sweep the
+    ///         benchmarks measure was a path no game ever took. The frame's scheduler is the right one
+    ///         to give it because there is exactly one job system in the process; <c>AppGraphics</c>
+    ///         puts it on the render system and this passes it along.
+    ///     </para>
+    ///     <para>
+    ///         <b>Not a claim that the sweep goes parallel.</b> <see cref="VfxSystem.ParallelThreshold" />
+    ///         is what decides that and the fixture's effect is far below it — which is the point:
+    ///         handing over the scheduler costs a small emitter nothing and lets a dense one use it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AnExtractedEffectSweepsOnTheRenderSystemsScheduler() {
+        using var jobs = new JobScheduler(2);
+        using var world = new World();
+
+        system.Scheduler = jobs;
+        Emitting(world, Vector3.Zero);
+        extraction.Extract(world, 1f / 60f);
+
+        Assert.Same(jobs, Assert.Single(Systems()).Scheduler);
+    }
+
+    /// <summary>
+    ///     And an effect extracted before the host had a scheduler picks it up on the next step.
+    /// </summary>
+    /// <remarks>
+    ///     The seam is refreshed in <c>Advance</c> rather than only at <c>Appear</c>, because a host
+    ///     may wire the render system after a world has already been extracted — the editor reloads a
+    ///     document, and a project that swaps its quality preset rebuilds its compositor. An effect
+    ///     wired once would sweep serially for the rest of its life and nothing would say so.
+    /// </remarks>
+    [Fact]
+    public void AnEffectExtractedBeforeTheSchedulerArrivedPicksItUp() {
+        using var jobs = new JobScheduler(2);
+        using var world = new World();
+
+        Emitting(world, Vector3.Zero);
+        extraction.Extract(world, 1f / 60f);
+
+        Assert.Null(Assert.Single(Systems()).Scheduler);
+
+        system.Scheduler = jobs;
+        extraction.Extract(world, 1f / 60f);
+
+        Assert.Same(jobs, Assert.Single(Systems()).Scheduler);
     }
 
     /// <summary>Two emitters of one effect are two simulations, seeded apart.</summary>

@@ -61,11 +61,20 @@ public sealed class RenderSystem : IDisposable {
         }
     } = new VisibilityGroup();
 
-    /// <summary>The scheduler culling and sorting run on. Null runs them inline.</summary>
+    /// <summary>The scheduler culling runs on. Null culls inline.</summary>
     /// <remarks>
-    ///     Nullable rather than defaulted to a scheduler of its own: a renderer that quietly starts
-    ///     threads is one a test cannot make deterministic, and the engine has exactly one job
-    ///     system to hand in.
+    ///     <para>
+    ///         Nullable rather than defaulted to a scheduler of its own: a renderer that quietly
+    ///         starts threads is one a test cannot make deterministic, and the engine has exactly one
+    ///         job system to hand in. <c>AppGraphics</c> hands it the application's, which is the
+    ///         same object <c>AppServices.Jobs</c> names.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Culling only, and this said "culling and sorting" until #456 read
+    ///         <see cref="Sort" />.</b> <see cref="Cull" /> is the one method that passes this on;
+    ///         <see cref="Sort" /> walks the views and stages on the calling thread and has never
+    ///         consulted a scheduler at all.
+    ///     </para>
     /// </remarks>
     public JobScheduler? Scheduler { get; set; }
 

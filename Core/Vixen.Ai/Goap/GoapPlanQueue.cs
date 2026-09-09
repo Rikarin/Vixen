@@ -108,6 +108,20 @@ public sealed class GoapPlanQueue {
     /// <summary>How many searches the last <see cref="Update" /> ran.</summary>
     public int LastResolves { get; private set; }
 
+    /// <summary>
+    ///     How many jobs the last <see cref="Update" /> scheduled, or 1 when it ran on the caller.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Internal because it is an invariant rather than a statistic.</b> A lane owns a
+    ///     planner, so this may never exceed the queue's <c>parallelSearches</c> however large a
+    ///     <c>resolves</c> a caller passes — which is exactly what it was doing before #456, and it
+    ///     is the only way to observe that from outside without racing the defect it describes.
+    /// </remarks>
+    internal int LastLanes { get; private set; }
+
+    /// <summary>How many planners this queue holds, for the test that owns <see cref="LastLanes" />.</summary>
+    internal int PlannerCount => planners.Length;
+
     /// <summary>How many nodes the last <see cref="Update" /> expanded, across every search.</summary>
     public int LastExpanded { get; private set; }
 
@@ -194,10 +208,23 @@ public sealed class GoapPlanQueue {
             taken[index] = waiting.Dequeue();
         }
 
-        if (Scheduler is { } scheduler && batch > 1) {
-            var job = new SearchJob { Queue = this, Taken = taken };
+        // ⚠ One job per *planner*, never one per search, and the difference was a data race. The
+        // batch is `resolves`, which is the caller's number — `AiSystem.ResolvesPerStep`, public and
+        // settable — while the planner count is this queue's, and `Run`'s round-robin
+        // `planners[index % planners.Length]` only keeps two searches apart while they run one after
+        // another. Scheduling `batch` jobs with `batch` above `parallelSearches` put two *concurrent*
+        // searches on one planner, which is one node pool and one open list, and that is precisely
+        // the race the round-robin was written to avoid. Nothing had ever executed this branch — no
+        // test, no benchmark and no production caller assigned `Scheduler` — so the defect shipped
+        // unobserved. See #456.
+        var lanes = Math.Min(batch, planners.Length);
 
-            scheduler.ScheduleParallel(job, batch).Complete();
+        LastLanes = Scheduler is not null && lanes > 1 ? lanes : 1;
+
+        if (Scheduler is { } scheduler && lanes > 1) {
+            var job = new SearchJob { Queue = this, Taken = taken, Lanes = lanes };
+
+            scheduler.ScheduleParallel(job, lanes).Complete();
         } else {
             for (var index = 0; index < batch; index++) {
                 Run(taken, index);
@@ -231,6 +258,11 @@ public sealed class GoapPlanQueue {
     }
 
     /// <summary>Runs one search. ⚠ Touches only its own slot and its own planner.</summary>
+    /// <remarks>
+    ///     The serial path only. Round-robin over the batch is safe here because the searches run one
+    ///     after another; <see cref="RunLane" /> is what the scheduled path uses, and it exists
+    ///     because that is not true there.
+    /// </remarks>
     void Run(int[] taken, int index) {
         // One planner per parallel slot, round-robin over the batch: a planner is a node pool and an
         // open list, and two searches in one would be the race this arrangement exists to avoid.
@@ -238,6 +270,23 @@ public sealed class GoapPlanQueue {
         var slot = slots[taken[index]];
 
         planner.Search(slot.Snapshot, slot.Plan);
+    }
+
+    /// <summary>Runs every search this lane owns, on the one planner the lane owns.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The lane index is the planner index, and that identity is the whole safety
+    ///     argument.</b> A lane strides the batch rather than taking a contiguous run of it so that
+    ///     an odd batch splits evenly, but either partitioning would do: what matters is that there
+    ///     are never more lanes than planners.
+    /// </remarks>
+    void RunLane(int[] taken, int lane, int lanes) {
+        var planner = planners[lane];
+
+        for (var index = lane; index < taken.Length; index += lanes) {
+            var slot = slots[taken[index]];
+
+            planner.Search(slot.Snapshot, slot.Plan);
+        }
     }
 
     int Free() {
@@ -273,14 +322,16 @@ public sealed class GoapPlanQueue {
     }
 
     /// <summary>
-    ///     ⚠ Batched by slot index, so two searches never share a planner and never share a slot —
-    ///     which is the whole of what makes this safe to schedule.
+    ///     ⚠ Indexed by <em>lane</em> and not by search, so two searches never share a planner and
+    ///     never share a slot — which is the whole of what makes this safe to schedule.
     /// </summary>
     readonly struct SearchJob : IJobParallelFor {
         public GoapPlanQueue Queue { get; init; }
 
         public int[] Taken { get; init; }
 
-        public void Execute(int index) => Queue.Run(Taken, index);
+        public int Lanes { get; init; }
+
+        public void Execute(int lane) => Queue.RunLane(Taken, lane, Lanes);
     }
 }
