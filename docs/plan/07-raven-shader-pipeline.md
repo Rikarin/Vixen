@@ -288,8 +288,23 @@ Honestly bounded:
   same lowered IR; the oracle compares emitters, not the lowering.
 - **`ArrayStride` is now covered.** `SizedArrayTests` puts a `float4[4]` and a `float[8]` in a uniform
   block and asserts the stride, and both reference tools read the result — so the std140 round-up to 16
-  is checked against two full front ends rather than only against the spec as literals. What is still
-  uncovered is `std430`, which nothing produces until there is a storage buffer to produce it.
+  is checked against two full front ends rather than only against the spec as literals.
+  ~~What is still uncovered is `std430`, which nothing produces until there is a storage buffer to
+  produce it.~~ **Covered too**, since there is a storage buffer now: `SpirvDifferentialTests`'
+  `Storage` fixture is an `RWBuffer<Sample>` whose element carries the three numbers std430 decides
+  differently, and `The_two_paths_agree_on_a_storage_buffers_std430_offsets_and_strides` compares them
+  against glslang computing std430 itself. Injected faults: an array stride rounded up like std140 reads
+  `4` against the oracle's `16`, and a struct size left unrounded reads `52` against `64`.
+  - ⚠ **Two things had to change before the oracle could see std430 at all**, and both were silent.
+    `SpirvInterface.Read` collects `OpMemberDecorate`, and `ArrayStride` is an `OpDecorate` on the
+    array *type* — so the decoration std430 is entirely about was invisible to it however many storage
+    buffers it was pointed at. And its member map is keyed by the struct's *name*, which the two front
+    ends genuinely spell differently for a laid-out struct: Raven emits one type per layout rule
+    (`Sample.Std430`), glslang emits `Sample_0`. `SpirvInterface.Layout` keys a struct by its member
+    names in order instead, which both take from the source.
+  - ⚠ **The fixture's last member is load-bearing.** A struct whose members happen to end on a
+    sixteen-byte boundary makes the size round-up unobservable — the sum and the rounded size are the
+    same number — so the trailing scalar is what turns that rule into something a fault can move.
 - **The tools are found on PATH, not restored.** `glslc` (brew install shaderc, apt-get install
   glslc) and `spirv-dis` (brew install spirv-tools); the CLI tools rather than `Silk.NET.Shaderc`,
   so shaderc's native binaries never enter the restore graph of a project that must not ship them.
