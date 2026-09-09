@@ -365,6 +365,10 @@ public sealed class VfxExtractionSystem : SystemBase, IDeclaredAccess {
             // ⚠ Derived from the entity when the emitter says nothing, and this is what stops fifteen
             // lamps drifting identical embers. Two systems of one graph with one seed produce the same
             // particles, which at a distance reads as a repeated texture rather than as fifteen fires.
+            // ⚠ The scheduler is deliberately not set here even though this is where the system is
+            // made: `Advance` runs later in the same `Extract` and assigns it before the first
+            // `Step`, so a copy here is a second writer that no test can tell from the first —
+            // removing it left every assertion green, which is what says it was never load-bearing.
             var effect = new VfxSystem(graph, emitter.Seed != 0 ? emitter.Seed : Seed(entity)) {
                 Emitting = emitter.Playing,
                 Origin = placement.Translation
@@ -455,6 +459,14 @@ public sealed class VfxExtractionSystem : SystemBase, IDeclaredAccess {
 
                 effect.Origin = at;
                 effect.Emitting = emitters[index].Playing;
+
+                // ⚠ Here rather than once at Appear, because a host may assign the render system's
+                // scheduler after an effect has already been extracted — the editor reloads a
+                // document, and `AppGraphics` builds the renderer before it has the application's
+                // scheduler in some orderings. An effect wired once would then sweep serially for
+                // its whole life. See #456; the effect's own `ParallelThreshold` is what decides
+                // whether the scheduler is used at all, so this is free for a small emitter.
+                effect.Scheduler = system.Scheduler;
                 effect.Step(deltaSeconds);
 
                 // The bound follows the emitter rather than the particles, and is deliberately not

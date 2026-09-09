@@ -125,6 +125,20 @@ public sealed class NavPathQueue {
     ///         <see cref="Baking.NavTileCache.Update" /> write to it, and this is the one place in the
     ///         assembly where that would be a race rather than a mistake with an obvious symptom.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Deliberately still the only one of the four seams #456 named that nothing in the
+    ///         engine assigns, and the reason is in the paragraph above about cost.</b>
+    ///         <c>AppGraphics</c> now hands the application's scheduler to <c>RenderSystem</c> and to
+    ///         every <c>VfxSystem</c>, and <c>AiSystem</c> hands it to every <c>GoapPlanQueue</c>,
+    ///         because each of those has a work item worth a dispatch — a word of sixty-four objects
+    ///         against every view, a sweep over thousands of particles, a bounded A*. This one's is a
+    ///         <em>slice</em> of one search: <c>parallelSearches</c> is four by default and a whole
+    ///         search is about thirteen microseconds, so an <c>Advance</c> at the default settings is
+    ///         four jobs of a few microseconds each with the calling thread blocked on all of them,
+    ///         which is on the wrong side of the crossover <c>Vixen.Benchmarks.Jobs</c> records. A
+    ///         project that raises <c>parallelSearches</c> and has measured its own level assigns
+    ///         this itself, through <c>Crowd.Paths</c>; the engine does not assign it for them.
+    ///     </para>
     /// </remarks>
     public JobScheduler? Scheduler { get; set; }
 

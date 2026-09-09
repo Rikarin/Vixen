@@ -1265,15 +1265,23 @@ public sealed class Arena : IDisposable {
         // ClusteredShading.rvn declares `UseShadows: bool = true` and `CascadeCount: int = 4` — so
         // the sun's cascades were sampled either way and the attribution was wrong. What actually
         // differed between the fallback and the nine is the permutations whose default is *off*:
-        // UseReflectionProbe below, and MaxLights, which the shader defaults to 16 while this sets
-        // 24. AssetMaterialSourceTests.AProjectThatSetsNoPermutationsStillCompilesTheShadowTerm pins
-        // the defaults, so the sentence cannot rot back into being true unnoticed.
+        // MaxLights, which the shader defaults to 16 while this sets 24.
+        // AssetMaterialSourceTests.AProjectThatSetsNoPermutationsStillCompilesTheShadowTerm pins the
+        // defaults, so the sentence cannot rot back into being true unnoticed.
         //
         // AssetMaterialSource.Permutations is still where a project says all of it once.
         var permutations = new ParameterCollection();
 
         permutations.Set(ForwardPlusKeys.UseImageBasedLighting, ImageBasedLight);
-        permutations.Set(ForwardPlusKeys.UseReflectionProbe, true);
+
+        // ⚠ **UseReflectionProbe used to be set here, and paid for a variant that could not change
+        // the picture.** No production code anywhere constructs a `ReflectionProbe`:
+        // `WorldRenderer` builds the selector with an empty `Probes` list and nothing writes to it,
+        // so `ForwardLightingRenderFeature` never reaches `IndexOf`, every record's `probeWeight`
+        // stays zero, and the shader's `lerp(prefiltered, Probe(…), 0)` is `prefiltered`. What it
+        // did cost was a second compiled variant of the whole shading pass, a cube array and a
+        // sampler bound every frame, and a parallax correction evaluated per pixel. It goes back on
+        // when this arena has a probe in it. See #1194.
 
         // ⚠ **SplitOutputs is not here, and used to be.** The split is what makes ForwardPlus write
         // direct light and emissive to target 0, albedo (occlusion in alpha) to target 1, world

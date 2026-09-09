@@ -70,6 +70,10 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
 
     long tick;
 
+    // The runner's, taken from the context each Update and handed to every queue. Null under Step,
+    // which is the seam a tool or a test without a runner uses.
+    JobScheduler? jobs;
+
     /// <summary>Creates the system.</summary>
     /// <param name="actions">Every action its agents may run.</param>
     /// <param name="layout">The shape of each agent's blackboard.</param>
@@ -184,7 +188,17 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
     public SystemAccess Access { get; } = SystemAccess.Declare().Write<AiAgent>().Build();
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>This is where the application's scheduler reaches the planners</b>, and until #456
+    ///     nothing did: <see cref="GoapPlanQueue.Scheduler" /> was assigned by no production caller,
+    ///     no test and no benchmark, so a shipped game planned every GOAP search on the frame thread
+    ///     and the parallel branch had never executed anywhere. It is taken from the context rather
+    ///     than from a property of this system's own because <see cref="Step" /> is the seam a tool
+    ///     without a runner uses, and a tool without a runner has no scheduler to give.
+    /// </remarks>
     public override JobHandle Update(in SystemContext context, JobHandle dependency) {
+        jobs = context.Jobs;
+
         Step(context.World, context.Time);
 
         return dependency;
@@ -496,7 +510,19 @@ public sealed class AiSystem : SystemBase, IDeclaredAccess {
         var share = Math.Max(1, ResolvesPerStep / Math.Max(1, queues.Count(queue => queue is not null)));
 
         foreach (var queue in queues) {
-            queue?.Update(share);
+            if (queue is null) {
+                continue;
+            }
+
+            // Every step rather than at construction, because Queue() is public and a game may make
+            // a queue before this system has ever been updated. Only when there is one to give: a
+            // game that assigned a scheduler of its own to a queue it fetched keeps it on a head
+            // that has none.
+            if (jobs is not null) {
+                queue.Scheduler = jobs;
+            }
+
+            queue.Update(share);
         }
     }
 

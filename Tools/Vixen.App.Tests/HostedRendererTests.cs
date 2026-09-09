@@ -88,6 +88,35 @@ public sealed class HostedRendererTests : IDisposable {
     }
 
     /// <summary>
+    ///     And so is the frame's culling, which is a different seam and was assigned by nothing.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two seams, one scheduler, and the second of them had no writer at all.</b>
+    ///         <c>CompositorBuilder.Jobs</c> above is what a <em>node</em> puts deferrable work on;
+    ///         <c>RenderSystem.Scheduler</c> is what <c>RenderSystem.Cull</c> tests every object
+    ///         against every view on. #456 found the second assigned only under <c>Benchmarks/</c>
+    ///         and <c>*.Tests/</c> — so a shipped game culled its whole scene on the frame thread
+    ///         while <c>FrameBudgetTests</c> measured the parallel path beside it.
+    ///     </para>
+    ///     <para>
+    ///         The assertion is identity rather than "not null", for the reason the test above gives:
+    ///         a renderer given a scheduler of its own would satisfy a null check and would give the
+    ///         tiers nothing to choose between.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheFramesCullingRunsOnTheApplicationsOwnScheduler() {
+        using var application = Build(new SilentGame());
+
+        Assert.NotNull(application.Services.Jobs);
+        Assert.Same(
+            application.Services.Jobs,
+            application.Services.Graphics!.Renderer.Host.System.Scheduler
+        );
+    }
+
+    /// <summary>
     ///     The frame the host runs is a frame the renderer records. Without this the whole stack is
     ///     built, wired and never asked for anything — which is the state it was in.
     /// </summary>

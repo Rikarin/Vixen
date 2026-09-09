@@ -111,10 +111,27 @@ deferrable CPU work on the same scheduler**. One production path reached one con
 makes the scheduler and hands it to `EngineLoop` → `SystemRunner` → `SystemContext.Jobs`, and the
 only thing that read it was `AnimationSystem.Evaluate`, a `ParallelFor` the frame is blocked on,
 which is `Frame` work by construction. Of the ten scheduling call sites outside this module the
-other nine sit behind a `JobScheduler?` seam that **no production code assigns** — `Scheduler =`
-still appears only under `Benchmarks/` and `*.Tests/`. And the long CPU work — BC7 encode, meshlet
+other nine sat behind a `JobScheduler?` seam that **no production code assigned** — `Scheduler =`
+appeared only under `Benchmarks/` and `*.Tests/`. And the long CPU work — BC7 encode, meshlet
 LOD build, distance-field bake, remesh and unwrap — is all in the import pipeline, in a process with
 no scheduler at all.
+
+⚠ *Three of those seams are assigned now, and the fourth is refused on purpose* (#456). `AppGraphics`
+hands the application's scheduler to `RenderSystem.Scheduler`, which is what `Cull` tests every object
+against every view on, and `VfxExtractionSystem` passes the same object on to every `VfxSystem` it
+creates — guarded by that system's own `ParallelThreshold`, so a small emitter still sweeps inline.
+`AiSystem.Update` hands it to every `GoapPlanQueue`. `NavPathQueue.Scheduler` is left unassigned and
+says why in its own remarks: its work item is a *slice* of a thirteen-microsecond search, four of them
+at the default `parallelSearches`, which is the wrong side of this module's own crossover.
+
+⚠ *And wiring the GOAP one first required fixing it.* `GoapPlanQueue.Update` scheduled one job per
+search over `planners[index % planners.Length]`, so a `resolves` above `parallelSearches` — which
+`AiSystem.ResolvesPerStep` is public and settable to — put two **concurrently running** searches on
+one planner, one node pool and one open list. The round-robin only ever kept searches apart while
+they ran one after another. It is now one job per *lane*, a lane owning one planner and striding the
+batch, and `LastLanes` is the internal invariant a test holds to `<= parallelSearches`. The defect
+had never been observed because the branch had never executed anywhere: no production caller, **no
+test and no benchmark** assigned that seam.
 
 *What the consumer is.* A composite is every cell of every level against every instance, it is the
 most expensive thing in the frame by a wide margin, and the levels are snapped to their own grids

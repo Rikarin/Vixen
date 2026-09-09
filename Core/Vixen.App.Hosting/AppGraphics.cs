@@ -257,6 +257,13 @@ public sealed class AppGraphics : IDisposable {
         // have nothing to choose between. See `CompositorBuilder.Jobs`.
         Renderer.Host.Builder.Jobs = jobs;
 
+        // ⚠ And the render system's own, which is a different seam from the builder's and was
+        // assigned by nothing: `RenderSystem.Scheduler` is what `Cull` runs the frustum tests on, so
+        // until this line a shipped game tested every object against every view on the frame thread
+        // while its own benchmarks and tests measured the parallel path. See #456. Nullable all the
+        // way down, so a head built without a scheduler culls inline exactly as before.
+        Renderer.Host.System.Scheduler = jobs;
+
         // Also before Load, and for a stricter version of the same reason: a node kind nothing has
         // bound is not a warning, it is a CompositorBindingException from inside the build. This is
         // where a project's own node packages get their say — see GraphicsOptions.Factories.
