@@ -26,6 +26,17 @@ import Vixen.Shaders.Shading
 // that does not fill them does not lose its punctual shadows, it loses every draw in the pass. Bound
 // to `NoPunctualShadows`, this feature declares nothing and costs nothing.
 //
+// ⚠ **The atlas is a plain `Texture2D` and a plain `Sampler` deliberately, not for want of the
+// types.** Raven has `DepthTexture2D` and `ComparisonSampler`, and the host builds a comparison
+// sampler with the right compare op for reversed depth — so hardware PCF is available and this
+// shader does not take it. The reason is the margin below: this filter clamps its lookup one and a
+// half texels inside the tile so a 3×3 kernel cannot step across a seam, and a hardware tap is a
+// 2×2 bilinear compare, which grows every tap's footprint and makes that number wrong. Swapping the
+// nine taps for one hardware tap is the change actually worth making, and it is a 2×2 filter where
+// this is a 3×3 box — a different picture rather than a cheaper one, so it wants an A/B and not a
+// green suite. `Raven/Vixen.Raven.Tests/DepthTextureTests.cs` carries the whole verdict (#498); the
+// sun's cascade is the place to start, because it has no tile margin to redo.
+//
 // **Its own package rather than a file in `Shading`, and the split is structural.** `Shading` ships as
 // a `.rvnlib` — free functions over field-less structs, nothing touching a binding — and `RVN5001`
 // correctly refuses to export a function that reads one. `PunctualShadowAtlas` reads the atlas it

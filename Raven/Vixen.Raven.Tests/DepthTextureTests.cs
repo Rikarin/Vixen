@@ -31,6 +31,40 @@ namespace Tests;
 ///         somebody sees; a reflection that reported the wrong descriptor type gives a pipeline
 ///         that will not create, on a platform this repository does not yet run tests on.
 ///     </para>
+///     <para>
+///         ⚠ <b>And the standing question #498 asked — nothing in <c>Raven/Library</c> declares
+///         either type, is that a gap or a feature nobody wants — has an answer now: a gap, worth
+///         closing, and not by a type swap.</b> The two claims that made it look like plumbing are
+///         refuted at HEAD. The host half is wired end to end —
+///         <c>VulkanDevice.Resources.cs:226</c> sets <c>CompareEnable</c>,
+///         <c>VulkanDevice.Pipelines.cs:404</c> and <c>WebGpuDevice.Resources.cs:653</c> refuse a
+///         mismatch in <em>both</em> directions, and <c>SamplerDescription.Shadow</c> already
+///         compares with <c>GreaterEqual</c>, which is the correct op for this engine's reversed
+///         depth rather than the inverted one that class of migration usually ships. What is
+///         genuinely missing is a <em>selector</em>: <c>SamplerPreset.Shadow</c> is read only by
+///         <c>CompositorBuilder.cs:1617</c>'s own switch arm, so the descriptor is buildable and
+///         never built.
+///     </para>
+///     <para>
+///         ⚠ <b>Why the shader half is not a swap, which is the finding.</b>
+///         <c>PunctualShadows.rvn</c> pulls its lookup one and a half texels inside the tile so that
+///         a 3×3 kernel cannot step across a seam into another light's tile — the atlas is tiled one
+///         frustum per tile and a tap in the neighbour "draws a hard line of shadow along nothing".
+///         A hardware comparison tap is a <em>2×2 bilinear</em> compare, so each of nine taps grows
+///         its own footprint and the margin arithmetic that comment describes stops being right. And
+///         the prize is not nine hardware taps but one — which is a 2×2 filter where the shader
+///         computes a 3×3 box, a different picture rather than the same picture cheaper.
+///     </para>
+///     <para>
+///         So the recommendation, in order: take the sun's cascade
+///         (<c>ClusteredShading.SampleCascade</c>) first, because it has no tile margin to redo;
+///         A/B the frame rather than trusting a green suite, since this is a filter change; and give
+///         <c>SamplerPreset.Shadow</c> a selector in the same change, or it stays a descriptor
+///         nothing asks for. The punctual atlas is last and owes new margin arithmetic, not a new
+///         type. ⚠ The compute path is <em>not</em> a blocker, though it looks like one:
+///         <c>VisibilityResolve</c> reaches <c>Lighting.ShadowTap</c> from a dispatch and needs an
+///         explicit level, and Raven already has <c>SampleCompareLevelZero</c> for exactly that.
+///     </para>
 /// </remarks>
 public class DepthTextureTests {
     /// <summary>
