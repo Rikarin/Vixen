@@ -3423,6 +3423,7 @@ Vixen.Rendering.Materials.HairShading.HairShading() -> void
 Vixen.Rendering.Materials.HairShading.ShaderName.get -> string
 Vixen.Rendering.Materials.IMaterialFeature -> interface
 Vixen.Rendering.Materials.IMaterialFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.IMaterialFeature.IsBaseSurface.get -> bool
 Vixen.Rendering.Materials.IMaterialFeature.ShaderName.get -> string
 Vixen.Rendering.Materials.IMaterialFeature.Stage.get -> Vixen.Rendering.Materials.MaterialFeatureStage
 Vixen.Rendering.Materials.IMaterialShading -> interface
@@ -3486,6 +3487,7 @@ Vixen.Rendering.Materials.MaterialDiagnosticId.MaterialDiagnosticId() -> void
 Vixen.Rendering.Materials.MaterialDiagnosticId.NoFeatures = 2 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialDiagnosticId.RenamedTextureMap = 6 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialDiagnosticId.TooManyFeatures = 1 -> Vixen.Rendering.Materials.MaterialDiagnosticId
+Vixen.Rendering.Materials.MaterialDiagnosticId.TwoBaseSurfaces = 7 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialDiagnosticId.UnnamedShader = 3 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialDiagnosticId.UnpaintedLayer = 4 -> Vixen.Rendering.Materials.MaterialDiagnosticId
 Vixen.Rendering.Materials.MaterialFeatureStage -> enum : int
@@ -3509,6 +3511,7 @@ Vixen.Rendering.Materials.MaterialLayersFeature -> sealed record
 Vixen.Rendering.Materials.MaterialLayersFeature : System.IEquatable<Vixen.Rendering.Materials.MaterialLayersFeature>
 Vixen.Rendering.Materials.MaterialLayersFeature : Vixen.Rendering.Materials.IMaterialFeature
 Vixen.Rendering.Materials.MaterialLayersFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.MaterialLayersFeature.IsBaseSurface.get -> bool
 Vixen.Rendering.Materials.MaterialLayersFeature.Layers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.MaterialLayerValue>
 Vixen.Rendering.Materials.MaterialLayersFeature.Layers.init -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.MaterialLayerValue>
 Vixen.Rendering.Materials.MaterialLayersFeature.MaterialLayersFeature() -> void
@@ -3541,6 +3544,7 @@ Vixen.Rendering.Materials.MetalRoughnessFeature : Vixen.Rendering.Materials.IMat
 Vixen.Rendering.Materials.MetalRoughnessFeature.BaseColor.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Materials.MetalRoughnessFeature.BaseColor.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Materials.MetalRoughnessFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.MetalRoughnessFeature.IsBaseSurface.get -> bool
 Vixen.Rendering.Materials.MetalRoughnessFeature.MetalRoughnessFeature() -> void
 Vixen.Rendering.Materials.MetalRoughnessFeature.Metalness.get -> float
 Vixen.Rendering.Materials.MetalRoughnessFeature.Metalness.init -> float
@@ -3606,6 +3610,7 @@ Vixen.Rendering.Materials.SpecularGlossinessFeature.DiffuseColor.get -> Vixen.Co
 Vixen.Rendering.Materials.SpecularGlossinessFeature.DiffuseColor.init -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Materials.SpecularGlossinessFeature.Glossiness.get -> float
 Vixen.Rendering.Materials.SpecularGlossinessFeature.Glossiness.init -> float
+Vixen.Rendering.Materials.SpecularGlossinessFeature.IsBaseSurface.get -> bool
 Vixen.Rendering.Materials.SpecularGlossinessFeature.ShaderName.get -> string
 Vixen.Rendering.Materials.SpecularGlossinessFeature.SpecularColor.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.Materials.SpecularGlossinessFeature.SpecularColor.init -> Vixen.Core.Mathematics.Vector3
@@ -3660,6 +3665,7 @@ Vixen.Rendering.Materials.TexturedMaterialLayersFeature.HeightMap.get -> string
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.HeightMap.init -> string
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.HeightTransition.get -> float
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.HeightTransition.init -> float
+Vixen.Rendering.Materials.TexturedMaterialLayersFeature.IsBaseSurface.get -> bool
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.Layers.get -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.MaterialLayerValue>
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.Layers.init -> System.Collections.Generic.IReadOnlyList<Vixen.Rendering.Materials.MaterialLayerValue>
 Vixen.Rendering.Materials.TexturedMaterialLayersFeature.PaintedChannels.get -> int
@@ -3676,6 +3682,7 @@ Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.BaseColor.init -> Vixen.
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.BaseColorMap.get -> string
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.BaseColorMap.init -> string
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.IsBaseSurface.get -> bool
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Metalness.get -> float
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Metalness.init -> float
 Vixen.Rendering.Materials.TexturedMetalRoughnessFeature.Roughness.get -> float

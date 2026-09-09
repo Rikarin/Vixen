@@ -58,6 +58,33 @@ public interface IMaterialFeature {
     /// </remarks>
     MaterialFeatureStage Stage => MaterialFeatureStage.Surface;
 
+    /// <summary>Whether this feature <em>is</em> the surface, rather than contributing to one.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A base workflow decides what the surface is made of</b> — it assigns
+    ///         <c>diffuseColor</c>, <c>f0</c> and <c>perceptualRoughness</c> rather than adjusting
+    ///         them — so a chain may hold exactly one. Two of them compose, resolve and compile
+    ///         clean, and at run time the later slot writes over the earlier one's albedo:
+    ///         <see cref="MaterialDiagnosticId.TwoBaseSurfaces" /> is what says so, and
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1123">#1123</a> is where it was found.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Declared by the features rather than listed in the compiler, because a list is
+    ///         the second copy a new workflow silently is not on.</b> A feature added to
+    ///         <c>MaterialFeatures.cs</c> that assigns the surface says so here, next to the
+    ///         assignment; a rule that read a type list in <see cref="MaterialCompiler" /> would
+    ///         admit that feature beside every other base surface with nothing reported — which is
+    ///         the defect this rule exists to catch, arriving through the rule itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>BlendFeature</c> is deliberately not one.</b> Its two sides are separate
+    ///         surfaces — <c>BlendSurface</c> hands each a copy of the data and mixes the results —
+    ///         so the base surfaces nested inside it are not in this chain at all, which is
+    ///         <c>MaterialCompiler.Ordered</c>'s reason for being flat as well.
+    ///     </para>
+    /// </remarks>
+    bool IsBaseSurface => false;
+
     /// <summary>Writes this feature's parameters, and fills any slots of its own.</summary>
     void Compile(MaterialCompilationContext context);
 }
@@ -186,7 +213,30 @@ public enum MaterialDiagnosticId {
     ///         and whose pairing entries are added per material rather than statically.
     ///     </para>
     /// </remarks>
-    RenamedTextureMap
+    RenamedTextureMap,
+
+    /// <summary>Two base workflows are in one chain, so the later one writes over the earlier's albedo.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>An error, and the picture it refuses is a fully lit, plausible surface of the
+    ///         wrong material.</b> Every base workflow is
+    ///         <see cref="MaterialFeatureStage.Surface" /> and each <em>assigns</em> the same fields
+    ///         of <c>MaterialData</c>, so two of them compose into two
+    ///         <c>CompositeSurface</c> slots, the composition resolves, the material compiles, and at
+    ///         run time the second simply overwrites the first. Nothing in the file, the compile or
+    ///         the frame said which of the two won.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reachable only by <em>assembling</em> a material</b> — a bake, an inspector, a
+    ///         migration, a hand-edit — which is why it is worth a rule:
+    ///         <c>MaterialBake.Material</c> was the first assembler to have the question put to it,
+    ///         and the answer had to be argued from the shader source rather than read off a
+    ///         diagnostic. See <a href="https://github.com/Rikarin/Vixen/issues/1123">#1123</a>, and
+    ///         <see cref="IMaterialFeature.IsBaseSurface" /> for why the predicate belongs to the
+    ///         features.
+    ///     </para>
+    /// </remarks>
+    TwoBaseSurfaces
 }
 
 /// <summary>One thing the compiler has to say about a material.</summary>

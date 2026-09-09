@@ -473,6 +473,7 @@ public static class MaterialCompiler {
         }
 
         Ordered(descriptor, diagnostics);
+        Based(descriptor, diagnostics);
 
         // Always through the chain, even for one feature. The alternative — binding a lone feature
         // straight into `surface` — would name its parameters one way for a material with one
@@ -568,6 +569,59 @@ public static class MaterialCompiler {
                     + "so every feature ahead of this one reads the coordinate it is about to "
                     + "replace — half a surface displaced and half not, drawn without an error. A "
                     + "coordinate feature has to be first in the list.",
+                    IsError: true
+                )
+            );
+        }
+    }
+
+    /// <summary>Refuses a chain that holds two base workflows, either of which writes the surface.</summary>
+    /// <param name="descriptor">The material, whose feature list this reads.</param>
+    /// <param name="diagnostics">Where a refusal is recorded.</param>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The compiler's second opinion about a chain, and the first about its contents</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1123">#1123</a>.
+    ///         <see cref="MaterialDiagnosticId.DuplicateFeature" /> catches one feature listed twice
+    ///         and <see cref="Ordered" /> catches a coordinate feature out of place; neither looks at
+    ///         two <em>different</em> base workflows, and until this nothing did. Both compose, the
+    ///         composition resolves, and the later slot writes over the earlier one's albedo,
+    ///         roughness and metalness at run time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The predicate is <see cref="IMaterialFeature.IsBaseSurface" /> and not a type
+    ///         list here</b>, for that member's own reason: a list in this file is a second copy that
+    ///         a workflow added later is silently absent from, which is the same defect arriving
+    ///         through the rule meant to catch it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Every extra one is reported rather than only the second</b>, because the message
+    ///         names the pair and an author looking at three has to be told about both collisions to
+    ///         know which feature to delete.
+    ///     </para>
+    /// </remarks>
+    static void Based(MaterialDescriptor descriptor, List<MaterialDiagnostic> diagnostics) {
+        IMaterialFeature? had = null;
+
+        foreach (var feature in descriptor.Features) {
+            if (feature is null || !feature.IsBaseSurface) {
+                continue;
+            }
+
+            if (had is null) {
+                had = feature;
+                continue;
+            }
+
+            diagnostics.Add(
+                new(
+                    MaterialDiagnosticId.TwoBaseSurfaces,
+                    $"'{feature.ShaderName}' and '{had.ShaderName}' are both base workflows and this "
+                    + "material lists both. A base workflow assigns the surface rather than "
+                    + "contributing to it, so the two compose into one chain, the material compiles, "
+                    + $"and '{feature.ShaderName}' writes over what '{had.ShaderName}' put in the "
+                    + "albedo, the roughness and the metalness — a fully lit surface of the wrong "
+                    + "material, on every device, with nothing reported. Keep one of them.",
                     IsError: true
                 )
             );

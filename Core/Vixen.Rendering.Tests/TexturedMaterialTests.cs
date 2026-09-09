@@ -335,29 +335,49 @@ public class TexturedMaterialTests {
     }
 
     /// <summary>
-    ///     ⚠ And the two layered features are one <c>LayerCount</c>, which is a constraint on materials.
+    ///     ⚠ And a material carrying both layer stacks is now refused rather than merely warned about.
     /// </summary>
     /// <remarks>
-    ///     A permutation is resolved by name across a compilation, so a material carrying a constant
-    ///     layer stack and a painted one sets one key twice — last write wins, and the loser's layers
-    ///     are read out of a block sized for the winner. Asserted rather than left to a reader, because
-    ///     the failure is a wrong picture and the fix is "do not author that material".
+    ///     <para>
+    ///         <b>This asserted the damage and named "do not author that material" as the fix, which
+    ///         is a fix nothing enforced</b> — a permutation is resolved by name across a compilation,
+    ///         so a material carrying a constant layer stack and a painted one sets one
+    ///         <c>LayerCount</c> twice, last write wins, and the loser's layers are read out of a
+    ///         block sized for the winner.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The shared count was the smaller half of it.</b> Both features are base workflows:
+    ///         each <em>assigns</em> the albedo, the roughness and the metalness, so the second one
+    ///         composed writes over the first whatever the counts agree on — a fully lit surface of
+    ///         the wrong material. <see cref="MaterialDiagnosticId.TwoBaseSurfaces" /> refuses the
+    ///         chain now (<a href="https://github.com/Rikarin/Vixen/issues/1123">#1123</a>), so the
+    ///         sentence in the old remark is a rule rather than a note nobody reads.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void The_constant_and_painted_layer_stacks_share_one_count() {
-        var material = Compiled(
-            new MaterialLayersFeature { Layers = [new(Vector3.One, 0f, 0.5f, 1f), new(Vector3.One, 0f, 0.5f, 1f)] },
-            new TexturedMaterialLayersFeature {
-                Layers = [
-                    new(Vector3.One, 0f, 0.5f, 1f),
-                    new(Vector3.One, 0f, 0.5f, 1f),
-                    new(Vector3.One, 0f, 0.5f, 1f)
+    public void The_constant_and_painted_layer_stacks_cannot_be_one_material() {
+        var compilation = MaterialCompiler.Compile(
+            new() {
+                Features = [
+                    new MaterialLayersFeature {
+                        Layers = [new(Vector3.One, 0f, 0.5f, 1f), new(Vector3.One, 0f, 0.5f, 1f)]
+                    },
+                    new TexturedMaterialLayersFeature {
+                        Layers = [
+                            new(Vector3.One, 0f, 0.5f, 1f),
+                            new(Vector3.One, 0f, 0.5f, 1f),
+                            new(Vector3.One, 0f, 0.5f, 1f)
+                        ]
+                    }
                 ]
             }
         );
 
-        // One key, and the painted stack compiled second, so three is what both shaders get.
-        Assert.Equal(3, material.Parameters.Get(MaterialKeys.LayerCount("ForwardPlus")));
+        Assert.True(compilation.Failed);
+        Assert.Contains(
+            compilation.Diagnostics,
+            diagnostic => diagnostic.Id == MaterialDiagnosticId.TwoBaseSurfaces && diagnostic.IsError
+        );
     }
 
     /// <summary>

@@ -134,6 +134,15 @@ public sealed record MetalRoughnessFeature : IMaterialFeature {
     public string ShaderName => "MetalRoughnessSurface";
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>It assigns the surface</b> — <c>MetalRoughnessSurface</c> writes <c>diffuseColor</c>, <c>f0</c>
+    ///     and <c>perceptualRoughness</c> rather than adjusting what is there — so a chain that holds
+    ///     this and a second base workflow draws whichever of the two the compiler composed last.
+    ///     <see cref="MaterialDiagnosticId.TwoBaseSurfaces" /> is what refuses that.
+    /// </remarks>
+    public bool IsBaseSurface => true;
+
+    /// <inheritdoc />
     public void Compile(MaterialCompilationContext context) {
         ArgumentNullException.ThrowIfNull(context);
 
@@ -194,6 +203,15 @@ public sealed record TexturedMetalRoughnessFeature : IMaterialFeature {
     /// <inheritdoc />
     public string ShaderName => "TexturedMetalRoughnessSurface";
 
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>It assigns the surface</b> — <c>TexturedMetalRoughnessSurface</c> writes <c>diffuseColor</c>, <c>f0</c>
+    ///     and <c>perceptualRoughness</c> rather than adjusting what is there — so a chain that holds
+    ///     this and a second base workflow draws whichever of the two the compiler composed last.
+    ///     <see cref="MaterialDiagnosticId.TwoBaseSurfaces" /> is what refuses that.
+    /// </remarks>
+    public bool IsBaseSurface => true;
+
     /// <summary>What the shader calls the slot, under a composition path.</summary>
     /// <param name="path">
     ///     The qualified prefix the feature was composed under, as
@@ -247,6 +265,15 @@ public sealed record SpecularGlossinessFeature : IMaterialFeature {
 
     /// <inheritdoc />
     public string ShaderName => "SpecularGlossinessSurface";
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>It assigns the surface</b> — <c>SpecularGlossinessSurface</c> writes <c>diffuseColor</c>, <c>f0</c>
+    ///     and <c>perceptualRoughness</c> rather than adjusting what is there — so a chain that holds
+    ///     this and a second base workflow draws whichever of the two the compiler composed last.
+    ///     <see cref="MaterialDiagnosticId.TwoBaseSurfaces" /> is what refuses that.
+    /// </remarks>
+    public bool IsBaseSurface => true;
 
     /// <inheritdoc />
     public void Compile(MaterialCompilationContext context) {
@@ -747,6 +774,15 @@ public sealed record MaterialLayersFeature : IMaterialFeature {
     public string ShaderName => "MaterialLayersSurface";
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>It assigns the surface</b> — <c>MaterialLayersSurface</c> writes <c>diffuseColor</c>, <c>f0</c>
+    ///     and <c>perceptualRoughness</c> rather than adjusting what is there — so a chain that holds
+    ///     this and a second base workflow draws whichever of the two the compiler composed last.
+    ///     <see cref="MaterialDiagnosticId.TwoBaseSurfaces" /> is what refuses that.
+    /// </remarks>
+    public bool IsBaseSurface => true;
+
+    /// <inheritdoc />
     public void Compile(MaterialCompilationContext context) {
         ArgumentNullException.ThrowIfNull(context);
 
@@ -924,6 +960,15 @@ public sealed record TexturedMaterialLayersFeature : IMaterialFeature {
 
     /// <inheritdoc />
     public string ShaderName => "TexturedMaterialLayersSurface";
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>It assigns the surface</b> — <c>TexturedMaterialLayersSurface</c> writes <c>diffuseColor</c>, <c>f0</c>
+    ///     and <c>perceptualRoughness</c> rather than adjusting what is there — so a chain that holds
+    ///     this and a second base workflow draws whichever of the two the compiler composed last.
+    ///     <see cref="MaterialDiagnosticId.TwoBaseSurfaces" /> is what refuses that.
+    /// </remarks>
+    public bool IsBaseSurface => true;
 
     /// <summary>What the shader calls the slot, under a composition path.</summary>
     /// <param name="path">
