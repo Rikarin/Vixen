@@ -397,6 +397,14 @@ static class MaterialIcons {
         // the shapes belong to the geometry rather than to this component.
         new(typeof(BlendShapeWeights), Struck(Cube, Tune, Geometry)),
 
+        // A LOD group and one of its levels. Sliders for the parent, because thresholds are what it
+        // holds and it draws nothing itself; a cube with the distance ring round it for a level,
+        // which is the thing a threshold decides about. ⚠ Not the pair `BlendShapeWeights` uses —
+        // that one is already a mesh struck with sliders, and two components sharing art is two rows
+        // in the inspector nobody can tell apart.
+        new(typeof(LodGroupComponent), Filled(Tune, Geometry)),
+        new(typeof(LodLevel), Struck(Cube, OrbitRing, Geometry)),
+
         // Mass and motion. ⚠ These arrived in the editor's own set only when `Vixen.Editor.App`
         // came to reference `Vixen.Physics` for play mode — the components are years older, and the
         // icon test is what noticed the day they started shipping.
