@@ -78,6 +78,14 @@ Prefixes match longest-first, so `Vixen.Graphics` is a single switch for everyth
 rule naming one type still beats it whatever order the two were added in. Giving a sink its own
 filter is equally valid and is how the file stays verbose while the console stays quiet.
 
+⚠ **For a long time nothing outside two test files called `SetCategoryLevel`.** The mechanism above
+was complete and had no way to be *said* — a rebuild was the only way to change a level, which is why
+doc 13 § Discipline reads as though per-category levels did not exist. `Vixen.App.Hosting` now reads
+`vixen.log.yaml` at boot into the filter it shares out, from `/app` (shipped with the build) and then
+`/data` (the machine's, which wins), and reports both reads at Information so that a file nobody read
+is distinguishable from one that was read and agreed with the defaults. The **editor panel** doc 13
+also asks for is still owed: the filter is reachable as `services.Logs.Filter` and nothing surfaces it.
+
 ## Rate limiting
 
 One warning inside the frame loop is sixty lines a second: a file nobody can read, a console the

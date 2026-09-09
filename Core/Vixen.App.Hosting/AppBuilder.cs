@@ -182,6 +182,18 @@ public sealed class AppBuilder {
         var fileSystem = new VirtualFileSystem();
         host.FileSystem.MountStandardLocations(fileSystem);
 
+        // The first thing done with the mounted file system, and it has to be: everything below
+        // this line logs, and a per-category rule that arrives after the subsystem it names has
+        // already spoken is a rule that did nothing on the run somebody was watching. What it
+        // cannot cover is the platform above — the mounts do not exist until the platform does —
+        // which is why `--vixen-log-level` stays the way to turn up a boot that never got this far.
+        LogConfigFile.ApplyStandardLocations(
+            fileSystem,
+            levels,
+            honourMinimumLevel: arguments.LogLevel is null,
+            loggerFactory.CreateLogger("Vixen.App")
+        );
+
         var workers = config.WorkerCount ?? Math.Max(1, host.Processors.AvailableProcessors - 1);
 
         // The other half of `IProcessorTopology`, and until now the unused one: the count has been
@@ -376,29 +388,69 @@ public sealed class AppBuilder {
 ///     The smallest thing that turns the log ring into an <see cref="ILoggerFactory" />.
 /// </summary>
 /// <remarks>
-///     ADR-008 takes <c>Microsoft.Extensions.Logging.Abstractions</c> and no more, so the concrete
-///     <c>LoggerFactory</c> — which lives in the non-abstractions package — is not available and
-///     should not be: it brings a configuration and options stack an engine has no use for. This is
-///     the twenty lines that stand in for it, and the composition it performs is the host's decision
-///     anyway.
+///     <para>
+///         ADR-008 takes <c>Microsoft.Extensions.Logging.Abstractions</c> and no more, so the
+///         concrete <c>LoggerFactory</c> — which lives in the non-abstractions package — is not
+///         available and should not be: it brings a configuration and options stack an engine has no
+///         use for. This is the twenty lines that stand in for it, and the composition it performs
+///         is the host's decision anyway.
+///     </para>
+///     <para>
+///         ⚠ <b>A closed factory is loud, not deaf.</b> <c>Microsoft.Extensions.Logging</c>'s own
+///         <c>LoggerFactory</c> throws <see cref="ObjectDisposedException" /> from
+///         <c>CreateLogger</c> after disposal, and this one deliberately does not: several
+///         subsystems log from inside their own <c>Dispose</c>, so throwing would turn a dropped
+///         line into an exception on a path that is already going down. What it does instead is
+///         write every record it is given after disposal to <see cref="Console.Error" />, prefixed
+///         and named, because the one behaviour that is not acceptable is the one this class used
+///         to have: <c>Dispose</c> cleared the provider list, <c>CreateLogger</c> returned a
+///         fan-out over nothing, and every record after that was accepted and written nowhere. A
+///         disposed factory was not dead, it was <i>deaf</i> — the shape this repository keeps
+///         rediscovering, where the thing reports success on the day it stopped working.
+///     </para>
+///     <para>
+///         ⚠ <b>Which is why there is no single-provider fast path any more.</b> It used to hand
+///         back the provider's own logger, so a logger cached before disposal — and
+///         <c>VixenApplication</c> caches one in its constructor — could not notice the factory
+///         closing underneath it. Every logger this factory makes is now its own, and asks the
+///         factory on each record. That is one field read per line, against a fan-out that was
+///         already walking an array.
+///     </para>
+///     <para>
+///         <see cref="AddProvider" /> does throw, because there is no teardown excuse for it: a
+///         provider added to a closed factory would be leaked, never disposed, and never written
+///         to.
+///     </para>
 /// </remarks>
 sealed class HostLoggerFactory(params ILoggerProvider[] providers) : ILoggerFactory {
     readonly List<ILoggerProvider> providers = [.. providers];
 
+    bool disposed;
+
+    /// <summary>
+    ///     Where a record written after <see cref="Dispose" /> goes. <see cref="Console.Error" />
+    ///     unless a test names somewhere it can read back — asserting on the last-resort channel is
+    ///     the only oracle that can tell a diverted record from a discarded one, and
+    ///     <c>Console.SetError</c> is process-wide and would collide with a parallel test.
+    /// </summary>
+    internal TextWriter? LastResort { get; init; }
+
     public void AddProvider(ILoggerProvider provider) {
         ArgumentNullException.ThrowIfNull(provider);
+        ObjectDisposedException.ThrowIf(disposed, this);
         this.providers.Add(provider);
     }
 
-    public ILogger CreateLogger(string categoryName) {
-        if (this.providers.Count == 1) {
-            return this.providers[0].CreateLogger(categoryName);
-        }
-
-        return new Fanout([.. this.providers.Select(provider => provider.CreateLogger(categoryName))]);
-    }
+    public ILogger CreateLogger(string categoryName) =>
+        new Fanout(this, categoryName, [.. this.providers.Select(provider => provider.CreateLogger(categoryName))]);
 
     public void Dispose() {
+        if (disposed) {
+            return;
+        }
+
+        disposed = true;
+
         foreach (var provider in this.providers) {
             provider.Dispose();
         }
@@ -406,11 +458,31 @@ sealed class HostLoggerFactory(params ILoggerProvider[] providers) : ILoggerFact
         this.providers.Clear();
     }
 
-    /// <summary>One logger that writes to several.</summary>
-    sealed class Fanout(ILogger[] loggers) : ILogger {
+    /// <summary>Says out loud that a record arrived after the sinks were closed.</summary>
+    void WriteAfterClose(string category, LogLevel level, string message, Exception? exception) {
+        var writer = LastResort ?? Console.Error;
+
+        writer.WriteLine($"[vixen: logged after shutdown] {level}: {category}: {message}");
+
+        if (exception is not null) {
+            writer.WriteLine(exception);
+        }
+
+        writer.Flush();
+    }
+
+    /// <summary>One logger that writes to several — or, once the factory is closed, to none.</summary>
+    sealed class Fanout(HostLoggerFactory factory, string category, ILogger[] loggers) : ILogger {
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
         public bool IsEnabled(LogLevel logLevel) {
+            // ⚠ True, and that is the point. The source-generated logging methods check this before
+            // they format anything, so a closed factory answering false here would make the
+            // diversion below unreachable and put the silence straight back.
+            if (factory.disposed) {
+                return true;
+            }
+
             foreach (var logger in loggers) {
                 if (logger.IsEnabled(logLevel)) {
                     return true;
@@ -427,6 +499,12 @@ sealed class HostLoggerFactory(params ILoggerProvider[] providers) : ILoggerFact
             Exception? exception,
             Func<TState, Exception?, string> formatter
         ) {
+            if (factory.disposed) {
+                factory.WriteAfterClose(category, logLevel, formatter(state, exception), exception);
+
+                return;
+            }
+
             foreach (var logger in loggers) {
                 logger.Log(logLevel, eventId, state, exception, formatter);
             }

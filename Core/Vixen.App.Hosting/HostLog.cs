@@ -366,4 +366,29 @@ static partial class HostLog {
         Message = "Declared systems not running: {Systems}. Register the service before OnInitialise returns."
     )]
     public static partial void UndeclaredServices(ILogger logger, string systems);
+
+    /// <summary>
+    ///     ⚠ <b>Said even when the file agreed with the defaults</b>, because a configuration file
+    ///     nobody read is otherwise indistinguishable from one that was read and changed nothing —
+    ///     and a run whose log does not carry this line found no file at all, which is the question
+    ///     somebody editing <c>vixen.log.yaml</c> is actually asking.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13034,
+        Level = LogLevel.Information,
+        Message = "Log configuration from {Path}: {Rules} category rule(s), minimum {Minimum}."
+    )]
+    public static partial void LogConfigApplied(ILogger logger, VirtualPath path, int rules, LogLevel minimum);
+
+    /// <summary>
+    ///     A warning rather than a stop: the alternative is a game that refuses to start because
+    ///     somebody mistyped a log level, on the one path whose whole job is to make the game
+    ///     easier to watch.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13035,
+        Level = LogLevel.Warning,
+        Message = "Log configuration at {Path} was ignored: {Reason}"
+    )]
+    public static partial void LogConfigUnreadable(ILogger logger, VirtualPath path, string reason);
 }
