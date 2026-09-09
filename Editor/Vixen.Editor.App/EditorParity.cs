@@ -513,6 +513,21 @@ sealed partial class EditorApplication {
             enabled: () => browser is not null && project.Selection.Count > 0
         );
 
+        // ⚠ Doc 20 § B7's second verb, and it is enabled by a *provider* rather than by a
+        // preference: an editor opened on a project that is not in a working tree greys this with
+        // the reason, which is the shape every other unimplementable line in this file takes. The
+        // enablement asks `SourceControl.IsKnown` rather than "is there a provider", because the
+        // detection happens on the pool during the first sweep — a line that lit up only after the
+        // answer arrived is honest, and one that lit up before it would offer a verb with nothing
+        // behind it.
+        Verb(
+            "assets.revert",
+            new StringId("editor.command.assets.revert", "Revert to Source Control"),
+            CategoryAssets,
+            RevertToSourceControl,
+            enabled: () => SourceControl.IsKnown && project.Selection.Count > 0
+        );
+
         Planned(
             "assets.reimport",
             new StringId("editor.command.assets.reimport", "Reimport"),
@@ -1144,6 +1159,8 @@ sealed partial class EditorApplication {
         assets.AddSeparator()
             .Add("assets.show-in-explorer", "assets.open", "assets.rename", "assets.delete", "assets.move-to")
             .AddSeparator()
+            .Add("assets.revert")
+            .AddSeparator()
             .Add("assets.reimport", "assets.reimport-all", "assets.bake-mesh-maps")
             .AddSeparator()
             .Add("assets.find-references", "assets.select-dependencies")
@@ -1541,50 +1558,166 @@ sealed partial class EditorApplication {
             return;
         }
 
+        // ⚠ Into the folder the browser is showing rather than into `Assets/`, which is what this
+        // did and is the smaller half of doc 20 § B3's "choose a destination". A person who has
+        // navigated to `Textures/` and asked to import has already said where; putting the files at
+        // the root anyway is a move they then have to undo by hand, and the affordance that told
+        // them nothing was the one they used.
+        var folder = browser?.Folder ?? AssetTree.RootName;
+
         deferred.When(
             dialogs.OpenFilesAsync(new FileDialogOptions { Title = "Import Assets", AllowsMultipleSelection = true }),
-            paths => {
-                if (paths.Count == 0) {
-                    return;
-                }
-
-                var copied = 0;
-
-                try {
-                    Directory.CreateDirectory(project.Paths.Assets);
-
-                    foreach (var path in paths) {
-                        var destination = Path.Combine(project.Paths.Assets, Path.GetFileName(path));
-
-                        // ⚠ Never over an existing file. Two textures called `wood.png` from two
-                        // folders is the ordinary case, and silently replacing the one already in the
-                        // project is a change nothing records and undo cannot reach.
-                        if (File.Exists(destination)) {
-                            Shell.Notifications.Show(
-                                Path.GetFileName(path) + " is already in the project",
-                                NotificationSeverity.Warning,
-                                "Rename it, or import it into a folder of its own."
-                            );
-
-                            continue;
-                        }
-
-                        File.Copy(path, destination);
-                        copied++;
-                    }
-                } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
-                    Shell.Notifications.Show("Could not copy the files", NotificationSeverity.Error, exception.Message);
-                    return;
-                }
-
-                if (copied > 0) {
-                    project.Assets.Scan();
-                    browser?.Rescan();
-                    content.Import();
-                }
-            },
+            paths => BringIn(paths, folder),
             failure => Shell.Notifications.Show("Could not import", NotificationSeverity.Error, failure.Message)
         );
+    }
+
+    /// <summary>Copies what was dragged in from the OS into the folder it was dropped on.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The first consumer of a <c>DropEvent</c> in the editor, and the gesture doc 20 § Part
+    ///     D lists as the last ⛔ under Content.</b> The wire and the model both landed under
+    ///     <see href="https://github.com/Rikarin/Vixen/issues/654">#654</see> and nothing in this
+    ///     application had ever listened, so a folder of textures dragged out of Finder was routed,
+    ///     hit-tested and bubbled to a panel with no handler — which looks exactly like a platform
+    ///     that cannot do it.
+    /// </remarks>
+    void ImportDropped(IReadOnlyList<string> paths, string folder) => BringIn(paths, folder);
+
+    /// <summary>Copies files and folders into the project, then scans and imports what arrived.</summary>
+    /// <param name="paths">Absolute paths on the user's disk.</param>
+    /// <param name="folder">The project-relative folder to land them in.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Copied rather than referenced.</b> An asset outside the project tree is one the
+    ///         content build cannot find, the reference index cannot name and a colleague does not
+    ///         have — every engine that allowed it spent years telling people why their build was
+    ///         broken.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A directory is copied whole, and until it was, the commonest drag there is did
+    ///         nothing.</b> "Drag a folder of textures in from Finder" is doc 20's own wording for
+    ///         this row, and <c>File.Copy</c> over a directory throws — so the dialog half reported
+    ///         "could not copy the files" for the one input every user tries first.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A path already inside the project is refused rather than duplicated.</b> The
+    ///         browser is a file view of <c>Assets/</c>, and a person dragging a row of it onto
+    ///         itself means a move — which <see cref="MoveAssets" /> does with identity intact.
+    ///         Copying would mint a second GUID for the same bytes, which is the state the reference
+    ///         index cannot repair.
+    ///     </para>
+    /// </remarks>
+    void BringIn(IReadOnlyList<string> paths, string folder) {
+        if (paths.Count == 0) {
+            return;
+        }
+
+        var destination = project.Paths.Absolute(string.IsNullOrEmpty(folder) ? AssetTree.RootName : folder);
+        var copied = 0;
+
+        try {
+            Directory.CreateDirectory(destination);
+
+            foreach (var path in paths) {
+                copied += Bring(path, destination) ? 1 : 0;
+            }
+        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+            Shell.Notifications.Show("Could not copy the files", NotificationSeverity.Error, exception.Message);
+            return;
+        }
+
+        if (copied == 0) {
+            return;
+        }
+
+        project.Assets.Scan();
+        browser?.Rescan();
+        content.Import();
+
+        Shell.Notifications.Success(
+            copied == 1 ? $"1 asset imported into {folder}" : $"{copied} assets imported into {folder}"
+        );
+    }
+
+    /// <summary>Copies one file or one directory in, and says why not if it will not.</summary>
+    /// <param name="path">What was chosen or dropped.</param>
+    /// <param name="destination">The absolute folder it goes into.</param>
+    /// <returns>Whether anything was copied.</returns>
+    bool Bring(string path, string destination) {
+        var name = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+
+        if (string.IsNullOrEmpty(name)) {
+            return false;
+        }
+
+        var target = Path.Combine(destination, name);
+
+        if (Inside(path, project.Paths.Root)) {
+            Shell.Notifications.Show(
+                name + " is already in this project",
+                NotificationSeverity.Warning,
+                "Drag it onto a folder in the browser to move it, which keeps its references."
+            );
+
+            return false;
+        }
+
+        // ⚠ Never over something already there. Two textures called `wood.png` from two folders is
+        // the ordinary case, and silently replacing the one already in the project is a change
+        // nothing records and undo cannot reach.
+        if (File.Exists(target) || Directory.Exists(target)) {
+            Shell.Notifications.Show(
+                name + " is already in the project",
+                NotificationSeverity.Warning,
+                "Rename it, or import it into a folder of its own."
+            );
+
+            return false;
+        }
+
+        if (Directory.Exists(path)) {
+            CopyTree(path, target);
+            return true;
+        }
+
+        if (!File.Exists(path)) {
+            return false;
+        }
+
+        File.Copy(path, target);
+        return true;
+    }
+
+    /// <summary>Copies a directory and everything under it.</summary>
+    /// <param name="from">The source directory.</param>
+    /// <param name="to">Where it goes, which does not exist yet.</param>
+    static void CopyTree(string from, string to) {
+        Directory.CreateDirectory(to);
+
+        foreach (var file in Directory.EnumerateFiles(from)) {
+            File.Copy(file, Path.Combine(to, Path.GetFileName(file)));
+        }
+
+        foreach (var directory in Directory.EnumerateDirectories(from)) {
+            CopyTree(directory, Path.Combine(to, Path.GetFileName(directory)));
+        }
+    }
+
+    /// <summary>Whether a path is the given directory or lives under it.</summary>
+    /// <param name="path">The path in question.</param>
+    /// <param name="directory">The directory it might be under.</param>
+    /// <returns>Whether it is.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Compared with a separator on the end, so <c>ProjectTwo</c> is not "inside"
+    ///     <c>Project</c>.</b> A prefix test without one is the check that refuses a legitimate
+    ///     import from the folder next door and gives a reason that is not true.
+    /// </remarks>
+    static bool Inside(string path, string directory) {
+        var full = Path.GetFullPath(path);
+        var root = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+        return full.StartsWith(root, StringComparison.Ordinal)
+            || string.Equals(full + Path.DirectorySeparatorChar, root, StringComparison.Ordinal);
     }
 
     /// <summary>Asks which kind of asset to make, and runs that kind's own verb.</summary>

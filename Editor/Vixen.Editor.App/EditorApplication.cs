@@ -1899,6 +1899,12 @@ sealed partial class EditorApplication : IDisposable {
             project.References.Build(project.Assets);
         }
 
+        // ⚠ The one event that means "somebody changed the project without going through us", which
+        // is the same event a source-control status goes stale on — a checkout, a pull, a rebase and
+        // an editor in another window are all this. A provider polled on a timer instead would be
+        // right on average and wrong exactly when it mattered.
+        Sweep();
+
         RefreshBuildPanel();
 
         // ⚠ After the rescan, and this is the one ordering constraint in the seam. A path becomes a
@@ -2245,6 +2251,14 @@ sealed partial class EditorApplication : IDisposable {
                     browser.Moved += MoveAssets;
                     browser.DroppedOutside += Dropped;
                     browser.DraggedOutside += Dragging;
+                    browser.FilesDropped += ImportDropped;
+
+                    // ⚠ Doc 20 § B7's column, given to the panel as a value. The sweep that fills it
+                    // is asked for here rather than at startup: this factory runs when the panel
+                    // first appears and again on every reopen, which is exactly when somebody is
+                    // about to look at the answer.
+                    browser.Status = statuses.Of;
+                    Sweep();
                     browser.Grabbing += down => grabbingAssets = down;
                     browser.Thumbnails = thumbnails;
 
@@ -5248,6 +5262,10 @@ sealed partial class EditorApplication : IDisposable {
 
         try {
             var report = open.Rescan();
+
+            // Refresh is the user saying "the project may have changed underneath you", which is the
+            // same sentence a status sweep answers.
+            Sweep();
 
             if (report.Issues.Count == 0) {
                 Shell.Notifications.Success($"{report.Assets} assets");

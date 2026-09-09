@@ -171,6 +171,24 @@ sealed class ProjectBrowser {
     /// </remarks>
     public event Action<IReadOnlyList<AssetId>, float, float>? DraggedOutside;
 
+    /// <summary>Raised when files are dropped onto the panel from outside the editor.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The paths and the folder they landed in, because where a drop lands is what
+    ///         chooses the destination.</b> Doc 20 § B3 asks an import to choose a destination, and a
+    ///         drag says it with the pointer: dropping a folder of textures on <c>Textures/</c> means
+    ///         that folder, and there is no dialog in the world that says it faster. What the browser
+    ///         will not do is the import itself — copying into <c>Assets/</c> and rescanning is the
+    ///         application's, for the same reason every other verb here goes out as an event.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An in-app drag is not this.</b> <see cref="DropEvent.Files" /> is empty for a
+    ///         drag begun inside the editor — a row dragged out of this very panel arrives as one —
+    ///         and importing an asset the project already holds would copy a file over itself.
+    ///     </para>
+    /// </remarks>
+    public event Action<IReadOnlyList<string>, string>? FilesDropped;
+
     /// <summary>Raised when a pointer goes down on the panel, and again when it comes up.</summary>
     /// <remarks>
     ///     <para>
@@ -237,6 +255,26 @@ sealed class ProjectBrowser {
             },
             RoutingStrategy.Capture,
             handledEventsToo: true
+        );
+
+        // ⚠ The first consumer of an OS drop in this repository, and the panel is the target rather
+        // than a row: a file dragged out of Finder lands wherever the pointer is, which is as often
+        // the empty space below the last row as it is on a folder. The route bubbles, so a drop on a
+        // row arrives here anyway and `FolderAt` reads what it landed on.
+        panel.AllowDrop = true;
+
+        panel.AddHandler<DropEvent>(
+            (_, args) => {
+                if (args.Files.Count == 0) {
+                    return;
+                }
+
+                // Handled, so a drop is imported once. Nothing above this is listening today, and
+                // the day something is, two copies of a hundred textures is not the failure to find
+                // out that way.
+                args.Handled = true;
+                FilesDropped?.Invoke(args.Files, FolderAt(args.X, args.Y));
+            }
         );
 
         var bar = panel.Add<UiElement>("browser-filters");
@@ -372,6 +410,12 @@ sealed class ProjectBrowser {
         tiles.Containing = Containing;
         tiles.Art = Art;
         tiles.Picture = Pictured;
+
+        // ⚠ A lambda over the property rather than the property's value, because the application
+        // assigns `Status` after building the panel — a direct hand-over here would freeze the
+        // default in, and the column would be permanently blank in exactly the arrangement that
+        // ships.
+        tiles.Status = node => Status(node.Path);
         tiles.Navigated += entered => {
             folder = entered.Path;
             Populate();
@@ -467,6 +511,60 @@ sealed class ProjectBrowser {
     ///     every <c>AssetTreeNode</c>, so a held reference names a folder that no longer exists.
     /// </remarks>
     public string Folder => folder;
+
+    /// <summary>What source control says about a project-relative path, for the column.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Given to the panel rather than read by it, for the browser's standing rule: every
+    ///     verb goes out as an event and every fact comes in as a value.</b> A browser that ran
+    ///     <c>git</c> would be a panel that starts a process, and the answer belongs to the project
+    ///     rather than to whichever view happens to be open — see <c>EditorApplication.Sweep</c>,
+    ///     which is where the sweep is taken and what makes it survive the panel being closed.
+    /// </remarks>
+    public Func<string, SourceControlStatus> Status { get; set; } = static _ => SourceControlStatus.Unknown;
+
+    /// <summary>Re-draws the marks after a status sweep has landed.</summary>
+    /// <remarks>
+    ///     ⚠ Rebinds rather than rebuilds. A sweep changes what a tile <i>says</i> and never which
+    ///     tiles there are, and a rebuild would take the scroll position and the selection with it —
+    ///     which for something that runs whenever a file changes on disk is the panel jumping under
+    ///     the pointer.
+    /// </remarks>
+    public void Restated() => tiles.Refresh();
+
+    /// <summary>Which folder a point in the panel means, for a drop that has to land somewhere.</summary>
+    /// <param name="x">Where, in document space.</param>
+    /// <param name="y">Where, in document space.</param>
+    /// <returns>A project-relative folder path, never empty.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The row under the pointer decides, and an <i>asset</i> row means the folder that
+    ///         holds it.</b> Nobody aiming at <c>wood.png</c> means "inside wood.png"; they mean the
+    ///         folder they can see it in. Walking up from whatever was hit answers both cases with
+    ///         one rule.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the fallback is the folder being shown rather than the root.</b> A drop on
+    ///         the empty space under the last tile is the commonest aim of all — the tiles fill the
+    ///         top of the panel and the space below them is most of it — and answering <c>Assets/</c>
+    ///         there would put files somewhere the user is not looking, which is the mistake nobody
+    ///         notices until the build.
+    ///     </para>
+    /// </remarks>
+    public string FolderAt(float x, float y) {
+        foreach (var view in new[] { folders, tree }) {
+            if (view.HasClass("hidden") || view.NodeAt(x, y) is not { } hit) {
+                continue;
+            }
+
+            for (var node = hit; node is not null; node = node.Parent) {
+                if (node.Tag is AssetTreeNode { IsFolder: true } under) {
+                    return under.Path;
+                }
+            }
+        }
+
+        return string.IsNullOrEmpty(folder) ? AssetTree.RootName : folder;
+    }
 
     /// <summary>Rebuilds the folders-only tree and puts the mark back on the folder being shown.</summary>
     /// <remarks>

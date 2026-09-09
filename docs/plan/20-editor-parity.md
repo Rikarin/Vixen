@@ -314,7 +314,7 @@ is the assembly that should hold it. Status: ✅ built, 🟡 partial, ⛔ absent
 | **Hierarchy** | Outliner / Hierarchy | `.App` → `.SceneView` | ✅ | — |
 | **Inspector** | Details / Inspector | `.Inspector` | 🟡 | Multiple inspector windows and pinned/favourite members ([#1038](https://github.com/Rikarin/Vixen/issues/1038)), debug (raw) mode ([#1039](https://github.com/Rikarin/Vixen/issues/1039)). ⚠ **The second window is a second *instance*, which is the hard half**: `EditorApplication` holds one `inspector` field and `FollowSelection` exists to arbitrate several selections into it |
 | **Scene viewport** | Level Viewport / Scene | `.SceneView` | 🟡 | See [B2](#b2--the-viewport) |
-| **Project browser** | Content Browser / Project | `.App` | 🟡 | The folder tree and saved filters are built; **collections/favourites** are what is left of [#1040](https://github.com/Rikarin/Vixen/issues/1040), and the source-control column waits on a provider ([#1034](https://github.com/Rikarin/Vixen/issues/1034)). ⚠ The tree and the grid are two *modes* of one view, so the folder tree is a second, folders-only control that narrows the grid rather than the existing one turned on as well. ⚠ A saved filter keeps the **query** and a collection would keep the **result** — one `AssetId` set, because paths break on a move — which is why only the first of the two is a preference |
+| **Project browser** | Content Browser / Project | `.App` | 🟡 | The folder tree and saved filters are built; **collections/favourites** are what is left of [#1040](https://github.com/Rikarin/Vixen/issues/1040), and the source-control column is built over `ISourceControl` and draws git's own letters ([#1034](https://github.com/Rikarin/Vixen/issues/1034)) — ⚠ on the **grid**, which is what the panel opens as; the list view has no cell to put one in, because `TreeNode` has no trailing accessory at all ([#1171](https://github.com/Rikarin/Vixen/issues/1171)) — which is the same gap the outliner's per-entity visibility and lock waits on. ⚠ The tree and the grid are two *modes* of one view, so the folder tree is a second, folders-only control that narrows the grid rather than the existing one turned on as well. ⚠ A saved filter keeps the **query** and a collection would keep the **result** — one `AssetId` set, because paths break on a move — which is why only the first of the two is a preference |
 | **Console** | Output Log / Console | `.Ui` | ✅ | — |
 | **Message log** | Message Log | `.Ui` | ✅ | — |
 | **Command palette** | — (both have search) | `.Ui` | ✅ | Recency boosting. Search-everywhere is a second palette over content ([A8](#a8--search-everywhere)) |
@@ -354,7 +354,7 @@ The viewport is one panel and about nine features, so it gets its own table.
 | Graphics compositor | — | `.AssetEditors` | ✅ | ⚠ **This row used to say "no importer for `.vxcomp` yet", and both halves of that were wrong**: the extension is `.vxcompositor`, and `CompositorImporter` has claimed it since the day a `.vxcompositor` falling through to `RawImporter` was found to publish it as a `Blob` — whereupon the host logged a type mismatch at warning level and silently drew its own one-pass frame |
 | **Asset picker browser** | Asset picker | `.App` | 🟡 | A searchable dialog filtered to the kind the member names, and a drag out of the browser that lands in the field — see the Content row in [Part D](#content). Still a list rather than the thumbnail grid this row asks for, which waits on the thumbnail service below. ⚠ **Three things had to be true before either half worked**, and all three were quietly false: `AssetDrawer` answered for `AssetId` while every reference a scene stores is an `AssetReference`, so `MeshRenderable.Mesh` was drawn read-only; no runtime component could say what it takes, since `[AssetPicker]` is the editor's attribute and a component carrying it would be a runtime assembly referencing an editor one — `Vixen.Core`'s `[AssetType]` is that, and the reflected descriptor carries it through; and the filter compared a type's name against `"texture"` where a `.meta` file records `"TextureImporter"`, which is a comparison that had never once been true |
 | **Thumbnail service** | ✅ both | `.App` | 🟡 | ⚠ **This row said ⛔ while [E1](#e1--the-three-panels-people-live-in-20-em)'s table two hundred lines below described the thing as built** — the document contradicted itself. What exists is `ThumbnailCache` over the `IThumbnailSurface` seam: source images decoded off the frame thread, uploaded on it, bounded and evicting, with the type glyph as the answer when there is no device. What is still owed is the rest of this row's own sentence — an **offscreen render per asset type** (a scene, a material and a prefab have no picture that is not a render of them, which is [E5](#e5--authoring-surfaces-25-em)'s preview work), a **disk cache under `Library/`** and **source-hash invalidation**: the cache today is in memory and lives as long as the session. The picker's grid is [#212](https://github.com/Rikarin/Vixen/issues/212) |
-| **Import dialog** | ✅ both | `.App` | ⛔ | Drag a file in from the OS, choose a destination, preview the settings |
+| **Import dialog** | ✅ both | `.App` | 🟡 | Drag a file in from the OS ✅ — `ProjectBrowser.FilesDropped` into `EditorApplication.BringIn`, folders included, see [Part D](#part-d--functions-by-domain) — and the destination is where the drop landed. ⚠ **What is left is the dialog, and it is worth doing after the drop rather than instead of it**: a drop chooses settings by default, and a hundred textures imported at the wrong compression is a mistake discovered in the build log. Showing `ImportSettingsDocument` *ahead* of the import is the piece nothing does yet |
 
 ### B4 — Diagnostics
 
@@ -410,7 +410,7 @@ is, and `EditorHost` instruments its loop with the four phases its own remarks n
 | **Build settings** | Project Launcher / Build Settings | ✅ | A panel over `PlayerBuildSettings`, running `ContentTasks.BuildPlayer` — import, pack, `dotnet publish`, launch. ⚠ **`PublishRunner` moved out of the CLI to make "over `Tools/Vixen.Cli`'s existing calls" literally true**: it is `PlayerBuild` in `Vixen.Editor.Assets`, beside `ContentPipeline`, for the reason `ProjectWorkspace` is there. What is *not* shared is the shader bundle — `ShaderBuildRunner` links Raven's compiler, which the editor deliberately does not carry, and the build log says so |
 | **Device manager / deploy** | Device Manager / Build & Run | 🟡 | List ✅, deploy and launch ✅ for this machine, attach ⛔. ⚠ **The fourth verb is not a gap in this row**: attaching needs something on the other side to answer, which is doc 13's runtime half — the same absence [B4](#b4--diagnostics)'s remote-inspector row names. Every other kind of device is greyed with the tool that is missing, because the tool that would *find* an Android phone is the tool that would install to it |
 | **Plugin manager** | Plugins / Package Manager | ✅ | A list over `PluginHost.Plugins` with enable, disable, reload. ⚠ The two switches are kept apart: `plugin.yaml`'s `enabled:` is the author's and is shared by a team, and the user's is recorded beside their layout |
-| **Source control** | Revision Control / Version Control | ⛔ | P2. Status column in the browser, and check-out/revert/diff/history over a provider interface with a git implementation. ⚠ **Nothing in the tree spells any of it** — not the interface, not a provider, not the column — and the four pieces are not one size: the seam and the column are small, diff and history over a real repository are not. It is also the missing piece in [B1](#b1--core-editing)'s project-browser row. [#1034](https://github.com/Rikarin/Vixen/issues/1034) |
+| **Source control** | Revision Control / Version Control | 🟡 | The seam, a git provider, the column and Revert ✅; **diff and history** ⛔. `ISourceControl` is two methods — a sweep of the working tree and a revert — with `GitSourceControl` over the client the user already has, and the grid draws a letter per tile. ⚠ **The sweep is the design decision and the row's four pieces hid it**: a provider asked per file launches a process per tile and one asked on a timer answers from a cache an external checkout invalidates, so the status is taken on the two events that already mean the project moved underneath the editor — the watcher draining and Refresh — and once when the panel opens. ⚠ **A folder takes the loudest status under it**, or the column only helps in the folder you are already standing in. ⚠ **`--porcelain -z` and `rev-parse --show-prefix`, neither of them decoration**: the default output quotes a name with a space in it, and porcelain paths are relative to the *repository* while every path in the editor is relative to the project — a project one directory down would have had a blank column for every file. Diff and history are the half that wants a viewer and a log panel, and are not designed ([#1170](https://github.com/Rikarin/Vixen/issues/1170)). [#1034](https://github.com/Rikarin/Vixen/issues/1034) |
 | **Crash reporter** | Crash Reporter (both) | ⛔ | Out-of-process, minidump plus the last N log lines plus the undo history, with consent |
 | **Session recovery** | Auto-save recovery (both) | ⛔ | A journal, and a kill-and-restore loop that tests it |
 
@@ -583,16 +583,44 @@ dragged object's own surface for the whole of every drag — a snap that never m
 
 ### Hierarchy
 
-Create, delete, rename, duplicate ✅ (three of five undoable), **reparent by drag** ⛔ (the primitive
-exists), **reorder among siblings** (`Hierarchy.SetParentAfter` exists), group/ungroup, **multi-select
-operations**, **filter by component type**, **visibility and lock per entity**.
+Create, delete, rename, duplicate ✅ (three of five undoable), **reparent by drag** ✅, **reorder among
+siblings** ✅, group/ungroup, **multi-select operations**, **filter by component type**, **visibility
+and lock per entity**.
+
+⚠ **This row said "reparent by drag ⛔ (the primitive exists)" long after the gesture existed, and the
+parenthesis is what made it look plausible.** `EditorApplication.Dropped` has taken `TreeView.Moved`
+and turned it into an undoable `scene.Reparent` for the whole selection; what was genuinely missing
+was one call short of the document — the drop's *position* among its new siblings was read off the
+tree and then discarded, so every drop landed the entity first. `OutlinerDragTests` covers all four
+halves of the gesture: a drop between rows reorders, a drop on a row makes a child, a row cannot be
+dropped inside its own subtree and the refusal is *drawn* rather than ignored, and a multi-row drag is
+one undo step. ⚠ And the verb this row was said to block is not blocked either: `entity.set-parent` is
+a live command over a `ChooseAsync` picker, and its recorded reason — *"needs the entity picker the
+outliner's drag will bring"* — was never what it needed.
 
 ### Content
 
 Create asset from template, rename with reference fixup, move with reference fixup, delete with
 "what breaks" reporting, duplicate, reimport, show in OS, find references, select dependencies,
 **drag into the viewport** ✅ (placement with surface snapping is built), **drag into an inspector
-field** ✅, **drag from OS into the browser** ⛔, favourites, collections, saved filters.
+field** ✅, **drag from OS into the browser** ✅, favourites, collections, saved filters.
+
+⚠ **The OS drop was the last ⛔ in this list and none of the missing work was in the platform layer.**
+`DropEvent` has been routed, hit-tested and bubbled since [#654](https://github.com/Rikarin/Vixen/issues/654),
+`UiElement.AllowDrop` exists and `on:drop` is a name the binder knows — and the only consumer in the
+repository was a sample, so a folder of textures dragged onto the content browser reached the panel,
+found no handler, and was indistinguishable from a platform that cannot do it. `ProjectBrowser` is the
+first product consumer: it raises `FilesDropped` with the paths *and the folder the drop landed in*,
+and `EditorApplication.BringIn` copies them there. ⚠ **A directory is copied whole, and until it was,
+the drag this row actually names did nothing** — "drag a folder of textures in from Finder" hits
+`File.Copy` over a directory, which throws, so the dialog path reported "could not copy the files"
+after copying however many single files preceded the folder in the list. ⚠ **And a path already
+inside the project is refused rather than duplicated**: the browser is a file view of `Assets/`, so a
+row of it dragged onto itself means a *move*, and copying would mint a second GUID for the same bytes.
+What is still owed is the § B3 **import dialog**, which is not the same feature — a drop chooses a
+destination by where it lands and settings by default, and the dialog is where somebody says otherwise
+once instead of a hundred times. Import ▸ Assets… now at least lands in the folder the browser is
+showing rather than at the root.
 
 ⚠ **Dragging into a field needed the selection rule changed, and that is the part worth writing
 down.** Pressing a row in the browser selects the asset, a selected asset wins the inspector from

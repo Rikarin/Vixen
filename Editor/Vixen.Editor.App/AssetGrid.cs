@@ -33,6 +33,16 @@ public sealed partial class AssetTile : Control {
     /// <summary>The name under it.</summary>
     public UiElement Caption { get; private set; } = null!;
 
+    /// <summary>The source-control mark in the corner, hidden when there is nothing to say.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Out of flow, and the tile's own comments say why it has to be.</b> A tile is 84 px
+    ///     of padding, glyph, gap and caption with nothing spare — the arithmetic is written out
+    ///     beside <c>asset-caption</c> in the sheet — so a badge in the column would take its height
+    ///     from the picture or the name. It is positioned against the tile, which is a containing
+    ///     block because the grid already positions it absolutely.
+    /// </remarks>
+    public UiElement Status { get; private set; } = null!;
+
     /// <inheritdoc />
     protected override void OnCreated() {
         base.OnCreated();
@@ -43,6 +53,9 @@ public sealed partial class AssetTile : Control {
         Picture.AddClass("hidden");
 
         Caption = Part("asset-caption");
+
+        Status = Part("asset-status");
+        Status.AddClass("hidden");
     }
 }
 
@@ -154,6 +167,17 @@ sealed partial class AssetGrid : Control {
     ///     finishes — which is usually a few frames after the tile that wanted it was drawn.
     /// </remarks>
     public Func<AssetTreeNode, ulong> Picture { get; set; } = static _ => 0;
+
+    /// <summary>What source control says about an asset, for the corner mark.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asked on every bind, like the picture and for the same reason</b>: a status sweep
+    ///     lands whenever git answers, and a grid that took a snapshot at build time would show the
+    ///     answer to the question somebody asked before they made the change. The default says
+    ///     <see cref="SourceControlStatus.Unknown" />, which draws nothing — a project that is not
+    ///     under source control has no column rather than an empty one.
+    /// </remarks>
+    public Func<AssetTreeNode, SourceControlStatus> Status { get; set; } =
+        static _ => SourceControlStatus.Unknown;
 
     /// <summary>Shows a folder's contents.</summary>
     /// <param name="folder">The folder, which the caller has already filtered.</param>
@@ -360,8 +384,60 @@ sealed partial class AssetGrid : Control {
             tile.RemoveClass("folder");
         }
 
+        Mark(tile, Status(node));
         Restate(tile);
     }
+
+    /// <summary>Draws doc 20 § B7's status column, which on a grid is a corner of every tile.</summary>
+    /// <param name="tile">The tile.</param>
+    /// <param name="status">What source control says.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A letter as well as a colour.</b> The status of a file is exactly the kind of
+    ///         thing a colour alone cannot carry — modified and conflicted are both "a warm colour"
+    ///         to a good proportion of people — and the letters are git's own, which is what somebody
+    ///         reading them beside a terminal already knows.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Unknown and unmodified both draw nothing, and they are not the same.</b> Nothing
+    ///         is the right picture for a clean file; it is also the only honest picture for a
+    ///         question that has not been answered yet, because doc 20's second bar is that a status
+    ///         column which is sometimes right is worse than no column.
+    ///     </para>
+    /// </remarks>
+    static void Mark(AssetTile tile, SourceControlStatus status) {
+        foreach (var name in StatusClasses) {
+            tile.Status.RemoveClass(name);
+        }
+
+        var letter = status switch {
+            SourceControlStatus.Modified => "M",
+            SourceControlStatus.Added => "A",
+            SourceControlStatus.Deleted => "D",
+            SourceControlStatus.Conflicted => "!",
+            SourceControlStatus.Untracked => "?",
+            _ => null
+        };
+
+        if (letter is null) {
+            tile.Status.AddClass("hidden");
+            return;
+        }
+
+        tile.Status.Text = letter;
+        tile.Status.RemoveClass("hidden");
+        tile.Status.AddClass(Class(status));
+    }
+
+    static string Class(SourceControlStatus status) => status switch {
+        SourceControlStatus.Modified => "modified",
+        SourceControlStatus.Added => "added",
+        SourceControlStatus.Deleted => "deleted",
+        SourceControlStatus.Conflicted => "conflicted",
+        _ => "untracked"
+    };
+
+    static readonly string[] StatusClasses = ["modified", "added", "deleted", "conflicted", "untracked"];
 
     /// <summary>Walks into a folder.</summary>
     public void Enter(AssetTreeNode folder) {
