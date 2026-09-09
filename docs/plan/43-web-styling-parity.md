@@ -621,8 +621,8 @@ box itself *is* honoured: `UiLayer.BackdropBounds` carries it separately from th
 the ink is grown by any child that overflows the element and filtering the backdrop over that would
 put blurred scene outside the panel that asked for it.
 
-⚠ **The radius is half closed as of 2026-09-08, and the half that had never been looked at was not a
-shader.** This paragraph priced it four times as "a rounded-rect signed distance in three shipped
+⚠ **The radius is closed — the software executor on 2026-09-08, the device on 2026-09-09 — and the
+half that had never been looked at was not a shader.** This paragraph priced it four times as "a rounded-rect signed distance in three shipped
 fragment modules and their software transcription", and the audits under #229 sharpened that to "the
 missing piece is a *channel* to tell a composite fragment where the box is". Both were about the hop
 below the one that was broken: `DrawListBuilder` passed a literal `0f` for the `LayerPush`'s own
@@ -632,23 +632,33 @@ be told even once somebody built the telling. `UiLayer.BackdropRadius` and `UiLa
 it now; `SoftwareUiRasterizer.Composite` multiplies the rounded coverage into the mask's, through the
 same `BoxDistance` the element's own background goes through so the two curves cannot disagree.
 
-⚠ **The device half is what keeps the ten rows `partial`, and it is now a counted divergence rather
-than a paragraph.** `UiRenderer` still draws a rectangle, for the reason the audits established — a
-composite quad has no `UiShape`, and the quad's `shape` stream has three free lanes where a
-viewport-relative backdrop needs five. ⚠ **The third reason in that list was false and the channel is
-cheap**: "the push constants are at Vulkan's guaranteed 128 bytes" stood in four places until
-2026-09-09 and is a true sentence about a sixty-four-byte *mask entry* read as one about a spare
-`float4`. Measured off the committed reflection, the composite blocks are `UiBlur` 32, `UiColour` 64,
-`UiMask` 80 and `UiImage` none, of the guaranteed 128 — 48 free bytes where a box as a centre and a
-half plus a uniform radius spends 32, over a pipeline layout that is already one `Vertex | Fragment`
-range across the whole 128. So the channel is two push constants on the three composite stages and
-**not** the fourth `MaskEntry` shape earlier audits recommended, which would have routed every rounded
-backdrop through the mask pipeline. `ShaderReflectionTests.ThereIsRoomForARoundedBackdropBox` pins the
-headroom so the day it is spent the expensive answer becomes the right one visibly.
-`UiRenderer.SquareBackdrops` counts every quad that goes out square and is
-read by `UiCompositingTests.ARoundedBackdropIsClippedOnTheSoftwarePathAndGoesOutSquareOnTheDevice`,
-which is `mix-blend-mode`'s arrangement word for word and exists because a corner of filtered scene
-against unfiltered scene is frequently the identity — no screenshot can report it.
+⚠ **The device half landed on 2026-09-09, and the price four audits gave for it was false.**
+`UiRenderer` drew a rectangle, for the reason those audits established — a composite quad has no
+`UiShape`, and the quad's `shape` stream has three free lanes where a viewport-relative backdrop needs
+five. ⚠ **The third reason in that list was false and the channel was cheap**: "the push constants are
+at Vulkan's guaranteed 128 bytes" stood in five places and is a true sentence about a sixty-four-byte
+*mask entry* read as one about a spare `float4`. Measured off the committed reflection, the composite
+blocks were `UiBlur` 32, `UiColour` 64, `UiMask` 80 and `UiImage` none, of the guaranteed 128 — and
+the box, a centre and a half plus a uniform radius, spent 32 of those 48 free bytes and took `UiColour`
+to 96 and `UiMask` to 112, over a pipeline layout that was already one `Vertex | Fragment` range across
+the whole 128. So the channel was two push constants and **not** the fourth `MaskEntry` shape earlier
+audits recommended, which would have routed every rounded backdrop through the mask pipeline.
+`ShaderReflectionTests.TheBackdropBoxIsWhereTheHostPushesIt` pins where the bytes went, and
+`UiCompositingTests.ARoundedBackdropIsClippedToItsCurveOnBothExecutors` compares the two executors'
+frames on a device — the test that asserted the opposite, written to be inverted, and inverted.
+
+⚠ **`UiImage` is the module that did not get the box, and that is the whole cost of the closure.** It
+draws every viewport, thumbnail and video frame in the interface, and a push block there would make
+each of them write a range once a frame. So a rounded backdrop composites through `colourPipeline`
+carrying an identity matrix, on the precedence `maskPipeline` already sets, and a host that handed over
+no colour stage draws its backdrop *square* rather than not at all — which is the only thing
+`UiRenderer.SquareBackdrops` counts now.
+
+⚠ **The ten rows stay `partial`, and not for anything #229 owes.** `state` is derived from what the
+engine *reads*, and each of these rows' `css` names `-webkit-backdrop-filter` beside
+`backdrop-filter` — a prefix Vixen deliberately never emits, as every one of the ten `note` cells has
+said all along. "The ten rows measuring `works`", which #229 gives as its own "done looks like", was
+never reachable through fidelity work of any kind.
 
 ⚠ **And it is the uniform radius or none**, which is `DrawCommand.Radius`'s own rule: a `LayerPush`'s
 side-buffer range is already spent on its mask list, so four differing corners have nowhere to ride

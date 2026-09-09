@@ -400,18 +400,17 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     readonly HashSet<ulong> layerBlends = [];
 
-    /// <summary>Each rounded group's backdrop surface number, so <see cref="SquareBackdrops" /> can count it.</summary>
+    /// <summary>Each rounded group's backdrop box and radius, keyed by its backdrop surface number.</summary>
     /// <remarks>
-    ///     ⚠ <b><see cref="layerBlends" />'s twin, added for the same reason and against a divergence
-    ///     that is one week old rather than one release old.</b> CSS clips a filtered backdrop to the
-    ///     element's border box <i>including its radius</i>; <c>SoftwareUiRasterizer</c> now does, and
-    ///     this renderer does not, because a composite fragment is told nothing about the box — see
-    ///     <see cref="UiLayer.BackdropRadius" />, which prices what the telling costs. Filled
-    ///     unconditionally and gating nothing, exactly as <see cref="layerBlends" /> is: the draw is
-    ///     the same draw either way and the entry exists so that <see cref="SubmitDraw" /> can say the
-    ///     corners went out square.
+    ///     ⚠ <b>It gates a pipeline now, which <see cref="layerBlends" /> still does not.</b> Until
+    ///     2026-09-09 this was a set and the entry bought nothing but a count: the composite fragment
+    ///     was told nothing about the box, so a rounded group's backdrop went out with square corners
+    ///     just outside the rounded ones and <see cref="SquareBackdrops" /> said so. It now carries
+    ///     the box itself, because that is what <see cref="SubmitDraw" /> pushes — and an entry here
+    ///     sends a draw through <c>colourPipeline</c> whether or not the group has a <c>filter</c>,
+    ///     on the precedence <c>maskPipeline</c> already sets. See <see cref="UiLayer.BackdropRadius" />.
     /// </remarks>
-    readonly HashSet<ulong> layerSquares = [];
+    readonly Dictionary<ulong, (Rectangle Box, float Radius)> layerBoxes = [];
 
     /// <summary>What an image set's storage binding points at, and it is never the box buffer.</summary>
     /// <remarks>
@@ -708,7 +707,7 @@ public sealed class UiRenderer : IDisposable {
         // A Raven shader emits its push-constant block from offset *zero* and has no way to say
         // otherwise: `ReflectionBuilder.BuildPushConstants` emits one range per shader at zero,
         // because a Vulkan block is shared by every stage of a pipeline and Raven does not sub-range
-        // it per stage. So `UiBlur` declares [0, 32] and `UiMask` [0, 80] — each with sixteen bytes
+        // it per stage. So `UiBlur` declares [0, 32] and `UiMask` [0, 112] — each with sixteen bytes
         // of `reserved` in front, standing where the projection is — and a layout promising
         // [16, 112] rejects all three at pipeline creation.
         //
@@ -721,8 +720,8 @@ public sealed class UiRenderer : IDisposable {
         //
         // One range for `Vertex | Fragment` has neither problem: nothing overlaps, every push names
         // both stages, and a shader is still free to declare less than the layout promises — which is
-        // what lets `UiVertex`'s sixteen bytes, the goldens' GLSL [16, 64], and `UiMask`'s [0, 80] all
-        // sit inside it with no module recompiled.
+        // what lets `UiVertex`'s sixteen bytes, the goldens' GLSL [16, 96], and `UiMask`'s [0, 112]
+        // all sit inside it with no module recompiled.
         //
         // ⚠ 128 is exactly the push-constant size the Vulkan specification guarantees on every
         // device, and it is a ceiling the range promises rather than one anything has reached.
@@ -730,17 +729,19 @@ public sealed class UiRenderer : IDisposable {
         // ⚠ <b>This comment said the opposite until 2026-09-09, and the sentence it said it in is the
         // one four audits of #229 derived an expensive answer from.</b> It read "`UiMask` is the
         // widest consumer at 16 + 48 + 64" — 128 exactly — and concluded that "the next thing to want
-        // a push constant here cannot simply be added". Measured off the committed reflection, the
-        // composite blocks are `UiBlur` 32, `UiColour` 64, `UiMask` 80 and `UiImage` none, so the
-        // widest is 80 and forty-eight bytes are free. Eleven lines above, this same block already
-        // said `UiMask` [0, 80] — the two sentences disagreed inside one comment.
+        // a push constant here cannot simply be added". The next thing to want one was #229's rounded
+        // backdrop box, and it was simply added: measured off the committed reflection the composite
+        // blocks are now `UiBlur` 32, `UiColour` 96, `UiMask` 112 and `UiImage` none, where before the
+        // box they were 32, 64 and 80. Eleven lines above, this same block already said `UiMask`
+        // [0, 80] — the two sentences disagreed inside one comment.
         //
         // ⚠ Where the false one came from is a TRUE sentence about a different record: `MaskEntry`'s
         // remark in `Ui.rvn` says a mask LIST cannot ride the push constants, because an entry is 64
         // bytes and 16 + 48 + 64 is exactly 128 — which is right, and is why those went to a storage
         // buffer. A sentence about a 64-byte record was read as one about the whole block, here and
-        // in three other places at once. `ShaderReflectionTests.ThereIsRoomForARoundedBackdropBox`
-        // holds the headroom, and is the test to read before believing either version again.
+        // in three other places at once. `ShaderReflectionTests.TheBackdropBoxIsWhereTheHostPushesIt`
+        // now pins where the box landed, and is the test to read before believing anything about this
+        // block again.
         layout = device.CreatePipelineLayout(
             new([atlasLayout], [new(PushStages, 0, 128)], "ui")
         );
@@ -1028,38 +1029,39 @@ public sealed class UiRenderer : IDisposable {
     /// </remarks>
     public int Unblended => unblended;
 
-    /// <summary>How many backdrop quads went out with square corners despite the group being rounded.</summary>
+    /// <summary>How many rounded backdrops went out square for want of a colour stage.</summary>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b><see cref="Unblended" />'s twin, and the second counter on this class that counts
-    ///         something the renderer failed to do.</b> CSS clips a filtered backdrop to the element's
-    ///         border box <i>including its radius</i>, so <c>rounded-2xl backdrop-blur-md
-    ///         bg-white/30</c> — the canonical use of the feature — must show a curve where the panel
-    ///         has one. <c>SoftwareUiRasterizer</c> draws that curve as of 2026-09-08; this renderer
-    ///         draws a rectangle, because a composite fragment is told nothing about the box it is
-    ///         filling.
+    ///         ⚠ <b>It counted every rounded backdrop there is until 2026-09-09, and now it counts a
+    ///         degradation.</b> CSS clips a filtered backdrop to the element's border box <i>including
+    ///         its radius</i>, so <c>rounded-2xl backdrop-blur-md bg-white/30</c> — the canonical use
+    ///         of the feature — must show a curve where the panel has one.
+    ///         <c>SoftwareUiRasterizer</c> has drawn that curve since 2026-09-08 and this renderer
+    ///         drew a rectangle, because a composite fragment was told nothing about the box it was
+    ///         filling. It is told now: <see cref="layerBoxes" /> carries the box,
+    ///         <see cref="SubmitDraw" /> pushes it, and the two executors are compared on a device in
+    ///         <c>UiCompositingTests.ARoundedBackdropIsClippedToItsCurveOnBothExecutors</c>.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What the divergence costs to close is a channel and not a distance function</b>,
-    ///         which four audits of #229 priced and one of them got the seam wrong: a composite quad
-    ///         carries no <c>UiShape</c>, and the quad's <c>shape</c> stream has three free lanes
-    ///         where a viewport-relative backdrop needs five. See
-    ///         <see cref="UiLayer.BackdropRadius" />.
+    ///         ⚠ <b>What was left is the one host that cannot be served: no <c>UiShaders.Colour</c>.</b>
+    ///         <c>ui-image.frag</c> declares no push block on purpose — it draws every viewport,
+    ///         thumbnail and video frame in the interface — so the box travels through
+    ///         <c>colourPipeline</c> with an identity matrix, and a host that handed over no colour
+    ///         stage gets its backdrop drawn square rather than not at all. That is the same
+    ///         degradation <see cref="Filtered" /> reports for a filtered group on the same host, and
+    ///         this is where it is counted.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>But "the push constants are at Vulkan's guaranteed 128 bytes" is false and stood
-    ///         in four places until 2026-09-09, and it is the sentence the expensive answer was
-    ///         derived from.</b> Measured off the committed reflection: <c>UiBlur</c>'s block is 32
-    ///         bytes, <c>UiColour</c>'s 64, <c>UiMask</c>'s 80 — the widest — and <c>UiImage</c>
-    ///         declares none. So 48 bytes are free on the worst composite stage where a box as a
-    ///         centre and a half plus a uniform-or-zero radius needs 32, and the pipeline layout is
-    ///         already one <c>Vertex | Fragment</c> range over the whole 128. What is genuinely at the
-    ///         ceiling is a <i>mask list</i> — an entry is 64 bytes, which is what <c>MaskEntry</c>'s
-    ///         remark in <c>Ui.rvn</c> says and why those went to a storage buffer — and four audits
-    ///         read that as a statement about a spare <c>float4</c>. So the fourth <c>MaskEntry</c>
-    ///         shape, and the routing of every rounded backdrop through the mask pipeline that it
-    ///         costs, is not needed. <c>ShaderReflectionTests.ThereIsRoomForARoundedBackdropBox</c>
-    ///         holds the headroom so the day it is spent this changes visibly.
+    ///         ⚠ <b>The channel was a push constant all along, and "the push constants are at
+    ///         Vulkan's guaranteed 128 bytes" is the false sentence that stood in five places and cost
+    ///         four audits the expensive answer.</b> The widest composite block was 80 bytes of 128
+    ///         and is 112 now that the box is in it; <c>UiImage</c> still declares none. The fourth
+    ///         <c>MaskEntry</c> shape, and the routing of every rounded backdrop through the mask
+    ///         pipeline that it would have cost, was never needed. What is genuinely at the ceiling is
+    ///         a <i>mask list</i> — an entry is 64 bytes, which is what <c>MaskEntry</c>'s remark in
+    ///         <c>Ui.rvn</c> says and why those went to a storage buffer.
+    ///         <c>ShaderReflectionTests.TheBackdropBoxIsWhereTheHostPushesIt</c> now pins where the
+    ///         bytes landed rather than that there was room for them.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Non-zero is a claim about this renderer rather than about the frame, and it exists
@@ -1290,7 +1292,7 @@ public sealed class UiRenderer : IDisposable {
         layerFilters.Clear();
         layerMasks.Clear();
         layerBlends.Clear();
-        layerSquares.Clear();
+        layerBoxes.Clear();
 
         if (geometry.Layers.Count == 0 || geometry.Indices.Count == 0) {
             return;
@@ -1379,11 +1381,11 @@ public sealed class UiRenderer : IDisposable {
                 layerBlends.Add(layer.Image);
             }
 
-            // ⚠ Keyed by the BACKDROP's surface and not the group's, because the square corners are on
-            // the backdrop quad. A rounded group's own composite is not rounded by anything and never
+            // ⚠ Keyed by the BACKDROP's surface and not the group's, because the curve is on the
+            // backdrop quad. A rounded group's own composite is not rounded by anything and never
             // was — the rounding lives in the boxes the group drew.
             if (layer is { Backdrop: not null, BackdropRadius: > 0f }) {
-                layerSquares.Add(layer.BackdropImage);
+                layerBoxes[layer.BackdropImage] = (layer.BackdropBox, layer.BackdropRadius);
             }
         }
 
@@ -2435,6 +2437,18 @@ public sealed class UiRenderer : IDisposable {
                 ? range
                 : default((int First, int Count)?);
 
+        // ⚠ <b>A rounded backdrop is the third thing that can move a composite off the image
+        // pipeline, and it is the only one of the three that is not a property of the group's own
+        // paint.</b> `ui-image.frag` has no push block on purpose — it draws every viewport,
+        // thumbnail and video frame in the interface — so the box has to reach a module that does,
+        // and `colourPipeline` with an identity matrix is that module for the same price the file's
+        // own remark already accepts: a pipeline switch for the one draw that has one.
+        var box = layerBoxes.Count > 0
+            && draw.Kind == BatchKind.Image
+            && layerBoxes.TryGetValue(draw.Image, out var rounded)
+                ? rounded
+                : default((Rectangle Box, float Radius)?);
+
         // ⚠ <b>The mask wins, because it is the only one of the three modules that does both jobs.</b>
         // Choosing `colourPipeline` for a group that has a matrix *and* a mask would drop the mask
         // silently — the picture would be a correctly filtered, entirely unmasked group, which looks
@@ -2442,9 +2456,23 @@ public sealed class UiRenderer : IDisposable {
         // the push below: it goes out as the identity when there is no filter.
         var pipeline = mask is not null
             ? maskPipeline
-            : matrix is null
+            : matrix is null && box is null
                 ? PipelineFor(draw.Kind)
                 : colourPipeline;
+
+        // ⚠ <b>A host that handed over no colour stage still gets its backdrop, square.</b> That is
+        // the one remaining way a rounded backdrop loses its curve, and it is what
+        // <see cref="SquareBackdrops" /> counts now that the general case is closed — the degradation
+        // `Filtered` already reports for a filtered group on the same host, one divergence over.
+        // Skipping the draw instead would lose the glass entirely, which is a worse picture than a
+        // square one.
+        var square = false;
+
+        if (box is not null && matrix is null && mask is null && !pipeline.IsValid) {
+            pipeline = PipelineFor(draw.Kind);
+            box = null;
+            square = true;
+        }
 
         if (!pipeline.IsValid) {
             // An image with no image shader. Skipped rather than drawn with another pipeline,
@@ -2488,24 +2516,39 @@ public sealed class UiRenderer : IDisposable {
             // ring of offsets would be a descriptor rewrite per frame on sets that are shared with
             // every image in the interface — so the arithmetic that picks the frame happens here,
             // once per masked draw, and `UploadGeometry` writes at the matching offset.
+            var corner = Corner(box);
+
             Span<float> block = [
                 identity.Red.X, identity.Red.Y, identity.Red.Z, identity.Red.W,
                 identity.Green.X, identity.Green.Y, identity.Green.Z, identity.Green.W,
                 identity.Blue.X, identity.Blue.Y, identity.Blue.Z, identity.Blue.W,
-                (slot * MaskCapacity) + list.First, list.Count, 0f, 0f
+                (slot * MaskCapacity) + list.First, list.Count, 0f, 0f,
+                corner.CentreX, corner.CentreY, corner.HalfX, corner.HalfY,
+                corner.Radius, 0f, 0f, 0f
             ];
 
             commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(block));
-        } else if (matrix is { } filter) {
+        } else if (pipeline == colourPipeline) {
             // ⚠ Every time, rather than tracked in `Bindings` the way the projection is. Two filtered
             // groups in one pass carry two different matrices and the second one's is not the first's
             // — so a `Pushed` flag here would draw the second group with the first's filter, which is
             // a picture that looks like a filter working. Push constants are the cheapest thing in
             // the API and there are at most a handful of these draws in a frame.
+            //
+            // ⚠ <b>The whole block, box included, and the box goes out as zeros when there is no
+            // rounding.</b> This branch is reached by a filtered group *and* by a rounded backdrop,
+            // and a filtered group that pushed only its rows after a rounded backdrop had drawn would
+            // clip itself to the previous draw's border box — a group that fades out at four corners
+            // it does not have, in a frame that needs two composites to show it.
+            var filter = matrix ?? UiColorMatrix.Identity;
+            var corner = Corner(box);
+
             Span<float> rows = [
                 filter.Red.X, filter.Red.Y, filter.Red.Z, filter.Red.W,
                 filter.Green.X, filter.Green.Y, filter.Green.Z, filter.Green.W,
-                filter.Blue.X, filter.Blue.Y, filter.Blue.Z, filter.Blue.W
+                filter.Blue.X, filter.Blue.Y, filter.Blue.Z, filter.Blue.W,
+                corner.CentreX, corner.CentreY, corner.HalfX, corner.HalfY,
+                corner.Radius, 0f, 0f, 0f
             ];
 
             commands.PushConstants(PushStages, 16, MemoryMarshal.AsBytes(rows));
@@ -2562,10 +2605,33 @@ public sealed class UiRenderer : IDisposable {
             unblended++;
         }
 
-        // The same shape, one divergence over. See `SquareBackdrops`.
-        if (layerSquares.Count > 0 && draw.Kind == BatchKind.Image && layerSquares.Contains(draw.Image)) {
+        // The same shape, one divergence over — except that this one now counts a host without a
+        // colour stage rather than every rounded backdrop there is. See `SquareBackdrops`.
+        if (square) {
             squareBackdrops++;
         }
+    }
+
+    /// <summary>A rounded backdrop's border box as the composite stages read it, or all zeros.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Centre and half rather than the rectangle's own origin and size, because that is what
+    ///     a signed distance wants and what <c>MaskEntry.box</c> beside it already carries.</b> Two
+    ///     records in one push block describing a box two different ways is how a transcription
+    ///     drifts. The radius rides its own <c>float4</c> and zero is the whole of the "not a rounded
+    ///     backdrop" test — see the block's remark in <c>ui-colour.frag</c> for why it must be a
+    ///     number that is pushed rather than a push that is skipped.
+    /// </remarks>
+    static (float CentreX, float CentreY, float HalfX, float HalfY, float Radius) Corner(
+        (Rectangle Box, float Radius)? box
+    ) {
+        if (box is not { Radius: > 0f } rounded) {
+            return (0f, 0f, 0f, 0f, 0f);
+        }
+
+        var halfX = rounded.Box.Width * 0.5f;
+        var halfY = rounded.Box.Height * 0.5f;
+
+        return (rounded.Box.X + halfX, rounded.Box.Y + halfY, halfX, halfY, rounded.Radius);
     }
 
     /// <summary>Makes sure there is a surface per group, at the size the frame is being drawn at.</summary>

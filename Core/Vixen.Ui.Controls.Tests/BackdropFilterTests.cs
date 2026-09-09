@@ -798,11 +798,12 @@ public class BackdropFilterTests {
     ///         which is what makes this an equality rather than a range.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Software only, and <c>UiRenderer.SquareBackdrops</c> is the device's half.</b> This
-    ///         is a new divergence between the two executors — the same shape <c>mix-blend-mode</c>
-    ///         has carried since #244 — and it is counted rather than left as a paragraph, for the
-    ///         reason <c>UiRenderer.Unblended</c> gives: a corner of filtered scene against unfiltered
-    ///         scene is often the identity, so no screenshot can report it.
+    ///         ⚠ <b>Software only, and it is the half that says the curve is the <i>right</i>
+    ///         curve.</b> The device draws it too since 2026-09-09, and
+    ///         <c>UiCompositingTests.ARoundedBackdropIsClippedToItsCurveOnBothExecutors</c> asserts
+    ///         that the two agree — which a pair of executors sharing one wrong distance function
+    ///         would also satisfy. This reads the corner to the level against a colour computed from
+    ///         the matrix, so it is the one of the two that could tell.
     ///     </para>
     /// </remarks>
     [Fact]

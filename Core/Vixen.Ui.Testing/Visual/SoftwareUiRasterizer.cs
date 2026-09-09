@@ -920,13 +920,15 @@ public static class SoftwareUiRasterizer {
         /// <summary>Each rounded group's backdrop box and radius, keyed by its backdrop surface.</summary>
         /// <remarks>
         ///     <para>
-        ///         ⚠ <b>#229 divergence 1, and this is the half that runs.</b> CSS clips a filtered
-        ///         backdrop to the element's border box <i>including its radius</i>; both executors
-        ///         drew a square one until 2026-09-08, so <c>rounded-2xl backdrop-blur-md</c> showed
-        ///         square corners just outside the rounded ones. This path can close it because a
-        ///         <see cref="Composite" /> here already evaluates a per-fragment coverage for the
-        ///         mask; <c>UiRenderer</c> cannot, and the divergence that leaves is counted by
-        ///         <c>UiRenderer.SquareBackdrops</c> rather than left as a paragraph.
+        ///         ⚠ <b>#229 divergence 1, and this is the half that ran first.</b> CSS clips a
+        ///         filtered backdrop to the element's border box <i>including its radius</i>; both
+        ///         executors drew a square one until 2026-09-08, so <c>rounded-2xl
+        ///         backdrop-blur-md</c> showed square corners just outside the rounded ones. This path
+        ///         closed it that day because a <see cref="Composite" /> here already evaluates a
+        ///         per-fragment coverage for the mask, and <c>UiRenderer</c> followed on 2026-09-09 by
+        ///         pushing the box to the composite fragment. The two are compared on a device in
+        ///         <c>UiCompositingTests.ARoundedBackdropIsClippedToItsCurveOnBothExecutors</c>;
+        ///         <c>UiRenderer.SquareBackdrops</c> now counts only a host with no colour stage.
         ///     </para>
         ///     <para>
         ///         ⚠ <b>Keyed by <c>BackdropImage</c> and never by <c>Image</c>, which is the whole of

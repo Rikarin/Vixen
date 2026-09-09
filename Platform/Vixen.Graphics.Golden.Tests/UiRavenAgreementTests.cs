@@ -299,6 +299,97 @@ public sealed class UiRavenAgreementTests {
         );
     }
 
+    /// <summary>A rounded backdrop's curve, drawn through both sources and compared.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The compositing case above binds <c>Colour</c> and still cannot reach this
+    ///         branch.</b> Its groups are filtered, masked and shadowed, and every one of them pushes
+    ///         a backdrop box of zeros — so the coverage is one, the multiply is the identity, and a
+    ///         <c>Ui.rvn</c> that had the distance function wrong would compare identical to the GLSL
+    ///         and pass. What separates this fixture is a single non-zero radius.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It exists because the shipping applications draw through the Raven module and the
+    ///         suite that photographed #229's curve draws through the GLSL twin.</b>
+    ///         <c>UiCompositingTests.ARoundedBackdropIsClippedToItsCurveOnBothExecutors</c> compares
+    ///         the device against <c>SoftwareUiRasterizer</c> and binds <c>Shaders/*.frag.spv</c> to
+    ///         do it; the desktop host binds <c>UiColour</c> and <c>UiMask</c> out of
+    ///         <see cref="UiShaderLibrary.Load" />. Landing a push constant in two languages and
+    ///         proving only one of them is exactly the shape this file was written for.
+    ///     </para>
+    ///     <para>
+    ///         The layer assertion is the instrument, on the same terms the case above states: a
+    ///         fixture whose radius did not survive the builder pushes zeros through both arms and
+    ///         compares two square backdrops that agree.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheGlslCopyAndTheRavenRoundTheSameBackdrop() {
+        if (!TryOpen(out var opened, out _)) {
+            return;
+        }
+
+        using var owned = opened!;
+
+        var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
+        var geometry = new UiGeometryBuilder().Build(UiCompositingTests.RoundedBackdrop(), cache, Viewport);
+
+        var layer = Assert.Single(geometry.Layers);
+
+        Assert.NotNull(layer.Backdrop);
+        Assert.Equal(16f, layer.BackdropRadius, 3);
+
+        var glsl = new UiShaders(
+            owned.Shader("ui.vert.spv", ShaderStage.Vertex),
+            owned.Shader("ui-box.frag.spv", ShaderStage.Fragment),
+            owned.Shader("ui-text.frag.spv", ShaderStage.Fragment),
+            owned.Shader("ui-solid.frag.spv", ShaderStage.Fragment)
+        ) {
+            Image = owned.Shader("ui-image.frag.spv", ShaderStage.Fragment),
+            Blur = owned.Shader("ui-blur.frag.spv", ShaderStage.Fragment),
+            Colour = owned.Shader("ui-colour.frag.spv", ShaderStage.Fragment),
+            Mask = owned.Shader("ui-mask.frag.spv", ShaderStage.Fragment)
+        };
+
+        var raven = UiShaderLibrary.Load(owned.Device);
+
+        owned.Owns(() => Destroy(owned, raven));
+
+        var one = Declare(owned, geometry, glsl, "ui-raven-rounded-glsl");
+        var two = Declare(owned, geometry, raven, "ui-raven-rounded-rvn");
+
+        void Frame(ICommandList commands) {
+            one.Renderer.Upload(commands, geometry, cache.Atlas);
+            one.Renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+
+            two.Renderer.Upload(commands, geometry, cache.Atlas);
+            two.Renderer.Compose(commands, geometry, new Int2(Side, Side), beneath: new UiBackdropSource(Background));
+        }
+
+        var copy = owned.Render(one.Target, Frame);
+        var source = owned.Render(two.Target, Frame);
+
+        // Per arm, for the compositing case's reason: a count read off one says nothing about the
+        // other, and both of these are things a renderer can decline to do while drawing a plausible
+        // frame.
+        foreach (var renderer in new[] { one.Renderer, two.Renderer }) {
+            Assert.Equal(1, renderer.Backdropped);
+            Assert.Equal(0, renderer.SquareBackdrops);
+        }
+
+        var comparison = ImageComparer.Compare(copy, source, Agreement);
+
+        Assert.True(
+            comparison.Matches,
+            "'Shaders/ui-colour.frag' and the `UiColour` stage of "
+            + "'Platform/Vixen.Ui.Desktop/Shaders/Ui.rvn' clip a rounded backdrop differently, and "
+            + $"the shipping applications draw through the second: {comparison}. Four corners is the "
+            + "box not arriving in one of them; a ring one texel wide all the way round is the two "
+            + "distance functions disagreeing, which they must not, because both are `ui-box.frag`'s "
+            + "copied line for line."
+        );
+    }
+
     /// <summary>
     ///     The channel isolate and the colour-space decode, drawn through both sources and compared.
     /// </summary>

@@ -20,9 +20,10 @@ layout(set = 0, binding = 0) uniform texture2D source;
 layout(set = 0, binding = 1) uniform sampler source_sampler;
 
 // ⚠ At offset 16, past the vertex stage's projection, in the same fragment range `ui-blur.frag`
-// declares sixteen bytes of. The pipeline layout promises forty-eight there and a shader is free to
-// read fewer — the reverse is the error — which is what lets one layout serve every UI pipeline and
-// keeps a pipeline change from disturbing the descriptor set. See `UiRenderer`'s constructor.
+// declares sixteen bytes of. The pipeline layout promises a hundred and twenty-eight and a shader is
+// free to read fewer — the reverse is the error — which is what lets one layout serve every UI
+// pipeline and keeps a pipeline change from disturbing the descriptor set. See `UiRenderer`'s
+// constructor.
 layout(push_constant) uniform Filter {
     // Three rows of a 4x5 colour matrix, each `xyz` the coefficients and `w` the offset. The alpha
     // row is `0 0 0 1 0` for all seven functions this represents and the alpha column is zero for
@@ -30,6 +31,19 @@ layout(push_constant) uniform Filter {
     layout(offset = 16) vec4 red;
     vec4 green;
     vec4 blue;
+
+    // The border box a `backdrop-filter` is clipped to: `xy` its centre and `zw` half its size, in
+    // document pixels. `UiLayer.BackdropBounds`, which is the element's border box and not the
+    // group's ink.
+    vec4 box;
+
+    // `x` the corner radius, uniform across the four corners or zero — `UiLayer.BackdropRadius`.
+    //
+    // ⚠ Zero is the whole of the "this draw is not a rounded backdrop" test, and it has to be a
+    // number rather than an absent push. This pipeline also serves every filtered group, and one of
+    // those following a rounded backdrop would otherwise clip itself to the previous draw's box.
+    // `UiRenderer.SubmitDraw` pushes this block whole on every draw that reaches here.
+    vec4 corner;
 } push;
 
 layout(location = 0) in vec2 varying_texcoord;
@@ -37,6 +51,52 @@ layout(location = 1) in vec4 varying_colour;
 layout(location = 2) in vec4 varying_shape;
 
 layout(location = 0) out vec4 target;
+
+// The signed distance to a box with an elliptical corner, negative inside. `ui-box.frag`'s
+// `box_distance`, copied line for line — see that file for why the corner quadrant is the only place
+// the ellipse is an ellipse. ⚠ Copied rather than approximated for the radius this shader actually
+// gets: a backdrop's radius is uniform, and a "simplification" for the uniform case parts company
+// with the element's own background wherever the radius exceeds one half-extent and not the other,
+// which is a one-texel light ring between a panel and the glass behind it.
+float box_distance(vec2 point, vec2 half_size, vec2 radius) {
+    vec2 r = min(max(radius, vec2(0.0)), half_size);
+    vec2 q = abs(point) - half_size + r;
+
+    if (r.x <= 0.0 || r.y <= 0.0) {
+        vec2 square = abs(point) - half_size;
+        return length(max(square, 0.0)) + min(max(square.x, square.y), 0.0);
+    }
+
+    if (q.x <= 0.0 && q.y <= 0.0) {
+        return max(q.x - r.x, q.y - r.y);
+    }
+
+    if (q.x <= 0.0) {
+        return q.y - r.y;
+    }
+
+    if (q.y <= 0.0) {
+        return q.x - r.x;
+    }
+
+    return (length(q / r) - 1.0) * min(r.x, r.y);
+}
+
+// How much of this pixel the border box covers — one where there is no radius, so the multiply at
+// the end of `main` is the identity on every other draw this pipeline serves.
+//
+// ⚠ A one-pixel band, hard-coded, where `ui-box.frag` takes its width from a screen-space
+// derivative. A composite quad covers bounds `UiGeometryBuilder` has already rounded out to whole
+// pixels over a surface that is the viewport's size, so the mapping is one to one and `fwidth` of
+// this distance is one by construction. `SoftwareUiRasterizer.Composite` says it in the same words,
+// which is what makes the two executors' corners agree to the texel rather than to a threshold.
+float backdrop_coverage(vec2 point) {
+    if (push.corner.x <= 0.0) {
+        return 1.0;
+    }
+
+    return clamp(0.5 - box_distance(point - push.box.xy, push.box.zw, vec2(push.corner.x)), 0.0, 1.0);
+}
 
 void main() {
     // ⚠ Premultiplied, always, with no `varying_shape.x` branch — and that is the difference between
@@ -67,9 +127,16 @@ void main() {
     // pixels alone. `UiColorMatrix.Apply` does this, once, in the same place.
     filtered = clamp(filtered, vec3(0.0), vec3(sampled.a));
 
+    // ⚠ The point comes from the texture coordinate times the surface size, which *is* the document
+    // pixel — `ui-mask.frag` argues it at length and this is the same expression for the same reason.
+    // `gl_FragCoord` would be right at a scale of one and wrong at every other.
+    float coverage = backdrop_coverage(varying_texcoord * vec2(textureSize(sampler2D(source, source_sampler), 0)));
+
     // The rest is `ui-image.frag`'s premultiplied path verbatim: the group's opacity is the composite
     // quad's vertex alpha and is applied here, once. See that file for why the out alpha is the same
-    // in both encodings.
-    float alpha = sampled.a * varying_colour.a;
-    target = vec4(filtered * varying_colour.rgb * varying_colour.a, alpha);
+    // in both encodings. ⚠ The coverage multiplies all four channels, because the sample is
+    // premultiplied — leaving `rgb` alone would brighten the corner texels towards full strength as
+    // the curve closes, which reads as a light ring around the panel.
+    float alpha = sampled.a * varying_colour.a * coverage;
+    target = vec4(filtered * varying_colour.rgb * varying_colour.a * coverage, alpha);
 }
