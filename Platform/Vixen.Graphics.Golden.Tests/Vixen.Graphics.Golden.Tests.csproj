@@ -159,5 +159,18 @@
             a failure readable.
         -->
         <None Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+
+        <!--
+            ⚠ A shipping project's own material and its own splat map, linked rather than copied.
+            Every other fixture here is one this suite wrote, and doc 48 § M11's whole remainder was
+            that no *authored* material carried a `TexturedMaterialLayersFeature` — so a copy of the
+            plaza's files beside this project would restore exactly the gap the test exists to close.
+            The source documents rather than the imported artefacts, for `FrameDocumentTests`' reason:
+            what is under test is the file an artist edits.
+        -->
+        <None Include="..\..\Samples\13-ThirdPersonShooter\Assets\Materials\plaza.vxmat"
+              Link="Authored\plaza.vxmat" CopyToOutputDirectory="PreserveNewest" />
+        <None Include="..\..\Samples\13-ThirdPersonShooter\Assets\Textures\plaza-splat.png"
+              Link="Authored\plaza-splat.png" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 </Project>

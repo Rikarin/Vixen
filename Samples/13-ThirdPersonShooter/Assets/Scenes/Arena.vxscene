@@ -14,6 +14,25 @@ roots:
       - !MeshRenderable { mesh: vx:833ecd4f4b9e4de68770140c94e40c33#21d4ea2f, material: vx:dfb64c6f6a7b4fe5a33d5626e0f73720, castsShadows: true }
       - !BoxCollision { halfExtents: 32 0.5 32, centre: 0 -0.5 0, friction: 0.8 }
 
+  # ⚠ **The caller `TexturedMaterialLayersFeature` did not have** — doc 48's M11, #1073. `plaza.vxmat`
+  # blends three layers by a painted splat map, and this entity is what puts it in a frame; until it
+  # existed the only construction of that feature anywhere was a golden fixture's and
+  # `WorldRenderer.Paired`'s, which builds one purely to read the map's name off.
+  #
+  # ⚠ **Its own mesh, and no other arena mesh can stand in for it.** A splat map must be unique per
+  # surface, and every mesh here but this one is box-projected in metres of world over a 2 m tile
+  # (`Content/boxuv.py`), so the map would repeat thirty-two times per axis and place nothing.
+  # `arena-plaza.obj` is 24 m of ground unwrapped exactly 0..1; see its header.
+  #
+  # **No collider and no shadow, both for the same reason.** It is a 2 cm sheet lying on the floor
+  # slab whose own collider already carries the ground, and a caster coincident with the surface it
+  # sits on draws a rim of self-shadow rather than a shadow of anything. Its `generateDistanceFields`
+  # is off in the .meta on the third face of that argument.
+  - name: Plaza
+    position: 0 0 0
+    components:
+      - !MeshRenderable { mesh: vx:75964465b3204c26b527e0c05a380c31#42bbdbf0, material: vx:3b6059628a2642f796819ebe207039b4, castsShadows: false }
+
   # Four walls, each turned to face in, and each with an eight-metre gate cut out of the middle of it.
   #
   # ⚠ **The gate is cut by splitting the entity, not by editing the mesh, and that is what keeps the

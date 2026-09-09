@@ -31,6 +31,32 @@ makes resident and nothing samples.
 | `grass-blade` | albedo (alpha), normal | `Outskirts.vxgrass` | albedo, **including its alpha** |
 | `leaves` | albedo (alpha), normal | `Outskirts.vxfoliage` — the bushes | albedo, **including its alpha** |
 | `bark` | albedo, normal, orm | — | nothing |
+| `plaza` | splat | `plaza.vxmat`'s three painted layers | R, G and B — **and not the alpha** |
+
+⚠ **`plaza-splat.png` is the odd one out and every sentence below about tiling stops applying to
+it.** It is not a detail map: its content is *where on this surface layer 2 is*, so it is read once
+across `arena-plaza.obj`'s 0..1 unwrap and it is the only map here that may not repeat. That is why
+the plaza is a mesh of its own — `Content/boxuv.py` gives every other arena mesh metres of world over
+a 2 m tile, so this map on `arena-floor.obj` would repeat thirty-two times per axis and place nothing,
+and `SurfaceVertex` carries exactly one `TexCoord`, so it cannot ride a second uv set either.
+`plaza.vxmat` blends three layers by it, which is doc 48's M11 remainder
+([#1073](https://github.com/Rikarin/Vixen/issues/1073)) and the first material anywhere in the tree to
+carry a `TexturedMaterialLayersFeature`.
+
+⚠ **Three of its properties are load-bearing and each is asserted against the committed bytes by
+`PaintedLayersTests`, because a map without them draws rather than fails.** Its alpha is 255 in every
+texel — which is what a three-channel texture's alpha samples as anyway, so the material's
+`paintedChannels: 3` is a true statement about it rather than a lucky one, and a fourth layer read off
+that alpha would weigh 1 *everywhere* and become the whole surface. Its R, G and B sum to exactly 255,
+so the shader's `1 / max(total, epsilon)` is a no-op and a texel painted zero in all three — which
+would draw *black* rather than error — cannot occur. And each channel is pure somewhere, at three
+48-texel squares the golden crops to compare a painted zone against a single-layer material.
+
+⚠ **It is imported `content: Linear` and `compression: None`, and neither is tidiness.** A splat
+weight is a number and not a colour: an sRGB view over the same bytes hands the shader 0 and 1
+unchanged and every value between them transferred, which is a blend curve nobody authored. And BC7
+endpoints would move a pure channel off 255, which is exactly the property the closed-form check
+rests on.
 
 ⚠ **A material samples three textures now, and every arena material reads all three.**
 `TexturedNormalMapFeature` and `TexturedOrmFeature` joined `TexturedMetalRoughnessFeature` in

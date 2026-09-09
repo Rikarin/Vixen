@@ -167,6 +167,68 @@ def terrain_dirt():
     emit("terrain-dirt", colour, height, np.full((SIZE, SIZE), 0.90, np.float32), strength=1.8, normal=False)
 
 
+# ── the plaza's splat map ───────────────────────────────────────────────────
+
+def plaza_splat():
+    """The weight map `plaza.vxmat`'s three layers are painted in.
+
+    ⚠ **Not a colour map and not a detail map, and it is the one map here that may not tile.** Its
+    content is *where on this surface layer 2 is*, so it is read once across `arena-plaza.obj`'s
+    0..1 unwrap and nothing else in the arena can carry it — see that mesh's own header.
+
+    Three invariants, each of which a wrong one draws rather than fails, and each asserted against
+    the committed PNG by `FrameDocumentTests`:
+
+    * **R + G + B is exactly 255 in every texel.** `TexturedMaterialLayersSurface` divides by
+      `max(total, epsilon)`, so a texel painted zero in all three is a *black* surface rather than an
+      error, and one summing to more than one is only rescued by that same division. Making the sum
+      exact means the shader's normalisation is a no-op and the picture is the paint.
+    * **Alpha is 255 everywhere**, which is what a three-channel map's alpha samples as anyway. The
+      material therefore leaves `paintedChannels` at its default of three and lists three layers; the
+      silent wrong picture this feature has is a fourth layer weighted by that alpha.
+    * **Each channel is pure — 255, with the other two at zero — somewhere.** A three-layer material
+      whose map never reaches one layer is a two-layer material that costs three, and the pure zones
+      are also the closed form `LayeredMaterialImageTests` compares against a single-layer material.
+
+    The picture itself is a worn stone plaza: moss (G) creeping in from the rim, two crossing desire
+    lines of trodden earth (B), and the stone (R) as whatever is left.
+    """
+    x = (np.arange(SIZE, dtype=np.float32) + 0.5) / SIZE
+    xx, yy = np.meshgrid(x, x, indexing="xy")
+
+    # Moss from the rim inward. The perturbation is bounded at ±0.06 and the mask saturates at 0.12,
+    # so every texel inside 0.05 of an edge is pure moss whatever the noise did — which is what makes
+    # the pure zone a property of the recipe rather than a happy accident of a seed.
+    edge = np.minimum(np.minimum(xx, 1.0 - xx), np.minimum(yy, 1.0 - yy))
+    edge = edge + 0.12 * (fbm(SIZE, 6, 4, "plaza/moss") - 0.5)
+    moss = np.clip((0.22 - edge) / 0.10, 0.0, 1.0)
+
+    # Two desire lines that wander, because a straight one reads as a decal. Same bounded-noise
+    # argument: ±0.03 against a mask that saturates at 0.07 leaves the middle of each path pure.
+    wander = 0.06 * (fbm(SIZE, 4, 3, "plaza/wander") - 0.5)
+    across = np.clip((0.13 - np.abs(xx - 0.5 - 0.10 * np.sin(2.0 * np.pi * yy) - wander)) / 0.07, 0, 1)
+    along = np.clip((0.11 - np.abs(yy - 0.5 - 0.08 * np.cos(2.0 * np.pi * xx) - wander)) / 0.06, 0, 1)
+    worn = np.maximum(across, along)
+
+    # Moss wins over the paths where they meet, so g + b <= 1 by construction and the stone that is
+    # left is never negative — the arithmetic the byte quantisation below relies on.
+    green = moss
+    blue = worn * (1.0 - moss)
+
+    g = np.clip(green * 255.0 + 0.5, 0, 255).astype(np.int32)
+    b = np.clip(blue * 255.0 + 0.5, 0, 255).astype(np.int32)
+    b = np.minimum(b, 255 - g)
+
+    texels = np.empty((SIZE, SIZE, 4), dtype=np.uint8)
+    texels[..., 0] = (255 - g - b).astype(np.uint8)
+    texels[..., 1] = g.astype(np.uint8)
+    texels[..., 2] = b.astype(np.uint8)
+    texels[..., 3] = 255
+
+    written = write_png(os.path.join(OUT, "plaza-splat.png"), texels)
+    print(f"{'plaza':16} {written / 1024:7.1f} KiB  (1 map)")
+
+
 # ── vegetation ──────────────────────────────────────────────────────────────
 
 def grass_blade():
@@ -252,5 +314,16 @@ def leaves():
     print(f"{'leaves':16} {total / 1024:7.1f} KiB  ({len(files)} maps)")
 
 
-for step in (concrete, metal_panel, crate, terrain_grass, terrain_rock, terrain_dirt, grass_blade, bark, leaves):
+for step in (
+    concrete,
+    metal_panel,
+    crate,
+    terrain_grass,
+    terrain_rock,
+    terrain_dirt,
+    plaza_splat,
+    grass_blade,
+    bark,
+    leaves,
+):
     step()

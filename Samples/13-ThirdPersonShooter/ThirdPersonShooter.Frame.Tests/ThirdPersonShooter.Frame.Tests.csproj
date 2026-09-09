@@ -57,6 +57,15 @@
         <!-- The YAML dialect, to read the actual authored document rather than a copy of it. -->
         <ProjectReference Include="..\..\..\Core\Vixen.Core.Yaml\Vixen.Core.Yaml.csproj" />
 
+        <!--
+          `PngCodec`, to read the plaza's splat map's actual texels. ⚠ What that map has to be is not
+          checkable any other way: its alpha decides whether a fourth layer would be painted, its
+          three channels have to sum to something the shader's normalisation leaves alone, and a texel
+          painted zero in all three divides by an epsilon and draws black. Every one of those is a
+          picture rather than an error, so the bytes are what has to be asserted.
+        -->
+        <ProjectReference Include="..\..\..\Core\Vixen.Core.Imaging\Vixen.Core.Imaging.csproj" />
+
         <!-- IPlayerInputSource, ControlRotation and MoveIntent — what ScriptedWalk below implements
              and writes. -->
         <ProjectReference Include="..\..\..\Core\Vixen.Engine\Vixen.Engine.csproj" />
@@ -87,6 +96,19 @@
             a new .vxmat is covered by the theory the day it is added.
         -->
         <None Include="..\Assets\Materials\*.vxmat" Link="Assets\Materials\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+
+        <!--
+            The meshes and the plaza's map, because #1073's whole argument is a measurement of the
+            committed bytes rather than a claim about them: a splat map must be unique per surface, and
+            what says the plaza can carry one and no other arena mesh can is the `vt` lines in these
+            files. The sidecars come too — a scene's reference is a guid, and the only thing that says
+            the guid names the asset an author meant is the .meta beside it.
+        -->
+        <None Include="..\Assets\Models\*.obj" Link="Assets\Models\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+        <None Include="..\Assets\Models\arena-plaza.obj.meta" Link="Assets\Models\arena-plaza.obj.meta" CopyToOutputDirectory="PreserveNewest" />
+        <None Include="..\Assets\Materials\plaza.vxmat.meta" Link="Assets\Materials\plaza.vxmat.meta" CopyToOutputDirectory="PreserveNewest" />
+        <None Include="..\Assets\Textures\plaza-splat.png" Link="Assets\Textures\plaza-splat.png" CopyToOutputDirectory="PreserveNewest" />
+        <None Include="..\Assets\Textures\plaza-splat.png.meta" Link="Assets\Textures\plaza-splat.png.meta" CopyToOutputDirectory="PreserveNewest" />
         <None Include="..\Assets\Terrain\Outskirts.vxterrain" Link="Assets\Terrain\Outskirts.vxterrain" CopyToOutputDirectory="PreserveNewest" />
 
         <!-- The scene and the lake's ring, so the gate arithmetic and the water's two halves are
