@@ -1707,12 +1707,7 @@ static class LayerStackGraph {
 
                 if (!results.TryGetValue((channel, anchor), out var from)) {
                     if (reported.Add((channel, anchor, layer))) {
-                        problems.Add(LayerStackProblem.Refusal(
-                            layer,
-                            $"The anchor names layer '{anchor}', which writes nothing to channel '{channel}' — it "
-                            + "is disabled, restricted to other channels, or not in this set. An anchor reads a "
-                            + "layer's result, so there has to be one."
-                        ));
+                        problems.Add(LayerStackProblem.Refusal(layer, Missing(channel, anchor)));
                     }
 
                     continue;
@@ -1734,6 +1729,39 @@ static class LayerStackGraph {
                 ));
             }
         }
+
+        /// <summary>What an anchor onto a layer with no result is told.</summary>
+        /// <remarks>
+        ///     <para>
+        ///         ⚠ <b>Two sentences, because under <see cref="Weighing" /> the first one is a lie</b>
+        ///         — <a href="https://github.com/Rikarin/Vixen/issues/1137">#1137</a>. A coverage build
+        ///         compiles a set holding <em>one</em> layer, so the anchored layer is missing from
+        ///         that set however plainly it is present in the stack the artist is looking at. "Not
+        ///         in this set" then reads as an accusation against a file that is correct, and an
+        ///         anchor mask is not exotic: "mask this layer by what the layer below covers" is one
+        ///         of the two things anchors were added for.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>Still a refusal, and the narrow set is still the right build.</b> A coverage is
+        ///         the picture path's own arithmetic run over one layer, which is what makes it the
+        ///         same masks, the same effects, the same folding and the same <c>Blend</c> kernel a
+        ///         frame goes through. Keeping every layer so an anchor resolves would not merely cost
+        ///         a graph per layer: under <see cref="Weighing" /> a layer's result is a
+        ///         <em>coverage</em> rather than a colour, so the anchor would read a different number
+        ///         from the one the picture's anchor reads, and the two products of one stack would
+        ///         disagree in a way no message could explain. Saying which verb cannot answer is the
+        ///         honest half.
+        ///     </para>
+        /// </remarks>
+        string Missing(string channel, string anchor) =>
+            Weighing
+                ? $"This layer's mask anchors onto layer '{anchor}', and a coverage is resolved one layer at a "
+                + "time — so there is no other layer here for the anchor to read, whatever the stack holds. "
+                + "⚠ The stack itself is fine and its picture bakes: it is the weights that cannot be taken. "
+                + "Replace the anchor with a mask of its own, or group the two layers so the pair weighs as one."
+                : $"The anchor names layer '{anchor}', which writes nothing to channel '{channel}' — it "
+                + "is disabled, restricted to other channels, or not in this set. An anchor reads a "
+                + "layer's result, so there has to be one.";
 
         /// <summary>
         ///     The opacity a whole constant mask folds into, or <see langword="null" /> when the mask
@@ -1803,16 +1831,35 @@ static class LayerStackGraph {
 
         /// <summary>The layer's opacity, with a constant fill's own alpha folded in.</summary>
         /// <remarks>
-        ///     ⚠ <b>Only an <em>authored</em> colour's alpha is folded.</b> A constant fill with no
-        ///     entry for this channel no longer compiles at all (#807 · 2), so reading the channel's
-        ///     base default here would be folding the alpha of a colour that never reaches the
-        ///     graph — a number taken from a layer that is not there.
+        ///     <para>
+        ///         ⚠ <b>Only an <em>authored</em> colour's alpha is folded.</b> A constant fill with no
+        ///         entry for this channel no longer compiles at all (#807 · 2), so reading the channel's
+        ///         base default here would be folding the alpha of a colour that never reaches the
+        ///         graph — a number taken from a layer that is not there.
+        /// </para>
+        ///     <para>
+        ///         ⚠ <b>Under <see cref="Weighing" /> the question has no channel, so neither does the
+        ///         answer</b> — <a href="https://github.com/Rikarin/Vixen/issues/1138">#1138</a>.
+        ///         <c>LayerStackSplat.Coverage</c> compiles a set whose one channel is called
+        ///         <c>mask</c>, and a fill's <c>Values</c> are keyed by <em>real</em> usages, so the
+        ///         lookup below misses and the alpha was not folded: a fill whose base colour is
+        ///         <c>[…, 0.5]</c> covered half the texel in the picture and weighed <b>one</b> in the
+        ///         splat map. Two products of one stack disagreeing about the same stack, and the
+        ///         failure is a look change with a bake in front of it — a half-strength moss layer
+        ///         that comes back solid once the material is layered. <see cref="Covers" /> above is
+        ///         already channel-blind for the same reason, so this is the two halves of one
+        ///         question answered the same way.
+        ///     </para>
         /// </remarks>
-        static float Opacity(LayerAsset layer, ChannelAsset channel) {
+        float Opacity(LayerAsset layer, ChannelAsset channel) {
             var opacity = layer.Opacity;
 
             if (layer.Kind != LayerKind.Fill || layer.Fill != LayerFillSource.Constant) {
                 return opacity;
+            }
+
+            if (Weighing) {
+                return opacity * Covering(layer);
             }
 
             if (!layer.Values.TryGetValue(channel.Usage, out var colour)) {
@@ -1820,6 +1867,46 @@ static class LayerStackGraph {
             }
 
             return colour.Length == 4 ? opacity * colour[3] : opacity;
+        }
+
+        /// <summary>How much of a texel a constant fill covers, across every channel it writes.</summary>
+        /// <remarks>
+        ///     <para>
+        ///         <b>The maximum rather than the mean or the first</b>, because a coverage is one
+        ///         number and a fill may author a different alpha per channel. The most of the texel
+        ///         this layer takes anywhere is the honest single answer, and it agrees with the
+        ///         picture on the ordinary stack, where one alpha is authored or all of them are equal.
+        ///     </para>
+        ///     <para>
+        ///         <b>Every entry, without re-reading the channel enables.</b>
+        ///         <c>LayerStackSplat.Coverage</c> clears them on the layer it asks about — a layer
+        ///         restricted to <c>baseColor</c> still has a coverage — and
+        ///         <see cref="Composite" /> has already turned any deeper layer whose enables exclude
+        ///         the synthetic channel away. So by the time this runs there is no entry here the
+        ///         layer does not write.
+        ///     </para>
+        ///     <para>
+        ///         ⚠ <b>One is what a fill authoring nothing gets, and that is deliberately not a
+        ///         change here.</b> Such a layer contributes to no channel in the picture and still
+        ///         weighs one, because <see cref="Covers" /> is channel-blind — a separate question
+        ///         about whether a fill that writes nothing is a layer at all, and one this method
+        ///         must not answer by returning zero for it.
+        ///     </para>
+        /// </remarks>
+        static float Covering(LayerAsset layer) {
+            var alpha = 0f;
+            var authored = false;
+
+            foreach (var colour in layer.Values.Values) {
+                if (colour.Length != 4) {
+                    continue;
+                }
+
+                authored = true;
+                alpha = MathF.Max(alpha, colour[3]);
+            }
+
+            return authored ? alpha : 1f;
         }
 
         /// <summary>Four numbers, or the opaque black a malformed entry becomes.</summary>
