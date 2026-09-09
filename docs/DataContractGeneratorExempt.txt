@@ -15,6 +15,4 @@ Vixen.Core.Collections Handle<T> is an open generic, which the generator has not
 Vixen.Core.Diagnostics ProfilingKey is an interned id, not a persisted value — unexamined, and the attribute is a candidate for removal rather than for a generator reference.
 Vixen.Core.Tests AnnotationTests declares a fixture type to test the attribute's own shape, not to register one.
 Vixen.Editor.Scripts.Tests EditorScriptTests declares importer fixtures inside the test assembly, which nothing loads by name.
-Vixen.Editor.Blockout ⚠ Three settings contracts, unexamined, and the same shape as #989's eight — see #1025.
-Vixen.Editor.Water ⚠ Two settings contracts, unexamined, and the same shape as #989's eight — see #1025.
 Vixen.Engine.Generators.Tests The attribute appears only inside the raw string literals these analyzer fixtures compile, which is the limit the rule states about itself.

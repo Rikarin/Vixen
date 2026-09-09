@@ -25,8 +25,18 @@ namespace Vixen.Editor.Water;
 ///         texture from — a panel with its own arithmetic is a panel that can be right about a
 ///         configuration the renderer refuses.
 ///     </para>
+///     <para>
+///         ⚠ <b>And <em>not</em> a <c>[DataContract]</c>, which this and
+///         <see cref="WaterBodySettings" /> carried until
+///         <a href="https://github.com/Rikarin/Vixen/issues/1025">#1025</a>.</b>
+///         <c>Vixen.Editor.Water.csproj</c> names three analyzers and neither of the two that give
+///         that attribute meaning, and analyzers do not flow through a <c>ProjectReference</c> — so
+///         it registered nothing in either registry. What this toolset actually writes is a
+///         <c>.vxspline</c>, whose <c>SplineAsset</c> is declared in <c>Core/</c> and registered
+///         there; a panel's form model is not persisted at all. <c>WaterContractTests</c> refuses the
+///         next attribute added here without the generators.
+///     </para>
 /// </remarks>
-[DataContract]
 public sealed class WaterZoneSettings {
     /// <summary>How wide and deep the sliding window is, in metres.</summary>
     [Inspector]
@@ -219,7 +229,6 @@ public sealed class WaterZoneSettings {
 ///     doc 32's own inspector already draws, and the material is an asset reference the project's
 ///     picker supplies.
 /// </remarks>
-[DataContract]
 public sealed class WaterBodySettings {
     /// <summary>What kind of water it is.</summary>
     [Inspector]
