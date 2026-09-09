@@ -30,6 +30,22 @@ namespace Vixen.Animation.Ecs;
 ///         nothing is skinned, rather than one that draws stale bones.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Nothing in the engine wires this, and that is not a line of code away.</b>
+///         <see cref="Renderer" /> and <see cref="Feature" /> are set by nobody, no entity is ever
+///         given a <c>SkinnedRenderer</c>, and neither <c>WorldRenderer</c> nor
+///         <c>EditorWorldRenderer</c> constructs a <c>SkinningRenderFeature</c> — so
+///         <see cref="Run" /> returns on its first line and an animated character draws in its bind
+///         pose. Those three are the ones an audit finds; the two that decide how big the job is are
+///         further down. <c>SurfaceVertex</c> — the interleaved vertex the classic mesh path uploads
+///         — carries no bone indices and no bone weights, so the vertex buffer has no influences to
+///         skin by; and no <em>shading</em> pass in the library skins at all, since
+///         <c>ForwardPlus.rvn</c> declares no <c>Skinned</c> permutation. ⚠ Wiring only the first
+///         three would therefore be worse than the gap: <c>VertexSchema.Layout</c> throws on an
+///         attribute a stage declares and the vertex format has no data for, which is exactly what
+///         the <c>Skinned</c> variant of <c>ShadowCaster</c> asks for. See
+///         <see href="https://github.com/Rikarin/Vixen/issues/451" />.
+///     </para>
+///     <para>
 ///         <b>Matrices are computed into a rented buffer, not a per-entity one.</b> A skeleton's
 ///         palette is written and immediately copied into the feature's upload buffer, so it lives
 ///         for the length of one call; holding one per character would be a hundred matrices of

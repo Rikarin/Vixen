@@ -32,6 +32,18 @@ namespace Vixen.Rendering;
 ///         the shader side to agree, so it is a change to this struct and to <c>ForwardPlus.rvn</c>
 ///         together — and it is worth nothing until something is drawing at all.
 ///     </para>
+///     <para>
+///         ⚠ <b>No bone indices and no bone weights, which is why GPU skinning cannot reach this
+///         path.</b> <see cref="MeshData" /> carries both and an import fills them;
+///         <see cref="SurfaceGeometry.Pack" /> drops them, because this struct has nowhere to put
+///         them. So the buffer a skinned mesh is drawn from has no influences in it, and
+///         <see cref="Schema" />'s four channels are what a stage is matched against by name — which
+///         means the <c>Skinned</c> variant of <c>ShadowCaster</c>, whose vertex stage declares
+///         <c>bones0</c> and <c>weights0</c>, makes <see cref="VertexSchema.Layout" /> throw rather
+///         than draw. Widening this is one of the five things
+///         <see href="https://github.com/Rikarin/Vixen/issues/451" /> needs, and the one that costs
+///         every mesh in the scene eight more bytes a vertex whether it is skinned or not.
+///     </para>
 /// </remarks>
 [StructLayout(LayoutKind.Sequential)]
 public struct SurfaceVertex {

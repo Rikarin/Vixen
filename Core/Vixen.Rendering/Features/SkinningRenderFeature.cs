@@ -18,6 +18,18 @@ namespace Vixen.Rendering.Features;
 ///         It does not, and this file is the whole of it.
 ///     </para>
 ///     <para>
+///         ⚠ <b>Nothing constructs this outside its own tests, and the rest of the path is missing
+///         too.</b> Neither <c>WorldRenderer</c> nor <c>EditorWorldRenderer</c> names it; below it,
+///         <see cref="SurfaceVertex" /> carries no bone indices and no bone weights, so the vertex
+///         buffer the classic mesh path uploads has no influences to skin by, and no <em>shading</em>
+///         pass in the library skins — <c>ForwardPlus.rvn</c> declares no <c>Skinned</c> permutation,
+///         while <c>GBufferPass</c>, which does, says in its own comment that nothing binds it. The
+///         permutation key below reaches no compiler either:
+///         <see cref="MaterialRenderFeature.PermutationSources" />, which routes a renderer's flag to
+///         a shader's, has no production caller. So this file is correct and is a fifth of a feature;
+///         see <see href="https://github.com/Rikarin/Vixen/issues/451" />.
+///     </para>
+///     <para>
 ///         <strong>The palette is skinning matrices, not bone transforms.</strong> What goes in is
 ///         <c>inverseBindPose * boneWorld</c>, already multiplied — one multiply per bone per frame
 ///         on the CPU instead of one per vertex on the GPU. A character has a hundred bones and tens
