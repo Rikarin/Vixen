@@ -51,6 +51,8 @@ Vixen.Graphics.Null.NullDevice.GetAccelerationStructureSizes(in Vixen.Graphics.A
 Vixen.Graphics.Null.NullDevice.GraphicsQueue.get -> Vixen.Graphics.ICommandSubmitter
 Vixen.Graphics.Null.NullDevice.IsFrameOpen.get -> bool
 Vixen.Graphics.Null.NullDevice.LiveResourceCount.get -> int
+Vixen.Graphics.Null.NullDevice.NextSwapChainStatus.get -> Vixen.Graphics.SwapChainStatus
+Vixen.Graphics.Null.NullDevice.NextSwapChainStatus.set -> Vixen.Graphics.SwapChainStatus
 Vixen.Graphics.Null.NullDevice.NullDevice() -> void
 Vixen.Graphics.Null.NullDevice.NullDevice(Vixen.Graphics.Null.NullDeviceOptions options) -> void
 Vixen.Graphics.Null.NullDevice.Read(Vixen.Graphics.BufferHandle buffer, long offset, System.Span<byte> destination) -> void
