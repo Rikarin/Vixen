@@ -97,6 +97,16 @@ through `ProjectReference` and silently drop ~300 types in any other configurati
 "this test never runs in CI" drawn from one is wrong. Reproduce a gate result in the gate's own
 configuration.
 
+⚠ **`CheckFormat` now builds first and exports `Configuration` to `dotnet format`**, because the
+`analyzers` pass reads a compilation and a compilation is only the code if the generators are in it.
+Every generator here arrives as a `ProjectReference` with `OutputItemType="Analyzer"`, so the
+workspace resolves it under `bin/$(Configuration)/` and, finding nothing, drops it — with **no
+warning at any verbosity**. `dotnet format analyzers` reports analyzer diagnostics and not compiler
+ones, so a type that exists only in generated code just vanishes and the CS0246 is filtered out; what
+reaches the console is whatever nonsense an analyzer can still express, which on master was ten
+`CA2021` errors about correct call sites (#1022). ⚠ It killed `CheckArchitecture` and `CheckApi` too,
+since CI runs the three in one invocation.
+
 ### GPU and golden tests
 
 - ⚠ **`--vixen-capture` or `--vixen-offscreen` is what buys a real GPU device.** Without one a

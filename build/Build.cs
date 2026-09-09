@@ -417,9 +417,55 @@ partial class Build : NukeBuild {
                 }
     }
 
+    /// <summary>
+    ///     Every formatting and licence obligation, over the workspace the built assemblies belong to.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The <c>analyzers</c> pass reads a compilation, and a compilation is only the code
+    ///         if the source generators are in it</b> — which is why this target now builds first and
+    ///         pins the configuration <c>dotnet format</c> evaluates. Every generator in this tree
+    ///         reaches its consumer as a <c>ProjectReference</c> with
+    ///         <c>OutputItemType="Analyzer"</c>, so the workspace resolves it to a path under
+    ///         <c>bin/$(Configuration)/</c> and loads whatever is there. When nothing is there the
+    ///         generator never runs and the pass analyses a compilation with every generated partial
+    ///         missing from it. ⚠ <b>Silently</b> — the run was repeated at
+    ///         <c>--verbosity diagnostic</c> and the missing assembly is not named once; the only
+    ///         workspace warnings are pre-existing duplicate-<c>AdditionalFiles</c> ones about the
+    ///         analyzer projects' own release-tracking markdown.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And that is not a loud failure — it is a quiet one, because
+    ///         <c>dotnet format analyzers</c> reports analyzer diagnostics and not compiler ones.</b>
+    ///         A type that exists only in generated code simply vanishes, and the CS0246 that says so
+    ///         is filtered out. What survives to the console is the subset of nonsense an *analyzer*
+    ///         can express about the wreckage: on master that was ten <c>CA2021</c> errors saying
+    ///         <c>UiElement</c> is incompatible with <c>ComponentsView</c> — true of the compilation
+    ///         `dotnet format` built, and false of the code (#1022). The call sites were correct all
+    ///         along.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>CI hit it because the <c>checks</c> leg builds Release and <c>dotnet format</c>
+    ///         defaults to Debug.</b> Measured in a worktree with nothing built:
+    ///         <c>dotnet format analyzers Editor/Vixen.Editor.App.Tests</c> exits <b>2</b> with ten
+    ///         CA2021; after <c>dotnet build Core/Vixen.Ui.Markup.Generators -c Debug</c> — 2.3 s, one
+    ///         project — the same command exits <b>0</b>. With only the Release generator built, which
+    ///         is exactly CI's state, it exits 2 again, and
+    ///         <c>Configuration=Release dotnet format …</c> exits 0. The environment variable is the
+    ///         lever because <c>dotnet format</c> has no configuration switch and MSBuild reads the
+    ///         environment as global properties.
+    ///     </para>
+    ///     <para>
+    ///         So the bug was never in the eleven call sites the diagnostic named, and the damage was
+    ///         wider than those: <b>every</b> ProjectReference-supplied analyzer was absent from CI's
+    ///         format run, so the pass has been checking a fraction of what it appears to. It also
+    ///         took <see cref="CheckArchitecture" /> and <see cref="CheckApi" /> down with it, since
+    ///         one leg runs the three in one invocation.
+    ///     </para>
+    /// </remarks>
     Target CheckFormat => definition => definition
         .Description("Fails if a file deviates from .editorconfig, lacks its SPDX header, or is a dependency nothing attributes")
-        .DependsOn(Restore)
+        .DependsOn(Compile)
         .Executes(() => {
                 // First, because it takes milliseconds and the two passes below take minutes. A
                 // developer who forgot a header finds out before the format run, not after it.
@@ -468,9 +514,25 @@ partial class Build : NukeBuild {
                 // the other seven eighths, with those 551 named in docs/WhitespaceExempt.txt. The
                 // two numbers this comment used to carry were both wrong: "about nine hundred"
                 // violations are 5 167, and "twenty-eight files" are 551.
-                foreach (var workspace in FormatWorkspaces()) {
-                    DotNet($"format style \"{workspace}\" --verify-no-changes --severity warn --no-restore");
-                    DotNet($"format analyzers \"{workspace}\" --verify-no-changes --severity warn --no-restore");
+                // ⚠ Pinned to the configuration `Compile` just built, on the process environment,
+                // because `dotnet format` has no configuration switch and MSBuild reads environment
+                // variables as global properties. Without this the workspace evaluates Debug while
+                // CI has built only Release, every ProjectReference-supplied generator resolves to a
+                // `bin/Debug/` path that does not exist, and the analyzers pass reads a compilation
+                // with no generated code in it. Set and restored around the two passes rather than
+                // for the build, because a `Configuration` in this process's environment is a global
+                // property for every MSBuild invocation that follows it, including targets that
+                // deliberately hard-code Release.
+                var configuration = Environment.GetEnvironmentVariable("Configuration");
+                Environment.SetEnvironmentVariable("Configuration", Configuration);
+
+                try {
+                    foreach (var workspace in FormatWorkspaces()) {
+                        DotNet($"format style \"{workspace}\" --verify-no-changes --severity warn --no-restore");
+                        DotNet($"format analyzers \"{workspace}\" --verify-no-changes --severity warn --no-restore");
+                    }
+                } finally {
+                    Environment.SetEnvironmentVariable("Configuration", configuration);
                 }
             }
         );
