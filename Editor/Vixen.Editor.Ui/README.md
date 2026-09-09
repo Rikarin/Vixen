@@ -1810,8 +1810,12 @@ and `EditorShell.Dispose` calls it.
   [docs/plan/11](../../docs/plan/11-editor.md) § As built. An id used nowhere fails
   `nuke CheckStrings`, an id repeated at a call site fails it too, a name no declaration class has is
   CS0117, and `VXS0310`–`VXS0312` refuse the three things a declaration class can get wrong on its
-  own. `EditorStrings` is unchanged in shape, which doc 46 § A3 requires. What is still owed is the
-  178 ids the editor's *module* assemblies build at call sites and declare in no class; that gate
-  counts them.
+  own. `EditorStrings` is unchanged in shape, which doc 46 § A3 requires. ~~What is still owed is the
+  178 ids the editor's *module* assemblies build at call sites and declare in no class~~ — closed
+  2026-09-09: 198 of them are declared here, `All` is 350 entries, and `CheckStrings` fails on a
+  shipping call site that builds one rather than counting it. ⚠ 178 was 198 because the census read
+  the text `new StringId("…"` and a field initialiser target-types its `new`, so twenty-one ids —
+  including an `editor.category.scene` built three times in three files — were invisible to the gate
+  written to catch exactly that.
 - **A mode bar.** `IEditorMode` — the seam Select / Landscape / Foliage would hang off — does not
   exist, which doc 20's A1 calls the one structural addition still owed to the frame.

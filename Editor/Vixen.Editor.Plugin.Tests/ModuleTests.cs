@@ -130,7 +130,7 @@ public class ModuleTests {
     [Fact]
     public void A_module_puts_its_verbs_in_the_menu_the_thing_they_act_on_already_has() {
         using var shell = new EditorShell(1280f, 800f);
-        var scene = shell.Menus.AddMenu(new StringId("editor.menu.scene", "Scene"));
+        var scene = shell.Menus.AddMenu(EditorStrings.MenuScene);
         var host = new PluginHost(shell);
 
         var module = new Module(
@@ -142,7 +142,7 @@ public class ModuleTests {
                 var found = context.FindMenu("editor.menu.scene");
 
                 Assert.NotNull(found);
-                context.AddSubmenu(found, new StringId("editor.menu.geometry", "Geometry")).Add("blockout.extrude");
+                context.AddSubmenu(found, EditorStrings.MenuGeometry).Add("blockout.extrude");
             }
         );
 

@@ -130,14 +130,35 @@ public interface IEditorCommand
 > the editor's Undo menu item was impossible and nothing said so. That is the defect this line was
 > about, found by the check written for it.
 >
-> ⚠ **Owed, and measured rather than asserted**: 178 ids are still built at call sites in the editor
-> module assemblies — `EditorParity` alone has 72 — and declared in no class, so no `All` list
-> carries them and a translator's template is short by more than half of what the editor says.
-> `CheckStrings` logs that count as a measurement and does not fail on it, because closing it is a
-> migration across nine assemblies and because a handful of those ids **cannot** be declared:
-> `WaterMode.cs:247` builds `"editor.command." + id` in a loop over a mode's tools, which is a
-> legitimate shape a declaration class has no way to express. That is also a fact about the shape
-> worth carrying upstream — `StringId`'s constructor has to stay public for it.
+> ~~**Owed, and measured rather than asserted**: 178 ids are still built at call sites~~ — **the
+> migration is done and the measurement is a ceiling.** 198 ids across nine module assemblies are
+> declared in `EditorStrings` and reached through it, `EditorStrings.All` is 350 entries rather than
+> 154, and `CheckStrings` now *fails* on a shipping call site that builds a `StringId` from a literal
+> id no declaration class carries. `UndeclaredCeiling` is `0`, with two exclusions written where the
+> constant is: a `.Tests` assembly, whose fixtures invent `test.brush` for a registry and would only
+> pollute a template, and a `///` line, because three of the ids the old census counted were worked
+> examples in prose.
+>
+> ⚠ **178 was 198, and the twenty it could not see are the interesting half.** The census matched
+> the text `new StringId("…"`, and a field or property initialiser target-types its `new` —
+> `static readonly StringId CategoryWater = new("editor.category.water", "Water");` — so the type
+> name it anchored on was simply absent. Twenty-one production ids were written that way, invisible
+> to both the census and the duplicate check; `editor.category.scene` was constructed **three times
+> in three files** and the gate written to stop exactly that reported nothing. `CheckStrings` now
+> matches both shapes.
+>
+> ⚠ **And the `CommandUndo` defect was still live under a different name.** `EditorStrings.CommandSave`
+> declared `editor.command.file.save` = "Save"; `EditorApplication.Commands` registered `file.save`
+> with `new StringId("editor.command.save", "Save Scene")`. A translator's template carried an id the
+> editor never looked up, and the only thing keeping the declaration from failing the used-nowhere
+> check was a localisation test naming it. The declaration now carries the text the editor shows and
+> the call site uses the declaration.
+>
+> ⚠ **The claim that a handful of these ids cannot be declared was true and irrelevant.**
+> `WaterMode.cs` builds `"editor.command." + id` in a loop over a mode's tools — but a concatenation
+> has no string literal where the id goes, so it was never in the 178 and is not under the ceiling
+> either. It is untranslatable and unmeasured, which is a separate gap wanting a declaration shape
+> that can express a family; `StringId`'s constructor stays public for it.
 >
 > **The project browser is `ProjectBrowser` in `Vixen.Editor.App`**, not a shell panel, and for the
 > same reason as the first correction: it needs the asset database, and the shell may not see one.
@@ -461,9 +482,27 @@ Owed, in the order that unblocks the most:
    and Step need nothing from a contribution — `Tick` is what decides whether `Frame` is called at all.
 3. **Play through the game camera**, and with it the question of whether a session drives the
    viewport's `RenderView` or its own.
-4. **Additive scenes.** The controller is given one `BehaviorStore` — the first document's — and a
-   behaviour authored into a second, additively opened scene is named in `Unsupported` rather than
-   run. Correct and visible, and not yet whole.
+4. ✅ **Additive scenes** — closed 2026-09-09. ~~The controller is given one `BehaviorStore` — the
+   first document's — and a behaviour authored into a second, additively opened scene is named in
+   `Unsupported` rather than run.~~ `PlayModeController.Stores` is every other store a session takes
+   behaviours off, and `EditorApplication` gives it every open scene's.
+
+   ⚠ **A delegate read at every `Play`, and that is the same bug one level up.** Which scenes are
+   open changes while the editor runs, so a list captured when the controller was built would be
+   the set that was open at start-up — which is exactly how the single store became the *first*
+   document's rather than the active one's.
+
+   ⚠ **Which store a behaviour came off is recorded, not assumed**, because putting one back into
+   the wrong store would move a script from one scene file into another the next time either is
+   saved. And asking is the only way to find out: nothing readable on a behaviour says who owns it —
+   `AllOn` and `Get` answer from the entity's `BehaviorRef`, which is one component however many
+   stores share the world — while `BehaviorStore.Remove` already answers "was this mine" with its
+   return value and changes nothing when it refuses. ⚠ **That is also why the test's last two lines
+   are two `Remove` calls**: an assertion over `Get` would have passed with the script restored into
+   the wrong scene.
+
+   The session still runs one store, which is what a built game has: which scene authored a script
+   is an editing fact and not a frame's.
 
 ### `Vixen.Editor.NodeGraph` — one framework, three graphs
 
@@ -625,12 +664,24 @@ inspector that attaches to a running build on a device to browse and mutate live
 > - **Render-target inspection is not built.** Stepping to draw N replays the *state*, which a
 >   recorded command stream has; presenting what the frame had drawn by then needs a device that
 >   executed the calls, and `Vixen.Graphics.Null` is the only recording path there is.
+>   ⚠ **The narrower statement, checked 2026-09-09: the readback is not what is missing.**
+>   `ICommandList.CopyTextureToBuffer` and `MemoryAccess.HostReadback` are both in the RHI, the render
+>   graph emits GPU scopes, and `--vixen-capture` already gets a real device's picture out of a
+>   headless run. What is missing is a recording adapter beside `NullFrameCapture` that a real backend
+>   fills — which is [13](13-diagnostics.md) § Frame debugger's *"the render graph is recorded per
+>   frame"* row, the same piece, owed once rather than twice.
 > - **The remote inspector's runtime half is not written** — it is doc 13's — and neither is device
 >   discovery. The editor's half is complete over any `ITransport`, and the tests drive it against a
 >   `FakeBuild` written only to the protocol.
 > - **GPU heaps are absent from the memory view**, because reporting them needs
 >   `VK_EXT_memory_budget` and the Vulkan backend does not query it. The arena is missing rather than
 >   zero, which is the difference between "not measured" and "nothing allocated".
+>   ⚠ **Checked 2026-09-09 and the seam is the deliberate half, not the missing one.**
+>   `MemoryProviders.Gpu` is a delegate `DiagnosticsModule` leaves null with the reason written at the
+>   call site, so this is a gap that says so rather than a finished thing nothing calls. What it needs
+>   is a *reading* to be delegated to: `IGraphicsAdapter.DeviceMemory` is a capacity and there is no
+>   usage anywhere in the RHI, so the work is a new public surface on `Vixen.Graphics` — an answer a
+>   backend that cannot measure must be able to refuse — before either end of the plumb.
 
 ### `Vixen.Editor.Plugin`
 
@@ -665,20 +716,35 @@ inspector that attaches to a running build on a device to browse and mutate live
 > `PluginHost.WaitForCollection` is what turns the runtime's silence about a context that did not
 > collect into a warning the user sees.
 >
-> ⚠ **Importers and build steps are listed above and are not reachable.** `ContentPipeline` builds
-> its `ImporterRegistry` per run, deliberately, so the editor, the CLI and the compiler workers
-> cannot disagree about the set — which means there is no registry for a plugin to add to and giving
-> it one here would be the editor building a set the workers have not got. That is a change to
-> `Vixen.Editor.Assets`, not to this. Project templates are `Tools/Vixen.Templates`, which does not
-> exist yet either.
+> ~~⚠ **Importers and build steps are listed above and are not reachable.**~~ — **importers are, and
+> the fix was where this said it would be.** `ImporterContributions` in `Vixen.Editor.Assets` is a
+> set that outlives a run, `BuiltInImporters.Create` folds it into every registry built afterwards —
+> so the editor, the CLI and the compiler workers still cannot disagree about the set — and the
+> editor publishes it through `PluginServices`. A plugin that writes an importer references
+> `Vixen.Editor.Assets` itself and calls `Add`, which returns the scope that withdraws it again;
+> `OutOfTreePluginTests.The_editor_publishes_somewhere_for_a_plugin_to_add_an_importer` asserts the
+> point and `ImporterContributionTests` asserts the mechanism. ⚠ **Build steps are still not
+> reachable and, unlike importers, there is nothing to reach**: no `IBuildStep` or anything shaped
+> like one exists in the tree, so the row names an extension point to an abstraction that has not
+> been designed. Doc 36's D4 owes the player-build step itself; the plugin row is downstream of it.
 >
-> ⚠ **A rebuilt dependency still needs a restart.** The plugin's own assembly is read into memory
-> rather than mapped, so a `dotnet build` over the folder the editor is watching can rewrite it and
-> `Reload Plugins` picks the new one up; the libraries beside it are mapped and stay open. Shadow-
-> copying the folder is the fix and is a feature of its own.
+> ~~Project templates are `Tools/Vixen.Templates`, which does not exist yet either.~~ — it exists,
+> with its own `Tools/Vixen.Templates.Tests` and a `CheckTemplates` target.
 >
-> There is also no plugin-management panel — installed plugins, enable, disable, reload — which is a
-> view over `PluginHost.Plugins` and nothing more.
+> ~~⚠ **A rebuilt dependency still needs a restart.**~~ — **closed, and not by shadow-copying.** The
+> note read the fix as copying the plugin's folder somewhere else; ⚠ **a shadow copy is a second copy
+> on disk to keep in step, and reading the bytes is the same guarantee with nothing to keep in step.**
+> `PluginLoadContext.Load` reads a resolved dependency into memory exactly the way `LoadPlugin`
+> always read the entry assembly, so nothing in a plugin's folder is held open and a `dotnet build`
+> over any of it is followed by `Reload Plugins` rather than by a restart. The cost is stated where
+> the trade is: an assembly loaded from a stream has no `Assembly.Location`, so a plugin that finds a
+> data file by asking its own assembly where it lives asks its *directory* instead. ⚠ And that is
+> what the test asserts, because whether the rewrite *throws* is a fact about the operating system —
+> a sharing violation on Windows, and a mapped file on macOS or Linux can usually be replaced anyway,
+> so a test asserting only the rebuild would be green here and prove nothing.
+>
+> ~~There is also no plugin-management panel~~ — `PluginManagerView` is that panel, with enable,
+> disable, reload and the manifest columns, and it has its own tests.
 
 ## Editor-specific asset editors
 
@@ -821,3 +887,26 @@ Testing a GUI application is where most plans go quiet. Concretely:
 | Golden screenshots | Key editor layouts rendered headless on lavapipe, perceptual diff, light and dark themes. Catches layout and theming regressions. |
 | Crash reporting | An out-of-process crash handler capturing a minidump plus the last N log lines and the undo history, with user consent (Stride has `Stride.Editor.CrashReport`; it earns its place) |
 | Session recovery | Kill the editor mid-edit; on restart it recovers unsaved scene state from a journal. Tested by an automated kill-and-restore loop. |
+
+> **As built**, for the last two rows only — every row above them has the tests it names.
+>
+> ⚠ **Neither exists.** `CrashReport`, `SessionRecovery` and `RecoveryJournal` name nothing in the
+> tree; audited 2026-09-09 and the rows are as owed as the day they were written. What they would
+> stand on does exist, which is why they are cheap rather than speculative: `CommandStack` over
+> `IEditorCommand` already holds *"what has this person done since the last save"* — the report wants
+> it as context and the journal wants it as the replay — and `Vixen.Core.Diagnostics`'
+> `RingBufferSink` is the *"last N log lines"*, already UTF-8 packed.
+>
+> ⚠ **A crash report from a build reading loose content has to say so**, which is [17](17-app-heads-and-shipping.md)
+> § Q5b's condition for allowing it at all: the reader of a report is further from the machine than
+> any other surface, and a report filed against bundles that were never read is filed against the
+> wrong thing. `AppServices.Content.IsLoose` is the flag and `Content.Root` the path.
+> ⚠ Two of the three surfaces exist, and the second is **not** where it looks: the standing
+> `CONTENT LOOSE` line is drawn by `DiagnosticOverlays.Draw` itself and deliberately not by
+> `FrameStatsOverlay`, because hiding a panel must not take a notice with it. A third surface built
+> onto a panel would inherit exactly the bug that placement avoids.
+>
+> ⚠ **And both rows specify how they are proved, which is the half to keep.** A crash handler
+> exercised only by a unit test is a handler nobody has watched run out of process, and a journal
+> without the kill-and-restore loop fails silently at the one moment it matters. Ask what each prints
+> on the day it does not work.

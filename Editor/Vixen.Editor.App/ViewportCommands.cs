@@ -234,7 +234,7 @@ sealed partial class EditorApplication {
                 Label("scene.maximise", "Maximise Viewport"),
                 ToggleMaximised
             ) {
-                Category = CategoryScene,
+                Category = EditorStrings.CategoryScene,
 
                 // Enabled from the panel rather than from a pane, for `ArrangementCommands`' reason:
                 // maximising a closed panel is meaningless, and coming *back* has to stay reachable
@@ -324,7 +324,7 @@ sealed partial class EditorApplication {
                 Planned(
                     ViewportIds.ViewMode(mode),
                     Label(ViewportIds.ViewMode(mode), ViewShading.NameOf(mode)),
-                    CategoryScene,
+                    EditorStrings.CategoryScene,
                     Excuse(mode)
                 );
 
@@ -393,7 +393,7 @@ sealed partial class EditorApplication {
 
             Shell.Commands.Add(
                 new EditorCommand(id, Label(id, label), () => Arrangement = value) {
-                    Category = CategoryScene,
+                    Category = EditorStrings.CategoryScene,
                     RadioGroup = "scene.panes",
 
                     // ⚠ Enabled from the panel rather than from a pane, unlike everything else here.
@@ -677,9 +677,6 @@ sealed partial class EditorApplication {
         }
     }
 
-    /// <summary>The category every viewport command is filed under.</summary>
-    static readonly StringId CategoryScene = new("editor.category.scene", "Scene");
-
     /// <summary>A localisation id for a viewport command's label, from its own id.</summary>
     static StringId Label(string id, string text) => new("editor.command." + id, text);
 
@@ -714,7 +711,7 @@ sealed partial class EditorApplication {
                     }
                 }
             ) {
-                Category = CategoryScene,
+                Category = EditorStrings.CategoryScene,
                 RadioGroup = radioGroup,
                 Enablement = () => Viewport is { } pane && (enabled is null || enabled(pane)),
                 Checked = on is null ? null : () => Viewport is { } pane && on(pane)

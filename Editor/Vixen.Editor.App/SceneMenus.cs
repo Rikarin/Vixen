@@ -45,10 +45,10 @@ sealed partial class EditorApplication {
         Shell.Commands.Add(
             new EditorCommand(
                 "scene.radial-menu",
-                new StringId("editor.command.radial-menu", "Radial Menu"),
+                EditorStrings.CommandRadialMenu,
                 OpenRadialMenu
             ) {
-                Category = CategoryScene,
+                Category = EditorStrings.CategoryScene,
                 Enablement = () => Viewport is not null
             }
         );
@@ -56,10 +56,10 @@ sealed partial class EditorApplication {
         Shell.Commands.Add(
             new EditorCommand(
                 "scene.context-menu",
-                new StringId("editor.command.scene-context-menu", "Scene Context Menu"),
+                EditorStrings.CommandSceneContextMenu,
                 OpenSceneMenu
             ) {
-                Category = CategoryScene,
+                Category = EditorStrings.CategoryScene,
                 Enablement = () => Viewport is not null
             }
         );

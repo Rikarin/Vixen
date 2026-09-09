@@ -68,7 +68,7 @@ sealed partial class EditorApplication {
     void SelectionAndTransformCommands() {
         Verb(
             "edit.isolate",
-            new StringId("editor.command.edit.isolate", "Isolate Selection"),
+            EditorStrings.CommandEditIsolate,
             EditorStrings.CategoryEdit,
             Isolate,
             enabled: () => isolatedFrom is not null || scene.Selection.Count > 0,
@@ -79,21 +79,21 @@ sealed partial class EditorApplication {
 
         Verb(
             "edit.select-by-name",
-            new StringId("editor.command.edit.select-by-name", "Select By Name…"),
+            EditorStrings.CommandEditSelectByName,
             EditorStrings.CategoryEdit,
             SelectByName
         );
 
         Verb(
             "edit.select-by-type",
-            new StringId("editor.command.edit.select-by-type", "Select By Component…"),
+            EditorStrings.CommandEditSelectByType,
             EditorStrings.CategoryEdit,
             SelectByType
         );
 
         Verb(
             "edit.save-selection-set",
-            new StringId("editor.command.edit.save-selection-set", "Save Selection Set…"),
+            EditorStrings.CommandEditSaveSelectionSet,
             EditorStrings.CategoryEdit,
             SaveSelectionSet,
             enabled: () => scene.Selection.Count > 0
@@ -101,7 +101,7 @@ sealed partial class EditorApplication {
 
         Verb(
             "edit.recall-selection-set",
-            new StringId("editor.command.edit.recall-selection-set", "Recall Selection Set…"),
+            EditorStrings.CommandEditRecallSelectionSet,
             EditorStrings.CategoryEdit,
             RecallSelectionSet,
             enabled: () => selectionSets.Count > 0
@@ -109,24 +109,24 @@ sealed partial class EditorApplication {
 
         Verb(
             "entity.reset-transform",
-            new StringId("editor.command.entity.reset-transform", "Reset Transform"),
-            CategoryEntity,
+            EditorStrings.CommandEntityResetTransform,
+            EditorStrings.CategoryEntity,
             ResetTransform,
             enabled: () => scene.Selection.Count > 0
         );
 
         Verb(
             "entity.copy-transform",
-            new StringId("editor.command.entity.copy-transform", "Copy Transform"),
-            CategoryEntity,
+            EditorStrings.CommandEntityCopyTransform,
+            EditorStrings.CategoryEntity,
             CopyTransform,
             enabled: () => Transformable(scene.Selection.Primary)
         );
 
         Verb(
             "entity.paste-transform",
-            new StringId("editor.command.entity.paste-transform", "Paste Transform"),
-            CategoryEntity,
+            EditorStrings.CommandEntityPasteTransform,
+            EditorStrings.CategoryEntity,
             PasteTransform,
             enabled: () => copiedTransform is not null && scene.Selection.Count > 0
         );
@@ -137,16 +137,16 @@ sealed partial class EditorApplication {
         // gesture that changes every time it is used.
         Verb(
             "entity.align",
-            new StringId("editor.command.entity.align", "Align…"),
-            CategoryEntity,
+            EditorStrings.CommandEntityAlign,
+            EditorStrings.CategoryEntity,
             Align,
             enabled: () => scene.Selection.Count > 1
         );
 
         Verb(
             "entity.distribute",
-            new StringId("editor.command.entity.distribute", "Distribute…"),
-            CategoryEntity,
+            EditorStrings.CommandEntityDistribute,
+            EditorStrings.CategoryEntity,
             Distribute,
             enabled: () => scene.Selection.Count > 2
         );
@@ -157,8 +157,8 @@ sealed partial class EditorApplication {
         // dialog asking for a delta would be a different feature wearing its name.
         Planned(
             "entity.relative-transform",
-            new StringId("editor.command.entity.relative-transform", "Relative Transform Entry"),
-            CategoryEntity,
+            EditorStrings.CommandEntityRelativeTransform,
+            EditorStrings.CategoryEntity,
             "Typing +5 into a transform field is the inspector's numeric drawer parsing an operator, "
             + "not a verb; the drawer reads a number and nothing else."
         );

@@ -189,7 +189,7 @@ sealed partial class EditorApplication {
         // over the same project, with a way in.
         Shell.RegisterPanel(
             AddressablesPanel,
-            new StringId("editor.panel.addressables", "Addressables"),
+            EditorStrings.PanelAddressables,
             panel => {
                 var view = panel.Add<AssetEditors.Content.AddressableGroupsView>();
 
@@ -391,7 +391,7 @@ sealed partial class EditorApplication {
         view.Add(
             new SettingsCategory(
                 "general",
-                new StringId("editor.settings.general", "General"),
+                EditorStrings.SettingsGeneral,
                 pane => Draw(pane, view, preferences)
             ) {
                 Reset = () => preferences = new EditorPreferences(),
@@ -402,7 +402,7 @@ sealed partial class EditorApplication {
         view.Add(
             new SettingsCategory(
                 "appearance",
-                new StringId("editor.settings.appearance", "Appearance"),
+                EditorStrings.SettingsAppearance,
                 pane => {
                     Toggles(pane, "view.toggle-theme");
                     Tokens(pane, view);
@@ -415,7 +415,7 @@ sealed partial class EditorApplication {
         view.Add(
             new SettingsCategory(
                 "scene-view",
-                new StringId("editor.settings.scene-view", "Scene View"),
+                EditorStrings.SettingsSceneView,
                 pane => Toggles(
                     pane,
                     "scene.orbit-around-selection",
@@ -432,7 +432,7 @@ sealed partial class EditorApplication {
         view.Add(
             new SettingsCategory(
                 "keybindings",
-                new StringId("editor.settings.keybindings", "Keybindings"),
+                EditorStrings.SettingsKeybindings,
                 pane => Opens(
                     pane,
                     EditorStrings.PanelKeys.Text,
@@ -448,7 +448,7 @@ sealed partial class EditorApplication {
         view.Add(
             new SettingsCategory(
                 "plugins",
-                new StringId("editor.settings.plugins", "Plugins"),
+                EditorStrings.SettingsPlugins,
                 pane => Opens(
                     pane,
                     EditorStrings.PanelPlugins.Text,
@@ -559,7 +559,7 @@ sealed partial class EditorApplication {
         view.Add(
             new SettingsCategory(
                 "project",
-                new StringId("editor.settings.project", "Project"),
+                EditorStrings.SettingsProject,
                 pane => Draw(pane, view, project.Settings.Get<ProjectInfoSettings>(), project.Settings.MarkChanged<ProjectInfoSettings>)
             ) {
                 Reset = project.Settings.Reset<ProjectInfoSettings>,
@@ -570,7 +570,7 @@ sealed partial class EditorApplication {
         view.Add(
             new SettingsCategory(
                 "content",
-                new StringId("editor.settings.content", "Content Build"),
+                EditorStrings.SettingsContent,
                 pane => {
                     Draw(pane, view, project.Settings.Get<ContentBuildSettings>(), project.Settings.MarkChanged<ContentBuildSettings>);
 

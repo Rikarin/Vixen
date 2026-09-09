@@ -41,6 +41,15 @@ using Serilog;
 ///         editor looked up was <c>editor.command.undo</c>. Translating the editor's Undo item was
 ///         impossible and nothing said so.
 ///     </para>
+///     <para>
+///         ⚠ <b>And it was still true of Save when the census closed.</b> <c>EditorStrings.CommandSave</c>
+///         declared <c>editor.command.file.save</c> = "Save"; the shell registered <c>file.save</c>
+///         with <c>new StringId("editor.command.save", "Save Scene")</c>. Neither half of this gate
+///         could see it — <c>Unused</c> counted a localisation test naming the declaration as a use,
+///         and <c>Repeated</c> compares ids rather than the commands that carry them. What found it
+///         was the migration <see cref="Undeclared" /> now enforces: two declarations wanting the
+///         same member name is how a duplicated command shows up.
+///     </para>
 /// </remarks>
 partial class Build {
     /// <summary>Where a declaration class may live. Everything else is scanned only for uses.</summary>
@@ -67,10 +76,28 @@ partial class Build {
     );
 
     /// <summary>Every construction of a <c>StringId</c> whose id is a literal, anywhere.</summary>
-    static readonly Regex LooseIdPattern = new(
-        """new\s+StringId\(\s*"(?<id>[^"]+)"\s*,""",
-        RegexOptions.Compiled
-    );
+    /// <remarks>
+    ///     ⚠ <b>Two shapes, because for a year this saw only the first and the second is the one a
+    ///     call site is most naturally written in.</b> A field or property initialiser target-types
+    ///     its <c>new</c> — <c>static readonly StringId CategoryWater = new("editor.category.water",
+    ///     "Water");</c> — and the type name that this pattern anchors on is then simply not in the
+    ///     text. Twenty-one production ids were built that way and neither the census nor
+    ///     <see cref="Repeated" /> could see any of them; <c>editor.category.scene</c> was
+    ///     constructed three times, in three files, and the gate written to stop exactly that
+    ///     reported nothing. The second pattern is anchored on the declared type instead, which is
+    ///     what an initialiser does carry.
+    /// </remarks>
+    static readonly Regex[] LooseIdPatterns = [
+        new("""new\s+StringId\(\s*"(?<id>[^"]+)"\s*,""", RegexOptions.Compiled),
+        new(
+            """StringId\s+\w+\s*(?:\{\s*get;\s*\}\s*)?=\s*new\(\s*"(?<id>[^"]+)"\s*,""",
+            RegexOptions.Compiled
+        )
+    ];
+
+    /// <summary>Every id a file builds, under either shape.</summary>
+    static IEnumerable<Match> LooseIds(string contents) =>
+        LooseIdPatterns.SelectMany(pattern => pattern.Matches(contents));
 
     /// <summary>
     ///     This checkout's own <c>.claude/</c>, with a separator, so a prefix test cannot match a
@@ -79,7 +106,7 @@ partial class Build {
     string ClaudeDirectory => (RootDirectory / ".claude").ToString() + "/";
 
     Target CheckStrings => definition => definition
-        .Description("Fails if a declared string id is used nowhere, or if a call site repeats an id a declaration class already declares")
+        .Description("Fails if a declared string id is used nowhere, if a call site repeats an id a declaration class already declares, or if a shipping call site builds one no class declares")
         .Executes(() => {
                 var sources = RootDirectory
                     .GlobFiles("**/*.cs", "**/*.vxml")
@@ -160,6 +187,7 @@ partial class Build {
 
                 Unused(declarations, text, violations);
                 Repeated(declared, text, violations);
+                Undeclared(declared, text, violations);
 
                 foreach (var violation in violations) {
                     Log.Error("{Violation}", violation);
@@ -169,8 +197,6 @@ partial class Build {
                     violations.Count == 0,
                     $"{violations.Count} string-catalogue violation(s). See the errors above."
                 );
-
-                Census(declared, text);
 
                 Log.Information(
                     "Checked {Declarations} declarations in {Classes} declaration class(es) against {Files} files; no violations.",
@@ -213,9 +239,17 @@ partial class Build {
 
     /// <summary>An id written a second time at a call site, where the two sides can drift.</summary>
     /// <remarks>
-    ///     The analyzer refuses this inside an assembly that owns a declaration class. This is the
-    ///     cross-assembly case it cannot see, because an id is a *value* in an initialiser and a
-    ///     referenced assembly's metadata does not carry it — which is why this half is textual.
+    ///     <para>
+    ///         The analyzer refuses this inside an assembly that owns a declaration class. This is the
+    ///         cross-assembly case it cannot see, because an id is a *value* in an initialiser and a
+    ///         referenced assembly's metadata does not carry it — which is why this half is textual.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A <c>///</c> line is not a call site</b>, and this file is where that stopped
+    ///         being theoretical: the remarks above quote the initialiser shape the gate had been
+    ///         blind to, using a real id, and the gate then failed on its own explanation of itself.
+    ///         Nothing drifts when prose and a declaration disagree — a reader sees both.
+    ///     </para>
     /// </remarks>
     static void Repeated(
         IReadOnlyDictionary<string, (string Class, string Member, string Id, AbsolutePath File)> declared,
@@ -223,10 +257,14 @@ partial class Build {
         List<string> violations
     ) {
         foreach (var (path, contents) in text) {
-            foreach (Match loose in LooseIdPattern.Matches(contents)) {
+            foreach (var loose in LooseIds(contents)) {
                 var id = loose.Groups["id"].Value;
 
                 if (!declared.TryGetValue(id, out var declaration) || declaration.File == path) {
+                    continue;
+                }
+
+                if (InDocComment(contents, loose.Index)) {
                     continue;
                 }
 
@@ -239,40 +277,104 @@ partial class Build {
         }
     }
 
-    /// <summary>How many ids are built at a call site and declared in no class at all.</summary>
+    /// <summary>
+    ///     How many ids a shipping surface builds at a call site and declares in no class at all —
+    ///     a ceiling now, where it used to be a line in the log.
+    /// </summary>
     /// <remarks>
-    ///     ⚠ <b>A measurement, not a check, and it is named that way because the difference matters.</b>
-    ///     Closing it is a migration of every editor module's command labels into a declaration class,
-    ///     and a handful of those ids cannot be declared at all — <c>WaterMode.cs:247</c> builds
-    ///     <c>"editor.command." + id</c> in a loop over a mode's tools, which is a legitimate shape a
-    ///     declaration class has no way to express. Failing on the population today would either stop
-    ///     the build or force a rule with an exception list longer than itself. What this prints is the
-    ///     size of the gap, so that it is a number somebody decided to live with rather than one nobody
-    ///     had.
+    ///     <para>
+    ///         ⚠ <b>This was a measurement and not a check, and the measurement was 178.</b> Every
+    ///         one of them was a word the editor says and no translator's template contains, because
+    ///         <c>Strings.Template</c> exports <c>All</c> lists and an id nothing declares is in no
+    ///         <c>All</c> list. They are declared now — <c>EditorStrings</c> carries all of them —
+    ///         so the number a maintainer has to keep is zero and the gate says so rather than
+    ///         logging a warning nobody reads.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The old note said a handful of the population could not be declared and named
+    ///         <c>WaterMode</c>'s <c>"editor.command." + id</c> as the example. That was never in the
+    ///         population.</b> Both patterns need a string literal where the id goes, so a
+    ///         concatenation is invisible to this check — which means it is invisible to the
+    ///         translator's template as well, and the ceiling can be zero precisely because the
+    ///         genuinely irreducible ids were never being counted. That is a real gap and a
+    ///         different one; it wants a declaration shape that can express a family, not an
+    ///         exemption here.
+    ///     </para>
+    ///     <para>
+    ///         Two exclusions, both because they are not surfaces:
+    ///         <list type="bullet">
+    ///             <item>
+    ///                 A <c>.Tests</c> assembly. A fixture invents <c>test.brush</c> to feed a
+    ///                 registry; nobody translates it and declaring it would put it in a template.
+    ///             </item>
+    ///             <item>
+    ///                 A <c>///</c> line. Three of the ids this check saw on the day it was written
+    ///                 were prose — <c>IEditorPlugin</c>'s worked example, and this file's own
+    ///                 account of the <c>CommandUndo</c> defect. A documented example is not a call
+    ///                 site, and rewriting one to satisfy a gate makes the documentation worse.
+    ///             </item>
+    ///         </list>
+    ///     </para>
     /// </remarks>
-    static void Census(
-        IReadOnlyDictionary<string, (string Class, string Member, string Id, AbsolutePath File)> declared,
-        IReadOnlyDictionary<AbsolutePath, string> text
-    ) {
-        var undeclared = new HashSet<string>(StringComparer.Ordinal);
+    const int UndeclaredCeiling = 0;
 
-        foreach (var contents in text.Values) {
-            foreach (Match loose in LooseIdPattern.Matches(contents)) {
-                if (!declared.ContainsKey(loose.Groups["id"].Value)) {
-                    undeclared.Add(loose.Groups["id"].Value);
+    /// <summary>Applies <see cref="UndeclaredCeiling" />.</summary>
+    /// <param name="declared">Every id a declaration class carries.</param>
+    /// <param name="text">Every source file, by path.</param>
+    /// <param name="violations">Where a breach is recorded.</param>
+    static void Undeclared(
+        IReadOnlyDictionary<string, (string Class, string Member, string Id, AbsolutePath File)> declared,
+        IReadOnlyDictionary<AbsolutePath, string> text,
+        List<string> violations
+    ) {
+        var undeclared = new SortedDictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var (path, contents) in text) {
+            if (path.ToString().Contains(".Tests/", StringComparison.Ordinal)) {
+                continue;
+            }
+
+            foreach (var loose in LooseIds(contents)) {
+                var id = loose.Groups["id"].Value;
+
+                if (declared.ContainsKey(id) || InDocComment(contents, loose.Index)) {
+                    continue;
                 }
+
+                undeclared.TryAdd(id, RootDirectory.GetRelativePathTo(path).ToString());
             }
         }
 
-        if (undeclared.Count == 0) {
+        if (undeclared.Count > UndeclaredCeiling) {
+            foreach (var (id, path) in undeclared) {
+                violations.Add(
+                    $"{path} builds a StringId for '{id}', which no declaration class declares. No "
+                    + "All list carries it, so it is in no translator's template and the editor says "
+                    + "a word nobody can translate — declare it in EditorStrings and use that."
+                );
+            }
+
             return;
         }
 
-        Log.Warning(
-            "{Count} string id(s) are built at a call site and declared in no class, so no All list "
-            + "carries them and no translator's template contains them. Not a failure — see "
-            + "docs/plan/11 § As built for what closing it costs.",
-            undeclared.Count
+        // ⚠ The other half, and the reason this is a constant rather than a literal zero: a ceiling
+        // that only ever fails upwards is one nobody lowers. `CheckWhitespace`'s exemption list has
+        // the same rule, for the same reason.
+        Assert.True(
+            undeclared.Count == UndeclaredCeiling,
+            $"{undeclared.Count} undeclared string id(s), under a ceiling of {UndeclaredCeiling}. "
+            + "Lower UndeclaredCeiling to what the tree now has, so the number stays one somebody "
+            + "decided rather than one that drifted."
         );
+    }
+
+    /// <summary>Whether an offset falls on a <c>///</c> line.</summary>
+    /// <param name="contents">The file.</param>
+    /// <param name="index">Where the match started.</param>
+    /// <returns>Whether the line it is on is a documentation comment.</returns>
+    static bool InDocComment(string contents, int index) {
+        var start = contents.LastIndexOf('\n', Math.Max(index - 1, 0)) + 1;
+
+        return contents.AsSpan(start, index - start).TrimStart().StartsWith("///", StringComparison.Ordinal);
     }
 }

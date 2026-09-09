@@ -68,11 +68,11 @@ public sealed class ScriptsModule : IEditorPlugin, IDisposable {
 
         context.AddCommand(
             RebuildCommand,
-            new StringId("editor.command.scripts.rebuild", "Rebuild Editor Scripts"),
+            EditorStrings.CommandScriptsRebuild,
             () => scripts?.Rebuild()
         );
 
-        context.AddPanel(PanelId, new StringId("editor.panel.scripts", "Editor Scripts"), Build);
+        context.AddPanel(PanelId, EditorStrings.PanelScripts, Build);
 
         // ⚠ Once, at activation, before anything is watching. A project whose scripts already exist
         // has to come up with its menus in place — a first build that waited for a file to change

@@ -476,4 +476,84 @@ public class LoadingTests {
         Assert.False(report.HasErrors);
         Assert.Equal(["zzz", "aaa"], report.Activated.Select(plugin => plugin.Id));
     }
+
+    /// <summary>A library beside a plugin, so the dependency load path has something to resolve.</summary>
+    const string Library = """
+                           namespace SampleRuntime;
+
+                           public static class Build {
+                               public static string Text => "v1";
+                           }
+                           """;
+
+    /// <summary>A plugin whose answer comes out of that library rather than out of its own assembly.</summary>
+    const string UsesLibrary = """
+                               using Vixen.Editor.Plugin;
+
+                               namespace Sample;
+
+                               public sealed class Entry : IEditorPlugin {
+                                   public static string Describe() => SampleRuntime.Build.Text;
+
+                                   public void Activate(PluginContext context) {
+                                   }
+                               }
+                               """;
+
+    /// <summary>A rebuilt <i>dependency</i> is picked up too, because nothing in the folder is mapped.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The entry assembly was read into memory and the libraries beside it were mapped</b>,
+    ///         so the plugin-development loop worked for the one file a plugin author edits until the
+    ///         plugin is big enough to have two. Doc 11 recorded shadow-copying the folder as the fix;
+    ///         reading the bytes is the same guarantee with no second copy on disk to keep in step.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Assembly.Location</c> is the assertion and the rebuild is only the symptom.</b>
+    ///         An assembly loaded from a stream has no location by construction, so an empty one is
+    ///         exactly "this file is not held open", on every platform. Whether the rewrite below
+    ///         *throws* is a fact about the operating system — a sharing violation on Windows, while
+    ///         macOS and Linux will usually let a mapped file be replaced — so a test asserting only
+    ///         the rewrite would be green on both platforms this suite runs on locally and would be
+    ///         proving nothing on either.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_library_beside_a_plugin_is_read_rather_than_mapped() {
+        using var folder = new PluginFolder();
+
+        var library = folder.WriteLibrary("sample", "SampleRuntime", Library);
+        var plugin = folder.Write("sample", UsesLibrary, manifest: null, library);
+
+        var context = new PluginLoadContext(Path.Combine(plugin, "sample.dll"));
+
+        try {
+            // Calling it is what loads the library: a reference nothing invokes resolves nothing.
+            var entry = context.LoadPlugin().GetType("Sample.Entry")!;
+
+            Assert.Equal("v1", entry.GetMethod("Describe")!.Invoke(null, null));
+
+            var loaded = Assert.Single(
+                context.Assemblies,
+                assembly => assembly.GetName().Name == "SampleRuntime"
+            );
+
+            Assert.Empty(loaded.Location);
+
+            // And the symptom: the author's next build over the folder the editor is watching.
+            folder.WriteLibrary("sample", "SampleRuntime", Library.Replace("v1", "v2", StringComparison.Ordinal));
+        } finally {
+            context.Unload();
+        }
+
+        var reloaded = new PluginLoadContext(Path.Combine(plugin, "sample.dll"));
+
+        try {
+            var entry = reloaded.LoadPlugin().GetType("Sample.Entry")!;
+
+            Assert.Equal("v2", entry.GetMethod("Describe")!.Invoke(null, null));
+        } finally {
+            reloaded.Unload();
+        }
+    }
 }

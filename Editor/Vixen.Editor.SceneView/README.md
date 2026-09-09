@@ -1229,6 +1229,15 @@ Three things that are easy to get wrong and are not:
   destroys everything it finds and the *store* refuses what is not its own — `Destroy` checks
   ownership exactly as `Remove` does, and returns `false`. It did not until 2026-08-21, and the
   workaround was a set of the refused behaviours kept here so the walk could skip them by hand.
+- ⚠ **An additively opened scene's behaviours run, and go back into the scene they came from.**
+  `PlayModeController.Stores` is a delegate over every *other* store a session takes behaviours off,
+  read at each `Play` because which scenes are open changes while the editor runs. Until 2026-09-09
+  the controller had one store and everything a second scene authored landed in `Unsupported` — an
+  honest degrade, and not a whole feature. Which store each behaviour came off is recorded with its
+  bytes, because restoring one into the wrong store moves a script between two scene files the next
+  time either is saved; and *asking* is the only way to find out who owns it, since `AllOn` and `Get`
+  read the entity's shared link while only `Remove` answers ownership — and a refusal changes
+  nothing.
 
 ⚠ **A caller that ticks must not also run its own `TransformSystem` that frame.** The graph runs one
 in `PreRender`, and two instances over one world keep separate "what have I already seen" versions, so

@@ -73,7 +73,13 @@ public sealed class PlayModeController : IDisposable {
     /// <param name="Entity">Which entity carried it, in pre-snapshot handles.</param>
     /// <param name="Alias">Its name, which is what survives the round trip.</param>
     /// <param name="State">Its values.</param>
-    readonly record struct Authored(Entity Entity, string Alias, byte[] State);
+    /// <param name="Store">
+    ///     The store it was taken off, which is the store it goes back into. ⚠ <b>Recorded rather
+    ///     than assumed</b>: with a second scene open additively the answer differs per behaviour,
+    ///     and putting one back into the wrong store would move a script from one scene file into
+    ///     another the next time either is saved.
+    /// </param>
+    readonly record struct Authored(Entity Entity, string Alias, byte[] State, BehaviorStore Store);
 
     readonly World world;
     readonly BehaviorStore? authored;
@@ -176,13 +182,35 @@ public sealed class PlayModeController : IDisposable {
     /// <summary>Behaviours on the world that this session could not take over, by type name.</summary>
     /// <remarks>
     ///     ⚠ <b>Empty is the normal answer, and a non-empty one must be shown rather than
-    ///     logged.</b> A behaviour lands here when nothing registered its type — so there is no
-    ///     binder to copy its values through — or when it belongs to a <see cref="BehaviorStore" />
-    ///     other than the one this controller was given, which is what a second additively-opened
-    ///     scene produces. Either way the behaviour does not run, and a play session that silently
-    ///     skipped one would present as that script being broken.
+    ///     logged.</b> A behaviour lands here when nothing registered its type, so there is no binder
+    ///     to copy its values through, or when no store <see cref="Stores" /> offers owns it. Either
+    ///     way the behaviour does not run, and a play session that silently skipped one would present
+    ///     as that script being broken.
     /// </remarks>
     public IReadOnlyList<string> Unsupported { get; private set; } = [];
+
+    /// <summary>Every other store whose authored behaviours this session takes over.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A scene opened additively has its own store, and until this existed a behaviour
+    ///         authored into one was named in <see cref="Unsupported" /> rather than run.</b>
+    ///         <c>BehaviorStore.Remove</c> refuses a behaviour that is not its own — correctly, and
+    ///         for reasons its own remarks give — so the controller's single store could take off
+    ///         exactly the first document's behaviours and reported the rest as unsupported. It
+    ///         degraded honestly; it was not whole.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A delegate read at every <see cref="Play" />, for the reason the extensions
+    ///         registry is.</b> Which scenes are open changes while the editor runs, and a list
+    ///         captured when this controller was built would be the set that was open at start-up —
+    ///         which is exactly the bug this closes, one level up.
+    ///     </para>
+    ///     <para>
+    ///         The store passed to the constructor is always tried first and never needs repeating
+    ///         here; a store offered twice is used once.
+    ///     </para>
+    /// </remarks>
+    public Func<IEnumerable<BehaviorStore>>? Stores { get; set; }
 
     /// <summary>Raised when the state changes.</summary>
     public event Action<PlayModeController, PlayState>? StateChanged;
@@ -250,7 +278,10 @@ public sealed class PlayModeController : IDisposable {
         // `EngineLoop` owns a world only when it had to create one.
         Loop = new EngineLoop(world);
 
-        foreach (var (entity, alias, state) in saved) {
+        // ⚠ One store for the session however many the scene came out of. Which scene authored a
+        // behaviour is an editing fact; a running frame has one set of scripts, which is what a
+        // built game has too.
+        foreach (var (entity, alias, state, _) in saved) {
             if (SceneBehaviorRegistry.TryGet(alias, out var binder)) {
                 binder.AttachTo(Loop.Behaviors, entity, binder.Restore(state));
             }
@@ -500,19 +531,22 @@ public sealed class PlayModeController : IDisposable {
     List<Authored> Detach(out IReadOnlyList<string> unsupported) {
         List<Authored> taken = [];
         List<string> refused = [];
+        var stores = Offered();
 
-        if (authored is not { } store) {
+        if (stores.Count == 0) {
             unsupported = refused;
             return taken;
         }
 
         foreach (var entity in Carriers()) {
-            // A copy, because detaching rewrites the very array `AllOn` hands back.
-            foreach (var behavior in store.AllOn(entity).ToArray()) {
+            // A copy, because detaching rewrites the very array `AllOn` hands back. ⚠ Read through
+            // any one store, because `AllOn` answers from the entity's `BehaviorRef` — one component
+            // however many stores share the world — so this list is already every scene's.
+            foreach (var behavior in stores[0].AllOn(entity).ToArray()) {
                 if (SceneBehaviorRegistry.TryGet(behavior.GetType(), out var binder)
                     && binder.Save(behavior) is { } state
-                    && binder.RemoveFrom(store, entity)) {
-                    taken.Add(new(entity, binder.Name, state));
+                    && Owner(stores, binder, entity) is { } owner) {
+                    taken.Add(new(entity, binder.Name, state, owner));
                     continue;
                 }
 
@@ -526,6 +560,50 @@ public sealed class PlayModeController : IDisposable {
         return taken;
     }
 
+    /// <summary>The stores this session may take behaviours off, the constructor's first.</summary>
+    /// <returns>Them, without repeats.</returns>
+    /// <remarks>
+    ///     ⚠ <b>By reference rather than by equality.</b> A <c>BehaviorStore</c> is identity — two
+    ///     stores over one world are two owners, which is the whole distinction this walk turns on —
+    ///     so the same object offered twice is one entry and two equal-looking objects are two.
+    /// </remarks>
+    List<BehaviorStore> Offered() {
+        List<BehaviorStore> stores = [];
+
+        if (authored is { } first) {
+            stores.Add(first);
+        }
+
+        foreach (var store in Stores?.Invoke() ?? []) {
+            if (store is not null && !stores.Any(known => ReferenceEquals(known, store))) {
+                stores.Add(store);
+            }
+        }
+
+        return stores;
+    }
+
+    /// <summary>Takes one behaviour off whichever offered store owns it.</summary>
+    /// <param name="stores">The stores to try, in order.</param>
+    /// <param name="binder">The behaviour's binder.</param>
+    /// <param name="entity">Its entity.</param>
+    /// <returns>The store it came off, or <see langword="null" /> when none owned it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>Asking is the only way to find out, and asking is also the doing.</b> Nothing on a
+    ///     behaviour says which store holds it that a caller can read — <c>Behavior.Store</c> is not
+    ///     this assembly's to see — and <c>BehaviorStore.Remove</c> already answers "was this mine"
+    ///     with its return value. A store that refuses has changed nothing.
+    /// </remarks>
+    static BehaviorStore? Owner(List<BehaviorStore> stores, ISceneBehaviorBinder binder, Entity entity) {
+        foreach (var store in stores) {
+            if (binder.RemoveFrom(store, entity)) {
+                return store;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>Puts the authored behaviours back, on the handles the restore issued.</summary>
     /// <remarks>
     ///     ⚠ <b>New instances, not the ones that were taken off.</b> Nothing was kept but bytes —
@@ -534,13 +612,11 @@ public sealed class PlayModeController : IDisposable {
     ///     exists to enforce, applied to the half of the scene that is not in the world.
     /// </remarks>
     void Reattach(IReadOnlyDictionary<Entity, Entity> translation) {
-        if (authored is { } store) {
-            foreach (var (entity, alias, state) in saved) {
-                if (translation.TryGetValue(entity, out var now)
-                    && world.IsAlive(now)
-                    && SceneBehaviorRegistry.TryGet(alias, out var binder)) {
-                    binder.AttachTo(store, now, binder.Restore(state));
-                }
+        foreach (var (entity, alias, state, store) in saved) {
+            if (translation.TryGetValue(entity, out var now)
+                && world.IsAlive(now)
+                && SceneBehaviorRegistry.TryGet(alias, out var binder)) {
+                binder.AttachTo(store, now, binder.Restore(state));
             }
         }
 
