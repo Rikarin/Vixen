@@ -925,6 +925,23 @@ public sealed class UiRenderer : IDisposable {
     ///         texture/texture/sampler/storage and recompile all eight modules, which buys nothing.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>And it is a shader change at all, which six audits of <c>Rikarin/Vixen#783</c>
+    ///         never said out loud.</b> Vulkan's <c>VK_EXT_blend_operation_advanced</c> is the CSS
+    ///         blend set as <i>fixed-function</i> blend operations — the separable twelve and the
+    ///         non-separable four, named after the same PDF modes — so on a device exposing it this
+    ///         divergence would close with a different <c>BlendState</c> on the draw already being
+    ///         made, and no texture, capture, descriptor set or fragment arithmetic at all. It is
+    ///         rejected on two checkable grounds rather than on taste:
+    ///         <see cref="Vixen.Graphics.BlendOperation" /> has five members and they are core
+    ///         Vulkan's, so the abstraction cannot spell one; and the extension is optional and
+    ///         MoltenVK does not expose it, so the machine the reference images come from could not
+    ///         run the path and a fragment implementation would have to exist beside it anyway. ⚠
+    ///         <see cref="Vixen.Graphics.BlendOperation.Min" /> and
+    ///         <see cref="Vixen.Graphics.BlendOperation.Max" /> are the trap in that sentence: they
+    ///         look like <c>darken</c> and <c>lighten</c> and are not, because § 5.1's <c>B</c> is
+    ///         defined on un-premultiplied colour and a composite surface holds premultiplied.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>Which needs saying out loud for <see cref="Backdropped" />'s reason and a sharper
     ///         version of it.</b> A blend over a flat backdrop is frequently the identity —
     ///         <c>multiply</c> against white, <c>screen</c> against black — so a fixture cannot tell a

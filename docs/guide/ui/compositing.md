@@ -768,6 +768,24 @@ set**, which is also the cheaper answer — a module that does not declare set 1
 use it, so leaving it unbound for every other pipeline is valid and set 0 is still never disturbed by
 a pipeline change.
 
+⚠ **The first question anyone with a Vulkan background asks about this is whether it is a shader
+change at all, and six audits of `Rikarin/Vixen#783` never wrote the answer down.** Vulkan's
+`VK_EXT_blend_operation_advanced` provides the CSS blend set as *fixed-function* blend operations —
+the twelve separable ones and all four non-separable ones, named after the same PDF modes — so on a
+device that exposes it a blended group would need no second texture, no capture, no second descriptor
+set and no fragment arithmetic: only a different `BlendState` on the composite draw it already makes.
+It is nevertheless **not** the path here, for two reasons that are checkable rather than aesthetic.
+`Vixen.Graphics.BlendOperation` (`Core/Vixen.Graphics/GraphicsEnums.cs:331`) has five members —
+`Add`, `Subtract`, `ReverseSubtract`, `Min`, `Max`, which are core Vulkan's — so the abstraction
+cannot spell one, and widening it means an optional-extension capability query threaded to every
+backend. And the extension is optional: MoltenVK does not expose it, so the machine this engine's
+golden images are recorded on could not run the path, and a fallback shader would have to exist
+anyway. A second implementation of the same sixteen modes, reachable only on some adapters and never
+on the one the references come from, is the shape this repository keeps finding bugs in. ⚠ Recorded
+as *considered and rejected with evidence* rather than left for a seventh audit to rediscover: `Min`
+and `Max` are a real temptation, because `darken` and `lighten` look like them and are not — those
+two are defined on un-premultiplied colour and a composite surface holds premultiplied.
+
 ### Isolating which backdrop a blend reaches
 
 `isolation: isolate` is the seventh reason to open a group and it changes no pixel of the group it
