@@ -207,6 +207,17 @@ node. `ShaderGraphSource.Maps` carries the `albedo` ⇄ `albedoIndex` pairing a 
 `ShaderGraphMaterial.Feature` turns a compiled surface into the `GraphSurfaceFeature` a `.vxmat`
 composes — the only `IMaterialFeature` whose `ShaderName` is data rather than a constant.
 
+⚠ **It names only what its caller sets, and it used to write every declared property at its type's
+zero** ([#1126](https://github.com/Rikarin/Vixen/issues/1126),
+[#1133](https://github.com/Rikarin/Vixen/issues/1133)). A `GraphSurfaceNumber` entry *overrides* the
+generated shader's declared default, so the projection replaced every graph default with black — and
+the editor's only feature-writing path had to avoid it for that reason, which is how the join ended
+up with no production caller at all. Both go through it now: `MaterialDocument.SetGraphValue` for a
+value an author moved, and `MaterialDocument.LinkGraph` — with no values — when a material is pointed
+at a graph. ⚠ **Linking is what composes the surface**; before it did nothing, because nothing reads
+`MaterialAsset.Graph` at draw time and a linked graph therefore stayed invisible until an author
+nudged a slider.
+
 ## How the emitted Raven reaches a compilation
 
 `Vixen.Editor.Assets`'s `ShaderGraphSources` compiles every `.vxshadergraph` under `Assets/` and

@@ -265,6 +265,13 @@ public class GraphMaterialTests {
     }
 
     /// <summary>A texture slot is not offered to an author as a number to type.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The values are supplied — including one for the slot — and that is what keeps this
+    ///     case able to fail.</b> A feature now names only what its caller set, so
+    ///     <c>Feature(source)</c> with nothing to set writes no numbers and no vectors at all and
+    ///     every <c>DoesNotContain</c> below would hold against an empty list. Asking for
+    ///     <c>albedoIndex</c> by name is the only version of this that says anything.
+    /// </remarks>
     [Fact]
     public void A_texture_slot_is_not_a_value_a_material_sets() {
         var source = Compiled();
@@ -272,10 +279,58 @@ public class GraphMaterialTests {
         Assert.Contains(source.Properties, property => property.Name == "albedoIndex");
         Assert.DoesNotContain(ShaderGraphMaterial.Values(source), property => property.Name == "albedoIndex");
 
-        var feature = ShaderGraphMaterial.Feature(source);
+        var feature = ShaderGraphMaterial.Feature(
+            source,
+            new Dictionary<string, Vector4>(StringComparer.Ordinal) {
+                ["tint"] = new(0.8f, 0.2f, 0.2f, 1f),
+                ["roughness"] = new(0.35f, 0f, 0f, 0f),
+                ["albedoIndex"] = new(7f, 0f, 0f, 0f)
+            }
+        );
 
+        Assert.NotEmpty(feature.Numbers);
+        Assert.NotEmpty(feature.Vectors);
         Assert.DoesNotContain(feature.Numbers, number => number.Name == "albedoIndex");
         Assert.DoesNotContain(feature.Vectors, vector => vector.Name == "albedoIndex");
         Assert.Contains(feature.Maps, map => map.Slot == "albedoIndex");
+    }
+
+    /// <summary>A property the material does not set is left out rather than written at zero.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1126">#1126</a>,
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1133">#1133</a>.</b> This wrote every
+    ///         declared property at its type's zero, and a <c>GraphSurfaceNumber</c> entry
+    ///         <em>overrides</em> the generated shader's declared default — so composing a graph
+    ///         through it replaced every default an author had set in the graph with black. The
+    ///         editor's own feature-writing path had to avoid it for exactly that reason, which is
+    ///         why the join had no production caller at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The instrument is the second half: the same graph with the value supplied.</b>
+    ///         "No numbers" alone is satisfied by a conversion that dropped every property, which is
+    ///         the failure this rule is one line away from.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_property_the_material_does_not_set_is_left_out_rather_than_zeroed() {
+        var source = Compiled();
+        var composed = ShaderGraphMaterial.Feature(source);
+
+        Assert.Equal(2, ShaderGraphMaterial.Values(source).Length);
+        Assert.Empty(composed.Numbers);
+        Assert.Empty(composed.Vectors);
+
+        // What the link does owe the frame: the shader's name and the slots a host binds through.
+        Assert.Equal(source.Name, composed.Shader);
+        Assert.NotEmpty(composed.Maps);
+
+        var set = ShaderGraphMaterial.Feature(
+            source,
+            new Dictionary<string, Vector4>(StringComparer.Ordinal) { ["roughness"] = new(0.35f, 0f, 0f, 0f) }
+        );
+
+        Assert.Equal(0.35f, Assert.Single(set.Numbers).Value);
+        Assert.Empty(set.Vectors);
     }
 }

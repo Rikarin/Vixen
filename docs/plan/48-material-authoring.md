@@ -1328,7 +1328,24 @@ for that wall — and the wrap is not a bug there, because the tiling *is* the u
 "splat on uv0, detail on uv1" is a vertex-format change and out of this document's scope. Re-exporting
 an arena mesh at its own extent would give it a 0..1 unwrap and change every other material already on
 it, which breaks the one-changed-thing rule the arena's own A/B rests on. So: **a purpose-built ground
-plane or rock with a real 0..1 unwrap**, whose layers carry their own detail tiling.
+plane or rock with a real 0..1 unwrap**, painted across that unwrap by the splat map.
+
+⚠ **"Whose layers carry their own detail tiling" is what this said, and no layer can**
+([#1136](https://github.com/Rikarin/Vixen/issues/1136)). A `MaterialLayerValue` is a base colour, a
+metalness, a roughness and a weight — four scalars, no map and no tiling — and
+`TexturedMaterialLayersSurface.Compute` blends those constants by the splat weights and writes
+`diffuseColor`, `f0` and `perceptualRoughness`; the only textures it samples are the splat map and,
+under `HeightBlended`, the per-layer height bundle. So a splat-painted surface reads correctly at a
+distance and has no surface detail at all up close, which is the honest state of the feature and is
+what `plaza.vxmat` says of itself. The clause was not wrong about the *decision* — a splat map on a
+tiling uv places nothing, so the purpose-built mesh is right for the reason given — but the half
+sentence would send the next reader hunting for a knob. ⚠ **And it is why this feature cannot be put
+on an existing textured arena material**: a layer names no map, so carrying a layer stack means giving
+that surface's base-colour map up. Closing it wants a per-layer albedo and a tiling scale beside it,
+**indexed rather than named** — `WorldRenderer.Paired` keys one static `TextureIndices` entry per
+name, off each feature's own default, so N per-layer names would be N entries a material may not
+choose. `TerrainRenderer` already solves the same problem the indexed way, with a `layerMaps` texture
+array and a `layerScales` buffer resolved by `ResolveLayerTextures`.
 
 **Which unwrap — the one doc 42 built.** `Vixen.Geometry.Uv` is in the tree and is listed among the
 things this plan stands on; a hand-authored plane needs nothing from it, and the moment the asset is a
