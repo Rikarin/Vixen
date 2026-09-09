@@ -255,6 +255,7 @@ public sealed class ComponentsViewDumpTests {
     /// </remarks>
     const string Open =
         """
+        <toggle-button .raw-toggle .size-sm .variant-subtle> Label="Raw"
         <expander .component .open .size-md .variant-default> State=Open IsExpanded=True Label="Light"
         <expander-header .size-md .variant-default> State=Checked Label="Light"
         <icon-button .remove-component .size-sm .variant-subtle> Label="Remove Component"
@@ -409,6 +410,7 @@ public sealed class ComponentsViewDumpTests {
     const string Swapped =
         """
         <components .size-md .variant-default> State=FocusWithin
+        <toggle-button .raw-toggle .size-sm .variant-subtle> Label="Raw"
         <component-list> State=FocusWithin
         <expander .component .open .size-md .variant-default> State=FocusWithin, Open IsExpanded=True Label="Primitive Shape"
         <expander-header .size-md .variant-default> State=Focus, Checked, FocusWithin Label="Primitive Shape"
