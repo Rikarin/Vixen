@@ -147,7 +147,9 @@ public class RealOwedTableTests {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>These are the thirteen rows that were over the cap when the rule was mechanised,
-    ///         and none of them is material authoring's.</b> Trimming a row means moving its evidence
+    ///         and none of them is material authoring's.</b> They are enumerated with their lengths in
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1125">#1125</a>, which is the issue
+    ///         each entry names and which closes when the last of them is trimmed. Trimming a row means moving its evidence
     ///         into the § 1.x paragraph that owns the subsystem and checking that paragraph carries
     ///         it — which for rows 91 and 92 it already did, and those two were trimmed rather than
     ///         excused. For `Vixen.Sdk`, the CLI, the text stack and Build/CI the evidence lives in
@@ -156,19 +158,19 @@ public class RealOwedTableTests {
     ///     </para>
     /// </remarks>
     static readonly (string Row, string Issue)[] Excused = [
-        ("5", "#1116"),
-        ("22", "#1116"),
-        ("33", "#1116"),
-        ("34", "#1116"),
-        ("36", "#1116"),
-        ("38", "#1116"),
-        ("44", "#1116"),
-        ("61", "#1116"),
-        ("78", "#1116"),
-        ("79", "#1116"),
-        ("81", "#1116"),
-        ("84", "#1116"),
-        ("85", "#1116"),
+        ("5", "#1125"),
+        ("22", "#1125"),
+        ("33", "#1125"),
+        ("34", "#1125"),
+        ("36", "#1125"),
+        ("38", "#1125"),
+        ("44", "#1125"),
+        ("61", "#1125"),
+        ("78", "#1125"),
+        ("79", "#1125"),
+        ("81", "#1125"),
+        ("84", "#1125"),
+        ("85", "#1125"),
     ];
 
     /// <summary>The checkout this assembly was compiled in — the nearest root, never the outermost.</summary>

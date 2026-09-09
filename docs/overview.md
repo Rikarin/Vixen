@@ -1074,8 +1074,8 @@ of this file and fails on a cell over 400 characters of prose — four times the
 link's target does not count — or carrying one of the three shapes above. It cannot check that a row
 *agrees* with § 1.x, which is a claim about two paragraphs; it checks the property that made the
 disagreement possible. The rows already over the cap when it landed are excused **by number, with the
-issue**, and a second test requires each of them to still break the rule — so the list can only
-shrink. Trimming a row means moving its evidence into the § 1.x paragraph that owns the subsystem and
+issue** ([#1125](https://github.com/Rikarin/Vixen/issues/1125), which enumerates them), and a second
+test requires each of them to still break the rule — so the list can only shrink. Trimming a row means moving its evidence into the § 1.x paragraph that owns the subsystem and
 checking that paragraph carries it, never deleting it; rows 91, 92 and 93 are what that looks like
 done.
 
