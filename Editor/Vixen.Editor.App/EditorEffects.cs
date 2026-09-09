@@ -51,7 +51,6 @@ sealed class EditorEffects : IDisposable {
     /// </remarks>
     public const string LibraryFolder = "Shaders/Library";
 
-    readonly IGraphicsDevice device;
     readonly EditorProject project;
 
     /// <summary>The only provider <see cref="System" /> ever holds.</summary>
@@ -65,6 +64,39 @@ sealed class EditorEffects : IDisposable {
     /// </remarks>
     readonly Reloadable provider = new();
 
+    /// <summary>The one loader every rebuild loads through.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One per device, and it used to be one per <see cref="Rebuild" />.</b>
+    ///         <c>new EffectLoader(device)</c> sat inline beside the provider it was handed to, so
+    ///         every shader edit, every graph save and every project open minted a loader, filled it
+    ///         with a descriptor set layout per binding shape and a pipeline layout to match, and
+    ///         dropped it — releasing nothing, because
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1121">#1121</a>'s two siblings could
+    ///         release theirs and this one cannot. Bounded per loader and monotonic across a session.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Hoisting it is the whole fix, and it is a fix rather than a deferral because a
+    ///         layout is a function of the binding shape and of nothing else</b> — see
+    ///         <c>EffectLoader.PipelineLayoutOf</c>'s remarks. Editing a shader changes the
+    ///         bytecode, not the shape, so the loader a rebuild wants is bit-for-bit the loader it
+    ///         already had. What that buys is not a smaller leak: it is the right lifetime. These
+    ///         layouts belong to one device, they are shared by every variant compiled on it, and
+    ///         they go when it does.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Deliberately not <see cref="EffectLoader.Release" />d by <see cref="Dispose" />,
+    ///         unlike <c>TexturePlanEvaluator</c>'s and <c>ShaderGraphPreviewRenderer</c>'s.</b>
+    ///         Those two own every pipeline built from their own effects and idle the device before
+    ///         they tear one down. These effects are handed to <see cref="System" />, and the
+    ///         pipelines built from them live in the renderer's caches — so a release here would free
+    ///         a layout a live pipeline was created from, with no fence anywhere saying it had gone.
+    ///         <c>EditorApplication.AttachRenderer</c> disposes this only when the device it names is
+    ///         being released, which is the moment these handles stop existing anyway.
+    ///     </para>
+    /// </remarks>
+    readonly EffectLoader loader;
+
     bool disposed;
 
     /// <summary>Builds the chain over a project.</summary>
@@ -75,8 +107,8 @@ sealed class EditorEffects : IDisposable {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(project);
 
-        this.device = device;
         this.project = project;
+        loader = new(device);
 
         System.AddProvider(provider);
 
@@ -118,9 +150,17 @@ sealed class EditorEffects : IDisposable {
     ///     <para>
     ///         <b>A cleared <see cref="EffectSystem" /> rather than a new one</b> — see that property —
     ///         and the old effects are deliberately not destroyed here. A resolved <see cref="Effect" />
-    ///         owns device objects a frame in flight may still be reading, and the editor has no fence
+    ///         names device objects a frame in flight may still be reading, and the editor has no fence
     ///         to say otherwise; what a rebuild costs is the memory of one generation of variants,
     ///         which is a few megabytes per shader edit and is reclaimed on exit.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Managed memory, and no longer device memory — that is the correction
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1121">#1121</a> makes.</b> The
+    ///         handles an <see cref="Effect" /> names belong to <see cref="loader" />, which is one
+    ///         object for the life of the device and hands the new generation back the layouts it
+    ///         gave the old one. A rebuild therefore costs bytecode arrays the collector takes, and
+    ///         not a descriptor set layout per binding shape that nothing ever gives back.
     ///     </para>
     ///     <para>
     ///         <see cref="EffectSystem.Invalidate()" /> is what a hot reload is documented to do and
@@ -199,7 +239,8 @@ sealed class EditorEffects : IDisposable {
                 compiler
             );
 
-            provider.Source = new EffectSourceProvider(cache, new EffectLoader(device));
+            // ⚠ `loader` rather than a fresh one, which is #1121. See that field.
+            provider.Source = new EffectSourceProvider(cache, loader);
 
             Refusal = null;
         } catch (Exception failure) when (failure is ShaderCompilationException or IOException

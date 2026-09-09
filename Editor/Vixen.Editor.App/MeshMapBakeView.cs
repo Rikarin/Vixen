@@ -122,7 +122,7 @@ public sealed class MeshMapBakeSettings {
     ///         ⚠ <b>Off, and it has to open off every time somebody looks at the panel</b> —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/716">#716</a>. It is the one field
     ///         here whose wrong value destroys work rather than wasting minutes, so it is the one
-    ///         field <see cref="MeshMapBakeOptions" />'s persistence deliberately does not carry: a
+    ///         field <see cref="MeshMapBakeSettings" />'s persistence deliberately does not carry: a
     ///         checkbox somebody ticked once for a good reason, remembered across a restart, is the
     ///         guard silently turned off for every later bake.
     ///     </para>

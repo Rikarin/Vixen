@@ -11,6 +11,26 @@
             thing that names the modules — had to move somewhere this could not.
         -->
         <PublishAot>false</PublishAot>
+
+        <!--
+          The second step of #821's ratchet, after `Vixen.Editor.TextureGraph` — see that csproj for
+          the argument. `Directory.Build.props`'s TOOLING profile turns documentation generation off
+          for `Editor/**`, so nothing here emitted CS1570, CS1573, CS1574 or CS1734 and every
+          `<see cref>` in this assembly was unchecked. Ask what that gate prints on the day it does
+          not run: `0 Warning(s)`. Switching it on found seven, one of them a cref to a type name
+          nothing in the repository declares.
+
+          ⚠ **Two of the seven were in a `.vxml`**, and that is the half worth knowing before the
+          next project: a view's `<code>` block is production C# with production doc comments, so the
+          compiler reports the diagnostic against the `.vxml` line — which is the one place in this
+          tree a grep restricted to `*.cs` is structurally blind.
+
+          CS1591 and CS1573 are the "undocumented public member" and "undocumented parameter" rules,
+          which are a question about a *packaged* API and not about whether a link resolves; they are
+          suppressed so the rules that catch a lie stay on and the rule that asks for prose stays off.
+        -->
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

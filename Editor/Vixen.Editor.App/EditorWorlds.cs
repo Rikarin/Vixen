@@ -866,7 +866,8 @@ sealed partial class EditorApplication {
     ///     the two the importer complains about, beside the file, the moment it is created.
     ///     <para>
     ///         ⚠ <b><c>''</c> rather than a bare <c>clip:</c>, and the quotes are load-bearing.</b> An
-    ///         empty scalar is the document's null, and <see cref="HarnessPlanContent.Clip" /> is
+    ///         empty scalar is the document's null, and
+    ///         <see cref="Vixen.Animation.Constraints.HarnessPlanContent.Clip" /> is
     ///         declared <c>string</c> — so a bare key is refused by the binder before the importer can
     ///         reach it, and the author gets a schema complaint instead of the sentence written for
     ///         them. The error this file is *for* is the importer's, which needs the plan to bind
