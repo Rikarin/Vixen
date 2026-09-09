@@ -221,7 +221,13 @@ public readonly struct PlatformEvent {
                 PlatformEventKind.TouchMoved,
                 PlatformEventKind.TouchUp,
                 PlatformEventKind.DropFile,
-                PlatformEventKind.DropText
+                PlatformEventKind.DropText,
+
+                // The brackets carry one too, and `DropComplete`'s is the one a coalesced group is
+                // hit-tested at — the pointer has not moved between the two, but reading it off the
+                // event that delivers is what keeps that from being an assumption.
+                PlatformEventKind.DropBegin,
+                PlatformEventKind.DropComplete
             );
 
             return first;

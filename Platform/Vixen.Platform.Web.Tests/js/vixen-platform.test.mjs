@@ -155,7 +155,8 @@ const buffer = new Float64Array(RECORD * 64);
 /** Kind, to keep the assertions readable. Mirrors PlatformEventKind. */
 const Kind = {
     windowResized: 4, keyDown: 20, keyUp: 21,
-    mouseButtonDown: 31, mouseWheel: 33, touchDown: 40, dropFile: 80, dropText: 81
+    mouseButtonDown: 31, mouseWheel: 33, touchDown: 40, dropFile: 80, dropText: 81,
+    dropBegin: 82, dropComplete: 83
 };
 
 // ── The canvas ───────────────────────────────────────────────────────────────────────────────
@@ -267,12 +268,17 @@ fire(canvasElement, "drop", {
 
 taken = platform.drainEvents(buffer);
 
-equal(taken, 2, "a dropped file and the text that came with it");
-equal(buffer[0], Kind.dropFile, "the file first");
-equal(platform.takeString(buffer[8]), "level.vxb", "the file's name, by handle");
-equal(platform.takeString(buffer[8]), "", "…and the handle is released once taken");
-equal(buffer[RECORD + 0], Kind.dropText, "then the text");
-equal(platform.takeString(buffer[RECORD + 8]), "hello", "the dropped text");
+// The files are bracketed, so that .NET can tell one drag of five files from five drags of one.
+// A browser hands the whole DataTransfer list over in a single event and this used to flatten it.
+equal(taken, 4, "a bracket, the dropped file inside it, and the text that came with it");
+equal(buffer[0], Kind.dropBegin, "the bracket opens first");
+equal(buffer[4], buffer[RECORD + 4], "…carrying the same position as the file, which is where the group is hit-tested");
+equal(buffer[RECORD + 0], Kind.dropFile, "then the file");
+equal(platform.takeString(buffer[RECORD + 8]), "level.vxb", "the file's name, by handle");
+equal(platform.takeString(buffer[RECORD + 8]), "", "…and the handle is released once taken");
+equal(buffer[2 * RECORD + 0], Kind.dropComplete, "then the bracket closes");
+equal(buffer[3 * RECORD + 0], Kind.dropText, "then the text, which is not part of the file group");
+equal(platform.takeString(buffer[3 * RECORD + 8]), "hello", "the dropped text");
 
 equal(platform.droppedFileCount(), 1, "the File itself is parked, because a browser gives no path");
 equal(platform.droppedFileName(0), "level.vxb", "…under the same index as the event's order");

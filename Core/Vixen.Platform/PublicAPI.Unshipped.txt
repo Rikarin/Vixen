@@ -531,6 +531,8 @@ Vixen.Platform.PlatformEventBuffer.PlatformEventBuffer() -> void
 Vixen.Platform.PlatformEventBuffer.Post(in Vixen.Platform.PlatformEvent platformEvent) -> bool
 Vixen.Platform.PlatformEventKind -> enum : byte
 Vixen.Platform.PlatformEventKind.DisplaysChanged = 60 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.DropBegin = 82 -> Vixen.Platform.PlatformEventKind
+Vixen.Platform.PlatformEventKind.DropComplete = 83 -> Vixen.Platform.PlatformEventKind
 Vixen.Platform.PlatformEventKind.DropFile = 80 -> Vixen.Platform.PlatformEventKind
 Vixen.Platform.PlatformEventKind.DropText = 81 -> Vixen.Platform.PlatformEventKind
 Vixen.Platform.PlatformEventKind.GamepadAxisMoved = 54 -> Vixen.Platform.PlatformEventKind

@@ -203,5 +203,36 @@ public enum PlatformEventKind : byte {
     DropFile = 80,
 
     /// <summary>Text was dropped on a window.</summary>
-    DropText = 81
+    DropText = 81,
+
+    /// <summary>A group of drops is about to arrive on this window.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Selecting five files and dragging them once is five
+    ///         <see cref="DropFile" /> events, and without this pair nothing downstream can tell
+    ///         them from five separate drags.</b> A handler that opens a document per drop opens
+    ///         five windows; one that starts an import job per drop starts five jobs with five
+    ///         progress bars where the user did one thing. SDL has bracketed the group since 2.0.5
+    ///         and the brackets were being discarded.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Numbered after the events they bracket, which is the wrong order to read them
+    ///         in and the only order available.</b> These values are a contract with the web
+    ///         backend's JavaScript, which posts the number rather than the name, so the pair could
+    ///         not be inserted at 80 and 83 where they belong.
+    ///     </para>
+    ///     <para>
+    ///         A backend that cannot produce the brackets simply does not, and every
+    ///         <see cref="DropFile" /> outside a bracket stands on its own exactly as before — see
+    ///         <c>PlatformInput</c>, where the coalescing lives.
+    ///     </para>
+    /// </remarks>
+    DropBegin = 82,
+
+    /// <summary>The group opened by <see cref="DropBegin" /> is complete.</summary>
+    /// <remarks>
+    ///     This is where a coalesced drop is delivered, so it is the event whose position is the
+    ///     one the group is hit-tested at.
+    /// </remarks>
+    DropComplete = 83
 }

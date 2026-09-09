@@ -589,6 +589,24 @@ public sealed class WebPlatform : IPlatform {
 
                 return;
 
+            // The brackets round a group, which carry a position and no string. ⚠ They need arms
+            // of their own rather than falling to the `default` below: that one posts a window
+            // event, and a window event has no position — so a bracket delivered through it would
+            // have coalesced the group at the origin.
+            case (int)PlatformEventKind.DropBegin:
+            case (int)PlatformEventKind.DropComplete:
+                events.Post(
+                    PlatformEvent.Drop(
+                        (PlatformEventKind)record.Kind,
+                        record.WindowId,
+                        timestamp,
+                        string.Empty,
+                        record.First
+                    )
+                );
+
+                return;
+
             case (int)PlatformEventKind.DisplaysChanged:
                 events.Post(PlatformEvent.Application(PlatformEventKind.DisplaysChanged, timestamp));
                 return;
