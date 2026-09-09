@@ -517,7 +517,19 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 > `MaterialLayerValue` is four scalars naming no map, `SurfaceVertex` carries exactly one `TexCoord`,
 > and the arena's box-projected uv repeats a painted weight map thirty-two times per axis — so the
 > remainder is a mesh with a real unwrap and someone to paint weights onto it. The tool to paint them
-> with is M9, which now exists. The paragraphs below record how each of the two got closed, because
+> with is M9, which now exists.
+> ⚠ **"One milestone and one issue" is the milestone ledger and it is not the whole of what doc 48
+> owes**, which is worth separating because the two disagree and the disagreement is structural. § 4.1
+> still carries an unbuilt catalogue entry, `Text`, and no *phase* claims it: M2 and M3 shipped the
+> kernels and `Text` is not one, M4 shipped the node classes and closed without it, and
+> [#687](https://github.com/Rikarin/Vixen/issues/687) says in as many words that the node belongs in
+> M4. So it is work owed by a closed milestone, which is exactly how a catalogue entry stays
+> unclaimed while every phase reads done. Its font was decided on 2026-09-09 — resolved by the host at
+> fill time, because a line of text is the whole picture and a compilation runs at the document's base
+> resolution on every edit — and doc 48 § 4.1 now names the three pieces that remain. § 4.1's other
+> unbuilt entry, `Svg Path`, is **refused** rather than owed
+> ([#753](https://github.com/Rikarin/Vixen/issues/753)).
+> The paragraphs below record how each of the two got closed, because
 > both were closed wrongly once first.
 >
 > **M9** was owed a
@@ -1165,7 +1177,7 @@ reduced to a pointer.
 | 88 | Docs | Manual sweep; template verification; release automation; soak tests; triage + compatibility policy | [#223](https://github.com/Rikarin/Vixen/issues/223) |
 | 91 | `Vixen.Editor.TextureGraph` | **The graph's remaining seams**, none of them the evaluator's: § 4.1's two image sources, and two limits that are policy rather than capability. Evidence in § 1.11's kernel and node-library rows ([#687](https://github.com/Rikarin/Vixen/issues/687), [#753](https://github.com/Rikarin/Vixen/issues/753)) | [#577](https://github.com/Rikarin/Vixen/issues/577) |
 | 92 | `Vixen.Editor.Texturing` | ~~Registration, the compositing defects and the panel's undo~~ — **closed**, and the row stays because Part 4's numbers are cited elsewhere. Evidence in § 1.11's layer-stack and texturing-plugin rows | [#572](https://github.com/Rikarin/Vixen/issues/572) |
-| 93 | Material authoring | **M9 and M10 closed against the tree on 2026-09-09**; what is left of doc 48 is M11 ([#576](https://github.com/Rikarin/Vixen/issues/576)), and M11 is [#1073](https://github.com/Rikarin/Vixen/issues/1073). Evidence in § 1.11's material-authoring paragraph and rows | [#577](https://github.com/Rikarin/Vixen/issues/577) |
+| 93 | Material authoring | **M9 and M10 closed against the tree on 2026-09-09**; the last milestone is M11 ([#576](https://github.com/Rikarin/Vixen/issues/576)), which is [#1073](https://github.com/Rikarin/Vixen/issues/1073)'s asset, and § 4.1's `Text` is owed beside it by a milestone that has already closed ([#687](https://github.com/Rikarin/Vixen/issues/687)). Evidence in § 1.11's material-authoring paragraph and rows | [#577](https://github.com/Rikarin/Vixen/issues/577) |
 
 ## 4.1 Owed by weight
 
