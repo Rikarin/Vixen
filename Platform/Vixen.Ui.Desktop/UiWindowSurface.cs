@@ -221,9 +221,6 @@ public sealed class UiWindowSurface : IDisposable {
         return status is not SwapChainStatus.OutOfDate;
     }
 
-    /// <summary>BT.2408's reference white: what an SDR interface is worth in an HDR frame.</summary>
-    const float ReferenceWhite = 203f;
-
     /// <summary>Hands the geometry builder what the swapchain granted — its gamut and its white.</summary>
     /// <remarks>
     ///     ⚠ <b>The white level is stated here rather than left at its default, and one is a
@@ -233,14 +230,21 @@ public sealed class UiWindowSurface : IDisposable {
     ///     pixel-identical to a pass that never ran. See <c>UiGeometryBuilder.WhiteLevel</c> and
     ///     #670. Both callers renegotiate the surface format, which is why this is one method: a
     ///     resize onto another display can move the gamut, and it can move the format with it.
+    ///     <para>
+    ///         ⚠ <b>The test and the number are <c>UiRenderer.WhiteLevelFor</c>'s and not this
+    ///         host's.</b> They were written out here, which made the desktop path the only one that
+    ///         knew them — a game mounting a HUD through <c>UiRenderFeature</c> had to reinvent both
+    ///         and would fail silently at it. One derivation, two hosts.
+    ///     </para>
     /// </remarks>
     void Adopt() {
         Geometry.Gamut = SwapChain!.Gamut;
 
-        Geometry.WhiteLevel =
-            SwapChain.Format is PixelFormat.Rgba16Float or PixelFormat.Rgba32Float or PixelFormat.Rg11B10Float
-                ? ReferenceWhite
-                : 1f;
+        // ⚠ From the swapchain's format rather than from `Renderer.WhiteLevel`, though the two agree
+        // wherever the renderer was built for this swapchain: a resize renegotiates the format and
+        // the renderer's pipelines are fixed at construction, so asking the renderer here would
+        // answer for the format it was built for and not the one the next frame lands in.
+        Geometry.WhiteLevel = UiRenderer.WhiteLevelFor(SwapChain.Format);
     }
 
     /// <summary>Tells the cascade what this surface was granted, so <c>@media</c> can ask.</summary>

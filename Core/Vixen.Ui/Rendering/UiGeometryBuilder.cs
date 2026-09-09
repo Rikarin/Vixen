@@ -549,7 +549,15 @@ public sealed class UiGeometryBuilder {
         opening.Clear();
 
         Trim();
-        return new UiGeometry(vertices, indices, draws, shapes) { Layers = layers, Masks = masks };
+        // ⚠ The white level is recorded as well as spent. `Lit` has already multiplied it into every
+        // colour above, and nothing downstream can recover a magnitude from a colour — so a frame
+        // built at one for a pass that wanted 203 is not a dim HUD, it is an absent one, and the
+        // only evidence left is this number. See `UiRenderFeature.Dim`, which is its reader.
+        return new UiGeometry(vertices, indices, draws, shapes) {
+            Layers = layers,
+            Masks = masks,
+            WhiteLevel = WhiteLevel
+        };
     }
 
     /// <summary>Opens or closes a composited group, and emits the quad that composites it.</summary>

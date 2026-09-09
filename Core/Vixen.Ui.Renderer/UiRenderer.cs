@@ -779,6 +779,53 @@ public sealed class UiRenderer : IDisposable {
         layerFormat = output.ColourCount > 0 ? output.ColourFormats[0] : PixelFormat.Rgba8UNorm;
     }
 
+    /// <summary>BT.2408's reference white: what an SDR interface is worth in a scene-referred pass.</summary>
+    /// <remarks>
+    ///     The number an SDR interface composited into an HDR frame is normally given, in cd/m². It
+    ///     is a convention rather than a measurement, which is why it is named here once instead of
+    ///     being written at each host that needs it.
+    /// </remarks>
+    public const float ReferenceWhite = 203f;
+
+    /// <summary>What white is worth in a pass of this format, in that pass's own units.</summary>
+    /// <param name="format">The pass's colour format.</param>
+    /// <returns><c>1</c> for a display-referred target and <see cref="ReferenceWhite" /> for a
+    /// scene-referred one.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One derivation, because the failure of getting it wrong is invisible.</b> The
+    ///         renderer works in cd/m², so a HUD authored 0–1 and drawn into a float pass at a white
+    ///         of one is about one candela — black beside anything the renderer lit, and
+    ///         pixel-identical to a pass that never ran. That is this repository's standing
+    ///         photometric trap and there is no counter, no validation error and no exception in it:
+    ///         a host that reinvented the test and missed a format would ship a HUD nobody could see
+    ///         and nothing would say why. See #670 and <see cref="UiGeometryBuilder.WhiteLevel" />,
+    ///         which is where the number is spent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Float, not "HDR".</b> <see cref="PixelFormat.Rgb10A2UNorm" /> is the usual HDR10
+    ///         swapchain format and is display-referred — its encoding carries the absolute
+    ///         luminance, so an authored 0–1 colour is already in the units it wants and the answer
+    ///         is one. So is <see cref="PixelFormat.Rgba16UNorm" />. What earns the scale is a
+    ///         normalised range the pass does not have, which is exactly the three float colour
+    ///         formats the engine renders scenes into.
+    ///     </para>
+    /// </remarks>
+    public static float WhiteLevelFor(PixelFormat format) =>
+        format is PixelFormat.Rgba16Float or PixelFormat.Rgba32Float or PixelFormat.Rg11B10Float
+            ? ReferenceWhite
+            : 1f;
+
+    /// <summary>What white is worth in the pass this renderer draws into.</summary>
+    /// <remarks>
+    ///     ⚠ <b>What a host hands <see cref="UiGeometryBuilder.WhiteLevel" /> before it builds.</b>
+    ///     The scale is spent at build time and cannot be applied afterwards — a colour holds no
+    ///     magnitude to recover — so this has to be read before the geometry exists rather than at
+    ///     the draw. Derived from the same output the pipelines were built for, so it cannot
+    ///     disagree with the surface the frame lands in.
+    /// </remarks>
+    public float WhiteLevel => WhiteLevelFor(layerFormat);
+
     /// <summary>How many draws the last <see cref="Record" /> submitted.</summary>
     /// <remarks>
     ///     Exposed for the same reason <c>DrawList.Batched</c> is: a claim about how little a frame

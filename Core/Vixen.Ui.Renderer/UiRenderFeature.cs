@@ -117,6 +117,35 @@ public sealed class UiRenderFeature : RootRenderFeature {
     /// </remarks>
     public UiRenderer? Renderer { get; set; }
 
+    /// <summary>How many of the last <see cref="Upload" />'s interfaces were built too dark for the
+    /// pass they are drawn into.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The only observer the black-HUD defect has, and it exists because the picture
+    ///         has none.</b> The renderer works in cd/m². A HUD authored 0–1 and built at a white
+    ///         level of one, drawn into a scene-referred float pass, is about one candela — which is
+    ///         not dim, it is black, and it is pixel-identical to a pass that never ran. There is no
+    ///         validation error in it and no exception: the frame uploads, records and presents, and
+    ///         every counter reads healthy. So the comparison is made here, where both halves are
+    ///         known for the first time — <see cref="UiGeometry.WhiteLevel" /> is what the geometry
+    ///         was built at, and <see cref="UiRenderer.WhiteLevel" /> is what the pass implies.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It counts rather than throws or repairs, and neither alternative is available.</b>
+    ///         Repairing is impossible at this point: the scale is spent inside
+    ///         <c>UiGeometryBuilder.Show</c> and a colour holds no magnitude to recover, so by the
+    ///         time a geometry exists the only fix is to build it again. And throwing would refuse a
+    ///         frame over a host's authoring choice — an interface deliberately drawn at scene
+    ///         luminance, or a debug overlay that wants to be dark, is a legitimate frame this must
+    ///         not kill.
+    ///     </para>
+    ///     <para>
+    ///         Reset by every <see cref="Upload" />, so it is a fact about the last frame rather
+    ///         than a total. Strictly below, so a host that overshoots on purpose is not reported.
+    ///     </para>
+    /// </remarks>
+    public int Dim { get; private set; }
+
     /// <summary>Adds the render object one interface is drawn as, and returns its id.</summary>
     /// <param name="stages">Which stages draw it — see the remarks on sorting.</param>
     /// <param name="order">Where it sits among the interfaces, lowest drawn first.</param>
@@ -271,10 +300,17 @@ public sealed class UiRenderFeature : RootRenderFeature {
         ArgumentNullException.ThrowIfNull(commands);
 
         serving.Clear();
+        Dim = 0;
 
         foreach (var (index, surface) in surfaces) {
             if (Serve(index) is not { } renderer) {
                 continue;
+            }
+
+            // See `Dim`. Counted per frame and never repaired here: the white level is spent inside
+            // the geometry builder, so a frame that arrives too dark is already too dark.
+            if (surface.Geometry.WhiteLevel < renderer.WhiteLevel) {
+                Dim++;
             }
 
             renderer.Upload(commands, surface.Geometry, surface.Atlas);

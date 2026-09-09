@@ -828,11 +828,18 @@ expensive items are.
    `UiApplication`'s unconditional frame loop (`docs/guide/ui/desktop-application.md:44-58`, a
    documented decision), this is the difference between an idle editor at 0.5 W and one at 15 W.
    Every other item here is cosmetic beside it.
-2. ⚠ **The UI has no white level, so it cannot composite over an HDR scene.** The renderer works in
-   cd/m²; UI colours are linear with no scale and there is no paper-white anywhere under
-   `Core/Vixen.Ui*`. The editor is safe because the scene arrives as a texture, but a HUD drawn by
-   `UiRenderFeature` into an HDR target renders at roughly 1 cd/m² — black. Gamut *is* handled and
-   *is* fed (`UiWindowSurface.cs:257`); luminance is not handled at all.
+2. ⚠ ~~**The UI has no white level, so it cannot composite over an HDR scene.**~~ **Closed as far as
+   anything without a device can close it.** The renderer works in cd/m², so a UI colour authored 0–1
+   and drawn into an HDR pass is about one candela — black, and pixel-identical to a pass that never
+   ran. `UiGeometryBuilder.WhiteLevel` is the scale and is spent on every path out of `Show`;
+   `UiRenderer.WhiteLevelFor` is the one derivation of what a pass implies (⚠ *float*, not "HDR" —
+   `Rgb10A2UNorm` is the usual HDR10 swapchain format and is display-referred, so it wants a white of
+   one); `UiWindowSurface.Adopt` and any game host both read it; and `UiGeometry.WhiteLevel` carries
+   what a frame was built at, because a magnitude cannot be recovered from a colour afterwards.
+   ⚠ **What is left is a picture, and it is blocked on a host rather than on the mechanism.**
+   `UiRenderFeature.Dim` counts a frame built at the display's white and drawn into a scene-referred
+   pass — the defect itself, made countable, since nothing else in a frame changes when it happens —
+   and nothing in the tree yet mounts a HUD in a world for it to count. See #670 and #627.
 3. ⚠ **`prefers-color-scheme` is built and never fed.** The query works (`MediaQuery.cs:146,151`),
    the property exists per surface (`UiSurface.cs:152`, `Media.cs:80`), and **the only writers in the
    tree are two test files**. No platform assembly reads the OS appearance. The editor hides this by
