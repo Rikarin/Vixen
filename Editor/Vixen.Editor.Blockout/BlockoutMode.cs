@@ -4,6 +4,7 @@
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Editor.SceneView;
+using Vixen.Engine.Transforms;
 using Vixen.Editor.Ui;
 using Vixen.Geometry;
 using Vixen.Input;
@@ -58,6 +59,29 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
 
     /// <summary>The element mode <c>Tab</c> goes back into, which is the last one that was not Object.</summary>
     BlockoutElement inside = BlockoutElement.Face;
+
+    /// <summary>The pane the pointer is in, which is the one drawing the preview.</summary>
+    SceneViewport? hoveredPane;
+
+    /// <summary>The loop-cut preview's segments, reused so a hover allocates nothing.</summary>
+    /// <remarks>
+    ///     <see cref="SceneViewport.Cursor" /> is read every frame and its remarks say plainly that it
+    ///     must not allocate; a list rebuilt per frame over a ring hundreds of edges long is exactly
+    ///     the cost that note is about.
+    /// </remarks>
+    readonly List<(Vector3 A, Vector3 B)> loop = [];
+
+    /// <summary>What the candidate cell is drawn in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Deliberately neither the selection's amber nor the element cage's.</b> A preview is a
+    ///     promise about the next click rather than a statement about what exists, and reading it as
+    ///     "this is selected" is the one misunderstanding it must not invite. The same cool cyan the
+    ///     shape tool's footprint reads as.
+    /// </remarks>
+    public Color4 CellColour { get; set; } = new(0.35f, 0.85f, 0.95f, 0.9f);
+
+    /// <summary>What the loop-cut preview is drawn in.</summary>
+    public Color4 LoopColour { get; set; } = new(0.98f, 0.85f, 0.35f, 0.95f);
 
     /// <inheritdoc />
     public string Id => ModeId;
@@ -467,6 +491,29 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// <summary>How many faces across a bevel run from the keyboard is.</summary>
     public int BevelSegments { get; set; } = 1;
 
+    /// <summary>How many loops a loop cut puts in, which is also what the preview draws.</summary>
+    public int LoopCuts { get; set; } = 1;
+
+    /// <summary>Where a single loop cut sits along the ring, from 0 to 1.</summary>
+    public float LoopSlide { get; set; } = 0.5f;
+
+    /// <summary>The lattice cell the pointer is over, or null when it is over nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Nothing computed this before, which is why there was no preview.</b> The work plane
+    ///         was cast from the shape gesture and from nowhere else, so while hovering with no gesture
+    ///         in flight no ray was cast at all and there was nothing for a cell to be drawn at —
+    ///         doc 24 § P4's "what is not here" in one sentence, and the same absence
+    ///         <c>TerrainMode.Hover</c> had.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is also what <see cref="CubeGridCommand" /> now makes its box at.</b> A preview
+    ///         that showed one cell and a verb that built at the plane's origin would be two answers to
+    ///         "where is this going", and the wrong one would be the one that persisted.
+    ///     </para>
+    /// </remarks>
+    public GridBox? HoverCell { get; private set; }
+
     /// <summary>Which shape the shape tool makes.</summary>
     /// <remarks>What the palette's twelve "Create ⟨shape⟩" verbs set, and what a drag on the work
     ///     plane then produces — so choosing the shape and making one are two acts rather than
@@ -847,7 +894,19 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     ///     a shape made from a drag lands where the drag was.</remarks>
     Vector3 Where() => Plane?.Origin ?? Vector3.Zero;
 
+    /// <summary>Which cells a creation verb makes a box in: the hovered one, or the plane's origin.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The hover wins, and the fallback is what the verb used to do unconditionally.</b> A key
+    ///     pressed with the pointer outside the pane — or in a test, or from the palette — still has to
+    ///     mean something, and the plane's origin is the answer every other menu-run creation verb
+    ///     gives. What changes is that with the pointer on the plane the box lands where the preview
+    ///     said it would.
+    /// </remarks>
     GridBox Cell() {
+        if (HoverCell is { } hovered) {
+            return hovered;
+        }
+
         var cell = BlockoutCubeGrid.CellOf(Where(), Plane);
 
         return GridBox.At(cell.X, cell.Y, cell.Z);
@@ -862,10 +921,11 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     /// <summary>Pushes the selected box's side along the work plane's second axis.</summary>
     /// <remarks>
     ///     ⚠ <b>One axis and one side from the keyboard, which is the honest shape of a keyboard
-    ///     verb.</b> Unreal's cube grid pushes whichever face the pointer is over; picking that face
-    ///     needs a hover the tool does not draw yet — see <c>BlockoutCubeGrid</c> — so the keys push
-    ///     upwards, which is the direction a block-out grows nine times in ten, and the other five
-    ///     sides are a drag of the gizmo.
+    ///     verb.</b> Unreal's cube grid pushes whichever face the pointer is over; picking that face is
+    ///     a pick against the <i>box</i>, and what <see cref="HoverCell" /> answers is a pick against
+    ///     the work <i>plane</i> — so the candidate-cell preview that arrived with doc 24 § P4 does not
+    ///     settle this one. The keys still push upwards, which is the direction a block-out grows nine
+    ///     times in ten, and the other five sides are a drag of the gizmo.
     /// </remarks>
     void Pushed(int cells) {
         if (Scene is not { } scene) {
@@ -904,7 +964,97 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
     ///     re-entering blockout put the viewport straight back into face selection on whatever
     ///     happens to be selected now, which is rarely what was being edited a moment ago.
     /// </remarks>
-    public void Deactivated() => Element = BlockoutElement.Object;
+    /// <remarks>
+    ///     ⚠ <b>And the cursor comes off the pane with it.</b> <see cref="SceneViewport.Cursor" /> is a
+    ///     delegate the pane holds until something replaces it; a mode that left its own behind would
+    ///     draw a candidate cell over the terrain tools, in a mode with no lattice.
+    /// </remarks>
+    public void Deactivated() {
+        Forget();
+
+        Element = BlockoutElement.Object;
+    }
+
+    /// <summary>Takes the preview off whichever pane is drawing it.</summary>
+    void Forget() {
+        if (hoveredPane is { } pane) {
+            pane.Cursor = null;
+            hoveredPane = null;
+        }
+
+        HoverCell = null;
+    }
+
+    /// <summary>Records where the pointer is and keeps the pane's cursor pointed at this mode.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The previous pane is cleared when the pointer moves to another one.</b> Two panes are
+    ///     two cameras looking at one scene, and a candidate cell left in the pane the pointer has left
+    ///     says the next click will land in two places. Only the pane the pointer is in draws one.
+    /// </remarks>
+    void Hovering(SceneViewport pane, PointerEvent args) {
+        if (!ReferenceEquals(hoveredPane, pane)) {
+            if (hoveredPane is { } previous) {
+                previous.Cursor = null;
+            }
+
+            hoveredPane = pane;
+            pane.Cursor = Cursor;
+        }
+
+        var plane = Plane ?? Ground;
+
+        if (Element == BlockoutElement.Object
+            && On(pane.Ray(pane.Control.ToRender(args.X, args.Y)), plane.AsPlane(), out var point)) {
+            var cell = BlockoutCubeGrid.CellOf(point, Plane);
+
+            HoverCell = GridBox.At(cell.X, cell.Y, cell.Z);
+        } else {
+            HoverCell = null;
+        }
+    }
+
+    /// <summary>Draws whatever the pointer is promising, once a frame, from the pane that owns it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two previews and one delegate, which is doc 24's own argument.</b> The cube grid's
+    ///     candidate cell and the loop cut's loop are the same job — a mode-owned overlay drawn from a
+    ///     hover — and they are mutually exclusive by element mode, so a second delegate would be a
+    ///     second answer to "what does the pointer mean right now" in one mode.
+    /// </remarks>
+    void Cursor(GizmoDraw draw) {
+        if (Element == BlockoutElement.Object) {
+            if (HoverCell is { } cell) {
+                BlockoutHover.CubeGrid(draw, cell, Plane, CellColour);
+            }
+
+            return;
+        }
+
+        if (Element != BlockoutElement.Edge
+            || Editing is not { IsActive: true } editing
+            || editing.Mesh is not { } mesh
+            || editing.Hover is not { Kind: SubObjectKind.Edge } hover) {
+            return;
+        }
+
+        if (!BlockoutHover.LoopCut(mesh, hover.Index, LoopCuts, LoopSlide, loop)) {
+            return;
+        }
+
+        // ⚠ Through the entity's matrix, because a mesh's positions are its own. Every other element
+        // the cage draws goes through the same one — see `SceneLines.Elements` — and a preview drawn
+        // in mesh space sits at the world origin for any entity that has been moved.
+        var placement = editing.Document.World.Has<WorldTransform>(editing.Target)
+            ? editing.Document.World.Read<WorldTransform>(editing.Target).Value
+            : Matrix4x4.Identity;
+
+        foreach (var (a, b) in loop) {
+            draw.Line(
+                Matrix4x4.TransformPosition(a, placement),
+                Matrix4x4.TransformPosition(b, placement),
+                LoopColour
+            );
+        }
+    }
 
     /// <inheritdoc />
     /// <remarks>
@@ -948,6 +1098,13 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         // releasing it would select whatever the band swept over and leave the new wall deselected.
         if (drag is not null && (IsArmed || drag.Stage != ShapeStage.Idle) && Shaping(pane, args)) {
             return true;
+        }
+
+        // ⚠ Before the Object-mode early return, because the cube grid's preview is an Object-mode
+        // thing and the element highlight is not. Reading the move in one mode and not the other is
+        // how the tool came to be keyboard-only in exactly the mode its reference is pointer-driven.
+        if (args.Action == PointerAction.Moved) {
+            Hovering(pane, args);
         }
 
         if (Element == BlockoutElement.Object) {

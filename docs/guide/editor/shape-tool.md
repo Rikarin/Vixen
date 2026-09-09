@@ -4,7 +4,7 @@ slug: editor/shape-tool
 kind: guide
 area: Editor
 summary: Making block-out geometry — live parameters, the cube grid, the poly shape, and duplicate, mirror and array.
-api: [T:Vixen.Editor.Blockout.BlockoutCreate, T:Vixen.Editor.Blockout.ShapeDrag, T:Vixen.Editor.Blockout.ShapeStage, T:Vixen.Editor.Blockout.BlockoutCubeGrid, T:Vixen.Editor.Blockout.GridBox, T:Vixen.Editor.SceneView.ShapeCommand, T:Vixen.Editor.SceneView.SceneClone, T:Vixen.Editor.Core.Scenes.SceneShapeData]
+api: [T:Vixen.Editor.Blockout.BlockoutCreate, T:Vixen.Editor.Blockout.ShapeDrag, T:Vixen.Editor.Blockout.ShapeStage, T:Vixen.Editor.Blockout.BlockoutCubeGrid, T:Vixen.Editor.Blockout.GridBox, T:Vixen.Editor.Blockout.BlockoutHover, T:Vixen.Editor.SceneView.ShapeCommand, T:Vixen.Editor.SceneView.SceneClone, T:Vixen.Editor.Core.Scenes.SceneShapeData]
 tags: [editor, blockout, level-design, viewport]
 since: 0.1
 status: preview
@@ -96,6 +96,18 @@ cell quantisation is what survives.
 ⚠ **A poly shape is a plain mesh from birth.** Its parameters would be a polygon of arbitrary length
 and a height, which is not six numbers — so it would need a record of its own in the scene format and
 a gesture of its own to edit. What a designer does to one afterwards is move its corners.
+
+⚠ **The candidate cell is drawn before it is committed to.** `BlockoutHover.CubeGrid` writes a cell's
+wire box into `SceneLines`' overlay channel, and `BlockoutMode` points `SceneViewport.Cursor` at it
+while the pointer is over the work plane — so `G` builds the cell you are looking at rather than the
+one at the plane's origin. Its corners go through `WorkPlane.ToWorld` individually, because a plane set
+to a wall is rotated and a box drawn from world axes at a rotated plane's centre is not the cell.
+
+`BlockoutHover.LoopCut` is the same job for the other pointer-driven tool: the loop a cut through the
+hovered edge's ring would make, computed from the ring and the interpolation `MeshOperations.LoopCut`
+itself uses rather than by running it on a copy — a preview that ran the verb would be a second
+implementation of it, and the day the two disagreed a designer would be shown one cut and given
+another.
 
 ⚠ **Mirror copies and never instances.** An instance is a link that survives editing, which is a
 second kind of entity reference and a rule for what happens when one side is edited. A copy is what a

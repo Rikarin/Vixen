@@ -105,11 +105,18 @@ public readonly record struct GridBox(int X, int Y, int Z, int Width, int Height
 ///         unit of movement, and what moves is geometry rather than a parameter.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What is not here is the hover preview.</b> Unreal draws the candidate cell under the
-///         pointer before you commit to it, which is most of what makes the tool feel like a tool
-///         rather than like a dialog — and it is a drawing job on <c>SceneLines</c>' overlay rather than
-///         a modelling one. It is called out in <c>docs/plan/24</c> as owed rather than quietly
-///         dropped.
+///         ⚠ <b>The hover preview is <see cref="BlockoutHover.CubeGrid" />, and this paragraph used to
+///         say it did not exist.</b> Unreal draws the candidate cell under the pointer before you
+///         commit to it, which is most of what makes the tool feel like a tool rather than like a
+///         dialog. <c>BlockoutMode</c> casts the pointer at the work plane on every move, keeps the
+///         answer in <c>HoverCell</c>, draws it through <c>SceneViewport.Cursor</c> — and, which is the
+///         half that makes it a tool rather than a decoration, <i>builds</i> there.
+///     </para>
+///     <para>
+///         ⚠ <b>What is still not here is picking a <i>face</i> of an existing box by pointer.</b>
+///         § P4's table also asks for "click: select a grid face; <c>Shift</c>+click extends to a
+///         rectangle of cells", which is a pick against the box rather than against the plane — so
+///         <c>BlockoutMode.Pushed</c>'s remark about the keys pushing upwards still stands.
 ///     </para>
 /// </remarks>
 public static class BlockoutCubeGrid {

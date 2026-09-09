@@ -77,6 +77,35 @@ and it re-hides exactly the case the model was written to expose.
 list without raising `Changed`, so a panel switched to a different selection went on drawing the last
 mesh's atlas. No model test could see it: they all read the lists back on the line that emptied them.
 
+## The hover previews
+
+⚠ **Two tools were pointer-driven in their reference and keyboard-only here, and both are the same
+job** ([#374](https://github.com/Rikarin/Vixen/issues/374)). `SceneViewport.Cursor` is a delegate the
+pane holds and the mode sets on its first pointer move; `BlockoutHover` is what it draws.
+
+| Mode | What is drawn | What it commits to |
+|---|---|---|
+| Object | the lattice cell under the pointer, as a wire box | `Cube Grid Box` builds *there* |
+| Edge | the loop a cut through the hovered edge's ring would make | `Ctrl+Shift+R`'s cut |
+
+⚠ **The preview and the verb read the same numbers, which is the half that makes it a tool.** The
+cube-grid verb used to build at the work plane's origin whatever the pointer was over, so drawing a
+candidate cell and leaving that alone would have shown one answer and committed another. `Cell()`
+prefers `HoverCell` and falls back to the origin, which is what a key pressed with the pointer
+outside the pane still has to mean.
+
+⚠ **The loop preview is a pure function of the hover and never runs the operation.** A preview that
+cut a copy would pay a topology rebuild per pointer move and would be a second implementation of the
+verb; what `BlockoutHover.LoopCut` computes is the verb's *input* — the ring, and the positions the
+cut would insert — and `BlockoutHoverTests` pins the two together by running the real cut and asking
+whether every previewed point is one it made.
+
+⚠ **What is still owed**, and neither is a drawing: the loop cut's **modality** (scroll to set the
+count, drag to slide before committing — the two numbers exist as `LoopCuts` and `LoopSlide` and the
+preview reads them, but nothing owns the pointer while they move), and the cube grid's **face** pick
+(§ P4's "click a grid face, `Shift`+click for a rectangle" is a pick against a box, not against the
+plane, which is why `Pushed` still pushes upwards).
+
 ## What it owns
 
 | | |

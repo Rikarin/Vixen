@@ -131,10 +131,18 @@ public static class BlockoutGeometry {
     ///         index, which is at least the same answer every time for the same selection.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>What is still owed is the hover preview.</b> Blender's <c>Ctrl+R</c> shows the loop
-    ///         under the pointer before you commit and lets the pointer choose the direction; that is a
-    ///         drawing job on the overlay and a modal gesture round it, and it is what would make this
-    ///         a choice rather than a selection. Called out rather than implied.
+    ///         ⚠ <b>Half of what this paragraph called owed is built: the drawing is
+    ///         <see cref="BlockoutHover.LoopCut" />.</b> Blender's <c>Ctrl+R</c> shows the loop under
+    ///         the pointer before you commit, and hovering an edge in Edge mode now does — computed
+    ///         from the same ring and the same interpolation the verb below uses, so the picture and
+    ///         the cut cannot drift apart.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What is still owed is the <i>modality</i> round it</b> — scroll to set the count
+    ///         and drag to slide before committing. <c>BlockoutMode.LoopCuts</c> and
+    ///         <c>BlockoutMode.LoopSlide</c> are the two numbers such a gesture would drive and the
+    ///         preview already reads them; what is missing is the gesture that owns the pointer while
+    ///         it does, which is a modal state this mode does not have.
     ///     </para>
     /// </remarks>
     public static bool LoopCut(MeshEdit editing, int cuts = 1, float slide = 0.5f) {
