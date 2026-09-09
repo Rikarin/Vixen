@@ -482,9 +482,27 @@ Owed, in the order that unblocks the most:
    and Step need nothing from a contribution — `Tick` is what decides whether `Frame` is called at all.
 3. **Play through the game camera**, and with it the question of whether a session drives the
    viewport's `RenderView` or its own.
-4. **Additive scenes.** The controller is given one `BehaviorStore` — the first document's — and a
-   behaviour authored into a second, additively opened scene is named in `Unsupported` rather than
-   run. Correct and visible, and not yet whole.
+4. ✅ **Additive scenes** — closed 2026-09-09. ~~The controller is given one `BehaviorStore` — the
+   first document's — and a behaviour authored into a second, additively opened scene is named in
+   `Unsupported` rather than run.~~ `PlayModeController.Stores` is every other store a session takes
+   behaviours off, and `EditorApplication` gives it every open scene's.
+
+   ⚠ **A delegate read at every `Play`, and that is the same bug one level up.** Which scenes are
+   open changes while the editor runs, so a list captured when the controller was built would be
+   the set that was open at start-up — which is exactly how the single store became the *first*
+   document's rather than the active one's.
+
+   ⚠ **Which store a behaviour came off is recorded, not assumed**, because putting one back into
+   the wrong store would move a script from one scene file into another the next time either is
+   saved. And asking is the only way to find out: nothing readable on a behaviour says who owns it —
+   `AllOn` and `Get` answer from the entity's `BehaviorRef`, which is one component however many
+   stores share the world — while `BehaviorStore.Remove` already answers "was this mine" with its
+   return value and changes nothing when it refuses. ⚠ **That is also why the test's last two lines
+   are two `Remove` calls**: an assertion over `Get` would have passed with the script restored into
+   the wrong scene.
+
+   The session still runs one store, which is what a built game has: which scene authored a script
+   is an editing fact and not a frame's.
 
 ### `Vixen.Editor.NodeGraph` — one framework, three graphs
 

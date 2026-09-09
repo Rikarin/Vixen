@@ -629,10 +629,14 @@ sealed partial class EditorApplication : IDisposable {
 
         // ⚠ Handed the document's behaviour store, and a `PlayModeController(world)` would be a Play
         // button that steps the graph and runs none of the scripts — the failure this whole wiring
-        // exists to remove, in its quietest form. The store is the first document's: the controller
-        // names anything it cannot take over, which is how a behaviour authored into an additively
-        // opened scene stops being a script that silently does not run.
+        // exists to remove, in its quietest form.
         play = new PlayModeController(world, scene.Behaviors, Extensions);
+
+        // ⚠ And every other open scene's, because the store above is the *first* document's and a
+        // behaviour authored into an additively opened scene used to be named in `Unsupported`
+        // rather than run. Honest, and not whole: a designer was told about something the editor
+        // should be able to do. Read at every Play, so a scene opened after this line still plays.
+        play.Stores = () => openScenes.Select(open => open.Document.Behaviors);
 
         // ⚠ The editor's own contribution to the frame a session runs, and the one service this
         // application can honestly own. Doc 31 § D10 said an embedding host would have to add the

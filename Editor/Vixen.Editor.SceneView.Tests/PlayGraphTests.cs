@@ -212,6 +212,65 @@ public class PlayGraphTests {
         Assert.False(stranded.IsDestroyed);
     }
 
+    /// <summary>A behaviour authored into a second, additively opened scene runs, and goes back there.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It used to be named in <see cref="PlayModeController.Unsupported" /> instead</b> —
+    ///         honestly, which is why this was worth doing rather than urgent, but a designer was
+    ///         being told about something the editor should be able to do. The controller had one
+    ///         store and <c>BehaviorStore.Remove</c> refuses a behaviour that is not its own, so a
+    ///         second scene's scripts were exactly the ones that did not run.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The last two lines are the assertion that matters and they are destructive on
+    ///         purpose.</b> Nothing on a behaviour says which store holds it that a test can read —
+    ///         <c>AllOn</c> and <c>Get</c> answer from the entity's <c>BehaviorRef</c>, which is one
+    ///         component however many stores share the world, so <i>both</i> stores find it and an
+    ///         assertion over either would pass with the script put back in the wrong scene. Only
+    ///         <c>Remove</c> asks about ownership, and a store that refuses has changed nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_behaviour_in_an_additively_opened_scene_runs_and_is_restored_into_that_scene() {
+        using var world = new World("Scene");
+
+        var here = Hierarchy.CreateTransform(world, LocalTransform.Identity);
+        var beside = Hierarchy.CreateTransform(world, LocalTransform.Identity);
+
+        var opened = Document(world);
+        var additive = Document(world);
+
+        opened.Behaviors.Add(here, new PlayCounter());
+        additive.Behaviors.Add(beside, new PlayCounter { Speed = 3f });
+
+        using var play = new PlayModeController(world, opened.Behaviors) {
+            Stores = () => [additive.Behaviors]
+        };
+
+        Assert.True(play.Play());
+        Assert.Empty(play.Unsupported);
+
+        // Five frames, for the reason `Pausing_stops_the_frames_and_a_step_runs_exactly_one` gives:
+        // the first two drain Awake and the one-frame Start deferral.
+        for (var frame = 0; frame < 5; frame++) {
+            Assert.True(play.Tick(TimeSpan.FromMilliseconds(16)));
+        }
+
+        // Both scripts ran, and the second one's authored value crossed the snapshot with it.
+        Assert.True(Ticks(play, here) > 0, "the first scene's behaviour never ran");
+        Assert.True(Ticks(play, beside) > 0, "the additively opened scene's behaviour never ran");
+        Assert.Equal(3f, play.Loop!.Behaviors.Get<PlayCounter>(beside)!.Speed);
+
+        var restored = play.Stop([here, beside]);
+        var back = additive.Behaviors.Get<PlayCounter>(restored[1]);
+
+        Assert.NotNull(back);
+        Assert.Equal(3f, back.Speed);
+
+        Assert.False(opened.Behaviors.Remove(back));
+        Assert.True(additive.Behaviors.Remove(back));
+    }
+
     static int Ticks(PlayModeController play, Entity entity) =>
         play.Loop!.Behaviors.Get<PlayCounter>(entity)?.Ticks ?? -1;
 }
