@@ -141,7 +141,8 @@ public sealed class UdpTransport : ITransport {
     ///         <b>Both halves and every channel, added up.</b> A listen server is one transport with
     ///         a server half and a client half, so this is what this <i>process</i> has sent and not
     ///         got — which is the granularity a panel and a meter both ask at. Per-connection
-    ///         attribution would be a different question and would need a different shape to answer.
+    ///         attribution is a different question, and <see cref="LossFor" /> is the shape this
+    ///         paragraph used to say it would need.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A closed connection's counters are folded in rather than dropped, so the totals
@@ -158,6 +159,21 @@ public sealed class UdpTransport : ITransport {
     ///     </para>
     /// </remarks>
     public TransportLoss? Loss => Total();
+
+    /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>The live connection's own counters, and nothing folded in.</b> Unlike
+    ///     <see cref="Loss" />, a connection that has gone reports null rather than the totals
+    ///     <see cref="Forget" /> retired — a per-link reading of a link that ended is not zero and is
+    ///     not the last one either. <see cref="ConnectionId.None" /> asks about the client half.
+    /// </remarks>
+    public TransportLoss? LossFor(ConnectionId connection) {
+        if (!connection.IsValid) {
+            return upstream?.Loss;
+        }
+
+        return byId.TryGetValue(connection.Value, out var found) ? found.Loss : null;
+    }
 
     /// <summary>Creates a transport.</summary>
     /// <param name="factory">Where its sockets come from.</param>

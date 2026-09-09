@@ -89,13 +89,46 @@ The two pairs are not the same kind of number, which is why there are four count
 gap that has left the acknowledgement window is a datagram that was sent and never came.
 `Retransmitted / Sent` is an **upper bound**: a resend is a consequence of loss, and one lost
 datagram can produce three of them while a lost *acknowledgement* produces one for a datagram that
-arrived. Outbound loss proper is not observable from here at all — the far end acknowledges what it
+arrived. Outbound loss proper is not observable from *here* at all — the far end acknowledges what it
 received and says nothing about what it did not.
 
 ⚠ **Null is the honest answer and zero is not**, which is also why nothing here divides: a total that
 has already been divided cannot be re-aggregated across three servers, so `NetworkMetrics` publishes
 the four counters and whoever has two readings takes the share. The full argument, including what the
 inbound pair cannot see, is in [measuring packet loss](../../docs/guide/engine/measuring-loss.md).
+
+### The fifth measurement, which arrives over the wire (#121)
+
+The peer's inbound counters *are* this end's outbound loss, so the session carries them back: once a
+`SessionOptions.PingInterval`, beside the ping that already runs at that cadence, each end sends the
+other a `LinkReport` — `Expected` and `Missing`, for **that link**. It lands on
+`NetworkPlayer.ObservedOutbound` on a server and on `NetworkSession.ObservedOutbound` on a client.
+
+⚠ **A separate type rather than a fifth field on `TransportLoss`, and that refusal is the same one
+`TransportLoss`'s remarks make.** Those four totals are this machine's own bookkeeping; this is a
+measurement taken by a different machine, arriving a round trip late, and absent until the peer
+speaks. Folding it in beside `Retransmitted` would hide all three of those properties.
+
+⚠ **`ITransport.LossFor(connection)` had to exist first, and `ITransport.Loss` could never have
+done the job.** `Loss` is the whole process's totals — every connection and both halves added
+together, which is the granularity a meter samples at — so a server that sent *that* to eight players
+would tell each of them what it missed from all eight. `LossFor` answers per link, returns null from
+a transport that cannot attribute (everything but UDP and the composite over one) and null for a
+connection that has gone. That last rule is deliberately the opposite of `Loss`'s, which keeps a
+departed connection's totals so a cumulative counter never falls: a *per-link* reading of a link
+nobody has is a number about nothing.
+
+⚠ **A new `SystemMessage` value rather than a longer `Pong`, and no `ProtocolVersion` bump.** Both
+dispatch switches already end in a `default:` that drops an unknown message without comment, so a
+peer built before this ignores the packet and loses only the measurement. Lengthening `Pong` is the
+shape that breaks, and it breaks as *clock drift* rather than as a missing counter: its fields are
+read in one `&&` chain with `Clock.Synchronize` inside it and `PacketReader`'s first failure is
+sticky. "A value is never reused" is a rule about recycling a number, not about adding one.
+
+Still owed: the editor panel's outbound lane is still named `resent` and there is no counter for this
+in `NetworkMetrics` — a sum over players is not monotonic, because a departing player's reading is
+cleared. Both are [#1185](https://github.com/Rikarin/Vixen/issues/1185); the panel half is behind
+[#120](https://github.com/Rikarin/Vixen/issues/120) like the rest of that pane.
 
 ## NetworkSimulation
 

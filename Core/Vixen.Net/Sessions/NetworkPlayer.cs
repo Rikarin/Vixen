@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Net.Time;
+using Vixen.Net.Transport;
 
 namespace Vixen.Net.Sessions;
 
@@ -35,6 +36,29 @@ public sealed class NetworkPlayer {
 
     /// <summary>How many times they have come back after dropping.</summary>
     public int ReconnectCount { get; internal set; }
+
+    /// <summary>
+    ///     What this player last said it did not receive of what was sent to it, or
+    ///     <see langword="null" /> if it has not said.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Observed outbound loss for this one link</b>, which is the number no sender can
+    ///         take for itself — see <see cref="LinkReport" />. It arrives once a
+    ///         <see cref="SessionOptions.PingInterval" />, so it is a round trip old and the first
+    ///         one is a ping interval away from the handshake.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null is not a clean link.</b> A peer whose transport counts nothing — anything
+    ///         in-process, anything over a stream — never sends a report at all, and a peer that has
+    ///         only just joined has not sent its first. Both read as null, and neither is zero loss.
+    ///     </para>
+    ///     <para>
+    ///         Cleared when the player drops, because the counters belong to the connection and a
+    ///         reconnecting player is a new link that has counted nothing yet.
+    ///     </para>
+    /// </remarks>
+    public LinkReport? ObservedOutbound { get; internal set; }
 
     internal double LastHeardFrom { get; set; }
     internal double ReconnectDeadline { get; set; }

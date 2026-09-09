@@ -106,6 +106,14 @@ public sealed class NetworkSimulation : ITransport {
     public TransportLoss? Loss => inner.Loss;
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     The inner transport's, for the same reason and with the same caveat as <see cref="Loss" />:
+    ///     a payload this decorator threw away never reached the transport below, so no sequence was
+    ///     spent on it and the link underneath saw no gap. What comes back is what that link measured.
+    /// </remarks>
+    public TransportLoss? LossFor(ConnectionId connection) => inner.LossFor(connection);
+
+    /// <inheritdoc />
     public TransportState ServerState => inner.ServerState;
 
     /// <inheritdoc />

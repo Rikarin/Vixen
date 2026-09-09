@@ -89,6 +89,18 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
     /// <summary>The transport underneath.</summary>
     public ITransport Transport => transport;
 
+    /// <summary>
+    ///     What the server last said it did not receive of what this client sent it, or
+    ///     <see langword="null" /> if it has not said. The client half's half of
+    ///     <see cref="NetworkPlayer.ObservedOutbound" />.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Null is not a clean link</b> — see <see cref="LinkReport" /> for the two ways of
+    ///     being absent. Meaningless on a session that is only a server, which never sends upstream
+    ///     and is never told about it.
+    /// </remarks>
+    public LinkReport? ObservedOutbound { get; private set; }
+
     /// <summary>The clock. On a client, the one being kept in step with the server's.</summary>
     public TickManager Clock { get; }
 
@@ -245,6 +257,7 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
         LocalPlayer = null;
         reconnectToken = [];
         clientPingOutstanding = false;
+        ObservedOutbound = null;
         clientAllowance = 0;
         allowance.Clear();
         Topology = SessionTopology.None;
@@ -464,6 +477,7 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
             var local = LocalPlayer;
             LocalPlayer = null;
             clientPingOutstanding = false;
+            ObservedOutbound = null;
             clientAllowance = 0;
             allowance.Clear();
 
@@ -526,6 +540,13 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
 
                     break;
 
+                case SystemMessage.LinkReport:
+                    if (ReadLinkReport(ref reader) is { } report) {
+                        player.ObservedOutbound = report;
+                    }
+
+                    break;
+
                 case SystemMessage.User:
                     handler?.OnMessage(player.Id, channel, reader.RemainingBytes);
 
@@ -581,6 +602,13 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
                     clientAllowance = 0;
                     allowance.Clear();
                     Clock.Synchronize(serverTick, TimeSpan.FromSeconds(Math.Max(0, now - clientPingSentAt)));
+                }
+
+                break;
+
+            case SystemMessage.LinkReport:
+                if (ReadLinkReport(ref reader) is { } report) {
+                    ObservedOutbound = report;
                 }
 
                 break;
@@ -791,6 +819,11 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
         player.Connection = ConnectionId.None;
         player.PingOutstanding = false;
 
+        // ⚠ The report described a link, and this one has ended. Keeping the last reading across a
+        // reconnect would attribute the old connection's loss to the new one — and a player who came
+        // back on a different route would be read as still losing packets on a route they left.
+        player.ObservedOutbound = null;
+
         if (Options.ReconnectWindow <= TimeSpan.Zero) {
             Remove(player, reason == DisconnectReason.Timeout ? PlayerLeaveReason.TimedOut : PlayerLeaveReason.Disconnected);
 
@@ -861,6 +894,7 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
                 player.PingOutstanding = true;
                 player.NextPingAt = now + Options.PingInterval.TotalSeconds;
                 SendPing(player.Connection, player.PingId);
+                SendLinkReport(player.Connection);
             }
         }
 
@@ -873,6 +907,7 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
         clientPingOutstanding = true;
         clientNextPingAt = now + Options.PingInterval.TotalSeconds;
         SendPing(ConnectionId.None, clientPingId);
+        SendLinkReport(ConnectionId.None);
     }
 
     void Accept(ref PacketReader reader) {
@@ -996,6 +1031,69 @@ public sealed class NetworkSession : ITransportEvents, IDisposable {
         } else {
             transport.SendToServer(packet, Channel.Unreliable);
         }
+    }
+
+    /// <summary>
+    ///     Tells one peer what this end did not receive of what that peer sent, which is that peer's
+    ///     outbound loss and the only measurement of it there is.
+    /// </summary>
+    /// <param name="connection">Who to tell, or <see cref="ConnectionId.None" /> for the server.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Per link, not per process, which is why <c>ITransport.LossFor</c> had to exist
+    ///         first.</b> <c>ITransport.Loss</c> adds every connection and both halves together, so a
+    ///         server sending that to eight players would tell each of them what it missed from all
+    ///         eight. The number is only outbound loss if it was taken over the link it is sent down.
+    ///     </para>
+    ///     <para>
+    ///         <b>No reading, no packet.</b> A transport that counts nothing sends nothing, so the
+    ///         far end's property stays null rather than becoming a zero somebody could read as a
+    ///         clean link. That also means this costs an in-process session literally nothing.
+    ///     </para>
+    ///     <para>
+    ///         Seventeen bytes once a <see cref="SessionOptions.PingInterval" />, unreliable, beside
+    ///         the ping that already runs at that cadence. A report that was lost is superseded by
+    ///         the next one, and the totals are cumulative, so nothing is lost by losing one.
+    ///     </para>
+    /// </remarks>
+    void SendLinkReport(ConnectionId connection) {
+        if (transport.LossFor(connection) is not { } loss) {
+            return;
+        }
+
+        var writer = new PacketWriter(scratch);
+        writer.WriteByte((byte)SystemMessage.LinkReport);
+        writer.WriteUInt64((ulong)loss.Expected);
+        writer.WriteUInt64((ulong)loss.Missing);
+
+        if (!writer.TryFinish(out var packet)) {
+            return;
+        }
+
+        if (connection.IsValid) {
+            transport.SendToClient(connection, packet, Channel.Unreliable);
+        } else {
+            transport.SendToServer(packet, Channel.Unreliable);
+        }
+    }
+
+    /// <summary>Reads a peer's report of what it missed. Failure leaves the last one standing.</summary>
+    /// <param name="reader">The packet, positioned after the message byte.</param>
+    /// <returns>What the peer said, or null if the packet was not one.</returns>
+    static LinkReport? ReadLinkReport(ref PacketReader reader) {
+        if (!reader.TryReadUInt64(out var expected) || !reader.TryReadUInt64(out var missing)) {
+            return null;
+        }
+
+        // ⚠ A peer is entitled to be wrong and a fuzzer is entitled to be hostile. Missing above
+        // expected is not a link, it is a claim, and letting it through would make the ratio the
+        // panel draws exceed one — so the packet is discarded rather than clamped: a clamped
+        // nonsense reads as 100 % loss, which is a number somebody would act on.
+        if (expected > long.MaxValue || missing > expected) {
+            return null;
+        }
+
+        return new((long)expected, (long)missing);
     }
 
     void ReplyToPing(ConnectionId connection, ref PacketReader reader) {

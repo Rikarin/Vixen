@@ -92,6 +92,24 @@ public sealed class CompositeTransport : ITransport {
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    ///     ⚠ <b>Per-link this is not a sum at all, which is what makes it the easier half.</b>
+    ///     <see cref="Loss" /> has to decide what to do about the transports that count nothing;
+    ///     a single connection lives on exactly one of them, so this routes the question the same
+    ///     way <see cref="SendToClient" /> routes a payload and answers with whatever that transport
+    ///     says — including null, when the browser's connection is on the WebSocket half.
+    /// </remarks>
+    public TransportLoss? LossFor(ConnectionId connection) {
+        if (!connection.IsValid) {
+            return inner[clientIndex].LossFor(ConnectionId.None);
+        }
+
+        return routes.TryGetValue(connection.Value, out var route)
+            ? inner[route.Transport].LossFor(route.Inner)
+            : null;
+    }
+
+    /// <inheritdoc />
     public TransportState ServerState { get; private set; }
 
     /// <inheritdoc />

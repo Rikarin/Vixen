@@ -3,8 +3,8 @@ title: Measuring packet loss
 slug: engine/measuring-loss
 kind: guide
 area: Networking
-summary: What the transport counts about datagrams that did not arrive — four cumulative totals, why the outbound pair is an upper bound and the inbound pair is an observation, and what it costs per packet.
-api: [T:Vixen.Net.Transport.TransportLoss]
+summary: What the transport counts about datagrams that did not arrive — four cumulative totals, why the outbound pair is an upper bound and the inbound pair is an observation, how the peer's inbound counters come back over the wire to make it a measurement, and what it costs per packet.
+api: [T:Vixen.Net.Transport.TransportLoss, T:Vixen.Net.Transport.LinkReport]
 tags: [networking, transport, diagnostics, loss, metrics]
 since: 0.2
 status: preview
@@ -74,8 +74,8 @@ the outbound pair can say nothing about.
 * **Anything the network dropped that was never a numbered datagram**: a handshake, an
   acknowledgement, a keep-alive.
 * **Loss on the way *out*.** The far end acknowledges what it received and says nothing about what it
-  did not. Its own inbound counters are the measurement of this end's outbound loss, and nothing in
-  the protocol carries them back.
+  did not. Its own inbound counters are the measurement of this end's outbound loss — and the session
+  now carries them back, which is what [the report below](#the-peers-half-observed-outbound-loss) is.
 
 ⚠ **A sequence is judged when it falls out of the window, and not when the gap appears.** A gap that
 is a moment old may be a datagram in flight; counting it immediately would report every reordering as
@@ -89,6 +89,48 @@ of integer operations and a single `PopCount` — inside the bookkeeping that al
 de-duplicate the sequence. Nothing allocates and nothing locks. The walk over connections happens
 only when somebody reads `Loss`, which is a few times a second for a panel and once a tick for a
 meter, and it is the same walk `RetransmitCount` already made.
+
+## The peer's half: observed outbound loss
+
+⚠ **A sender cannot measure its own loss, so the only honest outbound number is one the peer says.**
+That is `LinkReport`, and it is a wire message rather than a counter: once a
+`SessionOptions.PingInterval`, beside the ping that already runs at that cadence, each end sends the
+peer its own inbound totals for *that link*.
+
+| | |
+|---|---|
+| `NetworkPlayer.ObservedOutbound` | What this player says it missed of what the server sent it. Read on a server. |
+| `NetworkSession.ObservedOutbound` | What the server says it missed of what this client sent. Read on a client. |
+
+```csharp no-compile="`session` is a server session"
+foreach (var player in session.Players) {
+    if (player.ObservedOutbound is { Expected: > 0 } report) {
+        var lost = (double) report.Missing / report.Expected;
+    }
+}
+```
+
+⚠ **Null is not a clean link, and it is null two ways.** A peer whose transport counts nothing sends
+no report at all — every in-process and every stream transport — and a peer that has only just joined
+has not sent its first yet. It is also cleared when a player drops, because the counters described a
+connection and a reconnecting player is a new link that has counted nothing.
+
+⚠ **It is a separate type rather than a fifth field on `TransportLoss`, deliberately.** Those four
+totals are this machine's own bookkeeping; this one is a measurement made by a different machine,
+arriving a round trip late, and absent until the peer chooses to speak. Folding it in beside
+`Retransmitted` would hide all three of those.
+
+⚠ **Per link, which is why `ITransport.LossFor` exists.** `ITransport.Loss` adds every connection and
+both halves together — the granularity a meter samples at — so a server that sent *that* to eight
+players would tell each of them what it missed from all eight. `LossFor(connection)` asks the same
+four questions of one link, and returns `null` from a transport that cannot attribute them and from a
+connection that has gone.
+
+**Compatibility.** `LinkReport` is a new message value rather than a longer `Pong`, and the
+difference is that both dispatch switches already drop an unknown message without comment: a peer
+built before this ignores the packet and loses only the measurement. Nobody has to bump
+`SessionOptions.ProtocolVersion` for it. Lengthening `Pong` would have been the shape that breaks,
+and it would have broken as clock drift rather than as a missing counter.
 
 ## Using it
 
@@ -166,3 +208,4 @@ fallen behind, not as an asymmetric network.
 * [`UdpTransport`](/docs/api/vixen.net.transport.udp/udptransport) — where the counting happens: the sender remembers, the receiver judges
 * [`NetworkMetrics`](/docs/api/vixen.net.diagnostics/networkmetrics) — the meter, and why nothing in it is a rate
 * [`NetworkSimulation`](/docs/api/vixen.net.transport/networksimulation) — loss you ask for, reproducibly, which is the other half of testing against a bad link
+* [`LinkReport`](/docs/api/vixen.net.transport/linkreport) — what the peer says it missed, which is the only outbound loss anybody observes
