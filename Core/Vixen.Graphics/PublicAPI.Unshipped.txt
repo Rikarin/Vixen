@@ -517,6 +517,7 @@ Vixen.Graphics.GpuTextureView.GpuTextureView() -> void
 Vixen.Graphics.GpuTimestamps -> static class
 Vixen.Graphics.GraphicsDeviceFeatures -> readonly struct
 Vixen.Graphics.GraphicsDeviceFeatures : System.IEquatable<Vixen.Graphics.GraphicsDeviceFeatures>
+Vixen.Graphics.GraphicsDeviceFeatures.CanTimeFrames.get -> bool
 Vixen.Graphics.GraphicsDeviceFeatures.ClampDepthResolveMode(Vixen.Graphics.DepthResolveMode mode) -> Vixen.Graphics.DepthResolveMode
 Vixen.Graphics.GraphicsDeviceFeatures.GraphicsDeviceFeatures() -> void
 Vixen.Graphics.GraphicsDeviceFeatures.HasAnisotropicFiltering.get -> bool

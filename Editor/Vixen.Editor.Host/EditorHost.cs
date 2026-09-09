@@ -1174,7 +1174,10 @@ sealed class EditorHost : IDisposable {
         // would be indistinguishable from one whose frame had no passes.
         editor.GraphicsDevice = device;
 
-        if (device.Features.HasTimestampQueries) {
+        // ⚠ CanTimeFrames and not HasTimestampQueries. A device that reports the queries and a
+        // period of zero converts every duration to zero, and a timeline of empty bars is a worse
+        // answer than no timeline at all — see #1168. The panel says which of the two it was.
+        if (device.Features.CanTimeFrames) {
             gpu = new GpuProfiler(device);
         }
 
