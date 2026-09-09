@@ -47,7 +47,7 @@ public sealed partial class BlockoutModule {
     void SettingsPanels() {
         Shell.RegisterPanel(
             SettingsPanel,
-            new StringId("editor.panel.blockout", "Blockout"),
+            EditorStrings.PanelBlockout,
             panel => {
                 panel.WhenPressedIn(() => Shell.Context = BlockoutMode.BlockoutContext);
 

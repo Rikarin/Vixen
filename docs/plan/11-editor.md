@@ -130,14 +130,35 @@ public interface IEditorCommand
 > the editor's Undo menu item was impossible and nothing said so. That is the defect this line was
 > about, found by the check written for it.
 >
-> ⚠ **Owed, and measured rather than asserted**: 178 ids are still built at call sites in the editor
-> module assemblies — `EditorParity` alone has 72 — and declared in no class, so no `All` list
-> carries them and a translator's template is short by more than half of what the editor says.
-> `CheckStrings` logs that count as a measurement and does not fail on it, because closing it is a
-> migration across nine assemblies and because a handful of those ids **cannot** be declared:
-> `WaterMode.cs:247` builds `"editor.command." + id` in a loop over a mode's tools, which is a
-> legitimate shape a declaration class has no way to express. That is also a fact about the shape
-> worth carrying upstream — `StringId`'s constructor has to stay public for it.
+> ~~**Owed, and measured rather than asserted**: 178 ids are still built at call sites~~ — **the
+> migration is done and the measurement is a ceiling.** 198 ids across nine module assemblies are
+> declared in `EditorStrings` and reached through it, `EditorStrings.All` is 350 entries rather than
+> 154, and `CheckStrings` now *fails* on a shipping call site that builds a `StringId` from a literal
+> id no declaration class carries. `UndeclaredCeiling` is `0`, with two exclusions written where the
+> constant is: a `.Tests` assembly, whose fixtures invent `test.brush` for a registry and would only
+> pollute a template, and a `///` line, because three of the ids the old census counted were worked
+> examples in prose.
+>
+> ⚠ **178 was 198, and the twenty it could not see are the interesting half.** The census matched
+> the text `new StringId("…"`, and a field or property initialiser target-types its `new` —
+> `static readonly StringId CategoryWater = new("editor.category.water", "Water");` — so the type
+> name it anchored on was simply absent. Twenty-one production ids were written that way, invisible
+> to both the census and the duplicate check; `editor.category.scene` was constructed **three times
+> in three files** and the gate written to stop exactly that reported nothing. `CheckStrings` now
+> matches both shapes.
+>
+> ⚠ **And the `CommandUndo` defect was still live under a different name.** `EditorStrings.CommandSave`
+> declared `editor.command.file.save` = "Save"; `EditorApplication.Commands` registered `file.save`
+> with `new StringId("editor.command.save", "Save Scene")`. A translator's template carried an id the
+> editor never looked up, and the only thing keeping the declaration from failing the used-nowhere
+> check was a localisation test naming it. The declaration now carries the text the editor shows and
+> the call site uses the declaration.
+>
+> ⚠ **The claim that a handful of these ids cannot be declared was true and irrelevant.**
+> `WaterMode.cs` builds `"editor.command." + id` in a loop over a mode's tools — but a concatenation
+> has no string literal where the id goes, so it was never in the 178 and is not under the ceiling
+> either. It is untranslatable and unmeasured, which is a separate gap wanting a declaration shape
+> that can express a family; `StringId`'s constructor stays public for it.
 >
 > **The project browser is `ProjectBrowser` in `Vixen.Editor.App`**, not a shell panel, and for the
 > same reason as the first correction: it needs the asset database, and the shell may not see one.

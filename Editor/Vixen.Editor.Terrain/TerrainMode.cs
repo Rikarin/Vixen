@@ -59,7 +59,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     public string Id => ModeId;
 
     /// <inheritdoc />
-    public StringId Title { get; } = new("editor.mode.terrain", "Terrain");
+    public StringId Title { get; } = EditorStrings.ModeTerrain;
 
     /// <inheritdoc />
     /// <remarks>None, so the mode bar draws the word — <c>BlockoutMode.Icon</c>'s reason.</remarks>
@@ -377,7 +377,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
 
             shell.Commands.Add(
                 new EditorCommand(id, new StringId("editor.command." + id, $"Tool {slot + 1}"), () => SelectSlot(slot)) {
-                    Category = CategoryTerrain,
+                    Category = EditorStrings.CategoryTerrain,
                     Context = TerrainContext,
                     Enablement = () => IsActive() && HasTerrain && slot < ToolCount
                 }
@@ -405,7 +405,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
 
         shell.Commands.Add(
             new EditorCommand(CreateCommand, new StringId("editor.command." + CreateCommand, "Create Terrain"), Made) {
-                Category = CategoryTerrain,
+                Category = EditorStrings.CategoryTerrain,
                 Context = TerrainContext,
 
                 // ⚠ The one verb in the mode that is enabled *without* a terrain, and the only one
@@ -427,7 +427,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
                     }
                 }
             ) {
-                Category = CategoryTerrain,
+                Category = EditorStrings.CategoryTerrain,
                 Context = TerrainContext,
                 Enablement = () => IsActive() && HasTerrain
             }
@@ -444,7 +444,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
                     }
                 }
             ) {
-                Category = CategoryTerrain,
+                Category = EditorStrings.CategoryTerrain,
                 Context = TerrainContext,
                 Enablement = () => IsActive() && Editing.Target >= 0
             }
@@ -507,7 +507,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
                     Category = TerrainCategory.Sculpt;
                     Tool = tool;
                 }) {
-                    Category = CategoryTerrain,
+                    Category = EditorStrings.CategoryTerrain,
                     Context = TerrainContext,
                     RadioGroup = ToolGroup,
                     Checked = () => Category == TerrainCategory.Sculpt && Tool == tool,
@@ -528,7 +528,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
                     Category = TerrainCategory.Paint;
                     PaintTool = tool;
                 }) {
-                    Category = CategoryTerrain,
+                    Category = EditorStrings.CategoryTerrain,
                     Context = TerrainContext,
                     RadioGroup = PaintGroup,
                     Checked = () => Category == TerrainCategory.Paint && PaintTool == tool,
@@ -546,7 +546,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
 
             shell.Commands.Add(
                 new EditorCommand(id, new StringId("editor.command." + id, category.ToString()), () => Category = category) {
-                    Category = CategoryTerrain,
+                    Category = EditorStrings.CategoryTerrain,
                     Context = TerrainContext,
                     RadioGroup = CategoryGroup,
                     Checked = () => Category == category,
@@ -558,7 +558,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
         void Verb(string id, string label, Action run, InputKey key) {
             shell.Commands.Add(
                 new EditorCommand(id, new StringId("editor.command." + id, label), run) {
-                    Category = CategoryTerrain,
+                    Category = EditorStrings.CategoryTerrain,
                     Context = TerrainContext,
                     Enablement = () => IsActive() && HasTerrain
                 }
@@ -574,7 +574,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
                         run();
                     }
                 }) {
-                    Category = CategoryTerrain,
+                    Category = EditorStrings.CategoryTerrain,
                     Context = TerrainContext,
                     Enablement = () =>
                         IsActive()
@@ -873,9 +873,6 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
     ///     palette while they are in Select.
     /// </remarks>
     bool IsActive() => shell?.Modes.IsActive(ModeId) == true;
-
-    /// <summary>Where the palette files the mode's verbs.</summary>
-    static readonly StringId CategoryTerrain = new("editor.category.terrain", "Terrain");
 
     /// <summary>What the next target layer is called.</summary>
     string NextTargetName() {

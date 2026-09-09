@@ -55,7 +55,7 @@ public sealed partial class AssetEditorsModule {
         context.AddPanel(
             new PanelDescriptor(
                 InputDebugPanelId,
-                new StringId("editor.panel.input-debug", "Input Debug"),
+                EditorStrings.PanelInputDebug,
                 panel => {
                     inputDebug = panel.Add<InputDebugView>();
 

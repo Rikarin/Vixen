@@ -116,7 +116,7 @@ public sealed partial class AssetEditorsModule {
         context.AddPanel(
             new PanelDescriptor(
                 AgentDebuggerPanelId,
-                new StringId("editor.panel.ai-debugger", "Agent Debugger"),
+                EditorStrings.PanelAiDebugger,
                 panel => {
                     agentDebugger = panel.Add<AgentDebuggerView>();
                     agentDebugger.Show(agentModel);

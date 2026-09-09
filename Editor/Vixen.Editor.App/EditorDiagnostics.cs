@@ -296,8 +296,8 @@ sealed partial class EditorApplication {
     void DiagnosticsCommands() =>
         Verb(
             "tools.diagnostics-report",
-            new StringId("editor.command.tools.diagnostics-report", "Generate Diagnostics Report…"),
-            CategoryTools,
+            EditorStrings.CommandToolsDiagnosticsReport,
+            EditorStrings.CategoryTools,
             WriteReport,
             enabled: () => services.CanPick
         );
@@ -310,7 +310,7 @@ sealed partial class EditorApplication {
     ///     visible effect and no way to stop it.
     /// </remarks>
     void Panel(string id, StringId title, string panel, StringId? category = null) =>
-        Verb(id, title, category ?? CategoryTools, () => Shell.Workspace.Toggle(panel));
+        Verb(id, title, category ?? EditorStrings.CategoryTools, () => Shell.Workspace.Toggle(panel));
 
     /// <summary>How many scopes the report lists before it stops being a report.</summary>
     const int ReportedScopes = 40;

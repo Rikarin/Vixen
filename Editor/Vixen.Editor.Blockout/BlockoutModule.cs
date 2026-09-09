@@ -94,7 +94,7 @@ public sealed partial class BlockoutModule : IEditorPlugin {
 
         // ⚠ Doc 24's P2 selection table. Each `AddSubmenu` inserts at `at` and the counter walks
         // forward, so the five read in this order rather than in reverse.
-        context.AddSubmenu(scene, new StringId("editor.menu.elements", "Select Elements"), at++)
+        context.AddSubmenu(scene, EditorStrings.MenuElements, at++)
             .Add(BlockoutMode.SelectAllCommand, BlockoutMode.SelectNoneCommand, BlockoutMode.InvertCommand)
             .AddSeparator()
             .Add(BlockoutMode.SelectLoopCommand, BlockoutMode.SelectRingCommand)
@@ -105,7 +105,7 @@ public sealed partial class BlockoutModule : IEditorPlugin {
         // ⚠ Doc 24's P3 Geometry table, all fourteen of it, where the mode's toolbar shows four. A
         // strip of fourteen buttons is one nobody reads; a menu of fourteen verbs is where somebody
         // goes to find out what a mode can do, and the shortcuts are drawn beside them.
-        context.AddSubmenu(scene, new StringId("editor.menu.geometry", "Geometry"), at++)
+        context.AddSubmenu(scene, EditorStrings.MenuGeometry, at++)
             .Add(BlockoutMode.ExtrudeCommand, BlockoutMode.ExtrudeIndividualCommand)
             .Add(BlockoutMode.InsetCommand, BlockoutMode.InsetIndividualCommand)
             .Add(BlockoutMode.BevelCommand, BlockoutMode.LoopCutCommand, BlockoutMode.SubdivideCommand)
@@ -119,8 +119,8 @@ public sealed partial class BlockoutModule : IEditorPlugin {
         // because choosing what the tool makes and reaching for the tool are two acts — a flat list
         // of twelve "Create Stairs" entries beside "Duplicate" would bury the four verbs somebody
         // actually runs.
-        var creation = context.AddSubmenu(scene, new StringId("editor.menu.blockout-create", "Create"), at++);
-        var kinds = creation.AddSubmenu(new StringId("editor.menu.blockout-shape", "Shape"));
+        var creation = context.AddSubmenu(scene, EditorStrings.MenuBlockoutCreate, at++);
+        var kinds = creation.AddSubmenu(EditorStrings.MenuBlockoutShape);
 
         foreach (var kind in BlockoutMode.Kinds) {
             kinds.Add(BlockoutMode.KindCommand(kind));
@@ -136,7 +136,7 @@ public sealed partial class BlockoutModule : IEditorPlugin {
 
         // And P5's, less the material assignment — which comes from a palette rather than from a
         // key, and a palette is the inspector's.
-        context.AddSubmenu(scene, new StringId("editor.menu.blockout-surfaces", "Surfaces"), at++)
+        context.AddSubmenu(scene, EditorStrings.MenuBlockoutSurfaces, at++)
             .Add(BlockoutMode.ProjectWorldCommand, BlockoutMode.ProjectBoxCommand, BlockoutMode.FitUvCommand)
             .AddSeparator()
             .Add(BlockoutMode.SmoothCommand, BlockoutMode.HardenCommand, BlockoutMode.AutoSmoothCommand)
@@ -146,14 +146,14 @@ public sealed partial class BlockoutModule : IEditorPlugin {
         // ⚠ Doc 24's P6 and P7. The booleans are Object-mode verbs and sit beside the creation ones
         // rather than inside Geometry, because what they act on is entities: a subtract of two walls
         // is a statement about the outliner, not about a face selection.
-        context.AddSubmenu(scene, new StringId("editor.menu.blockout-boolean", "Boolean"), at++)
+        context.AddSubmenu(scene, EditorStrings.MenuBlockoutBoolean, at++)
             .Add(BlockoutMode.UnionCommand, BlockoutMode.SubtractCommand, BlockoutMode.IntersectCommand)
             .AddSeparator()
             .Add(BlockoutMode.PlaneCutCommand, BlockoutMode.TrimCommand)
             .AddSeparator()
             .Add(BlockoutMode.ApplyBooleanCommand);
 
-        context.AddSubmenu(scene, new StringId("editor.menu.blockout-handoff", "Handoff"), at)
+        context.AddSubmenu(scene, EditorStrings.MenuBlockoutHandoff, at)
             .Add(BlockoutMode.BakeCommand, BlockoutMode.EditableCommand)
             .AddSeparator()
             .Add(BlockoutMode.ExportObjCommand, BlockoutMode.ExportGltfCommand);

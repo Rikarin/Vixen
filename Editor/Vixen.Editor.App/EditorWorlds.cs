@@ -113,7 +113,7 @@ sealed partial class EditorApplication {
     void WorldPanels() {
         Shell.RegisterPanel(
             WorldPanel,
-            new StringId("editor.panel.world", "World Settings"),
+            EditorStrings.PanelWorld,
             panel => {
                 panel.WhenPressedIn(() => Shell.Context = WorldContext);
 
@@ -124,7 +124,7 @@ sealed partial class EditorApplication {
 
         Shell.RegisterPanel(
             LightingPanel,
-            new StringId("editor.panel.lighting", "Lighting"),
+            EditorStrings.PanelLighting,
             panel => {
                 panel.WhenPressedIn(() => Shell.Context = WorldContext);
 
@@ -151,7 +151,7 @@ sealed partial class EditorApplication {
 
         Shell.RegisterPanel(
             NavigationPanel,
-            new StringId("editor.panel.navigation", "Navigation"),
+            EditorStrings.PanelNavigation,
             panel => {
                 panel.WhenPressedIn(() => Shell.Context = WorldContext);
 
@@ -174,7 +174,7 @@ sealed partial class EditorApplication {
 
         Shell.RegisterPanel(
             ScenesPanel,
-            new StringId("editor.panel.scenes", "Scenes"),
+            EditorStrings.PanelScenes,
             panel => {
                 panel.WhenPressedIn(() => Shell.Context = SceneContext);
 
@@ -617,38 +617,35 @@ sealed partial class EditorApplication {
         }
     }
 
-    /// <summary>What the Scene menu's category is called, matching the viewport commands' own.</summary>
-    static readonly StringId SceneCategory = new("editor.category.scene", "Scene");
-
     /// <summary>The verbs doc 20's B6 and its multi-scene row name.</summary>
     void WorldCommands() {
         CreateAssetCommands();
 
-        Panel("scene.world-settings", new StringId("editor.command.scene.world-settings", "World Settings…"), WorldPanel, SceneCategory);
-        Panel("scene.lighting", new StringId("editor.command.scene.lighting", "Lighting…"), LightingPanel, SceneCategory);
-        Panel("scene.navigation", new StringId("editor.command.scene.navigation", "Navigation…"), NavigationPanel, SceneCategory);
-        Panel("scene.scenes", new StringId("editor.command.scene.scenes", "Scenes"), ScenesPanel, SceneCategory);
+        Panel("scene.world-settings", EditorStrings.CommandSceneWorldSettings, WorldPanel, EditorStrings.CategoryScene);
+        Panel("scene.lighting", EditorStrings.CommandSceneLighting, LightingPanel, EditorStrings.CategoryScene);
+        Panel("scene.navigation", EditorStrings.CommandSceneNavigation, NavigationPanel, EditorStrings.CategoryScene);
+        Panel("scene.scenes", EditorStrings.CommandSceneScenes, ScenesPanel, EditorStrings.CategoryScene);
 
         Verb(
             "scene.open-additive",
-            new StringId("editor.command.scene.open-additive", "Open Scene Additively…"),
-            SceneCategory,
+            EditorStrings.CommandSceneOpenAdditive,
+            EditorStrings.CategoryScene,
             OpenSceneAdditive,
             enabled: () => services.CanPick
         );
 
         Verb(
             "scene.save-all-scenes",
-            new StringId("editor.command.scene.save-all-scenes", "Save All Scenes"),
-            SceneCategory,
+            EditorStrings.CommandSceneSaveAllScenes,
+            EditorStrings.CategoryScene,
             SaveAllScenes,
             enabled: () => openScenes.Exists(open => open.Document.IsDirty.Value)
         );
 
         Planned(
             "scene.layers",
-            new StringId("editor.command.scene.layers", "Layers and Tags…"),
-            SceneCategory,
+            EditorStrings.CommandSceneLayers,
+            EditorStrings.CategoryScene,
             "Layers need an ECS-side concept first; a list of names nothing reads would be a promise the editor breaks."
         );
     }
@@ -991,7 +988,7 @@ sealed partial class EditorApplication {
         Verb(
             kind.Id,
             new StringId("editor.command." + kind.Id, kind.Title),
-            CategoryAssets,
+            EditorStrings.CategoryAssets,
             () => CreateAsset(kind.Extension, kind.DefaultName, kind.NewContents(), kind.Opens)
         );
     }

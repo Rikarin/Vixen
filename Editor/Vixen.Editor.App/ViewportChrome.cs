@@ -142,16 +142,16 @@ sealed class ViewportChrome {
             // shape: "snap (with a dropdown per snap value)". The button is the thing people press
             // twenty times an hour and the popover is where the four geometry elements, the base and
             // the three modifiers live — every one of which was declared and unreachable before.
-            new ToolbarDropdown(SnapTitle, null, EditorApplication.ViewportIds.SnapIds),
-            new ToolbarDropdown(PlaneTitle, null, EditorApplication.ViewportIds.WorkPlaneIds),
-            new ToolbarDropdown(PrecisionTitle, null, EditorApplication.ViewportIds.PrecisionIds),
+            new ToolbarDropdown(EditorStrings.ViewportSnap, null, EditorApplication.ViewportIds.SnapIds),
+            new ToolbarDropdown(EditorStrings.ViewportWorkPlane, null, EditorApplication.ViewportIds.WorkPlaneIds),
+            new ToolbarDropdown(EditorStrings.ViewportPrecision, null, EditorApplication.ViewportIds.PrecisionIds),
             new ToolbarSeparator(),
-            new ToolbarDropdown(ViewModeTitle, null, [.. EditorApplication.ViewportIds.ViewModes]),
-            new ToolbarDropdown(ShowTitle, null, ShowIds),
-            new ToolbarDropdown(SpeedTitle, null, [.. EditorApplication.ViewportIds.SpeedIds]),
+            new ToolbarDropdown(EditorStrings.ViewportViewMode, null, [.. EditorApplication.ViewportIds.ViewModes]),
+            new ToolbarDropdown(EditorStrings.ViewportShow, null, ShowIds),
+            new ToolbarDropdown(EditorStrings.ViewportSpeed, null, [.. EditorApplication.ViewportIds.SpeedIds]),
             new ToolbarSeparator(),
             new ToolbarButton("scene.toggle-projection"),
-            new ToolbarDropdown(LayoutTitle, null, [.. EditorApplication.ViewportIds.Arrangements]),
+            new ToolbarDropdown(EditorStrings.ViewportLayout, null, [.. EditorApplication.ViewportIds.Arrangements]),
             new ToolbarButton("scene.maximise")
         );
 
@@ -343,11 +343,4 @@ sealed class ViewportChrome {
     /// </remarks>
     static readonly string?[] ShowIds = ["scene.toggle-grid", .. EditorApplication.ViewportIds.ShowFlagIds];
 
-    static readonly StringId SnapTitle = new("editor.viewport.snap", "Snap");
-    static readonly StringId PlaneTitle = new("editor.viewport.work-plane", "Plane");
-    static readonly StringId PrecisionTitle = new("editor.viewport.precision", "Measure");
-    static readonly StringId ViewModeTitle = new("editor.viewport.view-mode", "View");
-    static readonly StringId ShowTitle = new("editor.viewport.show", "Show");
-    static readonly StringId SpeedTitle = new("editor.viewport.speed", "Speed");
-    static readonly StringId LayoutTitle = new("editor.viewport.layout", "Panes");
 }

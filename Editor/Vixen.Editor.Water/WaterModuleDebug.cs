@@ -57,9 +57,6 @@ public sealed partial class WaterModule {
         ("water.showRipples", "Show Water Ripples", () => WaterDebug.ShowRipples, () => WaterDebug.ShowRipples = !WaterDebug.ShowRipples)
     ];
 
-    /// <summary>What the palette groups them under. The mode's own, restated here for its scope.</summary>
-    static readonly StringId DebugCategory = new("editor.category.water", "Water");
-
     /// <summary>Puts them in the shell, and takes them back out when the module unloads.</summary>
     void WaterDebugCommands(Vixen.Editor.Plugin.PluginContext context) {
         foreach (var (id, label, read, toggle) in DebugVerbs) {
@@ -67,7 +64,7 @@ public sealed partial class WaterModule {
 
             Shell.Commands.Add(
                 new EditorCommand(id, new StringId("editor.command." + id, label), toggle) {
-                    Category = DebugCategory,
+                    Category = EditorStrings.CategoryWater,
                     Checked = read
                 }
             );

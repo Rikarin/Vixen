@@ -60,7 +60,7 @@ public sealed partial class WaterModule {
                 new StringId("editor.command." + CarveTerrainCommand, "Carve Terrain From Water"),
                 () => Carve()
             ) {
-                Category = DebugCategory,
+                Category = EditorStrings.CategoryWater,
 
                 // ⚠ Not gated on the mode being active, on `WaterMode.CreateZoneCommand`'s terms: "I
                 // moved a river and the old bed is still there" is asked from whatever mode the

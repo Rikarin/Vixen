@@ -50,7 +50,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
     public string Id => ModeId;
 
     /// <inheritdoc />
-    public StringId Title { get; } = new("editor.mode.foliage", "Foliage");
+    public StringId Title { get; } = EditorStrings.ModeFoliage;
 
     /// <inheritdoc />
     /// <remarks>None, so the mode bar draws the word — <c>BlockoutMode.Icon</c>'s reason.</remarks>
@@ -189,7 +189,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
 
             shell.Commands.Add(
                 new EditorCommand(id, new StringId("editor.command." + id, $"Tool {slot + 1}"), () => SelectSlot(slot)) {
-                    Category = CategoryFoliage,
+                    Category = EditorStrings.CategoryFoliage,
                     Context = FoliageContext,
                     Enablement = () => IsActive() && slot < Tools.Count
                 }
@@ -204,7 +204,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
 
             shell.Commands.Add(
                 new EditorCommand(id, new StringId("editor.command." + id, chosen + " Foliage"), () => Tool = chosen) {
-                    Category = CategoryFoliage,
+                    Category = EditorStrings.CategoryFoliage,
                     Context = FoliageContext,
                     RadioGroup = ToolGroup,
                     Checked = () => Tool == chosen,
@@ -231,7 +231,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
                     }
                 }
             ) {
-                Category = CategoryFoliage,
+                Category = EditorStrings.CategoryFoliage,
                 Context = FoliageContext,
                 Enablement = () => IsActive() && Editing.Volume is not null
             }
@@ -243,7 +243,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
                 new StringId("editor.command." + RemoveTypeCommand, "Remove Foliage Type"),
                 () => { }
             ) {
-                Category = CategoryFoliage,
+                Category = EditorStrings.CategoryFoliage,
                 Context = FoliageContext,
 
                 // ⚠ Unimplemented rather than absent, and the enablement says so. Removing a palette
@@ -263,7 +263,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
                 new StringId("editor.command." + DeleteSelectionCommand, "Delete Selected Foliage"),
                 () => DeleteSelection()
             ) {
-                Category = CategoryFoliage,
+                Category = EditorStrings.CategoryFoliage,
                 Context = FoliageContext,
                 Enablement = () => IsActive() && Editing.Selection.Count > 0
             }
@@ -274,7 +274,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
         void Verb(string id, string label, Action run, InputKey key) {
             shell.Commands.Add(
                 new EditorCommand(id, new StringId("editor.command." + id, label), run) {
-                    Category = CategoryFoliage,
+                    Category = EditorStrings.CategoryFoliage,
                     Context = FoliageContext,
                     Enablement = IsActive
                 }
@@ -461,9 +461,6 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
     }
 
     bool IsActive() => shell?.Modes.IsActive(ModeId) == true;
-
-    /// <summary>Where the palette files the mode's verbs.</summary>
-    static readonly StringId CategoryFoliage = new("editor.category.foliage", "Foliage");
 
     /// <summary>The radio group the six tools are in.</summary>
     const string ToolGroup = "foliage.tool";

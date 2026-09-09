@@ -111,7 +111,7 @@ public sealed partial class TerrainModule {
     void TerrainPanels() {
         Shell.RegisterPanel(
             TerrainPanel,
-            new StringId("editor.panel.terrain", "Terrain"),
+            EditorStrings.PanelTerrain,
             panel => {
                 panel.WhenPressedIn(() => Shell.Context = TerrainMode.TerrainContext);
 
@@ -187,7 +187,7 @@ public sealed partial class TerrainModule {
 
         Shell.RegisterPanel(
             FoliagePanel,
-            new StringId("editor.panel.foliage", "Foliage"),
+            EditorStrings.PanelFoliage,
             panel => {
                 panel.WhenPressedIn(() => Shell.Context = FoliageMode.FoliageContext);
 
@@ -227,7 +227,7 @@ public sealed partial class TerrainModule {
 
         Shell.RegisterPanel(
             GrassPanel,
-            new StringId("editor.panel.grass", "Grass"),
+            EditorStrings.PanelGrass,
             panel => {
                 panel.WhenPressedIn(() => Shell.Context = TerrainMode.TerrainContext);
 
@@ -251,7 +251,7 @@ public sealed partial class TerrainModule {
 
         Shell.RegisterPanel(
             GrowthPanel,
-            new StringId("editor.panel.growth", "Growth"),
+            EditorStrings.PanelGrowth,
             panel => {
                 panel.WhenPressedIn(() => Shell.Context = FoliageMode.FoliageContext);
 
@@ -275,7 +275,7 @@ public sealed partial class TerrainModule {
 
         Shell.RegisterPanel(
             SplinePanel,
-            new StringId("editor.panel.splines", "Splines"),
+            EditorStrings.PanelSplines,
             panel => {
                 panel.WhenPressedIn(() => Shell.Context = TerrainMode.TerrainContext);
 

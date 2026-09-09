@@ -647,7 +647,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         context.AddPanel(
             GraphPanel,
-            new StringId("editor.panel.texture-graph", "Texture Graph"),
+            EditorStrings.PanelTextureGraph,
             panel => {
                 view = new TextureGraphView(panel);
 
@@ -668,7 +668,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         context.AddPanel(
             StackPanel,
-            new StringId("editor.panel.layer-stack", "Layer Stack"),
+            EditorStrings.PanelLayerStack,
             panel => {
                 // ⚠ The previous one is ended first, and this factory really does re-run: opening
                 // any other panel relays the workspace out. `LayerStackView` follows the open
@@ -706,7 +706,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         context.AddPanel(
             PaintPanel,
-            new StringId("editor.panel.texture-paint", "Paint"),
+            EditorStrings.PanelTexturePaint,
             panel => {
                 paintView = new PaintUvView(panel, tool) {
                     Target = BeginStroke,
@@ -728,7 +728,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
 
         context.AddPanel(
             MeshPanel,
-            new StringId("editor.panel.texture-paint-3d", "Paint (3D)"),
+            EditorStrings.PanelTexturePaint3d,
             panel => {
                 meshView = new PaintMeshView(panel, tool) {
                     Target = BeginStroke,

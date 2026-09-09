@@ -626,14 +626,26 @@ owed on both sides of the fence.
 > initialiser does not freeze them in whichever language opened the first dialog. Fifteen
 > declarations, not thirteen.
 >
-> ⚠ **Owed, and stated as a number rather than as a feeling.** 178 ids are built at call sites in
-> the editor's module assemblies and declared in no class at all, so a translator's template is
-> short by more than half of what the editor says. `CheckStrings` logs the count as a
-> *measurement* and does not fail on it: closing it is a migration across nine assemblies, and a
-> handful of those ids cannot be declared at all — `WaterMode.cs:247` builds
-> `"editor.command." + id` in a loop over a mode's tools. **That last point is a fact about the
-> declaration shape and belongs to this section**: a shape that cannot express a computed id means
-> `StringId`'s constructor has to stay public, in Vixen and in Trinix's generated code alike.
+> ~~⚠ **Owed, and stated as a number rather than as a feeling.** 178 ids are built at call sites in
+> the editor's module assemblies and declared in no class at all~~ — **closed 2026-09-09.** 198 are
+> declared in `EditorStrings`, `CheckStrings` fails on a shipping call site that builds one, and the
+> measurement is a ceiling of zero with its two exclusions written where the constant is.
+>
+> ⚠ **The count was wrong by twenty, and in the direction that matters.** The census matched the
+> text `new StringId("…"`; a field or property initialiser target-types its `new`, so
+> `static readonly StringId CategoryWater = new("editor.category.water", "Water");` carried no type
+> name to anchor on and was invisible — to the census *and* to the duplicate check. Twenty-one ids
+> were written that way, `editor.category.scene` in three separate files. **The declaration shape is
+> what made the fix mechanical**: every one of them became a property on the same class with no call
+> site changing meaning.
+>
+> ⚠ **The computed-id point survives and is now the only thing under it.** `WaterMode` builds
+> `"editor.command." + id` in a loop over a mode's tools — and because that has no literal where the
+> id goes, it was never in the 178 and is not under the ceiling either. It is untranslatable and
+> *unmeasured*. **That is a fact about the declaration shape and belongs to this section**: a shape
+> that cannot express a computed id means `StringId`'s constructor has to stay public, in Vixen and
+> in Trinix's generated code alike — and a shape that could express a family is what would let a
+> gate see one.
 
 ⚠ **Trinix is not asking Vixen to build it.** Trinix is building its own — a `Strings.yaml` →
 declarations generator in `Trinix.Sdk.Generators`, because the catalogue source and the tooling are

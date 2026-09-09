@@ -67,7 +67,7 @@ sealed partial class EditorApplication {
         Shell.RegisterPanel(
             new PanelDescriptor(
                 BuildPanel,
-                new StringId("editor.panel.build", "Build Settings"),
+                EditorStrings.PanelBuild,
                 panel => {
                     var view = panel.Add<BuildSettingsView>();
 
@@ -165,15 +165,15 @@ sealed partial class EditorApplication {
     void PlayerBuildCommands() {
         Verb(
             "build.settings",
-            new StringId("editor.command.build.settings", "Build Settings…"),
-            CategoryBuild,
+            EditorStrings.CommandBuildSettings,
+            EditorStrings.CategoryBuild,
             () => Shell.Workspace.Open(BuildPanel)
         );
 
         Verb(
             "build.run",
-            new StringId("editor.command.build.run", "Build and Run"),
-            CategoryBuild,
+            EditorStrings.CommandBuildRun,
+            EditorStrings.CategoryBuild,
             () => StartPlayerBuild(launch: true),
 
             // ⚠ Not merely "is a build running". A menu line that greyed only for that would still
@@ -207,7 +207,7 @@ sealed partial class EditorApplication {
                         ShowBuildSettings();
                     }
                 ) {
-                    Category = CategoryBuild,
+                    Category = EditorStrings.CategoryBuild,
                     RadioGroup = "build.configuration",
                     Checked = () => string.Equals(Builds.Variant, chosen, StringComparison.Ordinal)
                 }
@@ -222,7 +222,7 @@ sealed partial class EditorApplication {
                         ShowBuildSettings();
                     }
                 ) {
-                    Category = CategoryBuild,
+                    Category = EditorStrings.CategoryBuild,
                     RadioGroup = "build.target",
 
                     // Greyed rather than absent, with the sentence saying why — Web is on the menu

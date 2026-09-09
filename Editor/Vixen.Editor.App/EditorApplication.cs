@@ -2146,7 +2146,7 @@ sealed partial class EditorApplication : IDisposable {
     void Panels() {
         Shell.RegisterPanel(
             "hierarchy",
-            new StringId("editor.panel.hierarchy", "Hierarchy"),
+            EditorStrings.PanelHierarchy,
             panel => {
                 panel.WhenPressedIn(() => Shell.Context = SceneContext);
 
@@ -2233,7 +2233,7 @@ sealed partial class EditorApplication : IDisposable {
         Shell.RegisterPanel(
             new PanelDescriptor(
                 "project",
-                new StringId("editor.panel.project", "Project"),
+                EditorStrings.PanelProject,
                 panel => {
                     panel.WhenPressedIn(() => Shell.Context = AssetContext);
 
@@ -2313,7 +2313,7 @@ sealed partial class EditorApplication : IDisposable {
         Shell.RegisterPanel(
             new PanelDescriptor(
                 "scene",
-                new StringId("editor.panel.scene", "Scene"),
+                EditorStrings.PanelScene,
                 panel => {
                     // ⚠ The panel must not scroll, and this is the case that would be a bug rather
                     // than an annoyance. A viewport sizes its render target from its own laid-out box
@@ -2380,15 +2380,15 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ The second is not in any layout preset, deliberately. It is opened from the Window menu
         // by somebody who wants it, and a preset that opened two inspectors by default would give
         // every new user a duplicate panel to close.
-        Shell.RegisterPanel(Inspecting("inspector", new StringId("editor.panel.inspector", "Inspector")));
+        Shell.RegisterPanel(Inspecting("inspector", EditorStrings.PanelInspector));
 
         Shell.RegisterPanel(
-            Inspecting("inspector-2", new StringId("editor.panel.inspector2", "Inspector 2"))
+            Inspecting("inspector-2", EditorStrings.PanelInspector2)
         );
 
         Shell.RegisterPanel(
             "console",
-            new StringId("editor.panel.console", "Console"),
+            EditorStrings.PanelConsole,
             panel => {
                 panel.WhenPressedIn(() => Shell.Context = ConsoleContext);
 
@@ -2408,7 +2408,7 @@ sealed partial class EditorApplication : IDisposable {
         Shell.RegisterPanel(
             new PanelDescriptor(
                 UiDiagnosticsPanel,
-                new StringId("editor.panel.ui-diagnostics", "UI Diagnostics"),
+                EditorStrings.PanelUiDiagnostics,
                 panel => {
                     // ⚠ **The first caller this control has had, and that is the point of the
                     // registration rather than a side effect of it.** `DiagnosticsPanel`,
@@ -3168,7 +3168,7 @@ sealed partial class EditorApplication : IDisposable {
         // to say without being asked.
         Shell.RegisterLayout(
             "Default",
-            new StringId("editor.layout.default", "Default"),
+            EditorStrings.LayoutDefault,
             () => LayoutPresets.Standard(
                 ["hierarchy"],
                 ["scene"],
@@ -3183,25 +3183,25 @@ sealed partial class EditorApplication : IDisposable {
 
         Shell.RegisterLayout(
             "Scene",
-            new StringId("editor.layout.scene", "Scene"),
+            EditorStrings.LayoutScene,
             () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"])
         );
 
         Shell.RegisterLayout(
             "Shading",
-            new StringId("editor.layout.shading", "Shading"),
+            EditorStrings.LayoutShading,
             () => LayoutPresets.Standard(["project"], ["scene"], ["inspector"], ["console"])
         );
 
         Shell.RegisterLayout(
             "Animation",
-            new StringId("editor.layout.animation", "Animation"),
+            EditorStrings.LayoutAnimation,
             () => LayoutPresets.Standard(["hierarchy"], ["scene"], ["inspector"], ["console"])
         );
 
         Shell.RegisterLayout(
             "Debug",
-            new StringId("editor.layout.debug", "Debug"),
+            EditorStrings.LayoutDebug,
             () => LayoutPresets.Split(["scene"], ["console"], 0.6f)
         );
 
@@ -3211,7 +3211,7 @@ sealed partial class EditorApplication : IDisposable {
         // flame chart squeezed into a right-hand inspector slot is one where every bar is a pixel.
         Shell.RegisterLayout(
             "Profiling",
-            new StringId("editor.layout.profiling", "Profiling"),
+            EditorStrings.LayoutProfiling,
             () => LayoutPresets.Standard(
                 ["scene"],
                 ["profiler", "gpu", "frame-debugger"],
@@ -3226,7 +3226,7 @@ sealed partial class EditorApplication : IDisposable {
         // right-hand slot is one where a two-second shot is forty pixels.
         Shell.RegisterLayout(
             "Sequencing",
-            new StringId("editor.layout.sequencing", "Sequencing"),
+            EditorStrings.LayoutSequencing,
             () => LayoutPresets.Standard(["hierarchy", "scenes"], ["scene"], ["inspector"], ["console"])
         );
 
@@ -3251,7 +3251,7 @@ sealed partial class EditorApplication : IDisposable {
         // Enabled only when there is something to write, so the menu item greys itself out from the
         // document's own dirty signal rather than from anything here deciding when.
         Shell.Commands.Add(
-            new EditorCommand("file.save", new StringId("editor.command.save", "Save Scene"), SaveScene) {
+            new EditorCommand("file.save", EditorStrings.CommandSave, SaveScene) {
                 Category = EditorStrings.CategoryFile,
                 Enablement = () => scene.IsDirty.Value
             }
@@ -3282,7 +3282,7 @@ sealed partial class EditorApplication : IDisposable {
         Shell.Commands.Add(
             new EditorCommand(
                 "assets.refresh",
-                new StringId("editor.command.refresh-assets", "Refresh Assets"),
+                EditorStrings.CommandRefreshAssets,
                 RefreshAssets
             ) {
                 Category = EditorStrings.CategoryFile,
@@ -3297,7 +3297,7 @@ sealed partial class EditorApplication : IDisposable {
         Shell.Commands.Add(
             new EditorCommand(
                 "assets.import",
-                new StringId("editor.command.import-assets", "Import Assets"),
+                EditorStrings.CommandImportAssets,
                 content.Import
             ) {
                 Category = EditorStrings.CategoryFile,
@@ -3308,7 +3308,7 @@ sealed partial class EditorApplication : IDisposable {
         Shell.Commands.Add(
             new EditorCommand(
                 "assets.build",
-                new StringId("editor.command.build-content", "Build Content"),
+                EditorStrings.CommandBuildContent,
                 content.Build
             ) {
                 Category = EditorStrings.CategoryFile,
@@ -3329,7 +3329,7 @@ sealed partial class EditorApplication : IDisposable {
         Shell.Commands.Add(
             new EditorCommand(
                 "plugins.reload",
-                new StringId("editor.command.reload-plugins", "Reload Plugins"),
+                EditorStrings.CommandReloadPlugins,
                 ReloadPlugins
             ) {
                 Category = EditorStrings.CategoryFile,
@@ -3465,7 +3465,7 @@ sealed partial class EditorApplication : IDisposable {
         Shell.Commands.Add(
             new EditorCommand(
                 "scene.create-entity",
-                new StringId("editor.command.create-entity", "Create Empty"),
+                EditorStrings.CommandCreateEntity,
                 CreateEntity
             ) {
                 Category = EditorStrings.CategoryEdit
@@ -3628,7 +3628,7 @@ sealed partial class EditorApplication : IDisposable {
                     }
                 }
                 ) {
-                    Category = new StringId("editor.category.scene", "Scene"),
+                    Category = EditorStrings.CategoryScene,
                     Enablement = () => Viewport is not null,
 
                     // ⚠ Null when the command is not a toggle, rather than a predicate that answers
@@ -3699,7 +3699,7 @@ sealed partial class EditorApplication : IDisposable {
         // so that a menu added to the shell's default bar does not silently put Scene somewhere else.
         var menu = Shell.Menus.InsertMenu(
             Index(EditorStrings.MenuEntity) + 1,
-            new StringId("editor.menu.scene", "Scene")
+            EditorStrings.MenuScene
         );
 
         menu.Add("scene.create-entity");
@@ -3711,7 +3711,7 @@ sealed partial class EditorApplication : IDisposable {
 
         menu.Add("edit.rename", "edit.delete").AddSeparator();
 
-        menu.AddSubmenu(new StringId("editor.menu.gizmo", "Gizmo"))
+        menu.AddSubmenu(EditorStrings.MenuGizmo)
             .Add("scene.translate", "scene.rotate", "scene.scale")
             .AddSeparator()
             .Add("scene.toggle-space", "scene.toggle-pivot", "scene.toggle-snap");
@@ -3719,19 +3719,19 @@ sealed partial class EditorApplication : IDisposable {
         // ⚠ Its own submenu rather than more lines under Gizmo, because doc 24's D4 is that snapping
         // is a service above the gizmo rather than a setting on it — and a menu that filed it under
         // the tool would be the arrangement that view objects to, one level up.
-        Fill(menu.AddSubmenu(new StringId("editor.menu.snap", "Snapping")), ViewportIds.SnapIds);
+        Fill(menu.AddSubmenu(EditorStrings.MenuSnap), ViewportIds.SnapIds);
 
         // The work plane and the precision tools, which are doc 24's D5 and its "placement and
         // precision" group. Both are about where you are building rather than about what is selected.
-        Fill(menu.AddSubmenu(new StringId("editor.menu.work-plane", "Work Plane")), ViewportIds.WorkPlaneIds);
-        Fill(menu.AddSubmenu(new StringId("editor.menu.precision", "Measure")), ViewportIds.PrecisionIds);
+        Fill(menu.AddSubmenu(EditorStrings.MenuWorkPlane), ViewportIds.WorkPlaneIds);
+        Fill(menu.AddSubmenu(EditorStrings.MenuPrecision), ViewportIds.PrecisionIds);
 
         // ⚠ Doc 24's five blockout submenus used to be here and are now `BlockoutModule`'s, which
         // inserts them at this point through `PluginContext.AddSubmenu` — after Measure, where doc 24
         // § D5's placement-and-precision group ends. A feature that could only append would have
         // reordered this menu the day it stopped being compiled in.
 
-        menu.AddSubmenu(new StringId("editor.menu.camera", "Camera"))
+        menu.AddSubmenu(EditorStrings.MenuCamera)
             .Add("scene.view-front", "scene.view-back")
             .Add("scene.view-right", "scene.view-left")
             .Add("scene.view-top", "scene.view-bottom")
@@ -3742,7 +3742,7 @@ sealed partial class EditorApplication : IDisposable {
         // they change what every future drag does rather than doing anything now — and mixing them
         // in with the six view keys would make a menu where half the entries move the camera and
         // half of them silently change how it moves.
-        menu.AddSubmenu(new StringId("editor.menu.navigation", "Navigation"))
+        menu.AddSubmenu(EditorStrings.MenuNavigation)
             .Add("scene.orbit-around-selection", "scene.zoom-to-cursor", "scene.invert-orbit-y")
             .AddSeparator()
             .Add("scene.orbit-left", "scene.orbit-right", "scene.orbit-up", "scene.orbit-down");
@@ -3751,25 +3751,25 @@ sealed partial class EditorApplication : IDisposable {
         // of them holds is unbounded in the same way the Create menu is — nine view modes, eight show
         // flags, nine bookmarks — and a Scene menu with thirty-one more lines on it is one where the
         // six things people use every minute are past the point they stop reading.
-        menu.AddSubmenu(new StringId("editor.menu.panes", "Viewport Layout")).Add(ViewportIds.Arrangements);
+        menu.AddSubmenu(EditorStrings.MenuPanes).Add(ViewportIds.Arrangements);
 
-        menu.AddSubmenu(new StringId("editor.menu.view-mode", "View Mode")).Add(ViewportIds.ViewModes);
+        menu.AddSubmenu(EditorStrings.MenuViewMode).Add(ViewportIds.ViewModes);
 
         // The grid's toggle in front of the rest, for the reason `ViewportIds.ShowFlagIds` gives: it
         // is the one show flag that had a command before there were show flags.
-        menu.AddSubmenu(new StringId("editor.menu.show", "Show"))
+        menu.AddSubmenu(EditorStrings.MenuShow)
             .Add("scene.toggle-grid")
             .AddSeparator()
             .Add(ViewportIds.ShowFlagIds);
 
         // ⚠ Recall above save, which is the order they are used in. Nine "Set View n" lines at the
         // top of a submenu is nine lines to scroll past every time somebody wants the view they saved.
-        menu.AddSubmenu(new StringId("editor.menu.bookmarks", "Bookmarks"))
+        menu.AddSubmenu(EditorStrings.MenuBookmarks)
             .Add(ViewportIds.GoBookmarks)
             .AddSeparator()
             .Add(ViewportIds.SetBookmarks);
 
-        menu.AddSubmenu(new StringId("editor.menu.speed", "Camera Speed")).Add(ViewportIds.SpeedIds);
+        menu.AddSubmenu(EditorStrings.MenuSpeed).Add(ViewportIds.SpeedIds);
 
         menu.AddSeparator().Add("scene.focus", "scene.frame-all");
 
@@ -3821,7 +3821,7 @@ sealed partial class EditorApplication : IDisposable {
                     new StringId("editor.command.create-" + name.ToLowerInvariant(), name),
                     () => CreateShape(shape)
                 ) {
-                    Category = new StringId("editor.category.create", "Create")
+                    Category = EditorStrings.CategoryCreate
                 }
             );
         }
@@ -3850,7 +3850,7 @@ sealed partial class EditorApplication : IDisposable {
                     new StringId("editor.command.create-light-" + Lights.NameOf(light).ToLowerInvariant(), title),
                     () => CreateLight(light)
                 ) {
-                    Category = new StringId("editor.category.create", "Create")
+                    Category = EditorStrings.CategoryCreate
                 }
             );
         }
@@ -3858,10 +3858,10 @@ sealed partial class EditorApplication : IDisposable {
         Shell.Commands.Add(
             new EditorCommand(
                 "scene.create-camera",
-                new StringId("editor.command.create-camera", "Camera"),
+                EditorStrings.CommandCreateCamera,
                 CreateCamera
             ) {
-                Category = new StringId("editor.category.create", "Create")
+                Category = EditorStrings.CategoryCreate
             }
         );
     }
@@ -3893,13 +3893,13 @@ sealed partial class EditorApplication : IDisposable {
     ///     </para>
     /// </remarks>
     static void Creatable(MenuGroup menu) {
-        var shapes = menu.AddSubmenu(new StringId("editor.menu.create-shape", "3D Object"));
+        var shapes = menu.AddSubmenu(EditorStrings.MenuCreateShape);
 
         foreach (var kind in PrimitiveShapes.All) {
             shapes.Add(ShapeCommandId(kind));
         }
 
-        var lights = menu.AddSubmenu(new StringId("editor.menu.create-light", "Light"));
+        var lights = menu.AddSubmenu(EditorStrings.MenuCreateLight);
 
         foreach (var kind in Lights.All) {
             lights.Add(LightCommandId(kind));
@@ -3994,7 +3994,7 @@ sealed partial class EditorApplication : IDisposable {
     ///     its own verbs would be the place where Delete means something different.
     /// </remarks>
     ContextMenu AssetMenu() {
-        var group = new MenuGroup(new StringId("editor.menu.browser", "Project"));
+        var group = new MenuGroup(EditorStrings.MenuBrowser);
 
         group.Add("assets.open");
         group.AddSeparator();
@@ -4020,7 +4020,7 @@ sealed partial class EditorApplication : IDisposable {
 
     /// <summary>What is on the outliner's menu.</summary>
     ContextMenu HierarchyMenu() {
-        var group = new MenuGroup(new StringId("editor.menu.hierarchy", "Hierarchy"));
+        var group = new MenuGroup(EditorStrings.MenuHierarchy);
 
         group.Add("scene.create-entity");
         Creatable(group);

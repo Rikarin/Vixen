@@ -165,7 +165,7 @@ public class ServiceTests : IDisposable {
     public void A_string_with_no_translation_falls_back_to_the_source_text() {
         Strings.Use(new StringCatalog("cs"));
 
-        Assert.Equal("Save", EditorStrings.CommandSave.Text);
+        Assert.Equal("Save Scene", EditorStrings.CommandSave.Text);
 
         // The worst case is English rather than `editor.command.file.save`, which is what an editor
         // whose fallback is a file shows anybody with a missing install.

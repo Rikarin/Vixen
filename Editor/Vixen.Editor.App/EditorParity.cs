@@ -65,12 +65,6 @@ sealed partial class EditorApplication {
     /// </remarks>
     internal const string ConsoleContext = "console";
 
-    static readonly StringId CategoryAssets = new("editor.category.assets", "Assets");
-    static readonly StringId CategoryEntity = new("editor.category.entity", "Entity");
-    static readonly StringId CategoryPlay = new("editor.category.play", "Play");
-    static readonly StringId CategoryBuild = new("editor.category.build", "Build");
-    static readonly StringId CategoryTools = new("editor.category.tools", "Tools");
-
     /// <summary>Where the manual lives, until there is a documentation site to point at.</summary>
     const string DocumentationUrl = "https://github.com/Rikarin/Vixen/tree/master/docs";
 
@@ -110,21 +104,21 @@ sealed partial class EditorApplication {
 
         Planned(
             "file.no-recent",
-            new StringId("editor.command.file.no-recent", "No Recent Projects"),
+            EditorStrings.CommandFileNoRecent,
             EditorStrings.CategoryFile,
             "Nothing but this project has been opened yet."
         );
 
         Verb(
             "file.new-scene",
-            new StringId("editor.command.file.new-scene", "New Scene"),
+            EditorStrings.CommandFileNewScene,
             EditorStrings.CategoryFile,
             NewScene
         );
 
         Verb(
             "file.open-scene",
-            new StringId("editor.command.file.open-scene", "Open Scene…"),
+            EditorStrings.CommandFileOpenScene,
             EditorStrings.CategoryFile,
             OpenScene,
             enabled: () => services.CanPick
@@ -132,7 +126,7 @@ sealed partial class EditorApplication {
 
         Verb(
             "file.save-as",
-            new StringId("editor.command.file.save-as", "Save Scene As…"),
+            EditorStrings.CommandFileSaveAs,
             EditorStrings.CategoryFile,
             SaveSceneAs,
             enabled: () => services.CanPick
@@ -148,7 +142,7 @@ sealed partial class EditorApplication {
 
         Verb(
             "file.revert",
-            new StringId("editor.command.file.revert", "Revert to Saved"),
+            EditorStrings.CommandFileRevert,
             EditorStrings.CategoryFile,
             Revert,
             enabled: () => project.ActiveDocument.Value is { CanReload: true } document
@@ -157,7 +151,7 @@ sealed partial class EditorApplication {
 
         Verb(
             "assets.import-files",
-            new StringId("editor.command.assets.import-files", "Import Assets…"),
+            EditorStrings.CommandAssetsImportFiles,
             EditorStrings.CategoryFile,
             ImportFiles,
             enabled: () => services.CanPick && !content.IsBusy
@@ -170,7 +164,7 @@ sealed partial class EditorApplication {
         // missing.
         Verb(
             "file.export-package",
-            new StringId("editor.command.file.export-package", "Export Package…"),
+            EditorStrings.CommandFileExportPackage,
             EditorStrings.CategoryFile,
             ExportPackage,
             enabled: () => services.CanPick && project.Selection.Count > 0
@@ -178,7 +172,7 @@ sealed partial class EditorApplication {
 
         Verb(
             "file.project-settings",
-            new StringId("editor.command.file.project-settings", "Project Settings…"),
+            EditorStrings.CommandFileProjectSettings,
             EditorStrings.CategoryFile,
             () => Shell.Workspace.Open(ProjectSettingsPanel)
         );
@@ -279,7 +273,7 @@ sealed partial class EditorApplication {
     void EditingCommands() {
         Verb(
             "edit.undo-history",
-            new StringId("editor.command.edit.undo-history", "Undo History…"),
+            EditorStrings.CommandEditUndoHistory,
             EditorStrings.CategoryEdit,
             () => Shell.Workspace.Open(HistoryPanel)
         );
@@ -309,7 +303,7 @@ sealed partial class EditorApplication {
         // paste has to land somewhere the copy did not come from.
         Verb(
             "edit.duplicate",
-            new StringId("editor.command.edit.duplicate", "Duplicate"),
+            EditorStrings.CommandEditDuplicate,
             EditorStrings.CategoryEdit,
             DuplicateSelection,
             enabled: () => scene.Selection.Count > 0
@@ -333,14 +327,14 @@ sealed partial class EditorApplication {
 
         Verb(
             "edit.select-all",
-            new StringId("editor.command.edit.select-all", "Select All"),
+            EditorStrings.CommandEditSelectAll,
             EditorStrings.CategoryEdit,
             () => scene.Selection.Set([.. scene.Entities])
         );
 
         Verb(
             "edit.deselect-all",
-            new StringId("editor.command.edit.deselect-all", "Deselect All"),
+            EditorStrings.CommandEditDeselectAll,
             EditorStrings.CategoryEdit,
             DeselectEntities,
             enabled: () => scene.Selection.Count > 0
@@ -348,14 +342,14 @@ sealed partial class EditorApplication {
 
         Verb(
             "edit.invert-selection",
-            new StringId("editor.command.edit.invert-selection", "Invert Selection"),
+            EditorStrings.CommandEditInvertSelection,
             EditorStrings.CategoryEdit,
             InvertSelection
         );
 
         Verb(
             "edit.select-children",
-            new StringId("editor.command.edit.select-children", "Select Children"),
+            EditorStrings.CommandEditSelectChildren,
             EditorStrings.CategoryEdit,
             SelectChildren,
             enabled: () => scene.Selection.Count > 0
@@ -363,7 +357,7 @@ sealed partial class EditorApplication {
 
         Verb(
             "edit.select-parent",
-            new StringId("editor.command.edit.select-parent", "Select Parent"),
+            EditorStrings.CommandEditSelectParent,
             EditorStrings.CategoryEdit,
             SelectParent,
             enabled: () => scene.Selection.Count > 0
@@ -393,7 +387,7 @@ sealed partial class EditorApplication {
 
         Verb(
             "edit.find-references",
-            new StringId("editor.command.edit.find-references", "Find References"),
+            EditorStrings.CommandEditFindReferences,
             EditorStrings.CategoryEdit,
             FindReferences,
             enabled: () => project.Selection.Count > 0
@@ -408,7 +402,7 @@ sealed partial class EditorApplication {
 
         Verb(
             "edit.keybindings",
-            new StringId("editor.command.edit.keybindings", "Keyboard Shortcuts…"),
+            EditorStrings.CommandEditKeybindings,
             EditorStrings.CategoryEdit,
             () => Shell.Workspace.Open(EditorShell.KeyBindingsPanel)
         );
@@ -426,15 +420,15 @@ sealed partial class EditorApplication {
         // literal list of templates would have got wrong.
         Verb(
             "assets.create",
-            new StringId("editor.command.assets.create", "New Asset…"),
-            CategoryAssets,
+            EditorStrings.CommandAssetsCreate,
+            EditorStrings.CategoryAssets,
             ChooseAssetKind
         );
 
         Verb(
             "assets.open",
-            new StringId("editor.command.assets.open", "Open"),
-            CategoryAssets,
+            EditorStrings.CommandAssetsOpen,
+            EditorStrings.CategoryAssets,
             OpenSelectedAsset,
             enabled: () => project.Selection.Count > 0
         );
@@ -457,15 +451,15 @@ sealed partial class EditorApplication {
         // `BakeSelectedMeshMaps` is still the thing its button calls.
         Verb(
             "assets.bake-mesh-maps",
-            new StringId("editor.command.assets.bake-mesh-maps", "Bake Mesh Maps…"),
-            CategoryAssets,
+            EditorStrings.CommandAssetsBakeMeshMaps,
+            EditorStrings.CategoryAssets,
             () => Shell.Workspace.Open(MeshMapBakePanel)
         );
 
         Verb(
             "assets.show-in-explorer",
-            new StringId("editor.command.assets.show-in-explorer", "Show in File Manager"),
-            CategoryAssets,
+            EditorStrings.CommandAssetsShowInExplorer,
+            EditorStrings.CategoryAssets,
             ShowSelectedAsset,
             enabled: () => project.Selection.Count > 0 && services.OpenUrl is not null
         );
@@ -478,24 +472,24 @@ sealed partial class EditorApplication {
         // `AssetOperations` is that invariant and nothing else, and it is tested against it.
         Verb(
             "assets.rename",
-            new StringId("editor.command.assets.rename", "Rename"),
-            CategoryAssets,
+            EditorStrings.CommandAssetsRename,
+            EditorStrings.CategoryAssets,
             RenameSelectedAsset,
             enabled: () => browser is not null && project.Selection.Count == 1
         );
 
         Verb(
             "assets.delete",
-            new StringId("editor.command.assets.delete", "Delete"),
-            CategoryAssets,
+            EditorStrings.CommandAssetsDelete,
+            EditorStrings.CategoryAssets,
             DeleteSelectedAssets,
             enabled: () => project.Selection.Count > 0
         );
 
         Verb(
             "assets.new-folder",
-            new StringId("editor.command.assets.new-folder", "New Folder"),
-            CategoryAssets,
+            EditorStrings.CommandAssetsNewFolder,
+            EditorStrings.CategoryAssets,
             NewAssetFolder,
             enabled: () => browser is not null
         );
@@ -507,23 +501,23 @@ sealed partial class EditorApplication {
         // one answer `AssetOperations.Move` cannot take.
         Verb(
             "assets.move-to",
-            new StringId("editor.command.assets.move-to", "Move To…"),
-            CategoryAssets,
+            EditorStrings.CommandAssetsMoveTo,
+            EditorStrings.CategoryAssets,
             MoveSelectedAssets,
             enabled: () => browser is not null && project.Selection.Count > 0
         );
 
         Planned(
             "assets.reimport",
-            new StringId("editor.command.assets.reimport", "Reimport"),
-            CategoryAssets,
+            EditorStrings.CommandAssetsReimport,
+            EditorStrings.CategoryAssets,
             "Per-asset reimport needs the importer registry to outlive a run. Reimport All works today."
         );
 
         Verb(
             "assets.reimport-all",
-            new StringId("editor.command.assets.reimport-all", "Reimport All"),
-            CategoryAssets,
+            EditorStrings.CommandAssetsReimportAll,
+            EditorStrings.CategoryAssets,
             content.Import,
             enabled: () => !content.IsBusy
         );
@@ -534,16 +528,16 @@ sealed partial class EditorApplication {
         // an asset field's own menu, is the inspector's and is not built.
         Verb(
             "assets.find-references",
-            new StringId("editor.command.assets.find-references", "Find References"),
-            CategoryAssets,
+            EditorStrings.CommandAssetsFindReferences,
+            EditorStrings.CategoryAssets,
             FindReferences,
             enabled: () => project.Selection.Count > 0
         );
 
         Verb(
             "assets.select-dependencies",
-            new StringId("editor.command.assets.select-dependencies", "Select Dependencies"),
-            CategoryAssets,
+            EditorStrings.CommandAssetsSelectDependencies,
+            EditorStrings.CategoryAssets,
             SelectDependencies,
             enabled: () => project.Selection.Count > 0
         );
@@ -671,32 +665,32 @@ sealed partial class EditorApplication {
     void EntityCommands() {
         Verb(
             "entity.create-child",
-            new StringId("editor.command.entity.create-child", "Create Empty Child"),
-            CategoryEntity,
+            EditorStrings.CommandEntityCreateChild,
+            EditorStrings.CategoryEntity,
             CreateChild,
             enabled: () => scene.Selection.Count > 0
         );
 
         Verb(
             "entity.group",
-            new StringId("editor.command.entity.group", "Group"),
-            CategoryEntity,
+            EditorStrings.CommandEntityGroup,
+            EditorStrings.CategoryEntity,
             Group,
             enabled: () => scene.Selection.Count > 0
         );
 
         Verb(
             "entity.clear-parent",
-            new StringId("editor.command.entity.clear-parent", "Clear Parent"),
-            CategoryEntity,
+            EditorStrings.CommandEntityClearParent,
+            EditorStrings.CategoryEntity,
             ClearParent,
             enabled: () => scene.Selection.Count > 0
         );
 
         Verb(
             "entity.align-with-view",
-            new StringId("editor.command.entity.align-with-view", "Align With View"),
-            CategoryEntity,
+            EditorStrings.CommandEntityAlignWithView,
+            EditorStrings.CategoryEntity,
             AlignWithView,
             enabled: () => Viewport is not null && scene.Selection.Count > 0
         );
@@ -712,51 +706,51 @@ sealed partial class EditorApplication {
 
         Planned(
             "entity.create-audio",
-            new StringId("editor.command.entity.create-audio", "Audio Source"),
-            CategoryEntity,
+            EditorStrings.CommandEntityCreateAudio,
+            EditorStrings.CategoryEntity,
             "There is no audio-source component yet; a line that made an empty called Audio would lie."
         );
 
         Planned(
             "entity.create-ui",
-            new StringId("editor.command.entity.create-ui", "UI Canvas"),
-            CategoryEntity,
+            EditorStrings.CommandEntityCreateUi,
+            EditorStrings.CategoryEntity,
             "Vixen.Ui is a document tree with no world-space bridge yet."
         );
 
         Planned(
             "entity.create-vfx",
-            new StringId("editor.command.entity.create-vfx", "VFX Emitter"),
-            CategoryEntity,
+            EditorStrings.CommandEntityCreateVfx,
+            EditorStrings.CategoryEntity,
             "The graph is authorable now, but the runtime has no VFX emitter component for an entity "
             + "to carry — an entity called VFX would reference nothing."
         );
 
         Planned(
             "entity.make-prefab",
-            new StringId("editor.command.entity.make-prefab", "Make Prefab…"),
-            CategoryEntity,
+            EditorStrings.CommandEntityMakePrefab,
+            EditorStrings.CategoryEntity,
             "Prefab instance links are not written to a scene yet, so an instance would be an ordinary subtree."
         );
 
         Planned(
             "entity.unpack-prefab",
-            new StringId("editor.command.entity.unpack-prefab", "Unpack Prefab"),
-            CategoryEntity,
+            EditorStrings.CommandEntityUnpackPrefab,
+            EditorStrings.CategoryEntity,
             "Prefab instance links are not written to a scene yet."
         );
 
         Planned(
             "entity.apply-overrides",
-            new StringId("editor.command.entity.apply-overrides", "Apply Overrides"),
-            CategoryEntity,
+            EditorStrings.CommandEntityApplyOverrides,
+            EditorStrings.CategoryEntity,
             "Per-override apply and revert live in the inspector; the scene-wide verb needs instance links."
         );
 
         Planned(
             "entity.ungroup",
-            new StringId("editor.command.entity.ungroup", "Ungroup"),
-            CategoryEntity,
+            EditorStrings.CommandEntityUngroup,
+            EditorStrings.CategoryEntity,
             "Ungrouping has to reparent children and delete the group in one undoable step."
         );
 
@@ -766,16 +760,16 @@ sealed partial class EditorApplication {
         // so what was left was a list of candidate parents and one call.
         Verb(
             "entity.set-parent",
-            new StringId("editor.command.entity.set-parent", "Set Parent"),
-            CategoryEntity,
+            EditorStrings.CommandEntitySetParent,
+            EditorStrings.CategoryEntity,
             SetParent,
             enabled: () => scene.Selection.Count > 0
         );
 
         Verb(
             "entity.move-to-view",
-            new StringId("editor.command.entity.move-to-view", "Move To View"),
-            CategoryEntity,
+            EditorStrings.CommandEntityMoveToView,
+            EditorStrings.CategoryEntity,
             MoveToView,
             enabled: () => Viewport is not null && scene.Selection.Count > 0
         );
@@ -786,8 +780,8 @@ sealed partial class EditorApplication {
         // moves a vertex. See `SceneProbe`'s own remarks.
         Verb(
             "entity.snap-to-floor",
-            new StringId("editor.command.entity.snap-to-floor", "Snap To Floor"),
-            CategoryEntity,
+            EditorStrings.CommandEntitySnapToFloor,
+            EditorStrings.CategoryEntity,
             SnapToFloor,
             enabled: () => scene.Selection.Count > 0
         );
@@ -796,8 +790,8 @@ sealed partial class EditorApplication {
 
         Planned(
             "entity.toggle-active",
-            new StringId("editor.command.entity.toggle-active", "Toggle Active"),
-            CategoryEntity,
+            EditorStrings.CommandEntityToggleActive,
+            EditorStrings.CategoryEntity,
             "There is no enabled flag on an entity yet."
         );
 
@@ -808,8 +802,8 @@ sealed partial class EditorApplication {
         // user was looking rather than on what they changed, which is `Selection`'s argument.
         Verb(
             "entity.toggle-hidden",
-            new StringId("editor.command.entity.toggle-hidden", "Toggle Visibility"),
-            CategoryEntity,
+            EditorStrings.CommandEntityToggleHidden,
+            EditorStrings.CategoryEntity,
             () => Mark(scene.IsHiddenDirectly, scene.SetHidden),
             enabled: () => scene.Selection.Count > 0,
             on: () => scene.Selection.Count > 0 && scene.IsHiddenDirectly(scene.Selection[0])
@@ -817,8 +811,8 @@ sealed partial class EditorApplication {
 
         Verb(
             "entity.toggle-lock",
-            new StringId("editor.command.entity.toggle-lock", "Toggle Lock"),
-            CategoryEntity,
+            EditorStrings.CommandEntityToggleLock,
+            EditorStrings.CategoryEntity,
             () => Mark(scene.IsLockedDirectly, scene.SetLocked),
             enabled: () => scene.Selection.Count > 0,
             on: () => scene.Selection.Count > 0 && scene.IsLockedDirectly(scene.Selection[0])
@@ -910,8 +904,8 @@ sealed partial class EditorApplication {
 
         Planned(
             "play.mode-in-editor",
-            new StringId("editor.command.play.mode-in-editor", "In Editor"),
-            CategoryPlay,
+            EditorStrings.CommandPlayModeInEditor,
+            EditorStrings.CategoryPlay,
             "Choosing a play topology needs the standalone and server paths hosted from the editor."
         );
 
@@ -924,16 +918,16 @@ sealed partial class EditorApplication {
         // stayed on screen for two milestones after its schedule closed.
         Planned(
             "play.mode-standalone",
-            new StringId("editor.command.play.mode-standalone", "Standalone Process"),
-            CategoryPlay,
+            EditorStrings.CommandPlayModeStandalone,
+            EditorStrings.CategoryPlay,
             "Build and Run starts a player and does not keep it, so there is no process for Pause and "
             + "Stop to reach. Playing standalone needs a supervised child process."
         );
 
         Planned(
             "play.mode-server",
-            new StringId("editor.command.play.mode-server", "Server and Clients"),
-            CategoryPlay,
+            EditorStrings.CommandPlayModeServer,
+            EditorStrings.CategoryPlay,
             "Nothing constructs a PlayerSessions, so there is no host for the editor to start — the "
             + "type carries the topology and no code makes one."
         );
@@ -943,16 +937,16 @@ sealed partial class EditorApplication {
         // spelled maximise, and the one on the Scene menu is that.
         Verb(
             "play.maximise",
-            new StringId("editor.command.play.maximise", "Maximise on Play"),
-            CategoryPlay,
+            EditorStrings.CommandPlayMaximise,
+            EditorStrings.CategoryPlay,
             () => maximiseOnPlay = !maximiseOnPlay,
             on: () => maximiseOnPlay
         );
 
         Planned(
             "play.mute-audio",
-            new StringId("editor.command.play.mute-audio", "Mute Audio"),
-            CategoryPlay,
+            EditorStrings.CommandPlayMuteAudio,
+            EditorStrings.CategoryPlay,
             "The editor does not drive the audio engine yet."
         );
 
@@ -961,8 +955,8 @@ sealed partial class EditorApplication {
         // setting is how a menu tick and a panel's toggle come to disagree.
         Verb(
             "play.clear-console",
-            new StringId("editor.command.play.clear-console", "Clear Console on Play"),
-            CategoryPlay,
+            EditorStrings.CommandPlayClearConsole,
+            EditorStrings.CategoryPlay,
             () => {
                 if (console is { } view) {
                     view.ClearsOnPlay = !view.ClearsOnPlay;
@@ -974,8 +968,8 @@ sealed partial class EditorApplication {
 
         Verb(
             "view.clear-console",
-            new StringId("editor.command.view.clear-console", "Clear Console"),
-            CategoryPlay,
+            EditorStrings.CommandViewClearConsole,
+            EditorStrings.CategoryPlay,
             () => console?.Clear(),
             enabled: () => console is not null
         );
@@ -994,8 +988,8 @@ sealed partial class EditorApplication {
 
         Verb(
             "build.clean-library",
-            new StringId("editor.command.build.clean-library", "Clean Library"),
-            CategoryBuild,
+            EditorStrings.CommandBuildCleanLibrary,
+            EditorStrings.CategoryBuild,
             CleanLibrary,
             enabled: () => !content.IsBusy
         );
@@ -1008,8 +1002,8 @@ sealed partial class EditorApplication {
         // one. What would close this is a compiler service the editor talks to rather than links.
         Planned(
             "build.rebuild-shaders",
-            new StringId("editor.command.build.rebuild-shaders", "Rebuild Shaders"),
-            CategoryBuild,
+            EditorStrings.CommandBuildRebuildShaders,
+            EditorStrings.CategoryBuild,
             "The shader bundle is compiled by `vixen build`, which links a compiler the editor does not."
         );
 
@@ -1019,15 +1013,15 @@ sealed partial class EditorApplication {
         // window: what is missing is a way for the application to reach one, not the verb itself.
         Planned(
             "view.full-screen",
-            new StringId("editor.command.view.full-screen", "Full Screen"),
+            EditorStrings.CommandViewFullScreen,
             EditorStrings.CategoryView,
             "The application has no handle on its window yet; the host owns it."
         );
 
         Verb(
             "tools.plugins",
-            new StringId("editor.command.tools.plugins", "Plugins…"),
-            CategoryTools,
+            EditorStrings.CommandToolsPlugins,
+            EditorStrings.CategoryTools,
             () => Shell.Workspace.Open(PluginsPanel)
         );
 
@@ -1039,16 +1033,16 @@ sealed partial class EditorApplication {
         // editing a shader through a path the watcher does not see.
         Verb(
             "tools.reload-shaders",
-            new StringId("editor.command.tools.reload-shaders", "Reload Shaders"),
-            CategoryTools,
+            EditorStrings.CommandToolsReloadShaders,
+            EditorStrings.CategoryTools,
             ReloadShadersNow,
             enabled: () => Effects is not null
         );
 
         Verb(
             "tools.reload-styles",
-            new StringId("editor.command.tools.reload-styles", "Reload Styles"),
-            CategoryTools,
+            EditorStrings.CommandToolsReloadStyles,
+            EditorStrings.CategoryTools,
             ReloadStyles
         );
 
@@ -1080,7 +1074,7 @@ sealed partial class EditorApplication {
 
         Verb(
             "help.api-reference",
-            new StringId("editor.command.help.api-reference", "API Reference"),
+            EditorStrings.CommandHelpApiReference,
             EditorStrings.CategoryHelp,
             () => Browse(DocumentationUrl + "/README.md"),
             enabled: () => services.OpenUrl is not null
@@ -1088,7 +1082,7 @@ sealed partial class EditorApplication {
 
         Verb(
             "help.release-notes",
-            new StringId("editor.command.help.release-notes", "Release Notes"),
+            EditorStrings.CommandHelpReleaseNotes,
             EditorStrings.CategoryHelp,
             () => Browse(DocumentationUrl + "/14-roadmap.md"),
             enabled: () => services.OpenUrl is not null
@@ -1096,7 +1090,7 @@ sealed partial class EditorApplication {
 
         Verb(
             "help.report-bug",
-            new StringId("editor.command.help.report-bug", "Report a Bug…"),
+            EditorStrings.CommandHelpReportBug,
             EditorStrings.CategoryHelp,
             () => Browse("https://github.com/Rikarin/Vixen/issues/new"),
             enabled: () => services.OpenUrl is not null
@@ -1104,7 +1098,7 @@ sealed partial class EditorApplication {
 
         Verb(
             "help.show-log-folder",
-            new StringId("editor.command.help.show-log-folder", "Show Log Folder"),
+            EditorStrings.CommandHelpShowLogFolder,
             EditorStrings.CategoryHelp,
             () => Browse(new Uri(dataDirectory).AbsoluteUri),
             enabled: () => services.OpenUrl is not null
@@ -1188,10 +1182,10 @@ sealed partial class EditorApplication {
 
         play.Add("play.play", "play.pause", "play.step", "play.stop").AddSeparator();
 
-        play.AddSubmenu(new StringId("editor.menu.play-mode", "Mode"))
+        play.AddSubmenu(EditorStrings.MenuPlayMode)
             .Add("play.mode-in-editor", "play.mode-standalone", "play.mode-server");
 
-        play.AddSubmenu(new StringId("editor.menu.play-options", "Options"))
+        play.AddSubmenu(EditorStrings.MenuPlayOptions)
             .Add("play.maximise", "play.mute-audio", "play.clear-console");
 
         // ⚠ Counted from Window rather than carried on from Play, because Part C puts Window
@@ -1202,16 +1196,16 @@ sealed partial class EditorApplication {
         var build = Shell.Menus.InsertMenu(++after, EditorStrings.MenuBuild);
 
         build.Add("build.settings").AddSeparator().Add("assets.build", "build.run").AddSeparator();
-        build.AddSubmenu(new StringId("editor.menu.build-target", "Target")).Add(BuildIds.Targets);
+        build.AddSubmenu(EditorStrings.MenuBuildTarget).Add(BuildIds.Targets);
 
         // ⚠ Four lines where Part C names two, and the label is Part C's word for them. Doc 17's
         // variants are the axis a player build actually has — Development is an optimised build that
         // keeps its profiler, and Server is a Release one with no window — and the compiler
         // configuration is derived from the variant rather than chosen beside it. A menu of Debug
         // and Release over a setting of four would leave two of them unreachable and unmarkable.
-        build.AddSubmenu(new StringId("editor.menu.build-configuration", "Configuration")).Add(BuildIds.Variants);
+        build.AddSubmenu(EditorStrings.MenuBuildConfiguration).Add(BuildIds.Variants);
 
-        build.AddSubmenu(new StringId("editor.menu.build-deploy", "Deploy")).Add("build.deploy");
+        build.AddSubmenu(EditorStrings.MenuBuildDeploy).Add("build.deploy");
         build.AddSeparator().Add("build.clean-library", "build.rebuild-shaders");
 
         // ⚠ Six lines where Part C names five. The GPU timeline is a panel of its own rather than a
@@ -1322,7 +1316,7 @@ sealed partial class EditorApplication {
             new ToolbarBox("play.play", "play.pause", "play.step", "play.stop"),
             new ToolbarSeparator(),
             new ToolbarDropdown(
-                new StringId("editor.toolbar.layout", "Layout"),
+                EditorStrings.ToolbarLayout,
                 "layout",
                 "view.save-layout",
                 "view.reset-layout",
@@ -1367,7 +1361,7 @@ sealed partial class EditorApplication {
     ) =>
         Shell.Commands.Add(
             new EditorCommand(id, new StringId("editor.command." + id, title), run) {
-                Category = CategoryPlay,
+                Category = EditorStrings.CategoryPlay,
                 Icon = icon,
                 ClassName = "transport-" + id["play.".Length..],
                 Enablement = enabled,
@@ -2087,7 +2081,7 @@ sealed partial class EditorApplication {
         Shell.RegisterPanel(
             new PanelDescriptor(
                 MeshMapBakePanel,
-                new StringId("editor.panel.mesh-map-bake", "Bake Mesh Maps"),
+                EditorStrings.PanelMeshMapBake,
                 panel => {
                     var view = panel.Add<MeshMapBakeView>();
 

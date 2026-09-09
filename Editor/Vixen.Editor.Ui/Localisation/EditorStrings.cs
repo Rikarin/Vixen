@@ -86,7 +86,16 @@ public static class EditorStrings {
     public static StringId CommandOpenProject { get; } = new("editor.command.file.open-project", "Open Project…");
 
     /// <summary>Saves the open document.</summary>
-    public static StringId CommandSave { get; } = new("editor.command.file.save", "Save");
+    /// <remarks>
+    ///     ⚠ <b>The text is the scene's and not the word "Save", because the running editor's
+    ///     <c>file.save</c> said <c>Save Scene</c> and this said <c>Save</c>.</b> Registered with a
+    ///     hand-built <c>new StringId("editor.command.save", "Save Scene")</c>, so a translator's
+    ///     template carried <c>editor.command.file.save</c> and the editor looked up
+    ///     <c>editor.command.save</c> — the <c>CommandUndo</c>/<c>CommandRedo</c> defect
+    ///     <c>CheckStrings</c> was written for, still live, and invisible to it because the census
+    ///     only measured ids nothing declared.
+    /// </remarks>
+    public static StringId CommandSave { get; } = new("editor.command.file.save", "Save Scene");
 
     /// <summary>Saves all of them.</summary>
     public static StringId CommandSaveAll { get; } = new("editor.command.file.save-all", "Save All");
@@ -409,6 +418,638 @@ public static class EditorStrings {
     /// <summary>What a row says when the directory has gone.</summary>
     public static StringId ProjectsMissing { get; } = new("editor.projects.missing", "not found");
 
+    /// <summary>The <c>Assets</c> command category.</summary>
+    public static StringId CategoryAssets { get; } = new("editor.category.assets", "Assets");
+
+    /// <summary>The <c>Blockout</c> command category.</summary>
+    public static StringId CategoryBlockout { get; } = new("editor.category.blockout", "Blockout");
+
+    /// <summary>The <c>Build</c> command category.</summary>
+    public static StringId CategoryBuild { get; } = new("editor.category.build", "Build");
+
+    /// <summary>The <c>Create</c> command category.</summary>
+    public static StringId CategoryCreate { get; } = new("editor.category.create", "Create");
+
+    /// <summary>The <c>Entity</c> command category.</summary>
+    public static StringId CategoryEntity { get; } = new("editor.category.entity", "Entity");
+
+    /// <summary>The <c>Foliage</c> command category.</summary>
+    public static StringId CategoryFoliage { get; } = new("editor.category.foliage", "Foliage");
+
+    /// <summary>The <c>Play</c> command category.</summary>
+    public static StringId CategoryPlay { get; } = new("editor.category.play", "Play");
+
+    /// <summary>The <c>Scene</c> command category.</summary>
+    public static StringId CategoryScene { get; } = new("editor.category.scene", "Scene");
+
+    /// <summary>The <c>Terrain</c> command category.</summary>
+    public static StringId CategoryTerrain { get; } = new("editor.category.terrain", "Terrain");
+
+    /// <summary>The <c>Tools</c> command category.</summary>
+    public static StringId CategoryTools { get; } = new("editor.category.tools", "Tools");
+
+    /// <summary>The <c>Water</c> command category.</summary>
+    public static StringId CategoryWater { get; } = new("editor.category.water", "Water");
+
+    /// <summary>The <c>Bake Mesh Maps…</c> command.</summary>
+    public static StringId CommandAssetsBakeMeshMaps { get; } =
+        new("editor.command.assets.bake-mesh-maps", "Bake Mesh Maps…");
+
+    /// <summary>The <c>New Asset…</c> command.</summary>
+    public static StringId CommandAssetsCreate { get; } = new("editor.command.assets.create", "New Asset…");
+
+    /// <summary>The <c>Delete</c> command.</summary>
+    public static StringId CommandAssetsDelete { get; } = new("editor.command.assets.delete", "Delete");
+
+    /// <summary>The <c>Find References</c> command.</summary>
+    public static StringId CommandAssetsFindReferences { get; } =
+        new("editor.command.assets.find-references", "Find References");
+
+    /// <summary>The <c>Import Assets…</c> command.</summary>
+    public static StringId CommandAssetsImportFiles { get; } =
+        new("editor.command.assets.import-files", "Import Assets…");
+
+    /// <summary>The <c>Move To…</c> command.</summary>
+    public static StringId CommandAssetsMoveTo { get; } = new("editor.command.assets.move-to", "Move To…");
+
+    /// <summary>The <c>New Folder</c> command.</summary>
+    public static StringId CommandAssetsNewFolder { get; } = new("editor.command.assets.new-folder", "New Folder");
+
+    /// <summary>The <c>Open</c> command.</summary>
+    public static StringId CommandAssetsOpen { get; } = new("editor.command.assets.open", "Open");
+
+    /// <summary>The <c>Reimport</c> command.</summary>
+    public static StringId CommandAssetsReimport { get; } = new("editor.command.assets.reimport", "Reimport");
+
+    /// <summary>The <c>Reimport All</c> command.</summary>
+    public static StringId CommandAssetsReimportAll { get; } =
+        new("editor.command.assets.reimport-all", "Reimport All");
+
+    /// <summary>The <c>Rename</c> command.</summary>
+    public static StringId CommandAssetsRename { get; } = new("editor.command.assets.rename", "Rename");
+
+    /// <summary>The <c>Select Dependencies</c> command.</summary>
+    public static StringId CommandAssetsSelectDependencies { get; } =
+        new("editor.command.assets.select-dependencies", "Select Dependencies");
+
+    /// <summary>The <c>Show in File Manager</c> command.</summary>
+    public static StringId CommandAssetsShowInExplorer { get; } =
+        new("editor.command.assets.show-in-explorer", "Show in File Manager");
+
+    /// <summary>The <c>Enter / Leave Mesh</c> command.</summary>
+    public static StringId CommandBlockoutToggleMesh { get; } =
+        new("editor.command.blockout.toggle-mesh", "Enter / Leave Mesh");
+
+    /// <summary>The <c>Build Content</c> command.</summary>
+    public static StringId CommandBuildContent { get; } = new("editor.command.build-content", "Build Content");
+
+    /// <summary>The <c>Clean Library</c> command.</summary>
+    public static StringId CommandBuildCleanLibrary { get; } =
+        new("editor.command.build.clean-library", "Clean Library");
+
+    /// <summary>The <c>Rebuild Shaders</c> command.</summary>
+    public static StringId CommandBuildRebuildShaders { get; } =
+        new("editor.command.build.rebuild-shaders", "Rebuild Shaders");
+
+    /// <summary>The <c>Build and Run</c> command.</summary>
+    public static StringId CommandBuildRun { get; } = new("editor.command.build.run", "Build and Run");
+
+    /// <summary>The <c>Build Settings…</c> command.</summary>
+    public static StringId CommandBuildSettings { get; } = new("editor.command.build.settings", "Build Settings…");
+
+    /// <summary>The <c>Camera</c> command.</summary>
+    public static StringId CommandCreateCamera { get; } = new("editor.command.create-camera", "Camera");
+
+    /// <summary>The <c>Create Empty</c> command.</summary>
+    public static StringId CommandCreateEntity { get; } = new("editor.command.create-entity", "Create Empty");
+
+    /// <summary>The <c>Deselect All</c> command.</summary>
+    public static StringId CommandEditDeselectAll { get; } = new("editor.command.edit.deselect-all", "Deselect All");
+
+    /// <summary>The <c>Duplicate</c> command.</summary>
+    public static StringId CommandEditDuplicate { get; } = new("editor.command.edit.duplicate", "Duplicate");
+
+    /// <summary>The <c>Find References</c> command.</summary>
+    public static StringId CommandEditFindReferences { get; } =
+        new("editor.command.edit.find-references", "Find References");
+
+    /// <summary>The <c>Invert Selection</c> command.</summary>
+    public static StringId CommandEditInvertSelection { get; } =
+        new("editor.command.edit.invert-selection", "Invert Selection");
+
+    /// <summary>The <c>Isolate Selection</c> command.</summary>
+    public static StringId CommandEditIsolate { get; } = new("editor.command.edit.isolate", "Isolate Selection");
+
+    /// <summary>The <c>Keyboard Shortcuts…</c> command.</summary>
+    public static StringId CommandEditKeybindings { get; } =
+        new("editor.command.edit.keybindings", "Keyboard Shortcuts…");
+
+    /// <summary>The <c>Recall Selection Set…</c> command.</summary>
+    public static StringId CommandEditRecallSelectionSet { get; } =
+        new("editor.command.edit.recall-selection-set", "Recall Selection Set…");
+
+    /// <summary>The <c>Save Selection Set…</c> command.</summary>
+    public static StringId CommandEditSaveSelectionSet { get; } =
+        new("editor.command.edit.save-selection-set", "Save Selection Set…");
+
+    /// <summary>The <c>Select All</c> command.</summary>
+    public static StringId CommandEditSelectAll { get; } = new("editor.command.edit.select-all", "Select All");
+
+    /// <summary>The <c>Select By Name…</c> command.</summary>
+    public static StringId CommandEditSelectByName { get; } =
+        new("editor.command.edit.select-by-name", "Select By Name…");
+
+    /// <summary>The <c>Select By Component…</c> command.</summary>
+    public static StringId CommandEditSelectByType { get; } =
+        new("editor.command.edit.select-by-type", "Select By Component…");
+
+    /// <summary>The <c>Select Children</c> command.</summary>
+    public static StringId CommandEditSelectChildren { get; } =
+        new("editor.command.edit.select-children", "Select Children");
+
+    /// <summary>The <c>Select Parent</c> command.</summary>
+    public static StringId CommandEditSelectParent { get; } = new("editor.command.edit.select-parent", "Select Parent");
+
+    /// <summary>The <c>Undo History…</c> command.</summary>
+    public static StringId CommandEditUndoHistory { get; } = new("editor.command.edit.undo-history", "Undo History…");
+
+    /// <summary>The <c>Align…</c> command.</summary>
+    public static StringId CommandEntityAlign { get; } = new("editor.command.entity.align", "Align…");
+
+    /// <summary>The <c>Align With View</c> command.</summary>
+    public static StringId CommandEntityAlignWithView { get; } =
+        new("editor.command.entity.align-with-view", "Align With View");
+
+    /// <summary>The <c>Apply Overrides</c> command.</summary>
+    public static StringId CommandEntityApplyOverrides { get; } =
+        new("editor.command.entity.apply-overrides", "Apply Overrides");
+
+    /// <summary>The <c>Clear Parent</c> command.</summary>
+    public static StringId CommandEntityClearParent { get; } =
+        new("editor.command.entity.clear-parent", "Clear Parent");
+
+    /// <summary>The <c>Copy Transform</c> command.</summary>
+    public static StringId CommandEntityCopyTransform { get; } =
+        new("editor.command.entity.copy-transform", "Copy Transform");
+
+    /// <summary>The <c>Audio Source</c> command.</summary>
+    public static StringId CommandEntityCreateAudio { get; } =
+        new("editor.command.entity.create-audio", "Audio Source");
+
+    /// <summary>The <c>Create Empty Child</c> command.</summary>
+    public static StringId CommandEntityCreateChild { get; } =
+        new("editor.command.entity.create-child", "Create Empty Child");
+
+    /// <summary>The <c>UI Canvas</c> command.</summary>
+    public static StringId CommandEntityCreateUi { get; } = new("editor.command.entity.create-ui", "UI Canvas");
+
+    /// <summary>The <c>VFX Emitter</c> command.</summary>
+    public static StringId CommandEntityCreateVfx { get; } = new("editor.command.entity.create-vfx", "VFX Emitter");
+
+    /// <summary>The <c>Distribute…</c> command.</summary>
+    public static StringId CommandEntityDistribute { get; } = new("editor.command.entity.distribute", "Distribute…");
+
+    /// <summary>The <c>Group</c> command.</summary>
+    public static StringId CommandEntityGroup { get; } = new("editor.command.entity.group", "Group");
+
+    /// <summary>The <c>Make Prefab…</c> command.</summary>
+    public static StringId CommandEntityMakePrefab { get; } = new("editor.command.entity.make-prefab", "Make Prefab…");
+
+    /// <summary>The <c>Move To View</c> command.</summary>
+    public static StringId CommandEntityMoveToView { get; } = new("editor.command.entity.move-to-view", "Move To View");
+
+    /// <summary>The <c>Paste Transform</c> command.</summary>
+    public static StringId CommandEntityPasteTransform { get; } =
+        new("editor.command.entity.paste-transform", "Paste Transform");
+
+    /// <summary>The <c>Relative Transform Entry</c> command.</summary>
+    public static StringId CommandEntityRelativeTransform { get; } =
+        new("editor.command.entity.relative-transform", "Relative Transform Entry");
+
+    /// <summary>The <c>Reset Transform</c> command.</summary>
+    public static StringId CommandEntityResetTransform { get; } =
+        new("editor.command.entity.reset-transform", "Reset Transform");
+
+    /// <summary>The <c>Set Parent</c> command.</summary>
+    public static StringId CommandEntitySetParent { get; } = new("editor.command.entity.set-parent", "Set Parent");
+
+    /// <summary>The <c>Snap To Floor</c> command.</summary>
+    public static StringId CommandEntitySnapToFloor { get; } =
+        new("editor.command.entity.snap-to-floor", "Snap To Floor");
+
+    /// <summary>The <c>Toggle Active</c> command.</summary>
+    public static StringId CommandEntityToggleActive { get; } =
+        new("editor.command.entity.toggle-active", "Toggle Active");
+
+    /// <summary>The <c>Toggle Visibility</c> command.</summary>
+    public static StringId CommandEntityToggleHidden { get; } =
+        new("editor.command.entity.toggle-hidden", "Toggle Visibility");
+
+    /// <summary>The <c>Toggle Lock</c> command.</summary>
+    public static StringId CommandEntityToggleLock { get; } = new("editor.command.entity.toggle-lock", "Toggle Lock");
+
+    /// <summary>The <c>Ungroup</c> command.</summary>
+    public static StringId CommandEntityUngroup { get; } = new("editor.command.entity.ungroup", "Ungroup");
+
+    /// <summary>The <c>Unpack Prefab</c> command.</summary>
+    public static StringId CommandEntityUnpackPrefab { get; } =
+        new("editor.command.entity.unpack-prefab", "Unpack Prefab");
+
+    /// <summary>The <c>Export Package…</c> command.</summary>
+    public static StringId CommandFileExportPackage { get; } =
+        new("editor.command.file.export-package", "Export Package…");
+
+    /// <summary>The <c>New Scene</c> command.</summary>
+    public static StringId CommandFileNewScene { get; } = new("editor.command.file.new-scene", "New Scene");
+
+    /// <summary>The <c>No Recent Projects</c> command.</summary>
+    public static StringId CommandFileNoRecent { get; } = new("editor.command.file.no-recent", "No Recent Projects");
+
+    /// <summary>The <c>Open Scene…</c> command.</summary>
+    public static StringId CommandFileOpenScene { get; } = new("editor.command.file.open-scene", "Open Scene…");
+
+    /// <summary>The <c>Project Settings…</c> command.</summary>
+    public static StringId CommandFileProjectSettings { get; } =
+        new("editor.command.file.project-settings", "Project Settings…");
+
+    /// <summary>The <c>Revert to Saved</c> command.</summary>
+    public static StringId CommandFileRevert { get; } = new("editor.command.file.revert", "Revert to Saved");
+
+    /// <summary>The <c>Save Scene As…</c> command.</summary>
+    public static StringId CommandFileSaveAs { get; } = new("editor.command.file.save-as", "Save Scene As…");
+
+    /// <summary>The <c>API Reference</c> command.</summary>
+    public static StringId CommandHelpApiReference { get; } = new("editor.command.help.api-reference", "API Reference");
+
+    /// <summary>The <c>Release Notes</c> command.</summary>
+    public static StringId CommandHelpReleaseNotes { get; } = new("editor.command.help.release-notes", "Release Notes");
+
+    /// <summary>The <c>Report a Bug…</c> command.</summary>
+    public static StringId CommandHelpReportBug { get; } = new("editor.command.help.report-bug", "Report a Bug…");
+
+    /// <summary>The <c>Show Log Folder</c> command.</summary>
+    public static StringId CommandHelpShowLogFolder { get; } =
+        new("editor.command.help.show-log-folder", "Show Log Folder");
+
+    /// <summary>The <c>Import Assets</c> command.</summary>
+    public static StringId CommandImportAssets { get; } = new("editor.command.import-assets", "Import Assets");
+
+    /// <summary>The <c>Clear Console on Play</c> command.</summary>
+    public static StringId CommandPlayClearConsole { get; } =
+        new("editor.command.play.clear-console", "Clear Console on Play");
+
+    /// <summary>The <c>Maximise on Play</c> command.</summary>
+    public static StringId CommandPlayMaximise { get; } = new("editor.command.play.maximise", "Maximise on Play");
+
+    /// <summary>The <c>In Editor</c> command.</summary>
+    public static StringId CommandPlayModeInEditor { get; } = new("editor.command.play.mode-in-editor", "In Editor");
+
+    /// <summary>The <c>Server and Clients</c> command.</summary>
+    public static StringId CommandPlayModeServer { get; } =
+        new("editor.command.play.mode-server", "Server and Clients");
+
+    /// <summary>The <c>Standalone Process</c> command.</summary>
+    public static StringId CommandPlayModeStandalone { get; } =
+        new("editor.command.play.mode-standalone", "Standalone Process");
+
+    /// <summary>The <c>Mute Audio</c> command.</summary>
+    public static StringId CommandPlayMuteAudio { get; } = new("editor.command.play.mute-audio", "Mute Audio");
+
+    /// <summary>The <c>Radial Menu</c> command.</summary>
+    public static StringId CommandRadialMenu { get; } = new("editor.command.radial-menu", "Radial Menu");
+
+    /// <summary>The <c>Refresh Assets</c> command.</summary>
+    public static StringId CommandRefreshAssets { get; } = new("editor.command.refresh-assets", "Refresh Assets");
+
+    /// <summary>The <c>Reload Plugins</c> command.</summary>
+    public static StringId CommandReloadPlugins { get; } = new("editor.command.reload-plugins", "Reload Plugins");
+
+    /// <summary>The <c>Scene Context Menu</c> command.</summary>
+    public static StringId CommandSceneContextMenu { get; } =
+        new("editor.command.scene-context-menu", "Scene Context Menu");
+
+    /// <summary>The <c>Layers and Tags…</c> command.</summary>
+    public static StringId CommandSceneLayers { get; } = new("editor.command.scene.layers", "Layers and Tags…");
+
+    /// <summary>The <c>Lighting…</c> command.</summary>
+    public static StringId CommandSceneLighting { get; } = new("editor.command.scene.lighting", "Lighting…");
+
+    /// <summary>The <c>Navigation…</c> command.</summary>
+    public static StringId CommandSceneNavigation { get; } = new("editor.command.scene.navigation", "Navigation…");
+
+    /// <summary>The <c>Open Scene Additively…</c> command.</summary>
+    public static StringId CommandSceneOpenAdditive { get; } =
+        new("editor.command.scene.open-additive", "Open Scene Additively…");
+
+    /// <summary>The <c>Save All Scenes</c> command.</summary>
+    public static StringId CommandSceneSaveAllScenes { get; } =
+        new("editor.command.scene.save-all-scenes", "Save All Scenes");
+
+    /// <summary>The <c>Scenes</c> command.</summary>
+    public static StringId CommandSceneScenes { get; } = new("editor.command.scene.scenes", "Scenes");
+
+    /// <summary>The <c>World Settings…</c> command.</summary>
+    public static StringId CommandSceneWorldSettings { get; } =
+        new("editor.command.scene.world-settings", "World Settings…");
+
+    /// <summary>The <c>Rebuild Editor Scripts</c> command.</summary>
+    public static StringId CommandScriptsRebuild { get; } =
+        new("editor.command.scripts.rebuild", "Rebuild Editor Scripts");
+
+    /// <summary>The <c>Generate Diagnostics Report…</c> command.</summary>
+    public static StringId CommandToolsDiagnosticsReport { get; } =
+        new("editor.command.tools.diagnostics-report", "Generate Diagnostics Report…");
+
+    /// <summary>The <c>Plugins…</c> command.</summary>
+    public static StringId CommandToolsPlugins { get; } = new("editor.command.tools.plugins", "Plugins…");
+
+    /// <summary>The <c>Reload Shaders</c> command.</summary>
+    public static StringId CommandToolsReloadShaders { get; } =
+        new("editor.command.tools.reload-shaders", "Reload Shaders");
+
+    /// <summary>The <c>Reload Styles</c> command.</summary>
+    public static StringId CommandToolsReloadStyles { get; } =
+        new("editor.command.tools.reload-styles", "Reload Styles");
+
+    /// <summary>The <c>Clear Console</c> command.</summary>
+    public static StringId CommandViewClearConsole { get; } = new("editor.command.view.clear-console", "Clear Console");
+
+    /// <summary>The <c>Full Screen</c> command.</summary>
+    public static StringId CommandViewFullScreen { get; } = new("editor.command.view.full-screen", "Full Screen");
+
+    /// <summary>The <c>Animation</c> workspace layout.</summary>
+    public static StringId LayoutAnimation { get; } = new("editor.layout.animation", "Animation");
+
+    /// <summary>The <c>Debug</c> workspace layout.</summary>
+    public static StringId LayoutDebug { get; } = new("editor.layout.debug", "Debug");
+
+    /// <summary>The <c>Default</c> workspace layout.</summary>
+    public static StringId LayoutDefault { get; } = new("editor.layout.default", "Default");
+
+    /// <summary>The <c>Profiling</c> workspace layout.</summary>
+    public static StringId LayoutProfiling { get; } = new("editor.layout.profiling", "Profiling");
+
+    /// <summary>The <c>Scene</c> workspace layout.</summary>
+    public static StringId LayoutScene { get; } = new("editor.layout.scene", "Scene");
+
+    /// <summary>The <c>Sequencing</c> workspace layout.</summary>
+    public static StringId LayoutSequencing { get; } = new("editor.layout.sequencing", "Sequencing");
+
+    /// <summary>The <c>Shading</c> workspace layout.</summary>
+    public static StringId LayoutShading { get; } = new("editor.layout.shading", "Shading");
+
+    /// <summary>The <c>Boolean</c> menu.</summary>
+    public static StringId MenuBlockoutBoolean { get; } = new("editor.menu.blockout-boolean", "Boolean");
+
+    /// <summary>The <c>Create</c> menu.</summary>
+    public static StringId MenuBlockoutCreate { get; } = new("editor.menu.blockout-create", "Create");
+
+    /// <summary>The <c>Handoff</c> menu.</summary>
+    public static StringId MenuBlockoutHandoff { get; } = new("editor.menu.blockout-handoff", "Handoff");
+
+    /// <summary>The <c>Shape</c> menu.</summary>
+    public static StringId MenuBlockoutShape { get; } = new("editor.menu.blockout-shape", "Shape");
+
+    /// <summary>The <c>Surfaces</c> menu.</summary>
+    public static StringId MenuBlockoutSurfaces { get; } = new("editor.menu.blockout-surfaces", "Surfaces");
+
+    /// <summary>The <c>Bookmarks</c> menu.</summary>
+    public static StringId MenuBookmarks { get; } = new("editor.menu.bookmarks", "Bookmarks");
+
+    /// <summary>The <c>Project</c> menu.</summary>
+    public static StringId MenuBrowser { get; } = new("editor.menu.browser", "Project");
+
+    /// <summary>The <c>Configuration</c> menu.</summary>
+    public static StringId MenuBuildConfiguration { get; } = new("editor.menu.build-configuration", "Configuration");
+
+    /// <summary>The <c>Deploy</c> menu.</summary>
+    public static StringId MenuBuildDeploy { get; } = new("editor.menu.build-deploy", "Deploy");
+
+    /// <summary>The <c>Target</c> menu.</summary>
+    public static StringId MenuBuildTarget { get; } = new("editor.menu.build-target", "Target");
+
+    /// <summary>The <c>Camera</c> menu.</summary>
+    public static StringId MenuCamera { get; } = new("editor.menu.camera", "Camera");
+
+    /// <summary>The <c>Light</c> menu.</summary>
+    public static StringId MenuCreateLight { get; } = new("editor.menu.create-light", "Light");
+
+    /// <summary>The <c>3D Object</c> menu.</summary>
+    public static StringId MenuCreateShape { get; } = new("editor.menu.create-shape", "3D Object");
+
+    /// <summary>The <c>Select Elements</c> menu.</summary>
+    public static StringId MenuElements { get; } = new("editor.menu.elements", "Select Elements");
+
+    /// <summary>The <c>Geometry</c> menu.</summary>
+    public static StringId MenuGeometry { get; } = new("editor.menu.geometry", "Geometry");
+
+    /// <summary>The <c>Gizmo</c> menu.</summary>
+    public static StringId MenuGizmo { get; } = new("editor.menu.gizmo", "Gizmo");
+
+    /// <summary>The <c>Hierarchy</c> menu.</summary>
+    public static StringId MenuHierarchy { get; } = new("editor.menu.hierarchy", "Hierarchy");
+
+    /// <summary>The <c>Navigation</c> menu.</summary>
+    public static StringId MenuNavigation { get; } = new("editor.menu.navigation", "Navigation");
+
+    /// <summary>The <c>Viewport Layout</c> menu.</summary>
+    public static StringId MenuPanes { get; } = new("editor.menu.panes", "Viewport Layout");
+
+    /// <summary>The <c>Mode</c> menu.</summary>
+    public static StringId MenuPlayMode { get; } = new("editor.menu.play-mode", "Mode");
+
+    /// <summary>The <c>Options</c> menu.</summary>
+    public static StringId MenuPlayOptions { get; } = new("editor.menu.play-options", "Options");
+
+    /// <summary>The <c>Measure</c> menu.</summary>
+    public static StringId MenuPrecision { get; } = new("editor.menu.precision", "Measure");
+
+    /// <summary>The <c>Scene</c> menu.</summary>
+    public static StringId MenuScene { get; } = new("editor.menu.scene", "Scene");
+
+    /// <summary>The <c>Show</c> menu.</summary>
+    public static StringId MenuShow { get; } = new("editor.menu.show", "Show");
+
+    /// <summary>The <c>Snapping</c> menu.</summary>
+    public static StringId MenuSnap { get; } = new("editor.menu.snap", "Snapping");
+
+    /// <summary>The <c>Camera Speed</c> menu.</summary>
+    public static StringId MenuSpeed { get; } = new("editor.menu.speed", "Camera Speed");
+
+    /// <summary>The <c>View Mode</c> menu.</summary>
+    public static StringId MenuViewMode { get; } = new("editor.menu.view-mode", "View Mode");
+
+    /// <summary>The <c>Work Plane</c> menu.</summary>
+    public static StringId MenuWorkPlane { get; } = new("editor.menu.work-plane", "Work Plane");
+
+    /// <summary>What the mode strip calls the <c>Blockout</c> mode.</summary>
+    public static StringId ModeBlockout { get; } = new("editor.mode.blockout", "Blockout");
+
+    /// <summary>What the mode strip calls the <c>Foliage</c> mode.</summary>
+    public static StringId ModeFoliage { get; } = new("editor.mode.foliage", "Foliage");
+
+    /// <summary>What the mode strip calls the <c>Terrain</c> mode.</summary>
+    public static StringId ModeTerrain { get; } = new("editor.mode.terrain", "Terrain");
+
+    /// <summary>What the mode strip calls the <c>Water</c> mode.</summary>
+    public static StringId ModeWater { get; } = new("editor.mode.water", "Water");
+
+    /// <summary>The <c>Addressables</c> panel.</summary>
+    public static StringId PanelAddressables { get; } = new("editor.panel.addressables", "Addressables");
+
+    /// <summary>The <c>Agent Debugger</c> panel.</summary>
+    public static StringId PanelAiDebugger { get; } = new("editor.panel.ai-debugger", "Agent Debugger");
+
+    /// <summary>The <c>Blockout</c> panel.</summary>
+    public static StringId PanelBlockout { get; } = new("editor.panel.blockout", "Blockout");
+
+    /// <summary>The <c>Build Settings</c> panel.</summary>
+    public static StringId PanelBuild { get; } = new("editor.panel.build", "Build Settings");
+
+    /// <summary>The <c>Console</c> panel.</summary>
+    public static StringId PanelConsole { get; } = new("editor.panel.console", "Console");
+
+    /// <summary>The <c>Devices</c> panel.</summary>
+    public static StringId PanelDevices { get; } = new("editor.panel.devices", "Devices");
+
+    /// <summary>The <c>Foliage</c> panel.</summary>
+    public static StringId PanelFoliage { get; } = new("editor.panel.foliage", "Foliage");
+
+    /// <summary>The <c>Frame Debugger</c> panel.</summary>
+    public static StringId PanelFrameDebugger { get; } = new("editor.panel.frame-debugger", "Frame Debugger");
+
+    /// <summary>The <c>GPU</c> panel.</summary>
+    public static StringId PanelGpu { get; } = new("editor.panel.gpu", "GPU");
+
+    /// <summary>The <c>Grass</c> panel.</summary>
+    public static StringId PanelGrass { get; } = new("editor.panel.grass", "Grass");
+
+    /// <summary>The <c>Growth</c> panel.</summary>
+    public static StringId PanelGrowth { get; } = new("editor.panel.growth", "Growth");
+
+    /// <summary>The <c>Hierarchy</c> panel.</summary>
+    public static StringId PanelHierarchy { get; } = new("editor.panel.hierarchy", "Hierarchy");
+
+    /// <summary>The <c>Input Debug</c> panel.</summary>
+    public static StringId PanelInputDebug { get; } = new("editor.panel.input-debug", "Input Debug");
+
+    /// <summary>The <c>Inspector</c> panel.</summary>
+    public static StringId PanelInspector { get; } = new("editor.panel.inspector", "Inspector");
+
+    /// <summary>The <c>Inspector 2</c> panel.</summary>
+    public static StringId PanelInspector2 { get; } = new("editor.panel.inspector2", "Inspector 2");
+
+    /// <summary>The <c>Layer Stack</c> panel.</summary>
+    public static StringId PanelLayerStack { get; } = new("editor.panel.layer-stack", "Layer Stack");
+
+    /// <summary>The <c>Lighting</c> panel.</summary>
+    public static StringId PanelLighting { get; } = new("editor.panel.lighting", "Lighting");
+
+    /// <summary>The <c>Memory</c> panel.</summary>
+    public static StringId PanelMemory { get; } = new("editor.panel.memory", "Memory");
+
+    /// <summary>The <c>Bake Mesh Maps</c> panel.</summary>
+    public static StringId PanelMeshMapBake { get; } = new("editor.panel.mesh-map-bake", "Bake Mesh Maps");
+
+    /// <summary>The <c>Navigation</c> panel.</summary>
+    public static StringId PanelNavigation { get; } = new("editor.panel.navigation", "Navigation");
+
+    /// <summary>The <c>Network</c> panel.</summary>
+    public static StringId PanelNetwork { get; } = new("editor.panel.network", "Network");
+
+    /// <summary>The <c>Profiler</c> panel.</summary>
+    public static StringId PanelProfiler { get; } = new("editor.panel.profiler", "Profiler");
+
+    /// <summary>The <c>Project</c> panel.</summary>
+    public static StringId PanelProject { get; } = new("editor.panel.project", "Project");
+
+    /// <summary>The <c>Remote Inspector</c> panel.</summary>
+    public static StringId PanelRemoteInspector { get; } = new("editor.panel.remote-inspector", "Remote Inspector");
+
+    /// <summary>The <c>Scene</c> panel.</summary>
+    public static StringId PanelScene { get; } = new("editor.panel.scene", "Scene");
+
+    /// <summary>The <c>Scenes</c> panel.</summary>
+    public static StringId PanelScenes { get; } = new("editor.panel.scenes", "Scenes");
+
+    /// <summary>The <c>Editor Scripts</c> panel.</summary>
+    public static StringId PanelScripts { get; } = new("editor.panel.scripts", "Editor Scripts");
+
+    /// <summary>The <c>Splines</c> panel.</summary>
+    public static StringId PanelSplines { get; } = new("editor.panel.splines", "Splines");
+
+    /// <summary>The <c>Statistics</c> panel.</summary>
+    public static StringId PanelStatistics { get; } = new("editor.panel.statistics", "Statistics");
+
+    /// <summary>The <c>Terrain</c> panel.</summary>
+    public static StringId PanelTerrain { get; } = new("editor.panel.terrain", "Terrain");
+
+    /// <summary>The <c>Texture Graph</c> panel.</summary>
+    public static StringId PanelTextureGraph { get; } = new("editor.panel.texture-graph", "Texture Graph");
+
+    /// <summary>The <c>Paint</c> panel.</summary>
+    public static StringId PanelTexturePaint { get; } = new("editor.panel.texture-paint", "Paint");
+
+    /// <summary>The <c>Paint (3D)</c> panel.</summary>
+    public static StringId PanelTexturePaint3d { get; } = new("editor.panel.texture-paint-3d", "Paint (3D)");
+
+    /// <summary>The <c>UI Diagnostics</c> panel.</summary>
+    public static StringId PanelUiDiagnostics { get; } = new("editor.panel.ui-diagnostics", "UI Diagnostics");
+
+    /// <summary>The <c>Water</c> panel.</summary>
+    public static StringId PanelWater { get; } = new("editor.panel.water", "Water");
+
+    /// <summary>The <c>Water Zone</c> panel.</summary>
+    public static StringId PanelWaterZone { get; } = new("editor.panel.water.zone", "Water Zone");
+
+    /// <summary>The <c>World Settings</c> panel.</summary>
+    public static StringId PanelWorld { get; } = new("editor.panel.world", "World Settings");
+
+    /// <summary>The <c>Appearance</c> settings page.</summary>
+    public static StringId SettingsAppearance { get; } = new("editor.settings.appearance", "Appearance");
+
+    /// <summary>The <c>Content Build</c> settings page.</summary>
+    public static StringId SettingsContent { get; } = new("editor.settings.content", "Content Build");
+
+    /// <summary>The <c>General</c> settings page.</summary>
+    public static StringId SettingsGeneral { get; } = new("editor.settings.general", "General");
+
+    /// <summary>The <c>Keybindings</c> settings page.</summary>
+    public static StringId SettingsKeybindings { get; } = new("editor.settings.keybindings", "Keybindings");
+
+    /// <summary>The <c>Plugins</c> settings page.</summary>
+    public static StringId SettingsPlugins { get; } = new("editor.settings.plugins", "Plugins");
+
+    /// <summary>The <c>Project</c> settings page.</summary>
+    public static StringId SettingsProject { get; } = new("editor.settings.project", "Project");
+
+    /// <summary>The <c>Scene View</c> settings page.</summary>
+    public static StringId SettingsSceneView { get; } = new("editor.settings.scene-view", "Scene View");
+
+    /// <summary>The <c>Layout</c> toolbar control.</summary>
+    public static StringId ToolbarLayout { get; } = new("editor.toolbar.layout", "Layout");
+
+    /// <summary>The <c>Panes</c> viewport overlay heading.</summary>
+    public static StringId ViewportLayout { get; } = new("editor.viewport.layout", "Panes");
+
+    /// <summary>The <c>Measure</c> viewport overlay heading.</summary>
+    public static StringId ViewportPrecision { get; } = new("editor.viewport.precision", "Measure");
+
+    /// <summary>The <c>Show</c> viewport overlay heading.</summary>
+    public static StringId ViewportShow { get; } = new("editor.viewport.show", "Show");
+
+    /// <summary>The <c>Snap</c> viewport overlay heading.</summary>
+    public static StringId ViewportSnap { get; } = new("editor.viewport.snap", "Snap");
+
+    /// <summary>The <c>Speed</c> viewport overlay heading.</summary>
+    public static StringId ViewportSpeed { get; } = new("editor.viewport.speed", "Speed");
+
+    /// <summary>The <c>View</c> viewport overlay heading.</summary>
+    public static StringId ViewportViewMode { get; } = new("editor.viewport.view-mode", "View");
+
+    /// <summary>The <c>Plane</c> viewport overlay heading.</summary>
+    public static StringId ViewportWorkPlane { get; } = new("editor.viewport.work-plane", "Plane");
+
     /// <summary>Every string above, for a translator to start from.</summary>
     public static IReadOnlyList<StringId> All { get; } = [
         MenuFile,
@@ -529,7 +1170,203 @@ public static class EditorStrings {
         ProjectsEmpty,
         ProjectsBrowse,
         ProjectsNew,
-        ProjectsMissing
+        ProjectsMissing,
+        CategoryAssets,
+        CategoryBlockout,
+        CategoryBuild,
+        CategoryCreate,
+        CategoryEntity,
+        CategoryFoliage,
+        CategoryPlay,
+        CategoryScene,
+        CategoryTerrain,
+        CategoryTools,
+        CategoryWater,
+        CommandAssetsBakeMeshMaps,
+        CommandAssetsCreate,
+        CommandAssetsDelete,
+        CommandAssetsFindReferences,
+        CommandAssetsImportFiles,
+        CommandAssetsMoveTo,
+        CommandAssetsNewFolder,
+        CommandAssetsOpen,
+        CommandAssetsReimport,
+        CommandAssetsReimportAll,
+        CommandAssetsRename,
+        CommandAssetsSelectDependencies,
+        CommandAssetsShowInExplorer,
+        CommandBlockoutToggleMesh,
+        CommandBuildContent,
+        CommandBuildCleanLibrary,
+        CommandBuildRebuildShaders,
+        CommandBuildRun,
+        CommandBuildSettings,
+        CommandCreateCamera,
+        CommandCreateEntity,
+        CommandEditDeselectAll,
+        CommandEditDuplicate,
+        CommandEditFindReferences,
+        CommandEditInvertSelection,
+        CommandEditIsolate,
+        CommandEditKeybindings,
+        CommandEditRecallSelectionSet,
+        CommandEditSaveSelectionSet,
+        CommandEditSelectAll,
+        CommandEditSelectByName,
+        CommandEditSelectByType,
+        CommandEditSelectChildren,
+        CommandEditSelectParent,
+        CommandEditUndoHistory,
+        CommandEntityAlign,
+        CommandEntityAlignWithView,
+        CommandEntityApplyOverrides,
+        CommandEntityClearParent,
+        CommandEntityCopyTransform,
+        CommandEntityCreateAudio,
+        CommandEntityCreateChild,
+        CommandEntityCreateUi,
+        CommandEntityCreateVfx,
+        CommandEntityDistribute,
+        CommandEntityGroup,
+        CommandEntityMakePrefab,
+        CommandEntityMoveToView,
+        CommandEntityPasteTransform,
+        CommandEntityRelativeTransform,
+        CommandEntityResetTransform,
+        CommandEntitySetParent,
+        CommandEntitySnapToFloor,
+        CommandEntityToggleActive,
+        CommandEntityToggleHidden,
+        CommandEntityToggleLock,
+        CommandEntityUngroup,
+        CommandEntityUnpackPrefab,
+        CommandFileExportPackage,
+        CommandFileNewScene,
+        CommandFileNoRecent,
+        CommandFileOpenScene,
+        CommandFileProjectSettings,
+        CommandFileRevert,
+        CommandFileSaveAs,
+        CommandHelpApiReference,
+        CommandHelpReleaseNotes,
+        CommandHelpReportBug,
+        CommandHelpShowLogFolder,
+        CommandImportAssets,
+        CommandPlayClearConsole,
+        CommandPlayMaximise,
+        CommandPlayModeInEditor,
+        CommandPlayModeServer,
+        CommandPlayModeStandalone,
+        CommandPlayMuteAudio,
+        CommandRadialMenu,
+        CommandRefreshAssets,
+        CommandReloadPlugins,
+        CommandSceneContextMenu,
+        CommandSceneLayers,
+        CommandSceneLighting,
+        CommandSceneNavigation,
+        CommandSceneOpenAdditive,
+        CommandSceneSaveAllScenes,
+        CommandSceneScenes,
+        CommandSceneWorldSettings,
+        CommandScriptsRebuild,
+        CommandToolsDiagnosticsReport,
+        CommandToolsPlugins,
+        CommandToolsReloadShaders,
+        CommandToolsReloadStyles,
+        CommandViewClearConsole,
+        CommandViewFullScreen,
+        LayoutAnimation,
+        LayoutDebug,
+        LayoutDefault,
+        LayoutProfiling,
+        LayoutScene,
+        LayoutSequencing,
+        LayoutShading,
+        MenuBlockoutBoolean,
+        MenuBlockoutCreate,
+        MenuBlockoutHandoff,
+        MenuBlockoutShape,
+        MenuBlockoutSurfaces,
+        MenuBookmarks,
+        MenuBrowser,
+        MenuBuildConfiguration,
+        MenuBuildDeploy,
+        MenuBuildTarget,
+        MenuCamera,
+        MenuCreateLight,
+        MenuCreateShape,
+        MenuElements,
+        MenuGeometry,
+        MenuGizmo,
+        MenuHierarchy,
+        MenuNavigation,
+        MenuPanes,
+        MenuPlayMode,
+        MenuPlayOptions,
+        MenuPrecision,
+        MenuScene,
+        MenuShow,
+        MenuSnap,
+        MenuSpeed,
+        MenuViewMode,
+        MenuWorkPlane,
+        ModeBlockout,
+        ModeFoliage,
+        ModeTerrain,
+        ModeWater,
+        PanelAddressables,
+        PanelAiDebugger,
+        PanelBlockout,
+        PanelBuild,
+        PanelConsole,
+        PanelDevices,
+        PanelFoliage,
+        PanelFrameDebugger,
+        PanelGpu,
+        PanelGrass,
+        PanelGrowth,
+        PanelHierarchy,
+        PanelInputDebug,
+        PanelInspector,
+        PanelInspector2,
+        PanelLayerStack,
+        PanelLighting,
+        PanelMemory,
+        PanelMeshMapBake,
+        PanelNavigation,
+        PanelNetwork,
+        PanelProfiler,
+        PanelProject,
+        PanelRemoteInspector,
+        PanelScene,
+        PanelScenes,
+        PanelScripts,
+        PanelSplines,
+        PanelStatistics,
+        PanelTerrain,
+        PanelTextureGraph,
+        PanelTexturePaint,
+        PanelTexturePaint3d,
+        PanelUiDiagnostics,
+        PanelWater,
+        PanelWaterZone,
+        PanelWorld,
+        SettingsAppearance,
+        SettingsContent,
+        SettingsGeneral,
+        SettingsKeybindings,
+        SettingsPlugins,
+        SettingsProject,
+        SettingsSceneView,
+        ToolbarLayout,
+        ViewportLayout,
+        ViewportPrecision,
+        ViewportShow,
+        ViewportSnap,
+        ViewportSpeed,
+        ViewportViewMode,
+        ViewportWorkPlane
     ];
 
     /// <summary>A catalog holding every string the editor declares, for a translator to start from.</summary>
