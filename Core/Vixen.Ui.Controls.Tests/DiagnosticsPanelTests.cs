@@ -3,6 +3,7 @@
 
 using System.Globalization;
 using Vixen.Core.Mathematics;
+using Vixen.Ui.Composition;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Tests;
@@ -165,6 +166,52 @@ public class DiagnosticsPanelTests {
         }
     }
 
+    /// <summary>⚠ A binding that died is a row, and a document with none says zero rather than nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The reader for <c>UiDiagnostics.BrokenBindings</c>, which is the whole point of
+    ///         counting it.</b> <a href="https://github.com/Rikarin/Vixen/issues/1109">#1109</a>'s
+    ///         symptom is a panel that renders once and freezes, and the freeze is invisible in every
+    ///         other row on this list — the counters all describe a document that is settled, because
+    ///         it is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both readings, and the zero is the load-bearing one.</b> A row that appeared only
+    ///         when something broke would be a row nobody knows to look for and a panel nobody can
+    ///         tell apart from one that has stopped reading the number. The second half is what the
+    ///         first is measured against.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_broken_binding_is_reported_and_a_healthy_document_reports_zero() {
+        using var fixture = new ControlFixture();
+        using var subject = new UiDocument(400f, 300f);
+
+        subject.Update();
+
+        var panel = fixture.Add<DiagnosticsPanel>();
+        panel.Subject = subject;
+        panel.Refresh();
+
+        Assert.Equal("0", Value(panel, "Broken bindings"));
+        Assert.Null(Find(panel, "Last broken binding"));
+
+        // ⚠ A real binding, built through `BuildContext` and run by the scheduler, rather than the
+        // recorder poked by hand. A fixture that supplied its own input would be asserting that the
+        // panel can print a number somebody handed it, which was never in doubt.
+        BuildContext.Build<Freezes>(subject, subject.Root);
+        subject.Effects.Flush();
+        panel.Refresh();
+
+        Assert.Equal("1", Value(panel, "Broken bindings"));
+
+        var reported = Value(panel, "Last broken binding");
+
+        Assert.NotNull(reported);
+        Assert.Contains("DiagnosticsPanelTests.cs:", reported, StringComparison.Ordinal);
+        Assert.Contains("<row>", reported, StringComparison.Ordinal);
+    }
+
     static string? Value(DiagnosticsPanel panel, string key) => Find(panel, key)?.Value;
 
     /// <summary>The row with that key, among the rows the list is SHOWING.</summary>
@@ -183,5 +230,15 @@ public class DiagnosticsPanelTests {
         }
 
         return null;
+    }
+
+    /// <summary>A row that binds its own text, which is the natural spelling and the trap.</summary>
+    sealed class Freezes : Component {
+        protected override void Build(BuildContext ctx) {
+            var row = ctx.Element(null, "row");
+
+            ctx.Element(row, "slider");
+            ctx.Bind(() => row.Text = "1.0");
+        }
     }
 }

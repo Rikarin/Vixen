@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics;
+using System.Globalization;
 using Vixen.Core.Mathematics;
 using Vixen.Ui.Layout;
 
@@ -169,6 +170,36 @@ public readonly struct UiDiagnostics(UiDocument document) {
     /// </remarks>
     public int DrawListsChanged => document.DrawListsChanged;
 
+    /// <summary>How many times a binding in this document has thrown and been suspended.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one number here that counts a defect rather than a cost, and the interface it
+    ///         describes looks perfect.</b> A <c>Composition.BuildContext.Bind</c> is an
+    ///         <c>Effect</c>, and an effect answers an unhandled exception by suspending itself — it
+    ///         keeps its dependencies, keeps its place in the graph and never runs again. The
+    ///         assignment that threw had already written whatever it wrote, so the first frame is
+    ///         correct and every frame after it is the same frame. Nothing on the element tree, in
+    ///         the geometry, or in any other counter on this struct distinguishes that from a model
+    ///         that stopped changing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Always compiled, unlike the region ring.</b> It increments only when something
+    ///         has already thrown, so there is no steady-state cost to remove, and a
+    ///         <c>Release</c> test that asserts a panel has no broken bindings has to be able to read
+    ///         it. See <a href="https://github.com/Rikarin/Vixen/issues/1109">#1109</a>, where the
+    ///         symptom was a texturing panel that rendered once and froze.
+    ///     </para>
+    /// </remarks>
+    public int BrokenBindings => document.BrokenBindings;
+
+    /// <summary>Where the last such binding was written, and what it threw. Null until one does.</summary>
+    /// <remarks>
+    ///     A count alone says an interface is broken and not which line of which file to open, and
+    ///     the origin is the thing that is hard to recover afterwards: by the time a person notices
+    ///     the freeze the effect is inert and its closure is unreachable from the tree.
+    /// </remarks>
+    public string? LastBrokenBinding => document.LastBrokenBinding;
+
     /// <summary>The element at a point, and its four boxes.</summary>
     /// <param name="x">Where, in document space.</param>
     /// <param name="y">Ditto.</param>
@@ -291,6 +322,34 @@ public partial class UiDocument {
 
     /// <summary>How many of those rebuilds produced drawing that differs from the frame before.</summary>
     internal int DrawListsChanged { get; private set; }
+
+    /// <summary>How many bindings in this document have thrown and been suspended.</summary>
+    internal int BrokenBindings { get; private set; }
+
+    /// <summary>Where the last one was written and what it threw.</summary>
+    internal string? LastBrokenBinding { get; private set; }
+
+    /// <summary>Records a binding that threw, on its way to being suspended.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not <c>[Conditional]</c>, and the contrast with <see cref="RecordDirty" /> right
+    ///     below is the argument.</b> That one sits in the path a virtualised list walks two dozen
+    ///     times a frame, so the call site itself is what has to go. This one is reached only by an
+    ///     exception that has already been thrown, so there is no cost to compile away — and a
+    ///     counter behind <c>DEBUG</c> is a counter no <c>Release</c> gate can assert on, which is
+    ///     the whole failure this records.
+    /// </remarks>
+    /// <param name="origin">The binding's <c>[CallerFilePath]</c>, or null if it had none.</param>
+    /// <param name="line">The line half of <paramref name="origin" />.</param>
+    /// <param name="exception">What it threw.</param>
+    internal void RecordBrokenBinding(string? origin, int line, Exception exception) {
+        BrokenBindings++;
+
+        var where = origin is null
+            ? "an unknown location"
+            : $"{origin.AsSpan(origin.AsSpan().LastIndexOfAny('/', '\\') + 1)}:{line.ToString(CultureInfo.InvariantCulture)}";
+
+        LastBrokenBinding = $"{where}: {exception.Message}";
+    }
 
     /// <summary>Counts one rebuild and whether it was worth anything.</summary>
     void CountDrawing(bool changed) {

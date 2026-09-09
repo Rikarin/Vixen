@@ -212,6 +212,21 @@ public sealed partial class LayoutTree : IDisposable {
             );
         }
 
+        // ⚠ The mirror of `SetMeasureFunction`'s refusal, and until #1109 only one half of this
+        // invariant was enforced. Giving a self-measuring node a child was accepted in silence and
+        // produced the worse of the two states: `LayoutNode` returns as soon as it sees
+        // `HasMeasureFunction`, so the child is never laid out at all — it keeps whatever box it
+        // last had, or none, and is drawn at the origin with no size. A refusal and an
+        // un-laid-out subtree are not equally bad, and the tree was giving the second one to the
+        // order that happens to write the text first.
+        if ((flags[parentIndex] & LayoutNodeState.HasMeasureFunction) != 0) {
+            throw new InvalidOperationException(
+                $"{parent} measures itself and cannot also have children: its size would be decided twice, by "
+                + "two rules that do not have to agree — and the measure function wins, so nothing put inside "
+                + "it would be laid out at all. Remove the measure function first."
+            );
+        }
+
         ref var parentLinks = ref links[parentIndex];
         ArgumentOutOfRangeException.ThrowIfNegative(index);
 

@@ -114,6 +114,17 @@ public sealed class DiagnosticsPanel : Control {
         Write(ref row, "Draw lists built", diagnostics.DrawListsBuilt);
         Write(ref row, "Draw lists changed", diagnostics.DrawListsChanged);
 
+        // ⚠ The only row here that reports a defect rather than a cost, and the only one whose
+        // subject looks perfect from outside: a binding that threw is suspended, so the interface
+        // keeps the frame it had. Written unconditionally rather than only when non-zero, because a
+        // row that appears when something breaks is a row nobody knows to look for — and a steady
+        // zero is what makes the one is legible.
+        Write(ref row, "Broken bindings", diagnostics.BrokenBindings);
+
+        if (diagnostics.LastBrokenBinding is { } broken) {
+            Write(ref row, "Last broken binding", broken);
+        }
+
         // ⚠ "Nothing was invalidated" and "nobody was recording" are the same empty span, and a panel
         // that showed a zero for both would report success on the day it did not run. Which is why
         // `UiDiagnostics.RecordsRegions` exists, and why this says so in words instead.

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Collections.Immutable;
+using System.Globalization;
 using Vixen.Core.Mathematics;
 using Vixen.Ui.Layout;
 using Vixen.Ui.Rendering;
@@ -1886,6 +1887,25 @@ public partial class UiElement : Composition.IComposable {
     string? lineLanguage;
 
     void OnTextChanged(string? previous, string? current) {
+        // ⚠ Ahead of the layout tree, because the layout tree can only say what a *node* is and the
+        // person reading this is looking at an element. `SetMeasureFunction`'s own refusal is a good
+        // one — "node 1 has children and cannot also measure itself" — and it names a node index
+        // nothing in a panel, a `.vxml` or a stack trace can be matched back to a tag. Inside a
+        // `Composition.BuildContext.Bind` it is worse than anonymous: the effect catches it and
+        // suspends, so the row keeps the string it was given and stops following its model for ever
+        // with nothing said anywhere. See #1109. The count is on `UiDiagnostics.BrokenBindings`;
+        // this is the half that says what to do about it.
+        if (!string.IsNullOrEmpty(current) && children.Count > 0) {
+            throw new InvalidOperationException(
+                $"<{Tag}> has {children.Count.ToString(CultureInfo.InvariantCulture)} element children, so it "
+                + "cannot also carry text: an element with text measures itself, and a node whose size is "
+                + "decided both by its own text and by its children has it decided twice by two rules that do "
+                + "not have to agree. Put the text on a child of its own — a label — and bind that. ⚠ In a "
+                + "binding this throw is caught and the binding is suspended, so the element keeps whatever it "
+                + "was last given and silently stops following anything."
+            );
+        }
+
         // ⚠ The measure function is attached and detached rather than left in place answering zero.
         // The layout algorithm asks a node with one whether it is a leaf and refuses to lay out its
         // children — so an element that once had text and now has none would silently stop laying

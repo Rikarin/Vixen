@@ -75,7 +75,7 @@ static class LayerStackYaml {
     }
 
     /// <summary>A stack read back.</summary>
-    /// <param name="text">What <see cref="Write" /> wrote.</param>
+    /// <param name="text">What <see cref="Write(LayerStackAsset)" /> wrote.</param>
     /// <returns>The stack.</returns>
     /// <exception cref="YamlBindingException">A key holds something this build cannot read.</exception>
     /// <exception cref="YamlParseException">It is not YAML.</exception>

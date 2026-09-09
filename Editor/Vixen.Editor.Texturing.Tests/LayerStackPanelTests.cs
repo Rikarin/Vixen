@@ -444,12 +444,14 @@ public class LayerStackPanelTests {
     /// <returns>One string per child, in layout order.</returns>
     /// <remarks>
     ///     <para>
-    ///         ⚠ <b>The flush is what makes this read the panel rather than the frame before it</b> —
+    ///         ⚠ <b>No flush here any more, and that is the assertion rather than a tidy-up</b> —
     ///         <a href="https://github.com/Rikarin/Vixen/issues/881">#881</a>. The message block is a
-    ///         <c>@for</c> in <c>LayerStackChrome.vxml</c> now, and a markup binding is an
-    ///         <c>Effect</c>: <c>Core/Vixen.Ui.Reactive/Effect.cs</c> is explicit that an effect never
-    ///         runs on the write, it queues. <c>UiDocument.Update</c> drains the queue before its
-    ///         first pass, so a test that draws a frame needs nothing; these do not, so they ask.
+    ///         <c>@for</c> in <c>LayerStackChrome.vxml</c> and a markup binding is an <c>Effect</c>,
+    ///         which never runs on the write; this helper used to drain the queue itself to cover
+    ///         for that. <c>LayerStackView.Show</c> drains it now, so every reader in this file
+    ///         reads a panel that is already showing what the last <c>Show</c> was given — and if
+    ///         that call is ever removed, these tests go red rather than the next markup region
+    ///         quietly reading the frame before it.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And the walk, because markup text is its own element.</b>
@@ -461,8 +463,6 @@ public class LayerStackPanelTests {
     ///     </para>
     /// </remarks>
     static IReadOnlyList<string> Lines(UiElement panel, string tag) {
-        panel.Document.Effects.Flush();
-
         if (Find(panel, tag) is not { } container) {
             return [];
         }

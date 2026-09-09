@@ -105,7 +105,8 @@ sealed record SmartMaterialApplied(ImmutableArray<LayerAsset> Layers, string Sta
 ///         second serialiser to drift, no second set of refusals for an unknown blend mode, and the
 ///         round trip the explode differential already asserts covers this format too. What makes a
 ///         smart material a smart material is not its syntax but three invariants
-///         <see cref="Extract" /> establishes and <see cref="Apply" /> re-establishes: no model, no
+///         <see cref="Extract" /> establishes and <see cref="ApplySmartMaterialCommand" />
+///         re-establishes: no model, no
 ///         mesh, and nothing painted.
 ///     </para>
 ///     <para>
