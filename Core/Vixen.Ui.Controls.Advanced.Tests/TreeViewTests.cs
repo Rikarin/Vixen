@@ -4,9 +4,9 @@
 using System.Collections.Immutable;
 using Vixen.Core.Imaging;
 using Vixen.Input;
-using Vixen.Ui.Testing;
 using Vixen.Ui.Composition;
 using Vixen.Ui.Styling;
+using Vixen.Ui.Testing;
 using Xunit;
 
 namespace Vixen.Ui.Controls.Advanced.Tests;
