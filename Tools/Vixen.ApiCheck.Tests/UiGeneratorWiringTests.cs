@@ -6,6 +6,8 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Xunit;
 
 namespace Vixen.ApiCheck.Tests;
@@ -39,13 +41,27 @@ namespace Vixen.ApiCheck.Tests;
 ///         a failure here rather than a project with no duplicates.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What this deliberately does not check: that a project declaring
-///         <c>[UiProperty]</c> has the property generator.</b> Telling a declaration from a mention
-///         needs a parse — <c>Vixen.Ui.Markup</c>, <c>Vixen.Ui.Generators</c> and two test
-///         assemblies all contain the text and none of them declares one — and a rule with an
-///         exemption list per false positive is a worse instrument than none. VX4003 asks that
-///         question at build time for any project that also owns a <c>.vxml</c>; the gap is a project
-///         with a <c>[UiProperty]</c> and no markup, which nothing sees.
+///         ⚠ <b>That a project declaring <c>[UiProperty]</c> has the property generator is asked here
+///         now, and it took the parse this file said it would need.</b>
+///         <a href="https://github.com/Rikarin/Vixen/issues/1120">#1120</a>: VX4003 asks the same
+///         question at build time and is conditioned on the project owning a <c>.vxml</c>, so a
+///         project with a <c>[UiProperty]</c> and no markup produced no diagnostic, no compile error
+///         and no runtime error — the property simply never reaches the cascade. A text rule cannot
+///         ask it: thirty files in this tree carry the string in prose, <c>Vixen.Ui.Markup</c> and
+///         <c>Vixen.Ui.Generators</c> among them, and an exemption list per false positive is a worse
+///         instrument than none. So <see cref="Declarations" /> parses, and
+///         <see cref="The_parse_tells_a_declaration_from_a_mention_in_C_and_in_markup" /> is what says
+///         it can tell the two apart, before anything is concluded from it.
+///     </para>
+///     <para>
+///         ⚠ <b>And the tree is not what that issue said it was.</b> #1120 listed seven declaring
+///         projects; the parse finds four — <c>Vixen.Ui</c>, <c>Vixen.Ui.Controls</c>,
+///         <c>Vixen.Ui.Controls.Advanced</c> and <c>Vixen.Ui.Tests</c>. Three of the seven it named
+///         (<c>Vixen.Ui.Controls.Tests</c>, <c>Vixen.Editor.AssetEditors</c>,
+///         <c>Vixen.Editor.Debugger</c>) and <c>Samples/02-HelloUi</c> carry the string only in
+///         comments, and <c>Vixen.Ui.Tests</c> — which declares eight — was not on the list at all.
+///         The issue's state-of-the-tree paragraph made exactly the mistake its next paragraph warns
+///         about, which is the argument for the parse rather than a footnote to it.
 ///     </para>
 /// </remarks>
 public sealed class UiGeneratorWiringTests : IDisposable {
@@ -238,7 +254,279 @@ public sealed class UiGeneratorWiringTests : IDisposable {
         );
     }
 
+    /// <summary>⚠ The parse can tell a declared <c>[UiProperty]</c> from one written about.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Asked before the rule below is believed, because a parse that resolves nothing
+    ///         reports every project in the tree compliant.</b> That is the shape #1120 named as the
+    ///         reason not to write a text rule, and it is exactly as available to a bad parse: a
+    ///         matcher looking for an attribute named <c>UiPropertyAttribute</c> and nothing else
+    ///         finds none in this repository, because every declaration spells it <c>UiProperty</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both halves, and the negative is four kinds of mention rather than one.</b> A doc
+    ///         comment, a line comment, a string literal and an attribute on something that is not a
+    ///         property are the four spellings actually in this tree — the first three in prose about
+    ///         the generator, the fourth is what a rule keyed on "an attribute called UiProperty"
+    ///         would accept from any declaration at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And markup, because a <c>@code</c> block is production C#.</b> Nothing in the
+    ///         tree declares a <c>[UiProperty]</c> in a <c>.vxml</c> today, so this case is the only
+    ///         thing standing between that half of the reader and the state where it silently reads
+    ///         nothing — the sweep that reads only <c>.cs</c> is this repository's standing way of
+    ///         filing a wrong finding.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_parse_tells_a_declaration_from_a_mention_in_C_and_in_markup() {
+        Assert.Equal(
+            1,
+            Declarations(
+                """
+                class Subject {
+                    /// <summary>A <c>[UiProperty]</c>, written about.</summary>
+                    // and mentioned again: [UiProperty]
+                    const string Note = "[UiProperty]";
+
+                    [Obsolete]
+                    void Method() { }
+
+                    [UiProperty(Changed = nameof(OnChanged))]
+                    public partial string? Label { get; set; }
+                }
+                """,
+                markup: false
+            )
+        );
+
+        // The attribute on something that is not a property, which is the false positive a matcher
+        // that only looked at attribute names would take.
+        Assert.Equal(
+            0,
+            Declarations(
+                """
+                [UiProperty]
+                class Subject {
+                    [UiProperty]
+                    void Method() { }
+                }
+                """,
+                markup: false
+            )
+        );
+
+        Assert.Equal(
+            1,
+            Declarations(
+                """
+                @component Sheet
+                @inherits Vixen.Ui.UiElement
+
+                <!-- A comment about a [UiProperty], which is not one. -->
+                <row ref="@Row" />
+
+                @code {
+                    [UiProperty]
+                    public partial string? Caption { get; set; }
+                }
+                """,
+                markup: true
+            )
+        );
+
+        // ⚠ And markup with no `@code` block at all resolves to nothing rather than throwing, which
+        // is most of this tree's `.vxml` and would otherwise take the whole walk down.
+        Assert.Equal(0, Declarations("@component Sheet\n\n<row />\n", markup: true));
+    }
+
+    /// <summary>⚠ A project that declares a <c>[UiProperty]</c> names the generator that reads it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1120">#1120</a>. An analyzer does not
+    ///         travel through a <c>ProjectReference</c>, so the assembly that declares the property is
+    ///         the one that has to name <c>Vixen.Ui.Generators</c> — by hand, or through
+    ///         <c>VixenUi=true</c> and <c>Directory.Build.targets</c>. Without it the attribute still
+    ///         compiles, the assembly still runs, and the property is simply absent from the cascade.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The instrument is asserted in both directions before the rule is read.</b> A floor
+    ///         under the declarations found, because a parse that resolved none would pass this over
+    ///         nothing; a floor under the projects, because one file that stopped being read looks the
+    ///         same as a tree that has changed; and a floor under the generator references the
+    ///         evaluation returns, because an item reader that stopped matching returns an empty list
+    ///         for every project and an empty list satisfies every rule.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the declaring projects are evaluated, which is what keeps this affordable.</b>
+    ///         Four <c>dotnet msbuild</c> evaluations rather than four hundred; the parse over the
+    ///         tree is a text pre-filter and then Roslyn on the thirty-odd files that survive it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void EveryProjectThatDeclaresAUiPropertyNamesThePropertyGenerator() {
+        var declaring = Declaring();
+        var found = declaring.Values.Sum();
+
+        // ⚠ 154 today across four projects. The floors are well under both, because a control losing
+        // a property is an ordinary commit and a floor that tracked the count would be a second
+        // ledger to keep — but a reader that had stopped resolving declarations cannot sit above one.
+        Assert.True(
+            found >= 100,
+            $"The parse found {found} [UiProperty] declarations in the whole tree, which is too few "
+            + "to be this repository — the reader has stopped working, and a rule over nothing "
+            + "reports every project compliant."
+        );
+
+        Assert.True(
+            declaring.Count >= 3,
+            $"Only {declaring.Count} projects declare a [UiProperty], which is too few to be this tree."
+        );
+
+        var evaluated = Evaluate([.. declaring.Keys]);
+        var references = evaluated.Values.Sum(list => Count(list, PropertyGenerator));
+
+        Assert.True(
+            references >= 3,
+            $"The declaring projects evaluated to {references} property-generator references — the "
+            + "evaluation or the item reader has stopped working, and a rule over an empty list passes."
+        );
+
+        var missing = new List<string>();
+
+        foreach (var (project, declarations) in declaring) {
+            if (Count(evaluated[project], PropertyGenerator) == 1) {
+                continue;
+            }
+
+            var name = Path.GetRelativePath(RepositoryRoot(), project).Replace('\\', '/');
+
+            missing.Add(
+                $"{name}: declares {declarations} [UiProperty] and evaluates to "
+                + $"{Count(evaluated[project], PropertyGenerator)} property generators, not one."
+            );
+        }
+
+        Assert.True(
+            missing.Count == 0,
+            "A [UiProperty] with no Vixen.Ui.Generators behind it is silent in every way there is: "
+            + "the attribute compiles, nothing fails at run time, and the property is absent from the "
+            + "cascade. Set VixenUi=true, or name the generator as an Analyzer ProjectReference.\n  "
+            + string.Join("\n  ", missing)
+        );
+    }
+
     // ================================================================== Plumbing
+
+    /// <summary>Every solution project that declares at least one <c>[UiProperty]</c>, and how many.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A project's files are the ones under its directory that are not under a deeper
+    ///         project's</b>, because three sample directories hold a nested test project and
+    ///         attributing a child's source to its parent would demand the generator of a project that
+    ///         declares nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>obj</c> and <c>bin</c> are skipped</b>, on <see cref="Markup" />'s reason: a
+    ///         generated tree under them holds the compiler's own output, so a machine that had built
+    ///         would read a different tree from one that had not.
+    ///     </para>
+    /// </remarks>
+    static Dictionary<string, int> Declaring() {
+        var root = RepositoryRoot();
+        var projects = SolutionProjects()
+            .Select(relative => Path.Combine(root, relative))
+            .Where(File.Exists)
+            .ToList();
+
+        var directories = projects
+            .Select(project => Path.GetDirectoryName(project)!)
+            .ToList();
+
+        var declaring = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var project in projects) {
+            var directory = Path.GetDirectoryName(project)!;
+            var count = 0;
+
+            foreach (var path in Directory.EnumerateFiles(directory, "*.*", SearchOption.AllDirectories)) {
+                var extension = Path.GetExtension(path);
+                var markup = string.Equals(extension, ".vxml", StringComparison.OrdinalIgnoreCase);
+
+                if (!markup && !string.Equals(extension, ".cs", StringComparison.OrdinalIgnoreCase)) {
+                    continue;
+                }
+
+                var relative = Path.GetRelativePath(directory, path).Replace('\\', '/');
+
+                if (relative.StartsWith("obj/", StringComparison.Ordinal)
+                    || relative.StartsWith("bin/", StringComparison.Ordinal)) {
+                    continue;
+                }
+
+                if (directories.Any(other => other.Length > directory.Length
+                        && path.StartsWith(other + Path.DirectorySeparatorChar, StringComparison.Ordinal))) {
+                    continue;
+                }
+
+                var text = File.ReadAllText(path);
+
+                // The text is a necessary condition for the attribute, so this is a pre-filter and
+                // not a rule: what decides is the parse below.
+                if (!text.Contains("UiProperty", StringComparison.Ordinal)) {
+                    continue;
+                }
+
+                count += Declarations(text, markup);
+            }
+
+            if (count > 0) {
+                declaring[project] = count;
+            }
+        }
+
+        return declaring;
+    }
+
+    /// <summary>How many properties in one source file carry a <c>[UiProperty]</c>.</summary>
+    /// <param name="text">The file's whole text.</param>
+    /// <param name="markup">Whether it is a <c>.vxml</c>, whose C# is in its <c>@code</c> block.</param>
+    /// <returns>The count, and zero for a file that only writes about the attribute.</returns>
+    /// <remarks>
+    ///     ⚠ <b>The attribute has to be on a property.</b> <c>[UiProperty]</c> on a class or a method
+    ///     is not a declaration of one — the generator emits nothing for it — and a matcher that
+    ///     asked only for the attribute's name would count every such line, which is how a rule ends
+    ///     up needing an exemption per false positive.
+    /// </remarks>
+    static int Declarations(string text, bool markup) {
+        if (markup) {
+            var opening = text.IndexOf("@code", StringComparison.Ordinal);
+
+            if (opening < 0) {
+                return 0;
+            }
+
+            var brace = text.IndexOf('{', opening);
+            var closing = text.LastIndexOf('}');
+
+            if (brace < 0 || closing <= brace) {
+                return 0;
+            }
+
+            // Wrapped in a type, because a `@code` block is a class body and Roslyn parses a compilation
+            // unit. What the generator does with it is the same.
+            text = "class VxmlCodeBlock {" + text[(brace + 1)..closing] + "}";
+        }
+
+        return CSharpSyntaxTree.ParseText(text)
+            .GetRoot()
+            .DescendantNodes()
+            .OfType<PropertyDeclarationSyntax>()
+            .Count(property => property.AttributeLists
+                .SelectMany(list => list.Attributes)
+                .Any(attribute => attribute.Name.ToString().Split('.')[^1]
+                    is "UiProperty" or "UiPropertyAttribute"));
+    }
 
     /// <summary>Writes one synthetic project and returns its path.</summary>
     /// <param name="name">The shape's name, which is also its directory.</param>
