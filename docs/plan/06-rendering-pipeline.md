@@ -207,7 +207,9 @@ The main thread's own work is steps 1, 3, 8, 9 and is budgeted at **< 1 ms**.
 
 ## Pipelines
 
-Three shipped `GraphicsCompositor` presets, all built from the same features:
+Three `GraphicsCompositor` presets were planned, all built from the same features. ⚠ **One of them
+ships**, and this section read as a description of three for months after that was settled — see the
+two decisions recorded below each of the other two.
 
 ### Forward+ (clustered) — the default
 
@@ -250,11 +252,34 @@ with clustered light lookup → transparent pass → post FX.
   bandwidth is far below deferred on mobile. Mobile is a first-class target here, and deferred on
   mobile is a bandwidth catastrophe.
 
-### Deferred
+### Deferred — ✂️ postponed past 1.0, and the design below is a design
 
-GBuffer → light accumulation → forward pass for transparents/forward-only materials → post FX.
+⚠ **Postponed by an explicit decision on 2026-08-19**, recorded at [14 § Phase 10](14-roadmap.md)'s
+exit criterion and carried as cut-list #6: the forward+ path meets the engine's needs today, and a
+deferred path is a second renderer to keep correct rather than a gap in the first.
+`docs/overview.md` marks the row ✂️. **Everything from here to the end of this section is therefore a
+design, not a description** — it was written in the present tense and read as shipped for months.
 
-- **GBuffer layout** (4 RTs + depth, all in the render graph so aliasing is automatic):
+**What the decision left standing, because it is deliberately reversible.** The shader half exists and
+is gated by `LibraryTreeTests`: `Raven/Library/Pipeline/GBufferPass.rvn` writes,
+`Raven/Library/Pipeline/Deferred.rvn` lights, and `Raven/Library/Pipeline/GBuffer.rvn` is the encoding
+neither of them names a channel of — which is exactly the situation where a layout defined twice
+drifts apart one channel at a time. `RenderStage` knows a G-buffer stage and `CompositorAsset` can set
+one. ⚠ **So "`GBuffer` appears only as a `RenderStage` name" is false; what no compositor declares is a
+deferred *shading* pass**, and there is no preset, no light-accumulation node and no shading-model
+dispatch.
+
+⚠ **And the shaders that exist implement a narrower layout than the table below.** `GBuffer.rvn` packs
+**three** targets, not four: base colour + occlusion, octahedral normal + roughness + metalness, and
+emissive — no motion-vector target and **no shading-model ID**, so the `switch` the next bullet
+describes has nothing to switch on. Its own header records the defect that follows from storing
+`diffuseColor` rather than base colour: `f0` rebuilt from it is black at metalness 1, so a chrome
+pillar decodes as a surface that reflects nothing. Nothing ships that, and the fix is the one
+`AmbientCombine.rvn` took for the forward split — carry `f0` itself, three channels, into the one free
+slot this layout has. **Reconciling the design below with the three-target encoding is part of what
+un-deferring costs.**
+
+- **GBuffer layout as designed** (4 RTs + depth, all in the render graph so aliasing is automatic):
   | RT | Format | Contents |
   |---|---|---|
   | 0 | `R8G8B8A8_UNorm_sRGB` | base colour RGB, occlusion A |
@@ -268,13 +293,32 @@ GBuffer → light accumulation → forward pass for transparents/forward-only ma
   routed to the forward pass — a per-material capability check made at material-compile time, with a
   build warning naming the material.
 - Kept because: high light counts on desktop, decal support, and screen-space techniques (SSR/SSAO/SSGI)
-  that want a full GBuffer.
+  that want a full GBuffer. ⚠ **Two-thirds of that reason expired.** SSR, SSAO/GTAO and SSGI all ship
+  on the forward path — `ReflectionRenderer`, `AmbientOcclusionRenderer` and doc 19 § L3's screen
+  probes — over the depth and normals planes `!StandardFrame`'s ambient split already writes, so a
+  full GBuffer is not what they were waiting for. **Decals are the part that still points at a GBuffer
+  that is not coming for 1.0**, and nothing in the tree implements one: `Decal` appears only as a
+  node *name* in one `StandardFrameTests` fixture. The decal row below stays P2 and its "deferred +
+  forward clustered" now means the clustered half or nothing.
 
-### Mobile forward
+### Mobile forward — ⚠ no decision recorded anywhere, and this is the open question
 
 Single pass, no prepass (tile-based GPUs hate the extra geometry pass), per-object light lists,
 subpass-friendly (`VK_KHR_dynamic_rendering` with `localRead` or real subpasses on 1.1), MSAA 4×
 resolved in-tile, minimal post FX (tonemap + FXAA fused into the resolve).
+
+⚠ **Unlike deferred, this has no decision for or against it.** It is not built, and the phrase "mobile
+forward" appears nowhere in the tree, in `docs/overview.md` or in [14](14-roadmap.md) — only in this
+heading. It is a real target on this document's own argument for the default: *"deferred on mobile is
+a bandwidth catastrophe"*, and this is the preset for the devices below even that.
+
+**The evidence that it may not need to be a separate preset**, which is what the decision has to
+weigh: the Forward+ row above already carries the fallback ladder — tiled (2D) on GLES and per-object
+light lists where compute is absent — inside one preset rather than beside it. If that ladder covers
+the case, mobile forward is a set of tier knobs and not a second document. What it does *not* cover is
+the subpass/tile-local half: nothing fuses tonemap and FXAA into an MSAA resolve, and `!StandardFrame`
+deliberately offers no `samples:` at all (see the MSAA row). **Left open here rather than decided,
+because which devices are in scope is not a question this document can answer on its own.**
 
 ## Feature inventory
 
