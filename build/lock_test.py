@@ -16,6 +16,7 @@ queued behind nothing at all. A suite that only asserts "two runs do not overlap
 
 import fcntl
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -243,6 +244,9 @@ def a_held_nuke_log_is_not_reported_as_a_gate_failure(lock_file: str) -> None:
 
 
 ENTRY_POINT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(LOCK))), "build.sh")
+WINDOWS_ENTRY_POINT = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(LOCK))), "build.cmd"
+)
 SCOPE_OPEN = "# --- lock scope"
 SCOPE_CLOSE = "# --- end lock scope ---"
 
@@ -326,9 +330,70 @@ def every_run_the_entry_point_starts_names_its_checkout(_lock_file: str) -> None
         )
 
 
+def batch_commands(script: str) -> str:
+    """The lines of a `.cmd` that actually run, with `::`/`rem` comments and `@echo off` dropped.
+
+    ⚠ A batch comment is executable-looking text, and reading the file whole is how a check about
+    what a script *does* becomes a check about what it *says*.
+    """
+    lines = []
+
+    for line in script.splitlines():
+        text = line.strip()
+
+        if not text or text.startswith("::") or text.lower().startswith("rem ") or text == "@echo off":
+            continue
+
+        lines.append(text)
+
+    return "\n".join(lines)
+
+
+def the_two_entry_points_run_the_same_build(_lock_file: str) -> None:
+    """`build.cmd` and `build.sh` hand Nuke the same command line. #1143.
+
+    ⚠ Nothing else in this repository compares them, and they are one line each in two languages
+    nobody edits together. A `--configuration` added to one, a `--no-launch-profile` dropped from the
+    other, and Windows quietly builds something else — which reads as a platform difference in the
+    build rather than as a diff of two lines.
+
+    ⚠ The second assertion is about a file this suite cannot otherwise reach. `build.cmd` has no
+    checkout lock and its comment now says which half of `build.sh`'s locking is refused (the machine
+    lock) and which is merely missing (the checkout lock). The day somebody adds it, it has to name
+    `--checkout`: `lock.py` with neither switch means "machine lock only", so a wrapper that forgot
+    it would take the lock this file explicitly refuses and not the one it was added for.
+    """
+    windows = batch_commands(open(WINDOWS_ENTRY_POINT, encoding="utf-8").read())
+    posix = open(ENTRY_POINT, encoding="utf-8").read()
+
+    def invocation(script: str, arguments: str) -> str:
+        start = script.rindex("dotnet run")
+        line = " ".join(script[start:].split())
+        line = re.sub(r'"[^"]*_build\.csproj"', "<project>", line)
+
+        return line.replace(arguments, "<arguments>")
+
+    assert invocation(windows, "%*") == invocation(posix, '"$@"'), (
+        "build.cmd and build.sh no longer run the same build:\n"
+        f"  build.cmd: {invocation(windows, '%*')}\n"
+        f"  build.sh:  {invocation(posix, '\"$@\"')}"
+    )
+
+    # ⚠ Against the *commands*, never the file. Written against the file this passed vacuously the
+    # moment #1143 rewrote the comment, because that comment names both `lock.py` and `--checkout`
+    # in prose — a rule satisfied by exactly the text it was reading for, which is why the sabotage
+    # is the point and not the ceremony.
+    if "lock.py" in windows:
+        assert "--checkout" in windows, (
+            "build.cmd wraps lock.py without --checkout, which is the machine lock its own comment "
+            "refuses rather than the checkout lock #1143 is about"
+        )
+
+
 CASES = [
     the_expensive_targets_are_the_ones_that_queue,
     every_run_the_entry_point_starts_names_its_checkout,
+    the_two_entry_points_run_the_same_build,
     two_runs_in_one_checkout_do_not_overlap,
     a_run_in_another_checkout_is_not_delayed_by_a_cheap_one,
     a_held_nuke_log_is_not_reported_as_a_gate_failure,
