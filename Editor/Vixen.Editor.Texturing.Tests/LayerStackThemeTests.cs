@@ -123,11 +123,24 @@ public class LayerStackThemeTests {
     ///         <c>ControlTheme.vcss</c> selector for either to be renamed out of.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>So the exemption is the declaring assembly and not a list of names.</b> A type
-    ///         declared beside the view is this panel's own part and owns its tag; a type from
-    ///         <c>Vixen.Ui.Controls</c> answering to a <c>layer-stack-</c> name is #1071 exactly, and
-    ///         is what the sabotage — putting one <c>Add&lt;Slider&gt;("layer-stack-opacity")</c>
-    ///         back — still turns red.
+    ///         ⚠ <b>So the question is whether an element answers to the name its own type
+    ///         declares</b> — <c>UiElement.DeclaredTag</c>, added for this in
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1131">#1131</a>. A part of this
+    ///         panel's own declares its tag and passes; a <c>Vixen.Ui.Controls</c> type answering to
+    ///         a <c>layer-stack-</c> name is #1071 exactly, and is what the sabotage — putting one
+    ///         <c>Add&lt;Slider&gt;("layer-stack-opacity")</c> back — still turns red.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This asked the declaring <em>assembly</em> until #1131, which is a broader
+    ///         exemption than the sentence above and let the defect back in by another door.</b>
+    ///         <c>Add&lt;T&gt;</c>'s first argument is a tag override, so
+    ///         <c>rows.Add&lt;LayerRowView&gt;("layer-stack-fill")</c> renamed a part of this panel
+    ///         out of its own <c>layer-stack-row</c> rule and an assembly test called it exempt —
+    ///         the one rename this rule exists to catch, invisible to it. ⚠ <b>And the reason it
+    ///         stayed open was wrong</b>: the issue said a narrow test needed a <c>TagOf(Type)</c>
+    ///         and a non-generic <c>Add(Type)</c> to build an instance with. <c>TagName</c> is a
+    ///         virtual <em>instance</em> property and this walk holds the instance; only the
+    ///         accessibility was ever missing.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>And a measurement, because the sentence above is satisfied by a panel that draws
@@ -164,9 +177,11 @@ public class LayerStackThemeTests {
 
         Assert.True(
             renamed.Count == 0,
-            $"these controls answer to a tag of their own naming — {string.Join(", ", renamed)} — so every "
-            + "type selector in ControlTheme.vcss stops matching them. Pass the name as a class instead: "
-            + "Add<T>(null, null, \"layer-stack-…\"). #1071."
+            $"these elements answer to a name their own type does not declare — {string.Join(", ", renamed)} "
+            + "— so every type selector written against the name they do declare stops matching them. For a "
+            + "control from Vixen.Ui.Controls, pass the name as a class instead: "
+            + "Add<T>(null, null, \"layer-stack-…\") — #1071. For a part of this panel's own, drop the tag "
+            + "override: its `@tag` is its identity — #1131."
         );
 
         // ⚠ The half that is geometry rather than a name. `slider { height: 20px; min-width: 80px }`
@@ -190,16 +205,17 @@ public class LayerStackThemeTests {
                 // `layer-stack-row` because that is the element it replaced, so it passes; a control
                 // handed a `layer-stack-` name at a call site does not, which is #1071's defect.
                 //
-                // ⚠ **And the exemption is the declaring assembly, which is broader than the
-                // sentence above.** `UiElement.Add<T>`'s first argument is a tag override, so
-                // `rows.Add<LayerRowView>("layer-stack-fill")` would rename a local part out of its
-                // own rule — the very thing this rule is about — and this would call it exempt. The
-                // narrow test is the tag the type itself answers to, and `UiElement.TagName` is
-                // `protected`, so it is not reachable from a test assembly: #1131. No such call
-                // exists today, so this is a hole in the instrument rather than a live defect —
-                // written down because a hole nobody wrote down is how the next one gets through.
+                // ⚠ **The exemption was the declaring assembly and that hole is closed** — #1131.
+                // `UiElement.Add<T>`'s first argument is a tag override, so
+                // `rows.Add<LayerRowView>("layer-stack-fill")` renamed a local part out of its own
+                // rule — the very thing this rule is about — and an assembly test called it exempt.
+                // What is asked now is the narrow question: does this element answer to the name its
+                // own type declares? ⚠ **And no `TagOf(Type)` was needed to ask it**, which is the
+                // half the issue had wrong: `TagName` is a *virtual instance* property, so this walk
+                // already holds the instance whose type's answer it wants and only the accessibility
+                // was missing. `UiElement.DeclaredTag` is that reader.
                 if (element.Tag.StartsWith("layer-stack-", StringComparison.Ordinal)
-                    && type.Assembly != typeof(LayerStackView).Assembly) {
+                    && !string.Equals(element.Tag, element.DeclaredTag, StringComparison.Ordinal)) {
                     renamed.Add($"{type.Name} as '{element.Tag}'");
                 }
             }

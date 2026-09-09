@@ -1637,6 +1637,7 @@ Vixen.Ui.UiElement.CommandScope.get -> string?
 Vixen.Ui.UiElement.CommandScope.set -> string?
 Vixen.Ui.UiElement.DeclaredAccessibleState.get -> Vixen.Ui.AccessibleStates
 Vixen.Ui.UiElement.DeclaredAccessibleState.set -> Vixen.Ui.AccessibleStates
+Vixen.Ui.UiElement.DeclaredTag.get -> string
 Vixen.Ui.UiElement.Document.get -> Vixen.Ui.UiDocument
 Vixen.Ui.UiElement.EffectiveCommandScope.get -> string?
 Vixen.Ui.UiElement.Ellipsized(float contentWidth) -> Vixen.Ui.TextLayout?
