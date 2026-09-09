@@ -114,6 +114,17 @@ sealed class ThumbnailCache : IDisposable {
     /// <summary>What could not be decoded, so it is never tried again.</summary>
     readonly HashSet<AssetId> refused = [];
 
+    /// <summary>What was mid-decode when <see cref="Forget()" /> ran, so its answer is dropped.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The half clearing <see cref="ready" /> cannot reach.</b> A decode started before the
+    ///     file changed is carrying the old bytes on a pool thread, and it lands in a later
+    ///     <see cref="Pump" /> as a picture this cache has already been told is wrong — so it would
+    ///     be uploaded, cached and drawn, and the forgetting would have made the staleness slower
+    ///     rather than fixed it. There is no way to cancel a decode in flight; there is a way to
+    ///     refuse its answer.
+    /// </remarks>
+    readonly HashSet<AssetId> stale = [];
+
     bool closed;
 
     /// <summary>Raised on the frame thread when a picture became available.</summary>
@@ -215,6 +226,13 @@ sealed class ThumbnailCache : IDisposable {
                 continue;
             }
 
+            // ⚠ Decoded before a `Forget`, so these are the bytes of a file that has since changed.
+            // Dropped rather than uploaded *or* refused: the asset is then neither ready, pending nor
+            // refused, so the next tile that asks for it starts a decode of the file as it now is.
+            if (stale.Remove(decoded.Asset)) {
+                continue;
+            }
+
             if (decoded.Pixels is not { Length: > 0 } pixels) {
                 refused.Add(decoded.Asset);
                 continue;
@@ -252,6 +270,63 @@ sealed class ThumbnailCache : IDisposable {
         }
 
         refused.Clear();
+        Changed?.Invoke();
+    }
+
+    /// <summary>Forgets every picture, so the next look at a file decodes it as it now is.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>There was no invalidation path at all until
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1187">#1187</a>.</b> An entry left
+    ///         <see cref="ready" /> on capacity and on nothing else, so a <c>.png</c> repainted in
+    ///         another program and re-imported kept the picture it had when it was first looked at —
+    ///         until 512 other assets pushed it out or the editor was restarted. ⚠ Silent in the
+    ///         direction that looks fine: a thumbnail that is merely <em>old</em> is
+    ///         indistinguishable from one that is right, which is the whole failure a picture is
+    ///         supposed to prevent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Everything rather than one asset, and that is
+    ///         <c>EditorApplication.FollowDisk</c>'s own argument rather than laziness.</b> The two
+    ///         callers — a rescan the watcher asked for and one a person asked for — know
+    ///         <em>whether</em> the project changed and deliberately not what: resolving a watched
+    ///         path back to an asset here would be a second, worse copy of the arithmetic
+    ///         <c>ExternalEdits</c> already owns, and an overflow has no paths to resolve at all. A
+    ///         per-asset verb with no caller would be worse than this.
+    ///     </para>
+    ///     <para>
+    ///         <b>The refusals go too.</b> A file that could not be decoded is exactly a file
+    ///         somebody may have just fixed, and <see cref="refused" /> is otherwise permanent —
+    ///         <see cref="Reconsider" /> clears it for a plugin arriving and nothing cleared it for a
+    ///         file changing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Releasing an image a tile is holding is safe <em>here</em>, and the reason is not
+    ///         a general one.</b> <c>ThumbnailSurface</c> hands out numbers from a counter that only
+    ///         ever increases, so a released number is never handed out again and a tile that draws
+    ///         one draws nothing rather than another asset's picture. <see cref="Changed" /> is
+    ///         raised so the grid rebinds in the same frame and asks again.
+    ///     </para>
+    /// </remarks>
+    public void Forget() {
+        if (ready.Count == 0 && refused.Count == 0 && pending.Count == 0) {
+            return;
+        }
+
+        if (Surface is { } surface) {
+            foreach (var image in ready.Values) {
+                surface.Release(image);
+            }
+        }
+
+        ready.Clear();
+        recent.Clear();
+        refused.Clear();
+
+        foreach (var asset in pending) {
+            stale.Add(asset);
+        }
+
         Changed?.Invoke();
     }
 
