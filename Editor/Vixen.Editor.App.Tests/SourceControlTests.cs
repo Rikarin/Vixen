@@ -337,9 +337,7 @@ public class SourceControlColumnTests {
         }));
 
         editor.Editor.Sweep();
-        editor.Settle();
-
-        Assert.True(editor.Editor.SourceControl.IsKnown, "the sweep never landed");
+        Swept(editor);
 
         var marked = Tiles(editor).Where(tile => !tile.Status.HasClass("hidden")).ToList();
 
@@ -412,9 +410,7 @@ public class SourceControlColumnTests {
         }));
 
         editor.Editor.Sweep();
-        editor.Settle();
-
-        Assert.True(editor.Editor.SourceControl.IsKnown, "the sweep never landed");
+        Swept(editor);
 
         // ⚠ `editor.Assets` puts the panel in front of the tree, which is what this asks about. The
         // panel opens on the grid.
@@ -456,6 +452,27 @@ public class SourceControlColumnTests {
 
         Assert.NotEmpty(rows);
         Assert.All(rows, mark => Assert.True(mark.HasClass("hidden")));
+    }
+
+    /// <summary>Pumps frames until the sweep has landed, and says so if it never does.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A condition rather than a frame count, and the difference is not theoretical.</b>
+    ///     <c>EditorSourceControl.Sweep</c> hands its answer to the deferred queue behind a
+    ///     <c>Task.Run</c>, so a fixed <c>Settle()</c> asserts "the thread pool got round to it
+    ///     within a dozen frames" — a wall-clock budget wearing a frame counter's clothes. It failed
+    ///     here, twice, on a machine running another project's suite, and the two tests it failed
+    ///     were different ones each time. The ceiling below is a hang check and not a bound; what
+    ///     the deferred queue is actually waiting on is
+    ///     <see href="https://github.com/Rikarin/Vixen/issues/1179">#1179</see>.
+    /// </remarks>
+    static void Swept(EditorSession editor) {
+        for (var frame = 0; frame < 2000 && !editor.Editor.SourceControl.IsKnown; frame++) {
+            editor.Frame();
+        }
+
+        editor.Settle();
+
+        Assert.True(editor.Editor.SourceControl.IsKnown, "the sweep never landed");
     }
 
     /// <summary>Every live row's status mark, which excludes the pool's parked rows.</summary>
