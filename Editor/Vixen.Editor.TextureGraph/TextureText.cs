@@ -67,17 +67,30 @@ internal enum TextureTextAlignment : byte {
 ///         closed the mechanism and the sentence outlived it.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What actually blocks the node is the font, and it is a question this assembly cannot
-///         answer.</b> <see cref="Rasterize" /> takes a <c>FontFace</c>; a compilation runs on every
-///         edit and must not read an asset database, and no face reaches <em>this assembly</em> —
-///         the only one that does is an <c>EmbeddedResource</c> of its own test project. ⚠ Not "in
-///         the tree": <c>Vixen.Editor.App</c> embeds Open Sans and installs it into the shell's
-///         document, in the same process that hosts this plugin, so the second shape below already
-///         has a production face behind it and only the *naming* is missing. So a node needs either a
-///         face this assembly ships or a reference a host resolves the way <c>Source/Bitmap</c>'s
-///         asset is — and which font a graph draws with is a project-and-document decision, which is
-///         why <a href="https://github.com/Rikarin/Vixen/issues/687">#687</a> puts the node in M4 and
-///         not here.
+///         ⚠ <b>What blocks the node is the font, and on 2026-09-09 that stopped being a question and
+///         became an answer.</b> <see cref="Rasterize" /> takes a <c>FontFace</c>, and the two shapes
+///         <a href="https://github.com/Rikarin/Vixen/issues/687">#687</a> named were a face this
+///         assembly ships, baked into the plan by <c>Compile</c> the way <c>TextureTables.Ramp</c>
+///         bakes a strip, or a reference a host resolves the way <c>Source/Bitmap</c>'s asset is.
+///         <b>It is the second</b>, and doc 48 § 4.1 carries the whole decision. The measurement that
+///         settles it is one neither the issue nor this file had: <b>a table is 256×1 and a line of
+///         text is the picture</b>. <c>TextureGraphDocument.BaseWidth</c> is 1024 by default,
+///         <c>TextureGraphSettings.Extent</c> puts no ceiling on what a graph may declare, and
+///         <c>TextureGraphPreview.Evaluate</c> compiles at that size on every edit — so a
+///         compile-time bake would allocate this method's <c>float[width * height]</c> and an
+///         <c>ImmutableArray&lt;byte&gt;</c> beside it per keystroke, which is 4 MB at the default and
+///         67 MB at 4K. A picture whose size an author sets does not belong in a compilation's
+///         output; it belongs where the bitmap it is beside already arrives.
+///     </para>
+///     <para>
+///         ⚠ <b>And the face the node draws with when it names none exists in production already,
+///         which the sentence this replaced denied.</b> "No face reaches this assembly" is a
+///         statement about a <em>compilation's reference set</em> — the only one that does is an
+///         <c>EmbeddedResource</c> of this assembly's own test project — and not about the running
+///         editor: <c>Vixen.Editor.App</c>'s <c>Fonts.Install</c> registers Open Sans on the shell's
+///         <c>UiDocument</c> and makes it <c>Fonts.Default</c>, in the same process that hosts the
+///         texturing plugin. So the host half of the decision is a lookup a host already has an
+///         answer for, and what is owed is the crossing rather than the face.
 ///     </para>
 ///     <para>
 ///         <b>Every number here is in texels of the picture being written</b>, which is doc 48 § D8's

@@ -150,25 +150,32 @@ public class RealOwedTableTests {
     ///         behind. The list can only shrink.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>These are the thirteen rows that were over the cap when the rule was mechanised,
-    ///         and none of them is material authoring's.</b> They are enumerated with their lengths in
+    ///         ⚠ <b>What is left of the rows that were over the cap when the rule was mechanised, and
+    ///         none of them is material authoring's.</b> They are enumerated with their lengths in
     ///         <a href="https://github.com/Rikarin/Vixen/issues/1125">#1125</a>, which is the issue
     ///         each entry names and which closes when the last of them is trimmed. Trimming a row means moving its evidence
     ///         into the § 1.x paragraph that owns the subsystem and checking that paragraph carries
     ///         it — which for rows 91 and 92 it already did, and those two were trimmed rather than
-    ///         excused. For `Vixen.Sdk`, the CLI, the text stack and Build/CI the evidence lives in
-    ///         a row this batch has no way to verify, and deleting a cell whose facts exist nowhere
-    ///         else is worse than the duplication.
+    ///         excused. Rows 22 and 44 were trimmed the harder way on 2026-09-09: the evidence
+    ///         genuinely was not in § 1.x, so it was written there first — the second-window owned
+    ///         surface and the binary chain that outranks a timeline wait into § 1.4's two rows, and
+    ///         <c>EmitCompilerGeneratedFiles</c> into § 1.7's CLI-emit row — and only then was the
+    ///         cell reduced to a pointer.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Where a row still sits here it is because deleting a cell whose facts exist
+    ///         nowhere else is worse than the duplication.</b> For `Vixen.Sdk`, the CLI, the text
+    ///         stack and Build/CI the evidence lives in a row no batch so far has had a way to
+    ///         verify, and an excused row that is still red is a cheaper thing to carry than a fact
+    ///         that has left the repository.
     ///     </para>
     /// </remarks>
     static readonly (string Row, string Issue)[] Excused = [
         ("5", "#1125"),
-        ("22", "#1125"),
         ("33", "#1125"),
         ("34", "#1125"),
         ("36", "#1125"),
         ("38", "#1125"),
-        ("44", "#1125"),
         ("61", "#1125"),
         ("78", "#1125"),
         ("79", "#1125"),
