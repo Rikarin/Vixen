@@ -84,6 +84,20 @@ float box_distance(vec2 point, vec2 half_size, vec2 radius) {
     return (length(q / r) - 1.0) * min(r.x, r.y);
 }
 
+// The screen-space width of one unit of a value, for antialiasing an analytic shape.
+//
+// ⚠ **Spelled out rather than `fwidth`, and that is the whole of #1024.** `fwidth(p)` is *defined*
+// as `abs(dFdx(p)) + abs(dFdy(p))`, so the two read identically — but they are three separate
+// builtins and the specification lets an implementation answer each of them with either a coarse or
+// a fine derivative, independently. `Ui.rvn` has no `fwidth` to reach for (`Ui.PixelWidth` is
+// `abs(ddx) + abs(ddy)`), so this copy compiled to `OpFwidth` where the shipping module compiled to
+// `OpDPdx`/`OpDPdy` — and on lavapipe, the one CI leg with a device, that answered differently for
+// 24 texels of a bordered box. It is the last structural difference between the two modules: with
+// this, every other opcode and every constant in the two matches.
+float pixel_width(float value) {
+    return abs(dFdx(value)) + abs(dFdy(value));
+}
+
 // Coverage across a one-pixel band, from the derivative of the distance itself. Taking the width
 // from the geometry rather than from a constant is what makes the same shader right under any
 // projection and any scale.
@@ -264,7 +278,7 @@ void main() {
 
     vec2 half_size = shape.size.xy;
     float distance = box_distance(varying_texcoord, half_size, corner_radius(shape, varying_texcoord));
-    float width = max(fwidth(distance), 1e-4);
+    float width = max(pixel_width(distance), 1e-4);
     float blur = shape.axis.z;
 
     // A blurred box is a shadow, and its edge is the blur rather than a pixel. Branching here rather
@@ -289,7 +303,7 @@ void main() {
         vec2 inner = max(half_size - shape.inset.z, vec2(0.0));
         vec2 inner_radius = max(corner_radius(shape, shifted) - shape.inset.z, vec2(0.0));
         float inner_distance = box_distance(shifted, inner, inner_radius);
-        float inner_width = max(fwidth(inner_distance), 1e-4);
+        float inner_width = max(pixel_width(inner_distance), 1e-4);
 
         float cast_coverage = blur > 0.0
             ? shadow_coverage(inner_distance, blur)
