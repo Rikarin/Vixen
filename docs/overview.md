@@ -527,29 +527,25 @@ Sources: every file under [`docs/plan/`](plan/), [`docs/manual/`](manual/),
 > ([#1107](https://github.com/Rikarin/Vixen/issues/1107)). ⚠ **#574 was closed on 2026-09-08 and
 > reopened**: the fixes were on unmerged sibling branches at the moment it was closed, which is the
 > one thing this repository's own rule says an issue may not be closed on. **M10** ([#575](https://github.com/Rikarin/Vixen/issues/575)) is owed
-> *content*, and much less of it than this paragraph said: ⚠ **"16 compounds of the two dozen named,
-> the eight grunges and the five surface compounds not started, and no `.vxsmartmat` committed
-> anywhere in the tree" was every clause false by 2026-09-08.** Counted off `git ls-files` rather
-> than off a report: **34 compounds** ship — utility 8, patterns **7**, grunges **8**, surface **4**,
-> mask generators **7** — ⚠ **and this paragraph said 31 with "patterns 4" for one batch after the
-> last three Patterns landed** (`6930dbf87`, 2026-09-08). Re-counted on 2026-09-09 off the tracked
-> file list. **All five** named smart materials are committed under
+> *content*, and less of it every batch. ⚠ **The compound count has been written into this paragraph
+> four times and been wrong four times** — 4, then 16, then 31, then 34, each a snapshot of the day it
+> was typed and each contradicted by the tree within a batch. It is not written here a fifth time:
+> `TextureCompoundLibrary.Shipped` is the derived list and the tracked files under
+> `Editor/Vixen.Editor.TextureGraph/Compounds` are the other half of it, and a number in prose is a
+> copy of a thing that changes. The families are utility, patterns, grunges, surface and mask
+> generators, and all five are populated. The named smart materials are committed under
 > `Editor/Vixen.Editor.Texturing/SmartMaterials/`, embedded by a glob and written onto a project's
 > shelf on activation. ⚠ **And the denominator was wrong in the other direction the whole time**:
-> doc 48 § 4.9 marks **thirty-five** compounds ●, not two dozen — its own summary sentence
-> miscounted its own table, and this file quoted the sentence twice (at "4 of two dozen" and at
-> "sixteen of roughly two dozen") rather than the marks. Owed is **one** mark —
-> `Surface/Metal Reflectance` ([#1096](https://github.com/Rikarin/Vixen/issues/1096)) — plus the
-> unshipped half of one shared row, since § 4.9 writes *"Delight / Equalize"* as a single ● and only
-> Equalize exists ([#1110](https://github.com/Rikarin/Vixen/issues/1110), filed 2026-09-09 so that
-> M10's remainder is two named things rather than a fraction in a paragraph). ⚠ Patterns' Scratches, Wood Grain
-> and Cells were owed here until 2026-09-08 and ship now, which is what moves the count from 31.
-> ⚠ Metal Reflectance stays refused on [#1096](https://github.com/Rikarin/Vixen/issues/1096) now that
-> [#1060](https://github.com/Rikarin/Vixen/issues/1060)'s name knob exists and no atomic node maps a
-> metal name to an F0. **28 of the 34** declare parameters — re-counted 2026-09-09, and the six that
-> do not are `Utility/Equalize`, `Utility/Highpass`, `Utility/Histogram Scan`,
-> `Generators/Curvature Edge Wear`, `Generators/Dirt` and `Generators/Grunge Rough Dirty`, each
-> carrying a literal `parameters: []` — so § D9's knobs are the norm here and not the exception.
+> doc 48 § 4.9's own summary sentence miscounted its own table, and this file quoted the sentence
+> rather than the marks. What M10 is owed is now **one named thing**: the unshipped half of one
+> shared row, since § 4.9 writes *"Delight / Equalize"* as a single ● and only Equalize exists
+> ([#1110](https://github.com/Rikarin/Vixen/issues/1110)). ⚠ **`Surface/Metal Reflectance` was that
+> list's other entry and shipped on 2026-09-09** — the node, the kernel and the compound — so
+> [#1096](https://github.com/Rikarin/Vixen/issues/1096) is closed and this paragraph's "stays refused"
+> was one batch stale, which is the fourth time this stretch has said a thing the tree already
+> contradicted. Which compounds declare parameters is likewise a property of the files rather than of
+> this sentence: § D9's knobs are the norm here, and the handful without them carry a literal
+> `parameters: []`.
 > **M11** ([#576](https://github.com/Rikarin/Vixen/issues/576)) is owed an *author*: this row said
 > "M11's height" until 2026-09-08 and that stopped being true — `TexturedMaterialLayersFeature`
 > carries `HeightBlended` and a per-layer `HeightMap`, textured emissive and opacity ship, #493 is
@@ -1039,8 +1035,9 @@ came to carry a thousand words of § 1.11's narrative and to be wrong three time
 holds the evidence, and the issue.** Three shapes are barred outright, because all three of the
 drifts were one of them:
 
-- **A count.** "4, then 31, then 31 again" was the compound library; the derived list is
-  `TextureCompoundLibrary.Shipped` and a number written here is a snapshot of the day it was typed.
+- **A count.** "4, then 16, then 31, then 34" was the compound library — four writings, four wrong,
+  each contradicted by the tree inside a batch. The derived list is
+  `TextureCompoundLibrary.Shipped`; a number written here is a snapshot of the day it was typed.
 - **"Nothing calls X" / "X does not exist".** Row 93 said no pane showed a `.vxlayers`' model for a
   whole batch after `PaintMeshView` landed, while § 1.11 in this same file described that pane.
 - **History.** What a row *used to say* belongs in `git log`. A row that carries its own corrections

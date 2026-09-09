@@ -1508,7 +1508,11 @@ static class LayerStackGraph {
                     // read for its *red*, which the `Colour/Channel Shuffle` above this does. So a
                     // mask canvas is painted in white and its coverage is the value of the channel,
                     // never an alpha — a painted mask whose alpha carried the coverage would mask
-                    // nothing, for the exact reason `Into` gives for replacing a bitmap's alpha.
+                    // nothing, for the exact reason the texture case above gives for reading the red
+                    // channel rather than the alpha. ⚠ This said "the reason `Into` gives", and
+                    // nothing in this file has ever declared an `Into` — the same dead name the
+                    // cref on `MaskSource` carried, which is what a rename leaves behind when no
+                    // instrument can see either half.
                     var painted = entry.Paint.Trim();
 
                     if (painted.Length == 0) {
