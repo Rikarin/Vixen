@@ -118,6 +118,13 @@ sealed class GlslEmitter {
     /// </summary>
     IrFunction? currentFunction;
 
+    /// <summary>What this stage does to each storage image it can reach.</summary>
+    /// <remarks>
+    ///     Computed once here rather than per declaration: it is a walk of the stage's whole call
+    ///     graph, and the declarations are emitted in one pass over the binding plan.
+    /// </remarks>
+    readonly ImageAccess.Access imageAccess;
+
     internal GlslEmitter(
         IrModule module,
         IrShader shader,
@@ -132,13 +139,6 @@ sealed class GlslEmitter {
         this.diagnostics = diagnostics;
         imageAccess = ImageAccess.Of(entryPoint);
     }
-
-    /// <summary>What this stage does to each storage image it can reach.</summary>
-    /// <remarks>
-    ///     Computed once here rather than per declaration: it is a walk of the stage's whole call
-    ///     graph, and the declarations are emitted in one pass over the binding plan.
-    /// </remarks>
-    readonly ImageAccess.Access imageAccess;
 
     // --- Declarations ------------------------------------------------------
 

@@ -115,6 +115,13 @@ sealed partial class SpirvEmitter {
     /// </summary>
     uint? rayQueryVariable;
 
+    /// <summary>What this stage does to each storage image it can reach.</summary>
+    /// <remarks>
+    ///     Computed once here rather than per declaration: it is a walk of the stage's whole call
+    ///     graph, and the bindings are declared in one pass over the plan.
+    /// </remarks>
+    readonly ImageAccess.Access imageAccess;
+
     internal SpirvEmitter(
         IrModule irModule,
         IrShader shader,
@@ -132,13 +139,6 @@ sealed partial class SpirvEmitter {
         types = new(module, (type, what) => Report(BackendDiagnostics.NotExpressible, Describe(type, what)));
         imageAccess = ImageAccess.Of(entryPoint);
     }
-
-    /// <summary>What this stage does to each storage image it can reach.</summary>
-    /// <remarks>
-    ///     Computed once here rather than per declaration: it is a walk of the stage's whole call
-    ///     graph, and the bindings are declared in one pass over the plan.
-    /// </remarks>
-    readonly ImageAccess.Access imageAccess;
 
     // --- Declarations ------------------------------------------------------
 
