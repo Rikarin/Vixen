@@ -1,0 +1,15 @@
+# Projects that declare a [Component] [DataContract] type, can see Vixen.Engine, and do not name
+# Vixen.Engine.Generators. One project name per line; everything after the first space is why.
+#
+# ⚠ This list can only SHRINK. `CheckArchitecture` fails on a project that is here and has become
+# clean, exactly as `docs/DataContractGeneratorExempt.txt`, `docs/WhitespaceExempt.txt` and
+# `docs/DocCommentExempt.txt` do — so a line that has done its job cannot sit here hiding the next
+# project to break the same way.
+#
+# ⚠ What being on this list means: nothing calls SceneComponentRegistry.Declare<T>() for those types.
+# They still serialise and their aliases still resolve — the two Vixen.Core generators are a
+# different question and `docs/DataContractGeneratorExempt.txt` is where that one is answered. What
+# is missing is the third declaration, so the Add Component menu does not offer the type and a
+# .vxscene naming it fails at load. Found by hand in #989, #1005 and #1056 before this rule existed.
+
+Vixen.Editor.App.Tests LateComponent and LateDefaulted (ComponentTests.cs) carry the pair on purpose, standing in for a plugin's component registered BY HAND after the editor is up — which is the mechanism those tests exist to prove, and a generated declaration would prove it about the generator instead.

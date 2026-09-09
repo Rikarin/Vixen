@@ -88,6 +88,18 @@
         -->
         <Compile Include="..\..\build\DataContractGeneratorRule.cs" Link="DataContractGeneratorRule.cs" />
         <Compile Include="..\..\build\PluginReferenceRule.cs" Link="PluginReferenceRule.cs" />
+
+        <!--
+            ⚠ And the strictly narrower one beside it (#1139): a project that names the two
+            Vixen.Core generators and not `Vixen.Engine.Generators` reads CLEAN under the rule above
+            and is still missing `SceneComponentRegistry.Declare<T>()`. `Vixen.Ai.Nodes` and
+            `Vixen.Ai.Perception` were both in that state and both read clean, which is the third
+            time the shape was found by hand (#989 → #1005 → #1056). Same arrangement for the same
+            reason: the gate is one caller of this source and `ComponentGeneratorRuleTests` is the
+            other, because a rule whose only answer comes from a Release solution build is a rule
+            nobody has watched produce one.
+        -->
+        <Compile Include="..\..\build\ComponentGeneratorRule.cs" Link="ComponentGeneratorRule.cs" />
     </ItemGroup>
 
     <!--

@@ -333,6 +333,35 @@ partial class Build {
                     )
                 );
 
+                // #1139. Strictly narrower than the rule above and invisible to it: a project naming
+                // the two Vixen.Core generators and not `Vixen.Engine.Generators` reads clean there
+                // and is missing the third declaration — `SceneComponentRegistry.Declare<T>()` — so
+                // the type serialises, its alias resolves, and the Add Component menu does not offer
+                // it while a .vxscene naming it fails at load. `Vixen.Ai.Nodes` and
+                // `Vixen.Ai.Perception` were both in that state and both read clean (#1056), which is
+                // the third time the shape was found by hand rather than by a gate.
+                //
+                // ⚠ The subject set is both halves — carries the pair AND reaches Vixen.Engine — so a
+                // rename of the registry assembly reports "checking nothing" rather than "no
+                // violations", which is the one this rule could plausibly go quiet on.
+                var componentSubjects = ComponentGeneratorRule.Subjects(
+                    projects.Select(project => project.ToString())
+                );
+
+                Assert.True(
+                    componentSubjects.Count > 0,
+                    $"No project declares a [Component] [DataContract] type and reaches "
+                    + $"{ComponentGeneratorRule.Registry}, so the component-registration rule is checking "
+                    + "nothing."
+                );
+
+                violations.AddRange(
+                    ComponentGeneratorRule.Violations(
+                        RootDirectory,
+                        projects.Select(project => project.ToString())
+                    )
+                );
+
                 foreach (var violation in violations) {
                     Log.Error("{Violation}", violation);
                 }
@@ -347,11 +376,13 @@ partial class Build {
                 // which references the contract because it hosts plugins — was being counted as one
                 // of them.
                 Log.Information(
-                    "Checked {Count} projects, of which {Plugins} are editor plugins and {Subjects} apply "
-                    + "[DataContract]; no violations.",
+                    "Checked {Count} projects, of which {Plugins} are editor plugins, {Subjects} apply "
+                    + "[DataContract] and {Components} declare a [Component] [DataContract] type the scene "
+                    + "registry can see; no violations.",
                     projects.Count,
                     PluginReferenceRule.Plugins(edges).Count,
-                    subjects
+                    subjects,
+                    componentSubjects.Count
                 );
             }
         );
