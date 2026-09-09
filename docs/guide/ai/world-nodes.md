@@ -137,6 +137,12 @@ it pointed at a key, and `RotateToward` with no key falls through to it.
 focus nobody cleared is a guard that keeps staring at where an enemy was after it has forgotten
 about it.
 
+⚠ **A focus is not saved, and cannot be.** `AiFocus.Target` is an `Entity`, and an entity id is a
+dense, reused slot in one running process — written into a scene it names a different entity on the
+way back, or nothing. So `AiFocus` carries `[Component]` alone: no level places one, and a loaded
+world starts with no focus until the tree runs and chooses again. `PatrolRoute` is the placeable
+component here, because a route is a property of the level rather than of the moment.
+
 ## Examples
 
 Registering the nodes so a `.vxbt` can name them — the query and the sounds are the two things a

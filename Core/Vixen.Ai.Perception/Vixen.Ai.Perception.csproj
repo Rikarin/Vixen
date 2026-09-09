@@ -52,6 +52,17 @@
         <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
+
+        <!--
+            ⚠ The third declaration, missing for the same reason it was missing in Vixen.Ai.Nodes
+            (#1056): a serializer and a descriptor let a scene turn `!AiStimuliSource` into bytes and
+            back, but SceneComponentRegistry is what lets the editor offer it and what lets the
+            loader attach it, and that call comes from Vixen.Engine.Generators. Referencing
+            Vixen.Engine does not carry it — an analyzer does not flow through a ProjectReference.
+        -->
+        <ProjectReference Include="..\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

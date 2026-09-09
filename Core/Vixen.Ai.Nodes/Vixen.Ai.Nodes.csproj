@@ -50,11 +50,24 @@
                           ReferenceOutputAssembly="false" />
 
         <!--
-            AiFocus and PatrolRoute are scene components — a patrol route is authored in the level
-            editor and is the one thing here a designer really does place — so they need the
-            descriptor as well as the serializer.
+            PatrolRoute is a scene component — a patrol route is authored in the level editor and is
+            the one thing here a designer really does place — so it needs the descriptor as well as
+            the serializer. ⚠ AiFocus is not one and never could have been: it holds an Entity, so a
+            written copy names a slot in the process that wrote it. See its own remarks.
         -->
         <ProjectReference Include="..\Vixen.Core.Reflection.Generator\Vixen.Core.Reflection.Generator.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+
+        <!--
+            ⚠ The comment above was true and the wiring under it was not. A serializer and a type
+            descriptor are two of the three declarations a scene component needs; the third is
+            SceneComponentRegistry's, and it comes from Vixen.Engine.Generators, which this project
+            did not name. Analyzers do not flow through a ProjectReference, so referencing
+            Vixen.Engine bought nothing — PatrolRoute was a component the Add Component menu could
+            not offer and a .vxscene could not name, silently. #1056.
+        -->
+        <ProjectReference Include="..\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj"
                           OutputItemType="Analyzer"
                           ReferenceOutputAssembly="false" />
     </ItemGroup>

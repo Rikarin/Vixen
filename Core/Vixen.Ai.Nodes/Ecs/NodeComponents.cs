@@ -22,9 +22,21 @@ namespace Vixen.Ai.Nodes.Ecs;
 ///         because <see cref="Entity.Null" /> already means "there is no entity", so the tag would be
 ///         a second copy of a fact the value carries.
 ///     </para>
+///     <para>
+///         ⚠ <b><c>[Component]</c> without <c>[DataContract]</c>, and it carried both until #1056.</b>
+///         <see cref="Target" /> is an <see cref="Entity" />, and an entity id is a dense, reused slot
+///         in one running process — written into a <c>.vxscene</c> or a captured world it names a
+///         different entity on the way back, or nothing at all, and neither failure says so.
+///         <c>CameraTargets</c>, <c>Possessing</c>, <c>PossessedBy</c>, <c>ViewTarget</c> and
+///         <c>PredictionSmoothing</c> all keep the same rule for the same reason;
+///         <c>VXS0416</c> is that convention with a compiler behind it, and this type is the one it
+///         found that had drifted out of it. A focus that has to survive a save has nothing to hold
+///         instead until there is a persistent entity identity —
+///         <a href="https://github.com/Rikarin/Vixen/issues/296">#296</a>. A focus is a decision the
+///         tree makes each time it runs, so losing it across a load is the correct outcome anyway.
+///     </para>
 /// </remarks>
 [Component]
-[DataContract]
 public struct AiFocus {
     /// <summary>What it is looking at, or <see cref="Entity.Null" /> for <see cref="Point" />.</summary>
     public Entity Target;

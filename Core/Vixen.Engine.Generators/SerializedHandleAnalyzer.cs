@@ -165,6 +165,29 @@ public sealed class SerializedHandleAnalyzer : DiagnosticAnalyzer {
             }
         }
 
+        // ⚠ A struct's own fields, which the walk did not follow and which is where the rule leaked.
+        // `List<Entity>` was refused and `struct Link { public Entity Target; }` was waved through,
+        // even though the wrapped handle is the *more* dangerous of the two: the bytes sit inside the
+        // component either way, the generated serializer writes them either way, and a wrapper is
+        // what a codebase reaches for as soon as it has more than one kind of link.
+        //
+        // Structs only, and the bound is the honest half of the rule. A class field is a pointer
+        // rather than bytes in the chunk, its graph can be arbitrarily large, and whether any of it
+        // reaches a file depends on a serializer this analyzer cannot see — so walking it would make
+        // the predicate unpredictable. A primitive or an enum has no field worth following and
+        // `System.Single` holds a `float` of its own, which is a walk that only terminates on the
+        // depth bound.
+        if (named.TypeKind != TypeKind.Struct || named.SpecialType != SpecialType.None) {
+            return false;
+        }
+
+        foreach (var member in named.GetMembers()) {
+            if (member is IFieldSymbol { IsConst: false, IsStatic: false } field
+                && Holds(field.Type, entity, depth - 1)) {
+                return true;
+            }
+        }
+
         return false;
     }
 }
