@@ -1,0 +1,46 @@
+# The `A > B` pairings a committed stylesheet declares AND a running editor actually builds.
+#
+# Held against the observed set by
+# `EditorCombinatorPairTests.Every_declared_pairing_the_editor_builds_is_in_the_committed_census`,
+# EXACTLY and in both directions. Derived: re-run that test with VIXEN_REGENERATE=1 to write it back.
+#
+# ⚠ THIS FILE IS A SET OF PROOFS AND MAKES NO NEGATIVE CLAIM. A pairing that is not here is
+# UNJUDGED, never dead. The editor builds panels on demand and the fixture opens a stated few, so
+# absence means "this run did not construct that parent" far more often than it means anything else.
+# `Core/Vixen.Ui.Styling.Tests/CombinatorPairs.txt` holds the domain and says nothing about anybody
+# being alive; `Core/Vixen.Ui.Controls.Advanced.Tests/SuspectCombinatorPairs.txt` is the only file in
+# this question that suspects anything, and it is bounded to controls it built itself.
+#
+# ⚠ A ROW LEAVING IS THE LOUD DIRECTION. It means a presenter or a panel has stopped building a
+# child while a committed sheet still declares the rule — a selector that matches nothing, which
+# draws nothing and reports nothing. That is `compositor-editor > node-canvas` (#525) exactly, and
+# it is the event this file exists to make noisy. Read the diff; do not regenerate past it.
+#
+# ⚠ A row ARRIVING is ordinary here, unlike in the suspect file: it means the editor now builds a
+# pairing some sheet already declared. Regenerating is the right response — after reading it.
+#
+# Every row is a pairing some committed sheet declares, which
+# `Every_proved_pairing_is_one_a_sheet_declares` asserts. Without that confinement a walk over a
+# whole editor commits thousands of rows of plumbing and the two directions above stop meaning
+# anything.
+asset-grid > asset-path
+asset-tile > icon
+asset-tile > image
+browser-filters > search-box
+browser-filters > select
+dock-guide > dock-hint
+dock-split > dock-splitter
+dock-tabstrip > icon-button
+editor-shell > menu-bar
+inspector > scroll-view
+inspector-header > search-box
+mode-bar > toolbar
+outliner-filters > search-box
+outliner-filters > select
+scroll-view > scroll-content
+segment > icon
+segmented-control > segment
+status-bar > status-trailing
+task-center > text
+toolbar > segmented-control
+viewport-bar > toolbar
