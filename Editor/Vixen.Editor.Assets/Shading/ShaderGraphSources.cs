@@ -23,6 +23,29 @@ public readonly record struct ShaderGraphSourceFile(
 ) {
     /// <summary>Whether there is source to compile.</summary>
     public bool Compiled => Text.Length > 0;
+
+    /// <summary>The compilation itself, or null where the graph did not compile.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Carried because <see cref="Text" /> is not what every caller wants, and dropping
+    ///         it cost a second copy of this file's middle</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1117">#1117</a>. A shader compilation
+    ///         wants the generated Raven; a caller composing the graph <em>as a material feature</em>
+    ///         wants <c>ShaderGraphSource.Properties</c> and <c>Maps</c>, which
+    ///         <c>ShaderGraphMaterial.Values</c> and <c>ShaderGraphMaterial.Feature</c> both take.
+    ///         Those went out of scope here, so <c>MaterialDocument.ReadGraph</c> re-spelled the
+    ///         parse, the load, the registry and the <see cref="ShaderGraphCompiler.DefaultName" />
+    ///         rule to get at an object this method already had.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Non-null for a standalone graph, where <see cref="Text" /> is empty.</b> The two
+    ///         answer different questions: <see cref="Compiled" /> is "is there Raven for a shader
+    ///         build", and a standalone graph deliberately contributes none. Whether a graph is one a
+    ///         material can compose is <c>ShaderGraphSource.Kind</c>, and a caller that has to say so
+    ///         in a sentence needs the kind rather than the absence.
+    ///     </para>
+    /// </remarks>
+    public ShaderGraphSource? Source { get; init; }
 }
 
 /// <summary>
@@ -186,10 +209,13 @@ public static class ShaderGraphSources {
             return new(path, string.Empty, string.Empty, notes);
         }
 
-        // A standalone graph is skipped rather than refused; see the type's remarks.
+        // A standalone graph is skipped rather than refused; see the type's remarks. ⚠ Skipped means
+        // "contributes no Raven to a shader compilation" and not "was not compiled" — the
+        // compilation is carried either way, because the caller that has to explain a standalone
+        // graph to an author needs its name and its kind to do it.
         return result.Value.Kind == ShaderGraphKind.Surface
-            ? new(path, result.Value.Name, result.Value.Source, notes)
-            : new(path, result.Value.Name, string.Empty, notes);
+            ? new(path, result.Value.Name, result.Value.Source, notes) { Source = result.Value }
+            : new(path, result.Value.Name, string.Empty, notes) { Source = result.Value };
     }
 
     /// <summary>The built-in node library.</summary>

@@ -5,9 +5,9 @@ using System.Diagnostics.CodeAnalysis;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
+using Vixen.Editor.Assets.Shading;
 using Vixen.Editor.Core;
 using Vixen.Editor.Inspector;
-using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
 using Vixen.Rendering.Materials;
 
@@ -352,6 +352,24 @@ public sealed class MaterialDocument : EditorDocument {
     ///         about a master node an author can add; reaching that refusal from a row of number
     ///         fields would report it as a failed edit instead.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What compiling a graph asset <em>means</em> is
+    ///         <see cref="ShaderGraphSources" />' and no longer also this method's</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1117">#1117</a>. This used to
+    ///         re-spell the parse, the <c>NodeGraphDocument.Load</c>, the shader-graph registry and
+    ///         the <c>DefaultName</c> rule, because the one production path that already did all
+    ///         four packaged its result as generated <em>text</em> and let the compilation go out of
+    ///         scope. Two places deciding that could disagree about the default name, about which
+    ///         repairs are reported, and about whether a standalone graph is skipped or refused —
+    ///         and only this one would have been looked at when a material's properties were wrong.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A file that will not parse now reaches the author through the same sentence as a
+    ///         graph that will not compile</b>, where it used to have one of its own. Telling them
+    ///         apart needs the parse, and doing the parse here is the duplication above; the
+    ///         diagnostic itself still says which it was, and it now carries the compiler's id with
+    ///         it because <see cref="ShaderGraphSourceFile.Diagnostics" /> is written for a build log.
+    ///     </para>
     /// </remarks>
     public void ReadGraph() {
         GraphSource = null;
@@ -380,29 +398,10 @@ public sealed class MaterialDocument : EditorDocument {
             return;
         }
 
-        NodeGraphModel model;
+        var compiled = ShaderGraphSources.From(entry.Path, text);
 
-        try {
-            model = NodeGraphDocument.Load(YamlSerializer.Parse<NodeGraphAsset>(text), out _);
-        } catch (Exception failure) when (failure is YamlBindingException
-            or YamlParseException or NotSupportedException or FormatException) {
-            GraphProblem = $"The shader graph did not read: {failure.Message}";
-
-            return;
-        }
-
-        NodeTypeRegistry registry = new();
-
-        // ⚠ The shader graph's registry, spelled in full. Every assembly with a `[Node]` in it gets a
-        // generated `NodeTypes` of its own, and this one has several on its references.
-        Vixen.Editor.ShaderGraph.NodeTypes.Register(registry);
-
-        var compiled = new ShaderGraphCompiler(registry) {
-            DefaultName = Path.GetFileNameWithoutExtension(entry.Name)
-        }.Compile(model);
-
-        if (!compiled.Succeeded || compiled.Value is not { } source) {
-            var said = string.Join("; ", compiled.Diagnostics.Select(diagnostic => diagnostic.Message));
+        if (compiled.Source is not { } source) {
+            var said = string.Join("; ", compiled.Diagnostics);
 
             GraphProblem = said.Length > 0
                 ? "The shader graph does not compile, so it declares no properties: " + said
@@ -477,7 +476,11 @@ public sealed class MaterialDocument : EditorDocument {
             Shader = source.Name,
             Numbers = [.. numbers],
             Vectors = [.. vectors],
-            Maps = carried ? before!.Maps : [.. source.Maps.Select(map => new GraphSurfaceMap(map.Texture, map.Slot))]
+            // ⚠ The join from a compiled slot to a `GraphSurfaceMap` is the shader graph's own and
+            // is asked for rather than spelled — #1117. `AssetMaterialSource.Pair` keys the bindless
+            // table on `{shader}.{chain}.{graph}.{slot}`, so a second spelling that dropped a slot
+            // would write nothing for it and read the table's placeholder view for ever.
+            Maps = carried ? before!.Maps : ShaderGraphMaterial.Maps(source)
         };
 
         Stack.Execute(new MaterialGraphValueCommand(this, before, after, property));
