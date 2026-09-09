@@ -132,7 +132,7 @@ public sealed class Color3Drawer : PropertyDrawer<Color3, ColorInput> {
 ///         is not, and a mixed one shows an <b>empty</b> graph rather than one of the curves.
 ///     </para>
 ///     <para>
-///        ⚠ <b>Compared key by key, and that comparison is no longer this drawer's private
+///         ⚠ <b>Compared key by key, and that comparison is no longer this drawer's private
 ///         opinion.</b> <c>EditProperty.Read</c> used to compare with <c>Equals(object, object)</c>,
 ///         which for a type with no equality is reference identity — and <c>AnimationCurve</c> has
 ///         none — so two objects holding structurally identical curves read as mixed the moment they
