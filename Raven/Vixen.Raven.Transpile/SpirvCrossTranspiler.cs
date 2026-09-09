@@ -77,12 +77,6 @@ sealed class SpirvCrossException : Exception {
 ///     </para>
 /// </remarks>
 static unsafe class SpirvCrossTranspiler {
-    /// <summary>Cross-compiles one SPIR-V module.</summary>
-    /// <param name="spirv">The module, as the words <c>SpirvBackend</c> wrote.</param>
-    /// <param name="dialect">Which GLSL to produce.</param>
-    /// <param name="stage">Which stage the module is, so its varyings can be told from its interface.</param>
-    /// <returns>The source, and the texture/sampler pairs that had to be combined to get it.</returns>
-    /// <exception cref="SpirvCrossException">SPIRV-Cross refused the module.</exception>
     /// <summary>Whether SPIRV-Cross's native library can be loaded on this machine.</summary>
     /// <param name="reason">What the loader said, when it could not.</param>
     /// <returns>Whether <see cref="Transpile" /> has a compiler to call.</returns>
@@ -120,6 +114,12 @@ static unsafe class SpirvCrossTranspiler {
         }
     }
 
+    /// <summary>Cross-compiles one SPIR-V module.</summary>
+    /// <param name="spirv">The module, as the words <c>SpirvBackend</c> wrote.</param>
+    /// <param name="dialect">Which GLSL to produce.</param>
+    /// <param name="stage">Which stage the module is, so its varyings can be told from its interface.</param>
+    /// <returns>The source, and the texture/sampler pairs that had to be combined to get it.</returns>
+    /// <exception cref="SpirvCrossException">SPIRV-Cross refused the module.</exception>
     public static TranspiledShader Transpile(ReadOnlySpan<byte> spirv, GlslDialect dialect, ShaderStage stage) {
         if (spirv.Length == 0 || spirv.Length % 4 != 0) {
             throw new SpirvCrossException(
