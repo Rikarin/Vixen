@@ -514,6 +514,8 @@ Vixen.Rendering.PostFx.GlobalIlluminationQuality.ProbeTileSize.get -> int?
 Vixen.Rendering.PostFx.GlobalIlluminationQuality.ProbeTileSize.init -> int?
 Vixen.Rendering.PostFx.GlobalIlluminationQuality.ScreenTraces.get -> bool?
 Vixen.Rendering.PostFx.GlobalIlluminationQuality.ScreenTraces.init -> bool?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.SsaoBentNormal.get -> bool?
+Vixen.Rendering.PostFx.GlobalIlluminationQuality.SsaoBentNormal.init -> bool?
 Vixen.Rendering.PostFx.GlobalIlluminationQuality.SsaoDirections.get -> int?
 Vixen.Rendering.PostFx.GlobalIlluminationQuality.SsaoDirections.init -> int?
 Vixen.Rendering.PostFx.GlobalIlluminationQuality.SsaoScale.get -> float?
@@ -2409,6 +2411,8 @@ required Vixen.Rendering.PostFx.ResolvedQuality.SlopeBias.get -> float
 required Vixen.Rendering.PostFx.ResolvedQuality.SlopeBias.init -> float
 required Vixen.Rendering.PostFx.ResolvedQuality.SplitLambda.get -> float
 required Vixen.Rendering.PostFx.ResolvedQuality.SplitLambda.init -> float
+required Vixen.Rendering.PostFx.ResolvedQuality.SsaoBentNormal.get -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.SsaoBentNormal.init -> bool
 required Vixen.Rendering.PostFx.ResolvedQuality.SsaoDirections.get -> int
 required Vixen.Rendering.PostFx.ResolvedQuality.SsaoDirections.init -> int
 required Vixen.Rendering.PostFx.ResolvedQuality.SsaoScale.get -> float

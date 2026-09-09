@@ -962,7 +962,15 @@ static class StandardFrame {
                     Output = "ScreenOcclusion",
                     Directions = tier.SsaoDirections,
                     Steps = tier.SsaoSteps,
-                    Scale = tier.SsaoScale
+                    Scale = tier.SsaoScale,
+
+                    // ⚠ The other half of this switch is the combine's `ContactBentNormal` below,
+                    // and the two are one tier column for that reason: this permutation moves the
+                    // occlusion out of `r` and into `a` to make room for the direction, so a frame
+                    // that turned on the producer alone would hand the consumer a direction's x —
+                    // a number in [0, 1] that reads exactly like an occlusion — and one that turned
+                    // on the consumer alone would rotate a plane that holds no direction.
+                    BentNormal = tier.SsaoBentNormal
                 }
             );
         }
@@ -984,6 +992,12 @@ static class StandardFrame {
                     Irradiance = probes ? "ProbeIrradiance" : "",
                     Occlusion = frame.Gi != GiMode.Off ? "AmbientOcclusion" : "",
                     ContactOcclusion = frame.Gi != GiMode.Off ? "ScreenOcclusion" : "",
+
+                    // Set from the same tier column as the producer above, and guarded by the same
+                    // condition that names the plane: with GI off there is no `!Ssao` node, so a
+                    // bare `tier.SsaoBentNormal` here would be a consumer switch over a plane the
+                    // frame does not contain.
+                    ContactBentNormal = frame.Gi != GiMode.Off && tier.SsaoBentNormal,
                     Reflections = mirrors ? "Reflections" : "",
 
                     // The AO planes above run at a fraction of the frame; the depth and the camera

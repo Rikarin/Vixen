@@ -196,6 +196,52 @@ public class StandardFrameTests {
         Assert.True(occlusion.SunShadow);
     }
 
+    /// <summary>
+    ///     The bent normal is one tier column driving two switches, and never one of them.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The producer and the consumer cannot be set separately, and the failure is
+    ///         silent both ways round.</b> <c>!Ssao</c>'s permutation writes the direction over rgb
+    ///         and moves the occlusion into alpha, so a frame with the producer on and the consumer
+    ///         off multiplies its whole ambient term by a direction's x — a number in [0, 1] that
+    ///         looks exactly like an occlusion — and a frame with the consumer on and the producer
+    ///         off rotates a plane that holds no direction. So the assertion is equality between
+    ///         the two switches rather than each one's value, over every tier and both GI modes.
+    ///     </para>
+    ///     <para>
+    ///         The tier column itself is spot-checked at the two ends: off below High, on at High
+    ///         and Epic. Before this was wired, <c>StandardFrame</c> set neither switch at any tier
+    ///         and the whole feature was reachable only from a hand-authored document — which the
+    ///         High and Epic halves below are red for.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(QualityTier.Low, false)]
+    [InlineData(QualityTier.Medium, false)]
+    [InlineData(QualityTier.High, true)]
+    [InlineData(QualityTier.Epic, true)]
+    public void The_bent_normals_producer_and_consumer_are_one_tier_column(QualityTier tier, bool on) {
+        foreach (var gi in (GiMode[])[GiMode.Ambient, GiMode.Probes]) {
+            var document = Expand(AllOff with { Gi = gi, Quality = tier });
+
+            var contact = Node<SsaoAsset>(document, "ContactOcclusion");
+            var combine = Node<AmbientCombineAsset>(document, "Combine");
+
+            Assert.Equal(on, contact.BentNormal);
+            Assert.Equal(contact.BentNormal, combine.ContactBentNormal);
+        }
+
+        // ⚠ And with GI off there is no `!Ssao` node at all, so the consumer's switch must be off
+        // whatever the tier says: a combine asking to read a bent-normal plane the frame does not
+        // contain is the same disagreement seen from the other end. This is the half that makes the
+        // four tier goldens — which stage `gi: off` — unable to see this change.
+        var bare = Expand(AllOff with { Quality = tier, Reflections = ReflectionsMode.Screen });
+
+        Assert.DoesNotContain("ContactOcclusion", Names(bare));
+        Assert.False(Node<AmbientCombineAsset>(bare, "Combine").ContactBentNormal);
+    }
+
     [Fact]
     public void Ambient_gi_runs_the_occlusion_pair_without_the_probe_machinery() {
         var document = Expand(AllOff with { Gi = GiMode.Ambient });

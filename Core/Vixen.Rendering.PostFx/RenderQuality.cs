@@ -164,6 +164,20 @@ public sealed record GlobalIlluminationQuality {
     public float? SsaoScale { get; init; }
 
     /// <summary>
+    ///     Whether the AO march also writes the average unoccluded direction, and the combine reads
+    ///     the ambient along it — <see cref="SsaoAsset.BentNormal" /> and
+    ///     <see cref="AmbientCombineAsset.ContactBentNormal" /> together.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>One knob because the two switches cannot be set separately.</b> The producer's
+    ///     permutation decides the plane's layout — the direction takes rgb and the occlusion moves
+    ///     to alpha — and the consumer's switch decides how it is read. A frame that set one would
+    ///     either read a direction's x as an occlusion or pay the whole cost of the permutation for
+    ///     a term it throws away, so the expansion drives both from this.
+    /// </remarks>
+    public bool? SsaoBentNormal { get; init; }
+
+    /// <summary>
     ///     The surface-cache atlas side in texels. ⚠ Carried, not yet consumed:
     ///     <see cref="SurfaceCacheAsset" /> sizes its atlas internally today.
     /// </summary>
@@ -572,6 +586,9 @@ public sealed record ResolvedQuality {
     /// <summary>See <see cref="GlobalIlluminationQuality.SsaoScale" />.</summary>
     public required float SsaoScale { get; init; }
 
+    /// <summary>See <see cref="GlobalIlluminationQuality.SsaoBentNormal" />.</summary>
+    public required bool SsaoBentNormal { get; init; }
+
     /// <summary>See <see cref="GlobalIlluminationQuality.SurfaceCacheSize" />.</summary>
     public required int SurfaceCacheSize { get; init; }
 
@@ -741,6 +758,7 @@ public static class RenderQuality {
                 SsaoDirections = 4,
                 SsaoSteps = 4,
                 SsaoScale = 0.5f,
+                SsaoBentNormal = false,
                 SurfaceCacheSize = 1024
             },
             Reflections = new() { ScreenSteps = 16, RoughnessThreshold = 0.5f, TraceScale = 0.5f },
@@ -804,6 +822,7 @@ public static class RenderQuality {
                 SsaoDirections = 6,
                 SsaoSteps = 4,
                 SsaoScale = 0.5f,
+                SsaoBentNormal = false,
                 SurfaceCacheSize = 2048
             },
             Reflections = new() { ScreenSteps = 24, RoughnessThreshold = 0.5f, TraceScale = 0.5f },
@@ -867,6 +886,7 @@ public static class RenderQuality {
                 SsaoDirections = 8,
                 SsaoSteps = 6,
                 SsaoScale = 0.5f,
+                SsaoBentNormal = true,
                 SurfaceCacheSize = 4096
             },
             Reflections = new() { ScreenSteps = 32, RoughnessThreshold = 0.5f, TraceScale = 1f },
@@ -933,6 +953,7 @@ public static class RenderQuality {
                 SsaoDirections = 12,
                 SsaoSteps = 8,
                 SsaoScale = 1f,
+                SsaoBentNormal = true,
                 SurfaceCacheSize = 8192
             },
             Reflections = new() { ScreenSteps = 64, RoughnessThreshold = 0.5f, TraceScale = 1f },
@@ -1035,6 +1056,7 @@ public static class RenderQuality {
             SsaoDirections = Pick(t => t.GlobalIllumination, g => g.SsaoDirections, "gi.ssaoDirections"),
             SsaoSteps = Pick(t => t.GlobalIllumination, g => g.SsaoSteps, "gi.ssaoSteps"),
             SsaoScale = Pick(t => t.GlobalIllumination, g => g.SsaoScale, "gi.ssaoScale"),
+            SsaoBentNormal = Pick(t => t.GlobalIllumination, g => g.SsaoBentNormal, "gi.ssaoBentNormal"),
             SurfaceCacheSize = Pick(t => t.GlobalIllumination, g => g.SurfaceCacheSize, "gi.surfaceCacheSize"),
             ReflectionSteps = Pick(t => t.Reflections, g => g.ScreenSteps, "reflections.screenSteps"),
             RoughnessThreshold = Pick(t => t.Reflections, g => g.RoughnessThreshold, "reflections.roughnessThreshold"),
