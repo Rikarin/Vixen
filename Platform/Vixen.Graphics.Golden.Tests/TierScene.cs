@@ -607,8 +607,6 @@ sealed class TierScene : IDisposable {
             new(Bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "tier readback")
         );
 
-        VulkanDiagnostics.Reset();
-
         for (var frame = 0; frame < frames; frame++) {
             device.BeginFrame();
 

@@ -91,7 +91,6 @@ public sealed class ScreenProbeAccumulateDeviceTests {
             accumulate.ViewProjection = view;
 
             allocator.BeginFrame();
-            VulkanDiagnostics.Reset();
             device.BeginFrame();
 
             using (var commands = device.BeginCommandList(QueueKind.Graphics, "accumulate")) {
@@ -210,7 +209,6 @@ public sealed class ScreenProbeAccumulateDeviceTests {
         var filteredProbes = new SphericalHarmonicsL1[count];
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "filter")) {

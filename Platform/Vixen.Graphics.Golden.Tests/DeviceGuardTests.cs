@@ -43,6 +43,17 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         <see cref="EveryClassThatOpensADeviceIsSerialised" /> holds every device opener in the one
 ///         collection xunit will not run in parallel with itself.
 ///     </para>
+///     <para>
+///         ⚠ <b>The fourth is that argument again about the validation counter, and it is the one
+///         that had been lost fifty-four times over.</b> <c>Fixture.TryOpen</c> resets
+///         <c>VulkanDiagnostics</c> at the door precisely so that everything a fixture <em>builds</em>
+///         is covered by the <c>ErrorCount</c> check it makes later (#1174). A second
+///         <c>VulkanDiagnostics.Reset()</c> anywhere downstream throws that window away — the check
+///         then reads a counter the harness zeroed after its own setup, and reports health it never
+///         measured. #1186 named five such files; there were twenty-seven, and the fix is only stable
+///         if the count is held at one. <see cref="OnlyTheFixtureResetsTheValidationCounter" /> holds
+///         it.
+///     </para>
 /// </remarks>
 public sealed class DeviceGuardTests {
     /// <summary>The door: the one call that produces a device, spelled as callers spell it.</summary>
@@ -56,6 +67,9 @@ public sealed class DeviceGuardTests {
 
     /// <summary>The call behind the door, which nothing but the fixture may make.</summary>
     const string Creation = "VulkanDevice.TryCreate";
+
+    /// <summary>The counter reset, which nothing but the fixture's door may make.</summary>
+    const string Zeroing = "VulkanDiagnostics.Reset";
 
     /// <summary>The collection every device opener belongs to, because two devices is one too many.</summary>
     const string Serialised = "Vulkan";
@@ -140,6 +154,69 @@ public sealed class DeviceGuardTests {
             .ToArray();
 
         Assert.Equal(["Fixture.cs"], creators);
+    }
+
+    /// <summary>The fixture's door is the only thing in this assembly that zeroes the counter.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A harness that resets after its own setup is #1174 again, one file at a time.</b>
+    ///         Every <c>ErrorCount</c> check in this assembly reads a counter it did not zero, and
+    ///         what makes that check mean anything is that the zeroing happened at
+    ///         <c>Fixture.TryOpen</c> — before the textures, buffers, pipelines and descriptor sets
+    ///         the harness goes on to build. A second reset moves the window's start past all of
+    ///         them, so the check afterwards is true of a counter the harness set to zero itself and
+    ///         says nothing at all about construction. That is an instrument reporting health it
+    ///         never measured, and it survived #1174 in twenty-seven files.
+    ///     </para>
+    ///     <para>
+    ///         <b>The instrument check comes first.</b> "Nowhere resets" satisfies "only the fixture
+    ///         resets" — so a tree where the door itself stopped resetting is a tree this test would
+    ///         wave through while every <c>ErrorCount</c> check in the assembly quietly became
+    ///         cumulative across its whole class. The door is asserted to still carry the call before
+    ///         anything else is asked.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void OnlyTheFixtureResetsTheValidationCounter() {
+        var sources = Directory.GetFiles(ProjectDirectory(), "*.cs", SearchOption.TopDirectoryOnly);
+
+        Assert.True(sources.Length >= 50, $"{sources.Length} sources under '{ProjectDirectory()}' is not this project.");
+
+        // ⚠ The instrument, first. A tree where nothing resets passes the census below perfectly.
+        Assert.True(
+            File.ReadLines(Path.Combine(ProjectDirectory(), "Fixture.cs")).Any(Calls),
+            $"`Fixture.cs` no longer calls `{Zeroing}`, so nothing zeroes the counter at the door and "
+            + "every `ErrorCount` check in this assembly is now cumulative across its whole class. "
+            + "The census below would have passed on that tree, which is the reason this line is above it."
+        );
+
+        var zeroing = sources
+            .Where(path => !string.Equals(Path.GetFileName(path), Self, StringComparison.Ordinal))
+            .Where(path => File.ReadLines(path).Any(Calls))
+            .Select(path => Path.GetFileName(path)!)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.True(
+            zeroing.Length == 1 && string.Equals(zeroing[0], "Fixture.cs", StringComparison.Ordinal),
+            $"`{Zeroing}` is called from {string.Join(", ", zeroing)}. It may only be called from the "
+            + $"door, `{Door}`: a harness that resets after building its own resources moves the "
+            + "start of the window past them, and the `ErrorCount` check it makes afterwards then "
+            + "reports a counter the harness zeroed itself. That is #1174, per file."
+        );
+    }
+
+    /// <summary>Whether a line of source calls the reset, rather than merely naming it.</summary>
+    /// <remarks>
+    ///     ⚠ Comment lines are skipped, and that is not fussiness: <c>FixtureTextureViewTests</c>'
+    ///     remarks explain the door's reset by spelling the call, and a whole-file <c>Contains</c>
+    ///     would report the file that documents the rule as the file that breaks it.
+    /// </remarks>
+    static bool Calls(string line) {
+        var trimmed = line.TrimStart();
+
+        return !trimmed.StartsWith("//", StringComparison.Ordinal)
+            && trimmed.Contains($"{Zeroing}()", StringComparison.Ordinal);
     }
 
     /// <summary>Every class that opens a device is in the one collection that runs serially.</summary>

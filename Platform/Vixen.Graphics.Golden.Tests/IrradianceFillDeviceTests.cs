@@ -160,7 +160,6 @@ public sealed class IrradianceFillDeviceTests {
         var probes = new IrradianceProbe[field.Pool.Texels.Length];
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "irradiance fill")) {

@@ -60,7 +60,6 @@ public sealed class ScreenProbeTraceDeviceTests {
 
         var texels = new Vector4[atlas.Layout.AtlasSize.X * atlas.Layout.AtlasSize.Y];
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "screen probe upload")) {
@@ -138,7 +137,6 @@ public sealed class ScreenProbeTraceDeviceTests {
         var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "screen probe trace")) {
@@ -236,7 +234,6 @@ public sealed class ScreenProbeTraceDeviceTests {
         var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "screen probe far trace")) {
@@ -384,7 +381,6 @@ public sealed class ScreenProbeTraceDeviceTests {
         var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "screen trace")) {
@@ -569,7 +565,6 @@ public sealed class ScreenProbeTraceDeviceTests {
         var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "screen trace radiance")) {
@@ -758,7 +753,6 @@ public sealed class ScreenProbeTraceDeviceTests {
         var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "pyramid screen trace")) {
@@ -938,7 +932,6 @@ public sealed class ScreenProbeTraceDeviceTests {
         // chain deliberately unused. Both kernels carry the guard and both had the defect.
         foreach (var hierarchical in new[] { true, false }) {
             allocator.BeginFrame();
-            VulkanDiagnostics.Reset();
             device.BeginFrame();
 
             using (var commands = device.BeginCommandList(QueueKind.Graphics, "tilted screen trace")) {

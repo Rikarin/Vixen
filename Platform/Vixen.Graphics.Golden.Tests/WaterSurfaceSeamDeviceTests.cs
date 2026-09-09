@@ -333,7 +333,6 @@ public class WaterSurfaceSeamDeviceTests {
             );
         }
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Compute, "water seam")) {

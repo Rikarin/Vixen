@@ -136,7 +136,6 @@ public sealed class ReflectionRendererDeviceTests {
             new BufferDescription(Side * Side * 16, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "node-readback")
         );
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "reflection-node")) {

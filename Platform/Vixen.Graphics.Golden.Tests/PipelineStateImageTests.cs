@@ -26,6 +26,18 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         changes the picture rather than shading it differently. A fixture whose sabotage produces
 ///         a two-level colour shift is a fixture that will be within tolerance on the next driver.
 ///     </para>
+///     <para>
+///         ⚠ <b>Naming that class of bug is not catching it across backends, and this file catches
+///         it on exactly one.</b> Doc 05's level is the same fixture rendered on two drivers and
+///         compared; every fixture here runs on <see cref="Fixture" />, which creates a
+///         <c>VulkanDevice</c> and nothing else. Several of the remarks below reason about what the
+///         GL backend has to do differently — the winding it inverts, the bottom-left origin it
+///         converts, the draw buffers it has to name — and no assertion in this assembly has ever
+///         asked GL to do any of it. So a bit GL drops is a bit these pictures are blind to, which
+///         is <a href="https://github.com/Rikarin/Vixen/issues/302">#302</a> and is the reason those
+///         remarks are worth reading as a specification for a level that does not run rather than as
+///         a record of one that does.
+///     </para>
 /// </remarks>
 [Collection("Vulkan")]
 public sealed class PipelineStateImageTests {

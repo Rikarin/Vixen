@@ -260,8 +260,6 @@ public sealed class IrradianceCaptureDeviceTests {
     ) {
         using var source = Source(fixture, scene ?? Quad(Toward * Distance, Emissive), default, sun ?? Vector3.UnitY);
 
-        VulkanDiagnostics.Reset();
-
         Assert.True(source.TryCapture(position, out capture));
 
         captured = source.Captured;

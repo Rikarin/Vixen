@@ -334,7 +334,6 @@ public class MorphScatterDeviceTests {
             new(bytes, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "morph feature readback")
         );
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
         descriptors.BeginFrame();
 
@@ -538,7 +537,6 @@ public class MorphScatterDeviceTests {
             passes.Add((set, (target.Count + 63) / 64));
         }
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Compute, "morph scatter")) {

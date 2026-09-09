@@ -180,7 +180,6 @@ public sealed class AccelerationStructureDeviceTests {
         var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "ray-query")) {

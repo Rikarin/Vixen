@@ -321,7 +321,6 @@ public sealed class IrradianceBounceDeviceTests {
                 // Everything a frame does before it records: extract, cull, prepare, sort. Six views
                 // at once, which is what makes one command list enough for a whole cube.
                 system.Draw();
-                VulkanDiagnostics.Reset();
             },
 
             // ⚠ Before the submit, not after. See RenderedIrradianceCaptures.Recorded.

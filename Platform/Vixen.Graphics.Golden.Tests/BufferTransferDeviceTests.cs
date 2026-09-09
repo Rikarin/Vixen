@@ -94,7 +94,6 @@ public class BufferTransferDeviceTests {
             }
         );
 
-        VulkanDiagnostics.Reset();
         Run(owned, compositor);
 
         Assert.True(readback.Fetch(), "the readback had nothing to fetch");
@@ -196,7 +195,6 @@ public class BufferTransferDeviceTests {
             }
         );
 
-        VulkanDiagnostics.Reset();
         allocator.BeginFrame();
         Run(owned, compositor, effects);
 

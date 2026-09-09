@@ -86,8 +86,6 @@ public sealed class UiFrameLifetimeTests {
         var target = owned.Owned("ui frames", TextureUsage.ColourTarget | TextureUsage.CopySource);
         var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
 
-        VulkanDiagnostics.Reset();
-
         // A run long enough that the ring comes round: with two frames in flight, the third frame is
         // the first whose set another frame could still be reading. The counts double past the box
         // buffer's own doubling several times over that run.
@@ -201,8 +199,6 @@ public sealed class UiFrameLifetimeTests {
 
         var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
         var uploaded = false;
-
-        VulkanDiagnostics.Reset();
 
         // Long enough that the ring comes round several times, so most of these registrations happen
         // with a submitted frame holding the sets they touch.
@@ -359,8 +355,6 @@ public sealed class UiFrameLifetimeTests {
         var cache = new GlyphFieldCache(new GlyphAtlas(64, 64));
         var uploaded = false;
         var drawn = 0;
-
-        VulkanDiagnostics.Reset();
 
         // ⚠ A different number every frame and the one before it given up, which is a thumbnail
         // cache scrolling: `ThumbnailSurface` counts up from `0x1000` and never comes back.

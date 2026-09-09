@@ -167,7 +167,6 @@ public sealed class ScreenProbeBilateralImageTests {
         };
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "bilateral seed")) {

@@ -251,7 +251,6 @@ public sealed class WaterRippleSeamTests {
 
         var recorded = 0;
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "ripples")) {

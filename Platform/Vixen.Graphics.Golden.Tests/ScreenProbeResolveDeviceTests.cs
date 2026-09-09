@@ -61,7 +61,6 @@ public sealed class ScreenProbeResolveDeviceTests {
         var validities = new float[grid.X * grid.Y];
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "screen probe resolve")) {

@@ -132,7 +132,6 @@ public sealed class ReflectionTraceDeviceTests {
         };
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "reflection-trace")) {
@@ -393,7 +392,6 @@ public sealed class ReflectionTraceDeviceTests {
         };
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "probe-miss")) {
@@ -592,7 +590,6 @@ public sealed class ReflectionTraceDeviceTests {
         );
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "ssr")) {
@@ -813,7 +810,6 @@ public sealed class ReflectionTraceDeviceTests {
         );
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "hzb-ssr")) {
@@ -1087,7 +1083,6 @@ public sealed class ReflectionTraceDeviceTests {
             );
 
             allocator.BeginFrame();
-            VulkanDiagnostics.Reset();
             device.BeginFrame();
 
             using (var commands = device.BeginCommandList(QueueKind.Graphics, "self-ssr")) {

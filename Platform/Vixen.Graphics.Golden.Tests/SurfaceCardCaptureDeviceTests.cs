@@ -105,7 +105,6 @@ public sealed class SurfaceCardCaptureDeviceTests {
 
         using var capture = new SurfaceCardCapture(device) { MaxResolution = 16 };
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "card-capture")) {
@@ -256,7 +255,6 @@ public sealed class SurfaceCardCaptureDeviceTests {
 
         using var capture = new SurfaceCardCapture(device) { MaxResolution = 16, SinglePass = true };
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "mrt-capture")) {
