@@ -118,26 +118,35 @@ Check("window-title-set", window.Title == "vixen-smoke-title", window.Title);
 
 // ── Navigator and screen ─────────────────────────────────────────────────────────────────────
 
+// ⚠ ONE, AND THAT IS THE ASSERTION RATHER THAN A FLOOR (#486). This check used to read `>= 1`,
+// which nothing could fail, and its neighbour asserted `> 1` on the reasoning that cross-origin
+// isolation implies SharedArrayBuffer implies .NET threads. It does not: threads on browser-wasm
+// need a runtime pack built with WasmEnableThreads as well, nothing in this repository sets it, and
+// so the published head has exactly one thread however many the page is entitled to. The engine was
+// reporting eight available processors on a runtime with one, and AppBuilder sized a JobScheduler
+// from that number — see Core/Vixen.App.Hosting/AppBuilder.cs.
+//
+// The detail carries the two numbers that would say the premise had moved: navigator's
+// hardwareConcurrency, and what the runtime itself claims. Reported rather than asserted on purpose
+// — nobody has yet watched Environment.ProcessorCount in a published head, so a number is what this
+// leg is here to bring back, not a prediction to fail on.
 Check(
     "processors",
-    platform.Processors.AvailableProcessors >= 1,
-    platform.Processors.AvailableProcessors.ToString()
+    platform.Processors.AvailableProcessors == 1,
+    $"{platform.Processors.AvailableProcessors} available, "
+    + $"{platform.Processors.PhysicalCores} reported by navigator, "
+    + $"{Environment.ProcessorCount} claimed by the runtime"
 );
 
-// ⚠ This one is about the SERVER, not the browser. WebProcessors.AvailableProcessors is hard 1
-// unless crossOriginIsolated, which needs COOP and COEP on the response — so this fails if
-// browser-smoke.mjs ever stops sending those headers, which is the difference between the engine
-// seeing every core and seeing one.
-//
-// ⚠ And it is an inference, because WebProcessors is internal and IProcessorTopology has no
-// IsCrossOriginIsolated. A genuinely single-core machine would report 1 while isolated and fail
-// this. The driver therefore asserts globalThis.crossOriginIsolated directly as well, and that
-// check is the authority; this one is here because it is the value the engine will actually use.
+// ⚠ This one IS about the browser rather than the build: navigator.hardwareConcurrency has to come
+// back through the interop as a plausible number. It is the half of the old
+// `processors-see-isolation` check that survived #486 — the isolation half was never this value's
+// business, and the driver asserts globalThis.crossOriginIsolated directly, which is and always was
+// the authority for whether browser-smoke.mjs is still sending COOP and COEP.
 Check(
-    "processors-see-isolation",
-    platform.Processors.AvailableProcessors > 1,
-    $"{platform.Processors.AvailableProcessors} available of "
-    + $"{platform.Processors.PhysicalCores} reported by the browser"
+    "processors-hardware-concurrency",
+    platform.Processors.PhysicalCores > 1,
+    platform.Processors.PhysicalCores.ToString()
 );
 
 var display = platform.Displays.Primary;

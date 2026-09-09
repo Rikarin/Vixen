@@ -194,7 +194,8 @@ public sealed class AppBuilder {
             loggerFactory.CreateLogger("Vixen.App")
         );
 
-        var workers = config.WorkerCount ?? Math.Max(1, host.Processors.AvailableProcessors - 1);
+        var workers = config.WorkerCount
+            ?? DefaultWorkerCount(host.Processors.AvailableProcessors, OperatingSystem.IsBrowser());
 
         // The other half of `IProcessorTopology`, and until now the unused one: the count has been
         // read from it since it existed, and nothing in the tree ever called TrySetAffinity. Null
@@ -366,6 +367,40 @@ public sealed class AppBuilder {
             jobs: jobs
         );
     }
+
+    /// <summary>
+    ///     How many job workers a head starts when <see cref="AppConfig.WorkerCount" /> says nothing.
+    /// </summary>
+    /// <param name="availableProcessors">What the platform's <c>IProcessorTopology</c> reports.</param>
+    /// <param name="isBrowser">Whether this is a <c>browser-wasm</c> runtime.</param>
+    /// <returns>One per available processor beyond the calling thread, and none in a browser.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The browser is decided by the target and not by the count, and it has to be:
+    ///         <c>Math.Max(1, available - 1)</c> has a floor of one, so this could never return the
+    ///         one value the browser can accept</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/486">#486</a>). Even the
+    ///         non-isolated page — where <c>WebProcessors</c> already reported a single processor —
+    ///         came out of that expression as <c>Math.Max(1, 0)</c>, so every browser head this
+    ///         builder produced asked for a worker thread, and
+    ///         <see cref="System.Threading.Thread.Start()" /> on <c>browser-wasm</c> throws
+    ///         <see cref="PlatformNotSupportedException" /> before the first frame.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So <c>AppConfig.WorkerCount</c>'s "0 is a supported and tested value" was
+    ///         reachable only by passing it.</b> doc 10 § Cross-platform discipline requires every
+    ///         subsystem to work with <c>workerCount == 0</c> because the browser has none, and the
+    ///         one code path that decides the default for a real head could not produce it.
+    ///     </para>
+    ///     <para>
+    ///         The rule is <c>JobScheduler.DefaultWorkerCount</c>'s, deliberately — that type made
+    ///         the same call for the same reason and this one silently disagreed. A cross-origin
+    ///         isolated build on a threaded runtime that wants the threads it has still passes the
+    ///         count it wants; what it must not do is get them by accident.
+    ///     </para>
+    /// </remarks>
+    internal static int DefaultWorkerCount(int availableProcessors, bool isBrowser) =>
+        isBrowser ? 0 : Math.Max(1, availableProcessors - 1);
 
     /// <summary>
     ///     Turns an application's name into something a file can be called. A title is allowed to

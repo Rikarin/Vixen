@@ -692,10 +692,12 @@ async function main() {
                 : `${observedSelector} resolves to #view`
         );
 
-        // The authority for the check the page can only infer. WebProcessors is internal and
-        // IProcessorTopology has no IsCrossOriginIsolated, so the page infers isolation from a
-        // processor count above one — which a single-core machine would fail while isolated. This
-        // reads the browser's own flag, and it is also the direct test of this file's COOP/COEP.
+        // ⚠ THE ONLY CHECK OF THIS FILE'S COOP/COEP, and it became the only one in #486. The page
+        // used to infer isolation from a reported processor count above one; that inference is gone,
+        // because cross-origin isolation is evidence for .NET threads rather than an answer about
+        // them — the published head links the single-threaded runtime pack whatever the headers say,
+        // so WebProcessors now reports one and the page can no longer see isolation at all. This
+        // reads the browser's own flag, which is what the old comment already called the authority.
         const isolated = await client.send('Runtime.evaluate', {
             expression: 'globalThis.crossOriginIsolated === true', returnByValue: true
         }, sessionId);
