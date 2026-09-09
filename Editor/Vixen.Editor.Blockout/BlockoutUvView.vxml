@@ -1,0 +1,288 @@
+<!--
+    SPDX-FileCopyrightText: Copyright (c) Rikarin
+    SPDX-License-Identifier: Apache-2.0
+
+    docs/plan/42 § D13's UV panel, as the half `BlockoutUvPanel` deliberately left out: "the drawing
+    — the atlas rectangle, the island outlines, the colour ramp — reads these and adds nothing to
+    them." Nothing here computes a metric; every number on screen came out of the model.
+
+    ⚠ **The heat map is two channels and not one ramp, because `IsBad` is a disjunction.** An island
+    with a flipped triangle is a correctness failure however low its stretch is, so it takes a class
+    of its own and never a ramp bucket — a single score would put a badly wound island next to a
+    slightly stretched one and say the same thing about both, which is exactly what
+    `UvIslandView.IsBad` was written not to do. The legend names the two conditions separately for
+    the same reason.
+
+    ⚠ **v is flipped on the way to the screen and that is not cosmetic.** UV space puts v = 0 at the
+    bottom and the layout puts y = 0 at the top, so an atlas drawn without the flip is one where
+    every island is in the wrong half vertically — and it looks plausible, because a packed atlas is
+    roughly symmetric. `BlockoutUvView.Placement` is the one place it happens.
+
+    ⚠ **A fixed-size square rather than a measured one.** An atlas is square by construction and the
+    islands are already in [0, 1], so the drawing needs no layout pass to be correct — which is what
+    makes it assertable without a device. `AtlasSize` is the dial; zoom and pan are doc 20's surface
+    and are deliberately not here.
+-->
+@component BlockoutUvView
+@namespace Vixen.Editor.Blockout
+@inherits Vixen.Ui.Controls.Control
+@tag blockout-uv
+@using System.Globalization
+@using Vixen.Ui
+@using Vixen.Ui.Controls
+@using Vixen.Ui.Reactive
+
+<uv-toolbar>
+    <Button Size="Small" Label="Chart" on:click="@RunChart" />
+    <Button Size="Small" Label="Flatten" on:click="@RunFlatten" />
+    <Button Size="Small" Label="Pack" on:click="@RunPack" />
+</uv-toolbar>
+
+<uv-status>@Sentence()</uv-status>
+
+<uv-atlas ref="@Atlas" style="@Square()">
+    @for (var tile in Chart.Tiles) {
+        <uv-island key="@tile" class="@tile.Grade" style="@tile.Geometry">@tile.Caption</uv-island>
+    }
+</uv-atlas>
+
+<uv-legend>
+    <uv-key class="uv-flipped">Wound inside out</uv-key>
+    <uv-key class="uv-heat-3">Stretched</uv-key>
+    <uv-key class="uv-heat-0">Flat</uv-key>
+</uv-legend>
+
+<uv-messages ref="@Messages">
+    @for (var line in Chart.Messages) {
+        <uv-message key="@line">@line.Text</uv-message>
+    }
+</uv-messages>
+
+@code {
+    /// <summary>How many ramp buckets there are between flat and the bad threshold's double.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Buckets rather than a continuous colour, because a stylesheet is what owns the
+    ///     palette here.</b> `ProfilerTheme`'s eight hues make the same argument: a colour computed in
+    ///     a view is a colour a theme cannot override, and the eight-bar case proved that a chart
+    ///     whose colours vary in brightness reads as though the bright ones matter.
+    /// </remarks>
+    public const int HeatSteps = 5;
+
+    /// <summary>How wide the atlas square is drawn, in layout pixels.</summary>
+    public const float AtlasSize = 256f;
+
+    readonly Signal<UvChart> chart = new(UvChart.Empty);
+
+    BlockoutUvPanel? model;
+    Action<BlockoutUvPanel>? watching;
+
+    /// <inheritdoc />
+    protected override bool AcceptsFocus => false;
+
+    /// <summary>The atlas rectangle every island is positioned inside.</summary>
+    public UiElement Atlas { get; private set; } = null!;
+
+    /// <summary>Where the last run's sentences go.</summary>
+    public UiElement Messages { get; private set; } = null!;
+
+    /// <summary>Where the mesh to unwrap comes from, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Pulled at the moment a verb runs rather than pushed when the selection changes.</b>
+    ///     <see cref="BlockoutUvPanel.Mesh" />'s setter clears every derived list, so a push would
+    ///     empty the panel each time somebody clicked a different entity — including the entity whose
+    ///     islands they were reading. The pull re-reads only when a verb is about to overwrite them
+    ///     anyway.
+    /// </remarks>
+    public Func<Vixen.Geometry.EditMesh?>? Source { get; set; }
+
+    /// <summary>Run over the model just before a verb, to bring the dials up to date.</summary>
+    /// <remarks>
+    ///     ⚠ <b>A callback rather than settings copied in when the panel was built.</b> The
+    ///     resolution and the margin live on the editable classes the inspector draws, and a copy
+    ///     taken at build time would freeze both at whatever they were the first time the tab was
+    ///     opened — which reads as the dials not working, in a panel whose whole point is that they
+    ///     do.
+    /// </remarks>
+    public Action<BlockoutUvPanel>? Configure { get; set; }
+
+    /// <summary>The model this draws, or <see langword="null" />.</summary>
+    /// <remarks>
+    ///     Assigning subscribes to <see cref="BlockoutUvPanel.Changed" /> and draws what is already
+    ///     there, so a panel that has run before the view existed is not blank.
+    /// </remarks>
+    public BlockoutUvPanel? Model {
+        get => model;
+        set {
+            if (ReferenceEquals(model, value)) {
+                return;
+            }
+
+            Unwatch();
+            model = value;
+
+            if (value is not null) {
+                watching = _ => Realise();
+                value.Changed += watching;
+            }
+
+            Realise();
+        }
+    }
+
+    /// <summary>Rebuilds the drawing from the model.</summary>
+    public void Realise() => chart.Value = Measure();
+
+    /// <summary>Runs the charting stage over the current mesh.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It returns nothing, and the model's own verb returns a boolean.</b> A refusal is
+    ///     already on screen — <see cref="BlockoutUvPanel" /> writes a sentence into
+    ///     <c>Messages</c> and raises <c>Changed</c> either way — so a caller reading a flag here
+    ///     would be reading a second, quieter copy of what the panel has just said out loud.
+    /// </remarks>
+    public void RunChart() {
+        if (Take() is { } panel) {
+            panel.Chart();
+        }
+    }
+
+    /// <summary>Runs the flattening stage, charting first if it has to.</summary>
+    public void RunFlatten() {
+        if (Take() is { } panel) {
+            panel.Flatten();
+        }
+    }
+
+    /// <summary>Runs the packing stage, flattening first if it has to.</summary>
+    public void RunPack() {
+        if (Take() is { } panel) {
+            panel.Pack();
+        }
+    }
+
+    /// <summary>What the markup walks.</summary>
+    UvChart Chart => chart.Value;
+
+    /// <summary>The model with the current mesh in it, or null when there is no model.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Reference equality, and it has to be: <c>EditMesh</c> is a mutable class, so the
+    ///     same instance edited between two runs is still the mesh the panel is looking at.</b>
+    ///     Comparing by value would re-set <c>Mesh</c> after every extrude and throw away the
+    ///     islands a designer had just looked at.
+    /// </remarks>
+    BlockoutUvPanel? Take() {
+        if (model is not { } panel) {
+            return null;
+        }
+
+        if (Source?.Invoke() is { } mesh && !ReferenceEquals(panel.Mesh, mesh)) {
+            panel.Mesh = mesh;
+        }
+
+        Configure?.Invoke(panel);
+
+        return panel;
+    }
+
+    /// <summary>One tile per island, plus whatever the last run said.</summary>
+    UvChart Measure() {
+        if (model is not { } panel) {
+            return UvChart.Empty;
+        }
+
+        var tiles = new List<UvTile>(panel.Views.Count);
+        var bad = 0;
+
+        foreach (var view in panel.Views) {
+            if (view.IsBad) {
+                bad++;
+            }
+
+            tiles.Add(Tile(view));
+        }
+
+        var lines = new List<UvMessage>(panel.Messages.Count);
+
+        for (var index = 0; index < panel.Messages.Count; index++) {
+            lines.Add(new(index, panel.Messages[index]));
+        }
+
+        return new([.. tiles], [.. lines], panel.Seams().Count, panel.Views.Count, bad);
+    }
+
+    /// <summary>One island as the drawing has it: its class, its rectangle and what it says.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The disjunction is spelled here and it is a branch rather than a maximum.</b> A
+    ///     flipped island takes <c>uv-flipped</c> and never a ramp bucket, so the two halves of
+    ///     <see cref="UvIslandView.IsBad" /> stay legible on screen; folding them into one number —
+    ///     the obvious simplification, and the one docs/plan/42's report refuses — would let a badly
+    ///     wound island wearing a low stretch draw as a good one.
+    /// </remarks>
+    internal static UvTile Tile(in UvIslandView view) =>
+        new(
+            view.Island,
+            view.Flipped > 0 ? "uv-flipped" : "uv-heat-" + Bucket(view).ToString(CultureInfo.InvariantCulture),
+            Placement(view),
+            view.Flipped > 0 ? string.Create(CultureInfo.InvariantCulture, $"{view.Flipped} flipped") : null
+        );
+
+    /// <summary>Which ramp bucket an island's stretch falls in.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only ever reached for an island with no flipped triangle.</b> The ramp is the second
+    ///     half of a disjunction, so quantising a flipped island into it would be the averaging
+    ///     <see cref="UvIslandView.IsBad" />'s remarks refuse — the top bucket and "inside out" have
+    ///     to stay two different statements.
+    /// </remarks>
+    static int Bucket(in UvIslandView view) =>
+        Math.Clamp((int) (BlockoutUvPanel.Heat(view) * HeatSteps), 0, HeatSteps - 1);
+
+    /// <summary>Where an island's rectangle sits inside the square, as a declaration list.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The v axis is inverted here and nowhere else.</b> See the file header: an atlas drawn
+    ///     without it is vertically mirrored and looks entirely reasonable.
+    /// </remarks>
+    static string Placement(in UvIslandView view) {
+        var left = view.Minimum.X * AtlasSize;
+        var top = (1f - view.Maximum.Y) * AtlasSize;
+        var width = MathF.Max((view.Maximum.X - view.Minimum.X) * AtlasSize, 1f);
+        var height = MathF.Max((view.Maximum.Y - view.Minimum.Y) * AtlasSize, 1f);
+
+        return $"left: {Length(left)}; top: {Length(top)}; width: {Length(width)}; height: {Length(height)}";
+    }
+
+    static string Square() => $"width: {Length(AtlasSize)}; height: {Length(AtlasSize)}";
+
+    static string Length(float value) => value.ToString("0.##", CultureInfo.InvariantCulture) + "px";
+
+    string Sentence() {
+        if (model is null) {
+            return "No mesh is being unwrapped.";
+        }
+
+        if (Chart.Islands == 0) {
+            return "Nothing is flattened yet — run Chart, then Flatten.";
+        }
+
+        return string.Create(
+            CultureInfo.InvariantCulture,
+            $"{Chart.Islands} island(s), {Chart.Seams} seam edge(s), {Chart.Bad} needing attention"
+        );
+    }
+
+    void Unwatch() {
+        if (model is { } panel && watching is { } handler) {
+            panel.Changed -= handler;
+        }
+
+        watching = null;
+    }
+
+    partial void OnComposed() => Realise();
+
+    /// <summary>
+    ///     ⚠ <b>The subscription comes off with the element.</b> <see cref="BlockoutUvPanel" /> is
+    ///     owned by the module and outlives every panel factory run, so a view that stayed subscribed
+    ///     would write a signal on an element the document has already removed — once per closed tab,
+    ///     for the rest of the session.
+    /// </summary>
+    partial void OnUnmounted() => Unwatch();
+}

@@ -1116,9 +1116,16 @@ is a commit that says so, and neither is a port. Until then `GpuTimelineView.vxm
 every fifteenth frame on purpose, to keep the window's draw list re-usable, and a binding would
 remove exactly that.
 
-⚠ **`BlockoutUvPanel` is a "no" that is really a "not yet written"** — 317 lines of headless model
-with an immutable `Views` snapshot and no view at all. Doc 42 § D13 asks for one. Written fresh it
-is `GpuTimelineView` almost line for line, and it is the best *new*-panel candidate in the tree.
+⚠ **`BlockoutUvPanel` was a "no" that was really a "not yet written", and it is written now**
+([#414](https://github.com/Rikarin/Vixen/issues/414)). `BlockoutUvView.vxml` is the view the
+prediction here described: `GpuTimelineView` almost line for line — one signal holding an immutable
+snapshot, a keyed `@for` over it, and inline `style` for the geometry no stylesheet can express.
+
+⚠ **And writing it found a defect nothing else could see.** `BlockoutUvPanel.Mesh`'s setter emptied
+every derived list and did not raise `Changed`, so the first view of it drew the previous selection's
+atlas over a mesh it no longer described. Every existing test reads the lists back on the line that
+emptied them, which is why a full model suite was green over it — the general shape being that an
+event's contract is only testable once something subscribes.
 
 ### The two earlier exclusions, re-checked
 

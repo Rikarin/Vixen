@@ -4,7 +4,7 @@ slug: editor/retopology-and-uv-surfaces
 kind: guide
 area: Editor
 summary: Where a quad remesh and an unwrap are actually invoked from — the model importer, three command-line verbs, and the blockout mode's own verb and UV panel.
-api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models.ModelRetopology.MeshResult, T:Vixen.Editor.Assets.Models.ModelGeometry, T:Vixen.Editor.Assets.Models.ModelWriter, T:Vixen.Editor.Assets.Models.PolygonMesh, T:Vixen.Editor.Assets.Models.SymmetryAxis, T:Vixen.Editor.Assets.Models.UnwrapMode, T:Vixen.Editor.Assets.Models.RetopologyGuideReference, T:Vixen.Cli.GeometryRunner, T:Vixen.Editor.Blockout.BlockoutRetopology, T:Vixen.Editor.Blockout.BlockoutUvPanel, T:Vixen.Editor.Blockout.UvIslandView, T:Vixen.Editor.Blockout.BlockoutRetopologySettings, T:Vixen.Editor.Blockout.BlockoutChartSettings, T:Vixen.Editor.Blockout.BlockoutPackSettings]
+api: [T:Vixen.Editor.Assets.Models.ModelRetopology, T:Vixen.Editor.Assets.Models.ModelRetopology.MeshResult, T:Vixen.Editor.Assets.Models.ModelGeometry, T:Vixen.Editor.Assets.Models.ModelWriter, T:Vixen.Editor.Assets.Models.PolygonMesh, T:Vixen.Editor.Assets.Models.SymmetryAxis, T:Vixen.Editor.Assets.Models.UnwrapMode, T:Vixen.Editor.Assets.Models.RetopologyGuideReference, T:Vixen.Cli.GeometryRunner, T:Vixen.Editor.Blockout.BlockoutRetopology, T:Vixen.Editor.Blockout.BlockoutUvPanel, T:Vixen.Editor.Blockout.UvIslandView, T:Vixen.Editor.Blockout.BlockoutRetopologySettings, T:Vixen.Editor.Blockout.BlockoutChartSettings, T:Vixen.Editor.Blockout.BlockoutPackSettings, T:Vixen.Editor.Blockout.BlockoutUvView, T:Vixen.Editor.Blockout.BlockoutTheme]
 tags: [editor, importer, cli, blockout, retopology, uv, atlas]
 since: 0.1
 status: preview
@@ -215,6 +215,28 @@ score would hide exactly that case.
 ⚠ **This is not a drag-a-vertex-in-UV-space tool.** Every verb replaces the whole layout and nothing
 moves one coordinate. Editing an island by hand needs an undo model, a selection model and a snapping
 model, and is a different surface.
+
+### What draws it
+
+`BlockoutUvView` is the panel itself — the atlas square, one rectangle per island, the three verbs as
+buttons and whatever the last stage said. It is registered as `blockout.uv`, so it comes with its own
+toggle command and its own View-menu line rather than opening with the mode. `BlockoutTheme` carries
+the rules that colour it.
+
+Set `Model` to a `BlockoutUvPanel` and the view follows it: it subscribes to `Changed`, so a verb run
+from anywhere redraws the atlas, and it unsubscribes when it is removed. `Source` says where the mesh
+comes from and is read at the moment a verb runs; `Configure` does the same for the dials, so the
+inspector's resolution and margin are the ones a click uses rather than the ones that were current
+when the tab was opened.
+
+⚠ **The heat map is two channels rather than one ramp, and that is `IsBad`'s disjunction on screen.**
+An island with a flipped triangle takes `uv-flipped` and never a ramp bucket, however low its stretch
+is — folding the two into a single score is the simplification the model was written to refuse, and
+it would let a badly wound island wearing a distortion of 1.0 draw as the best island in the atlas.
+
+⚠ **v is flipped on the way to the square.** UV space puts `v = 0` at the bottom and the layout puts
+`y = 0` at the top, so an atlas drawn without the flip is vertically mirrored — and it looks entirely
+plausible, because a packed atlas is roughly symmetric and every count-shaped test stays green.
 
 ## Examples
 

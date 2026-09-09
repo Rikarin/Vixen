@@ -56,6 +56,27 @@ that survives being edited, which a record replaced wholesale by every `with` ex
 model importer reached the same conclusion first, in `ModelImportEdits`, and `BlockoutSettingsTests`
 keeps the mirror honest member by member.
 
+## The UV panel
+
+⚠ **A second panel, registered rather than named by the mode, because `IEditorMode.Panel` names
+exactly one.** `blockout.uv` therefore comes with its own toggle command and its own View-menu line;
+it does not open and close with the mode, which is right for a reading somebody keeps beside the
+viewport while they work.
+
+`BlockoutUvPanel` is the model and was already whole — doc 42 § D13's three verbs, the island
+descriptions and the seam set — and `BlockoutUvView.vxml` is the drawing that was owed
+([#414](https://github.com/Rikarin/Vixen/issues/414)). Nothing in the view computes a metric: the
+atlas square, the rectangles and the ramp read the model's `Views` and add nothing to them.
+
+⚠ **The heat map is two channels and not one ramp.** `UvIslandView.IsBad` is a disjunction —
+a flipped triangle is a correctness failure however low the stretch is — so a flipped island takes
+`uv-flipped` and never a ramp bucket. Averaging the two into one score is the obvious simplification
+and it re-hides exactly the case the model was written to expose.
+
+⚠ **And building the view found the model's one real bug.** `Mesh`'s setter emptied every derived
+list without raising `Changed`, so a panel switched to a different selection went on drawing the last
+mesh's atlas. No model test could see it: they all read the lists back on the line that emptied them.
+
 ## What it owns
 
 | | |

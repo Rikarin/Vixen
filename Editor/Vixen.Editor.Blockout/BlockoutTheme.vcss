@@ -1,0 +1,118 @@
+/* SPDX-FileCopyrightText: Copyright (c) Rikarin
+   SPDX-License-Identifier: Apache-2.0
+
+   The blockout module's own elements: docs/plan/42 § D13's UV panel.
+
+   ⚠ **Colour here carries data.** The six classes below are a reading of an unwrap, not a look —
+   `uv-flipped` and `uv-heat-4` say two different things and must not converge, because
+   `UvIslandView.IsBad` is a disjunction and a palette that blended them would re-hide exactly what
+   the model was written to expose. A theme may re-choose them; it may not make them agree. */
+
+/* ⚠ **The ladder, restated.** `ControlTheme.vcss` explains it; the statement has to be here too
+   because `CascadeLayers.Declare` fixes a layer's position the first time anything names it, so the
+   order belongs to whichever sheet a document loaded first rather than to any one file. */
+
+@layer base, components, utilities;
+
+@layer components {
+
+blockout-uv {
+    flex-direction: column;
+    flex-grow: 1;
+    flex-basis: 0px;
+    min-height: 0px;
+    gap: 0px;
+}
+
+uv-toolbar {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    flex-shrink: 0;
+    border-bottom-width: 1px;
+    border-color: var(--border);
+}
+
+uv-status {
+    padding: 3px 8px;
+    color: var(--text-muted);
+    font-size: 0.85em;
+    flex-shrink: 0;
+}
+
+/* ── The atlas ──────────────────────────────────────────────────────────
+   Relative, because every island is absolutely positioned against it. The
+   square is the [0, 1] domain and nothing is allowed outside it: an island
+   the packer left overlapping the edge has to *look* like it does. */
+uv-atlas {
+    position: relative;
+    flex-shrink: 0;
+    margin: 8px;
+    background-color: var(--surface-sunken);
+    border-width: 1px;
+    border-color: var(--border);
+}
+
+uv-island {
+    position: absolute;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7em;
+    border-width: 1px;
+    border-color: var(--border-active);
+    color: var(--text);
+}
+
+/* ⚠ **The ramp, and it stops short of red on purpose.** Red is `uv-flipped`'s and only
+   `uv-flipped`'s: a stretched island is a quality reading and an inside-out one is a defect, so the
+   worst thing the ramp can say still has to be visibly not that. */
+uv-island.uv-heat-0 { background-color: rgba(64, 148, 110, 0.55); }
+uv-island.uv-heat-1 { background-color: rgba(112, 158, 88, 0.55); }
+uv-island.uv-heat-2 { background-color: rgba(160, 162, 70, 0.55); }
+uv-island.uv-heat-3 { background-color: rgba(198, 148, 60, 0.6); }
+uv-island.uv-heat-4 { background-color: rgba(224, 126, 48, 0.7); }
+
+/* ⚠ **A border as well as a fill**, because a flipped island can be one triangle wide. A fill alone
+   on a rectangle two pixels across is a colour nobody can name. */
+uv-island.uv-flipped {
+    background-color: rgba(214, 62, 62, 0.75);
+    border-color: rgb(255, 132, 132);
+    border-width: 2px;
+}
+
+/* ── The legend ─────────────────────────────────────────────────────────
+   Three entries and not five: the ramp is a scale and needs its ends
+   named, and `uv-flipped` is a separate statement that needs naming most. */
+uv-legend {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 0px 8px 6px 8px;
+    flex-shrink: 0;
+}
+
+uv-key {
+    flex-direction: row;
+    align-items: center;
+    padding: 1px 6px;
+    font-size: 0.75em;
+    color: var(--text);
+}
+
+uv-key.uv-flipped { background-color: rgba(214, 62, 62, 0.75); }
+uv-key.uv-heat-3 { background-color: rgba(198, 148, 60, 0.6); }
+uv-key.uv-heat-0 { background-color: rgba(64, 148, 110, 0.55); }
+
+uv-messages {
+    flex-direction: column;
+    padding: 0px 8px 6px 8px;
+    gap: 2px;
+}
+
+uv-message {
+    color: var(--text-muted);
+    font-size: 0.8em;
+}
+
+}
