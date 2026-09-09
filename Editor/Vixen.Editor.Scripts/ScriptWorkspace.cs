@@ -144,13 +144,10 @@ public sealed class ScriptWorkspace {
         return new(result.Success ? assemblyPath : null, problems, sources.Count) { Parsed = reparsed };
     }
 
-    /// <summary>Forgets everything, so the next build starts over.</summary>
-    /// <remarks>What closing a project does, since the next one is a different pile of files.</remarks>
-    public void Clear() {
-        parsed.Clear();
-        references = null;
-        referencedAssemblies = 0;
-    }
+    // ⚠ There is no `Clear`, deliberately. One of these belongs to one `EditorScripts`, which belongs
+    // to one open project and goes when it closes — so a method for "forget everything" would have
+    // been a public surface with no caller, which is this repository's commonest defect wearing a
+    // helpful name.
 
     IReadOnlyList<MetadataReference> Referenced() {
         var loaded = ScriptCompiler.LoadedAssemblies();
