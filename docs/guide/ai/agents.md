@@ -8,7 +8,7 @@ api: [T:Vixen.Ai.IAgentAction, T:Vixen.Ai.ActionStatus, T:Vixen.Ai.AgentContext,
 tags: [ai, agents, actions, scheduling, determinism]
 since: 0.1
 status: stable
-related: [ai/blackboard, ai/behaviour-trees]
+related: [ai/blackboard, ai/behaviour-trees, ai/declaring-agent-actions]
 ---
 
 ## What it is
@@ -174,3 +174,5 @@ stops being valid when the block is returned.
   `AgentContext`.
 - [Behaviour trees](behaviour-trees.md) — the first of the three planners, and what chooses an action
   for an agent that runs one.
+- [Declaring agent actions](declaring-agent-actions.md) — how a project fills this registry from a
+  module initialiser, so a host that never ran the game can build one too.
