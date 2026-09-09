@@ -51,13 +51,30 @@ internal enum TextureTextAlignment : byte {
 ///     </para>
 ///     <para>
 ///         ⚠ <b>There is no <c>Text</c> node, and this is the shape of defect this repository names
-///         most often.</b> A node would have to allocate an <em>external</em> image and carry the
-///         bytes to fill it, and <c>TextureGraphCompiler.Allocate</c> only ever builds a pooled one —
-///         the same gap that keeps <c>Bitmap</c>, <c>Gradient</c>, <c>Curve</c> and <c>Gradient
-///         Map</c> off the graph, <a href="https://github.com/Rikarin/Vixen/issues/732">#732</a>. So
-///         what is proved here is the path from a string to a texture a plan reads, end to end and on
-///         a device; what is missing is the front end, and it is missing for a reason that is written
-///         down and shared with four other nodes rather than for want of this file.
+///         most often.</b> What is proved here is the path from a string to a coverage field a plan
+///         can read, end to end and on a device; what is missing is the front end.
+///     </para>
+///     <para>
+///         ⚠ <b>The reason written here for that was measured false on 2026-09-09, and it named the
+///         wrong blocker in both halves.</b> It said a node "would have to allocate an <em>external</em>
+///         image and carry the bytes to fill it, and <c>TextureGraphCompiler.Allocate</c> only ever
+///         builds a pooled one — the same gap that keeps <c>Bitmap</c>, <c>Gradient</c>, <c>Curve</c>
+///         and <c>Gradient Map</c> off the graph". <c>TextureNode.External(format, channels, width,
+///         height, texels)</c> is exactly that allocation, <c>TextureTables.Ramp</c> and
+///         <c>TextureTables.Curve</c> already bake their own strips through it, and all four of those
+///         nodes are registered — <c>Source/Bitmap</c>, <c>Source/Gradient</c>, <c>Colour/Curve</c>
+///         and <c>Colour/Gradient Map</c>. <a href="https://github.com/Rikarin/Vixen/issues/732">#732</a>
+///         closed the mechanism and the sentence outlived it.
+///     </para>
+///     <para>
+///         ⚠ <b>What actually blocks the node is the font, and it is a question this assembly cannot
+///         answer.</b> <see cref="Rasterize" /> takes a <c>FontFace</c>; a compilation runs on every
+///         edit and must not read an asset database, and the only face in the tree that reaches this
+///         code is an <c>EmbeddedResource</c> of the <em>test</em> project. So a node needs either a
+///         face this assembly ships or a reference a host resolves the way <c>Source/Bitmap</c>'s
+///         asset is — and which font a graph draws with is a project-and-document decision, which is
+///         why <a href="https://github.com/Rikarin/Vixen/issues/687">#687</a> puts the node in M4 and
+///         not here.
 ///     </para>
 ///     <para>
 ///         <b>Every number here is in texels of the picture being written</b>, which is doc 48 § D8's
