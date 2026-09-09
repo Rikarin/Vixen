@@ -132,7 +132,14 @@ public sealed class ZLoggerFileSink : LogSink {
             FullMode = BackgroundBufferFullMode.Drop
         };
 
-        options.UseJsonFormatter();
+        // ⚠ The event id is not in ZLogger's default property set, which is what made ADR-008's
+        // whole argument false in the one sink a player attaches to a bug report: the register is
+        // keyed by number and the file carried only the reworded sentence. Or-ed onto whatever the
+        // default is rather than assigned, so a ZLogger upgrade that starts emitting something new
+        // keeps emitting it.
+        options.UseJsonFormatter(formatter =>
+            formatter.IncludeProperties |= IncludeProperties.EventIdValue | IncludeProperties.EventIdName
+        );
         provider = new(options);
     }
 

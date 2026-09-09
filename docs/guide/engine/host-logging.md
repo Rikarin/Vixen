@@ -128,15 +128,37 @@ is to make the game easier to watch.
 | `ZLoggerFileSink` | When `--vixen-log-file <dir>` or `AppConfig.LogFileDirectory` names a directory. Off otherwise. |
 
 ⚠ **`PlatformSink` and `EventSourceSink` are not composed by the host at all.** `PlatformSink` is
-added by hand by the two mobile samples, through `WithServices(services =>
-services.LoggerFactory.AddProvider(new PlatformSink()))`; `EventSourceSink` is constructed nowhere
-outside its own tests. Neither is reached by writing anything in `vixen.log.yaml` — the file
-configures the shared filter, and a sink nobody constructed has nothing to filter.
+added by hand by the two mobile samples; `EventSourceSink` is constructed nowhere outside its own
+tests.
 
-⚠ And a provider added that late reaches only loggers created *after* it: the factory snapshots its
-providers into each logger it hands out, and `WithServices` callbacks are the last thing
-`AppBuilder.Build` does. So the mobile samples' `PlatformSink` misses the whole host boot —
-[#1197](https://github.com/Rikarin/Vixen/issues/1197).
+### Adding a sink of your own
+
+`AppBuilder.WithLoggerProvider` is the seam, and it runs **before** the host has a logger of its own:
+
+```csharp
+VixenApp.Create(args)
+    .WithLoggerProvider(levels => new PlatformSink(filter: levels))
+    .Build(new MyGame());
+```
+
+The overload taking a `Func<LogFilter, ILoggerProvider>` is handed the filter every sink the host
+composes shares, so `--vixen-log-level` and `vixen.log.yaml` reach the new sink exactly as they reach
+the console. The overload taking a bare `ILoggerProvider` is for a sink that has its own opinion
+about levels — and a sink constructed that way is one those two settings cannot turn up.
+
+⚠ **This is not the same as `WithServices(services => services.LoggerFactory.AddProvider(…))`, and
+the difference is the whole boot.** Service callbacks are the last thing `AppBuilder.Build` runs —
+after the platform, the mounts, the log-config read, the workers, the engine loop, the content mount,
+input and the graphics build, every one of which has already logged. That is what the two mobile
+samples used to do, so on the two platforms where the system log is the only log there is, their
+`PlatformSink` started receiving at `OnInitialise` and the bring-up half was simply absent
+([#1197](https://github.com/Rikarin/Vixen/issues/1197), fixed).
+
+⚠ A provider added after the fact now does at least reach the loggers that already exist —
+`HostLoggerFactory` caches one logger per category and extends each in place, where it used to
+snapshot its provider list into every logger it handed out. But **a log has no rewind**: records
+written before the `AddProvider` are gone either way, which is why the seam above exists rather than
+only the fix.
 
 ### Reading an id out of a log — and where the id is not
 
@@ -144,19 +166,30 @@ Ids are stable across message rewordings, which is what makes a number in a supp
 more than a quoted sentence: `docs/manual/log-events.md` is the register, one row per id, with the
 ranges allocated per assembly. `13034` above is `Vixen.App`'s, in the 13000 block.
 
-⚠ **Today the id is not in the two places a person reads.** The console line is
-`HH:mm:ss.fff LEVEL category message` and carries no id, and the rolling JSON line is — verified
-against `ZLoggerFileSink` — of exactly this shape:
+Both sinks a person reads carry it. The console appends it to the message, and omits it when it is
+zero — which is what an `ILogger` extension method that is not a `[LoggerMessage]` produces, and
+those lines have no register entry to look up anyway:
 
-```json
-{"Timestamp":"2026-09-09T22:22:23.73+02:00","LogLevel":"Warning","Category":"Vixen.Graphics.VulkanDevice","Message":"Device lost after 42 ms","Ms":42}
+```
+warn  Vixen.Graphics.VulkanDevice  Device lost after 42 ms #2001
 ```
 
-The structured fields the call site declared are still fields, and `EventId` is not among them. The
-id reaches only `EventSourceSink` (as the ETW event's own id) and `RemoteSink` (as `"id"` in the
-inspector's JSON) — neither of which a host composes. So *"grep the log for 13034"* does not work on
-a file a player sent you; grep the message text, and use the register to go from the text back to the
-id. That gap is [#1196](https://github.com/Rikarin/Vixen/issues/1196).
+The rolling JSON line carries it as a field, alongside the name of the generated method that wrote
+it — verified against the written file rather than read off `LogRecord`:
+
+```json
+{"Timestamp":"2026-09-09T22:22:23.73+02:00","LogLevel":"Warning","Category":"Vixen.Graphics.VulkanDevice","EventId":2001,"EventIdName":"DeviceLost","Message":"Device lost after 42 ms","Ms":42}
+```
+
+So `jq 'select(.EventId == 13034)'` over a file a player sent you works, and so does grepping stdout
+for `#13034`. The editor console shows it in the detail pane of the selected row.
+
+⚠ **It was not always so, and the reason it went unnoticed is worth keeping**: `LogRecord.EventId`
+has been correct since the ring was written, and `EventSourceSink` and `RemoteSink` both carried it —
+but neither of those is composed by a host, and neither sink a person actually reads emitted it.
+ZLogger's default property set does not include the event id, so nothing was broken anywhere a test
+was looking ([#1196](https://github.com/Rikarin/Vixen/issues/1196), fixed). The `PlatformSink` line —
+`logcat`, the Apple unified log — carries it too, through the same shared formatting.
 
 ### ⚠ A disposed logger factory is deaf, not dead
 

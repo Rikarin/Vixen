@@ -166,13 +166,31 @@ public class SinkTests {
         TestLog.Failed(logger, new InvalidOperationException("boom"));
 
         // Truncated from the front, keeping the tail: "…ulkanDevice" says which logger wrote the
-        // line and "Vixen.Graph…" does not.
-        Assert.Equal("warn …ulkanDevice Device lost after 42 ms", output.ToString().TrimEnd());
+        // line and "Vixen.Graph…" does not. The trailing "#2001" is the register key (#1196) —
+        // the number a support ticket quotes, which until then reached no line anybody reads.
+        Assert.Equal("warn …ulkanDevice Device lost after 42 ms #2001", output.ToString().TrimEnd());
 
         var failure = error.ToString();
         Assert.Contains("fail", failure, StringComparison.Ordinal);
         Assert.Contains("Something failed", failure, StringComparison.Ordinal);
         Assert.Contains("InvalidOperationException", failure, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_console_says_nothing_when_there_is_no_event_id() {
+        var output = new StringWriter();
+        using var sink = new ConsoleSink(output, output, LogLevel.Trace) {
+            UseColour = false,
+            ShowTimestamps = false,
+            CategoryWidth = 4
+        };
+
+        // ⚠ Through the raw Log rather than a [LoggerMessage] method, because that is the only way
+        // to produce the id every ILogger extension method produces — zero. "#0" identifies nothing
+        // and would land on exactly the lines with no register entry behind them.
+        sink.CreateLogger("Test").Log(LogLevel.Warning, default, "plain", null, static (state, _) => state);
+
+        Assert.Equal("warn Test plain", output.ToString().TrimEnd());
     }
 
     [Fact]
@@ -311,6 +329,35 @@ public class SinkTests {
             // The point of the sink: {Ms} is still a number in a field called Ms, not a fragment of
             // a sentence somebody has to parse back out.
             Assert.Equal(42, document.RootElement.GetProperty("Ms").GetInt32());
+        } finally {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void The_file_sink_carries_the_event_id_a_support_ticket_would_quote() {
+        var directory = Path.Combine(Path.GetTempPath(), $"vixen-log-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+
+        try {
+            using (var sink = new ZLoggerFileSink(directory, "test", minimumLevel: LogLevel.Trace)) {
+                TestLog.DeviceLost(sink.CreateLogger("Vixen.Graphics.VulkanDevice"), 42);
+            }
+
+            var file = Assert.Single(Directory.GetFiles(directory, "test-*.jsonl"));
+            var line = Assert.Single(File.ReadAllLines(file));
+
+            using var document = JsonDocument.Parse(line);
+
+            // ⚠ Asserted on the bytes on disk rather than on LogRecord.EventId, which has been
+            // correct the whole time and is exactly what hid this: ZLogger's default property set
+            // does not include the event id, so ADR-008's "a number in a bug report is greppable"
+            // was false in the one sink a player attaches to a bug report (#1196).
+            Assert.Equal(2001, document.RootElement.GetProperty("EventId").GetInt32());
+
+            // The generated method's name comes free with it, and is the half a human greps for
+            // when they have the sentence rather than the number.
+            Assert.Equal("DeviceLost", document.RootElement.GetProperty("EventIdName").GetString());
         } finally {
             Directory.Delete(directory, recursive: true);
         }

@@ -42,14 +42,25 @@ public sealed class MainActivity : AndroidActivityHost {
 
     /// <inheritdoc />
     /// <remarks>
-    ///     The same three lines as the iOS head. What differs is invisible from here and entirely in
-    ///     <see cref="TriangleGame" />: the surface does not exist yet when this returns, and it will
-    ///     go away again every time the activity stops.
+    ///     <para>
+    ///         The same three lines as the iOS head. What differs is invisible from here and entirely
+    ///         in <see cref="TriangleGame" />: the surface does not exist yet when this returns, and
+    ///         it will go away again every time the activity stops.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>WithLoggerProvider</c> rather than
+    ///         <c>WithServices(… LoggerFactory.AddProvider …)</c>, which is what this used to say.</b>
+    ///         Service callbacks run last, so the sink was installed after the platform, the mounts,
+    ///         the workers, the engine and the whole graphics build had logged — and <c>logcat</c> is
+    ///         the only log there is on a phone, so the half a bring-up is about was the half that
+    ///         never arrived (#1197). Built from the host's own filter, so
+    ///         <c>vixen.log.yaml</c> reaches it like it reaches the console.
+    ///     </para>
     /// </remarks>
     protected override Action Start(AndroidPlatform platform) {
         application = VixenApp.Create([])
             .WithPlatform(platform)
-            .WithServices(services => services.LoggerFactory.AddProvider(new PlatformSink()))
+            .WithLoggerProvider(levels => new PlatformSink(filter: levels))
             .Build(new TriangleGame());
 
         return application.RunFrame;

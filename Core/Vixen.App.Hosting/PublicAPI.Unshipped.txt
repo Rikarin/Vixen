@@ -30,6 +30,8 @@ Vixen.App.AppBuilder.Build(Vixen.App.Game game) -> Vixen.App.VixenApplication
 Vixen.App.AppBuilder.WithContent(Vixen.Assets.IContentTransport content) -> Vixen.App.AppBuilder
 Vixen.App.AppBuilder.WithGraphics(Vixen.Graphics.IGraphicsDevice graphics) -> Vixen.App.AppBuilder
 Vixen.App.AppBuilder.WithGraphicsBackend(Vixen.App.IGraphicsBackend graphics) -> Vixen.App.AppBuilder
+Vixen.App.AppBuilder.WithLoggerProvider(Microsoft.Extensions.Logging.ILoggerProvider provider) -> Vixen.App.AppBuilder
+Vixen.App.AppBuilder.WithLoggerProvider(System.Func<Vixen.Core.Diagnostics.LogFilter, Microsoft.Extensions.Logging.ILoggerProvider> create) -> Vixen.App.AppBuilder
 Vixen.App.AppBuilder.WithPlatform(Vixen.Platform.IPlatform host) -> Vixen.App.AppBuilder
 Vixen.App.AppBuilder.WithPlatformFactory(Vixen.App.IPlatformFactory factory) -> Vixen.App.AppBuilder
 Vixen.App.AppBuilder.WithServices(System.Action<Vixen.App.AppServices> configure) -> Vixen.App.AppBuilder
