@@ -47,15 +47,36 @@ public sealed class VulkanPresentationTests {
         VulkanDevice.TryCreate(new() { Surface = SurfaceHandle.Windowless }, out device, out reason);
 
     /// <summary>
-    ///     Six frames of acquire, draw, present — and the presentation engine hands the images back
-    ///     round rather than repeating one.
+    ///     Six frames of acquire, draw, present, and every image handed back is one of the chain's.
     /// </summary>
     /// <remarks>
-    ///     ⚠ <b>The cycling is the assertion that a stub could not pass.</b> A swapchain that
-    ///     returned image 0 every time would satisfy every status check in this file and be
-    ///     completely broken: the frame would overwrite an image the display was still reading. Over
-    ///     more frames than there are images, every image has to appear, and no two consecutive
-    ///     acquisitions may be the same one while more than one is free.
+    ///     <para>
+    ///         ⚠ <b>This test used to require the images to come back round, and Vulkan does not
+    ///         promise that</b> — which is why it was red on the ubuntu leg and green here (#1026).
+    ///         <c>vkAcquireNextImageKHR</c> returns any image that is not currently acquired; there
+    ///         is no fairness, no rotation and no ordering in the specification. The loop below calls
+    ///         <c>WaitIdle</c> after each <c>Present</c>, so by the next acquisition the image just
+    ///         presented is free again and an implementation is entitled to hand back the same index
+    ///         for ever. Measured on both: MoltenVK cycles all of them, lavapipe on a headless
+    ///         surface hands back one image out of four, six times. <b>Neither driver is wrong.</b>
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the reason the old assertion was there is wrong too.</b> It said a chain that
+    ///         returned image 0 every time "would be completely broken: the frame would overwrite an
+    ///         image the display was still reading". It would not — an image is only handed out when
+    ///         it is no longer acquired, and what keeps a frame from writing into an image still
+    ///         being read is the semaphore protocol, not the choice of index. That property has its
+    ///         own witness in this file, and it is the only witness it can have:
+    ///         <see cref="PresentingRepeatedlySaysNothingToTheValidationLayers" />, because
+    ///         "signaled … but it may still be in use" is what getting it wrong says out loud.
+    ///     </para>
+    ///     <para>
+    ///         What is left is what the specification does guarantee and a stub does not: six
+    ///         complete acquire/draw/present cycles that all report <c>Ready</c>, a valid view every
+    ///         frame, and — the part that keeps the count honest — <b>no more distinct images than
+    ///         the chain has</b>. A swapchain fabricating a fresh handle per frame gives six from a
+    ///         chain of two or four, and fails here.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void TheImagesAreAcquiredPresentedAndHandedBackRound() {
@@ -67,7 +88,6 @@ public sealed class VulkanPresentationTests {
         Assert.True(chain.ImageCount >= 2, $"a presenting chain has at least two images; this has {chain.ImageCount}.");
 
         var seen = new HashSet<TextureHandle>();
-        var order = new List<TextureHandle>();
 
         for (var frame = 0; frame < 6; frame++) {
             Assert.Equal(SwapChainStatus.Ready, chain.AcquireNextImage(out var view));
@@ -75,7 +95,6 @@ public sealed class VulkanPresentationTests {
             Assert.True(chain.CurrentTexture.IsValid);
 
             seen.Add(chain.CurrentTexture);
-            order.Add(chain.CurrentTexture);
 
             Draw(owned, chain, view);
 
@@ -83,11 +102,7 @@ public sealed class VulkanPresentationTests {
             owned.WaitIdle();
         }
 
-        Assert.Equal(chain.ImageCount, seen.Count);
-
-        for (var frame = 1; frame < order.Count; frame++) {
-            Assert.NotEqual(order[frame - 1], order[frame]);
-        }
+        Assert.InRange(seen.Count, 1, chain.ImageCount);
     }
 
     /// <summary>
