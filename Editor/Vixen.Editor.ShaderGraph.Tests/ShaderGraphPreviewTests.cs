@@ -4,10 +4,12 @@
 using Vixen.Core.Syntax.Diagnostics;
 using Vixen.Editor.NodeGraph;
 using Vixen.Editor.ShaderGraph;
+using Vixen.Graphics;
 using Vixen.Raven;
 using Vixen.Raven.IR;
 using Vixen.Raven.Lowering;
 using Vixen.Raven.Syntax;
+using Vixen.Shaders;
 using Xunit;
 
 namespace Tests;
@@ -39,6 +41,16 @@ public class ShaderGraphPreviewTests {
     }
 
     /// <summary>Parses, binds, lowers and verifies. Returns everything that objected.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Beside the same library sources the renderer compiles a preview with</b>, and this
+    ///     used to be one tree — <a href="https://github.com/Rikarin/Vixen/issues/510">#510</a>. A
+    ///     checker with a narrower compilation than production is the hazard this repository names
+    ///     most: it would report a node that calls <c>ComputeColor</c> as broken while the editor
+    ///     drew it perfectly, and, read the other way, it is why a wider one would report a node as
+    ///     fine that the editor cannot show. The set comes from
+    ///     <c>ShaderGraphPreviewPrelude.Sources</c> rather than from a list here, so the two cannot
+    ///     drift.
+    /// </remarks>
     static IReadOnlyList<Diagnostic> Check(string source) {
         var tree = SyntaxTree.ParseText(source, path: "Preview.rvn");
 
@@ -46,7 +58,15 @@ public class ShaderGraphPreviewTests {
             return tree.Diagnostics;
         }
 
-        var compilation = Compilation.Create("Preview", tree);
+        var trees = new List<SyntaxTree>();
+
+        foreach (var (name, text) in ShaderGraphPreviewPrelude.Sources) {
+            trees.Add(SyntaxTree.ParseText(text, path: name));
+        }
+
+        trees.Add(tree);
+
+        var compilation = Compilation.Create("Preview", trees);
         var semantic = compilation.GetDiagnostics();
 
         if (semantic.Count > 0) {
@@ -237,6 +257,62 @@ public class ShaderGraphPreviewTests {
         tiling.Position = new(900f, 900f);
 
         Assert.Equal(before, ShaderGraphPreview.Compile(graph, tiling.Id, registry).Artefact!.Source);
+    }
+
+    /// <summary>
+    ///     ⚠ A node that calls the library previews, all the way to a variant — and it costs the
+    ///     preview no binding.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/510">#510</a>, through the production
+    ///         seam rather than beside it: <c>ShaderGraphPreviewPrelude.Compile</c> is what
+    ///         <c>ShaderGraphPreviewRenderer</c> calls, so a change that widened the front end and
+    ///         not the renderer would leave this red.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The second assertion is the one the issue asked to establish first.</b> The
+    ///         renderer refuses a variant whose reflection asks for anything but its one uniform
+    ///         block — so a prelude that pulled a texture or a sampler into scope would have turned
+    ///         "these five nodes have no preview" into "every preview is refused", which is a worse
+    ///         state arrived at by a fix. The library files are structs of pure functions and a
+    ///         function nothing calls does not reach the module; this is the check rather than the
+    ///         claim.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ And it is a <c>Procedural/Noise</c> rather than a maths node on purpose: with the
+    ///         prelude emptied, <c>TryGet</c> comes back null here and every other case in this file
+    ///         goes on passing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_node_that_calls_the_library_compiles_to_a_variant_that_binds_one_block() {
+        var graph = new NodeGraphModel { Name = "Noisy" };
+        var noise = graph.Add("Procedural/Noise");
+        var master = graph.Add("Master/Unlit", new(300f, 0f));
+
+        graph.Connect(new(noise.Id, "Out"), new(master.Id, "Colour"));
+
+        var result = ShaderGraphPreview.Compile(graph, noise.Id, Library());
+
+        Assert.True(result.Succeeded, string.Join("; ", result.Diagnostics.Select(one => one.Message)));
+        Assert.Contains("ComputeColor.ValueNoise", result.Artefact!.Source, StringComparison.Ordinal);
+
+        var data = ShaderGraphPreviewPrelude
+            .Compile(ShaderGraphPreview.Name + ".rvn", result.Artefact.Source)
+            .TryGet(EffectKey.Of(ShaderGraphPreview.Name));
+
+        Assert.NotNull(data);
+
+        // Exactly what ShaderGraphPreviewRenderer will accept: uniform blocks and nothing else.
+        Assert.All(
+            data.Bindings,
+            binding => Assert.True(
+                binding.Kind is DescriptorKind.UniformBuffer or DescriptorKind.DynamicUniformBuffer,
+                $"'{binding.Name}' is a {binding.Kind}, which the preview renderer refuses — the "
+                + "prelude has pulled a resource into the preview's reflection."
+            )
+        );
     }
 
     /// <summary>The same graph emits the same text however many times it is asked.</summary>

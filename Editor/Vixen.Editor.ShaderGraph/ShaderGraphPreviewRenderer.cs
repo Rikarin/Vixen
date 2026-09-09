@@ -522,13 +522,19 @@ public sealed class ShaderGraphPreviewRenderer : INodePreviewSource, IDisposable
         Created++;
     }
 
-    /// <summary>Compiles one preview's Raven, in memory.</summary>
+    /// <summary>Compiles one preview's Raven, in memory, beside the shader library.</summary>
     /// <remarks>
-    ///     One tree, no references and no composition: a graph's output imports nothing, so the
-    ///     compilation is the generated file and no library needs to be on the path.
+    ///     ⚠ <b>"A graph's output imports nothing" is what this used to say, and it was the defect
+    ///     rather than the design</b> — <a href="https://github.com/Rikarin/Vixen/issues/510">#510</a>.
+    ///     A node's <c>Emit</c> may ask for an import, and the procedural and UV nodes do; with one
+    ///     source in the compilation those names do not exist and the variant fails to bind, which
+    ///     is why five shipped nodes declared no <c>Preview</c>. No composition still: a preview is
+    ///     a standalone graph and has no pass to fill in. See
+    ///     <see cref="ShaderGraphPreviewPrelude" /> for which library files and why they add no
+    ///     binding.
     /// </remarks>
     static EffectData? Compile(string source) =>
-        RavenEffectCompiler.FromSources([(ShaderGraphPreview.Name + ".rvn", source)])
+        ShaderGraphPreviewPrelude.Compile(ShaderGraphPreview.Name + ".rvn", source)
             .TryGet(EffectKey.Of(ShaderGraphPreview.Name));
 
     static ReadOnlySpan<byte> Bytecode(Effect effect, ShaderStage stage) {

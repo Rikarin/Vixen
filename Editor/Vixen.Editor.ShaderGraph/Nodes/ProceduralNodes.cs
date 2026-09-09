@@ -25,14 +25,17 @@ namespace Vixen.Editor.ShaderGraph.Nodes;
 ///         refuses a variant reflecting anything but its one uniform block.
 ///     </para>
 ///     <para>
-///         ⚠ <b>None of them declares <c>Preview</c>, and the reason is a real limit rather than an
-///         oversight.</b> <see cref="ShaderGraphPreviewRenderer" /> compiles the emitted preview
-///         through <c>RavenEffectCompiler.FromSources</c> with <em>one</em> source — the preview
-///         itself — so nothing in the shipped library is in scope and any node that calls into it
-///         fails to bind. That is a property of the preview's compilation and not of these nodes: the
-///         same graph compiles as a material, because <c>EditorEffects</c> and the shader build both
-///         hand Raven the library's import closure. So the choice is a node with no preview against a
-///         node that draws a red square, and the second one teaches an author the wrong thing.
+///         ⚠ <b>All of them declare <c>Preview</c> now, and until
+///         <a href="https://github.com/Rikarin/Vixen/issues/510">#510</a> none could.</b>
+///         <see cref="ShaderGraphPreviewRenderer" /> compiled the emitted preview through
+///         <c>RavenEffectCompiler.FromSources</c> with <em>one</em> source — the preview itself — so
+///         nothing in the shipped library was in scope and any node calling into it failed to bind.
+///         That was always a property of the preview's compilation rather than of these nodes: the
+///         same graph compiled as a material, because <c>EditorEffects</c> and the shader build both
+///         hand Raven the library's import closure. ⚠ The cure turned out to be a <em>list</em> and
+///         not a signature — see <see cref="ShaderGraphPreviewPrelude" /> — so the choice these
+///         remarks described, between a node with no preview and a node drawing a red square, was
+///         never the only one available.
 ///     </para>
 ///     <para>
 ///         What is <em>not</em> here is Perlin, simplex and voronoi. Each is a function
@@ -48,7 +51,7 @@ static class ProceduralNodes {
 }
 
 /// <summary>Value noise over a coordinate.</summary>
-[Node("Procedural/Noise", Summary = "Smoothed value noise on a grid, in 0..1.")]
+[Node("Procedural/Noise", Preview = true, Summary = "Smoothed value noise on a grid, in 0..1.")]
 public sealed partial class NoiseNode : ShaderNode {
     /// <summary>Where to sample. Defaults to the mesh's own coordinate.</summary>
     [Input(Name = "UV")]
@@ -86,7 +89,7 @@ public sealed partial class NoiseNode : ShaderNode {
 ///     What an author means by "noise" for a cloud, a rust map or a wind field: one octave is visibly
 ///     a grid, and three are not.
 /// </remarks>
-[Node("Procedural/Fractal Noise", Summary = "Octaves of value noise, in 0..1.")]
+[Node("Procedural/Fractal Noise", Preview = true, Summary = "Octaves of value noise, in 0..1.")]
 public sealed partial class FractalNoiseNode : ShaderNode {
     /// <summary>Where to sample. Defaults to the mesh's own coordinate.</summary>
     [Input(Name = "UV")]
@@ -133,7 +136,7 @@ public sealed partial class FractalNoiseNode : ShaderNode {
 ///     It is in the library for that reason and is worth a node for the same one — a graph author
 ///     debugging a coordinate should not have to write a <c>floor</c> and a <c>mod</c>.
 /// </remarks>
-[Node("Procedural/Checker", Summary = "Alternating 0 and 1 over a grid.")]
+[Node("Procedural/Checker", Preview = true, Summary = "Alternating 0 and 1 over a grid.")]
 public sealed partial class CheckerNode : ShaderNode {
     /// <summary>Where to sample. Defaults to the mesh's own coordinate.</summary>
     [Input(Name = "UV")]
@@ -157,7 +160,7 @@ public sealed partial class CheckerNode : ShaderNode {
 }
 
 /// <summary>A coordinate turned about a pivot.</summary>
-[Node("Vector/Rotate UV", Summary = "Turns a coordinate about a pivot, in radians.")]
+[Node("Vector/Rotate UV", Preview = true, Summary = "Turns a coordinate about a pivot, in radians.")]
 public sealed partial class RotateUvNode : ShaderNode {
     /// <summary>The coordinate. Defaults to the mesh's own.</summary>
     [Input(Name = "UV")]
@@ -193,7 +196,7 @@ public sealed partial class RotateUvNode : ShaderNode {
 ///     function does the flip and says so, which is the part that is easy to get wrong and invisible
 ///     until the animation plays backwards vertically.
 /// </remarks>
-[Node("Vector/Flipbook", Summary = "A sprite-sheet cell's coordinate.")]
+[Node("Vector/Flipbook", Preview = true, Summary = "A sprite-sheet cell's coordinate.")]
 public sealed partial class FlipbookNode : ShaderNode {
     /// <summary>The coordinate. Defaults to the mesh's own.</summary>
     [Input(Name = "UV")]
