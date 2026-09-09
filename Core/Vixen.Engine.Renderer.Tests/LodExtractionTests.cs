@@ -44,7 +44,7 @@ public sealed class LodExtractionTests : IDisposable {
 
     const float FieldOfView = MathF.PI / 3f;
 
-    /// <summary>Where a group's near fixture sits, and where its far one does.</summary>
+    /// <summary>The screen heights at which every group here gives way to its next level.</summary>
     /// <remarks>
     ///     ⚠ <b>Three of these four numbers used to put the near group <em>exactly</em> on its own
     ///     first threshold, and that is the whole of #1189.</b> A unit cube's bounding sphere has
