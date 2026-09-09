@@ -89,20 +89,40 @@ sealed class DesktopAppearance {
 
     /// <summary>Which of the three desktops can answer for the accent colour.</summary>
     /// <remarks>
-    ///     ⚠ <b>macOS only, and the other two are unwritten rather than impossible.</b> Windows
-    ///     keeps its accent in <c>HKCU\Software\Microsoft\Windows\DWM</c> (and answers
-    ///     <c>DwmGetColorizationColor</c>) and GNOME keeps a theme name that implies one; neither is
-    ///     read here, because neither could be measured on the machine this was written on and an
-    ///     accent read that is wrong is a window painted a colour the user did not choose. A
-    ///     platform with no reader answers <see cref="SystemAccent.Unknown" />, which leaves the
-    ///     document's palette on its default tables — the same outcome as today.
+    ///     <para>
+    ///         All three now, and each reads the pair its own desktop draws a selection with —
+    ///         <c>controlAccentColor</c> with <c>alternateSelectedControlTextColor</c>,
+    ///         <c>COLOR_HIGHLIGHT</c> with <c>COLOR_HIGHLIGHTTEXT</c>, and GNOME's
+    ///         <c>accent-color</c> with libadwaita's one <c>accent-fg-color</c>. The pair rather
+    ///         than the accent alone is the requirement rather than a nicety: <c>ApplyAccent</c>
+    ///         moves the theme's token only when both roles were read.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the macOS reader has been measured against its own source.</b> The other
+    ///         two are asserted where a machine of that kind runs them — a Windows runner reads the
+    ///         real system colours, and the GNOME name table is asserted anywhere because it is a
+    ///         pure function — and neither was checked on a desktop while this was written. Each
+    ///         reads a colour the system chose rather than one this repository invented, which is
+    ///         what makes that acceptable; a mis-decoded DWM colourisation word would not have been,
+    ///         and <see cref="Vixen.Platform.Windows.WindowsAccent" /> records why it is not the
+    ///         source.
+    ///     </para>
+    ///     <para>
+    ///         A platform with no reader still answers <see cref="SystemAccent.Unknown" />, which
+    ///         leaves the document's palette on its default tables — and so does a desktop whose
+    ///         source is genuinely missing, which is the case an older GNOME lands in.
+    ///     </para>
     /// </remarks>
     static Func<SystemAccent>? AccentReader() {
+        if (OperatingSystem.IsWindows()) {
+            return WindowsAccent.Read;
+        }
+
         if (OperatingSystem.IsMacOS()) {
             return MacOSAccent.Read;
         }
 
-        return null;
+        return OperatingSystem.IsLinux() ? LinuxAccent.Read : null;
     }
 
     /// <summary>Advances the poll counter and re-reads when it comes round.</summary>

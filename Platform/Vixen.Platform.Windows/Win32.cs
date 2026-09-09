@@ -205,6 +205,21 @@ static unsafe partial class Win32 {
         ref uint size
     );
 
+    /// <summary><c>COLOR_HIGHLIGHT</c> — the background of a selected item.</summary>
+    public const int ColorHighlight = 13;
+
+    /// <summary><c>COLOR_HIGHLIGHTTEXT</c> — the text drawn on <see cref="ColorHighlight" />.</summary>
+    public const int ColorHighlightText = 14;
+
+    /// <remarks>
+    ///     ⚠ <b>It cannot fail and it says so by returning black.</b> An index outside the table
+    ///     answers zero, which is indistinguishable from a scheme whose colour genuinely is black —
+    ///     so a caller gets no error channel and has to sanity-check the answer itself. Every index
+    ///     used here is a constant two lines above its call, for that reason.
+    /// </remarks>
+    [LibraryImport("user32.dll")]
+    public static partial uint GetSysColor(int index);
+
     /// <summary><c>SPI_GETCLIENTAREAANIMATION</c> — whether animation inside a window is wanted.</summary>
     public const uint SpiGetClientAreaAnimation = 0x1042;
 

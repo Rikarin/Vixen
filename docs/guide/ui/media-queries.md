@@ -185,7 +185,13 @@ user chose for themselves:
 
 ## What is not here
 
-A system accent colour, dynamic semantic colours and an OS text-size scale are all absent.
+Dynamic semantic colours and an OS text-size scale are absent.
+
+⚠ **The system accent colour is no longer among them, and it arrives by a different door.** All three
+desktops now read it — `MacOSAccent`, `WindowsAccent` and `LinuxAccent` — and `PlatformInput`
+puts it into the document's `SystemPalette` and toggles `root.system-accent`, which is what moves
+`--accent`. That is a *class*, not a media feature: a media query answers yes or no and an accent is a
+colour, so there was never a query for it to be exposed through.
 
 ⚠ **`forced-colors` is half here, and the missing half is the renderer's.** The query evaluates, the
 platform feeds it and a sheet's `@media (forced-colors: active)` block applies — what does not exist
