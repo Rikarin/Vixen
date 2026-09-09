@@ -137,6 +137,13 @@ public sealed partial class UiDocument : IDisposable {
         this.rootFontSize = rootFontSize;
         BaseFontSize = rootFontSize;
         this.logger = logger ?? NullLogger.Instance;
+
+        // ⚠ Wired here rather than at the call sites that build effects, because the sites are not
+        // the place a suspension can be seen from: `BuildContext.Bind` counted the ones it made and
+        // four production sites construct an `Effect` themselves. `Effects` is this document's own
+        // scheduler and nothing else's — see its remarks — so there is no hook here to steal.
+        // https://github.com/Rikarin/Vixen/issues/1122
+        Effects.Suspended = RecordSuspendedEffect;
         Styles = new StyleEngine();
 
         // ⚠ Before anything can load a sheet, and that includes this constructor. A sheet installed

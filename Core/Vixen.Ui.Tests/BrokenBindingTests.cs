@@ -231,6 +231,153 @@ public class BrokenBindingTests {
         Assert.Same(sibling, document.Root.Children[1]);
     }
 
+    /// <summary>⚠ An effect built by hand rather than by <c>Bind</c> is counted the same way.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1122">#1122</a>, and the reason it
+    ///         is not a detail.</b> The count used to be taken inside the <c>try</c> that
+    ///         <c>BuildContext.Bind</c> wrapped its assignment in, so it saw the effects that one
+    ///         method built. Four production sites construct an <c>Effect</c> directly —
+    ///         <c>DocumentCommands.Install</c>, <c>UiWindowTitle.Bind</c>,
+    ///         <c>EditorApplication</c>'s status effect and <c>LayerStackView</c>'s watch — and one
+    ///         of those suspending left the panel frozen with the diagnostics row reading a
+    ///         confident nought.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The construction here is deliberately the plain one</b> — <c>new Effect(…,
+    ///         document.Effects)</c> — because that is what those four write, and the only thing
+    ///         that makes it reportable is the scheduler being the document's. An effect on
+    ///         <c>EffectScheduler.Default</c> belongs to no document and is still uncounted, which
+    ///         <see cref="An_effect_on_the_threads_own_scheduler_is_not_this_documents_to_count" />
+    ///         is the statement of.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_hand_built_effect_that_throws_is_counted_against_its_document() {
+        using var document = new UiDocument(200f, 200f);
+        var trigger = new Signal<int>(0);
+
+        using var effect = new Effect(
+            () => {
+                if (trigger.Value > 0) {
+                    throw new InvalidOperationException("the watch could not read the document.");
+                }
+            },
+            document.Effects
+        );
+
+        document.Effects.Flush();
+
+        // The instrument's zero, on the same effect, before it fails. Without this the assertion
+        // below would also pass against a counter that had been one since the document was made.
+        Assert.Equal(0, document.Diagnostics.BrokenBindings);
+        Assert.Null(document.Diagnostics.LastBrokenBinding);
+
+        trigger.Value = 1;
+        document.Effects.Flush();
+
+        Assert.True(effect.IsSuspended);
+        Assert.Equal(1, document.Diagnostics.BrokenBindings);
+
+        var record = document.Diagnostics.LastBrokenBinding;
+
+        Assert.NotNull(record);
+        Assert.StartsWith("BrokenBindingTests.cs:", record, StringComparison.Ordinal);
+        Assert.EndsWith("the watch could not read the document.", record, StringComparison.Ordinal);
+    }
+
+    /// <summary>⚠ And the runaway detector, which throws nothing and so was counted by nothing.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The half of the gap that no amount of widening <c>Bind</c>'s <c>try</c> would have
+    ///         closed.</b> An effect that writes something it also reads re-dirties itself, the
+    ///         scheduler stops it after <c>MaximumRunsPerEffect</c> runs, and there is no exception
+    ///         anywhere in that path — so a <c>catch</c> is the wrong instrument for it and the
+    ///         suspension point is the right one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The record has to say which of the two happened</b>, because the fix is
+    ///         different: a throw is a bad expression and a runaway is a write to a dependency. The
+    ///         null exception is the only thing that distinguishes them at the sink, so the sentence
+    ///         it produces is asserted rather than merely its presence.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The limit is lowered so the test states a number rather than the default.</b>
+    ///         Sixteen runs of a self-writing effect is the same measurement and sixteen times the
+    ///         noise; what is being asserted is that the detector reports, not where its threshold is.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_runaway_effect_is_counted_and_named_as_one_rather_than_as_a_throw() {
+        using var document = new UiDocument(200f, 200f);
+
+        document.Effects.MaximumRunsPerEffect = 3;
+
+        var counter = new Signal<int>(0);
+
+        using var effect = new Effect(() => counter.Value++, document.Effects);
+
+        document.Effects.Flush();
+
+        Assert.True(effect.IsSuspended);
+        Assert.Equal(1, document.Diagnostics.BrokenBindings);
+
+        var record = document.Diagnostics.LastBrokenBinding;
+
+        Assert.NotNull(record);
+        Assert.StartsWith("BrokenBindingTests.cs:", record, StringComparison.Ordinal);
+        Assert.Contains("writes is something it reads", record, StringComparison.Ordinal);
+    }
+
+    /// <summary>The other side of the sentence: an effect the document does not schedule.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Asserted rather than left implied, because "broken bindings: 0" is read as a claim
+    ///     about the interface.</b> <c>EffectScheduler.Default</c> is per thread and belongs to no
+    ///     document, so an effect queued on it stops exactly as silently as everything did before —
+    ///     and <c>UiWindowTitle.Bind</c> called without a scheduler is that shape in the tree. A
+    ///     reader who takes the zero for "nothing broke" is wrong in one specific way, and this is
+    ///     where that way is written down.
+    /// </remarks>
+    [Fact]
+    public void An_effect_on_the_threads_own_scheduler_is_not_this_documents_to_count() {
+        using var document = new UiDocument(200f, 200f);
+
+        using var effect = new Effect(() => throw new InvalidOperationException("elsewhere."));
+
+        EffectScheduler.Default.Flush();
+
+        Assert.True(effect.IsSuspended);
+        Assert.Equal(0, document.Diagnostics.BrokenBindings);
+        Assert.Null(document.Diagnostics.LastBrokenBinding);
+    }
+
+    /// <summary>⚠ A sink that throws costs its own report and not the frame.</summary>
+    /// <remarks>
+    ///     <b>The instrument's own failure mode, asserted because the sink runs inside the drain.</b>
+    ///     <c>Report</c> is called from <c>Effect.RunFromScheduler</c>, which is called from
+    ///     <c>Flush</c> — so a sink that throws would come out of the flush, past every effect still
+    ///     queued behind the one that failed. That turns one broken binding into a dead frame, which
+    ///     is precisely the outcome <c>Effect</c> catches its own action to avoid, reintroduced by
+    ///     the thing watching for it.
+    /// </remarks>
+    [Fact]
+    public void A_suspension_sink_that_throws_does_not_take_the_flush_with_it() {
+        var scheduler = new EffectScheduler();
+
+        scheduler.Suspended = (_, _) => throw new InvalidOperationException("the sink is broken too.");
+
+        using var failing = new Effect(() => throw new InvalidOperationException("boom."), scheduler);
+        var runs = 0;
+
+        using var behind = new Effect(() => runs++, scheduler);
+
+        scheduler.Flush();
+
+        Assert.True(failing.IsSuspended);
+        Assert.False(behind.IsSuspended);
+        Assert.Equal(1, runs);
+    }
+
     /// <summary>A panel whose binding works, for the reading taken when nothing is wrong.</summary>
     sealed class Healthy : Component {
         public Signal<string> Name { get; } = new("first");

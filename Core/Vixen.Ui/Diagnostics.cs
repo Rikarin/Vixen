@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Diagnostics;
-using System.Globalization;
 using Vixen.Core.Mathematics;
 using Vixen.Ui.Layout;
 
@@ -190,14 +189,21 @@ public readonly struct UiDiagnostics(UiDocument document) {
     ///         symptom was a texturing panel that rendered once and froze.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It counts effects made by <c>BuildContext.Bind</c>, which is
-    ///         not the same as every suspended effect.</b> Four production sites construct an
-    ///         <c>Effect</c> directly, and one of those throwing suspends exactly as silently as
-    ///         before while this reads nought — so a zero here means "no bound expression broke",
-    ///         not "nothing broke". <c>Effect</c> lives in <c>Vixen.Ui.Reactive</c>, which has no
-    ///         document to report to, so closing that gap needs a hook rather than a line:
-    ///         <a href="https://github.com/Rikarin/Vixen/issues/1122">#1122</a>. Everything a panel
-    ///         or a <c>.vxml</c> declares goes through <c>Bind</c> and is counted.
+    ///         ⚠ <b>It counts every effect this document's scheduler suspends, which used not to be
+    ///         the same thing.</b> The count was taken inside <c>BuildContext.Bind</c>'s own
+    ///         <c>try</c>, so it saw the effects that method built and nothing else — the four
+    ///         production sites that construct an <c>Effect</c> directly stopped as silently as
+    ///         before, and a <i>runaway</i> effect, which throws nothing, was never counted by any
+    ///         path. <a href="https://github.com/Rikarin/Vixen/issues/1122">#1122</a> moved it to
+    ///         <c>EffectScheduler.Suspended</c>, the one point both ways of stopping pass through.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it still cannot see is an effect queued somewhere else.</b> An
+    ///         <c>Effect</c> constructed with no scheduler takes <c>EffectScheduler.Default</c>,
+    ///         which is per <i>thread</i> and belongs to no document — <c>UiWindowTitle.Bind</c>
+    ///         called without one is the shape in the tree. A zero here means "nothing this
+    ///         document schedules has stopped", which is what a panel wants and is not the same
+    ///         sentence as "nothing has stopped".
     ///     </para>
     /// </remarks>
     public int BrokenBindings => document.BrokenBindings;
@@ -333,32 +339,40 @@ public partial class UiDocument {
     /// <summary>How many of those rebuilds produced drawing that differs from the frame before.</summary>
     internal int DrawListsChanged { get; private set; }
 
-    /// <summary>How many bindings in this document have thrown and been suspended.</summary>
+    /// <summary>How many effects in this document have been suspended after misbehaving.</summary>
     internal int BrokenBindings { get; private set; }
 
-    /// <summary>Where the last one was written and what it threw.</summary>
+    /// <summary>Where the last one was written and what stopped it.</summary>
     internal string? LastBrokenBinding { get; private set; }
 
-    /// <summary>Records a binding that threw, on its way to being suspended.</summary>
+    /// <summary>Records an effect of this document's that the scheduler has just suspended.</summary>
     /// <remarks>
-    ///     ⚠ <b>Not <c>[Conditional]</c>, and the contrast with <see cref="RecordDirty" /> right
-    ///     below is the argument.</b> That one sits in the path a virtualised list walks two dozen
-    ///     times a frame, so the call site itself is what has to go. This one is reached only by an
-    ///     exception that has already been thrown, so there is no cost to compile away — and a
-    ///     counter behind <c>DEBUG</c> is a counter no <c>Release</c> gate can assert on, which is
-    ///     the whole failure this records.
+    ///     <para>
+    ///         ⚠ <b>Not <c>[Conditional]</c>, and the contrast with <see cref="RecordDirty" /> right
+    ///         below is the argument.</b> That one sits in the path a virtualised list walks two
+    ///         dozen times a frame, so the call site itself is what has to go. This one is reached
+    ///         only by an effect that has already stopped, so there is no cost to compile away — and
+    ///         a counter behind <c>DEBUG</c> is a counter no <c>Release</c> gate can assert on, which
+    ///         is the whole failure this records.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Reached from <c>EffectScheduler.Suspended</c> and from nowhere else, which is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1122">#1122</a>.</b> It used to be
+    ///         called from inside the <c>try</c> that <c>BuildContext.Bind</c> wraps its assignment
+    ///         in, so it saw the effects that one method built and no others — and it could not see
+    ///         the runaway detector at all, because that path throws nothing. Both gaps close by
+    ///         moving the count to the point every suspension passes through; the two are told apart
+    ///         by <paramref name="exception" /> being null.
+    ///     </para>
     /// </remarks>
-    /// <param name="origin">The binding's <c>[CallerFilePath]</c>, or null if it had none.</param>
-    /// <param name="line">The line half of <paramref name="origin" />.</param>
-    /// <param name="exception">What it threw.</param>
-    internal void RecordBrokenBinding(string? origin, int line, Exception exception) {
+    /// <param name="origin">Where the effect was declared, already formatted as <c>File.cs:12</c>.</param>
+    /// <param name="exception">What it threw, or null when the runaway detector suspended it.</param>
+    internal void RecordSuspendedEffect(string origin, Exception? exception) {
         BrokenBindings++;
 
-        var where = origin is null
-            ? "an unknown location"
-            : $"{origin.AsSpan(origin.AsSpan().LastIndexOfAny('/', '\\') + 1)}:{line.ToString(CultureInfo.InvariantCulture)}";
-
-        LastBrokenBinding = $"{where}: {exception.Message}";
+        LastBrokenBinding = exception is null
+            ? $"{origin}: re-ran until it was suspended; something it writes is something it reads."
+            : $"{origin}: {exception.Message}";
     }
 
     /// <summary>Counts one rebuild and whether it was worth anything.</summary>

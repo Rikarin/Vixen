@@ -909,35 +909,24 @@ public sealed class BuildContext {
     ///         origin shared by ten thousand bindings names none of them.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A throw is counted before it is contained.</b> <c>Effect</c> answers an
-    ///         unhandled exception by suspending itself, which is the right answer for a UI
+    ///         ⚠ <b>A throw is counted, and this method is no longer where.</b> <c>Effect</c> answers
+    ///         an unhandled exception by suspending itself, which is the right answer for a UI
     ///         framework — one bad binding must not take the window down — and is also completely
-    ///         silent to everything but an <c>ILogger</c> nobody has attached. So the throw is
-    ///         recorded on the document on its way past, where <see cref="UiDiagnostics" /> and the
-    ///         diagnostics panel can see it, and then rethrown so that the containment is unchanged.
-    ///         A panel that renders once and freezes now has a number and a message.
+    ///         silent to everything but an <c>ILogger</c> nobody has attached. This used to wrap the
+    ///         assignment in a <c>try</c> that recorded the throw and rethrew it; what that counted
+    ///         was the effects <i>this method</i> built, so a hand-constructed <c>Effect</c> stopped
+    ///         in silence and a runaway one — which throws nothing — was never counted at all. The
+    ///         count is now taken at <c>EffectScheduler.Suspended</c>, which every suspension passes
+    ///         through, and a binding made here reports exactly the same origin and message as
+    ///         before because <c>Effect</c> is handed the same <paramref name="origin" /> and
+    ///         <paramref name="line" />.
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1122">#1122</a>.
     ///     </para>
     /// </remarks>
     public void Bind(Action assign, [CallerFilePath] string? origin = null, [CallerLineNumber] int line = 0) {
         ArgumentNullException.ThrowIfNull(assign);
 
-        var document = Document;
-
-        building.Track(
-            new Effect(
-                () => {
-                    try {
-                        assign();
-                    } catch (Exception exception) {
-                        document.RecordBrokenBinding(origin, line, exception);
-                        throw;
-                    }
-                },
-                document.Effects,
-                origin,
-                line
-            )
-        );
+        building.Track(new Effect(assign, Document.Effects, origin, line));
     }
 
     /// <summary>Runs asynchronous work for as long as whatever declared it is in the document.</summary>
