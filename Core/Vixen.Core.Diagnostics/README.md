@@ -129,8 +129,9 @@ has since been written, collapses rows on `(Level, Category, Message)` and searc
 text, so it would decode on read what the ring encoded on write.
 
 ⚠ **One sentence that used to stand here was false and has been removed**: that the enabled path is
-never in a hot loop because `[HotPath]` methods are barred from logging. `[HotPath]` is applied to no
-method in the tree and no analyzer enforces it. Logging *does* happen in per-frame code — the UI
+never in a hot loop because `[HotPath]` methods are barred from logging. `[HotPath]` now has an
+analyzer (`VXHP0001`) and marked members, but that rule is about *allocation* — nothing bars a marked
+method from logging, and nothing is planned to. Logging *does* happen in per-frame code — the UI
 builder's diagnostic drain, the streaming residency report, the render-graph frame lint — and what
 actually keeps it affordable is that every one of those sites is individually latched, watermarked,
 de-duplicated or interval-throttled, so steady state is a compare and not a record. Two sites are

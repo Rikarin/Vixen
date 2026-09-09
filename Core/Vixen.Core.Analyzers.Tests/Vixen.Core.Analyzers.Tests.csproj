@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            A reference rather than an analyzer, for the reason Vixen.Core.IO.Analyzers.Tests gives:
+            the analyzer is driven over a string of C# through CompilationWithAnalyzers, which is the
+            only way to assert on a span and a message.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Analyzers\Vixen.Core.Analyzers.csproj" />
+
+        <!--
+            ⚠ And a real reference to Vixen.Core, which the IO tests do not need. The rule only fires
+            in a compilation that can name Vixen.Core.HotPathAttribute, so a harness that fabricated
+            its own copy of the attribute would be testing a rule keyed on a different type than the
+            one the engine marks members with.
+        -->
+        <ProjectReference Include="..\Vixen.Core\Vixen.Core.csproj" />
+    </ItemGroup>
+</Project>

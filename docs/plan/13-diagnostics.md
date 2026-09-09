@@ -53,9 +53,10 @@ internal static partial class RenderLog
   warning otherwise makes the log useless and costs real time.
 - **No logging in the innermost loops.** ⚠ **This is a convention and not a rule**, and this bullet
   used to claim otherwise: `[HotPath]`-marked methods were said to be "analyzer-blocked from logging",
-  and there is no such analyzer. `HotPathAttribute` exists (`Core/Vixen.Core/Annotations`) and is
-  applied to nothing in the tree, so it blocks nothing either — its own summary says it is a contract
-  for an *allocation* analyzer, which also does not exist. What is actually true is weaker and is why
+  and there is no such analyzer. ⚠ **Half of that correction has since expired and half has not.** The
+  *allocation* analyzer its summary named now exists — `VXHP0001` in `Core/Vixen.Core.Analyzers`, run
+  by every `Core/` project, with seven members marked (#1161). A *logging* rule still does not, and
+  nothing bars a marked method from logging. What is actually true is weaker and is why
   the cost has not bitten: logging does occur in per-frame code, and each such site is individually
   latched, watermarked, de-duplicated or interval-throttled, so its steady-state cost is a compare.
   `RingBufferSink`'s remarks carry the same correction.

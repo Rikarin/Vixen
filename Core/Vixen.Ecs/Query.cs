@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using Vixen.Core;
+
 namespace Vixen.Ecs;
 
 /// <summary>
@@ -134,6 +136,7 @@ public readonly struct ChunkSequence {
 
         /// <summary>Moves to the next non-empty chunk the filter admits.</summary>
         /// <returns>Whether there was one.</returns>
+        [HotPath]
         public bool MoveNext() {
             while (archetypeIndex < archetypes.Count) {
                 var chunks = archetypes[archetypeIndex].Chunks;

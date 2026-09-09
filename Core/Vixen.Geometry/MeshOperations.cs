@@ -1666,9 +1666,24 @@ public static class MeshOperations {
 
     /// <summary>Which cut along an edge is the one nearest a given end.</summary>
     /// <remarks>
-    ///     ⚠ <b>Both faces of a crossed edge have to agree which insertion is which.</b> The
-    ///     insertions were made along the edge's stored direction — low to high — so a face walking it
-    ///     the other way has to read them backwards, or the two halves of the cut meet in an X.
+    ///     <para>
+    ///         ⚠ <b>Both faces of a crossed edge have to agree which insertion is which.</b> The
+    ///         insertions were made along the edge's stored direction — low to high — so a face
+    ///         walking it the other way has to read them backwards, or the two halves of the cut meet
+    ///         in an X.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>#1167 recorded that no shape reaches the flip and it does — on nine of the twelve
+    ///         <c>ShapeKind</c>s.</b> What is rarer is a quad where only <i>one</i> of its two crossed
+    ///         edges flips, because flipping both just builds the strip from the other end and lands
+    ///         on the same quads; <c>Arch</c> and <c>DoorFrame</c> are the shapes that have such a
+    ///         quad, and <c>A_loop_cut_never_leaves_a_face_with_no_area</c> is built on them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Total area cannot see the failure</b>, which is why that test asks about a single
+    ///         face. A crossed pairing turns two of the strips into bowties whose halves cancel, so
+    ///         the mesh's area is preserved to the last float while the cut is destroyed.
+    ///     </para>
     /// </remarks>
     static int Ordered(EditMesh mesh, int edge, int from, int cut, int cuts) =>
         mesh.Edges[edge].A == from ? cut : cuts - 1 - cut;

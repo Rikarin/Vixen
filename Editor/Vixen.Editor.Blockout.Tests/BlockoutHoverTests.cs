@@ -243,6 +243,48 @@ public sealed class BlockoutHoverTests : IDisposable {
     }
 
     /// <summary>
+    ///     ⚠ <b>The preview's copy of <c>Ordered</c> is load-bearing, and a <c>Box</c> cannot say so.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The test above pins the pairing on a box, where the two crossed edges of every ring
+    ///         quad are stored in the same sense — so the flip never fires and removing it changes
+    ///         nothing at all (#1167, which recorded the opposite conclusion from a probe of four
+    ///         shapes). A <c>DoorFrame</c> has forty quads where one crossed edge is stored one way
+    ///         and the other the other way, and that is the case the flip exists for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Equal segment lengths is the box's oracle and is wrong here</b>, because a door
+    ///         frame's ring crosses jamb quads and head quads of different widths. What survives the
+    ///         difference is that the three cuts across one quad are <i>parallel</i>: their midpoints
+    ///         are three distinct points. Pair cut <c>k</c> on one side with cut <c>k</c> counted from
+    ///         the other end and the outer two become diagonals, whose midpoints are both the quad's
+    ///         centre — so twelve segments collapse onto four midpoints.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_previewed_cuts_across_one_quad_stay_parallel_when_its_edges_disagree() {
+        var mesh = MeshShapes.Create(ShapeKind.DoorFrame);
+        List<(Vector3 A, Vector3 B)> segments = [];
+
+        // Seed 4 is one of the ring seeds whose quads disagree; three cuts is the fewest that can
+        // cross over, because a single cut is its own mirror.
+        Assert.True(BlockoutHover.LoopCut(mesh, 4, 3, 0.5f, segments));
+        Assert.Equal(12, segments.Count);
+
+        var midpoints = new List<Vector3>();
+
+        foreach (var (a, b) in segments) {
+            var midpoint = (a + b) * 0.5f;
+
+            Assert.DoesNotContain(midpoints, seen => Vector3.Distance(seen, midpoint) < 1e-4f);
+            midpoints.Add(midpoint);
+        }
+
+        Assert.Equal(segments.Count, midpoints.Count);
+    }
+
+    /// <summary>
     ///     And it reaches the overlay: hovering an edge in Edge mode draws the loop the cut would
     ///     make, in the pane, without anything else asking it to.
     /// </summary>

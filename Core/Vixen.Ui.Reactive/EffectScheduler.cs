@@ -4,6 +4,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Vixen.Core;
 
 namespace Vixen.Ui.Reactive;
 
@@ -103,6 +104,7 @@ public sealed class EffectScheduler {
     ///     Re-entering a flush from inside one does nothing, for the same reason: the outer drain
     ///     picks the work up.
     /// </remarks>
+    [HotPath]
     public int Flush() {
         ReactiveGraph.AssertOwningThread();
 

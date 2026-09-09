@@ -228,6 +228,30 @@ it uses change versions. They exist for editor tooling and user code.
 > already emits. That is a fact about cost, not a decision: **#296 is still the decision**, and the
 > `GuidComponent` shape buys something the metadata one does not, which is an identity that survives
 > being written into a *different* file from the entity it names.
+>
+> ✅ **The refusal half of #296's "done looks like" is finished, in both of the two places state
+> lives, and the issue body does not know it.** That issue asks for "a refusal for a component that
+> holds an unremapped `Entity` so this cannot stay silent"; a `[Component][DataContract]` struct is
+> refused by `VXS0416` and a `Behavior` is refused by `VXS0413` — the second is the one it would be
+> easy to assume missing, and `Samples/13`'s `CharacterAnimation` is the live proof, six handles
+> behind a `#pragma warning disable VXS0413` whose comment names this issue as the condition for
+> taking it out. What is left under #296 is only the identity mechanism.
+>
+> ⚠ **And the reason the refusal has to be an analyzer at all**: `Entity` itself carries
+> `[DataContract]` (`Core/Vixen.Core/Identity/Entity.cs:38`), because the reflection and serialization
+> generators have to be able to name it. So nothing in the serialization path objects to writing one
+> down — an `Entity` member serialises as cleanly as an `int` triple, which is exactly what makes the
+> failure silent and why "never serialise a raw `Entity`" cannot be enforced by the serializer
+> refusing to emit one.
+>
+> ⚠ **The decision has no first customer, which is worth knowing before taking it.** Both shapes exist
+> to make a handle survive a round trip through a file, and there is no round trip: outside its own
+> tests `WorldSerializer` has no production caller at all, so nothing captures a world and nothing
+> restores one. Filed as [#1201](https://github.com/Rikarin/Vixen/issues/1201) — the note above has
+> now been rediscovered independently by three audits, which is what a fact recorded in a document
+> and not in the tracker looks like. A save system, a play-mode enter/exit snapshot and a network
+> world-state sync would each want a different answer, and until one of them exists the choice is
+> being made against nothing.
 
 ## Layer 2 — the system scheduler
 
@@ -343,9 +367,48 @@ door hinges, and framing it as "the fast one" is what makes them write behaviour
 
 ⚠ **The cost of the choice is not yet reversible.** An author who guesses wrong and finds a
 behaviour on ten thousand entities has to re-author it as a component and a system; nothing converts
-one to the other, and this document does not pretend the migration is free. Whether a supported
-conversion is owed, or whether "you will rewrite it" is the honest answer, is this document's call
-to make and it has not made it.
+one to the other, and this document does not pretend the migration is free.
+
+> **Recommended answer to that, priced against the tree** —
+> [#297](https://github.com/Rikarin/Vixen/issues/297). **"You will rewrite the logic", written into
+> the guide, and no conversion verb.** Not because a tool is hard, but because of *which* half a tool
+> could do:
+>
+> - **The data half is nearly free and nearly worthless on its own.** A behaviour's serialised state
+>   already travels as a `[DataContract]` through `ISceneBehaviorBinder.Save`/`Restore`, and
+>   `Vixen.Core.Reflection`'s generated type descriptor already knows the members and their types. A
+>   tool that emitted a component struct from those, and rewrote each scene instance, is a weekend.
+> - **⚠ The logic half cannot be done at all, and it is not a matter of effort.** `ISystem` is
+>   `Initialize` and `Update` — *two* entry points, both per-world. A `Behavior` has `Awake`,
+>   `OnEnable`, `Start`, `OnDisable`, `OnDestroy` and coroutines, all **per instance**. Turning
+>   `OnEnable` into ECS terms is a tag component and a change filter somebody has to design for this
+>   particular logic; there is no mechanical translation, and a generated `Update` skeleton with an
+>   empty body is not one either.
+> - **⚠ The editor has never written a line of a user's C# and this would be the first.** Everything
+>   under `Editor/**` that writes a file writes YAML, a `.meta`, a catalog or a report; the one thing
+>   that emits source is `TemplateCatalog`, which instantiates a whole `dotnet new` project from
+>   embedded files. "Rewrite this class in place" is a different capability, and buying it for this
+>   one verb is the wrong first customer.
+>
+> **So the tool that can be built would convert the half the author does not need help with, while
+> the verb's existence implies the migration is handled.** That is the trap this section already
+> names one paragraph up, in the other direction: a conversion verb sitting in a menu says a
+> behaviour is a provisional choice, which is exactly the framing — "the easy one" — that makes
+> people write a system for a door hinge.
+>
+> **⚠ The real remedy is not reversibility, it is discovery.** What hurts is finding out at ten
+> thousand instances, and that is a *measurement nothing takes*: `BehaviorStore` knows every bucket's
+> `Count` and nothing reports it. A `vixen doctor behaviors` beside the `vixen doctor systems` that
+> already exists — one line per behaviour type, its instance count, and a mark past a threshold —
+> makes the wrong guess visible in the frame where it starts being wrong, costs no new mechanism, and
+> pushes nobody either way. That is what this recommendation would spend the effort on instead, and it
+> is filed as [#1199](https://github.com/Rikarin/Vixen/issues/1199) — ⚠ the per-type count is not
+> merely unreported, it is *unreachable*: `BehaviorBucket<T>` is a private nested class, and
+> `BehaviorStore.Count`'s only readers in the whole tree are three lines of `BehaviorTests`.
+>
+> **Not landed as the document's answer**: this prices the three options and picks one, and which way
+> a rule about scale and shape should push authors is Jiu's call rather than an agent's. #297 stays
+> open on that.
 
 ### How it maps down
 
@@ -404,10 +467,34 @@ need throughput. Both are first-class and documented as such.
 >   a declaration: inside a `[BehaviorJob]` `Update`, a lifecycle call is a data race and not a slow
 >   path.
 >
-> **What is owed is therefore four things, in order**: the access declaration for a behaviour type,
-> the refusal, dispatch through `ParallelFor` in `BehaviorBucket<T>`, and the measurement — because
-> "measurably slower than a pure ECS system and dramatically faster than Unity's MonoBehaviour path"
-> is a claim this section makes and nothing checks.
+> - ⚠ **And a third blocker the list above did not have, which is the one that decides the order.**
+>   `Behavior.Get<T>()` and `Read<T>()` are the *only* way a behaviour reaches a component, and on a
+>   **managed** component both of them mutate world-wide state. `World.Read<T>` reaches
+>   `World.Managed<T>` (`World.cs:947`) exactly as `Get<T>` does; that method calls `StoreFor<T>()`,
+>   which can `Array.Resize(ref managedStores, …)` and `managedStores[id] ??= new …`
+>   (`World.cs:978-986`), and then `store.Allocate(default!)` when the row's handle is still zero,
+>   which pops an unsynchronised `Stack<int>` or appends to a `ChunkedArray<T>`
+>   (`ManagedComponentStore.cs:78-84`). ⚠ **So a behaviour that only *reads* a managed component it
+>   has never written races two other behaviours doing the same**, and nothing about the call site
+>   says so — the lazy allocation is what makes `Add<T>()` with no value work, and it is invisible
+>   from `Read`. `BehaviorRef` is itself a managed component, so this is not a corner of the design
+>   that behaviours avoid. Filed on its own as
+>   [#1198](https://github.com/Rikarin/Vixen/issues/1198), because it is not about behaviours: any
+>   `[InferAccess]` system declaring a *read* of a managed component has the same exposure.
+>
+> **What is owed is therefore five things, and ⚠ the order is not the one the list was first written
+> in**: the *refusal* comes first, because it is what makes any dispatch safe and it is the half that
+> can be written and tested on its own; then either a synchronised or a pre-warmed managed-component
+> path, or a refusal that also bars a managed `Get`/`Read` inside a `[BehaviorJob]` `Update`; then
+> the access declaration for a behaviour type; then dispatch through `ParallelFor` in
+> `BehaviorBucket<T>`; and last the measurement — because "measurably slower than a pure ECS system
+> and dramatically faster than Unity's MonoBehaviour path" is a claim this section makes and nothing
+> checks.
+>
+> ⚠ **The access declaration is lower down that list than it reads**, and saying why matters: a
+> declaration exists to schedule a job against *other* jobs, and `BehaviorStore.RunUpdate` runs at a
+> sync point where no system is running. Parallelising *within* one bucket is a different question
+> from parallelising a bucket against a system, and it is the first one that item 3 asks for.
 
 ### The rule that keeps this coherent
 
