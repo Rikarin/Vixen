@@ -769,6 +769,69 @@ public class TextureKernelLanguageSeamTests {
     }
 
     /// <summary>
+    ///     The set a kernel is compiled against declares the Rec. 709 weights exactly once, in
+    ///     <c>Core/ColorSpaces.rvn</c>.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><see href="https://github.com/Rikarin/Vixen/issues/1114" />, and it is the sweep
+    ///         the three tests above cannot make.</b> Each of those asks a <em>kernel</em> not to
+    ///         transcribe the triple; none of them asks the same of the library sources compiled
+    ///         beside it, and the library was carrying a second copy —
+    ///         <c>Material/ComputeColor.rvn</c>'s <c>Saturation</c>, whose body held the weights and
+    ///         which nothing in the engine called. "No kernel copies it" was true and "a kernel binds
+    ///         against one luminance" was not.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The prelude and not <c>Raven/Library</c>, because the library legitimately holds
+    ///         two.</b> <c>PostFx/Fullscreen.rvn</c> declares a <c>Luminance</c> of its own with the
+    ///         same triple, and a post-effect chain and a texture kernel are not one compilation, so
+    ///         a sweep over the whole library would be red on a duplication that costs nothing. What
+    ///         matters is the set <see cref="TextureKernelPrelude.Compile" /> hands a kernel: two
+    ///         spellings inside <em>that</em> are two answers a kernel could call.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it would say if it read nothing.</b> A prelude that came back empty finds no
+    ///         copies at all and would report the library clean, so the file that is supposed to
+    ///         carry the weights is named and asserted first — the same shape
+    ///         <see cref="Only_the_kernel_whose_weights_are_defaults_still_transcribes_the_library_s" />
+    ///         uses for <c>Grayscale</c>. ⚠ And the needle is read off <c>Core/ColorSpaces.rvn</c> on
+    ///         disk rather than written here, so a triple that moved reduces to nothing and fails the
+    ///         length check instead of matching every file.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_prelude_declares_the_luminance_weights_once() {
+        var luminance = Reduce(Library("Core", "ColorSpaces.rvn"), "Luminance").Numbers;
+
+        Assert.Equal(3, luminance.Length);
+
+        var triple = new Regex(
+            @"float3\(\s*" + string.Join(@"f?\s*,\s*", luminance.Select(Regex.Escape)) + @"f?\s*\)"
+        );
+
+        string[] carrying = [
+            .. TextureKernelPrelude
+                .Sources
+                .Where(source => triple.IsMatch(Uncommented(source.Text)))
+                .Select(source => source.Name)
+                .OrderBy(name => name, StringComparer.Ordinal)
+        ];
+
+        // The instrument's other half: the file that is meant to hold the weights has to be one of
+        // the ones found, or "exactly one" is a statement about a pattern that matches nothing.
+        Assert.Contains("Core.ColorSpaces.rvn", carrying);
+
+        Assert.True(
+            carrying.Length == 1,
+            "These files in the set a kernel is compiled against each spell Rec. 709 out: "
+            + string.Join(", ", carrying)
+            + ".\nOne of them is `Core/ColorSpaces.rvn`'s `Luminance` and the rest are copies a "
+            + "kernel could call by mistake. #1114."
+        );
+    }
+
+    /// <summary>
     ///     <c>Core/ColorSpaces.rvn</c> is in what a kernel binds against, verbatim, and the three
     ///     kernels that want a luminance call it.
     /// </summary>
