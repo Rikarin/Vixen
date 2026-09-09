@@ -1,0 +1,48 @@
+# The weights of a three-layer ground material, in the one arrangement whose answer is closed-form.
+#
+# ⚠ Every mask here is a CONSTANT, which is not a shortcut. A constant mask is folded into the
+# layer's opacity by `LayerStackGraph.Folds`, so this exercises the same arithmetic a painted mask
+# reaches and gives a value a test can predict without a second implementation of the compositor.
+#
+# Resolved by `over`, top down: snow takes half the texel, moss a quarter of what is left, and rock
+# the rest — 0.375, 0.125, 0.5 in R, G and B, summing to one, with an alpha of nothing because there
+# is no fourth layer. Every one of those numbers is different from every other, so a permuted pack,
+# an unresolved pack and an invented alpha are three different wrong pictures.
+#
+# ⚠ Snow's `blend: Multiply` is the one line here that is not about that arithmetic. `Blend` mixes by
+# the operator after scaling by the amount, so over the black backdrop a coverage build starts from, a
+# Multiply layer mixes to black and would weigh NOTHING however much of the texel it covers.
+# `LayerStackSplat.Coverage` composites every layer with Copy for exactly that reason; without this
+# line the fixture could not tell that decision from its absence.
+version: 1
+name: Splat Stack
+baseWidth: 64
+baseHeight: 64
+sets:
+  - name: Ground
+    channels:
+      - usage: baseColor
+        default: [0, 0, 0, 1]
+    layers:
+      - id: rock
+        name: Rock
+        kind: Fill
+        values:
+          baseColor: [0.5, 0.5, 0.5, 1]
+      - id: moss
+        name: Moss
+        kind: Fill
+        mask:
+          source: Constant
+          value: 0.25
+        values:
+          baseColor: [0.2, 0.6, 0.2, 1]
+      - id: snow
+        name: Snow
+        kind: Fill
+        blend: Multiply
+        mask:
+          source: Constant
+          value: 0.5
+        values:
+          baseColor: [0.9, 0.9, 0.95, 1]

@@ -297,6 +297,200 @@ sealed class MaterialBakeRoute {
         return outcomes.ToImmutable();
     }
 
+    /// <summary>Packs a stack's painted layer weights into a splat map beside each set's material.</summary>
+    /// <param name="document">The layer stack on the canvas.</param>
+    /// <param name="name">What the stack's material is called, which the map is written beside.</param>
+    /// <param name="folder">Which folder under <c>Assets/</c> the baked materials are in.</param>
+    /// <param name="force">Overwrite a splat map somebody has painted over.</param>
+    /// <returns>One outcome per texture set, in the sets' order.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="document" /> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name" /> is empty.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>, and the step that
+    ///         turns <a href="https://github.com/Rikarin/Vixen/issues/1073">#1073</a> from "a script
+    ///         where the tool should be" into a verb.</b> Before it an artist who wanted a layered
+    ///         material painted the weights in the stack, exported them by hand, packed them in an
+    ///         external editor, imported the result and named it in the <c>.vxmat</c>'s
+    ///         <c>textures:</c> block.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One evaluation per layer, and it has to be.</b>
+    ///         <c>TextureDiagnostics.TwoOutputsOneUsage</c> refuses a graph with two <c>mask</c>
+    ///         outputs, so "N masks in node order are N channels" was never available — and it is the
+    ///         right refusal, because two outputs under one usage is two maps a bake would write to
+    ///         one file. So each layer's coverage is its own compile of its own one-channel set, and
+    ///         <see cref="MaterialBake.Splat" /> is what makes them channels.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is <em>not</em> a bake of the stack, and the difference is which files exist
+    ///         afterwards.</b> <see cref="Bake(LayerStackDocument,string,string,bool)" /> writes a
+    ///         material and its maps; this writes one texture and binds it onto a material that has
+    ///         to be there already, because a splat map's channels are that material's layer indices.
+    ///         The order for an artist is therefore bake, add the layered feature with its layers,
+    ///         then this — which is the same two-step shape a height map is under
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>).
+    ///     </para>
+    /// </remarks>
+    public ImmutableArray<MaterialBakeOutcome> BakeSplat(
+        LayerStackDocument document,
+        string name,
+        string folder = MaterialMapNaming.DefaultFolder,
+        bool force = false
+    ) {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentException.ThrowIfNullOrEmpty(name);
+
+        var stack = document.Document;
+
+        if (stack.Sets.Count == 0) {
+            return [new(null, "Nothing baked: this stack has no texture set, so there is no layer to weigh.")];
+        }
+
+        // The pane's order — see `Bake`: a stack compiled against a node library that predates the
+        // compound the artist saved a minute ago is a coverage from a graph nobody is looking at.
+        document.Republish();
+
+        var outcomes = ImmutableArray.CreateBuilder<MaterialBakeOutcome>(stack.Sets.Count);
+        var names = Names(stack, name);
+
+        for (var index = 0; index < stack.Sets.Count; index++) {
+            var set = stack.Sets[index];
+
+            MaterialBakeOutcome Said(string status) => new(null, $"'{set.Name}': " + status);
+
+            var layers = LayerStackSplat.Layers(set);
+
+            if (layers.Length == 0) {
+                outcomes.Add(
+                    Said(
+                        "nothing baked: this texture set has no enabled layer, so every channel of its splat map "
+                        + "would be zero — a material whose weights sum to nothing."
+                    )
+                );
+
+                continue;
+            }
+
+            if (layers.Length > LayerStackSplat.MaxLayers) {
+                outcomes.Add(new(null, "Nothing baked: " + LayerStackSplat.Crowded(set, layers.Length)));
+
+                continue;
+            }
+
+            if (graphics.Device is not { } device) {
+                outcomes.Add(Said("nothing baked: " + TexturePreview.Describe(TexturePreview.Blocking(graphics))));
+
+                continue;
+            }
+
+            outcomes.Add(Weigh(document, set, layers, device, names[index], folder, force));
+        }
+
+        return outcomes.ToImmutable();
+    }
+
+    /// <summary>Resolves one set's layer coverages and writes the splat map they pack into.</summary>
+    /// <param name="document">The stack, for its project, its library and its externals.</param>
+    /// <param name="set">The texture set.</param>
+    /// <param name="layers">Its layers, bottom first.</param>
+    /// <param name="device">The device to evaluate on.</param>
+    /// <param name="name">What the material is called.</param>
+    /// <param name="folder">Which folder under <c>Assets/</c>.</param>
+    /// <param name="force">Overwrite a splat map somebody has painted over.</param>
+    /// <returns>What happened, and what to say about it.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A refusal on any one layer stops the whole map rather than weighing it as zero.</b> A
+    ///     splat map missing one layer's channel is a surface drawn out of the other three, normalised
+    ///     over a total that is short — a lit, plausible picture of a stack the artist did not make.
+    ///     There is no partial answer here that is better than saying which layer refused.
+    /// </remarks>
+    MaterialBakeOutcome Weigh(
+        LayerStackDocument document,
+        TextureSetAsset set,
+        ImmutableArray<LayerAsset> layers,
+        IGraphicsDevice device,
+        string name,
+        string folder,
+        bool force
+    ) {
+        MaterialBakeOutcome Said(string status) => new(null, $"'{set.Name}': " + status);
+
+        var coverage = new List<Bitmap>(layers.Length);
+        var cautions = new List<string>();
+
+        foreach (var layer in layers) {
+            var named = layer.Name.Length > 0 ? layer.Name : layer.Id;
+            var library = document.Library;
+            var build = LayerStackGraph.Weights(document.Document, LayerStackSplat.Coverage(set, layer), library.Registry);
+
+            var compilation = LayerStackCompiler.Compile(
+                document.Document,
+                build,
+                library.Registry,
+                subGraphs: library.SubGraphs
+            );
+
+            if (compilation.Plan is not { } plan || compilation.Outputs.Length == 0) {
+                return Said($"nothing baked, because layer '{named}' did not: " + Refused(compilation));
+            }
+
+            using TextureUploads uploads = new(device);
+
+            var unresolved = TextureExternalImages.Fill(
+                document.Project,
+                document.AssetPath,
+                uploads,
+                plan,
+                compilation.Externals,
+                canvases
+            );
+
+            if (unresolved.Count > 0) {
+                return Said($"nothing baked, because layer '{named}' needs " + string.Join(" · ", unresolved));
+            }
+
+            using var run = evaluators(device).Evaluate(plan, uploads.Externals);
+
+            coverage.Add(run.Read(compilation.Outputs[0].Image));
+            cautions.AddRange(run.Warnings);
+        }
+
+        MaterialBakeSet written;
+
+        try {
+            written = new ProjectMaterialBaker(document.Project, folder).WriteSplat(
+                name,
+                MaterialBake.Splat(coverage),
+                coverage.Count,
+                Record(document, device, set.Name),
+                force
+            );
+        } catch (ArgumentException failure) {
+            // Two coverages at different sizes, and a material whose layer list is not this stack's.
+            return Said("nothing baked: " + failure.Message);
+        } catch (IOException failure) {
+            // ⚠ Only the overpaint is offered force, on `Write`'s terms: the other refusal here is
+            // "there is no material of that name", which forcing cannot conjure one for.
+            return new MaterialBakeOutcome(null, $"'{set.Name}': nothing baked: " + failure.Message) {
+                Painted = failure.Message.EndsWith(ProjectMaterialBaker.Overpaint, StringComparison.Ordinal)
+            };
+        } catch (InvalidOperationException failure) {
+            return Said("nothing baked: " + failure.Message);
+        }
+
+        Written++;
+
+        return new(
+            written,
+            $"Wrote '{Path.GetFileName(written.Files[0])}' weighing "
+            + $"{coverage.Count.ToString(CultureInfo.InvariantCulture)} "
+            + $"{(coverage.Count == 1 ? "layer" : "layers")} of '{set.Name}', and bound it onto {name}."
+            + (cautions.Count > 0 ? " ⚠ " + string.Join(" · ", cautions) : "")
+            + (written.Warnings.Count > 0 ? " ⚠ " + string.Join(" · ", written.Warnings) : "")
+        );
+    }
+
     /// <summary>Evaluates a compiled plan's every output and writes the set into the project.</summary>
     /// <param name="project">The project the files go into.</param>
     /// <param name="assetPath">The document the plan came from, for the externals it names.</param>

@@ -159,6 +159,26 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     /// </remarks>
     public const string BakeStackCommand = "texturing.bake-stack-material";
 
+    /// <summary>Packs the open stack's painted layer weights into a splat map.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>, and the reason it
+    ///         is a third verb rather than part of <see cref="BakeStackCommand" />.</b> A bake
+    ///         flattens a stack into one set of maps; this writes the opposite — the per-layer
+    ///         weights that keep the layers <em>separate</em> at run time — and binds them onto a
+    ///         material that already carries a <c>TexturedMaterialLayersFeature</c>. Folding the two
+    ///         into one gesture would mean every ordinary bake either wrote a splat map nothing
+    ///         samples or refused because the material has no layer list.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So it is deliberately the second step of two</b>, like the height map's
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>): bake the material,
+    ///         give it its layers, then bake the weights. The refusal says so by name when the
+    ///         material is not there yet.
+    ///     </para>
+    /// </remarks>
+    public const string BakeSplatCommand = "texturing.bake-splat-map";
+
     /// <summary>The verb that re-runs the last bake a painted-over map refused.</summary>
     /// <remarks>
     ///     <para>
@@ -749,6 +769,12 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
         );
 
         context.AddCommand(
+            BakeSplatCommand,
+            new StringId("editor.command." + BakeSplatCommand, "Bake Splat Map from Layers"),
+            BakeSplatMap
+        );
+
+        context.AddCommand(
             ForceBakeCommand,
             new StringId("editor.command." + ForceBakeCommand, "Bake Material (Force)"),
             BakeForced
@@ -775,6 +801,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             context.AddMenuItem(tools, PaintCommand);
             context.AddMenuItem(tools, BakeCommand);
             context.AddMenuItem(tools, BakeStackCommand);
+            context.AddMenuItem(tools, BakeSplatCommand);
 
             // ⚠ Under the two it answers, which is where #1019 asks for it: an artist reads a refusal
             // naming a file they painted over and looks for the control in the menu they just used.
@@ -949,6 +976,84 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             written == 0
                 ? "Nothing baked"
                 : $"Baked {written.ToString(CultureInfo.InvariantCulture)} of "
+                + $"{outcomes.Length.ToString(CultureInfo.InvariantCulture)}",
+            written == 0 ? NotificationSeverity.Warning : NotificationSeverity.Info,
+            painted ? detail + " " + ForceAdvice : detail
+        );
+
+        RefreshStack();
+    }
+
+    /// <summary>Packs the open stack's layer weights into a splat map and binds it onto the material.</summary>
+    /// <remarks>
+    ///     <b><a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>'s editor half, and the
+    ///     verb <a href="https://github.com/Rikarin/Vixen/issues/1073">#1073</a> was missing.</b>
+    ///     Everything below the notification is <see cref="MaterialBakeRoute" /> — the same compile
+    ///     the layers pane runs, the same evaluator both panes share and the same
+    ///     <see cref="ProjectMaterialBaker" /> the command line calls, with its naming, its digest,
+    ///     its painted-over guard and its provenance block.
+    /// </remarks>
+    void BakeSplatMap() => BakeSplat(stack, force: false);
+
+    /// <summary>Packs the weights, forcing or not.</summary>
+    /// <param name="subject">The stack to weigh.</param>
+    /// <param name="force">Whether to overwrite a splat map somebody has painted over.</param>
+    /// <remarks>
+    ///     ⚠ <b>A parameter and not the field, for <see cref="BakeStack" />'s reason</b>: the closure
+    ///     <see cref="Refused" /> arms has to repeat the write that was refused rather than whatever
+    ///     is open when the artist reaches the force verb.
+    /// </remarks>
+    void BakeSplat(LayerStackDocument? subject, bool force) {
+        if (subject is null) {
+            shell.Notifications.Show(
+                "No layer stack is open",
+                NotificationSeverity.Warning,
+                "Bake Splat Map from Layers weighs the stack in the Layer Stack panel. Select a "
+                + ".vxlayers and run Open Layer Stack first."
+            );
+
+            return;
+        }
+
+        // ⚠ The same refusal `BakeStack` makes and for the same reason one level along: a smart
+        // material is a stack fragment with no model, so its mesh-map masks have nothing to measure —
+        // and there is no material of its name to bind a splat map onto either, so the write would
+        // refuse anyway with a sentence about a missing `.vxmat` rather than about the shelf entry
+        // that should not have been weighed.
+        if (subject.IsSmartMaterial) {
+            shell.Notifications.Show(
+                "Nothing baked",
+                NotificationSeverity.Warning,
+                $"'{Path.GetFileName(subject.AssetPath)}' is a smart material, which is a stack "
+                + "fragment with no model and no material of its own. Apply it to a .vxlayers and "
+                + "weigh that."
+            );
+
+            return;
+        }
+
+        if (baker is null) {
+            shell.Notifications.Show(
+                "Nothing baked",
+                NotificationSeverity.Warning,
+                TexturePreview.Describe(TexturePreview.Blocking(graphics))
+            );
+
+            return;
+        }
+
+        var outcomes = baker.BakeSplat(subject, Path.GetFileNameWithoutExtension(subject.AssetPath), force: force);
+        var written = outcomes.Count(one => one.Set is not null);
+        var painted = outcomes.Any(one => one.Painted);
+
+        Refused(painted ? () => BakeSplat(subject, force: true) : null);
+
+        var detail = string.Join(" · ", outcomes.Select(one => one.Status));
+
+        shell.Notifications.Show(
+            written == 0
+                ? "Nothing baked"
+                : $"Weighed {written.ToString(CultureInfo.InvariantCulture)} of "
                 + $"{outcomes.Length.ToString(CultureInfo.InvariantCulture)}",
             written == 0 ? NotificationSeverity.Warning : NotificationSeverity.Info,
             painted ? detail + " " + ForceAdvice : detail

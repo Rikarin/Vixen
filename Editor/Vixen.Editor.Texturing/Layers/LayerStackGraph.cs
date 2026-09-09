@@ -217,6 +217,54 @@ static class LayerStackGraph {
         return builder.Run();
     }
 
+    /// <summary>The same stack, built to answer <em>how much</em> each layer covers rather than what colour it is.</summary>
+    /// <param name="stack">The document.</param>
+    /// <param name="set">A set holding the one layer whose coverage is wanted — see the remarks.</param>
+    /// <param name="registry">The node types, as <see cref="Build" /> takes them.</param>
+    /// <returns>The graph and what building it had to say.</returns>
+    /// <exception cref="ArgumentNullException">The stack or the set is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a splat map's channels are</b> —
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1124">#1124</a>. Every layer's mask,
+    ///         its opacity and its blend already decide how much of a texel it takes; a coverage build
+    ///         is the same walk with the <em>colour</em> replaced by one, so what comes out of the
+    ///         chain is that amount and nothing else.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is not a second compositor and that is the point.</b> The mask stack, the mask
+    ///         effects, the anchors, the groups and the opacity folding are all the ones a picture
+    ///         goes through — <c>LayerStackSplat</c> hands this one layer at a time and the arithmetic
+    ///         that turns the answers into weights is in <c>MaterialBake.Splat</c>. Emitting a
+    ///         coverage chain of its own here would be the second implementation of "how much does
+    ///         this layer cover" that § D1 exists to prevent.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A paint layer's coverage is its canvas's <em>alpha</em>, not a constant.</b>
+    ///         Substituting white for a paint layer the way a fill takes it would say the layer covers
+    ///         the whole atlas — which is the failure this mode exists to compute correctly, since
+    ///         M9's painted masks are the weights an artist actually made. So the canvas is read and
+    ///         its colour lanes forced to one with its alpha kept.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A filter layer contributes no coverage at all.</b> An adjustment reads what is
+    ///         under it and changes the colour; treated as a fill it would claim the whole surface,
+    ///         and a stack with a Levels layer on top would come back as one layer covering everything.
+    ///     </para>
+    /// </remarks>
+    public static LayerStackBuild Weights(
+        LayerStackAsset stack,
+        TextureSetAsset set,
+        NodeTypeRegistry? registry = null
+    ) {
+        ArgumentNullException.ThrowIfNull(stack);
+        ArgumentNullException.ThrowIfNull(set);
+
+        Builder builder = new(stack, set, registry ?? LayerStackCompiler.Library(out _)) { Weighing = true };
+
+        return builder.Run();
+    }
+
     /// <summary>The port a filter's numbers may name, per filter kind.</summary>
     /// <param name="filter">Which adjustment.</param>
     /// <returns>The node type, and the scalar ports it takes.</returns>
@@ -274,6 +322,9 @@ static class LayerStackGraph {
 
         float column;
         float row;
+
+        /// <summary>Whether this walk answers coverage rather than colour — see <see cref="Weights" />.</summary>
+        public bool Weighing { get; init; }
 
         /// <summary>The layer whose walk is running, or empty outside every layer.</summary>
         /// <remarks>
@@ -501,12 +552,58 @@ static class LayerStackGraph {
         /// </summary>
         PortRef? Content(LayerAsset layer, ChannelAsset channel, PortRef cursor, int depth) =>
             layer.Kind switch {
-                LayerKind.Fill => Fill(layer, channel),
-                LayerKind.Filter => Adjustment(layer, cursor),
+                LayerKind.Fill => Weighing ? Covers() : Fill(layer, channel),
+
+                // ⚠ Nothing, under `Weighing`. An adjustment is not a thing that covers a texel — it
+                // reads what is under it — and a filter layer taken as a fill would claim the whole
+                // surface, so a stack with a Levels layer on top would weigh as one layer everywhere.
+                LayerKind.Filter => Weighing ? null : Adjustment(layer, cursor),
                 LayerKind.Group => Group(layer, channel, cursor, depth),
-                LayerKind.Paint => Paint(layer, channel),
+                LayerKind.Paint => Weighing ? Covered(Paint(layer, channel)) : Paint(layer, channel),
                 _ => throw new ArgumentOutOfRangeException(nameof(layer), layer.Kind, "Not a layer kind this build knows.")
             };
+
+        /// <summary>A fill's coverage, which is all of it: one, everywhere.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Whatever the fill actually is.</b> A constant, a texture and a generator all cover
+        ///     every texel they are composited over — what limits them is the mask and the opacity,
+        ///     which <see cref="Composite" /> applies to this exactly as it applies them to a colour.
+        ///     Reading the fill's own pixels here would weigh a dark texture as a layer that is barely
+        ///     there.
+        /// </remarks>
+        PortRef Covers() {
+            var node = Add("Source/Uniform");
+
+            node.SetValue("Colour", 1f, 1f, 1f, 1f);
+
+            return new(node.Id, "Out");
+        }
+
+        /// <summary>A painted canvas as a coverage: its alpha kept, its colour forced to one.</summary>
+        /// <remarks>
+        ///     ⚠ <b>The alpha is the whole of what a paint layer covers</b>, and it is the one kind
+        ///     for which <see cref="Covers" /> would be wrong rather than merely coarse: an unpainted
+        ///     canvas is transparent everywhere and a white constant in its place says the layer took
+        ///     the whole atlas. The shuffle is <see cref="Opaque" />'s, pointed the other way — that
+        ///     one makes a number out of a picture's red, this one makes a picture out of a number in
+        ///     alpha, because <c>Blend</c> reads alpha as the coverage.
+        /// </remarks>
+        PortRef? Covered(PortRef? content) {
+            if (content is not { } painted) {
+                return null;
+            }
+
+            var node = Add("Colour/Channel Shuffle");
+
+            node.SetText("Red From", "One");
+            node.SetText("Green From", "One");
+            node.SetText("Blue From", "One");
+            node.SetText("Alpha From", "FirstAlpha");
+
+            graph.Connect(painted, new(node.Id, "First"));
+
+            return new(node.Id, "Out");
+        }
 
         /// <summary>A group's children, passed through or isolated, or nothing when they add none.</summary>
         /// <remarks>
@@ -679,6 +776,16 @@ static class LayerStackGraph {
         ///     </para>
         /// </remarks>
         PortRef Project(LayerAsset layer, PortRef content) {
+            // ⚠ Skipped entirely while weighing, warnings included. A projection decides *where on
+            // the mesh* a fill's pixels land, and a coverage has no pixels to land: the answer is one
+            // wherever the layer is composited either way. Running it would emit two mesh-map
+            // externals a coverage bake has no use for, and — worse — the constant-fill caution,
+            // which would then be reported against a constant this build substituted rather than
+            // against anything the author wrote.
+            if (Weighing) {
+                return content;
+            }
+
             // ⚠ Before the early return, because a UV layer is one of the two places an axis means
             // nothing — and Y is not checked here because it is the default: "the author chose y"
             // and "the author said nothing" are one state, which is why `LayerAxis`' zero is X.
