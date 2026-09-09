@@ -94,17 +94,27 @@ layout(push_constant) uniform Mask {
     vec4 green;
     vec4 blue;
 
-    // `x` the first entry's index in `masks`, `y` how many entries. `zw` unused.
+    // `x` the first entry's index in `masks`, `y` how many entries, `z` framebuffer pixels per
+    // document pixel. `w` unused.
     //
     // ⚠ Floats holding integers, because the whole fragment range is `vec4`s and a mixed block would
     // have to be laid out by hand on both sides of the wire. Rounded rather than truncated on the
     // way back, which is the same `+ 0.5` the shape is read with.
+    //
+    // ⚠ <b>The scale is not decoration and a zero in it is not "no scaling".</b> A host that pushed
+    // this block without it would divide the point by zero; `main` clamps it to a floor for that
+    // reason, and `UiRenderer.SubmitDraw` writes the frame's own scale on every draw that reaches
+    // here.
     vec4 list;
 
     // The border box a `backdrop-filter` is clipped to: `xy` its centre and `zw` half its size, in
-    // document pixels — and `corner.x` its radius, uniform or zero. `ui-colour.frag` carries the
+    // <b>target texels</b> — and `corner.x` its radius, in the same. `ui-colour.frag` carries the
     // same pair at its own offset and argues them; a group may hold a `mask-image`, a `filter` and a
     // radius at once, so all three have to be readable by the one module that serves that draw.
+    //
+    // ⚠ Texels rather than document pixels, and pre-multiplied by the host: `UiRenderer.Corner`
+    // scales it, so that this box and `MaskEntry.box` — which is *not* scaled — deliberately arrive
+    // in two different spaces. See `main`, which evaluates one in each.
     vec4 box;
     vec4 corner;
 } push;
@@ -308,15 +318,25 @@ void main() {
 
     filtered = clamp(filtered, vec3(0.0), vec3(sampled.a));
 
-    // ⚠ <b>The point comes from the texture coordinate times the surface size, which *is* the
-    // document pixel.</b> Every layer surface is the size of the viewport — see `UiLayer` — so this
-    // product needs no origin subtracted, which is exactly why `SoftwareUiRasterizer` can compute the
-    // identical number from the identical varying. Using `gl_FragCoord` instead would be right at a
-    // scale of one and wrong at every other, because the surface is in target texels and the mask box
-    // is in document pixels.
-    vec2 point = varying_texcoord * vec2(textureSize(sampler2D(source, source_sampler), 0));
+    // ⚠ <b>The texture coordinate times the surface size is a <i>target texel</i>, and the sentence
+    // that used to stand here said it was a document pixel.</b> The two claims were in one paragraph
+    // and the second refuted the first: a layer surface is `ceil(surface × scale)` — see
+    // `UiRenderer.Compose` — so this product carries the display's scale in it, exactly as
+    // `gl_FragCoord` would. It needs no origin subtracted, which is the half of the old remark that
+    // was true and is why `SoftwareUiRasterizer` can compute the same number from the same varying;
+    // it needed a scale removed, which nothing did, so a `mask-image` on a 2× display was drawn at
+    // half size in the top-left quadrant of its element (#1200).
+    //
+    // ⚠ <b>Two spaces from here on, and each consumer takes the one its own numbers are in.</b>
+    // `MaskEntry.box` is in document pixels and cannot be pre-multiplied — `UiRenderer.UploadGeometry`
+    // writes those entries before the scale is known — so the point is divided down for the ramp.
+    // `push.box` *is* pre-multiplied, by `UiRenderer.Corner`, and keeps the texel: its coverage is a
+    // band one unit of its own argument wide, so putting it in document pixels would leave the curve
+    // in the right place and soften its edge by the scale.
+    vec2 texel = varying_texcoord * vec2(textureSize(sampler2D(source, source_sampler), 0));
+    vec2 point = texel / max(push.list.z, 1e-4);
     float coverage = mask_list(point, int(push.list.x + 0.5), int(push.list.y + 0.5))
-        * backdrop_coverage(point);
+        * backdrop_coverage(texel);
 
     // ⚠ <b>All four channels, because the sample is premultiplied.</b> Scaling coverage on
     // premultiplied colour is `(rgb·m, a·m)` — the whole vector. The `(rgb, a·m)` an ordinary

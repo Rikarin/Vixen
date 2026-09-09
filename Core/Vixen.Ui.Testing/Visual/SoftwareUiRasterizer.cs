@@ -780,10 +780,18 @@ public static class SoftwareUiRasterizer {
         // what makes this agree with `ui-mask.frag`, which has no choice about where it applies it.
         //
         // ⚠ <b>The point comes from the same <c>uv</c> the sample did</b>, times the surface size,
-        // because every layer surface is the viewport's size and so that product *is* the document
-        // pixel — the identical expression the shader evaluates. Taking the loop's `x` and `y`
-        // instead would be right today and would stop being right the first time a composite quad
-        // was not laid out one-to-one.
+        // because every layer surface is the viewport's size and so that product needs no origin
+        // subtracted. Taking the loop's `x` and `y` instead would be right today and would stop being
+        // right the first time a composite quad was not laid out one-to-one.
+        //
+        // ⚠ <b>It is <i>not</i> the identical expression the shader evaluates any more, and the
+        // sentence saying it was is the one #1200 was hiding behind.</b> A layer surface on the
+        // device is `ceil(surface × scale)`, so `ui-mask.frag` recovers a target texel and divides it
+        // by the scale the host pushes; this renderer has no scale — `Render` takes a width and a
+        // height and rasterises geometry units straight into the buffer — so the division it would
+        // do is by one and the number is the same. The two therefore agree everywhere this file can
+        // be asked, and a device fixture composing at two is the only thing that could have told
+        // them apart. See `UiCompositingTests.AMaskRampIsPlacedInDocumentPixelsWhenTheDisplayScaleIsTwo`.
         //
         // ⚠ <b>And the fold over the list is <c>UiMask</c>'s own, not a loop written here.</b> The
         // operators are not commutative, so two transcriptions of the same list could agree entry by

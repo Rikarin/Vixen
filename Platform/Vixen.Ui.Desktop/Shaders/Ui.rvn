@@ -936,11 +936,19 @@ shader UiColour {
     [PushConstant] var blue: float4 = float4(0f, 0f, 1f, 0f)
 
     /// The border box a `backdrop-filter` is clipped to: `xy` its centre and `zw` half its size, in
-    /// document pixels. `UiLayer.BackdropBox`, which is the element's border box and not the group's
-    /// ink.
+    /// **target texels**. `UiLayer.BackdropBox`, which is the element's border box and not the
+    /// group's ink, pre-multiplied by the frame's scale.
+    ///
+    /// ⚠ **Texels and not document pixels, and this remark said document pixels until #1200.** A
+    /// layer surface is `ceil(surface × scale)`, so the point the coverage is evaluated at carries
+    /// the display's scale in it; the box has to be in the same space or a rounded backdrop is drawn
+    /// at half size in the top-left quadrant of its element on a 2× display. `UiRenderer.Corner` is
+    /// where the multiply happens — the host rather than this stage, because `UiComposite.Backdrop`'s
+    /// band is one unit of its own argument wide and only a box in texels keeps it one texel.
     [PushConstant] var box: float4 = float4(0f, 0f, 0f, 0f)
 
-    /// `x` the corner radius, uniform across the four corners or zero — `UiLayer.BackdropRadius`.
+    /// `x` the corner radius in target texels, uniform across the four corners or zero —
+    /// `UiLayer.BackdropRadius` times the frame's scale.
     ///
     /// ⚠ **Zero is the whole of the "this draw is not a rounded backdrop" test, and it has to be a
     /// number rather than an absent push.** This pipeline also serves every filtered group, and one
@@ -964,10 +972,10 @@ shader UiColour {
         val sampled = source.Sample(sourceSampler, uv)
         val filtered = UiComposite.Filter(sampled, red, green, blue)
 
-        // ⚠ **The point comes from the texture coordinate times the surface size, which *is* the
-        // document pixel** — `UiMask` argues it at length and this is the same expression for the
-        // same reason. The fragment's own coordinate would be right at a scale of one and wrong at
-        // every other.
+        // ⚠ **The point comes from the texture coordinate times the surface size, which is a
+        // *target texel*** — `UiMask` argues it at length and this is the same expression for the
+        // same reason. It is what the fragment's own coordinate would give, and both files' remarks
+        // claimed the opposite until #1200; the box above is pre-multiplied to meet it.
         val size = source.GetDimensions(0)
         val coverage = UiComposite.Backdrop(uv * float2(float(size.x), float(size.y)), box, corner)
 
@@ -1024,17 +1032,26 @@ shader UiMask {
 
     [PushConstant] var blue: float4 = float4(0f, 0f, 1f, 0f)
 
-    /// `x` the first entry's index in `masks`, `y` how many entries. `zw` unused.
+    /// `x` the first entry's index in `masks`, `y` how many entries, `z` framebuffer pixels per
+    /// document pixel. `w` unused.
     ///
     /// ⚠ Floats holding integers, because the whole fragment range is `float4`s and a mixed block
     /// would have to be laid out by hand on both sides of the wire. Rounded rather than truncated on
     /// the way back, which is the same `+ 0.5` the shape is read with.
+    ///
+    /// ⚠ **The scale is not decoration and a zero in it is not "no scaling".** A host that pushed
+    /// this block without it would divide the point by zero; `Fragment` clamps it to a floor for
+    /// that reason, and `UiRenderer.SubmitDraw` writes the frame's own scale on every draw that
+    /// reaches here.
     [PushConstant] var list: float4 = float4(0f, 0f, 0f, 0f)
 
-    /// The border box a `backdrop-filter` is clipped to, and its uniform-or-zero radius. `UiColour`
-    /// carries the same pair at its own offset and argues them; a group may hold a `mask-image`, a
-    /// `filter` and a radius at once, so all three have to be readable by the one module that serves
-    /// that draw.
+    /// The border box a `backdrop-filter` is clipped to in **target texels**, and its
+    /// uniform-or-zero radius in the same. `UiColour` carries the same pair at its own offset and
+    /// argues them; a group may hold a `mask-image`, a `filter` and a radius at once, so all three
+    /// have to be readable by the one module that serves that draw.
+    ///
+    /// ⚠ Pre-multiplied by the host, so this box and `MaskEntry.box` — which is *not* scaled —
+    /// deliberately arrive in two different spaces. See `Fragment`, which evaluates one in each.
     [PushConstant] var box: float4 = float4(0f, 0f, 0f, 0f)
 
     [PushConstant] var corner: float4 = float4(0f, 0f, 0f, 0f)
@@ -1052,14 +1069,24 @@ shader UiMask {
         val sampled = source.Sample(sourceSampler, uv)
         val filtered = UiComposite.Filter(sampled, red, green, blue)
 
-        // ⚠ **The point comes from the texture coordinate times the surface size, which *is* the
-        // document pixel.** Every layer surface is the size of the viewport — see `UiLayer` — so this
-        // product needs no origin subtracted, which is exactly why `SoftwareUiRasterizer` can compute
-        // the identical number from the identical varying. Using the fragment's own coordinate
-        // instead would be right at a scale of one and wrong at every other, because the surface is
-        // in target texels and the mask box is in document pixels.
+        // ⚠ **The texture coordinate times the surface size is a *target texel*, and the sentence
+        // that used to stand here said it was a document pixel.** The two claims were in one
+        // paragraph and the second refuted the first: a layer surface is `ceil(surface × scale)` —
+        // see `UiRenderer.Compose` — so this product carries the display's scale in it, exactly as
+        // the fragment's own coordinate would. It needs no origin subtracted, which is the half of
+        // the old remark that was true and is why `SoftwareUiRasterizer` can compute the same number
+        // from the same varying; it needed a scale removed, which nothing did, so a `mask-image` on
+        // a 2× display was drawn at half size in the top-left quadrant of its element (#1200).
+        //
+        // ⚠ **Two spaces from here on, and each consumer takes the one its own numbers are in.**
+        // `MaskEntry.box` is in document pixels and cannot be pre-multiplied — `UiRenderer` writes
+        // those entries before the scale is known — so the point is divided down for the ramp.
+        // `box` *is* pre-multiplied, by `UiRenderer.Corner`, and keeps the texel: its coverage is a
+        // band one unit of its own argument wide, so putting it in document pixels would leave the
+        // curve in the right place and soften its edge by the scale.
         val size = source.GetDimensions(0)
-        val point = uv * float2(float(size.x), float(size.y))
+        val texel = uv * float2(float(size.x), float(size.y))
+        val point = texel / max(list.z, 0.0001f)
 
         // ⚠ The border box's rounding multiplies the mask's coverage rather than replacing it. An
         // element may carry a `mask-image` and a radius at once and CSS applies both — the mask clips
@@ -1069,7 +1096,7 @@ shader UiMask {
         // ⚠ One line, because a newline ends a statement in Raven: the leading-operator arrangement
         // is two statements and the second is discarded, silently, which `RVN1001` does not catch.
         val masked = List(point, int(list.x + 0.5f), int(list.y + 0.5f))
-        val coverage = masked * UiComposite.Backdrop(point, box, corner)
+        val coverage = masked * UiComposite.Backdrop(texel, box, corner)
 
         // ⚠ **All four channels, because the sample is premultiplied.** Scaling coverage on
         // premultiplied colour is `(rgb·m, a·m)` — the whole vector. The `(rgb, a·m)` an ordinary
