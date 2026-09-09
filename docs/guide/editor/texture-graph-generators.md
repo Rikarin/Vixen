@@ -148,25 +148,31 @@ path with a phantom folder in it.
 | `Utility/Histogram Range` · `Histogram Select` | The other two of § 4.5's histogram family |
 | `Utility/Contrast Luminosity` · `Highpass` · `Equalize` | Tone, detail and doc 40 § D2's *Delight / Equalize* row |
 | `Utility/Safe Transform` · `Make It Tile` | doc 40 § D2's first row: an offset-wrap behind an edge mask |
-| `Patterns/Brick` · `Panels` · `Tile Random` · `Rivets` | Four of § 4.9's seven pattern marks, all over `Placement/Tile Sampler` |
+| `Patterns/Brick` · `Panels` · `Tile Random` · `Rivets` · `Scratches` · `Wood Grain` · `Cells` | § 4.9's pattern marks, all over `Placement/Tile Sampler`. ⚠ **This row said "four of seven" for a batch after the last three shipped** |
 | `Grunges/…` | The family of eight — `Clouds` · `Concrete` · `Damage` · `Fibres` · `Leaks` · `Rust` · `Scratches` · `Smears`, which is `Source/Noise` and `Filters/Slope Blur` in eight arrangements |
-| `Surface/Height Blend` · `Bevel` · `Curvature Smooth` · `Height to AO` | Four of § 4.9's five surface marks; `Metal Reflectance` is refused, not missing — see below |
+| `Surface/Height Blend` · `Bevel` · `Curvature Smooth` · `Height to AO` · `Metal Reflectance` | § 4.9's surface marks. ⚠ **This row said `Metal Reflectance` was "refused, not missing" for a batch after it shipped** — it was *blocked* rather than refused, on an atomic node mapping a metal name to an F0, and both landed on 2026-09-09 |
 | `Generators/Dirt` | Curvature's cavities multiplied by occlusion's enclosure |
 | `Generators/Curvature Edge Wear` · `Metal Edge Wear` | Curvature's convex half, broken up by a noise |
 | `Generators/Grunge Rough Dirty` | A noise slope-blurred against itself, darkened by occlusion |
 | `Generators/Dust` · `Position Gradient` | A `Source/Mesh Map` read by usage, levelled — which is the whole of what makes a generator work on a mesh it was not authored against |
 | `Generators/Mask Editor` | The composite with the sliders, and § D9's parameters end to end |
 
-**Thirty-one**, against the thirty-five doc 48 § 4.9 marks for M10 and the several hundred the
-references ship. ⚠ **This page said "sixteen, against the two dozen doc 48 marks" and both halves
-were wrong** — fifteen more compounds had landed, and § 4.9's own summary sentence miscounted its own
-table by eleven, which is corrected there. Count them off `TextureCompoundLibrary.Shipped`, which is
-derived from the manifest, rather than off any prose including this sentence.
+⚠ **No number is written here, and the four that were are why.** This page has said "sixteen,
+against the two dozen doc 48 marks" and then "thirty-one, against thirty-five", and every one of
+those four figures was a snapshot of the day it was typed — the first pair because fifteen more
+compounds had landed and § 4.9's own summary sentence miscounted its own table, the second because
+the folder moved again inside the week. Count them off `TextureCompoundLibrary.Shipped`, which is
+derived from the manifest, and read what is *owed* off `TextureCompoundLibraryTests`, which compares
+that list with § 4.9's marks **by name**. ⚠ A count could not have caught a mark that counts wrong,
+and did not — [#1110](https://github.com/Rikarin/Vixen/issues/1110) was filed against a row whose
+arithmetic was green either way.
 
 ⚠ **Nothing is owed as of 2026-09-09** — `Patterns/Scratches`, `Wood Grain`, `Cells` and
 `Surface/Metal Reflectance` all shipped, and the *Delight / Equalize* row turned out to be one ● for
 one compound under two names rather than two compounds with one missing
-([#1110](https://github.com/Rikarin/Vixen/issues/1110)). § 4.9's marks and the folder are both 35.
+([#1110](https://github.com/Rikarin/Vixen/issues/1110)). § 4.9's marks and the folder are the
+same list of names, which is the form the assertion takes and the reason it is derived rather than
+counted.
 ⚠ Do not take a remainder off this paragraph either: `TextureCompoundLibrary.Shipped` is the derived
 list and `TextureCompoundLibraryTests` is what compares it with the plan, by name.
 ⚠ **The measurement M10 exists to make is written up beside the content itself**, in
