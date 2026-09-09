@@ -318,7 +318,7 @@ material-bar > textbox { flex-grow: 1; min-width: 0; }
 material-graph-properties { flex-direction: column; gap: 2px; }
 material-graph-row { flex-direction: row; align-items: center; gap: 4px; }
 material-graph-label { flex-grow: 1; flex-basis: 0px; min-width: 0; color: var(--text-muted); }
-material-graph-value { width: 64px; flex-shrink: 0; }
+.material-graph-value { width: 64px; flex-shrink: 0; }
 
 /* ── The code editors ───────────────────────────────────────────────── */
 code-editor-pane { flex-direction: row; gap: 6px; padding: 0px; }

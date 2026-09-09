@@ -51,7 +51,7 @@ browser-body { flex-direction: row; flex-grow: 1; min-height: 0px; }
    the folder tree and the grid would split the panel evenly — and a content browser whose grid is
    half a panel wide shows two tiles a row. The floor is what a nested folder name still reads
    inside. */
-browser-folders {
+.browser-folders {
     /* ⚠ Drawn first and built last. `ProjectBrowser` has to construct it after the grid its handler
        writes to, and putting the element first instead would make
        `Descendants(panel).OfType<TreeView>().First()` — which is how the harness reaches the
@@ -66,7 +66,7 @@ browser-folders {
     border-color: var(--border);
 }
 
-browser-folders.hidden { display: none; }
+.browser-folders.hidden { display: none; }
 
 /* ── The grid ───────────────────────────────────────────────────────────
    ⚠ `flex-wrap` is the whole of the layout, and the tiles have a fixed basis so that

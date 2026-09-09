@@ -142,6 +142,33 @@ public class BrowserFolderTreeTests {
         return editor;
     }
 
+    /// <summary>The folder column is the fixed width its sheet gives it, and not a half of the panel.</summary>
+    /// <remarks>
+    ///     ⚠ <b>This is what says the rule reaches the element at all.</b> The sheet wrote
+    ///     <c>browser-folders</c> as a TYPE selector while <c>ProjectBrowser</c> adds the name with
+    ///     <c>AddClass</c>, so the whole block — the width, the floor, the border and the
+    ///     <c>order: -1</c> it is commented for — matched nothing and every test here still passed:
+    ///     the tree is found by its class, and being the wrong width is not something any of them
+    ///     asked about. `TypeSelectorReachTests` is what noticed.
+    ///     <para>
+    ///         The number is the sheet's own, and the reason it is a number rather than a range is
+    ///         the comment beside it: <c>tree-view</c> sets <c>flex-grow: 1</c>, so without this the
+    ///         column and the grid split the panel evenly and a content browser shows two tiles a row.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_folder_column_is_a_fixed_width_rather_than_half_the_panel() {
+        using var editor = Started();
+
+        var folders = Folders(editor);
+
+        Assert.Equal(170f, folders.Bounds.Width, 1);
+        Assert.True(
+            folders.Bounds.Width < Grid(editor).Bounds.Width,
+            $"the folder column is {folders.Bounds.Width} and the grid is {Grid(editor).Bounds.Width}"
+        );
+    }
+
     static AssetGrid Grid(EditorSession editor) =>
         Descendants(editor.Panel("project")).OfType<AssetGrid>().FirstOrDefault()
         ?? throw editor.Fail("the browser has no grid");
