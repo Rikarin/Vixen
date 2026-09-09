@@ -402,6 +402,18 @@
         "IsStruct": false
       },
       "DefaultValue": "false"
+    },
+    {
+      "Name": "SrgbTarget",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
     }
   ],
   "ValueParameters": [],
@@ -716,6 +728,7 @@
   "RequiredCapabilities": [],
   "UsedPermutationKeys": [
     "LuminanceWeightedGrain",
+    "SrgbTarget",
     "UseChromaticAberration",
     "UseDither",
     "UseGrain",

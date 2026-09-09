@@ -45,6 +45,23 @@ shader Vignette {
     /// not stop needing it.
     [Permutation] val UseDither: bool = false
 
+    /// Whether the target the dither is sized for carries the sRGB transfer curve.
+    ///
+    /// ⚠ **A permutation and not a uniform, because a host knows its own attachment format and the
+    /// branch is the same for every pixel of the draw.** `VignetteRenderer` sets it from
+    /// `PixelFormat.IsSrgb`, so the variant follows the target rather than an author's belief about
+    /// it.
+    ///
+    /// ⚠ **And it is the difference between a dither and noise, not a refinement of one.**
+    /// `ditherLevels` divides the value this shader *outputs*, which is one stored code only where
+    /// there is no curve between the two. Against an `Rgba8UNormSrgb` attachment the hardware
+    /// encodes on the way out, so a stored code is a linear step whose size changes across the
+    /// range — about `0.00016` at `L = 0.01` and about `0.0075` at `L = 0.9`, a factor of
+    /// forty-five. A fixed `1/255` is therefore far too much noise in the shadows, which is exactly
+    /// where banding is most visible, and too little in the highlights. See `DitherStep`, which
+    /// divides by the curve's local slope instead.
+    [Permutation] val SrgbTarget: bool = false
+
     var source: Texture2D
     var linearSampler: Sampler
 
@@ -95,13 +112,11 @@ shader Vignette {
     /// either noise nobody asked for or a dither too small to cross a step. It is a uniform rather
     /// than a constant because a ten-bit output is a different number and not a different shader.
     ///
-    /// ⚠ **It divides the value this shader outputs, which is only one code of the stored value on a
-    /// target with no transfer curve.** Against an `Rgba8UNormSrgb` attachment the hardware encodes
-    /// on the way out, so one stored code is a *linear* step that varies across the range — small in
-    /// the shadows and large in the highlights — and a fixed `1/255` here is far too much noise at
-    /// the bottom of the range and too little at the top. Correcting it needs the curve's local
-    /// slope, which this does not carry; until it does, a host with an sRGB target is the case this
-    /// is not yet right for.
+    /// ⚠ **It counts codes of the *stored* value, and turning that into a step of the value this
+    /// shader outputs is `SrgbTarget`'s job.** On a linear target the two are the same number. On an
+    /// `Rgba8UNormSrgb` one the hardware encodes on the way out, so a stored code is a linear step
+    /// that varies across the range, and `DitherStep` divides by the curve's local slope to recover
+    /// it. This number is the count either way; what it means in linear units is not.
     var ditherLevels: float = 255f
 
     /// How many codes of noise, peak to peak either side. One is the value the arithmetic is for.
@@ -230,6 +245,10 @@ shader Vignette {
     ///
     /// Per channel rather than one number for all three: a common offset is a luminance dither, which
     /// leaves the banding in any gradient that changes hue rather than brightness.
+    ///
+    /// ⚠ **The amplitude is `DitherStep`'s and not `1/levels`.** On a target with a transfer curve
+    /// one stored code is not a fixed step of the value written here, and a dither of the wrong size
+    /// is noise in the highlights and a band that survives in the shadows. See `SrgbTarget`.
     func Dithered(color: float3): float3 {
         val pixel = uv * screenSize
         val x = uint(int(pixel.x))
@@ -247,8 +266,44 @@ shader Vignette {
             Random.Float01(Random.Hash3(x, y, 5u))
         )
 
-        val step = ditherIntensity / max(ditherLevels, Const.Epsilon)
+        val step = float3(DitherStep(color.x), DitherStep(color.y), DitherStep(color.z))
         return color + (low - high) * step
+    }
+
+    /// How much of *this shader's* value one stored code of the target is, at a value.
+    ///
+    /// ⚠ **The whole of what makes a dither a dither rather than noise, and it is a property of the
+    /// target and not of the picture.** A dither has to be the size of the step it is breaking up.
+    /// `ditherLevels` counts the steps the *stored* value has; on a linear target one of those is
+    /// `1/levels` of what this shader writes, which is what the arithmetic assumed. On an sRGB
+    /// target it is not: the encode is steep near black and shallow near white, so one code is a
+    /// linear step of about `0.00016` at `L = 0.01` and about `0.0075` at `L = 0.9`.
+    ///
+    /// The correction is one division by `dE/dL`. For the curve's upper segment
+    /// `E = 1.055·L^(1/2.4) − 0.055`, so `dE/dL = (1.055/2.4)·L^(1/2.4 − 1)` and the step is
+    /// `(1/levels)·2.4·L^(1 − 1/2.4)/1.055`. Below `0.0031308` the standard's own linear segment
+    /// takes over and the slope is the constant `12.92` — ⚠ **which is not a rounding detail**: the
+    /// power form has an infinite slope at zero, so a shader that used it everywhere would divide by
+    /// something arbitrarily small and put a step of unbounded size on the darkest texels in the
+    /// frame.
+    ///
+    /// ⚠ Per channel, because `L` is per channel. A single step computed from a luminance would be
+    /// the wrong size on any pixel that is not grey, which is the same reason the noise itself is
+    /// three hashes and not one.
+    func DitherStep(value: float): float {
+        val code = ditherIntensity / max(ditherLevels, Const.Epsilon)
+
+        if (SrgbTarget) {
+            val linear = max(value, 0f)
+
+            if (linear <= 0.0031308f) {
+                return code / 12.92f
+            }
+
+            return code * 2.4f * pow(linear, 1f - 1f / 2.4f) / 1.055f
+        }
+
+        return code
     }
 
     /// Adds grain, optionally weighted so shadows are grainier than highlights.
