@@ -367,6 +367,43 @@ the real type, or read the artefact straight out of the `ImportResult`. An artef
 contract answers to keeps the old stamp: a virtual-geometry page blob is bytes an importer named for
 its own loader, read through `assets.Open` and never through `Read<T>`.
 
+## What a *shared* cache still needs, and what it turns out not to
+
+Doc 08 says a shared artefact database makes CI content builds cacheable across machines. Half of
+that is already mechanically supported and it is the half nobody was missing: `IOdbBackend` is
+exactly the seam — six members, and its own remarks name the case ("a directory, a packed file, an
+HTTP endpoint, or a dictionary") — `ObjectDatabase.Mount` is copy-on-write, backends are searched in
+order and only the first accepts writes, so a read-through remote cache mounted second works today.
+⚠ There is no `ArtifactDb` *type* to put a provider behind, incidentally: that name is a folder
+(`ArtifactFolderName`, in three places) and what stores artefacts is `ObjectDatabase`.
+
+**What a shared backend does not give a leg is a cache *hit*.** `Prepare` decides to reuse an import
+from an `ImportRecord`, and those live in `ImportCache` — a file at `Library/ImportCache`, which is
+machine-local and which nothing publishes. A leg with a warm chunk store and a cold record file
+re-runs every importer and re-writes chunks it already had. `SharedImportCacheTests` measures exactly
+that, as the control half of a pair.
+
+⚠ **And the other half of that pair refutes the expensive plan.** The two ways out were sized as
+comparable — "ship the records too" against "teach the pipeline to reconstruct a hit from the key
+alone" — and they are not. The second runs straight into the chicken and egg above: the key contains
+`sorted(dependencyArtefactIds)` and what *this* import will declare is not known until it has run,
+which is the one thing a cold cache does not have. The first needs the record file to mean the same
+thing in another checkout, and **it already does** — what `ImportCache.Save` writes is guids, hashes,
+artefact ids and project-relative virtual paths, with nothing machine-specific anywhere in it. A
+cache saved against one root, carried to a copy of the project at another root and loaded there,
+makes every asset a hit; that is asserted, and it goes red under a key that has so much as the
+project root mixed into it.
+
+**So the work is publish-and-restore plumbing rather than a format**: something has to put
+`Library/ImportCache` where the next leg can fetch it, keyed the way the chunks are. ⚠ Two things a
+design has to answer that this measurement does not. A record naming an artefact the shared store
+does not have must be rejected rather than trusted — `Prepare` already re-checks `artifacts.Exists`
+for every artefact, which is the check that saves it, and which is also `ObjectDatabase.Exists`
+called once per artefact of every asset on every import: over a remote backend that is a round trip
+each, and it is the number that decides whether a shared cache is a speed-up at all. And a stale
+record file is only ever a miss, never a wrong answer, because the key is recomputed and compared
+rather than trusted — which is the property that makes shipping the records safe in the first place.
+
 ## Deciding is parallel, importing is parallel, and the answer is the sequential one
 
 In a project where nothing has changed, the entire cost of an import is deciding that: a sidecar read,
