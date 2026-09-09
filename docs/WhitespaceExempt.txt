@@ -64,7 +64,6 @@ Core/Vixen.Engine.Tests/CoroutineTests.cs
 Core/Vixen.Engine.Tests/DebugFontTests.cs
 Core/Vixen.Engine.Tests/InferredSystemAccessTests.cs
 Core/Vixen.Engine/Behaviors/BehaviorStore.cs
-Core/Vixen.Engine/Behaviors/SceneBehaviorRegistry.cs
 Core/Vixen.Engine/Diagnostics/DebugDraw.cs
 Core/Vixen.Engine/Diagnostics/Overlays/ConsoleOverlay.cs
 Core/Vixen.Engine/Diagnostics/Overlays/DiagnosticOverlays.cs
