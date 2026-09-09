@@ -59,11 +59,32 @@ public sealed class NavPathQueueJobTests {
         return requests;
     }
 
-    [Fact]
-    public void AScheduledQueueAnswersTheSameThingsInTheSameUpdates() {
+    /// <summary>
+    ///     The same paths in the same updates, on two workers and on none.
+    /// </summary>
+    /// <param name="workers">How many worker threads the scheduler owns.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The nought row is the browser, and it is a different claim from the two row.</b>
+    ///         At nought workers nothing runs on a thread of its own: work runs when somebody reaches
+    ///         <c>Complete</c>, so a queue that scheduled its slices and did not complete them would
+    ///         answer nothing at all and go on saying it was still searching. That is invisible on
+    ///         two workers, where the slices run anyway — which is why the row exists rather than
+    ///         being implied by the one above it.
+    ///     </para>
+    ///     <para>
+    ///         The instrument is the last two assertions: both queues drain to nothing pending. A row
+    ///         whose scheduled queue never ran a slice leaves its requests <c>Waiting</c> and fails on
+    ///         the state comparison long before it reaches them, so this cannot pass by doing nothing.
+    ///     </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public void AScheduledQueueAnswersTheSameThingsInTheSameUpdates(int workers) {
         var mesh = Room();
 
-        using var jobs = new JobScheduler(2);
+        using var jobs = new JobScheduler(workers);
 
         var alone = new NavPathQueue(mesh);
         var scheduled = new NavPathQueue(mesh) { Scheduler = jobs };
