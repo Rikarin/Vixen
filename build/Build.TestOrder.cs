@@ -282,15 +282,6 @@ partial class Build {
                 .ThenBy(measurement => measurement.Project, StringComparer.Ordinal)
         ];
 
-    /// <summary>The day the run whose TRX are on disk started.</summary>
-    /// <remarks>
-    ///     ⚠ Read off the TRX rather than the clock, so <c>--update-test-cost</c> over a fortnight-old
-    ///     <c>artifacts/test-results</c> stamps the fortnight-old date. It rewrites the file either
-    ///     way — the numbers are what those TRX say — and a stamp of "today" would be the file
-    ///     claiming a freshness the operation did not give it.
-    /// </remarks>
-    DateOnly MeasuredTestRunDate() => DateOnly.FromDateTime(MeasuredTestRuns().Min(run => run.Start).UtcDateTime);
-
     /// <summary>
     ///     Compares the committed cost list with the TRX of the run that has just finished, and
     ///     fails when the list no longer describes it.
@@ -413,6 +404,10 @@ partial class Build {
                     .ThenBy(measurement => measurement.Project, StringComparer.Ordinal)
                     .ToList();
 
+                // ⚠ The day the TRX say the run started, not today. `--update-test-cost` over a
+                // fortnight-old `artifacts/test-results` rewrites the file either way — the numbers
+                // are what those TRX say — and a stamp of "today" would be the file claiming a
+                // freshness the operation did not give it.
                 var date = DateOnly.FromDateTime(runs.Min(run => run.Start).UtcDateTime);
 
                 TestCostFile.WriteAllLines([
