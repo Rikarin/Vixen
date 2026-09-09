@@ -97,6 +97,10 @@ sealed class TexturePreviewImages(Func<IThumbnailSurface?> surface) {
                 if (followed.Image != 0) {
                     images.Release(followed.Image);
                 }
+
+                if (followed.Sliced != 0) {
+                    images.Release(followed.Sliced);
+                }
             }
         }
 
@@ -116,16 +120,32 @@ sealed class TexturePreviewImages(Func<IThumbnailSurface?> surface) {
                 images?.Release(followers[index].Image);
             }
 
+            if (followers[index].Sliced != 0) {
+                images?.Release(followers[index].Sliced);
+            }
+
             followers.RemoveAt(index);
         }
     }
 
     /// <summary>Uploads what one editor is currently asking to see, if that has changed.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Two pictures rather than one.</b> The texture editor's two panes are two views over
+    ///     one document — the ladder's chosen level and channels above, and the sprite sheet the
+    ///     slicer draws its rects over below — and they ask for different texels, so neither can be
+    ///     the other's picture. See <see cref="Slices" />.
+    /// </remarks>
     void Draw(Followed followed) {
         if (followed.View.IsRemoved || surface() is not { } images) {
             return;
         }
 
+        Ladder(followed, images);
+        Slices(followed, images);
+    }
+
+    /// <summary>Puts the level and channels the mip inspector is asking for into the top pane.</summary>
+    static void Ladder(Followed followed, IThumbnailSurface images) {
         // ⚠ Only the eight-bit form, the same limit `ThumbnailCache` states: an `.hdr` decodes to
         // `Rgba32Float`, and reducing that to something a UI texture can hold is a tone map rather
         // than a copy. The panel already says why there is no preview when nothing decoded at all.
@@ -174,6 +194,58 @@ sealed class TexturePreviewImages(Func<IThumbnailSurface?> surface) {
 
         // The level's own extent, so `object-fit` letterboxes a mip by the shape it actually is.
         followed.View.Preview.IntrinsicSize = new(described.Width, described.Height);
+    }
+
+    /// <summary>Puts the sheet itself under the sprite editor's overlay.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>SpriteSheetView.Preview.Texture</c> had no writer either</b>, so every rect an
+    ///         author dragged was dragged over an empty box — the same defect as
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/610">#610</see> one pane down, and
+    ///         it survived because <c>SpriteEditorTests</c> asserts the rects and the modes, which are
+    ///         the half that worked. <see href="https://github.com/Rikarin/Vixen/issues/1031">#1031</see>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Level zero, every channel, and the pane's <i>own</i> decode.</b> The overlay
+    ///         positions its rects in <c>SpriteSheetView.Source</c>'s texels times its zoom, so a
+    ///         picture taken from anywhere else would be a picture the boxes do not describe. That is
+    ///         also why the size written here is the source extent: <c>Restate</c> sizes the box to
+    ///         exactly those texels times the zoom, so a matching intrinsic size makes <c>object-fit</c>
+    ///         land the picture on the box rather than letterbox it — which is what puts a rect over
+    ///         the frame it was cut from.
+    ///     </para>
+    ///     <para>
+    ///         <b>Once per source rather than per change</b>, which is what makes it a second upload
+    ///         and not a second upload per click: a channel button and the mip ladder move the pane
+    ///         above and say nothing about the sheet.
+    ///     </para>
+    /// </remarks>
+    static void Slices(Followed followed, IThumbnailSurface images) {
+        var sprites = followed.View.Sprites;
+
+        if (sprites.Source is not { Format: PixelFormat.Rgba8UNorm, Width: > 0, Height: > 0 } sheet) {
+            return;
+        }
+
+        if (followed.Sliced != 0 && ReferenceEquals(followed.Sheet, sheet)) {
+            return;
+        }
+
+        var image = images.Upload(sheet.Width, sheet.Height, sheet.Level(0));
+
+        if (image == 0) {
+            return;
+        }
+
+        if (followed.Sliced != 0) {
+            images.Release(followed.Sliced);
+        }
+
+        followed.Sliced = image;
+        followed.Sheet = sheet;
+
+        sprites.Preview.Texture = image;
+        sprites.Preview.IntrinsicSize = new(sheet.Width, sheet.Height);
     }
 
     /// <summary>The source with a mip chain under it, filtered the way the import will filter it.</summary>
@@ -292,6 +364,12 @@ sealed class TexturePreviewImages(Func<IThumbnailSurface?> surface) {
 
         /// <summary>What the preview is showing, or zero.</summary>
         public ulong Image { get; set; }
+
+        /// <summary>What the sprite pane is showing, or zero.</summary>
+        public ulong Sliced { get; set; }
+
+        /// <summary>The sheet that image was made from, compared by reference.</summary>
+        public TextureData? Sheet { get; set; }
 
         /// <summary>Which level that is, or a negative number for "nothing yet".</summary>
         public int Level { get; set; } = -1;
