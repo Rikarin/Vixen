@@ -538,7 +538,7 @@ public sealed class NavMeshImporter : AssetImporter<NavMeshImportSettings> {
     /// <summary>Reads an optional boolean, refusing a value it cannot read rather than assuming one.</summary>
     /// <remarks>
     ///     <b><c>bidirectional: yes</c> used to mean <c>true</c> by accident.</b> YAML 1.1 spells
-    ///     booleans several ways, <see cref="bool.TryParse" /> accepts one of them, and the old code
+    ///     booleans several ways, <see cref="bool.TryParse(string, out bool)" /> accepts one of them, and the old code
     ///     fell back to the default whenever parsing failed — so an author writing <c>no</c> got a
     ///     two-way ladder and no complaint. Every other field in this file reports what it could not
     ///     read, and now this one does too.

@@ -80,7 +80,7 @@ public static class SplineOverlay {
     /// <summary>Emits the curve as a line strip.</summary>
     /// <remarks>
     ///     Takes a built <see cref="Spline" /> rather than an asset, because building one is what
-    ///     refuses a single control point — <see cref="Draw" /> is the entry point that guards.
+    ///     refuses a single control point — <see cref="Draw(SplineAsset, List{LineVertex}, int, float)" /> is the entry point that guards.
     /// </remarks>
     /// <param name="spline">The curve.</param>
     /// <param name="into">Where the vertices go, appended as pairs.</param>

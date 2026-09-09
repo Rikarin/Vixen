@@ -10,7 +10,7 @@ namespace Vixen.Editor.NodeGraph;
 /// <summary>The instance a sub-graph node makes. It is never asked to do anything.</summary>
 /// <remarks>
 ///     A <see cref="NodeTypeDefinition" /> has to be able to make one, and a sub-graph node never
-///     survives to be visited: <see cref="SubGraphs.Flatten" /> replaces it with the graph's contents
+///     survives to be visited: <see cref="SubGraphs.Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic})" /> replaces it with the graph's contents
 ///     before the compiler walks anything. So this exists to satisfy the definition and to be a
 ///     recognisable thing in a debugger, and its <see cref="Bind" /> does nothing because there are no
 ///     port fields to fill.
@@ -222,7 +222,7 @@ public readonly record struct SubGraphExpansion(
 /// <remarks>
 ///     <para>
 ///         <b>The half of the mapping that makes a diagnostic actionable.</b>
-///         <see cref="SubGraphs.Flatten" /> gives the nodes it copies out of a sub-graph fresh
+///         <see cref="SubGraphs.Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic})" /> gives the nodes it copies out of a sub-graph fresh
 ///         identities, because the author's own graph already owns the ones it has. A complaint about
 ///         one of those names something that is in no document and on no canvas, so nothing can be
 ///         selected, framed or highlighted. This is the way back.
@@ -337,7 +337,7 @@ public sealed record SubGraphExtraction(
 ///     <para>
 ///         <b>Inlining rather than a call.</b> Every target these graphs compile to — Raven source, an
 ///         array of VFX operations — is a straight-line program over values, and neither has a function
-///         to call or a stack to put one on. So a sub-graph is a macro: <see cref="Flatten" /> turns a
+///         to call or a stack to put one on. So a sub-graph is a macro: <see cref="Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic})" /> turns a
 ///         graph containing sub-graph nodes into an equivalent graph containing none, and the compiler
 ///         that walks the result has no idea sub-graphs exist.
 ///     </para>
@@ -590,7 +590,7 @@ public static class SubGraphs {
     ///     <para>
     ///         <b><see cref="NodeGraphModel.Settings" /> deliberately do not cross</b>, and the
     ///         silence about that was the other half of #802. A texture graph's settings are its base
-    ///         resolution and its seed; <see cref="Flatten" /> keeps the <em>containing</em> graph's
+    ///         resolution and its seed; <see cref="Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic})" /> keeps the <em>containing</em> graph's
     ///         and drops an inlined one's, so a sub-graph that carried a copy of them would be
     ///         carrying two numbers that are read exactly nowhere and shown in an inspector as though
     ///         they were.
@@ -931,7 +931,8 @@ public static class SubGraphs {
                 return local.TryGetValue(upstream.Node, out var copied) ? new PortRef(copied, upstream.Port) : null;
             }
 
-            /// <summary>The constant behind a wire that runs back to an entry port nobody fed.</summary>
+            // The constant behind a wire that runs back to an entry port nobody fed. ⚠ A `///`
+            // block on a local function is CS1587 and documents nothing, so this is a `//` comment.
             float[]? Held(PortRef upstream) =>
                 upstream.Node == entry && constants.TryGetValue(upstream.Port, out var value) ? value : null;
         }

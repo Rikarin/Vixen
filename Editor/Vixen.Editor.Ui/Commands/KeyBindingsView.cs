@@ -24,7 +24,7 @@ public sealed record KeyBindingRow(string Id, string Title, string Category);
 ///         to be here.
 ///     </para>
 ///     <para>
-///         <b><see cref="KeyMap" /> has had conflict detection, per-command overrides, a
+///         <b><see cref="Vixen.Ui.Controls.KeyMap" /> has had conflict detection, per-command overrides, a
 ///         defaults-versus-overrides split and reset since it was written, and no way to reach any of
 ///         it.</b> Doc 11 flags that and doc 20 spells out the panel: a grid of command / category /
 ///         binding / source, a filter box, a "press a key" capture, conflict reporting inline,
@@ -42,7 +42,7 @@ public sealed record KeyBindingRow(string Id, string Title, string Category);
 ///         panel sees is a candidate binding — including Escape, which is what cancels it, and which
 ///         is therefore the one chord this panel will not let you bind. The alternative is a dialog,
 ///         and a dialog that swallows keystrokes to record them cannot be driven by the automation
-///         harness or screenshotted, which is <see cref="DialogService" />'s own argument turned round.
+///         harness or screenshotted, which is <see cref="Vixen.Ui.Controls.DialogService" />'s own argument turned round.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Import and export are events rather than file calls.</b> This assembly has no

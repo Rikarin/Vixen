@@ -65,7 +65,7 @@ public enum ViewMode {
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The three it cannot express say so rather than falling back.</b>
-///         <see cref="ViewModes.Resolve" /> falls back to shaded for a mode with no tree registered,
+///         <see cref="ViewModes.Resolve(ViewMode)" /> falls back to shaded for a mode with no tree registered,
 ///         which is right for a compositor that has not been authored and wrong for a menu item: a
 ///         line that draws the same picture as the line above it is a control the user tries twice
 ///         and then stops trusting. <see cref="IsSupported" /> is what lets the Scene menu register

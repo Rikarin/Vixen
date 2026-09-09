@@ -202,7 +202,7 @@ sealed class TextureGraphView {
     ///         <c>GraphChanged</c> is raised from <c>NodeGraphView.OnGraphChanged</c> <em>after</em>
     ///         that method has already reprojected the canvas, so the refresh this triggers used to
     ///         project a second time and refit the preview — a rebuilt canvas and a discarded zoom on
-    ///         every wire dragged. <see cref="Show" /> now assigns the registry only when the node
+    ///         every wire dragged. <see cref="Show(TextureGraphDocument, TextureGraphPicture)" /> now assigns the registry only when the node
     ///         types changed and frames the preview only when its subject does.
     ///     </para>
     /// </remarks>
@@ -221,7 +221,7 @@ sealed class TextureGraphView {
 
     /// <summary>Set by a caller that compiled before showing, to say the compile republished.</summary>
     /// <remarks>
-    ///     ⚠ <b>Cleared by the next <see cref="Show" />, so it cannot answer twice.</b>
+    ///     ⚠ <b>Cleared by the next <see cref="Show(TextureGraphDocument, TextureGraphPicture)" />, so it cannot answer twice.</b>
     ///     <c>TextureGraphDocument.Republish</c> is a one-shot: it returns true once per change and
     ///     false afterwards. Anything that compiles — which is what producing a picture means —
     ///     consumes it, so a caller that produces the picture first has to carry the answer across

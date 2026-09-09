@@ -174,7 +174,7 @@ public static class PortKinds {
     ///     </para>
     ///     <para>
     ///         Only vector kinds take part. A texture arriving at a dynamic port is a type error that
-    ///         <see cref="NodeGraphCompiler" /> reports against the port rather than something to
+    ///         <see cref="NodeGraphCompiler{TArtefact}" /> reports against the port rather than something to
     ///         widen — there is no width a texture and a float agree on.
     ///     </para>
     /// </remarks>

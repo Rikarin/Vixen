@@ -9,7 +9,7 @@ namespace Vixen.Editor.Assets.Models;
 /// <summary>One mesh on its way to a file, still made of faces rather than of triangles.</summary>
 /// <remarks>
 ///     <para>
-///         <b>docs/plan/41 § Part 4 asks for quads and <see cref="MeshData" /> cannot carry one.</b>
+///         <b>docs/plan/41 § Part 4 asks for quads and <see cref="Vixen.Rendering.MeshData" /> cannot carry one.</b>
 ///         That type is what a vertex buffer looks like — one vertex per corner, three corners per
 ///         triangle — so a retopology that went through it arrived at the file already triangulated
 ///         and already exploded, with every quad an island of four vertices joined to nothing.
@@ -20,7 +20,7 @@ namespace Vixen.Editor.Assets.Models;
 ///         ⚠ <b>This is the writer's input and not a rendering structure, and the difference is the
 ///         whole point.</b> <see cref="EditMesh" /> shares a position between the faces that meet
 ///         there and keeps a face's corner loop at whatever length it is, which is what OBJ's
-///         <c>f a b c d</c> wants. Going to <see cref="MeshData" /> is a one-way trip and the writers
+///         <c>f a b c d</c> wants. Going to <see cref="Vixen.Rendering.MeshData" /> is a one-way trip and the writers
 ///         that must take it — glTF and GLB, which are triangles-only by specification — take it at
 ///         the point of writing, where they can say so.
 ///     </para>

@@ -211,7 +211,7 @@ public abstract class InspectorMember : Core.IEditMember {
     /// <param name="name">The member's name.</param>
     /// <returns>The label.</returns>
     /// <remarks>
-    ///     ⚠ <b>Forwards to <see cref="EditorNames.Humanise" />, which is where the rule now lives.</b>
+    ///     ⚠ <b>Forwards to <see cref="Vixen.Editor.Core.EditorNames.Humanise" />, which is where the rule now lives.</b>
     ///     A component's foldout wants the same one and is built in <c>Vixen.Editor.SceneView</c>,
     ///     which cannot see this assembly — so the implementation moved down to the layer both
     ///     reference. Kept here because it is what every caller and every test already names, and

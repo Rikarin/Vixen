@@ -232,7 +232,7 @@
     ///     the one failure the whole plugin arrangement exists to prevent.
     ///     <para>
     ///         ⚠ <b>Removing the page that is showing shows another one, or the empty state.</b>
-    ///         <see cref="Retarget" /> only re-aims when the selection is no longer visible, and the
+    ///         <see cref="Retarget()" /> only re-aims when the selection is no longer visible, and the
     ///         removed id stops being visible the moment the array does not hold it — so the
     ///         selection is cleared first and the pane rebuilt when nothing takes its place.
     ///     </para>

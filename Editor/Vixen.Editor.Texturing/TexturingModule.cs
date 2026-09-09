@@ -217,7 +217,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     ///         which by construction cannot help a material that does not exist yet — so an artist's
     ///         route was bake, hand-edit the <c>.vxmat</c>, bake again. The command line grew
     ///         <c>vixen texture bake --parallax</c> for that; this is the same
-    ///         <see cref="MaterialBakeParallax" /> rule behind a verb.
+    ///         <see cref="Vixen.Editor.Assets.Materials.MaterialBakeParallax" /> rule behind a verb.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>A second verb rather than a control, which is <see cref="ForceBakeCommand" />'s
@@ -849,8 +849,8 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     ///     <para>
     ///         <b>The route <a href="https://github.com/Rikarin/Vixen/issues/1009">#1009</a> says did
     ///         not exist.</b> Everything below the notification is
-    ///         <see cref="MaterialBakeRoute.Bake" />, which is the compile the pane runs, the
-    ///         evaluator both panes share, and the <see cref="ProjectMaterialBaker" /> the command
+    ///         <see cref="MaterialBakeRoute.Bake(TextureGraphDocument, string, string, bool, bool)" />, which is the compile the pane runs, the
+    ///         evaluator both panes share, and the <see cref="Vixen.Editor.Assets.Materials.ProjectMaterialBaker" /> the command
     ///         line calls. There is one baker and this is a second caller of it, which is the only
     ///         arrangement in which "the same code the CLI runs" is a fact.
     ///     </para>
@@ -882,7 +882,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     ///     <b><a href="https://github.com/Rikarin/Vixen/issues/1103">#1103</a>.</b> The same bake as
     ///     <see cref="BakeMaterial" /> with the one ask <c>MaterialBake.Material</c> is deliberately
     ///     not allowed to make for itself. ⚠ A bake that wrote no height map says so rather than
-    ///     composing a march with nothing to sample, which is <see cref="MaterialBakeParallax" />'s
+    ///     composing a march with nothing to sample, which is <see cref="Vixen.Editor.Assets.Materials.MaterialBakeParallax" />'s
     ///     rule and not this verb's.
     /// </remarks>
     void BakeParallaxMaterial() => BakeGraph(document, force: false, parallax: true);
@@ -958,7 +958,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     ///     <b><a href="https://github.com/Rikarin/Vixen/issues/1029">#1029</a>'s editor half.</b>
     ///     Everything below the notification is <see cref="MaterialBakeRoute" />, which is the
     ///     compile the layers pane runs, the evaluator both panes share and the
-    ///     <see cref="ProjectMaterialBaker" /> the command line calls.
+    ///     <see cref="Vixen.Editor.Assets.Materials.ProjectMaterialBaker" /> the command line calls.
     /// </remarks>
     void BakeStackMaterial() => BakeStack(stack, force: false);
 
@@ -1041,7 +1041,7 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
     ///     verb <a href="https://github.com/Rikarin/Vixen/issues/1073">#1073</a> was missing.</b>
     ///     Everything below the notification is <see cref="MaterialBakeRoute" /> — the same compile
     ///     the layers pane runs, the same evaluator both panes share and the same
-    ///     <see cref="ProjectMaterialBaker" /> the command line calls, with its naming, its digest,
+    ///     <see cref="Vixen.Editor.Assets.Materials.ProjectMaterialBaker" /> the command line calls, with its naming, its digest,
     ///     its painted-over guard and its provenance block.
     /// </remarks>
     void BakeSplatMap() => BakeSplat(stack, force: false);

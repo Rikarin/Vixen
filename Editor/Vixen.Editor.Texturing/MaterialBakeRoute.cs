@@ -223,8 +223,9 @@ sealed class MaterialBakeRoute {
     ///         one-slot case — is a name nobody would have chosen.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Outside the host's own frame</b>, which is <see cref="Bake(TextureGraphDocument,
-    ///         string, string, bool)" />'s rule and holds for the same reason: the evaluator drives
+    ///         ⚠ <b>Outside the host's own frame</b>, which is
+    ///         <see cref="Bake(TextureGraphDocument, string, string, bool, bool)" />'s rule and
+    ///         holds for the same reason: the evaluator drives
     ///         <c>BeginFrame</c> and <c>EndFrame</c> on the device itself.
     ///     </para>
     /// </remarks>

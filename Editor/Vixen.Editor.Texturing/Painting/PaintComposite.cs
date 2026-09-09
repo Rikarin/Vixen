@@ -276,7 +276,7 @@ sealed class PaintComposite {
     ///         <a href="https://github.com/Rikarin/Vixen/issues/871">#871</a>.</b> Two mirrored paths
     ///         on opposite sides of the atlas have a bounding box spanning the atlas, so a
     ///         <c>Resolve</c> given their union recomposites nearly all of it — and symmetry is the
-    ///         feature <see cref="PaintSession.MoveAll" /> grew a plural for. The same is true one
+    ///         feature <see cref="PaintSession.MoveAll(System.ReadOnlySpan{Vixen.Core.Mathematics.Vector2})" /> grew a plural for. The same is true one
     ///         level down of a pointer that jumped between frames.
     ///     </para>
     ///     <para>

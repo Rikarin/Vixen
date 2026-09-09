@@ -15,8 +15,8 @@ namespace Vixen.Editor.Inspector;
 ///         user was typing into.
 ///     </para>
 ///     <para>
-///         <b>A drawer never touches an undo stack.</b> It calls <see cref="InspectorField.Write" />
-///         and <see cref="InspectorField.Seal" />, which is what makes "every edit produces a command"
+///         <b>A drawer never touches an undo stack.</b> It calls <see cref="Vixen.Editor.Core.EditProperty.Write(object)" />
+///         and <see cref="Vixen.Editor.Core.EditProperty.Seal" />, which is what makes "every edit produces a command"
 ///         true by construction rather than by every drawer remembering to do it.
 ///     </para>
 /// </remarks>

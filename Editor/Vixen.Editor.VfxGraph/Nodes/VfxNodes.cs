@@ -513,7 +513,7 @@ public sealed partial class MeshOutputNode : VfxNode {
 /// <remarks>
 ///     <para>
 ///         <b>The one renderer that needs particles to know about each other.</b> Which strip a
-///         particle belongs to is a custom attribute — <see cref="Slot" /> names it — and where it
+///         particle belongs to is a custom attribute — <see cref="RibbonOutputNode.Attribute" /> names it — and where it
 ///         sits within one is its age, which the runtime already keeps. Particles sharing a value are
 ///         one ribbon.
 ///     </para>

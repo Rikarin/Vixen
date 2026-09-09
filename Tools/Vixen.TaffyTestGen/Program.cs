@@ -79,17 +79,18 @@ static string ReadVersion(string taffy) {
     return line?.Split('"').ElementAtOrDefault(1) ?? "unknown";
 }
 
-/// <summary>
-///     One file per category, each fixture's XML embedded verbatim.
-/// </summary>
-/// <remarks>
-///     ⚠ <b>Verbatim, and consolidated, are both deliberate.</b> Verbatim because the fixture text
-///     <i>is</i> the artefact — Yoga's fixtures had to be translated because they were C++, and every
-///     translation step is a place for a bug that reads as a layout bug. Taffy's are already
-///     language-neutral, so the honest move is to carry them unchanged and diff them against upstream
-///     byte for byte. Consolidated because 5 500 loose files is a real cost to every clone, checkout
-///     and IDE index, and a category is the smallest unit anyone reasons about anyway.
-/// </remarks>
+// One file per category, each fixture's XML embedded verbatim.
+//
+// ⚠ Verbatim, and consolidated, are both deliberate. Verbatim because the fixture text *is* the
+// artefact — Yoga's fixtures had to be translated because they were C++, and every translation step
+// is a place for a bug that reads as a layout bug. Taffy's are already language-neutral, so the
+// honest move is to carry them unchanged and diff them against upstream byte for byte. Consolidated
+// because 5 500 loose files is a real cost to every clone, checkout and IDE index, and a category is
+// the smallest unit anyone reasons about anyway.
+//
+// ⚠ A `//` comment and not a `///` one: this file is top-level statements, so every function in
+// it is a LOCAL function, and a doc block on a local function is CS1587 — it documents nothing and
+// is discarded. Nothing in this repository could see that until the file generated documentation.
 static string Consolidate(string category, string version, List<VettedFixture> fixtures) {
     var text = new StringBuilder();
     text.AppendLine("<!--");

@@ -102,7 +102,7 @@ public static class SceneSerializer {
     /// <summary>Reads YAML into a file.</summary>
     /// <param name="yaml">The text.</param>
     /// <returns>The file.</returns>
-    /// <exception cref="YamlException">The text is not a scene.</exception>
+    /// <exception cref="Vixen.Core.Yaml.YamlParseException">The text is not a scene.</exception>
     /// <exception cref="NotSupportedException">The file is from a newer editor.</exception>
     /// <remarks>
     ///     The format's own reader, which is where the version check lives — an editor opening a
