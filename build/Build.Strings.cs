@@ -429,8 +429,29 @@ partial class Build {
     ///         <c>Strings.Template</c> to take a plugin's own declarations, which is a different
     ///         piece of work.
     ///     </para>
+    ///     <para>
+    ///         <b>What the seventeen are.</b> All of them are <c>Vixen.Editor.App</c>'s, which is
+    ///         the one assembly of the five #1178 named that is not migrated —
+    ///         <c>DeclaredContributions</c> (3), <c>EditorApplication</c> (5), <c>EditorBuilds</c>
+    ///         (3), <c>EditorParity</c> (5) and <c>EditorWorlds</c> (1). The other four —
+    ///         <c>Vixen.Editor.Texturing</c>, <c>.Terrain</c>, <c>.Blockout</c> and
+    ///         <c>.Diagnostics</c> — now declare <c>TexturingStrings</c>, <c>TerrainStrings</c>,
+    ///         <c>BlockoutStrings</c> and <c>DiagnosticsStrings</c>, and <c>VXS0312</c> holds each
+    ///         of them to it: the analyzer reports <em>every</em> construction in an assembly that
+    ///         has a declaration class, so those four cannot regress by one site.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Neither this census nor <see cref="Undeclared" /> can see an id built in an
+    ///         object initialiser.</b> <c>Unavailable = new("editor.command.…", "…")</c> carries
+    ///         neither a <c>new StringId</c> for these patterns nor the declared type name
+    ///         <see cref="LooseIdPatterns" /> anchors on, so <c>FoliageMode</c>'s was in no count and
+    ///         in no violation for as long as it existed. Migrating <c>Vixen.Editor.Terrain</c>
+    ///         found it, because the analyzer reads types rather than text — which is the honest
+    ///         summary of what a textual census is for: the assemblies no declaration class has
+    ///         reached yet.
+    ///     </para>
     /// </remarks>
-    const int ConstructedCeiling = 46;
+    const int ConstructedCeiling = 17;
 
     /// <summary>Applies <see cref="ConstructedCeiling" />.</summary>
     /// <param name="text">Every source file, by path.</param>

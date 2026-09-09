@@ -769,58 +769,58 @@ public sealed class TexturingModule : IEditorPlugin, IDisposable {
             }
         );
 
-        context.AddCommand(OpenCommand, new StringId("editor.command." + OpenCommand, "Open Texture Graph"), Open);
+        context.AddCommand(OpenCommand, TexturingStrings.Commands[OpenCommand], Open);
         context.AddCommand(
             OpenStackCommand,
-            new StringId("editor.command." + OpenStackCommand, "Open Layer Stack"),
+            TexturingStrings.Commands[OpenStackCommand],
             OpenStack
         );
 
         context.AddCommand(
             PaintCommand,
-            new StringId("editor.command." + PaintCommand, "Paint on Layer"),
+            TexturingStrings.Commands[PaintCommand],
             TogglePaint
         );
 
         context.AddCommand(
             BakeCommand,
-            new StringId("editor.command." + BakeCommand, "Bake Material"),
+            TexturingStrings.Commands[BakeCommand],
             BakeMaterial
         );
 
         context.AddCommand(
             BakeStackCommand,
-            new StringId("editor.command." + BakeStackCommand, "Bake Material from Layers"),
+            TexturingStrings.Commands[BakeStackCommand],
             BakeStackMaterial
         );
 
         context.AddCommand(
             BakeSplatCommand,
-            new StringId("editor.command." + BakeSplatCommand, "Bake Splat Map from Layers"),
+            TexturingStrings.Commands[BakeSplatCommand],
             BakeSplatMap
         );
 
         context.AddCommand(
             ForceBakeCommand,
-            new StringId("editor.command." + ForceBakeCommand, "Bake Material (Force)"),
+            TexturingStrings.Commands[ForceBakeCommand],
             BakeForced
         );
 
         context.AddCommand(
             ParallaxBakeCommand,
-            new StringId("editor.command." + ParallaxBakeCommand, "Bake Material with Parallax"),
+            TexturingStrings.Commands[ParallaxBakeCommand],
             BakeParallaxMaterial
         );
 
         context.AddCommand(
             SaveSmartCommand,
-            new StringId("editor.command." + SaveSmartCommand, "Save as Smart Material"),
+            TexturingStrings.Commands[SaveSmartCommand],
             SaveSmartMaterial
         );
 
         context.AddCommand(
             ApplySmartCommand,
-            new StringId("editor.command." + ApplySmartCommand, "Apply Smart Material"),
+            TexturingStrings.Commands[ApplySmartCommand],
             ApplySmartMaterial
         );
 

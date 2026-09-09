@@ -450,34 +450,28 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     ///     visible effect and no way to stop it.
     /// </remarks>
     void Commands(PluginContext context) {
-        Panel(context, "tools.profiler", "editor.command.tools.profiler", "Profiler", "profiler");
-        Panel(context, "tools.gpu", "editor.command.tools.gpu", "GPU Timeline", "gpu");
-        Panel(context, "tools.frame-debugger", "editor.command.tools.frame-debugger", "Frame Debugger", "frame-debugger");
-        Panel(context, "tools.memory", "editor.command.tools.memory", "Memory", "memory");
-        Panel(context, "tools.statistics", "editor.command.tools.statistics", "Statistics", "statistics");
+        Panel(context, "tools.profiler", "profiler");
+        Panel(context, "tools.gpu", "gpu");
+        Panel(context, "tools.frame-debugger", "frame-debugger");
+        Panel(context, "tools.memory", "memory");
+        Panel(context, "tools.statistics", "statistics");
 
         // Doc 16's diagnostics section asks for an editor panel over the bandwidth attribution the
         // same section specifies. It is its own line rather than a tab inside the profiler for the
         // reason the GPU timeline is: a different measurement of a different thing, absent on every
         // editor that is not running a session, and a tab that was empty there would read as a
         // broken profiler rather than as a game nobody has started.
-        Panel(context, "tools.network", "editor.command.tools.network", "Network", "network");
+        Panel(context, "tools.network", "network");
 
-        Panel(
-            context,
-            "tools.remote-inspector",
-            "editor.command.tools.remote-inspector",
-            "Remote Inspector",
-            "remote-inspector"
-        );
+        Panel(context, "tools.remote-inspector", "remote-inspector");
 
         // ⚠ On the Build menu, where doc 20's Part C puts it, and it is the same window. A separate
         // "Deploy" dialog that listed the same devices would be a second list to keep in step.
-        Panel(context, "build.deploy", "editor.command.build.deploy", "Deploy…", "devices");
+        Panel(context, "build.deploy", "devices");
     }
 
-    void Panel(PluginContext context, string id, string stringId, string title, string panel) =>
-        context.AddCommand(id, new StringId(stringId, title), () => shell.Workspace.Toggle(panel));
+    void Panel(PluginContext context, string id, string panel) =>
+        context.AddCommand(id, DiagnosticsStrings.Commands[id], () => shell.Workspace.Toggle(panel));
 
     string? Refuse(DeviceEntry device) =>
         deployer?.Refuse(device)

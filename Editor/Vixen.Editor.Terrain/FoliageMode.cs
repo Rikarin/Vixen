@@ -188,7 +188,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
             var id = SlotCommand(slot);
 
             shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, $"Tool {slot + 1}"), () => SelectSlot(slot)) {
+                new EditorCommand(id, TerrainStrings.FoliageCommands[id], () => SelectSlot(slot)) {
                     Category = EditorStrings.CategoryFoliage,
                     Context = FoliageContext,
                     Enablement = () => IsActive() && slot < Tools.Count
@@ -203,7 +203,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
             var id = ToolCommand(chosen);
 
             shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, chosen + " Foliage"), () => Tool = chosen) {
+                new EditorCommand(id, TerrainStrings.FoliageCommands[id], () => Tool = chosen) {
                     Category = EditorStrings.CategoryFoliage,
                     Context = FoliageContext,
                     RadioGroup = ToolGroup,
@@ -217,13 +217,13 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
             );
         }
 
-        Verb(GrowBrushCommand, "Grow Brush", () => Editing.Brush.Resize(1), InputKey.RightBracket);
-        Verb(ShrinkBrushCommand, "Shrink Brush", () => Editing.Brush.Resize(-1), InputKey.LeftBracket);
+        Verb(GrowBrushCommand, () => Editing.Brush.Resize(1), InputKey.RightBracket);
+        Verb(ShrinkBrushCommand, () => Editing.Brush.Resize(-1), InputKey.LeftBracket);
 
         shell.Commands.Add(
             new EditorCommand(
                 AddTypeCommand,
-                new StringId("editor.command." + AddTypeCommand, "Add Foliage Type"),
+                TerrainStrings.FoliageCommands[AddTypeCommand],
                 () => {
                     if (Editing.Volume is { } volume) {
                         Run(new AddFoliageTypeCommand(volume, FoliageType.Of(NextTypeName())));
@@ -240,7 +240,7 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
         shell.Commands.Add(
             new EditorCommand(
                 RemoveTypeCommand,
-                new StringId("editor.command." + RemoveTypeCommand, "Remove Foliage Type"),
+                TerrainStrings.FoliageCommands[RemoveTypeCommand],
                 () => { }
             ) {
                 Category = EditorStrings.CategoryFoliage,
@@ -249,18 +249,17 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
                 // ⚠ Unimplemented rather than absent, and the enablement says so. Removing a palette
                 // entry renumbers every index above it — in the volume's chunks, in the selection and
                 // in every undo entry on the stack — which is [§ T5]'s owed item rather than a line.
-                Unavailable = new("editor.command.foliage.type-remove.unavailable",
-                    "Removing a type renumbers every instance above it; not yet built."),
+                Unavailable = TerrainStrings.FoliageTypeRemoveUnavailable,
                 Enablement = () => false
             }
         );
 
-        Verb(DeselectCommand, "Deselect Foliage", Editing.Deselect, InputKey.Escape);
+        Verb(DeselectCommand, Editing.Deselect, InputKey.Escape);
 
         shell.Commands.Add(
             new EditorCommand(
                 DeleteSelectionCommand,
-                new StringId("editor.command." + DeleteSelectionCommand, "Delete Selected Foliage"),
+                TerrainStrings.FoliageCommands[DeleteSelectionCommand],
                 () => DeleteSelection()
             ) {
                 Category = EditorStrings.CategoryFoliage,
@@ -271,9 +270,9 @@ public sealed class FoliageMode : IEditorMode, IViewportInput {
 
         shell.Keys.SetDefault(DeleteSelectionCommand, new KeyChord(InputKey.Delete, ModifierKeys.None));
 
-        void Verb(string id, string label, Action run, InputKey key) {
+        void Verb(string id, Action run, InputKey key) {
             shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, label), run) {
+                new EditorCommand(id, TerrainStrings.FoliageCommands[id], run) {
                     Category = EditorStrings.CategoryFoliage,
                     Context = FoliageContext,
                     Enablement = IsActive

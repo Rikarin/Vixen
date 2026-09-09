@@ -619,10 +619,10 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         ArgumentNullException.ThrowIfNull(shell);
         this.shell = shell;
 
-        Declare(BlockoutElement.Object, "Object Mode", InputKey.Number1);
-        Declare(BlockoutElement.Vertex, "Vertex Mode", InputKey.Number2);
-        Declare(BlockoutElement.Edge, "Edge Mode", InputKey.Number3);
-        Declare(BlockoutElement.Face, "Face Mode", InputKey.Number4);
+        Declare(BlockoutElement.Object, InputKey.Number1);
+        Declare(BlockoutElement.Vertex, InputKey.Number2);
+        Declare(BlockoutElement.Edge, InputKey.Number3);
+        Declare(BlockoutElement.Face, InputKey.Number4);
 
         shell.Commands.Add(
             new EditorCommand(ToggleMeshCommand, EditorStrings.CommandBlockoutToggleMesh, Toggle) {
@@ -644,44 +644,43 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         // of them a key; select-by-group, coplanar and linked are menu verbs there, because they are
         // run once per wall rather than once per second, and a chord for each would spend three keys
         // out of a mode that has to leave room for the geometry verbs.
-        Verb(SelectLoopCommand, "Select Loop", editing => BlockoutSelection.Loop(editing), InputKey.L);
-        Verb(SelectRingCommand, "Select Ring", editing => BlockoutSelection.Ring(editing), InputKey.R, ModifierKeys.Control);
-        Verb(GrowCommand, "Grow Selection", BlockoutSelection.Grow, InputKey.Up, ModifierKeys.Control);
-        Verb(ShrinkCommand, "Shrink Selection", BlockoutSelection.Shrink, InputKey.Down, ModifierKeys.Control);
-        Verb(SelectGroupCommand, "Select Group", editing => BlockoutSelection.Group(editing));
-        Verb(SelectCoplanarCommand, "Select Coplanar", editing => BlockoutSelection.Coplanar(editing));
-        Verb(SelectLinkedCommand, "Select Linked", editing => BlockoutSelection.Linked(editing));
-        Verb(SelectAllCommand, "Select All Elements", BlockoutSelection.All, InputKey.A, ModifierKeys.Control);
-        Verb(SelectNoneCommand, "Deselect Elements", BlockoutSelection.None, InputKey.A, ModifierKeys.Alt);
-        Verb(InvertCommand, "Invert Element Selection", BlockoutSelection.Invert, InputKey.I, ModifierKeys.Control);
+        Verb(SelectLoopCommand, editing => BlockoutSelection.Loop(editing), InputKey.L);
+        Verb(SelectRingCommand, editing => BlockoutSelection.Ring(editing), InputKey.R, ModifierKeys.Control);
+        Verb(GrowCommand, BlockoutSelection.Grow, InputKey.Up, ModifierKeys.Control);
+        Verb(ShrinkCommand, BlockoutSelection.Shrink, InputKey.Down, ModifierKeys.Control);
+        Verb(SelectGroupCommand, editing => BlockoutSelection.Group(editing));
+        Verb(SelectCoplanarCommand, editing => BlockoutSelection.Coplanar(editing));
+        Verb(SelectLinkedCommand, editing => BlockoutSelection.Linked(editing));
+        Verb(SelectAllCommand, BlockoutSelection.All, InputKey.A, ModifierKeys.Control);
+        Verb(SelectNoneCommand, BlockoutSelection.None, InputKey.A, ModifierKeys.Alt);
+        Verb(InvertCommand, BlockoutSelection.Invert, InputKey.I, ModifierKeys.Control);
 
         // ⚠ Doc 24's Geometry table, with the bindings it names. Extrude is first and alone in the
         // plan's ordering for a reason — every other verb is judged against how that one feels — and
         // the ones with no chord here are the ones the table itself files under "menu".
-        Verb(ExtrudeCommand, "Extrude", editing => BlockoutGeometry.Extrude(editing, Step), InputKey.E);
-        Verb(ExtrudeIndividualCommand, "Extrude Individual", editing => BlockoutGeometry.Extrude(editing, Step, individually: true), InputKey.E, ModifierKeys.Alt);
-        Verb(InsetCommand, "Inset", editing => BlockoutGeometry.Inset(editing, Step * 0.25f), InputKey.I);
-        Verb(InsetIndividualCommand, "Inset Individual", editing => BlockoutGeometry.Inset(editing, Step * 0.25f, individually: true), InputKey.I, ModifierKeys.Alt);
-        Verb(BevelCommand, "Bevel", editing => BlockoutGeometry.Bevel(editing, Step * 0.25f, BevelSegments, out _), InputKey.B, ModifierKeys.Control);
-        Verb(LoopCutCommand, "Loop Cut", editing => BlockoutGeometry.LoopCut(editing), InputKey.R, ModifierKeys.Control | ModifierKeys.Shift);
-        Verb(SubdivideCommand, "Subdivide", editing => BlockoutGeometry.Subdivide(editing));
-        Verb(BridgeCommand, "Bridge", BlockoutGeometry.Bridge, InputKey.E, ModifierKeys.Control);
+        Verb(ExtrudeCommand, editing => BlockoutGeometry.Extrude(editing, Step), InputKey.E);
+        Verb(ExtrudeIndividualCommand, editing => BlockoutGeometry.Extrude(editing, Step, individually: true), InputKey.E, ModifierKeys.Alt);
+        Verb(InsetCommand, editing => BlockoutGeometry.Inset(editing, Step * 0.25f), InputKey.I);
+        Verb(InsetIndividualCommand, editing => BlockoutGeometry.Inset(editing, Step * 0.25f, individually: true), InputKey.I, ModifierKeys.Alt);
+        Verb(BevelCommand, editing => BlockoutGeometry.Bevel(editing, Step * 0.25f, BevelSegments, out _), InputKey.B, ModifierKeys.Control);
+        Verb(LoopCutCommand, editing => BlockoutGeometry.LoopCut(editing), InputKey.R, ModifierKeys.Control | ModifierKeys.Shift);
+        Verb(SubdivideCommand, editing => BlockoutGeometry.Subdivide(editing));
+        Verb(BridgeCommand, BlockoutGeometry.Bridge, InputKey.E, ModifierKeys.Control);
         // ⚠ `Alt+F`, and plain `F` is the reason. Focus Selection is reserved on the keymap and is
         // pressed several times a minute in every mode; a context binding on the bare key made it
         // stop working in the one mode where somebody is looking around the most.
-        Verb(FillCommand, "Fill Hole", BlockoutGeometry.FillHole, InputKey.F, ModifierKeys.Alt);
-        Verb(FlipCommand, "Flip Normals", BlockoutGeometry.Flip);
-        Verb(WeldCommand, "Weld to Centre", editing => BlockoutGeometry.Weld(editing), InputKey.M);
-        Verb(DissolveCommand, "Dissolve Edges", BlockoutGeometry.Dissolve, InputKey.X, ModifierKeys.Control);
-        Verb(DeleteCommand, "Delete Faces", BlockoutGeometry.Delete, InputKey.X);
-        Verb(DetachCommand, "Detach Faces", editing => BlockoutGeometry.Detach(editing) is not null, InputKey.P);
+        Verb(FillCommand, BlockoutGeometry.FillHole, InputKey.F, ModifierKeys.Alt);
+        Verb(FlipCommand, BlockoutGeometry.Flip);
+        Verb(WeldCommand, editing => BlockoutGeometry.Weld(editing), InputKey.M);
+        Verb(DissolveCommand, BlockoutGeometry.Dissolve, InputKey.X, ModifierKeys.Control);
+        Verb(DeleteCommand, BlockoutGeometry.Delete, InputKey.X);
+        Verb(DetachCommand, editing => BlockoutGeometry.Detach(editing) is not null, InputKey.P);
 
         // ⚠ The knife arms rather than runs, which is why it is a `Verb` whose body sets a flag. Every
         // other row of the Geometry table has its subject before the key is pressed; this one goes and
         // gets one. Blender's `K`, and the same key, because the gesture is the same gesture.
         Verb(
             KnifeCommand,
-            "Knife",
             _ => {
                 Knife.IsArmed = true;
 
@@ -693,56 +692,55 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
         // ⚠ Doc 24's Surfaces table, and every one of these is an element verb like the ones above —
         // "project these faces" needs faces. Assigning a material is the one that is not here: it
         // comes from a palette rather than from a key, and the palette is the inspector's.
-        Verb(ProjectWorldCommand, "Project UVs (World)", editing => BlockoutSurfaces.Project(editing, UvProjection.World, UvScale));
-        Verb(ProjectBoxCommand, "Project UVs (Object)", editing => BlockoutSurfaces.Project(editing, UvProjection.Box, UvScale));
-        Verb(FitUvCommand, "Fit UVs", BlockoutSurfaces.Fit);
-        Verb(SmoothCommand, "Smooth Faces", editing => BlockoutSurfaces.Smooth(editing));
-        Verb(HardenCommand, "Harden Faces", editing => BlockoutSurfaces.Smooth(editing, smooth: false));
-        Verb(AutoSmoothCommand, "Auto Smooth", editing => BlockoutSurfaces.AutoSmooth(editing));
-        Verb(NewGroupCommand, "New Face Group", BlockoutSurfaces.Regroup);
+        Verb(ProjectWorldCommand, editing => BlockoutSurfaces.Project(editing, UvProjection.World, UvScale));
+        Verb(ProjectBoxCommand, editing => BlockoutSurfaces.Project(editing, UvProjection.Box, UvScale));
+        Verb(FitUvCommand, BlockoutSurfaces.Fit);
+        Verb(SmoothCommand, editing => BlockoutSurfaces.Smooth(editing));
+        Verb(HardenCommand, editing => BlockoutSurfaces.Smooth(editing, smooth: false));
+        Verb(AutoSmoothCommand, editing => BlockoutSurfaces.AutoSmooth(editing));
+        Verb(NewGroupCommand, BlockoutSurfaces.Regroup);
 
         // ⚠ Doc 24's Creation table, and these are enabled in *Object* mode as well — unlike every
         // verb above them. Making a shape is not a statement about an element selection, and a tool
         // that could only be reached from inside a mesh would be one nobody could use to make the
         // first mesh.
-        Make(ShapeToolCommand, "Shape Tool", () => IsArmed = true, InputKey.A, ModifierKeys.Shift);
-        Make(CreateShapeCommand, "Create Shape", () => Created(BlockoutCreate.Shape(Scene!, Shape, Where())));
-        Make(CubeGridCommand, "Cube Grid Box", () => Created(BlockoutCubeGrid.Create(Scene!, Cell(), Plane)), InputKey.G);
-        Make(PushOutCommand, "Push Cells Out", () => Pushed(1), InputKey.RightBracket, ModifierKeys.Alt);
-        Make(PushInCommand, "Pull Cells In", () => Pushed(-1), InputKey.LeftBracket, ModifierKeys.Alt);
-        Make(DuplicateCommand, "Duplicate", () => BlockoutCreate.Duplicate(Scene!, Vector3.Zero), InputKey.D, ModifierKeys.Control);
-        Make(MirrorCommand, "Mirror", () => BlockoutCreate.Mirror(Scene!, (Plane ?? Ground).AsPlane()), InputKey.M, ModifierKeys.Control);
-        Make(ArrayCommand, "Array", () => Repeated(radial: false));
-        Make(RadialCommand, "Radial Array", () => Repeated(radial: true));
+        Make(ShapeToolCommand, () => IsArmed = true, InputKey.A, ModifierKeys.Shift);
+        Make(CreateShapeCommand, () => Created(BlockoutCreate.Shape(Scene!, Shape, Where())));
+        Make(CubeGridCommand, () => Created(BlockoutCubeGrid.Create(Scene!, Cell(), Plane)), InputKey.G);
+        Make(PushOutCommand, () => Pushed(1), InputKey.RightBracket, ModifierKeys.Alt);
+        Make(PushInCommand, () => Pushed(-1), InputKey.LeftBracket, ModifierKeys.Alt);
+        Make(DuplicateCommand, () => BlockoutCreate.Duplicate(Scene!, Vector3.Zero), InputKey.D, ModifierKeys.Control);
+        Make(MirrorCommand, () => BlockoutCreate.Mirror(Scene!, (Plane ?? Ground).AsPlane()), InputKey.M, ModifierKeys.Control);
+        Make(ArrayCommand, () => Repeated(radial: false));
+        Make(RadialCommand, () => Repeated(radial: true));
 
         foreach (var kind in Kinds) {
             var chosen = kind;
 
-            Make(KindCommand(chosen), "Shape: " + chosen, () => Shape = chosen, radio: true, kind: chosen);
+            Make(KindCommand(chosen), () => Shape = chosen, radio: true, kind: chosen);
         }
 
         // ⚠ Doc 24's P6 and P7, and both are Object-mode verbs like the creation ones above: a boolean
         // is a statement about two entities and a bake is a statement about one, and neither has
         // anything to do with which faces are selected.
-        Make(UnionCommand, "Union", () => BlockoutBoolean.Union(Scene!));
-        Make(SubtractCommand, "Subtract", () => BlockoutBoolean.Subtract(Scene!));
-        Make(IntersectCommand, "Intersect", () => BlockoutBoolean.Intersect(Scene!));
-        Make(ApplyBooleanCommand, "Apply Boolean", () => BlockoutBoolean.Collapse(Scene!));
-        Make(PlaneCutCommand, "Plane Cut", () => BlockoutBoolean.PlaneCut(Scene!, (Plane ?? Ground).AsPlane()));
-        Make(TrimCommand, "Trim", () => BlockoutBoolean.Trim(Scene!));
+        Make(UnionCommand, () => BlockoutBoolean.Union(Scene!));
+        Make(SubtractCommand, () => BlockoutBoolean.Subtract(Scene!));
+        Make(IntersectCommand, () => BlockoutBoolean.Intersect(Scene!));
+        Make(ApplyBooleanCommand, () => BlockoutBoolean.Collapse(Scene!));
+        Make(PlaneCutCommand, () => BlockoutBoolean.PlaneCut(Scene!, (Plane ?? Ground).AsPlane()));
+        Make(TrimCommand, () => BlockoutBoolean.Trim(Scene!));
 
         // ⚠ Doc 41 § D16's blockout row, and an Object-mode verb like the booleans above it: a
         // retopology replaces every face of a solid, so which faces are selected has nothing to say
         // about it. No chord, deliberately — it is seconds of work and is run once a shape is
         // settled, which is a menu verb by the same rule the plan's own tables use.
-        Make(RetopologizeCommand, "Retopologize", () => BlockoutRetopology.Run(Scene!, Retopology.ToRemeshSettings()));
+        Make(RetopologizeCommand, () => BlockoutRetopology.Run(Scene!, Retopology.ToRemeshSettings()));
 
         // ⚠ docs/plan/41 § R7's debug overlays, and the settings it captures with are the *same* ones
         // Retopologize runs with. A dump taken at other numbers would be a picture of a remesh that is
         // not the one the next click is going to produce, which is worse than no picture.
         Make(
             RemeshDebugCommand,
-            "Retopology Debug Overlays",
             () => {
                 if (RemeshDebug.Dump is not null) {
                     RemeshDebug.Clear();
@@ -752,24 +750,23 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
             }
         );
 
-        Make(BakeCommand, "Bake To Mesh Asset", () => {
+        Make(BakeCommand, () => {
             if (Baker is { } baker) {
                 BlockoutHandoff.Bake(Scene!, baker);
             }
         });
 
-        Make(EditableCommand, "Make Mesh Editable", () => {
+        Make(EditableCommand, () => {
             if (Meshes is { } source) {
                 BlockoutHandoff.Editable(Scene!, source);
             }
         });
 
-        Make(ExportObjCommand, "Export OBJ…", () => Exported(".obj"));
-        Make(ExportGltfCommand, "Export glTF…", () => Exported(".gltf"));
+        Make(ExportObjCommand, () => Exported(".obj"));
+        Make(ExportGltfCommand, () => Exported(".gltf"));
 
         void Make(
             string id,
-            string label,
             Action run,
             InputKey key = InputKey.Unknown,
             ModifierKeys modifiers = ModifierKeys.None,
@@ -777,7 +774,7 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
             ShapeKind kind = default
         ) {
             shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, label), () => {
+                new EditorCommand(id, BlockoutStrings.Commands[id], () => {
                     if (radio || Scene is not null) {
                         run();
                     }
@@ -795,9 +792,9 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
             }
         }
 
-        void Verb(string id, string label, Func<MeshEdit, bool> run, InputKey key = InputKey.Unknown, ModifierKeys modifiers = ModifierKeys.None) {
+        void Verb(string id, Func<MeshEdit, bool> run, InputKey key = InputKey.Unknown, ModifierKeys modifiers = ModifierKeys.None) {
             shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, label), () => Run(run)) {
+                new EditorCommand(id, BlockoutStrings.Commands[id], () => Run(run)) {
                     Category = EditorStrings.CategoryBlockout,
                     Context = BlockoutContext,
 
@@ -814,11 +811,11 @@ public sealed class BlockoutMode : IEditorMode, IViewportInput {
             }
         }
 
-        void Declare(BlockoutElement element, string label, InputKey key) {
+        void Declare(BlockoutElement element, InputKey key) {
             var id = ElementCommand(element);
 
             shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, label), () => this.Element = element) {
+                new EditorCommand(id, BlockoutStrings.Commands[id], () => this.Element = element) {
                     Category = EditorStrings.CategoryBlockout,
 
                     // ⚠ This is the whole of doc 24's B2 in one line. The command belongs to the
