@@ -25,6 +25,18 @@ without writing either. `InspectorEditProvider` is the first real provider, over
 inspector's generator emits; `NodePortEditProvider` is the second, over a graph node's ports — see
 [editing a node's ports](node-port-editing.md).
 
+⚠ **`InspectorEditProvider` answers for two registries, and it used to answer for one.**
+`[Inspector]` describes a type explicitly; the serialization generator describes every
+`[DataContract]` type anyway, and `ReflectedDescriptor` builds an inspector descriptor out of the
+second where the first has no entry. Reading only the first made the pipeline **strictly narrower
+than the panel that draws it** — a settings asset, which is this interface's own worked example for
+why the seam exists, drew rows on screen and answered with an empty member list through an
+`EditTarget`. That means no `EditProperty`, no undo, no mixed state and no markup binding, and it
+was silent in the direction that looks fine: an empty list is a target with no properties rather
+than an error. The fallback costs a second dictionary lookup on the miss path and is cached; nothing
+about it is a reflection pass, because `TypeRegistry` is filled by a module initializer the
+generator emitted.
+
 `GizmoDrag` and `GizmoEdit` are the same idea at the other end of the editor: a finished drag, and
 the entry it turns into together with the history that entry belongs on.
 
