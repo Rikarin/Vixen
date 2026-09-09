@@ -725,10 +725,22 @@ public sealed class UiRenderer : IDisposable {
         // sit inside it with no module recompiled.
         //
         // ⚠ 128 is exactly the push-constant size the Vulkan specification guarantees on every
-        // device, and `UiMask` is the widest consumer at 16 + 48 + 64. The number is a floor that was
-        // reached rather than a budget that was chosen, so the next thing to want a push constant here
-        // cannot simply be added: it either shares these bytes or moves to the storage buffer
-        // `UiShape` already uses.
+        // device, and it is a ceiling the range promises rather than one anything has reached.
+        //
+        // ⚠ <b>This comment said the opposite until 2026-09-09, and the sentence it said it in is the
+        // one four audits of #229 derived an expensive answer from.</b> It read "`UiMask` is the
+        // widest consumer at 16 + 48 + 64" — 128 exactly — and concluded that "the next thing to want
+        // a push constant here cannot simply be added". Measured off the committed reflection, the
+        // composite blocks are `UiBlur` 32, `UiColour` 64, `UiMask` 80 and `UiImage` none, so the
+        // widest is 80 and forty-eight bytes are free. Eleven lines above, this same block already
+        // said `UiMask` [0, 80] — the two sentences disagreed inside one comment.
+        //
+        // ⚠ Where the false one came from is a TRUE sentence about a different record: `MaskEntry`'s
+        // remark in `Ui.rvn` says a mask LIST cannot ride the push constants, because an entry is 64
+        // bytes and 16 + 48 + 64 is exactly 128 — which is right, and is why those went to a storage
+        // buffer. A sentence about a 64-byte record was read as one about the whole block, here and
+        // in three other places at once. `ShaderReflectionTests.ThereIsRoomForARoundedBackdropBox`
+        // holds the headroom, and is the test to read before believing either version again.
         layout = device.CreatePipelineLayout(
             new([atlasLayout], [new(PushStages, 0, 128)], "ui")
         );
