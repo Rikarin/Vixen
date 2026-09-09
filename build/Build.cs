@@ -549,6 +549,16 @@ partial class Build : NukeBuild {
                 // functions whose own documentation had been on a neighbour for months.
                 CheckRavenDocCommentPlacement();
 
+                // Sixth, and the argument a fifth time: it reads git's index and the bytes of the
+                // committed text files, loads no workspace, and takes about a second.
+                // ⚠ It is here because the defect it catches is one every other gate is green on by
+                // construction — this repository is authored on filesystems that fold case, so a
+                // reference to `Assets/Textures/Crate.PNG` opens `Crate.png` locally and 404s on
+                // Linux, on Android and over HTTP. doc 10 § Cross-platform discipline claimed a CI
+                // check for exactly this and there was none (#329). See CheckPathCase, which is
+                // also a target of its own.
+                CheckPathCaseReferences();
+
                 // Invoked raw rather than through Nuke's typed settings, whose shape has moved
                 // between versions; the CLI's has not.
                 //

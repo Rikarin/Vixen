@@ -229,12 +229,28 @@ evicted, saves included.
 Exactly right here. Temporary means "need not survive the session", a page's session ends when the tab
 closes, and writing scratch data to storage the browser then has to evict is work for nobody.
 
-## Threads: there are none, unless the page is cross-origin isolated
+## Threads: there are none
 
-.NET threads on `browser-wasm` need `SharedArrayBuffer`, which needs COOP and COEP headers on every
-response — a deployment fact the engine can read and never arrange. `IProcessorTopology.AvailableProcessors`
-reports **1** unless `crossOriginIsolated` is true, whatever `navigator.hardwareConcurrency` says,
-because a pool sized from the hardware count would try to start workers that throw.
+⚠ **This section used to end "…unless the page is cross-origin isolated", and that was a conclusion
+drawn from a proxy** ([#486](https://github.com/Rikarin/Vixen/issues/486)). .NET threads on
+`browser-wasm` need **two** independent things: `SharedArrayBuffer`, which needs COOP and COEP
+headers on every response — a deployment fact the engine can read and never arrange — *and* a runtime
+pack built with threads, which is `WasmEnableThreads` in the head's project file. **Nothing in this
+repository sets `WasmEnableThreads`**, so the published head links the single-threaded pack and has
+one thread however isolated the page is. `nuke BrowserSmoke` serves COOP and COEP, so an isolated
+page reporting eight processors on a one-thread runtime was the case CI exercised.
+
+`IProcessorTopology.AvailableProcessors` therefore reports **1**, full stop. The question it answers
+is "does this runtime have threads", and isolation is evidence for that rather than an answer to it;
+`WebProcessors.IsCrossOriginIsolated` and `PhysicalCores` remain as diagnostics, and are where the
+two halves get conjoined the day `WasmEnableThreads` arrives — a different runtime pack, a different
+trimming profile and an emcc relink, so not a small change.
+
+⚠ **And the number was load-bearing rather than cosmetic.** `AppBuilder` sized the job scheduler as
+`Math.Max(1, AvailableProcessors - 1)`, whose floor is one — so even the *non*-isolated page, already
+reporting a single processor, produced a request for one worker thread and a
+`PlatformNotSupportedException` out of `Thread.Start()` before the first frame. It asks the target
+now, the way `JobScheduler.DefaultWorkerCount` always did.
 
 `new JobScheduler()` picks zero workers on `browser-wasm` for the same reason. See
 [Vixen.Core.Threading](../../Core/Vixen.Core.Threading/README.md) § "Zero workers is a supported

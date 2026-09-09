@@ -123,6 +123,15 @@
             of this source and `GeneratorPackagingRuleTests` is the other.
         -->
         <Compile Include="..\..\build\GeneratorPackagingRule.cs" Link="GeneratorPackagingRule.cs" />
+
+        <!--
+            ⚠ And the case rule (#329), where the argument for a linked fixture is at its strongest:
+            its true answer on this tree is "no violations", so the gate alone can never distinguish
+            a clean repository from a scan that stopped matching. `PathCaseRuleTests` is the only
+            place anything watches it say yes, and it runs the whole sweep over this checkout in
+            about a second — no workspace, no Release build, no CI leg.
+        -->
+        <Compile Include="..\..\build\PathCaseRule.cs" Link="PathCaseRule.cs" />
     </ItemGroup>
 
     <!--

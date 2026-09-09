@@ -277,12 +277,29 @@ internal sealed class WebPower : IPowerInfo {
 /// <summary>What the browser will admit about the processors.</summary>
 /// <remarks>
 ///     <para>
-///         <b><see cref="AvailableProcessors" /> is one unless the page is cross-origin isolated</b>,
-///         and that is the number that matters rather than the hardware's. .NET threads on
-///         <c>browser-wasm</c> need <c>SharedArrayBuffer</c>, which needs COOP and COEP headers on
-///         every response. Without them the runtime has one thread whatever
-///         <c>navigator.hardwareConcurrency</c> says, and a job system sized from the hardware count
-///         would try to start workers that throw.
+///         <b><see cref="AvailableProcessors" /> is one, full stop</b>, and that is the number that
+///         matters rather than the hardware's. .NET threads on <c>browser-wasm</c> need two
+///         independent things: <c>SharedArrayBuffer</c>, which needs COOP and COEP headers on every
+///         response, <em>and</em> a runtime pack built with threads, which is
+///         <c>WasmEnableThreads</c> in the head's project file.
+///     </para>
+///     <para>
+///         ⚠ <b>This read cross-origin isolation and reported <c>hardwareConcurrency</c> when it was
+///         set, and that was a number derived from a proxy for the thing rather than from the
+///         thing</b> (<a href="https://github.com/Rikarin/Vixen/issues/486">#486</a>). Nothing in
+///         this repository sets <c>WasmEnableThreads</c> — not
+///         <c>Platform/Vixen.Platform.Web/build/</c>, not <c>Tools/Vixen.WebProbe</c>, not any
+///         workflow — so the published head links the single-threaded runtime pack and has one
+///         thread <em>whatever the page's isolation says</em>. An isolated page therefore reported
+///         eight available processors on a runtime with one, and <c>nuke BrowserSmoke</c> serves
+///         COOP and COEP, so that was the case CI exercised.
+///     </para>
+///     <para>
+///         ⚠ <b>The question <see cref="AvailableProcessors" /> answers is "does this runtime have
+///         threads", and isolation is evidence for that rather than an answer to it.</b> When
+///         <c>WasmEnableThreads</c> arrives — a different runtime pack, a different trimming profile
+///         and an emcc relink, so not a small change — this is where the two halves get conjoined,
+///         and <see cref="IsCrossOriginIsolated" /> is already here as one of them.
 ///     </para>
 ///     <para>
 ///         <c>hardwareConcurrency</c> is also rounded down by every browser for fingerprinting
@@ -294,8 +311,11 @@ internal sealed class WebPower : IPowerInfo {
 [SupportedOSPlatform("browser")]
 internal sealed class WebProcessors : IProcessorTopology {
     /// <inheritdoc />
-    public int AvailableProcessors { get; } =
-        WebInterop.IsCrossOriginIsolated() ? Math.Max(1, WebInterop.HardwareConcurrency()) : 1;
+    /// <remarks>
+    ///     One, because the published head links the single-threaded runtime pack. See the type's
+    ///     remarks: this is not the browser's answer, it is this build's.
+    /// </remarks>
+    public int AvailableProcessors => 1;
 
     /// <inheritdoc />
     /// <remarks>What the browser claims the machine has, which is a hint rather than a count. See
