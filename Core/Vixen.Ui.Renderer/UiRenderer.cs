@@ -1026,6 +1026,30 @@ public sealed class UiRenderer : IDisposable {
     ///         #783 lands, this becomes zero and the two frames are compared like every other case in
     ///         that file.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The blocker nine audits of #783 ended on — "its only proof is a device-recorded
+    ///         picture and I do not have one" — is refuted, measured 2026-09-09.</b>
+    ///         <c>dotnet test Platform/Vixen.Graphics.Golden.Tests --filter UiCompositingTests</c>
+    ///         with <c>VIXEN_REQUIRE_VULKAN=1</c> is four tests in four seconds on a MoltenVK laptop,
+    ///         and that fixture asserts counters rather than a reference image, so there is no golden
+    ///         to re-record either. The bytes were refuted before that (compiling <c>Ui.rvn</c>
+    ///         unedited reproduces every committed artefact) — what is left is the feature.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And #229's rounded backdrop, which landed the same day, is the worked template for
+    ///         everything about this <i>except</i> the one part that is genuinely hard.</b> What
+    ///         transfers: the pipeline choice in <see cref="SubmitDraw" />, the push-constant block,
+    ///         regenerating the two committed <c>.spv</c> and their GLSL twins, and the pair of
+    ///         agreement tests — device against <c>SoftwareUiRasterizer</c>, and <c>Ui.rvn</c> against
+    ///         the golden suite's GLSL, the second of which is the one nobody would think to write.
+    ///         What does not: a rounded box is 32 bytes of push constant, and a backdrop is a second
+    ///         <i>sampled texture</i>. <see cref="Capture" /> already registers it as an image with a
+    ///         descriptor set of its own, so a blend draw would need two sets bound at once —
+    ///         set 0 holds one — and <c>BindingPlan.Of</c> numbers a set by kind, so a second
+    ///         <c>Texture2D</c> declared in set 0 moves that shader's own sampler and disturbs the
+    ///         layout every UI pipeline shares. That is the whole of the remaining cost, and it is
+    ///         real.
+    ///     </para>
     /// </remarks>
     public int Unblended => unblended;
 
