@@ -28,6 +28,8 @@ public static class IrVerifier {
             }
         }
 
+        VerifyStructLayoutTerminates(module, diagnostics);
+
         foreach (var function in module.AllFunctions) {
             new FunctionVerifier(function, diagnostics).Verify();
         }
@@ -37,6 +39,114 @@ public static class IrVerifier {
         }
 
         return diagnostics.ToArray().Length == before;
+    }
+
+    /// <summary>Checks that laying every struct in the module out terminates.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The IR half of <c>RVN2008</c>, and it needs one because <c>RVN2008</c> is a
+    ///         source rule.</b> It runs in the binder over
+    ///         <c>SourceNamedTypeSymbol.ReportRecursiveLayoutIssues</c>, so it can only see a struct
+    ///         somebody wrote. A struct that arrives through a <c>.rvnlib</c> never passes it: the
+    ///         artefact's own remarks say the reader deliberately rebuilds a graph that may contain
+    ///         cycles, and <c>LibraryIrDecoder</c> loads shells before fields precisely so that it
+    ///         can. That is right for a decoder and leaves nobody asking whether the graph it
+    ///         rebuilt is one the compiler can walk — so a hand-crafted or corrupted library
+    ///         decoded without complaint, and the first thing to walk the type graph by structure —
+    ///         layout, <c>ShaderLayout</c>, either emitter's type table — recursed until the stack
+    ///         went (#1153).
+    ///     </para>
+    ///     <para>
+    ///         The binder guards what an author writes and the verifier guards what the IR
+    ///         <em>is</em>, whichever door it came in by. That is the same split
+    ///         <c>UnsizedArrayDiagnostics</c> records for the same shape.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Over objects and never over keys.</b> A tuple and a monomorphised generic are
+    ///         identified structurally and keep a bare artefact key on purpose, so two libraries'
+    ///         <c>Tuple_f32_f32</c> are deliberately <em>one</em> <see cref="IrStructType" /> — and
+    ///         two nominal structs that merely share a name are deliberately two. Struct identity in
+    ///         the IR is reference identity, so walking the objects asks the question layout will
+    ///         ask; walking names or keys would invent a cycle across a name collision and miss one
+    ///         inside a renamed import.
+    ///     </para>
+    ///     <para>
+    ///         Through an array's element, because <c>T[4]</c> is <c>T</c> laid out four times and
+    ///         is the same infinity — the rule the source check states in the same words. Not
+    ///         through a texture's sampled type or any other descriptor: those are handles rather
+    ///         than storage, and a resource may not be a struct member at all (<c>RVN2053</c>).
+    ///     </para>
+    /// </remarks>
+    static void VerifyStructLayoutTerminates(IrModule module, DiagnosticBag diagnostics) {
+        // Settled once a struct is known to lay out finitely. Reachability is monotone, so a struct
+        // that terminated from one route terminates from every other and the set is shared across
+        // the module rather than rebuilt per root.
+        HashSet<IrStructType> settled = [];
+
+        // The structs whose own fields are currently being walked: a field reaching one of these is
+        // the back edge.
+        HashSet<IrStructType> open = [];
+        HashSet<IrStructType> reported = [];
+        List<IrStructType> owners = [];
+        List<string> hops = [];
+
+        foreach (var structType in module.Structs) {
+            Walk(structType);
+        }
+
+        void Walk(IrStructType structType) {
+            if (!settled.Add(structType)) {
+                return;
+            }
+
+            open.Add(structType);
+
+            foreach (var field in structType.Fields) {
+                Descend(structType, field, field.Type);
+            }
+
+            open.Remove(structType);
+        }
+
+        void Descend(IrStructType owner, IrField field, IrType type) {
+            switch (type) {
+                case IrArrayType array:
+                    Descend(owner, field, array.Element);
+                    break;
+
+                case IrStructType held:
+                    owners.Add(owner);
+                    hops.Add($"{owner.Name}.{field.Name}: {held.Name}");
+
+                    if (open.Contains(held)) {
+                        ReportCycle(held);
+                    } else {
+                        Walk(held);
+                    }
+
+                    owners.RemoveAt(owners.Count - 1);
+                    hops.RemoveAt(hops.Count - 1);
+                    break;
+            }
+        }
+
+        void ReportCycle(IrStructType held) {
+            if (!reported.Add(held)) {
+                return;
+            }
+
+            // ⚠ The route, not the type — the reason RVN2008 gives: `A` holding `B` holding `A` is
+            // the shape nobody sees by reading, and naming only one end sends the reader to the file
+            // where nothing is wrong. Trimmed to where the cycle actually closes, so the hops that
+            // merely led the walk here are not read as part of it.
+            var start = owners.IndexOf(held);
+
+            Report(
+                diagnostics,
+                $"laying out struct '{held.Name}' never terminates: "
+                + string.Join(" → ", hops.Skip(start < 0 ? 0 : start))
+            );
+        }
     }
 
     static void VerifyShader(IrShader shader, DiagnosticBag diagnostics) {
