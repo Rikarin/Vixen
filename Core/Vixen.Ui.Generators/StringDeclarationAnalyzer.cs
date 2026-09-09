@@ -53,6 +53,20 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
     public const string UndeclaredId = "VXS0312";
 
     const string StringIdMetadataName = "Vixen.Ui.StringId";
+
+    /// <summary>
+    ///     The other shape a declaration may take — a whole family under one prefix.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A family is a declaration for every rule here, and the reason it has to be is
+    ///     <see cref="MissingFromAll" />.</b> A <c>StringFamily</c> property left out of <c>All</c>
+    ///     hides not one string but the entire family, and a class whose only declarations are
+    ///     families would otherwise not be recognised as a declaration class at all — so
+    ///     <see cref="Undeclared" /> would stop reporting in the assembly that had just declared its
+    ///     ids most thoroughly.
+    /// </remarks>
+    const string StringFamilyMetadataName = "Vixen.Ui.StringFamily";
+
     const string AllPropertyName = "All";
 
     static readonly DiagnosticDescriptor MissingFromAll = new(
@@ -113,6 +127,8 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
                     return;
                 }
 
+                var stringFamily = start.Compilation.GetTypeByMetadataName(StringFamilyMetadataName);
+
                 // ⚠ Gathered here and reported at compilation end, because two of the three rules are
                 // about the compilation rather than about a file: whether an id is declared twice,
                 // and whether this assembly has a declaration class at all. A per-file action can
@@ -123,12 +139,12 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
                 var loose = new ConcurrentBag<Location>();
 
                 start.RegisterSyntaxNodeAction(
-                    node => Collect(node, stringId, classes, declarations),
+                    node => Collect(node, stringId, stringFamily, classes, declarations),
                     SyntaxKind.ClassDeclaration
                 );
 
                 start.RegisterSyntaxNodeAction(
-                    node => Creation(node, stringId, loose),
+                    node => Creation(node, stringId, stringFamily, loose),
                     SyntaxKind.ObjectCreationExpression,
                     SyntaxKind.ImplicitObjectCreationExpression
                 );
@@ -141,6 +157,7 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
     static void Collect(
         SyntaxNodeAnalysisContext context,
         INamedTypeSymbol stringId,
+        INamedTypeSymbol? stringFamily,
         ConcurrentDictionary<string, byte> classes,
         ConcurrentBag<Declaration> declarations
     ) {
@@ -155,7 +172,9 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
 
         var declared = members
             .Where(member => member.Initializer is not null)
-            .Where(member => IsStringId(context.SemanticModel, member, stringId, context.CancellationToken))
+            .Where(
+                member => IsDeclaration(context.SemanticModel, member, stringId, stringFamily, context.CancellationToken)
+            )
             .ToArray();
 
         if (all is null || declared.Length == 0) {
@@ -176,11 +195,19 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
             );
 
         foreach (var member in declared) {
+            // ⚠ A family's first argument is a *prefix* and not an id, so it is deliberately not read
+            // here. Reading it would make two families sharing one prefix — which is the normal case,
+            // `editor.command.` — report as VXS0311, and the duplicate rule would then be about the
+            // one thing families are supposed to have in common.
+            var id = IsStringId(context.SemanticModel, member, stringId, context.CancellationToken)
+                ? IdOf(member.Initializer!.Value)
+                : null;
+
             declarations.Add(
                 new Declaration(
                     type.Name,
                     member.Identifier.ValueText,
-                    IdOf(member.Initializer!.Value),
+                    id,
                     member.Identifier.GetLocation()
                 )
             );
@@ -201,10 +228,24 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
         }
     }
 
-    static void Creation(SyntaxNodeAnalysisContext context, INamedTypeSymbol stringId, ConcurrentBag<Location> loose) {
+    static void Creation(
+        SyntaxNodeAnalysisContext context,
+        INamedTypeSymbol stringId,
+        INamedTypeSymbol? stringFamily,
+        ConcurrentBag<Location> loose
+    ) {
         var created = context.SemanticModel.GetTypeInfo(context.Node, context.CancellationToken).Type;
 
-        if (created is null || !SymbolEqualityComparer.Default.Equals(created, stringId)) {
+        if (created is null) {
+            return;
+        }
+
+        // A family built outside a declaration class is the same defect one size larger: its members
+        // are in no All list either, and there are more of them.
+        var declares = SymbolEqualityComparer.Default.Equals(created, stringId)
+            || (stringFamily is not null && SymbolEqualityComparer.Default.Equals(created, stringFamily));
+
+        if (!declares) {
             return;
         }
 
@@ -260,6 +301,30 @@ public sealed class StringDeclarationAnalyzer : DiagnosticAnalyzer {
     static string Describe(Declaration declaration) =>
         declaration.TypeName + "." + declaration.Member;
 
+    /// <summary>Whether a property declares strings — one, or a family of them.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="member">The property.</param>
+    /// <param name="stringId">The <c>StringId</c> type.</param>
+    /// <param name="stringFamily">The <c>StringFamily</c> type, where the compilation has one.</param>
+    /// <param name="cancellation">The token.</param>
+    /// <returns>Whether it is a declaration.</returns>
+    static bool IsDeclaration(
+        SemanticModel model,
+        PropertyDeclarationSyntax member,
+        INamedTypeSymbol stringId,
+        INamedTypeSymbol? stringFamily,
+        CancellationToken cancellation
+    ) =>
+        model.GetDeclaredSymbol(member, cancellation) is { } symbol
+        && (SymbolEqualityComparer.Default.Equals(symbol.Type, stringId)
+            || (stringFamily is not null && SymbolEqualityComparer.Default.Equals(symbol.Type, stringFamily)));
+
+    /// <summary>Whether a property declares exactly one string.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="member">The property.</param>
+    /// <param name="stringId">The <c>StringId</c> type.</param>
+    /// <param name="cancellation">The token.</param>
+    /// <returns>Whether its type is <c>StringId</c>.</returns>
     static bool IsStringId(
         SemanticModel model,
         PropertyDeclarationSyntax member,

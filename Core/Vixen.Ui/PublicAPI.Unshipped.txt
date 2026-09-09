@@ -1220,6 +1220,12 @@ Vixen.Ui.StringCatalog.Ids.get -> System.Collections.Generic.IReadOnlyCollection
 Vixen.Ui.StringCatalog.Language.get -> string
 Vixen.Ui.StringCatalog.Set(string id, string text) -> Vixen.Ui.StringCatalog
 Vixen.Ui.StringCatalog.StringCatalog(string language) -> void
+Vixen.Ui.StringFamily -> sealed class
+Vixen.Ui.StringFamily.All.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.StringId>
+Vixen.Ui.StringFamily.Covers(string key) -> bool
+Vixen.Ui.StringFamily.Prefix.get -> string
+Vixen.Ui.StringFamily.StringFamily(string prefix, System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, string>> members) -> void
+Vixen.Ui.StringFamily.this[string key].get -> Vixen.Ui.StringId
 Vixen.Ui.StringId -> readonly struct
 Vixen.Ui.StringId : System.IEquatable<Vixen.Ui.StringId>
 Vixen.Ui.StringId.Id.get -> string

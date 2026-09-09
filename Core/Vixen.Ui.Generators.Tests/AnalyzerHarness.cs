@@ -30,6 +30,27 @@ public static class AnalyzerHarness {
         }
         """;
 
+    /// <summary>A <c>StringFamily</c> good enough to bind against, for the same reason.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Only its identity matters here.</b> The analyzer asks whether a property's type is
+    ///     this one and whether a <c>new</c> makes one; what the real type does with a prefix and a
+    ///     set of keys is <c>Vixen.Ui</c>'s business and is asserted in that assembly's own tests.
+    /// </remarks>
+    public const string StringFamily = """
+        namespace Vixen.Ui {
+            public sealed class StringFamily {
+                public StringFamily(
+                    string prefix,
+                    System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, string>> members
+                ) { }
+
+                public System.Collections.Generic.IReadOnlyList<StringId> All => [];
+
+                public StringId this[string key] => default;
+            }
+        }
+        """;
+
     static readonly ImmutableArray<MetadataReference> References = CollectReferences();
 
     /// <summary>Compiles source and runs the analyzer over it.</summary>
@@ -42,7 +63,7 @@ public static class AnalyzerHarness {
     ///     and every snippet starts with one.
     /// </remarks>
     public static Task<ImmutableArray<Diagnostic>> RunAsync(string source) =>
-        RunAsync(source, new StringDeclarationAnalyzer(), StringId);
+        RunAsync(source, new StringDeclarationAnalyzer(), StringId + StringFamily);
 
     /// <summary>Compiles source with a preamble and runs one analyzer over it.</summary>
     /// <param name="source">The C# to compile. It has to compile, for the reason above.</param>

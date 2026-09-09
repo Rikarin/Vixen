@@ -106,7 +106,7 @@ partial class Build {
     string ClaudeDirectory => (RootDirectory / ".claude").ToString() + "/";
 
     Target CheckStrings => definition => definition
-        .Description("Fails if a declared string id is used nowhere, if a call site repeats an id a declaration class already declares, or if a shipping call site builds one no class declares")
+        .Description("Fails if a declared string id is used nowhere, if a call site repeats an id a declaration class already declares, if a shipping call site builds one no class declares, or if it builds one out of a run-time value")
         .Executes(() => {
                 var sources = RootDirectory
                     .GlobFiles("**/*.cs", "**/*.vxml")
@@ -188,6 +188,7 @@ partial class Build {
                 Unused(declarations, text, violations);
                 Repeated(declared, text, violations);
                 Undeclared(declared, text, violations);
+                Constructed(text, violations);
 
                 foreach (var violation in violations) {
                     Log.Error("{Violation}", violation);
@@ -296,9 +297,9 @@ partial class Build {
     ///         population.</b> Both patterns need a string literal where the id goes, so a
     ///         concatenation is invisible to this check — which means it is invisible to the
     ///         translator's template as well, and the ceiling can be zero precisely because the
-    ///         genuinely irreducible ids were never being counted. That is a real gap and a
-    ///         different one; it wants a declaration shape that can express a family, not an
-    ///         exemption here.
+    ///         genuinely irreducible ids were never being counted. <see cref="Constructed" /> is
+    ///         that half, and <c>Vixen.Ui.StringFamily</c> is the declaration shape that lets one
+    ///         stop being irreducible.
     ///     </para>
     ///     <para>
     ///         Two exclusions, both because they are not surfaces:
@@ -365,6 +366,126 @@ partial class Build {
             $"{undeclared.Count} undeclared string id(s), under a ceiling of {UndeclaredCeiling}. "
             + "Lower UndeclaredCeiling to what the tree now has, so the number stays one somebody "
             + "decided rather than one that drifted."
+        );
+    }
+
+    /// <summary>Every construction of a <c>StringId</c>, whatever its first argument is.</summary>
+    /// <remarks>
+    ///     Anchored on the <c>new</c> alone rather than on a literal, because the whole point of this
+    ///     half is the constructions the literal patterns cannot see. What follows the bracket is
+    ///     read separately by <see cref="LiteralFirstArgument" />.
+    /// </remarks>
+    static readonly Regex[] ConstructionPatterns = [
+        new("""new\s+StringId\(""", RegexOptions.Compiled),
+        new("""\bStringId\s+\w+\s*(?:\{\s*get;\s*\}\s*)?=\s*new\(""", RegexOptions.Compiled)
+    ];
+
+    /// <summary>A first argument that is a plain string literal and nothing else.</summary>
+    static readonly Regex LiteralFirstArgument = new("""^\s*"(?:[^"\\]|\\.)*"\s*,""", RegexOptions.Compiled);
+
+    /// <summary>
+    ///     How many ids a shipping surface builds out of a run-time value — the half of the census
+    ///     that no pattern anchored on a literal could ever have counted.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the population <see cref="Undeclared" />'s ceiling of zero was measured
+    ///         without.</b> <c>new StringId("editor.command." + id, label)</c> has no literal where
+    ///         the id goes, so it was in neither pattern, so it was in no violation and in no
+    ///         warning — and, for exactly the same reason, in no <c>All</c> list and no translator's
+    ///         template. The ids that genuinely could not be declared were the ones nothing counted,
+    ///         which is the wrong way round for a measurement to be wrong.
+    ///     </para>
+    ///     <para>
+    ///         <b>What makes compliance possible is <c>Vixen.Ui.StringFamily</c></b>: a declaration
+    ///         that stands for a whole set of ids under one prefix, keyed by what the call site
+    ///         already has. So the rule is not "declare every id" — some of these are one command per
+    ///         tool and one per digit — it is that a family is declared once and indexed at the call
+    ///         site rather than rebuilt there.
+    ///     </para>
+    ///     <para>
+    ///         Three exclusions, and a ceiling rather than zero:
+    ///         <list type="bullet">
+    ///             <item>
+    ///                 A file holding an <c>All</c> list. A declaration class is where a family is
+    ///                 built, and building one is <see cref="Regex" />-indistinguishable from
+    ///                 building an id at a call site.
+    ///             </item>
+    ///             <item>
+    ///                 A <c>.Tests</c> assembly and a <c>///</c> line, for <see cref="Undeclared" />'s
+    ///                 two reasons.
+    ///             </item>
+    ///             <item>
+    ///                 <c>Tools/Vixen.Templates/templates</c>, which is not this repository's code —
+    ///                 <c>CheckArchitecture</c> excludes it by name for the same reason.
+    ///             </item>
+    ///         </list>
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The ceiling cannot honestly be zero, and one of the survivors says why.</b>
+    ///         <c>DeclaredContributions</c> builds a label for a command a *plugin* declared with an
+    ///         attribute; the id is in an assembly this build has never seen, so no declaration in
+    ///         this tree can cover it and a family is the wrong answer as well. That one wants
+    ///         <c>Strings.Template</c> to take a plugin's own declarations, which is a different
+    ///         piece of work.
+    ///     </para>
+    /// </remarks>
+    const int ConstructedCeiling = 45;
+
+    /// <summary>Applies <see cref="ConstructedCeiling" />.</summary>
+    /// <param name="text">Every source file, by path.</param>
+    /// <param name="violations">Where a breach is recorded.</param>
+    static void Constructed(IReadOnlyDictionary<AbsolutePath, string> text, List<string> violations) {
+        var built = new SortedSet<string>(StringComparer.Ordinal);
+
+        foreach (var (path, contents) in text) {
+            if (path.ToString().Contains(".Tests/", StringComparison.Ordinal)
+                || path.ToString().Contains("/Vixen.Templates/templates/", StringComparison.Ordinal)
+
+                // ⚠ The one file that is *supposed* to build an id out of a run-time value: turning a
+                // prefix and a key into a StringId is what a family is. Excluded by name and with a
+                // reason rather than by widening the shape test, because the shape test is what
+                // recognises a declaration class and StringFamily is not one.
+                || path.ToString().EndsWith("Core/Vixen.Ui/StringFamily.cs", StringComparison.Ordinal)
+                || AllListPattern.IsMatch(contents)) {
+                continue;
+            }
+
+            foreach (var pattern in ConstructionPatterns) {
+                foreach (Match construction in pattern.Matches(contents)) {
+                    var argument = construction.Index + construction.Length;
+
+                    if (LiteralFirstArgument.IsMatch(contents[argument..])
+                        || InDocComment(contents, construction.Index)) {
+                        continue;
+                    }
+
+                    var line = contents.AsSpan(0, construction.Index).Count('\n') + 1;
+
+                    built.Add($"{RootDirectory.GetRelativePathTo(path)}:{line}");
+                }
+            }
+        }
+
+        if (built.Count > ConstructedCeiling) {
+            foreach (var site in built) {
+                violations.Add(
+                    $"{site} builds a StringId out of a run-time value. The id exists only while the "
+                    + "editor runs, so it is in no All list, Strings.Template does not export it and "
+                    + "no translator's template contains the word — declare the set as a StringFamily "
+                    + "and index it here."
+                );
+            }
+
+            return;
+        }
+
+        // ⚠ Downwards only, on UndeclaredCeiling's terms.
+        Assert.True(
+            built.Count == ConstructedCeiling,
+            $"{built.Count} constructed string id(s), under a ceiling of {ConstructedCeiling}. Lower "
+            + "ConstructedCeiling to what the tree now has, so the number stays one somebody decided "
+            + "rather than one that drifted."
         );
     }
 
