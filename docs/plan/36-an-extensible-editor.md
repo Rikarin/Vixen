@@ -1265,14 +1265,39 @@ import without a plugin is not an editor. The criterion is `Core`, `Ui`, `Plugin
 
 ### Smaller, and each a deliberate question rather than a lapse
 
-* **`IsPackable` on `Vixen.Editor.Inspector.Generator`.** Now buys only the `[Inspector]`-specific
-  annotations and the reset button — see [what this document does not
-  do](#what-this-document-does-not-do).
+* ~~**`IsPackable` on `Vixen.Editor.Inspector.Generator`.**~~ ✅ **Answered, and the question was the
+  wrong one.** `IsPackable` is not unset on that project: `Directory.Build.props`'s COMPILER PLUGIN
+  profile sets it to **false** for every `*.Generator`, `*.Generators` and `*.Analyzers` in the
+  repository, because no generator here ships as a package of its own. What ships one is the library
+  it belongs to, carrying its DLL in `analyzers/dotnet/cs` — `Vixen.Core.Serialization`, `Vixen.Ui`,
+  `Vixen.Input`, `Vixen.Net` and `Vixen.Shaders` each have a pack target for exactly that, and
+  `Vixen.Editor.Inspector` now has one too.
+
+  ⚠ **So the answer to "is a plugin's inspector allowed to be poorer" is no, and it cost a target
+  rather than a decision.** It was invisible in-tree for the reason this repository keeps meeting:
+  analyzers are not transitive through a `ProjectReference`, so every in-tree consumer names the
+  generator itself and a green build cannot tell you what a `PackageReference` gets. The only place
+  the answer exists is the `.nupkg` bytes.
+
+  ⚠ **And the walk that answered it found four more libraries in the same state** — `Vixen.Ecs`,
+  `Vixen.Core.IO`, `Vixen.Core.Syntax` and `Vixen.Editor.NodeGraph` — of which `Vixen.Ecs` is the one
+  that matters, since a game outside this repository gets `[Component]` and none of the code the
+  generator writes. Filed as #1165 with the rule that would stop the next one.
 * ~~**`IToolContext`**~~ — struck, and the sentence under it was wrong: four modes already implement
   one `IViewportInput`, and the pane they are handed is the context. See [Part 5](#part-5--the-seams).
 * **No incremental compilation for project scripts**, and **no cross-assembly editor-only check**.
-* **F7's number.** Seventeen `.vxml` files against **34 registered panels** — the denominator this
-  row used to give, ~120,000 lines of editor C#, was the wrong one, and so was "three". The path is
+* **F7's number.** ⚠ **Fifty-six `.vxml` under `Editor/`** — `git ls-files 'Editor/*.vxml' | wc -l`,
+  measured 2026-09-09. This row has said three, then seventeen, then forty-nine; the ledger's own
+  strike-through history reads twenty → twenty-seven → thirty-four → forty-one → forty-eight. The
+  denominator this row used to give, ~120,000 lines of editor C#, was the wrong one.
+
+  ⚠ **This document's numbers go stale in both directions at once, which is the useful reading rather
+  than either figure.** F7's is low because the markup path was adopted faster than the doc was
+  revised; `EditorApplication.cs` is high — 5,282 against a recorded 3,787 — because the application
+  kept growing. A count nobody can re-derive goes stale again, so the command is written beside the
+  figure and the [panel
+  ledger](../../Editor/Vixen.Editor.Ui/README.md#the-panel-ledger--what-is-markup-what-is-next-and-what-never-will-be)
+  stays the maintained list this row cites rather than restates. The path is
   walked and now also *surveyed*: [the panel
   ledger](../../Editor/Vixen.Editor.Ui/README.md#the-panel-ledger--what-is-markup-what-is-next-and-what-never-will-be)
   goes through every panel once and says which are ready, which are half-portable and which never
