@@ -92,6 +92,94 @@ public class ScreenSpaceTraceTests {
         Assert.Equal(new Vector3(1f), atlas[probe, outward]);
     }
 
+    [Fact]
+    public void AScreenHitRadiatesTheFramesColourAtThePixelThatStoppedIt() {
+        // The same fixture, with a colour to read: the wall the depth buffer sees is no longer a
+        // pure occluder but a surface radiating what the frame drew there. ⚠ Without this the two
+        // hit paths of one gather disagreed — a *field* hit answers through the surface cache and a
+        // *screen* hit answered black — and the disagreement ran one way, because the screen is
+        // consulted precisely for geometry whose light the field is also missing.
+        var gather = Gather(Trace(WallDepth));
+        var wall = new Vector3(0.25f, 0.5f, 0.75f);
+
+        gather.ScreenColour = _ => wall;
+
+        var atlas = new ScreenProbeAtlas(new(new(32, 32)));
+
+        Assert.True(gather.FillProbe(atlas, new(0, 0), new(0f, 0f, -2f), new(0f, 0f, 1f)));
+
+        var resolution = atlas.Layout.MapResolution;
+
+        var probe = new Int2(0, 0);
+
+        Assert.Equal(wall, atlas[probe, OctahedralMap.Texel(new(0f, 0f, -1f), resolution)]);
+    }
+
+    [Fact]
+    public void TheScreenTraceNoLongerSubtractsLight() {
+        // The closed form the defect was: light the screen trace on a wall lit exactly as the sky
+        // it hides, and the gather must come back texel for texel the gather that never marched the
+        // screen at all. Under the old answer every texel the screen could stop went to zero — the
+        // more the screen saw, the darker the probe — and the two sums differ by that whole cone.
+        var without = Fill(Gather(null));
+        var with = Gather(Trace(WallDepth));
+
+        with.ScreenColour = _ => new(1f);
+
+        var texels = Fill(with);
+
+        Assert.Equal(without.Length, texels.Length);
+        Assert.NotEmpty(texels);
+
+        // Both halves, because a predicate that cannot be false proves nothing: the screen actually
+        // stopped rays here (the trace is the same one `TheGatherAsksTheScreenFirst` fires), and
+        // stopping them changed no texel.
+        for (var i = 0; i < texels.Length; i++) {
+            Assert.Equal(without[i], texels[i]);
+        }
+
+        var dark = Fill(Gather(Trace(WallDepth)));
+
+        Assert.NotEqual(Sum(without), Sum(dark));
+        Assert.True(Sum(dark) < Sum(without), "the occlusion answer must be the darker one");
+    }
+
+    /// <summary>A gather over empty space under a uniform sky, with the screen trace given.</summary>
+    static TracedScreenProbeGather Gather(ScreenSpaceTrace? trace) =>
+        new(new EmptySpace(), new UniformSky(), new ScreenProbeGatherSettings { MaxDistance = 8f }) {
+            ScreenTrace = trace
+        };
+
+    /// <summary>Every texel of the one probe, in atlas order.</summary>
+    static Vector3[] Fill(TracedScreenProbeGather gather) {
+        var atlas = new ScreenProbeAtlas(new(new(32, 32)));
+
+        Assert.True(gather.FillProbe(atlas, new(0, 0), new(0f, 0f, -2f), new(0f, 0f, 1f)));
+
+        var probe = new Int2(0, 0);
+        var resolution = atlas.Layout.MapResolution;
+        var texels = new Vector3[resolution * resolution];
+
+        for (var y = 0; y < resolution; y++) {
+            for (var x = 0; x < resolution; x++) {
+                texels[(y * resolution) + x] = atlas[probe, new(x, y)];
+            }
+        }
+
+        return texels;
+    }
+
+    /// <summary>How much light a map holds — the quantity the defect removed.</summary>
+    static float Sum(Vector3[] texels) {
+        var total = 0f;
+
+        foreach (var texel in texels) {
+            total += texel.X + texel.Y + texel.Z;
+        }
+
+        return total;
+    }
+
     /// <summary>The orthographic snapshot: every pixel at one device depth, the camera at the origin.</summary>
     static ScreenSpaceTrace Trace(float bufferDepth) {
         var surface = new ReconstructedScreenSurface(new(32, 32));

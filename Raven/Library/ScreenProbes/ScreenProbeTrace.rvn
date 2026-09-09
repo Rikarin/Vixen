@@ -23,9 +23,12 @@ import Vixen.Shaders.SurfaceCache
 // a group is filling comes out of a buffer indexed by the group — the same shape as `IrradianceFill`,
 // so a frame refills N probes in one dispatch and N is the host's number.
 //
-// What a hit gives back is nothing, exactly as `IrradianceFill`: a surface's own radiance is Lumen's
-// surface cache and that is § L4. Until it exists this bounces nothing, which is honest rather than
-// convenient — and it is what the CPU reference's fixtures return too.
+// What a field hit gives back is the surface cache's answer — § L4, composed through `surfaceCache`.
+// ⚠ And a *screen* hit answers the frame's own colour at the pixel that stopped the ray, when the
+// host bound one: the screen is consulted for geometry the field may not hold, so that geometry's
+// light is missing from the field too, and answering black made every such surface a pure occluder —
+// switching the screen trace on subtracted light and added none. `screenRadiance` zero is the old
+// occlusion answer, kept only for a host that has no colour to give.
 
 /// One probe to fill: where its map lives in the atlas, and where it stands in the world.
 struct ScreenProbeTraceJob {
@@ -74,6 +77,24 @@ shader ScreenProbeTrace {
     /// a set with a hole in it binds nothing — and the texels are read only above zero `screenSteps`,
     /// so a host with no screen to trace hands over any texture in the sampled layout.
     var depthBuffer: Texture2D
+
+    /// The frame's own colour, which is what a screen hit radiates — the same binding
+    /// `ReflectionTrace` calls `sceneColor`, and the same march reads it at the same pixel.
+    ///
+    /// ⚠ Which colour a probe bounces is a *scheduling* decision and not this kernel's: the host
+    /// names the plane, exactly as it names the depth. Always bound — a set with a hole in it binds
+    /// nothing — and read only above zero `screenRadiance`.
+    var sceneColor: Texture2D
+
+    /// Whether a screen hit answers `sceneColor` at the pixel that stopped the ray. Zero is the
+    /// occlusion answer, and a host with no colour plane to give is the only reason to leave it
+    /// there: the screen sees geometry the field does not, so a black answer removes that
+    /// geometry's light from the gather while keeping its shadow.
+    ///
+    /// ⚠ A screen radiance is *last* frame's light — the lattice is placed from a readback, so the
+    /// colour read is stale by the same frame the placement is. That is fine for a bounce, and it is
+    /// the staleness the denoiser's reprojection already has a name for.
+    var screenRadiance: int = 0
 
     /// The camera that drew `depthBuffer` — the forward matrix, not the inverse placement uses.
     var viewProjection: mat4
@@ -352,19 +373,24 @@ shader ScreenProbeTrace {
         return int2(-1, -1)
     }
 
-    /// Whether a ray from a point is stopped by something the screen can see — the naive march,
-    /// sample by sample, in exactly `ScreenSpaceTrace.Hit`'s order, or the hierarchical march when
-    /// the host handed over a chain and both endpoints project. Behind is a *smaller* device depth,
-    /// because depth is reversed; a sky texel occludes nothing; off the viewport the ray is not the
-    /// screen's to answer.
-    func ScreenHit(origin: float3, direction: float3): bool {
+    /// Which pixel stops a ray from a point, or (-1, -1) for one the screen cannot stop — the naive
+    /// march, sample by sample, in exactly `ScreenSpaceTrace.TryHit`'s order, or the hierarchical
+    /// march when the host handed over a chain and both endpoints project. Behind is a *smaller*
+    /// device depth, because depth is reversed; a sky texel occludes nothing; off the viewport the
+    /// ray is not the screen's to answer.
+    ///
+    /// ⚠ This answered `bool` while the branch below it answered black, and the two together were a
+    /// rendering defect rather than a missing feature: the screen holds geometry the field does not,
+    /// so its light is missing from the field too, and a screen hit that returns nothing makes every
+    /// such surface a pure occluder. Turning `screenSteps` on then *subtracted* light and added
+    /// none. The pixel is what the frame's colour is read at, which is the same answer
+    /// `ReflectionTrace.ScreenColour` has always given — one march, two questions.
+    func ScreenMarch(origin: float3, direction: float3): int2 {
         val fromClip = viewProjection * float4(origin, 1f)
         val toClip = viewProjection * float4(origin + direction * maxDistance, 1f)
 
         if (pyramidLevels > 0 && fromClip.w > Const.Epsilon && toClip.w > Const.Epsilon) {
-            val landed = PyramidMarch(fromClip, toClip)
-
-            return landed.x >= 0
+            return PyramidMarch(fromClip, toClip)
         }
 
         val slope = ShellSlope(fromClip, toClip)
@@ -401,7 +427,7 @@ shader ScreenProbeTrace {
                     val py = int(floor((ndc.y * -0.5f + 0.5f) * screenViewport.y))
 
                     if (px < 0 || py < 0 || px >= int(screenViewport.x) || py >= int(screenViewport.y)) {
-                        return false
+                        return int2(-1, -1)
                     }
 
                     val surfaceDepth = depthBuffer.Load(int3(px, py, 0)).r
@@ -416,14 +442,14 @@ shader ScreenProbeTrace {
 
                                 if (clip.w > surfaceW && clip.w < surfaceW + screenLinearThickness) {
                                     if (!started || fromClip.w < surfaceW - screenLinearThickness) {
-                                        return true
+                                        return int2(px, py)
                                     }
                                 }
                             }
                         } else {
                             if (ndc.z < surfaceDepth && ndc.z > surfaceDepth - screenThickness) {
                                 if (!started || startNdc.z > surfaceDepth + screenThickness) {
-                                    return true
+                                    return int2(px, py)
                                 }
                             }
                         }
@@ -432,7 +458,7 @@ shader ScreenProbeTrace {
             }
         }
 
-        return false
+        return int2(-1, -1)
     }
 
     // An eight-by-eight group, one invocation per texel of `ScreenProbeAtlas.MapResolution`. The two
@@ -460,12 +486,26 @@ shader ScreenProbeTrace {
 
         val direction = ScreenProbeAtlas.Direction(texel, ScreenProbeAtlas.MapResolution)
 
-        // The screen first — geometry the field may not hold — and a hit is an occlusion, for the
-        // same § L4 reason a field hit gives back nothing. `ScreenSpaceTrace` is the C# side, and
-        // where the two disagree, the C# is right.
-        if (screenSteps > 0 && ScreenHit(job.origin, direction)) {
-            radianceAtlas.Store(atlasTexel, float4(0f, 0f, 0f, 1f))
-            return
+        // The screen first — geometry the field may not hold — and what stopped the ray radiates the
+        // frame's colour at that pixel. ⚠ It answered black here while the field's hit branch below
+        // answered through the cache, which is the two hit paths of one kernel disagreeing about
+        // whether a surface radiates; the screen is asked precisely about geometry whose light the
+        // field is also missing, so the disagreement ran one way — darker with the option on.
+        // `ScreenSpaceTrace` and `TracedScreenProbeGather` are the C# side, and where the two
+        // disagree, the C# is right.
+        if (screenSteps > 0) {
+            val landed = ScreenMarch(job.origin, direction)
+
+            if (landed.x >= 0) {
+                var seen = float3(0f, 0f, 0f)
+
+                if (screenRadiance != 0) {
+                    seen = sceneColor.Load(int3(landed.x, landed.y, 0)).rgb
+                }
+
+                radianceAtlas.Store(atlasTexel, float4(seen, 1f))
+                return
+            }
         }
 
         val hit = distanceField.TraceField(job.origin, direction, maxDistance, maxSteps, surfaceThreshold, stepScale)

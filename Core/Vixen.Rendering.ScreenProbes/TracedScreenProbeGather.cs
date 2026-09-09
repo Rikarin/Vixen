@@ -131,12 +131,38 @@ public sealed class TracedScreenProbeGather {
 
     /// <summary>The trace order's first stage: rays against the frame's own depth, or null for none.</summary>
     /// <remarks>
-    ///     Asked before the distance field, and a hit gives back nothing — an occlusion, not a lit
-    ///     surface, for <see cref="ScreenSpaceTrace" />'s § L4 reason. A screen miss proves nothing:
-    ///     the field march runs over the whole ray regardless, because the screen only ever saw the
-    ///     front of what it saw.
+    ///     Asked before the distance field, and what stopped the ray radiates
+    ///     <see cref="ScreenColour" /> at the pixel it stopped in. A screen miss proves nothing: the
+    ///     field march runs over the whole ray regardless, because the screen only ever saw the front
+    ///     of what it saw.
     /// </remarks>
     public ScreenSpaceTrace? ScreenTrace { get; set; }
+
+    /// <summary>The frame's colour at a pixel — what a screen hit radiates. Null answers black.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Null is the occlusion answer, and it is a darkening one.</b> A screen hit used to
+    ///         give back nothing unconditionally, for the § L4 reason a field hit did — but § L4
+    ///         answered, and the two hit paths of one gather were then disagreeing about whether a
+    ///         surface radiates. The disagreement is not symmetric: the screen is consulted exactly
+    ///         for geometry the distance field may not hold, so that geometry's light is missing from
+    ///         the field too, and calling it a pure occluder means switching the screen trace on
+    ///         <i>subtracts</i> light and adds none — the more it finds, the darker the gather, which
+    ///         reads as the screen trace being too aggressive rather than as a missing radiance.
+    ///     </para>
+    ///     <para>
+    ///         <b>Which colour a probe bounces is a scheduling decision, not this gather's.</b> The
+    ///         host names the plane — <c>TracedReflections.ScreenColour</c>'s seam, for its reason —
+    ///         and a caller with no colour to give leaves this null and gets the old answer, stated
+    ///         rather than inferred.
+    ///     </para>
+    ///     <para>
+    ///         <b>A screen radiance is last frame's light.</b> The lattice already runs a frame behind
+    ///         (placement is a readback), so the colour read is stale by that same frame. That is fine
+    ///         for a bounce, and it is the staleness the denoiser's reprojection meets by name.
+    ///     </para>
+    /// </remarks>
+    public Func<Int2, Vector3>? ScreenColour { get; set; }
 
     /// <summary>Fills every probe of an atlas from what its anchor pixel shows.</summary>
     /// <param name="atlas">The atlas to fill.</param>
@@ -295,9 +321,12 @@ public sealed class TracedScreenProbeGather {
     Vector3 TexelRadiance(Vector3 origin, Int2 texel, int resolution, in DistanceFieldTraceSettings trace) {
         var direction = OctahedralMap.Direction(texel, resolution);
 
-        // The screen first — geometry the field may not hold — and a hit is an occlusion.
-        if (ScreenTrace?.Hit(origin, direction, Settings.MaxDistance) == true) {
-            return Vector3.Zero;
+        // The screen first — geometry the field may not hold — and the frame's own colour at the
+        // pixel that stopped the ray is what that geometry radiates. One march, the reflection
+        // kernel's question: `TryHit` says where, and `Hit` was only ever `TryHit` throwing the
+        // pixel away.
+        if (ScreenTrace?.TryHit(origin, direction, Settings.MaxDistance, out var pixel) == true) {
+            return ScreenColour is { } colour ? colour(pixel) : Vector3.Zero;
         }
 
         var hit = DistanceFieldTracer.Trace(geometry, origin, direction, trace);

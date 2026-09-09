@@ -123,22 +123,39 @@ denoiser's bilateral upsample** — the shipped upsample pass still reads the gr
 adaptive probes change no picture until the pass that reads position arrives, and they were built
 first because the lattice semantics had to exist to be read.
 
-## The screen is asked first, and a screen hit is an occlusion
+## The screen is asked first, and a screen hit radiates the frame's colour
 
 Doc 19 § L3's trace order opens with rays against the frame's own depth — geometry the distance
 field may not hold: skinned meshes, foliage, anything too small or mobile for a signed distance
 representation. `ScreenSpaceTrace` is the CPU half: a fixed count of equal steps along the ray, each
 projected through the camera and compared against the depth buffer — behind a surface, within its
-`Thickness`, is a hit, and a hit gives back **nothing**, exactly as a field hit does, because a
-surface's own radiance is the § L4 surface cache. A sky texel occludes nothing; a ray that leaves
-the viewport stops being the screen's to answer; and the field march runs over the whole ray
-regardless, because a screen miss never proves the world empty.
+`Thickness`, is a hit. A sky texel occludes nothing; a ray that leaves the viewport stops being the
+screen's to answer; and the field march runs over the whole ray regardless, because a screen miss
+never proves the world empty.
+
+⚠ **A hit used to give back nothing, and that was a rendering defect rather than a missing
+feature.** It was written to match the field's hit branch, which answered black until § L4 existed —
+but § L4 landed, a field hit now answers through the surface cache, and the two hit paths of one
+gather were then disagreeing about whether a surface radiates. The disagreement is not symmetric.
+The screen is consulted precisely for geometry the field may not hold, which is geometry whose light
+is therefore also missing from the field: calling every such surface a pure occluder means switching
+`ScreenTraces` on **subtracts** light and adds none, so the more the screen trace finds, the darker
+the gather gets — and that reads as the trace being too aggressive rather than as a missing
+radiance. `TracedScreenProbeGather.ScreenColour` is the answer, and it is the seam
+`TracedReflections` already had: the same march, asked *where* rather than *whether* (`TryHit` was
+always `Hit` with the pixel thrown away), and the frame's colour read at that pixel. Two things it
+keeps: **which** colour is a scheduling decision named by the host rather than by the kernel, and a
+screen radiance is **last frame's light** — the lattice already runs a frame behind because
+placement is a readback, so the colour is stale by that same frame, which is what a bounce can
+afford and what the temporal chain reprojects.
 
 The kernel runs the same march sample for sample, and the device comparison is sterner here than
 anywhere else in the package: a screen hit is *binary*, so a last-bit disagreement in the decode
 would flip a texel whole rather than nudge it — the comparison runs under an orthographic camera to
 keep the projection affine, over a wall only the depth buffer can see, with a traceless reference
-proving the wall stopped something. **The naive march is the baseline, and the HZB traversal landed
+proving the wall stopped something. A second comparison lights that wall through a
+**position-coded** colour plane, for the reason the reflections' does: a flat colour cannot tell a
+hit at the right pixel from a hit at the wrong one, so every pixel carries its own x and y. **The naive march is the baseline, and the HZB traversal landed
 against it, both processors.** `ScreenDepthPyramid` is the depth's *other* reduction — nearest per
 cell where `HiZReduce` keeps the farthest, shaped exactly like a device mip chain (floor-halving,
 clamped 3×3 taps) because the device chain *is* one: `NearestReduce.rvn` through `HiZPyramid`

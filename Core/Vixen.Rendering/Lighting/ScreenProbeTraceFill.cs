@@ -85,6 +85,9 @@ public sealed class ScreenProbeTraceFill : IDisposable {
     /// <summary>The shader's name for the depth's nearest chain.</summary>
     const string PyramidName = "depthPyramid";
 
+    /// <summary>The shader's name for the frame colour a screen hit radiates.</summary>
+    const string ColourName = "sceneColor";
+
     readonly IGraphicsDevice device;
     readonly UploadBuffer<ScreenProbeTraceJob> jobs = new("ScreenProbeTrace.Jobs");
     readonly List<DescriptorWrite> writes = [];
@@ -176,6 +179,26 @@ public sealed class ScreenProbeTraceFill : IDisposable {
     ///     a different frame's depth test surfaces that exist nowhere.
     /// </remarks>
     public TextureViewHandle ScreenDepth { get; set; }
+
+    /// <summary>The frame's colour, which is what a screen hit radiates. Invalid answers black.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Invalid is the occlusion answer, and it darkens the gather.</b> The screen is
+    ///         marched precisely for geometry the distance field may not hold, so that geometry's
+    ///         light is missing from the field too: answering black makes every such surface a pure
+    ///         occluder, and the screen trace then subtracts light and adds none. Bind a colour
+    ///         wherever there is one to bind.
+    ///     </para>
+    ///     <para>
+    ///         <b>Which plane it is, is the host's decision</b> — the same seam
+    ///         <see cref="ReflectionTraceFill.ScreenColour" /> has, for the same reason: a reflection
+    ///         and a bounce sample whatever the frame has finished drawing, and what that is belongs
+    ///         to the schedule rather than to the kernel. A view in the sampled layout at dispatch
+    ///         time, covering <see cref="ScreenViewport" /> exactly as <see cref="ScreenDepth" />
+    ///         does.
+    ///     </para>
+    /// </remarks>
+    public TextureViewHandle ScreenColour { get; set; }
 
     /// <summary>The viewport <see cref="ScreenDepth" /> covers, in pixels.</summary>
     public Int2 ScreenViewport { get; set; }
@@ -293,6 +316,10 @@ public sealed class ScreenProbeTraceFill : IDisposable {
         // Zero steps is the off switch the shader branches on — a host with no screen still binds a
         // texture below, because a set with a hole in it binds nothing.
         Parameters.Set(ScreenProbeTraceKeys.ScreenSteps, ScreenDepth.IsValid ? ScreenSteps : 0);
+
+        // Whether a screen hit radiates rather than occludes. Zero only where there is no colour to
+        // read — the honest half of a screen trace that has nothing to answer with, not a default.
+        Parameters.Set(ScreenProbeTraceKeys.ScreenRadiance, ScreenDepth.IsValid && ScreenColour.IsValid ? 1 : 0);
         Parameters.Set(ScreenProbeTraceKeys.ScreenViewport, new Vector2(ScreenViewport.X, ScreenViewport.Y));
         Parameters.Set(ScreenProbeTraceKeys.ScreenThickness, ScreenThickness);
         Parameters.Set(ScreenProbeTraceKeys.ViewProjection, ViewProjection);
@@ -455,6 +482,18 @@ public sealed class ScreenProbeTraceFill : IDisposable {
                     depth.Binding,
                     DescriptorKind.SampledTexture,
                     TextureView: ScreenDepth.IsValid ? ScreenDepth : texture.ProbeView(0)
+                )
+            );
+        }
+
+        if (effect.BindingOf(ColourName) is { } colour) {
+            // The same stand-in rule as the depth: the descriptor must point at something in the
+            // sampled layout, and zero screenRadiance means the shader never loads it.
+            writes.Add(
+                new DescriptorWrite(
+                    colour.Binding,
+                    DescriptorKind.SampledTexture,
+                    TextureView: ScreenColour.IsValid ? ScreenColour : texture.ProbeView(0)
                 )
             );
         }

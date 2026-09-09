@@ -755,9 +755,8 @@ patch nothing writes is undefined memory, and the resolve reads validity out of 
 
 **And the trace order opens with the screen.** `ScreenSpaceTrace` marches the frame's own depth —
 geometry the distance field may not hold — before any field ray: a fixed count of equal steps, each
-projected and tested behind-within-thickness, a hit giving back nothing for the § L4 reason a field
-hit does, a sky texel occluding nothing, and an off-screen ray falling through to the field because
-a screen miss never proves the world empty. The kernel runs the same march sample for sample, and
+projected and tested behind-within-thickness, a sky texel occluding nothing, and an off-screen ray
+falling through to the field because a screen miss never proves the world empty. The kernel runs the same march sample for sample, and
 its device comparison is the package's sternest: a screen hit is binary, so a last-bit decode
 disagreement flips a texel whole — the wall only the depth buffer can see stopped the same rays on
 both sides, texel for texel, with a traceless reference proving it stopped any. Wired through the
@@ -767,6 +766,26 @@ scene, sheared by motion for a moving one, which is the denoiser's reprojection 
 before it exists. One frame drawn with it on shows the L1 overshoot from § L3's own finding, now
 end to end: probes standing on the one surface a frame drew blacken a cone *behind* themselves,
 and the away-facing answer lands above the sky, not below it.
+
+⚠ **And a screen hit gave back nothing, which was a rendering defect and not a deferral.** It was
+written to match the field's hit branch — black, for the § L4 reason — and § L4 then answered, so
+the two hit paths of one kernel disagreed about whether a surface radiates. The disagreement runs
+one way: the screen is asked precisely about geometry the field may not hold, whose light is
+therefore also missing from the field, so a pure occluder means turning `ScreenTraces` on
+*subtracts* light and adds none, and the more it finds the darker the gather — which reads as the
+trace being too aggressive. The half that answers it was one package over: `ScreenSpaceTrace.TryHit`
+already said *where* it stopped (`Hit` was that with the pixel thrown away), the reference reflects
+the frame's colour at that pixel, and `ScreenProbeTrace.rvn`'s march now answers `int2` for the
+same reason `ReflectionTrace`'s does. `TracedScreenProbeGather.ScreenColour`,
+`ScreenProbeTraceFill.ScreenColour` and `ScreenProbeGatherRenderer.Colour` are the seam — **which
+colour is a scheduling decision named by the host**, as § L5 recorded for reflections, and the
+`!ScreenProbeGather` asset names it exactly as `!Reflections` does. And **a screen radiance is last
+frame's light**: the lattice already runs a frame behind because placement is a readback, so the
+colour read is stale by that same frame, which is what a bounce can afford and what the denoiser's
+reprojection meets by name. The closed form is the one the defect gave away — a wall lit exactly as
+the sky it hides must leave the gather texel for texel unchanged, where the black answer removed the
+whole cone the screen could see — and the device comparison lights it through a position-coded
+plane, because a flat colour cannot tell a hit at the right pixel from a hit at the wrong one.
 
 **Adaptive placement exists device-free, and is stated as half a feature on purpose.** The layout
 reserves adaptive map rows below the grid — an addition to the lattice, its addressing unmoved,
@@ -846,17 +865,16 @@ and calls `Reset`, which starts the temporal chain over, because a resize is a c
 
 Remaining, all of it quality and performance rather than exit criteria: the adaptive probes' device
 half (the bilateral pass that would read them now exists), importance sampling, bilinear history
-taps, screen-trace radiance, and composing the output into a shipped preset — a project decision,
+taps, and composing the output into a shipped preset — a project decision,
 the same slot `IndirectDiffuse` fills today.
 
 ⚠ **The HZB traversal this list used to open with was closed by a later section of this same
 document.** § L5 records `ScreenDepthPyramid`, `NearestReduce.rvn` and `ScreenSpaceTrace.Pyramid` —
 whole, both processors, perspective included, with `ScreenProbeGatherRenderer` building the chain
-inside its own pass. ⚠ And **screen-trace radiance is no longer blocked**: it was written as *"once
-§ L4's surface cache gives hits something to return"*, and § L4 now ends *"Nothing in § L4 is
-owed"* — so it is unblocked work rather than a deferral, and until it is done a screen hit answers
-black, which makes `ScreenTraces` subtract light and add none
-([#354](https://github.com/Rikarin/Vixen/issues/354)).
+inside its own pass. ⚠ And **screen-trace radiance is done**: it was written as *"once § L4's
+surface cache gives hits something to return"*, § L4 ends *"Nothing in § L4 is owed"*, and the
+paragraph above records what the deferral had quietly become — a screen hit answering black while a
+field hit answered through the cache, which made `ScreenTraces` subtract light and add none.
 
 ### L4 — Surface cache and radiosity *(3.5 EM)*
 
