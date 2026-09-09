@@ -203,6 +203,13 @@
     public Alert Broken { get; private set; } = null!;
 
     /// <summary>Raised when the preview's subject changes — a different shape, or an edited value.</summary>
+    /// <remarks>
+    ///     ⚠ <b>An edited <em>header</em> is one of them, and it was not</b> —
+    ///     <a href="https://github.com/Rikarin/Vixen/issues/1180">#1180</a>. What a material is drawn
+    ///     with is the whole of the header, so editing <c>Shader</c>, <c>Shading</c> or <c>Graph</c>
+    ///     changes the picture — silently in the direction that looks fine, because a preview that is
+    ///     merely stale is indistinguishable from one that is right.
+    /// </remarks>
     public event Action<MaterialView>? PreviewChanged;
 
     /// <summary>Raised when the author asks for the shader graph this material was authored in.</summary>
@@ -222,7 +229,19 @@
         };
 
         HeaderView.Search.SetStyle("display", "none");
-        HeaderView.ValueChanged += (_, _) => Restate();
+
+        // ⚠ **The raise is here rather than in `Restate`**, which is the ordering hazard #1180 names.
+        // `Restate` is also reached from `Rebuild`, and `Rebuild` raises `PreviewChanged` itself two
+        // lines later — so a raise inside `Restate` would render twice for every parameter add and
+        // once more when the panel opens. `HeaderView.ValueChanged` is the one path that changes what
+        // the preview draws and had nothing telling anyone: `Shader`, `Shading` and `Graph` are all
+        // three of what a material is drawn *with*, and since #1133 the graph row composes the
+        // surface on the same edit, so the picture beside the panel was the old one until an
+        // unrelated gesture happened to call `Rebuild`.
+        HeaderView.ValueChanged += (_, _) => {
+            Restate();
+            PreviewChanged?.Invoke(this);
+        };
 
         NewKind.AddOption("Scalar");
         NewKind.AddOption("Colour");
