@@ -8,7 +8,7 @@ api: [T:Vixen.Graphics.IGpuScopeSink, T:Vixen.Graphics.GpuProfiler, T:Vixen.Grap
 tags: [rendering, render-graph, profiling, diagnostics, gpu]
 since: 0.1
 status: preview
-related: [rendering/choosing-a-frame, rendering/standard-frame, rendering/reading-the-frame, rendering/diagnostic-overlays, rendering/capturing-a-frame, rendering/async-compute]
+related: [rendering/choosing-a-frame, rendering/standard-frame, rendering/reading-the-frame, rendering/diagnostic-overlays, rendering/capturing-a-frame, rendering/async-compute, core/recording-a-trace]
 ---
 
 ## What it is
@@ -160,4 +160,6 @@ Two numbers in that summary are worth more than the ranking:
   segment's barriers are the ones charged to the pass that needed them.
 - [Diagnostic overlays and the console](diagnostic-overlays.md) — the panel that shows this
   number in a running game, wired by the same three joins.
+- [Recording a CPU trace](../core/recording-a-trace.md) — the CPU half: `--vixen-profile` turns the
+  scope recorder on, and `--vixen-trace` writes the run out as a Perfetto-readable file.
 - `docs/plan/13-diagnostics.md` — where the per-pass timestamp rule is written down.

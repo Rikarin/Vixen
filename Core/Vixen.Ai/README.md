@@ -31,6 +31,7 @@ a *procedure*, a utility set at a *judgement*, and a GOAP domain at a *combinati
 | `Blackboard/SharedBlackboard` | The board a group shares, writable only inside a scope on the thread that opened it. |
 | `Actions/IAgentAction` | `Start` / `Tick` / `Abort` over a `Span<byte>`. The one thing all three planners choose. |
 | `Actions/AgentActionRegistry` | Every action by index, with the state size each one needs. What a compiled asset resolves a task to. |
+| `Actions/AgentDeclarations` | What a project's assembly says its agents can do, from its own `[ModuleInitializer]`. ⚠ The only way a host that never ran the game — play mode, a harness, a plugin — can build the registry and the layout `AiSystem` takes. |
 | `Agents/AgentMemoryPool` | Per-agent state carved out of pages that never move, on a free list per size. |
 | `Agents/AgentRandom` | Stateless randomness keyed on the agent, the stream and what the number is for. ⚠ The entity and the seed mix with `+` and not `^` — see below. |
 | `Agents/IAgentGovernor` | Who thinks this tick. `RoundRobinGovernor` (budget with a floor) and `UnboundedGovernor`. |

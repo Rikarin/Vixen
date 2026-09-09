@@ -391,4 +391,27 @@ static partial class HostLog {
         Message = "Log configuration at {Path} was ignored: {Reason}"
     )]
     public static partial void LogConfigUnreadable(ILogger logger, VirtualPath path, string reason);
+
+    /// <summary>
+    ///     ⚠ <b>The dropped count is on the line and not in a comment.</b> A profiler ring overwrites
+    ///     rather than grows, so a long run's trace is its most recent history and a reader who does
+    ///     not know that will quote a total from a document that is missing the middle.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13036,
+        Level = LogLevel.Information,
+        Message = "Wrote a Chrome trace to {Path}: {Samples} sample(s) over {Frames} frame(s), {Dropped} dropped."
+    )]
+    public static partial void TraceWritten(ILogger logger, string path, int samples, long frames, long dropped);
+
+    /// <summary>
+    ///     A warning rather than a stop, and said at shutdown: everything the run was for has already
+    ///     happened, and refusing to exit over a file nobody can write helps nobody.
+    /// </summary>
+    [LoggerMessage(
+        EventId = 13037,
+        Level = LogLevel.Warning,
+        Message = "The trace could not be written to {Path}: {Reason}"
+    )]
+    public static partial void TraceNotWritten(ILogger logger, string path, string reason);
 }

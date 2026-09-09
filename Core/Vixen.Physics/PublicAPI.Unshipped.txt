@@ -309,12 +309,19 @@ Vixen.Physics.Ecs.PhysicsBody.PhysicsBody() -> void
 Vixen.Physics.Ecs.PhysicsDebugDrawSystem -> sealed class
 Vixen.Physics.Ecs.PhysicsDebugDrawSystem : Vixen.Ecs.Systems.IDeclaredAccess
 Vixen.Physics.Ecs.PhysicsDebugDrawSystem : Vixen.Ecs.Systems.SystemBase
+Vixen.Physics.Ecs.PhysicsDebugDrawSystem : Vixen.Engine.Diagnostics.Overlays.IDiagnosticOverlay
 Vixen.Physics.Ecs.PhysicsDebugDrawSystem.Access.get -> Vixen.Ecs.Systems.SystemAccess
+Vixen.Physics.Ecs.PhysicsDebugDrawSystem.Anchor.get -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Physics.Ecs.PhysicsDebugDrawSystem.Anchor.set -> Vixen.Engine.Diagnostics.Overlays.OverlayAnchor
+Vixen.Physics.Ecs.PhysicsDebugDrawSystem.Draw(Vixen.Engine.Diagnostics.Overlays.OverlaySurface surface, in Vixen.Core.GameTime time) -> void
 Vixen.Physics.Ecs.PhysicsDebugDrawSystem.Enabled.get -> bool
 Vixen.Physics.Ecs.PhysicsDebugDrawSystem.Enabled.set -> bool
+Vixen.Physics.Ecs.PhysicsDebugDrawSystem.Name.get -> string
 Vixen.Physics.Ecs.PhysicsDebugDrawSystem.Overlay.get -> Vixen.Physics.Diagnostics.PhysicsDebugOverlay
 Vixen.Physics.Ecs.PhysicsDebugDrawSystem.Overlay.set -> Vixen.Physics.Diagnostics.PhysicsDebugOverlay
 Vixen.Physics.Ecs.PhysicsDebugDrawSystem.PhysicsDebugDrawSystem(Vixen.Physics.Ecs.PhysicsScene scene, Vixen.Engine.Diagnostics.DebugDraw draw) -> void
+Vixen.Physics.Ecs.PhysicsDebugDrawSystem.Width.get -> float
+Vixen.Physics.Ecs.PhysicsDebugDrawSystem.Width.set -> float
 Vixen.Physics.Ecs.PhysicsInterpolation -> struct
 Vixen.Physics.Ecs.PhysicsInterpolation.CurrentPosition -> Vixen.Core.Mathematics.Vector3
 Vixen.Physics.Ecs.PhysicsInterpolation.CurrentRotation -> Vixen.Core.Mathematics.Quaternion
@@ -694,6 +701,7 @@ Vixen.Physics.Shapes.ShapeKind.Mesh = 6 -> Vixen.Physics.Shapes.ShapeKind
 Vixen.Physics.Shapes.ShapeKind.Plane = 4 -> Vixen.Physics.Shapes.ShapeKind
 Vixen.Physics.Shapes.ShapeKind.ShapeKind() -> void
 Vixen.Physics.Shapes.ShapeKind.Sphere = 0 -> Vixen.Physics.Shapes.ShapeKind
+const Vixen.Physics.Ecs.PhysicsDebugDrawSystem.OverlayName = "physics" -> string
 const Vixen.Physics.PhysicsLayers.MaxLayers = 32 -> int
 const Vixen.Physics.Shapes.PhysicsShapes.DefaultConvexRadius = 0.05 -> float
 const Vixen.Physics.Shapes.PhysicsShapes.MaxHeightFieldBlockSize = 8 -> int
@@ -750,6 +758,7 @@ static Vixen.Physics.Ecs.Collider.Of(Vixen.Physics.Shapes.ShapeId shape) -> Vixe
 static Vixen.Physics.Ecs.Collider.Trigger(Vixen.Physics.Shapes.ShapeId shape) -> Vixen.Physics.Ecs.Collider
 static Vixen.Physics.Ecs.PhysicsSystems.AddPhysics(this Vixen.Ecs.Systems.SystemRunner runner, Vixen.Physics.Ecs.PhysicsScene scene) -> Vixen.Ecs.Systems.SystemRunner
 static Vixen.Physics.Ecs.PhysicsSystems.AddPhysics(this Vixen.Engine.Frames.EngineLoop loop, Vixen.Physics.Ecs.PhysicsScene scene) -> Vixen.Engine.Frames.EngineLoop
+static Vixen.Physics.Ecs.PhysicsSystems.AddPhysicsOverlay(this Vixen.Engine.Frames.EngineLoop loop, Vixen.Physics.Ecs.PhysicsScene scene, Vixen.Engine.Diagnostics.DebugDraw draw, Vixen.Engine.Diagnostics.Overlays.DiagnosticOverlays? overlays = null) -> Vixen.Physics.Ecs.PhysicsDebugDrawSystem
 static Vixen.Physics.Ecs.RigidBody.Dynamic() -> Vixen.Physics.Ecs.RigidBody
 static Vixen.Physics.Ecs.RigidBody.Kinematic() -> Vixen.Physics.Ecs.RigidBody
 static Vixen.Physics.Interop.JoltRuntime.Acquire() -> void

@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Ecs;
 using Vixen.Engine.Diagnostics;
+using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Frames;
 using Vixen.Engine.Transforms;
 using Vixen.Physics.Bodies;
@@ -424,6 +425,59 @@ public sealed class PhysicsSceneTests {
         loop.Frame(TimeSpan.FromSeconds(Step));
 
         Assert.True(draw.Count > withoutJoint);
+    }
+
+    /// <summary>
+    ///     The half that was missing: a name a person can type, and a host that added the system at
+    ///     all.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Everything the test above asserts was true for months and no build could reach any of
+    ///     it.</b> <c>PhysicsDebugDrawSystem</c> was constructed nowhere outside that test, so
+    ///     <c>overlay physics on</c> answered "there is no overlay called 'physics'" — doc 13
+    ///     § Diagnostic overlays asks for it to be toggleable in every build. So the assertion here is
+    ///     deliberately not "the overlay draws": it is that the console's own route reaches it.
+    /// </remarks>
+    [Fact]
+    public void TheOverlayAnswersToTheNameTheConsoleTypes() {
+        using var loop = new EngineLoop();
+        using var scene = new PhysicsScene(loop.World);
+        var draw = new DebugDraw();
+        var overlays = new DiagnosticOverlays();
+
+        loop.AddPhysics(scene);
+
+        var overlay = loop.AddPhysicsOverlay(scene, draw, overlays);
+
+        Ground(scene);
+        Crate(scene, new(0f, 5f, 0f));
+
+        // Registered and off, which is the state a build ships in.
+        Assert.Same(overlay, Assert.Single(overlays.Registered));
+        Assert.False(overlay.Enabled);
+
+        loop.Frame(TimeSpan.FromSeconds(Step));
+        Assert.Equal(0, draw.Count);
+
+        // Exactly what `overlay physics on` does — by name, through the set, with no reference to the
+        // system at all.
+        Assert.True(overlays.Set(PhysicsDebugDrawSystem.OverlayName, true));
+        Assert.True(overlay.Enabled);
+
+        draw.Clear();
+        loop.Frame(TimeSpan.FromSeconds(Step));
+
+        // ⚠ Counted by kind. The wireframes are world lines and the counts panel is screen text, and
+        // a single total would let either one alone satisfy both halves of this test.
+        Assert.True(draw.Count > 0, "the wireframes did not reach the accumulator");
+        Assert.Equal(0, draw.ScreenCount);
+
+        draw.Clear();
+        overlays.Draw(draw, new(1280f, 720f), new GameTime());
+
+        Assert.Equal(1, overlays.DrawnCount);
+        Assert.True(draw.ScreenCount > 0, "the counts panel drew no screen geometry");
+        Assert.Equal(0, draw.Count);
     }
 
     [Fact]

@@ -214,6 +214,16 @@ public sealed class Arena : IDisposable {
     /// <summary>What draws <c>water.showBuoyancy</c>, or null headless of a renderer.</summary>
     public BuoyancyDebugSystem? BuoyancyDebug { get; private set; }
 
+    /// <summary>
+    ///     The collider overlay behind <c>overlay physics on</c>, or null headless of a renderer.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ Off until somebody asks for it, and it is a few thousand lines when they do. What
+    ///     adding it buys is that the console verb has something to find — see
+    ///     <c>PhysicsSystems.AddPhysicsOverlay</c> for how long it did not.
+    /// </remarks>
+    public Physics.Ecs.PhysicsDebugDrawSystem? PhysicsOverlay { get; private set; }
+
     /// <summary>The water's bed, or null if there is no terrain source.</summary>
     public TerrainGroundSystem? Ground => ground;
 
@@ -426,6 +436,15 @@ public sealed class Arena : IDisposable {
             if (graphics.Debug is { } debug) {
                 BuoyancyDebug = new(Buoyancy, debug) { Show = () => Rendering.Water.WaterDebug.ShowBuoyancy };
                 loop.Add(BuoyancyDebug);
+
+                // ⚠ **doc 13 § Diagnostic overlays lists a physics overlay, and the engine has had a
+                // finished one all along that no build could switch on.** `PhysicsDebugDraw` draws
+                // colliders, contacts, constraints, bounds, axes and the sleeping state in colour,
+                // `PhysicsDebugDrawSystem` runs it after the interpolation pass, and every
+                // construction of either in the repository was a test — so `overlay physics on`
+                // answered "there is no overlay called 'physics'". This is the line that gives it a
+                // name; it is off until somebody types it.
+                PhysicsOverlay = loop.AddPhysicsOverlay(Physics, debug, graphics.Overlays);
             }
 
             TypeTheConsole(graphics);

@@ -37,6 +37,40 @@ public sealed class VixenApplication : IDisposable {
     /// <summary>How often a loose-content build repeats its warning. Doc 17 Q5b says every 60 s.</summary>
     static readonly TimeSpan LooseContentWarningInterval = TimeSpan.FromSeconds(60);
 
+    /// <summary>
+    ///     How many samples a trace accumulates before it stops taking more.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>A ceiling on memory and not a policy about what is interesting.</b> A trace is built
+    ///     up in the host's heap because <c>Profiler.Collect</c> drains the rings, so a run left
+    ///     tracing overnight would grow without bound. Everything past this point is counted as
+    ///     dropped by the profiler's own overwrite counter and reported on the line that says the
+    ///     trace was written, so a truncated document says that it is truncated.
+    /// </remarks>
+    const int TraceSampleCeiling = 4_000_000;
+
+    /// <summary>Each frame's collected samples while <see cref="AppConfig.TracePath" /> is set.</summary>
+    readonly List<ProfilerThreadSamples> trace = [];
+
+    /// <summary>
+    ///     The frame-graph panel, while this host owns the collection instead of it.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Two collectors is the failure mode, and it is silent.</b>
+    ///     <c>Profiler.Collect</c> clears the rings, and <c>FrameGraphOverlay</c> calls it every frame
+    ///     it draws — so a host exporting a trace beside a drawn flame chart gets whichever samples
+    ///     the panel did not take, with nothing anywhere saying that half the run is missing. The
+    ///     panel's own remarks say a trace-exporting host has to take its collection over; this is
+    ///     the first host that does.
+    /// </remarks>
+    FrameGraphOverlay? frameGraph;
+
+    /// <summary>How many samples <see cref="trace" /> holds, so the ceiling costs no walk.</summary>
+    int tracedSamples;
+
+    /// <summary>How many frames were traced.</summary>
+    long tracedFrames;
+
     GameTime time = GameTime.Zero;
     TimeSpan lastLooseWarning = TimeSpan.Zero;
     long lastTimestamp;
@@ -194,6 +228,22 @@ public sealed class VixenApplication : IDisposable {
             HostLog.NoWindow(logger, reason);
         }
 
+        // ⚠ The switch nothing had ever thrown. `Profiler.IsEnabled` defaults to false and no host in
+        // this repository set it, so every hosted game's `framegraph` panel drew "profiler is off"
+        // and there was no flag that answered it. The scopes have been compiled in the whole time.
+        if (Services.Config.Profiling) {
+            Profiler.IsEnabled = true;
+        }
+
+        if (Services.Config.TracePath is { Length: > 0 }) {
+            // Taking the collection over, before the first frame draws anything. See the field.
+            frameGraph = Services.Graphics?.Overlays?.Registered.OfType<FrameGraphOverlay>().FirstOrDefault();
+
+            if (frameGraph is not null) {
+                frameGraph.Collects = false;
+            }
+        }
+
         // At startup rather than at the end, because the end of a run with no frame count is
         // whenever somebody closes the window — by which time the person who typed the flag has
         // stopped watching, and the absent file reads as a capture that failed.
@@ -320,6 +370,14 @@ public sealed class VixenApplication : IDisposable {
             Initialise();
         }
 
+        // ⚠ Before anything this frame does, and nothing in a hosted game had ever called it: every
+        // sample was attributed to frame 0, so a trace's `frame` argument was a constant and the
+        // flame chart's "last frame" was the whole ring. The editor host has always called it, which
+        // is why the panel looks right there and not in a game.
+        if (Profiler.IsEnabled) {
+            Profiler.BeginFrame();
+        }
+
         PumpEvents();
 
         // After events, so that anything an event handler posted runs this frame rather than next.
@@ -388,7 +446,56 @@ public sealed class VixenApplication : IDisposable {
         // whole feature quietly drawing nothing. See AppGraphics.AdvanceDebug.
         Services.Graphics?.AdvanceDebug(time.DeltaSeconds);
 
+        // After the overlays have drawn, so the panel this took the collection from is handed a whole
+        // frame rather than a half-recorded one. It draws it on the next frame; a flame chart one
+        // frame behind is the price of the trace being complete, and it is the right way round.
+        CollectTrace();
+
         limiter.Wait(FrameRateLimit());
+    }
+
+    /// <summary>Takes this frame's samples for the trace, and lends them to the flame chart.</summary>
+    void CollectTrace() {
+        if (Services.Config.TracePath is not { Length: > 0 } || tracedSamples >= TraceSampleCeiling) {
+            return;
+        }
+
+        var collected = Profiler.Collect();
+
+        tracedFrames++;
+        frameGraph?.Capture(collected);
+
+        foreach (var thread in collected) {
+            if (thread.Samples.Length == 0) {
+                continue;
+            }
+
+            trace.Add(thread);
+            tracedSamples += thread.Samples.Length;
+        }
+    }
+
+    /// <summary>Writes the trace, if one was asked for.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Before <see cref="Dispose" />, because the logger is torn down in it.</b> A disposed
+    ///     <c>ILoggerFactory</c> here is not dead but deaf — its loggers divert to the last-resort
+    ///     channel — so a trace written after teardown would report itself somewhere nobody collects.
+    /// </remarks>
+    void WriteTrace() {
+        if (Services.Config.TracePath is not { Length: > 0 } path) {
+            return;
+        }
+
+        // The last frame's samples, which no CollectTrace has been round to take.
+        CollectTrace();
+
+        try {
+            TraceExporter.WriteChromeTrace(trace, path);
+            HostLog.TraceWritten(logger, path, tracedSamples, tracedFrames, Profiler.DroppedSampleCount);
+        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException
+                                          or NotSupportedException) {
+            HostLog.TraceNotWritten(logger, path, failure.Message);
+        }
     }
 
     /// <summary>The scene <see cref="AppConfig.StartupScene" /> named, once it has been loaded.</summary>
@@ -541,6 +648,7 @@ public sealed class VixenApplication : IDisposable {
 
         HostLog.Stopping(logger, time.FrameCount);
         game.OnShutdown();
+        WriteTrace();
         Dispose();
     }
 

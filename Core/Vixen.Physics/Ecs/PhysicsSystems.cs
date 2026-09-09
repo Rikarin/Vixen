@@ -5,6 +5,8 @@ using Vixen.Core.Mathematics;
 using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Vixen.Ecs.Systems;
+using Vixen.Engine.Diagnostics;
+using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Frames;
 using Vixen.Engine.Transforms;
 
@@ -237,5 +239,49 @@ public static class PhysicsSystems {
         loop.Systems.AddPhysics(scene);
         loop.Add(new PhysicsInterpolationSystem(loop.FixedStep));
         return loop;
+    }
+
+    /// <summary>Adds the collider overlay, switched off, and gives it a name a person can type.</summary>
+    /// <param name="loop">The loop to draw inside.</param>
+    /// <param name="scene">The simulation to draw.</param>
+    /// <param name="draw">The frame's accumulator — <c>AppGraphics.Debug</c> in a hosted game.</param>
+    /// <param name="overlays">
+    ///     The set the console's <c>overlay</c> verb and <c>--vixen-overlay</c> read, or
+    ///     <see langword="null" /> for a caller that will flip
+    ///     <see cref="PhysicsDebugDrawSystem.Enabled" /> itself.
+    /// </param>
+    /// <returns>The system, so a caller can switch it on or narrow what it draws.</returns>
+    /// <exception cref="ArgumentNullException">Any of the first three arguments is null.</exception>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Separate from <see cref="AddPhysics(EngineLoop, PhysicsScene)" /> because it needs
+    ///         two things physics does not.</b> A <see cref="DebugDraw" /> belongs to the frame and a
+    ///         <see cref="DiagnosticOverlays" /> to the host, and a simulation running headlessly — a
+    ///         dedicated server, a determinism harness — has neither. Folding this into the four-pass
+    ///         call would make every such host construct an accumulator to throw away.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Off when it is added, and it has to be.</b> The wireframes are a few thousand
+    ///         lines for a modest scene. What this buys is that the switch <em>exists</em>: doc 13
+    ///         § Diagnostic overlays asks for the physics overlay to be toggleable in every build, and
+    ///         until this call there was no build in which it could be turned on at all.
+    ///     </para>
+    /// </remarks>
+    public static PhysicsDebugDrawSystem AddPhysicsOverlay(
+        this EngineLoop loop,
+        PhysicsScene scene,
+        DebugDraw draw,
+        DiagnosticOverlays? overlays = null
+    ) {
+        ArgumentNullException.ThrowIfNull(loop);
+        ArgumentNullException.ThrowIfNull(scene);
+        ArgumentNullException.ThrowIfNull(draw);
+
+        var system = new PhysicsDebugDrawSystem(scene, draw);
+
+        loop.Add(system);
+        overlays?.Add(system);
+
+        return system;
     }
 }

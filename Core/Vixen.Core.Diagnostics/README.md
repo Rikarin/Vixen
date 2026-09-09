@@ -53,7 +53,14 @@ static partial class RenderLog {
 ```
 
 Event ids are allocated per subsystem in [`docs/manual/log-events.md`](../../docs/manual/log-events.md),
-so a number in a support ticket is greppable and stable across versions.
+and are stable across message rewordings.
+
+⚠ **They are not, today, greppable out of a support log**, which this paragraph used to claim.
+`ConsoleSink` writes timestamp, level, category and message, and `ZLoggerFileSink`'s JSON line carries
+the structured fields and no `EventId` — verified against the written file, not read off the record.
+The id reaches only `EventSourceSink` and `RemoteSink`, neither of which a host composes. So the id is
+the rate limiter's identity and the register's key, and going from a player's log back to a number is
+still done through the message text (#1196).
 
 `RingBufferSink` is on in every build. The editor console reads it live and the crash reporter dumps
 it, which is the point: the interesting moment is usually the thirty seconds before a crash, and

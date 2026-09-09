@@ -5,6 +5,18 @@ Vixen.Ai.ActionStatus.ActionStatus() -> void
 Vixen.Ai.ActionStatus.Failed = 2 -> Vixen.Ai.ActionStatus
 Vixen.Ai.ActionStatus.Running = 0 -> Vixen.Ai.ActionStatus
 Vixen.Ai.ActionStatus.Succeeded = 1 -> Vixen.Ai.ActionStatus
+Vixen.Ai.AgentActionDeclaration -> readonly struct
+Vixen.Ai.AgentActionDeclaration : System.IEquatable<Vixen.Ai.AgentActionDeclaration>
+Vixen.Ai.AgentActionDeclaration.AgentActionDeclaration() -> void
+Vixen.Ai.AgentActionDeclaration.AgentActionDeclaration(string Name, System.Func<Vixen.Ai.BlackboardLayout, Vixen.Ai.IAgentAction> Factory, int StateSize, System.Reflection.Assembly Origin) -> void
+Vixen.Ai.AgentActionDeclaration.Factory.get -> System.Func<Vixen.Ai.BlackboardLayout, Vixen.Ai.IAgentAction>
+Vixen.Ai.AgentActionDeclaration.Factory.init -> System.Func<Vixen.Ai.BlackboardLayout, Vixen.Ai.IAgentAction>
+Vixen.Ai.AgentActionDeclaration.Name.get -> string
+Vixen.Ai.AgentActionDeclaration.Name.init -> string
+Vixen.Ai.AgentActionDeclaration.Origin.get -> System.Reflection.Assembly
+Vixen.Ai.AgentActionDeclaration.Origin.init -> System.Reflection.Assembly
+Vixen.Ai.AgentActionDeclaration.StateSize.get -> int
+Vixen.Ai.AgentActionDeclaration.StateSize.init -> int
 Vixen.Ai.AgentActionRegistry -> sealed class
 Vixen.Ai.AgentActionRegistry.AgentActionRegistry() -> void
 Vixen.Ai.AgentActionRegistry.Count.get -> int
@@ -40,6 +52,7 @@ Vixen.Ai.AgentContext.Time.get -> Vixen.Core.GameTime
 Vixen.Ai.AgentContext.Time.init -> Vixen.Core.GameTime
 Vixen.Ai.AgentContext.World.get -> Vixen.Ecs.World
 Vixen.Ai.AgentContext.World.init -> Vixen.Ecs.World
+Vixen.Ai.AgentDeclarations -> static class
 Vixen.Ai.AgentMemoryHandle -> readonly struct
 Vixen.Ai.AgentMemoryHandle : System.IEquatable<Vixen.Ai.AgentMemoryHandle>
 Vixen.Ai.AgentMemoryHandle.AgentMemoryHandle() -> void
@@ -443,6 +456,16 @@ Vixen.Ai.BlackboardKey.BlackboardKey(ushort Index) -> void
 Vixen.Ai.BlackboardKey.Index.get -> ushort
 Vixen.Ai.BlackboardKey.Index.init -> ushort
 Vixen.Ai.BlackboardKey.IsValid.get -> bool
+Vixen.Ai.BlackboardKeyDeclaration -> readonly struct
+Vixen.Ai.BlackboardKeyDeclaration : System.IEquatable<Vixen.Ai.BlackboardKeyDeclaration>
+Vixen.Ai.BlackboardKeyDeclaration.BlackboardKeyDeclaration() -> void
+Vixen.Ai.BlackboardKeyDeclaration.BlackboardKeyDeclaration(string Name, Vixen.Ai.BlackboardValueType Type, System.Reflection.Assembly Origin) -> void
+Vixen.Ai.BlackboardKeyDeclaration.Name.get -> string
+Vixen.Ai.BlackboardKeyDeclaration.Name.init -> string
+Vixen.Ai.BlackboardKeyDeclaration.Origin.get -> System.Reflection.Assembly
+Vixen.Ai.BlackboardKeyDeclaration.Origin.init -> System.Reflection.Assembly
+Vixen.Ai.BlackboardKeyDeclaration.Type.get -> Vixen.Ai.BlackboardValueType
+Vixen.Ai.BlackboardKeyDeclaration.Type.init -> Vixen.Ai.BlackboardValueType
 Vixen.Ai.BlackboardKeyDefinition -> readonly struct
 Vixen.Ai.BlackboardKeyDefinition : System.IEquatable<Vixen.Ai.BlackboardKeyDefinition>
 Vixen.Ai.BlackboardKeyDefinition.BlackboardKeyDefinition() -> void
@@ -1727,6 +1750,15 @@ override Vixen.Ai.TimeLimitDecorator.StateSize.get -> int
 override Vixen.Ai.UpdateBlackboardService.Tick(in Vixen.Ai.BehaviorContext context, System.Span<byte> state, float delta) -> void
 static Vixen.Ai.ActionCostModels.Flat.get -> Vixen.Ai.IActionCostModel
 static Vixen.Ai.ActionCostModels.StraightLine(float perMetre = 0.1) -> Vixen.Ai.IActionCostModel
+static Vixen.Ai.AgentDeclarations.Actions.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ai.AgentActionDeclaration>
+static Vixen.Ai.AgentDeclarations.BuildLayout() -> Vixen.Ai.BlackboardLayout
+static Vixen.Ai.AgentDeclarations.BuildRegistry(Vixen.Ai.BlackboardLayout layout) -> Vixen.Ai.AgentActionRegistry
+static Vixen.Ai.AgentDeclarations.DeclareAction(string name, System.Func<Vixen.Ai.BlackboardLayout, Vixen.Ai.IAgentAction> factory, int stateSize = 0) -> bool
+static Vixen.Ai.AgentDeclarations.DeclareAction(string name, System.Func<Vixen.Ai.BlackboardLayout, Vixen.Ai.IAgentAction> factory, int stateSize, System.Reflection.Assembly origin) -> bool
+static Vixen.Ai.AgentDeclarations.DeclareKey(string name, Vixen.Ai.BlackboardValueType type) -> bool
+static Vixen.Ai.AgentDeclarations.DeclareKey(string name, Vixen.Ai.BlackboardValueType type, System.Reflection.Assembly origin) -> bool
+static Vixen.Ai.AgentDeclarations.Evict(System.Reflection.Assembly assembly) -> int
+static Vixen.Ai.AgentDeclarations.Keys.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ai.BlackboardKeyDeclaration>
 static Vixen.Ai.AgentMemoryHandle.Null.get -> Vixen.Ai.AgentMemoryHandle
 static Vixen.Ai.AgentRandom.Hash(Vixen.Core.Entity entity, uint seed, uint salt) -> uint
 static Vixen.Ai.AgentRandom.Hash(uint value) -> uint
