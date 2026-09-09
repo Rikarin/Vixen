@@ -2265,6 +2265,26 @@ sealed partial class EditorApplication : IDisposable {
                         WritePreferences();
                     };
 
+                    // ⚠ Doc 20 § B1's saved filters. The list is given to the panel rather than held
+                    // by it for `IsGrid`'s reason — a panel's factory runs again on every reopen, and
+                    // the preferences file is this object's — and it is re-given after every write,
+                    // because the browser's menu reads the list it was handed.
+                    // ⚠ A lambda over the field and not the list itself. `preferences` is REPLACED —
+                    // by a restart and by the settings window's Revert, which re-reads the file into
+                    // a new object — so a panel handed the list would go on offering the filters
+                    // that existed when it was opened, silently, for as long as it stayed open.
+                    browser.SavedFilters = () => preferences.AssetFilters;
+                    browser.FilterSaveRequested += KeepFilter;
+
+                    browser.FilterForgotten += name => {
+                        if (preferences.AssetFilters.RemoveAll(saved =>
+                                string.Equals(saved.Name, name, StringComparison.Ordinal)
+                            )
+                            > 0) {
+                            WritePreferences();
+                        }
+                    };
+
                     // ⚠ Both views, and the grid was the one that had nothing. The menu was attached to
                     // the tree alone, so switching to tiles — which is the view somebody browses
                     // *assets* in — left right-click doing nothing at all: no Create, no Import, no
@@ -3058,6 +3078,57 @@ sealed partial class EditorApplication : IDisposable {
             WritePresets();
         }
     }
+
+    /// <summary>Asks for a name and keeps the browser's current filter under it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The query is read at the moment the name comes back rather than when the prompt
+    ///         opens, and either would have been defensible — but the browser is behind a modal, so
+    ///         the two cannot differ.</b> Reading it here keeps the one rule that matters: what is
+    ///         saved is what the bar says, and never a filter assembled from two different moments.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A name that is already taken replaces rather than doubling the menu</b>, which is
+    ///         <c>CurvePresetLibrary.Save</c>'s decision restated: somebody who saves "Textures"
+    ///         twice has said what they mean by it, and two identical lines on a menu is the answer
+    ///         nobody wants.
+    ///     </para>
+    /// </remarks>
+    void KeepFilter() {
+        if (browser is null) {
+            return;
+        }
+
+        _ = Ask();
+
+        async Task Ask() {
+            var typed = await Shell.Dialogs.PromptAsync(
+                "Save Filter",
+                "It is kept beside your layouts and keymap rather than in the project.",
+                confirm: "Save"
+            ).ConfigureAwait(true);
+
+            if (typed is not { Length: > 0 } name || string.IsNullOrWhiteSpace(name) || browser is null) {
+                return;
+            }
+
+            SaveFilter(name.Trim(), browser.Search, browser.Kind);
+        }
+    }
+
+    /// <summary>Keeps one named filter, replacing a saved one of the same name.</summary>
+    /// <param name="name">What to call it.</param>
+    /// <param name="query">What was in the search box.</param>
+    /// <param name="kind">The importer tag, or empty for every kind.</param>
+    public void SaveFilter(string name, string query, string kind) {
+        preferences.AssetFilters.RemoveAll(saved => string.Equals(saved.Name, name, StringComparison.Ordinal));
+
+        preferences.AssetFilters.Add(new SavedAssetFilter { Name = name, Search = query, Kind = kind });
+        WritePreferences();
+    }
+
+    /// <summary>The browser's saved filters, for the harness.</summary>
+    public IReadOnlyList<SavedAssetFilter> AssetFilters => preferences.AssetFilters;
 
     /// <summary>Brings every open inspector's component section into line with the preferences.</summary>
     /// <remarks>
