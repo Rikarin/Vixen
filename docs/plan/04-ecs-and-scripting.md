@@ -228,6 +228,30 @@ it uses change versions. They exist for editor tooling and user code.
 > already emits. That is a fact about cost, not a decision: **#296 is still the decision**, and the
 > `GuidComponent` shape buys something the metadata one does not, which is an identity that survives
 > being written into a *different* file from the entity it names.
+>
+> ✅ **The refusal half of #296's "done looks like" is finished, in both of the two places state
+> lives, and the issue body does not know it.** That issue asks for "a refusal for a component that
+> holds an unremapped `Entity` so this cannot stay silent"; a `[Component][DataContract]` struct is
+> refused by `VXS0416` and a `Behavior` is refused by `VXS0413` — the second is the one it would be
+> easy to assume missing, and `Samples/13`'s `CharacterAnimation` is the live proof, six handles
+> behind a `#pragma warning disable VXS0413` whose comment names this issue as the condition for
+> taking it out. What is left under #296 is only the identity mechanism.
+>
+> ⚠ **And the reason the refusal has to be an analyzer at all**: `Entity` itself carries
+> `[DataContract]` (`Core/Vixen.Core/Identity/Entity.cs:38`), because the reflection and serialization
+> generators have to be able to name it. So nothing in the serialization path objects to writing one
+> down — an `Entity` member serialises as cleanly as an `int` triple, which is exactly what makes the
+> failure silent and why "never serialise a raw `Entity`" cannot be enforced by the serializer
+> refusing to emit one.
+>
+> ⚠ **The decision has no first customer, which is worth knowing before taking it.** Both shapes exist
+> to make a handle survive a round trip through a file, and there is no round trip: outside its own
+> tests `WorldSerializer` has no production caller at all, so nothing captures a world and nothing
+> restores one. Filed as [#1201](https://github.com/Rikarin/Vixen/issues/1201) — the note above has
+> now been rediscovered independently by three audits, which is what a fact recorded in a document
+> and not in the tracker looks like. A save system, a play-mode enter/exit snapshot and a network
+> world-state sync would each want a different answer, and until one of them exists the choice is
+> being made against nothing.
 
 ## Layer 2 — the system scheduler
 
