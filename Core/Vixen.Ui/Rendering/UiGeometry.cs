@@ -387,12 +387,33 @@ public readonly record struct UiLayer(int First, int Count, Rectangle Bounds, fl
     ///     <para>
     ///         ⚠ <b>So this is honestly half: <c>SoftwareUiRasterizer</c> applies it and
     ///         <c>UiRenderer</c> does not, which is a NEW divergence between the two executors and
-    ///         the same shape <c>mix-blend-mode</c> has carried since #244.</b> The device half is
-    ///         still what the audits priced — the cheapest channel measured is a fourth
-    ///         <c>MaskEntry</c> shape, which costs routing every rounded backdrop through the mask
-    ///         pipeline. <c>UiRenderer.SquareBackdrops</c> is what counts the divergence rather than
-    ///         leaving it a paragraph; see <c>UiRenderer.Unblended</c> for why a divergence nothing
-    ///         counts is one nobody notices closing.
+    ///         the same shape <c>mix-blend-mode</c> has carried since #244.</b>
+    ///         <c>UiRenderer.SquareBackdrops</c> is what counts the divergence rather than leaving it
+    ///         a paragraph; see <c>UiRenderer.Unblended</c> for why a divergence nothing counts is one
+    ///         nobody notices closing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the device half's price is refuted, measured against the committed
+    ///         reflection on 2026-09-09.</b> Five audits wrote "the push constants are full" and the
+    ///         fifth concluded from it that the cheapest channel is a fourth <c>MaskEntry</c> shape,
+    ///         whose cost is routing every rounded backdrop through the mask pipeline. They are not
+    ///         full. The composite blocks are <c>UiBlur</c> 32 bytes, <c>UiColour</c> 64 and
+    ///         <c>UiMask</c> 80 — the widest — of the 128 every Vulkan implementation guarantees, and
+    ///         <c>UiImage</c> declares none at all. That leaves <b>48 free bytes on the worst
+    ///         stage</b>, where a rounded backdrop needs 32: one <c>float4</c> for the box as a centre
+    ///         and a half, and one for the radius, which is uniform-or-zero by
+    ///         <c>DrawCommand.Radius</c>'s rule and so spends one lane of four. The pipeline layout is
+    ///         already a single <c>Vertex | Fragment</c> range over the whole 128, so no host change
+    ///         attends it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Where the "full" sentence came from is a true sentence about something else.</b>
+    ///         <c>MaskEntry</c>'s own remark in <c>Ui.rvn</c> says a <i>mask list</i> cannot ride the
+    ///         push constants — an entry is 64 bytes, so 16 reserved plus a 48-byte colour matrix
+    ///         plus one entry is exactly 128 and a second will not fit. That is right, and it is why
+    ///         mask entries went to a storage buffer. It is not a statement about a spare
+    ///         <c>float4</c>, and four audits read it as one. <c>ShaderReflectionTests</c> pins the
+    ///         headroom now, so the day it is spent this plan changes visibly instead of silently.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Uniform or zero, which is <c>DrawCommand.Radius</c>'s own rule.</b> A

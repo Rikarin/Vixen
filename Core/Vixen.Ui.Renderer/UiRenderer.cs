@@ -925,6 +925,23 @@ public sealed class UiRenderer : IDisposable {
     ///         texture/texture/sampler/storage and recompile all eight modules, which buys nothing.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>And it is a shader change at all, which six audits of <c>Rikarin/Vixen#783</c>
+    ///         never said out loud.</b> Vulkan's <c>VK_EXT_blend_operation_advanced</c> is the CSS
+    ///         blend set as <i>fixed-function</i> blend operations — the separable twelve and the
+    ///         non-separable four, named after the same PDF modes — so on a device exposing it this
+    ///         divergence would close with a different <c>BlendState</c> on the draw already being
+    ///         made, and no texture, capture, descriptor set or fragment arithmetic at all. It is
+    ///         rejected on two checkable grounds rather than on taste:
+    ///         <see cref="Vixen.Graphics.BlendOperation" /> has five members and they are core
+    ///         Vulkan's, so the abstraction cannot spell one; and the extension is optional and
+    ///         MoltenVK does not expose it, so the machine the reference images come from could not
+    ///         run the path and a fragment implementation would have to exist beside it anyway. ⚠
+    ///         <see cref="Vixen.Graphics.BlendOperation.Min" /> and
+    ///         <see cref="Vixen.Graphics.BlendOperation.Max" /> are the trap in that sentence: they
+    ///         look like <c>darken</c> and <c>lighten</c> and are not, because § 5.1's <c>B</c> is
+    ///         defined on un-premultiplied colour and a composite surface holds premultiplied.
+    ///     </para>
+    ///     <para>
     ///         ⚠ <b>Which needs saying out loud for <see cref="Backdropped" />'s reason and a sharper
     ///         version of it.</b> A blend over a flat backdrop is frequently the identity —
     ///         <c>multiply</c> against white, <c>screen</c> against black — so a fixture cannot tell a
@@ -966,11 +983,24 @@ public sealed class UiRenderer : IDisposable {
     ///     <para>
     ///         ⚠ <b>What the divergence costs to close is a channel and not a distance function</b>,
     ///         which four audits of #229 priced and one of them got the seam wrong: a composite quad
-    ///         carries no <c>UiShape</c>, the push constants are at Vulkan's guaranteed 128 bytes, and
-    ///         the quad's <c>shape</c> stream has three free lanes where a viewport-relative backdrop
-    ///         needs seven. The cheapest measured channel is a fourth <c>MaskEntry</c> shape, whose
-    ///         price is routing every rounded backdrop through the mask pipeline. See
+    ///         carries no <c>UiShape</c>, and the quad's <c>shape</c> stream has three free lanes
+    ///         where a viewport-relative backdrop needs five. See
     ///         <see cref="UiLayer.BackdropRadius" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>But "the push constants are at Vulkan's guaranteed 128 bytes" is false and stood
+    ///         in four places until 2026-09-09, and it is the sentence the expensive answer was
+    ///         derived from.</b> Measured off the committed reflection: <c>UiBlur</c>'s block is 32
+    ///         bytes, <c>UiColour</c>'s 64, <c>UiMask</c>'s 80 — the widest — and <c>UiImage</c>
+    ///         declares none. So 48 bytes are free on the worst composite stage where a box as a
+    ///         centre and a half plus a uniform-or-zero radius needs 32, and the pipeline layout is
+    ///         already one <c>Vertex | Fragment</c> range over the whole 128. What is genuinely at the
+    ///         ceiling is a <i>mask list</i> — an entry is 64 bytes, which is what <c>MaskEntry</c>'s
+    ///         remark in <c>Ui.rvn</c> says and why those went to a storage buffer — and four audits
+    ///         read that as a statement about a spare <c>float4</c>. So the fourth <c>MaskEntry</c>
+    ///         shape, and the routing of every rounded backdrop through the mask pipeline that it
+    ///         costs, is not needed. <c>ShaderReflectionTests.ThereIsRoomForARoundedBackdropBox</c>
+    ///         holds the headroom so the day it is spent this changes visibly.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Non-zero is a claim about this renderer rather than about the frame, and it exists

@@ -96,10 +96,21 @@ public class ShaderReflectionTests {
 
     /// <summary>And the whole block fits the 128 bytes every Vulkan implementation guarantees.</summary>
     /// <remarks>
-    ///     <c>UiMask</c> is the widest: sixteen reserved, a colour matrix at forty-eight, a mask
-    ///     reference at sixteen. The number is a floor that was reached rather than a budget that was
-    ///     chosen — see <c>UiRenderer</c>'s constructor — so the next thing to want a push constant
-    ///     here fails this rather than one device somewhere.
+    ///     <para>
+    ///         <c>UiMask</c> is the widest: sixteen reserved, a colour matrix at forty-eight, a mask
+    ///         reference at sixteen. The number is a floor that was reached rather than a budget that
+    ///         was chosen — see <c>UiRenderer</c>'s constructor — so the next thing to want a push
+    ///         constant here fails this rather than one device somewhere.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>That last sentence read as "the block is at the ceiling" in four audits of
+    ///         <c>Rikarin/Vixen#229</c>, and it does not say that.</b> The widest block is eighty of
+    ///         the guaranteed hundred and twenty-eight. What is at the ceiling is a <i>mask list</i>,
+    ///         which is what <c>MaskEntry</c>'s remark in <c>Ui.rvn</c> is about: an entry is
+    ///         sixty-four bytes, so one of them plus the matrix plus the reserved sixteen is exactly
+    ///         128 and a second will not fit. <see cref="ThereIsRoomForARoundedBackdropBox" /> is the
+    ///         half that says the other thing out loud.
+    ///     </para>
     /// </remarks>
     [Theory]
     [InlineData("UiVertex")]
@@ -112,6 +123,66 @@ public class ShaderReflectionTests {
 
             Assert.True(size <= 128, $"{shader}'s push block ends at {size}, past the guaranteed 128.");
         }
+    }
+
+    /// <summary>The composite stages leave room for a rounded backdrop's box, which is #229's channel.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A pin on HEADROOM rather than on a size, and it exists because the absence of one
+    ///         cost four audits the wrong answer.</b> <c>Rikarin/Vixen#229</c>'s remaining divergence
+    ///         is that <c>UiRenderer</c> draws a rounded group's backdrop with square corners, and
+    ///         closing it means telling a composite fragment where the rounded box is. Four audits
+    ///         priced that as a fourth <c>MaskEntry</c> shape — whose real cost is routing every
+    ///         rounded backdrop through the mask pipeline — on the sentence "the push constants are
+    ///         full". They are not: the widest composite block is <c>UiMask</c>'s eighty bytes of the
+    ///         guaranteed hundred and twenty-eight, and a box as a centre and a half plus a
+    ///         uniform-or-zero radius is two <c>float4</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which is a claim about the future, so it is asserted rather than written down.</b>
+    ///         The day something spends that headroom, #229's cheapest channel really does become the
+    ///         mask-pipeline one and every note pointing at this paragraph is wrong — and nothing else
+    ///         in the tree could see it happen, because a fuller block still passes
+    ///         <see cref="ThePushConstantBlockFitsTheGuaranteedSize" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The count is asserted with the size. <c>UiImage</c> declares no push block at all, so
+    ///         three of the four composite stages produce one — and a run that resolved none would
+    ///         report a widest of zero, which is infinite headroom and a green test saying nothing.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ThereIsRoomForARoundedBackdropBox() {
+        // One `float4` for the box as a centre and a half, one for the radius — uniform or zero by
+        // `DrawCommand.Radius`'s rule, so three of its four lanes are spare.
+        const int BackdropBox = 32;
+        const int Guaranteed = 128;
+
+        var widest = 0;
+        var blocks = 0;
+
+        foreach (var shader in new[] { "UiImage", "UiBlur", "UiColour", "UiMask" }) {
+            foreach (var block in Reflection(shader).GetProperty("PushConstants").EnumerateArray()) {
+                var end = block.GetProperty("Offset").GetInt32() + block.GetProperty("Size").GetInt32();
+
+                widest = Math.Max(widest, end);
+                blocks++;
+            }
+        }
+
+        Assert.Equal(3, blocks);
+
+        Assert.True(
+            Guaranteed - widest >= BackdropBox,
+            $"the widest composite push block is {widest} of {Guaranteed}, leaving {Guaranteed - widest} "
+            + $"bytes where a rounded backdrop's box needs {BackdropBox}. Two readings, and they want "
+            + "opposite things. If Rikarin/Vixen#229 has LANDED, the box is what is in there and this "
+            + "assertion should be rewritten to name it — the headroom was spent on the thing it was "
+            + "being held for. If it has not, something else took the channel and the expensive answer "
+            + "those audits gave (a fourth MaskEntry shape, routing every rounded backdrop through the "
+            + "mask pipeline) is the right one again: re-read UiLayer.BackdropRadius, "
+            + "docs/guide/ui/compositing.md and docs/plan/43, all three of which now say it is not."
+        );
     }
 
     /// <summary>Every stage the host loads is committed, which a glob cannot say on its own.</summary>
