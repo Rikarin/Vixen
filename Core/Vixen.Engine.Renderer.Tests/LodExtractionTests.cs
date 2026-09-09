@@ -218,6 +218,37 @@ public sealed class LodExtractionTests : IDisposable {
         Assert.Equal(2, renderer.Lods.Groups.Count);
     }
 
+    /// <summary>
+    ///     A group whose thresholds do not descend is refused rather than thrown, and counted.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>An inspector edits these one keystroke at a time</b>, so a list is ascending for as
+    ///     long as it takes to finish the second box — and <c>LodRenderFeature.Add</c> throws on one.
+    ///     A frame loop that throws out of extraction takes the editor with it, so the group is left
+    ///     unregistered and every level draws, which is the picture the scene had before anybody
+    ///     authored it. The counter is what stops that being indistinguishable from working.
+    /// </remarks>
+    [Fact]
+    public void AGroupWhoseThresholdsAscendIsRefusedRatherThanThrown() {
+        using var loop = new EngineLoop();
+        using var renderer = Build(loop, out var camera);
+
+        var levels = Group(loop.World, new(0f, 0f, -3f), [0.1f, 0.5f]);
+
+        Frame(loop, renderer);
+
+        Assert.Equal(1, renderer.LodExtraction!.Malformed);
+        Assert.Equal(0, renderer.LodExtraction.GroupCount);
+        Assert.Equal(0, renderer.LodExtraction.Assigned);
+
+        // And every level is drawn, rather than one of them being hidden by a group that was never
+        // registered.
+        Assert.All(
+            Objects(loop.World, levels),
+            id => Assert.True(renderer.Host.System.Visibility.IsVisible(camera.Index, id))
+        );
+    }
+
     /// <inheritdoc />
     public void Dispose() {
         device.Dispose();

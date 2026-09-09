@@ -85,6 +85,16 @@ public sealed class LodExtractionSystem : SystemBase, IDeclaredAccess {
     /// </remarks>
     public int Assigned { get; private set; }
 
+    /// <summary>How many groups the last run refused because their thresholds do not descend.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Refused rather than thrown, and the number is what keeps that from being silent.</b>
+    ///     A group whose thresholds ascend draws every one of its levels on top of each other — the
+    ///     picture the scene had before it was authored — and nothing about that says a number is the
+    ///     wrong way round. The alternative is <c>LodRenderFeature.Add</c>'s exception coming out of
+    ///     the middle of a frame while somebody is still typing the second box.
+    /// </remarks>
+    public int Malformed { get; private set; }
+
     /// <inheritdoc />
     public SystemAccess Access { get; } = SystemAccess.Declare()
         .Read<LodGroupComponent>()
@@ -107,6 +117,7 @@ public sealed class LodExtractionSystem : SystemBase, IDeclaredAccess {
         ArgumentNullException.ThrowIfNull(world);
 
         Assigned = 0;
+        Malformed = 0;
 
         if (Feature is null || Renderer is null) {
             return;
@@ -137,6 +148,19 @@ public sealed class LodExtractionSystem : SystemBase, IDeclaredAccess {
                 // column outright. BlendShapeWeights is read the same way for the same reason.
                 var thresholds = world.Read<LodGroupComponent>(entity).Thresholds ?? [];
 
+                // ⚠ Checked here rather than caught from `Add`, which throws on a list that does not
+                // descend. These numbers are typed into an inspector one keystroke at a time, so a
+                // list is ascending for as long as it takes to finish editing the second box — and a
+                // frame loop that throws out of extraction takes the editor with it. Left
+                // unregistered instead: the group's children are in no group and every level draws,
+                // which is the picture the author had before the component existed, and the next
+                // frame after the numbers are right registers it.
+                if (!Descending(thresholds)) {
+                    Malformed++;
+
+                    continue;
+                }
+
                 registered[entity] = Feature!.Add(thresholds);
             }
         }
@@ -159,6 +183,23 @@ public sealed class LodExtractionSystem : SystemBase, IDeclaredAccess {
         foreach (var entity in departed) {
             registered.Remove(entity);
         }
+    }
+
+    /// <summary>Whether a threshold list is strictly descending, which is what a group needs.</summary>
+    /// <param name="thresholds">The thresholds.</param>
+    /// <returns>Whether the list is usable.</returns>
+    /// <remarks>
+    ///     None and one are both fine — a group of one level has no threshold at all, and the rule
+    ///     only has something to say from the second entry on.
+    /// </remarks>
+    static bool Descending(ReadOnlySpan<float> thresholds) {
+        for (var index = 1; index < thresholds.Length; index++) {
+            if (thresholds[index] >= thresholds[index - 1]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Writes each extracted level's membership.</summary>

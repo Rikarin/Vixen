@@ -82,9 +82,16 @@ them; nothing here has to be built in code.
 hanging off the same parent is drawn whatever the group is showing. A child with a `LodLevel` whose
 parent carries no `LodGroupComponent` is in no group and is drawn.
 
-**Thresholds descend**, and `LodRenderFeature.Add` throws on a list that does not. They are a fraction
-of the viewport's height — `radius × RenderView.ScreenHeightScale / distance` — so one number means
-the same thing at every resolution and every field of view.
+**Thresholds descend.** They are a fraction of the viewport's height —
+`radius × RenderView.ScreenHeightScale / distance` — so one number means the same thing at every
+resolution and every field of view.
+
+⚠ `LodRenderFeature.Add` throws on a list that does not descend, and `LodExtractionSystem` checks
+before calling it rather than letting that out of a frame: an inspector edits these one keystroke at a
+time, so a list is ascending for as long as it takes to finish the second box. A group whose
+thresholds ascend is left **unregistered** — every one of its levels draws, which is the picture the
+scene had before it was authored — and counted in `LodExtractionSystem.Malformed`, which is what stops
+that being indistinguishable from working.
 
 ⚠ **A view whose `ScreenHeightScale` is zero sees every level.** That is a shadow cascade, a
 reflection-probe face and an orthographic camera, and it is deliberate: a shadow drawn from a

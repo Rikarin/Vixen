@@ -162,6 +162,7 @@ Vixen.Engine.Renderer.LodExtractionSystem.Feature.get -> Vixen.Rendering.Feature
 Vixen.Engine.Renderer.LodExtractionSystem.Feature.set -> Vixen.Rendering.Features.LodRenderFeature?
 Vixen.Engine.Renderer.LodExtractionSystem.GroupCount.get -> int
 Vixen.Engine.Renderer.LodExtractionSystem.LodExtractionSystem() -> void
+Vixen.Engine.Renderer.LodExtractionSystem.Malformed.get -> int
 Vixen.Engine.Renderer.LodExtractionSystem.Renderer.get -> Vixen.Rendering.RenderSystem?
 Vixen.Engine.Renderer.LodExtractionSystem.Renderer.set -> Vixen.Rendering.RenderSystem?
 Vixen.Engine.Renderer.LodExtractionSystem.Run(Vixen.Ecs.World world) -> void
