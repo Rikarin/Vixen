@@ -2431,7 +2431,7 @@ public class UtilityFamilySupportTests {
     ///     <para>
     ///         ⚠ <b>Inverted rather than deleted, on purpose.</b> That a family was inert and now is
     ///         not is precisely what this file exists to record, and a deleted test records nothing.
-    ///         Doc 43 § B1 is what changed: <see cref="Display" /> grew a <c>Block</c> member and
+    ///         Doc 43 § B1 is what changed: <see cref="Vixen.Ui.Layout.Display" /> grew a <c>Block</c> member and
     ///         <c>LayoutTree.Block</c> grew the algorithm behind it. The children stack now, and the
     ///         second assertion below is the one no computed-value check could ever have made —
     ///         their <i>margins collapse</i>, which is the difference between block layout and a flex

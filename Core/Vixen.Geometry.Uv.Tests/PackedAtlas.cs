@@ -191,7 +191,7 @@ static class PackedAtlas {
     ///         ⚠ <b>Zero is not a usable threshold here, and the reason is that this rasterizer and the
     ///         packer's reach the same geometry through different arithmetic.</b> "The triangle meets
     ///         the square" is a discontinuous predicate: an arbitrarily small perturbation of a
-    ///         coordinate flips a texel in or out. <see cref="IslandMask.Rasterize" /> works in the
+    ///         coordinate flips a texel in or out. <see cref="Vixen.Geometry.Uv.Packing.IslandMask.Rasterize" /> works in the
     ///         island's own frame, at <c>(coordinate − minimum) × texels</c>; this works in the atlas,
     ///         through <see cref="UvPlacement.Apply" /> and a multiply by the resolution. The two are
     ///         equal in exact arithmetic and differ in the last few bits of a <c>float</c>, so at a

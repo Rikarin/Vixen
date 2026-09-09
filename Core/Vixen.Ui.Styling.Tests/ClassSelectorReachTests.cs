@@ -34,7 +34,7 @@ namespace Vixen.Ui.Styling.Tests;
 ///         work, whose names appear in no source. A census that could not see them would accuse four
 ///         innocent rules on its first run, which is how a gate loses its reader. So a quoted name
 ///         ending in a hyphen, written on a line that also names one of the class APIs, is read as a
-///         <i>prefix</i> and reaches every class that starts with it — see <see cref="Prefixes" />.
+///         <i>prefix</i> and reaches every class that starts with it — see <see cref="Sources.Prefixes" />.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>The prefix rule is deliberately line-local, and the loose version of it is nearly
@@ -76,7 +76,7 @@ public partial class ClassSelectorReachTests {
     /// <remarks>
     ///     Matched against the whole line rather than against the argument, so a class assembled from
     ///     a literal and an expression is still recognised as one. That is what makes
-    ///     <see cref="Prefixes" /> two names rather than eighty-seven.
+    ///     <see cref="Sources.Prefixes" /> two names rather than eighty-seven.
     /// </remarks>
     [GeneratedRegex(@"\b(?:AddClass|RemoveClass|ToggleClass|HasClass|SetClass|classNames|ClassNames)\b")]
     private static partial Regex ClassSite { get; }

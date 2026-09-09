@@ -13,7 +13,7 @@ namespace Vixen.Ui.Controls.Tests;
 ///         ⚠ <b>The one property that separates a group from a multiplier is <i>self-overlap</i>, so
 ///         every test here is built out of two children that cover each other.</b> A half-opaque panel
 ///         containing one child is drawn identically by both models — which is why the collapse in
-///         <see cref="DrawList.Collapse" /> is safe, and also why a test written on a single child
+///         <c>DrawList.Collapse</c> is safe, and also why a test written on a single child
 ///         would pass against the bug it is supposed to catch.
 ///     </para>
 ///     <para>
@@ -148,7 +148,7 @@ public class GroupOpacityTests {
     /// <summary>A group whose subtree is one command is faded in place and costs no surface.</summary>
     /// <remarks>
     ///     ⚠ <b>The claim the collapse rests on, checked as a picture <i>and</i> as an absence.</b> The
-    ///     arithmetic is identical either way — see <see cref="DrawList.Collapse" /> — so the pixel
+    ///     arithmetic is identical either way — see <c>DrawList.Collapse</c> — so the pixel
     ///     alone cannot tell the two apart, and asserting it alone would let the optimisation silently
     ///     stop happening. What says it happened is that the frame asked for no surfaces at all.
     /// </remarks>

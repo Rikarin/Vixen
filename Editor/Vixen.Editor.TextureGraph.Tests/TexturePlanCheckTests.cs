@@ -314,7 +314,7 @@ public class TexturePlanCheckTests {
     ///         the inputs, so declaring it silences every one of them. Per-op is narrower than
     ///         per-kernel — this op rather than this kernel in every plan — and on this op the
     ///         narrowing is worth nothing.
-    ///         <see cref="A_declared_op_is_silent_about_an_input_it_reads_pointwise" /> is that shape
+    ///         <see cref="A_declaration_that_names_no_inputs_covers_all_of_them" /> is that shape
     ///         written down, and <a href="https://github.com/Rikarin/Vixen/issues/878">#878</a> is
     ///         what to do about it if a second multi-input op ever needs it.
     ///     </para>

@@ -278,7 +278,7 @@ public sealed class TextureStreamingTests {
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Idle is what this waits for, so idle cannot also be what it gives up on</b> — and
-    ///         that is why the give-up here is progress rather than <see cref="Settling.Until" />'s
+    ///         that is why the give-up here is progress rather than <see cref="Settling.Until(System.Action, System.Func{bool}, System.Func{Settling.Work}, string)" />'s
     ///         outstanding-work test. A round makes progress if it placed a page, if a page is on its
     ///         way, or if the queue got shorter. Eight rounds of none of those with the queue still
     ///         non-empty is a real stall and not a slow pool: <see cref="PageResidency.Service" />
@@ -345,7 +345,7 @@ public sealed class TextureStreamingTests {
     ///     The argument is <see cref="Settling.Rounds" />'s and so is the number, which is why it is
     ///     read from there rather than written again: three copies of a livelock threshold is three
     ///     chances for one of them to drift, and this loop, <c>TextureDemandTests.Quiet</c> and
-    ///     <see cref="Settling.Until" /> are all asking the same question about the same streamer.
+    ///     <see cref="Settling.Until(System.Action, System.Func{bool}, System.Func{Settling.Work}, string)" /> are all asking the same question about the same streamer.
     /// </remarks>
     const int Rounds = Settling.Rounds;
 

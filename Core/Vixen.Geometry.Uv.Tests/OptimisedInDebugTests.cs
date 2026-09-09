@@ -25,7 +25,7 @@ namespace Vixen.Geometry.Uv.Tests;
 ///         later, attributed to whatever else changed that week.
 ///     </para>
 ///     <para>
-///         ⚠ <b><see cref="Optimize" /> and <c>Configuration</c> are two decisions and only one of
+///         ⚠ <b><c>Optimize</c> and <c>Configuration</c> are two decisions and only one of
 ///         them is dangerous to move.</b> This asserts the first and asserts that the second has
 ///         <em>not</em> moved with it: <c>DEBUG</c> is still what decides
 ///         <see cref="JobScheduler.SafetyChecksEnabled" />, which is what <c>CheckApi</c> records

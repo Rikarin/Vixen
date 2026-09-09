@@ -207,7 +207,7 @@ public class TextureGraphDeclarationTests {
     ///         ⚠ <b><a href="https://github.com/Rikarin/Vixen/issues/780">#780</a>, and it is #719's
     ///         own failure reached by another route on the day #719 closed.</b>
     ///         <c>NodeGraphCompiler.Compile</c> replaces the graph with
-    ///         <see cref="SubGraphs.Flatten" />'s before <c>Begin</c> runs, and the flattener built a
+    ///         <see cref="SubGraphs.Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic})" />'s before <c>Begin</c> runs, and the flattener built a
     ///         fresh model carrying the three side tables that existed when it was written. So a
     ///         graph declaring 512×512 and a seed compiled at the host's 256 and 41823 the moment it
     ///         contained one published node — with no diagnostic, because there is nothing structural

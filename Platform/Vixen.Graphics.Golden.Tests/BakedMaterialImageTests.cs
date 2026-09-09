@@ -57,7 +57,8 @@ namespace Vixen.Graphics.Golden.Tests;
 ///         A map is eight bits, so a colour that is not a level lands on a neighbouring one and the
 ///         two spellings differ for a reason that is neither of their faults. Every value here is
 ///         authored as <c>k/255</c> and the number the hand-written feature carries is that level put
-///         back through the same transfer function the hardware applies — see <see cref="Linear" />.
+///         back through the same transfer function the hardware applies — see
+///         <see cref="Linear(float)" />.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Nothing here is a 0–1 tint that a photometric frame would render identically to a

@@ -18,7 +18,7 @@ namespace Vixen.Editor.Assets.Tests;
 ///         <b>What this decides.</b> Doc 08 says a shared artefact database makes CI content builds
 ///         cacheable across machines, and it is half true today: a shared <c>IOdbBackend</c> hands
 ///         every leg the artefact <em>chunks</em>, and no leg gets a <em>hit</em>, because
-///         <see cref="ImportPipeline.Prepare" /> decides to reuse an import from an
+///         <c>ImportPipeline.Prepare</c> decides to reuse an import from an
 ///         <see cref="ImportRecord" /> and those live in a file under <c>Library/</c> that nothing
 ///         publishes. A leg with a warm chunk store and a cold cache re-runs every importer and
 ///         re-writes chunks it already had.

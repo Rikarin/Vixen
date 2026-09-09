@@ -349,7 +349,7 @@ sealed class TierScene : IDisposable {
     ///     See <see cref="Supply" /> for why each exists. The opacity texture's four bytes are staged
     ///     rather than written, because a texture is device memory and only a copy reaches it — and
     ///     the copy cannot be recorded inside a render pass, which is what
-    ///     <see cref="Upload" /> is for.
+    ///     <see cref="Frames" /> is for.
     /// </remarks>
     void StandIns(VulkanDevice device) {
         clusters = device.CreateBuffer(

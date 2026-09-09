@@ -70,7 +70,7 @@ public class TwoWayTypeTests {
     ///     <para>
     ///         <b>This is what a `.vxml` emits for <c>Value="@expr"</c> beside
     ///         <c>change:Value="@(v =&gt; …)"</c></b> — an assignment plus a
-    ///         <see cref="BuildContext.Bind(System.Action)" /> for the in-leg
+    ///         <see cref="BuildContext.Bind(System.Action, string, int)" /> for the in-leg
     ///         (<c>ComponentEmitter.EmitParameter</c>) and a
     ///         <see cref="BuildContext.Changed{T}" /> for the out-leg — so the shape under test is
     ///         the generated one and not a hand-rolled approximation of it.

@@ -172,7 +172,7 @@ public class GraphDocumentTests {
 
     /// <summary>A graph's declarations survive being flattened, which is what #780 was about.</summary>
     /// <remarks>
-    ///     ⚠ <b>Through <see cref="SubGraphs.Flatten" /> rather than through the copy</b>, because the
+    ///     ⚠ <b>Through <see cref="SubGraphs.Flatten(NodeGraphModel, ISubGraphSource, out IReadOnlyList{NodeDiagnostic}, out NodeGraphInlining)" /> rather than through the copy</b>, because the
     ///     defect was never in the copy — there was no copy. Every declaration test in this
     ///     repository used a flat graph, and a flat graph is precisely the one input for which
     ///     <c>Flatten</c> is not called at all.

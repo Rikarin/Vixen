@@ -292,7 +292,7 @@ public sealed class TerrainCursorSeamTests : IDisposable {
 
     /// <summary>The pointer, through a real document, into and out of a pane that is not the window.</summary>
     /// <remarks>
-    ///     ⚠ <b>The one assertion here that calling <see cref="TerrainMode.Pointer" /> directly cannot
+    ///     ⚠ <b>The one assertion here that calling <see cref="TerrainMode.Pointer(SceneViewport, PointerEvent)" /> directly cannot
     ///     make.</b> <see cref="PointerAction.Exited" /> is never fed in from outside — the document
     ///     works it out from where the pointer is and delivers it
     ///     <see cref="RoutingStrategy.Direct" />, so whether the mode ever hears one is a fact about

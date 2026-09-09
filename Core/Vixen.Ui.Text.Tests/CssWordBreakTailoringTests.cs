@@ -46,7 +46,7 @@ namespace Vixen.Ui.Text.Tests;
 ///         boolean — the assertion compares the <i>pieces</i> rather than the offsets, so a failure
 ///         names the string it produced. And every case here is one whose answer differs between
 ///         <see cref="WordBreakMode.Normal" /> and the mode under test:
-///         <see cref="Every_case_here_is_one_the_default_gets_wrong" /> is the guard that says so, so
+///         <see cref="The_tailoring_changes_the_answer_wherever_it_is_supposed_to" /> is the guard that says so, so
 ///         a tailoring that quietly stopped being applied could not pass this file by agreeing with
 ///         UAX #14.
 ///     </para>

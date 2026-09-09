@@ -266,7 +266,7 @@ public class UvDensityTests {
     ///         <c>Flipped</c> defaults to zero — so a caller who packs an artist's islands and asks "is
     ///         all of this usable" is told yes by arithmetic rather than by a check. Pinned here so the
     ///         behaviour cannot change silently, and named so that whoever needs the answer knows to run
-    ///         <see cref="UvUnwrap.All" /> or the flattener for it.
+    ///         <see cref="UvUnwrap.All(EditMesh, UvSettings, PackSettings, out IReadOnlyList{Vector2})" /> or the flattener for it.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The same shape for <see cref="UvReport.Compactness" />.</b> Zero is a

@@ -23,7 +23,7 @@ enum IslandShape : byte {
     ///     <para>
     ///         ⚠ <b><see cref="Rectangle" /> is not one, and that is why it exists.</b> Its summary said
     ///         "an axis-aligned box. The rectangle rung's exact case" and
-    ///         <see cref="IslandSpace.Build" /> builds every non-degenerate shape as a fan of corners
+    ///         <see cref="IslandSpace.Build(IslandRecipe)" /> builds every non-degenerate shape as a fan of corners
     ///         placed round a circle — so four corners at 0, τ/4, τ/2 and 3τ/4 make a <i>diamond</i>,
     ///         whose area is exactly half its bounding box.
     ///     </para>

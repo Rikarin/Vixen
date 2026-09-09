@@ -376,7 +376,7 @@ public sealed class AssetTextureStreamingTests : IDisposable {
     ///         that finished the job answers on that frame and not the next one.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>A hand-written copy of <see cref="Settling.Until" /> rather than a call to it is
+    ///         ⚠ <b>A hand-written copy of <see cref="Settling.Until(System.Action, System.Func{bool}, System.Func{Settling.Work}, string)" /> rather than a call to it is
     ///         what let this fixture inherit a hang the shared helper was later given a guard
     ///         against.</b> Under a <c>PageResidency</c> sabotaged to refuse every arrival this class
     ///         ran past 300 s without finishing a test, because the copy had the idle give-up and not
