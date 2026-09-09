@@ -104,7 +104,6 @@ public class ViewCullingDeviceTests {
             Camera("cascade", RenderStageMask.Of(0), maximumDistance: 60f)
         ];
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         expected.Cull(store, views);
@@ -252,7 +251,6 @@ public class ViewCullingDeviceTests {
 
         RenderView[] views = [Camera("camera", RenderStageMask.Of(0))];
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var list = device.BeginCommandList(QueueKind.Graphics, "pyramid")) {
@@ -401,7 +399,6 @@ public class ViewCullingDeviceTests {
 
         using var pyramid = new HiZPyramid(device) { Effects = effects, Pipelines = pipelines };
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var list = device.BeginCommandList(QueueKind.Graphics, "pyramid")) {
@@ -578,7 +575,6 @@ public class ViewCullingDeviceTests {
 
         RenderView[] views = [Camera("camera", RenderStageMask.Of(0))];
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         visibility.Cull(store, views);
@@ -749,8 +745,6 @@ public class ViewCullingDeviceTests {
         var readback = device.CreateBuffer(new(size, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "late arguments"));
 
         owned.Owns(() => device.Destroy(readback));
-
-        VulkanDiagnostics.Reset();
 
         // ---- The frame before: the wall becomes the pyramid the main pass will test against, and
         // the cull that runs beside it is what leaves a matrix behind to project with.
@@ -950,8 +944,6 @@ public class ViewCullingDeviceTests {
         RenderView[] views = [Camera("camera", RenderStageMask.Of(0))];
         var lists = new List<ICommandList>();
 
-        VulkanDiagnostics.Reset();
-
         // Two frames, recorded and submitted back to back with nothing waited on between them —
         // which is the whole point, and why the wait is at the end rather than in the loop.
         for (var frame = 0; frame < 2; frame++) {
@@ -1011,8 +1003,6 @@ public class ViewCullingDeviceTests {
         }
 
         using var owned = fixture!;
-
-        VulkanDiagnostics.Reset();
 
         var pipelines = new ComputePipelineCache(owned.Device);
         var pipeline = pipelines.GetOrCreate(Compiled(owned.Device, shader));

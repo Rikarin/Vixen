@@ -543,7 +543,6 @@ public class VirtualShadowLookupDeviceTests {
 
         fixture.Owns(() => device.Destroy(pipeline));
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "virtual shadow probe")) {

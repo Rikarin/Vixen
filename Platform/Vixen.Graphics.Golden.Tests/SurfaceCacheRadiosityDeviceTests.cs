@@ -100,7 +100,6 @@ public sealed class SurfaceCacheRadiosityDeviceTests {
         };
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "surface-light")) {
@@ -161,7 +160,6 @@ public sealed class SurfaceCacheRadiosityDeviceTests {
         };
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "surface-gather")) {
@@ -257,7 +255,6 @@ public sealed class SurfaceCacheRadiosityDeviceTests {
         };
 
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "surface-bounce")) {

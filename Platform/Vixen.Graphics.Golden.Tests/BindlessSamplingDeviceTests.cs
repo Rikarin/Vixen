@@ -73,8 +73,6 @@ public class BindlessSamplingDeviceTests {
             "the bindless table's per-invocation slot test"
         );
 
-        VulkanDiagnostics.Reset();
-
         var effect = Compiled(device);
         var table = effect.SetLayouts[(int)DescriptorSetSlot.PerFrame];
         var draw = effect.SetLayouts[(int)DescriptorSetSlot.PerDraw];
@@ -282,8 +280,6 @@ public class BindlessSamplingDeviceTests {
             BindlessTable.IsSupportedBy(device),
             "the bindless table's linear-light colour probe"
         );
-
-        VulkanDiagnostics.Reset();
 
         var effect = Compiled(device, "BindlessColourProbe");
         var table = effect.SetLayouts[(int)DescriptorSetSlot.PerFrame];

@@ -120,7 +120,6 @@ public sealed class SurfaceCacheRendererDeviceTests {
 
         var gathered = new Vector4[store.Atlas.Size.X * store.Atlas.Size.Y];
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "read-gather")) {
@@ -260,7 +259,6 @@ public sealed class SurfaceCacheRendererDeviceTests {
             fixture.Graph.Reset();
             compositor.Build(fixture.Graph, effects, device);
 
-            VulkanDiagnostics.Reset();
             device.BeginFrame();
 
             using (var commands = device.BeginCommandList(QueueKind.Graphics, "surface-cache-frame")) {
@@ -283,7 +281,6 @@ public sealed class SurfaceCacheRendererDeviceTests {
         var texture = node.Texture!;
         var texels = new Vector4[texture.Store.Atlas.Size.X * texture.Store.Atlas.Size.Y];
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "read-direct")) {

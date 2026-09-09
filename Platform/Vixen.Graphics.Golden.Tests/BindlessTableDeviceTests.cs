@@ -73,8 +73,6 @@ public class BindlessTableDeviceTests {
             "the bindless table's create-fill-destroy sequence"
         );
 
-        VulkanDiagnostics.Reset();
-
         // Deliberately smaller than the device's ceiling, so what is exercised is a table sized by a
         // host rather than one that happens to match whatever the driver reported.
         using var table = new BindlessTable(device, capacity: 1024, name: "Golden.Bindless");

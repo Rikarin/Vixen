@@ -112,7 +112,6 @@ public sealed class ScreenProbeUpsampleImageTests {
 
         // The dispatches, in their own submit — see the class remarks.
         allocator.BeginFrame();
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "screen probe seed")) {

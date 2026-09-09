@@ -93,7 +93,6 @@ public sealed class ScreenPyramidDeviceTests {
             new BufferDescription(texels * 4L, BufferUsage.CopyDestination, MemoryAccess.HostReadback, "nearest-readback")
         );
 
-        VulkanDiagnostics.Reset();
         device.BeginFrame();
 
         using (var commands = device.BeginCommandList(QueueKind.Graphics, "nearest-reduce")) {

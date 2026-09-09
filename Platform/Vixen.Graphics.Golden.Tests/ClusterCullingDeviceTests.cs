@@ -250,7 +250,6 @@ public class ClusterCullingDeviceTests {
             ResourceState.CopySource
         );
 
-        VulkanDiagnostics.Reset();
         allocator.BeginFrame();
         device.BeginFrame();
 
