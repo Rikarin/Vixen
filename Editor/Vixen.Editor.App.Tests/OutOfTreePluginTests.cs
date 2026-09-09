@@ -198,6 +198,29 @@ public class OutOfTreePluginTests {
         }
     }
 
+    /// <summary>
+    ///     ⚠ <b>And somewhere for a plugin to add an asset <i>editor</i>, which is the other half of
+    ///     the same seam and the half nothing outside the assembly had ever asked for.</b>
+    ///     <c>AssetEditorRegistry</c> is published here; the contract-side proof that a module can
+    ///     claim an extension through <c>PluginContext</c> alone and have it withdrawn on unload is
+    ///     <c>AssetEditorRegistryTests.APluginRegistersAnAssetEditorThroughTheContractAlone</c>.
+    ///     Neither test can see the other's half, which is why there are two (#489).
+    /// </summary>
+    [Fact]
+    public void The_editor_publishes_somewhere_for_a_plugin_to_add_an_asset_editor() {
+        var data = Path.Combine(Path.GetTempPath(), "vixen-plugin-editors", Guid.NewGuid().ToString("N"));
+
+        try {
+            using var editor = EditorSession.Start(new() { DataDirectory = data });
+
+            Assert.True(editor.Plugins.Services.Contains<Vixen.Editor.AssetEditors.AssetEditorRegistry>());
+        } finally {
+            if (Directory.Exists(data)) {
+                Directory.Delete(data, recursive: true);
+            }
+        }
+    }
+
     /// <summary>Something with a decimal on it, so the plugin's drawer has a member to be resolved for.</summary>
     sealed class Probe {
         public decimal Amount;
