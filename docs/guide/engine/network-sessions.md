@@ -4,8 +4,8 @@ slug: engine/network-sessions
 kind: guide
 area: Networking
 summary: The layer between a transport, which knows about connections and bytes, and a game, which wants players and ticks — the handshake, the clock, the player list, and why a player is not a connection.
-api: [T:Vixen.Net.Sessions.NetworkSession]
-tags: [networking, sessions, handshake, players, reconnect, ticks]
+api: [T:Vixen.Net.Sessions.NetworkSession, T:Vixen.Net.Transport.NetworkSimulationSettings]
+tags: [networking, sessions, handshake, players, reconnect, ticks, simulation]
 since: 0.1
 status: stable
 related: [engine/networked-players, engine/round-trip-and-jitter, engine/measuring-loss, editor/network-panel]
@@ -129,6 +129,47 @@ and the reconnect table, so a token read after stopping is empty.
 ⚠ **`Dispose` disposes the transport only if you said it owns it.** The constructor's `ownsTransport`
 defaults to false, so a session over a transport the game keeps for something else leaves it running.
 
+### Developing against a bad network
+
+⚠ **Netcode developed on localhost is netcode that has never been tested.** A host and a client in one
+process see zero latency, zero loss and perfect ordering — which is the configuration under which
+interpolation delay, extrapolation clamping, the snapshot buffer, ack-driven baseline advance and the
+whole prediction reconciliation loop all look correct whether or not they are. Every one of them is
+specified for conditions localhost never produces.
+
+`SessionOptions.Simulation` is where a session is told to run on a worse wire than it has. Set, the
+constructor wraps the transport in a `NetworkSimulation` before anything uses it; unset — the default —
+the session runs on exactly what it was handed.
+
+```csharp no-compile="`transport` is whatever the game built; `seed` is the game's own number"
+var session = new NetworkSession(
+    transport,
+    new SessionOptions { Simulation = NetworkSimulationSettings.Development(seed) },
+    ownsTransport: true
+);
+
+// ⚠ Announce it. A simulated link that is not obviously simulated is worse than none.
+if (session.Simulation is { } simulated) {
+    Console.WriteLine($"simulating {simulated.Profile.Latency.TotalMilliseconds} ms, "
+        + $"{simulated.Profile.LossChance:P1} loss, seed {seed}");
+}
+```
+
+`Development` is `NetworkSimulationProfile.Broadband` — 35 ms one way, 8 ms of jitter, 0.5 % loss —
+which is the profile whose own summary says it is the one a development build should run with. The
+other four are `Perfect`, `Lan`, `Mobile` and `Awful`.
+
+⚠ **The seed is required and not defaulted, on purpose.** A simulation whose seed was picked for you is
+a simulation whose failures you cannot reproduce. Give each participant its own, derived from the
+match's — eight clients handed one seed lose the same packets in the same order, which is a
+synchronised outage rather than a bad network — and print it.
+
+⚠ **`Simulation` is `null` by default, so a release build is unsimulated by construction rather than by
+remembering to turn something off.** doc 16 asks for it to be *on* by default in development builds,
+and that half is a line the host writes: nothing in `Vixen.Net` can see a build variant, and nothing
+below `Vixen.Engine` may reference the assembly that can
+([#350](https://github.com/Rikarin/Vixen/issues/350)).
+
 ## Examples
 
 **Reading the link, without wiring anything.** Everything the editor's panel draws is reachable from a
@@ -173,5 +214,6 @@ handshake handling, no reconnect logic anywhere in it.
 * [Networked players](networked-players.md) — giving a `PlayerId` a body
 * [The network panel](../editor/network-panel.md) — a session's bandwidth, link and last snapshot, in the editor
 * [`NetworkPlayer`](/docs/api/vixen.net.sessions/networkplayer) — who is in the list, and what `IsConnected` false means
+* [`NetworkSimulation`](/docs/api/vixen.net.transport/networksimulation) — the decorator `SessionOptions.Simulation` builds, and what it will and will not do to each channel
 * [`TickManager`](/docs/api/vixen.net.time/tickmanager) — the clock `Update` advances
 * [`ITransport`](/docs/api/vixen.net.transport/itransport) — what a session runs on

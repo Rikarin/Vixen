@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Net.Time;
+using Vixen.Net.Transport;
 
 namespace Vixen.Net.Sessions;
 
@@ -127,4 +128,45 @@ public sealed record SessionOptions {
     ///     traffic in to it explicitly.
     /// </remarks>
     public int ReservedPriority { get; init; } = 1;
+
+    /// <summary>
+    ///     A bad network to pretend to be on, or <see langword="null" /> for the real one. Set, the
+    ///     session wraps its transport in a <see cref="NetworkSimulation" /> before it uses it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Netcode developed on localhost is netcode that has never been tested</b>, and a
+    ///         perfect wire is the configuration under which interpolation delay, extrapolation
+    ///         clamping, the snapshot buffer, ack-driven baseline advance and the whole prediction
+    ///         reconciliation loop all look correct whether or not they are. Every one of them is
+    ///         specified for conditions localhost never produces. <c>NetworkSimulationSettings</c>
+    ///         <c>.Development</c> is the modest profile to reach for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It is here, and it can be here, although two audits recorded that it could
+    ///         not.</b> The recorded objection was that a session is handed a transport and reads its
+    ///         options afterwards, so a profile on this record "would arrive after the decision it is
+    ///         meant to make". That confuses the order the constructor happens to assign its fields
+    ///         in — which is the constructor's own choice — with when the values are available: the
+    ///         transport and the options are two parameters of the same call, both in hand before the
+    ///         first statement runs. The decorator has to wrap before the session <i>uses</i> the
+    ///         transport, and the constructor is exactly that moment.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null by default, so a release build is unsimulated by construction rather than by
+    ///         remembering.</b> doc 16 asks for it to be on by default in development builds, and
+    ///         that half is still one line at a host — nothing in <c>Vixen.Net</c> can see a build
+    ///         variant, and nothing below <c>Vixen.Engine</c> may reference the assembly that can.
+    ///         What has changed is that the line is now a field on the record a host already
+    ///         configures rather than a restructuring of how it builds its transport
+    ///         (<see href="https://github.com/Rikarin/Vixen/issues/350">#350</see>).
+    ///     </para>
+    ///     <para>
+    ///         Read <c>NetworkSession.Simulation</c> to announce it. ⚠ A simulated link that is not
+    ///         obviously simulated is worse than none — the same failure shape as a gate that reads
+    ///         green on the day it did not run — so print the profile and the seed at startup, the
+    ///         way <c>Samples/08-Multiplayer</c> does.
+    ///     </para>
+    /// </remarks>
+    public NetworkSimulationSettings? Simulation { get; init; }
 }

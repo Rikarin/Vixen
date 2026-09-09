@@ -64,6 +64,44 @@ public interface ITransport : IDisposable {
     /// </remarks>
     TransportLoss? Loss => null;
 
+    /// <summary>
+    ///     The same four totals for one link rather than for the whole transport, or
+    ///     <see langword="null" /> from a transport that cannot attribute them.
+    /// </summary>
+    /// <param name="connection">
+    ///     The connection to ask about, as the server numbers it, or <see cref="ConnectionId.None" />
+    ///     for the client half's own link to the server.
+    /// </param>
+    /// <returns>What that one link has counted, or <see langword="null" />.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><see cref="Loss" /> cannot answer this and never could.</b> It is the whole
+    ///         process's totals — every connection and both halves added together — which is the
+    ///         granularity a meter samples at. A server with eight players reading it learns what it
+    ///         missed from all eight, and dividing that by anything gives a number belonging to
+    ///         nobody. <c>UdpTransport.Loss</c>'s own remarks said as much: "per-connection
+    ///         attribution would be a different question and would need a different shape to answer."
+    ///         This is that shape.
+    ///     </para>
+    ///     <para>
+    ///         <b>The question it exists for is the outbound one.</b> A sender cannot observe its own
+    ///         loss, so the far end's inbound counters for this link are the only measurement of it —
+    ///         and a session that means to carry them back has to be able to ask for the link rather
+    ///         than for the process. See <see cref="LinkReport" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null for a connection that has gone, rather than the totals it left behind.</b>
+    ///         <see cref="Loss" /> deliberately keeps a departed connection's counters so a
+    ///         cumulative total never falls; this is per-link and a link that ended has no current
+    ///         reading. Asking about somebody else's connection id gives null for the same reason.
+    ///     </para>
+    ///     <para>
+    ///         Read on whatever thread <see cref="Poll" /> is called on, and on no other, exactly as
+    ///         <see cref="Loss" /> is.
+    ///     </para>
+    /// </remarks>
+    TransportLoss? LossFor(ConnectionId connection) => null;
+
     /// <summary>Whether the server half is listening.</summary>
     TransportState ServerState { get; }
 
