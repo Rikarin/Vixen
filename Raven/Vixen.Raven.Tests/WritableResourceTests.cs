@@ -578,6 +578,9 @@ public class WritableResourceTests {
         var errors = bag.ToArray().Where(d => d.IsError).ToArray();
         Assert.True(errors.Length == 0, string.Join("\n", errors.Select(d => d.ToString())));
 
+        // ⚠ Two callers only assert inside a `foreach` over this, so an empty result is a pass.
+        Assert.True(generated.Count > 0, CodeGenTestBase.EmptyResult(target));
+
         return generated;
     }
 

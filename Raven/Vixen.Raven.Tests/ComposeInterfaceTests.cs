@@ -385,6 +385,10 @@ public class ComposeInterfaceTests {
     ///     Raven did not.
     /// </summary>
     static void AssertGlslCompiles(IReadOnlyList<GeneratedSource> generated) {
+        // ⚠ Before the skip, and before the loop. Everything below asserts inside the `foreach`, so
+        // nothing generated is a pass that claims a reference compiler accepted the emitted GLSL.
+        Assert.True(generated.Count > 0, CodeGenTestBase.EmptyResult("glsl"));
+
         Assert.SkipUnless(ReferenceCompiler.Available, "glslc is not on PATH (brew install shaderc).");
 
         foreach (var unit in generated) {

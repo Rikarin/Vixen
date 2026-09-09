@@ -506,6 +506,17 @@ public class CrossCompilationTests {
 
         Assert.DoesNotContain(bag.ToArray(), d => d.IsError);
 
+        // ⚠ The count, because `The_same_shader_cross_compiled_is_accepted` asserts only inside a
+        // `foreach` over this. A transpile that emitted nothing would report that the ES front end
+        // had accepted every unit. The library sweeps above assert their own floor and deliberately
+        // do not come through here; the two dialect refusals assert `Assert.Empty` on the backend
+        // directly, which is why this guard belongs on the helper rather than on `Generate`.
+        Assert.True(
+            generated.Count > 0,
+            $"The '{target}' backend reported no errors and generated no units, so a loop over the "
+            + "result asserts nothing and the test reports a pass."
+        );
+
         return generated;
     }
 
