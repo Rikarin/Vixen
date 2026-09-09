@@ -124,6 +124,34 @@ public sealed class AppConfig {
     /// </remarks>
     public string? LogFileDirectory { get; set; }
 
+    /// <summary>Whether the CPU profiler records scopes.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Off by default in <c>Profiler</c> and, until this setting existed, off in every host
+    ///     there is.</b> The instrumentation is compiled into the engine and costs one volatile read
+    ///     while it is off — but nothing turned it on, so the <c>framegraph</c> overlay a game shipped
+    ///     drew "profiler is off" and there was no way to answer it. From <c>--vixen-profile</c>, or
+    ///     implied by <see cref="TracePath" />.
+    /// </remarks>
+    public bool Profiling { get; set; }
+
+    /// <summary>
+    ///     Where a Chrome <c>trace_event</c> document is written when the application stops, or
+    ///     <see langword="null" /> for none.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         From <c>--vixen-trace</c>, which also turns <see cref="Profiling" /> on. The file opens
+    ///         in <c>ui.perfetto.dev</c> and in <c>chrome://tracing</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The host owns the collection while this is set</b>, because
+    ///         <c>Profiler.Collect</c> drains the rings and the frame-graph overlay calls it every
+    ///         frame it is drawn. Two collectors means each gets whatever the other did not, and the
+    ///         symptom is a trace missing most of the run with nothing in it saying so.
+    ///     </para>
+    /// </remarks>
+    public string? TracePath { get; set; }
+
     /// <summary>
     ///     A directory of loose content to read instead of bundles, from
     ///     <c>--vixen-loose-content</c>.
@@ -386,6 +414,16 @@ public sealed class AppConfig {
 
         if (arguments.LogFilePath is { } logPath) {
             LogFileDirectory = logPath;
+        }
+
+        // ⚠ Only ever turned on from here. `Apply` runs before `Game.OnConfigure`, so a game that
+        // wants the profiler always on says so there and the absence of the flag does not undo it.
+        if (arguments.Profiling) {
+            Profiling = true;
+        }
+
+        if (arguments.TracePath is { } tracePath) {
+            TracePath = tracePath;
         }
 
         if (arguments.LooseContentPath is { } path) {

@@ -73,6 +73,39 @@ public sealed record AppArguments {
     /// </remarks>
     public bool GpuProfiling { get; private init; }
 
+    /// <summary>Whether <c>--vixen-profile</c> was given, or <c>--vixen-trace</c> implied it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Turns on <c>Profiler.IsEnabled</c>, which is the CPU half of what
+    ///         <see cref="GpuProfiling" /> does for the graph's passes.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It defaults to off in the profiler itself and no host had ever turned it on</b>,
+    ///         so every hosted game's <c>framegraph</c> overlay drew the words "profiler is off" and
+    ///         there was no flag anywhere that changed that. The scopes were compiled in and being
+    ///         skipped on one volatile read, exactly as designed — what was missing was the switch.
+    ///     </para>
+    /// </remarks>
+    public bool Profiling { get; private init; }
+
+    /// <summary>
+    ///     Where <c>--vixen-trace</c> writes a Chrome <c>trace_event</c> document, or
+    ///     <see langword="null" />.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Implies <see cref="Profiling" />: a trace path with the profiler off would produce a
+    ///         valid, empty document, which is the failure this repository calls "an instrument that
+    ///         never ran reporting success".
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>JSON rather than the Perfetto protobuf doc 13 § Trace export names</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/25">#25</a>). It opens in the same
+    ///         viewer; the file is bigger and does not stream.
+    ///     </para>
+    /// </remarks>
+    public string? TracePath { get; private init; }
+
     /// <summary>Whether <c>--vixen-overlays</c> was given.</summary>
     /// <remarks>
     ///     Turns on <see cref="GraphicsOptions.Overlays" />: the frame-stats panel, the console, the
@@ -276,6 +309,16 @@ public sealed record AppArguments {
 
                 case "--vixen-gpu-profile":
                     parsed = parsed with { GpuProfiling = true };
+                    continue;
+
+                case "--vixen-profile":
+                    parsed = parsed with { Profiling = true };
+                    continue;
+
+                // Implies --vixen-profile, and has to: a path with the profiler off writes a
+                // well-formed document with no events in it, which reads as "the frame did nothing".
+                case "--vixen-trace" when Take(out var trace):
+                    parsed = parsed with { TracePath = trace, Profiling = true };
                     continue;
 
                 case "--vixen-overlays":

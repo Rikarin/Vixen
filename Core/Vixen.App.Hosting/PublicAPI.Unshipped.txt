@@ -16,8 +16,10 @@ Vixen.App.AppArguments.MaxFrames.get -> int?
 Vixen.App.AppArguments.Offscreen.get -> bool
 Vixen.App.AppArguments.Overlays.get -> bool
 Vixen.App.AppArguments.PinWorkers.get -> bool
+Vixen.App.AppArguments.Profiling.get -> bool
 Vixen.App.AppArguments.Remaining.get -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.App.AppArguments.StartupScene.get -> string?
+Vixen.App.AppArguments.TracePath.get -> string?
 Vixen.App.AppArguments.Unrecognised.get -> System.Collections.Generic.IReadOnlyList<string>
 Vixen.App.AppArguments.Variant.get -> Vixen.App.BuildVariant?
 Vixen.App.AppArguments.VideoDriver.get -> string?
@@ -64,8 +66,12 @@ Vixen.App.AppConfig.Organisation.get -> string
 Vixen.App.AppConfig.Organisation.set -> string
 Vixen.App.AppConfig.PinWorkers.get -> bool
 Vixen.App.AppConfig.PinWorkers.set -> bool
+Vixen.App.AppConfig.Profiling.get -> bool
+Vixen.App.AppConfig.Profiling.set -> bool
 Vixen.App.AppConfig.StartupScene.get -> string?
 Vixen.App.AppConfig.StartupScene.set -> string?
+Vixen.App.AppConfig.TracePath.get -> string?
+Vixen.App.AppConfig.TracePath.set -> string?
 Vixen.App.AppConfig.UnfocusedFrameRateLimit.get -> int
 Vixen.App.AppConfig.UnfocusedFrameRateLimit.set -> int
 Vixen.App.AppConfig.UnrecognisedArguments.get -> System.Collections.Generic.IReadOnlyList<string>

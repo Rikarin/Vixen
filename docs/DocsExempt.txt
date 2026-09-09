@@ -676,13 +676,7 @@ T:Vixen.Core.DataAliasAttribute sweep-pending
 T:Vixen.Core.DataMemberAttribute sweep-pending
 T:Vixen.Core.DataMemberIgnoreAttribute sweep-pending
 T:Vixen.Core.Diagnostics.IRemoteLogTransport sweep-pending
-T:Vixen.Core.Diagnostics.Profiler sweep-pending
-T:Vixen.Core.Diagnostics.Profiler.Scope sweep-pending
-T:Vixen.Core.Diagnostics.ProfilerSample sweep-pending
-T:Vixen.Core.Diagnostics.ProfilerThreadSamples sweep-pending
-T:Vixen.Core.Diagnostics.ProfilingKey sweep-pending
 T:Vixen.Core.Diagnostics.RemoteSink sweep-pending
-T:Vixen.Core.Diagnostics.TraceExporter sweep-pending
 T:Vixen.Core.DisposeBag sweep-pending
 T:Vixen.Core.EditorVisibleAttribute sweep-pending
 T:Vixen.Core.Entity sweep-pending

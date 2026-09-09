@@ -127,6 +127,8 @@ untouched and in order.
 | `--vixen-video-driver <name>` | Insist on an SDL video driver: `x11`, `wayland`, `dummy`. |
 | `--vixen-workers <n>` | Job-system workers. `0` is supported and tested. |
 | `--vixen-frame-limit <n>` | Frames per second, `0` for uncapped. |
+| `--vixen-profile` | Turn the CPU profiler on. ⚠ It is compiled into every build and off by default, and until this flag existed nothing in any host set it — so a game's `framegraph` panel drew "profiler is off" and there was no answer to it. |
+| `--vixen-trace <path>` | Write the run out as a Chrome `trace_event` document at shutdown, which opens in `ui.perfetto.dev`. Implies `--vixen-profile`, because a path with the profiler off writes an empty document that reads as "the frame did nothing". |
 | `--vixen-log-level <level>` | The lowest level the log ring keeps. |
 | `--vixen-log-file <dir>` | Also write rolling JSON-line files there, through `ZLoggerFileSink`. A directory rather than a file name, because the sink rolls by day and by size and therefore owns the names. |
 | `--vixen-loose-content <path>` | [Q5b](../../docs/plan/17-app-heads-and-shipping.md): read content from there instead of from the package, even in a release build. Either another build's bundles or a project's `Library/` — see [Downloaded content](#downloaded-content) and the section below it. Warns loudly, on a timer. |
