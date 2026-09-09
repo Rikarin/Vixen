@@ -354,7 +354,7 @@ The viewport is one panel and about nine features, so it gets its own table.
 | Graphics compositor | — | `.AssetEditors` | ✅ | ⚠ **This row used to say "no importer for `.vxcomp` yet", and both halves of that were wrong**: the extension is `.vxcompositor`, and `CompositorImporter` has claimed it since the day a `.vxcompositor` falling through to `RawImporter` was found to publish it as a `Blob` — whereupon the host logged a type mismatch at warning level and silently drew its own one-pass frame |
 | **Asset picker browser** | Asset picker | `.App` | 🟡 | A searchable dialog filtered to the kind the member names, and a drag out of the browser that lands in the field — see the Content row in [Part D](#content). Still a list rather than the thumbnail grid this row asks for, which waits on the thumbnail service below. ⚠ **Three things had to be true before either half worked**, and all three were quietly false: `AssetDrawer` answered for `AssetId` while every reference a scene stores is an `AssetReference`, so `MeshRenderable.Mesh` was drawn read-only; no runtime component could say what it takes, since `[AssetPicker]` is the editor's attribute and a component carrying it would be a runtime assembly referencing an editor one — `Vixen.Core`'s `[AssetType]` is that, and the reflected descriptor carries it through; and the filter compared a type's name against `"texture"` where a `.meta` file records `"TextureImporter"`, which is a comparison that had never once been true |
 | **Thumbnail service** | ✅ both | `.App` | 🟡 | ⚠ **This row said ⛔ while [E1](#e1--the-three-panels-people-live-in-20-em)'s table two hundred lines below described the thing as built** — the document contradicted itself. What exists is `ThumbnailCache` over the `IThumbnailSurface` seam: source images decoded off the frame thread, uploaded on it, bounded and evicting, with the type glyph as the answer when there is no device. What is still owed is the rest of this row's own sentence — an **offscreen render per asset type** (a scene, a material and a prefab have no picture that is not a render of them, which is [E5](#e5--authoring-surfaces-25-em)'s preview work), a **disk cache under `Library/`** and **source-hash invalidation**: the cache today is in memory and lives as long as the session. The picker's grid is [#212](https://github.com/Rikarin/Vixen/issues/212) |
-| **Import dialog** | ✅ both | `.App` | ⛔ | Drag a file in from the OS, choose a destination, preview the settings |
+| **Import dialog** | ✅ both | `.App` | 🟡 | Drag a file in from the OS ✅ — `ProjectBrowser.FilesDropped` into `EditorApplication.BringIn`, folders included, see [Part D](#part-d--functions-by-domain) — and the destination is where the drop landed. ⚠ **What is left is the dialog, and it is worth doing after the drop rather than instead of it**: a drop chooses settings by default, and a hundred textures imported at the wrong compression is a mistake discovered in the build log. Showing `ImportSettingsDocument` *ahead* of the import is the piece nothing does yet |
 
 ### B4 — Diagnostics
 
@@ -603,7 +603,24 @@ outliner's drag will bring"* — was never what it needed.
 Create asset from template, rename with reference fixup, move with reference fixup, delete with
 "what breaks" reporting, duplicate, reimport, show in OS, find references, select dependencies,
 **drag into the viewport** ✅ (placement with surface snapping is built), **drag into an inspector
-field** ✅, **drag from OS into the browser** ⛔, favourites, collections, saved filters.
+field** ✅, **drag from OS into the browser** ✅, favourites, collections, saved filters.
+
+⚠ **The OS drop was the last ⛔ in this list and none of the missing work was in the platform layer.**
+`DropEvent` has been routed, hit-tested and bubbled since [#654](https://github.com/Rikarin/Vixen/issues/654),
+`UiElement.AllowDrop` exists and `on:drop` is a name the binder knows — and the only consumer in the
+repository was a sample, so a folder of textures dragged onto the content browser reached the panel,
+found no handler, and was indistinguishable from a platform that cannot do it. `ProjectBrowser` is the
+first product consumer: it raises `FilesDropped` with the paths *and the folder the drop landed in*,
+and `EditorApplication.BringIn` copies them there. ⚠ **A directory is copied whole, and until it was,
+the drag this row actually names did nothing** — "drag a folder of textures in from Finder" hits
+`File.Copy` over a directory, which throws, so the dialog path reported "could not copy the files"
+after copying however many single files preceded the folder in the list. ⚠ **And a path already
+inside the project is refused rather than duplicated**: the browser is a file view of `Assets/`, so a
+row of it dragged onto itself means a *move*, and copying would mint a second GUID for the same bytes.
+What is still owed is the § B3 **import dialog**, which is not the same feature — a drop chooses a
+destination by where it lands and settings by default, and the dialog is where somebody says otherwise
+once instead of a hundred times. Import ▸ Assets… now at least lands in the folder the browser is
+showing rather than at the root.
 
 ⚠ **Dragging into a field needed the selection rule changed, and that is the part worth writing
 down.** Pressing a row in the browser selects the asset, a selected asset wins the inspector from

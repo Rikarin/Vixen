@@ -2244,6 +2244,7 @@ sealed partial class EditorApplication : IDisposable {
                     browser.Moved += MoveAssets;
                     browser.DroppedOutside += Dropped;
                     browser.DraggedOutside += Dragging;
+                    browser.FilesDropped += ImportDropped;
                     browser.Grabbing += down => grabbingAssets = down;
                     browser.Thumbnails = thumbnails;
 
