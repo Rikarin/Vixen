@@ -50,6 +50,14 @@ read `BlockStaticLeft` only for a `block` or `flow-root` parent and an inline bo
 `isPhysicalParent`, so an un-inset out-of-flow child of a span no longer resolves its axes from a
 `flex-direction` that means nothing on an inline box — and the pair it now reads is §10.6.4's, the
 pen `PlaceLine` had reached when it passed the child, rather than the container's content edge.
+⚠ **That one branch serves two paths, and both are pinned now.** A flattened span's pen is written by
+the container's walk and rebased onto the union; an *atomic* `inline` box runs its own
+`CalculateInlineLayoutImpl` and writes the pen in its own coordinates, so there is nothing to rebase.
+⚠ Reaching the second is not one of the three arrangements `IsNonAtomicInline` records, because that
+predicate is only ever asked by a parent that is *already* walking lines — so a span that is a flex
+item, a grid item, or the node `CalculateLayout` was called on is never offered for flattening at all.
+That is also a box no browser can produce: CSS Display §2.7 blockifies every one of those contexts and
+this store does not blockify anywhere (#1149).
 What is still owed is generated boxes, a span with a FLOATED child, and a span's own strut. See
 [the inline section](#inline-formatting-and-the-invariant-nobody-had-written-down) and
 `InlineKnownGaps.txt`.

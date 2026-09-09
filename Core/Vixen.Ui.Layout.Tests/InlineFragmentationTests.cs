@@ -803,6 +803,100 @@ public class InlineFragmentationTests {
     }
 
     /// <summary>
+    ///     An <i>atomic</i> <c>inline</c> box's out-of-flow child gets §10.6.4's static position from
+    ///     the box's own line walk, with no union and no rebase anywhere in it.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>One reader serves two paths and this is the only fixture that separates them.</b>
+    ///         The four cases above all reach <c>LayoutAbsoluteChild</c>'s
+    ///         <see cref="Display.Inline" /> branch through a FLATTENED span, whose static position is
+    ///         written by the container's <c>PlaceLine</c> in the container's coordinates and then
+    ///         rebased onto the union by <c>CommitInlineBoxFragments</c>. A box that stays atomic runs
+    ///         its own <c>CalculateInlineLayoutImpl</c>, so its own <c>PlaceLine</c> writes the pen in
+    ///         its own coordinates and there is nothing to rebase — the same branch, reached with the
+    ///         other half of the machinery switched off.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>There is a FOURTH way to hold such a box atomic, and it is the only one that is
+    ///         not degenerate: give it a parent that runs no inline formatting context at all.</b>
+    ///         <c>IsNonAtomicInline</c> is consulted only from <c>BuildInlineItems</c> and
+    ///         <c>LayoutFlattenedInlineAbsolutes</c> — that is, only from a parent already walking
+    ///         lines — so a span that is a FLEX ITEM is never offered for flattening. It is laid out
+    ///         by <c>CalculateLayoutImpl</c> like any other item and
+    ///         <c>EstablishesInlineFormattingContext</c> then sends it to its own line walk. The three
+    ///         routes recorded on <c>IsNonAtomicInline</c> each destroy the fixture — a measure
+    ///         function makes the node a leaf whose children are never laid out, a floated child sends
+    ///         the span's width through shrink-to-fit against a float context, and a span with no
+    ///         in-flow children has no flow for §10.6.4 to be after, so its answer is the padding
+    ///         corner and a fixture on it would pass against the defect. This one destroys nothing.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The width is the witness that the box really did stay atomic.</b> A flattened
+    ///         box's rectangle is the union of its fragments and its own <c>width</c> is ignored; an
+    ///         atomic one is a box that was told what it is. The same four nodes under a <c>block</c>
+    ///         parent give a span 125 wide on ONE line — 5 of padding plus three 40s, all of which fit
+    ///         across the container's 180 — so the 90 asserted below is not a number the flattened
+    ///         path can produce.
+    ///     </para>
+    ///     <para>
+    ///         The arithmetic is forced: the span's content box is 85 wide starting 5 in, so two items
+    ///         fit on the first line and the third opens a second one at y = 20. The out-of-flow child
+    ///         is written after all three, so the pen stands 40 into that second line, and both
+    ///         numbers carry the padding: (5 + 40, 5 + 20). ⚠ Both axes move under the defect and they
+    ///         move to the SAME place — a child that falls through to the alignment branch below is
+    ///         put at the padding corner (5, 5) by <c>SetFlexStartLayoutPosition</c> — which is what
+    ///         makes one assertion enough here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>No Chrome reading is possible for this fixture, and that is a fact about CSS
+    ///         rather than about the harness.</b> CSS Display §2.7 blockifies a flex item, so
+    ///         <c>display: inline</c> on one computes to <c>block</c> in every browser — as it does on
+    ///         a grid item, a float, an absolutely positioned box and the root element, which between
+    ///         them are every way to hold such a box out of an inline formatting context. This store
+    ///         does not blockify at all (#1149). So what is pinned here is the store's own model, and
+    ///         the property pinned is that the model is CONSISTENT: the atomic path answers §10.6.4
+    ///         with the same rule the flattened path does, measured from the box's own padding origin
+    ///         rather than from a union's.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void An_atomic_spans_out_of_flow_child_is_placed_by_its_own_line_walk() {
+        using var tree = new LayoutTree();
+
+        var root = tree.CreateNode();
+        tree.SetDisplay(root, Display.Flex);
+        tree.SetDimension(root, Dimension.Width, StyleLength.Points(200f));
+        tree.SetPadding(root, Edge.Left, StyleLength.Points(10f));
+        tree.SetPadding(root, Edge.Top, StyleLength.Points(10f));
+
+        var span = tree.CreateNode();
+        tree.SetDisplay(span, Display.Inline);
+        tree.SetDimension(span, Dimension.Width, StyleLength.Points(90f));
+        tree.SetPadding(span, Edge.Left, StyleLength.Points(5f));
+        tree.SetPadding(span, Edge.Top, StyleLength.Points(5f));
+        tree.AddChild(root, span);
+
+        Item(tree, span, 40f, 20f);
+        Item(tree, span, 40f, 20f);
+        Item(tree, span, 40f, 20f);
+
+        var loose = Item(tree, span, 10f, 10f);
+        tree.SetPositionType(loose, PositionType.Absolute);
+
+        tree.CalculateLayout(root, 200f, float.NaN, Direction.Ltr);
+
+        // Atomic, and these three numbers are what say so: one box, the declared width honoured, and
+        // a height of 5 + two lines of 20 because the third item wrapped at 85.
+        Assert.Equal(1, tree.GetFragmentCount(span));
+        Assert.Equal(90f, tree.GetWidth(span), Tolerance);
+        Assert.Equal(45f, tree.GetHeight(span), Tolerance);
+
+        Assert.Equal(45f, tree.GetLeft(loose), Tolerance);
+        Assert.Equal(25f, tree.GetTop(loose), Tolerance);
+    }
+
+    /// <summary>
     ///     The rectangle such a child resolves its insets against is the span's union, not the
     ///     container's content box — and a span inside an anonymous block box is walked too.
     /// </summary>
