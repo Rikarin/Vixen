@@ -1,0 +1,67 @@
+# Every declared `A > B` pairing an editor with every panel opened AND both of its chrome overlays
+# open actually builds, read off the tree that grew.
+#
+# Held against the measured set by
+# `EditorCombinatorPairTests.Every_declared_pairing_an_editor_with_its_overlays_open_builds_is_in_the_committed_census`,
+# EXACTLY and in both directions. Derived: re-run that test with VIXEN_REGENERATE=1 to write this
+# back, and read the diff.
+#
+# ⚠ This is a set of PROOFS. Every row is a pairing this editor was observed to build with the
+# command palette and the Add Component picker open over it — never a claim that anything absent is
+# dead. The loud direction is a row LEAVING, because that is the moment an overlay stops building a
+# part while a committed sheet still declares the rule; `compositor-editor > node-canvas` is what
+# that looks like (#525), and `palette-row > text` — a rule that never matched anything from the day
+# it was written — is what it looks like when nobody was watching at all.
+#
+# ⚠ A FORK off the panel sweep, not a fourth rung. `OpenedEditorCombinatorPairs.txt` is this file's
+# baseline and `DocumentEditorCombinatorPairs.txt` is its sibling rather than its parent: an overlay
+# is chrome, its rows come from the command and component registries, and re-opening thirty-four
+# documents to reach them would buy minutes and no row. See the test's own remarks.
+#
+# ⚠ The palette's rows are the rows ONE query produced. A row a different query would build is
+# unproved and stays unjudged, exactly as a part an empty document does not build does.
+#
+# See `Rikarin/Vixen#531`.
+add-component-list > scroll-content
+add-component-menu > search-box
+add-component-row > icon
+add-component-row > label
+asset-grid > asset-path
+asset-tile > icon
+asset-tile > image
+browser-filters > search-box
+browser-filters > select
+color-input > color-swatch
+debugger-body > tree-view
+device-manager > data-grid
+dock-guide > dock-hint
+dock-split > dock-splitter
+dock-tabstrip > icon-button
+editor-shell > menu-bar
+expander > expander-header
+expander-header > label
+fact-row > fact-value
+group-editor > tree-view
+inspector > scroll-view
+inspector-header > search-box
+inspector-row > icon-button
+inspector-row > inspector-editor
+inspector-row > inspector-label
+memory-view > scroll-view
+mode-bar > toolbar
+outliner-filters > search-box
+outliner-filters > select
+palette-row > label
+profiler-body > scroll-view
+profiler-view > data-grid
+remote-body > tree-view
+remote-write > textbox
+scroll-view > scroll-content
+segment > icon
+segmented-control > segment
+settings-rail > button
+status-bar > status-trailing
+task-center > text
+toolbar > segmented-control
+vector-component > text
+viewport-bar > toolbar

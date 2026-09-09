@@ -4,6 +4,7 @@
 using System.Text;
 using Vixen.Editor.Testing;
 using Vixen.Ui;
+using Vixen.Ui.Controls;
 using Xunit;
 
 namespace Vixen.Editor.App.Tests;
@@ -47,6 +48,16 @@ namespace Vixen.Editor.App.Tests;
 ///         unrelated change to a panel. Intersecting with the domain keeps every row load-bearing and
 ///         keeps the file's two directions meaningful.
 ///     </para>
+///     <para>
+///         ⚠ <b>And an unproved row is worth reading rather than shrugging at, which is how the
+///         second dead rule was found.</b> <c>palette-row &gt; text</c> sat in the domain and in no
+///         census; chased, it turned out no palette row has ever had a <c>text</c> child — a
+///         <c>PaletteRow</c> is a <c>ButtonBase</c> and its title cell is <c>label</c> — so the rule
+///         matched nothing from the day it was written and the palette's category sat against its
+///         title instead of at the row's right edge. Corrected, and <see cref="Revealed" /> now
+///         holds the corrected form. The census cannot call a row dead; it can put six of them in
+///         front of somebody, which is what it did.
+///     </para>
 /// </remarks>
 public class EditorCombinatorPairTests {
     /// <summary>The domain: every pairing a committed sheet declares, with a bare type on both sides.</summary>
@@ -60,6 +71,9 @@ public class EditorCombinatorPairTests {
 
     /// <summary>The same again, with a document of every registered asset-editor kind open too.</summary>
     const string DocumentCensusFile = "Editor/Vixen.Editor.App.Tests/DocumentEditorCombinatorPairs.txt";
+
+    /// <summary>The panels sweep, plus the two overlays the editor's own chrome puts over them.</summary>
+    const string OverlayCensusFile = "Editor/Vixen.Editor.App.Tests/OverlayEditorCombinatorPairs.txt";
 
     /// <summary>Set <c>VIXEN_REGENERATE=1</c> to write the census back instead of asserting it.</summary>
     static bool Regenerating => Environment.GetEnvironmentVariable("VIXEN_REGENERATE") is "1";
@@ -104,6 +118,20 @@ public class EditorCombinatorPairTests {
     static readonly string[] Authored =
         ["animation-stage > timeline", "font-body > font-atlas", "mixer-strip > slider"];
 
+    /// <summary>Two pairings only an open overlay reaches, one from each of the two overlays.</summary>
+    /// <remarks>
+    ///     ⚠ Named rather than counted, and from both overlays rather than one, for
+    ///     <see cref="Reached" />'s reason: an overlay that opened and built nothing — a palette with
+    ///     no sources, a picker whose button stopped being found — would leave this sweep equal to
+    ///     the panel sweep, and a census regenerated on that day would agree with it perfectly. One
+    ///     overlay still working satisfies any count, so each is asserted by name.
+    ///     ⚠ <c>palette-row &gt; label</c> is here because the sheet used to say
+    ///     <c>palette-row &gt; text</c> and no palette row has ever had a <c>text</c> child — the
+    ///     rule matched nothing from the day it was written. This is what stops the corrected rule
+    ///     going the same way unnoticed.
+    /// </remarks>
+    static readonly string[] Revealed = ["add-component-row > icon", "palette-row > label"];
+
     /// <summary>How many declared pairings the editor is expected to prove, at least.</summary>
     /// <remarks>
     ///     Under the measured number rather than at it, so that a panel gaining a part is not a
@@ -127,8 +155,16 @@ public class EditorCombinatorPairTests {
 
     static IReadOnlySet<string>? documents;
 
+    /// <summary>The panel sweep with the chrome's own overlays open too, done once for the class.</summary>
+    static IReadOnlySet<string> Overlays => overlays ??= Sweep(Depth.Overlays);
+
+    static IReadOnlySet<string>? overlays;
+
     /// <summary>How many assets the document sweep created and asked the editor to open.</summary>
     static int authored;
+
+    /// <summary>How many overlays the overlay sweep got open, by the overlay's own reckoning.</summary>
+    static int revealed;
 
     /// <summary>How many pairings the walk saw altogether, declared or not.</summary>
     static int walked;
@@ -325,9 +361,11 @@ public class EditorCombinatorPairTests {
     ///         one reach 38 of the domain's 89 — because <b>most of what the editor sheets declare is
     ///         under an asset editor, which does not exist until a document of that kind is open.</b>
     ///         The opened census says exactly that in its own header and stops there; this is the
-    ///         sweep that goes on, and it proves <b>77</b>. Of the eleven it still leaves unjudged,
-    ///         one is proved by the controls' own sweep and the rest want an asset with content in it
-    ///         or a menu somebody has to open.
+    ///         sweep that goes on, and it proves <b>77</b>. The overlay sweep beside it takes the
+    ///         four Add Component rows and the palette's, so the four censuses together stand at
+    ///         <b>83 of 89</b>; the six left over want an asset with content in it, a dialog, or a
+    ///         settings type no importer has (<c>override-cell &gt; textbox</c> is the only drawer
+    ///         that would build a <c>textbox</c> there, and nothing declares a string member).
     ///     </para>
     ///     <para>
     ///         ⚠ <b>Weaker standing than the second census, and it is the same ladder.</b> The bare
@@ -418,6 +456,99 @@ public class EditorCombinatorPairTests {
         }
     }
 
+    /// <summary>The same census once more, with the overlays the editor's own chrome opens.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A fork off the panel sweep rather than a fourth rung of the ladder, and the
+    ///         reason is cost rather than taste.</b> Every other census does everything the one
+    ///         before it does and then more; this one does what the <em>panel</em> sweep does and
+    ///         then opens two overlays. Extending the document sweep instead would pay its
+    ///         thirty-four-document loop a second time — minutes, in this assembly, which is already
+    ///         the suite's longest — to prove pairings that have nothing to do with a document: the
+    ///         palette's rows come from the command registry and the picker's from the component
+    ///         registry, and neither is reachable from an open asset. So the chain is
+    ///         Started ⊂ Panels ⊂ {Documents, Overlays}, and what each row claims is unchanged.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Still nothing nested by the harness.</b> The fixture selects an entity and
+    ///         presses the inspector's own <c>Add Component</c> button, and types a query into the
+    ///         shell's own palette. Every element under either overlay is built by that overlay's own
+    ///         factory from a registry the editor filled — the same standing as a panel opened
+    ///         through the workspace, and not the standing the controls' seeded sweep has to refuse.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The query is an input and not a nesting, and it is a limit worth stating.</b> The
+    ///         palette shows nothing until something is typed, so its rows are the rows one query
+    ///         produced; a row a different query would build is unproved and stays unjudged, exactly
+    ///         as a part an empty document does not build does.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Every_declared_pairing_an_editor_with_its_overlays_open_builds_is_in_the_committed_census() {
+        var path = Path.Combine(Root(), OverlayCensusFile);
+
+        if (Regenerating) {
+            Write(path, Overlays.Order(StringComparer.Ordinal));
+        }
+
+        var census = Census(path, OverlayCensusFile);
+
+        var arrived = Overlays.Where(pair => !census.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+        var departed = census.Where(pair => !Overlays.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+
+        Assert.True(
+            arrived.Count == 0 && departed.Count == 0,
+            $"""
+             The overlay-holding editor's census of proved pairings is out of date.
+
+             Built and not in {OverlayCensusFile} — regenerate once you have read them:
+             {Lines(arrived)}
+
+             ⚠ In {OverlayCensusFile} and NO LONGER BUILT — a sheet still declares each of these and
+             the editor stopped growing it, with its overlay open:
+             {Lines(departed)}
+
+             Re-run with VIXEN_REGENERATE=1 to write this back, after reading the second list.
+             """
+        );
+    }
+
+    /// <summary>Opening the overlays reached parts no panel builds.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The instrument for the fourth sweep.</b> If either overlay stopped opening — the
+    ///         <c>Add Component</c> button renamed, the palette's sources emptied — this sweep would
+    ///         collapse to the panel one and its census would be exactly satisfied by whatever was
+    ///         regenerated on that day. <see cref="Reveal" /> throws rather than shrugging when an
+    ///         overlay does not open, and the difference is asserted here by name from both.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A strict superset of the panel sweep, and a lost row is a finding.</b> An overlay
+    ///         is drawn over the shell and must not tear its panels down; a row in the opened census
+    ///         and not here means one did.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Opening_the_editors_own_overlays_proves_more_than_opening_every_panel() {
+        var lost = Opened.Where(pair => !Overlays.Contains(pair)).Order(StringComparer.Ordinal).ToList();
+
+        // After the line above and not before it, for `asked`'s reason: `revealed` is written by the
+        // sweep and the sweep is lazy, so reading it first reports "no overlay opened" when what
+        // happened is that nothing has run yet.
+        Assert.Equal(2, revealed);
+
+        Assert.True(lost.Count == 0, $"opening the overlays LOST pairings an opened editor builds:\n{Lines(lost)}");
+
+        foreach (var pair in Revealed) {
+            Assert.Contains(pair, Overlays, StringComparer.Ordinal);
+            Assert.DoesNotContain(pair, Opened, StringComparer.Ordinal);
+
+            var halves = pair.Split(" > ");
+
+            Assert.DoesNotContain($"{halves[1]} > {halves[0]}", Overlays, StringComparer.Ordinal);
+        }
+    }
+
     /// <summary>Every row is a pairing some committed sheet actually declares.</summary>
     /// <remarks>
     ///     ⚠ The confinement is what makes the file worth reading, and it is asserted rather than
@@ -427,7 +558,7 @@ public class EditorCombinatorPairTests {
     [Fact]
     public void Every_proved_pairing_is_one_a_sheet_declares() {
         var domain = Domain(Path.Combine(Root(), DomainFile));
-        var stray = Observed.Concat(Opened).Concat(Documents)
+        var stray = Observed.Concat(Opened).Concat(Documents).Concat(Overlays)
             .Where(pair => !domain.Contains(pair))
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
@@ -480,6 +611,10 @@ public class EditorCombinatorPairTests {
                 Author(fixture);
             }
 
+            if (depth == Depth.Overlays) {
+                Reveal(fixture);
+            }
+
             Walk(fixture.Document.Root, pairs);
         }
 
@@ -496,9 +631,13 @@ public class EditorCombinatorPairTests {
 
     /// <summary>How much of the editor a sweep has woken up before it reads the tree.</summary>
     /// <remarks>
-    ///     Three states rather than two booleans, because they are ordered: each does everything the
-    ///     one before it does and then more, which is what makes the "nothing was lost" assertions
-    ///     between the three censuses mean anything.
+    ///     Named states rather than booleans, because they are ordered: each does everything
+    ///     <see cref="Panels" /> does and then more, which is what makes the "nothing was lost"
+    ///     assertions between the censuses mean anything. ⚠ <b>It is a tree and not a chain</b>:
+    ///     <see cref="Documents" /> and <see cref="Overlays" /> both extend <see cref="Panels" /> and
+    ///     neither extends the other, because an overlay is chrome and proves nothing a document
+    ///     could have proved — see the overlay census's own remarks for why paying the document loop
+    ///     twice would buy only minutes.
     /// </remarks>
     enum Depth {
         /// <summary>A started editor, with nothing a fixture put it in.</summary>
@@ -509,6 +648,9 @@ public class EditorCombinatorPairTests {
 
         /// <summary>That, and a document of every asset-editor kind the editor registers.</summary>
         Documents,
+
+        /// <summary>That, and the two overlays the editor's own chrome opens over the shell.</summary>
+        Overlays,
     }
 
     /// <summary>
@@ -561,6 +703,76 @@ public class EditorCombinatorPairTests {
         }
 
         authored = made;
+    }
+
+    /// <summary>Opens the two overlays the editor's own chrome puts over the shell.</summary>
+    /// <param name="fixture">The running editor, with its panels already open.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two by name rather than a registry, because there is no registry to read.</b>
+    ///         Every other sweep here reads the editor's own list — the workspace's panels, the
+    ///         asset-editor registry — precisely so that it cannot go stale against an editor that
+    ///         stopped registering something. An overlay is not registered anywhere: the palette is a
+    ///         field on the shell and the picker is made by <c>ComponentsView</c> on first use. So the
+    ///         list is written down, and <see cref="revealed" /> is checked against a literal 2 rather
+    ///         than a floor — a third overlay is a deliberate edit to this method, not a number that
+    ///         drifts.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both throw rather than shrug.</b> An overlay that silently failed to open is the
+    ///         failure this whole sweep exists to not have: the census would collapse to the panel
+    ///         one and a regeneration would bless it. The picker in particular is reached the way a
+    ///         person reaches it — select an entity, then press the inspector's own button — and any
+    ///         step of that going missing is a finding rather than a skip.
+    ///     </para>
+    /// </remarks>
+    static void Reveal(EditorSession fixture) {
+        var opened = 0;
+
+        // The palette shows nothing until something is typed into it, so the query is an input the
+        // fixture supplies; the rows it produces are still the palette's own, built from the command
+        // registry. A query matching nothing would open an empty overlay and prove no pairing.
+        fixture.Shell.Palette.OpenPalette();
+        fixture.Shell.Palette.Field.Value = "layout";
+        fixture.Shell.Palette.Refresh();
+        fixture.Settle();
+
+        if (fixture.Shell.Palette.Results.Count == 0) {
+            throw fixture.Fail("the command palette opened on a query that matched nothing.");
+        }
+
+        opened++;
+
+        // The picker exists only for a selected entity, and only once the inspector has drawn the
+        // button that makes it. Both are the editor's own doing; the fixture presses the button.
+        fixture.ClickRow(fixture.Hierarchy, "Directional Light");
+        fixture.Open("inspector");
+        fixture.Frames(2);
+
+        var add = Descendants(fixture.Panel("inspector"))
+            .OfType<ButtonBase>()
+            .FirstOrDefault(button => button.Label == "Add Component")
+            ?? throw fixture.Fail("the inspector has no 'Add Component' button for a selected entity.");
+
+        add.Activate();
+        fixture.Settle();
+
+        if (!Descendants(fixture.Document.Root).OfType<AddComponentMenu>().Any(picker => picker.IsOpen)) {
+            throw fixture.Fail("pressing 'Add Component' did not open the picker.");
+        }
+
+        opened++;
+        revealed = opened;
+    }
+
+    static IEnumerable<UiElement> Descendants(UiElement element) {
+        foreach (var child in element.Children) {
+            yield return child;
+
+            foreach (var found in Descendants(child)) {
+                yield return found;
+            }
+        }
     }
 
     static void Walk(UiElement element, HashSet<string> into) {
