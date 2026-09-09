@@ -8,7 +8,7 @@ api: [T:Vixen.Raven.Compilation, T:Vixen.Raven.ParseOptions, T:Vixen.Raven.Permu
 tags: [raven, shaders, compiler, tooling]
 since: 0.1
 status: preview
-related: [raven/shader-reflection, raven/compiled-artefacts]
+related: [raven/shader-reflection, raven/compiled-artefacts, raven/ir]
 ---
 
 ## What it is
@@ -129,5 +129,7 @@ var compilation = Compilation.Create("Brdf", [reference], trees);
   the shader it just produced, which is how a pipeline gets built.
 - [Compiled artefacts](compiled-artefacts.md) — `.rvnfx` and `.rvnlib`: what is in each, and which
   one a consumer wants.
+- [The target-independent IR](ir.md) — what lowering produces and every back end consumes, and why
+  the type system there is deliberately smaller than the symbol model's.
 - `Raven/README.md` in the repository — the language itself, the diagnostic ranking heuristic and
   the traps, including ⚠ the one where a newline ends a statement.

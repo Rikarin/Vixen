@@ -8,7 +8,7 @@ api: [T:Vixen.Raven.Artefacts.LibraryIr, T:Vixen.Raven.Artefacts.LibraryIrStruct
 tags: [raven, shaders, packaging, content-build]
 since: 0.1
 status: preview
-related: [raven/compiled-artefacts, raven/compiling-a-shader]
+related: [raven/compiled-artefacts, raven/compiling-a-shader, raven/ir]
 ---
 
 ## What it is
@@ -124,3 +124,5 @@ and deliberately not accepted by the reader.
   its declaration half, and why a reader refuses a version it does not know.
 - [Compiling a shader](compiling-a-shader.md) — the phases that produce it, and `RavenReference`,
   which is how a `.rvnlib` reaches the next compilation.
+- [The target-independent IR](ir.md) — the in-memory model this one mirrors, and why a wire format
+  could not simply be that model serialised.
