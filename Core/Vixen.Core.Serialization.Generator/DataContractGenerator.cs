@@ -179,8 +179,34 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
             HasMigrationHook(type),
             ordered,
             constructorParameters.IsDefault ? ImmutableArray<string>.Empty : constructorParameters,
-            null
+            null,
+            EnumElementsOf(ordered)
         ) { };
+    }
+
+    /// <summary>Every enum a member of this contract holds as a collection element, once each.</summary>
+    /// <param name="members">The contract's members, after the constructor match has settled.</param>
+    /// <returns>Fully qualified enum names, ordered.</returns>
+    /// <remarks>
+    ///     Taken from the members that survive rather than from every member described, so a
+    ///     computed property dropped by the constructor match does not make this assembly register a
+    ///     serializer for an enum nothing writes. That is the same list the contract itself is
+    ///     emitted from, which is what keeps the registration and the code that needs it in step.
+    /// </remarks>
+    static ImmutableArray<string> EnumElementsOf(ImmutableArray<MemberModel> members) {
+        var found = new SortedSet<string>(StringComparer.Ordinal);
+
+        foreach (var member in members) {
+            if (member.ElementIsEnum && !string.IsNullOrEmpty(member.ElementType)) {
+                found.Add(member.ElementType);
+            }
+
+            if (member.SecondElementIsEnum && !string.IsNullOrEmpty(member.SecondElementType)) {
+                found.Add(member.SecondElementType);
+            }
+        }
+
+        return found.Count == 0 ? ImmutableArray<string>.Empty : [.. found];
     }
 
     static ContractModel Failed(INamedTypeSymbol type, string qualified, string reason) =>
@@ -271,16 +297,22 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         if (type is IArrayTypeSymbol { Rank: 1 } array) {
             var element = Keyword(array.ElementType) ?? array.ElementType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             var shape = Blittable.Contains(element) ? MemberShape.BlittableArray : MemberShape.Array;
-            return new(name, qualified, shape, string.Empty, element, string.Empty, settable, initOnly, computed, declaring, order, sequence);
+            return new(name, qualified, shape, string.Empty, element, string.Empty, settable, initOnly, computed, declaring, order, sequence, IsEnum(array.ElementType));
         }
 
         if (type is INamedTypeSymbol { IsGenericType: true } generic) {
             var definition = generic.ConstructedFrom.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             var first = Argument(generic, 0);
 
+            // ⚠ Asked here, where the symbol is, and carried as a flag rather than resolved later
+            // from the name: by the time the emitter runs, an element type is a string. It changes
+            // nothing about what is written — an element goes through the registry whatever it is —
+            // and everything about whether the registry has anything to give (#1177).
+            var firstIsEnum = IsEnum(generic.TypeArguments[0]);
+
             switch (definition) {
                 case "global::System.Collections.Generic.List<T>":
-                    return new(name, qualified, MemberShape.List, string.Empty, first, string.Empty, settable, initOnly, computed, declaring, order, sequence);
+                    return new(name, qualified, MemberShape.List, string.Empty, first, string.Empty, settable, initOnly, computed, declaring, order, sequence, firstIsEnum);
 
                 // ⚠ A collection declared as one of its interfaces is a *sequence*, not a
                 // polymorphic reference. Falling through to the bottom of this method made it the
@@ -298,13 +330,13 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
                 case "global::System.Collections.Generic.IList<T>":
                 case "global::System.Collections.Generic.ICollection<T>":
                 case "global::System.Collections.Generic.IEnumerable<T>":
-                    return new(name, qualified, MemberShape.Sequence, string.Empty, first, string.Empty, settable, initOnly, computed, declaring, order, sequence);
+                    return new(name, qualified, MemberShape.Sequence, string.Empty, first, string.Empty, settable, initOnly, computed, declaring, order, sequence, firstIsEnum);
 
                 case "global::System.Collections.Generic.Dictionary<TKey, TValue>":
-                    return new(name, qualified, MemberShape.Dictionary, string.Empty, first, Argument(generic, 1), settable, initOnly, computed, declaring, order, sequence);
+                    return new(name, qualified, MemberShape.Dictionary, string.Empty, first, Argument(generic, 1), settable, initOnly, computed, declaring, order, sequence, firstIsEnum, IsEnum(generic.TypeArguments[1]));
 
                 case "global::System.Nullable<T>":
-                    return new(name, qualified, MemberShape.Nullable, string.Empty, first, string.Empty, settable, initOnly, computed, declaring, order, sequence);
+                    return new(name, qualified, MemberShape.Nullable, string.Empty, first, string.Empty, settable, initOnly, computed, declaring, order, sequence, firstIsEnum);
 
                 // A content reference is a sealed class, so the ordinary reference path already reads
                 // and writes it. What it needs on top is a registered serializer for its closed
@@ -323,6 +355,11 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
 
         return new(name, qualified, otherShape, string.Empty, string.Empty, string.Empty, settable, initOnly, computed, declaring, order, sequence);
     }
+
+    /// <summary>Whether a type is an enum, and so reaches the registry through nothing.</summary>
+    /// <param name="type">The element type.</param>
+    /// <returns>Whether it is an enum.</returns>
+    static bool IsEnum(ITypeSymbol type) => type.TypeKind == TypeKind.Enum;
 
     static string Argument(INamedTypeSymbol generic, int index) {
         var argument = generic.TypeArguments[index];
@@ -714,6 +751,26 @@ public sealed class DataContractGenerator : IIncrementalGenerator {
         foreach (var element in referenced) {
             source.AppendLine(
                 $"            global::Vixen.Core.Serialization.SerializerRegistry.Register(new global::Vixen.Core.Serialization.ContentReferenceSerializer<{element}>());"
+            );
+        }
+
+        // Every enum any member of this assembly holds as a collection element.
+        //
+        // There was no value of such a member that serialised at all until this line existed. An
+        // enum MEMBER is written inline as its underlying primitive, which is why Describe returns
+        // nothing for TypeKind.Enum and why no enum has ever needed a registered serializer; an enum
+        // ELEMENT goes through the registry like any other, found nothing there, and threw with a
+        // message telling the author to annotate the enum with [DataContract] - which generates
+        // nothing, on purpose. Instantiated here for the same reason a ContentReference is: the
+        // closed generic has to be one the compiler saw, because NativeAOT has no way to build one.
+        var enums = valid
+            .SelectMany(model => model.EnumElements.IsDefaultOrEmpty ? [] : model.EnumElements)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(element => element, StringComparer.Ordinal);
+
+        foreach (var element in enums) {
+            source.AppendLine(
+                $"            global::Vixen.Core.Serialization.SerializerRegistry.Register(new global::Vixen.Core.Serialization.EnumSerializer<{element}>());"
             );
         }
 

@@ -12,13 +12,42 @@ namespace Vixen.Core.Syntax.Generator;
 
 [Generator]
 public class SourceGenerator : IIncrementalGenerator {
+    /// <summary>The MSBuild property a project sets to say it is building a language.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Opt-in rather than on, and the reason is that this generator ships in a
+    ///         package.</b> <c>Vixen.Core.Syntax</c>'s own description advertises the third-party
+    ///         case — <i>"Shared by Raven, VXML and VCSS — each supplies its own Syntax.xml"</i> —
+    ///         and a <c>Syntax.xml</c> with no generator produces nothing at all, so the generator
+    ///         has to travel in the package. But <c>VXS0001</c> fired on every compilation that had
+    ///         no <c>Syntax.xml</c>, which is every consumer that is not writing a language, and
+    ///         under <c>TreatWarningsAsErrors</c> that is a build break rather than a warning. It
+    ///         was the reason the package could not carry it (#1188).
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>An opt-in and not a disabled-by-default severity.</b> Turning the rule off by
+    ///         default would remove the guard from the three in-tree consumers as well, which is a
+    ///         worse trade: the diagnostic exists so that a project that imported the generator and
+    ///         forgot its <c>AdditionalFiles</c> line hears about it, and a project that has said
+    ///         it is building a language is exactly the one that can be told.
+    ///     </para>
+    ///     <para>
+    ///         Surfaced through <c>CompilerVisibleProperty</c>, which the package's
+    ///         <c>buildTransitive</c> props declares so that a consumer outside this repository has
+    ///         only the property itself to set.
+    ///     </para>
+    /// </remarks>
+    const string RequiredProperty = "build_property.vixensyntaxxmlrequired";
+
     static readonly DiagnosticDescriptor MissingSyntaxXml = new(
         "VXS0001",
         "Syntax.xml is missing",
         "The Syntax.xml file was not included in the project, so we are not generating source",
         "SyntaxGenerator",
         DiagnosticSeverity.Warning,
-        true
+        true,
+        "Reported only where VixenSyntaxXmlRequired is true. A compilation that merely references "
+        + "Vixen.Core.Syntax is not building a language and has no Syntax.xml to forget."
     );
 
     static readonly DiagnosticDescriptor UnableToReadSyntaxXml = new(
@@ -44,18 +73,32 @@ public class SourceGenerator : IIncrementalGenerator {
             .Where(at => Path.GetFileName(at.Path) == "Syntax.xml")
             .Collect();
 
+        // ⚠ The key is `build_property.` followed by the MSBuild property name AS AUTHORED — the
+        // generated editorconfig really does read `build_property.VixenSyntaxXmlRequired = true` —
+        // and this looks it up lower-cased, which works because AnalyzerConfigOptions compares keys
+        // ordinal-ignore-case. Verified rather than assumed: the A/B that proved the opt-in was a
+        // compilation whose only difference was the property, and it reported VXS0001.
+        var required = context.AnalyzerConfigOptionsProvider.Select(
+            static (provider, _) =>
+                provider.GlobalOptions.TryGetValue(RequiredProperty, out var value)
+                && string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+        );
 
         context.RegisterSourceOutput(
-            syntaxXmlFiles,
-            static (context, syntaxXmlFiles) => {
-                var input = syntaxXmlFiles.SingleOrDefault();
+            syntaxXmlFiles.Combine(required),
+            static (context, input) => {
+                var (syntaxXmlFiles, required) = input;
+                var file = syntaxXmlFiles.SingleOrDefault();
 
-                if (input == null) {
-                    context.ReportDiagnostic(Diagnostic.Create(MissingSyntaxXml, null));
+                if (file == null) {
+                    if (required) {
+                        context.ReportDiagnostic(Diagnostic.Create(MissingSyntaxXml, null));
+                    }
+
                     return;
                 }
 
-                var inputText = input.GetText();
+                var inputText = file.GetText();
                 if (inputText == null) {
                     context.ReportDiagnostic(Diagnostic.Create(UnableToReadSyntaxXml, null));
                     return;
@@ -79,7 +122,7 @@ public class SourceGenerator : IIncrementalGenerator {
                     context.ReportDiagnostic(
                         Diagnostic.Create(
                             SyntaxXmlError,
-                            Location.Create(input.Path, span, lineSpan),
+                            Location.Create(file.Path, span, lineSpan),
                             xmlException.Message
                         )
                     );

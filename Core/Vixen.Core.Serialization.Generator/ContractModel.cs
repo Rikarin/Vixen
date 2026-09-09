@@ -69,6 +69,18 @@ enum MemberShape {
 ///     <c>[UnsafeAccessor]</c> looks its target up on the receiver's own type and does not walk the
 ///     base chain, so this is the receiver the accessor has to take.
 /// </param>
+/// <param name="ElementIsEnum">
+///     Whether <paramref name="ElementType" /> is an enum. ⚠ The emitted read and write are
+///     unaffected — an element goes through the registry whatever it is — but an enum reaches the
+///     registry through nothing at all unless this assembly instantiates an
+///     <c>EnumSerializer&lt;T&gt;</c> for it, because <c>Describe</c> declines to generate one for
+///     an enum type and there is no <c>MakeGenericType</c> to build the closed generic at run time
+///     (#1177).
+/// </param>
+/// <param name="SecondElementIsEnum">
+///     The same question for a dictionary's value type, which is the other half of the only member
+///     shape with two element types.
+/// </param>
 readonly record struct MemberModel(
     string Name,
     string TypeName,
@@ -81,10 +93,18 @@ readonly record struct MemberModel(
     bool IsComputed,
     string DeclaringType,
     int Order,
-    int Sequence
+    int Sequence,
+    bool ElementIsEnum = false,
+    bool SecondElementIsEnum = false
 );
 
 /// <summary>One <c>[DataContract]</c> type, reduced to what the emitter needs.</summary>
+/// <param name="EnumElements">
+///     Every enum type this contract's members use as a collection element, fully qualified.
+///     <c>EmitRegistration</c> unions these across the assembly and registers one
+///     <c>EnumSerializer&lt;T&gt;</c> for each — the same mechanism that reaches
+///     <c>ContentReference&lt;T&gt;</c>, and for the same reason.
+/// </param>
 readonly record struct ContractModel(
     string Namespace,
     string TypeName,
@@ -99,5 +119,6 @@ readonly record struct ContractModel(
     bool HasMigrationHook,
     ImmutableArray<MemberModel> Members,
     ImmutableArray<string> ConstructorParameters,
-    string? Error
+    string? Error,
+    ImmutableArray<string> EnumElements = default
 );

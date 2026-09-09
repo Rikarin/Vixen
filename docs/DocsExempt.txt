@@ -750,6 +750,7 @@ T:Vixen.Core.Serialization.ContentResolution sweep-pending
 T:Vixen.Core.Serialization.ContentResolution.Scope sweep-pending
 T:Vixen.Core.Serialization.DataSerializer sweep-pending
 T:Vixen.Core.Serialization.DataSerializer`1 sweep-pending
+T:Vixen.Core.Serialization.EnumSerializer`1 sweep-pending
 T:Vixen.Core.Serialization.Framing sweep-pending
 T:Vixen.Core.Serialization.Generator.DataContractGenerator sweep-pending
 T:Vixen.Core.Serialization.IContentResolver sweep-pending
@@ -1225,6 +1226,7 @@ T:Vixen.Editor.Assets.Textures.SpriteSlicer sweep-pending
 T:Vixen.Editor.Assets.UnregisteredReadException sweep-pending
 T:Vixen.Editor.Assets.Video.VideoImportSettings sweep-pending
 T:Vixen.Editor.Assets.Video.VideoImporter sweep-pending
+T:Vixen.Editor.Blockout.BlockoutStrings sweep-pending
 T:Vixen.Editor.Core.AssetDatabase sweep-pending
 T:Vixen.Editor.Core.AssetEntry sweep-pending
 T:Vixen.Editor.Core.AssetIssue sweep-pending
@@ -1291,6 +1293,7 @@ T:Vixen.Editor.Debugger.RemoteInspectorClient sweep-pending
 T:Vixen.Editor.Debugger.RemoteInspectorView sweep-pending
 T:Vixen.Editor.Debugger.RemoteState sweep-pending
 T:Vixen.Editor.Debugger.StateRow sweep-pending
+T:Vixen.Editor.Diagnostics.DiagnosticsStrings sweep-pending
 T:Vixen.Editor.Inspector.AssetPickerAttribute sweep-pending
 T:Vixen.Editor.Inspector.BrowserTheme sweep-pending
 T:Vixen.Editor.Inspector.ColorUsage sweep-pending
@@ -1579,10 +1582,12 @@ T:Vixen.Editor.ShaderGraph.ShaderProperties sweep-pending
 T:Vixen.Editor.ShaderGraph.ShaderStageInput sweep-pending
 T:Vixen.Editor.Terrain.FactBlock sweep-pending
 T:Vixen.Editor.Terrain.FactLine sweep-pending
+T:Vixen.Editor.Terrain.TerrainStrings sweep-pending
 T:Vixen.Editor.Testing.EditorSession sweep-pending
 T:Vixen.Editor.Testing.EditorSessionException sweep-pending
 T:Vixen.Editor.Testing.EditorSessionOptions sweep-pending
 T:Vixen.Editor.TextureGraph.NodeTypes generated — the assembly's [Node] registration list, emitted by Vixen.Editor.NodeGraph.Generator; the same line Vixen.Editor.ShaderGraph.NodeTypes has
+T:Vixen.Editor.Texturing.TexturingStrings sweep-pending
 T:Vixen.Editor.Ui.CommandPalette sweep-pending
 T:Vixen.Editor.Ui.CommandPaletteSource sweep-pending
 T:Vixen.Editor.Ui.ConsoleLevels sweep-pending

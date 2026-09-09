@@ -44,6 +44,19 @@ public enum Facing : byte {
     West
 }
 
+/// <summary>A four-byte enum, so the element path is exercised at more than one width.</summary>
+/// <remarks>
+///     <c>Facing</c> is <c>byte</c>-backed and would prove only the one-byte branch of
+///     <c>EnumSerializer{TEnum}</c>. An enum's underlying type decides how many bytes it occupies in
+///     the stream, and a serializer that read the wrong number would round-trip a one-byte enum
+///     perfectly while corrupting everything after a four-byte one.
+/// </remarks>
+public enum Tone {
+    Warm,
+    Cool,
+    Neutral
+}
+
 [DataContract]
 public sealed class CollectionsClass {
     public int[]? Numbers { get; set; }
@@ -52,6 +65,17 @@ public sealed class CollectionsClass {
     public Dictionary<string, int>? Counts { get; set; }
     public int? Optional { get; set; }
     public Facing Direction { get; set; }
+
+    // The four shapes #1177 named, and they are the four for which no value serialised. An enum
+    // MEMBER is written inline as its underlying primitive - Direction above - so no enum type had
+    // ever needed a registered serializer; an enum ELEMENT asks the registry, found nothing, and
+    // threw with a message telling the author to annotate the enum with [DataContract], which
+    // generates nothing on purpose. The class already held an int[], a List<int> and a
+    // Dictionary<string,int>, which is why ninety-one green tests could not see it.
+    public Facing[]? Directions { get; set; }
+    public List<Facing>? Headings { get; set; }
+    public Dictionary<string, Tone>? Palette { get; set; }
+    public Tone? Accent { get; set; }
 }
 
 [DataContract]

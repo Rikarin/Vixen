@@ -12,6 +12,26 @@
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
     </PropertyGroup>
 
+    <!--
+        ⚠ This is what turns VXS0001 back on. The diagnostic is opt-in since #1188 — it fires when
+        a compilation has no Syntax.xml, which is every consumer of Vixen.Core.Syntax that is not
+        building a language, and with TreatWarningsAsErrors that was a build break rather than a
+        warning; it was the reason the package could not carry the generator. A project that says
+        it is building a language is exactly the one the guard is for: forgetting the AdditionalFiles
+        line below is then one diagnostic rather than a hundred CS0246s.
+
+        CompilerVisibleProperty is what puts it in the analyzer config. In a package this line comes
+        from Vixen.Core.Syntax's buildTransitive targets; in this tree the reference is a
+        ProjectReference, which carries no build assets, so it is named here.
+    -->
+    <PropertyGroup>
+        <VixenSyntaxXmlRequired>true</VixenSyntaxXmlRequired>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <CompilerVisibleProperty Include="VixenSyntaxXmlRequired" />
+    </ItemGroup>
+
     <ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.Analyzers">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

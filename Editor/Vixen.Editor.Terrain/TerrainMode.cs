@@ -376,7 +376,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
             var id = SlotCommand(slot);
 
             shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, $"Tool {slot + 1}"), () => SelectSlot(slot)) {
+                new EditorCommand(id, TerrainStrings.TerrainCommands[id], () => SelectSlot(slot)) {
                     Category = EditorStrings.CategoryTerrain,
                     Context = TerrainContext,
                     Enablement = () => IsActive() && HasTerrain && slot < ToolCount
@@ -398,13 +398,13 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
             DeclareCategory(category);
         }
 
-        Verb(GrowBrushCommand, "Grow Brush", () => Editing.Brush.Resize(1), InputKey.RightBracket);
-        Verb(ShrinkBrushCommand, "Shrink Brush", () => Editing.Brush.Resize(-1), InputKey.LeftBracket);
-        Verb(HarderCommand, "Press Harder", () => Editing.Brush.Press(1), InputKey.Equals);
-        Verb(SofterCommand, "Press Softer", () => Editing.Brush.Press(-1), InputKey.Minus);
+        Verb(GrowBrushCommand, () => Editing.Brush.Resize(1), InputKey.RightBracket);
+        Verb(ShrinkBrushCommand, () => Editing.Brush.Resize(-1), InputKey.LeftBracket);
+        Verb(HarderCommand, () => Editing.Brush.Press(1), InputKey.Equals);
+        Verb(SofterCommand, () => Editing.Brush.Press(-1), InputKey.Minus);
 
         shell.Commands.Add(
-            new EditorCommand(CreateCommand, new StringId("editor.command." + CreateCommand, "Create Terrain"), Made) {
+            new EditorCommand(CreateCommand, TerrainStrings.TerrainCommands[CreateCommand], Made) {
                 Category = EditorStrings.CategoryTerrain,
                 Context = TerrainContext,
 
@@ -417,7 +417,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
         shell.Commands.Add(
             new EditorCommand(
                 AddTargetCommand,
-                new StringId("editor.command." + AddTargetCommand, "Add Target Layer"),
+                TerrainStrings.TerrainCommands[AddTargetCommand],
                 () => {
                     if (Editing.Terrain is { } terrain) {
                         var (command, index) = TerrainLayerCommands.AddTarget(terrain, NextTargetName());
@@ -436,7 +436,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
         shell.Commands.Add(
             new EditorCommand(
                 RemoveTargetCommand,
-                new StringId("editor.command." + RemoveTargetCommand, "Remove Target Layer"),
+                TerrainStrings.TerrainCommands[RemoveTargetCommand],
                 () => {
                     if (Editing is { Terrain: { } terrain, Target: >= 0 and var index }) {
                         Run(TerrainLayerCommands.RemoveTarget(terrain, index));
@@ -450,14 +450,14 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
             }
         );
 
-        Layer(AddLayerCommand, "Add Terrain Layer", () => {
+        Layer(AddLayerCommand, () => {
             var (command, layer) = TerrainLayerCommands.Add(Editing.Terrain!, NextLayerName());
 
             Run(command);
             Editing.Layer = layer;
         }, needsLayer: false);
 
-        Layer(RemoveLayerCommand, "Remove Terrain Layer", () => {
+        Layer(RemoveLayerCommand, () => {
             var terrain = Editing.Terrain!;
             var index = terrain.IndexOf(Editing.Layer!);
 
@@ -467,7 +467,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
                 : terrain.Layers[Math.Clamp(index - 1, 0, terrain.Layers.Count - 1)];
         });
 
-        Layer(DuplicateLayerCommand, "Duplicate Terrain Layer", () => {
+        Layer(DuplicateLayerCommand, () => {
             var (command, layer) = TerrainLayerCommands.Duplicate(Editing.Terrain!, Editing.Layer!);
 
             Run(command);
@@ -476,23 +476,20 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
 
         Layer(
             ClearLayerCommand,
-            "Clear Terrain Layer",
             () => Run(TerrainLayerCommands.Clear(Editing.Terrain!, Editing.Layer!))
         );
 
         Layer(
             CollapseLayerCommand,
-            "Collapse Terrain Layer",
             () => Run(TerrainLayerCommands.Collapse(Editing.Terrain!, Editing.Terrain!.IndexOf(Editing.Layer!))),
             enabled: () => Editing.Terrain?.IndexOf(Editing.Layer!) > 0
         );
 
-        Layer(RaiseLayerCommand, "Raise Terrain Layer", () => Moved(1), enabled: () => CanMove(1));
-        Layer(LowerLayerCommand, "Lower Terrain Layer", () => Moved(-1), enabled: () => CanMove(-1));
+        Layer(RaiseLayerCommand, () => Moved(1), enabled: () => CanMove(1));
+        Layer(LowerLayerCommand, () => Moved(-1), enabled: () => CanMove(-1));
 
         Layer(
             ToggleLayerCommand,
-            "Show / Hide Terrain Layer",
             () => Run(TerrainLayerCommands.SetVisible(Editing.Terrain!, Editing.Layer!, !Editing.Layer!.IsVisible))
         );
 
@@ -503,7 +500,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
             var id = ToolCommand(tool);
 
             shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, tool + " Tool"), () => {
+                new EditorCommand(id, TerrainStrings.TerrainCommands[id], () => {
                     Category = TerrainCategory.Sculpt;
                     Tool = tool;
                 }) {
@@ -524,7 +521,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
             var id = PaintToolCommand(tool);
 
             shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, "Paint " + tool), () => {
+                new EditorCommand(id, TerrainStrings.TerrainCommands[id], () => {
                     Category = TerrainCategory.Paint;
                     PaintTool = tool;
                 }) {
@@ -545,7 +542,7 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
             var id = CategoryCommand(category);
 
             shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, category.ToString()), () => Category = category) {
+                new EditorCommand(id, TerrainStrings.TerrainCommands[id], () => Category = category) {
                     Category = EditorStrings.CategoryTerrain,
                     Context = TerrainContext,
                     RadioGroup = CategoryGroup,
@@ -555,9 +552,9 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
             );
         }
 
-        void Verb(string id, string label, Action run, InputKey key) {
+        void Verb(string id, Action run, InputKey key) {
             shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, label), run) {
+                new EditorCommand(id, TerrainStrings.TerrainCommands[id], run) {
                     Category = EditorStrings.CategoryTerrain,
                     Context = TerrainContext,
                     Enablement = () => IsActive() && HasTerrain
@@ -567,9 +564,9 @@ public sealed class TerrainMode : IEditorMode, IViewportInput {
             shell.Keys.SetDefault(id, new KeyChord(key, ModifierKeys.None));
         }
 
-        void Layer(string id, string label, Action run, bool needsLayer = true, Func<bool>? enabled = null) {
+        void Layer(string id, Action run, bool needsLayer = true, Func<bool>? enabled = null) {
             shell.Commands.Add(
-                new EditorCommand(id, new StringId("editor.command." + id, label), () => {
+                new EditorCommand(id, TerrainStrings.TerrainCommands[id], () => {
                     if (Editing.Terrain is not null && (!needsLayer || Editing.Layer is not null)) {
                         run();
                     }
