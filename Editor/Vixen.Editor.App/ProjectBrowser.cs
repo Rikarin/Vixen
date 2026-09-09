@@ -410,6 +410,12 @@ sealed class ProjectBrowser {
         tiles.Containing = Containing;
         tiles.Art = Art;
         tiles.Picture = Pictured;
+
+        // ⚠ A lambda over the property rather than the property's value, because the application
+        // assigns `Status` after building the panel — a direct hand-over here would freeze the
+        // default in, and the column would be permanently blank in exactly the arrangement that
+        // ships.
+        tiles.Status = node => Status(node.Path);
         tiles.Navigated += entered => {
             folder = entered.Path;
             Populate();
@@ -505,6 +511,25 @@ sealed class ProjectBrowser {
     ///     every <c>AssetTreeNode</c>, so a held reference names a folder that no longer exists.
     /// </remarks>
     public string Folder => folder;
+
+    /// <summary>What source control says about a project-relative path, for the column.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Given to the panel rather than read by it, for the browser's standing rule: every
+    ///     verb goes out as an event and every fact comes in as a value.</b> A browser that ran
+    ///     <c>git</c> would be a panel that starts a process, and the answer belongs to the project
+    ///     rather than to whichever view happens to be open — see <c>EditorApplication.Sweep</c>,
+    ///     which is where the sweep is taken and what makes it survive the panel being closed.
+    /// </remarks>
+    public Func<string, SourceControlStatus> Status { get; set; } = static _ => SourceControlStatus.Unknown;
+
+    /// <summary>Re-draws the marks after a status sweep has landed.</summary>
+    /// <remarks>
+    ///     ⚠ Rebinds rather than rebuilds. A sweep changes what a tile <i>says</i> and never which
+    ///     tiles there are, and a rebuild would take the scroll position and the selection with it —
+    ///     which for something that runs whenever a file changes on disk is the panel jumping under
+    ///     the pointer.
+    /// </remarks>
+    public void Restated() => tiles.Refresh();
 
     /// <summary>Which folder a point in the panel means, for a drop that has to land somewhere.</summary>
     /// <param name="x">Where, in document space.</param>

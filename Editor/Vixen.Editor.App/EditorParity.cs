@@ -513,6 +513,21 @@ sealed partial class EditorApplication {
             enabled: () => browser is not null && project.Selection.Count > 0
         );
 
+        // ⚠ Doc 20 § B7's second verb, and it is enabled by a *provider* rather than by a
+        // preference: an editor opened on a project that is not in a working tree greys this with
+        // the reason, which is the shape every other unimplementable line in this file takes. The
+        // enablement asks `SourceControl.IsKnown` rather than "is there a provider", because the
+        // detection happens on the pool during the first sweep — a line that lit up only after the
+        // answer arrived is honest, and one that lit up before it would offer a verb with nothing
+        // behind it.
+        Verb(
+            "assets.revert",
+            new StringId("editor.command.assets.revert", "Revert to Source Control"),
+            CategoryAssets,
+            RevertToSourceControl,
+            enabled: () => SourceControl.IsKnown && project.Selection.Count > 0
+        );
+
         Planned(
             "assets.reimport",
             new StringId("editor.command.assets.reimport", "Reimport"),
@@ -1143,6 +1158,8 @@ sealed partial class EditorApplication {
 
         assets.AddSeparator()
             .Add("assets.show-in-explorer", "assets.open", "assets.rename", "assets.delete", "assets.move-to")
+            .AddSeparator()
+            .Add("assets.revert")
             .AddSeparator()
             .Add("assets.reimport", "assets.reimport-all", "assets.bake-mesh-maps")
             .AddSeparator()

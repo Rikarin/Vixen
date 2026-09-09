@@ -172,6 +172,32 @@ asset-caption {
     overflow-wrap: anywhere;
 }
 
+/* Doc 20 § B7's status column, which on a grid is a corner rather than a column.
+
+   ⚠ `position: absolute` and therefore out of the tile's flow, which it has to be: the
+   arithmetic above leaves the tile nothing spare, so a badge in the column would take its
+   height off the glyph or the caption and put every tile in the grid a few pixels wrong.
+   The tile is itself absolutely positioned, so it is the containing block this resolves
+   against — the same pairing `components` makes with its drop line.
+
+   ⚠ A letter and not only a colour. Modified and conflicted are both "a warm colour" to a
+   good proportion of readers, and the letters are git's own — which is what somebody who has
+   a terminal open beside the editor already reads. */
+asset-status {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 0.75em;
+    font-weight: 700;
+    color: var(--text-muted, var(--text));
+}
+
+asset-status.modified { color: var(--warning); }
+asset-status.added { color: var(--success, var(--accent)); }
+asset-status.deleted { color: var(--danger); }
+asset-status.conflicted { color: var(--danger); }
+asset-status.untracked { color: var(--text-muted, var(--text)); }
+
 
 /* ── The component foldouts ─────────────────────────────────────────────
    One block per component, under the inspector's own rows and separated from them
