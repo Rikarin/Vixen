@@ -417,10 +417,27 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     ///         see <c>ForwardLightingRenderFeature</c>, which writes one buffer and moves an offset.
     ///     </para>
     ///     <para>
-    ///         <b>Graphics stages only, and the exception is not a special case.</b> "Per draw" is a
-    ///         claim about draws; a compute dispatch has none, so a compute shader marking a block
-    ///         <c>[PerDraw]</c> is using the set index for storage rather than saying its contents
-    ///         change between draws. <c>BindlessProbe</c> is exactly that, and binds its block once.
+    ///         <b>The shader says so now, and this used to infer it.</b> Raven's
+    ///         <c>[DynamicOffset]</c> marks a block as bound at a moving offset, and
+    ///         <see cref="EffectBindingData.DynamicOffset" /> carries the answer here. ⚠ The
+    ///         inference it replaces read the claim off the <i>set index</i> — a uniform block in
+    ///         <see cref="DescriptorSetSlot.PerDraw" /> used by any non-compute stage — so one number
+    ///         carried two different claims at once: where a binding lives, and whether its contents
+    ///         change between draws. A shader that wanted the first without the second had no way to
+    ///         say so, which is why the rule needed a compute carve-out ("per draw" is a claim about
+    ///         draws and a dispatch has none, so <c>BindlessProbe</c>'s per-draw block is storage
+    ///         rather than a claim) and why the next shader wanting a plain per-draw block would have
+    ///         met a refusal it could not fix in the shader. Both disappear into the declaration.
+    ///     </para>
+    ///     <para>
+    ///         <b>The inference is gone rather than kept as a fallback</b>, because a fallback is the
+    ///         same two-claims-one-number rule wearing a different name — every unmarked block would
+    ///         still be answered by its set index, and the shader that wants a plain per-draw block
+    ///         still could not say so. ⚠ What that costs is an <see cref="EffectData" /> baked before
+    ///         the attribute existed: its blocks read as plain, and a host that offsets one is
+    ///         refused at the write with a message naming both kinds. Loud, and in the safe
+    ///         direction — never a shader quietly reading the wrong bytes — which is the property
+    ///         that makes dropping the inference affordable at all.
     ///     </para>
     ///     <para>
     ///         ⚠ It has to be applied <i>here</i>, where both the set layout and
@@ -428,13 +445,6 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     ///         says dynamic and a plan that says plain writes the wrong descriptor type into a correct
     ///         layout — which the RHI refuses outright, and which is how the compute case above was
     ///         found rather than shipped.
-    ///     </para>
-    ///     <para>
-    ///         <b>This is a convention read off a set index, and the shader ought to say it instead.</b>
-    ///         Raven has no way to mark a block as bound at an offset; until it does, this is inferred.
-    ///         The inference is safe in the direction that matters: getting it wrong is a refusal at
-    ///         the write with a message naming both kinds, never a shader quietly reading the wrong
-    ///         bytes.
     ///     </para>
     ///     <para>
     ///         Before this, <c>ForwardLightingRenderFeature</c> made a layout of its own that said
@@ -445,8 +455,7 @@ public sealed class EffectLoader(IGraphicsDevice device) {
     ///     </para>
     /// </remarks>
     static DescriptorKind KindOf(EffectBindingData binding) =>
-        binding is { Set: DescriptorSetSlot.PerDraw, Kind: DescriptorKind.UniformBuffer }
-        && (binding.Stages & ~ShaderStage.Compute) != ShaderStage.None
+        binding is { Kind: DescriptorKind.UniformBuffer, DynamicOffset: true }
             ? DescriptorKind.DynamicUniformBuffer
             : binding.Kind;
 

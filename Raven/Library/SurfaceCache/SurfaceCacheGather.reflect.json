@@ -158,7 +158,8 @@
             }
           ],
           "Size": 240,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 1,
@@ -168,7 +169,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 2,
@@ -178,7 +180,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 3,
@@ -188,7 +191,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 4,
@@ -198,7 +202,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 5,
@@ -208,7 +213,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 6,
@@ -218,7 +224,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 7,
@@ -228,7 +235,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 8,
@@ -336,7 +344,8 @@
             }
           ],
           "Size": 64,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 9,
@@ -396,7 +405,8 @@
             }
           ],
           "Size": 8,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 10,
@@ -423,7 +433,8 @@
             }
           ],
           "Size": 4,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         }
       ]
     },
@@ -551,7 +562,8 @@
             }
           ],
           "Size": 48,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 1,
@@ -561,7 +573,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 2,
@@ -571,7 +584,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 3,
@@ -679,7 +693,8 @@
             }
           ],
           "Size": 64,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 4,
@@ -689,7 +704,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         }
       ]
     }

@@ -419,6 +419,230 @@ public sealed class ScreenProbeTraceDeviceTests {
         Compare(reference, texels, _ => true);
     }
 
+    /// <summary>
+    ///     A screen hit radiates the frame's colour at the pixel that stopped the ray, on the device
+    ///     as on the CPU — the same wall, now lit.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The wall used to answer black, and that made turning the screen trace on remove
+    ///         light.</b> The screen is marched for geometry the distance field may not hold, which
+    ///         is geometry whose light is therefore missing from the field too: calling it a pure
+    ///         occluder subtracts and never adds, so the more the screen finds, the darker the
+    ///         gather. Both sides now read <c>sceneColor</c>, and this holds them to it texel by
+    ///         texel.
+    ///     </para>
+    ///     <para>
+    ///         <b>The colour plane is position-coded</b>, the arrangement
+    ///         <c>ReflectionTraceDeviceTests</c> already uses for the same reason: a flat colour
+    ///         cannot tell a hit at the right pixel from a hit at the wrong one, and a mirrored fold
+    ///         or an off-by-one texel would read exactly as right. Every pixel here holds its own x
+    ///         and y, so the comparison sees <i>which</i> pixel stopped each ray and not merely that
+    ///         one did.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AScreenHitRadiatesTheFrameColourOnTheDevice() {
+        if (!TryOpen(out var fixture)) {
+            return;
+        }
+
+        using var owned = fixture!;
+        var device = owned.Device;
+
+        // The same wall over the right half of a 64×48 screen as the occlusion test above.
+        var screenSurface = new ReconstructedScreenSurface(new(64, 48));
+
+        for (var y = 0; y < 48; y++) {
+            for (var x = 32; x < 64; x++) {
+                screenSurface.Depth[(y * 64) + x] = 0.75f;
+            }
+        }
+
+        var camera = Matrix4x4.Orthographic(4f, 4f, 1f, 9f);
+        var settings = new ScreenProbeGatherSettings { MaxDistance = 8f };
+
+        var reference = new ScreenProbeAtlas(new(new(64, 48)));
+
+        new TracedScreenProbeGather(new EmptyWorld(), new LinearSky(Radiance, 0.3f), settings) {
+            ScreenTrace = new(screenSurface) { ViewProjection = camera },
+            ScreenColour = ScreenColourAt
+        }.Fill(reference, new Floor());
+
+        // Two halves, because a comparison of two black atlases would agree perfectly. The lit
+        // gather must differ from the occluding one — the wall radiates rather than shadows — and it
+        // must be the brighter of the two, which is the direction the defect ran.
+        var occluding = new ScreenProbeAtlas(new(new(64, 48)));
+
+        new TracedScreenProbeGather(new EmptyWorld(), new LinearSky(Radiance, 0.3f), settings) {
+            ScreenTrace = new(screenSurface) { ViewProjection = camera }
+        }.Fill(occluding, new Floor());
+
+        Assert.True(Differs(reference, occluding), "the wall radiated nothing, so this tests nothing");
+        Assert.True(Light(reference) > Light(occluding), "a radiating wall must not be the darker answer");
+
+        var traced = new ScreenProbeAtlas(new(new(64, 48)));
+        var floor = new Floor();
+
+        for (var y = 0; y < traced.Layout.GridSize.Y; y++) {
+            for (var x = 0; x < traced.Layout.GridSize.X; x++) {
+                var probe = new Int2(x, y);
+
+                Assert.True(floor.TrySurface(traced.Layout.Anchor(probe), out var position, out var normal));
+                traced.SetSurface(probe, position, normal);
+            }
+        }
+
+        using var allocator = new DescriptorAllocator(device);
+        using var texture = new ScreenProbeTexture(traced) { AtlasIsWritten = true };
+
+        var loader = new EffectLoader(device);
+        var effects = new EffectSystem();
+
+        effects.AddProvider(
+            new Compiling(loader, _ => RavenEffects.Only(["Core", "DistanceFields", "IrradianceFields", "ScreenProbes", "SurfaceCache"]))
+        );
+
+        var depthTexture = owned.Owned(
+            "screen depth",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            64,
+            48
+        );
+
+        var colourTexture = owned.Owned(
+            "scene colour",
+            TextureUsage.Sampled | TextureUsage.CopyDestination,
+            PixelFormat.Rgba32Float,
+            64,
+            48
+        );
+
+        var depthTexels = new float[64 * 48 * 4];
+        var colourTexels = new float[64 * 48 * 4];
+
+        for (var i = 0; i < 64 * 48; i++) {
+            depthTexels[i * 4] = screenSurface.Depth[i];
+
+            var colour = ScreenColourAt(new(i % 64, i / 64));
+
+            colourTexels[i * 4] = colour.X;
+            colourTexels[(i * 4) + 1] = colour.Y;
+            colourTexels[(i * 4) + 2] = colour.Z;
+        }
+
+        var depthStaging = device.CreateBuffer(
+            new(
+                (long)depthTexels.Length * sizeof(float),
+                BufferUsage.CopySource,
+                MemoryAccess.HostUpload,
+                "screen depth staging"
+            )
+        );
+
+        var colourStaging = device.CreateBuffer(
+            new(
+                (long)colourTexels.Length * sizeof(float),
+                BufferUsage.CopySource,
+                MemoryAccess.HostUpload,
+                "scene colour staging"
+            )
+        );
+
+        device.Write(depthStaging, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(depthTexels.AsSpan()));
+        device.Write(colourStaging, 0, System.Runtime.InteropServices.MemoryMarshal.AsBytes(colourTexels.AsSpan()));
+
+        using var trace = new ScreenProbeTraceFill(device) {
+            Effects = effects,
+            Pipelines = new ComputePipelineCache(device),
+            Descriptors = allocator,
+            SkyColour = new(Radiance),
+            SkyGradient = new(0.3f),
+            MaxDistance = 8f,
+            ScreenDepth = depthTexture.View,
+            ScreenColour = colourTexture.View,
+            ScreenViewport = new(64, 48),
+            ViewProjection = camera
+        };
+
+        var texels = new Vector4[traced.Layout.AtlasSize.X * traced.Layout.AtlasSize.Y];
+
+        allocator.BeginFrame();
+        VulkanDiagnostics.Reset();
+        device.BeginFrame();
+
+        using (var commands = device.BeginCommandList(QueueKind.Graphics, "screen trace radiance")) {
+            commands.Barrier(
+                new(
+                    [],
+                    [
+                        new TextureBarrier(depthTexture.Texture, ResourceState.Undefined, ResourceState.CopyDestination),
+                        new TextureBarrier(colourTexture.Texture, ResourceState.Undefined, ResourceState.CopyDestination)
+                    ]
+                )
+            );
+
+            commands.CopyBufferToTexture(depthStaging, 0, new TextureRegion(depthTexture.Texture), new(64, 48, 1));
+            commands.CopyBufferToTexture(colourStaging, 0, new TextureRegion(colourTexture.Texture), new(64, 48, 1));
+
+            commands.Barrier(
+                new(
+                    [],
+                    [
+                        new TextureBarrier(depthTexture.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead),
+                        new TextureBarrier(colourTexture.Texture, ResourceState.CopyDestination, ResourceState.ShaderRead)
+                    ]
+                )
+            );
+
+            texture.Upload(device, commands);
+
+            Assert.Equal(traced.Layout.ProbeCount, trace.Record(commands, texture));
+            Assert.True(texture.RecordReadback(commands));
+
+            commands.Finish();
+            device.GraphicsQueue.Submit([commands]);
+        }
+
+        device.EndFrame();
+        device.WaitIdle();
+        device.Destroy(depthStaging);
+        device.Destroy(colourStaging);
+
+        Assert.Null(trace.Skipped);
+        Assert.Empty(effects.Misses);
+        Assert.True(texture.TryRead(texels));
+        AssertClean();
+
+        Compare(reference, texels, _ => true);
+    }
+
+    /// <summary>The frame's colour at a pixel — position-coded, so a hit at the wrong pixel reads
+    ///     wrong rather than plausible.</summary>
+    static Vector3 ScreenColourAt(Int2 pixel) =>
+        new(0.1f + ((pixel.X + 0.5f) / 64f), 0.2f + ((pixel.Y + 0.5f) / 48f), 0.3f);
+
+    /// <summary>How much light an atlas holds — the quantity a black screen hit removed.</summary>
+    static float Light(ScreenProbeAtlas atlas) {
+        var layout = atlas.Layout;
+        var total = 0f;
+
+        for (var py = 0; py < layout.GridSize.Y; py++) {
+            for (var px = 0; px < layout.GridSize.X; px++) {
+                for (var ty = 0; ty < layout.MapResolution; ty++) {
+                    for (var tx = 0; tx < layout.MapResolution; tx++) {
+                        var texel = atlas[new Int2(px, py), new(tx, ty)];
+
+                        total += texel.X + texel.Y + texel.Z;
+                    }
+                }
+            }
+        }
+
+        return total;
+    }
+
     /// <summary>The same wall, the same rays — but the screen trace skips by the nearest chain on
     ///     both sides, so it is the probes' copy of the hierarchical march being refereed.</summary>
     /// <remarks>

@@ -140,7 +140,8 @@
             }
           ],
           "Size": 176,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 1,
@@ -150,7 +151,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 2,
@@ -160,7 +162,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 3,
@@ -170,7 +173,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 4,
@@ -180,7 +184,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 5,
@@ -190,7 +195,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 6,
@@ -200,7 +206,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 7,
@@ -210,7 +217,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 8,
@@ -220,7 +228,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 9,
@@ -230,7 +239,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 10,
@@ -338,7 +348,8 @@
             }
           ],
           "Size": 24,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 11,
@@ -365,7 +376,8 @@
             }
           ],
           "Size": 4,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 12,
@@ -392,7 +404,8 @@
             }
           ],
           "Size": 8,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         }
       ]
     }

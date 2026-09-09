@@ -77,6 +77,15 @@ Two tiers, both expressed in the RHI:
    index follows from the marker; an unmarked field is per-material. Both of Raven's backends and
    its reflection take the pair from one `BindingPlan`, so the set and binding the RHI builds a
    layout from are the ones the module was decorated with ([07 § C](07-raven-shader-pipeline.md)).
+
+   ⚠ **"via dynamic offset" above is a separate claim, and `[DynamicOffset]` is where it is now
+   made.** The engine used to read it off the set index — a uniform block in set 3 used by any
+   non-compute stage was bound through a dynamic descriptor — so one number carried both *where a
+   binding lives* and *whether its contents change between draws*. That needed a carve-out for
+   compute (a dispatch has no draws, so a compute shader's `[PerDraw]` block is storage rather than
+   a claim about draws), and a shader wanting a plain per-draw block had no way to say so.
+   `ClusteredShading.rvn`'s light block declares it, `EffectLoader.KindOf` reads the declaration, and
+   the set index is back to meaning one thing.
 2. **Bindless** (`VK_EXT_descriptor_indexing` / D3D12 SM6.6 dynamic resources) behind a capability
    flag, exposed as a global `TextureHandle → uint` bindless index table. GPU-driven culling and
    material batching use it where available; there is a non-bindless path for GL/WebGL and older

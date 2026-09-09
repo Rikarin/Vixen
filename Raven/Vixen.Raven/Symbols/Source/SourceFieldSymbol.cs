@@ -274,6 +274,8 @@ internal sealed class SourceFieldSymbol : FieldSymbol {
 
     public override bool IsShared => DeclarationFacts.IsShared(syntax.AttributeLists);
 
+    public override bool IsDynamicOffset => DeclarationFacts.IsDynamicOffset(syntax.AttributeLists);
+
     public override bool IsMaterialIndex {
         get {
             if (!DeclarationFacts.IsMaterialIndex(syntax.AttributeLists)) {

@@ -44,7 +44,8 @@
             }
           ],
           "Size": 16,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 1,
@@ -54,7 +55,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 2,
@@ -64,7 +66,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         }
       ]
     }

@@ -77,7 +77,8 @@
             }
           ],
           "Size": 144,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         }
       ]
     }

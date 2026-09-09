@@ -287,7 +287,8 @@
             }
           ],
           "Size": 336,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 1,
@@ -297,7 +298,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 2,
@@ -307,7 +309,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 3,
@@ -317,7 +320,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 4,
@@ -327,7 +331,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 5,
@@ -337,7 +342,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 6,
@@ -347,7 +353,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 7,
@@ -357,7 +364,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 8,
@@ -367,7 +375,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 9,
@@ -377,7 +386,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 10,
@@ -387,7 +397,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 11,
@@ -397,7 +408,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 12,
@@ -407,7 +419,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 13,
@@ -417,7 +430,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 14,
@@ -427,7 +441,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 15,
@@ -535,7 +550,8 @@
             }
           ],
           "Size": 64,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 16,
@@ -595,7 +611,8 @@
             }
           ],
           "Size": 8,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 17,
@@ -622,7 +639,8 @@
             }
           ],
           "Size": 4,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         }
       ]
     },
@@ -637,6 +655,22 @@
           "Stages": "Compute",
           "Members": [
             {
+              "Name": "screenRadiance",
+              "Type": {
+                "Scalar": "Int",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 0,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "0"
+            },
+            {
               "Name": "viewProjection",
               "Type": {
                 "Scalar": "Float",
@@ -646,7 +680,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 0,
+              "Offset": 16,
               "Size": 64,
               "ArrayStride": 0,
               "MatrixStride": 16,
@@ -662,7 +696,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 64,
+              "Offset": 80,
               "Size": 8,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -678,7 +712,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 72,
+              "Offset": 88,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -694,7 +728,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 76,
+              "Offset": 92,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -710,7 +744,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 80,
+              "Offset": 96,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -726,7 +760,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 84,
+              "Offset": 100,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -742,7 +776,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 88,
+              "Offset": 104,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -758,7 +792,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 92,
+              "Offset": 108,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -774,7 +808,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 96,
+              "Offset": 112,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -790,7 +824,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 100,
+              "Offset": 116,
               "Size": 4,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -806,7 +840,7 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 112,
+              "Offset": 128,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
@@ -822,15 +856,16 @@
                 "IsArray": false,
                 "IsStruct": false
               },
-              "Offset": 128,
+              "Offset": 144,
               "Size": 12,
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "0, 0, 0"
             }
           ],
-          "Size": 144,
-          "IsWritable": false
+          "Size": 160,
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 1,
@@ -840,20 +875,33 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 2,
+          "Name": "sceneColor",
+          "Type": "SampledTexture",
+          "Count": 1,
+          "Stages": "Compute",
+          "Members": [],
+          "Size": 0,
+          "IsWritable": false,
+          "IsDynamicOffset": false
+        },
+        {
+          "Binding": 3,
           "Name": "depthPyramid",
           "Type": "SampledTexture",
           "Count": 1,
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
-          "Binding": 3,
+          "Binding": 4,
           "Name": "jobs",
           "Type": "StorageBuffer",
           "Count": 0,
@@ -926,17 +974,19 @@
             }
           ],
           "Size": 32,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
-          "Binding": 4,
+          "Binding": 5,
           "Name": "radianceAtlas",
           "Type": "StorageImage",
           "Count": 1,
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         }
       ]
     }
@@ -1363,6 +1413,24 @@
       "DefaultValue": ""
     },
     {
+      "Name": "screenRadiance",
+      "Type": {
+        "Scalar": "Int",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 0,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "0"
+    },
+    {
       "Name": "viewProjection",
       "Type": {
         "Scalar": "Float",
@@ -1374,7 +1442,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 0,
+      "Offset": 16,
       "Size": 64,
       "ArrayStride": 0,
       "MatrixStride": 16,
@@ -1392,7 +1460,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 64,
+      "Offset": 80,
       "Size": 8,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1410,7 +1478,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 72,
+      "Offset": 88,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1428,7 +1496,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 76,
+      "Offset": 92,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1446,7 +1514,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 80,
+      "Offset": 96,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1464,7 +1532,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 84,
+      "Offset": 100,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1482,7 +1550,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 88,
+      "Offset": 104,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1500,7 +1568,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 92,
+      "Offset": 108,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1518,7 +1586,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 96,
+      "Offset": 112,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1536,7 +1604,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 100,
+      "Offset": 116,
       "Size": 4,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1554,7 +1622,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 112,
+      "Offset": 128,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1572,7 +1640,7 @@
       },
       "Set": 2,
       "Binding": 0,
-      "Offset": 128,
+      "Offset": 144,
       "Size": 12,
       "ArrayStride": 0,
       "MatrixStride": 0,
@@ -1589,7 +1657,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 3,
+      "Binding": 4,
       "Offset": 0,
       "Size": 8,
       "ArrayStride": 0,
@@ -1607,7 +1675,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 3,
+      "Binding": 4,
       "Offset": 8,
       "Size": 4,
       "ArrayStride": 0,
@@ -1625,7 +1693,7 @@
         "IsStruct": false
       },
       "Set": 2,
-      "Binding": 3,
+      "Binding": 4,
       "Offset": 16,
       "Size": 12,
       "ArrayStride": 0,

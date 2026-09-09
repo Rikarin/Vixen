@@ -127,6 +127,13 @@ public sealed record EffectStageData(ShaderStage Stage = ShaderStage.None, byte[
 ///     the right answer for every one of them: nothing could declare a depth texture until Raven
 ///     had the type.
 /// </param>
+/// <param name="DynamicOffset">
+///     Whether the shader said this block is bound at an offset that moves per draw —
+///     Raven's <c>[DynamicOffset]</c>. ⚠ Defaulted false, and false is the right answer for an
+///     effect serialized before Raven could say it: the engine's fallback inference is what
+///     <see cref="EffectLoader" /> applies where nothing declared anything, and it is the rule that
+///     shipped for as long as the attribute did not exist.
+/// </param>
 /// <remarks>
 ///     One record for two jobs: <see cref="Effect.Bindings" />, which answers "where does
 ///     <c>source</c> go", and the <see cref="DescriptorSetLayoutDescription" /> the device wants.
@@ -142,7 +149,8 @@ public sealed record EffectBindingData(
     ShaderStage Stages = ShaderStage.None,
     int Count = 1,
     int Size = 0,
-    DescriptorSampleType SampleType = DescriptorSampleType.Float
+    DescriptorSampleType SampleType = DescriptorSampleType.Float,
+    bool DynamicOffset = false
 );
 
 /// <summary>

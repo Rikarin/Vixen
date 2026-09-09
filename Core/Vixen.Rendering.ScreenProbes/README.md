@@ -123,22 +123,39 @@ denoiser's bilateral upsample** — the shipped upsample pass still reads the gr
 adaptive probes change no picture until the pass that reads position arrives, and they were built
 first because the lattice semantics had to exist to be read.
 
-## The screen is asked first, and a screen hit is an occlusion
+## The screen is asked first, and a screen hit radiates the frame's colour
 
 Doc 19 § L3's trace order opens with rays against the frame's own depth — geometry the distance
 field may not hold: skinned meshes, foliage, anything too small or mobile for a signed distance
 representation. `ScreenSpaceTrace` is the CPU half: a fixed count of equal steps along the ray, each
 projected through the camera and compared against the depth buffer — behind a surface, within its
-`Thickness`, is a hit, and a hit gives back **nothing**, exactly as a field hit does, because a
-surface's own radiance is the § L4 surface cache. A sky texel occludes nothing; a ray that leaves
-the viewport stops being the screen's to answer; and the field march runs over the whole ray
-regardless, because a screen miss never proves the world empty.
+`Thickness`, is a hit. A sky texel occludes nothing; a ray that leaves the viewport stops being the
+screen's to answer; and the field march runs over the whole ray regardless, because a screen miss
+never proves the world empty.
+
+⚠ **A hit used to give back nothing, and that was a rendering defect rather than a missing
+feature.** It was written to match the field's hit branch, which answered black until § L4 existed —
+but § L4 landed, a field hit now answers through the surface cache, and the two hit paths of one
+gather were then disagreeing about whether a surface radiates. The disagreement is not symmetric.
+The screen is consulted precisely for geometry the field may not hold, which is geometry whose light
+is therefore also missing from the field: calling every such surface a pure occluder means switching
+`ScreenTraces` on **subtracts** light and adds none, so the more the screen trace finds, the darker
+the gather gets — and that reads as the trace being too aggressive rather than as a missing
+radiance. `TracedScreenProbeGather.ScreenColour` is the answer, and it is the seam
+`TracedReflections` already had: the same march, asked *where* rather than *whether* (`TryHit` was
+always `Hit` with the pixel thrown away), and the frame's colour read at that pixel. Two things it
+keeps: **which** colour is a scheduling decision named by the host rather than by the kernel, and a
+screen radiance is **last frame's light** — the lattice already runs a frame behind because
+placement is a readback, so the colour is stale by that same frame, which is what a bounce can
+afford and what the temporal chain reprojects.
 
 The kernel runs the same march sample for sample, and the device comparison is sterner here than
 anywhere else in the package: a screen hit is *binary*, so a last-bit disagreement in the decode
 would flip a texel whole rather than nudge it — the comparison runs under an orthographic camera to
 keep the projection affine, over a wall only the depth buffer can see, with a traceless reference
-proving the wall stopped something. **The naive march is the baseline, and the HZB traversal landed
+proving the wall stopped something. A second comparison lights that wall through a
+**position-coded** colour plane, for the reason the reflections' does: a flat colour cannot tell a
+hit at the right pixel from a hit at the wrong one, so every pixel carries its own x and y. **The naive march is the baseline, and the HZB traversal landed
 against it, both processors.** `ScreenDepthPyramid` is the depth's *other* reduction — nearest per
 cell where `HiZReduce` keeps the farthest, shaped exactly like a device mip chain (floor-halving,
 clamped 3×3 taps) because the device chain *is* one: `NearestReduce.rvn` through `HiZPyramid`
@@ -168,10 +185,25 @@ the defect at all.
 
 ## The resolve is a dispatch, and its weights are the same table
 
-`ScreenProbeResolve.rvn` projects each probe's map into L1 — one workgroup per probe, walking the
-map in the exact order `ScreenProbeAtlas.Resolve` walks it, because a parallel reduction reorders a
-float sum and the first version of anything here is the one with nothing between it and the
-reference (making it wide is owed, with a baseline to hold it to). The solid angles arrive in a
+`ScreenProbeResolve.rvn` projects each probe's map into L1 — one workgroup per probe and **one lane
+per texel**, sixty-four partial projections reduced through shared memory in six pairwise steps. The
+first version walked the map in `ScreenProbeAtlas.Resolve`'s exact order on one invocation, because
+a parallel reduction reorders a float sum and the first version of anything here is the one with
+nothing between it and the reference; widening it was owed *with a baseline*, and the baseline is
+what made it cheap — the comparison already held all four coefficients of every probe, so the wide
+form had a referee the day it was written.
+
+⚠ **The widening cost nothing measurable, and that number was taken rather than assumed.** The
+device comparison now records the widest disagreement over every coefficient of every probe and
+holds it under a stated bound: measured at 2.3841858e-7, which is 2^-22 — one ulp at these
+magnitudes — and **the serial kernel measures exactly the same**, taken by running the comparison
+against the version this replaced. The drift is the `rgba32f` round trip, not the sum's shape. It
+was never going to be worse: a tree adding sixty-four non-negative terms in six pairwise steps
+accumulates O(log n · eps) where sixty-three sequential additions accumulate O(n · eps), so the tree
+is the *more* accurate order. The bound is asserted separately from the comparison's loose
+hundred-thousandth, which is what a device's filters may cost — this one is what the reduction does,
+so a later change to it fails on itself rather than hiding inside a tolerance sized for something
+else. The solid angles arrive in a
 buffer filled from `OctahedralMap.SolidAngles` — the same exact table, not a second derivation. The
 output is four grid-sized planes in the irradiance pool's own colour-major packing, validity in the
 constant plane's alpha, so whatever upsamples these probes interpolates coefficients exactly as the

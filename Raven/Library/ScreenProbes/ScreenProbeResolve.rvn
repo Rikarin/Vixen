@@ -11,11 +11,21 @@ import Vixen.Shaders.Core
 // exists first and is the reference this is compared against, probe by probe. Where the two disagree,
 // the C# is right and this is wrong.
 //
-// One workgroup per probe and ONE invocation per workgroup, walking the map in the exact order the CPU
-// walks it — row by row, texel by texel. Sixty-four serial loads per probe is not the fast shape, and
-// that is deliberate: a parallel reduction reorders a float sum, and the first version of anything here
-// is the one with nothing between it and the reference. Making it wide is an optimisation with a
-// baseline to be held against, and is owed.
+// One workgroup per probe and ONE INVOCATION PER TEXEL — sixty-four lanes, each projecting its own
+// texel, reduced to one answer through shared memory.
+//
+// ⚠ The first version was one invocation walking the map in the CPU's exact order, sixty-four serial
+// loads while sixty-three lanes idled, and that was deliberate: a parallel reduction reorders a float
+// sum, so the serial shape is the one with nothing between it and the reference. It was owed a wide
+// version WITH A BASELINE, which is what the reference is — the comparison already holds all four
+// coefficients of every probe, so the day the wide form was written it had a referee.
+//
+// The reassociation is the whole cost, and it is bounded rather than assumed: the tree adds sixty-four
+// non-negative terms in six pairwise steps where the walk added them in sixty-three sequential ones, so
+// the error goes from O(n·eps) to O(log n · eps) — the tree is the MORE accurate order, not the less.
+// The comparison's stated hundred-thousandth is what that costs on the scenes it runs, measured before
+// it was stated; a device whose filters carry fewer weight bits would move that number and not this
+// argument.
 //
 // The solid angles arrive in a buffer the host fills from `OctahedralMap.SolidAngles` — the SAME exact
 // table the CPU projection uses, not a second derivation. A texel's weight is a property of the map,
@@ -31,6 +41,13 @@ shader ScreenProbeResolve {
     /// How many texels one probe's map is along each axis. `ScreenProbeAtlas.MapResolution`'s number,
     /// and the convention tests hold the two together.
     const val MapResolution = 8
+
+    /// How many lanes one probe's workgroup has — one per texel, so the map is the workgroup exactly.
+    ///
+    /// ⚠ A power of two by construction (`MapResolution` is), which the tree below depends on: an odd
+    /// count leaves a lane whose partner does not exist, and the half that goes missing is a texel of
+    /// light silently dropped rather than an error.
+    const val LaneCount = MapResolution * MapResolution
 
     /// The constant spherical-harmonic basis function.
     const val Constant = 0.282095f
@@ -51,47 +68,86 @@ shader ScreenProbeResolve {
     [Format("rgba32f")] var probeL1G: RWTexture2D<float4>
     [Format("rgba32f")] var probeL1B: RWTexture2D<float4>
 
-    [ComputeShader(1, 1, 1)]
-    func Main([Semantic("SV_GroupID")] group: uint3) {
+    /// One lane's four partial coefficients, waiting to be reduced.
+    ///
+    /// Four arrays rather than one of a struct, because the reduction touches all four in lockstep and
+    /// a lane's four terms are never read apart. Sixty-four lanes of `float3` is 3 KiB — well inside
+    /// the 16 KiB every target in `docs/plan/10` guarantees.
+    groupshared var partialL00: float3[LaneCount]
+
+    groupshared var partialL1m1: float3[LaneCount]
+    groupshared var partialL10: float3[LaneCount]
+    groupshared var partialL11: float3[LaneCount]
+
+    // ⚠ The literal 64, and it must equal `LaneCount`. `RVN2105` refuses anything but a positional
+    // integer literal here, so the one number this shader is built around cannot be spelled once —
+    // and a workgroup narrower than the map would silently drop the texels no lane loaded. The device
+    // comparison is what holds the two together: a dropped texel moves a coefficient by whole
+    // percents, not by the hundred-thousandth the reassociation costs.
+    [ComputeShader(64)]
+    func Main([Semantic("SV_GroupID")] group: uint3, [Semantic("SV_GroupIndex")] lane: uint) {
         val probe = int2(int(group.x), int(group.y))
         val origin = ScreenProbeAtlas.Origin(probe, MapResolution)
 
         // Validity rides in the alpha of every texel the trace wrote, uniformly across a probe's map —
-        // one read of the first texel answers for the patch. A probe nothing gathered resolves to
-        // nothing, deliberately including its coefficients: stale numbers behind a zero validity are
-        // stale numbers something will eventually read anyway.
+        // one read of the first texel answers for the patch, and every lane may as well make it rather
+        // than share it: the load is the same texel for all sixty-four and a barrier costs more than a
+        // cache hit. A probe nothing gathered resolves to nothing, deliberately including its
+        // coefficients: stale numbers behind a zero validity are stale numbers something will
+        // eventually read anyway.
         val validity = radianceAtlas.Load(int3(origin.x, origin.y, 0)).a
 
         if (validity <= 0f) {
-            probeL0.Store(probe, float4(0f, 0f, 0f, 0f))
-            probeL1R.Store(probe, float4(0f, 0f, 0f, 0f))
-            probeL1G.Store(probe, float4(0f, 0f, 0f, 0f))
-            probeL1B.Store(probe, float4(0f, 0f, 0f, 0f))
+            // ⚠ Lane zero alone, and no barrier before the return. Every lane took this branch — the
+            // condition is one texel's alpha, uniform across the group — so nothing is left waiting.
+            if (lane == 0u) {
+                probeL0.Store(probe, float4(0f, 0f, 0f, 0f))
+                probeL1R.Store(probe, float4(0f, 0f, 0f, 0f))
+                probeL1G.Store(probe, float4(0f, 0f, 0f, 0f))
+                probeL1B.Store(probe, float4(0f, 0f, 0f, 0f))
+            }
+
             return
         }
 
-        var l00 = float3(0f, 0f, 0f)
-        var l1m1 = float3(0f, 0f, 0f)
-        var l10 = float3(0f, 0f, 0f)
-        var l11 = float3(0f, 0f, 0f)
+        val index = int(lane)
+        val tx = index % MapResolution
+        val ty = index / MapResolution
+        val texel = int2(tx, ty)
+        val direction = ScreenProbeAtlas.Direction(texel, MapResolution)
+        val radiance = radianceAtlas.Load(int3(origin.x + tx, origin.y + ty, 0)).rgb
+        val weighted = radiance * solidAngles[ty * MapResolution + tx]
 
-        for (ty in 0 .. MapResolution - 1) {
-            for (tx in 0 .. MapResolution - 1) {
-                val texel = int2(tx, ty)
-                val direction = ScreenProbeAtlas.Direction(texel, MapResolution)
-                val radiance = radianceAtlas.Load(int3(origin.x + tx, origin.y + ty, 0)).rgb
-                val weighted = radiance * solidAngles[ty * MapResolution + tx]
+        partialL00[index] = weighted * Constant
+        partialL1m1[index] = weighted * (LinearBasis * direction.y)
+        partialL10[index] = weighted * (LinearBasis * direction.z)
+        partialL11[index] = weighted * (LinearBasis * direction.x)
 
-                l00 += weighted * Constant
-                l1m1 += weighted * (LinearBasis * direction.y)
-                l10 += weighted * (LinearBasis * direction.z)
-                l11 += weighted * (LinearBasis * direction.x)
+        // The tree. Six steps of pairwise addition, a barrier before every one because the half being
+        // read was written by lanes of another subgroup — the guarantee a barrier gives and a
+        // subgroup's implicit lockstep does not, whatever a given driver's width happens to be.
+        var stride = LaneCount / 2
+
+        for (step in 0 .. 5) {
+            barrier()
+
+            if (index < stride) {
+                partialL00[index] += partialL00[index + stride]
+                partialL1m1[index] += partialL1m1[index + stride]
+                partialL10[index] += partialL10[index + stride]
+                partialL11[index] += partialL11[index + stride]
             }
+
+            stride = stride / 2
         }
 
-        probeL0.Store(probe, float4(l00, validity))
-        probeL1R.Store(probe, float4(l1m1.x, l10.x, l11.x, 0f))
-        probeL1G.Store(probe, float4(l1m1.y, l10.y, l11.y, 0f))
-        probeL1B.Store(probe, float4(l1m1.z, l10.z, l11.z, 0f))
+        barrier()
+
+        if (lane == 0u) {
+            probeL0.Store(probe, float4(partialL00[0], validity))
+            probeL1R.Store(probe, float4(partialL1m1[0].x, partialL10[0].x, partialL11[0].x, 0f))
+            probeL1G.Store(probe, float4(partialL1m1[0].y, partialL10[0].y, partialL11[0].y, 0f))
+            probeL1B.Store(probe, float4(partialL1m1[0].z, partialL10[0].z, partialL11[0].z, 0f))
+        }
     }
 }

@@ -421,6 +421,17 @@ public sealed record ScreenProbeGatherAsset : ISceneRendererAsset {
     /// <summary>Whether the trace's first stage marches the frame's own depth buffer.</summary>
     public bool ScreenTraces { get; init; }
 
+    /// <summary>The frame's colour, which is what a screen hit radiates — or empty for none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Empty with <see cref="ScreenTraces" /> on makes the gather darker, not better.</b>
+    ///     The screen is marched for geometry the distance field may not hold, so that geometry's
+    ///     light is missing from the field as well: with nothing to radiate, every surface the screen
+    ///     finds is a pure occluder and the option subtracts light while adding none. Which colour to
+    ///     name — last frame's lit buffer, this frame's opaque pass — is a scheduling decision the
+    ///     document makes by where it places this node, exactly as <c>!Reflections</c>' is.
+    /// </remarks>
+    public string Colour { get; init; } = string.Empty;
+
     /// <summary>How deep that march's shell is in view units, or zero for the device-depth shell.</summary>
     public float ScreenLinearThickness { get; init; }
 
@@ -838,6 +849,7 @@ public sealed class PostEffectFactory : ISceneRendererFactory, ICompositorAssetT
             TileSize = declared.TileSize,
             Intensity = declared.Intensity,
             ScreenTraces = declared.ScreenTraces,
+            Colour = declared.Colour is { Length: > 0 } colour ? colour : null,
             ScreenLinearThickness = declared.ScreenLinearThickness,
             Latency = declared.Latency,
             PlaneTolerance = declared.PlaneTolerance,

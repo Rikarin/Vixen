@@ -108,6 +108,8 @@ Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.FarField.get -> Vixen.Rende
 Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.FarField.set -> Vixen.Rendering.IrradianceFields.IrradianceField?
 Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.Fill(Vixen.Rendering.ScreenProbes.ScreenProbeAtlas atlas, Vixen.Rendering.ScreenProbes.IScreenSurface surface) -> int
 Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.FillProbe(Vixen.Rendering.ScreenProbes.ScreenProbeAtlas atlas, Vixen.Core.Mathematics.Int2 probe, Vixen.Core.Mathematics.Vector3 position, Vixen.Core.Mathematics.Vector3 normal) -> bool
+Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.ScreenColour.get -> System.Func<Vixen.Core.Mathematics.Int2, Vixen.Core.Mathematics.Vector3>?
+Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.ScreenColour.set -> System.Func<Vixen.Core.Mathematics.Int2, Vixen.Core.Mathematics.Vector3>?
 Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.ScreenTrace.get -> Vixen.Rendering.ScreenProbes.ScreenSpaceTrace?
 Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.ScreenTrace.set -> Vixen.Rendering.ScreenProbes.ScreenSpaceTrace?
 Vixen.Rendering.ScreenProbes.TracedScreenProbeGather.Settings.get -> Vixen.Rendering.ScreenProbes.ScreenProbeGatherSettings

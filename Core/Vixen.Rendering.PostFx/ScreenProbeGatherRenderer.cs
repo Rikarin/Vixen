@@ -86,6 +86,32 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
     /// <summary>The normals the probes are biased along, encoded as the G-buffer stores them.</summary>
     public required string Normals { get; init; }
 
+    /// <summary>The colour a screen hit radiates, or null for the occlusion answer.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>With <see cref="ScreenTraces" /> on and no colour, the gather gets darker rather
+    ///         than better.</b> The screen is marched for geometry the distance field may not hold —
+    ///         skinned meshes, foliage, anything too small or too mobile to bake — which is geometry
+    ///         whose light is therefore missing from the field as well. Answering black makes every
+    ///         one of those surfaces a pure occluder, so the more the screen trace finds, the more
+    ///         light it removes.
+    ///     </para>
+    ///     <para>
+    ///         <b>Named by the host, not hard-wired</b>, exactly as <see cref="Depth" /> is: which
+    ///         plane a bounce samples is a scheduling decision, and a node that picked one would be
+    ///         deciding where in the frame the gather has to sit. The plane must cover the same
+    ///         viewport as <see cref="Depth" /> and be finished before this node runs — the declared
+    ///         read is what makes the graph say so.
+    ///     </para>
+    ///     <para>
+    ///         <b>And what it reads is a frame old.</b> The lattice is placed from a readback
+    ///         <see cref="Latency" /> frames back, so a probe's rays march this frame's depth from
+    ///         last frame's position; the colour is stale by the same frame the placement is, which
+    ///         is what a bounce can afford and what the temporal chain already reprojects.
+    ///     </para>
+    /// </remarks>
+    public string? Colour { get; init; }
+
     /// <summary>The name the upsampled irradiance is published under.</summary>
     public string Output { get; init; } = "PostFx";
 
@@ -263,7 +289,11 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
         forwardMatrices[slot] = ViewProjection;
         frames++;
 
-        DeclareCompute(frame, device, depthTexture);
+        // The colour plane only where the screen is actually marched: a declared read of a resource
+        // nothing loads is an ordering edge bought for nothing.
+        var colourTexture = ScreenTraces && Colour is { } name ? frame.Texture(ToString(), name) : default(GraphTexture?);
+
+        DeclareCompute(frame, device, depthTexture, colourTexture);
         PublishPlanes(frame);
         BuildUpsample(compositor, frame, device);
         DeclareReadback(frame, depthTexture, normalTexture, slot);
@@ -444,7 +474,7 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
     ///     production the graph cannot see is a pass nothing can be made to wait for, and hoisting
     ///     one onto a second queue is a race rather than an overlap.
     /// </remarks>
-    void DeclareCompute(CompositorFrame frame, IGraphicsDevice device, GraphTexture depth) {
+    void DeclareCompute(CompositorFrame frame, IGraphicsDevice device, GraphTexture depth, GraphTexture? colour) {
         var screen = ScreenTraces && Tracer is not null;
 
         frame.Graph.AddPass(
@@ -464,6 +494,13 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
                 // wherever it was declared and marches last frame's texels or none.
                 if (screen) {
                     pass.Reads(depth);
+
+                    // The frame's colour is read at the pixel the march stopped in, so it is the
+                    // same ordering claim the depth makes: without the edge the dispatch samples
+                    // whatever the plane held before this frame drew into it.
+                    if (colour is { } plane) {
+                        pass.Reads(plane);
+                    }
                 }
 
                 pass.Execute(
@@ -487,6 +524,7 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
 
                             if (screen) {
                                 tracer.ScreenDepth = context.View(depth);
+                                tracer.ScreenColour = colour is { } plane ? context.View(plane) : default;
                                 tracer.ScreenViewport = atlas!.Layout.Viewport;
                                 tracer.ViewProjection = ViewProjection;
 
@@ -507,6 +545,7 @@ public sealed class ScreenProbeGatherRenderer : SceneRenderer, IResizeTarget, ID
                                 tracer.ScreenLinearThickness = ScreenLinearThickness;
                             } else {
                                 tracer.ScreenDepth = default;
+                                tracer.ScreenColour = default;
                                 tracer.ScreenPyramid = default;
                                 tracer.ScreenPyramidLevels = 0;
                             }

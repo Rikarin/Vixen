@@ -789,7 +789,8 @@
             }
           ],
           "Size": 1120,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 1,
@@ -799,7 +800,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 2,
@@ -809,7 +811,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 3,
@@ -819,7 +822,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 4,
@@ -829,7 +833,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 5,
@@ -839,7 +844,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 6,
@@ -849,7 +855,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 7,
@@ -859,7 +866,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 8,
@@ -869,7 +877,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 9,
@@ -879,7 +888,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 10,
@@ -889,7 +899,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 11,
@@ -899,7 +910,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 12,
@@ -909,7 +921,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 13,
@@ -919,7 +932,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 14,
@@ -929,7 +943,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 15,
@@ -939,7 +954,8 @@
           "Stages": "Vertex, Fragment",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 16,
@@ -983,7 +999,8 @@
             }
           ],
           "Size": 64,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 17,
@@ -1075,7 +1092,8 @@
             }
           ],
           "Size": 16,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 18,
@@ -1295,7 +1313,8 @@
             }
           ],
           "Size": 80,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 19,
@@ -1356,7 +1375,8 @@
             }
           ],
           "Size": 132,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         }
       ]
     },
@@ -1420,7 +1440,8 @@
             }
           ],
           "Size": 144,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         }
       ]
     },
@@ -1484,7 +1505,8 @@
             }
           ],
           "Size": 32,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         }
       ]
     },
@@ -1758,7 +1780,8 @@
             }
           ],
           "Size": 1296,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": true
         }
       ]
     }

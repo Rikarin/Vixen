@@ -268,7 +268,8 @@
             }
           ],
           "Size": 112,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 1,
@@ -278,7 +279,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 2,
@@ -288,7 +290,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 3,
@@ -298,7 +301,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 4,
@@ -308,7 +312,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 5,
@@ -318,7 +323,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 6,
@@ -328,7 +334,8 @@
           "Stages": "Compute",
           "Members": [],
           "Size": 0,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 7,
@@ -420,7 +427,8 @@
             }
           ],
           "Size": 16,
-          "IsWritable": false
+          "IsWritable": false,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 8,
@@ -560,7 +568,8 @@
             }
           ],
           "Size": 48,
-          "IsWritable": true
+          "IsWritable": true,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 9,
@@ -587,7 +596,8 @@
             }
           ],
           "Size": 4,
-          "IsWritable": true
+          "IsWritable": true,
+          "IsDynamicOffset": false
         },
         {
           "Binding": 10,
@@ -695,7 +705,8 @@
             }
           ],
           "Size": 20,
-          "IsWritable": true
+          "IsWritable": true,
+          "IsDynamicOffset": false
         }
       ]
     }

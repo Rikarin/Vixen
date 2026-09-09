@@ -59,7 +59,11 @@ roadmap is not measured against the wrong bar later.
 
 ## 2 — Where Vixen stands
 
-Reconciled against the code, not against doc 06.
+Reconciled against the code, not against doc 06 — and ⚠ **a reconciliation is only true on the day it
+is written.** This section described the tree before § L1–§ L6 were built, and stayed that way while
+the sections below recorded each of them landing, which made the document unusable as the state it
+claims to be. It is now kept the way the rest of the repository is kept: the row moves in the commit
+that closes it.
 
 ### Substrate — already built
 
@@ -78,13 +82,27 @@ Reconciled against the code, not against doc 06.
 That is more of Lumen's floor than expected. The temporal machinery in particular is not a
 nice-to-have — a screen-probe gather without reprojected history has nothing to filter against.
 
-### Absent
+### Was absent — and every one of the ten has since been built
 
-Mesh SDF baking · global SDF clipmap · mesh cards · surface cache · surface-cache direct lighting ·
-surface-cache radiosity · screen probe gather · world-space radiance cache · acceleration structures
-in the RHI · virtual shadow maps.
+This list read *"six or seven subsystems, no partial credit anywhere"* when the document was written.
+The sections below record each of them landing, at length; the summary a reader meets first said
+otherwise for as long as it took to notice, which is why the row now moves with the code.
 
-Six or seven subsystems. No partial credit anywhere in that list.
+| Was absent | Where it is |
+|---|---|
+| Mesh SDF baking | [`MeshDistanceFieldBaker`](../../Core/Vixen.Rendering.DistanceFields/MeshDistanceFieldBaker.cs) — § L1 |
+| Global SDF clipmap | [`GlobalDistanceFieldRenderer`](../../Core/Vixen.Rendering/Compositor/GlobalDistanceFieldRenderer.cs) — § L1 |
+| Mesh cards | [`CardGenerator`](../../Core/Vixen.Rendering.SurfaceCache/CardGenerator.cs) — § L4 |
+| Surface cache | [`SurfaceCacheStore`](../../Core/Vixen.Rendering.SurfaceCache/SurfaceCacheStore.cs) / [`SurfaceCacheAtlas`](../../Core/Vixen.Rendering.SurfaceCache/SurfaceCacheAtlas.cs) — § L4 |
+| Surface-cache direct lighting | `SurfaceCacheLight.rvn` + [`SurfaceCacheLightFill`](../../Core/Vixen.Rendering/Lighting/SurfaceCacheLightFill.cs) — § L4 |
+| Surface-cache radiosity | [`CardRadiosity`](../../Core/Vixen.Rendering.SurfaceCache/CardRadiosity.cs), dispatched by `SurfaceCacheGather.rvn` — § L4 |
+| Screen probe gather | [`ScreenProbeGatherRenderer`](../../Core/Vixen.Rendering.PostFx/ScreenProbeGatherRenderer.cs) over `Vixen.Rendering.ScreenProbes` — § L3 |
+| World-space radiance cache | [`Vixen.Rendering.IrradianceFields`](../../Core/Vixen.Rendering.IrradianceFields/README.md) — § L2, §3's one sampler |
+| Acceleration structures in the RHI | [`AccelerationStructures.cs`](../../Core/Vixen.Graphics/AccelerationStructures.cs), Vulkan implementing — § L6 |
+| Virtual shadow maps | [`VirtualShadowAtlas`](../../Core/Vixen.Rendering/VirtualShadowAtlas.cs) |
+
+What is still owed is named in the phase sections and nowhere else — § L3's list, and § L6's three
+quality items. § L4 and § L5 each end with a sentence saying nothing is.
 
 ## 3 — The architecture: one sampler, two fillers
 
@@ -114,7 +132,11 @@ brick whether a ray tracer wrote it this frame or a cube capture wrote it at bui
   directional-light shadowing scalar. L1 not L2: half the pool, and it is what both Unity and Epic
   ship as default.
 - **Refinement.** Bricks subdivide near geometry, up to 3 levels, from renderer bounds — which the
-  `VisibilityGroup` already has.
+  `VisibilityGroup` already has. ⚠ **This is a leak fix, not a memory optimisation**, and § L2's
+  measurements are what corrected the sentence: a repair never overwrites a valid probe, so pass
+  count is not the knob — *how thick a wall is in probes* is, and a wall thinner than the probe
+  spacing has no invalid probe to repair or to notice. Subdividing near geometry is how a thin wall
+  becomes thick in probes. Reach for it when light crosses a wall, not when the pool is full.
 
 Why this matters more than it looks: it is what lets §7's platform commitment survive. Shaders do not
 branch on which filler ran. A phone gets the same lighting model as a desktop, at a different update
@@ -209,8 +231,13 @@ checked.** Every one of these passed every test it had.
 - **Filler B** (no compute): the offline cube-capture bootstrap — render a small cube per probe with
   the existing pipeline, project with `SphericalHarmonics`, iterate 2–3 passes feeding the previous
   result back as ambient. Reuses `EnvironmentBaker` almost verbatim. Not a lightmapper.
-- Leak mitigation lands here, because it is where the leaks are: per-probe validity from backface
-  hits, dilation into invalid probes, normal bias, view bias.
+- Leak mitigation lands here, because it is where the leaks are: per-probe validity, dilation into
+  invalid probes, normal bias, view bias. ⚠ **Validity has two answers and which one fires depends on
+  the field**: against an *exact* field the hit's sign decides, because sphere tracing stops where the
+  field crosses zero and the gradient there always opposes the ray; the **backface vote** earns its
+  place against a *sampled* field, where an over-reported step lands past a thin wall and the surface
+  it then finds is seen from behind. Both are implemented — naming the vote alone reads as though the
+  exact case were unhandled.
 
 **Ships on its own:** dynamic indirect diffuse everywhere, on every target. This is the phase that
 supersedes doc 06's light-probe row, and the point at which Vixen has GI at all. Superseded rather
@@ -238,8 +265,8 @@ closed-box test passes at one, two and eight passes alike. The knob is **how thi
 probes**: three works, exactly one leaks at full strength in a single pass, and thinner than the probe
 spacing is worse still because every probe is then valid and there is nothing to repair or to notice.
 Both failures have tests asserting that they *do* leak, so the day refinement fixes them the tests say
-which one it fixed. That makes refinement a leak fix rather than a memory optimisation, which is not
-how § 3 currently reads.
+which one it fixed. That makes refinement a leak fix rather than a memory optimisation — § 3's bullet
+now says so.
 
 **Filler A now has a CPU reference**, the way the distance-field tracer had one before its shader port:
 sixty-four Fibonacci directions per probe marched through an `IDistanceField`, cosine-projected into
@@ -252,7 +279,8 @@ It also corrected this section. **The backface vote cannot fire against an exact
 tracing stops where the field crosses zero on the way down and the gradient there always opposes the
 ray, so the sign answers every time. The vote earns its place against a *sampled* field, where an
 over-reported step lands past a thin wall and the surface it then finds is seen from behind. Both are
-implemented; § L2's bullet should say which one answers when, rather than naming the vote alone.
+implemented, and this section's own bullet now says which one answers when rather than naming the vote
+alone.
 
 **Refinement is in**, as a brick size stored beside the slot in every cell the brick covers — Epic's
 arrangement, and the reason a lookup never searches or climbs. `Allocate` covers a region at a size and
@@ -545,7 +573,14 @@ Composing the slot into the forward pass also turned up a defect that has nothin
 per-draw light block as a *dynamic* uniform, deliberately and for good reasons, and the shader's
 reflection describes it as a plain one — incompatible layouts, and a GPU fault at the draw. Nothing had
 found it because the only device test drawing `ForwardPlus` uses the clustered variant, which never
-statically uses set 3 and therefore need not bind it.
+statically uses set 3 and therefore need not bind it. **Since fixed**, in `EffectLoader.KindOf`, which
+derives the kind where both the set layout and `Effect.Bindings` are built *because the two have to
+agree*; its remarks preserve the finding and why nothing caught it. ⚠ That fix left a residue — the set index
+carrying two claims at once, where a binding lives and whether its contents change between draws — and
+the residue is closed too: Raven's `[DynamicOffset]` says where a block's bytes are,
+`ClusteredShading.rvn`'s light block declares it, and `KindOf` reads a declaration instead of a set
+number. The compute carve-out went with it, since the stage was only ever part of the question because
+the set index was answering something it does not know.
 
 **And a frame the dispatch lit.** Filler A had been checked by reading the pool back, and the shading
 models had been checked against a field the CPU filled. Two halves, each verified against the other's
@@ -565,11 +600,12 @@ compiles a pass narrows its effect provider to that pass's own packages, and the
 configuration nothing ships in.
 
 The fix derives the pass path's defaults from the material path's own inventory rather than writing
-them down twice, so the two agree by construction; what remains is a completeness check over the
-library's declared slots for *each* path, where before there was one for the material path and, for the
-pass path, only a cross-check of fillers it happened to name. **A list that has to agree with another
-list is a list that drifts**, and an assertion that is missing rather than failing is invisible for as
-long as it exists.
+them down twice, so the two agree by construction. **A list that has to agree with another list is a
+list that drifts**, and an assertion that is missing rather than failing is invisible for as long as it
+exists — so the completeness check this paragraph left owed was written:
+`ComposeSlotInventoryTests.APassCompositionBindsEverySlotTheLibraryDeclares` asks the question over the
+library's declared slots for the pass path as its neighbour already did for the material path, and
+carries the finding in its own remarks.
 
 **The view bias, which completes § G3's four.** Validity, dilation and the normal bias were in; this is
 the fourth. `IrradianceField.ViewBias` moves a shading lookup toward the camera as well as along the
@@ -676,10 +712,20 @@ it traced before; the device comparison runs the reference's termination through
 `IrradianceField.TrySample` and the dispatch's through `IrradianceFieldProbes.Radiance`, inside the
 field and beyond its box, and the two agree either way.
 
-**And the resolve is a dispatch.** `ScreenProbeResolve.rvn` projects each probe's map into L1 — one
-workgroup per probe, walking the map in the exact order `ScreenProbeAtlas.Resolve` walks it,
-because a parallel reduction reorders a float sum and the first version is the one with nothing
-between it and the reference; widening it is an owed optimisation with a baseline. Its solid angles
+**And the resolve is a dispatch, now one lane per texel.** `ScreenProbeResolve.rvn` projects each
+probe's map into L1 — one workgroup per probe and sixty-four partial projections reduced through
+shared memory in six pairwise steps. The first version walked the map in the exact order
+`ScreenProbeAtlas.Resolve` walks it, because a parallel reduction reorders a float sum and the first
+version is the one with nothing between it and the reference; ⚠ **widening it was owed *with a
+baseline*, and the baseline is what made it cheap** — the comparison already held all four
+coefficients of every probe, so the wide form had a referee the day it was written, and one
+invocation walking a map while sixty-three lanes idled is exactly the SIMD-group argument this track
+has already paid for twice. The reassociation's cost was measured before it was stated:
+2.3841858e-7, one ulp at these magnitudes — and ⚠ **the serial kernel measures the same number**,
+taken by running the comparison against the version this replaced, so the drift is the `rgba32f`
+round trip rather than the sum's shape. It was never going to be worse: a tree over sixty-four
+non-negative terms accumulates O(log n · eps) where sixty-three sequential additions accumulate
+O(n · eps). Its solid angles
 are uploaded from `OctahedralMap.SolidAngles` — the same exact table, not a second derivation — and
 its output is four grid-sized planes in the pool's own colour-major packing, validity in the
 constant plane's alpha, shaped for the upsample pass that does not exist yet. The comparison seeds
@@ -722,9 +768,8 @@ patch nothing writes is undefined memory, and the resolve reads validity out of 
 
 **And the trace order opens with the screen.** `ScreenSpaceTrace` marches the frame's own depth —
 geometry the distance field may not hold — before any field ray: a fixed count of equal steps, each
-projected and tested behind-within-thickness, a hit giving back nothing for the § L4 reason a field
-hit does, a sky texel occluding nothing, and an off-screen ray falling through to the field because
-a screen miss never proves the world empty. The kernel runs the same march sample for sample, and
+projected and tested behind-within-thickness, a sky texel occluding nothing, and an off-screen ray
+falling through to the field because a screen miss never proves the world empty. The kernel runs the same march sample for sample, and
 its device comparison is the package's sternest: a screen hit is binary, so a last-bit decode
 disagreement flips a texel whole — the wall only the depth buffer can see stopped the same rays on
 both sides, texel for texel, with a traceless reference proving it stopped any. Wired through the
@@ -734,6 +779,26 @@ scene, sheared by motion for a moving one, which is the denoiser's reprojection 
 before it exists. One frame drawn with it on shows the L1 overshoot from § L3's own finding, now
 end to end: probes standing on the one surface a frame drew blacken a cone *behind* themselves,
 and the away-facing answer lands above the sky, not below it.
+
+⚠ **And a screen hit gave back nothing, which was a rendering defect and not a deferral.** It was
+written to match the field's hit branch — black, for the § L4 reason — and § L4 then answered, so
+the two hit paths of one kernel disagreed about whether a surface radiates. The disagreement runs
+one way: the screen is asked precisely about geometry the field may not hold, whose light is
+therefore also missing from the field, so a pure occluder means turning `ScreenTraces` on
+*subtracts* light and adds none, and the more it finds the darker the gather — which reads as the
+trace being too aggressive. The half that answers it was one package over: `ScreenSpaceTrace.TryHit`
+already said *where* it stopped (`Hit` was that with the pixel thrown away), the reference reflects
+the frame's colour at that pixel, and `ScreenProbeTrace.rvn`'s march now answers `int2` for the
+same reason `ReflectionTrace`'s does. `TracedScreenProbeGather.ScreenColour`,
+`ScreenProbeTraceFill.ScreenColour` and `ScreenProbeGatherRenderer.Colour` are the seam — **which
+colour is a scheduling decision named by the host**, as § L5 recorded for reflections, and the
+`!ScreenProbeGather` asset names it exactly as `!Reflections` does. And **a screen radiance is last
+frame's light**: the lattice already runs a frame behind because placement is a readback, so the
+colour read is stale by that same frame, which is what a bounce can afford and what the denoiser's
+reprojection meets by name. The closed form is the one the defect gave away — a wall lit exactly as
+the sky it hides must leave the gather texel for texel unchanged, where the black answer removed the
+whole cone the screen could see — and the device comparison lights it through a position-coded
+plane, because a flat colour cannot tell a hit at the right pixel from a hit at the wrong one.
 
 **Adaptive placement exists device-free, and is stated as half a feature on purpose.** The layout
 reserves adaptive map rows below the grid — an addition to the lattice, its addressing unmoved,
@@ -811,12 +876,18 @@ show the failure proves nothing), and whose sides come back pure under the plane
 gather node's resize is a deliberate step: a changed frame is refused loudly until the host idles
 and calls `Reset`, which starts the temporal chain over, because a resize is a camera cut.
 
-Remaining, all of it quality and performance rather than exit criteria: the HZB traversal (the
-naive march is the baseline, and the pyramid wants its nearest-texel reduction beside culling's
-farthest), the adaptive probes' device half (the bilateral pass that would read them now exists),
-importance sampling, bilinear history taps, screen-trace radiance once § L4's surface cache gives
-hits something to return, and composing the output into a shipped preset — a project decision,
+Remaining, all of it quality and performance rather than exit criteria: the adaptive probes' device
+half (the bilateral pass that would read them now exists), importance sampling, bilinear history
+taps, and composing the output into a shipped preset — a project decision,
 the same slot `IndirectDiffuse` fills today.
+
+⚠ **The HZB traversal this list used to open with was closed by a later section of this same
+document.** § L5 records `ScreenDepthPyramid`, `NearestReduce.rvn` and `ScreenSpaceTrace.Pyramid` —
+whole, both processors, perspective included, with `ScreenProbeGatherRenderer` building the chain
+inside its own pass. ⚠ And **screen-trace radiance is done**: it was written as *"once § L4's
+surface cache gives hits something to return"*, § L4 ends *"Nothing in § L4 is owed"*, and the
+paragraph above records what the deferral had quietly become — a screen hit answering black while a
+field hit answered through the cache, which made `ScreenTraces` subtract light and add none.
 
 ### L4 — Surface cache and radiosity *(3.5 EM)*
 
@@ -995,9 +1066,26 @@ above takes it without changing a line — which is this section's sentence, mad
 on this project's own hardware the detection tests carry the correctness burden, and the query
 comparison waits for a device that can run it; stated, not discovered.
 
-Owed, quality rather than criteria: the hit's true normal (the committed primitive's, off the
-vertex buffer the structure was built from — until then a cache hit through the hardware tracer
-faces up), SAH, and refit — each named in the package README with its baseline.
+⚠⚠ **And it has run nowhere.** The goldens execute on two machines, this project's Mac (MoltenVK)
+and the Linux CI runner (llvmpipe), so the only end-to-end proof that the hardware tracer answers
+what the BVH answers has never executed anywhere. Everything under it — `VulkanFeatures.Translate`'s
+hand-built structs, `QueriedField`, the BVH against brute force — is real coverage of the *detection*
+and none of the *query*. Read § L6 as "the kernel is unexecuted" rather than "L6 is tested" when a
+tier decides whether to use it. The skip now names the adapter that declined and has an expiry:
+`VIXEN_REQUIRE_RAY_QUERY=1` turns it into a failure, the escalation `VIXEN_REQUIRE_VULKAN` is for a
+missing device, so a runner with both extensions makes the comparison unskippable. Nothing in this
+repository can close it otherwise — a device that has the extensions is the whole of what is missing.
+
+Owed, quality rather than criteria: SAH and refit — each named in the package README with its
+baseline. ⚠ **The hit's true normal is owed too, and it is neither of those things.** It reads as a
+small change ("the committed primitive's, off the vertex buffer the structure was built from") and
+is not: `Trace` does answer `(t, primitive, instance, hit)`, but `RayQueryField.TraceField` drops the
+index immediately, because `DistanceFieldHit` carries no normal and every consumer asks
+`GradientField(hit.position)` — a position, which names no triangle. An honest normal is therefore a
+change to the shared protocol that every `IDistanceFieldSource` and consuming kernel touches. And its
+consequence is not roughness: `SurfaceRadiance(position, normal)` picks a card *by* normal, so a
+constant upward answer picks every horizontal card in the atlas whatever the surface is — a wrong
+colour that will look like the surface cache being wrong rather than like a normal bug.
 
 ### Total, honestly
 
@@ -1012,13 +1100,15 @@ L3 is the AAA jump. L4–L6 are what make it Lumen rather than Lumen-shaped.
 
 | Need | Status | Phase |
 |---|---|---|
-| 3D texture render/storage targets, `imageStore` into 3D | dimension plumbing exists; UAV-to-3D path needs checking | L1 |
+| 3D texture render/storage targets, `imageStore` into 3D | **answered** — `IrradianceFieldTexture` creates the pool `Texture3D` with `TextureUsage.Storage`, and `IrradianceFillDeviceTests` dispatches into it and reads it back | L1 |
 | Sparse/partially-resident 3D textures | `HasSparseResources` declared; unimplemented | L2, optional — a fixed pool works |
-| Texture atlas allocation and residency | none | L4 |
+| Texture atlas allocation and residency | **built** — `SurfaceCacheAtlas`, the shelf atlas with exact-size reuse that § L4 names as this row's CPU half | L4 |
 | Acceleration structures, ray queries | **built** — `HasRayTracing`, the two-level build, the descriptor kind, Raven's `Trace`; Vulkan implements, the rest refuse honestly | L6 |
-| Async compute for cache updates | `HasAsyncCompute` declared | L2+, optional |
+| Async compute for cache updates | **built** — `RenderGraph` hoists onto it under `QueueScheduling.Async` where `HasAsyncCompute` holds; `QueueSchedule` collapses where it does not | L2+, optional |
 
-Only the last is a new RHI *concept*. Everything before it is plumbing over abstractions that exist.
+Sparse 3D textures are the one row still a flag with no API, and the plan's answer stands: a fixed
+pool works. Acceleration structures were the only new RHI *concept* here; everything else was
+plumbing over abstractions that existed.
 
 ## 7 — The platform constraint, and why §3 exists
 
@@ -1052,13 +1142,23 @@ the architecture rather than an implementation detail.
 
 ## 9 — What this changes elsewhere
 
-- **[06](06-rendering-pipeline.md) Lighting table** — delete the *Baked lightmaps + GI bake* row;
-  replace *Light probes (SH, tetrahedral interpolation)* with L2; replace *SSGI / RTXGI-style probes*
-  with L3; add rows for L1's distance-field shadows and AO.
-- **[14](14-roadmap.md) Phase 10** — currently *"Deferred, advanced rendering, Web"* at 2.5 EM. L1+L2
-  belongs there and the estimate moves accordingly; L3–L6 are a post-1.0 track.
-- **[05](05-graphics-rhi.md)** — add acceleration structures to the capability register as declared
-  and unimplemented, so L6 has somewhere to land.
-- **[../overview.md](../overview.md)** — the light-probe entry keeps its own status and gains a note
-  that § L2 is not built on it
-  rather than "owed".
+⚠ **These were instructions, and all four have been carried out.** They are kept as a record of what
+moved where, not as work:
+
+- **[06](06-rendering-pipeline.md) Lighting table** — done. The *Baked lightmaps + GI bake* row reads
+  ⛔ *retired by 19, not deferred*; *SSGI / RTXGI-style probes* points at § L3; the distance-field row
+  is ✅ against § L1; and the tetrahedral light-probe row keeps its own repaired status with the note
+  that § L2 is not built on it.
+- **[14](14-roadmap.md) Phase 10** — done. It reads *"2.5 EM + 4.5 EM lighting"*, with L1+L2 there and
+  L3–L6 called a post-1.0 track.
+- **[05](05-graphics-rhi.md)** — done, and ⚠ **the instruction is now the opposite of the state**: it
+  said *"declared and unimplemented"*, and doc 05 § the capability register records `HasRayTracing`
+  with Vulkan implementing it behind `VK_KHR_acceleration_structure` + `VK_KHR_ray_query`, exactly as
+  § L6 says. Nothing is owed to doc 05 here.
+- **[../overview.md](../overview.md)** — done. It carries the irradiance-field row against § L2 and
+  the compositor-node row for `!GlobalDistanceField` / `!IrradianceField` / `!DistanceFieldAo` /
+  `!IndirectDiffuse`, with the light-probe entry keeping its own status.
+
+**The rule this section now follows, because it is what the rest of the repository does:** a status
+paragraph is updated in the commit that closes what it describes. Doc 06 has the same problem and the
+same note ([#312](https://github.com/Rikarin/Vixen/issues/312)).

@@ -3100,6 +3100,8 @@ Vixen.Rendering.Lighting.ScreenProbeTraceFill.Parameters.get -> Vixen.Shaders.Pa
 Vixen.Rendering.Lighting.ScreenProbeTraceFill.Pipelines.get -> Vixen.Rendering.ComputePipelineCache?
 Vixen.Rendering.Lighting.ScreenProbeTraceFill.Pipelines.set -> Vixen.Rendering.ComputePipelineCache?
 Vixen.Rendering.Lighting.ScreenProbeTraceFill.Record(Vixen.Graphics.ICommandList commands, Vixen.Rendering.Lighting.ScreenProbeTexture texture) -> int
+Vixen.Rendering.Lighting.ScreenProbeTraceFill.ScreenColour.get -> Vixen.Graphics.TextureViewHandle
+Vixen.Rendering.Lighting.ScreenProbeTraceFill.ScreenColour.set -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Lighting.ScreenProbeTraceFill.ScreenDepth.get -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Lighting.ScreenProbeTraceFill.ScreenDepth.set -> Vixen.Graphics.TextureViewHandle
 Vixen.Rendering.Lighting.ScreenProbeTraceFill.ScreenLinearThickness.get -> float

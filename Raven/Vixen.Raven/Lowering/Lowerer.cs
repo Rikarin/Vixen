@@ -443,7 +443,8 @@ public sealed partial class Lowerer {
                     binding.IsWritable,
                     binding.DefaultValue,
                     binding.IsShared,
-                    binding.IsMaterialIndex
+                    binding.IsMaterialIndex,
+                    binding.IsDynamicOffset
                 )
             );
         }
@@ -739,7 +740,8 @@ public sealed partial class Lowerer {
                     // when nobody said otherwise. See IrBinding.DefaultValue.
                     defaultValue: field.DeclaredValue,
                     shared: field.IsShared,
-                    materialIndex: field.IsMaterialIndex
+                    materialIndex: field.IsMaterialIndex,
+                    dynamicOffset: field.IsDynamicOffset
                 )
             );
         }
