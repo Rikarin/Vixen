@@ -468,7 +468,7 @@ public sealed class SceneEntityData {
     ///     <para>
     ///         ⚠ <b>Mutually exclusive with <see cref="Mesh" /> for the reason
     ///         <see cref="Parameters" /> is: the geometry is a function of the operands, and a file
-    ///         carrying both would carry two answers to one question. It is <i>rebuilt</i> on load
+    ///         carrying both would carry two answers to one question.</b> It is <i>rebuilt</i> on load
     ///         rather than read, which is also what makes a scene whose boolean has been improved since
     ///         it was written come back improved.
     ///     </para>

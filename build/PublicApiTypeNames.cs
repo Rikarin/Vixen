@@ -26,9 +26,11 @@ using System.Text.RegularExpressions;
 ///     <para>
 ///         That is the failure shape CLAUDE.md names first, in its quietest form: not a check that
 ///         was never wired up, but one wired to half its subject, whose output — a count — looks the
-///         same either way. The floor in <see cref="Build.BaselinedTypes" /> is what keeps the other
-///         version of it honest, and it passed at 1 000 while the true number was more than four
-///         times that.
+///         same either way. The floor in <c>Build.BaselinedTypes</c> is what keeps the other version
+///         of it honest, and it passed at 1 000 while the true number was more than four times that.
+///         ⚠ <c>&lt;c&gt;</c> and not a <c>cref</c>, and the reason is the paragraph below: this file
+///         is compiled twice, and <c>Build</c> exists in only one of the two. A link that resolves
+///         where nothing checks it and cannot resolve where something does is worse than no link.
 ///     </para>
 ///     <para>
 ///         Kept dependency-free and outside <c>Build</c> so that

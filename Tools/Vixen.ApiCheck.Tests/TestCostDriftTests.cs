@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Xunit;
 
 namespace Vixen.ApiCheck.Tests;
@@ -166,6 +167,133 @@ public sealed class TestCostDriftTests {
         var lines = File.ReadAllLines(Path.Combine(RepositoryRoot(), "build", "test-cost.txt"));
 
         Assert.Equal("Debug", TestCostDrift.ConfigurationOf(lines));
+    }
+
+    /// <summary>
+    ///     ⚠ The half of the check nobody had asked about: a row under a minute cannot be
+    ///     contradicted downward by <em>any</em> measurement.
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="TestCostDrift.MinimumSeconds" /> reads as "small assemblies are too noisy to
+    ///     judge", which is what it does upward. Downward it does something else entirely: a
+    ///     committed 2.7 s can be wrong by at most 2.7 s in that direction, and 2.7 is not 60, so the
+    ///     row is unfalsifiable — and an assembly, as <c>TestCostDrift</c>'s own remarks say, only
+    ///     ever gets faster between regenerations. The single test project below is the live case
+    ///     (#1128).
+    /// </remarks>
+    [Fact]
+    public void ARowUnderAMinuteCanNeverBeReportedAsHavingBecomeFaster() {
+        Assert.Null(new TestCostDrift.Reach(2.7).Shrink);
+        Assert.Null(new TestCostDrift.Reach(59.9).Shrink);
+        Assert.Null(new TestCostDrift.Reach(TestCostDrift.MinimumSeconds).Shrink);
+
+        // The first row that can be, and even it has to fall to 3.6 s — far below where the ratio
+        // alone would already have been satisfied.
+        var shrink = new TestCostDrift.Reach(63.6).Shrink;
+
+        Assert.NotNull(shrink);
+        Assert.Equal(3.6, shrink.Value, 3);
+
+        // Upward every row is reachable, which is why the check is a guard on the schedule's top.
+        Assert.Equal(62.7, new TestCostDrift.Reach(2.7).Growth, 3);
+        Assert.Equal(494.25, new TestCostDrift.Reach(329.5).Growth, 3);
+    }
+
+    /// <summary>
+    ///     The stale row this was found through, asserted as the thing the check cannot say.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <c>Vixen.ApiCheck.Tests</c> — this assembly — is committed at 2.7 s and measured 6.8 s
+    ///     after <c>UiGeneratorWiringTests</c> landed, which is 2.52× and clears
+    ///     <see cref="TestCostDrift.MinimumRatio" /> outright. It is nonetheless not a finding and
+    ///     could not become one at any measurement, because the seconds floor is above the whole row.
+    ///     ⚠ This is deliberately not a fix: 2.7 is a number from a contended full run and 6.8 was
+    ///     measured alone, so writing 6.8 into a list of contended numbers would make the file
+    ///     internally inconsistent and argue the other way on the next real run.
+    /// </remarks>
+    [Fact]
+    public void TheRowThisWasFoundThroughIsBeyondTheChecksReach() {
+        var drifted = TestCostDrift.Find(
+            new Dictionary<string, double>(StringComparer.Ordinal) { ["Vixen.ApiCheck.Tests"] = 2.7 },
+            [("Vixen.ApiCheck.Tests", 6.8)]
+        );
+
+        Assert.Empty(drifted);
+        Assert.InRange(new TestCostDrift.Entry("Vixen.ApiCheck.Tests", 2.7, 6.8).Ratio, 2.5, 2.53);
+    }
+
+    /// <summary>Coverage counts the rows the check could contradict, and it is the minority.</summary>
+    [Fact]
+    public void CoverageCountsOnlyTheRowsAboveTheSecondsFloor() {
+        var coverage = TestCostDrift.Coverage.Of([329.5, 63.6, 60.0, 2.7, 0.4]);
+
+        Assert.Equal(5, coverage.Rows);
+        Assert.Equal(2, coverage.Shrinkable);
+        Assert.Contains("2 of 5", coverage.Describe(), StringComparison.Ordinal);
+        Assert.Contains("guard on the schedule's top", coverage.Describe(), StringComparison.Ordinal);
+    }
+
+    /// <summary>The run date is read out of the header, and its absence is a null rather than today.</summary>
+    [Fact]
+    public void TheMeasuredStampIsReadAndItsAbsenceIsNotGuessed() {
+        Assert.Equal(new DateOnly(2026, 9, 5), TestCostDrift.MeasuredOn(["# measured:  2026-09-05 ", "1.0 X"]));
+        Assert.Null(TestCostDrift.MeasuredOn(["# configuration: Debug", "1.0 X"]));
+        Assert.Null(TestCostDrift.MeasuredOn(["# measured: whenever", "1.0 X"]));
+    }
+
+    /// <summary>
+    ///     ⚠ The committed file's header is the one the generator writes — including the sentence
+    ///     that says how much of the file the check can see.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The header this replaced said a stale number "fails Test", full stop. That is true of
+    ///         seven rows and false of a hundred and seventy-one, and nothing could have caught it:
+    ///         the sentence was a string literal in <c>build/_build.csproj</c>, which is outside
+    ///         <c>Vixen.slnx</c> and which no suite compiles. Generated from
+    ///         <see cref="TestCostDrift.Coverage" /> and asserted here, the claim now goes stale
+    ///         loudly — add long assemblies and this is red until the file is rewritten.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The configuration and the date are read back out of the file and handed to the
+    ///         generator, so those two are not what this asserts; they have their own tests above.
+    ///         What it asserts is the prose and the arithmetic.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheCommittedHeaderIsTheOneTheGeneratorWrites() {
+        var lines = File.ReadAllLines(Path.Combine(RepositoryRoot(), "build", "test-cost.txt"));
+        var blank = Array.IndexOf(lines, string.Empty);
+
+        Assert.True(blank > 0, "build/test-cost.txt has no blank line between its header and its rows.");
+
+        var costs = lines
+            .Skip(blank)
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0 && !line.StartsWith('#'))
+            .Select(line => double.Parse(line.Split(' ')[0], CultureInfo.InvariantCulture))
+            .ToList();
+
+        var written = TestCostDrift.Header(
+            TestCostDrift.ConfigurationOf(lines)!,
+            TestCostDrift.MeasuredOn(lines)!.Value,
+            costs
+        );
+
+        Assert.Equal(written, lines.Take(blank + 1));
+    }
+
+    /// <summary>The committed list says which run measured it, so its age is answerable at all.</summary>
+    /// <remarks>
+    ///     ⚠ Every other test here would pass unchanged on the day the stamp was dropped, and the age
+    ///     is the one axis <see cref="TestCostDrift.MinimumSeconds" /> cannot swallow: on 171 of the
+    ///     178 rows it is the only thing a run can honestly say about staleness.
+    /// </remarks>
+    [Fact]
+    public void TheCommittedCostListSaysWhichRunMeasuredIt() {
+        var lines = File.ReadAllLines(Path.Combine(RepositoryRoot(), "build", "test-cost.txt"));
+
+        Assert.NotNull(TestCostDrift.MeasuredOn(lines));
     }
 
     static string RepositoryRoot() {
