@@ -160,6 +160,29 @@ public sealed class VignetteRenderer() : PostEffectRenderer(
     /// <summary>Whether grain is scaled by luminance, which is what film actually does.</summary>
     public bool LuminanceWeightedGrain { get; set; } = true;
 
+    /// <summary>Whether about one code of triangular noise is added just before the encode.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What stops an eight-bit encode banding a shallow gradient</b>, and the cheapest
+    ///         thing in the whole post chain. A gradient that changes by less than one code across
+    ///         tens of pixels is rounded to a flat run and then steps, and the eye finds the step;
+    ///         noise of about the size of a step converts the value into the <em>density</em> of the
+    ///         higher code instead, which is a texture the eye reads as the gradient it is.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It shares this pass's seat and none of its reasoning.</b> The other four effects
+    ///         here are what a camera does to an image; this is a quantisation fix. It wants exactly
+    ///         this seat — last in the chain, after the tonemap and after the grain — because the step
+    ///         it breaks up is the one the final encode makes, and a sixth permutation costs a variant
+    ///         rather than a pass.
+    ///     </para>
+    ///     <para>
+    ///         Off by default. Turning it on moves every pixel of every frame by up to a code, so it
+    ///         is a document's decision and not this node's.
+    ///     </para>
+    /// </remarks>
+    public bool UseDither { get; set; }
+
     /// <summary>Whether the image is warped radially before anything else reads it.</summary>
     /// <remarks>
     ///     ⚠ First in the shader, and it has to be: distortion moves where a pixel comes from, so
@@ -204,6 +227,28 @@ public sealed class VignetteRenderer() : PostEffectRenderer(
     /// <summary>How large the grain is.</summary>
     public float GrainScale { get; set; } = 1f;
 
+    /// <summary>How many steps the output quantises to — 255 for the usual eight-bit encode.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ The dither is one of these wide, so a value that does not match the swap chain is
+    ///         either noise nobody asked for or a dither too small to reach the step beside it. A
+    ///         ten-bit output is a different number here and not a different shader.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It divides the value the shader outputs, which is one stored code only on a target
+    ///         with no transfer curve.</b> Against an <see cref="PixelFormat.Rgba8UNormSrgb" />
+    ///         attachment — which is <see cref="VignetteAsset" />'s own default — the hardware encodes
+    ///         on the way out, so a stored code is a linear step that changes size across the range,
+    ///         and a fixed <c>1/255</c> is far too much noise in the shadows and too little in the
+    ///         highlights. Correcting that needs the curve's local slope, which this pass does not
+    ///         carry, so a linear target is the case it is right for today.
+    ///     </para>
+    /// </remarks>
+    public float DitherLevels { get; set; } = 255f;
+
+    /// <summary>How many codes of noise, either side. One is the value the arithmetic is for.</summary>
+    public float DitherIntensity { get; set; } = 1f;
+
     /// <summary>
     ///     Which frame this is, so the grain moves.
     /// </summary>
@@ -243,6 +288,7 @@ public sealed class VignetteRenderer() : PostEffectRenderer(
         parameters.Set(VignetteKeys.UseChromaticAberration, UseChromaticAberration);
         parameters.Set(VignetteKeys.UseGrain, UseGrain);
         parameters.Set(VignetteKeys.LuminanceWeightedGrain, LuminanceWeightedGrain);
+        parameters.Set(VignetteKeys.UseDither, UseDither);
 
         parameters.Set(
             VignetteKeys.VignetteIntensity,
@@ -262,6 +308,8 @@ public sealed class VignetteRenderer() : PostEffectRenderer(
         parameters.Set(VignetteKeys.GrainIntensity, applied.GrainIntensity?.Over(GrainIntensity) ?? GrainIntensity);
         parameters.Set(VignetteKeys.GrainScale, GrainScale);
         parameters.Set(VignetteKeys.FrameIndex, FrameIndex);
+        parameters.Set(VignetteKeys.DitherLevels, DitherLevels);
+        parameters.Set(VignetteKeys.DitherIntensity, DitherIntensity);
 
         Read(bindings, VignetteKeys.SourceBinding, Source);
         Sample(bindings, VignetteKeys.LinearSamplerBinding, Samplers!.LinearClamp);

@@ -249,6 +249,38 @@
               "ArrayStride": 0,
               "MatrixStride": 0,
               "DefaultValue": "1920, 1080"
+            },
+            {
+              "Name": "ditherLevels",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 104,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "255"
+            },
+            {
+              "Name": "ditherIntensity",
+              "Type": {
+                "Scalar": "Float",
+                "Rows": 1,
+                "Columns": 1,
+                "IsMatrix": false,
+                "IsArray": false,
+                "IsStruct": false
+              },
+              "Offset": 108,
+              "Size": 4,
+              "ArrayStride": 0,
+              "MatrixStride": 0,
+              "DefaultValue": "1"
             }
           ],
           "Size": 112,
@@ -358,6 +390,18 @@
         "IsStruct": false
       },
       "DefaultValue": "true"
+    },
+    {
+      "Name": "UseDither",
+      "Type": {
+        "Scalar": "Bool",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "DefaultValue": "false"
     }
   ],
   "ValueParameters": [],
@@ -631,12 +675,49 @@
       "ArrayStride": 0,
       "MatrixStride": 0,
       "DefaultValue": "1920, 1080"
+    },
+    {
+      "Name": "ditherLevels",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 104,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "255"
+    },
+    {
+      "Name": "ditherIntensity",
+      "Type": {
+        "Scalar": "Float",
+        "Rows": 1,
+        "Columns": 1,
+        "IsMatrix": false,
+        "IsArray": false,
+        "IsStruct": false
+      },
+      "Set": 2,
+      "Binding": 0,
+      "Offset": 108,
+      "Size": 4,
+      "ArrayStride": 0,
+      "MatrixStride": 0,
+      "DefaultValue": "1"
     }
   ],
   "RequiredCapabilities": [],
   "UsedPermutationKeys": [
     "LuminanceWeightedGrain",
     "UseChromaticAberration",
+    "UseDither",
     "UseGrain",
     "UseLensDistortion",
     "UseVignette"
