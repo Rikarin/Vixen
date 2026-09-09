@@ -348,6 +348,20 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
     ///         here: the pose, and the bind-pose bound the registration recorded. A host that knows
     ///         better can overwrite <see cref="VirtualGeometryDraw.MotionRadius" /> afterwards.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Nothing outside tests calls this, and it is the <em>only</em> thing missing between
+    ///         an imported character and a virtualized frame that skins it.</b> Everything under it
+    ///         exists: <c>ModelImporter</c> builds a hierarchy for skinned meshes on purpose,
+    ///         <c>MeshletBuilder</c> splits clusters on differing bones,
+    ///         <c>MeshletPages</c> carries four influences a vertex, and <c>ClusterRaster.rvn</c> and
+    ///         <c>VisibilityResolve.rvn</c> both blend the palette — gated on
+    ///         <c>instance.firstBone != Cull.NoBones</c>, which is
+    ///         <see cref="VirtualGeometryDraw.FirstBone" /> and is therefore zero for every instance in
+    ///         every frame. <c>SkinningSystem</c> is the caller it wants and has no
+    ///         <c>Virtualized</c> property, unlike <c>MorphWeightSystem</c> beside it. See
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/451" />, whose record weighs
+    ///         widening <c>SurfaceVertex</c> against this branch as if both were unbuilt.
+    ///     </para>
     /// </remarks>
     public void SetBones(RenderSystem system, RenderObjectId id, ReadOnlySpan<Matrix4x4> palette) {
         ArgumentNullException.ThrowIfNull(system);
