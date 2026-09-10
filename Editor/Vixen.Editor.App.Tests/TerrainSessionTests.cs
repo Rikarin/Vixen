@@ -382,7 +382,11 @@ public class TerrainSessionTests {
         // caller at all, so a play session evaluated no animator. It is registered between the two
         // below because it declares neither `[Provides]` nor `[RunsAfter]` and registration order is
         // what a contribution with no declaration keeps.
-        Assert.Equal(["physics", "animation", "terrain collision"], session.Running);
+        // ⚠ And "collider overlay" with #1247, immediately after the simulation it draws, because it
+        // is the same contribution saying a second thing: physics runs either way, and this line is
+        // what says there is a wireframe to switch on. The whole list rather than a `Contains`, so
+        // that a contribution which stops running is a failure here rather than a silence.
+        Assert.Equal(["physics", "collider overlay", "animation", "terrain collision"], session.Running);
 
         // The simulation the terrain's bodies were created in, provided by the application rather
         // than stood up a second time by the terrain module.
