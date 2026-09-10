@@ -14,5 +14,6 @@ Vixen.Core Its four contracts (GameTime, ObjectId, AssetId, AssetReference) are 
 Vixen.Core.Collections Handle<T> is an open generic, which the generator has nothing to emit for; the attribute is documentation of intent here.
 Vixen.Core.Diagnostics ProfilingKey is an interned id, not a persisted value — unexamined, and the attribute is a candidate for removal rather than for a generator reference.
 Vixen.Core.Tests AnnotationTests declares a fixture type to test the attribute's own shape, not to register one.
+Vixen.DocGen.Tests The attribute is declared and applied only inside the raw string literals these fixtures compile — Fixture.Preamble mints a `Vixen.Core.DataContractAttribute` of its own so a classification test needs no engine reference — which is the limit the rule states about itself.
 Vixen.Editor.Scripts.Tests EditorScriptTests declares importer fixtures inside the test assembly, which nothing loads by name.
 Vixen.Engine.Generators.Tests The attribute appears only inside the raw string literals these analyzer fixtures compile, which is the limit the rule states about itself.
