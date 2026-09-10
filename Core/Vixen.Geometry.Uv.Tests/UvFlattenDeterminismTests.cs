@@ -41,7 +41,10 @@ public class UvFlattenDeterminismTests {
         get {
             var data = new TheoryData<int, int>();
 
-            foreach (var workers in new[] { 1, 4, 16 }) {
+            // ⚠ Nought is the browser and not a slow four: a scheduler with no workers runs a batch
+            // when a thread reaches it, so scheduled work nobody waits on does nothing there while
+            // being invisible everywhere else. See Core/Vixen.Core.Threading/README.md and #328.
+            foreach (var workers in new[] { 0, 1, 4, 16 }) {
                 foreach (var batch in new[] { 0, 1, 7 }) {
                     data.Add(workers, batch);
                 }
@@ -51,6 +54,7 @@ public class UvFlattenDeterminismTests {
         }
     }
 
+    [Trait("Workers", "0")]
     [Theory]
     [MemberData(nameof(Configurations))]
     public void AFlattenIsTheSameBitsAtAnyWorkerCountAndBatchSize(int workers, int batch) {

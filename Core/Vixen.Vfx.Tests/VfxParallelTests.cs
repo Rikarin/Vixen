@@ -69,6 +69,7 @@ public class VfxParallelTests : IDisposable {
     ///     <c>LastStepWasParallel</c> below is the instrument: without it a row that never reached
     ///     the scheduler would compare the serial system with itself and pass.
     /// </remarks>
+    [Trait("Workers", "0")]
     [Theory]
     [InlineData(0)]
     [InlineData(4)]

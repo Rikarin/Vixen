@@ -362,6 +362,7 @@ public class GoapThroughputTests {
     ///         search is not.
     ///     </para>
     /// </remarks>
+    [Trait("Workers", "0")]
     [Theory]
     [InlineData(0)]
     [InlineData(2)]

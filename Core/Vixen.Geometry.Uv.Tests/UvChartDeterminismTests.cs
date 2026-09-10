@@ -36,7 +36,10 @@ public class UvChartDeterminismTests {
         get {
             var data = new TheoryData<int, int>();
 
-            foreach (var workers in new[] { 1, 4, 16 }) {
+            // ⚠ Nought is the browser and not a slow four: a scheduler with no workers runs a batch
+            // when a thread reaches it, so scheduled work nobody waits on does nothing there while
+            // being invisible everywhere else. See Core/Vixen.Core.Threading/README.md and #328.
+            foreach (var workers in new[] { 0, 1, 4, 16 }) {
                 foreach (var batch in new[] { 0, 1, 7 }) {
                     data.Add(workers, batch);
                 }
@@ -46,6 +49,7 @@ public class UvChartDeterminismTests {
         }
     }
 
+    [Trait("Workers", "0")]
     [Theory]
     [MemberData(nameof(Configurations))]
     public void TheSeamsAreTheSameAtAnyWorkerCountAndBatchSize(int workers, int batch) {
@@ -80,6 +84,7 @@ public class UvChartDeterminismTests {
     ///     that had a nondeterministic reduction in it and was merely converging to the same place, and
     ///     docs/plan/42 § B6's reason for the gate is a content hash, which does not have a tolerance.
     /// </remarks>
+    [Trait("Workers", "0")]
     [Theory]
     [MemberData(nameof(Configurations))]
     public void TheWholeUnwrapIsTheSameBits(int workers, int batch) {

@@ -63,8 +63,21 @@ public class UvPackDeterminismTests {
         }
     }
 
-    /// <summary>One worker, four and sixteen, and the placements are byte-identical.</summary>
+    /// <summary>None, one, four and sixteen workers, and the placements are byte-identical.</summary>
+    /// <param name="workers">How many worker threads the scheduler owns, or nought for the browser.</param>
+    /// <remarks>
+    ///     ⚠ <b>The nought row is a different claim from the others and not a cheaper one.</b> A
+    ///     scheduler with no workers runs a batch when a thread reaches it rather than on a worker, so
+    ///     work that is scheduled and never waited on does nothing at all there while being invisible
+    ///     at four — see <c>Core/Vixen.Core.Threading/README.md</c> and #328. It is the count
+    ///     <c>browser-wasm</c> picks by construction, because <c>Thread.Start</c> throws there.
+    ///     <c>Packer.cs</c>'s <c>if (scheduler is not null &amp;&amp; islands.Count > 1)</c> is what
+    ///     decides the scheduled path, so this row takes it rather than falling back into the serial
+    ///     branch the comparison is against.
+    /// </remarks>
+    [Trait("Workers", "0")]
     [Theory]
+    [InlineData(0)]
     [InlineData(1)]
     [InlineData(4)]
     [InlineData(16)]

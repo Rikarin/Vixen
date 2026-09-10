@@ -138,6 +138,7 @@ public class EcsIntegrationTests {
     ///     every pose would stay at frame zero. <c>LastEvaluatedCount</c> below is what stops this
     ///     passing on a run that evaluated nobody.
     /// </remarks>
+    [Trait("Workers", "0")]
     [Theory]
     [InlineData(0)]
     [InlineData(4)]
