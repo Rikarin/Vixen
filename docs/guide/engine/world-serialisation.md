@@ -71,6 +71,15 @@ stores an `Entity`.
 Handles are not written down, so a component holding one needs translating on the way back. The
 hierarchy is already handled; a component of your own is not:
 
+⚠ **The component below does not build without the suppression, and that is the state of things
+rather than a quirk of the example.** `VXS0416` refuses an `Entity` on a component carrying both
+`[Component]` and `[DataContract]`, because there is nothing durable to hold instead: persistent
+entity identity — a `GuidComponent`, or a `Guid → Entity` map — is
+[#296](https://github.com/Rikarin/Vixen/issues/296), and it is not built. So the translation below is
+what you do *today* with a handle you had no better way to store, and the suppression comes out when
+that lands. If the reference can be expressed as anything else — a name, an asset id, a slot in a
+table your own code owns — hold that instead and skip all of this.
+
 ```csharp compile
 using Vixen.Core;
 using Vixen.Ecs;
@@ -79,7 +88,13 @@ using Vixen.Engine.Worlds;
 [Component]
 [DataContract("GuideFollowTarget")]
 public struct FollowTarget {
+    // ⚠ VXS0416, and the rule is right: a handle is a slot in a running process, so this field is a
+    // number that means something else in the world it is read back into. The suppression names the
+    // issue rather than the rule — persistent identity is #296 — and the loop below is what has to
+    // happen for as long as it is open.
+#pragma warning disable VXS0416
     public Entity Value;
+#pragma warning restore VXS0416
 }
 
 public static class Reload {

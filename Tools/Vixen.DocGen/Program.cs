@@ -192,9 +192,30 @@ static async Task<int> Run(Arguments arguments) {
     // § 4.3 — the single most valuable gate. Documentation examples rot silently and are the first
     // thing a new user copies.
     var examples = pages.SelectMany(page => page.Examples).ToList();
+
+    // ⚠ And § 4.3's other half, which was missing until #1238: the fences are held to this
+    // repository's own analyzers and not only to the compiler. A `[Component] [DataContract]` struct
+    // holding an `Entity` is VXS0416, an error in any real project — and the guide taught one, on the
+    // page about the operation the example exists to explain, because a compiled fence had never met
+    // an analyzer. The set comes from the workspace's own analyzer references, so this file keeps no
+    // second list of which analyzers the tree has.
+    var rules = Examples.Rules(documented.SelectMany(project => project.Analyzers));
+    var unreported = Examples.Unreported(rules);
+
+    if (unreported.Count > 0) {
+        problems.Add(
+            $"the example gate resolved no analyzer reporting {string.Join(", ", unreported)}, so every "
+            + "compiled fence was checked against the compiler alone. That is the shape #1238 was about, "
+            + "and it looks exactly like a clean corpus. The analyzers come from the workspace's "
+            + "@(Analyzer) items, which resolve under bin/<Configuration> — check that --configuration "
+            + "names the configuration the tree was built in."
+        );
+    }
+
     var compiled = Examples.Compile(
         examples,
         [.. documented.Select(project => project.Compilation)],
+        rules,
         CancellationToken.None);
 
     problems.AddRange(compiled.SelectMany(result => result.Errors));

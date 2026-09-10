@@ -16,7 +16,8 @@ public class ReferenceIndexTests {
                 project.Area,
                 IsPackable: true,
                 GeneratedDocuments: 0,
-                Errors: []))
+                Errors: [],
+                Analyzers: []))
             .ToList();
 
         var known = loaded

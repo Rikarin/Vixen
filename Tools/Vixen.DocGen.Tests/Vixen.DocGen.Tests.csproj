@@ -36,6 +36,17 @@ SPDX-License-Identifier: Apache-2.0
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.DocGen\Vixen.DocGen.csproj" />
+
+        <!--
+            ⚠ As a plain reference and not as an analyzer: these are the subject here rather than
+            rules over this assembly. `RealExampleRuleTests` runs the engine's handle rules over the
+            guide's own fences, which is the half of #1238 that a `dotnet test` can reach — the real
+            gate needs the solution compiled in Release and nobody runs that per branch.
+
+            It restores despite the Roslyn split above because a direct 5.6.0 beats a transitive
+            4.11.0; a downgrade is the other direction.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Engine.Generators\Vixen.Engine.Generators.csproj" />
     </ItemGroup>
 
     <!--
