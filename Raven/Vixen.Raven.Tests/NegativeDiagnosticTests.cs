@@ -4109,8 +4109,8 @@ public class NegativeDiagnosticTests {
     ///     with. Proved by dropping <c>SpecialType.Bool</c> from the rule's allowed set, which reds
     ///     this with <c>RVN2081: Value parameter 'Shadows' has type 'bool'</c>.
     ///     <para>
-    ///         ⚠ <b>That widening has a decoy, and it cost an afternoon of believing this fixture
-    ///         was inert.</b> <c>SourceNamedTypeSymbol</c> carries the identical predicate twice —
+    ///         ⚠ <b>That widening has a decoy, and it cost two runs of believing this fixture was
+    ///         inert.</b> <c>SourceNamedTypeSymbol</c> carries the identical predicate twice —
     ///         <c>special is not (SpecialType.Bool or SpecialType.Int or SpecialType.UInt)</c> at
     ///         the permutation-key rule and again at this one — so a widening applied to the first
     ///         match leaves this rule untouched and the fixture green, which reads exactly like a
