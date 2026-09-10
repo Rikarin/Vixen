@@ -299,6 +299,17 @@ in `Vixen.Net`, and the three turn out to need very different things:
   answers only for a key the caller already holds, which is the same shape of gap one level down. And
   its `BaselineCount` is **a count of component records, not of entities**, so even the number that is
   reachable answers a different question from "how many objects is this player being sent".
+- ⚠ **The non-panel caller for that accessor does not exist, and the reason is that a game asks the
+  opposite question.** `Samples/08-Multiplayer` does read a per-player interest set — `GameServer`'s
+  `Observed(PlayerId, HashSet<uint>)`, which `LocalMatch`'s convergence check calls once per client —
+  and it gets it by **re-running the chain**, `interest.Resolve(world, player, observed)`, rather than
+  by asking `ReplicationServer` what that connection is holding. That is deliberate and it is right:
+  the check compares what the chain says a client is *entitled to* against what the client actually
+  has, and reading the server's own record of what it sent would be the server agreeing with itself.
+  So the two readers want opposite halves — a game wants **should be sent**, which `InterestChain` is
+  already public enough to answer, and the panel wants **has been sent**, which only
+  `Connection.Holding` knows. Landing the accessor early on the strength of the sample would be
+  landing it for a caller that would not use it.
 - **A live RPC log needs a record that is not being kept**, and ⚠ **"so the ring belongs here rather
   than in `Vixen.Net`" — recorded twice above this line — cannot be acted on as it stands.** A ring
   in this assembly needs something to subscribe to, and `RpcRouter` publishes **no event, no callback
