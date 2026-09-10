@@ -337,7 +337,7 @@ public class TexturePreviewWiringTests {
         Attach(session);
 
         var view = Open(session);
-        var document = (TextureImportDocument) session.Project.Documents.OfType<TextureImportDocument>().Single();
+        var document = (TextureImportDocument)session.Project.Documents.OfType<TextureImportDocument>().Single();
 
         document.Texture.MaxSize = 512;
         document.Texture.GenerateMips = false;
@@ -409,9 +409,9 @@ public class TexturePreviewWiringTests {
     /// </remarks>
     static byte Shown(Recording surface, ulong image) {
         Assert.NotEqual(0ul, image);
-        Assert.InRange(image, 1ul, (ulong) surface.Uploads.Count);
+        Assert.InRange(image, 1ul, (ulong)surface.Uploads.Count);
 
-        return surface.Uploads[(int) image - 1].Pixels[0];
+        return surface.Uploads[(int)image - 1].Pixels[0];
     }
 
     /// <summary>Writes the same file again in one flat shade, as another program would.</summary>
