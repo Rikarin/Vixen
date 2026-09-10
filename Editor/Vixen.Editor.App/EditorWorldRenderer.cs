@@ -981,6 +981,21 @@ sealed class EditorWorldRenderer : IDisposable {
         // which culls the entire scene rather than failing.
         var aspect = aspectRatio > 0f && float.IsFinite(aspectRatio) ? aspectRatio : 1f;
 
+        // ⚠ The third thing a view takes from a camera, and the one nothing here was giving it.
+        // `RenderCamera` carries the field of view and assigning it derives the position and the
+        // matrix — but not this, and its default is zero, which every consumer reads as "this view
+        // does no screen-size work": `LodRenderFeature.Prepare` skips such a view outright, so every
+        // level of every LOD group drew at once in the editor and none in a game;
+        // `GpuClusterCulling.ErrorScaleFor` returns zero for it, so a virtualized mesh was accepted
+        // at its root cluster however close the camera stood; and `TextureDemand` asks for nothing.
+        // Zero is the setting a shadow cascade and a probe face want, which is why nothing complained
+        // — a pane had silently opted out of exactly the work a pane is for.
+        //
+        // `CameraExtractionSystem` line for line, orthographic included: a plan view has no cone, so
+        // there is no fraction of the height to scale by and zero is the honest answer rather than an
+        // opt-out. See RenderView.ScreenHeightScale.
+        view.ScreenHeightScale = camera.IsOrthographic ? 0f : 1f / MathF.Tan(camera.FieldOfView * 0.5f);
+
         if (camera.IsOrthographic) {
             view.Camera = null;
             view.Position = camera.Position;

@@ -166,10 +166,21 @@ nothing in half the product.
   them. That is the owed half of
   [#1173](https://github.com/Rikarin/Vixen/issues/1173), and it is a content-build feature rather
   than an importer flag.
-- **No handle shows where a threshold falls.** Entity ▸ **Group as LOD Group** now builds a chain out
-  of a selection — see below — but judging whether `0.06` is the right number is still done by typing
-  it and walking backwards. A gizmo that drew each switch point as a distance in the viewport is the
-  remaining half of #1173's item (2).
+⚠ **A handle does show where a threshold falls now.** Selecting a group's parent in a perspective
+pane draws one ring on the ground per threshold, at the distance the runtime actually switches at:
+`radius × ScreenHeightScale / threshold`, which is `LodRenderFeature.Height` rearranged. Nothing is
+drawn in an orthographic pane, and that is the drawing agreeing with the frame rather than a gap — a
+plan view's `ScreenHeightScale` is zero and `LodRenderFeature` chooses no level for it.
+
+⚠ **The ring is measured on the finest level and the runtime measures whichever member it walked
+last** (`LodRenderFeature.Select` overwrites the group's height per visible member), so the two agree
+exactly for a group whose levels share a bound and differ by the ratio of their radii for one whose
+levels do not. That order dependence is the runtime's and is filed separately.
+
+⚠ **It lives in `SceneLines` and not in a contributed gizmo, and that is not a preference.**
+`GizmoDrawer` is handed a draw, a component and a placement and **no view**, and without the
+`1 / tan(fov / 2)` term a ring is wrong by about 1.7× at the pane's 60° default. A handle that
+disagrees with the runtime is worse than no handle.
 
 ⚠ **Until 2026-09-09 there was no producer at all.** `LodRenderFeature` was complete, tested and named
 by neither renderer, so nothing ever called `Add`, no group was ever registered, and a scene authored
