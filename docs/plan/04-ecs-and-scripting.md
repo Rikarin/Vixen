@@ -252,6 +252,23 @@ it uses change versions. They exist for editor tooling and user code.
 > and not in the tracker looks like. A save system, a play-mode enter/exit snapshot and a network
 > world-state sync would each want a different answer, and until one of them exists the choice is
 > being made against nothing.
+>
+> ⚠ **And the candidate #1201 calls obvious is the one this file already rules out.** That issue
+> offers the editor's play-mode enter and exit as the first customer; `WorldSerializer`'s own remarks
+> say that raw chunk memory "is `WorldSnapshot`, is the right answer for play mode, and is not a
+> format". The two are not interchangeable in the direction that matters: a capture carries only what
+> `SceneComponentRegistry` can name, so wiring play mode to it would *lose* every component a scene
+> may not name — which is the difference between a snapshot and a file, not an omission. A first
+> customer has to be something that wants **bytes**: a save, a checkpoint, a world sync.
+>
+> ⚠ **A second thing that customer would owe, found by writing it down as a test.** A captured world
+> carries none of its behaviours. `BehaviorRef` holds `Behavior[]` — references into a store rather
+> than bytes in a chunk — so it has no `[DataContract]`, `Capture` names it in `Dropped`, and
+> `IsComplete` is false for any world with a script attached
+> (`WorldSerializerTests.A_captured_world_carries_no_behaviours_and_says_so`). A *scene* has an answer
+> for this and the world format has none: a behaviour travels through `ISceneBehaviorBinder` as its
+> own contract. So "world serialisation is built" is narrower than it reads in a second way as well,
+> and a save system is owed behaviour state on top of whatever #296 decides about handles.
 
 ## Layer 2 — the system scheduler
 

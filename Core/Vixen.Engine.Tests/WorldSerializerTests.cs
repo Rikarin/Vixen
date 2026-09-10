@@ -5,6 +5,7 @@ using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Serialization;
 using Vixen.Ecs;
+using Vixen.Engine.Behaviors;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
 using Vixen.Engine.Worlds;
@@ -206,6 +207,49 @@ public sealed class WorldSerializerTests {
         Assert.Equal(1f, target.Read<Shield>(restored[0]).Absorption);
         Assert.False(target.Has<RegistrationTestHandle>(restored[0]));
     }
+
+    /// <summary>
+    ///     ⚠ <b>A captured world carries none of its behaviours, and the shortfall is recorded rather
+    ///     than silent.</b>
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <c>BehaviorRef</c> is the link from an entity to its scripts and it carries neither
+    ///         <c>[Component]</c> nor <c>[DataContract]</c> — it holds <c>Behavior[]</c>, which is
+    ///         references into a store rather than bytes in a chunk — so
+    ///         <c>SceneComponentRegistry</c> has never heard of it and <c>Capture</c> puts it in
+    ///         <see cref="WorldContent.Dropped" /> like any other unregistered type.
+    ///     </para>
+    ///     <para>
+    ///         <b>Which is the bound anything treating "world serialisation is built" as "a world can
+    ///         be saved" runs into</b>, and it is written down here because the type has no production
+    ///         caller at all ([#1201](https://github.com/Rikarin/Vixen/issues/1201)) and therefore
+    ///         nothing else that would notice. A scene has an answer for this — a behaviour travels
+    ///         through <c>ISceneBehaviorBinder</c> as its own <c>[DataContract]</c> — and the world
+    ///         format has none, so a first customer that is a save system owes one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_captured_world_carries_no_behaviours_and_says_so() {
+        using var world = new World();
+        var store = new BehaviorStore(world);
+        var entity = world.Create(new Shield { Absorption = 3f });
+
+        store.Add(entity, new CapturedBehavior());
+
+        var content = WorldSerializer.Capture(world);
+
+        Assert.False(content.IsComplete);
+        Assert.Contains(typeof(BehaviorRef).FullName, content.Dropped);
+
+        using var target = new World();
+        var restored = WorldSerializer.Restore(content, target);
+
+        Assert.Equal(3f, target.Read<Shield>(restored[0]).Absorption);
+        Assert.False(target.Has<BehaviorRef>(restored[0]));
+    }
+
+    sealed class CapturedBehavior : Behavior;
 
     [Fact]
     public void The_dropped_list_names_each_component_once_and_is_sorted() {
