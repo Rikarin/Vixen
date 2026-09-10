@@ -101,6 +101,8 @@ Core/
 ├── Vixen.Core.Yaml.Tests/
 ├── Vixen.Core.Diagnostics/             # ILogger sink, profiler, counters, trace export
 ├── Vixen.Core.Diagnostics.Tests/
+├── Vixen.Core.Diagnostics.Analyzers/   # ── analyzer: a catch that discards the exception ──
+├── Vixen.Core.Diagnostics.Analyzers.Tests/
 ├── Vixen.Core.Imaging/                 # engine texture formats, BCn/ASTC/ETC2 encode-decode, mip gen
 ├── Vixen.Core.Imaging.Tests/
 │
