@@ -128,6 +128,17 @@ permutation, so a document that wants only grain compiles only grain:
   grainIntensity: 0.06
 ```
 
+**A fourth thing it carries, and it is not a look:** `useDither` adds about one code of triangular
+noise immediately before the encode, which is what stops an eight-bit target banding a shallow
+gradient. It belongs on the *last* node of a frame and nowhere earlier — the step it breaks up is the
+one the final encode makes — which is why `!StandardFrame` turns it on where it emits its vignette
+and on no other pass. ⚠ **Its amplitude is not `1/255` of the shader's own value.** `format` defaults
+to `Rgba8UNormSrgb`, and one stored code of an sRGB target is a linear step that is about `0.00016`
+wide at `L = 0.01` and `0.0075` at `L = 0.9` — a factor of forty-five, and the shadows are exactly
+where banding shows. The shader divides one code by the encode's local slope under an `SrgbTarget`
+permutation the renderer sets from the attachment's own format, so a linear target and an sRGB one
+each get the noise theirs needs.
+
 **Auto-exposure publishes a buffer, not a texture.** The reduction produces the number on the device
 and the tonemap consumes it there, so a `!Tonemap` picks it up by naming the resource rather than by
 naming the node:
@@ -297,7 +308,11 @@ centre of the frame*, which is why the whole effect is one vector and a list of 
 ```
 
 ⚠ **`threshold` is in the source's units.** In a physically lit frame that is cd/m², where nothing is
-near one — so the default of one flares the floor. The same argument `!Bloom`'s threshold makes.
+near one — so a threshold of one flares the floor. The same argument `!Bloom`'s threshold makes, and
+both nodes' **defaults are photometric** since 2026-09-10: forty thousand here, three thousand with a
+knee of fifteen hundred there. ⚠ Until then both defaulted to one, so a frame that named neither —
+which is every frame `!StandardFrame` expands — passed its whole picture through both bright passes
+and added two blurred copies of itself back over it.
 
 **`view:` gives the starburst the camera's blade count**, which is the same diaphragm that shapes the
 bokeh in `!DepthOfField`. One lens, two effects; a number typed here and a different one on the
@@ -336,9 +351,10 @@ each side along `direction`, and the node raises the stride by `2·samples + 1` 
 width the pass before it produced, so the reach multiplies while the cost only adds. Three passes of
 four taps reach 729 texels for 27 samples rather than 729 of them.
 
-⚠ **`threshold` is in the source's units**, for `!LensFlare`'s reason and with the same failure if it
-is left at the default: in a photometric frame nothing is near one, so a threshold of one streaks the
-floor.
+⚠ **`threshold` is in the source's units**, for `!LensFlare`'s reason: in a photometric frame nothing
+is near one, so a threshold of one streaks the floor. This node's default was photometric from the
+day it landed and is what the other two were measured against — at one it moved the Epic tier's
+average channel by 23.1 of 255, where the golden tolerance is 0.35.
 
 ⚠ **`attenuation` must stay below one.** It is raised to the tap's distance in texels, so it is the
 whole of what makes the smear taper; at one the streak ends in a hard edge wherever the last pass

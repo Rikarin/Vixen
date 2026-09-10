@@ -37,11 +37,27 @@ public sealed record BloomAsset : ISceneRendererAsset {
     /// <summary>The format every level has.</summary>
     public PixelFormat Format { get; init; } = PixelFormat.Rgba16Float;
 
-    /// <summary>Luminance above which a pixel contributes.</summary>
-    public float Threshold { get; init; } = 1f;
+    /// <summary>Luminance above which a pixel contributes, in the source's units.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Photometric, and it was one until 2026-09-10.</b> The renderer works in cd/m² and
+    ///     nothing in a physically lit frame is near one, so a threshold of one passes the <i>entire
+    ///     picture</i> through the bright pass: the glow stops being light spilling off a highlight
+    ///     and becomes a blurred second copy of the frame added back over it. Three thousand is what
+    ///     sample 13's hand-authored frame gives this node, with its own argument written beside it —
+    ///     about two stops over what its exposure calls middle grey and about twice its brightest
+    ///     sunlit surface, so what spills is the lamp lenses and the sky beside the sun.
+    ///     <see cref="LightStreakAsset.Threshold" /> is the same decision taken for the same reason.
+    /// </remarks>
+    public float Threshold { get; init; } = 3_000f;
 
-    /// <summary>How soft that threshold is.</summary>
-    public float Knee { get; init; } = 0.5f;
+    /// <summary>How soft that threshold is, in the same units.</summary>
+    /// <remarks>
+    ///     ⚠ <b>It moves with <see cref="Threshold" /> and is half of it, because a knee is a
+    ///     <i>width</i> in the source's units rather than a fraction.</b> Half a candela either side
+    ///     of three thousand is a hard threshold with a soft-knee shader evaluating it, which is the
+    ///     popping the knee exists to stop.
+    /// </remarks>
+    public float Knee { get; init; } = 1_500f;
 
     /// <summary>The upsample tent's radius in texels.</summary>
     public float FilterRadius { get; init; } = 1f;

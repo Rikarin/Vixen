@@ -85,11 +85,20 @@ public sealed class BloomRenderer : SceneRenderer, IDisposable, IPostProcessTarg
     /// </remarks>
     public PixelFormat Format { get; set; } = PixelFormat.Rgba16Float;
 
-    /// <summary>Luminance above which a pixel contributes.</summary>
-    public float Threshold { get; set; } = 1f;
+    /// <summary>Luminance above which a pixel contributes, in the source's units.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Photometric, and it was one until 2026-09-10 — see <c>BloomAsset.Threshold</c>.</b>
+    ///     The renderer works in cd/m², so a threshold of one passes every pixel of a physically lit
+    ///     frame through the bright pass and the glow becomes a blurred copy of the picture.
+    /// </remarks>
+    public float Threshold { get; set; } = 3_000f;
 
     /// <summary>How soft the threshold is, which is what stops highlights popping in and out.</summary>
-    public float Knee { get; set; } = 0.5f;
+    /// <remarks>
+    ///     In <see cref="Threshold" />'s units and half of it, because a knee is a width rather than a
+    ///     fraction: half a candela either side of three thousand is a hard threshold.
+    /// </remarks>
+    public float Knee { get; set; } = 1_500f;
 
     /// <summary>The upsample tent's radius in texels, which is how wide the bloom spreads.</summary>
     public float FilterRadius { get; set; } = 1f;

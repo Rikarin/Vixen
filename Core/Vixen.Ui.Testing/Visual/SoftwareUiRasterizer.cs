@@ -182,7 +182,8 @@ public static class SoftwareUiRasterizer {
         float[]? surface,
         ReadOnlySpan<UiMask> masks,
         UiBlendMode blend,
-        (Rectangle Box, float Radius)? rounded
+        (Rectangle Box, float Radius)? rounded,
+        float white
     ) {
         var area = Edge(a.Position, b.Position, c.Position);
 
@@ -263,7 +264,7 @@ public static class SoftwareUiRasterizer {
                     _ => Solid(colour, shape)
                 };
 
-                Blend(target, ((y * width) + x) * 4, fragment, blend);
+                Blend(target, ((y * width) + x) * 4, fragment, blend, white);
             }
         }
     }
@@ -658,6 +659,11 @@ public static class SoftwareUiRasterizer {
     ///     How the two are mixed. <see cref="UiBlendMode.Normal" /> for everything but a composited
     ///     group whose <c>mix-blend-mode</c> says otherwise.
     /// </param>
+    /// <param name="white">
+    ///     What the frame's white is worth in the units this buffer holds — <see cref="UiGeometry.WhiteLevel" />.
+    ///     ⚠ Unread by the source-over itself, which is scale-free; § 5.1's functions are not, and a
+    ///     blend handed a one in a frame built at 203 returns one candela. See <see cref="UiBlend.Apply" />.
+    /// </param>
     /// <remarks>
     ///     ⚠ <b>The one line in this file that reads the destination for anything but the source-over
     ///     itself, and it is what a blend mode costs.</b> Every other group-wide effect — the fade,
@@ -667,12 +673,19 @@ public static class SoftwareUiRasterizer {
     ///     <see cref="UiBlend.Apply" />, which turns that into an ordinary source-over of a changed
     ///     colour rather than a second blend state.
     /// </remarks>
-    static void Blend(float[] target, int offset, Color4 source, UiBlendMode mode = UiBlendMode.Normal) {
+    static void Blend(
+        float[] target,
+        int offset,
+        Color4 source,
+        UiBlendMode mode = UiBlendMode.Normal,
+        float white = 1f
+    ) {
         if (mode != UiBlendMode.Normal) {
             source = UiBlend.Apply(
                 mode,
                 source,
-                new Color4(target[offset], target[offset + 1], target[offset + 2], target[offset + 3])
+                new Color4(target[offset], target[offset + 1], target[offset + 2], target[offset + 3]),
+                white
             );
         }
 
@@ -1309,7 +1322,12 @@ public static class SoftwareUiRasterizer {
                     surface,
                     mask,
                     blend,
-                    box
+                    box,
+
+                    // ⚠ The frame's own, not this rasteriser's: the scale was spent inside
+                    // `UiGeometryBuilder.Show` and a colour holds no magnitude to recover, which is
+                    // precisely why `UiGeometry` carries the number. See #1209.
+                    geometry.WhiteLevel
                 );
             }
         }

@@ -749,6 +749,28 @@ is perceptibly darker here than in a browser. Closing it means an encode and a d
 both composites and a decision about what the interface's compositing space *is*, which is a
 colour-management question rather than a blending one.
 
+⚠ **§ 5.1's functions are defined on the unit interval and this engine's interface colours are not,
+so `Apply` normalises both operands by the frame's white and re-lights the answer.** The divisor is
+`UiGeometry.WhiteLevel` — one on a display-referred pass, BT.2408's 203 cd/m² on a scene-referred one
+— and until 2026-09-10 it was not there: both operands were clamped to `[0, 1]` outright, so a
+premultiplied result could never exceed its own alpha and a `mix-blend-mode: multiply` panel in an
+HDR HUD came out at **one candela** whatever it was authored at, two orders of magnitude below the
+same panel with no declaration at all. That is the same photometric trap `UiGeometryBuilder.WhiteLevel`
+exists for, one door along, and nothing could see it: every blend fixture built at a white level of
+one, where the divisor is the identity, and both rasterisers then stored eight bits.
+
+The one divisor is enough because § 5 falls into three groups. The four non-separable modes are
+homogeneous of degree one — § 5.3's `SetLum`, `SetSat` and `ClipColor` are written in the operands'
+own luma — as are `darken`, `lighten` and `difference`, so normalising and re-lighting reproduces the
+unbounded answer exactly. `multiply`, `screen` and `exclusion` are *quadratic* in the units and have
+no meaning without a stated one: `Cb·Cs` of two 203s is 41 209 rather than 203. And `color-dodge`,
+`color-burn`, `soft-light`, `hard-light` and `overlay` genuinely have no definition above one, so the
+clamp is right there and what was missing was only what it clamps *against*. `Every_mode_scales_with_the_frames_white`
+holds all sixteen to that, and `A_white_multiply_panel_leaves_the_wall_it_covers_alone_rather_than_at_one_candela`
+is the picture: white is `multiply`'s identity, so a white panel over a wall at 100 cd/m² must leave
+it at 100, and it read 1 before. **The device path inherits this convention rather than choosing its
+own** — it is the divisor the fragment stage transcribes.
+
 ⚠ **`UiRenderer` does not implement it, and says so — and the reason it used to give was refuted by
 the paragraph below it.** "The device has no read of the attachment the UI pass is writing" is true
 and is not why: § 5.1 asks for no such read. What is actually missing is a composite pipeline variant

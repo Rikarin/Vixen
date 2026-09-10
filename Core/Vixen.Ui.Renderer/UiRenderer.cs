@@ -1050,6 +1050,18 @@ public sealed class UiRenderer : IDisposable {
     ///         layout every UI pipeline shares. That is the whole of the remaining cost, and it is
     ///         real.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One thing the fragment must carry that the arithmetic alone does not say, settled
+    ///         2026-09-10 so it is not settled twice in two shader languages (#1209).</b>
+    ///         <see cref="UiBlend.Apply" /> normalises both operands by
+    ///         <see cref="UiGeometry.WhiteLevel" /> before § 5.1's function and re-lights the answer
+    ///         after it. Without that divisor a <c>multiply</c> panel in a frame built at 203 comes
+    ///         out at <i>one candela</i> — the clamp to <c>[0, 1]</c> is a statement about the frame's
+    ///         white and not about the number one. So the composite variant needs the white level as
+    ///         well as the backdrop texture, and a fragment that transcribes the sixteen modes and
+    ///         forgets it is a device path that disagrees with the software one on exactly the frames
+    ///         a HUD is drawn in.
+    ///     </para>
     /// </remarks>
     public int Unblended => unblended;
 
