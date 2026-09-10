@@ -39,10 +39,20 @@ public struct RootMotionResult {
 
 /// <summary>Which renderable an animated entity's bone palette belongs to.</summary>
 /// <remarks>
-///     The join between the two halves of skinning. Animation produces a pose; the renderer holds a
-///     dense per-object array indexed by <see cref="RenderObjectId" />, and something has to say
-///     which entity is which object. This is that something, and it is a component rather than a
-///     dictionary because the answer is per entity and never changes within a frame.
+///     <para>
+///         The join between the two halves of skinning. Animation produces a pose; the renderer holds
+///         a dense per-object array indexed by <see cref="RenderObjectId" />, and something has to say
+///         which entity is which object.
+///     </para>
+///     <para>
+///         ⚠ <b>Superseded, and nothing reads or writes it any more.</b> That join is
+///         <c>RenderHandle</c>, which <c>MeshExtractionSystem</c> writes for every extracted entity
+///         and <c>MorphWeightSystem</c> already reads; this component said the same thing a second
+///         time and <em>nothing in the tree ever added it to an entity</em>, so
+///         <see cref="SkinningSystem" />'s query matched no chunk in any scene the engine builds. It
+///         is kept only because removing a public type moves the <c>PublicAPI</c> baseline; there is
+///         no reason to add one. See <see href="https://github.com/Rikarin/Vixen/issues/451" />.
+///     </para>
 /// </remarks>
 public struct SkinnedRenderer {
     /// <summary>The renderable whose palette this entity's pose fills.</summary>

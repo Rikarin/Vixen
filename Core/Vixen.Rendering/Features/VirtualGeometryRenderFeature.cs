@@ -333,6 +333,7 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
     ///     Its skinning matrices — <c>inverseBindPose * boneWorld</c>, one per bone, in the order the
     ///     mesh's page vertices index them. Empty makes the object unskinned again.
     /// </param>
+    /// <returns>Whether the object is one of this feature's at all.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="system" /> is null.</exception>
     /// <exception cref="InvalidOperationException">There is no traversal to hold the palette.</exception>
     /// <remarks>
@@ -349,21 +350,40 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
     ///         better can overwrite <see cref="VirtualGeometryDraw.MotionRadius" /> afterwards.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Nothing outside tests calls this, and it is the <em>only</em> thing missing between
-    ///         an imported character and a virtualized frame that skins it.</b> Everything under it
-    ///         exists: <c>ModelImporter</c> builds a hierarchy for skinned meshes on purpose,
-    ///         <c>MeshletBuilder</c> splits clusters on differing bones,
-    ///         <c>MeshletPages</c> carries four influences a vertex, and <c>ClusterRaster.rvn</c> and
-    ///         <c>VisibilityResolve.rvn</c> both blend the palette — gated on
-    ///         <c>instance.firstBone != Cull.NoBones</c>, which is
-    ///         <see cref="VirtualGeometryDraw.FirstBone" /> and is therefore zero for every instance in
-    ///         every frame. <c>SkinningSystem</c> is the caller it wants and has no
-    ///         <c>Virtualized</c> property, unlike <c>MorphWeightSystem</c> beside it. See
-    ///         <see href="https://github.com/Rikarin/Vixen/issues/451" />, whose record weighs
-    ///         widening <c>SurfaceVertex</c> against this branch as if both were unbuilt.
+    ///         ⚠ <b>It answers whether the object was this feature's, which is what makes it the second
+    ///         half of a fall-through rather than a scatter.</b>
+    ///         <see cref="SkinningRenderFeature.SetBones" /> writes into a parallel array and has no way
+    ///         to know whether the object it was handed is on the vertex-buffer path at all, so the
+    ///         system that pushes a palette has to ask this one first and use the answer — exactly the
+    ///         shape <see cref="SetMorphWeights" /> and <c>MorphWeightSystem</c> already have, in the
+    ///         one order that works here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the ownership test is the <see cref="RenderObject.FeatureIndex" /> rather than
+    ///         <see cref="VirtualGeometryDraw.IsDrawable" />, because a zeroed record passes that one.</b>
+    ///         <c>Mesh</c>'s documented "none" is <c>-1</c> and nothing writes it: an object extracted
+    ///         down the ordinary path never has its entry in this array touched, so it reads
+    ///         <c>Mesh = 0</c> — registration zero — and claims to be drawable. The feature index is
+    ///         written by whoever added the object and is the discriminator every other root feature
+    ///         already uses (<c>SpriteRenderFeature</c>, <c>ParticleRenderFeature</c>,
+    ///         <c>LodRenderFeature</c>). See <see href="https://github.com/Rikarin/Vixen/issues/1241" />
+    ///         for the same zero read by <see cref="Prepare" />.
+    ///     </para>
+    ///     <para>
+    ///         <b>The caller it wanted now exists</b>: <c>SkinningSystem.Virtualized</c>, which is where
+    ///         a frame's palettes come from. Everything under it was already built —
+    ///         <c>ModelImporter</c> builds a hierarchy for skinned meshes on purpose,
+    ///         <c>MeshletBuilder</c> splits clusters on differing bones, <c>MeshletPages</c> carries
+    ///         four influences a vertex, and <c>ClusterRaster.rvn</c> and <c>VisibilityResolve.rvn</c>
+    ///         both blend the palette, gated on <c>instance.firstBone != Cull.NoBones</c>. ⚠ What is
+    ///         still missing is one level up and is not this feature's: nothing registers
+    ///         <c>SkinningSystem</c> in a game's loop and nothing hands it these seams, so the palette
+    ///         still reaches no shipping frame. See
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/451" /> and
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1221" />.
     ///     </para>
     /// </remarks>
-    public void SetBones(RenderSystem system, RenderObjectId id, ReadOnlySpan<Matrix4x4> palette) {
+    public bool SetBones(RenderSystem system, RenderObjectId id, ReadOnlySpan<Matrix4x4> palette) {
         ArgumentNullException.ThrowIfNull(system);
 
         if (Visibility is null) {
@@ -374,18 +394,27 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
 
         ref var draw = ref system.Objects.Data.Data(Draws)[id.Index];
 
+        if (system.Objects[id].FeatureIndex != Index || !draw.IsDrawable) {
+            draw.FirstBone = 0;
+            draw.MotionRadius = 0f;
+
+            return false;
+        }
+
         if (palette.IsEmpty) {
             draw.FirstBone = 0;
             draw.MotionRadius = 0f;
 
-            return;
+            return true;
         }
 
         draw.FirstBone = Visibility.AddBones(palette);
 
-        draw.MotionRadius = draw.IsDrawable && draw.Mesh < Visibility.MeshCount
+        draw.MotionRadius = draw.Mesh < Visibility.MeshCount
             ? GpuClusterCulling.MotionRadiusFor(palette, Visibility.MeshAt(draw.Mesh).Center, Visibility.MeshAt(draw.Mesh).Radius)
             : 0f;
+
+        return true;
     }
 
     /// <summary>Starts a frame's blend-shape weights. Call before the first <see cref="SetMorphWeights" />.</summary>

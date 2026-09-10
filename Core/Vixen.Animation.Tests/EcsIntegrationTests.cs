@@ -234,6 +234,10 @@ public class EcsIntegrationTests {
             new SkinnedRenderer { RenderObject = new(0) }
         );
 
-        new SkinningSystem().Run(world);
+        var skinning = new SkinningSystem();
+
+        skinning.Run(world);
+
+        Assert.Equal(0, skinning.Skinned);
     }
 }
