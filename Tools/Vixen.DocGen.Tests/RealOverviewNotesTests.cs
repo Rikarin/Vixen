@@ -127,6 +127,60 @@ public class RealOverviewNotesTests {
         );
     }
 
+    /// <summary>
+    ///     § 1.15's guide counts are the tree's, and its <c>DocsExempt.txt</c> count is the file's.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Every one of the four numbers in that row had moved by the time it was read</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/113">#113</a>): 247 pages against
+    ///         248, editor 43 against 44, 3 322 exempt types against 3 336, and "<c>Vixen.Raven</c>'s
+    ///         share is now 0" against one line that is still there. None of them is wrong in a way a
+    ///         reader would notice, which is the argument for checking them rather than for deleting
+    ///         them: the row is the only place that says how much of the manual exists.
+    ///     </para>
+    ///     <para>
+    ///         Part 4 bars a count outright and § 1.x does not, because a § 1.x paragraph is where the
+    ///         evidence goes. A count that something checks is evidence; one nothing checks is the
+    ///         snapshot Part 4's header is about.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_guide_counts_in_section_1_15_are_the_trees() {
+        var root = Directory.GetParent(Path.GetDirectoryName(OverviewPath)!)!.FullName;
+        var guide = Path.Combine(root, "docs", "guide");
+        var areas = Directory.GetDirectories(guide)
+            .ToDictionary(
+                directory => Path.GetFileName(directory)!,
+                directory => Directory.GetFiles(directory, "*.md", SearchOption.AllDirectories).Length);
+
+        var row = File.ReadAllLines(OverviewPath)
+            .FirstOrDefault(line => line.Contains("](guide) holds", StringComparison.Ordinal))
+            ?? throw new InvalidOperationException("§ 1.15's guide row is gone, or its link is written differently.");
+
+        var stated = System.Text.RegularExpressions.Regex.Match(
+            row, @"\*\*(?<pages>\d+) pages across (?<areas>\w+) areas\*\* \((?<list>[^)]*)\)");
+
+        Assert.True(stated.Success, $"§ 1.15's guide row does not state its counts the usual way: {row[..120]}");
+        Assert.Equal(areas.Values.Sum(), int.Parse(stated.Groups["pages"].Value));
+
+        var listed = stated.Groups["list"].Value
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(entry => entry.Split(' '))
+            .ToDictionary(parts => parts[0], parts => int.Parse(parts[1]));
+
+        Assert.Equal(areas.OrderBy(pair => pair.Key), listed.OrderBy(pair => pair.Key));
+
+        var exempt = File.ReadAllLines(Path.Combine(root, "docs", "DocsExempt.txt"));
+        var types = exempt.Count(line => line.StartsWith("T:", StringComparison.Ordinal));
+        var statedTypes = System.Text.RegularExpressions.Regex.Match(row, @"\(([\d  ]+)`T:` lines");
+
+        Assert.True(statedTypes.Success, "§ 1.15's guide row no longer states a `T:` count.");
+        Assert.Equal(
+            types,
+            int.Parse(statedTypes.Groups[1].Value.Replace(" ", string.Empty).Replace(" ", string.Empty)));
+    }
+
     /// <summary>A row with more cells than its table has columns is a row nothing renders.</summary>
     [Fact]
     public void Every_row_has_its_table_s_column_count() {
