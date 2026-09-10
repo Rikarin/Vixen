@@ -3,6 +3,8 @@
 
 using Vixen.Core.Diagnostics;
 using Vixen.Editor.Debugger;
+using Vixen.Engine.Behaviors;
+using Vixen.Engine.Transforms;
 using Vixen.Editor.Profiler;
 using Vixen.Editor.Testing;
 using Vixen.Ui;
@@ -219,6 +221,63 @@ public class DiagnosticsPanelTests {
 
         var entities = Assert.Single(view.Statistics.Rows, row => row.Label == "Entities");
         Assert.Equal(session.Scene.Entities.Count(), entities.Value);
+    }
+
+    /// <summary>The statistics panel counts behaviours, and says which store it counted.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b><c>BehaviorStore.Population</c> had one reader and it was a command-line verb</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1216">#1216</a>) — one that counts
+    ///         what a scene <em>authors</em>, which is zero in all fourteen committed
+    ///         <c>.vxscene</c> files because every behaviour instance in the samples is attached from
+    ///         code. The number doc 04's authoring rule is about is a run-time one, so the place it
+    ///         has to be visible is the editor while a level is running.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both stores are asserted, and the row's sentence is what tells them apart.</b> The
+    ///         two counts happen to agree here — a play session takes the authored behaviours over —
+    ///         and would not in a level whose code attaches a hundred more. A panel that showed the
+    ///         authored number while a session was running would be answering a different question in
+    ///         the same units, which is the failure the CLI verb refuses to make and the one an
+    ///         assertion on the count alone cannot see.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_statistics_panel_counts_the_behaviours_and_says_which_store_it_counted() {
+        SceneBehaviorRegistry.Register<Drifter>();
+
+        using var session = EditorSession.Start();
+
+        for (var index = 0; index < 3; index++) {
+            session.Scene.Behaviors.Add(
+                session.Scene.Add("Drifting" + index, LocalTransform.Identity),
+                new Drifter()
+            );
+        }
+
+        var view = Built<StatisticsView>(session, "statistics");
+
+        view.Take();
+
+        var authored = Assert.Single(view.Statistics!.Rows, row => row.Label == "Behaviours · Drifter");
+
+        Assert.Equal(3, authored.Value);
+        Assert.Equal(200, authored.Budget);
+        Assert.Contains("authored", authored.Detail!, StringComparison.Ordinal);
+
+        session.Run("play.play");
+        session.Frames(4);
+
+        view.Take();
+
+        var live = Assert.Single(view.Statistics!.Rows, row => row.Label == "Behaviours · Drifter");
+
+        Assert.Equal(3, live.Value);
+
+        // ⚠ The enabled count, which is only honest inside a session: the bucket's enabled prefix is
+        // a property of the loop, so a store that has never run a lifecycle drain reports every
+        // behaviour disabled. Four frames is what puts these three through one.
+        Assert.Equal("3 of them enabled, in this play session", live.Detail);
     }
 
     [Fact]

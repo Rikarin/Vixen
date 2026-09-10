@@ -648,6 +648,13 @@ sealed partial class EditorApplication : IDisposable {
         // should be able to do. Read at every Play, so a scene opened after this line still plays.
         play.Stores = () => openScenes.Select(open => open.Document.Behaviors);
 
+        // ⚠ And the statistics panel is told how to count behaviours, which is a question no world
+        // walk can answer: a `BehaviorStore` is not in the world. #1216 — `BehaviorStore.Population`
+        // had one reader, `vixen doctor behaviors`, and what that counts is what a scene *authors*,
+        // which is zero in every committed scene here. Which store is live is this class's answer
+        // and nothing below it can have one.
+        diagnostics.SceneFacts = BehaviorFacts;
+
         // ⚠ The editor's own contribution to the frame a session runs, and the one service this
         // application can honestly own. Doc 31 § D10 said an embedding host would have to add the
         // four physics passes by hand; it does not, because `IPlaySystems` is read at every Play.

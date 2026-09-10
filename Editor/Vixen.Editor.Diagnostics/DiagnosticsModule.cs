@@ -123,6 +123,28 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     /// </remarks>
     public Func<FrameCapture>? FrameCaptureSource { get; set; }
 
+    /// <summary>Rows the statistics panel shows that a world walk cannot produce.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Read at every <c>Refresh</c>, like every other source here, so what it answers with
+    ///         is whatever is true when the button is pressed.</b> Empty is the ordinary answer for a
+    ///         host that counts nothing of its own, and the panel then shows exactly the traversal it
+    ///         always did.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What it exists for is the behaviour population</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1216">#1216</a>).
+    ///         <c>BehaviorStore.Population</c> answers doc 04's authoring rule — "one instance, or a
+    ///         handful" against "many instances, the same operation over all of them" — and its only
+    ///         reader was <c>vixen doctor behaviors</c>, which counts what a <em>scene authors</em>
+    ///         and is therefore zero in every committed scene in this repository. The number the rule
+    ///         is about is a run-time one, and the two things that can honestly produce it — which
+    ///         store is live, and whether a play session is running — are both the application's and
+    ///         neither is this module's.
+    ///     </para>
+    /// </remarks>
+    public Func<IReadOnlyList<StatisticRow>>? SceneFacts { get; set; }
+
     /// <summary>Where a standalone play-mode process would listen for an inspector.</summary>
     /// <remarks>
     ///     <para>
@@ -350,7 +372,15 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
                 // Whichever scene the editor is showing, so opening a prefab and pressing Refresh
                 // counts the prefab rather than the level behind it.
-                statistics.Source = () => SceneStatistics.Collect(scenes.Current.World, depth: Deepest());
+                //
+                // ⚠ Plus whatever the host counts that a world walk cannot — the behaviour
+                // population, which is a property of a `BehaviorStore` and not of the world. See
+                // `SceneFacts`.
+                statistics.Source = () => SceneStatistics.Collect(
+                    scenes.Current.World,
+                    depth: Deepest(),
+                    counted: SceneFacts?.Invoke()
+                );
                 statistics.Take();
             }
         );
