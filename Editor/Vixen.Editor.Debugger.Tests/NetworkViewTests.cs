@@ -715,14 +715,6 @@ public sealed class NetworkViewTests : IDisposable {
         return built;
     }
 
-    /// <summary>A host session — one process, both halves — with its own player connected.</summary>
-    /// <remarks>
-    ///     ⚠ <b>The loss counters are the session's transport's, so a test of the loss lanes is a test
-    ///     of a session running on a transport that counts.</b> The in-process one does not — it never
-    ///     loses anything and has no sequence numbers to notice a gap in — so this wraps it in a
-    ///     decorator that answers <c>Loss</c> and forwards everything else, which is what a
-    ///     <c>UdpTransport</c> is to this panel and nothing more.
-    /// </remarks>
     /// <summary>A panel over a host whose links carry a peer's report, scripted once a reading.</summary>
     /// <remarks>
     ///     ⚠ <b>The session is pumped from inside the panel's own pull, and that is what makes this
@@ -755,6 +747,14 @@ public sealed class NetworkViewTests : IDisposable {
         return built;
     }
 
+    /// <summary>A host session — one process, both halves — with its own player connected.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The loss counters are the session's transport's, so a test of the loss lanes is a test
+    ///     of a session running on a transport that counts.</b> The in-process one does not — it never
+    ///     loses anything and has no sequence numbers to notice a gap in — so this wraps it in a
+    ///     decorator that answers <c>Loss</c> and forwards everything else, which is what a
+    ///     <c>UdpTransport</c> is to this panel and nothing more.
+    /// </remarks>
     NetworkSession Host(Func<TransportLoss?>? counted = null, bool reporting = false) {
         ITransport carrier = new LocalTransport(network);
 
