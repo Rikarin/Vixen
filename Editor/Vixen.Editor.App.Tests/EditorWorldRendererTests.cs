@@ -371,6 +371,73 @@ public sealed class EditorWorldRendererTests : IDisposable {
         );
     }
 
+    /// <summary>A pane measures screen height, which is what every LOD consumer in the frame reads.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It did not, and the failure was silent in the way this repository keeps
+    ///         rediscovering: zero is a valid value meaning "off".</b>
+    ///         <c>RenderView.ScreenHeightScale</c> defaults to zero because a shadow cascade and a
+    ///         probe face want it — choosing a different mesh for a shadow than for its caster makes
+    ///         the shadow stop matching it — so a pane that never set it had opted out of every
+    ///         screen-size decision in the frame while every counter stayed healthy.
+    ///     </para>
+    ///     <para>
+    ///         What that cost: <c>LodRenderFeature.Prepare</c> skips a view whose scale is not
+    ///         positive, so a LOD group drew <em>every</em> level at once in the editor and one level
+    ///         in a game; <c>GpuClusterCulling.ErrorScaleFor</c> returns zero, so a virtualized mesh
+    ///         was accepted at its root cluster whatever the camera did; and <c>TextureDemand</c>
+    ///         skips the view. Assigning <c>RenderView.Camera</c> derives the position and the matrix
+    ///         from the same <c>RenderCamera</c> and does not derive this, which is why it reads as
+    ///         wired.
+    ///     </para>
+    ///     <para>
+    ///         The closed form rather than a recorded number: it is <c>1 / tan(fov / 2)</c>, the same
+    ///         line <c>CameraExtractionSystem</c> gives a game's camera, and asserting it against a
+    ///         second field of view is what separates "it is set" from "it is set correctly" — a
+    ///         constant would satisfy the first.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_perspective_pane_measures_screen_height_the_way_a_games_camera_does() {
+        var frame = Running().Application.Frame!;
+        var camera = new EditorCamera { Distance = 8f };
+
+        frame.Aim(camera, 16f / 9f);
+
+        Assert.Equal(1f / MathF.Tan(camera.FieldOfView * 0.5f), frame.View.ScreenHeightScale, 4);
+        Assert.True(frame.View.ScreenHeightScale > 0f, "the pane opted out of every screen-size decision");
+
+        // A second field of view, because one is satisfied by any constant. Narrower is larger: the
+        // same object fills more of a longer lens.
+        var narrow = frame.View.ScreenHeightScale;
+
+        camera.FieldOfView = MathUtil.DegreesToRadians(30f);
+        frame.Aim(camera, 16f / 9f);
+
+        Assert.Equal(1f / MathF.Tan(camera.FieldOfView * 0.5f), frame.View.ScreenHeightScale, 4);
+        Assert.True(frame.View.ScreenHeightScale > narrow, "a longer lens did not make the object bigger");
+    }
+
+    /// <summary>A plan view measures none, which is the same answer a shadow cascade gives.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Zero here is the honest answer and not the opt-out it is above.</b> An orthographic
+    ///     projection has no cone, so an object's share of the height does not depend on how far away
+    ///     it is and there is no <c>1 / tan(fov / 2)</c> to give — <c>CameraExtractionSystem</c> says
+    ///     the same of an orthographic game camera, in the same expression.
+    /// </remarks>
+    [Fact]
+    public void An_orthographic_pane_measures_no_screen_height() {
+        var frame = Running().Application.Frame!;
+
+        frame.Aim(new EditorCamera { Distance = 8f }, 1f);
+
+        Assert.True(frame.View.ScreenHeightScale > 0f, "the perspective half of this test set nothing");
+
+        frame.Aim(new EditorCamera { IsOrthographic = true, Distance = 8f }, 1f);
+
+        Assert.Equal(0f, frame.View.ScreenHeightScale);
+    }
+
     /// <summary>An orthographic pane sets the matrix itself, because a render camera has no ortho.</summary>
     /// <remarks>
     ///     ⚠ <b><see cref="RenderCamera" /> describes a perspective frustum and nothing else.</b>
