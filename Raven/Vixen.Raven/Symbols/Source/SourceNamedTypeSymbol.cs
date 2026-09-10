@@ -332,9 +332,11 @@ internal sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
 
             // bool for flags, int/uint for counts (tap counts, cascade counts, light
             // limits). Floats are deliberately excluded: they make poor cache keys and a
-            // shader wanting one should take a uniform.
+            // shader wanting one should take a uniform. ⚠ The set itself lives in
+            // `CacheKeyTypes` and not here, because `ReportValueParameterIssues` asks the
+            // same question and the two used to answer it in two places.
             var special = (field.Type as PrimitiveTypeSymbol)?.SpecialType;
-            if (special is not (SpecialType.Bool or SpecialType.Int or SpecialType.UInt)) {
+            if (!special.IsCacheKeyType()) {
                 outerBinder.Diagnostics.Add(
                     SemanticDiagnostics.PermutationTypeNotSupported,
                     location,
@@ -486,9 +488,10 @@ internal sealed class SourceNamedTypeSymbol : NamedTypeSymbol {
             }
 
             // Same restriction as a permutation key, for the same reason: these are cache
-            // keys, and a float makes a poor one.
+            // keys, and a float makes a poor one — and now literally the same predicate,
+            // rather than the same line typed twice with nothing making them move together.
             var special = (parameter.Type as PrimitiveTypeSymbol)?.SpecialType;
-            if (special is not (SpecialType.Bool or SpecialType.Int or SpecialType.UInt)) {
+            if (!special.IsCacheKeyType()) {
                 if (!parameter.Type.IsErrorType) {
                     outerBinder.Diagnostics.Add(
                         SemanticDiagnostics.ValueParameterTypeNotSupported,
