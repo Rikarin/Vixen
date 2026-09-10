@@ -1418,15 +1418,32 @@ public partial class SharedUiShaderTests {
     ///         of this.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And it cannot compare <em>association</em> or fusion, which is why a green run
-    ///         here is not #1190 closed.</b> <c>a·(b·c)</c> and <c>(a·b)·c</c> are the same count and
-    ///         two numbers &#8212; #1225's second half was exactly that, in <c>ui-box.frag</c>'s tiling
-    ///         clip, and no histogram could see it. Neither module carries a single
-    ///         <c>NoContraction</c> decoration, so a driver is free to fuse a multiply-add in either
-    ///         and whether it does depends on the shape of the tree it is handed: <c>glslc</c>
-    ///         branches (4 <c>OpPhi</c>, 29 <c>OpBranchConditional</c>) where Raven selects (0 and
-    ///         21) over the same values. That is not a difference a static census can normalise away,
-    ///         and confirming it needs the one leg with a driver whose two answers differ.
+    ///         ⚠ <b>And it cannot compare <em>association</em>, which is why a green run here is not
+    ///         #1190 closed.</b> <c>a·(b·c)</c> and <c>(a·b)·c</c> are the same count and two
+    ///         numbers &#8212; #1225's second half was exactly that, in <c>ui-box.frag</c>'s tiling clip,
+    ///         and no histogram could see it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What the control-flow gap in the box pair actually is, measured rather than
+    ///         guessed &#8212; and it is <em>not</em> a candidate for #1190's 1/255.</b> The two modules
+    ///         differ by <c>OpPhi</c> 4 against 0, <c>OpBranchConditional</c> 29 against 21 and
+    ///         <c>OpSelect</c> 32 against 28. <c>ui-box.frag</c> holds exactly four short-circuiting
+    ///         operators &#8212; two <c>||</c> and two <c>&amp;&amp;</c> &#8212; and <c>glslc</c> gives each one a
+    ///         branch and a phi, where Raven emits <c>OpLogicalOr</c> over both operands because its
+    ///         rule is to branch only for an operand that can index, call or assign. That is a
+    ///         deliberate language difference and it cannot move a float: a phi and a logical-or
+    ///         select the same <c>bool</c>, and an <c>OpSelect</c> picks between two values already
+    ///         computed. <b>So the branch shape is not the cause.</b>
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which leaves contraction, and neither module withholds permission for it.</b>
+    ///         Not one <c>NoContraction</c> decoration in either, no precision execution mode, and
+    ///         identical capability and memory-model headers &#8212; so an implementation may fuse a
+    ///         multiply-add in both, and the basic-block boundaries it gets to fuse across are what
+    ///         the paragraph above says do differ. That is the one mechanism left that moves a
+    ///         last-place bit out of arithmetic this walk has proved identical, and it is testable:
+    ///         forbid contraction on both sides and see whether the 1/255 goes. It needs the one CI
+    ///         leg with a driver whose two answers differ.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The instrument's own check is that the census is large and that every declared
