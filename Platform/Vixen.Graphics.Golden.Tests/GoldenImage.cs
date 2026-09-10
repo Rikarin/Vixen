@@ -264,6 +264,12 @@ public static class GoldenImage {
         PngCodec.Save(Path.Combine(DiffDirectory, $"{name}.expected.png"), expected);
         PngCodec.Save(Path.Combine(DiffDirectory, $"{name}.diff.png"), Highlight(expected, rendered, tolerance));
 
+        // ⚠ The failures are in the report too, and this line is the report's own instrument check:
+        // a headroom table listing only the fixtures that passed is a table on which silence means
+        // "fine", which is the shape of lie this whole file exists to stop. `Assert.Fail` throws, so
+        // it has to be written before rather than after.
+        Note($"failed\t{name}\t{Headroom(result, tolerance)}");
+
         // Which bound was crossed, first, because the two mean different things: a count over the
         // threshold is something in one place being badly wrong, and a mean over it is the whole
         // frame being slightly wrong. "Images differ" sends a reader looking for the wrong shape of
