@@ -84,6 +84,9 @@ public class NegativeDiagnosticTests {
         return [.. compilation.GetDiagnostics(), .. bag];
     }
 
+    /// <summary>One compose binding, for the fixtures whose subject is what a binding may name.</summary>
+    static ComposeBindings Bind(string slot, string shader) => ComposeBindings.Create([new(slot, shader)]);
+
     static IReadOnlyList<Diagnostic> Exported(string source) {
         var tree = SyntaxTree.ParseText(source, path: "Lib.rvn");
         Assert.Empty(tree.Diagnostics);
@@ -3886,6 +3889,345 @@ public class NegativeDiagnosticTests {
                         surface.albedo = local
 
                         return surface.albedo
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2070 / RVN2071: what a compose slot is and where it may stand ---
+
+    /// <summary>
+    ///     The slot on a <c>shader</c>, and a <c>val</c> of the same protocol type on a struct
+    ///     beside it.
+    /// </summary>
+    /// <remarks>
+    ///     The mirror of <c>ComposeTests.A_slot_outside_a_shader_is_rejected</c>, which is this
+    ///     file with the <c>compose</c> moved onto the struct. A rule keyed on "this field's type is
+    ///     a protocol" rather than on the <c>compose</c> modifier would refuse every record that
+    ///     carries an interface-shaped field.
+    /// </remarks>
+    [Fact]
+    public void A_compose_slot_on_a_shader_beside_a_protocol_typed_struct_field_is_allowed() =>
+        Silent(
+            "RVN2070",
+            Semantic(
+                """
+                package A
+
+                protocol IDiffuseModel {
+                    func Diffuse(albedo: float4): float4
+                }
+
+                shader Lambert : IDiffuseModel {
+                    func Diffuse(albedo: float4): float4 {
+                        return albedo * 0.5f
+                    }
+                }
+
+                shader Lit {
+                    compose val diffuse: IDiffuseModel = Lambert
+
+                    var tint: float4
+
+                    [FragmentShader]
+                    func Shade(): float4 {
+                        return diffuse.Diffuse(tint)
+                    }
+                }
+
+                """
+            )
+        );
+
+    /// <summary>A slot declared against a protocol, which is the only thing a slot may be.</summary>
+    /// <remarks>
+    ///     The mirror of <c>ComposeTests.A_slot_that_is_not_protocol_typed_is_rejected</c>, whose
+    ///     slot is a <c>float4</c>. ⚠ The near miss is the <em>protocol beside a struct of the same
+    ///     shape</em>: a rule that asked "is this a declared type" rather than "is this a protocol"
+    ///     would pass both, and a rule that asked "is this not a builtin" would refuse a slot typed
+    ///     by a struct while still admitting one typed by a protocol, which is the wrong half.
+    /// </remarks>
+    [Fact]
+    public void A_compose_slot_typed_by_a_protocol_is_allowed() =>
+        Silent(
+            "RVN2071",
+            Semantic(
+                """
+                package A
+
+                protocol IDiffuseModel {
+                    func Diffuse(albedo: float4): float4
+                }
+
+                struct Surface {
+                    var albedo: float4
+                }
+
+                shader Lambert : IDiffuseModel {
+                    func Diffuse(albedo: float4): float4 {
+                        return albedo * 0.5f
+                    }
+                }
+
+                shader Lit {
+                    compose val diffuse: IDiffuseModel = Lambert
+
+                    var tint: float4
+
+                    [FragmentShader]
+                    func Shade(): float4 {
+                        var surface: Surface
+                        surface.albedo = diffuse.Diffuse(tint)
+
+                        return surface.albedo
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2074 / RVN2075: what a binding may name -------------------------
+
+    /// <summary>A binding naming a shader that is in the compilation, with a protocol of the same name shape beside it.</summary>
+    /// <remarks>
+    ///     The mirror of <c>ComposeTests.A_binding_naming_an_unknown_type_is_rejected</c>, which
+    ///     binds <c>NoSuchShader</c>. ⚠ The near miss is that the compilation holds <em>two</em>
+    ///     implementations and the binding names the one declared <em>after</em> the shader that
+    ///     composes it: a lookup that only saw declarations already bound would report the later
+    ///     one as unknown, and a material picks its implementation in whatever order somebody
+    ///     authored the file.
+    /// </remarks>
+    [Fact]
+    public void A_compose_binding_naming_a_shader_declared_later_is_allowed() =>
+        Silent(
+            "RVN2074",
+            Lowered(ComposedMaterial, Bind("diffuse", "OrenNayar"))
+        );
+
+    /// <summary>The same binding, which names a shader and not the protocol it implements.</summary>
+    /// <remarks>
+    ///     The mirror of <c>ComposeTests.A_binding_to_something_other_than_a_shader_is_rejected</c>,
+    ///     which binds the slot to <c>IDiffuseModel</c> — the protocol, which is a type in the
+    ///     compilation and is still not something that can fill a slot. So this and that differ by
+    ///     the one fact the rule turns on, and a rule satisfied by "the name resolves" would pass
+    ///     both.
+    /// </remarks>
+    [Fact]
+    public void A_compose_binding_naming_a_shader_rather_than_its_protocol_is_allowed() =>
+        Silent(
+            "RVN2075",
+            Lowered(ComposedMaterial, Bind("diffuse", "Lambert"))
+        );
+
+    /// <summary>Two implementations of one protocol, the second declared after the shader that composes it.</summary>
+    const string ComposedMaterial = """
+                                    package A
+
+                                    protocol IDiffuseModel {
+                                        func Diffuse(albedo: float4): float4
+                                    }
+
+                                    shader Lambert : IDiffuseModel {
+                                        func Diffuse(albedo: float4): float4 {
+                                            return albedo * 0.5f
+                                        }
+                                    }
+
+                                    shader Lit {
+                                        compose val diffuse: IDiffuseModel
+
+                                        var tint: float4
+
+                                        [FragmentShader]
+                                        [Semantic("SV_Target")]
+                                        func Shade(): float4 {
+                                            return diffuse.Diffuse(tint)
+                                        }
+                                    }
+
+                                    shader OrenNayar : IDiffuseModel {
+                                        func Diffuse(albedo: float4): float4 {
+                                            return albedo * 0.25f
+                                        }
+                                    }
+
+                                    """;
+
+    // --- RVN2080 / RVN2081: value parameters --------------------------------
+
+    /// <summary>A value parameter on the one declaration that may carry one, beside a generic struct.</summary>
+    /// <remarks>
+    ///     The mirror of <c>ValueParameterTests.A_value_parameter_outside_a_shader_is_rejected</c>,
+    ///     which puts <c>&lt;val N: int&gt;</c> on a struct. ⚠ The near miss is the <em>ordinary
+    ///     type parameter on a struct</em> in the same file: a rule keyed on "this declaration has
+    ///     a parameter list and is not a shader" rather than on the <c>val</c> would refuse every
+    ///     generic struct in the library.
+    /// </remarks>
+    [Fact]
+    public void A_value_parameter_on_a_shader_beside_a_generic_struct_is_allowed() =>
+        Silent(
+            "RVN2080",
+            Semantic(
+                """
+                package A
+
+                struct Pair<T> {
+                    var first: T
+                    var second: T
+                }
+
+                shader Blur<val TapCount: int> {
+                    func Weight(): float {
+                        var total = 0f
+                        var pair: Pair<float>
+                        pair.first = 1f
+                        pair.second = 2f
+
+                        for (i in 0 .. TapCount) {
+                            total = total + pair.first + pair.second
+                        }
+
+                        return total
+                    }
+                }
+
+                """,
+                PermutationValues.Parse(["TapCount=3"])
+            )
+        );
+
+    /// <summary>The three types a value parameter may have, one shader each.</summary>
+    /// <remarks>
+    ///     The mirror of
+    ///     <c>ValueParameterTests.A_value_parameter_of_an_unsupported_type_is_rejected</c>, whose
+    ///     parameter is a <c>float</c> or a <c>float4</c>. ⚠ <c>bool</c> is the one with the teeth:
+    ///     it is not a numeric type and a rule written as "an integer type" would refuse the
+    ///     <c>&lt;val Shadows: bool&gt;</c> shape every conditionally-compiled feature is written
+    ///     with. Proved by dropping <c>SpecialType.Bool</c> from the rule's allowed set, which reds
+    ///     this with <c>RVN2081: Value parameter 'Shadows' has type 'bool'</c>.
+    ///     <para>
+    ///         ⚠ <b>That widening has a decoy, and it cost two runs of believing this fixture was
+    ///         inert.</b> <c>SourceNamedTypeSymbol</c> carries the identical predicate twice —
+    ///         <c>special is not (SpecialType.Bool or SpecialType.Int or SpecialType.UInt)</c> at
+    ///         the permutation-key rule and again at this one — so a widening applied to the first
+    ///         match leaves this rule untouched and the fixture green, which reads exactly like a
+    ///         fixture that proves nothing. What told the two apart was planting a <c>float</c>
+    ///         parameter in the same source and watching <c>RVN2081</c> fire on it: a widening that
+    ///         leaves a negative green is a claim about the widening before it is a claim about the
+    ///         fixture.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_bool_an_int_and_a_uint_value_parameter_are_all_allowed() =>
+        Silent(
+            "RVN2081",
+            Semantic(
+                """
+                package A
+
+                shader Shadowed<val Shadows: bool> {
+                    func Weight(): float {
+                        if (Shadows) {
+                            return 1f
+                        }
+
+                        return 0f
+                    }
+                }
+
+                shader Blur<val TapCount: int> {
+                    func Weight(): float {
+                        return float(TapCount)
+                    }
+                }
+
+                shader Noise<val Seed: uint> {
+                    func Weight(): float {
+                        return float(Seed)
+                    }
+                }
+
+                """,
+                PermutationValues.Parse(["Shadows=true", "TapCount=3", "Seed=7"])
+            )
+        );
+
+    // --- RVN2092: a constructor on a shader ---------------------------------
+
+    /// <summary>An <c>init</c> on a struct, beside a shader whose bindings carry defaults instead.</summary>
+    /// <remarks>
+    ///     The mirror of <c>ConstructorTests.A_shader_cannot_declare_a_constructor</c>, which is
+    ///     this file with the <c>init</c> moved onto the shader. ⚠ The near miss is that both
+    ///     declarations are in one compilation: a rule keyed on "this compilation declares an
+    ///     <c>init</c>" rather than on the declaring type's kind would refuse every struct that has
+    ///     one, and the diagnostic's own message tells the author to reach for a binding default —
+    ///     which this shader does, so the fixture also holds the remedy the message names.
+    /// </remarks>
+    [Fact]
+    public void An_init_on_a_struct_beside_a_shader_with_binding_defaults_is_allowed() =>
+        Silent(
+            "RVN2092",
+            Semantic(
+                """
+                package A
+
+                struct Surface {
+                    var albedo: float4
+
+                    init(a: float4) {
+                        albedo = a
+                    }
+                }
+
+                shader S {
+                    var tint: float4 = float4(1f, 1f, 1f, 1f)
+
+                    [FragmentShader]
+                    [Semantic("SV_Target")]
+                    func Fragment(): float4 {
+                        val surface = Surface(tint)
+
+                        return surface.albedo
+                    }
+                }
+
+                """
+            )
+        );
+
+    // --- RVN2094: an enum member's value ------------------------------------
+
+    /// <summary>Every shape of enum member value that is a compile-time integer.</summary>
+    /// <remarks>
+    ///     The mirror of <c>EnumValueTests.A_non_constant_initializer_is_reported</c>, whose member
+    ///     is <c>A = 1.5</c>. ⚠ The near miss is the member with <em>no</em> initializer at all:
+    ///     the rule evaluates an initializer, and one written as "this member's value is a constant
+    ///     integer" rather than "this member's <em>initializer</em> evaluates to one" would refuse
+    ///     the implicit ordinal — which is how nearly every enum in the library is written. The
+    ///     expression and the reference to an earlier member are the other two arms, and both are
+    ///     constant-folded rather than literal.
+    /// </remarks>
+    [Fact]
+    public void An_implicit_ordinal_an_expression_and_a_reference_are_all_constant_enum_values() =>
+        Silent(
+            "RVN2094",
+            Semantic(
+                """
+                package A
+
+                enum Mode {
+                    A,
+                    B = 10,
+                    C = 2 + 3,
+                    D
+                }
+
+                shader S {
+                    func F(): int {
+                        return int(Mode.A) + int(Mode.B) + int(Mode.C) + int(Mode.D)
                     }
                 }
 

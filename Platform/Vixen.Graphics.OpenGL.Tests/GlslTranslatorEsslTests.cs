@@ -149,7 +149,93 @@ public sealed class GlslTranslatorEsslTests {
         Assert.False(string.IsNullOrWhiteSpace(log), "The ES front end refused it and said nothing.");
     }
 
+    /// <summary>
+    ///     ⚠ <c>noperspective</c> is dropped for an ES head, because GLSL ES has no such qualifier at
+    ///     any version — which is #1222.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The input is what Raven's <c>[Interpolation("noperspective")]</c> emits.</b>
+    ///         <c>GlslEmitter.Qualifier</c> writes the word on both ends of the varying, and its own
+    ///         remark said the qualifier "reaches a GLES head through SPIRV-Cross rather than through
+    ///         this emitter's text". It reaches one through this translator too: the qualifier sits
+    ///         <em>outside</em> the <c>layout(…)</c> parentheses, and until #1222 that was the only
+    ///         thing this file rewrote.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Es32</c> and not <c>Es30</c>, and the choice is the instrument.</b> At ES 3.00
+    ///         a varying carrying <c>layout(location = …)</c> is refused for its own reason — see
+    ///         <see cref="AVaryingsLocationIsStillIllegalBelowEs31" /> — so a case there would go
+    ///         green the day this translator stopped dropping the word and the front end would still
+    ///         be refusing the shader. <c>#version 320 es</c> accepts the location and refuses
+    ///         <c>noperspective</c>, so acceptance here is a statement about this change alone.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And <c>Es32</c> refuses it at all is itself worth pinning</b>: #1222 says
+    ///         "GLSL ES 3.0 has no such qualifier", which reads as though 3.10 or 3.20 might. None
+    ///         of them do — it is a <em>reserved word</em> in every ES version — which is why
+    ///         <c>GlProfiles.HasNoPerspective</c> is <c>Core45</c> and not <c>Es32</c>.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void NoPerspectiveIsDroppedForAnEsHead() {
+        var translated = GlslTranslator.Translate(NoPerspectiveFragment, ShaderStage.Fragment, GlProfile.Es32, Plan());
+
+        Assert.DoesNotContain("noperspective", translated.Source, StringComparison.Ordinal);
+
+        var (accepted, log) = EsslFrontEnd.Validate(translated.Source, ShaderStage.Fragment);
+
+        Assert.True(accepted, $"The translated fragment shader was refused:\n{log}\n\n{translated.Source}");
+
+        // ⚠ The other half, so this is a differential rather than a smoke test: the same source with
+        // only its version line changed is refused, and refused for this word. Without it a
+        // translator that had become the identity function would still be green above the day
+        // glslang stopped caring.
+        var reheadered = "#version 320 es\nprecision highp float;\n"
+            + NoPerspectiveFragment[(NoPerspectiveFragment.IndexOf('\n') + 1)..];
+
+        var (stillAccepted, refusal) = EsslFrontEnd.Validate(reheadered, ShaderStage.Fragment);
+
+        Assert.False(stillAccepted, $"An ES front end now accepts 'noperspective':\n{reheadered}");
+        Assert.Contains("noperspective", refusal, StringComparison.Ordinal);
+    }
+
+    /// <summary>And on the desktop profile the word is kept, because there it is legal and load-bearing.</summary>
+    /// <remarks>
+    ///     ⚠ The half that makes the case above a translation rather than a deletion. A rewriter that
+    ///     dropped <c>noperspective</c> unconditionally would satisfy every ES assertion in this file
+    ///     and would silently make every desktop GL shader interpolate a screen-space value
+    ///     perspective-correctly — a wrong picture with nothing to report it.
+    /// </remarks>
+    [Fact]
+    public void NoPerspectiveSurvivesTheDesktopHead() {
+        var translated = GlslTranslator.Translate(
+            NoPerspectiveFragment,
+            ShaderStage.Fragment,
+            GlProfile.Core45,
+            Plan()
+        );
+
+        Assert.Contains("noperspective in vec2 in_screenUv;", translated.Source, StringComparison.Ordinal);
+    }
+
     // --- The shaders and the plumbing ---------------------------------------
+
+    /// <summary>
+    ///     What <c>[Interpolation("noperspective")]</c> reaches this backend as.
+    /// </summary>
+    /// <remarks>
+    ///     The exact string <c>Raven/Vixen.Raven.Tests/InterpolationTests.cs:125</c> asserts the
+    ///     emitter writes, with the location Raven puts on every varying. No sampler and no uniform
+    ///     block: the two the other fixture carries are this file's other subject and would refuse
+    ///     the shader for their own reasons on an ES head.
+    /// </remarks>
+    const string NoPerspectiveFragment = """
+        #version 450 core
+        layout(location = 0) noperspective in vec2 in_screenUv;
+        layout(location = 0) out vec4 out_result;
+        void main() { out_result = vec4(in_screenUv, 0.0, 1.0); }
+        """;
 
     /// <summary>
     ///     What reaches this backend: Raven's bindings, with the texture and sampler already

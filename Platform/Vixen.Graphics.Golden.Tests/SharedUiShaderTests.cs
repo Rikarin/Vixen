@@ -957,14 +957,7 @@ public partial class SharedUiShaderTests {
     ///     every leg rather than only on the one that draws.
     /// </remarks>
     static Dictionary<string, int> DerivativesIn(string module) {
-        var bytes = File.ReadAllBytes(module);
-
-        Assert.True(bytes.Length > 20 && bytes.Length % 4 == 0, $"{module} is not a SPIR-V module.");
-
-        var words = new uint[bytes.Length / 4];
-        Buffer.BlockCopy(bytes, 0, words, 0, bytes.Length);
-
-        Assert.Equal(0x07230203u, words[0]);
+        var words = WordsOf(module);
 
         var counts = new Dictionary<string, int>(StringComparer.Ordinal);
 
@@ -994,8 +987,17 @@ public partial class SharedUiShaderTests {
     ///         copy that reached for <c>fwidth</c> where <c>Ui.rvn</c> spelled <c>Ui.PixelWidth</c>
     ///         out compiled to <c>OpFwidth</c> against the shipping module's
     ///         <c>OpDPdx</c>/<c>OpDPdy</c>, and on lavapipe &#8212; the only CI leg with a device &#8212; the
-    ///         two drew a bordered box differently on 24 of 16 384 texels. Nothing else in the two
-    ///         modules differed: same constants, same <c>GLSL.std.450</c> instructions, same counts.
+    ///         two drew a bordered box differently on 24 of 16 384 texels.
+    ///     </para>
+    ///     <para>
+    ///         &#9888; <b>"Nothing else in the two modules differed: same constants, same
+    ///         <c>GLSL.std.450</c> instructions, same counts" used to stand here and it was false</b>
+    ///         &#8212; #1210. It was true of the constants; it was not true of the extended set
+    ///         (<c>FAbs</c> 10 against 11) and it was never true of core arithmetic. What is true is
+    ///         what <see cref="TheGlslCopiesDoTheSameArithmeticAsTheRavenModules" /> now asserts,
+    ///         which is a wider question than this test asks and does not replace it: a derivative's
+    ///         <em>flavour</em> is a difference this census cannot see, because <c>OpFwidth</c> and
+    ///         <c>OpDPdx</c> are one operation each either way.
     ///     </para>
     ///     <para>
     ///         &#9888; <b>This is the check that would have caught it without a device, and that is the
@@ -1042,5 +1044,487 @@ public partial class SharedUiShaderTests {
 
         Assert.Equal(Names.Length, Pairs.Length);
         Assert.True(found > 0, "no derivative instruction was found in any of the sixteen modules, so this compared nothing.");
+    }
+
+    /// <summary>
+    ///     The core arithmetic and conversion opcodes, which are the ones whose count is a fact about
+    ///     the program rather than about the compiler.
+    /// </summary>
+    /// <remarks>
+    ///     SPIR-V 1.0 &#167; 3.32.13 and &#167; 3.32.11. Comparisons, selects, shuffles, composite
+    ///     construction and control flow are deliberately absent &#8212; see
+    ///     <see cref="TheGlslCopiesDoTheSameArithmeticAsTheRavenModules" /> for why counting those
+    ///     would measure the two front ends instead of the two programs.
+    /// </remarks>
+    static readonly Dictionary<int, string> Arithmetic = new() {
+        [109] = "OpConvertFToU",
+        [110] = "OpConvertFToS",
+        [111] = "OpConvertSToF",
+        [112] = "OpConvertUToF",
+        [126] = "OpSNegate",
+        [127] = "OpFNegate",
+        [128] = "OpIAdd",
+        [129] = "OpFAdd",
+        [130] = "OpISub",
+        [131] = "OpFSub",
+        [132] = "OpIMul",
+        [133] = "OpFMul",
+        [134] = "OpUDiv",
+        [135] = "OpSDiv",
+        [136] = "OpFDiv",
+        [137] = "OpUMod",
+        [138] = "OpSRem",
+        [139] = "OpSMod",
+        [140] = "OpFRem",
+        [141] = "OpFMod",
+
+        // ⚠ Folded onto OpFMul by the census rather than counted apart: a splat multiply and a
+        // vector-times-scalar are one multiplication per component either way, and which one a front
+        // end reaches for is the clearest instruction-selection difference in the whole pair.
+        [142] = "OpVectorTimesScalar",
+        [143] = "OpMatrixTimesScalar",
+        [144] = "OpVectorTimesMatrix",
+        [145] = "OpMatrixTimesVector",
+        [146] = "OpMatrixTimesMatrix",
+        [147] = "OpOuterProduct",
+        [148] = "OpDot"
+    };
+
+    /// <summary>The <c>GLSL.std.450</c> instructions these eight shaders can reach.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Unknown numbers are not dropped, they are named.</b> A table that silently ignored an
+    ///     extended instruction it had no name for would report two modules as agreeing about a
+    ///     builtin only one of them calls &#8212; which is the failure this whole file exists to catch,
+    ///     one level down.
+    /// </remarks>
+    static readonly Dictionary<int, string> Extended = new() {
+        [1] = "Round",
+        [2] = "RoundEven",
+        [3] = "Trunc",
+        [4] = "FAbs",
+        [5] = "SAbs",
+        [6] = "FSign",
+        [7] = "SSign",
+        [8] = "Floor",
+        [9] = "Ceil",
+        [10] = "Fract",
+        [11] = "Radians",
+        [12] = "Degrees",
+        [13] = "Sin",
+        [14] = "Cos",
+        [15] = "Tan",
+        [16] = "Asin",
+        [17] = "Acos",
+        [18] = "Atan",
+        [25] = "Atan2",
+        [26] = "Pow",
+        [27] = "Exp",
+        [28] = "Log",
+        [29] = "Exp2",
+        [30] = "Log2",
+        [31] = "Sqrt",
+        [32] = "InverseSqrt",
+        [35] = "Modf",
+        [37] = "FMin",
+        [38] = "UMin",
+        [39] = "SMin",
+        [40] = "FMax",
+        [41] = "UMax",
+        [42] = "SMax",
+        [43] = "FClamp",
+        [44] = "UClamp",
+        [45] = "SClamp",
+        [46] = "FMix",
+        [48] = "Step",
+        [49] = "SmoothStep",
+        [50] = "Fma",
+        [66] = "Length",
+        [67] = "Distance",
+        [68] = "Cross",
+        [69] = "Normalize",
+        [70] = "FaceForward",
+        [71] = "Reflect",
+        [72] = "Refract",
+        [79] = "InterpolateAtCentroid",
+        [81] = "NMin",
+        [82] = "NMax",
+        [83] = "NClamp"
+    };
+
+    /// <summary>A committed module as the words a SPIR-V walk reads.</summary>
+    /// <param name="module">The <c>.spv</c> to read.</param>
+    /// <returns>Its words, header included.</returns>
+    /// <remarks>
+    ///     A SPIR-V module is a five-word header followed by instructions whose first word packs the
+    ///     word count in the high half and the opcode in the low half. The magic number is asserted
+    ///     rather than assumed &#8212; a file that has stopped being SPIR-V walks to a census of nothing,
+    ///     and a census of nothing agrees with every other census of nothing.
+    /// </remarks>
+    static uint[] WordsOf(string module) {
+        var bytes = File.ReadAllBytes(module);
+
+        Assert.True(bytes.Length > 20 && bytes.Length % 4 == 0, $"{module} is not a SPIR-V module.");
+
+        var words = new uint[bytes.Length / 4];
+        Buffer.BlockCopy(bytes, 0, words, 0, bytes.Length);
+
+        Assert.Equal(0x07230203u, words[0]);
+
+        return words;
+    }
+
+    /// <summary>How much arithmetic a module does, per operation, in scalar components.</summary>
+    /// <param name="module">The <c>.spv</c> to walk.</param>
+    /// <returns>The component count of each arithmetic operation it performs, by name.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Three normalisations, and each of them exists because a raw histogram is red on
+    ///         master this minute for a reason that is not a difference in the picture.</b>
+    ///     </para>
+    ///     <para>
+    ///         <i>Components rather than instructions.</i> <c>abs(vec2)</c> and two scalar
+    ///         <c>abs</c> are two absolute values either way; counting instructions calls the pair
+    ///         1 against 2 and counting components calls it 2 against 2. The weight is the width of
+    ///         the <em>result</em> type, so <c>OpDot</c> is one however wide its operands are, which
+    ///         is right: one dot product is one rounding.
+    ///     </para>
+    ///     <para>
+    ///         <i>A vector-times-scalar is a multiply.</i> Raven splats and multiplies where
+    ///         <c>glslc</c> emits <c>OpVectorTimesScalar</c>; the two are the same arithmetic and
+    ///         the same result.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <i>An operation on nothing but constants is skipped, and that one was measured
+    ///         rather than assumed.</i> Raven emits <c>1f / 2.4f</c> as a live <c>OpFDiv</c> and
+    ///         <c>-1.2684380046f</c> as an <c>OpFNegate</c> of a positive constant, where
+    ///         <c>glslc</c> folds both at compile time. Those are the whole of two of the six
+    ///         "arithmetic" differences #1210 lists &#8212; and they are bit-exact, not near:
+    ///         <c>float(1) / float(2.4)</c> is <c>0x3ed55555</c>, which is the very constant
+    ///         <c>ui-box.frag.spv</c> carries folded. A difference a driver's own constant folder
+    ///         erases before the first fragment is not a difference in the picture.
+    ///     </para>
+    /// </remarks>
+    static Dictionary<string, int> ArithmeticIn(string module) {
+        var words = WordsOf(module);
+
+        // Type id to how many scalar lanes a value of it has, and every id that names a constant.
+        var lanes = new Dictionary<uint, int>();
+        var constants = new HashSet<uint>();
+        var census = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        for (var at = 5; at < words.Length;) {
+            var opcode = (int) (words[at] & 0xFFFF);
+            var length = (int) (words[at] >> 16);
+
+            Assert.True(length > 0, $"{module} has a zero-length instruction at word {at}.");
+
+            switch (opcode) {
+                // OpTypeBool, OpTypeInt, OpTypeFloat: one lane each.
+                case 20 or 21 or 22:
+                    lanes[words[at + 1]] = 1;
+                    break;
+
+                // OpTypeVector: as many lanes as it has components.
+                case 23:
+                    lanes[words[at + 1]] = (int) words[at + 3];
+                    break;
+
+                // OpTypeMatrix: its column's lanes, that many times.
+                case 24:
+                    lanes[words[at + 1]] = lanes.GetValueOrDefault(words[at + 2], 1) * (int) words[at + 3];
+                    break;
+
+                // OpConstantTrue/False/OpConstant/OpConstantComposite/Sampler/Null: all name their
+                // result at the same word.
+                case 41 or 42 or 43 or 44 or 45 or 46:
+                    constants.Add(words[at + 2]);
+                    break;
+
+                default:
+                    Count(opcode, at);
+                    break;
+            }
+
+            at += length;
+
+            continue;
+
+            void Count(int op, int start) {
+                string name;
+                int operands;
+
+                if (Arithmetic.TryGetValue(op, out var core)) {
+                    name = core == "OpVectorTimesScalar" ? "OpFMul" : core;
+                    operands = start + 3;
+                } else if (op == 12) {
+                    // OpExtInst: result type, result, the set, then the instruction's own number.
+                    var number = (int) words[start + 4];
+
+                    name = "GLSL.std.450 "
+                        + (Extended.TryGetValue(number, out var known)
+                            ? known
+                            : number.ToString(CultureInfo.InvariantCulture));
+
+                    operands = start + 5;
+                } else {
+                    return;
+                }
+
+                var end = start + (int) (words[start] >> 16);
+                var live = false;
+
+                for (var operand = operands; operand < end; operand++) {
+                    if (!constants.Contains(words[operand])) {
+                        live = true;
+                        break;
+                    }
+                }
+
+                if (!live) {
+                    return;
+                }
+
+                census[name] = census.GetValueOrDefault(name) + Math.Max(lanes.GetValueOrDefault(words[start + 1], 1), 1);
+            }
+        }
+
+        return census;
+    }
+
+    /// <summary>A difference in the census that is known, understood and not a difference in the picture.</summary>
+    /// <param name="Glsl">Which pair it is in.</param>
+    /// <param name="Operation">Which operation's count differs.</param>
+    /// <param name="Copy">What the GLSL copy does.</param>
+    /// <param name="Shipped">What the Raven module does.</param>
+    /// <param name="Why">What it is, and where it is tracked.</param>
+    readonly record struct KnownDifference(string Glsl, string Operation, int Copy, int Shipped, string Why);
+
+    /// <summary>
+    ///     Every arithmetic difference between the sixteen modules that is understood, with what it
+    ///     is.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Held in both directions, like every other exemption list in this repository:</b> a
+    ///         difference that is not on it is red, and a line on it that has become true is red too.
+    ///         So this can only shrink, and a fix that closes one of these has to delete its line in
+    ///         the same commit.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two of these three are real divergences and not conveniences</b>, which is what
+    ///         widening the walk was for. They are filed rather than fixed here because the fix is a
+    ///         <c>glslc</c> run and a new committed module, and the modules these are in are what
+    ///         every reference image in this suite was rendered through.
+    ///     </para>
+    /// </remarks>
+    static readonly KnownDifference[] Reconciled = [
+        new(
+            "ui.vert",
+            "OpFAdd",
+            3,
+            2,
+            "the box index. `ui.vert` rounds `shape.x` to an `int` in the *vertex* stage and passes a "
+            + "flat integer varying; `UiVertex` does not, and `UiBox` rounds it per fragment instead. "
+            + "The conversion moved stages rather than changing, so `ui-box.frag` carries the exact "
+            + "counterpart of this line -- and neither module is wrong, they are two placements of one "
+            + "rounding. #1210"
+        ),
+        new(
+            "ui.vert",
+            "OpConvertFToS",
+            1,
+            0,
+            "the other half of the same rounding. See the line above."
+        ),
+        new(
+            "ui-box.frag",
+            "OpFAdd",
+            26,
+            27,
+            "the box index, rounded here because `UiVertex` did not round it. The counterpart of "
+            + "`ui.vert`'s line. #1210"
+        ),
+        new(
+            "ui-box.frag",
+            "OpConvertFToS",
+            2,
+            3,
+            "the other half of the same rounding. See the line above."
+        ),
+        new(
+            "ui-mask.frag",
+            "GLSL.std.450 Floor",
+            2,
+            1,
+            "⚠ a real divergence and the shape #1024 was: `ui-mask.frag` writes `turns - floor(turns)` "
+            + "where `UiMask.Progress` writes `frac(turns)`. One instruction against two, of a builtin "
+            + "the specification defines as exactly those two -- which is the sentence that was true of "
+            + "`fwidth` too. `ui-box.frag` beside it already spells it `fract`, so this file disagrees "
+            + "with its own sibling as well as with the module that ships. #1224"
+        ),
+        new(
+            "ui-mask.frag",
+            "GLSL.std.450 Fract",
+            0,
+            1,
+            "the other half of the same divergence. See the line above. #1224"
+        ),
+        new(
+            "ui-mask.frag",
+            "OpFSub",
+            26,
+            25,
+            "the subtraction inside that `turns - floor(turns)`. See the two lines above. #1224"
+        ),
+        new(
+            "ui-mask.frag",
+            "OpIAdd",
+            2,
+            3,
+            "the list walk's subscript. `UiMask.List` counts *up* and subtracts, because Raven's ranges "
+            + "only ascend, where `mask_list` counts down. Integer bookkeeping over the same entries in "
+            + "the same order; no float touches it."
+        ),
+        new(
+            "ui-mask.frag",
+            "OpISub",
+            3,
+            4,
+            "the other half of that subscript. See the line above."
+        ),
+        new(
+            "ui-text.frag",
+            "OpFMul",
+            8,
+            5,
+            "⚠ a real divergence: `ui-text.frag` computes `rgb * a * coverage`, which associates as "
+            + "`(rgb*a)*coverage`, where `UiText` premultiplies `rgb * (a*coverage)`. Float "
+            + "multiplication is not associative, so these are two numbers and not one written twice -- "
+            + "and the shipping one is the second. #1225"
+        )
+    ];
+
+    /// <summary>
+    ///     The GLSL copy and the Raven module do the same arithmetic, operation for operation.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The instrument
+    ///         <see cref="TheGlslCopiesAskForTheSameDerivativesAsTheRavenModules" /> should have
+    ///         been, and #1210 is what its narrowness cost.</b> That walk looks at nine opcodes out
+    ///         of the whole instruction set, so it is satisfied by two programs that do a different
+    ///         number of divisions. This one looks at every arithmetic and extended instruction in
+    ///         the sixteen modules, which is the set whose count is a fact about the program.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And a raw histogram was the wrong answer, which is worth writing down because it
+    ///         is the obvious one.</b> #1210 lists eighteen opcode classes that differ between the
+    ///         two box modules and calls six of them &#8212; one more add, one more multiply, one more
+    ///         divide, one more absolute value &#8212; real arithmetic. <b>Five of the six are not.</b>
+    ///         <c>OpFMul</c> 54 v 55 is <c>OpVectorTimesScalar</c> 1 v 0 wearing a hat; <c>FAbs</c>
+    ///         10 v 11 is one <c>abs(vec2)</c> against two scalar <c>abs</c>; <c>OpFDiv</c> 8 v 9 is
+    ///         an unfolded <c>1f / 2.4f</c>, whose runtime quotient is bit-for-bit the constant the
+    ///         other module carries folded; <c>OpFNegate</c> 3 v 5 is two negated literals. What is
+    ///         left after the normalisation is one difference in that pair and not six, it is a
+    ///         rounding that moved between stages, and the two divergences that <em>are</em> real are
+    ///         in <c>ui-mask.frag</c> and <c>ui-text.frag</c> &#8212; neither of which #1210 or #1190
+    ///         looks at.
+    ///     </para>
+    ///     <para>
+    ///         <b>What this does not compare, and deliberately.</b> Comparisons, selects, phis,
+    ///         shuffles, composite construction and control flow: two front ends make different
+    ///         choices there for the same source, and requiring them to agree would measure
+    ///         <c>glslc</c> against Raven rather than one shader against the other.
+    ///         <c>OpFOrdNotEqual</c> against <c>OpFUnordNotEqual</c> is the one of those that has a
+    ///         semantics behind it &#8212; they differ on a NaN &#8212; and it is #1226 rather than a widening
+    ///         of this.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The instrument's own check is that the census is large and that every declared
+    ///         difference is observed.</b> A walk that ran off the end, a path that moved or a module
+    ///         that stopped being SPIR-V would produce two empty censuses, which agree perfectly; and
+    ///         a table of reconciliations nobody re-derives is how an allow-list outlives its reason,
+    ///         so a line that has come true fails exactly as a missing one does.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void TheGlslCopiesDoTheSameArithmeticAsTheRavenModules() {
+        var root = RepositoryRoot();
+        var raven = Path.Combine(root, "Platform", "Vixen.Ui.Desktop", "Shaders");
+
+        var declared = Reconciled.ToDictionary(known => (known.Glsl, known.Operation));
+        var met = new HashSet<(string, string)>();
+        var counted = 0;
+
+        foreach (var (glsl, module) in Pairs) {
+            var copy = Path.Combine(root, Shaders, glsl + ".spv");
+            var shipped = Path.Combine(raven, module);
+
+            Assert.True(File.Exists(copy), $"{Relative(root, copy)} is missing.");
+            Assert.True(File.Exists(shipped), $"{Relative(root, shipped)} is missing.");
+
+            var here = ArithmeticIn(copy);
+            var there = ArithmeticIn(shipped);
+
+            // ⚠ Per module rather than only in the total below, because a sum over sixteen is
+            // carried by the two big ones: a walk that returned nothing at all for `ui.vert` would
+            // still clear any floor the box pair alone can reach.
+            Assert.NotEmpty(here);
+            Assert.NotEmpty(there);
+
+            counted += here.Values.Sum() + there.Values.Sum();
+
+            foreach (var operation in here.Keys.Union(there.Keys, StringComparer.Ordinal).Order(StringComparer.Ordinal)) {
+                var mine = here.GetValueOrDefault(operation);
+                var theirs = there.GetValueOrDefault(operation);
+
+                if (declared.TryGetValue((glsl, operation), out var known)) {
+                    Assert.True(
+                        known.Copy == mine && known.Shipped == theirs,
+                        $"Shaders/{glsl} and {module} are recorded as differing in {operation} by "
+                        + $"{known.Copy} against {known.Shipped}, and they now differ by {mine} against "
+                        + $"{theirs}. The reconciliation reads: {known.Why}"
+                    );
+
+                    met.Add((glsl, operation));
+                    continue;
+                }
+
+                Assert.True(
+                    mine == theirs,
+                    $"Shaders/{glsl} performs {mine} scalar {operation} and {module} performs {theirs}, "
+                    + "counted in components with a vector-times-scalar folded onto a multiply and a "
+                    + "constant-only expression skipped. They are two implementations of one "
+                    + "specification, so one of them does arithmetic the other does not -- and the "
+                    + "shipping applications draw through the second. Either fix the copy or, if the "
+                    + "difference is understood and cannot change the picture, add it to `Reconciled` "
+                    + "with the argument for why."
+                );
+            }
+        }
+
+        // ⚠ Both halves of the instrument. A census of nothing agrees with everything, and a
+        // reconciliation nobody re-derives outlives its reason -- so a line that has become true
+        // fails here exactly as a missing one fails above.
+        Assert.Equal(Names.Length, Pairs.Length);
+
+        // 958 on 2026-09-10. A floor for "nothing was walked" and expressly not a bound: a shader
+        // that gets simpler may lower it and should, at which point read the number and move it down.
+        Assert.True(
+            counted > 500,
+            $"the sixteen modules were walked and only {counted} scalar operations were found in all of "
+            + "them, which is far too few for eight shaders -- so this compared nothing."
+        );
+
+        var stale = Reconciled
+            .Where(known => !met.Contains((known.Glsl, known.Operation)))
+            .Select(known => $"{known.Glsl} / {known.Operation}")
+            .ToArray();
+
+        Assert.True(
+            stale.Length == 0,
+            $"`Reconciled` still excuses {string.Join(", ", stale)}, and the two modules no longer "
+            + "differ there. An exemption list can only shrink: delete the line."
+        );
     }
 }

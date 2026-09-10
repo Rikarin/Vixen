@@ -38,7 +38,7 @@ readonly record struct TranslatedShader(string Source, IReadOnlyList<GlNamedBind
 ///         GL and WebGL2 backends do with most of the shipped library.
 ///     </para>
 ///     <para>
-///         <b>Two jobs, and both of them are places the RHI's Vulkan shape shows through.</b>
+///         <b>Three jobs, and every one of them is a place the RHI's Vulkan shape shows through.</b>
 ///     </para>
 ///     <para>
 ///         <em>Bindings.</em> The engine's GLSL declares resources the way Vulkan does —
@@ -64,6 +64,12 @@ readonly record struct TranslatedShader(string Source, IReadOnlyList<GlNamedBind
 ///         Everywhere else the vertex shader does it, so <c>main</c> is renamed and a new one wraps
 ///         it. The alternative — asking every shader in the engine to write the fixup itself — is
 ///         the sort of thing that is right in eleven shaders and forgotten in the twelfth.
+///     </para>
+///     <para>
+///         <em>Interpolation.</em> ⚠ <b>And this one is not inside a <c>layout(…)</c> list, which is
+///         why it was missed.</b> <c>noperspective</c> is legal in the Vulkan GLSL Raven emits and is
+///         a <em>reserved word</em> in GLSL ES at every version, so it is dropped for an ES head —
+///         see <see cref="NoPerspectivePattern" />.
 ///     </para>
 /// </remarks>
 static partial class GlslTranslator {
@@ -106,6 +112,12 @@ static partial class GlslTranslator {
             body,
             match => Rewrite(match, profile, plan, slotOf, named)
         );
+
+        // ⚠ An interpolation qualifier sits *outside* the layout parentheses, so nothing above this
+        // line can see it — which is the whole of #1222. See NoPerspectivePattern.
+        if (!profile.HasNoPerspective()) {
+            body = NoPerspectivePattern().Replace(body, string.Empty);
+        }
 
         var builder = new StringBuilder();
         builder.AppendLine(profile.ShaderVersion());
@@ -333,6 +345,40 @@ static partial class GlslTranslator {
     /// <summary>One <c>key = value</c> of a layout qualifier list.</summary>
     [GeneratedRegex(@"^(?<key>[A-Za-z_]\w*)\s*=\s*(?<value>\d+)$", RegexOptions.CultureInvariant)]
     private static partial Regex KeyValuePattern();
+
+    /// <summary>
+    ///     A <c>noperspective</c> introducing a stage input or output, which GLSL ES has no spelling
+    ///     for at any version.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The one thing this rewriter has to reach that is not inside a
+    ///         <c>layout(…)</c> list.</b> Raven's <c>[Interpolation("noperspective")]</c> emits
+    ///         <c>layout(location = 0) noperspective in vec2 in_x;</c>, and
+    ///         <see cref="QualifierPattern" /> captures the parentheses and passes the declaration
+    ///         after them through verbatim — so before this the word reached
+    ///         <c>glCompileShader</c> under <c>#version 300 es</c> and got
+    ///         "'noperspective' : Reserved word", at program-load time rather than at build time.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Dropped rather than refused, and that is a decision with a cost.</b> It matches
+    ///         what <c>Vixen.Raven.Transpile</c>'s SPIRV-Cross path does with the
+    ///         <c>NoPerspective</c> decoration on an ES profile, so the two routes to a GLES head
+    ///         now agree; the cost is that a genuinely non-planar primitive interpolates
+    ///         perspective-correctly there. For the screen-space values the qualifier is asked for
+    ///         — a full-screen triangle, an interface quad — every <c>w</c> is one and the two are
+    ///         the same number. Refusing instead would leave no ES path at all for such a shader.
+    ///     </para>
+    ///     <para>
+    ///         Anchored on the <c>in</c>/<c>out</c> that must follow, past any qualifiers that may
+    ///         sit between, so this cannot eat an identifier that merely begins with the word.
+    ///     </para>
+    /// </remarks>
+    [GeneratedRegex(
+        @"\bnoperspective\s+(?=(?:(?:centroid|sample|flat|smooth|invariant|highp|mediump|lowp)\s+)*(?:in|out)\b)",
+        RegexOptions.CultureInvariant
+    )]
+    private static partial Regex NoPerspectivePattern();
 
     /// <summary>
     ///     A Vulkan-GLSL opaque declaration — a bare <c>sampler</c>, or a <c>texture…</c> type with

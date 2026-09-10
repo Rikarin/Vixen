@@ -681,6 +681,7 @@ static Vixen.Graphics.OpenGL.GlProfiles.HasDebugOutput(this Vixen.Graphics.OpenG
 static Vixen.Graphics.OpenGL.GlProfiles.HasExplicitBindings(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool
 static Vixen.Graphics.OpenGL.GlProfiles.HasFramebufferSrgbControl(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool
 static Vixen.Graphics.OpenGL.GlProfiles.HasIndirect(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool
+static Vixen.Graphics.OpenGL.GlProfiles.HasNoPerspective(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool
 static Vixen.Graphics.OpenGL.GlProfiles.HasStorageBuffers(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool
 static Vixen.Graphics.OpenGL.GlProfiles.HasStorageTextures(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool
 static Vixen.Graphics.OpenGL.GlProfiles.HasWireframe(this Vixen.Graphics.OpenGL.GlProfile profile) -> bool

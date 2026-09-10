@@ -91,6 +91,24 @@ public static class GlProfiles {
     /// <summary>Whether indirect draws and dispatches are available.</summary>
     public static bool HasIndirect(this GlProfile profile) => profile >= GlProfile.Es32;
 
+    /// <summary>Whether a varying may be qualified <c>noperspective</c>.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Desktop only, and ⚠ <b>at <em>every</em> ES version rather than only at 3.00</b>.
+    ///         <c>noperspective</c> is a <em>reserved word</em> in GLSL ES — reserved at 3.00, 3.10
+    ///         and 3.20 alike, so <c>#version 320 es</c> refuses it exactly as
+    ///         <c>#version 300 es</c> does ("'noperspective' : Reserved word"). It is available on
+    ///         ES only through <c>GL_NV_shader_noperspective_interpolation</c>, which no core
+    ///         profile includes.
+    ///     </para>
+    ///     <para>
+    ///         So the qualifier is dropped rather than translated — see
+    ///         <see cref="GlslTranslator" /> — which is what SPIRV-Cross does with the
+    ///         <c>NoPerspective</c> decoration for an ES profile.
+    ///     </para>
+    /// </remarks>
+    public static bool HasNoPerspective(this GlProfile profile) => profile >= GlProfile.Core45;
+
     /// <summary>Whether <c>KHR_debug</c> groups and object labels are available.</summary>
     public static bool HasDebugOutput(this GlProfile profile) => profile >= GlProfile.Es32;
 

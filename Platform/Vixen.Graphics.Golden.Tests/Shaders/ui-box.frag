@@ -92,8 +92,18 @@ float box_distance(vec2 point, vec2 half_size, vec2 radius) {
 // a fine derivative, independently. `Ui.rvn` has no `fwidth` to reach for (`Ui.PixelWidth` is
 // `abs(ddx) + abs(ddy)`), so this copy compiled to `OpFwidth` where the shipping module compiled to
 // `OpDPdx`/`OpDPdy` — and on lavapipe, the one CI leg with a device, that answered differently for
-// 24 texels of a bordered box. It is the last structural difference between the two modules: with
-// this, every other opcode and every constant in the two matches.
+// 24 texels of a bordered box.
+//
+// ⚠ **The sentence that used to end this paragraph -- "it is the last structural difference
+// between the two modules: with this, every other opcode and every constant in the two matches" --
+// was false when it was written, and #1210 is what it cost.** It was true of the constants and of
+// the `GLSL.std.450` set as far as that commit counted them, and it was never true of core
+// arithmetic: the two modules differ in `OpFAdd`, `OpFMul`, `OpFDiv`, `OpFNegate`, `OpConvertFToS`
+// and `OpFAbs` to this day. Five of those six are instruction selection or a constant this compiler
+// folds and Raven does not -- `SharedUiShaderTests.ArithmeticIn` normalises each and says why -- and
+// the sixth is real: the box index is rounded in `ui.vert` here and in `UiBox`'s own fragment there.
+// ⚠ And this change did **not** close #1190: the failing pixel counts and coordinates on lavapipe
+// are byte-identical before and after it, so the derivative was never that failure's cause.
 float pixel_width(float value) {
     return abs(dFdx(value)) + abs(dFdy(value));
 }

@@ -112,9 +112,9 @@ me wrong" from "the shader is wrong".
 There are 132 diagnostic ids. Each is meant to have two tests and not one: a **trigger** showing it
 fires, and a **negative** — a shader that comes within one predicate of it and must stay silent.
 The second is the one that matters more, because an over-firing rule refuses correct work and cannot
-be argued with, while a missing rule only lets a mistake through. 93 ids have a negative today and 39
-do not; `Raven/Vixen.Raven.Tests/NegativeDiagnosticTests.cs` holds 86 of the 93 and explains the
-method. Of the 39 owed, two — `RVN2003` and `RVN2014` — cannot fire on any input and so can never
+be argued with, while a missing rule only lets a mistake through. 101 ids have a negative today and 31
+do not; `Raven/Vixen.Raven.Tests/NegativeDiagnosticTests.cs` holds 94 of the 101 and explains the
+method. Of the 31 owed, two — `RVN2003` and `RVN2014` — cannot fire on any input and so can never
 have one, which puts the reachable ceiling at 130.
 
 ⚠ **Those five numbers are derived rather than typed, and this paragraph is held to them.** Four
