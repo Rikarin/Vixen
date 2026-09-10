@@ -11,16 +11,28 @@ namespace Vixen.Animation.Ecs;
 /// <summary>The animation passes, as a set a game registers in one line.</summary>
 /// <remarks>
 ///     <para>
-///         ⚠ <b>Nobody makes that call</b>
+///         ⚠ <b>For as long as these systems existed, nobody made that call</b>
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/1221">#1221</a>). The one caller of
-///         <see cref="AddAnimation(Vixen.Engine.Frames.EngineLoop)" /> anywhere in the tree is
-///         <c>GizmoTests</c>, so none of the three passes below is in any game's loop — and because
-///         none of them carries <c>[GameSystem]</c>, the generated registry does not add them
+///         <see cref="AddAnimation(Vixen.Engine.Frames.EngineLoop)" /> anywhere in the tree was
+///         <c>GizmoTests</c>, so none of the three passes below was in any game's loop — and because
+///         none of them carries <c>[GameSystem]</c>, the generated registry did not add them
 ///         either. <c>[UpdateInGroup]</c> orders a system that has already been added and does not
-///         add one. The consequence is wider than skinning: an <c>AnimatorComponent</c> in a
-///         shipping game is never evaluated, so clip playback and root motion are unreachable too.
-///         <c>PhysicsSystems.AddPhysics</c>, whose argument the paragraph below borrows, <em>is</em>
-///         called — by Sample 13 — and that asymmetry is the whole diagnosis.
+///         add one. The consequence was wider than skinning: an <c>AnimatorComponent</c> in a
+///         shipping game was never evaluated, so clip playback and root motion were unreachable too.
+///         <c>PhysicsSystems.AddPhysics</c>, whose argument the paragraph below borrows, <em>was</em>
+///         called — by Sample 13 — and that asymmetry was the whole diagnosis. Two callers now:
+///         <c>Arena.Register</c> in Sample 13, beside its <c>AddPhysics</c>, and
+///         <c>Vixen.Editor.App</c>'s <c>PlayAnimation</c>, so every in-editor play session evaluates
+///         a project's animators.
+///     </para>
+///     <para>
+///         ⚠ <b>And <c>[GameSystem]</c> is deliberately not the alternative, which is the other half
+///         of what #1221 asked to be decided.</b> <c>GameSystemAttribute</c>'s own remarks make it
+///         opt-in and say the engine's own systems do not carry it: a declared system is one a
+///         <em>project</em> owns and is built out of a service registry, and these three take no
+///         service. Annotating them would put three engine passes into the declared set of every
+///         project that transitively links this assembly, decided here rather than by the host that
+///         is running the frame.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>Three passes now, not two.</b> <see cref="BlendShapeAnimationSystem" /> is the third

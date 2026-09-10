@@ -84,15 +84,16 @@ namespace Vixen.Animation.Ecs;
 ///         Register".
 ///     </para>
 ///     <para>
-///         ⚠ <b>And the overload cannot be the answer on its own, because
-///         <c>AnimationSystems.AddAnimation</c> has no production caller either</b>
+///         ⚠ <b>And until #1221 the overload could not have been the answer on its own, because
+///         <c>AnimationSystems.AddAnimation</c> had no production caller either</b>
 ///         (<a href="https://github.com/Rikarin/Vixen/issues/1221">#1221</a>). One call in the tree
-///         and it is <c>GizmoTests</c>; no system here carries <c>[GameSystem]</c>, so the generated
+///         and it was <c>GizmoTests</c>; no system here carries <c>[GameSystem]</c>, so the generated
 ///         registry does not register them and <c>[UpdateInGroup]</c> only orders a system something
-///         has already added. <c>PhysicsSystems.AddPhysics</c> — the shape the remarks on
-///         <c>AnimationSystems</c> quote — <em>is</em> called, by Sample 13. So this system is not in
-///         any game's loop at all, which is a link below the three #451 names: widening
-///         <c>AddAnimation</c> would put the renderer's seams on a method nothing calls.
+///         has already added. So this system was not in any game's loop at all — a link below the
+///         three #451 names, and widening a method nothing calls would have been a second finished
+///         thing nothing calls. That link is closed: Sample 13's <c>Arena.Register</c> and the
+///         editor's <c>PlayAnimation</c> contribution both call it, so the pass now runs and returns
+///         on its first line for the reason above rather than never running at all.
 ///     </para>
 ///     <para>
 ///         <b>Matrices are computed into a rented buffer, not a per-entity one.</b> A skeleton's

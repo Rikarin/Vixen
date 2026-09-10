@@ -160,6 +160,19 @@ stack trace should point.
 
 ## Owed
 
+⚠ **Nothing in this repository runs any of this, and the list below is written under that.** Every
+public system here — `NetworkRigidBodyCaptureSystem`, `NetworkRigidBodyCorrectionSystem`,
+`LagCompensationSystem`, `PredictedPlayerMovement` — is constructed only by
+`Core/Vixen.Net.Physics.Tests`; no sample, no editor path and no engine assembly adds one, and the
+only mentions of the assembly outside its own tests are paragraphs like this one
+([#1205](https://github.com/Rikarin/Vixen/issues/1205)). So the pose ring, the correction settle, the
+rest detection and the prediction reconcile have each met a unit test and none of them a frame. It is
+structural rather than an oversight: **no program in the tree has both networking and physics
+bodies** — `Samples/08`, `09`, `10` and `14` reference `Vixen.Net` and none references
+`Vixen.Physics`; `Samples/13` references `Vixen.Physics` and no networking; and
+`Gameplay/Vixen.Gameplay.Shooting` deliberately references neither. The missing caller is a missing
+*sample*, which is the decision under "A sample that shoots" below and not a line somebody forgot.
+
 - **The hit-claim message itself.** This validates a claim; nothing yet defines one. A `[ServerRpc]`
   carrying tick, origin, direction and a claimed victim is the game's to declare, but the shape recurs
   enough that a `HitClaim` helper beside `NetworkTransform` would stop every game writing the same six

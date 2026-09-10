@@ -378,7 +378,11 @@ public class TerrainSessionTests {
 
         Assert.NotNull(session);
         Assert.Empty(fixture.Editor.PlayMode.Refused);
-        Assert.Equal(["physics", "terrain collision"], session.Running);
+        // ⚠ "animation" joined the list with #1221: `AnimationSystems.AddAnimation` had no production
+        // caller at all, so a play session evaluated no animator. It is registered between the two
+        // below because it declares neither `[Provides]` nor `[RunsAfter]` and registration order is
+        // what a contribution with no declaration keeps.
+        Assert.Equal(["physics", "animation", "terrain collision"], session.Running);
 
         // The simulation the terrain's bodies were created in, provided by the application rather
         // than stood up a second time by the terrain module.

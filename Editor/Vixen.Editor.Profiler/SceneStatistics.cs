@@ -108,9 +108,30 @@ public sealed class SceneStatistics {
     ///     relation lives above the ECS. <see langword="null" /> leaves the row out rather than
     ///     showing a zero somebody would read as "flat".
     /// </param>
+    /// <param name="counted">
+    ///     Things the caller counted that a world walk cannot, or <see langword="null" /> for none.
+    ///     They are appended in the order given and measured against their own budgets by the same
+    ///     pass, so a host row that is over its ceiling produces a warning exactly as an entity count
+    ///     does.
+    /// </param>
     /// <returns>The statistics.</returns>
+    /// <remarks>
+    ///     ⚠ <b><paramref name="counted" /> is what keeps this assembly's one dependency one.</b> Doc
+    ///     20's B4 says scene statistics are a traversal and nothing else, and this project's csproj
+    ///     says the same about <c>Vixen.Ecs</c> being the only thing the model needs. A behaviour
+    ///     population — <c>BehaviorStore.Population</c>, which lives in <c>Vixen.Engine</c> and is a
+    ///     property of a <em>store</em> rather than of the world
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1216">#1216</a>) — would have cost a
+    ///     reference to the engine for a number the caller already has. Whoever holds the thing being
+    ///     counted counts it; this puts it in the same table with the same budget arithmetic.
+    /// </remarks>
     /// <exception cref="ArgumentNullException"><paramref name="world" /> is null.</exception>
-    public static SceneStatistics Collect(World world, StatisticsBudget? budget = null, int? depth = null) {
+    public static SceneStatistics Collect(
+        World world,
+        StatisticsBudget? budget = null,
+        int? depth = null,
+        IReadOnlyList<StatisticRow>? counted = null
+    ) {
         ArgumentNullException.ThrowIfNull(world);
 
         var ceilings = budget ?? new StatisticsBudget();
@@ -144,6 +165,10 @@ public sealed class SceneStatistics {
 
         if (depth is { } deepest) {
             rows.Add(new("Hierarchy depth", deepest, ceilings.HierarchyDepth, "the longest chain of parents"));
+        }
+
+        if (counted is not null) {
+            rows.AddRange(counted);
         }
 
         foreach (var row in rows) {

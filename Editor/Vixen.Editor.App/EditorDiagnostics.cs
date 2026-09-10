@@ -171,6 +171,97 @@ sealed partial class EditorApplication {
     internal ProfilerModel Profiling => diagnostics.Profiling;
 
     /// <summary>
+    ///     How many instances of one behaviour type is enough to be worth a second look, per doc 04 §
+    ///     <i>When to write one</i>.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>An opinion the document states and this reads, not a number the editor invented</b> —
+    ///     the same argument, and the same figure, <c>vixen doctor behaviors</c> makes. A threshold a
+    ///     tool picks for itself is one nobody can argue with.
+    /// </remarks>
+    const int ManyBehaviors = 200;
+
+    /// <summary>How many behaviour types the statistics panel names before it stops listing them.</summary>
+    /// <remarks>
+    ///     A panel is read at a glance, and <c>Population</c> is sorted most-numerous-first — so the
+    ///     rows that answer doc 04's question are the early ones by construction. What is dropped is
+    ///     counted rather than silently missing.
+    /// </remarks>
+    const int ListedBehaviorTypes = 10;
+
+    /// <summary>The behaviour population, as rows for the statistics panel.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The editor half of <see cref="Vixen.Engine.Behaviors.BehaviorStore.Population" /></b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1216">#1216</a>). Its only reader was
+    ///         <c>vixen doctor behaviors</c>, which counts what a scene <em>authors</em> — and every
+    ///         committed <c>.vxscene</c> in this repository authors none, because every behaviour
+    ///         instance in the samples is attached from code. So the number doc 04's authoring rule
+    ///         is about is a run-time one, and the place a run-time number is visible to an author is
+    ///         here.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The running session's store when there is one, and the authored store when there
+    ///         is not — and the row says which.</b> Those are two different questions with the same
+    ///         units: a play session has made whatever the level's code attached, and an editing
+    ///         session holds only what somebody wrote into the scene file. Showing the second while
+    ///         calling it the first is exactly the mistake the CLI verb refuses to make.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>Enabled</c> is only shown for a live session, because outside one it is
+    ///         zero.</b> The bucket's enabled prefix is a property of the loop rather than of the
+    ///         authoring — a behaviour attached since the last lifecycle drain has not been activated
+    ///         — so an editing store reports every behaviour disabled, which would be a lie about the
+    ///         scene. <c>BehaviorStore.Population</c>'s own remarks say so and ask a reader to say it
+    ///         rather than print the number.
+    ///     </para>
+    /// </remarks>
+    IReadOnlyList<StatisticRow> BehaviorFacts() {
+        var live = play.Session?.Loop.Behaviors;
+        var population = (live ?? scene.Behaviors).Population;
+
+        if (population.Count == 0) {
+            return [
+                new(
+                    "Behaviours",
+                    0,
+                    Detail: live is null
+                        ? "the scene authors none — attaching from code is what a sample does, and this "
+                        + "counts a store"
+                        : "this session has attached none"
+                )
+            ];
+        }
+
+        List<StatisticRow> rows = new(Math.Min(population.Count, ListedBehaviorTypes) + 1);
+
+        foreach (var bucket in population.Take(ListedBehaviorTypes)) {
+            rows.Add(
+                new(
+                    "Behaviours · " + bucket.BehaviorType.Name,
+                    bucket.Total,
+                    ManyBehaviors,
+                    live is null
+                        ? "authored in this scene; a running level's count is not this one"
+                        : bucket.Enabled + " of them enabled, in this play session"
+                )
+            );
+        }
+
+        if (population.Count > ListedBehaviorTypes) {
+            rows.Add(
+                new(
+                    "Behaviours · other types",
+                    population.Skip(ListedBehaviorTypes).Sum(bucket => (long)bucket.Total),
+                    Detail: population.Count - ListedBehaviorTypes + " more type(s), each with fewer than the above"
+                )
+            );
+        }
+
+        return rows;
+    }
+
+    /// <summary>
     ///     Writes what the editor knows about itself to a file: the log ring, the last capture's
     ///     summary, the memory arenas and the scene's counts.
     /// </summary>
@@ -247,7 +338,10 @@ sealed partial class EditorApplication {
 
         builder.AppendLine().AppendLine("Statistics").AppendLine("----------");
 
-        var statistics = SceneStatistics.Collect(scene.World, depth: diagnostics.Deepest());
+        // ⚠ The behaviour rows come with it, so a report and the panel answer doc 04's question the
+        // same way. A report that counted entities and not behaviours would be the same gap #1216 is
+        // about, one file over.
+        var statistics = SceneStatistics.Collect(scene.World, depth: diagnostics.Deepest(), counted: BehaviorFacts());
 
         foreach (var row in statistics.Rows) {
             builder.Append("  ").Append(row.Label).Append(": ")
