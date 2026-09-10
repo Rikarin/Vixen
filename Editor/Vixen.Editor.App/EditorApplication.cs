@@ -7,6 +7,7 @@ using Vixen.Core;
 using Vixen.Core.IO;
 using Vixen.Core.IO.Watch;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Vixen.Editor.AssetEditors;
 using Vixen.Editor.AssetEditors.Content;
@@ -1175,6 +1176,39 @@ sealed partial class EditorApplication : IDisposable {
     ///     <c>--project</c>, on the scratch project, with nothing in the recent list.
     /// </remarks>
     public bool Greets { get; set; }
+
+    /// <summary>The editor process's one job scheduler, or null for a head that has none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Handed over by the host, not made here</b> — the same arrangement a game has, where
+    ///         <c>AppBuilder</c> makes the scheduler and <c>AppGraphics</c> hands it to the renderer.
+    ///         <c>EditorHost</c> is this editor's <c>AppBuilder</c>, and it is the object whose
+    ///         lifetime is the process's.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Null is the honest default and every harness in this tree keeps it</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1248">#1248</a>). A renderer that
+    ///         quietly starts threads is one a test cannot make deterministic —
+    ///         <c>RenderSystem.Scheduler</c>'s own argument — and <c>EditorSession</c> builds an
+    ///         application per test, where a pool apiece would spend the process-wide
+    ///         <c>JobScheduler.MaxSchedulers</c> table eight tests in.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Read when a device arrives, so it must be set before one does.</b>
+    ///         <see cref="AttachRenderer" /> passes it to <c>EditorWorldRenderer</c>'s constructor,
+    ///         which is where <c>CompositorBuilder.Jobs</c> has to be set — a node takes the
+    ///         scheduler as it is built. The host assigns this in its own constructor, several frames
+    ///         before <c>EnsureDevice</c> has anything to give.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And nothing given work on it may touch a <c>Signal</c>.</b> <c>Vixen.Ui</c>'s
+    ///         reactive graph is single-threaded by contract and it is process-wide in one place
+    ///         (<c>Strings</c>). The two seams wired from here are the compositor builder's — whose
+    ///         one consumer is the distance-field clipmap composite — and the render system's cull;
+    ///         neither is anywhere near the interface.
+    ///     </para>
+    /// </remarks>
+    internal JobScheduler? Jobs { get; set; }
 
     /// <summary>How many render pixels one layout pixel is.</summary>
     /// <remarks>

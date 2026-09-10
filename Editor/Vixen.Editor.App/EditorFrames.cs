@@ -106,7 +106,14 @@ sealed partial class EditorApplication {
                 device,
                 effects.System,
                 SceneGeometry,
-                log.Sink.CreateLogger(RenderCategory)
+                log.Sink.CreateLogger(RenderCategory),
+
+                // ⚠ The editor process's one scheduler, or null (#1248). Null is what a headless
+                // harness gets and it changes nothing but the thread the cull runs on — which is why
+                // this is handed over rather than made here: a renderer that quietly starts threads
+                // is one a test cannot make deterministic, which is `RenderSystem.Scheduler`'s own
+                // argument for being nullable.
+                Jobs
             );
         } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
             log.Write(LogLevel.Warning, $"The viewport's renderer could not be built. {failure.Message}");

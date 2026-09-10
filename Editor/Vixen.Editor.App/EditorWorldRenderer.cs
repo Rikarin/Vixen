@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using Vixen.Assets;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Vixen.Editor.SceneView;
 using Vixen.Engine.Renderer;
@@ -173,12 +174,26 @@ sealed class EditorWorldRenderer : IDisposable {
     ///     Where the render system's degrades are said, or null to degrade in silence. See
     ///     <see cref="Logger" /> for why it is a constructor argument rather than a property.
     /// </param>
+    /// <param name="jobs">
+    ///     The editor process's one job scheduler, or null to cull and composite on the calling
+    ///     thread — which is what a test and a tool get, and what every editor got until #1248.
+    /// </param>
     /// <exception cref="ArgumentNullException">An argument is null.</exception>
+    /// <remarks>
+    ///     ⚠ <b><paramref name="jobs" /> is a constructor argument and not a property, which is a
+    ///     rule rather than a preference.</b> Both seams it feeds are read before this constructor
+    ///     returns: <c>CompositorBuilder.Jobs</c> is taken by each node <em>as it is built</em>, and
+    ///     the build happens below — so a scheduler assigned afterwards would reach the next build
+    ///     and, for a viewport nobody reloads, never. It is the same ordering rule as
+    ///     <see cref="Logger" />'s, and the same one <c>AppGraphics</c> states at length for the
+    ///     game's renderer.
+    /// </remarks>
     public EditorWorldRenderer(
         IGraphicsDevice device,
         EffectSystem effects,
         IMeshSource? meshes = null,
-        ILogger? logger = null
+        ILogger? logger = null,
+        JobScheduler? jobs = null
     ) {
         ArgumentNullException.ThrowIfNull(device);
         ArgumentNullException.ThrowIfNull(effects);
@@ -277,6 +292,20 @@ sealed class EditorWorldRenderer : IDisposable {
         // ⚠ Registered before the build, because a node kind nothing has bound is not a warning —
         // it is a `CompositorBindingException` out of the middle of the build.
         Renderer.Host.Builder.Factories.Add(new PostEffectFactory());
+
+        // ⚠ The two seams `AppGraphics` wires for a game and nothing wired here (#1248), and CLAUDE's
+        // "there are two renderers and both must be wired" one level below a feature: until this the
+        // editor had no scheduler at all to wire. The builder's has to be set before the build below,
+        // for the reason the constructor's remarks give; the system's could be set later and is set
+        // here so the two live in one paragraph.
+        //
+        // ⚠ What the second one buys is the whole of the cull. `RenderSystem.Cull` is the one method
+        // that reads it — `Sort` never has, whatever this seam's own remarks used to say — and the
+        // scene view runs it through `GraphicsCompositor.Build`, once per composed pane. Null meant
+        // every object tested against every one of up to four panes' views on the frame thread, in
+        // the head that is most often looking at the same scene from four directions.
+        Renderer.Host.Builder.Jobs = jobs;
+        Renderer.Host.System.Scheduler = jobs;
 
         // ⚠ And the builder's voice *before* the build, which is the one ordering rule in this
         // paragraph: a node that degrades on purpose is handed the logger as it is created, so one

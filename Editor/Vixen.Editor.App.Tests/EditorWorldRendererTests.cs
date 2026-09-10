@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Vixen.Core.IO;
 using Vixen.Core.IO.Watch;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Threading;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Testing;
 using Vixen.Engine.Transforms;
@@ -95,6 +96,68 @@ public sealed class EditorWorldRendererTests : IDisposable {
         Assert.NotNull(resolved);
         Assert.NotEmpty(resolved.Stages);
         Assert.NotEmpty(resolved.SetLayouts);
+    }
+
+    /// <summary>The editor's scheduler reaches both seams <c>AppGraphics</c> wires for a game.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Both were null for the life of every editor Vixen has shipped, because the editor
+    ///         process constructed no scheduler at all</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1248">#1248</a>): <c>JobScheduler</c>
+    ///         appeared in no file under <c>Editor/</c>, <c>.cs</c> or <c>.vxml</c>. So the scene view
+    ///         tested every object against every pane's view on the frame thread — the head that is
+    ///         most likely to be looking at one scene through four views at once.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two assertions and not one, because the two seams are wired at different moments
+    ///         and only one of them is order-sensitive.</b> <c>CompositorBuilder.Jobs</c> is read by
+    ///         each node <em>as it is built</em>, and the build is inside
+    ///         <c>EditorWorldRenderer</c>'s constructor — so this also proves the scheduler arrived
+    ///         before the build rather than after it, which a property assigned by the host later
+    ///         would not have done.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Zero workers, deliberately.</b> It is the same scheduler with nothing running in
+    ///         the background — see <c>JobScheduler(int)</c> — so the wiring is asserted without the
+    ///         suite starting a thread pool per test, and the process-wide
+    ///         <c>JobScheduler.MaxSchedulers</c> table of eight is spent for the length of one method.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_editors_scheduler_reaches_the_builder_and_the_render_system() {
+        using var scheduler = new JobScheduler(workerCount: 0);
+
+        var session = EditorSession.Start();
+
+        owned.Add(session);
+
+        // ⚠ Before the device, which is the ordering the host uses and the only one that works: the
+        // renderer is built inside the device's setter.
+        session.Application.Jobs = scheduler;
+        session.Application.GraphicsDevice = device;
+        session.Frame();
+
+        var frame = session.Application.Frame;
+
+        Assert.NotNull(frame);
+        Assert.Same(scheduler, frame.Renderer.Host.Builder.Jobs);
+        Assert.Same(scheduler, frame.Renderer.Host.System.Scheduler);
+    }
+
+    /// <summary>And an editor with no scheduler culls inline, which is what a harness is.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The instrument check.</b> Every other test in this file leaves <c>Jobs</c> null, so
+    ///     one asserting a non-null seam would pass against a renderer that had quietly made a
+    ///     scheduler of its own — which is the one thing <c>RenderSystem.Scheduler</c>'s remarks say a
+    ///     renderer must never do, because it is what makes a test non-deterministic.
+    /// </remarks>
+    [Fact]
+    public void An_editor_given_no_scheduler_makes_none() {
+        var frame = Running().Application.Frame;
+
+        Assert.NotNull(frame);
+        Assert.Null(frame.Renderer.Host.Builder.Jobs);
+        Assert.Null(frame.Renderer.Host.System.Scheduler);
     }
 
     /// <summary>Losing the device takes both down, and getting one back builds them again.</summary>
