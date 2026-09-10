@@ -21,6 +21,13 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.Animation\Vixen.Animation.csproj" />
+
+        <!--
+            For a device SkinningSystem's virtualized branch can be driven against. GpuClusterVisibility
+            owns the palette buffer, so the reach test needs an IGraphicsDevice and the Null one is what
+            every other host-arithmetic suite in the tree uses — see Vixen.Rendering.Tests.
+        -->
+        <ProjectReference Include="..\..\Platform\Vixen.Graphics.Null\Vixen.Graphics.Null.csproj" />
     </ItemGroup>
     <!--
         #1119's ratchet. The TEST profile in `Directory.Build.props` turns documentation generation
