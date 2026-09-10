@@ -5,6 +5,64 @@ Vixen.Ui.AccessKeyEvent : Vixen.Ui.UiEvent
 Vixen.Ui.AccessKeyEvent.AccessKeyEvent() -> void
 Vixen.Ui.AccessKeyEvent.Key.get -> char
 Vixen.Ui.AccessKeyEvent.Key.init -> char
+Vixen.Ui.AccessibilityChange -> readonly struct
+Vixen.Ui.AccessibilityChange : System.IEquatable<Vixen.Ui.AccessibilityChange>
+Vixen.Ui.AccessibilityChange.AccessibilityChange() -> void
+Vixen.Ui.AccessibilityChange.AccessibilityChange(Vixen.Ui.AccessibilityChangeKind Kind, int Node, Vixen.Ui.AccessibilityFields Fields) -> void
+Vixen.Ui.AccessibilityChange.Fields.get -> Vixen.Ui.AccessibilityFields
+Vixen.Ui.AccessibilityChange.Fields.init -> Vixen.Ui.AccessibilityFields
+Vixen.Ui.AccessibilityChange.Kind.get -> Vixen.Ui.AccessibilityChangeKind
+Vixen.Ui.AccessibilityChange.Kind.init -> Vixen.Ui.AccessibilityChangeKind
+Vixen.Ui.AccessibilityChange.Node.get -> int
+Vixen.Ui.AccessibilityChange.Node.init -> int
+Vixen.Ui.AccessibilityChangeKind -> enum : byte
+Vixen.Ui.AccessibilityChangeKind.AccessibilityChangeKind() -> void
+Vixen.Ui.AccessibilityChangeKind.Added = 0 -> Vixen.Ui.AccessibilityChangeKind
+Vixen.Ui.AccessibilityChangeKind.Changed = 2 -> Vixen.Ui.AccessibilityChangeKind
+Vixen.Ui.AccessibilityChangeKind.Removed = 1 -> Vixen.Ui.AccessibilityChangeKind
+Vixen.Ui.AccessibilityFields -> enum : uint
+Vixen.Ui.AccessibilityFields.AccessibilityFields() -> void
+Vixen.Ui.AccessibilityFields.Bounds = 32 -> Vixen.Ui.AccessibilityFields
+Vixen.Ui.AccessibilityFields.Children = 128 -> Vixen.Ui.AccessibilityFields
+Vixen.Ui.AccessibilityFields.Description = 4 -> Vixen.Ui.AccessibilityFields
+Vixen.Ui.AccessibilityFields.Links = 64 -> Vixen.Ui.AccessibilityFields
+Vixen.Ui.AccessibilityFields.Name = 2 -> Vixen.Ui.AccessibilityFields
+Vixen.Ui.AccessibilityFields.None = 0 -> Vixen.Ui.AccessibilityFields
+Vixen.Ui.AccessibilityFields.Parent = 256 -> Vixen.Ui.AccessibilityFields
+Vixen.Ui.AccessibilityFields.Role = 1 -> Vixen.Ui.AccessibilityFields
+Vixen.Ui.AccessibilityFields.States = 16 -> Vixen.Ui.AccessibilityFields
+Vixen.Ui.AccessibilityFields.Value = 8 -> Vixen.Ui.AccessibilityFields
+Vixen.Ui.AccessibilityLink -> readonly struct
+Vixen.Ui.AccessibilityLink : System.IEquatable<Vixen.Ui.AccessibilityLink>
+Vixen.Ui.AccessibilityLink.AccessibilityLink() -> void
+Vixen.Ui.AccessibilityLink.AccessibilityLink(Vixen.Ui.AccessibleRelation Relation, int Target) -> void
+Vixen.Ui.AccessibilityLink.Relation.get -> Vixen.Ui.AccessibleRelation
+Vixen.Ui.AccessibilityLink.Relation.init -> Vixen.Ui.AccessibleRelation
+Vixen.Ui.AccessibilityLink.Target.get -> int
+Vixen.Ui.AccessibilityLink.Target.init -> int
+Vixen.Ui.AccessibilityNode -> sealed class
+Vixen.Ui.AccessibilityNode.Bounds.get -> Vixen.Core.Mathematics.Rectangle
+Vixen.Ui.AccessibilityNode.Children.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.AccessibilityNode>
+Vixen.Ui.AccessibilityNode.Description.get -> string?
+Vixen.Ui.AccessibilityNode.Id.get -> int
+Vixen.Ui.AccessibilityNode.Links.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.AccessibilityLink>
+Vixen.Ui.AccessibilityNode.Name.get -> string?
+Vixen.Ui.AccessibilityNode.Parent.get -> int
+Vixen.Ui.AccessibilityNode.Role.get -> Vixen.Ui.AccessibleRole
+Vixen.Ui.AccessibilityNode.States.get -> Vixen.Ui.AccessibleStates
+Vixen.Ui.AccessibilityNode.Tag.get -> string
+Vixen.Ui.AccessibilityNode.Value.get -> string?
+Vixen.Ui.AccessibilityTree -> sealed class
+Vixen.Ui.AccessibilityTree.Count.get -> int
+Vixen.Ui.AccessibilityTree.Node(int id) -> Vixen.Ui.AccessibilityNode?
+Vixen.Ui.AccessibilityTree.Nodes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.AccessibilityNode>
+Vixen.Ui.AccessibilityTree.Roots.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.AccessibilityNode>
+Vixen.Ui.AccessibilityTreeSource -> sealed class
+Vixen.Ui.AccessibilityTreeSource.AccessibilityTreeSource() -> void
+Vixen.Ui.AccessibilityTreeSource.Capture(Vixen.Ui.UiElement root) -> Vixen.Ui.AccessibilityTree
+Vixen.Ui.AccessibilityTreeSource.Changes.get -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.AccessibilityChange>
+Vixen.Ui.AccessibilityTreeSource.Reset() -> void
+Vixen.Ui.AccessibilityTreeSource.Tree.get -> Vixen.Ui.AccessibilityTree?
 Vixen.Ui.AccessibleRelation -> enum : byte
 Vixen.Ui.AccessibleRelation.AccessibleRelation() -> void
 Vixen.Ui.AccessibleRelation.ActiveDescendant = 5 -> Vixen.Ui.AccessibleRelation
@@ -1857,6 +1915,8 @@ override Vixen.Ui.KeyChord.ToString() -> string
 override Vixen.Ui.StringId.ToString() -> string
 override Vixen.Ui.UiPropertyKey.ToString() -> string
 static Vixen.Ui.AccessKey.Parse(string? label, out char key) -> string
+static Vixen.Ui.AccessibilityTree.Capture(Vixen.Ui.UiElement root) -> Vixen.Ui.AccessibilityTree
+static Vixen.Ui.AccessibilityTree.Diff(Vixen.Ui.AccessibilityTree? previous, Vixen.Ui.AccessibilityTree current) -> System.Collections.Generic.IReadOnlyList<Vixen.Ui.AccessibilityChange>
 static Vixen.Ui.BoxStyle.Rounded(Vixen.Ui.CornerRadii corners) -> Vixen.Ui.BoxStyle
 static Vixen.Ui.BoxStyle.Vertical(Vixen.Core.Mathematics.Color4 end, Vixen.Ui.CornerRadii corners = default(Vixen.Ui.CornerRadii)) -> Vixen.Ui.BoxStyle
 static Vixen.Ui.CommandHandler.For(string id, Vixen.Ui.IResponder responder, System.Action execute, System.Func<bool>? canExecute = null, System.Func<string?>? title = null, System.Func<bool>? isChecked = null) -> Vixen.Ui.CommandHandler

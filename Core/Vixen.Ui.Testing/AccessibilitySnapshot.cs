@@ -9,11 +9,11 @@ namespace Vixen.Ui.Testing;
 /// <remarks>
 ///     <para>
 ///         <b>Doc 09's Testing table promises an "ARIA-role snapshot" per control, and this is the
-///         thing that makes writing one a line of test code.</b> It walks the element tree, emits
-///         only the elements that are nodes — <see cref="UiElement.IsInAccessibilityTree" /> — and
-///         renders each as its role, its accessible name, its value and its states, indented by
-///         depth. A control's snapshot is then a string literal in a test, and a change to what a
-///         screen reader would say shows up as a diff rather than as nothing.
+///         thing that makes writing one a line of test code.</b> It captures the accessibility tree
+///         with <see cref="AccessibilityTree" /> and renders each node as its role, its accessible
+///         name, its value and its states, indented by depth. A control's snapshot is then a string
+///         literal in a test, and a change to what a screen reader would say shows up as a diff
+///         rather than as nothing.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>A snapshot that is empty is a snapshot that passes, which is why
@@ -74,29 +74,28 @@ public static class AccessibilitySnapshot {
     ///         that a snapshot does not churn on a set's iteration order.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An element that is not a node is walked <i>through</i> rather than skipped.</b>
-    ///         Its children rise to its parent's depth, which is what <c>role="none"</c> means and is
-    ///         the difference between a tree a screen reader can read and thirty nested groups. So
-    ///         the indentation is accessibility-tree depth and not element depth, and a control that
-    ///         grows a wrapper element does not move in the snapshot.
+    ///         ⚠ <b>The walk is <see cref="AccessibilityTree" />'s and not this file's, which is what
+    ///         makes a snapshot test a bridge's evidence rather than a parallel universe.</b> Two
+    ///         rules decide the shape — an element that is not a node is walked <i>through</i> rather
+    ///         than skipped, and an element reached by <see cref="AccessibleRelation.Owns" /> is
+    ///         emitted under its owner rather than where the element tree has it — and both used to
+    ///         be implemented here, in a test-support assembly, and nowhere else. A platform bridge
+    ///         had to reference a testing library or write the walk a second time, and a second copy
+    ///         is the thing that drifts. This renders what a screen reader would be handed.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>An owned element is emitted under its owner and not where the tree has it.</b> A
-    ///         <c>Select</c>'s list is a child of the document root — an overlay inside the field
-    ///         that opens it would be clipped — and <see cref="AccessibleRelation.Owns" /> is how the
-    ///         control says so. Rendering it where the elements happen to live would produce a
-    ///         snapshot in which every combo box in the document was empty and a pile of loose lists
-    ///         sat at the end, which is exactly the picture the relation exists to correct.
+    ///         So the indentation is accessibility-tree depth and not element depth, and a control
+    ///         that grows a wrapper element does not move in the snapshot.
     ///     </para>
     /// </remarks>
     public static string Render(UiElement root) {
         ArgumentNullException.ThrowIfNull(root);
 
-        var owned = new HashSet<UiElement>();
-        CollectOwned(root, owned);
-
         var text = new StringBuilder();
-        Walk(root, 0, owned, text);
+
+        foreach (var node in AccessibilityTree.Capture(root).Roots) {
+            Walk(node, 0, text);
+        }
 
         return text.ToString().TrimEnd('\n');
     }
@@ -247,54 +246,24 @@ public static class AccessibilitySnapshot {
         }
     }
 
-    static void CollectOwned(UiElement element, HashSet<UiElement> owned) {
-        foreach (var relationship in element.AccessibleRelationships) {
-            if (relationship.Relation == AccessibleRelation.Owns) {
-                owned.Add(relationship.Target);
-            }
-        }
+    static void Walk(AccessibilityNode node, int depth, StringBuilder text) {
+        text.Append(' ', depth * 2);
+        Describe(node, text);
+        text.Append('\n');
 
-        foreach (var child in element.Children) {
-            CollectOwned(child, owned);
+        foreach (var child in node.Children) {
+            Walk(child, depth + 1, text);
         }
     }
 
-    static void Walk(UiElement element, int depth, HashSet<UiElement> owned, StringBuilder text) {
-        var isNode = element.IsInAccessibilityTree;
+    static void Describe(AccessibilityNode node, StringBuilder text) {
+        text.Append(Token(node.Role));
 
-        if (isNode) {
-            text.Append(' ', depth * 2);
-            Describe(element, text);
-            text.Append('\n');
-        }
-
-        var childDepth = isNode ? depth + 1 : depth;
-
-        foreach (var child in element.Children) {
-            // Rendered under whoever owns it, further down or further up. Emitting it here as well
-            // would put a `Select`'s list in the snapshot twice.
-            if (owned.Contains(child)) {
-                continue;
-            }
-
-            Walk(child, childDepth, owned, text);
-        }
-
-        foreach (var relationship in element.AccessibleRelationships) {
-            if (relationship.Relation == AccessibleRelation.Owns) {
-                Walk(relationship.Target, childDepth, owned, text);
-            }
-        }
-    }
-
-    static void Describe(UiElement element, StringBuilder text) {
-        text.Append(Token(element.Role));
-
-        if (element.AccessibleName is { Length: > 0 } name) {
+        if (node.Name is { Length: > 0 } name) {
             text.Append(" \"").Append(name).Append('"');
         }
 
-        if (element.AccessibleValue is { } value) {
+        if (node.Value is { } value) {
             text.Append(" = \"").Append(value).Append('"');
         }
 
@@ -302,7 +271,7 @@ public static class AccessibilitySnapshot {
         // snapshot depend on where the focus happened to be when the test rendered it, and
         // `Focusable` would put the word on two lines in three. A test that cares about either
         // asserts on `AccessibleState` directly, where it is a fact rather than a line of prose.
-        var states = element.AccessibleState
+        var states = node.States
             & ~AccessibleStates.Focused
             & ~AccessibleStates.Focusable;
 

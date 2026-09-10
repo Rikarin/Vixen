@@ -4,7 +4,7 @@ slug: ui/accessibility
 kind: guide
 area: Core
 summary: A role, a name, a value, a state and a set of relations on every element, computed from what a control already holds rather than mirrored into it — plus one coalesced per-frame event, so a screen-reader bridge can cache a tree and diff it instead of asking a node at a time.
-api: [T:Vixen.Ui.AccessibleRole, T:Vixen.Ui.AccessibleStates, T:Vixen.Ui.AccessibleRelation, T:Vixen.Ui.AccessibleRelationship, T:Vixen.Ui.Testing.AccessibilitySnapshot]
+api: [T:Vixen.Ui.AccessibleRole, T:Vixen.Ui.AccessibleStates, T:Vixen.Ui.AccessibleRelation, T:Vixen.Ui.AccessibleRelationship, T:Vixen.Ui.AccessibilityTree, T:Vixen.Ui.AccessibilityTreeSource, T:Vixen.Ui.AccessibilityNode, T:Vixen.Ui.AccessibilityLink, T:Vixen.Ui.AccessibilityChange, T:Vixen.Ui.AccessibilityChangeKind, T:Vixen.Ui.AccessibilityFields, T:Vixen.Ui.Testing.AccessibilitySnapshot]
 tags: [ui, accessibility, aria, screen-reader, testing]
 since: 0.2
 status: preview
@@ -176,6 +176,58 @@ Assert.Equal(
 rather than element depth and a control that grows a wrapper does not move in the snapshot. Owned
 elements are emitted under their owner rather than where the tree has them, which is the picture the
 `Owns` relation exists to produce.
+
+⚠ **Neither rule is implemented in the renderer.** `Render` is a renderer over `AccessibilityTree`,
+which is in `Vixen.Ui` and is the only walk — see below. That matters to more than tidiness: a
+platform bridge that reproduced either rule wrongly would give a screen reader thirty nested groups
+and a pile of loose lists, and before the walk moved down there was no way for one to share the
+traversal a test asserts on short of referencing a testing assembly.
+
+## The tree as data, for a bridge
+
+`AccessibilitySnapshot` answers "what would a screen reader say". `AccessibilityTree` answers the
+question underneath it — *what are the nodes* — as data, in a shipping assembly, with nothing in it
+referring to a `UiElement`:
+
+```csharp no-compile="a fragment; `document` is a UiDocument owned by this thread"
+var source = new AccessibilityTreeSource();
+
+document.AccessibilityInvalidated += _ => {
+    var tree = source.Capture(document.Root);
+
+    foreach (var change in source.Changes) {
+        // Added, Removed, or Changed with a flag set naming which parts differ.
+        Post(change);
+    }
+};
+```
+
+| | |
+|---|---|
+| `AccessibilityTree.Capture` | One look, with fresh ids. For a test, a dump, an assertion |
+| `AccessibilityTreeSource` | Capture after capture, with node ids that stay put — what a bridge holds |
+| `AccessibilityTree.Diff` | The per-node change list. `Source.Changes` is this against the previous capture |
+
+**Why data rather than a walk a bridge runs per query.** The graph is single-threaded by contract and
+every bridge is asked questions from somewhere else: AT-SPI's D-Bus calls arrive on another thread,
+and AppKit asks on the main one whether or not that is the thread that owns the document. A bridge
+that answered by walking live elements would be reading a tree while another thread mutated it. A
+capture is a frame that has already happened.
+
+⚠ **A node id is stable across captures and is never handed out twice.** A retired id is not
+recycled, because a bridge keys its platform objects — `AXUIElement`s, UIA providers — on that number,
+and handing it to a different button would hand a screen reader the wrong element rather than nothing.
+
+⚠ **`AccessibilityInvalidated` says *that* something changed and never *what*, deliberately** — one
+raise a frame, no payload, because accumulating a changed set per mutation is the allocation the
+coalescing exists to avoid. Every bridge wants the opposite shape: AT-SPI needs a signal per mutation,
+UIA needs `UiaRaiseAutomationPropertyChangedEvent` per property, `NSAccessibility` posts
+notifications. `Diff` is where "something changed" becomes "these nodes, this way" — once, rather than
+three times in three bridges with three answers. Its order is part of the contract: additions and
+edits in document order so a parent is announced before its children, then removals.
+
+⚠ **A first capture is every node added, not an empty diff.** A bridge that has just attached holds an
+empty tree, and telling it nothing changed would leave that tree agreeing with itself.
 
 Assert `Unnamed` first. `Render` of a document with no accessibility at all is the empty string, and
 an expectation of the empty string matches it.
