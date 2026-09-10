@@ -128,6 +128,93 @@ public class IncrementalParseWorkTests {
     }
 
     /// <summary>
+    ///     ⚠ Text re-read from disk reuses nothing, however small the edit was.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The prerequisite the incremental path has and nothing in this repository
+    ///         supplies</b>, and it is the reason a hot reload cannot simply start calling
+    ///         <see cref="SyntaxTree.WithChangedText" />.
+    ///         <c>SourceText.GetChangeRanges</c> answers with the real ranges only when the old text
+    ///         is <em>the immediate predecessor</em> of the new one — reference-identical, one link
+    ///         back — and the only thing that establishes that link is
+    ///         <c>SourceText.WithChanges</c>, which no production code anywhere calls. A watcher
+    ///         hands the editor a path, the editor reads the file, and the text it gets has no
+    ///         history: <c>GetChangeRanges</c> reports the whole document, the blender is offered
+    ///         nothing, and the reparse is a full parse wearing an incremental name.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So this is a gate against a plausible wrong fix</b> rather than a curiosity. The
+    ///         obvious reading of "the editor should reparse incrementally" is to hold the previous
+    ///         <c>SourceText</c> per file and hand the re-read text to <c>WithChangedText</c>; that
+    ///         compiles, runs, produces correct trees, and reuses exactly zero nodes for ever — while
+    ///         a gate on the incremental path went green over a path no editor takes. What is
+    ///         actually owed is a text buffer that applies the keystrokes.
+    ///         See <see href="https://github.com/Rikarin/Vixen/issues/1245" />.
+    ///     </para>
+    ///     <para>
+    ///         A differential over one edit in one run, so nothing about the machine enters it: the
+    ///         same characters, reached two ways.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Text_re_read_from_disk_reuses_nothing_however_small_the_edit() {
+        var source = LeafShader;
+        var tree = SyntaxTree.ParseText(source, path: "Tonemap.rvn");
+        var at = source.LastIndexOf("//", StringComparison.Ordinal);
+
+        Assert.True(at > 0, "The leaf shader has no line comment to edit, so this measures nothing.");
+
+        var edited = tree.Text!.WithChanges(TextChange.Insert(at + 2, "x"));
+
+        // The identical characters, arrived at the way a file watcher arrives at them.
+        var reRead = SourceText.From(edited.ToString());
+
+        Assert.Equal(edited.ToString(), reRead.ToString());
+
+        // The two texts say the same thing and answer the same question differently, which is the
+        // whole of it.
+        Assert.NotEmpty(edited.GetChangeRanges(tree.Text!));
+
+        var whole = Assert.Single(reRead.GetChangeRanges(tree.Text!));
+
+        Assert.Equal(0, whole.Span.Start);
+        Assert.Equal(tree.Text!.Length, whole.Span.Length);
+
+        var kept = Allocated(tree, tree.WithChangedText(edited));
+        var none = Allocated(tree, tree.WithChangedText(reRead));
+
+        Assert.True(kept > 0, "The edit re-parsed nothing at all, so the measurement is not reading the edit.");
+
+        Assert.True(
+            kept * 8 < none,
+            $"A re-read of the same text allocated {none} green nodes against {kept} for the same edit applied "
+            + "through WithChanges. If these are now close, GetChangeRanges has learned to diff and a hot reload "
+            + "can reach the incremental path from a file watcher — which is what #1245 is waiting for."
+        );
+    }
+
+    /// <summary>Green nodes in <paramref name="reparsed" /> that <paramref name="old" /> did not hold.</summary>
+    static int Allocated(SyntaxTree old, SyntaxTree reparsed) {
+        var known = new HashSet<GreenNode>(ReferenceEqualityComparer.Instance);
+
+        Walk(old.GetRoot().Green, node => known.Add(node));
+
+        var allocated = 0;
+
+        Walk(
+            reparsed.GetRoot().Green,
+            node => {
+                if (!known.Contains(node)) {
+                    allocated++;
+                }
+            }
+        );
+
+        return allocated;
+    }
+
+    /// <summary>
     ///     Green nodes the reparse had to allocate, and the number a full parse of the same text
     ///     allocates.
     /// </summary>

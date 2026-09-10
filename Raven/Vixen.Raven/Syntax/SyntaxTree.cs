@@ -61,6 +61,19 @@ public sealed class SyntaxTree : ISyntaxTree {
     ///         <see cref="SourceText" />, applies <c>WithChanges</c>, and hands the result here.
     ///     </para>
     ///     <para>
+    ///         ⚠ <b>No editor does, and the first clause of that sentence is the reason rather than
+    ///         an oversight.</b> Nothing in this repository calls <c>SourceText.WithChanges</c> at
+    ///         all, so no text anywhere has a predecessor —
+    ///         <c>SourceText.GetChangeRanges</c> answers with real ranges only for the immediate
+    ///         one and otherwise reports the whole document. The editor's <c>.rvn</c> reload is a
+    ///         file watcher: it re-reads the file, which produces a text with no history, so
+    ///         calling this with it would parse fresh every time while looking incremental. What is
+    ///         owed is a text buffer that applies the keystrokes, not a call site.
+    ///         <c>IncrementalParseWorkTests.Text_re_read_from_disk_reuses_nothing_however_small_the_edit</c>
+    ///         is the gate against making that mistake, and
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1245" /> is where it is tracked.
+    ///     </para>
+    ///     <para>
     ///         <b>The reparse is incremental</b> (docs/plan/18 step 7): member declarations
     ///         whose text a change did not touch are taken from this tree's green nodes rather
     ///         than reparsed — editing one function body reparses that member and shifts the
