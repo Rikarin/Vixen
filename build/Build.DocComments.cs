@@ -26,9 +26,11 @@ using Vixen.Build;
 ///         ⚠ <b>And it is not that somebody forgot to turn a warning on.</b> A duplicated
 ///         <c>&lt;summary&gt;</c> is not a Roslyn diagnostic at any severity — there is none to turn
 ///         on. CS1572 names the other half and needs <c>GenerateDocumentationFile</c>, which
-///         <c>Directory.Build.props</c> turns off for the whole tooling profile;
+///         <c>Directory.Build.props</c> turned off for the whole tooling profile;
 ///         <a href="https://github.com/Rikarin/Vixen/issues/821">#821</a> switched it on for one
-///         project, and neither stapled file was in it.
+///         project, and neither stapled file was in it. ⚠ The profile turns it on for all of them
+///         now (#1218) — which changes nothing about the half above, because a duplicated
+///         <c>&lt;summary&gt;</c> still has no diagnostic to turn on.
 ///     </para>
 ///     <para>
 ///         <b>So this is <see cref="CheckWhitespace" />'s shape</b>: a folder walk with no MSBuild

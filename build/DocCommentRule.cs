@@ -31,9 +31,12 @@ namespace Vixen.Build;
 ///         ⚠ <b>And that is not a gap somebody forgot to close — nothing on the shelf closes it.</b> A
 ///         duplicated <c>&lt;summary&gt;</c> is not a Roslyn diagnostic at any severity. The one
 ///         diagnostic that names the second half, CS1572, needs <c>GenerateDocumentationFile</c>, and
-///         <c>Directory.Build.props</c> turns that off for the whole tooling profile — so on the day
+///         <c>Directory.Build.props</c> turned that off for the whole tooling profile — so on the day
 ///         it would have fired it was not running. The reader was the only instrument, and a stapled
-///         comment is precisely the defect that misleads a reader.
+///         comment is precisely the defect that misleads a reader. ⚠ The profile turns it ON now
+///         (#821, #1218), so CS1572 covers the parameter half of this rule everywhere; the
+///         duplicated <c>&lt;summary&gt;</c> half still has no diagnostic anywhere, which is what
+///         this rule is for.
 ///     </para>
 ///     <para>
 ///         <b>The shape is <c>CheckWhitespace</c>'s: a folder walk with no MSBuild workspace.</b>
