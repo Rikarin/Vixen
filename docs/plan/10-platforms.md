@@ -294,11 +294,22 @@ Silk.NET 2.23.0, Chromium.
     loop variable *because the concurrency is the subject*. Several then assert that
     `scheduler.WorkerCount` is what they asked for, so a global clamp would redden them by
     construction. "The whole suite single-threaded" is not the shape of the owed work.
-  - **What is genuinely owed is narrower and per-subsystem.** Zero-worker construction reaches
-    `Vixen.Core.Threading`, `Vixen.Ecs`, `Vixen.Rendering`, the golden suite and one sample's frame
-    tests, and no further. Assets, animation, terrain, water, physics, AI, net and UI each schedule
-    work and none has a fixture that runs it with none — which is where "scheduled-and-never-completed
-    work never runs" would actually bite.
+  - ⚠ **And the "narrower, per-subsystem" list this bullet used to carry was wrong in both
+    directions, and has since been done.** Six of the eight subsystems it named — assets, terrain,
+    water, physics, net and UI — dispatch no job work at all; what they use is `Task` and the thread
+    pool, which is a different browser question. The five that do are animation, navigation, VFX,
+    GOAP and rendering, and all five now carry a nought-worker row beside the threaded one.
+  - **What holds it is a coverage walk, not a leg.** Every nought-worker fixture is an ordinary
+    `[Fact]` or `[Theory]`, so `Test` already runs all of them on all three runners on every pull
+    request; a job selecting a subset of what the suite just ran is runner time and not coverage.
+    What nothing held is that a subsystem which *grows* a dispatch grows the row with it, and
+    `Tools/Vixen.ApiCheck.Tests/ZeroWorkerCoverageTests` is that: it reads the scheduler's dispatch
+    calls off the type and asks every production project that makes one for a sibling fixture marked
+    `[Trait("Workers", "0")]`. ⚠ Its first version listed the calls instead of deriving them and so
+    walked for two of the three — `Schedule`, one job run once by somebody else, was invisible,
+    which is precisely the shape of the one real defect this whole question has turned up
+    ([#1214](https://github.com/Rikarin/Vixen/issues/1214)): scheduled into the background tier,
+    polled, never waited on, and therefore never run at all where there are no workers.
 - **Size beyond the floor.** 930 KB is the runtime baseline; the engine's own IL adds to it. ✅
   **Lazy assembly loading is implemented** — `VixenWebLazyAssembly` takes a named assembly out of the
   boot manifest at publish and `WebLazyAssemblies.LoadAsync` fetches it on demand; see
@@ -354,7 +365,7 @@ under budget; single-threaded job-system mode verified.
 | Floating point | No reliance on cross-platform FP bit-identity for gameplay. Deterministic simulation, where needed, uses fixed-point or a documented deterministic subset. |
 | Feature detection | Always a runtime capability query with a fallback, never `#if PLATFORM`. `#if` is for P/Invoke surface only. |
 | Time | `Stopwatch`-based monotonic time; never `DateTime.Now` in the loop. |
-| Threading | Every subsystem works with `workerCount == 0`. `JobScheduler` supports it and is tested for it. ⚠ The *whole*-suite single-threaded mode this row used to call owed is not the shape of the work — 42 of the tree's 118 construction sites already pass 0, the rest pass a count deliberately, and forcing them would redden tests that assert the count they asked for. See § Web, where this claim has now been corrected three times and the third correction carries the counts. |
+| Threading | Every subsystem works with `workerCount == 0`. `JobScheduler` supports it and is tested for it, and every production project that dispatches job work carries a nought-worker fixture — held by `ZeroWorkerCoverageTests`, which derives what a dispatch is from the scheduler itself. ⚠ The *whole*-suite single-threaded mode this row used to call owed is not the shape of the work — 42 of the tree's 118 construction sites already pass 0, the rest pass a count deliberately, and forcing them would redden tests that assert the count they asked for. See § Web, where this claim has now been corrected three times and the third correction carries the counts. |
 | Native binaries | One `Vixen.Platform.Native` project owns RID→binary mapping, `runtimes/<rid>/native/` layout, checksum verification at acquisition time, and a licence manifest. Native binaries are never committed; they are restored by a Nuke target from pinned, checksummed URLs. |
 
 ## Platform CI matrix
