@@ -253,8 +253,8 @@ public class EditorShellBudgetTests {
     }
 
     /// <summary>
-    ///     The instrument the budget below is read through: a busy neighbour cannot move this
-    ///     thread's allocation counter, not even by collecting.
+    ///     Half of the instrument the budget below is read through: a busy neighbour cannot move the
+    ///     allocation counter of a thread that is holding no allocation context.
     /// </summary>
     /// <remarks>
     ///     <para>
@@ -266,14 +266,29 @@ public class EditorShellBudgetTests {
     ///         gate whose failure means nothing, and no number of green runs would show it.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>It is false twice over, and the second half is the one that had not been
-    ///         measured.</b> A neighbour thread's allocations land in that thread's own allocation
-    ///         context and cannot reach this one — which was argued from the API's contract. But a
-    ///         neighbour's <em>collection</em> is not confined to a thread at all: a GC retires every
-    ///         allocation context on the heap, this one included, and "the accounting jumps when a
-    ///         busy neighbour forces a gen-0" is exactly the shape that would fail under load and
-    ///         pass alone. So it is measured rather than reasoned about, and the answer is zero
-    ///         across every window in which collections were observed.
+    ///         ⚠ <b>The allocation half is false and the collection half turned out to be TRUE, and
+    ///         this test used to claim both.</b> A neighbour thread's allocations land in that
+    ///         thread's own allocation context and cannot reach this one — which is what the window
+    ///         below measures, and it measures zero. But a neighbour's <em>collection</em> is not
+    ///         confined to a thread at all: a GC retires every allocation context on the heap, this
+    ///         one included, and the accounting for the retired context's <i>unconsumed remainder</i>
+    ///         is what jumps. Measured in Release on macOS arm64, twice, with a neighbour churning
+    ///         4 KB arrays: a thread that allocated <b>nothing at all</b> inside the window read
+    ///         <b>+16 344 bytes</b> — once in 7 725 windows and once in 19 493 — and a control arm
+    ///         that never took a context read zero across 19 562 windows in the same run. Every
+    ///         number #992 recorded (8 120, 8 168, 8 000, 3 616) is under one 8 KB context, and
+    ///         16 344 is two of them.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So the old name was a claim this body cannot make, twice over.</b> Its measuring
+    ///         thread "allocates nothing by construction" — which means it is holding no
+    ///         partly-consumed context for a GC to retire, so the failure mode is absent by
+    ///         construction rather than by evidence. And the window closes after eight collections,
+    ///         against an artifact seen roughly once in twenty thousand. A gate that cannot go red is
+    ///         worse than the flake it replaced, and this one is kept only for the half it really
+    ///         does prove: <b>allocations</b> do not cross threads. The collection half is handled
+    ///         where it has to be — <see cref="A_settled_frame_allocates_nothing" /> now discards any
+    ///         frame a collection landed in and measures another.
     ///     </para>
     ///     <para>
     ///         <b>Ordered by work, never by time.</b> The window closes when a fixed number of gen-0
@@ -289,7 +304,7 @@ public class EditorShellBudgetTests {
     ///     </para>
     /// </remarks>
     [Fact]
-    public void A_neighbours_allocation_and_collection_cannot_move_this_threads_counter() {
+    public void A_neighbours_allocations_cannot_move_a_non_allocating_threads_counter() {
         // Enough collections that a per-collection jump could not hide, and few enough that the
         // neighbour is a neighbour rather than the test.
         const int Collections = 8;
@@ -368,9 +383,9 @@ public class EditorShellBudgetTests {
             moved == 0,
             $"{moved} of {windows} windows saw this thread's allocation counter move while it "
             + $"allocated nothing and a neighbour forced {collected} collections. "
-            + "GC.GetAllocatedBytesForCurrentThread is therefore NOT immune to a busy machine, and "
-            + $"the zero bound in {nameof(A_settled_frame_allocates_nothing)} is a gate whose red "
-            + "proves nothing — fix that before reading its next failure (#992)."
+            + "GC.GetAllocatedBytesForCurrentThread does not even confine a neighbour's *allocations* "
+            + "to that neighbour, which is a stronger fault than the one #992 found and is not what "
+            + $"{nameof(A_settled_frame_allocates_nothing)}'s retry can work round."
         );
     }
 
@@ -436,16 +451,39 @@ public class EditorShellBudgetTests {
     ///         not build.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And the half of that refutation which had only been argued is measured now.</b> A
-    ///         neighbour's <em>collection</em> is not confined to a thread the way its allocations
-    ///         are — a GC retires every allocation context, this one included — so "the accounting
-    ///         jumps when a busy neighbour forces a gen-0" was still a live reading of a failure seen
-    ///         under load and never alone.
-    ///         <see cref="A_neighbours_allocation_and_collection_cannot_move_this_threads_counter" />
-    ///         is that experiment kept: a thread that allocates nothing reads exactly zero across
-    ///         every window in which a neighbour forced collections. So the counter is sound, this
-    ///         bound's red is a proof, and #992's 8 120 bytes were bytes this thread really
-    ///         allocated. The bound is not widened, for the second time.
+    ///         ⚠ <b>And the half of that refutation which had only been argued turns out to be the
+    ///         half that is wrong.</b> A neighbour's <em>collection</em> is not confined to a thread
+    ///         the way its allocations are — a GC retires every allocation context, this one
+    ///         included — and the retired context's <i>unconsumed remainder</i> is what the
+    ///         accounting jumps by. Measured in Release on macOS arm64, twice: a thread that
+    ///         allocated <b>nothing</b> inside the window, while carrying a partly-used context,
+    ///         read <b>+16 344 bytes</b> in one window of 7 725 and one of 19 493, and a control arm
+    ///         that never took a context read zero across 19 562 windows of the same run. Every
+    ///         figure #992 recorded — 8 120, 8 168, 8 000, 3 616 — is under one 8 KB context, and
+    ///         16 344 is two.
+    ///         <see cref="A_neighbours_allocations_cannot_move_a_non_allocating_threads_counter" />
+    ///         could never have seen it: its measuring thread allocates nothing at all, so it holds
+    ///         no context for a GC to retire, and it closes after eight collections against an
+    ///         artifact seen about once in twenty thousand windows. It is renamed to the half it
+    ///         really proves.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>So a frame a collection landed in is discarded and measured again, rather than
+    ///         the bound being widened.</b> That is what makes the red a proof without giving up the
+    ///         zero: a per-frame allocation shows in the collection-free frames too, because every
+    ///         frame is one. And the retry is ordered by <i>work</i> — a bounded number of attempts,
+    ///         not a deadline — and it cannot pass vacuously: if the attempts do not yield ten clean
+    ///         frames the test fails saying so, instead of asserting a zero over an empty sample.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Two readings the earlier breakdown suggested are refuted by the same
+    ///         experiment.</b> "Something on the draw walk re-fills what a GC emptied" predicts that
+    ///         the frame after a collection pays: forcing a blocking gen-2 (twice, with finalizers
+    ///         drained) immediately before a measured frame cost <b>zero</b>, in 20 measured frames
+    ///         and again mid-run in a sweep of 20 000. And in 20 000 consecutive measured frames
+    ///         under two neighbours — a heap-churning thread and a <c>Strings.Use</c> catalogue swap
+    ///         — exactly one frame ever paid, and it paid <b>8 000 bytes</b>: a single event under
+    ///         one allocation context, not a per-collection cost. See #992.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>What was genuinely unproved is that the measured frames were settled at all.</b>
@@ -495,49 +533,76 @@ public class EditorShellBudgetTests {
         // storing a long into a `long[]` is not an allocation, so keeping the breakdown is free.
         var cost = new long[Frames];
 
-        // ⚠ And which frames a collection landed in, on the same terms, because that is the
-        // correlation the breakdown alone could not show and it is what this failure turns out to
-        // be. Reproduced on this machine in Release under a neighbour churning the heap: the one
-        // frame of ten that paid was the one frame of ten a collection happened in — 1 424 gen-0 and
-        // 2 gen-1 of them — and the nine that saw none paid nothing. `GC.CollectionCount` reads a
-        // counter and allocates no more inside the loop than outside it.
-        var collections = new int[Frames];
-        var promotions = new int[Frames];
+        // ⚠ How many attempts a clean frame is allowed, and it is a count of work rather than a
+        // deadline. A frame a collection landed in is not measurable — the retired allocation
+        // context's unconsumed remainder lands in this thread's counter, up to 16 344 bytes of it —
+        // so such a frame is thrown away and another is drawn in its place. Ten times the frames,
+        // because a machine busy enough to collect inside nine attempts out of ten is a machine
+        // this measurement cannot be taken on, and saying so is better than a number.
+        const int Attempts = Frames * 10;
 
-        for (var i = 0; i < Frames; i++) {
+        // How many attempts were spent, and how many were discarded — reported on a red, because
+        // "nine of ten frames had a collection in them" is a different failure from "the draw walk
+        // allocates" and the message has to be able to say which.
+        var discarded = 0;
+        var measured = 0;
+
+        for (var attempt = 0; attempt < Attempts && measured < Frames; attempt++) {
             var gen0 = GC.CollectionCount(0);
             var gen1 = GC.CollectionCount(1);
+            var gen2 = GC.CollectionCount(2);
             var before = GC.GetAllocatedBytesForCurrentThread();
-
-            if (Shell.Document.Update()) {
-                worked++;
-            }
+            var dirty = Shell.Document.Update();
 
             Shell.Document.Draw();
 
-            cost[i] = GC.GetAllocatedBytesForCurrentThread() - before;
-            collections[i] = GC.CollectionCount(0) - gen0;
-            promotions[i] = GC.CollectionCount(1) - gen1;
+            var spent = GC.GetAllocatedBytesForCurrentThread() - before;
+            var collected = GC.CollectionCount(0) - gen0
+                + (GC.CollectionCount(1) - gen1)
+                + (GC.CollectionCount(2) - gen2);
+
+            // ⚠ Discarded rather than recorded. Nothing about the frame is wrong; the *instrument*
+            // cannot read it, and a reading the instrument cannot take is not evidence either way.
+            if (collected != 0) {
+                discarded++;
+
+                continue;
+            }
+
+            if (dirty) {
+                worked++;
+            }
+
+            cost[measured] = spent;
+            measured++;
         }
 
         var allocated = 0L;
         var frames = 0;
-        var collected = 0;
 
-        for (var i = 0; i < Frames; i++) {
+        for (var i = 0; i < measured; i++) {
             allocated += cost[i];
 
-            if (cost[i] <= 0) {
-                continue;
+            if (cost[i] > 0) {
+                frames++;
             }
-
-            frames++;
-            collected += collections[i] + promotions[i];
         }
 
-        // ⚠ First, because it is the premise of the sentence below it. Bytes bought by a frame that
-        // had layout to redo are not this test's subject, and reporting them as the draw walk's is
-        // how a gate comes to name the wrong thing under load.
+        // ⚠ First, because without it every bound below is satisfied by measuring nothing — which is
+        // exactly what a retry loop makes possible and what an absolute budget never did. A machine
+        // that collected inside ninety consecutive frames has not proved the shell allocates
+        // nothing; it has failed to take the measurement, and it says so.
+        Assert.True(
+            measured == Frames,
+            $"only {measured} of {Frames} frames could be measured in {Attempts} attempts — "
+            + $"{discarded} were discarded because a collection landed inside them, and a frame a "
+            + "GC retires this thread's allocation context inside cannot be read (see #992). "
+            + "Nothing is asserted about the shell by this run."
+        );
+
+        // ⚠ Then the premise of the sentence below it. Bytes bought by a frame that had layout to
+        // redo are not this test's subject, and reporting them as the draw walk's is how a gate comes
+        // to name the wrong thing under load.
         Assert.True(
             worked == 0,
             $"{worked} of {Frames} frames reported work to do, so they were not settled frames and "
@@ -545,49 +610,38 @@ public class EditorShellBudgetTests {
             + "measured loop dirtied the shell"
         );
 
-        // ⚠ The shape before the size. Every frame paying is the draw walk; one frame paying is a
-        // one-off; and a paying frame a collection landed in is a third thing again — something the
-        // draw walk re-fills after a GC empties it. The three want opposite investigations, and
-        // saying which is the only thing #992's report could not do.
+        // ⚠ The shape before the size. Every frame paying is the draw walk asking per frame; one
+        // frame alone is a one-off. The third reading — "a collection landed in it" — is gone from
+        // here on purpose: such a frame is no longer measured at all.
         Assert.True(
             allocated == 0,
-            $"{Frames} settled frames of the shell allocated {allocated} bytes between them, and "
-            + $"{frames} of the {Frames} paid: [{string.Join(", ", cost)}]. "
-            + $"Collections inside each frame: gen-0 [{string.Join(", ", collections)}], "
-            + $"gen-1 [{string.Join(", ", promotions)}]. "
-            + Reading(frames, collected)
+            $"{Frames} settled frames of the shell, none of them containing a collection, allocated "
+            + $"{allocated} bytes between them, and {frames} of the {Frames} paid: "
+            + $"[{string.Join(", ", cost)}] ({discarded} further frames were discarded for having a "
+            + "collection in them). "
+            + Reading(frames)
         );
     }
 
-    /// <summary>What a breakdown of the cost means, which is three different investigations.</summary>
+    /// <summary>What a breakdown of the cost means, which is two different investigations.</summary>
     /// <param name="frames">How many of the measured frames paid.</param>
-    /// <param name="collected">How many collections landed inside the frames that paid.</param>
     /// <returns>The sentence to put after the numbers.</returns>
     /// <remarks>
-    ///     ⚠ <b>The third reading is the one #992 turns out to be, and neither of the other two would
-    ///     have found it.</b> "One frame alone is a one-off — look for something warmed on the first
-    ///     pass" is wrong about a frame that pays after nine free ones, which is what both recorded
-    ///     failures did. What separates them is whether a collection happened inside the paying
-    ///     frame: it did, every time it was measured, and nine frames with no collection cost nothing
-    ///     in the same run. So the thing to look for is not a warm-up and not a boxed enumerator but
-    ///     something the draw walk re-fills after a GC empties it.
+    ///     ⚠ <b>The third reading this used to have is gone, because the frames it described are no
+    ///     longer measured.</b> "Every paying frame is a frame a collection landed in, so look for
+    ///     something the draw walk re-fills after a GC" was the reading of #992 for a while, and it
+    ///     is refuted: forcing a blocking gen-2 immediately before a measured frame costs zero, and
+    ///     the correlation was the instrument rather than the code — a GC retires this thread's
+    ///     allocation context and its unconsumed remainder lands in the counter. Frames with a
+    ///     collection in them are discarded now, so anything that reaches here was measured cleanly.
     /// </remarks>
-    static string Reading(int frames, int collected) {
-        if (collected > 0) {
-            return "Every paying frame is a frame a collection landed in, so look for something on "
-                + "the draw walk that re-fills what a GC emptied — a weak cache, a pooled buffer, a "
-                + "Gen2GcCallback trim — rather than a boxed enumerator or a warm-up. ⚠ The counter "
-                + "itself is sound across all three generations, so these bytes were really "
-                + "allocated: see #992.";
-        }
-
-        return frames == 1
+    static string Reading(int frames) =>
+        frames == 1
             ? "One frame alone, with no collection in it, is a one-off — look for something warmed, "
             + "pooled or grown on that pass, not for a boxed enumerator."
             : "Every frame paying is something on the draw walk asking the allocator per frame — a "
             + "boxed enumerator over a collection typed as an interface is what it has been every "
             + "time.";
-    }
 
     /// <summary>And the one draw that does allocate is buying the list's previous-frame snapshot.</summary>
     /// <remarks>
