@@ -8,7 +8,7 @@ test, package, or release — CI calls the same targets a developer calls, so "w
 
 ### Target graph
 
-The thirty-eight targets, by what they depend on. Only the `DependsOn` edges are drawn; a target with
+The forty targets, by what they depend on. Only the `DependsOn` edges are drawn; a target with
 no edge into it is reachable on its own, which most of the checks deliberately are.
 
 ```
@@ -30,14 +30,17 @@ Restore ──┬─► Compile ────────┬─► Test ──┬
           └─► CheckAot           CompileWeb ──► PublishWeb ──► BrowserSmoke
 
 Depending on nothing, and run alone:  Clean · Benchmark · CheckArchitecture · CheckAttribution ·
-CheckBenchmarks · CheckDocComments · CheckDocsCoverage · CheckPackages · CheckStrings ·
-CheckWhitespace · CompileMobile ·
+CheckBenchmarks · CheckDocComments · CheckDocsCoverage · CheckPackages · CheckPathCase ·
+CheckStrings · CheckWhitespace · CompileMobile ·
 CompileWeb · AffectedProjects · AffectedTests · TestOrder · PruneWorktrees
 ```
 
-⚠️ **And four targets existed that this ledger did not name, which is #340's defect the other way
-round** — `Coverage`, `CheckDocsCoverage`, `TestOrder` and `PruneWorktrees`, the last two added on
-2026-09-05. A target no document names is one nobody types, and `PruneWorktrees` is the one that
+⚠️ **And five targets existed that this ledger did not name, which is #340's defect the other way
+round** — `Coverage`, `CheckDocsCoverage`, `TestOrder`, `PruneWorktrees` and `CheckPathCase`, the
+middle two added on 2026-09-05 and the last one filed against this ledger's own count: it is
+described in [10](10-platforms.md) § Cross-platform discipline and was named in no build document at
+all. `Tools/Vixen.ApiCheck.Tests/WorkflowAndTargetInventoryTests` now holds the ledger to
+`build/Build*.cs` rather than to a reader noticing. A target no document names is one nobody types, and `PruneWorktrees` is the one that
 matters for that: it is the only thing in the repository that reclaims the disk agent worktrees take
 ([#561](https://github.com/Rikarin/Vixen/issues/561)), and it deletes checkouts, so it will never be
 put on the graph or in CI. It has to be findable instead.
@@ -269,10 +272,10 @@ the answer is real is inside the archive.
 
 | Job | Runner | Runs |
 |---|---|---|
-| `test` | `ubuntu-latest`, `windows-latest`, `macos-14` | `RestoreNativeDeps`, then `Test --configuration Release`. ⚠️ The three legs are not "does it build everywhere": `Vixen.Net.Tests/Wire` asserts the wire format against committed bytes, so running it on three operating systems and two architectures **is** the assertion that two peers encode a value identically. It also builds and uploads the content and remesh manifests the two jobs below compare |
-| `checks` | `ubuntu-latest` | `CheckArchitecture CheckApi CheckFormat CheckDocs CheckStrings`, then `CheckShaders` |
+| `test` | `ubuntu-latest`, `windows-latest`, `macos-14` | `RestoreNativeDeps`, then `Test --configuration Release`. ⚠️ The three legs are not "does it build everywhere": `Vixen.Net.Tests/Wire` asserts the wire format against committed bytes, so running it on three operating systems and two architectures **is** the assertion that two peers encode a value identically. It then runs `ContentBytes` and `RemeshBytes` on the runner and uploads their manifests, which the two jobs below compare — the determinism claim is between runners, so the part that has to happen on each of them is here |
+| `checks` | `ubuntu-latest` | `CheckArchitecture CheckApi CheckFormat CheckDocsCoverage CheckDocs CheckStrings`, then `CheckShaders`. ⚠️ This row omitted `CheckDocsCoverage`, which the leg has run since it existed |
 | `web` | `ubuntu-latest` | `CompileWeb PublishWeb`, then `BrowserSmoke` — 37 checks over CDP, no Playwright |
-| `pack` | `ubuntu-latest` | `Restore Compile Pack --skip Test`. ⚠️ `Pack` depends on `Test` in the target graph, which is right for a developer typing `nuke Pack` and would be a second full test run here |
+| `pack` | `ubuntu-latest` | `Restore Compile Pack CheckTemplates --skip Test`. ⚠️ `Pack` depends on `Test` in the target graph, which is right for a developer typing `nuke Pack` and would be a second full test run here. ⚠️ `CheckTemplates` is on the same invocation rather than in a step of its own — `Pack` cleans `artifacts/packages` before it writes, so a second `./build.sh` would rebuild the feed the templates are supposed to be restored from. This row named the first three targets and not the fourth |
 | `aot` | `ubuntu-latest`, `windows-latest`, `macos-14` | `CheckAot` |
 | `sample-frame` | `ubuntu-latest` | `SampleFrame` |
 | `content-bytes` | `ubuntu-latest`, needs `test` | compares the three legs' `ObjectId` manifests — the determinism gate. ⚠️ It counts them first: a comparison of nothing agrees with itself |
@@ -288,9 +291,13 @@ and `CheckAotIos` — are [#327](https://github.com/Rikarin/Vixen/issues/327) an
 on a pull request, timing gates nightly) is right and is now implementable, but it has to follow the
 committed baseline rather than precede it.
 
-`nightly.yml`: `targets` (reads the fuzz target list and its budgets), `fuzz` (a job per target, over a
-committed corpus), `properties` (a job per suite), and `postgres`, `docker` and `kubernetes` — the
-three that need a real service rather than a double.
+`nightly.yml`, seven jobs: `targets` (reads the fuzz target list and its budgets), `fuzz` (a job per
+target, over a committed corpus), `properties` (a job per suite), `postgres`, `docker` and
+`kubernetes` — the three that need a real service rather than a double — and `ci-freshness`, which
+asks the API when CI last reached a verdict about master and fails at forty-eight hours. ⚠️ **That
+last one was not named here for as long as this paragraph has existed**, which is the failure it
+exists to catch, one level up: a run that never happens says nothing, and a job nobody has written
+down is one nobody misses.
 
 Build caching: NuGet packages, the native-deps directory (keyed on the checksum manifest), the shader
 bytecode cache, and the asset artefact DB (keyed on the source tree hash). Content builds are the
