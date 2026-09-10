@@ -11,14 +11,6 @@
         </Description>
         <PackageTags>editor;plugin;extensibility;assemblyloadcontext;hot-reload;game-engine;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
-
-        <!--
-            ⚠ The one project under Editor/ that documents itself, and the reason is the promise.
-            docs/plan/11 § Vixen.Editor.Plugin asks for a stricter compatibility policy here than
-            anywhere else in the editor, and a stricter promise that arrives without XML docs in the
-            package is a promise nobody can read from an IDE.
-        -->
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>
 
     <ItemGroup>

@@ -30,8 +30,7 @@
             a node is compile-time scaffolding and not a packaged API, so "this public member has no
             comment" is not a question worth asking of it, while the rules that catch a *lie* are.
         -->
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <NoWarn>$(NoWarn);CA1051;CS1591;CS1573</NoWarn>
+        <NoWarn>$(NoWarn);CA1051</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

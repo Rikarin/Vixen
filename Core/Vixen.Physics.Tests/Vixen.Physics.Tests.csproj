@@ -23,20 +23,4 @@
     </ItemGroup>
     <!-- Measured, the guarded allocation measurement. See Testing/Vixen.Testing.props. -->
     <Import Project="..\..\Testing\Vixen.Testing.props" />
-
-    <!--
-        #1119's ratchet. The TEST profile in `Directory.Build.props` turns documentation generation
-        off for every `*.Tests` project, so no `<see cref>` in any test assembly was ever checked —
-        and a test's remarks are read at the worst possible moment, when the test has just gone red.
-        CS1591 and CS1573 stay suppressed: "this public member has no comment" is a question about a
-        packaged API surface, and a test assembly is not one.
-
-        Measured before flipping, as that issue asks — this project's only doc diagnostics came from
-        `Testing/Measured.cs`, which is linked in rather than owned, and both were fixed with it.
-    -->
-    <PropertyGroup>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
-    </PropertyGroup>
-
 </Project>

@@ -169,9 +169,11 @@ public class AotRootingRuleTests {
     /// <remarks>
     ///     ⚠ <b>The count is asserted as well as the agreement</b>, because a rule whose subject set
     ///     silently emptied would report a clean tree. 95 runtime assemblies and 29 rooted was #506's
-    ///     measurement on 2026-09-03 and is still the measurement; the assertions are floors rather
-    ///     than equalities, so adding an assembly is not a failure here — it is a failure in the
-    ///     ledger check above, where it belongs and where the message names it.
+    ///     measurement on 2026-09-03; it is <b>82 of 95</b> since 2026-09-10, when fifty-three of the
+    ///     sixty-six that had never been rooted turned out to publish clean on the first ILC run. The
+    ///     assertions are floors rather than equalities, so adding an assembly is not a failure
+    ///     here — it is a failure in the ledger check above, where it belongs and where the message
+    ///     names it.
     /// </remarks>
     [Fact]
     public void The_repository_agrees_with_the_ledger() {

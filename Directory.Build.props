@@ -127,11 +127,82 @@
     Reflection and LINQ permitted; these are compilers and editors, not frame code.
     ============================================================================
   -->
+  <!--
+    ⚠ Six projects under this profile ship their XML docs to somebody, and CS1591 has been an error
+    in every one of them since before the ratchet started — none of them carries the suppression the
+    other 38 do. Naming them here is what stops the profile's `NoWarn` below taking that away
+    silently, which is the one way this consolidation could have cost something: a suppression is
+    invisible when it works, so "every public member of Vixen.Editor.Plugin is documented" would
+    have stopped being enforced with nothing to read in the diff. `Vixen.Editor.Plugin`'s own csproj
+    argues the case at length — doc 11 asks for a stricter compatibility promise there than anywhere
+    else in the editor, and a promise that arrives without XML docs is one nobody can read from an
+    IDE — and the other five pack, four of them as `dotnet` tools.
+
+    ⚠ It has to be a property rather than the obvious `<WarningsAsErrors>CS1591</WarningsAsErrors>`
+    in each project: measured, `NoWarn` wins over `WarningsAsErrors` for the same id, so a project
+    cannot raise back a warning an outer file suppressed for it.
+  -->
+  <PropertyGroup>
+    <VixenPublishesItsDocComments Condition="'$(MSBuildProjectName)' == 'Vixen.App' OR
+                                             '$(MSBuildProjectName)' == 'Vixen.Cli' OR
+                                             '$(MSBuildProjectName)' == 'Vixen.ContentServer' OR
+                                             '$(MSBuildProjectName)' == 'Vixen.Editor.Plugin' OR
+                                             '$(MSBuildProjectName)' == 'Vixen.ShaderCompiler' OR
+                                             '$(MSBuildProjectName)' == 'Vixen.ShaderCompilerService'">true</VixenPublishesItsDocComments>
+  </PropertyGroup>
+
+  <!--
+    ⚠ The three compiler-plugin suffixes are excluded here now, where they used to fall through and
+    be re-set by this profile to the same `false` the COMPILER PLUGIN group above had already given
+    them. With the flag flipped that fall-through would have turned documentation generation ON for
+    a generator, and the profile above's `false` is load-bearing rather than tidy: a generator
+    `<Compile Include>`s files out of an assembly it cannot reference, so a cref that is correct in
+    the owning project cannot resolve there. `IsAotCompatible` is unaffected — the COMPILER PLUGIN
+    group sets the same `false`.
+  -->
   <PropertyGroup Condition="($(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Editor')) OR
                              $(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Tools')) OR
                              $(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Raven'))) AND
-                            !$(MSBuildProjectName.EndsWith('.Tests'))">
+                            !$(MSBuildProjectName.EndsWith('.Tests')) AND
+                            !$(MSBuildProjectName.EndsWith('.Generator')) AND
+                            !$(MSBuildProjectName.EndsWith('.Generators')) AND
+                            !$(MSBuildProjectName.EndsWith('.Analyzers'))">
     <IsAotCompatible>false</IsAotCompatible>
+    <!--
+      ⚠ **True, and this line used to say false while 44 of the 59 projects under it overrode it one
+      at a time** (#821, #1218). Same story as the TEST profile below: the per-project ratchet was
+      right while flipping one meant fixing its diagnostics in the same commit, and it is the wrong
+      end state — the file asserted the opposite of what the tree did, and the next Editor or Tools
+      project written would have started unchecked.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn Condition="'$(VixenPublishesItsDocComments)' != 'true'">$(NoWarn);CS1591;CS1573</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    ⚠ And the eleven under those directories that stay off, none of which is a project a reader of
+    this repository is ever asked to read a cref in.
+
+    `Vixen.AotProbe` and `Vixen.AotProbe.iOS` are ILC probes: a `Main` and a list of roots, published
+    rather than referenced, and out of the solution (#506). `Tools/Vixen.Templates` is a package of
+    `dotnet new` content whose nine template projects **become a third party's source** — so the
+    setting they should carry is whatever that third party's own repository says, and a
+    `GenerateDocumentationFile` written into the scaffold by us is a decision taken on their behalf.
+    Left out here rather than in those nine csproj files for exactly that reason: the file a user
+    receives is unchanged.
+
+    Two `Contains` rather than one path, because `MSBuildThisFileDirectory` ends in the platform's
+    own separator and a literal `Tools/Vixen.Templates` would not match on Windows. ⚠ And the
+    `.Tests` exclusion is written out because `Tools/Vixen.Templates.Tests` sits in a directory whose
+    name contains this one's: the TEST profile below happens to run after this group and would set it
+    back, so today the exclusion changes nothing — which is exactly why it is spelt rather than
+    relied on. A rule about a package should not be reaching a test project at all, and the day these
+    groups are reordered is not the day to find out that it was.
+  -->
+  <PropertyGroup Condition="$(MSBuildProjectName.StartsWith('Vixen.AotProbe')) OR
+                            ($(MSBuildProjectDirectory.Contains('$(MSBuildThisFileDirectory)Tools')) AND
+                             $(MSBuildProjectDirectory.Contains('Vixen.Templates')) AND
+                             !$(MSBuildProjectName.EndsWith('.Tests')))">
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
   </PropertyGroup>
 
@@ -168,7 +239,30 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <IsAotCompatible>false</IsAotCompatible>
-    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!--
+      ⚠ **True, and this line used to say false while 181 of the 182 test projects
+      overrode it one at a time** (#1119, #1218). A test's remarks argue why the
+      assertion is the right one by citing the type it covers, and a citation is
+      exactly what rots when the production side is renamed — so a `<see cref>` in a
+      test assembly is worth checking, and with the flag off none ever was. The
+      per-project ratchet was the right shape while flipping a project meant fixing
+      its diagnostics in the same commit; it is the wrong end state, because a file
+      that asserts the opposite of what the tree does is a file nobody can read, and
+      because a NEW test project inherited the `false` and started unchecked.
+
+      Forcing the flag on across `Vixen.slnx` reported 153 distinct defect sites
+      tree-wide and every one of them is fixed, so the flip costs nothing.
+
+      CS1591 and CS1573 stay suppressed: "this public member has no comment" is a
+      question about a packaged API surface, and a test assembly is not one.
+
+      ⚠ One exception, and it keeps a `false` in its own csproj:
+      `Platform/Vixen.Platform.Web.Tests` `<Compile Include>`s two files out of
+      `Vixen.Platform.Web` without their siblings, so two correct `<see cref>`s
+      cannot resolve in the assembly that borrows them.
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
     <!--
       ⚠ A test assembly must NOT get deterministic source paths, and this is what
       made master's `Test` leg red on all three operating systems at once (#943).

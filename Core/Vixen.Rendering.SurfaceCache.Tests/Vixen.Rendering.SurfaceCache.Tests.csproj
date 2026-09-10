@@ -24,21 +24,4 @@
         <ProjectReference Include="..\Vixen.Rendering.ScreenProbes\Vixen.Rendering.ScreenProbes.csproj" />
         <ProjectReference Include="..\Vixen.Rendering.IrradianceFields\Vixen.Rendering.IrradianceFields.csproj" />
     </ItemGroup>
-    <!--
-        #1119's ratchet. The TEST profile in `Directory.Build.props` turns documentation generation
-        off for every `*.Tests` project, so no `<see cref>` in any test assembly was ever checked —
-        and a test's remarks are read at the worst possible moment, when the test has just gone red.
-        CS1591 and CS1573 stay suppressed: "this public member has no comment" is a question about a
-        packaged API surface, and a test assembly is not one.
-
-        This project reported nothing when the whole tree was measured with the flag forced on, so
-        here it is a latch rather than a repair — which is the point. An overload landing beside a
-        cref written earlier is not historical rot; #821's own measurement watched it happen inside
-        one working session.
-    -->
-    <PropertyGroup>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
-    </PropertyGroup>
-
 </Project>

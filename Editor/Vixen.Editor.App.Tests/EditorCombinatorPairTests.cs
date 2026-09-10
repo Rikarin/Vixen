@@ -631,12 +631,25 @@ public class EditorCombinatorPairTests {
 
         // ⚠ The work each sweep did, written where a reader of a run can see it — the same reason
         // `Fixture.TryOpen` writes the adapter into the golden suite's output (#795). This class
-        // starts three editors and the third opens a document per registered extension, and until
+        // starts FOUR editors and one of them opens a document per registered extension, and until
         // now the only numbers it published were the floors in its failure messages: every count
         // below was invisible on a green run, so "how much does the document sweep actually do"
         // could not be answered without editing the file. ⚠ It is a count of work and not a
         // duration deliberately — #1184 asks how the class's minutes divide, and a wall clock on a
         // machine running anything else answers a different question.
+        //
+        // ⚠ **And #1184's question is answered, so the fold it was holding open is refused.** That
+        // issue asked whether the cost is the documents or the editors before anyone collapses the
+        // four sweeps into one session read at four depths. Measured as a differential — the three
+        // phases timed back to back inside one process, twice, so the ratio is the reading and no
+        // absolute is claimed: `EditorSession.Start()` plus `Settle()` is **322 ms** warm, opening
+        // the 41 registered panels is **4 811 ms**, and opening the 44 documents is **23 775 ms**,
+        // which reproduced to within 1% in the cold round while the other two halved. So the
+        // documents are ~4.6x everything else together and ~82% of the deepest sweep, and the three
+        // duplicate editor starts the fold would remove are ~1% of it. Folding buys about a fifth of
+        // the class in exchange for weakening every row's standing from "what an editor in this
+        // state builds" to "what this editor had built by this point". It is not worth it, and the
+        // ladder stays four sessions.
         TestContext.Current.TestOutputHelper?.WriteLine(
             $"sweep {depth}: 1 editor started, {panelsAsked} panels asked, {documentsOpened} documents opened, "
             + $"{seen} pairings walked, {pairs.Count} of them declared"

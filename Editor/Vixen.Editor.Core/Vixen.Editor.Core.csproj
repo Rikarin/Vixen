@@ -10,29 +10,6 @@
         </Description>
         <PackageTags>editor;undo;document-model;asset-database;asset-pipeline;game-engine;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
-
-        <!--
-            #821's ratchet, third project: the TOOLING profile in `Directory.Build.props` sets this
-            false for all of `Editor/**`, `Tools/**` and `Raven/**`, so no `<see cref>` under any of
-            them was ever checked. CS1591 and CS1573 stay suppressed — "this public member has no
-            comment" is a question about a packaged API surface and is not what this is for; the
-            rules that catch a *lie* are.
-
-            ⚠ Both defects it found here were more than a stale link, and the CS1570 is the one to
-            know about. An unclosed `<b>` in `Scenes/SceneFormat.cs` truncated the rest of that
-            member's documentation wherever it is consumed — the paragraph explaining that a boolean
-            entity's geometry is rebuilt on load simply was not there. Malformed XML destroys output
-            rather than breaking a link, which is why the six of these in the tree are the ones to
-            take first.
-
-            ⚠ And `ProjectSettingsStore` documented its refusal as YamlDotNet's `YamlException`.
-            `Vixen.Core.Yaml`'s reader translates that type at its own boundary and its remarks argue
-            the translation is what makes its refusal set true, so the sentence named an exception no
-            caller of this class could ever have caught. A cref that cannot resolve is the cheap half
-            of this rule; the expensive half is that the prose around it was wrong too.
-        -->
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

@@ -156,7 +156,10 @@ public class DocCommentRuleTests {
     ///     ⚠ <b>This one is the reason the rule needs the parameter half at all.</b> Its only
     ///     structural tell besides the second <c>&lt;summary&gt;</c> is a <c>&lt;param&gt;</c> on a
     ///     test method that takes nothing — the shape CS1572 names and that
-    ///     <c>GenerateDocumentationFile</c>, off for this whole profile, was not there to report.
+    ///     <c>GenerateDocumentationFile</c>, off for this whole profile at the time, was not there
+    ///     to report. ⚠ It is on now (#1218), so CS1572 would catch this fixture's second half in a
+    ///     real project; the duplicated <c>&lt;summary&gt;</c> above it, still, nothing but this rule
+    ///     would.
     /// </remarks>
     const string StapledOntoTheCautionTest = """
         namespace Fixture;

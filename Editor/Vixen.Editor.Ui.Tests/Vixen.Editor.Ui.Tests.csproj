@@ -65,18 +65,4 @@
         -->
         <ProjectReference Include="..\..\Core\Vixen.Ui.Testing\Vixen.Ui.Testing.csproj" />
     </ItemGroup>
-
-    <!--
-        #1119's ratchet: the TEST profile in `Directory.Build.props` turns documentation generation
-        off for every `*.Tests` project, so no `<see cref>` in any test assembly was ever checked —
-        and a test's remarks are read at the worst possible moment, when the test has just gone red.
-        CS1591 and CS1573 stay suppressed: "this public member has no comment" is a question about a
-        packaged API surface, and a test assembly is not one. Measured before flipping, and the
-        diagnostics it reported are fixed in the same commit.
-    -->
-    <PropertyGroup>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
-    </PropertyGroup>
-
 </Project>

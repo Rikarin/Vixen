@@ -18,8 +18,8 @@ happened to call from the probe, and the gate would be green until the day someb
 
 So each assembly this probe covers is a `TrimmerRootAssembly`, which asks ILC to compile every method
 in it. That is the question actually being asked: *is this assembly publishable ahead of time*, not
-*is this one path through it*. ⚠ "Covers" is doing real work in that sentence — the set is 29
-assemblies and not all of them; see the next section.
+*is this one path through it*. ⚠ "Covers" is doing real work in that sentence — the set is 82
+assemblies and not all 95; see the next section.
 
 The difference is visible in the output. Rooted, the binary is about 8 MB — 19.0 MB when measured
 again on arm64 macOS on 2026-09-03 — where the same probe relying on reachability from `Main`
@@ -28,37 +28,40 @@ fails below a 4 MB floor so that an emptied root list cannot pass as a successfu
 
 ## What it covers, and the one rule every binding-library backend follows
 
-⚠ **This section used to say "every `Core/` assembly", and that was wrong by a factor of four.**
-Measured on 2026-09-03 against `git ls-files`: the probe roots **29** assemblies — 22 of the 80
-`net10.0` non-test projects under `Core/`, and 7 of the 15 under `Platform/`. The 66 that are not
-rooted are not a written exclusion list; they are simply assemblies nobody added, and they include
-`Vixen.Ui`, `Vixen.Ui.Controls`, `Vixen.Ui.Text`, `Vixen.Rendering` and its eleven siblings,
-`Vixen.Animation`, `Vixen.Input`, `Vixen.Net` and its transports, `Vixen.Ai`, `Vixen.Navigation`,
-`Vixen.Vfx`, `Vixen.Video`, `Vixen.Terrain`, `Vixen.Water`, `Vixen.Xr` and the three desktop
-platform assemblies — all of which a shipped game links. [#506](https://github.com/Rikarin/Vixen/issues/506)
-carries the expansion, which is real work rather than a list edit: each newly rooted assembly is a
-new set of IL2xxx/IL3xxx findings to fix.
+⚠ **This section used to say "every `Core/` assembly", and that was wrong by a factor of four; then
+it said 29 of 95, and [#506](https://github.com/Rikarin/Vixen/issues/506)'s expansion has taken it to
+82.** Measured on 2026-09-10 against `git ls-files`: the probe roots **82** of the 95 `net10.0`
+non-test projects under `Core/` and `Platform/`. The thirteen that are not rooted are written down in
+[`NotRooted.txt`](NotRooted.txt) with what an ILC publish said about each — the reactive `Vixen.Ui`
+wave, `Vixen.Xr` and its OpenXR head, and the three assemblies no shipped game links.
+
+⚠ **The expansion was expected to be expensive and was not, and that is the finding worth keeping.**
+This file and #506 both said each newly rooted assembly is "a new set of IL2xxx/IL3xxx findings to
+fix" and named `Vixen.Ui`'s reactive graph and `Vixen.Core.Serialization`'s consumers as the likely
+cost. Rooting all sixty-six at once produced **twelve findings in total**: five in
+`Vixen.Ui.HotReload`, which is developer-loop only, one in `Vixen.Ui.UiPropertyRegistry`, and six
+inside Silk.NET's native-library loader, reached through `Vixen.Xr`. `Vixen.Rendering` and all ten of
+its siblings, `Vixen.Net` and all nine of its, `Vixen.Animation`, `Vixen.Ai`, `Vixen.Graphics.OpenGL`,
+the three desktop platform heads and `Vixen.Core.Yaml` — a serializer, the one this repository
+predicted "is where reflection hides" — were every one of them clean on the first publish.
 
 ⚠ **Rooted and merely *present* are different things, and the difference is the whole point of this
-file.** Many of those 66 *are* in the publish graph transitively — a framework-dependent publish of
+file.** Many of those thirteen *are* in the publish graph transitively — a framework-dependent publish of
 this probe writes 51 managed assemblies, `Vixen.Shaders`, `Vixen.Vfx`, `Vixen.Foliage` and
 `Vixen.Rendering.ScreenProbes` among them — so ILC does compile whatever `Main` reaches in them. What
 they do not get is the *rooted* question this file exists to ask. Reading the publish output as
 coverage is exactly the mistake the section below warns about.
 
 What *is* rooted publishes with **zero** trim or AOT warnings, and the resulting binary runs. The
-rooted set is `Vixen.App.Hosting`, `Vixen.Assets`, `Vixen.Audio` and its two codecs plus
-`Vixen.Audio.Physics`, the eleven `Vixen.Core*` assemblies, `Vixen.Ecs`, `Vixen.Engine`,
-`Vixen.Graphics` and `Vixen.Graphics.RenderGraph`, `Vixen.Physics`, `Vixen.Ui.Layout`,
-`Vixen.Ui.Reactive`, plus `Vixen.Platform`, `Vixen.Platform.Native`, `Vixen.Platform.Headless`,
-`Vixen.Platform.Desktop`, `Vixen.Graphics.Null`, `Vixen.Graphics.Vulkan`, `Vixen.Graphics.WebGPU` and
-`Vixen.Audio.Backend.OpenAL`.
+rooted set is every `net10.0` non-test assembly under `Core/` and `Platform/` except the thirteen in
+[`NotRooted.txt`](NotRooted.txt) — written once, as a complement, rather than as a second list that
+can disagree with the first.
 
 `nuke CheckAot` fails if any of them is referenced without being rooted, so the two lists cannot
 drift apart silently — but nothing makes the *set* grow, which is why the paragraph above is a
 measurement and not a promise.
 
-⚠ **The 66 are written down now, and that is what turns the paragraph into a gate.**
+⚠ **The unrooted set is written down, and that is what turns the paragraph into a gate.**
 [`NotRooted.txt`](NotRooted.txt) names each one with a reason, and `nuke CheckAot` fails on a
 `net10.0` non-test assembly under `Core/` or `Platform/` that is neither rooted nor in that file —
 **and equally on a line in it that has become rooted**, so the list can only shrink. Comparing the

@@ -20,7 +20,7 @@ namespace Vixen.Ui;
 // first holds an `IconArt` and the second names the first, so `Vixen.Ui` is one assembly too low for
 // both. ⚠ Crossing that boundary turned up the same latent defect the move of this file did — a
 // `<see cref="Add" />` that is CS0419 against two overloads, invisible under `Editor/` because
-// `GenerateDocumentationFile` is false there.
+// `GenerateDocumentationFile` was false there. ⚠ The TOOLING profile turns it on now (#1218).
 //
 // `KeyMap`, `KeyMapPreset` and `CommandDispatcher` followed them into `Vixen.Ui.Controls`, and the
 // YAML that was supposed to be their blocker went the other way instead. ⚠ **Persisting a keymap was
@@ -212,8 +212,9 @@ public readonly record struct KeyChord(InputKey Key, ModifierKeys Modifiers) {
     /// <remarks>
     ///     ⚠ <b>This summary was attached to <see cref="MacWords" /> until this type moved.</b> Two
     ///     doc blocks had run together above that method and this one had none — invisible under
-    ///     <c>Editor/</c>, where <c>GenerateDocumentationFile</c> is false, and a CS1591 the moment
-    ///     the file landed in an assembly that documents itself.
+    ///     <c>Editor/</c>, where <c>GenerateDocumentationFile</c> was false at the time, and a
+    ///     CS1591 the moment the file landed in an assembly that documents itself. ⚠ The TOOLING
+    ///     profile turns it on now (#1218), so the move is no longer what would have found it.
     ///     <para>
     ///         Glyphs, in the platform's fixed order, with no separators — which is what a user of
     ///         that machine reads without stopping. Public and pure so it can be checked without

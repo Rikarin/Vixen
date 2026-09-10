@@ -15,7 +15,6 @@
             unprefixed id is not covered by the reservation. The command a person types is unchanged.
         -->
         <PackageId>Vixen.ShaderCompilerService</PackageId>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <Description>
             Compiles shader variants for a device that has no compiler. A phone or a console asks for
             a permutation over TCP, this machine compiles it and sends the bytecode back, and the

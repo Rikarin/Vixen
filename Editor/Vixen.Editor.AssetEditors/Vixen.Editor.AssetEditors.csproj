@@ -12,27 +12,6 @@
         </Description>
         <PackageTags>editor;asset-editor;import-settings;material;prefab;compositor;vixen</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
-
-        <!--
-            #821's ratchet: the TOOLING profile in `Directory.Build.props` sets this false for all of
-            `Editor/**`, `Tools/**` and `Raven/**`, so no `<see cref>` under any of them was ever
-            checked. CS1591 and CS1573 stay suppressed — "this public member has no comment" is a
-            question about a packaged API surface and is not what this is for; the rules that catch a
-            *lie* are.
-
-            ⚠ This assembly held the last three CS1570 in the tree, and all three came from ONE
-            unclosed `<b>` in `AssetEditorDiagnostics.cs`. Malformed XML truncates the member's
-            documentation from that point on wherever it is consumed, so the rest of the block
-            arguing why nine ids live here rather than three simply was not there. A broken cref
-            costs a link; malformed XML costs the prose.
-
-            ⚠ And one of the ten was in a `.vxml`. A view's `<code>` block is production C# carrying
-            production doc comments, and the compiler reports against the `.vxml` line and column —
-            which is the one place in this tree a grep restricted to `*.cs` is structurally blind,
-            and this flag is the only thing that can see it.
-        -->
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
-        <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>
