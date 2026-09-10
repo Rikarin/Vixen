@@ -19,3 +19,4 @@ Vixen.Net.Transport.Composite.CompositeTransport.StartServer() -> void
 Vixen.Net.Transport.Composite.CompositeTransport.StopClient() -> void
 Vixen.Net.Transport.Composite.CompositeTransport.StopServer() -> void
 Vixen.Net.Transport.Composite.CompositeTransport.Transports.get -> System.Collections.Generic.IReadOnlyList<Vixen.Net.Transport.ITransport>
+static Vixen.Net.Transport.Composite.CompositeTransport.Racing(System.Collections.Generic.IReadOnlyList<Vixen.Net.Transport.ITransport> transports, System.TimeSpan stagger = default(System.TimeSpan)) -> Vixen.Net.Transport.Composite.CompositeTransport
