@@ -1582,7 +1582,11 @@ Vixen.Animation.Ecs.SkinningSystem.Feature.set -> Vixen.Rendering.Features.Skinn
 Vixen.Animation.Ecs.SkinningSystem.Renderer.get -> Vixen.Rendering.RenderSystem?
 Vixen.Animation.Ecs.SkinningSystem.Renderer.set -> Vixen.Rendering.RenderSystem?
 Vixen.Animation.Ecs.SkinningSystem.Run(Vixen.Ecs.World world) -> void
+Vixen.Animation.Ecs.SkinningSystem.Skinned.get -> int
 Vixen.Animation.Ecs.SkinningSystem.SkinningSystem() -> void
+Vixen.Animation.Ecs.SkinningSystem.Virtualized.get -> Vixen.Rendering.Features.VirtualGeometryRenderFeature?
+Vixen.Animation.Ecs.SkinningSystem.Virtualized.set -> Vixen.Rendering.Features.VirtualGeometryRenderFeature?
+Vixen.Animation.Ecs.SkinningSystem.VirtualizedCount.get -> int
 Vixen.Animation.FiredAnimationEvent -> readonly struct
 Vixen.Animation.FiredAnimationEvent : System.IEquatable<Vixen.Animation.FiredAnimationEvent>
 Vixen.Animation.FiredAnimationEvent.Event.get -> Vixen.Animation.AnimationEvent

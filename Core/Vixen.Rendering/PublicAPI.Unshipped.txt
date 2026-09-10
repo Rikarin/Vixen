@@ -2188,7 +2188,7 @@ Vixen.Rendering.Features.VirtualGeometryRenderFeature.RegisteredMeshes.get -> in
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.RequestedPages.get -> int
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.ScreenHeight.get -> int
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.ScreenHeight.set -> int
-Vixen.Rendering.Features.VirtualGeometryRenderFeature.SetBones(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, System.ReadOnlySpan<Vixen.Core.Mathematics.Matrix4x4> palette) -> void
+Vixen.Rendering.Features.VirtualGeometryRenderFeature.SetBones(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, System.ReadOnlySpan<Vixen.Core.Mathematics.Matrix4x4> palette) -> bool
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.SetMorphWeights(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id, System.ReadOnlySpan<float> weights) -> bool
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.ShapesOf(Vixen.Rendering.RenderSystem system, Vixen.Rendering.RenderObjectId id) -> System.ReadOnlySpan<string>
 Vixen.Rendering.Features.VirtualGeometryRenderFeature.SoftwareThreshold.get -> float
@@ -3343,6 +3343,12 @@ Vixen.Rendering.Materials.BlendFeature.Under.get -> Vixen.Rendering.Materials.IM
 Vixen.Rendering.Materials.BlendFeature.Under.init -> Vixen.Rendering.Materials.IMaterialFeature?
 Vixen.Rendering.Materials.BlendFeature.Weight.get -> float
 Vixen.Rendering.Materials.BlendFeature.Weight.init -> float
+Vixen.Rendering.Materials.BurleyShading -> sealed record
+Vixen.Rendering.Materials.BurleyShading : System.IEquatable<Vixen.Rendering.Materials.BurleyShading>
+Vixen.Rendering.Materials.BurleyShading : Vixen.Rendering.Materials.IMaterialShading
+Vixen.Rendering.Materials.BurleyShading.BurleyShading() -> void
+Vixen.Rendering.Materials.BurleyShading.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.BurleyShading.ShaderName.get -> string
 Vixen.Rendering.Materials.CelShading -> sealed record
 Vixen.Rendering.Materials.CelShading : System.IEquatable<Vixen.Rendering.Materials.CelShading>
 Vixen.Rendering.Materials.CelShading : Vixen.Rendering.Materials.IMaterialShading
@@ -3585,6 +3591,12 @@ Vixen.Rendering.Materials.OcclusionFeature.OcclusionMap.init -> float
 Vixen.Rendering.Materials.OcclusionFeature.ShaderName.get -> string
 Vixen.Rendering.Materials.OcclusionFeature.Strength.get -> float
 Vixen.Rendering.Materials.OcclusionFeature.Strength.init -> float
+Vixen.Rendering.Materials.OrenNayarShading -> sealed record
+Vixen.Rendering.Materials.OrenNayarShading : System.IEquatable<Vixen.Rendering.Materials.OrenNayarShading>
+Vixen.Rendering.Materials.OrenNayarShading : Vixen.Rendering.Materials.IMaterialShading
+Vixen.Rendering.Materials.OrenNayarShading.Compile(Vixen.Rendering.Materials.MaterialCompilationContext context) -> void
+Vixen.Rendering.Materials.OrenNayarShading.OrenNayarShading() -> void
+Vixen.Rendering.Materials.OrenNayarShading.ShaderName.get -> string
 Vixen.Rendering.Materials.ParallaxOcclusionFeature -> sealed record
 Vixen.Rendering.Materials.ParallaxOcclusionFeature : System.IEquatable<Vixen.Rendering.Materials.ParallaxOcclusionFeature>
 Vixen.Rendering.Materials.ParallaxOcclusionFeature : Vixen.Rendering.Materials.IMaterialFeature

@@ -208,6 +208,8 @@ Vixen.App.GraphicsOptions.Overlays.get -> bool
 Vixen.App.GraphicsOptions.Overlays.set -> bool
 Vixen.App.GraphicsOptions.ParticleStage.get -> string
 Vixen.App.GraphicsOptions.ParticleStage.set -> string
+Vixen.App.GraphicsOptions.PipelineCachePath.get -> string?
+Vixen.App.GraphicsOptions.PipelineCachePath.set -> string?
 Vixen.App.GraphicsOptions.PresentMode.get -> Vixen.Graphics.PresentMode
 Vixen.App.GraphicsOptions.PresentMode.set -> Vixen.Graphics.PresentMode
 Vixen.App.GraphicsOptions.Quality.get -> Vixen.Rendering.Compositor.QualityTier

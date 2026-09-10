@@ -34,6 +34,9 @@ Vixen.Engine.Behaviors.Behavior.UnscaledSeconds(float seconds, Vixen.Engine.Coro
 Vixen.Engine.Behaviors.Behavior.Until(System.Func<bool> predicate, Vixen.Engine.Coroutines.ResumePoint? point = null) -> Vixen.Engine.Coroutines.CoroutineAwaitable
 Vixen.Engine.Behaviors.Behavior.While(System.Func<bool> predicate, Vixen.Engine.Coroutines.ResumePoint? point = null) -> Vixen.Engine.Coroutines.CoroutineAwaitable
 Vixen.Engine.Behaviors.Behavior.World.get -> Vixen.Ecs.World
+Vixen.Engine.Behaviors.BehaviorJobAttribute -> sealed class
+Vixen.Engine.Behaviors.BehaviorJobAttribute : System.Attribute
+Vixen.Engine.Behaviors.BehaviorJobAttribute.BehaviorJobAttribute() -> void
 Vixen.Engine.Behaviors.BehaviorLateUpdateSystem -> sealed class
 Vixen.Engine.Behaviors.BehaviorLateUpdateSystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Engine.Behaviors.BehaviorLateUpdateSystem.BehaviorLateUpdateSystem(Vixen.Engine.Behaviors.BehaviorStore store) -> void

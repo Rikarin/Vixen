@@ -57,6 +57,8 @@ Vixen.Graphics.Vulkan.VulkanDeviceOptions.FramesInFlight.get -> int
 Vixen.Graphics.Vulkan.VulkanDeviceOptions.FramesInFlight.init -> int
 Vixen.Graphics.Vulkan.VulkanDeviceOptions.Logger.get -> Microsoft.Extensions.Logging.ILogger?
 Vixen.Graphics.Vulkan.VulkanDeviceOptions.Logger.init -> Microsoft.Extensions.Logging.ILogger?
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.PipelineCachePath.get -> string?
+Vixen.Graphics.Vulkan.VulkanDeviceOptions.PipelineCachePath.init -> string?
 Vixen.Graphics.Vulkan.VulkanDeviceOptions.PreferRenderPassObjects.get -> bool
 Vixen.Graphics.Vulkan.VulkanDeviceOptions.PreferRenderPassObjects.init -> bool
 Vixen.Graphics.Vulkan.VulkanDeviceOptions.PreferredPhysicalDevice.get -> nint
