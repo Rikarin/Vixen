@@ -154,6 +154,39 @@ public class StringCatalogChainTests {
         }
     }
 
+    /// <summary>An editor whose preference names a language opens in it.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The path the runtime test above cannot reach, and it is the one with a hazard in
+    ///     it.</b> <c>LoadPreferences</c> runs from the application's constructor, so the load side
+    ///     of the chain touches the shell's notification centre before anything has drawn — and
+    ///     "the editor will not start when a translation is missing" would be a far worse failure
+    ///     than an untranslated menu.
+    /// </remarks>
+    [Fact]
+    public void An_editor_whose_preference_names_a_language_starts_in_it() {
+        using var scope = new Scratch();
+        using var fixture = EditorSession.Start(new EditorSessionOptions { DataDirectory = scope.Directory });
+
+        var directory = Path.Combine(fixture.Project.Paths.Root, "Localization");
+
+        Directory.CreateDirectory(directory);
+
+        File.WriteAllText(
+            Path.Combine(directory, "cs.yaml"),
+            new StringCatalog("cs").Set(EditorStrings.MenuFile.Id, "Soubor").Save()
+        );
+
+        File.WriteAllText(Path.Combine(scope.Directory, EditorUserStore.PreferencesFile), "language: cs\n");
+
+        try {
+            fixture.Restart();
+
+            Assert.Contains("Soubor", Labels(fixture));
+        } finally {
+            Strings.Use(null);
+        }
+    }
+
     /// <summary>Types a language into the General page and presses Apply, the way a person does.</summary>
     static void Apply(EditorSession fixture, string language) {
         var view = fixture.Control<SettingsView>("preferences");
