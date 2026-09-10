@@ -50,6 +50,23 @@ nothing in them but transcription, which a compiler checks. What they need inste
 > silently ignoring a state bit — the exact bug doc 05 records `BlendState.Opaque` costing an
 > afternoon of, caught by reading pixels **on one backend**.
 
+> ⚠ **And the package is not what blocks it — the video driver is.** Adding a Mesa GL driver to the
+> Linux leg would change nothing on its own. `DesktopGlContextTests` is already the assertion that a
+> window produces a GL context that can be made current, and it already runs on that leg; it *skips*,
+> because `DesktopPlatformTests.PreferredVideoDriver()` returns `"dummy"` on a Linux box with neither
+> `DISPLAY` nor `WAYLAND_DISPLAY`, SDL's dummy driver has no GL at all, and it refuses at **window
+> creation** before a context is asked for. No workflow sets `SDL_VIDEODRIVER` and nothing anywhere
+> runs Xvfb. So the first step under [#302](https://github.com/Rikarin/Vixen/issues/302) is a
+> *video-driver* decision — an X server, or SDL's `offscreen` driver over EGL — and the reward for
+> getting it right is that a test which already exists stops standing aside. `GlDevice` and the
+> golden fixtures come after that, and neither is worth writing before somebody has watched a
+> context come up.
+>
+> ⚠ It cannot be developed here either, and for a reason below the missing `libEGL`: `GraphicsHost`
+> refuses any context under 4.5 core or GLES 3.0 because there is no `glClipControl` below it, and
+> **macOS caps OpenGL at 4.1** (`Tools/Vixen.App/GraphicsHost.cs:317`). A GL device cannot come up on
+> this machine even with a driver installed, so the guard's *skip* is all that is checkable here.
+
 The same seam is repeated one layer out for EGL. What can be wrong about bringing a context up is the
 *sequence* — which attribute list, in what order, what happens when a driver refuses GLES 3.2,
 whether a half-built context is torn down in the reverse of the order it was built — and all of it is
