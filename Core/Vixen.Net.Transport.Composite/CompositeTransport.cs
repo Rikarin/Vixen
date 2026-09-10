@@ -35,12 +35,11 @@ namespace Vixen.Net.Transport.Composite;
 ///         <c>NetworkSession</c>'s — its <c>ConnectRequest</c> and <c>ConnectAccepted</c> — and an
 ///         <see cref="ITransport" /> sees connections, disconnections and opaque bytes. The
 ///         transport-observable proxy for a completed handshake is <i>first inbound data</i>, and
-///         <c>confirmWithin</c> on <see cref="Racing(IReadOnlyList{ITransport}, TimeSpan, TimeSpan)" />
-///         is what asks for it: a candidate that connects becomes <i>provisional</i>, the other
-///         routes keep running, and a provisional route that never says anything back loses on a
-///         budget counted in <see cref="Poll" />'s own <c>elapsed</c>. That is the middlebox which
-///         completes the connection and drops the payload —
-///         <a href="https://github.com/Rikarin/Vixen/issues/1227">#1227</a>.
+///         <c>confirmWithin</c> on <see cref="Racing" /> is what asks for it: a candidate that
+///         connects becomes <i>provisional</i>, the other routes keep running, and a provisional
+///         route that never says anything back loses on a budget counted in <see cref="Poll" />'s own
+///         <c>elapsed</c>. That is the middlebox which completes the connection and drops the
+///         payload — <a href="https://github.com/Rikarin/Vixen/issues/1227">#1227</a>.
 ///     </para>
 ///     <para>
 ///         ⚠ <b>And the second <c>OnConnected</c> that costs is one nothing above minds.</b> The
