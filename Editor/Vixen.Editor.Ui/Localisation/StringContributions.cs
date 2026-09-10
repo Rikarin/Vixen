@@ -33,12 +33,13 @@ namespace Vixen.Editor.Ui;
 ///         (it is a map) and the count a translator is quoted would not.
 ///     </para>
 ///     <para>
-///         ⚠ <b>What this still does not do is call <see cref="EditorStrings.Template" />.</b>
-///         Nothing in the editor exports a template, nothing reads one back —
-///         <c>StringCatalogYaml.Save</c> has no caller and <c>Strings.Use</c> has no production
-///         caller anywhere in the repository — so the editor cannot yet be shown in another
-///         language at all. That is one level further up again and is tracked separately; this is
-///         the half that makes the words <em>reachable</em>.
+///         ⚠ <b>And the level above it is now wired, which this remark used to say was not</b>
+///         (<a href="https://github.com/Rikarin/Vixen/issues/1229">#1229</a>). The editor's
+///         <c>tools.export-strings</c> writes <see cref="EditorStrings.Template" /> through
+///         <c>StringCatalogYaml.Save</c> into the project's <c>Localization/</c>, and
+///         <c>EditorPreferences.Language</c> reads one back through <c>StringCatalogYaml.Load</c>
+///         into <c>Strings.Use</c> — so a template taken after a module activates carries that
+///         module's words, and the running editor re-labels when the language changes.
 ///     </para>
 /// </remarks>
 public static class StringContributions {

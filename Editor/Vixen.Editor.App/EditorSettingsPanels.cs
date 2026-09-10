@@ -551,6 +551,132 @@ sealed partial class EditorApplication {
         }
 
         Recent.Limit = Math.Max(1, preferences.RecentProjects);
+        ApplyLanguage();
+    }
+
+    // ── The localisation chain, whose every link had been built and never called ─────────────────
+
+    /// <summary>Where a project keeps the editor's translations.</summary>
+    /// <remarks>
+    ///     In the project and checked in, not in the user store beside the keymap: a translation is
+    ///     work one person does and a team reads, where an arrangement is one person's habit. The
+    ///     <em>choice</em> of language is the user's and lives in
+    ///     <see cref="EditorPreferences.Language" />.
+    /// </remarks>
+    internal const string StringsDirectory = "Localization";
+
+    /// <summary>Which language <see cref="Strings.Use" /> was last given, so it is only told once.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Not an optimisation.</b> <c>Strings</c> is the one static reactive node in
+    ///     <c>Vixen.Ui</c> and it is process-wide, so an editor that wrote to it on every Apply — and
+    ///     on start-up, whether or not a language had ever been chosen — would be reaching into a
+    ///     signal shared with everything else in the process for no reason. Comparing first means an
+    ///     editor whose preference is empty never touches it at all.
+    /// </remarks>
+    string appliedLanguage = string.Empty;
+
+    /// <summary>Where the catalog for a language lives in this project.</summary>
+    /// <param name="language">Its name.</param>
+    /// <returns>The absolute path, which need not exist.</returns>
+    internal string StringCatalogPath(string language) =>
+        Path.Combine(project.Paths.Root, StringsDirectory, $"{language}.yaml");
+
+    /// <summary>Shows the editor in the language the preferences name.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>Strings.Use</c>'s first production caller anywhere.</b> The signal behind it
+    ///         exists precisely so that a language change re-labels a <em>running</em> interface —
+    ///         every <c>@expr</c> showing a word is an effect over it, and <c>MenuPresenter</c>
+    ///         subscribes to <c>Strings.Changed</c> for the surfaces built in C# — and no code in
+    ///         this repository had ever changed one.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A named language whose catalog is missing is said out loud rather than falling
+    ///         back quietly.</b> Falling back to the source text is the right behaviour — an editor
+    ///         that refused to open because a translation was not checked out would be useless — but
+    ///         it is also exactly what a working translation looks like to somebody whose file is in
+    ///         the wrong folder, so the notification is what separates the two.
+    ///     </para>
+    /// </remarks>
+    void ApplyLanguage() {
+        var language = (preferences.Language ?? string.Empty).Trim();
+
+        if (string.Equals(language, appliedLanguage, StringComparison.Ordinal)) {
+            return;
+        }
+
+        appliedLanguage = language;
+
+        if (language.Length == 0) {
+            Strings.Use(null);
+
+            return;
+        }
+
+        var path = StringCatalogPath(language);
+
+        try {
+            if (!File.Exists(path)) {
+                Strings.Use(null);
+
+                Shell.Notifications.Show(
+                    "No catalog for that language",
+                    NotificationSeverity.Warning,
+                    $"'{language}' names no file under {StringsDirectory}/. "
+                    + "Tools ▸ Export String Template writes one to start from."
+                );
+
+                return;
+            }
+
+            Strings.Use(StringCatalogYaml.Load(File.ReadAllText(path), language));
+        } catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) {
+            Strings.Use(null);
+            Shell.Notifications.Show("Could not read the string catalog", NotificationSeverity.Error, exception.Message);
+        }
+    }
+
+    /// <summary>Writes every string the editor declares into the project, for a translator.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>StringCatalogYaml.Save</c>'s first caller anywhere</b>, and the producer half
+    ///         of the round trip <see cref="ApplyLanguage" /> consumes. What it writes is
+    ///         <c>EditorStrings.Template</c>, which is the declared ids <em>plus</em> whatever
+    ///         toolsets have contributed theirs — so a template taken after a module activates
+    ///         carries that module's words and one taken before does not, which is correct because
+    ///         they are not on any surface either.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>It writes the language the preference names, and <c>source</c> when it names
+    ///         none.</b> Exporting over a translation somebody has already filled in is the one thing
+    ///         this must not do, so an existing file is left alone and said so — a translator's file
+    ///         is hours of work and the menu line beside it is one keystroke away.
+    ///     </para>
+    /// </remarks>
+    void ExportStringTemplate() {
+        var language = (preferences.Language ?? string.Empty).Trim() is { Length: > 0 } named ? named : "source";
+        var path = StringCatalogPath(language);
+
+        if (File.Exists(path)) {
+            Shell.Notifications.Show(
+                "That catalog already exists",
+                NotificationSeverity.Warning,
+                $"{StringsDirectory}/{language}.yaml is already there; it was left alone."
+            );
+
+            return;
+        }
+
+        var template = EditorStrings.Template(language);
+
+        OnFile(
+            () => {
+                Directory.CreateDirectory(Path.Combine(project.Paths.Root, StringsDirectory));
+                File.WriteAllText(path, template.Save());
+            },
+            path,
+            "Could not write the string template"
+        );
     }
 
     // ── Project settings ────────────────────────────────────────────────────────────────────────

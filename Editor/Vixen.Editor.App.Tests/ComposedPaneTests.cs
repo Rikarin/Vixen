@@ -556,6 +556,65 @@ public sealed class ComposedPaneTests : IDisposable {
         );
     }
 
+    // ------------------------------------------------------------------ the reload
+
+    /// <summary>A shader reload does not leave the previous generation's pipelines behind.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The assertion has to be a count and cannot be a picture.</b> A reload that leaks
+    ///         and a reload that does not draw identically: <c>EditorEffects.Rebuild</c> invalidates
+    ///         the variant system, the next request produces a new <c>Effect</c> instance,
+    ///         <c>PipelineKey</c> holds that effect and an effect is a class with reference equality —
+    ///         so every key of the new generation misses, the frame recompiles what it needs and looks
+    ///         right, and every entry of the old generation stays in the dictionary for the rest of the
+    ///         session. That is the whole reason this survived to be filed as
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1244" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And the instrument, which is the half with the trap in it.</b> A count that stays
+    ///         at zero because the fixture never drew is indistinguishable from one that stays flat
+    ///         because nothing leaked — so the first generation is asserted non-zero <em>in this same
+    ///         run</em> before anything is compared, and the count after each reload is asserted to
+    ///         have gone back down. Two reloads then leave it where one did, which is the property a
+    ///         cache that never evicts across generations cannot have.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_shader_reload_does_not_accumulate_the_previous_generations_pipelines() {
+        var session = Quad();
+        var world = session.Application.Frame!;
+        var presenters = Presenters(session);
+
+        Settled(session, presenters);
+
+        var pipelines = world.Renderer.Meshes.Pipelines!;
+        var first = pipelines.Count;
+
+        // What the day this does not run looks like: a fixture that composed nothing compiles nothing,
+        // and a count flat at zero would satisfy every comparison below.
+        Assert.True(first > 0, "no pipeline was ever compiled, so a flat count would prove nothing");
+
+        Assert.True(session.Application.ReloadShaders([]));
+        Assert.Null(session.Application.Effects!.Refusal);
+        Assert.Equal(0, pipelines.Count);
+
+        Settled(session, presenters);
+
+        var second = pipelines.Count;
+
+        Assert.True(second > 0, "nothing recompiled after the first reload, so the frame stopped drawing");
+
+        Assert.True(session.Application.ReloadShaders([]));
+        Assert.Equal(0, pipelines.Count);
+
+        Settled(session, presenters);
+
+        // The property: reloading is not a way of growing the cache. Before the fix this read
+        // first + second + third, because a generation's keys are only ever missed and never dropped.
+        Assert.Equal(second, pipelines.Count);
+        Assert.Equal(first, second);
+    }
+
     // ------------------------------------------------------------------ helpers
 
     static void AssertClose(Matrix4x4 expected, Matrix4x4 actual, int pane) {

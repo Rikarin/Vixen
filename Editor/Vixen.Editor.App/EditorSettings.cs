@@ -115,6 +115,34 @@ public sealed class EditorPreferences {
     [Range(1, 40)]
     public int RecentProjects { get; set; } = 12;
 
+    /// <summary>Which language the editor shows its own words in, or empty for the source text.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The first thing anywhere that names a language, and the whole localisation chain
+    ///         was unreachable without one.</b> <c>Strings.Use</c>, <c>StringCatalogYaml.Save</c>,
+    ///         <c>StringCatalogYaml.Load</c> and <c>EditorStrings.Template</c> were finished, tested
+    ///         end to end inside one test method, and called by nothing —
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1229" />.
+    ///     </para>
+    ///     <para>
+    ///         Here rather than in the project's settings because <c>Strings.Use</c> is process-wide:
+    ///         the language a person reads menus in is a fact about the person, and one that changed
+    ///         when they opened a different project would be a surprising thing for a project to
+    ///         decide. What the <em>project</em> holds is the catalogs — <c>Localization/&lt;language&gt;.yaml</c>,
+    ///         written by <c>tools.export-strings</c> and checked in, because a translation is a file
+    ///         a team shares.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A name and not a picked file.</b> It names the catalog rather than pointing at
+    ///         one, so a project cloned onto another machine shows the same language without the
+    ///         preference having to be repaired — which is the same argument
+    ///         <see cref="ProjectTileSize" /> makes about a name outliving a number.
+    ///     </para>
+    /// </remarks>
+    [Inspector]
+    [Tooltip("Which language the editor's own words are in: the name of a catalog under the project's Localization folder. Empty shows the source text.")]
+    public string Language { get; set; } = string.Empty;
+
     /// <summary>Whether the Project panel opens as a grid of tiles rather than as a tree.</summary>
     /// <remarks>
     ///     <para>

@@ -791,6 +791,10 @@ public static class EditorStrings {
     public static StringId CommandToolsDiagnosticsReport { get; } =
         new("editor.command.tools.diagnostics-report", "Generate Diagnostics Report…");
 
+    /// <summary>The <c>Export String Template…</c> command.</summary>
+    public static StringId CommandToolsExportStrings { get; } =
+        new("editor.command.tools.export-strings", "Export String Template…");
+
     /// <summary>The <c>Plugins…</c> command.</summary>
     public static StringId CommandToolsPlugins { get; } = new("editor.command.tools.plugins", "Plugins…");
 
@@ -1312,6 +1316,7 @@ public static class EditorStrings {
         CommandSceneWorldSettings,
         CommandScriptsRebuild,
         CommandToolsDiagnosticsReport,
+        CommandToolsExportStrings,
         CommandToolsPlugins,
         CommandToolsReloadShaders,
         CommandToolsReloadStyles,

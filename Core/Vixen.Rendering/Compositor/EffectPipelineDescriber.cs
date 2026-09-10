@@ -114,8 +114,22 @@ public sealed class EffectPipelineDescriber(IGraphicsDevice device) : IPipelineD
         return vertexLayout < VertexLayouts.Count ? VertexLayouts[vertexLayout] : null;
     }
 
-    /// <summary>Forgets every shader module, for a device loss or a shader reload.</summary>
-    public void Clear() => modules.Clear();
+    /// <summary>Forgets every shader module, destroying it, for a device loss or a shader reload.</summary>
+    /// <remarks>
+    ///     Destroys rather than drops, for <see cref="PipelineCache.Clear" />'s reason. The null
+    ///     entries are skipped rather than special-cased away: a stage an effect does not have is
+    ///     cached as <see cref="ShaderHandle.Null" /> so the miss is paid once, and handing that to
+    ///     the device would be a destroy of nothing.
+    /// </remarks>
+    public void Clear() {
+        foreach (var module in modules.Values) {
+            if (module.IsValid) {
+                device.Destroy(module);
+            }
+        }
+
+        modules.Clear();
+    }
 
     /// <summary>The device module for one of an effect's stages, created once.</summary>
     /// <remarks>
