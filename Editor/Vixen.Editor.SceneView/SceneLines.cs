@@ -151,6 +151,16 @@ public sealed class SceneLines {
             viewport.Gizmos?.Build(document, new(world));
         }
 
+        // ⚠ Also into `world` and also not behind a show flag — see `SceneViewport.Diagnostics`. What
+        // arrives here is what a running play session's overlays drew this frame, and it is empty
+        // unless somebody switched one on. The list is appended rather than adopted because a pane's
+        // own geometry is already in it and both go into the one line renderer.
+        if (viewport.Diagnostics is { Count: > 0 } diagnostics) {
+            for (var index = 0; index < diagnostics.Count; index++) {
+                world.Add(diagnostics[index]);
+            }
+        }
+
         // ⚠ Not behind a show flag, unlike everything above it. A show flag is a class of thing a
         // scene has whether or not you asked for it; a reference volume and a measurement are things
         // the user put there a moment ago, and hiding them behind a second switch is how somebody

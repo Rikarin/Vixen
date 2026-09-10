@@ -24,6 +24,8 @@ using Vixen.Editor.Plugin;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.Ui;
 using Vixen.Engine.Behaviors;
+using Vixen.Engine.Diagnostics;
+using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Engine.Cameras;
 using Vixen.Engine.Scenes;
 using Vixen.Engine.Transforms;
@@ -353,6 +355,30 @@ sealed partial class EditorApplication : IDisposable {
     /// </remarks>
     readonly SnapContext snap = new();
 
+    /// <summary>Where a running play session's overlays put their world geometry.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One per editor and it outlives the session</b>
+    ///     (<a href="https://github.com/Rikarin/Vixen/issues/1247">#1247</a>). It is emptied before
+    ///     the loop steps and read after, so what a pane draws is this frame's — see
+    ///     <see cref="DrainPlayDiagnostics" />. <c>WaterPresenter</c> owns a second one for the same
+    ///     reason one layer down: nothing in this tree constructs a <c>DebugDraw</c> in a running
+    ///     program, so every subsystem's gizmos were written into an accumulator that did not exist.
+    /// </remarks>
+    readonly DebugDraw playDebug = new();
+
+    /// <summary>The overlays a play session registers, and what switches them on by name.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Also one per editor, and that is the half that has to outlive a session.</b> An
+    ///     overlay switched on and then forgotten by pressing Stop is a diagnostic you have to switch
+    ///     on again for every attempt at the thing you are diagnosing. What is per session is the
+    ///     overlay object — <see cref="PlayPhysics" /> registers it and takes it back out, because it
+    ///     holds a <c>PhysicsScene</c> that Stop destroys.
+    /// </remarks>
+    readonly DiagnosticOverlays playOverlays = new();
+
+    /// <summary>This frame's overlay geometry as segment pairs, which is what a pane consumes.</summary>
+    readonly List<LineVertex> playDebugLines = [];
+
     /// <summary>Where the designer is building: the grid every pane draws and everything lands on.</summary>
     /// <remarks>
     ///     ⚠ <b>One per editor, for <see cref="snap" />'s reason.</b> Doc 24's D5 is that the work
@@ -665,6 +691,11 @@ sealed partial class EditorApplication : IDisposable {
         // provides". That dependency is now declared: `PlayPhysics` carries
         // `[Provides(typeof(PhysicsScene))]` and the collider contribution `[RunsAfter]` for the
         // same type, so the sequence of these two lines in two assemblies no longer decides it.
+        // ⚠ First, and ordered by `[Provides]` rather than by being written first — see
+        // `PlayDiagnostics`. Until this a `PlaySession` seeded two services, the loop and the world,
+        // so `PhysicsSystems.AddPhysicsOverlay` had nothing in an editor to be handed (#1247).
+        contributions.Add(Extensions.Add<IPlaySystems>(new PlayDiagnostics(playDebug, playOverlays)));
+
         contributions.Add(Extensions.Add<IPlaySystems>(new PlayPhysics()));
 
         // ⚠ And the animation passes, which until #1221 no production code anywhere registered: the
@@ -1295,9 +1326,17 @@ sealed partial class EditorApplication : IDisposable {
         // "what have I seen" versions, so each would answer the other's writes with "nothing
         // changed". The failure is not a double cost; it is a moved object that stops following
         // its parent, on alternate frames, only while playing.
+        // ⚠ Emptied before the step and read after it, which is the only order that shows this
+        // frame's colliders: `PhysicsDebugDrawSystem` runs in `PreRender`, inside `Tick`. Clearing
+        // afterwards would draw nothing at all and clearing nowhere would accumulate every frame of
+        // the session into one solid mass of lines.
+        playDebug.Clear();
+
         if (!play.Tick(delta)) {
             ResolveTransforms();
         }
+
+        DrainPlayDiagnostics();
 
         // ⚠ Immediately after them and not later in this method. Both extraction queries want
         // `WorldTransform` and neither writes one — in a game the phase and the declared access are
@@ -2116,6 +2155,55 @@ sealed partial class EditorApplication : IDisposable {
         }
     }
 
+    /// <summary>The overlays' world geometry, and what the panes drew it into.</summary>
+    /// <remarks>
+    ///     Internal for the suite that asserts a switched-on overlay reaches a pane. Empty is the
+    ///     ordinary answer: an editing frame runs no session, and a session runs no overlay until
+    ///     somebody switches one on.
+    /// </remarks>
+    internal IReadOnlyList<LineVertex> PlayDiagnosticLines => playDebugLines;
+
+    /// <summary>The registry a play session's overlays are registered in and switched on through.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The editor's, not a session's</b> — see <see cref="playOverlays" /> for why it has to
+    ///     outlive one. <c>DiagnosticOverlays.Set("physics", true)</c> is the whole of switching the
+    ///     collider wireframes on, and it is what a menu item or a console verb would call.
+    /// </remarks>
+    internal DiagnosticOverlays PlayOverlays => playOverlays;
+
+    /// <summary>Turns what the session's overlays drew into segments a pane's line pass takes.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>World lines only, and the other two kinds are honestly absent</b> — the same
+    ///         boundary <c>WaterPresenter.DebugLines</c> draws and for the same reason. A
+    ///         <c>DebugDraw</c> also carries screen-space segments and world labels, and a pane has
+    ///         no screen-space line pass and no world text pass to drain them into. The physics
+    ///         overlay's wireframes, contact points, constraint anchors, broad-phase bounds and body
+    ///         axes are all world lines, so all of it arrives.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What does <em>not</em> arrive is the counts panel.</b>
+    ///         <c>PhysicsDebugDrawSystem.Draw</c> writes "bodies awake/all" into an
+    ///         <c>OverlaySurface</c>, which is a game's HUD and not a pane — and the awake count is
+    ///         the number that tells "every body is asleep" from "nothing is being stepped" apart. It
+    ///         is a real gap and it is stated here rather than left to be discovered from an editor
+    ///         showing wireframes and no numbers.
+    ///     </para>
+    ///     <para>
+    ///         Run every frame rather than only while playing, because the frame after Stop has to
+    ///         empty the list — a pane that kept the last session's lines would show a set of
+    ///         colliders standing where the bodies were.
+    ///     </para>
+    /// </remarks>
+    void DrainPlayDiagnostics() {
+        playDebugLines.Clear();
+
+        foreach (var line in playDebug.Lines) {
+            playDebugLines.Add(new(line.From, line.Colour));
+            playDebugLines.Add(new(line.To, line.Colour));
+        }
+    }
+
     /// <summary>Gives every pane of a rearranged layout what only this application can supply.</summary>
     /// <remarks>
     ///     <para>
@@ -2152,6 +2240,11 @@ sealed partial class EditorApplication : IDisposable {
             // cage cannot disagree with the surface it is drawn round about how big that surface is.
             // Read by `SceneLines` and therefore by both presenters — see `SceneViewport.Meshes`.
             pane.Meshes = SceneGeometry;
+
+            // ⚠ The one list, handed to every pane. What a play session's overlays drew is produced
+            // once per frame by the loop, which does not know how many panes there are — so four
+            // panes each asking a producer would draw a frame apiece. See `SceneViewport.Diagnostics`.
+            pane.Diagnostics = playDebugLines;
 
             // ⚠ This editor's registry, not the process-wide default the pane falls back to. A pane
             // reading a different registry from the one plugins were handed is a pane whose tool
