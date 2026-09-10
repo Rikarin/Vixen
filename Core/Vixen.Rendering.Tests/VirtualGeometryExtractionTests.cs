@@ -8,6 +8,7 @@ using Vixen.Engine.Transforms;
 using Vixen.Graphics.Null;
 using Vixen.Rendering.Ecs;
 using Vixen.Rendering.Features;
+using Vixen.Rendering.VirtualGeometry;
 using Xunit;
 
 namespace Vixen.Rendering.Tests;
@@ -210,6 +211,93 @@ public sealed class VirtualGeometryExtractionTests : IDisposable {
 
         Assert.Same(painted, Assert.Single(extraction.ResolveMaterials).Material);
         Assert.Equal(0, extraction.ResolveMaterials[0].Index);
+    }
+
+    /// <summary>
+    ///     A scene of ordinary meshes and one virtualized mesh hands the traversal one live instance.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>It was <c>N + 1</c>, and no picture could say so.</b>
+    ///         <c>VirtualGeometryDraw.Mesh</c>'s documented "none" is <c>-1</c>, nothing writes it, and
+    ///         the array is a zero-filled <c>TypedArray</c> — so every object that never went down this
+    ///         feature's path read <c>Mesh = 0</c>, passed <c>IsDrawable</c>, and was packed as a live
+    ///         instance of registration zero at the world origin with <c>Scale</c> zero. A zero scale
+    ///         collapses the DAG's bounds and the vertices with them, so nothing rasterised; what it
+    ///         cost was a traversal workgroup per ordinary object per view and every count the traversal
+    ///         reports. See <see href="https://github.com/Rikarin/Vixen/issues/1241" />.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Counting the alive records is the only assertion that can see it</b>, which is why
+    ///         this is a comparator rather than a picture or a total: <c>InstanceRecords</c> is one entry
+    ///         per object <em>slot</em> by design, so its length is <c>N + 1</c> either way and only the
+    ///         <c>Alive</c> bit separates "the traversal considered one object" from "it considered every
+    ///         object and discarded all but one".
+    ///     </para>
+    ///     <para>
+    ///         And the instrument: the ordinary objects are asserted to exist and the surviving record is
+    ///         asserted to be the virtualized one at its own position, so a run in which nothing was
+    ///         extracted at all — which would also count one alive record, or none — cannot read as a
+    ///         pass.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void OnlyThisFeaturesObjectsBecomeLiveInstances() {
+        using var world = new World();
+        using var visibility = new GpuClusterVisibility(device);
+
+        virtualized.Visibility = visibility;
+
+        var input = new MeshletBuildInput {
+            Positions = [new(0f, 0f, 0f), new(1f, 0f, 0f), new(0f, 1f, 0f)],
+            Indices = [0, 1, 2]
+        };
+
+        var built = MeshletBuilder.Build(input);
+        var pages = MeshletPageBuilder.Build(built, input.Positions, [], new() { PageSize = 4 * 1024 });
+        var registration = virtualized.Register(built, pages, source: 0);
+
+        // Three ordinary meshes first, with no cluster source at all — MeshRenderFeature's objects, whose
+        // entries in this feature's array are never written.
+        extraction.Meshes = new EveryMesh();
+
+        for (var i = 0; i < 3; i++) {
+            Placed(world, Matrix4x4.FromTranslation(new(i * 4f, 0f, 0f)));
+        }
+
+        extraction.Extract(world);
+
+        Assert.Equal(3, extraction.ObjectCount);
+        Assert.Equal(0, extraction.VirtualizedCount);
+
+        // Then one virtualized mesh, which is the only object this feature owns.
+        extraction.Virtualized = virtualized;
+        extraction.Clusters = new OneCluster(registration, radius: 1f);
+
+        var clustered = Placed(world, Matrix4x4.FromTranslation(new(40f, 0f, 0f)));
+
+        extraction.Extract(world);
+
+        Assert.Equal(1, extraction.VirtualizedCount);
+        Assert.Equal(4, system.Objects.Count);
+
+        system.Prepare();
+
+        var records = visibility.InstanceRecords;
+        var alive = 0;
+
+        foreach (var record in records) {
+            if ((record.Flags & GpuCulling.Alive) != 0u) {
+                alive++;
+            }
+        }
+
+        Assert.Equal(1, alive);
+
+        var id = world.Read<RenderHandle>(clustered).Object;
+
+        Assert.NotEqual(0u, records[id.Index].Flags & GpuCulling.Alive);
+        Assert.Equal(40f, records[id.Index].Position.X, 4);
     }
 
     static Entity Placed(World world, Matrix4x4 matrix) {

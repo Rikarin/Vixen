@@ -555,7 +555,7 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
         Visibility.Begin(count);
 
         for (var index = 0; index < count && index < draws.Length; index++) {
-            Visibility.Set(index, Pack(Visibility, draws[index], all[index]));
+            Visibility.Set(index, Pack(Visibility, draws[index], all[index], Index));
         }
 
         Reserve(system.Views.Count);
@@ -591,13 +591,40 @@ public sealed class VirtualGeometryRenderFeature : RootRenderFeature {
     }
 
     /// <summary>One object as the traversal reads it.</summary>
+    /// <param name="visibility">The traversal the record is packed for.</param>
+    /// <param name="draw">The object's entry in <see cref="Draws" />.</param>
+    /// <param name="candidate">The object itself, which is where the stages and the liveness come from.</param>
+    /// <param name="featureIndex">This feature's <see cref="RootRenderFeature.Index" />.</param>
     /// <remarks>
-    ///     The stage mask and the liveness come from the <see cref="RenderObject" /> rather than from the
-    ///     draw, which is what makes <c>Hide</c> and a stage filter work here exactly as they work for the
-    ///     object cull — the traversal tests the same two things first and in the same order.
+    ///     <para>
+    ///         The stage mask and the liveness come from the <see cref="RenderObject" /> rather than from
+    ///         the draw, which is what makes <c>Hide</c> and a stage filter work here exactly as they work
+    ///         for the object cull — the traversal tests the same two things first and in the same order.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Ownership is the <see cref="RenderObject.FeatureIndex" /> and cannot be
+    ///         <see cref="VirtualGeometryDraw.IsDrawable" />, because a zeroed record passes that one.</b>
+    ///         <see cref="VirtualGeometryDraw.Mesh" />'s documented "none" is <c>-1</c> and nothing
+    ///         writes it — the array is a zero-filled <c>TypedArray</c> and only
+    ///         <c>MeshExtractionSystem.Clustered</c> ever fills an entry — so every object extracted down
+    ///         the ordinary path reads <c>Mesh = 0</c>, which is registration zero, and claimed to be
+    ///         drawable here. In any scene holding one virtualized registration that packed every
+    ///         sprite, particle system and suballocated mesh as a live instance of it: a traversal
+    ///         workgroup per ordinary object per view, and every count the traversal reports wrong.
+    ///         It was never a picture — <c>Scale</c> is left zero, which collapses the bounds and the
+    ///         vertices with them — which is why it survived. <c>SpriteRenderFeature</c>,
+    ///         <c>ParticleRenderFeature</c>, <c>LodRenderFeature</c> and <c>MaterialRenderFeature</c> all
+    ///         test this same field; this feature was the one that did not. See
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1241" />.
+    ///     </para>
     /// </remarks>
-    static CullInstance Pack(GpuClusterVisibility visibility, in VirtualGeometryDraw draw, in RenderObject candidate) {
-        if (!draw.IsDrawable || draw.Mesh >= visibility.MeshCount) {
+    static CullInstance Pack(
+        GpuClusterVisibility visibility,
+        in VirtualGeometryDraw draw,
+        in RenderObject candidate,
+        int featureIndex
+    ) {
+        if (candidate.FeatureIndex != featureIndex || !draw.IsDrawable || draw.Mesh >= visibility.MeshCount) {
             return default;
         }
 
