@@ -1311,7 +1311,7 @@ public partial class SharedUiShaderTests {
     ///         the same commit.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>The list shrank from nine to five, and the four that went were the real
+    ///         ⚠ <b>The list shrank from ten to six, and the four that went were the real
     ///         divergences</b> — #1224 and #1225. <c>ui-mask.frag</c> spelled a wrap
     ///         <c>turns - floor(turns)</c> where <c>UiMask.Progress</c> calls <c>frac</c>, which is
     ///         the same three lines <c>fwidth</c> cost in #1024; <c>ui-text.frag</c> premultiplied
@@ -1416,6 +1416,17 @@ public partial class SharedUiShaderTests {
     ///         <c>OpFOrdNotEqual</c> against <c>OpFUnordNotEqual</c> is the one of those that has a
     ///         semantics behind it &#8212; they differ on a NaN &#8212; and it is #1226 rather than a widening
     ///         of this.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And it cannot compare <em>association</em> or fusion, which is why a green run
+    ///         here is not #1190 closed.</b> <c>a·(b·c)</c> and <c>(a·b)·c</c> are the same count and
+    ///         two numbers &#8212; #1225's second half was exactly that, in <c>ui-box.frag</c>'s tiling
+    ///         clip, and no histogram could see it. Neither module carries a single
+    ///         <c>NoContraction</c> decoration, so a driver is free to fuse a multiply-add in either
+    ///         and whether it does depends on the shape of the tree it is handed: <c>glslc</c>
+    ///         branches (4 <c>OpPhi</c>, 29 <c>OpBranchConditional</c>) where Raven selects (0 and
+    ///         21) over the same values. That is not a difference a static census can normalise away,
+    ///         and confirming it needs the one leg with a driver whose two answers differ.
     ///     </para>
     ///     <para>
     ///         ⚠ <b>The instrument's own check is that the census is large and that every declared
