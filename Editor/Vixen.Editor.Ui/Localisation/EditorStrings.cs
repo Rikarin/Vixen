@@ -1415,11 +1415,23 @@ public static class EditorStrings {
     /// <param name="language">What to call the new catalog.</param>
     /// <returns>The catalog, filled with the source text.</returns>
     /// <remarks>
-    ///     ⚠ <b><see cref="All" /> and not the control set's declarations.</b> A control's label is
-    ///     <c>Vixen.Ui.Controls.ControlStrings</c>'s to export, and an editor that folded them into
-    ///     its own template would hand a translator two files that disagree about who owns
-    ///     <c>ui.control.dialog.close</c>. <see cref="Strings.Template" /> takes any number of
-    ///     declaration lists, so a shell that wants one file passes both.
+    ///     <para>
+    ///         ⚠ <b><see cref="All" /> and not the control set's declarations.</b> A control's label
+    ///         is <c>Vixen.Ui.Controls.ControlStrings</c>'s to export, and an editor that folded
+    ///         them into its own template would hand a translator two files that disagree about who
+    ///         owns <c>ui.control.dialog.close</c>. <see cref="Strings.Template" /> takes any number
+    ///         of declaration lists, so a shell that wants one file passes both.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And <see cref="StringContributions.Declared" />, which is the half that was
+    ///         missing</b> (<a href="https://github.com/Rikarin/Vixen/issues/1202">#1202</a>). A
+    ///         toolset's words are the toolset's to declare — five of them have an <c>All</c> list
+    ///         and this editor cannot name any of those classes without depending on the assembly
+    ///         they are in — so a module contributes its list as it activates and this reads
+    ///         whatever is registered. A template taken before a module activates does not contain
+    ///         that module's words, which is correct: they are not on any surface either.
+    ///     </para>
     /// </remarks>
-    public static StringCatalog Template(string language) => Strings.Template(language, All);
+    public static StringCatalog Template(string language) =>
+        Strings.Template(language, [.. All, .. StringContributions.Declared]);
 }
