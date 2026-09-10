@@ -51,10 +51,6 @@ static class Slugs {
             : Sanitize(@namespace) + "/" + Sanitize(type);
     }
 
-    /// <summary>`Vixen.Ecs.Systems` → `vixen.ecs.systems`, the namespace page.</summary>
-    public static string ForNamespace(string qualifiedName) =>
-        qualifiedName.Length == 0 ? "global" : Sanitize(qualifiedName);
-
     /// <summary>
     ///     Lowercased, with the characters a path cannot carry replaced by ones it can. Dots survive
     ///     inside a segment because <c>vixen.ecs</c> reads as the namespace it is.

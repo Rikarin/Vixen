@@ -43,10 +43,4 @@ public class SlugTests {
     [Fact]
     public void CaseIsRemovedWhichIsWhyTheEmitterChecksForCollisions() =>
         Assert.Equal(Slugs.ForType("T:A.IPin"), Slugs.ForType("T:A.IPIN"));
-
-    [Theory]
-    [InlineData("Vixen.Ecs.Systems", "vixen.ecs.systems")]
-    [InlineData("", "global")]
-    public void ANamespaceBecomesOneSegment(string name, string expected) =>
-        Assert.Equal(expected, Slugs.ForNamespace(name));
 }
