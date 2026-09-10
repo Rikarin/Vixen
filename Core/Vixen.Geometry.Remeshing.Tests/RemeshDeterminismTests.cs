@@ -42,8 +42,14 @@ public class RemeshDeterminismTests {
     /// <summary>How many times each configuration is re-run. § R4 asks for ten.</summary>
     const int Runs = 10;
 
-    /// <summary>The worker counts § R4 names.</summary>
-    public static TheoryData<int> Workers => [1, 4, 16];
+    /// <summary>The worker counts § R4 names, and nought — the browser, where a scheduler has none.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Nought is not the calling-thread leg spelled differently.</b> A null scheduler takes the
+    ///     serial branch; a scheduler with no workers goes through <c>ParallelFor</c> and runs the
+    ///     batches when a thread reaches them. #328 — and <c>RemeshBytesTests</c>' "calling-thread" leg
+    ///     is the first of those rather than the second.
+    /// </remarks>
+    public static TheoryData<int> Workers => [0, 1, 4, 16];
 
     /// <summary>Ten runs at one worker count are one run, through every stage.</summary>
     /// <remarks>
@@ -53,6 +59,7 @@ public class RemeshDeterminismTests {
     ///     compared anything. The guard asks for quads, for irregular vertices, and for a conditioned
     ///     mesh big enough that a colour's sweep is genuinely split across sixteen workers.
     /// </remarks>
+    [Trait("Workers", "0")]
     [Theory]
     [MemberData(nameof(Workers))]
     public void Ten_runs_at_one_worker_count_are_one_run(int workers) {
@@ -94,7 +101,7 @@ public class RemeshDeterminismTests {
 
         Guard(serial, answers[0].Mesh);
 
-        foreach (var workers in new[] { 1, 2, 4, 8, 16 }) {
+        foreach (var workers in new[] { 0, 1, 2, 4, 8, 16 }) {
             using var scheduler = new JobScheduler(workers);
 
             answers.Add(

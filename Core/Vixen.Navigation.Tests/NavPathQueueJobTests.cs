@@ -78,6 +78,7 @@ public sealed class NavPathQueueJobTests {
     ///         the state comparison long before it reaches them, so this cannot pass by doing nothing.
     ///     </para>
     /// </remarks>
+    [Trait("Workers", "0")]
     [Theory]
     [InlineData(0)]
     [InlineData(2)]

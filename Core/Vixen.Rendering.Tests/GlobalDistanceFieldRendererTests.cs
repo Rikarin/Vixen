@@ -222,6 +222,7 @@ public class GlobalDistanceFieldRendererTests {
     ///         many frames as the refresh takes.
     ///     </para>
     /// </remarks>
+    [Trait("Workers", "0")]
     [Fact]
     public void ARecompositeIsDeferredAndTheFrameDrawsTheClipmapItReplaces() {
         using var device = new NullDevice(new() { Record = true });
