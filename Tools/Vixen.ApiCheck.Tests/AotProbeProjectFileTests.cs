@@ -119,27 +119,40 @@ public sealed class AotProbeProjectFileTests : IDisposable {
     ///         The README's non-negotiable is that <em>iOS is NativeAOT-only, and that is gated</em>.
     ///         The gate is a publish of one probe, so its reach is exactly that probe's reference
     ///         list — and the iOS probe names <b>21</b> assemblies where the desktop probe names
-    ///         <b>29</b>. Eight of the engine are outside the iOS gate, and among them are
-    ///         <c>Vixen.Physics</c> and the whole audio stack: the reflection-heaviest subsystems
-    ///         in the tree, which is to say the ones an ahead-of-time publish is most likely to
-    ///         break. Nothing in either csproj, the README or <c>docs/overview.md</c> says whether
-    ///         that is a decision.
+    ///         <b>84</b>. Counted 2026-09-10: 63 of the engine are outside the iOS gate, and eight of
+    ///         those were outside it before #506's expansion ever ran. Among the eight are
+    ///         <c>Vixen.Physics</c> and the whole audio stack: the reflection-heaviest subsystems in
+    ///         the tree, which is to say the ones an ahead-of-time publish is most likely to break.
+    ///         Nothing in either csproj, the README or <c>docs/overview.md</c> says whether that is a
+    ///         decision.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>And no technical reason separates the eight from the twenty-one.</b> All eight
-    ///         target plain <c>net10.0</c>, exactly like the twenty-one the iOS probe does
-    ///         reference — the iOS probe is <c>net10.0-ios</c> and takes <c>net10.0</c> references
-    ///         happily. So "they cannot build for iOS" is not the explanation, and the shape this
-    ///         has is the shape of eight references nobody added rather than eight somebody left
-    ///         out. ⚠ The reason tokens below are <em>inferred by whoever wrote this test</em> and
-    ///         are recorded nowhere else; #961 carries the question for the owner.
+    ///         ⚠ <b>And no technical reason separates them by target framework.</b> Re-measured
+    ///         2026-09-10: every one of the eight declares plain <c>net10.0</c>, exactly like the
+    ///         twenty-one the iOS probe does reference — the iOS probe is <c>net10.0-ios</c> and
+    ///         takes <c>net10.0</c> references happily. So "they cannot build for iOS" is not the
+    ///         explanation, and the shape this has is the shape of references nobody added rather
+    ///         than references somebody left out. ⚠ The reason tokens below are <em>inferred by
+    ///         whoever wrote this test</em> and are recorded nowhere else; #961 carries the question
+    ///         for the owner and #1252 carries the fifty-three that #506 added to it.
     ///     </para>
     ///     <para>
-    ///         So the difference is written down and asserted in both directions. An assembly that
-    ///         joins the desktop probe and not the iOS one fails here rather than quietly shrinking
-    ///         the iOS gate's reach — which matters more than usual, because <c>CheckAotIos</c>
-    ///         needs the <c>ios</c> workload, has no CI leg (#327) and by the record has never been
-    ///         executed at all. This runs in <c>Test</c>, on every machine, in milliseconds.
+    ///         ⚠ <b>What actually enforces anything about iOS today is this test and nothing
+    ///         else, which is less than it sounds.</b> <c>CheckAotIos</c> needs the <c>ios</c>
+    ///         workload — <c>dotnet build</c> of the iOS probe fails <c>NETSDK1147</c> on a machine
+    ///         without it, confirmed here — no workflow runs the target (<c>ci.yml</c>'s own comment
+    ///         above the <c>aot</c> job says so and cites #327), and by the record it has never been
+    ///         executed at all. So <c>AotProbeProjectFile</c>'s "on iOS these four properties are the
+    ///         only enforcement there is" is conditional on a target that does not run. What this
+    ///         test enforces is narrower and worth naming plainly: that the difference between the
+    ///         two lists is <em>written down</em>. It says nothing about whether any of the 63 would
+    ///         publish clean for <c>ios-arm64</c>, because nothing here can find out.
+    ///     </para>
+    ///     <para>
+    ///         The difference is asserted in both directions. An assembly that joins the desktop
+    ///         probe and not the iOS one fails here rather than quietly shrinking the iOS gate's
+    ///         reach, and a name deleted from the iOS probe's absent list without being added to the
+    ///         probe fails too. This runs in <c>Test</c>, on every machine, in milliseconds.
     ///     </para>
     /// </remarks>
     [Fact]
@@ -150,6 +163,15 @@ public sealed class AotProbeProjectFileTests : IDisposable {
 
             // Inferred: the desktop windowing backend, and the phone has Vixen.Platform.Native.
             "Vixen.Platform.Desktop",
+
+            // ⚠ Written down rather than inferred, which is what separates it from the block below.
+            // Platform/Vixen.Xr.OpenXR/README.md's first line is "The XR backend for the three
+            // desktops and Android", so iOS is outside its scope by its author's own statement — and
+            // twice over at run time: Apple ships no OpenXR runtime, and OpenXrLoader finds the
+            // loader with NativeLibrary.TryLoad, which on iOS cannot load a library the application
+            // did not ship inside its own bundle. An iOS publish of this would root an assembly
+            // whose whole entry point is unreachable there. #1239 added it to the desktop probe.
+            "Vixen.Xr.OpenXR",
 
             // ⚠ Unexplained, all six. A game on a phone has physics and sound, and these are the
             // assemblies whose serialization and component registration lean hardest on
@@ -162,12 +184,15 @@ public sealed class AotProbeProjectFileTests : IDisposable {
             "Vixen.Physics",
 
             // ⚠ Not a decision — these arrived on 2026-09-10 with `7c4b55ad4`, which grew the DESKTOP
-            // probe from 29 rooted assemblies to 95 (#506) and did not grow the iOS one. Nobody has
-            // established whether they root cleanly for an iOS publish, and nobody can here: the
-            // `ios` workload is not installed on the machine that merged this, `CheckAotIos` has no
-            // CI leg (#327) and by the record has never run. Writing 55 ProjectReferences into the
-            // iOS probe would have made this test green over a claim no build has ever checked,
-            // which is the opposite of what it is for. This list must SHRINK — #1252.
+            // probe from 29 rooted assemblies to 82 of 95 (#506) and did not grow the iOS one.
+            // ⚠ #1252's body says "to 95" and that is the total rather than the rooted count; the
+            // other thirteen went to NotRooted.txt, and two of those have since come off it (#1239).
+            // Nobody has established whether these root cleanly for an iOS publish, and nobody can
+            // here: the `ios` workload is not installed on the machine that merged this — `dotnet
+            // build` of the iOS probe fails NETSDK1147, re-confirmed 2026-09-10 — `CheckAotIos` has
+            // no CI leg (#327) and by the record has never run. Writing the 53 ProjectReferences
+            // into the iOS probe would have made this test green over a claim no build has ever
+            // checked, which is the opposite of what it is for. This list must SHRINK — #1252.
             "Vixen.Platform.Linux",
             "Vixen.Platform.MacOS",
             "Vixen.Platform.Windows",
@@ -225,6 +250,14 @@ public sealed class AotProbeProjectFileTests : IDisposable {
             "Vixen.Video.Rendering",
             "Vixen.Water",
             "Vixen.Water.Physics",
+
+            // ⚠ Owed on the same terms, and added on 2026-09-10 by #1239 rather than by #506. The
+            // abstraction has no platform statement of its own and a phone is a plausible XR
+            // target — visionOS is where that question gets asked — so unlike its OpenXR head above
+            // there is nothing written down to justify leaving it out. Nobody can settle it from
+            // here: the `ios` workload is not installed and `CheckAotIos` has no CI leg (#327).
+            // This entry belongs to #1252, and the list it is in must SHRINK.
+            "Vixen.Xr",
         ];
 
         var desktop = AotProbeProjectFile.ReferencedAssemblies(ProbeProject());
@@ -242,7 +275,7 @@ public sealed class AotProbeProjectFileTests : IDisposable {
         Assert.True(
             absent.SequenceEqual(absentOnPurpose.Order(StringComparer.Ordinal), StringComparer.Ordinal),
             "The assemblies in the desktop AOT probe and not the iOS one are supposed to be exactly "
-            + "the eight written down above. A NEW name means an assembly was added to the desktop "
+            + "the ones written down above. A NEW name means an assembly was added to the desktop "
             + "probe and not to the iOS one, so it is outside the iOS gate while the README still "
             + "says iOS is gated — add it to Vixen.AotProbe.iOS.csproj, with its TrimmerRootAssembly, "
             + "or write down why not. A name that has GONE has been added to the iOS probe; delete "

@@ -103,6 +103,15 @@
         <ProjectReference Include="..\..\Core\Vixen.Video.Rendering\Vixen.Video.Rendering.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Water\Vixen.Water.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Water.Physics\Vixen.Water.Physics.csproj" />
+
+        <!--
+            ⚠ XR was on NotRooted.txt for exactly one call site — `XR.GetApi()` in
+            OpenXrBackend's constructor — and README.md predicted it by name before it was written
+            down. Platform/Vixen.Xr.OpenXR/OpenXrLoader.cs is VulkanLoader and OpenALLoader's thirty
+            lines a third time, and with it these two publish with zero findings (#1239).
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Xr\Vixen.Xr.csproj" />
+        <ProjectReference Include="..\..\Platform\Vixen.Xr.OpenXR\Vixen.Xr.OpenXR.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Assets\Vixen.Assets.csproj" />
         <ProjectReference Include="..\..\Core\Vixen.Audio\Vixen.Audio.csproj" />
 
@@ -204,6 +213,8 @@
         <TrimmerRootAssembly Include="Vixen.Video.Rendering" />
         <TrimmerRootAssembly Include="Vixen.Water" />
         <TrimmerRootAssembly Include="Vixen.Water.Physics" />
+        <TrimmerRootAssembly Include="Vixen.Xr" />
+        <TrimmerRootAssembly Include="Vixen.Xr.OpenXR" />
         <TrimmerRootAssembly Include="Vixen.App.Hosting" />
         <TrimmerRootAssembly Include="Vixen.Assets" />
         <TrimmerRootAssembly Include="Vixen.Audio" />

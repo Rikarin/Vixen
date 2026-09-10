@@ -12,18 +12,25 @@
 # clean — which is the only question the probe exists to ask (Tools/Vixen.AotProbe/README.md
 # § Why it roots rather than calls).
 #
-# ⚠ Measured 2026-09-10: 82 of 95 rooted, 13 here. It was 29 and 66, and every one of the fifty-three
+# ⚠ Measured 2026-09-10: 84 of 95 rooted, 11 here. It was 29 and 66, and every one of the fifty-three
 # that moved was clean on the first ILC publish — including Vixen.Core.Yaml, which this list
 # predicted "is where reflection hides", and the whole Vixen.Rendering and Vixen.Net families. So the
-# reason each of these thirteen is here is now a MEASUREMENT and not a guess: rooting all sixty-six at
+# reason each of these eleven is here is now a MEASUREMENT and not a guess: rooting all sixty-six at
 # once produced exactly twelve ILC findings, and they are quoted below.
+#
+# ⚠ Vixen.Xr and Vixen.Xr.OpenXR left this list on 2026-09-10 (#1239), and their six findings with
+# them. They were here for one call site — `XR.GetApi()` — and the cure was the thirty lines
+# VulkanLoader and OpenALLoader already had, written a third time as
+# Platform/Vixen.Xr.OpenXR/OpenXrLoader.cs. So six of the twelve findings below are gone and the
+# remaining six are all in Vixen.Ui and Vixen.Ui.HotReload. ⚠ What that publish proves is that ILC
+# stops complaining, and not that OpenXR still initialises: this repository has no XR device.
 #
 # The `-ios`, `-android` and `-browser` heads and the netstandard2.1 generators are out of scope by
 # target framework — `CheckAotIos` is the gate over the iOS one.
 
 Vixen.Fuzz the fuzzing harness, which no shipped game links; rooting it would measure the gate rather than the engine
-Vixen.Ui one IL2072, in UiPropertyRegistry.Collect (UiProperty.cs:259): the walk recurses into Type.BaseType, which carries no annotation, while the parameter asks for NonPublicConstructors — and that requirement is load-bearing rather than decorative, because the static constructor RunClassConstructor needs IS a non-public constructor. Suppressing it without knowing whether a base type's cctor survives trimming would risk a UI property that is silently absent in an AOT build and present everywhere a test runs, so it wants a decision rather than an annotation
-Vixen.Ui.Controls a Vixen.Ui sibling: rooting it compiles Vixen.Ui.UiPropertyRegistry.Collect and reports the same IL2072
+Vixen.Ui one IL2072, in UiPropertyRegistry.Collect (UiProperty.cs:259) — and #1240 asked whether it was safe to suppress. ⚠ MEASURED 2026-09-10 and the answer is NO: a base type's class constructor is NOT preserved when the derived type is, so the property IS silently absent in an AOT build. A throwaway probe with its own Base : UiElement and Derived : Base, published for osx-arm64 with PublishAot and nothing rooted, printed `[DerivedWeight]` where the same program on CoreCLR printed all ten — the base's property and UiElement's own eight, gone. So the warning is a true positive describing a live defect and a suppression would write the defect down as intended behaviour. ⚠ The same probe measured the cure: a derived class whose static constructor calls RunClassConstructor(typeof(Base).TypeHandle) by NAME gets its base back (`base=True`), while the identical pair without that call does not (`base=False`) — which is the control that says the probe can fail. So the fix is in Vixen.Ui.Generators: chain each generated static constructor to the nearest property-declaring ancestor. Not written yet; #1240 stays open with this in it
+Vixen.Ui.Controls a Vixen.Ui sibling: rooting it compiles Vixen.Ui.UiPropertyRegistry.Collect and reports the same IL2072, and carries the same measured defect behind it
 Vixen.Ui.Controls.Advanced as Vixen.Ui.Controls
 Vixen.Ui.Desktop as Vixen.Ui.Controls
 Vixen.Ui.Desktop.HotReload developer-loop only, and a shipped game does not link it
@@ -32,5 +39,3 @@ Vixen.Ui.Markup as Vixen.Ui.Controls
 Vixen.Ui.Renderer as Vixen.Ui.Controls
 Vixen.Ui.Testing a test harness, which no shipped game links
 Vixen.Platform.Ui as Vixen.Ui.Controls
-Vixen.Xr the six single-file findings README.md § "The three Silk.NET-based backends" predicts, and they arrive by the exact route it names: Platform/Vixen.Xr.OpenXR/OpenXrBackend.cs:73 calls XR.GetApi(), which builds Silk.NET's default context and reaches DefaultPathResolver — IL3000 on Assembly.Location twice, IL3002 on Assembly.CodeBase and on DependencyContext.Default three times. ⚠ Not "Silk.NET": Vixen.Graphics.Vulkan and .WebGPU are rooted and clean because VulkanLoader and OpenALLoader load through Vixen.Platform.Native instead, and Vixen.Graphics.OpenGL was measured clean and is rooted now. So this is one call site and the cure is the thirty lines those two already have
-Vixen.Xr.OpenXR as Vixen.Xr
