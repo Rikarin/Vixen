@@ -1311,10 +1311,22 @@ public partial class SharedUiShaderTests {
     ///         the same commit.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Two of these three are real divergences and not conveniences</b>, which is what
-    ///         widening the walk was for. They are filed rather than fixed here because the fix is a
-    ///         <c>glslc</c> run and a new committed module, and the modules these are in are what
-    ///         every reference image in this suite was rendered through.
+    ///         ⚠ <b>The list shrank from nine to five, and the four that went were the real
+    ///         divergences</b> — #1224 and #1225. <c>ui-mask.frag</c> spelled a wrap
+    ///         <c>turns - floor(turns)</c> where <c>UiMask.Progress</c> calls <c>frac</c>, which is
+    ///         the same three lines <c>fwidth</c> cost in #1024; <c>ui-text.frag</c> premultiplied
+    ///         <c>(rgb·a)·coverage</c> where <c>UiText</c> computes <c>rgb·(a·coverage)</c>, and
+    ///         float multiplication is not associative. Both copies were brought to the module that
+    ///         ships and recompiled. What is left here is instruction selection and a rounding that
+    ///         moved between stages, and none of it is a difference in the picture.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A count is not the whole of the question, which is why this list shrinking is not
+    ///         the end of #1225.</b> The same commit moved <c>ui-box.frag</c>'s tiling clip from
+    ///         <c>coverage *= x * y</c> to <c>coverage = coverage * x * y</c>, because
+    ///         <c>a *= b * c</c> groups as <c>a·(b·c)</c> and <c>UiBox</c> writes <c>(a·b)·c</c> —
+    ///         two numbers out of three identical factors. <b>Nothing in this file could see that</b>:
+    ///         the multiply count is the same on both sides of it, and only the association differs.
     ///     </para>
     /// </remarks>
     static readonly KnownDifference[] Reconciled = [
@@ -1353,31 +1365,6 @@ public partial class SharedUiShaderTests {
         ),
         new(
             "ui-mask.frag",
-            "GLSL.std.450 Floor",
-            2,
-            1,
-            "⚠ a real divergence and the shape #1024 was: `ui-mask.frag` writes `turns - floor(turns)` "
-            + "where `UiMask.Progress` writes `frac(turns)`. One instruction against two, of a builtin "
-            + "the specification defines as exactly those two -- which is the sentence that was true of "
-            + "`fwidth` too. `ui-box.frag` beside it already spells it `fract`, so this file disagrees "
-            + "with its own sibling as well as with the module that ships. #1224"
-        ),
-        new(
-            "ui-mask.frag",
-            "GLSL.std.450 Fract",
-            0,
-            1,
-            "the other half of the same divergence. See the line above. #1224"
-        ),
-        new(
-            "ui-mask.frag",
-            "OpFSub",
-            26,
-            25,
-            "the subtraction inside that `turns - floor(turns)`. See the two lines above. #1224"
-        ),
-        new(
-            "ui-mask.frag",
             "OpIAdd",
             2,
             3,
@@ -1391,16 +1378,6 @@ public partial class SharedUiShaderTests {
             3,
             4,
             "the other half of that subscript. See the line above."
-        ),
-        new(
-            "ui-text.frag",
-            "OpFMul",
-            8,
-            5,
-            "⚠ a real divergence: `ui-text.frag` computes `rgb * a * coverage`, which associates as "
-            + "`(rgb*a)*coverage`, where `UiText` premultiplies `rgb * (a*coverage)`. Float "
-            + "multiplication is not associative, so these are two numbers and not one written twice -- "
-            + "and the shipping one is the second. #1225"
         )
     ];
 
@@ -1426,9 +1403,10 @@ public partial class SharedUiShaderTests {
     ///         an unfolded <c>1f / 2.4f</c>, whose runtime quotient is bit-for-bit the constant the
     ///         other module carries folded; <c>OpFNegate</c> 3 v 5 is two negated literals. What is
     ///         left after the normalisation is one difference in that pair and not six, it is a
-    ///         rounding that moved between stages, and the two divergences that <em>are</em> real are
-    ///         in <c>ui-mask.frag</c> and <c>ui-text.frag</c> &#8212; neither of which #1210 or #1190
-    ///         looks at.
+    ///         rounding that moved between stages, and the two divergences that <em>were</em> real
+    ///         were in <c>ui-mask.frag</c> and <c>ui-text.frag</c> &#8212; neither of which #1210 or
+    ///         #1190 looks at. Both are fixed (#1224, #1225) and their lines are gone from
+    ///         <see cref="Reconciled" />, which is what made this walk worth widening.
     ///     </para>
     ///     <para>
     ///         <b>What this does not compare, and deliberately.</b> Comparisons, selects, phis,

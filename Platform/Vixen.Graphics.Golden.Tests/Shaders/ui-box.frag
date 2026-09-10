@@ -353,8 +353,19 @@ void main() {
             // ⚠ An axis that does not tile is clipped, because CSS paints nothing outside a
             // `no-repeat` layer — clamping alone would spill the ramp's end colours over the rest of
             // the box. Antialiased through the same `coverage_of` the box's own edge uses.
-            coverage *= (shape.area.z > 0.0 ? 1.0 : coverage_of(abs(local.x) - tile.x, width))
-                      * (shape.area.w > 0.0 ? 1.0 : coverage_of(abs(local.y) - tile.y, width));
+            //
+            // ⚠ **Two named factors and one left-to-right product, because the grouping is a
+            // number** — #1225. This was `coverage *= (x) * (y)`, and `a *= b * c` is
+            // `a = a * (b * c)` where `UiBox` writes `coverage = coverage * clipX * clipY`, i.e.
+            // `(a * b) * c`. Float multiplication is not associative. ⚠ **And no census of the two
+            // modules can see this**: the multiply *count* is identical and only the association
+            // differs. The Raven reached its arrangement for an unrelated reason — a newline ends a
+            // statement there, so the expression had to be split — and this copy was not moved with
+            // it.
+            float clip_x = shape.area.z > 0.0 ? 1.0 : coverage_of(abs(local.x) - tile.x, width);
+            float clip_y = shape.area.w > 0.0 ? 1.0 : coverage_of(abs(local.y) - tile.y, width);
+
+            coverage = coverage * clip_x * clip_y;
 
             reach = tile;
         }

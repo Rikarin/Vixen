@@ -32,5 +32,16 @@ void main() {
     // One atlas serves every size because the range arrives already scaled by the size being drawn.
     float coverage = clamp((distance * max(varying_shape.x, 1e-4)) + 0.5, 0.0, 1.0);
 
-    target = vec4(varying_colour.rgb * varying_colour.a * coverage, varying_colour.a * coverage);
+    // Premultiplied, which is what the UI blend state expects.
+    //
+    // ⚠ **The alpha is folded first and named, and the grouping is the whole of the point** — #1225.
+    // This line was `varying_colour.rgb * varying_colour.a * coverage`, which associates as
+    // `(rgb·a)·coverage`, where `UiText` premultiplies `Ui.Premultiply(float4(rgb, a·coverage))` and
+    // so computes `rgb·(a·coverage)`. Float multiplication is not associative, so those are two
+    // numbers and not one written twice — a last-place bit of a colour channel before an
+    // `Rgba8UNorm` store, which is exactly the size of the disagreement `UiRavenAgreementTests`
+    // refuses at `ImageTolerance.Exact`. `ui-box.frag`'s own last two lines are already this shape.
+    float alpha = varying_colour.a * coverage;
+
+    target = vec4(varying_colour.rgb * alpha, alpha);
 }

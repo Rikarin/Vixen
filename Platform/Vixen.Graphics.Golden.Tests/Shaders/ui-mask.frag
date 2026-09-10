@@ -157,10 +157,18 @@ float mask_progress(vec2 offset, vec2 half_size, vec2 axis, int kind) {
         // single entry on an exception list, in a check whose own remark says allow-lists here rot.
         // `ui-box.frag` beside this one already had it right — its `INV_TWO_PI` is the same
         // reciprocal — so the division was this file disagreeing with its own siblings as well.
+        //
+        // ⚠ **And that reasoning stopped one instruction short**, which is #1224. The wrap below
+        // was `turns - floor(turns)` where `UiMask.Progress` writes `frac(turns)` — one instruction
+        // against two, of a builtin `GLSL.std.450` *defines* as exactly those two. That is the
+        // sentence that was true of `fwidth(p)` and `abs(dFdx(p)) + abs(dFdy(p))` in #1024, and CI
+        // refuted it there: two spellings of one formula are not two spellings of one result,
+        // because an implementation is free to answer the builtin with a differently-rounded
+        // sequence. `ui-box.frag` beside this one already spelled it `fract`.
         float angle = atan(offset.x, -offset.y) - atan(axis.x, -axis.y);
         float turns = (angle * 0.15915494309189535) + 1.0;
 
-        return turns - floor(turns);
+        return fract(turns);
     }
 
     vec2 direction = dot(axis, axis) > 1e-12 ? normalize(axis) : vec2(1.0, 0.0);
