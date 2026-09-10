@@ -4099,14 +4099,26 @@ public class NegativeDiagnosticTests {
             )
         );
 
-    /// <summary>The three types a value parameter may have, all on one shader.</summary>
+    /// <summary>The three types a value parameter may have, one shader each.</summary>
     /// <remarks>
     ///     The mirror of
     ///     <c>ValueParameterTests.A_value_parameter_of_an_unsupported_type_is_rejected</c>, whose
     ///     parameter is a <c>float</c> or a <c>float4</c>. ⚠ <c>bool</c> is the one with the teeth:
     ///     it is not a numeric type and a rule written as "an integer type" would refuse the
     ///     <c>&lt;val Shadows: bool&gt;</c> shape every conditionally-compiled feature is written
-    ///     with.
+    ///     with. Proved by dropping <c>SpecialType.Bool</c> from the rule's allowed set, which reds
+    ///     this with <c>RVN2081: Value parameter 'Shadows' has type 'bool'</c>.
+    ///     <para>
+    ///         ⚠ <b>That widening has a decoy, and it cost an afternoon of believing this fixture
+    ///         was inert.</b> <c>SourceNamedTypeSymbol</c> carries the identical predicate twice —
+    ///         <c>special is not (SpecialType.Bool or SpecialType.Int or SpecialType.UInt)</c> at
+    ///         the permutation-key rule and again at this one — so a widening applied to the first
+    ///         match leaves this rule untouched and the fixture green, which reads exactly like a
+    ///         fixture that proves nothing. What told the two apart was planting a <c>float</c>
+    ///         parameter in the same source and watching <c>RVN2081</c> fire on it: a widening that
+    ///         leaves a negative green is a claim about the widening before it is a claim about the
+    ///         fixture.
+    ///     </para>
     /// </remarks>
     [Fact]
     public void A_bool_an_int_and_a_uint_value_parameter_are_all_allowed() =>
@@ -4116,13 +4128,25 @@ public class NegativeDiagnosticTests {
                 """
                 package A
 
-                shader Blur<val Shadows: bool, val TapCount: int, val Seed: uint> {
+                shader Shadowed<val Shadows: bool> {
                     func Weight(): float {
                         if (Shadows) {
-                            return float(TapCount) + float(Seed)
+                            return 1f
                         }
 
                         return 0f
+                    }
+                }
+
+                shader Blur<val TapCount: int> {
+                    func Weight(): float {
+                        return float(TapCount)
+                    }
+                }
+
+                shader Noise<val Seed: uint> {
+                    func Weight(): float {
+                        return float(Seed)
                     }
                 }
 
