@@ -50,7 +50,14 @@ public class SolverDeterminismTests {
             // ⚠ Nought is the browser and not a slow four: a scheduler with no workers runs a batch
             // when a thread reaches it, so scheduled work nobody waits on does nothing there while
             // being invisible everywhere else. See Core/Vixen.Core.Threading/README.md and #328.
-            foreach (var workers in new[] { 0, 1, 4, 16 }) {
+            //
+            // One row rather than one per batch size, and the reason is the schedule: every nought
+            // row runs the whole stage on the calling thread, and this assembly is already the sixth
+            // most expensive in the tree. The claim is that the stage works with nobody to run its
+            // work; the batch axis is swept where it is cheap, at the worker counts below.
+            data.Add(0, 0);
+
+            foreach (var workers in new[] { 1, 4, 16 }) {
                 foreach (var batch in new[] { 0, 1, 37, 512 }) {
                     data.Add(workers, batch);
                 }
