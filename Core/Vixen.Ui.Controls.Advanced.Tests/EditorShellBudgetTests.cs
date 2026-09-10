@@ -336,7 +336,14 @@ public class EditorShellBudgetTests {
         neighbour.Start();
 
         try {
-            var start = GC.CollectionCount(0);
+            // ⚠ Counted from the windows themselves rather than from `GC.CollectionCount(0)` at the
+            // top and the bottom, because those are not the same number and the difference is a
+            // flake. A collection that lands *between* two windows — after this thread records one
+            // reading and before it reads the count for the next — is in the global delta and in no
+            // window's `observed`, so an exit on the global delta can be satisfied while the premise
+            // below, which sums the windows, is not. On a busy machine this thread is descheduled in
+            // exactly that gap, which is how a run exited on eight and then asserted on seven.
+            var inWindow = 0;
 
             while (windows < Ceiling) {
                 var collections = GC.CollectionCount(0);
@@ -348,9 +355,10 @@ public class EditorShellBudgetTests {
 
                 readings[windows] = GC.GetAllocatedBytesForCurrentThread() - before;
                 observed[windows] = GC.CollectionCount(0) - collections;
+                inWindow += observed[windows];
                 windows++;
 
-                if (GC.CollectionCount(0) - start >= Collections) {
+                if (inWindow >= Collections) {
                     break;
                 }
             }

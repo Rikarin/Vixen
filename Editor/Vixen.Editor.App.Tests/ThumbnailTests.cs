@@ -76,12 +76,26 @@ public class ThumbnailTests {
         var waited = Stopwatch.StartNew();
         var patience = TimeSpan.FromSeconds(30);
 
+        var spins = 0;
+
         while (!until() && waited.Elapsed < patience) {
             cache.Pump();
 
-            // A yield rather than a sleep, so an idle machine finishes in microseconds; the clock is
-            // what stops a decode that never returns.
-            Thread.Yield();
+            // A yield first, so an idle machine finishes in microseconds; the clock is what stops a
+            // decode that never returns.
+            //
+            // ⚠ But a yield alone starves the thing being waited for. `Thread.Yield` only gives way
+            // to a thread already runnable on this processor, so under the whole-solution `Test` run
+            // — 181 assemblies against ten cores — this loop holds a core for the full thirty
+            // seconds while the pool thread carrying the decode waits for one, and the wait times
+            // out on work that was never allowed to start. That is what "the decode in flight never
+            // came back" was on master, on a test that passes alone every time. After a thousand
+            // yields the core is given up properly.
+            if (++spins < 1_000) {
+                Thread.Yield();
+            } else {
+                Thread.Sleep(1);
+            }
         }
 
         cache.Pump();
