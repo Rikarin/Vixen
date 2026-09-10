@@ -20,6 +20,47 @@ public sealed record StandardShading : IMaterialShading {
     }
 }
 
+/// <summary>Oren-Nayar's rough diffuse under the standard lobe: clay, plaster, concrete.</summary>
+/// <remarks>
+///     <para>
+///         The same GGX specular as <see cref="StandardShading" /> and a different diffuse BRDF,
+///         which is the whole difference. Lambert is a smooth Lambertian plane; this is a surface of
+///         Lambertian microfacets, which flattens toward the light instead of falling off as the
+///         cosine — the thing that stops dry unfinished materials reading as plastic. It reads the
+///         roughness the surface already writes and has no parameters of its own.
+///     </para>
+///     <para>
+///         ⚠ <b>Named after the model rather than after what it is for, unlike its neighbours.</b>
+///         A clear coat is a second lobe and a sheen is a rim, so those names say what is added; this
+///         one swaps the diffuse term and nothing else.
+///     </para>
+/// </remarks>
+[DataContract("OrenNayarShading")]
+public sealed record OrenNayarShading : IMaterialShading {
+    /// <inheritdoc />
+    public string ShaderName => "OrenNayarShading";
+
+    /// <inheritdoc />
+    public void Compile(MaterialCompilationContext context) {
+    }
+}
+
+/// <summary>Burley's (Disney's) diffuse under the standard lobe: skin, unfinished wood, cloth.</summary>
+/// <remarks>
+///     What it buys over Lambert is the retroreflective brightening rough dielectrics have at grazing
+///     angles. ⚠ Distinct from <see cref="SheenShading" />, which adds a lobe over the base and takes
+///     that lobe's energy out of it: this <em>is</em> the base, and the rim is the diffuse term's own.
+/// </remarks>
+[DataContract("BurleyShading")]
+public sealed record BurleyShading : IMaterialShading {
+    /// <inheritdoc />
+    public string ShaderName => "BurleyShading";
+
+    /// <inheritdoc />
+    public void Compile(MaterialCompilationContext context) {
+    }
+}
+
 /// <summary>A GGX lobe stretched along the tangent: brushed metal, vinyl, satin.</summary>
 /// <remarks>Reads the channel <see cref="AnisotropyFeature" /> writes; pair the two.</remarks>
 [DataContract("AnisotropicShading")]

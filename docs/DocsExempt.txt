@@ -2577,6 +2577,7 @@ T:Vixen.Rendering.LineVertex sweep-pending
 T:Vixen.Rendering.Materials.AnisotropicShading sweep-pending
 T:Vixen.Rendering.Materials.AnisotropyFeature sweep-pending
 T:Vixen.Rendering.Materials.BlendFeature sweep-pending
+T:Vixen.Rendering.Materials.BurleyShading sweep-pending
 T:Vixen.Rendering.Materials.CelShading sweep-pending
 T:Vixen.Rendering.Materials.ClearCoatFeature sweep-pending
 T:Vixen.Rendering.Materials.ClearCoatNormalMapFeature sweep-pending
@@ -2592,6 +2593,7 @@ T:Vixen.Rendering.Materials.MaterialLayersFeature sweep-pending
 T:Vixen.Rendering.Materials.MetalRoughnessFeature sweep-pending
 T:Vixen.Rendering.Materials.NormalMapFeature sweep-pending
 T:Vixen.Rendering.Materials.OcclusionFeature sweep-pending
+T:Vixen.Rendering.Materials.OrenNayarShading sweep-pending
 T:Vixen.Rendering.Materials.SheenFeature sweep-pending
 T:Vixen.Rendering.Materials.SheenShading sweep-pending
 T:Vixen.Rendering.Materials.SpecularGlossinessFeature sweep-pending

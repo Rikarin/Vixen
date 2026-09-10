@@ -434,7 +434,7 @@ allocator, because a value that changes must not be rewritten under a frame stil
 
 ⚠ **This table had no status column** — the only inventory in the document without one, which let a
 reader assume the whole list ships. Audited against `Raven/Library/Shading`,
-`Raven/Library/Material` and `Core/Vixen.Rendering/Materials` and marked below. **Seven shading models
+`Raven/Library/Material` and `Core/Vixen.Rendering/Materials` and marked below. **Nine shading models
 are authorable** (`MaterialShading.All`) and both surface workflows are, which is the ✅ half;
 `overview.md` § 1.x already said as much.
 
@@ -451,15 +451,31 @@ and normal incidence its old body returned 170 at roughness 0 and 505 000 at 0.9
 called all four "correct as far as anything can tell" was reading a function no picture had ever
 evaluated. It is now Fdez-Agüera's, applied unconditionally in `Ibl.Specular` and
 `AmbientCombine.Reflectance`, and held to the white furnace on a device by
-`MultiScatterFurnaceImageTests`. The other three are still reachable from nothing —
-[#1193](https://github.com/Rikarin/Vixen/issues/1193), which also records that the cheap route out
-(a permutation on `StandardShading`) is closed, because `MaterialRenderFeature.PermutationSources`
-has no production caller ([#1164](https://github.com/Rikarin/Vixen/issues/1164)).
+`MultiScatterFurnaceImageTests`.
+
+**All four are reachable now, and the last two were reached by a decision rather than a wire.**
+`OrenNayarShading` and `BurleyShading` are two more `IShadingModel` shaders and two more entries in
+`MaterialShading.All`, so a material selects a diffuse model by the name it already writes. The two
+routes that were not taken are worth recording: a third `compose` slot (`IDiffuseModel`) costs every
+pass that declares `IMaterialSurface` and `IShadingModel` a third one, and a permutation on
+`StandardShading` — the cheap-looking alternative — would be unreachable, because
+`MaterialRenderFeature.PermutationSources` has no production caller
+([#1164](https://github.com/Rikarin/Vixen/issues/1164)). ⚠ **`Beckmann` is deliberately not on that
+menu**: its own comment says what it is for — matching reference imagery or an older asset library —
+which is a library entry rather than a shading model, and its tail falls off far too fast to be
+offered as a choice beside GGX.
+
+⚠ **What proves a model is selected is not that its emitted pass differs.**
+`LibraryTreeTests`' shading-model theory compares the emitted unit with `StandardShading`'s as text,
+and a body sabotaged to call `DiffuseModels.Lambert` still passed it — one extra local renumbers
+every temporary after it ([#1249](https://github.com/Rikarin/Vixen/issues/1249)).
+`ADiffuseModelReachesThePassThroughTheShadingModelThatSelectsIt` names the function instead, in both
+directions, and that sabotage turns it red.
 
 | Layer | Status | Options, and what is actually in the tree |
 |---|---|---|
-| Diffuse | 🟡 | Lambert, Oren–Nayar, Burley (Disney), energy-conserving variants. All four are in `DiffuseModels.rvn`; ⚠ **only Lambert and `EnergyRemaining` are ever called** — no material can select Oren–Nayar or Burley, because a diffuse model is not a slot anything composes ([#1193](https://github.com/Rikarin/Vixen/issues/1193)) |
-| Specular | 🟡 | Cook–Torrance microfacet with pluggable NDF, visibility and Fresnel. `Brdf.rvn` has GGX, anisotropic GGX and Beckmann NDFs; ⚠ visibility is **Smith-correlated only** (plus a fast approximation nothing calls) — no Schlick and no Implicit — and Fresnel is Schlick and Schlick-with-f90, with **no Complex/Gulbrandsen for metals**. Beckmann is written and reachable from nothing ([#1193](https://github.com/Rikarin/Vixen/issues/1193)) |
+| Diffuse | ✅ | Lambert, Oren–Nayar, Burley (Disney), energy-conserving variants, all in `DiffuseModels.rvn`. ⚠ **This row read "only Lambert and `EnergyRemaining` are ever called" and that is no longer true**: `OrenNayarShading` and `BurleyShading` are shading models a material can name, which is where the choice lives — a diffuse model is not a `compose` slot and deliberately did not become one ([#1193](https://github.com/Rikarin/Vixen/issues/1193)). `EnergyRemaining` still does the conservation that matters in all three |
+| Specular | 🟡 | Cook–Torrance microfacet with pluggable NDF, visibility and Fresnel. `Brdf.rvn` has GGX, anisotropic GGX and Beckmann NDFs; ⚠ visibility is **Smith-correlated only** (plus a fast approximation nothing calls) — no Schlick and no Implicit — and Fresnel is Schlick and Schlick-with-f90, with **no Complex/Gulbrandsen for metals**. Beckmann is written and reachable from no material **on purpose** — a library entry for matching reference imagery, not a menu item, which is the decision #1193 asked for and its own comment already argued |
 | Multi-scatter | ✅ **and the "on by default" is true now** | Energy compensation for GGX (Fdez-Agüera). ⚠ **This row read "exists and has no caller anywhere" and that was only half the defect**: `SpecularModels.MultiScatter` was also wrong three ways — its single-scatter term dropped `f0` so a copper mirror came back grey, it returned one grey number for three tinted channels, and its `1/dfg.y` factor diverges on this library's own analytic fit. It is Fdez-Agüera's now, written out rather than folded so the white furnace can pin it — at `f0 = 1` the average Fresnel is 1, so the multi-scatter term is precisely the `1 − Ess` single scattering lost and the two sum to one whatever the fit says — and applied in `Ibl.Specular` and `AmbientCombine.Reflectance` together, because weighing a traced plane by the single-scatter scale while the shading pass weighs its cube by the compensated one would dim exactly the rough metals the trace exists to answer for |
 | Clearcoat | ✅ | Second GGX lobe with its own normal map, IOR 1.5 default. `ClearCoat.rvn`, `ClearCoatSurface` and `ClearCoatNormalMapSurface`, `ClearCoatShading`. The coat has its own angles, because computing them from the base's makes a scratched coat over smooth metal look like a smooth coat over scratched metal |
 | Anisotropy | ✅ | Tangent-space aligned GGX. `Brdf.DistributionGgxAnisotropic` → `SpecularModels.GgxAnisotropic` → `AnisotropicShading`, fed by `AnisotropySurface`; `MaterialData.anisotropy` splits one alpha into two by Burley's remapping, the one Filament and glTF's extension both use |
