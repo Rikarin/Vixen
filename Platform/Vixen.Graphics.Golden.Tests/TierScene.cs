@@ -334,9 +334,16 @@ sealed class TierScene : IDisposable {
         // this fixture's and `Bitmap` is RGBA — a BGRA target would come back with red and blue
         // swapped and every reference would record the swap. The import decides the format, so this
         // is a statement about the harness rather than about the frame.
+        // ⚠ No `Storage`. An sRGB format does not support VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT, so
+        // asking for it made `vkGetPhysicalDeviceImageFormatProperties2` answer
+        // VK_ERROR_FORMAT_NOT_SUPPORTED and every tier frame emit two validation errors before it
+        // drew anything. MoltenVK does not report it and the Linux layer does, which is why it
+        // survived — and why nothing here could see it until the suite stopped resetting its own
+        // validation counter. No pass in this frame binds the output as a storage image; every
+        // other fixture in this project declares `ColourTarget | CopySource` and nothing more.
         owned = fixture.Owned(
             "TierOutput",
-            TextureUsage.ColourTarget | TextureUsage.Sampled | TextureUsage.Storage | TextureUsage.CopySource,
+            TextureUsage.ColourTarget | TextureUsage.Sampled | TextureUsage.CopySource,
             PixelFormat.Rgba8UNormSrgb
         );
 
