@@ -111,10 +111,19 @@ public sealed class VisibilityGroup : IVisibilityGroup {
             return;
         }
 
-        var job = new CullJob(store, views, perView, wordsPerView);
+        // ⚠ The live words, not the allocated ones. `wordsPerView` is a high-water mark that doubles
+        // and never shrinks, so a scene of ten objects used to cull over eight words — 512 object
+        // slots — and a scene that once held 40 000 and now holds 100 kept paying for 40 000 for the
+        // rest of the process. Every word past this one writes zero into an array `Cull` has already
+        // cleared, so narrowing to it changes no bit and never has.
+        var words = (store.Count + 63) >> 6;
+        var job = new CullJob(store, views, perView, words);
 
-        if (scheduler is null) {
-            for (var word = 0; word < wordsPerView; word++) {
+        LastCulledWords = words;
+        LastCullWasParallel = scheduler is not null && words > BatchWords;
+
+        if (!LastCullWasParallel) {
+            for (var word = 0; word < words; word++) {
                 job.Execute(word);
             }
 
@@ -122,8 +131,25 @@ public sealed class VisibilityGroup : IVisibilityGroup {
         }
 
         // One index per word, so the unit of work is the unit of ownership.
-        scheduler.ParallelFor(job, wordsPerView, BatchWords);
+        scheduler!.ParallelFor(job, words, BatchWords);
     }
+
+    /// <summary>How many 64-object words the last <see cref="Cull" /> covered.</summary>
+    /// <remarks>
+    ///     The live count rather than the allocated one, which is the whole of what
+    ///     <see cref="Cull" /> narrowed: the two differ by the high-water mark of every scene this
+    ///     group has ever held. Internal because it exists to be asserted on — nothing about the
+    ///     frame reads it — and a diagnostic overlay that wanted it would be the reason to promote it.
+    /// </remarks>
+    internal int LastCulledWords { get; private set; }
+
+    /// <summary>Whether the last <see cref="Cull" /> went to the job system.</summary>
+    /// <remarks>
+    ///     <c>VfxSystem.LastStepWasParallel</c> and <c>GoapPlanQueue.LastLanes</c> in the same shape,
+    ///     and for the same reason: which side of a threshold a call fell on is otherwise invisible,
+    ///     and a threshold nothing can observe is one nobody can measure.
+    /// </remarks>
+    internal bool LastCullWasParallel { get; private set; }
 
     /// <summary>
     ///     Makes room for a frame and clears it, for a producer that is not <see cref="Cull" />.
@@ -156,8 +182,26 @@ public sealed class VisibilityGroup : IVisibilityGroup {
 
     /// <summary>How many 64-object words one job batch covers.</summary>
     /// <remarks>
-    ///     Four words is 256 objects — enough that the scheduling overhead is amortised, small enough
-    ///     that a scene of a few thousand objects still spreads over every core.
+    ///     <para>
+    ///         Four words is 256 objects — enough that the scheduling overhead is amortised, small
+    ///         enough that a scene of a few thousand objects still spreads over every core.
+    ///     </para>
+    ///     <para>
+    ///         It is also the threshold: a frame whose live words fit in one batch has nothing to
+    ///         spread, so it runs inline rather than renting a slot, publishing a handle and
+    ///         completing it to run the one batch. <c>GoapPlanQueue</c>'s <c>lanes > 1</c> is the
+    ///         same rule with a different unit.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This is not the measured crossover, and it deliberately does not claim to be.</b>
+    ///         What it rules out is the case that cannot pay off under any measurement — one batch of
+    ///         work put through the scheduler — and #1206 asks for the real figure, which depends on
+    ///         the cost of sixty-four frustum tests against every view in the frame and has to be
+    ///         taken on an idle machine. ⚠ Note also what the original report got wrong: the calling
+    ///         thread does <em>not</em> sit idle while one worker culls. <c>JobScheduler.Complete</c>
+    ///         executes ready work while it waits, so a single-batch dispatch is scheduling overhead
+    ///         rather than a serialised frame — smaller than it looked, and still pure loss.
+    ///     </para>
     /// </remarks>
     const int BatchWords = 4;
 
