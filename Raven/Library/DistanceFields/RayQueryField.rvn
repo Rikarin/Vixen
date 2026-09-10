@@ -48,9 +48,20 @@ import Vixen.Shaders.Core
 // tree that puts `RayQueryField` in the slot is `AccelerationStructureDeviceTests`, through the
 // `MaterialCompiler.RayQueryFieldShader` constant, which has no other reader. No `.vxpreset`,
 // `.vxlook` or compositor asset names it and no device-capability switch chooses it. So the wrong
-// colour issue 1169 describes reaches no frame today, and the ordering the work wants is: give a
-// production composition a reason to select this — a `HasRayQuery` switch beside the clipmap, filed
-// as issue 1246 — and only then widen `DistanceFieldHit` for it.
+// colour issue 1169 describes reaches no frame today.
+//
+// ⚠ **And the switch is not the first move, which is the correction issue 1246 earned.** The
+// paragraph above used to end on "a `HasRayQuery` switch beside the clipmap, and only then widen
+// `DistanceFieldHit`". A switch selecting this shader names `sceneStructure` below — and nothing in
+// the engine builds an acceleration structure to fill it. `CreateAccelerationStructure`,
+// `BuildAccelerationStructure` and `GetAccelerationStructureAddress` have no caller outside the
+// backends implementing them and one render-graph test double; the only binding of this name in the
+// tree is `AccelerationStructureDeviceTests`', written by hand. A composed slot's bindings are named
+// for the shader filling it, so selecting this one writes the pass's set short and every dispatch
+// composing it is refused — on precisely the hardware that supports ray query, and nowhere else,
+// because on everything else the switch never fires. The producer comes first: a scene top level
+// published under `<pass>.RayQueryField.sceneStructure` the way `GlobalDistanceFieldRenderer`
+// publishes the clipmap's. Then the switch, then the protocol.
 
 shader RayQueryField : IDistanceFieldSource {
     /// Further than any march is allowed to go — `NoDistanceField.Nothing`, by value.

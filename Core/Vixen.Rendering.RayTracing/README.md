@@ -112,10 +112,27 @@ closing this needs, since nothing in the repository can conjure a device that ha
   `AccelerationStructureDeviceTests`, through `MaterialCompiler.RayQueryFieldShader` — a public
   constant with no other reader. No `.vxpreset`, `.vxlook` or compositor asset names it, and no
   device-capability switch chooses it. So the wrong colour above reaches no frame today: the
-  hardware tracer is unreachable from any production composition as well as unrefereeable, and the
-  cheaper first move is a `HasRayQuery` switch beside the clipmap rather than a protocol change
-  across 176 shaders that nothing would yet consume. Filed as
+  hardware tracer is unreachable from any production composition as well as unrefereeable. Filed as
   [#1246](https://github.com/Rikarin/Vixen/issues/1246).
+
+  ⚠ **And the "cheaper first move is a `HasRayQuery` switch" this paragraph used to end on is
+  wrong, which is worth more than the absence it names.** A switch that put `RayQueryField` in the
+  slot would name a shader with one binding — `[PerFrame] var sceneStructure: AccelerationStructure`
+  — and **nothing in the engine ever builds an acceleration structure to fill it**:
+  `CreateAccelerationStructure`, `BuildAccelerationStructure` and `GetAccelerationStructureAddress`
+  have no caller anywhere outside the three backends that implement them and one render-graph test
+  double, and the only `sceneStructure` binding written in the tree is
+  `AccelerationStructureDeviceTests`', by hand. A composed slot's bindings are named for the shader
+  filling it, so selecting this one writes the pass's set short — and `StandardFrame.cs:716` states
+  the consequence for the clipmap in terms: *"a pass that composes the field without this line is a
+  set written short — every draw refused"*. The switch would therefore break the frame on exactly
+  the hardware it was added for, and pass everywhere else by never firing.
+
+  So the ordering is: **a producer first** — a scene top-level structure built from the extracted
+  geometry and published under `<pass>.RayQueryField.sceneStructure`, the way
+  `GlobalDistanceFieldRenderer` publishes the clipmap's — then the capability switch that chooses
+  between them, then `DistanceFieldHit`'s widening. The switch is the *last* cheap piece rather than
+  the first.
 - **SAH.** The median build is the baseline and the referee; the surface-area heuristic is the
   optimisation measured against it.
 - **Refit.** A build per change is the baseline; updating in place is the optimisation, and it
