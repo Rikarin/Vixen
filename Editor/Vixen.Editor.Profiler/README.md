@@ -19,6 +19,15 @@ statistics.
 | `ProfilerModel` | Which source, what state, what capture, what baseline. |
 | `ProfilerView`, `FlameChartView`, `GpuTimelineView`, `MemoryView`, `StatisticsView` | The panels. |
 
+⚠ **`ProfilerModel.ExportTrace` is doc 13's second entry point for a trace** — `vixen trace record`
+is the first, and it runs a *game*. This one writes the capture the panel is holding, which is the
+only way to get a trace of the editor's own frame. It writes Chrome `trace_event` JSON and not the
+Perfetto protobuf doc 13 names ([#25](https://github.com/Rikarin/Vixen/issues/25)); the two open in
+the same viewer. An empty capture is refused rather than written, because a document with no events
+in it opens perfectly and reads as a process that did nothing. The panel is told *where* to write by
+whoever hosts it — `Vixen.Editor.Diagnostics` says `<project>/Traces` — which is what keeps this
+assembly ignorant of there being a project at all.
+
 ## The profiler must be able to profile the editor
 
 Doc 20 says so in as many words, and it is why nothing here touches `Profiler` directly. The panel

@@ -55,6 +55,23 @@ public sealed partial class ProfilerView : Control {
     /// <summary>Makes the current capture the one later ones are compared with.</summary>
     public Button Baseline { get; private set; } = null!;
 
+    /// <summary>Writes the capture out as a trace a viewer can open.</summary>
+    /// <remarks>
+    ///     Doc 13's second entry point for a trace — the first is <c>vixen trace record</c>, which
+    ///     runs a game. This one exports whatever the panel is holding, which is the only way to get
+    ///     a trace of the editor's own frame.
+    /// </remarks>
+    public Button Export { get; private set; } = null!;
+
+    /// <summary>Where <see cref="Export" /> writes, or <see langword="null" /> if nobody said.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The button is greyed rather than absent when this is unset</b>, and the status line
+    ///     says why. A panel hosted outside a project — a test, a headless probe — has nowhere to put
+    ///     a file, and a button that silently wrote into the working directory would be worse than
+    ///     one that says it cannot.
+    /// </remarks>
+    public string? TraceDirectory { get; set; }
+
     /// <summary>Which thread's chart is on screen.</summary>
     public Select Threads { get; private set; } = null!;
 
@@ -145,6 +162,12 @@ public sealed partial class ProfilerView : Control {
             }
         };
 
+        Export = Toolbar.Add<Button>();
+        Export.Size = ControlSize.Small;
+        Export.Variant = ControlVariant.Subtle;
+        Export.Label = "Export Trace";
+        Export.Clicked += _ => Write();
+
         Threads = Toolbar.Add<Select>();
         Threads.Size = ControlSize.Small;
         Threads.Placeholder = "Thread";
@@ -217,6 +240,39 @@ public sealed partial class ProfilerView : Control {
         }
     }
 
+    /// <summary>Exports the capture, and says in the status line what came of it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Said in the panel rather than logged.</b> A capture button whose whole visible
+    ///         effect is a line in a log file is one somebody presses twice, and the useful half of
+    ///         the answer is <i>where the file went</i> — a path nobody can guess.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The failure is caught and shown.</b> Writing a file is the one thing this panel
+    ///         does that the operating system can refuse — a read-only project, a full disk — and an
+    ///         <c>IOException</c> out of a button handler takes the editor down rather than the
+    ///         export.
+    ///     </para>
+    /// </remarks>
+    void Write() {
+        if (model is not { } profiler) {
+            return;
+        }
+
+        if (TraceDirectory is not { Length: > 0 } directory) {
+            Status.Text = "There is nowhere to write a trace: this panel was not given a project.";
+            return;
+        }
+
+        try {
+            Status.Text = profiler.ExportTrace(directory) is { } path
+                ? $"Wrote a Chrome trace to '{path}'. It opens in ui.perfetto.dev."
+                : "There is no capture to export. Press Record, then Stop.";
+        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
+            Status.Text = $"The trace could not be written: {failure.Message}";
+        }
+    }
+
     void Restate() {
         if (model is not { } profiler) {
             return;
@@ -243,6 +299,10 @@ public sealed partial class ProfilerView : Control {
 
         Baseline.Label = profiler.Baseline is null ? "Set Baseline" : "Clear Baseline";
         Baseline.Disabled = profiler.Baseline is null && profiler.Capture.IsEmpty;
+
+        // ⚠ Greyed on an empty capture rather than on "not recording": a finished capture is exactly
+        // what there is to export, and the button is at its most useful the moment Stop is pressed.
+        Export.Disabled = profiler.Capture.IsEmpty || TraceDirectory is not { Length: > 0 };
 
         Status.Text = Describe(profiler);
 

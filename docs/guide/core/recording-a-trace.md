@@ -145,9 +145,22 @@ a run that crashed or was killed leaves none, and an instrument that printed a p
 be reporting success on the day it did not run.
 
 ⚠ **Chrome `trace_event` JSON, which is not the Perfetto protobuf doc 13 names**
-([#25](https://github.com/Rikarin/Vixen/issues/25)). It opens in the same viewer. The editor's
-capture button — doc 13's other entry point — is still owed
-([#346](https://github.com/Rikarin/Vixen/issues/346)).
+([#25](https://github.com/Rikarin/Vixen/issues/25)). It opens in the same viewer.
+
+### From the editor
+
+Doc 13's other entry point. The Profiler panel's **Export Trace** writes whatever capture the panel
+is holding into `<project>/Traces/<source>-<timestamp>.json` — the same folder and the same shape
+`vixen trace record` uses, so the two kinds of recording sort as one list — and the status line under
+the toolbar says where the file went.
+
+⚠ **It is the only way to get a trace of the editor itself.** The verb above builds and runs a
+*game*; the panel exports whichever source is selected, and one of those is the editor's own frame.
+Which is what doc 20 means by "the profiler must be able to profile the editor".
+
+⚠ **An empty capture is refused rather than written.** A trace document with no events in it opens
+perfectly and reads as a process that did nothing, so the button is greyed until there is a capture
+and says so if it is pressed with none — the same reason the verb refuses a zero duration.
 
 ## Examples
 
