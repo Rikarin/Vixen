@@ -944,3 +944,65 @@ dotnet_naming_rule.private_fields_camel.severity = none
 dotnet_naming_rule.nuke_private_fields_pascal.severity = warning
 dotnet_naming_rule.nuke_private_fields_pascal.symbols = private_fields
 dotnet_naming_rule.nuke_private_fields_pascal.style = pascal
+
+# ==============================================================================
+# VXLG0001 — a catch that takes every exception and never names it.
+#
+# The rule is docs/plan/13 § Discipline's: every catch either handles or logs
+# with the exception object. The analyzer is Core/Vixen.Core.Analyzers, referenced
+# from Directory.Build.props by every Core project that is not a test, a generator
+# or an analyzer — the same set as VXIO0001 and VXHP0001.
+#
+# ⚠ CA1031 is not this rule. It reads the clause and not the body, so it reports
+# the exact form doc 13 asks for and stays silent on nothing this reports; it is
+# also not enabled here (AnalysisLevel is latest-recommended), which is why
+# sixteen unfiltered broad catches compile clean in Core/ and why the seven
+# `#pragma warning disable CA1031` comments in the tree suppress nothing.
+#
+# Everything below is a place where the failure cannot be reported from: no
+# logger reaches it, or the harness around it is what reports. Each already
+# carried the reason as a comment above the clause; this is the same reason said
+# where a build can read it. Scoped to the file, never to the project.
+# ==============================================================================
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Core.Threading/JobScheduler.cs
+#
+# Two clauses, both around `IThreadPlacement`, and neither has anywhere to report
+# to: the scheduler holds no logger at all — by design, since it is what the
+# logging sinks' own work runs on. Placement is an optimisation, an unhandled
+# exception on a worker thread takes the process down, and a frame must not be
+# lost to a machine whose affinity mask was not ours to set. It is not silent in
+# the way that matters either: a worker that was not placed is not counted, and
+# `WorkersPlaced` is short by one for the life of the process.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Core.Threading/JobScheduler.cs]
+dotnet_diagnostic.VXLG0001.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Core.Serialization/Storage/ChunkFormat.cs
+#
+# `Declared` asks a compression library what a frame header says it decodes to,
+# and "this is not a frame this format produces" is the answer rather than a
+# failure — it is returned as ulong.MaxValue and the caller decides. Every byte
+# range a reader is handed can fail this question, including the ones an attacker
+# chose, so a log line here is one per malformed chunk on a path whose whole job
+# is to refuse them.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Core.Serialization/Storage/ChunkFormat.cs]
+dotnet_diagnostic.VXLG0001.severity = none
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Core/Vixen.Fuzz/FuzzSession.cs, Core/Vixen.Fuzz/SyntaxDomain.cs
+#
+# A fuzzer catching everything is the assertion rather than a lapse: nothing may
+# escape a decoder, and the throw the harness cares about has already been
+# recorded as a named finding by the time these clauses run. `SyntaxDomain` is the
+# same shape one layer down — a front end that threw is the *target's* finding,
+# and here the input is only bytes to mutate again.
+# ─────────────────────────────────────────────────────────────────────────────
+[Core/Vixen.Fuzz/FuzzSession.cs]
+dotnet_diagnostic.VXLG0001.severity = none
+
+[Core/Vixen.Fuzz/SyntaxDomain.cs]
+dotnet_diagnostic.VXLG0001.severity = none

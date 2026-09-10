@@ -9,7 +9,7 @@ using Xunit;
 
 namespace Vixen.Core.Analyzers.Tests;
 
-/// <summary>Runs <see cref="HotPathAllocationAnalyzer" /> over a string of C#, the way the compiler would.</summary>
+/// <summary>Runs one of this project's analyzers over a string of C#, the way the compiler would.</summary>
 /// <remarks>
 ///     The references come from this assembly's own load set, which is what puts the real
 ///     <c>Vixen.Core.HotPathAttribute</c> in front of the analyzer rather than a fixture's copy of it.
@@ -21,15 +21,22 @@ namespace Vixen.Core.Analyzers.Tests;
 public static class AnalyzerHarness {
     static readonly ImmutableArray<MetadataReference> References = CollectReferences();
 
-    /// <summary>Compiles source and runs the analyzer over it.</summary>
+    /// <summary>Compiles source and runs <see cref="HotPathAllocationAnalyzer" /> over it.</summary>
     /// <param name="source">The C# to compile. It has to compile: a snippet with an error in it binds
     ///     to nothing, and an analyzer that reports nothing about nothing would pass.</param>
     /// <returns>What the analyzer reported.</returns>
-    public static async Task<ImmutableArray<Diagnostic>> RunAsync(string source) {
+    public static Task<ImmutableArray<Diagnostic>> RunAsync(string source) =>
+        RunAsync(new HotPathAllocationAnalyzer(), source);
+
+    /// <summary>Compiles source and runs one analyzer over it.</summary>
+    /// <param name="analyzer">The rule under test.</param>
+    /// <param name="source">The C# to compile, which has to compile for the same reason.</param>
+    /// <returns>What that analyzer reported, and nothing another one would have.</returns>
+    public static async Task<ImmutableArray<Diagnostic>> RunAsync(DiagnosticAnalyzer analyzer, string source) {
         var compilation = Compile(source);
 
         return await compilation
-            .WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(new HotPathAllocationAnalyzer()))
+            .WithAnalyzers(ImmutableArray.Create(analyzer))
             .GetAnalyzerDiagnosticsAsync(TestContext.Current.CancellationToken);
     }
 

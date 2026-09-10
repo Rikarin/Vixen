@@ -649,6 +649,7 @@ T:Vixen.ContentServer.ContentServer sweep-pending
 T:Vixen.ContentServer.ContentServerHost sweep-pending
 T:Vixen.ContentServer.ContentStatus sweep-pending
 T:Vixen.Core.Analyzers.HotPathAllocationAnalyzer sweep-pending
+T:Vixen.Core.Analyzers.SilentCatchAnalyzer sweep-pending — arrived 2026-09-10 with VXLG0001, the half of doc 13's "every catch handles or logs" that a compiler can decide
 T:Vixen.Core.AssetId sweep-pending
 T:Vixen.Core.AssetReference sweep-pending
 T:Vixen.Core.AssetTypeAttribute sweep-pending

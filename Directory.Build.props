@@ -589,8 +589,12 @@
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all" />
     <!--
-      VXHP0001. Unlike VXIO0001 this one reports nothing until a member is marked [HotPath], so
-      referencing it everywhere costs a compilation that has marked nothing exactly nothing.
+      VXHP0001 and VXLG0001. The first reports nothing until a member is marked [HotPath], so its
+      breadth costs a compilation that has marked nothing exactly nothing; the second reads every
+      catch clause, and the five places in Core/ it fires on are off by name in .editorconfig.
+      ⚠ VXLG0001 is not CA1031 and cannot be replaced by it: CA1031 reads the clause and not the
+      body, so it reports the shape doc 13 asks for — and it is not enabled by latest-recommended
+      anyway, which is why sixteen unfiltered broad catches compile clean here.
     -->
     <ProjectReference Include="$(MSBuildThisFileDirectory)Core\Vixen.Core.Analyzers\Vixen.Core.Analyzers.csproj"
                       OutputItemType="Analyzer"
