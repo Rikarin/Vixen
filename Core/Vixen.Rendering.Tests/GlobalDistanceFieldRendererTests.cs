@@ -409,6 +409,13 @@ public class GlobalDistanceFieldRendererTests {
             + "so nothing on this thread ever ran a background slice"
         );
 
+        // ⚠ It landed by being drained, not by the node giving up on it. `MaxStalledFrames` would
+        // finish a refresh that made no progress for sixty frames, and this one makes progress every
+        // eighth — so without this assertion the test would read as green on the day the fairness
+        // share stopped working and the bound picked up the pieces, which is exactly the failure it
+        // exists to catch.
+        Assert.Equal(0, node.Forced);
+
         // It landed, it was published, and the frames before it drew the clipmap it replaced.
         Assert.Equal(2, node.Composites);
         Assert.Equal(2, node.Texture!.Uploads);
@@ -506,6 +513,121 @@ public class GlobalDistanceFieldRendererTests {
 
         // And the proof that it is usable rather than merely reporting so.
         field.Update(Vector3.Zero, []);
+    }
+
+    /// <summary>
+    ///     A refresh nothing is draining is finished by the node rather than left outstanding for ever.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>The frame that schedules nothing else is the one case with no other exit.</b> The
+    ///         drain the test above proves is the scheduler's fairness share, and a share of nothing
+    ///         is nothing: a zero-worker frame whose only job work is the composite itself never
+    ///         completes anything, so nothing ever calls into the take path and not one slice runs.
+    ///         There is one spare buffer per level, so that refresh is also the last one that can
+    ///         start — a camera that keeps moving draws the same clipmap for the rest of the process.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Counted in frames of <i>no progress</i> rather than frames outstanding, which is the
+    ///         half that keeps this from cutting off a refresh that is landing slowly. The loop below
+    ///         asserts the deferral survives every frame up to the bound, so the assertion after it
+    ///         cannot pass by the node having given up early — a bound of one would redden the loop
+    ///         rather than quietly satisfying the test.
+    ///     </para>
+    /// </remarks>
+    [Trait("Workers", "0")]
+    [Fact]
+    public void ARefreshNothingIsDrainingIsFinishedByTheNodeRatherThanLeftOutstanding() {
+        using var device = new NullDevice(new() { Record = true });
+        using var jobs = new JobScheduler(0);
+        using var node = Node(device, out _);
+        var context = Context(device);
+        var field = node.Field!;
+
+        node.Jobs = jobs;
+        node.MaxStalledFrames = 5;
+        Record(node, context);
+
+        var slices = field.SlicesComposited;
+
+        node.ViewPosition = new Vector3(field.CellSizeOf(0) * 4f, 0, 0);
+        Record(node, context);
+
+        Assert.True(node.IsRefreshing, "the recomposite was not deferred at all");
+        Assert.Equal(0, node.Forced);
+
+        // Every frame short of the bound still draws around it, and not one slice has run on any of
+        // them — the deferral is intact right up to the frame that ends it.
+        for (var frame = 1; frame < node.MaxStalledFrames; frame++) {
+            Record(node, context);
+
+            Assert.True(node.IsRefreshing, $"the refresh was cut off {frame} stalled frames in");
+            Assert.Equal(slices, field.SlicesComposited);
+            Assert.Equal(0, node.Forced);
+        }
+
+        Record(node, context);
+
+        Assert.False(node.IsRefreshing, "the stalled refresh was still outstanding at the bound");
+        Assert.Equal(1, node.Forced);
+
+        // Finished rather than dropped: the slices ran, on this thread, and the composite was
+        // published and copied up like any other.
+        Assert.Equal(slices + field.LevelCount * field.Resolution, field.SlicesComposited);
+        Assert.Equal(2, node.Composites);
+        Assert.Equal(2, node.Texture!.Uploads);
+
+        // And the node is usable afterwards — the spare buffers went back, so a later camera move
+        // starts a refresh rather than finding the level still held by the one that was forced.
+        node.ViewPosition = new Vector3(field.CellSizeOf(0) * 8f, 0, 0);
+        Record(node, context);
+
+        Assert.True(node.IsRefreshing, "no later refresh could start, so the buffers never came back");
+    }
+
+    /// <summary>Nought turns the bound off, and a stalled refresh then stays outstanding.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The instrument check for the test above.</b> Without it, that test passes on a node
+    ///     whose refresh landed for some reason having nothing to do with the bound — the assertion
+    ///     that distinguishes them is that switching only the bound off changes the answer. It is
+    ///     also the escape hatch a frame that would rather have a stale clipmap than a hitch sets,
+    ///     and the behaviour every deferral test in this file was written against.
+    /// </remarks>
+    [Trait("Workers", "0")]
+    [Fact]
+    public void NoughtStalledFramesLeavesTheRefreshOutstandingHowEverLongItStalls() {
+        using var device = new NullDevice(new() { Record = true });
+        using var jobs = new JobScheduler(0);
+        using var node = Node(device, out _);
+        var context = Context(device);
+        var field = node.Field!;
+
+        node.Jobs = jobs;
+        node.MaxStalledFrames = 0;
+        Record(node, context);
+
+        var slices = field.SlicesComposited;
+
+        node.ViewPosition = new Vector3(field.CellSizeOf(0) * 4f, 0, 0);
+        Record(node, context);
+
+        Assert.True(node.IsRefreshing, "the recomposite was not deferred at all");
+
+        // Ten times the default bound, so this is not a run that merely stopped short of it.
+        for (var frame = 0; frame < 600; frame++) {
+            Record(node, context);
+        }
+
+        Assert.True(node.IsRefreshing, "the bound fired with the bound switched off");
+        Assert.Equal(0, node.Forced);
+        Assert.Equal(slices, field.SlicesComposited);
+        Assert.Equal(1, node.Composites);
+
+        // Drained by hand, so the run above is about the bound rather than about a refresh that was
+        // never runnable in the first place.
+        node.WaitForRefresh();
+
+        Assert.Equal(slices + field.LevelCount * field.Resolution, field.SlicesComposited);
     }
 
     /// <summary>The name of the finest level's box, which is what says which composite is bound.</summary>

@@ -147,6 +147,17 @@ work and blocks on the one after it. Both of that node's tests were green agains
 until each was made to run a further frame — so a test for this pattern has to outlive the frame
 that schedules.
 
+⚠ **A consumer owes an answer for the frame that drains nothing.** The fairness share above is taken
+by whichever thread happens to be completing something else, so a frame that schedules any work at
+all advances a deferred job a little — including a zero-worker frame, where the completing thread is
+the frame's own. What has no exit is a frame that schedules *nothing* else on a build with no workers
+(`browser-wasm`, or `--vixen-workers 0`): nobody enters the take path, so the poll never becomes
+true. `GlobalDistanceFieldRenderer` answers it by counting the consecutive frames in which the
+deferred refresh composited nothing at all and finishing it on the frame thread past a bound —
+progress rather than age, so a refresh that is landing slowly is never cut off, and the hitch the
+deferral exists to avoid is paid only where the alternative is a clipmap that stops following the
+camera for the rest of the process.
+
 ## See also
 
 - [`Vixen.Core.Threading` README](https://github.com/Rikarin/Vixen/blob/master/Core/Vixen.Core.Threading/README.md) —

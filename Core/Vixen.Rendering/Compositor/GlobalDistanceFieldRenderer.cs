@@ -54,6 +54,8 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
     ClipmapRefresh? refresh;
     JobHandle refreshHandle;
     Vector3 refreshCentre;
+    long refreshProgress;
+    int stalledFrames;
 
     /// <summary>The clipmap to keep. Null does nothing at all.</summary>
     public GlobalDistanceField? Field { get; set; }
@@ -189,6 +191,56 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
     /// </remarks>
     public int Deferred { get; private set; }
 
+    /// <summary>
+    ///     How many consecutive frames a refresh may make no progress at all before the node
+    ///     finishes it on the frame thread. Zero never does.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>A stall check, not a staleness budget.</b> The background tier is drained by
+    ///         whichever thread happens to be completing something else — <c>JobScheduler</c> takes a
+    ///         background item after every sixty-fourth frame one, from workers and from a
+    ///         zero-worker caller alike — so a frame that schedules anything advances a deferred
+    ///         refresh a little and never reaches this. What reaches it is the case that has no other
+    ///         exit: a frame doing so little job work that not one slice runs, on a build with no
+    ///         workers to fall back on (<c>browser-wasm</c>, or <c>--vixen-workers 0</c>). ⚠ There is
+    ///         one spare buffer per level, so the first refresh is also the last one that can start
+    ///         until it lands, and a camera that keeps moving against a refresh that never lands
+    ///         draws the same clipmap for the rest of the process.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Progress, rather than age.</b> A refresh that is landing one slice every few
+    ///         frames is the deferral working, and a bound on its age would cut it off precisely when
+    ///         it was doing what it exists to do — so the counter resets on
+    ///         <see cref="GlobalDistanceField.SlicesComposited" /> moving and counts only frames in
+    ///         which it did not. That also keeps the number out of the business of saying how long a
+    ///         composite may take, which depends on the field and on the machine and is not something
+    ///         this node can know.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The default is generous on purpose and is not a measurement.</b> Forcing costs
+    ///         the frame the whole remaining composite — exactly the hitch the deferral is here to
+    ///         avoid — so the only case worth paying it for is the one that would otherwise never
+    ///         end. How large a lag a browser frame should actually tolerate wants measuring on a
+    ///         browser, which #1214 says and which nothing in this repository can do.
+    ///     </para>
+    ///     <para>
+    ///         Internal because it exists to be asserted on and nothing in the tree sets it;
+    ///         <c>VisibilityGroup.LastCulledWords</c> is the same shape for the same reason. A game
+    ///         that needs to tune it is the reason to make it public.
+    ///     </para>
+    /// </remarks>
+    internal int MaxStalledFrames { get; set; } = 60;
+
+    /// <summary>How many refreshes were finished by <see cref="MaxStalledFrames" /> rather than by the tier.</summary>
+    /// <remarks>
+    ///     ⚠ The instrument check for every test that claims a refresh landed *because* the frame's
+    ///     own work drained it: without this, such a test passes identically on the day the drain
+    ///     stops working and the bound below picks up the pieces, which is the failure the bound is
+    ///     most likely to hide.
+    /// </remarks>
+    internal int Forced { get; private set; }
+
     /// <summary>Declares the pass that composites the clipmap and copies it up.</summary>
     /// <param name="compositor">The compositor.</param>
     /// <param name="frame">The frame being built.</param>
@@ -264,8 +316,21 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
             // the background tier and a `ParallelFor` wearing its name: `Complete` here would block
             // the frame on work the tier had just told every worker to prefer nothing about, which
             // is slower than never having deferred it.
-            if (Jobs is not { } asked || asked.IsCompleted(refreshHandle)) {
+            var landed = Jobs is not { } asked || asked.IsCompleted(refreshHandle);
+
+            // ⚠ And a second exit, for the frame that is not draining it. See the remarks on
+            // `MaxStalledFrames`: the poll above is the whole of what advances a refresh on a
+            // browser, so a frame that schedules almost nothing else can leave one outstanding for
+            // as long as the camera keeps the node from starting another.
+            var forced = !landed && MaxStalledFrames > 0 && Stalled(field) >= MaxStalledFrames;
+
+            if (landed || forced) {
                 refresh = null;
+                stalledFrames = 0;
+
+                if (forced) {
+                    Forced++;
+                }
 
                 try {
                     // Rethrows a slice that threw, on the frame thread, where the pass can report it —
@@ -327,6 +392,11 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
                     // handle — which reads as complete — and publishes a composite in which not one
                     // slice has run.
                     refresh = started;
+
+                    // The stall watch starts here rather than on the first deferred frame, so that
+                    // what it measures is this refresh's progress and not the previous one's total.
+                    refreshProgress = field.SlicesComposited;
+                    stalledFrames = 0;
 
                     // This frame, and every frame until it lands, draws the clipmap it replaces. No
                     // upload here for the same reason: the device holds the previous composite and
@@ -409,6 +479,28 @@ public sealed class GlobalDistanceFieldRenderer : SceneRenderer, IDisposable {
 
         Texture?.Dispose();
         Texture = null;
+    }
+
+    /// <summary>How many consecutive frames the outstanding refresh has composited nothing.</summary>
+    /// <param name="field">The clipmap being refreshed.</param>
+    /// <returns>The run length, this frame included.</returns>
+    /// <remarks>
+    ///     Called once per deferred frame and nowhere else, because it is a run length and counting
+    ///     it twice in a frame would halve the bound. The counter it reads is interlocked and is
+    ///     written by whatever thread ran the slice, so a value one frame behind is possible and
+    ///     costs a frame of the run — which is why the bound is a large number of frames and not two.
+    /// </remarks>
+    int Stalled(GlobalDistanceField field) {
+        var progress = field.SlicesComposited;
+
+        if (progress != refreshProgress) {
+            refreshProgress = progress;
+            stalledFrames = 0;
+        } else {
+            stalledFrames++;
+        }
+
+        return stalledFrames;
     }
 
     /// <summary>Whether there is something on the device good enough to draw one more frame with.</summary>
