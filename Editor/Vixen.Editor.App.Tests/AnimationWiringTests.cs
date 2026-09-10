@@ -3,6 +3,7 @@
 
 using Vixen.Animation;
 using Vixen.Animation.Constraints;
+using Vixen.Animation.Ecs;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
 using Vixen.Core.Yaml;
@@ -200,6 +201,56 @@ public class AnimationWiringTests {
         );
 
         Assert.Equal(2, AnimationBinder.Effectors(rig, shapes).Count);
+    }
+
+    /// <summary>Pressing Play puts the three animation passes in the frame and runs them.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b><c>AnimationSystems.AddAnimation</c> had exactly one caller in the whole tree and
+    ///         it was a test</b> (<a href="https://github.com/Rikarin/Vixen/issues/1221">#1221</a>).
+    ///         None of the three passes carries <c>[GameSystem]</c> — correctly, since they take no
+    ///         service and belong to whoever runs the frame — and <c>[UpdateInGroup]</c> only orders
+    ///         a system something has already added, so an <c>AnimatorComponent</c> was evaluated by
+    ///         nothing anywhere. <c>PlayAnimation</c> is the contribution that closes it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The animator is the half worth having, because registration is not evaluation.</b>
+    ///         Three type names in the graph is satisfied by a pass that is added and never reached —
+    ///         a phase nothing runs, a session that never ticks — so the assertion that decides this
+    ///         is <see cref="Animator.LastDeltaTime" />, which is zero on a fresh animator and is
+    ///         written only by <c>Animator.Update</c>. It is a count of work rather than a wall
+    ///         clock: the harness steps a fixed 1/60 s and the value is that step or nothing at all.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Pressing_play_puts_the_animation_passes_in_the_frame_and_runs_them() {
+        using var session = EditorSession.Start();
+
+        session.Run("play.play");
+        session.Frames(2);
+
+        var play = session.Editor.PlayMode.Session;
+
+        Assert.NotNull(play);
+        Assert.Empty(session.Editor.PlayMode.Refused);
+        Assert.Contains("animation", play.Running);
+
+        var systems = play.Loop.Systems.Graph.All.Select(node => node.System.GetType()).ToArray();
+
+        Assert.Contains(typeof(AnimationSystem), systems);
+        Assert.Contains(typeof(SkinningSystem), systems);
+        Assert.Contains(typeof(BlendShapeAnimationSystem), systems);
+
+        var animator = new Animator(Rig());
+
+        play.World.Create(new AnimatorComponent { Value = animator });
+
+        // False before the pass runs, which is what makes the assertion below mean something.
+        Assert.Equal(0f, animator.LastDeltaTime);
+
+        session.Frames(2);
+
+        Assert.True(animator.LastDeltaTime > 0f, "the animation pass evaluated the animator it was given");
     }
 
     static ProxyShape Shape(string name, int joint, Vector3 offset) =>

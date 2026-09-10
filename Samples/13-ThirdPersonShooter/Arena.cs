@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.Extensions.Logging;
+using Vixen.Animation.Ecs;
 using Vixen.App;
 using Vixen.Core;
 using Vixen.Core.Mathematics;
@@ -395,6 +396,16 @@ public sealed class Arena : IDisposable {
         // Sync, step, characters, writeback — the four in AddPhysics, in the phases their attributes
         // put them in. A game never orders them by hand, which is the point of them having phases.
         loop.AddPhysics(Physics);
+
+        // ⚠ **And the animation passes, which no game in this tree registered until #1221.** The
+        // symmetry with the line above is the whole diagnosis: `AddAnimation` was written for this
+        // call site, in the same shape, and the call was never made — so `AnimationSystem`,
+        // `SkinningSystem` and `BlendShapeAnimationSystem` ran in no game's loop and an
+        // `AnimatorComponent` was evaluated by nothing anywhere. This level's own character is
+        // animated by a `Behavior` rather than by a clip graph, so the three walk queries that match
+        // nothing here; registering them regardless is what `AnimationSystems`' remarks argue for,
+        // and it is what makes the next entity in this sample that carries an animator move.
+        loop.AddAnimation();
 
         // The lake's bed: the terrain is the producer of WaterZoneSystem.Ground and nothing in the
         // engine is, outside the editor's presenter. Doc 35 § D3.

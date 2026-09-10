@@ -197,6 +197,16 @@
         <ProjectReference Include="..\..\Core\Vixen.Physics\Vixen.Physics.csproj" />
 
         <!--
+            ⚠ And animation, for the same reason one line up and a worse gap: `PlayAnimation` is the
+            *only* production caller `AnimationSystems.AddAnimation` has ever had (#1221). It arrives
+            transitively through the asset editors, so this line buys no assembly — it is named
+            because a play session's frame depends on it, and a day when the asset editors stop
+            referencing animation should be a missing reference rather than a play mode that silently
+            stops evaluating animators.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Animation\Vixen.Animation.csproj" />
+
+        <!--
             Analyzers do not flow transitively through a ProjectReference, so an assembly declaring
             [Inspector] members of its own — which SceneEntity does — has to name the generator.
         -->

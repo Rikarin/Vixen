@@ -659,6 +659,13 @@ sealed partial class EditorApplication : IDisposable {
         // same type, so the sequence of these two lines in two assemblies no longer decides it.
         contributions.Add(Extensions.Add<IPlaySystems>(new PlayPhysics()));
 
+        // ⚠ And the animation passes, which until #1221 no production code anywhere registered: the
+        // only call to `AnimationSystems.AddAnimation` in the tree was a test's, so an
+        // `AnimatorComponent` was evaluated by nothing. Unconditional and owning nothing — see
+        // `PlayAnimation`, which also records why `[GameSystem]` is not the answer for an engine
+        // pass.
+        contributions.Add(Extensions.Add<IPlaySystems>(new PlayAnimation()));
+
         // ⚠ Every entity gets a *new handle* when a play-mode snapshot is restored, so the
         // document's name and stable-id tables — both keyed by handle — name nothing at all
         // afterwards. `SceneDocument.Remap` was written for exactly this and nothing called it: the
