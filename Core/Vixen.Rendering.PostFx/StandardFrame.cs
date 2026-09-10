@@ -1167,7 +1167,10 @@ static class StandardFrame {
 
         // Everything after the tonemap is display-referred, so the last of these writes the
         // output resource and the ones before it hand eight-bit intermediates along.
-        var afterTonemap = (fxaa ? 1 : 0) + (smaa ? 1 : 0) + (motion ? 1 : 0) + (tier.Vignette ? 1 : 0);
+        // ⚠ The lens node is unconditional and the `+ 1` is not a `tier.Vignette ? 1 : 0`: the node
+        // carries the dither, which every tier needs, and the tier decides only which of the three
+        // *looks* it also carries. See its emission below.
+        var afterTonemap = (fxaa ? 1 : 0) + (smaa ? 1 : 0) + (motion ? 1 : 0) + 1;
 
         nodes.Add(
             new TonemapAsset {
@@ -1251,25 +1254,40 @@ static class StandardFrame {
             colour = afterTonemap > 0 ? "SceneSharpened" : frame.Output;
         }
 
-        if (tier.Vignette) {
-            // ⚠ `useDither` on, and this is the one node in the expansion it can be on: a dither is
-            // one code of the *stored* value, broken up immediately before the encode makes it, and
-            // this is the pass that writes the frame's output resource. Dithering an intermediate
-            // dithers the wrong quantity, and it is a quantisation fix rather than a look, so it
-            // belongs to no fidelity setting.
-            //
-            // The amplitude is not a number spelt here and could not be: `Format` is
-            // `Rgba8UNormSrgb`, so one stored code is a linear step whose size changes by a factor
-            // of forty-five between the shadows and the highlights. The shader carries an
-            // `SrgbTarget` permutation for exactly that, set from the attachment's own format by
-            // `VignetteRenderer.Configure` rather than from an author's belief about it — see #1181.
-            //
-            // ⚠ Which means the two tiers with no vignette have no dither either, because this seat
-            // is the vignette's. That is a gap rather than a decision — see #1243.
-            nodes.Add(
-                new VignetteAsset { Name = "Glass", Source = colour, Output = frame.Output, UseDither = true }
-            );
-        }
+        // ⚠ `UseDither` on, and this is the one node in the expansion it can be on: a dither is one
+        // code of the *stored* value, broken up immediately before the encode makes it, and this is
+        // the pass that writes the frame's output resource. Dithering an intermediate dithers the
+        // wrong quantity, and it is a quantisation fix rather than a look, so it belongs to no
+        // fidelity setting.
+        //
+        // The amplitude is not a number spelt here and could not be: `Format` is `Rgba8UNormSrgb`,
+        // so one stored code is a linear step whose size changes by a factor of forty-five between
+        // the shadows and the highlights. The shader carries an `SrgbTarget` permutation for exactly
+        // that, set from the attachment's own format by `VignetteRenderer.Configure` rather than
+        // from an author's belief about it — see #1181.
+        //
+        // ⚠ **Emitted on every tier, and the tier gates only the three looks it carries** — which is
+        // the whole of #1243. This node used to be emitted under `if (tier.Vignette)`, so Low and
+        // Medium had no dither at all; banding is a property of the eight-bit *encode* rather than a
+        // fidelity axis, and if anything it is the cheap tiers — the ones with no bloom and no
+        // volumetrics to break a gradient up — whose frames band most. The cost that buys is one
+        // full-screen pass whose three look permutations are all off, so it samples once, adds noise
+        // and writes: see `docs/plan/06`, which records the tier-cost call.
+        nodes.Add(
+            new VignetteAsset {
+                Name = "Glass",
+                Source = colour,
+                Output = frame.Output,
+
+                // One tier knob for the three, because that is what the knob has always gated: the
+                // node was all-or-nothing and its three look permutations default to on, so a tier
+                // with a vignette had the aberration and the grain too.
+                UseVignette = tier.Vignette,
+                UseChromaticAberration = tier.Vignette,
+                UseGrain = tier.Vignette,
+                UseDither = true
+            }
+        );
 
         Splice(nodes, frame.Extensions.BeforeUi);
 
