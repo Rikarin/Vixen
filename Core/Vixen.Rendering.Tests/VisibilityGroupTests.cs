@@ -234,6 +234,86 @@ public class VisibilityGroupTests {
         );
     }
 
+    /// <summary>
+    ///     ⚠ A group that once held a large scene culls the next, small one over the small one's
+    ///     words — not over the memory the large one left behind.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The waste this pins is invisible in every bit of the answer, which is why nothing ever
+    ///         reported it: the words past the live count are written zero into an array
+    ///         <c>Cull</c> has already cleared, so the frame is correct and simply pays for it. The
+    ///         allocation is a high-water mark that doubles and never shrinks, so the price is the
+    ///         largest scene the process has ever drawn, for the rest of the process.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A scene that shrinks by <c>RenderObjectStore.Remove</c> does not shrink this</b>,
+    ///         because a removed object leaves its slot behind and <c>Count</c> is slots. It is
+    ///         <c>Clear</c> — a scene reload — that makes the two numbers diverge, which is the case
+    ///         written here.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void Culling_covers_the_live_words_rather_than_the_allocated_ones() {
+        using var store = new RenderObjectStore();
+        using var visibility = new VisibilityGroup();
+
+        for (var i = 0; i < 4000; i++) {
+            store.Add(At(new(0f, 0f, 10f)));
+        }
+
+        visibility.Cull(store, [Camera()]);
+        Assert.Equal(63, visibility.LastCulledWords);
+
+        var allocated = visibility.Words(0).Length;
+        Assert.True(allocated >= 63, "the group allocated fewer words than the scene needed");
+
+        store.Clear();
+        store.Add(At(new(0f, 0f, 10f)));
+        visibility.Cull(store, [Camera()]);
+
+        // One object is one word, whatever the group is still holding for the scene before it.
+        Assert.Equal(1, visibility.LastCulledWords);
+        Assert.Equal(allocated, visibility.Words(0).Length);
+        Assert.True(visibility.IsVisible(0, new(0)));
+    }
+
+    /// <summary>
+    ///     A scene with one batch of work in it does not go through the job system to run that one
+    ///     batch.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ <b>Not a measured crossover, and it must not be read as one.</b> What it asserts is the
+    ///     case no measurement can rescue — renting a slot, publishing a handle and completing it to
+    ///     run a single batch — and #1206's real figure, which depends on what sixty-four frustum
+    ///     tests against every view in the frame cost, is still owed. The <em>reason</em> it is
+    ///     merely wasteful rather than a serialised frame is that <c>JobScheduler.Complete</c> runs
+    ///     ready work while it waits: the calling thread is a participant, not an observer.
+    /// </remarks>
+    [Fact]
+    public void A_scene_that_fits_in_one_batch_is_culled_inline() {
+        using var store = new RenderObjectStore();
+        using var visibility = new VisibilityGroup();
+        using var scheduler = new JobScheduler();
+
+        // 256 objects is four words, which is exactly one batch.
+        for (var i = 0; i < 256; i++) {
+            store.Add(At(new(0f, 0f, 10f)));
+        }
+
+        visibility.Cull(store, [Camera()], scheduler);
+        Assert.Equal(4, visibility.LastCulledWords);
+        Assert.False(visibility.LastCullWasParallel);
+
+        store.Add(At(new(0f, 0f, 10f)));
+        visibility.Cull(store, [Camera()], scheduler);
+        Assert.Equal(5, visibility.LastCulledWords);
+        Assert.True(visibility.LastCullWasParallel);
+
+        // The threshold decides where the work runs and nothing else: every object is still visible.
+        Assert.Equal(257, visibility.VisibleCount(0));
+    }
+
     [Fact]
     public void Culling_no_views_or_no_objects_is_harmless() {
         using var store = new RenderObjectStore();

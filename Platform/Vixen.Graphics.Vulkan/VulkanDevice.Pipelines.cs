@@ -631,7 +631,7 @@ public sealed unsafe partial class VulkanDevice {
 
 
             Check(
-                Api.CreateGraphicsPipelines(device, default, 1, &create, null, &handle),
+                Api.CreateGraphicsPipelines(device, pipelineCache, 1, &create, null, &handle),
                 "vkCreateGraphicsPipelines"
             );
 
@@ -671,7 +671,7 @@ public sealed unsafe partial class VulkanDevice {
             Pipeline handle;
 
             Check(
-                Api.CreateComputePipelines(device, default, 1, &create, null, &handle),
+                Api.CreateComputePipelines(device, pipelineCache, 1, &create, null, &handle),
                 "vkCreateComputePipelines"
             );
 

@@ -203,6 +203,25 @@ public sealed class GraphicsOptions {
     /// </remarks>
     public string? CapturePath { get; set; }
 
+    /// <summary>Where the driver's own pipeline cache is kept between runs.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         Defaulted at boot to a file under <c>IFileSystemHost.CacheDirectory</c>, because that
+    ///         is the only layer that knows where this platform keeps something derivable: a
+    ///         pipeline cache must not be backed up, must not be synced, and costs a longer first
+    ///         frame to lose. A head that keeps its caches somewhere of its own says so here;
+    ///         <see cref="string.Empty" /> turns the file off and keeps the in-memory cache.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Only the Vulkan backend reads it, and it decides persistence rather than
+    ///         caching.</b> A <c>VkPipelineCache</c> is created either way — without one the driver
+    ///         compiles the same shader twice for two pipelines that differ only in blend state —
+    ///         and this is what makes the second <em>run</em> cheap as well as the second pipeline.
+    ///         The blob is driver- and device-specific and is discarded on any mismatch.
+    ///     </para>
+    /// </remarks>
+    public string? PipelineCachePath { get; set; }
+
     /// <summary>Whether to open a real device with no surface, and write no picture.</summary>
     /// <remarks>
     ///     <para>

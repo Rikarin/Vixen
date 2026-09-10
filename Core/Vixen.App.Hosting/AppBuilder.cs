@@ -296,6 +296,23 @@ public sealed class AppBuilder {
         // after the engine, because this adds the extraction systems that fill the frame from the
         // world; and before the game sees the services, because OnInitialise is where a game places
         // its camera and expects something to be looking through it.
+        // ⚠ Defaulted here rather than inside the backend, which cannot know where this platform
+        // keeps a cache. It is the difference between a driver that recompiles every pipeline on
+        // every boot and one that does it once per machine — and a cache directory rather than a
+        // data one, because the blob is derivable, must not be backed up or synced, and a driver
+        // update invalidates it. `""` is a head saying it wants no file.
+        //
+        // Joined with a forward slash rather than System.IO.Path, which Core is barred from using
+        // (VXIO0001) and which is the wrong tool anyway: this is a host path being handed straight
+        // back to the platform layer that produced it, and every OS this runs on accepts a forward
+        // slash — including the one whose own separator is a backslash. ZLoggerFileSink does the
+        // same thing for the same reason.
+        if (config.Graphics.PipelineCachePath is null
+            && host.FileSystem.CacheDirectory is { Length: > 0 } caches) {
+            var directory = caches.EndsWith('/') || caches.EndsWith('\\') ? caches[..^1] : caches;
+            config.Graphics.PipelineCachePath = $"{directory}/pipelines.vkcache";
+        }
+
         var graphics = config.Graphics.Enabled ? Graphics(config, window, content, engine, loggerFactory, jobs) : null;
 
         // ⚠ Added here rather than inside AppGraphics because the ring is this method's. It goes into

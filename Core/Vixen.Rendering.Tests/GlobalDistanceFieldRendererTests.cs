@@ -334,6 +334,88 @@ public class GlobalDistanceFieldRendererTests {
     }
 
     /// <summary>
+    ///     ⚠ At nought workers a deferred refresh <b>does</b> land, drained by the frame's own
+    ///     unrelated work — no <see cref="GlobalDistanceFieldRenderer.WaitForRefresh" /> and no
+    ///     worker thread anywhere.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This refutes the premise of #1214</b>, which reads the polling loop as a clipmap
+    ///         frozen for ever on a browser: <c>IsCompleted</c> is indeed a pure query and
+    ///         <c>Complete</c> indeed returns as soon as its own handle is done, but on the way there
+    ///         it takes <em>any</em> ready item, and after sixty-four frame items it deliberately
+    ///         takes a background one (<c>JobScheduler.TryTakeWorkItem</c>'s fairness share). A
+    ///         browser frame runs its systems, its culling and its extraction through the same
+    ///         scheduler, so the slices drain a little every frame.
+    ///     </para>
+    ///     <para>
+    ///         What is left of the report is a rate rather than a stall, and it is still worth
+    ///         something: one slice per sixty-four frame items, with no second refresh able to start
+    ///         until the first lands, is a clipmap that lags a moving camera by a long way. The frame
+    ///         count below is a hang check and not a bound — it is far above what this field needs —
+    ///         because the honest quantity is "it lands", and how fast depends on how much other work
+    ///         the frame happens to do.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ It also closes off one of the issue's three proposals: option 2 asked for a new
+    ///         public "drain some background work" call on <c>JobScheduler</c> for the engine loop to
+    ///         make. The scheduler already does that, from every completing thread, with no API.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void ADeferredRefreshLandsAtNoughtWorkersDrainedByTheFramesOwnWork() {
+        // Sixty-four frame items buy one background item and this field is sixteen slices, so it
+        // lands in 1016 frame jobs across 127 frames as this is written — the share, exactly. The
+        // ceiling is eight times that and is a hang check rather than a bound: it is here to end a
+        // run that never lands, not to say how long landing may take.
+        const int FrameJobsPerFrame = 8;
+        const int Ceiling = 1000;
+
+        using var device = new NullDevice(new() { Record = true });
+        using var jobs = new JobScheduler(0);
+        using var node = Node(device, out _);
+        var context = Context(device);
+        var field = node.Field!;
+
+        node.Jobs = jobs;
+        Record(node, context);
+
+        node.ViewPosition = new Vector3(field.CellSizeOf(0) * 4f, 0, 0);
+        Record(node, context);
+
+        Assert.True(node.IsRefreshing, "nothing was deferred, so there is nothing to drain");
+        Assert.Equal(1, node.Composites);
+
+        var ran = new StrongBox<int>();
+        var before = field.SlicesComposited;
+        var frames = 0;
+
+        while (node.IsRefreshing && frames < Ceiling) {
+            var frame = default(JobHandle);
+
+            for (var index = 0; index < FrameJobsPerFrame; index++) {
+                frame = jobs.Schedule(new CountJob(ran));
+            }
+
+            jobs.Complete(frame);
+            Record(node, context);
+            frames++;
+        }
+
+        Assert.False(
+            node.IsRefreshing,
+            $"the refresh was still outstanding after {frames} frames and {ran.Value} frame jobs, "
+            + "so nothing on this thread ever ran a background slice"
+        );
+
+        // It landed, it was published, and the frames before it drew the clipmap it replaced.
+        Assert.Equal(2, node.Composites);
+        Assert.Equal(2, node.Texture!.Uploads);
+        Assert.True(node.Deferred > 0, "the refresh completed without ever having been deferred");
+        Assert.Equal(before + field.LevelCount * field.Resolution, field.SlicesComposited);
+    }
+
+    /// <summary>
     ///     Without a scheduler the node composites inside the frame, exactly as it always did.
     /// </summary>
     [Fact]
