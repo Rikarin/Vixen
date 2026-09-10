@@ -651,6 +651,13 @@ Vixen.Rendering.PostFx.LensFlareRenderer.UseStarburst.get -> bool
 Vixen.Rendering.PostFx.LensFlareRenderer.UseStarburst.set -> bool
 Vixen.Rendering.PostFx.LensFlareRenderer.View.get -> Vixen.Rendering.RenderView?
 Vixen.Rendering.PostFx.LensFlareRenderer.View.set -> Vixen.Rendering.RenderView?
+Vixen.Rendering.PostFx.LightQuality -> sealed record
+Vixen.Rendering.PostFx.LightQuality : System.IEquatable<Vixen.Rendering.PostFx.LightQuality>
+Vixen.Rendering.PostFx.LightQuality.LightQuality() -> void
+Vixen.Rendering.PostFx.LightQuality.MaxLights.get -> int?
+Vixen.Rendering.PostFx.LightQuality.MaxLights.init -> int?
+Vixen.Rendering.PostFx.LightQuality.MaxLightsPerObject.get -> int?
+Vixen.Rendering.PostFx.LightQuality.MaxLightsPerObject.init -> int?
 Vixen.Rendering.PostFx.LightStreakAsset -> sealed record
 Vixen.Rendering.PostFx.LightStreakAsset : System.IEquatable<Vixen.Rendering.PostFx.LightStreakAsset>
 Vixen.Rendering.PostFx.LightStreakAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -718,13 +725,6 @@ Vixen.Rendering.PostFx.LightStreakRenderer.Threshold.get -> float
 Vixen.Rendering.PostFx.LightStreakRenderer.Threshold.set -> float
 Vixen.Rendering.PostFx.LightStreakRenderer.Tint.get -> Vixen.Core.Mathematics.Vector3
 Vixen.Rendering.PostFx.LightStreakRenderer.Tint.set -> Vixen.Core.Mathematics.Vector3
-Vixen.Rendering.PostFx.LightQuality -> sealed record
-Vixen.Rendering.PostFx.LightQuality : System.IEquatable<Vixen.Rendering.PostFx.LightQuality>
-Vixen.Rendering.PostFx.LightQuality.LightQuality() -> void
-Vixen.Rendering.PostFx.LightQuality.MaxLights.get -> int?
-Vixen.Rendering.PostFx.LightQuality.MaxLights.init -> int?
-Vixen.Rendering.PostFx.LightQuality.MaxLightsPerObject.get -> int?
-Vixen.Rendering.PostFx.LightQuality.MaxLightsPerObject.init -> int?
 Vixen.Rendering.PostFx.LocalExposureAsset -> sealed record
 Vixen.Rendering.PostFx.LocalExposureAsset : System.IEquatable<Vixen.Rendering.PostFx.LocalExposureAsset>
 Vixen.Rendering.PostFx.LocalExposureAsset : Vixen.Rendering.Compositor.ISceneRendererAsset
@@ -946,6 +946,8 @@ Vixen.Rendering.PostFx.PostFidelityQuality.Fxaa.get -> Vixen.Rendering.PostFx.Fx
 Vixen.Rendering.PostFx.PostFidelityQuality.Fxaa.init -> Vixen.Rendering.PostFx.FxaaPreset?
 Vixen.Rendering.PostFx.PostFidelityQuality.LensFlare.get -> bool?
 Vixen.Rendering.PostFx.PostFidelityQuality.LensFlare.init -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.LightStreak.get -> bool?
+Vixen.Rendering.PostFx.PostFidelityQuality.LightStreak.init -> bool?
 Vixen.Rendering.PostFx.PostFidelityQuality.LocalExposure.get -> bool?
 Vixen.Rendering.PostFx.PostFidelityQuality.LocalExposure.init -> bool?
 Vixen.Rendering.PostFx.PostFidelityQuality.LocalExposureTaps.get -> int?
@@ -2443,6 +2445,8 @@ required Vixen.Rendering.PostFx.ResolvedQuality.IrradianceBudget.get -> int
 required Vixen.Rendering.PostFx.ResolvedQuality.IrradianceBudget.init -> int
 required Vixen.Rendering.PostFx.ResolvedQuality.LensFlare.get -> bool
 required Vixen.Rendering.PostFx.ResolvedQuality.LensFlare.init -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.LightStreak.get -> bool
+required Vixen.Rendering.PostFx.ResolvedQuality.LightStreak.init -> bool
 required Vixen.Rendering.PostFx.ResolvedQuality.LocalExposure.get -> bool
 required Vixen.Rendering.PostFx.ResolvedQuality.LocalExposure.init -> bool
 required Vixen.Rendering.PostFx.ResolvedQuality.LocalExposureTaps.get -> int
@@ -2761,6 +2765,7 @@ static readonly Vixen.Shaders.Generated.VignetteKeys.LinearSampler -> Vixen.Shad
 static readonly Vixen.Shaders.Generated.VignetteKeys.LuminanceWeightedGrain -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.VignetteKeys.ScreenSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
 static readonly Vixen.Shaders.Generated.VignetteKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.VignetteKeys.SrgbTarget -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.VignetteKeys.UseChromaticAberration -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.VignetteKeys.UseDither -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.VignetteKeys.UseGrain -> Vixen.Shaders.PermutationKey<bool>

@@ -40,6 +40,16 @@ Vixen.Engine.Behaviors.BehaviorLateUpdateSystem.BehaviorLateUpdateSystem(Vixen.E
 Vixen.Engine.Behaviors.BehaviorLifecycleSystem -> sealed class
 Vixen.Engine.Behaviors.BehaviorLifecycleSystem : Vixen.Ecs.Systems.SystemBase
 Vixen.Engine.Behaviors.BehaviorLifecycleSystem.BehaviorLifecycleSystem(Vixen.Engine.Behaviors.BehaviorStore store) -> void
+Vixen.Engine.Behaviors.BehaviorPopulation -> readonly struct
+Vixen.Engine.Behaviors.BehaviorPopulation : System.IEquatable<Vixen.Engine.Behaviors.BehaviorPopulation>
+Vixen.Engine.Behaviors.BehaviorPopulation.BehaviorPopulation() -> void
+Vixen.Engine.Behaviors.BehaviorPopulation.BehaviorPopulation(System.Type BehaviorType, int Total, int Enabled) -> void
+Vixen.Engine.Behaviors.BehaviorPopulation.BehaviorType.get -> System.Type
+Vixen.Engine.Behaviors.BehaviorPopulation.BehaviorType.init -> System.Type
+Vixen.Engine.Behaviors.BehaviorPopulation.Enabled.get -> int
+Vixen.Engine.Behaviors.BehaviorPopulation.Enabled.init -> int
+Vixen.Engine.Behaviors.BehaviorPopulation.Total.get -> int
+Vixen.Engine.Behaviors.BehaviorPopulation.Total.init -> int
 Vixen.Engine.Behaviors.BehaviorRef -> struct
 Vixen.Engine.Behaviors.BehaviorRef.BehaviorRef() -> void
 Vixen.Engine.Behaviors.BehaviorRef.Items -> Vixen.Engine.Behaviors.Behavior[]
@@ -52,6 +62,7 @@ Vixen.Engine.Behaviors.BehaviorStore.Coroutines.get -> Vixen.Engine.Coroutines.C
 Vixen.Engine.Behaviors.BehaviorStore.Count.get -> int
 Vixen.Engine.Behaviors.BehaviorStore.Destroy(Vixen.Engine.Behaviors.Behavior behavior) -> bool
 Vixen.Engine.Behaviors.BehaviorStore.Get<T>(Vixen.Core.Entity entity) -> T?
+Vixen.Engine.Behaviors.BehaviorStore.Population.get -> System.Collections.Generic.IReadOnlyList<Vixen.Engine.Behaviors.BehaviorPopulation>
 Vixen.Engine.Behaviors.BehaviorStore.Remove(Vixen.Engine.Behaviors.Behavior behavior) -> bool
 Vixen.Engine.Behaviors.BehaviorStore.RunLateUpdate() -> void
 Vixen.Engine.Behaviors.BehaviorStore.RunLifecycle() -> void

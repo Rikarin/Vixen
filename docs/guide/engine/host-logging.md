@@ -135,7 +135,7 @@ tests.
 
 `AppBuilder.WithLoggerProvider` is the seam, and it runs **before** the host has a logger of its own:
 
-```csharp
+```csharp no-compile="A fragment: `args` is the host's own command line and `MyGame` is the caller's game type."
 VixenApp.Create(args)
     .WithLoggerProvider(levels => new PlatformSink(filter: levels))
     .Build(new MyGame());

@@ -5131,6 +5131,16 @@ Vixen.Shaders.Generated.LensFlareConstants.StarburstIntensity -> float
 Vixen.Shaders.Generated.LensFlareConstants.Threshold -> float
 Vixen.Shaders.Generated.LensFlareConstants.Tint -> Vixen.Core.Mathematics.Vector3
 Vixen.Shaders.Generated.LensFlareKeys -> static class
+Vixen.Shaders.Generated.LightStreakConstants -> struct
+Vixen.Shaders.Generated.LightStreakConstants.Attenuation -> float
+Vixen.Shaders.Generated.LightStreakConstants.Direction -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.LightStreakConstants.Intensity -> float
+Vixen.Shaders.Generated.LightStreakConstants.LightStreakConstants() -> void
+Vixen.Shaders.Generated.LightStreakConstants.Stride -> float
+Vixen.Shaders.Generated.LightStreakConstants.TexelSize -> Vixen.Core.Mathematics.Vector2
+Vixen.Shaders.Generated.LightStreakConstants.Threshold -> float
+Vixen.Shaders.Generated.LightStreakConstants.Tint -> Vixen.Core.Mathematics.Vector3
+Vixen.Shaders.Generated.LightStreakKeys -> static class
 Vixen.Shaders.Generated.LocalExposureConstants -> struct
 Vixen.Shaders.Generated.LocalExposureConstants.BlurRadius -> float
 Vixen.Shaders.Generated.LocalExposureConstants.EdgeRange -> float
@@ -5890,6 +5900,19 @@ const Vixen.Shaders.Generated.LensFlareKeys.SourceBinding = 1 -> uint
 const Vixen.Shaders.Generated.LensFlareKeys.SourceSamplerBinding = 3 -> uint
 const Vixen.Shaders.Generated.LensFlareKeys.SourceSamplerSet = 2 -> int
 const Vixen.Shaders.Generated.LensFlareKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.LightStreakConstants.Size = 48 -> int
+const Vixen.Shaders.Generated.LightStreakKeys.ConstantBufferBinding = 0 -> uint
+const Vixen.Shaders.Generated.LightStreakKeys.ConstantBufferSet = 2 -> int
+const Vixen.Shaders.Generated.LightStreakKeys.ConstantBufferSize = 48 -> int
+const Vixen.Shaders.Generated.LightStreakKeys.ShaderName = "LightStreak" -> string
+const Vixen.Shaders.Generated.LightStreakKeys.SourceBinding = 1 -> uint
+const Vixen.Shaders.Generated.LightStreakKeys.SourceSamplerBinding = 3 -> uint
+const Vixen.Shaders.Generated.LightStreakKeys.SourceSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.LightStreakKeys.SourceSet = 2 -> int
+const Vixen.Shaders.Generated.LightStreakKeys.StreakBinding = 2 -> uint
+const Vixen.Shaders.Generated.LightStreakKeys.StreakSamplerBinding = 4 -> uint
+const Vixen.Shaders.Generated.LightStreakKeys.StreakSamplerSet = 2 -> int
+const Vixen.Shaders.Generated.LightStreakKeys.StreakSet = 2 -> int
 const Vixen.Shaders.Generated.LocalExposureConstants.Size = 32 -> int
 const Vixen.Shaders.Generated.LocalExposureKeys.BaseLuminanceBinding = 2 -> uint
 const Vixen.Shaders.Generated.LocalExposureKeys.BaseLuminanceSet = 2 -> int
@@ -6532,6 +6555,7 @@ readonly Vixen.Shaders.Generated.IrradianceFillPerFrameConstants.Write(System.Sp
 readonly Vixen.Shaders.Generated.IrradianceFillPerMaterialConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.IrradianceRepairConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.LensFlareConstants.Write(System.Span<byte> buffer) -> void
+readonly Vixen.Shaders.Generated.LightStreakConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.LocalExposureConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.MorphScatterConstants.Write(System.Span<byte> buffer) -> void
 readonly Vixen.Shaders.Generated.MotionBlurConstants.Write(System.Span<byte> buffer) -> void
@@ -7139,6 +7163,20 @@ static readonly Vixen.Shaders.Generated.LensFlareKeys.Tint -> Vixen.Shaders.Para
 static readonly Vixen.Shaders.Generated.LensFlareKeys.UseHalo -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.LensFlareKeys.UseStarburst -> Vixen.Shaders.PermutationKey<bool>
 static readonly Vixen.Shaders.Generated.LensFlareKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
+static readonly Vixen.Shaders.Generated.LightStreakKeys.Attenuation -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LightStreakKeys.Direction -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.LightStreakKeys.Intensity -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LightStreakKeys.Mode -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.LightStreakKeys.Samples -> Vixen.Shaders.PermutationKey<int>
+static readonly Vixen.Shaders.Generated.LightStreakKeys.Source -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.LightStreakKeys.SourceSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.LightStreakKeys.Streak -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
+static readonly Vixen.Shaders.Generated.LightStreakKeys.StreakSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
+static readonly Vixen.Shaders.Generated.LightStreakKeys.Stride -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LightStreakKeys.TexelSize -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector2>
+static readonly Vixen.Shaders.Generated.LightStreakKeys.Threshold -> Vixen.Shaders.ParameterKey<float>
+static readonly Vixen.Shaders.Generated.LightStreakKeys.Tint -> Vixen.Shaders.ParameterKey<Vixen.Core.Mathematics.Vector3>
+static readonly Vixen.Shaders.Generated.LightStreakKeys.UsedPermutationKeys -> Vixen.Shaders.ParameterKey[]
 static readonly Vixen.Shaders.Generated.LocalExposureKeys.BaseLuminance -> Vixen.Shaders.ParameterKey<Vixen.Graphics.TextureViewHandle>
 static readonly Vixen.Shaders.Generated.LocalExposureKeys.BaseSampler -> Vixen.Shaders.ParameterKey<Vixen.Graphics.SamplerHandle>
 static readonly Vixen.Shaders.Generated.LocalExposureKeys.BlurRadius -> Vixen.Shaders.ParameterKey<float>

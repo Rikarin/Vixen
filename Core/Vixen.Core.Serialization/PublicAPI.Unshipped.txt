@@ -21,6 +21,9 @@ Vixen.Core.Serialization.DataSerializer.DataSerializer() -> void
 Vixen.Core.Serialization.DataSerializer<T> -> abstract class
 Vixen.Core.Serialization.DataSerializer<T> : Vixen.Core.Serialization.DataSerializer
 Vixen.Core.Serialization.DataSerializer<T>.DataSerializer() -> void
+Vixen.Core.Serialization.EnumSerializer<TEnum> -> sealed class
+Vixen.Core.Serialization.EnumSerializer<TEnum> : Vixen.Core.Serialization.DataSerializer<TEnum>
+Vixen.Core.Serialization.EnumSerializer<TEnum>.EnumSerializer() -> void
 Vixen.Core.Serialization.Framing -> static class
 Vixen.Core.Serialization.IContentResolver -> interface
 Vixen.Core.Serialization.IContentResolver.TryResolve(Vixen.Core.ObjectId id, out object? value) -> bool
@@ -206,6 +209,8 @@ const Vixen.Core.Serialization.Storage.ChunkFormat.Version = 1 -> int
 override Vixen.Core.Serialization.ContentReference<T>.ToString() -> string
 override Vixen.Core.Serialization.ContentReferenceSerializer<T>.Deserialize(ref Vixen.Core.Serialization.SerializationReader reader, ref Vixen.Core.Serialization.ContentReference<T> value) -> void
 override Vixen.Core.Serialization.ContentReferenceSerializer<T>.Serialize(ref Vixen.Core.Serialization.SerializationWriter writer, in Vixen.Core.Serialization.ContentReference<T> value) -> void
+override Vixen.Core.Serialization.EnumSerializer<TEnum>.Deserialize(ref Vixen.Core.Serialization.SerializationReader reader, ref TEnum value) -> void
+override Vixen.Core.Serialization.EnumSerializer<TEnum>.Serialize(ref Vixen.Core.Serialization.SerializationWriter writer, in TEnum value) -> void
 override sealed Vixen.Core.Serialization.DataSerializer<T>.DeserializeObject(ref Vixen.Core.Serialization.SerializationReader reader) -> object
 override sealed Vixen.Core.Serialization.DataSerializer<T>.SerializeObject(ref Vixen.Core.Serialization.SerializationWriter writer, object value) -> void
 override sealed Vixen.Core.Serialization.DataSerializer<T>.SerializedType.get -> System.Type
