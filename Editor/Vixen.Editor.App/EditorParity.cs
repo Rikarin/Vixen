@@ -2520,9 +2520,19 @@ sealed partial class EditorApplication {
 
     /// <summary>Puts an empty over the selection and hangs everything selected under it.</summary>
     /// <remarks>
-    ///     ⚠ <b>Under the first selected entity's parent, not at the root.</b> Grouping three
-    ///     children of a rig and having the group appear beside the rig is the behaviour that makes
-    ///     Ctrl+G untrustworthy — the group belongs where the things being grouped already were.
+    ///     <para>
+    ///         ⚠ <b>Under the first selected entity's parent, not at the root.</b> Grouping three
+    ///         children of a rig and having the group appear beside the rig is the behaviour that
+    ///         makes Ctrl+G untrustworthy — the group belongs where the things being grouped already
+    ///         were.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>One undo step, and the whole selection moves as one command.</b> A create plus a
+    ///         reparent per member is n+1 entries, so Ctrl+Z over a group of five put the fifth
+    ///         entity back and left a group holding the other four — issue 1217. The transaction
+    ///         covers the create, and the batch <see cref="SceneDocument.Reparent(IEnumerable{Entity}, Entity)" />
+    ///         is the overload whose own remarks say why a loop of the single-entity one is wrong.
+    ///     </para>
     /// </remarks>
     void Group() {
         if (scene.Selection.Count == 0) {
@@ -2532,12 +2542,11 @@ sealed partial class EditorApplication {
         var members = scene.Selection.ToList();
         var parent = Hierarchy.ParentOf(world, members[0]);
 
+        using var batch = scene.Stack.BeginTransaction(EditorStrings.CommandEntityGroup.Text);
+
         var group = scene.Create("Group", LocalTransform.Identity, parent);
 
-        foreach (var member in members) {
-            scene.Reparent(member, group);
-        }
-
+        scene.Reparent(members, group);
         scene.Selection.Set([group]);
     }
 
@@ -2665,10 +2674,14 @@ sealed partial class EditorApplication {
         hierarchyStale = true;
     }
 
+    /// <summary>Makes everything selected a root, keeping where each one is in the world.</summary>
+    /// <remarks>
+    ///     ⚠ <b>One <c>ReparentCommand</c> for the whole selection.</b> A loop of the single-entity
+    ///     overload was one undo entry per entity — issue 1217 — so a single Ctrl+Z after unparenting
+    ///     five rows put one of them back under its old parent and left the other four at the root.
+    /// </remarks>
     void ClearParent() {
-        foreach (var entity in scene.Selection.ToList()) {
-            scene.Reparent(entity, Entity.Null);
-        }
+        scene.Reparent(scene.Selection.ToList(), Entity.Null);
     }
 
     /// <summary>One row of the Set Parent dialog.</summary>
