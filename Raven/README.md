@@ -801,6 +801,27 @@ reflection reports.
 A stream is not a binding — no descriptor, nothing the host writes — and it does not cross a `.rvnlib`
 boundary, because its location belongs to the shader that declares it.
 
+### Float comparison and NaN
+
+⚠ **The two backends do not agree about `!=` on floats, and the difference is a branch rather than a
+last-place bit** — [#1226](https://github.com/Rikarin/Vixen/issues/1226).
+
+| | `a == b`, `a` a NaN | `a != b`, `a` a NaN |
+|---|---|---|
+| `--target spirv` | `false` — `OpFOrdEqual` | **`false`** — `OpFOrdNotEqual` |
+| `--target glsl` / `essl` | `false` — `==` is ordered in GLSL too | **`true`** — `!=` is GLSL's unordered comparison |
+
+So one source compiled for Vulkan and compiled for GLES takes different branches on the same input,
+and on the Vulkan path `a != b` is **not** the negation of `a == b`: both are false when either
+operand is a NaN. C, C++, GLSL, HLSL and MSL all read `!=` as unordered, which makes the SPIR-V
+backend the outlier — but the GLSL one is the one that cannot be spelled otherwise, since GLSL has no
+ordered `!=` operator and `(a < b) || (a > b)` is what it takes to write one.
+
+Nothing in the shipped library depends on the answer today, because nothing writes a NaN into a value
+these shaders compare. `Raven/Vixen.Raven.Tests/FloatComparisonTests.cs` holds both backends to what
+they emit now, in both directions, so whichever way #1226 is settled the commit that settles it has to
+say so there. Before that file the disagreement was observable only by disassembling a module.
+
 ### Cross-compilation
 
 `--target essl` writes GLSL ES rather than Vulkan GLSL, through
