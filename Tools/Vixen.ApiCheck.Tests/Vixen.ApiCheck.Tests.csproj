@@ -24,6 +24,16 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Vixen.ApiCheck\Vixen.ApiCheck.csproj" />
+
+        <!--
+            ⚠ For `ZeroWorkerCoverageTests`, and specifically so that it derives the scheduler's
+            dispatch calls from the type instead of remembering them. Its first version looked the
+            declarations up by the same two names it walked the tree for, which is a tautology: it
+            could not see that `Schedule` had been a third dispatch all along, and its remarks
+            claimed to catch a call that had been "renamed or added" when an added one was invisible.
+            Reflection is the only way that assertion is worth making, and this is what it costs.
+        -->
+        <ProjectReference Include="..\..\Core\Vixen.Core.Threading\Vixen.Core.Threading.csproj" />
     </ItemGroup>
 
     <!--

@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Reflection;
 using System.Text.RegularExpressions;
+using Vixen.Core.Threading;
 using Xunit;
 
 namespace Vixen.ApiCheck.Tests;
@@ -46,19 +48,52 @@ namespace Vixen.ApiCheck.Tests;
 ///         and is declared, not that it is honest. The honesty of each row is its own sabotage, which
 ///         the commit that added it records.
 ///     </para>
+///     <para>
+///         ⚠ <b>And what counts as a dispatch is read off the scheduler rather than remembered.</b>
+///         This walked for two calls and looked their declarations up by those same two names, so it
+///         agreed with itself — and <c>Schedule</c>, one job run once by somebody else, had been a
+///         third the whole time. That is exactly the shape of the one real defect this question has
+///         turned up: <see href="https://github.com/Rikarin/Vixen/issues/1214" />, scheduled, polled,
+///         never waited on, and therefore never run at all where there are no workers. See
+///         <see cref="DispatchNames" />.
+///     </para>
 /// </remarks>
 public sealed class ZeroWorkerCoverageTests {
     /// <summary>Where production code lives. Benchmarks are deliberately not here — they measure.</summary>
     static readonly string[] Roots = ["Core", "Editor", "Gameplay", "Platform", "Raven", "Samples", "Tools"];
 
-    /// <summary>The two calls that hand work to a <c>JobScheduler</c> for somebody else to run.</summary>
+    /// <summary>
+    ///     The calls that hand work to a <c>JobScheduler</c> for somebody else to run, <b>discovered
+    ///     from the type</b> rather than listed here.
+    /// </summary>
     /// <remarks>
-    ///     Not the word <c>JobScheduler</c>: a type that holds one, names one in a doc comment or puts
-    ///     one in a service registry has not dispatched anything, and the question here is who has
-    ///     work that nobody may be there to run. <c>Complete</c> is not here either — it is the wait,
-    ///     and a wait is what makes nought workers safe.
+    ///     <para>
+    ///         A dispatch is a public generic method whose job type is constrained to one of the job
+    ///         interfaces. <c>Complete</c> is not one — it is the wait, and a wait is what makes
+    ///         nought workers safe; nor is <c>IsCompleted</c>, which is a pure query and the reason
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1214" /> exists.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>This was a hard-coded pair, and the pair was already incomplete.</b>
+    ///         <c>Schedule</c> — one job, run once, by somebody else — is a third dispatch and has
+    ///         been public the whole time, and the instrument that was meant to notice could not:
+    ///         it looked the declarations up <em>by the same two names</em>, so it confirmed a
+    ///         tautology and its remarks' claim to catch a renamed "or added" call was true of half
+    ///         of that. Reflection cannot be fooled that way — a call added tomorrow widens this set
+    ///         with no edit here, and a call constrained to a job interface nobody has taught this
+    ///         file about is a red rather than a silence.
+    ///     </para>
     /// </remarks>
-    static readonly Regex Dispatch = new(@"\.(ScheduleParallel|ParallelFor)\(", RegexOptions.Compiled);
+    static readonly string[] DispatchNames = DispatchesOf(typeof(JobScheduler));
+
+    /// <summary>The call pattern, built from the names above.</summary>
+    /// <remarks>
+    ///     ⚠ <c>[(&lt;]</c> and not <c>(</c>: a call may name its job type — <c>Schedule&lt;Foo&gt;(…)</c>
+    ///     — and the old pattern would have walked past it. None in the tree does today, which is
+    ///     exactly why it would have gone unnoticed.
+    /// </remarks>
+    static readonly Regex Dispatch =
+        new(@"\.(?:" + string.Join("|", DispatchNames) + @")\s*[(<]", RegexOptions.Compiled);
 
     /// <summary>The declaration a fixture makes about itself.</summary>
     static readonly Regex Marker = new(@"Trait\(""Workers"",\s*""0""\)", RegexOptions.Compiled);
@@ -70,31 +105,52 @@ public sealed class ZeroWorkerCoverageTests {
     const string Scheduler = "Vixen.Core.Threading";
 
     /// <summary>
-    ///     ⚠ The instrument, first and separately: the two calls this walks the tree for are still
-    ///     the two calls the scheduler declares.
+    ///     ⚠ The instrument, first and separately: every job interface the scheduler will accept work
+    ///     through is one this file knows how to find a dispatch for.
     /// </summary>
     /// <remarks>
-    ///     A walk that finds nothing agrees with every claim below it, and the cheapest way to get
-    ///     there is a rename — <c>ParallelFor</c> becoming something else empties this test's subject
-    ///     while every subsystem goes on dispatching. So the names are checked against their
-    ///     declarations rather than assumed. The call pattern itself is proved by the walk below
-    ///     finding consumers, which a broken pattern cannot do.
+    ///     <para>
+    ///         A walk that finds nothing agrees with every claim below it, so what the walk looks for
+    ///         has to be derived from the scheduler rather than remembered. <see cref="DispatchNames" />
+    ///         does the deriving; this is the one thing reflection cannot do on its own — decide that
+    ///         a <em>new</em> job interface is a dispatch. A method constrained to one would be
+    ///         invisible to the filter and the walk would go on reporting full coverage, which is the
+    ///         exact failure the old version of this test had and could not see.
+    ///     </para>
+    ///     <para>
+    ///         So the constraint set is enumerated and compared against the two this file understands.
+    ///         Adding a third is a red with a sentence saying what to do about it, and that is the
+    ///         only kind of instrument worth having here.
+    ///     </para>
     /// </remarks>
     [Fact]
-    public void TheCallsThisWalksForAreStillTheOnesTheSchedulerDeclares() {
-        var declarations = new Regex(@"public\s+(?:\w+\s+)*(?:JobHandle|void)\s+(ScheduleParallel|ParallelFor)\s*[(<]");
-        var declared = Sources(Path.Combine(RepositoryRoot(), "Core", Scheduler))
-            .SelectMany(file => declarations.Matches(File.ReadAllText(file)))
-            .Select(match => match.Groups[1].Value)
-            .ToHashSet(StringComparer.Ordinal);
+    public void EveryJobInterfaceTheSchedulerAcceptsIsOneThisWalkKnowsAbout() {
+        var constraints = JobConstraintsOf(typeof(JobScheduler));
 
         Assert.True(
-            declared.SetEquals(["ScheduleParallel", "ParallelFor"]),
-            $"Core/{Scheduler} declares {{{string.Join(", ", declared.Order(StringComparer.Ordinal))}}} of "
-            + "the two dispatch calls this test walks the tree for. A renamed or added one leaves the "
-            + "walk below looking for a call nobody makes any more, and a walk that finds nothing "
-            + "reports that every subsystem is covered."
+            constraints.Count > 0,
+            $"No public generic method on {nameof(JobScheduler)} constrains anything to an interface, "
+            + "so this file's idea of a dispatch matches nothing and the walk below reports that every "
+            + "subsystem is covered. The scheduler did not stop scheduling; the reflection did."
         );
+
+        var unknown = constraints
+            .Where(type => type != typeof(IJob) && type != typeof(IJobParallelFor))
+            .Select(type => type.Name)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        Assert.True(
+            unknown.Count == 0,
+            $"{nameof(JobScheduler)} now takes work through {string.Join(", ", unknown)}, which this "
+            + "file has never heard of — so a subsystem dispatching through it is invisible to the "
+            + "coverage walk below and reads as covered. Add the interface to this test and to "
+            + $"{nameof(DispatchesOf)}, then check whether its consumers have a nought-worker row."
+        );
+
+        // And the names actually reached the pattern: an empty set builds `\.(?:)\s*[(<]`, which
+        // matches a bare `.` and would call the whole tree a dispatcher rather than none of it.
+        Assert.NotEmpty(DispatchNames);
     }
 
     /// <summary>
@@ -179,8 +235,19 @@ public sealed class ZeroWorkerCoverageTests {
     /// <summary>Which production projects dispatch, and from which files.</summary>
     /// <param name="root">The repository root.</param>
     /// <returns>Project directory to the file names that dispatch, ordered.</returns>
+    /// <remarks>
+    ///     ⚠ <b>A project qualifies only if it names <c>JobScheduler</c> somewhere</b>, and that guard
+    ///     is what makes <c>Schedule</c> safe to walk for. <c>ScheduleParallel</c> and
+    ///     <c>ParallelFor</c> are distinctive; <c>Schedule</c> is the commonest verb in the language,
+    ///     and <c>Core/Vixen.Audio/AudioEngine.cs:671</c> calls it on a deferred-play queue that has
+    ///     nothing to do with jobs. Asked of the <em>project</em> rather than the file because a
+    ///     method may dispatch through a scheduler it received as a parameter, and the type is then
+    ///     named in the signature next door. Every file in this tree that calls the two distinctive
+    ///     names is in a project that names the type, so the guard costs no coverage today.
+    /// </remarks>
     static Dictionary<string, List<string>> Dispatchers(string root) {
         var found = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        var namesScheduler = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var name in Roots) {
             var directory = Path.Combine(root, name);
@@ -190,10 +257,6 @@ public sealed class ZeroWorkerCoverageTests {
             }
 
             foreach (var file in Sources(directory)) {
-                if (!Dispatch.IsMatch(File.ReadAllText(file))) {
-                    continue;
-                }
-
                 var project = ProjectOf(file);
 
                 // ⚠ A fixture is not a dispatcher. Every nought-worker row below dispatches work
@@ -205,6 +268,16 @@ public sealed class ZeroWorkerCoverageTests {
                     continue;
                 }
 
+                var text = File.ReadAllText(file);
+
+                if (text.Contains(nameof(JobScheduler), StringComparison.Ordinal)) {
+                    namesScheduler.Add(project);
+                }
+
+                if (!Dispatch.IsMatch(text)) {
+                    continue;
+                }
+
                 if (!found.TryGetValue(project, out var files)) {
                     found[project] = files = [];
                 }
@@ -213,8 +286,42 @@ public sealed class ZeroWorkerCoverageTests {
             }
         }
 
+        foreach (var project in found.Keys.Where(project => !namesScheduler.Contains(project)).ToList()) {
+            found.Remove(project);
+        }
+
         return found;
     }
+
+    /// <summary>
+    ///     The names of the scheduler's dispatch calls, read off the type: a public generic method
+    ///     whose job type is constrained to one of the job interfaces.
+    /// </summary>
+    /// <param name="scheduler">The scheduler type.</param>
+    /// <returns>The distinct names, ordered.</returns>
+    static string[] DispatchesOf(Type scheduler) =>
+        scheduler.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .Where(method => method.IsGenericMethodDefinition)
+            .Where(method => method.GetGenericArguments()
+                .SelectMany(argument => argument.GetGenericParameterConstraints())
+                .Any(constraint => constraint == typeof(IJob) || constraint == typeof(IJobParallelFor))
+            )
+            .Select(method => method.Name)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+
+    /// <summary>Every interface a public generic method on the scheduler constrains a type to.</summary>
+    /// <param name="scheduler">The scheduler type.</param>
+    /// <returns>The distinct interfaces.</returns>
+    static IReadOnlyCollection<Type> JobConstraintsOf(Type scheduler) =>
+        scheduler.GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .Where(method => method.IsGenericMethodDefinition)
+            .SelectMany(method => method.GetGenericArguments())
+            .SelectMany(argument => argument.GetGenericParameterConstraints())
+            .Where(constraint => constraint.IsInterface)
+            .Distinct()
+            .ToList();
 
     /// <summary>Whether the sibling test project declares a nought-worker fixture.</summary>
     /// <param name="project">The production project's directory.</param>
