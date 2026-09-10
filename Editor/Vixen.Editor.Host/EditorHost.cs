@@ -1198,6 +1198,38 @@ sealed class EditorHost : IDisposable {
             image
         );
 
+    /// <summary>Where this head keeps the driver's pipeline cache between runs.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only a game got the warm start, and the editor is the head where a cold one is
+    ///         most visible</b> (<a href="https://github.com/Rikarin/Vixen/issues/1228">#1228</a>).
+    ///         Everything that boots through <c>Tools/Vixen.App</c>'s <c>GraphicsHost</c> is handed a
+    ///         path by <c>AppBuilder</c>; this host and <c>UiApplication</c> open their device
+    ///         directly and passed nothing but the surface, so both recompiled every pipeline they
+    ///         touched on every launch — in the one head a developer restarts twenty times a day.
+    ///         The in-memory cache was never the missing half: <c>VulkanDevice</c> creates a
+    ///         <c>VkPipelineCache</c> unconditionally, so the driver already stopped compiling the
+    ///         same shader twice <em>within</em> a run.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The cache directory, not the data one, and the same file name the other two
+    ///         write.</b> The blob is derivable and is discarded by the driver on any device or
+    ///         driver mismatch, so it must not be backed up or synced — on macOS the data directory
+    ///         is copied off the machine for ever by Time Machine and iCloud.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The same four lines as <c>UiApplication.PipelineCacheFile</c>, and there is
+    ///         nowhere to share them from</b>: that assembly's internals reach its own tests and not
+    ///         this project, and <c>Vixen.Graphics.Vulkan</c> cannot see an <c>IPlatform</c>. Marked
+    ///         on both sides, because a wire added to one host and not the other is silently absent
+    ///         from the other — which is the failure this repository has met most often.
+    ///     </para>
+    /// </remarks>
+    string? PipelineCacheFile =>
+        platform.FileSystem.CacheDirectory is { Length: > 0 } caches
+            ? Path.Combine(caches, "pipelines.vkcache")
+            : null;
+
     /// <summary>Builds everything GPU-shaped, once there is a surface to present to.</summary>
     /// <returns>Whether there is one.</returns>
     bool EnsureDevice() {
@@ -1209,7 +1241,9 @@ sealed class EditorHost : IDisposable {
             return false;
         }
 
-        device = VulkanDevice.Create(new() { Surface = window.Surface.Handle });
+        device = VulkanDevice.Create(
+            new() { Surface = window.Surface.Handle, PipelineCachePath = PipelineCacheFile }
+        );
 
         pool = new TransientResourcePool(device);
         graph = new RenderGraph(device, pool);
