@@ -78,4 +78,50 @@ static partial class VulkanLog {
         int validationErrors,
         int validationWarnings
     );
+
+    /// <summary>What a previous run saved the driver from compiling again.</summary>
+    /// <remarks>
+    ///     The count is the honest measurement of the feature and a frame time is not: a warm cache
+    ///     is a blob this driver accepted, and a millisecond budget calibrated on an idle machine
+    ///     measures the machine. Absent on the first run, and after any driver update.
+    /// </remarks>
+    [LoggerMessage(
+        EventId = 2005,
+        Level = LogLevel.Debug,
+        Message = "The Vulkan pipeline cache was seeded with {Bytes} bytes from '{Path}'."
+    )]
+    public static partial void PipelineCacheSeeded(ILogger logger, int bytes, string path);
+
+    /// <summary>A cache blob that belongs to another driver or another GPU.</summary>
+    /// <remarks>
+    ///     Ordinary rather than alarming — a driver update changes the UUID and invalidates every
+    ///     blob written before it — but it is logged, because "the first frame is slow again" with
+    ///     no line saying why is how this gets debugged twice.
+    /// </remarks>
+    [LoggerMessage(
+        EventId = 2006,
+        Level = LogLevel.Debug,
+        Message = "The pipeline cache at '{Path}' was discarded: {Reason}."
+    )]
+    public static partial void PipelineCacheDiscarded(ILogger logger, string path, string reason);
+
+    /// <summary>The cache file could not be read.</summary>
+    [LoggerMessage(
+        EventId = 2007,
+        Level = LogLevel.Warning,
+        Message = "The pipeline cache at '{Path}' could not be read ({Error}), so this run starts cold."
+    )]
+    public static partial void PipelineCacheUnreadable(ILogger logger, string path, string error);
+
+    /// <summary>The cache file could not be written.</summary>
+    /// <remarks>
+    ///     A warning rather than a throw: a device being torn down has done its work, and a cache
+    ///     that could not be written costs the next run a longer first frame and nothing else.
+    /// </remarks>
+    [LoggerMessage(
+        EventId = 2008,
+        Level = LogLevel.Warning,
+        Message = "The pipeline cache at '{Path}' could not be written ({Error}), so the next run starts cold."
+    )]
+    public static partial void PipelineCacheUnwritable(ILogger logger, string path, string error);
 }

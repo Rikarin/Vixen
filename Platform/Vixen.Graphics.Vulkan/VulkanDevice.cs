@@ -70,6 +70,28 @@ public readonly record struct VulkanDeviceOptions() {
     /// </remarks>
     public nint PreferredPhysicalDevice { get; init; }
 
+    /// <summary>Where the driver's own pipeline cache is kept between runs, or null for none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>A <c>VkPipelineCache</c> is created either way, and this decides only whether it
+    ///         survives the process.</b> Unset, the driver still stops compiling the same shader
+    ///         twice within one run — two pipelines that differ in blend state alone are one
+    ///         compilation rather than two — which is why there is no switch for the cache itself.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The blob is driver- and device-specific and is discarded rather than trusted
+    ///         when it does not match.</b> A file written on another GPU, or by the same GPU before
+    ///         a driver update, has a header that says so, and handing it back would be undefined
+    ///         behaviour rather than an error code. See <c>VulkanPipelineCacheBlob</c>.
+    ///     </para>
+    ///     <para>
+    ///         A cache directory rather than a data one: it is derivable from the content, it costs
+    ///         a longer first frame to lose, and it must not be backed up or synced.
+    ///         <c>IFileSystemHost.CacheDirectory</c> is where a head gets one.
+    ///     </para>
+    /// </remarks>
+    public string? PipelineCachePath { get; init; }
+
     /// <summary>The GPUs and drivers this backend must not be used on.</summary>
     /// <remarks>
     ///     <para>
@@ -249,6 +271,7 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
 
         allocator = new(api, device, adapter.Memory);
         renderPasses = new(api, device);
+        CreatePipelineCache(options.PipelineCachePath);
 
         var plan = adapter.Queues;
         var byFamily = new Dictionary<uint, VulkanQueue>();
@@ -639,6 +662,10 @@ public sealed unsafe partial class VulkanDevice : IGraphicsDevice {
 
             DestroyAll();
             renderPasses.Dispose();
+
+            // After the pipelines rather than before: what is written is what the driver learned
+            // over the whole run, and destroying a pipeline does not take its entry back out.
+            SavePipelineCache();
 
             foreach (var semaphore in semaphores) {
                 Api.DestroySemaphore(device, semaphore, null);

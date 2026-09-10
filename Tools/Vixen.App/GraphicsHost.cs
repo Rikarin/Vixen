@@ -98,7 +98,16 @@ public static class GraphicsHost {
         var offscreen = options.Offscreen || options.CapturePath is { Length: > 0 };
 
         foreach (var backend in order) {
-            if (TryOpen(backend, window, logs, offscreen, options.DenyList, out var device, out var refusal)) {
+            if (TryOpen(
+                    backend,
+                    window,
+                    logs,
+                    offscreen,
+                    options.DenyList,
+                    options.PipelineCachePath,
+                    out var device,
+                    out var refusal
+                )) {
                 // ⚠ Opening is not presenting. A device can be perfectly healthy and still have no
                 // surface — an application that asked for no window, or a window made without the
                 // backend's surface flag — and the host logs that as the reason a picture is not
@@ -182,6 +191,7 @@ public static class GraphicsHost {
         ILoggerFactory? logs,
         bool offscreen,
         GpuDenyList denied,
+        string? pipelineCachePath,
         out IGraphicsDevice? device,
         out string? reason
     ) {
@@ -248,7 +258,14 @@ public static class GraphicsHost {
                         // moment at which "do not use this GPU" is still an answer rather than a
                         // regret — asking afterwards would mean having created the device on the
                         // driver the list exists to avoid.
-                        DenyList = denied
+                        DenyList = denied,
+
+                        // ⚠ Passing nothing here is not "no persistence", it is the state this
+                        // backend shipped in: every vkCreate*Pipelines call handed the driver
+                        // VK_NULL_HANDLE, so nothing survived a run and two pipelines differing in
+                        // blend state alone compiled the same shader twice. The host defaults the
+                        // path to the platform's cache directory; see VulkanDeviceOptions.
+                        PipelineCachePath = pipelineCachePath
                     },
                     out var vulkan,
                     out reason
