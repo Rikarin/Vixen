@@ -139,6 +139,199 @@ public sealed class TestCostDriftTests {
         Assert.Equal(double.PositiveInfinity, drifted[1].Ratio);
     }
 
+    /// <summary>
+    ///     ⚠ The five findings of the run this check first fired on, which were a busy machine and
+    ///     not drift, are not findings once the run's own load is divided out.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The numbers are #938's, verbatim: <c>Test</c> exited 255 with 36 288 passing and 0
+    ///         failures while five worktree agents compiled on the same box, and every assembly it
+    ///         named measured its committed cost to within half a percent when run alone afterwards.
+    ///         The five are also the five <em>longest</em> — the ones that overlap everything else
+    ///         and therefore the ones contention acts on.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ Their median ratio is 2.24×, so the expectation for each is its committed cost
+    ///         times that, and every one of them lands inside one or both thresholds of it. Against
+    ///         the raw committed numbers all five are reported, which is the assertion below and the
+    ///         defect this normalisation is for.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AUniformlySlowRunIsAMachineAndNotADrift() {
+        var committed = new Dictionary<string, double>(StringComparer.Ordinal) {
+            ["Vixen.Editor.App.Tests"] = 329.5,
+            ["Vixen.Graphics.Golden.Tests"] = 239.0,
+            ["Vixen.Geometry.Remeshing.Tests"] = 131.3,
+            ["Vixen.Raven.Tests"] = 231.7,
+            ["Vixen.Geometry.Uv.Tests"] = 103.9
+        };
+
+        (string, double)[] measured = [
+            ("Vixen.Editor.App.Tests", 739.1),
+            ("Vixen.Graphics.Golden.Tests", 584.9),
+            ("Vixen.Geometry.Remeshing.Tests", 345.6),
+            ("Vixen.Raven.Tests", 404.3),
+            ("Vixen.Geometry.Uv.Tests", 219.8)
+        ];
+
+        var load = TestCostDrift.Load.Of(committed, measured);
+
+        Assert.True(load.IsMeasured);
+        Assert.Equal(5, load.Sample);
+        Assert.Equal(2.243, load.Scale, 2);
+
+        Assert.Empty(TestCostDrift.Find(committed, measured, load));
+
+        // The same comparison with no load divided out is the run that failed, and it named every
+        // one of them.
+        Assert.Equal(5, TestCostDrift.Find(committed, measured).Count);
+    }
+
+    /// <summary>
+    ///     ⚠ And the one assembly that really did grow is still a finding on a run where the rest of
+    ///     the list moved with the machine.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         #1154's numbers: <c>Vixen.Graphics.Golden.Tests</c> at 2.86× while the rest of the
+    ///         top agreed, and re-measured alone it still took 609 s. That is the shape a drift has
+    ///         — one row moves — and it has to survive the arithmetic that dissolves the shape a
+    ///         loaded machine has.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ The median here is 1.19× rather than 1.00×, because the second-longest assembly had
+    ///         grown too, and the check is still correct on both: the golden suite is reported
+    ///         against a scaled expectation of 284 s, and <c>Vixen.Editor.App.Tests</c> — 1.42× raw,
+    ///         1.19× scaled — is not, which is exactly what that run's operator concluded by hand.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void AnAssemblyThatGrewAloneIsStillAFinding() {
+        var committed = new Dictionary<string, double>(StringComparer.Ordinal) {
+            ["Vixen.Graphics.Golden.Tests"] = 239.0,
+            ["Vixen.Editor.App.Tests"] = 329.5,
+            ["Vixen.Raven.Tests"] = 231.7,
+            ["Vixen.Geometry.Remeshing.Tests"] = 131.3,
+            ["Vixen.Geometry.Uv.Tests"] = 103.9
+        };
+
+        (string, double)[] measured = [
+            ("Vixen.Graphics.Golden.Tests", 684.4),
+            ("Vixen.Editor.App.Tests", 467.4),
+            ("Vixen.Raven.Tests", 274.7),
+            ("Vixen.Geometry.Remeshing.Tests", 142.6),
+            ("Vixen.Geometry.Uv.Tests", 109.9)
+        ];
+
+        var load = TestCostDrift.Load.Of(committed, measured);
+        var entry = Assert.Single(TestCostDrift.Find(committed, measured, load));
+
+        Assert.Equal("Vixen.Graphics.Golden.Tests", entry.Project);
+        Assert.InRange(entry.Expected, 280.0, 290.0);
+        Assert.InRange(entry.Ratio, 2.3, 2.5);
+        Assert.Contains("684.4", entry.Describe(), StringComparison.Ordinal);
+        Assert.Contains("expected at this run's", entry.Describe(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     ⚠ The bottom of the list does not vote, which is the difference between an estimate of
+    ///     the machine and an estimate of process start-up.
+    /// </summary>
+    /// <remarks>
+    ///     Over the 181 rows of the 2026-09-10 run the ratios of the rows under a second span 0.15×
+    ///     to 3.26×, against 0.87×–1.11× for the twelve above thirty seconds. Letting the first
+    ///     population set the scale would divide a number out of the second that has nothing to do
+    ///     with it — and there are ten times as many of them, so they would decide the median.
+    /// </remarks>
+    [Fact]
+    public void TheNoisyBottomOfTheListDoesNotSetTheScale() {
+        var committed = new Dictionary<string, double>(StringComparer.Ordinal);
+        var measured = new List<(string, double)>();
+
+        for (var index = 0; index < 20; index++) {
+            committed[$"Vixen.Tiny{index}.Tests"] = 1.0;
+            measured.Add(($"Vixen.Tiny{index}.Tests", 3.0));
+        }
+
+        for (var index = 0; index < 5; index++) {
+            committed[$"Vixen.Big{index}.Tests"] = 100.0;
+            measured.Add(($"Vixen.Big{index}.Tests", 100.0));
+        }
+
+        var load = TestCostDrift.Load.Of(committed, measured);
+
+        Assert.Equal(5, load.Sample);
+        Assert.Equal(1.0, load.Scale, 6);
+    }
+
+    /// <summary>
+    ///     The scale is a median, so the drift being looked for cannot normalise itself away.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ A mean of the same five rows is 1.80×, at which the 500 s row is 1.11× of its
+    ///     expectation and every honest row is 0.56× of its own — the check would lose the finding
+    ///     <em>and</em> report the four assemblies that had not moved.
+    /// </remarks>
+    [Fact]
+    public void OneDriftedRowCannotMoveTheScale() {
+        var committed = new Dictionary<string, double>(StringComparer.Ordinal) {
+            ["Vixen.A.Tests"] = 100.0,
+            ["Vixen.B.Tests"] = 100.0,
+            ["Vixen.C.Tests"] = 100.0,
+            ["Vixen.D.Tests"] = 100.0,
+            ["Vixen.Drifted.Tests"] = 100.0
+        };
+
+        (string, double)[] measured = [
+            ("Vixen.A.Tests", 100.0),
+            ("Vixen.B.Tests", 100.0),
+            ("Vixen.C.Tests", 100.0),
+            ("Vixen.D.Tests", 100.0),
+            ("Vixen.Drifted.Tests", 500.0)
+        ];
+
+        var load = TestCostDrift.Load.Of(committed, measured);
+
+        Assert.Equal(1.0, load.Scale, 6);
+
+        var entry = Assert.Single(TestCostDrift.Find(committed, measured, load));
+
+        Assert.Equal("Vixen.Drifted.Tests", entry.Project);
+    }
+
+    /// <summary>
+    ///     ⚠ What this prints on the day it cannot run: that it did not, and in which direction that
+    ///     leaves the verdict wrong.
+    /// </summary>
+    /// <remarks>
+    ///     A partial results directory — <c>AffectedTests</c> writes into the same one — has too few
+    ///     long assemblies to estimate anything from. The load then applies nothing and says so,
+    ///     rather than answering 1.00× and letting the comparison read as normalised.
+    /// </remarks>
+    [Fact]
+    public void ALoadTooSmallToBelieveIsSaidRatherThanAssumed() {
+        var committed = new Dictionary<string, double>(StringComparer.Ordinal) {
+            ["Vixen.A.Tests"] = 100.0,
+            ["Vixen.B.Tests"] = 100.0
+        };
+
+        (string, double)[] measured = [("Vixen.A.Tests", 220.0), ("Vixen.B.Tests", 220.0)];
+
+        var load = TestCostDrift.Load.Of(committed, measured);
+
+        Assert.False(load.IsMeasured);
+        Assert.Equal(2, load.Sample);
+        Assert.Equal(1.0, load.Scale, 6);
+        Assert.Equal(100.0, load.Expected(100.0), 6);
+        Assert.Contains("compared raw", load.Describe(), StringComparison.Ordinal);
+
+        // And with nothing divided out, a doubled machine reads as drift — which is the honest
+        // answer here rather than a hidden one.
+        Assert.Equal(2, TestCostDrift.Find(committed, measured, load).Count);
+    }
+
     /// <summary>The configuration stamp is read out of the header, and its absence is a null.</summary>
     /// <remarks>
     ///     ⚠ Null is what stops the check failing every CI run: Release walls on a Linux runner and

@@ -642,12 +642,7 @@ sealed partial class EditorApplication {
             enabled: () => openScenes.Exists(open => open.Document.IsDirty.Value)
         );
 
-        Planned(
-            "scene.layers",
-            EditorStrings.CommandSceneLayers,
-            EditorStrings.CategoryScene,
-            "Layers need an ECS-side concept first; a list of names nothing reads would be a promise the editor breaks."
-        );
+        Planned("scene.layers", EditorStrings.CommandSceneLayers, EditorStrings.CategoryScene);
     }
 
     void OpenSceneAdditive() {

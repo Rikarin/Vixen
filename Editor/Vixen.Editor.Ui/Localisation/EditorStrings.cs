@@ -550,6 +550,21 @@ public static class EditorStrings {
     /// <summary>The <c>Create Empty</c> command.</summary>
     public static StringId CommandCreateEntity { get; } = new("editor.command.create-entity", "Create Empty");
 
+    /// <summary>The <c>Copy</c> command.</summary>
+    public static StringId CommandEditCopy { get; } = new("editor.command.edit.copy", "Copy");
+
+    /// <summary>The <c>Cut</c> command.</summary>
+    public static StringId CommandEditCut { get; } = new("editor.command.edit.cut", "Cut");
+
+    /// <summary>The <c>Delete</c> command, which is the scene's and the content browser's alike.</summary>
+    /// <remarks>
+    ///     ⚠ One command with a <c>Context</c> rather than two with one key between them — see
+    ///     <c>EditorParity.Scoped</c>. The word is declared here for the reason every word is: the
+    ///     registration used to build <c>new StringId("editor.command." + id, "Delete")</c>, and an
+    ///     id built at a call site reaches no translator's template (#1178).
+    /// </remarks>
+    public static StringId CommandEditDelete { get; } = new("editor.command.edit.delete", "Delete");
+
     /// <summary>The <c>Deselect All</c> command.</summary>
     public static StringId CommandEditDeselectAll { get; } = new("editor.command.edit.deselect-all", "Deselect All");
 
@@ -571,6 +586,13 @@ public static class EditorStrings {
     public static StringId CommandEditKeybindings { get; } =
         new("editor.command.edit.keybindings", "Keyboard Shortcuts…");
 
+    /// <summary>The <c>Paste</c> command.</summary>
+    public static StringId CommandEditPaste { get; } = new("editor.command.edit.paste", "Paste");
+
+    /// <summary>The <c>Paste As Child</c> command.</summary>
+    public static StringId CommandEditPasteAsChild { get; } =
+        new("editor.command.edit.paste-as-child", "Paste As Child");
+
     /// <summary>The <c>Recall Selection Set…</c> command.</summary>
     public static StringId CommandEditRecallSelectionSet { get; } =
         new("editor.command.edit.recall-selection-set", "Recall Selection Set…");
@@ -578,6 +600,9 @@ public static class EditorStrings {
     /// <summary>The <c>Save Selection Set…</c> command.</summary>
     public static StringId CommandEditSaveSelectionSet { get; } =
         new("editor.command.edit.save-selection-set", "Save Selection Set…");
+
+    /// <summary>The <c>Rename</c> command, scoped the way <see cref="CommandEditDelete" /> is.</summary>
+    public static StringId CommandEditRename { get; } = new("editor.command.edit.rename", "Rename");
 
     /// <summary>The <c>Select All</c> command.</summary>
     public static StringId CommandEditSelectAll { get; } = new("editor.command.edit.select-all", "Select All");
@@ -745,6 +770,24 @@ public static class EditorStrings {
 
     /// <summary>The <c>Mute Audio</c> command.</summary>
     public static StringId CommandPlayMuteAudio { get; } = new("editor.command.play.mute-audio", "Mute Audio");
+
+    /// <summary>The <c>Pause</c> transport verb.</summary>
+    /// <remarks>
+    ///     ⚠ The four transport verbs are declared here rather than passed as literals to
+    ///     <c>EditorParity.Transport</c>, which built <c>new StringId("editor.command." + id, title)</c>
+    ///     out of them — four words on the most-clicked strip in the editor, in no translator's
+    ///     template (#1178).
+    /// </remarks>
+    public static StringId CommandPlayPause { get; } = new("editor.command.play.pause", "Pause");
+
+    /// <summary>The <c>Play</c> transport verb.</summary>
+    public static StringId CommandPlayPlay { get; } = new("editor.command.play.play", "Play");
+
+    /// <summary>The <c>Step Frame</c> transport verb.</summary>
+    public static StringId CommandPlayStep { get; } = new("editor.command.play.step", "Step Frame");
+
+    /// <summary>The <c>Stop</c> transport verb.</summary>
+    public static StringId CommandPlayStop { get; } = new("editor.command.play.stop", "Stop");
 
     /// <summary>The <c>Radial Menu</c> command.</summary>
     public static StringId CommandRadialMenu { get; } = new("editor.command.radial-menu", "Radial Menu");
@@ -1088,6 +1131,124 @@ public static class EditorStrings {
     /// <summary>The <c>Plane</c> viewport overlay heading.</summary>
     public static StringId ViewportWorkPlane { get; } = new("editor.viewport.work-plane", "Plane");
 
+    /// <summary>The four clipboard command ids that share one reason for being unavailable.</summary>
+    /// <remarks>
+    ///     ⚠ Declared above <see cref="PlannedReasons" /> and not beside it: a static initialiser
+    ///     runs in textual order, so a family built from a field written below it is built from a
+    ///     null. And it is a field rather than four inline strings because the registration walks the
+    ///     same four — a second copy is how two lists come to disagree, which is what a family ends.
+    /// </remarks>
+    static readonly string[] ClipboardCommands = ["edit.cut", "edit.copy", "edit.paste", "edit.paste-as-child"];
+
+    /// <summary>Why each declared-but-unbuilt command is unavailable, by the command's own id.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>One family for the seventeen sentences <c>EditorParity.Planned</c> used to take as a
+    ///         literal</b> and turn into <c>new StringId("editor.planned." + id, reason)</c>. The
+    ///         census saw one construction and the tree had seventeen undeclared sentences, which is
+    ///         the shape a helper hides best (#1178) — and these are the words a professional reads
+    ///         when a menu line is greyed, so they are the last ones that should be untranslatable.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The four clipboard verbs are here and <c>edit.duplicate</c> is not.</b> Duplicate
+    ///         is a real verb now — <see cref="CommandEditDuplicate" /> — and the registration only
+    ///         calls <c>Planned</c> for a clipboard id nothing else has claimed, so declaring a
+    ///         reason for it would put a sentence in a translator's template that no surface can
+    ///         show. If it ever stops being registered the family throws while the shell registers
+    ///         its commands, which is deterministic and is what <c>EditorParityTests</c> exercises.
+    ///     </para>
+    /// </remarks>
+    public static StringFamily PlannedReasons { get; } = new(
+        "editor.planned.",
+        [
+            new("file.no-recent", "Nothing but this project has been opened yet."),
+            new(
+                "assets.reimport",
+                "Per-asset reimport needs the importer registry to outlive a run. Reimport All works today."
+            ),
+            new(
+                "entity.create-audio",
+                "There is no audio-source component yet; a line that made an empty called Audio would lie."
+            ),
+            new("entity.create-ui", "Vixen.Ui is a document tree with no world-space bridge yet."),
+            new(
+                "entity.create-vfx",
+                "The graph is authorable now, but the runtime has no VFX emitter component for an entity "
+                + "to carry — an entity called VFX would reference nothing."
+            ),
+            new(
+                "entity.make-prefab",
+                "Prefab instance links are not written to a scene yet, so an instance would be an ordinary subtree."
+            ),
+            new("entity.unpack-prefab", "Prefab instance links are not written to a scene yet."),
+            new(
+                "entity.apply-overrides",
+                "Per-override apply and revert live in the inspector; the scene-wide verb needs instance links."
+            ),
+            new(
+                "entity.ungroup",
+                "Ungrouping has to reparent children and delete the group in one undoable step."
+            ),
+            new("entity.toggle-active", "There is no enabled flag on an entity yet."),
+            new(
+                "play.mode-in-editor",
+                "Choosing a play topology needs the standalone and server paths hosted from the editor."
+            ),
+            new(
+                "play.mode-standalone",
+                "Build and Run starts a player and does not keep it, so there is no process for Pause and "
+                + "Stop to reach. Playing standalone needs a supervised child process."
+            ),
+            new(
+                "play.mode-server",
+                "Nothing constructs a PlayerSessions, so there is no host for the editor to start — the "
+                + "type carries the topology and no code makes one."
+            ),
+            new("play.mute-audio", "The editor does not drive the audio engine yet."),
+            new(
+                "build.rebuild-shaders",
+                "The shader bundle is compiled by `vixen build`, which links a compiler the editor does not."
+            ),
+            new("view.full-screen", "The application has no handle on its window yet; the host owns it."),
+            new(
+                "entity.relative-transform",
+                "Typing +5 into a transform field is the inspector's numeric drawer parsing an operator, "
+                + "not a verb; the drawer reads a number and nothing else."
+            ),
+            new(
+                "scene.layers",
+                "Layers need an ECS-side concept first; a list of names nothing reads would be a promise "
+                + "the editor breaks."
+            ),
+
+            // ⚠ The two view modes ViewShading.IsSupported refuses, keyed by the ids
+            // ViewportIds.ViewMode builds — spelled out rather than computed, because this assembly
+            // cannot see Vixen.Editor.SceneView and must not start to. A mode that joins them without
+            // a line here throws while the viewport registers its commands, which is deterministic
+            // and is what ViewportCommandTests exercises.
+            new(
+                "scene.view-mode-overdraw",
+                "Overdraw needs a shader that writes a constant per fragment rather than a shaded "
+                + "colour: an additive stage over ForwardPlus accumulates luminance in cd/m² and "
+                + "saturates to white everywhere, which is a picture of the exposure rather than a "
+                + "count."
+            ),
+            new(
+                "scene.view-mode-light-complexity",
+                "Light complexity is a count off the clustered light list, and the editor's frame has "
+                + "no culling dispatch in it — the cluster buffer it binds is a zeroed stand-in, so the "
+                + "count would be zero for every pixel."
+            ),
+            .. ClipboardCommands.Select(id =>
+                new KeyValuePair<string, string>(
+                    id,
+                    "A clipboard is a buffer that outlives the selection it was filled from; the editor "
+                    + "has the subtree copy (SceneClone) and nowhere to keep one."
+                )
+            )
+        ]
+    );
+
     /// <summary>Every string above, for a translator to start from.</summary>
     public static IReadOnlyList<StringId> All { get; } = [
         MenuFile,
@@ -1247,14 +1408,20 @@ public static class EditorStrings {
         CommandBuildSettings,
         CommandCreateCamera,
         CommandCreateEntity,
+        CommandEditCopy,
+        CommandEditCut,
+        CommandEditDelete,
         CommandEditDeselectAll,
         CommandEditDuplicate,
         CommandEditFindReferences,
         CommandEditInvertSelection,
         CommandEditIsolate,
         CommandEditKeybindings,
+        CommandEditPaste,
+        CommandEditPasteAsChild,
         CommandEditRecallSelectionSet,
         CommandEditSaveSelectionSet,
+        CommandEditRename,
         CommandEditSelectAll,
         CommandEditSelectByName,
         CommandEditSelectByType,
@@ -1303,6 +1470,10 @@ public static class EditorStrings {
         CommandPlayModeServer,
         CommandPlayModeStandalone,
         CommandPlayMuteAudio,
+        CommandPlayPause,
+        CommandPlayPlay,
+        CommandPlayStep,
+        CommandPlayStop,
         CommandRadialMenu,
         CommandRefreshAssets,
         CommandReloadPlugins,
@@ -1413,7 +1584,12 @@ public static class EditorStrings {
         ViewportSnap,
         ViewportSpeed,
         ViewportViewMode,
-        ViewportWorkPlane
+        ViewportWorkPlane,
+
+        // ⚠ Spread, which is what puts every member of a family in a translator's template. A family
+        // left out of this list hides seventeen sentences rather than one, which is why VXS0310
+        // counts a StringFamily property as a declaration.
+        .. PlannedReasons.All
     ];
 
     /// <summary>A catalog holding every string the editor declares, for a translator to start from.</summary>

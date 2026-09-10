@@ -10,6 +10,11 @@
 # evidence and not only scheduled on, and a stale one argued that the run could not
 # be shortened at all (#863).
 #
+# ⚠ That comparison is made after this run's own load is divided out — the median of
+# measured over committed across the rows above 30 s — because a busy machine multiplies
+# every row at once, and reading that as drift is how a run in which every test passed
+# failed on the five longest assemblies, none of which had moved (#938).
+#
 # ⚠ That last guard is a guard on the schedule's TOP and not a freshness check on this
 # file, and the difference is most of the file. A row can only be reported as having
 # become faster if it is above 60 s to begin with, so 7 of these 181 rows

@@ -155,13 +155,7 @@ sealed partial class EditorApplication {
         // written. "Type +5 into Y and mean five more" is a property of the *field*, so it belongs to
         // the inspector's Vector3 drawer and to whatever parses what was typed — a verb that opened a
         // dialog asking for a delta would be a different feature wearing its name.
-        Planned(
-            "entity.relative-transform",
-            EditorStrings.CommandEntityRelativeTransform,
-            EditorStrings.CategoryEntity,
-            "Typing +5 into a transform field is the inspector's numeric drawer parsing an operator, "
-            + "not a verb; the drawer reads a number and nothing else."
-        );
+        Planned("entity.relative-transform", EditorStrings.CommandEntityRelativeTransform, EditorStrings.CategoryEntity);
     }
 
     // ── Selection ───────────────────────────────────────────────────────────────────────────────
