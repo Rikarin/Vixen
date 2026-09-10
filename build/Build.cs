@@ -387,6 +387,20 @@ partial class Build : NukeBuild {
     [Parameter("Rewrite the golden reference images instead of checking them")]
     readonly bool UpdateGolden;
 
+    /// <summary>Re-record even the references whose test is passing.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Separate from <see cref="UpdateGolden" /> because of #1242.</b> The image comparison
+    ///     is tolerant, so "the test passes" and "the reference is what the tree renders" are
+    ///     different claims — <c>tier-low</c> sat 36% of its mean allowance away from the rendering
+    ///     for a month, passing. An update run used to rewrite every reference it rendered, which
+    ///     re-accepted that gap and reset the budget without anybody deciding to; it now keeps a
+    ///     matching reference and says so per fixture. This is how somebody says they meant it —
+    ///     <c>c93474579</c>'s dither moved every pixel of two passing tier references and re-recording
+    ///     them was right.
+    /// </remarks>
+    [Parameter("Re-record the golden references whose test passes too, not only the ones that failed")]
+    readonly bool ForceGolden;
+
     AbsolutePath GoldenDiffDirectory => ArtifactsDirectory / "golden-diff";
 
     Target GoldenImages => definition => definition
@@ -400,7 +414,10 @@ partial class Build : NukeBuild {
                 // moved their environment API between versions and the inherited environment has
                 // not — the same reasoning as CheckFormat's raw CLI invocation above.
                 Environment.SetEnvironmentVariable("VIXEN_GOLDEN_DIFF", GoldenDiffDirectory);
-                Environment.SetEnvironmentVariable("VIXEN_UPDATE_GOLDEN", UpdateGolden ? "1" : "0");
+                Environment.SetEnvironmentVariable(
+                    "VIXEN_UPDATE_GOLDEN",
+                    ForceGolden ? "force" : UpdateGolden ? "1" : "0"
+                );
 
                 // ⚠ What this target printed on the day it did not run was `Passed!`. Every fixture
                 // in the suite skips itself when no Vulkan device opens — correctly, because a
@@ -454,7 +471,18 @@ partial class Build : NukeBuild {
                     .SetResultsDirectory(TestResultsDirectory)
                 );
 
-                if (UpdateGolden) {
+                // ⚠ What the run itself said used to be nothing at all: nine passing tests whether it
+                // had rewritten five files or none, with `git status` the only record of which. The
+                // suite now writes a line per fixture — recorded or kept, and what it spent of its
+                // tolerance — and this is what puts that in front of the person who typed the switch.
+                var report = GoldenDiffDirectory
+                    / (UpdateGolden || ForceGolden ? "golden-update.tsv" : "golden-headroom.tsv");
+
+                if (report.FileExists()) {
+                    Serilog.Log.Information("Per-fixture report:\n{Report}", report.ReadAllText());
+                }
+
+                if (UpdateGolden || ForceGolden) {
                     Serilog.Log.Warning(
                         "The reference images have been rewritten. Look at them before committing: a "
                         + "suite that updates its own expectations is a suite that always passes."

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright (c) Rikarin
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Globalization;
 using Vixen.Core.Imaging;
 using Vixen.Ui.Testing.Visual;
 using Xunit;
@@ -135,14 +136,62 @@ public readonly record struct Comparison(
 ///     </para>
 /// </remarks>
 public static class GoldenImage {
+    /// <summary>Guards the report, which every collection in the assembly appends to.</summary>
+    static readonly Lock Reporting = new();
+
+    /// <summary>Whether this process has started its report yet.</summary>
+    static bool reported;
+
     /// <summary>Whether the run should rewrite the references rather than check them.</summary>
     /// <remarks>
     ///     Set by the Nuke <c>GoldenImages</c> target's <c>--update-golden</c> parameter. Deliberately
     ///     an environment variable and not a default: a suite that rewrites its own expectations when
     ///     they fail is a suite that always passes.
     /// </remarks>
-    public static bool Updating =>
-        Environment.GetEnvironmentVariable("VIXEN_UPDATE_GOLDEN") is "1" or "true" or "TRUE";
+    public static bool Updating => UpdatingFrom(Environment.GetEnvironmentVariable("VIXEN_UPDATE_GOLDEN"));
+
+    /// <summary>Whether an update run should re-record even the references that already match.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The reason this distinction exists is #1242.</b> An update run used to rewrite
+    ///         <em>every</em> reference it rendered, including the ones whose test was passing — and
+    ///         because this suite's comparison is tolerant rather than bitwise, a reference that
+    ///         passes at a third of its allowance is not the same picture as the one that would
+    ///         replace it. So a drift somebody else's change put under the bound was re-accepted by
+    ///         whoever next typed <c>--update-golden</c> for an unrelated reason, the budget was
+    ///         silently reset, and nothing in the run said so. That is exactly how
+    ///         <c>tier-low</c>'s 0.124/255 survived two people noticing it.
+    ///     </para>
+    ///     <para>
+    ///         <b>It is a real workflow and not a mistake</b>, which is why it is a value rather than
+    ///         a refusal: <c>c93474579</c> deliberately re-recorded two <em>passing</em> tier
+    ///         references because a dither moved every pixel of them and "a reference that merely
+    ///         passes is not what the frame looks like". That run now has to say it meant it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><c>GoldenFile</c>, the text half, does not have this defect and it is worth
+    ///         saying why</b> — not diligence, but that its comparison is exact. Rewriting a snapshot
+    ///         that already matches writes identical bytes and <c>git status</c> stays empty. A
+    ///         tolerant comparator is what turns the same code into a drift absorber.
+    ///     </para>
+    /// </remarks>
+    public static bool Forcing => ForcingFrom(Environment.GetEnvironmentVariable("VIXEN_UPDATE_GOLDEN"));
+
+    /// <summary>Whether a value of the switch asks for an update run at all.</summary>
+    /// <param name="value">What the environment held, or null when it held nothing.</param>
+    /// <returns>Whether the references are being rewritten rather than checked.</returns>
+    /// <remarks>
+    ///     Pure, so the two spellings can be asserted without a test writing a process-wide
+    ///     environment variable that every other collection in this assembly reads live — which is
+    ///     the shape of race that would make one golden run rewrite the tree under another.
+    /// </remarks>
+    internal static bool UpdatingFrom(string? value) =>
+        value is "1" or "true" or "TRUE" || ForcingFrom(value);
+
+    /// <summary>Whether a value of the switch asks for the matching references too.</summary>
+    /// <param name="value">What the environment held, or null when it held nothing.</param>
+    /// <returns>Whether a reference whose test passes is re-recorded.</returns>
+    internal static bool ForcingFrom(string? value) => value is "force" or "FORCE" or "all" or "ALL";
 
     /// <summary>Where the reference images live, next to the test binary.</summary>
     public static string ReferenceDirectory => Path.Combine(AppContext.BaseDirectory, "References");
@@ -176,9 +225,7 @@ public static class GoldenImage {
         var reference = Path.Combine(ReferenceDirectory, $"{name}.png");
 
         if (Updating) {
-            // The source tree, not the output directory: rewriting the copy beside the binary would
-            // "pass" and change nothing anybody commits.
-            PngCodec.Save(Path.Combine(SourceReferenceDirectory(), $"{name}.png"), rendered);
+            Record(name, rendered, tolerance, reference);
             return;
         }
 
@@ -205,6 +252,11 @@ public static class GoldenImage {
         var result = Compare(expected, rendered, tolerance);
 
         if (result.Matches) {
+            // ⚠ What a passing golden spends is the fact this suite printed nowhere, and it is the
+            // fact that would have caught #1242 the day it landed rather than a month later: a
+            // reference passing at a third of its mean allowance has already been moved by something
+            // nobody attributed, and the next legitimate change fails and is blamed on itself.
+            Note($"kept\t{name}\t{Headroom(result, tolerance)}");
             return;
         }
 
@@ -229,6 +281,178 @@ public static class GoldenImage {
             + $"is {result.MeanChannel:F3}/255. The rendering, the reference and a diff are in "
             + $"{DiffDirectory}."
         );
+    }
+
+    /// <summary>What an update run decided about one reference.</summary>
+    /// <param name="Record">Whether the rendering replaces the committed reference.</param>
+    /// <param name="Reason">Why, in the terms a commit message would have to use.</param>
+    internal readonly record struct UpdateDecision(bool Record, string Reason);
+
+    /// <summary>Whether an update run should replace one reference, and why.</summary>
+    /// <param name="exists">Whether a reference is committed for this fixture at all.</param>
+    /// <param name="sizeAgrees">Whether it has the same dimensions as the rendering.</param>
+    /// <param name="comparison">What <see cref="Compare" /> found, when there was something to compare.</param>
+    /// <param name="tolerance">The bounds the fixture claims.</param>
+    /// <param name="forced">Whether the operator asked for every reference to be re-recorded.</param>
+    /// <returns>The decision and the sentence that justifies it.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Pure, and separate from <see cref="Verify" /> for one reason:</b> the defect this
+    ///         exists to prevent is a decision rather than an I/O mistake, and a decision that only
+    ///         exists inside a method that needs a GPU, a PNG on disk and a source checkout is a
+    ///         decision nothing can test. <c>GoldenUpdateTests</c> drives every arm of it with no
+    ///         device at all.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The <paramref name="comparison" /> is not consulted when there is nothing to
+    ///         compare against</b>, and that ordering is load-bearing: a <c>default</c>
+    ///         <see cref="Comparison" /> has <c>Matches</c> false, so an <c>exists</c> check placed
+    ///         after the match check would record a missing reference for the wrong reason and say so
+    ///         in the manifest.
+    ///     </para>
+    /// </remarks>
+    internal static UpdateDecision Decide(
+        bool exists,
+        bool sizeAgrees,
+        Comparison comparison,
+        Tolerance tolerance,
+        bool forced
+    ) {
+        if (!exists) {
+            return new(true, "there was no reference committed for it");
+        }
+
+        if (!sizeAgrees) {
+            return new(true, "the reference is a different size, which is never a rounding difference");
+        }
+
+        if (!comparison.Matches) {
+            return new(true, $"it no longer matches: {Headroom(comparison, tolerance)}");
+        }
+
+        return forced
+            ? new(
+                true,
+                "VIXEN_UPDATE_GOLDEN asked for every reference, and this one already matched: "
+                + Headroom(comparison, tolerance)
+            )
+            : new(
+                false,
+                $"it already matches, so re-accepting it would move the reference for no stated reason: "
+                + Headroom(comparison, tolerance)
+            );
+    }
+
+    /// <summary>What a comparison spent of what it was allowed.</summary>
+    /// <param name="result">What the comparison found.</param>
+    /// <param name="tolerance">What the fixture allows.</param>
+    /// <returns>One line naming both bounds, what was spent of each, and the worst pixel.</returns>
+    /// <remarks>
+    ///     Both bounds, because <see cref="Tolerance" />'s own remarks are that they see different
+    ///     failures — and the mean bound is <see cref="double.MaxValue" /> on most fixtures here, so
+    ///     the line says "unbounded" rather than printing a percentage of infinity that reads as
+    ///     healthy.
+    /// </remarks>
+    internal static string Headroom(Comparison result, Tolerance tolerance) {
+        // ⚠ Every number formatted invariantly and then interpolated, rather than interpolated and
+        // formatted by whatever culture the host booted with. This line is asserted on by
+        // `GoldenUpdateTests` and written into a TSV, and `F3` under a comma-decimal culture writes
+        // "0,350" — a test that fails on a French machine and a column a spreadsheet splits in two.
+        var bounded = !double.IsPositiveInfinity(tolerance.Mean) && tolerance.Mean < double.MaxValue;
+        var spent = result.MeanChannel.ToString("F3", CultureInfo.InvariantCulture);
+
+        var mean = bounded
+            ? $"mean {spent}/255 of {tolerance.Mean.ToString("F3", CultureInfo.InvariantCulture)} "
+                + $"({(result.MeanChannel / tolerance.Mean).ToString("P0", CultureInfo.InvariantCulture)} "
+                + "of the allowance)"
+            : $"mean {spent}/255 against no mean bound";
+
+        var counted = $"{result.DifferingPixels} of {result.TotalPixels} pixels over "
+            + $"{tolerance.Channel}/255";
+
+        var pixels = tolerance.Fraction <= 0
+            ? $"{counted}, where none may"
+            : $"{counted}, where {tolerance.Fraction.ToString("P3", CultureInfo.InvariantCulture)} may "
+                + $"({(result.Fraction / tolerance.Fraction).ToString("P0", CultureInfo.InvariantCulture)} "
+                + "of the allowance)";
+
+        return $"{mean}; {pixels}; worst {result.WorstChannel}/255 at "
+            + $"({result.WorstAt.X}, {result.WorstAt.Y})";
+    }
+
+    /// <summary>Records a rendering as the new reference, or says why it was left alone.</summary>
+    /// <param name="name">The fixture's name.</param>
+    /// <param name="rendered">What was rendered.</param>
+    /// <param name="tolerance">How far apart they may be.</param>
+    /// <param name="reference">The reference beside the binary, which is the one to compare against.</param>
+    static void Record(string name, in Bitmap rendered, Tolerance tolerance, string reference) {
+        var exists = File.Exists(reference);
+        var comparison = default(Comparison);
+        var sizeAgrees = false;
+
+        if (exists) {
+            var expected = PngCodec.Load(reference);
+            sizeAgrees = expected.Width == rendered.Width && expected.Height == rendered.Height;
+
+            if (sizeAgrees) {
+                comparison = Compare(expected, rendered, tolerance);
+            }
+        }
+
+        var decision = Decide(exists, sizeAgrees, comparison, tolerance, Forcing);
+
+        if (decision.Record) {
+            // The source tree, not the output directory: rewriting the copy beside the binary would
+            // "pass" and change nothing anybody commits.
+            PngCodec.Save(Path.Combine(SourceReferenceDirectory(), $"{name}.png"), rendered);
+        }
+
+        Note($"{(decision.Record ? "recorded" : "kept")}\t{name}\t{decision.Reason}");
+    }
+
+    /// <summary>Where this run's per-fixture report is written.</summary>
+    /// <remarks>
+    ///     Named for what the run was doing, because the two answer different questions: an update
+    ///     run's reader wants to know which files changed under it, and a checking run's wants to
+    ///     know which references are close to their bound before one of them fails.
+    /// </remarks>
+    public static string ReportPath =>
+        Path.Combine(DiffDirectory, Updating ? "golden-update.tsv" : "golden-headroom.tsv");
+
+    /// <summary>Writes one line of the report, to the running test and to the file.</summary>
+    /// <param name="line">Verb, fixture, and the sentence that explains it.</param>
+    /// <remarks>
+    ///     <para>
+    ///         Both channels on purpose. The test's own output is what a TRX carries, so a CI failure
+    ///         page can be read without the machine; the file is what a developer at a terminal can
+    ///         open, because <c>dotnet test</c> prints a passing test's output nowhere.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>What this prints on the day it does not run is nothing at all</b>, and that is
+    ///         deliberate rather than overlooked: it is a report and not a gate, so an absent file is
+    ///         "no fixtures ran" and cannot be mistaken for "every fixture was healthy". The run's
+    ///         own <c>Total</c> is what says whether it ran. Truncated once per process so a stale
+    ///         line from yesterday's run cannot be read as today's.
+    ///     </para>
+    /// </remarks>
+    static void Note(string line) {
+        TestContext.Current.TestOutputHelper?.WriteLine($"golden {line.Replace('\t', ' ')}");
+
+        try {
+            lock (Reporting) {
+                Directory.CreateDirectory(DiffDirectory);
+
+                if (!reported) {
+                    File.WriteAllText(ReportPath, "verb\tfixture\twhy\n");
+                    reported = true;
+                }
+
+                File.AppendAllText(ReportPath, line + "\n");
+            }
+        } catch (IOException) {
+            // A report nobody can write is not a reason to fail a picture: the assertion above is the
+            // test, and this is the paperwork.
+        }
     }
 
     /// <summary>Compares two images.</summary>

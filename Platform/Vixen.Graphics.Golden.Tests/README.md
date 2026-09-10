@@ -103,6 +103,39 @@ Then **look at what it wrote** before committing, against the questions in
 [Judging a golden that moved](#judging-a-golden-that-moved). A suite that rewrites its own
 expectations when they fail is a suite that always passes.
 
+### ⚠ It rewrites only the references that failed, and says what it did with the rest
+
+An update run used to rewrite **every** fixture it rendered, including the ones whose test was
+passing — and that is not a harmless no-op here, because this suite's comparison is *tolerant*
+rather than bitwise. "The test passes" and "the reference is what the tree renders" are different
+claims: `tier-low` sat 0.124/255 from the rendering against a 0.350 bound for a month, deterministic
+and reproducible, and every `--update-golden` typed for an unrelated reason would have re-accepted
+it, reset the budget and reported nine passing tests
+([#1242](https://github.com/Rikarin/Vixen/issues/1242)). The only thing that ever caught it was a
+human noticing the working tree listed a fourth changed file when three tests had failed.
+
+So a matching reference is now **kept**, and both kinds of run write a line per fixture — beside the
+diffs, as `golden-update.tsv` for an update run and `golden-headroom.tsv` for a checking one:
+
+```
+kept  tier-low  it already matches, so re-accepting it would move the reference for no stated
+                reason: mean 0.124/255 of 0.350 (36 % of the allowance); 0 of 16384 pixels over
+                12/255, where 0.200 % may (0 % of the allowance); worst 10/255 at (64, 56)
+```
+
+That headroom is the fact this suite printed nowhere and the one that catches the *next* drift the
+day it lands rather than a month later. ⚠ It is a report and not a gate: on the day nothing ran
+there is no file at all, which is why the run's own `Total` remains what says whether it ran.
+
+Re-recording a reference whose test passes is a real workflow and not a mistake — `c93474579`'s
+dither moved every pixel of two tier goldens without failing either, and "a reference that merely
+passes is not what the frame looks like". That is what `--force-golden` (or
+`VIXEN_UPDATE_GOLDEN=force`) is for, and the run then says it was asked.
+
+⚠ The keep-or-record decision compares against the copy beside the binary, exactly as `Verify` does,
+so the build-in-between rule below applies to it too: a second update run with `--no-build` after a
+regeneration is comparing against the reference it already replaced.
+
 ## Comparison
 
 Perceptual with an explicit threshold, not bitwise ([`docs/plan/05`](../../docs/plan/05-graphics-rhi.md)
