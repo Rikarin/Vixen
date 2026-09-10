@@ -18,10 +18,11 @@ export const serverRoutes: ServerRoute[] = [
   {
     path: 'docs/api/:namespace',
     renderMode: RenderMode.Prerender,
-    // ⚠ The union, because the two disagree for anything that is not a C# type. A shader's namespace
-    // is `Raven.Library.Pipeline` and its page is `/docs/api/shaders/…`, so the segment its own
-    // breadcrumb links to is one `GRAPH.namespaces` has never heard of — and nginx serves an
-    // unprerendered path as a hard 404 rather than falling back to the shell.
+    // ⚠ The union, and belt-and-braces since #997 made the namespace index the slug segments too. It
+    // was not: a shader's namespace is `Raven.Library.Pipeline` while its page is
+    // `/docs/api/shaders/…`, so the segment its own breadcrumb linked to was one `GRAPH.namespaces`
+    // had never heard of — and nginx serves an unprerendered path as a hard 404 rather than falling
+    // back to the shell. The union is what keeps that true of a node kind nobody has invented yet.
     getPrerenderParams: async () => [
       ...new Set([
         ...GRAPH.namespaces.map(entry => entry.slug),
