@@ -1677,9 +1677,20 @@ public partial class UiElement : Composition.IComposable {
             // shaping. That is what a line break *is* — a ligature does not cross one and an Arabic
             // word unjoins at one — and slicing would also need a run split in the middle of a
             // cluster, which has no meaning.
-            // ⚠ The wrapper's own width, not the re-shaped line's. It excludes the whitespace at the
-            // line's end, which is drawn but must not be measured — and since the advances handed to
-            // it were in pixels, the number it gives back already is too.
+            // ⚠ The wrapper's own width, not the re-shaped line's — but only for a line the wrapper
+            // chose to break, which is what `line.End < text.Length && !line.Mandatory` is exactly.
+            // `LineWrapper.Width` trims unconditionally, because *fitting* a range never counts the
+            // white space at its end; what a line reports for `text-align` is a different question,
+            // and CSS Text § 4.1.3 answers it with the line's ending. Preserved trailing white space
+            // hangs out of the line box at a soft wrap and stays inside it everywhere else —
+            // measured in Chrome 152, `ab cd  ef  ` right-aligned in a 60px `pre-wrap` box draws its
+            // last line's `ef` ending at 51.11 and not at the box's edge, and so does `ef  \nxy`.
+            // Passing the trimmed width for those two hung their spaces as well, which is
+            // `Rikarin/Vixen#1237`. NaN is the line summing its own runs, less the segment break it
+            // ended on — see `TextLine.Terminator`.
+            // ⚠ And the soft-wrapped line has to keep taking the wrapper's number rather than
+            // trimming its own runs: that width also carries the hyphen a broken line draws, which
+            // is not in any run's advance because the shaper deleted the soft hyphen.
             // ⚠ The indent lands on the first line and on no other, which is what CSS Text 3 § 8.1
             // says and is also the only reading the wrapper's own arithmetic supports: it is the
             // first line that was measured against the narrower width.
@@ -1697,7 +1708,7 @@ public partial class UiElement : Composition.IComposable {
                     line.Start,
                     chain,
                     transformed,
-                    line.Advance,
+                    line.End < text.Length && !line.Mandatory ? line.Advance : float.NaN,
                     offsets.Count > 0 ? offsets[i] : line.Start == 0 ? indent : 0f,
                     tabStop
                 )

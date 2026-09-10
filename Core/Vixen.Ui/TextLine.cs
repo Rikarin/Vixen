@@ -196,7 +196,15 @@ public sealed class TextLine {
             pen += widths[index];
         }
 
-        Width = float.IsNaN(width) ? pen : width;
+        // ⚠ <b>The summed width keeps the line's trailing white space and never the segment break
+        // that ended it</b>, which is the one distinction between a line that hangs and a line that
+        // does not. CSS Text § 4.1.3 hangs preserved trailing white space at a *soft wrap* only, so
+        // `UiElement.Wrap` hands a width down for exactly those lines and NaN for the two that keep
+        // theirs — the last line of the text, and a line ending at a forced break. The second of
+        // those is a substring ending in the newline, and a newline occupies nothing in any browser:
+        // measured in Chrome 152, `ef  \nxy` right-aligned in a 60px `pre-wrap` box draws `ef` ending
+        // at 51.11, which is the box less the two spaces and nothing else.
+        Width = float.IsNaN(width) ? pen - Terminator(runs, widths) : width;
 
         // ⚠ <b>A width the caller gave is already trimmed and must not be trimmed twice.</b> Every
         // explicit width here comes from `LineWrapper.Width`, which walks back over the range's
@@ -262,6 +270,62 @@ public sealed class TextLine {
 
         return width;
     }
+
+    /// <summary>How wide the segment break at the end of the line is, in pixels.</summary>
+    /// <param name="runs">The runs, in text order.</param>
+    /// <param name="widths">How wide each of them is on this line.</param>
+    /// <returns>Zero for a line that did not end at a forced break, which is nearly all.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>This is the measure <see cref="Hung" /> is not, and the difference is the
+    ///         spaces in front of the newline.</b> Both walk back from the last run; this one steps
+    ///         over the line terminators alone and stops at the first character that is not one, so
+    ///         <c>"ef  \n"</c> gives back the newline's advance and leaves the two spaces in the line
+    ///         box where Chrome puts them. <see cref="Hung" /> would take all three, which is right
+    ///         for the intrinsic measure and wrong for <c>text-align</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The set is <see cref="LineBreaker.IsMandatory" />'s and not
+    ///         <c>char.IsWhiteSpace</c>'s</b> — the four UAX #14 classes that force a break, <c>BK</c>
+    ///         <c>CR</c> <c>LF</c> <c>NL</c>, because a line ends at a forced break exactly where that
+    ///         method says one does. A <c>CRLF</c> is two characters and one break, and walking the
+    ///         whole trailing run rather than one character is what takes it whole; nothing else can
+    ///         put two terminators on one line, since the wrapper breaks at each of them.
+    ///     </para>
+    /// </remarks>
+    static float Terminator(ImmutableArray<TextRun> runs, float[] widths) {
+        var width = 0f;
+
+        for (var i = runs.Length - 1; i >= 0; i--) {
+            var text = runs[i].Shaped.Text;
+            var last = text.Length;
+
+            while (last > 0 && IsSegmentBreak(text[last - 1])) {
+                last--;
+            }
+
+            // This run ends in something that is not a terminator, so the line did not end at one.
+            if (last == text.Length) {
+                break;
+            }
+
+            // All of it is terminator, and the run before it may be too.
+            if (last == 0) {
+                width += widths[i];
+                continue;
+            }
+
+            width += Tail(runs[i], last);
+            break;
+        }
+
+        return width;
+    }
+
+    /// <summary>Whether a character forces a line to end. CSS Text § 4.1.1's break.</summary>
+    /// <param name="value">The character.</param>
+    static bool IsSegmentBreak(char value) =>
+        value is '\n' or '\u000b' or '\u000c' or '\r' or '\u0085' or '\u2028' or '\u2029';
 
     /// <summary>How wide the white space at the end of a run is, in pixels.</summary>
     /// <param name="run">The run. Not a tab, which <see cref="Hung" /> takes whole.</param>
