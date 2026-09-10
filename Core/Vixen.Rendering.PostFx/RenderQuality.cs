@@ -322,7 +322,15 @@ public sealed record PostFidelityQuality {
     /// </remarks>
     public bool? LightStreak { get; init; }
 
-    /// <summary>Whether the vignette runs.</summary>
+    /// <summary>Whether the lens node's three looks run — the vignette, the aberration and the grain.</summary>
+    /// <remarks>
+    ///     ⚠ <b>Named for one of the three because it gates all three, and it does not gate the
+    ///     node.</b> <c>VignetteAsset</c> carries five permutations and <c>StandardFrame</c> emits it
+    ///     on every tier, because the fifth is the output dither — a quantisation fix that belongs to
+    ///     the encode rather than to a fidelity setting, and the lens node is the pass that writes the
+    ///     frame's output resource. A tier with this false pays for one full-screen pass with every
+    ///     look permuted off (#1243).
+    /// </remarks>
     public bool? Vignette { get; init; }
 
     /// <summary>Which threshold set FXAA runs at — <see cref="FxaaPreset" />.</summary>

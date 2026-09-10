@@ -359,6 +359,89 @@ public class PermutationTests {
             "RVN2062"
         );
 
+    /// <summary>
+    ///     <c>RVN2062</c> and <c>RVN2081</c> admit and refuse exactly the same types.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         The two rules are one restriction — a permutation key and a value parameter are both
+    ///         cache keys — and until <c>CacheKeyTypes</c> existed they were the same predicate
+    ///         written out twice with nothing making them move together. Widening one to admit, say,
+    ///         a small enum left the other refusing it, and the failure is a shader that compiles as
+    ///         a permutation and not as a value parameter.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Agreement alone would be satisfied by a predicate that always says yes</b>, so
+    ///         the counts are asserted too: this fixture is only evidence while both sides of the
+    ///         restriction are non-empty. That is the same trap the duplicate itself set — a
+    ///         widening applied to the first textual match left the value-parameter fixture green,
+    ///         which reads exactly like a fixture that proves nothing.
+    ///     </para>
+    ///     <para>
+    ///         Every type is measured before anything is asserted, so one run names every type the
+    ///         two rules disagree about rather than only the first.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_permutation_key_and_a_value_parameter_admit_the_same_types() {
+        // A literal for each, because a permutation key with no default is a different diagnostic.
+        (string Type, string Literal)[] types = [
+            ("bool", "false"),
+            ("int", "1"),
+            ("uint", "1u"),
+            ("float", "1.0f"),
+            ("double", "1.0"),
+            ("float2", "float2(1.0f, 1.0f)"),
+            ("float4", "float4(1.0f, 1.0f, 1.0f, 1.0f)")
+        ];
+
+        var disagreed = new List<string>();
+        var admitted = new List<string>();
+        var refused = new List<string>();
+
+        foreach (var (type, literal) in types) {
+            var asKey = DiagnosticsWith(
+                $$"""
+                  package A
+
+                  shader S {
+                      [Permutation] val Key: {{type}} = {{literal}}
+                  }
+
+                  """,
+                PermutationValues.Empty
+            ).Any(d => d.Id == "RVN2062");
+
+            var asParameter = DiagnosticsWith(
+                $$"""
+                  package A
+
+                  shader S<val Key: {{type}}> {
+                  }
+
+                  """,
+                PermutationValues.Empty
+            ).Any(d => d.Id == "RVN2081");
+
+            if (asKey != asParameter) {
+                disagreed.Add(
+                    $"{type}: a permutation key of it is {(asKey ? "refused" : "admitted")} and a value "
+                    + $"parameter of it is {(asParameter ? "refused" : "admitted")}"
+                );
+            }
+
+            (asKey ? refused : admitted).Add(type);
+        }
+
+        Assert.True(
+            disagreed.Count == 0,
+            "RVN2062 and RVN2081 are one restriction and they disagree:\n" + string.Join("\n", disagreed)
+        );
+
+        Assert.NotEmpty(admitted);
+        Assert.NotEmpty(refused);
+    }
+
     [Fact]
     public void A_permutation_without_a_default_is_rejected() =>
         AssertDiagnostics(

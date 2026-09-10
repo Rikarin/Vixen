@@ -62,11 +62,22 @@ public class StandardFrameTests {
     static TAsset Node<TAsset>(GraphicsCompositorAsset document, string name) =>
         Assert.IsType<TAsset>(Root(document).Children.Single(child => child.Name == name));
 
+    /// <summary>
+    ///     The bare frame is background, scene, curve — and the dither, which is not a fidelity
+    ///     setting.
+    /// </summary>
+    /// <remarks>
+    ///     ⚠ This asserted three nodes until <see href="https://github.com/Rikarin/Vixen/issues/1243">
+    ///     #1243</see>. The lens node is the seat of the output dither and the dither belongs to the
+    ///     <em>encode</em> rather than to a tier, so even the floor configuration pays for it — with
+    ///     all three of that node's looks off, which is what
+    ///     <see cref="The_lens_node_dithers_on_every_tier" /> holds.
+    /// </remarks>
     [Fact]
-    public void All_off_is_sky_main_tonemap_and_nothing_else() {
+    public void All_off_is_sky_main_tonemap_and_the_dither() {
         var document = Expand(AllOff);
 
-        Assert.Equal(["Sky", "Main", "Tonemap"], Names(document));
+        Assert.Equal(["Sky", "Main", "Tonemap", "Glass"], Names(document));
 
         // No split, so the one colour target; no shadows, so no seats published into set 0.
         var main = Node<RenderPassAsset>(document, "Main");
@@ -75,11 +86,17 @@ public class StandardFrameTests {
         Assert.Equal(["SceneHdr"], main.Loaded);
         Assert.Empty(main.SceneTextures);
 
-        // With nothing after the curve, the tonemap itself writes the output resource.
+        // The dither is after the curve, so the curve hands it an intermediate and it writes the
+        // output resource — which is the whole point of its seat.
         var tonemap = Node<TonemapAsset>(document, "Tonemap");
 
         Assert.Equal("SceneHdr", tonemap.Source);
-        Assert.Equal("SceneColour", tonemap.Output);
+        Assert.Equal("SceneGraded", tonemap.Output);
+
+        var glass = Node<VignetteAsset>(document, "Glass");
+
+        Assert.Equal("SceneGraded", glass.Source);
+        Assert.Equal("SceneColour", glass.Output);
         Assert.Equal("", tonemap.Bloom);
         Assert.Equal("", tonemap.ExposureBuffer);
 
@@ -94,7 +111,7 @@ public class StandardFrameTests {
     public void Cascades_add_the_shadow_pass_the_seats_and_an_atlas_of_the_nodes_own_arithmetic() {
         var document = Expand(AllOff with { Shadows = ShadowMode.Cascades });
 
-        Assert.Equal(["Sun", "Lamps", "Sky", "Main", "Tonemap"], Names(document));
+        Assert.Equal(["Sun", "Lamps", "Sky", "Main", "Tonemap", "Glass"], Names(document));
 
         // The caster stage carries the structural decisions, not the artistic ones: back faces,
         // zero raster bias, clamped depth, the depth-only override shader without composition.
@@ -142,7 +159,7 @@ public class StandardFrameTests {
 
         // The A/B, not a swap: the map shades where it has a drawn page, the cascades everywhere
         // else — so both nodes are in the frame, and the map sits after the finished depth.
-        Assert.Equal(["Sun", "Lamps", "Sky", "Main", "SunPages", "Tonemap"], Names(document));
+        Assert.Equal(["Sun", "Lamps", "Sky", "Main", "SunPages", "Tonemap", "Glass"], Names(document));
 
         var pages = Node<VirtualShadowAsset>(document, "SunPages");
 
@@ -271,7 +288,7 @@ public class StandardFrameTests {
         var document = Expand(AllOff with { Gi = GiMode.Ambient });
 
         Assert.Equal(
-            ["Clipmap", "Sky", "Main", "Occlusion", "ContactOcclusion", "Combine", "Tonemap"],
+            ["Clipmap", "Sky", "Main", "Occlusion", "ContactOcclusion", "Combine", "Tonemap", "Glass"],
             Names(document)
         );
 
@@ -430,7 +447,10 @@ public class StandardFrameTests {
         Assert.Equal(volumetric, names.Contains("Volumetrics"));
     }
 
-    /// <summary>The lens node dithers wherever the tier emits one, and no tier turns it off.</summary>
+    /// <summary>
+    ///     Every tier emits the lens node and dithers, and the tier gates only the three looks that
+    ///     node carries.
+    /// </summary>
     /// <remarks>
     ///     <para>
     ///         ⚠ <b>Not a tier knob, and that is the assertion.</b> A dither is what stops an
@@ -440,10 +460,18 @@ public class StandardFrameTests {
     ///         after the grain; dithering before a curve dithers the wrong quantity.
     ///     </para>
     ///     <para>
-    ///         ⚠ <b>Which is why the two tiers with no vignette are asserted to have no lens node at
-    ///         all rather than one that does not dither</b> — the gap is real and is
-    ///         <see href="https://github.com/Rikarin/Vixen/issues/1243">#1243</see>, and writing it
-    ///         down as "Low has a node whose dither is off" would record the wrong reason.
+    ///         ⚠ <b>This fixture used to assert the opposite of Low and Medium</b> — that a tier
+    ///         with no vignette had no lens node and therefore no dither, recorded as
+    ///         <see href="https://github.com/Rikarin/Vixen/issues/1243">#1243</see> rather than as a
+    ///         decision. It was a gap: banding is a property of the eight-bit <em>encode</em>, and the
+    ///         cheap tiers — no bloom, no volumetrics, nothing to break a gradient up — are the ones
+    ///         whose frames band most. The node is unconditional now and <c>UseVignette</c> follows
+    ///         the tier.
+    ///     </para>
+    ///     <para>
+    ///         The look permutations are asserted beside the dither because they are what stops the
+    ///         fix being bought twice: a Low frame emitting this node with its defaults would get
+    ///         grain and chromatic aberration too, which are exactly the looks the tier turned off.
     ///     </para>
     ///     <para>
     ///         The amplitude is not asserted here because it is not the document's: it is one code of
@@ -457,14 +485,26 @@ public class StandardFrameTests {
     [InlineData(QualityTier.Medium, false)]
     [InlineData(QualityTier.High, true)]
     [InlineData(QualityTier.Epic, true)]
-    public void The_lens_node_dithers_wherever_there_is_one(QualityTier quality, bool lens) {
+    public void The_lens_node_dithers_on_every_tier(QualityTier quality, bool looks) {
         var document = Expand(AllOn with { Quality = quality });
+        var names = Names(document);
 
-        Assert.Equal(lens, Names(document).Contains("Glass"));
+        Assert.Contains("Glass", names);
 
-        if (lens) {
-            Assert.True(Node<VignetteAsset>(document, "Glass").UseDither);
-        }
+        var glass = Node<VignetteAsset>(document, "Glass");
+
+        Assert.True(glass.UseDither, $"{quality} does not dither its encode");
+
+        // The looks are the tier's; the dither is not.
+        Assert.Equal(looks, glass.UseVignette);
+        Assert.Equal(looks, glass.UseGrain);
+        Assert.Equal(looks, glass.UseChromaticAberration);
+
+        // ⚠ And it is still last, and still the pass that writes the frame's own output resource:
+        // a dither that ran anywhere else would be breaking up an intermediate's quantisation, which
+        // is the one thing about a dither that can be silently wrong.
+        Assert.Equal("Glass", names[^1]);
+        Assert.Equal(AllOn.Output, glass.Output);
     }
 
     /// <summary>The tier decides whether the volume draws beams or a glow.</summary>
