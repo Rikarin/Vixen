@@ -1645,6 +1645,7 @@ T:Vixen.Editor.Water.WaterNotice sweep-pending
 T:Vixen.Editor.Water.WaterStrings sweep-pending
 T:Vixen.Editor.Water.WaterZoneFacts sweep-pending
 T:Vixen.Engine.Behaviors.Behavior sweep-pending
+T:Vixen.Engine.Behaviors.BehaviorJobAttribute sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorLateUpdateSystem sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorLifecycleSystem sweep-pending
 T:Vixen.Engine.Behaviors.BehaviorPopulation sweep-pending

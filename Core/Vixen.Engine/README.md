@@ -137,6 +137,19 @@ middle of the unload rather than at the call that was wrong.
 so the update loop is monomorphic and stops at the boundary — a thousand disabled behaviours cost
 nothing.
 
+**`[BehaviorJob]` dispatches one type's batch across the job system** instead of walking it here, for
+the case bucketing does not help with: ten thousand instances of one behaviour on one core. It
+parallelises the indices *within* a bucket, at the sync point where the behaviour pass runs, so it
+needs no access declaration — a bucket against a *system* is the other question and is not this. ⚠ The
+attribute is a promise about the body, and `VXS0417` is what holds it to it: inside a marked
+`Update` or `LateUpdate`, `Enabled`, `Destroy()`, `Run(coroutine)`, structural change and `Get<T>` of
+a *managed* component are errors, because each reaches state the whole store or the whole world
+shares. The last of those is the one nothing at the call site betrays — resolving a managed cell
+grows the world's table. There is no `#pragma` for the rule: the way out is to take the attribute off
+the type. ⚠ And a dispatched batch produces the same world in the same order as a serial one, which
+is why `BehaviorStore.DispatchedBatches` exists — without it, a build where the feature silently did
+not run is indistinguishable from one where it did.
+
 Doc 04 has a generator emit a dispatch method per behaviour type to get that. It is not needed:
 `BehaviorBucket<T>` is closed at the `Add<T>` call site where the concrete type is already known, and
 its loop is the same monomorphic walk over the same contiguous array. ⚠ Nor is one owed for

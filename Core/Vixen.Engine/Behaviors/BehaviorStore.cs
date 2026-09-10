@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Core;
+using Vixen.Core.Threading;
 using Vixen.Ecs;
 using Vixen.Engine.Coroutines;
 
@@ -70,6 +71,35 @@ public sealed class BehaviorStore {
     ///     phase's own time and never last phase's.
     /// </remarks>
     public GameTime Time { get; set; } = GameTime.Zero;
+
+    /// <summary>
+    ///     The scheduler a <see cref="BehaviorJobAttribute" /> batch is dispatched across, or
+    ///     <see langword="null" /> to walk every batch on the calling thread.
+    /// </summary>
+    /// <remarks>
+    ///     <para>
+    ///         Set by the behaviour systems from their <c>SystemContext</c> before each pass, the way
+    ///         <see cref="Time" /> is, so the store is talking about the frame's scheduler rather than
+    ///         one it went and found. A store nobody sets this on — the editor's authored store, a
+    ///         test — runs every batch serially, which is the same work in the same order.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Internal, because a game does not choose this per store.</b> The attribute is what
+    ///         a game author writes; which scheduler the frame is using is the loop's business.
+    ///     </para>
+    /// </remarks>
+    internal JobScheduler? Jobs { get; set; }
+
+    /// <summary>How many behaviour batches this store has handed to the job system.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The instrument, and it is here because the feature is invisible without it.</b> A
+    ///     dispatched batch and a serial walk produce the same world, in the same order, with the
+    ///     same counters — so "the parallel path ran" and "the parallel path was silently skipped
+    ///     because nothing set <see cref="Jobs" /> or nothing carried the attribute" are
+    ///     indistinguishable from the outside, and the second is what a broken build looks like.
+    ///     Zero is what this reads on the day the feature does not run.
+    /// </remarks>
+    internal long DispatchedBatches { get; private set; }
 
     /// <summary>How many behaviours exist, enabled or not.</summary>
     public int Count {
@@ -465,21 +495,34 @@ public sealed class BehaviorStore {
 
     /// <summary>Runs <c>Update</c> on every enabled, started behaviour.</summary>
     /// <remarks>
-    ///     An index loop, not a <c>foreach</c>: a behaviour that attaches a behaviour of a type
-    ///     nobody has used yet appends a bucket to this list from inside it. A new bucket's contents
-    ///     have not started, so visiting it does nothing — which is the right answer, and a
-    ///     <c>foreach</c> would have thrown instead.
+    ///     <para>
+    ///         An index loop, not a <c>foreach</c>: a behaviour that attaches a behaviour of a type
+    ///         nobody has used yet appends a bucket to this list from inside it. A new bucket's
+    ///         contents have not started, so visiting it does nothing — which is the right answer,
+    ///         and a <c>foreach</c> would have thrown instead.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The buckets themselves stay in order and one at a time.</b> What
+    ///         <see cref="BehaviorJobAttribute" /> parallelises is the indices <em>within</em> one
+    ///         bucket, where every element is the same type running the same body. Two buckets are
+    ///         two different bodies with no declaration between them, so running those concurrently
+    ///         would be the read/write question doc 04 parks, and this is not it.
+    ///     </para>
     /// </remarks>
     public void RunUpdate() {
         for (var index = 0; index < ordered.Count; index++) {
-            ordered[index].Update();
+            if (ordered[index].Update(Jobs)) {
+                DispatchedBatches++;
+            }
         }
     }
 
     /// <summary>Runs <c>LateUpdate</c> on every enabled, started behaviour.</summary>
     public void RunLateUpdate() {
         for (var index = 0; index < ordered.Count; index++) {
-            ordered[index].LateUpdate();
+            if (ordered[index].LateUpdate(Jobs)) {
+                DispatchedBatches++;
+            }
         }
     }
 
@@ -609,9 +652,15 @@ public sealed class BehaviorStore {
         /// <summary>How many of them are in the enabled prefix, which is what the update loop walks.</summary>
         int Enabled { get; }
 
-        void Update();
+        /// <summary>Runs the batch's <c>Update</c>.</summary>
+        /// <param name="jobs">The frame's scheduler, or null to walk the batch here.</param>
+        /// <returns>Whether the batch went to the job system, which is what the store counts.</returns>
+        bool Update(JobScheduler? jobs);
 
-        void LateUpdate();
+        /// <summary>Runs the batch's <c>LateUpdate</c>.</summary>
+        /// <param name="jobs">The frame's scheduler, or null to walk the batch here.</param>
+        /// <returns>Whether the batch went to the job system.</returns>
+        bool LateUpdate(JobScheduler? jobs);
 
         void Activate(Behavior behavior);
 
@@ -624,6 +673,14 @@ public sealed class BehaviorStore {
 
     /// <summary>One concrete behaviour type's instances, enabled ones first.</summary>
     sealed class BehaviorBucket<T> : IBehaviorBucket where T : Behavior {
+        /// <summary>Whether this type asked for its batch to be dispatched across the job system.</summary>
+        /// <remarks>
+        ///     Resolved once per closed generic rather than per frame: the answer cannot change while
+        ///     a process is running, and an attribute lookup in the update loop would be reflection
+        ///     in the one place doc 04 spends the whole section getting reflection out of.
+        /// </remarks>
+        static readonly bool Dispatched = typeof(T).IsDefined(typeof(BehaviorJobAttribute), inherit: false);
+
         T[] items = new T[8];
         int enabled;
 
@@ -642,25 +699,53 @@ public sealed class BehaviorStore {
             items[Count++] = behavior;
         }
 
-        public void Update() {
-            for (var index = 0; index < enabled; index++) {
-                var behavior = items[index];
+        public bool Update(JobScheduler? jobs) {
+            if (!Dispatch(jobs)) {
+                for (var index = 0; index < enabled; index++) {
+                    var behavior = items[index];
 
-                if (behavior.IsStarted) {
-                    behavior.InvokeUpdate();
+                    if (behavior.IsStarted) {
+                        behavior.InvokeUpdate();
+                    }
                 }
+
+                return false;
             }
+
+            // Batch size left to the scheduler, which aims for four batches per participating
+            // thread. That is the right shape for behaviours for the reason it is right for
+            // animators: one instance's Update is a line and the next one's is a state machine, and
+            // the stealing is what evens them out.
+            jobs!.ParallelFor(new Batch(items, late: false), enabled);
+            return true;
         }
 
-        public void LateUpdate() {
-            for (var index = 0; index < enabled; index++) {
-                var behavior = items[index];
+        public bool LateUpdate(JobScheduler? jobs) {
+            if (!Dispatch(jobs)) {
+                for (var index = 0; index < enabled; index++) {
+                    var behavior = items[index];
 
-                if (behavior.IsStarted) {
-                    behavior.InvokeLateUpdate();
+                    if (behavior.IsStarted) {
+                        behavior.InvokeLateUpdate();
+                    }
                 }
+
+                return false;
             }
+
+            jobs!.ParallelFor(new Batch(items, late: true), enabled);
+            return true;
         }
+
+        /// <summary>Whether this pass should go to the job system rather than walk the array here.</summary>
+        /// <remarks>
+        ///     ⚠ <b>Two enabled instances is the floor, and it is not a tuned threshold.</b> One
+        ///     index cannot be split across two threads, so dispatching it would buy a scheduling
+        ///     round trip and nothing else. Any number above two would be an opinion about the cost
+        ///     of a batch that nobody has measured — doc 04 owes a measurement here and this does not
+        ///     invent one.
+        /// </remarks>
+        bool Dispatch(JobScheduler? jobs) => Dispatched && jobs is not null && enabled > 1;
 
         public void Activate(Behavior behavior) {
             if (behavior.Slot >= enabled) {
@@ -697,6 +782,40 @@ public sealed class BehaviorStore {
             (items[left], items[right]) = (items[right], items[left]);
             items[left].Slot = left;
             items[right].Slot = right;
+        }
+
+        /// <summary>One <see cref="BehaviorJobAttribute" /> batch, as work any thread may run.</summary>
+        /// <remarks>
+        ///     <para>
+        ///         ⚠ <b>It holds the array rather than a span or a slice.</b> A job struct outlives
+        ///         the call that made it — every batch shares one copy — so a <c>ReadOnlySpan</c>
+        ///         could not be a field, and copying the enabled prefix out per frame would allocate
+        ///         once per bucket per pass to avoid nothing: <c>enabled</c> is passed to
+        ///         <c>ParallelFor</c> as the length and nothing in a dispatched pass may move an
+        ///         element, which is what <c>VXS0417</c> refuses.
+        ///     </para>
+        ///     <para>
+        ///         The <c>IsStarted</c> test is per index and not hoisted, because the prefix holds
+        ///         behaviours that are enabled and not yet started — the same test the serial loop
+        ///         makes, in the same place.
+        ///     </para>
+        /// </remarks>
+        /// <param name="items">The bucket's array. Index <c>i</c> is index <c>i</c>'s only element.</param>
+        /// <param name="late">Whether this is the <c>LateUpdate</c> pass.</param>
+        readonly struct Batch(T[] items, bool late) : IJobParallelFor {
+            public void Execute(int index) {
+                var behavior = items[index];
+
+                if (!behavior.IsStarted) {
+                    return;
+                }
+
+                if (late) {
+                    behavior.InvokeLateUpdate();
+                } else {
+                    behavior.InvokeUpdate();
+                }
+            }
         }
     }
 }

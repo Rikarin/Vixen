@@ -252,6 +252,23 @@ it uses change versions. They exist for editor tooling and user code.
 > and not in the tracker looks like. A save system, a play-mode enter/exit snapshot and a network
 > world-state sync would each want a different answer, and until one of them exists the choice is
 > being made against nothing.
+>
+> ⚠ **And the candidate #1201 calls obvious is the one this file already rules out.** That issue
+> offers the editor's play-mode enter and exit as the first customer; `WorldSerializer`'s own remarks
+> say that raw chunk memory "is `WorldSnapshot`, is the right answer for play mode, and is not a
+> format". The two are not interchangeable in the direction that matters: a capture carries only what
+> `SceneComponentRegistry` can name, so wiring play mode to it would *lose* every component a scene
+> may not name — which is the difference between a snapshot and a file, not an omission. A first
+> customer has to be something that wants **bytes**: a save, a checkpoint, a world sync.
+>
+> ⚠ **A second thing that customer would owe, found by writing it down as a test.** A captured world
+> carries none of its behaviours. `BehaviorRef` holds `Behavior[]` — references into a store rather
+> than bytes in a chunk — so it has no `[DataContract]`, `Capture` names it in `Dropped`, and
+> `IsComplete` is false for any world with a script attached
+> (`WorldSerializerTests.A_captured_world_carries_no_behaviours_and_says_so`). A *scene* has an answer
+> for this and the world format has none: a behaviour travels through `ISceneBehaviorBinder` as its
+> own contract. So "world serialisation is built" is narrower than it reads in a second way as well,
+> and a save system is owed behaviour state on top of whatever #296 decides about handles.
 
 ## Layer 2 — the system scheduler
 
@@ -460,13 +477,19 @@ This is measurably slower than a pure ECS system and dramatically faster than Un
 MonoBehaviour path. It is the honest trade: convenience where users want it, `ISystem` where they
 need throughput. Both are first-class and documented as such.
 
-> ⚠ **Item 3 is not built, and its stated blocker has *moved* rather than expired.**
-> `BehaviorJob` appears nowhere in the tree — [#294](https://github.com/Rikarin/Vixen/issues/294) —
-> so `BehaviorStore.RunUpdate` walks the buckets in order on the calling thread and ten thousand
-> instances of one type run on one core. Bucketing bought the cache locality; parallelism is a
-> separate axis and item 2 does not dispose of it.
+> ✅ **Item 3 is built, in the order the rest of this note works out and as one change.**
+> `[BehaviorJob]` is `Core/Vixen.Engine/Behaviors/BehaviorJobAttribute.cs`; a marked type's batch goes
+> to `JobScheduler.ParallelFor` from inside `BehaviorBucket<T>.Update`, with the frame's scheduler
+> handed to the store by `BehaviorUpdateSystem` the way the frame's clock already was; and
+> `BehaviorJobAnalyzer` (`VXS0417`, an error) refuses the calls a dispatched body may not make —
+> `Enabled`, `Destroy()`, `Run(coroutine)`, `Get<T>` of a *managed* component, and structural change —
+> while `VXS0418` reports the attribute on a type no bucket will ever hold. ⚠ **What is *not* built is
+> the measurement**, which is the fourth owed item below and the one this document's own claim rests
+> on; see the ✅ note at the end of this block for the two other bounds.
 >
-> The blocker this section names is "the read/write safety check", and both issues it pointed at are
+> The rest of this note is the reasoning that decided that shape, and it is left standing because it
+> is still what the code does. The blocker this section names is "the read/write safety check", and
+> both issues it pointed at are
 > **closed**: `JobScheduler` has `DeclareAccess`, `JobAccess` and `ParallelFor` today, and
 > `SystemAccessInferenceGenerator` infers a declaration from a body. ⚠ **But neither reaches a
 > behaviour**, and saying which half is missing is the point:
@@ -538,6 +561,31 @@ need throughput. Both are first-class and documented as such.
 > than no attribute at all*. An attribute that names a **parallelism** nobody wrote is worse again,
 > because the call site is a batch of ten thousand and the difference is measurable. So the analyzer
 > may be written first and the attribute lands with the dispatch, in one change.
+>
+> ✅ **What landed, and the three bounds it is honest about.**
+>
+> - **The refusal's reach is one method body.** `VXS0417` reads the marked type's `Update` and
+>   `LateUpdate` — and the lambdas and local functions inside them — and nothing further down, which
+>   is the bound `VXHP0001` states about itself and for the same reason: a helper two calls away can
+>   queue a lifecycle change and this will not see it. ⚠ Widening it to every method of a marked type
+>   would be *worse* than the gap, because `Awake` and `OnEnable` run on the drain thread where every
+>   one of those calls is correct — the negative tests are that distinction written down.
+> - **The mark is not inherited, and neither is the dispatch.** A bucket is closed over the static
+>   type at the `Add<T>` call site, so that is the type whose attribute is read; a subclass is a
+>   different bucket with a different body and marks itself or runs serially.
+> - ⚠ **A dispatched batch and a serial one produce the same world in the same order**, which is what
+>   makes the feature invisible: a build where nothing set the scheduler and a build where it ran on
+>   eight threads have identical counters. `BehaviorStore.DispatchedBatches` exists as the instrument
+>   that separates them and reads zero on the day the feature does not run, and
+>   `Core/Vixen.Engine.Tests/BehaviorJobTests.cs` asserts it against a marked type, an unmarked one
+>   and a loop with no scheduler.
+>
+> **Still owed: the measurement**, and it is deliberately not a number recorded here. "Measurably
+> slower than a pure ECS system and dramatically faster than Unity's MonoBehaviour path" is a claim
+> about a machine, and the machines this tree is developed on run fifteen agents at a time — a
+> `Benchmarks/` entry measured on an idle box is what would settle it. The access declaration for a
+> behaviour type is owed too and is the *other* question, as the paragraph above says: dispatch inside
+> a bucket needs no declaration, because it happens at a sync point where no system is running.
 
 ### The rule that keeps this coherent
 

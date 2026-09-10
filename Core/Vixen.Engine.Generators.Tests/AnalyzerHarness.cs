@@ -20,7 +20,9 @@ namespace Vixen.Engine.Generators.Tests;
 ///     <para>
 ///         The shapes are the ones the rules name and no more: <c>Entity</c>, <c>[Component]</c>,
 ///         <c>[DataContract]</c>, <c>ITagComponent</c>, a <c>World</c> with the structural calls and
-///         a chunk walk, the generated query extension and visitor interface, and <c>Behavior</c>.
+///         a chunk walk, the generated query extension and visitor interface, and <c>Behavior</c> —
+///         with the lifecycle and coroutine members <c>VXS0417</c> refuses inside a dispatched batch,
+///         <c>[BehaviorJob]</c>, and a coroutine scheduler for one of them to reach.
 ///         Anything the analyzer does not resolve by name is left out, because a preamble that drifts
 ///         towards being the engine is one nobody reads.
 ///     </para>
@@ -96,15 +98,37 @@ public static class AnalyzerHarness {
             }
         }
 
+        namespace Vixen.Engine.Coroutines {
+            public sealed class Coroutine;
+
+            public readonly struct CoroutineHandle;
+
+            public sealed class CoroutineScheduler {
+                public CoroutineHandle Run(Coroutine coroutine) => default;
+            }
+        }
+
         namespace Vixen.Engine.Behaviors {
             using Vixen.Core;
             using Vixen.Ecs;
+            using Vixen.Engine.Coroutines;
+
+            [System.AttributeUsage(System.AttributeTargets.Class, Inherited = false)]
+            public sealed class BehaviorJobAttribute : System.Attribute;
 
             public abstract class Behavior {
                 public Entity Entity { get; set; }
                 public World World { get; set; } = new();
+                public bool Enabled { get; set; }
+                public CoroutineScheduler Coroutines => new();
                 public ref T Get<T>() => ref World.Get<T>(Entity);
                 public ref readonly T Read<T>() => ref World.Read<T>(Entity);
+                public void Destroy() { }
+                public CoroutineHandle Run(Coroutine coroutine) => Coroutines.Run(coroutine);
+                public void StopCoroutines() { }
+                protected virtual void Awake() { }
+                protected virtual void Update() { }
+                protected virtual void LateUpdate() { }
             }
         }
         """;
