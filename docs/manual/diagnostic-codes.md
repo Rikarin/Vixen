@@ -19,6 +19,8 @@ step. Where to look:
 | `VXN` | `Vixen.Editor.NodeGraph.Generator` |
 | `VXI` | `Vixen.Editor.Inspector.Generator` |
 | `VXIO` | `Vixen.Core.IO.Analyzers` — the `System.IO.Path` ban |
+| `VXHP` | `Vixen.Core.Analyzers` — the `[HotPath]` allocation ban |
+| `VXLG` | `Vixen.Core.Diagnostics.Analyzers` — the silent-catch ban |
 
 **Why this exists.** MSBuild recognises `file: error CODE: text` and nothing else — without a code a
 line is prose in a build log rather than an entry in the IDE's error list. And once shipped, a code is

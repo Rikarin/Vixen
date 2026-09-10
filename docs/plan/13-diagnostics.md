@@ -60,11 +60,22 @@ internal static partial class RenderLog
   the cost has not bitten: logging does occur in per-frame code, and each such site is individually
   latched, watermarked, de-duplicated or interval-throttled, so its steady-state cost is a compare.
   `RingBufferSink`'s remarks carry the same correction.
-- **Every `catch` either handles or logs with the exception object.** ⚠ **Also a convention and not a
-  rule** — this bullet used to say "an analyzer flags silent catches" and no such analyzer exists.
-  `Core/Vixen.Core.IO.Analyzers` is the precedent for building one: a diagnostic that
-  `TreatWarningsAsErrors` turns into a build failure, with the legitimate exceptions turned off by
-  name in `.editorconfig`, each carrying a written reason.
+- **Every `catch` either handles or logs with the exception object.** ⚠ **Half of this is a rule now
+  and half is still a convention.** The bullet claimed an analyzer flagged silent catches for as long
+  as it existed and none did (#344); `VXLG0001` in `Core/Vixen.Core.Diagnostics.Analyzers` is the
+  one that does. It reports the widest shape — a `catch` of `Exception`, or a bare `catch`, with no
+  `when` filter, that never rethrows and never names what it caught — which
+  `TreatWarningsAsErrors` turns into a build failure in every `Core/` project. Five clauses are off
+  by name in `.editorconfig`, each with a written reason, and every one of them is somewhere no
+  logger reaches. A silent catch of a *named*
+  type is still a convention and deliberately so: naming a type is a decision about a named failure,
+  and the twelve such clauses in `Core/` each carry their reason above them.
+  ⚠ **CA1031 is not that rule and could not be made into it.** It reads the clause and not the body,
+  so it reports the exact form this bullet asks for — `catch (Exception exception)` followed by a log
+  carrying `exception` — and stays silent on nothing `VXLG0001` reports. It is also not enabled here:
+  `AnalysisLevel` is `latest-recommended`, sixteen unfiltered broad catches compile clean in `Core/`
+  to prove it, and the seven `#pragma warning disable CA1031` comments in the tree suppress a rule
+  that was never running.
 
 ## Profiling
 

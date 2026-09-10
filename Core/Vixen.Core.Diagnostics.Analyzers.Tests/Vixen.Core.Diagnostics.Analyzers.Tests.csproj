@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+
+        <!-- xunit v3 test assemblies host the runner themselves. See Vixen.Raven.Tests. -->
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="xunit.v3" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="xunit.runner.visualstudio">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!--
+            A reference rather than an analyzer, for the reason Vixen.Core.IO.Analyzers.Tests gives:
+            the rule is driven over a string of C# through CompilationWithAnalyzers, which is the only
+            way to assert on a span and a message. Running it over this project's own source would
+            assert on nothing — there is no catch clause in here to report.
+        -->
+        <ProjectReference Include="..\Vixen.Core.Diagnostics.Analyzers\Vixen.Core.Diagnostics.Analyzers.csproj" />
+    </ItemGroup>
+</Project>

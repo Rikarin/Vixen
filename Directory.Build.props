@@ -596,6 +596,20 @@
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all" />
+    <!--
+      VXLG0001 — doc 13 § Discipline's silent-catch rule, the half a compiler can decide.
+      ⚠ A project of its own rather than a rule inside Vixen.Core.Analyzers, and the reason is the
+      package boundary: Vixen.Core packs that assembly into analyzers/dotnet/cs so a consumer gets
+      [HotPath] and the rule that gives it meaning, and VXHP0001 is silent in a compilation that
+      marks nothing. VXLG0001 reports on ordinary code, so shipping it there would hand somebody's
+      game an error for a catch this rule was never written about.
+      ⚠ And it is not CA1031, which reads the clause rather than the body — it reports the very shape
+      doc 13 asks for, and latest-recommended does not enable it anyway.
+    -->
+    <ProjectReference Include="$(MSBuildThisFileDirectory)Core\Vixen.Core.Diagnostics.Analyzers\Vixen.Core.Diagnostics.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
   </ItemGroup>
 
   <!--

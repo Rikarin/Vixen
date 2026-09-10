@@ -60,6 +60,8 @@
     <Project Path="Core/Vixen.Core.IO/Vixen.Core.IO.csproj" />
     <Project Path="Core/Vixen.Core.Analyzers/Vixen.Core.Analyzers.csproj" />
     <Project Path="Core/Vixen.Core.Analyzers.Tests/Vixen.Core.Analyzers.Tests.csproj" />
+    <Project Path="Core/Vixen.Core.Diagnostics.Analyzers/Vixen.Core.Diagnostics.Analyzers.csproj" />
+    <Project Path="Core/Vixen.Core.Diagnostics.Analyzers.Tests/Vixen.Core.Diagnostics.Analyzers.Tests.csproj" />
     <Project Path="Core/Vixen.Core.IO.Analyzers/Vixen.Core.IO.Analyzers.csproj" />
     <Project Path="Core/Vixen.Core.IO.Analyzers.Tests/Vixen.Core.IO.Analyzers.Tests.csproj" />
     <Project Path="Core/Vixen.Core.IO.Tests/Vixen.Core.IO.Tests.csproj" />
