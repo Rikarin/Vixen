@@ -223,6 +223,67 @@ public class DiagnosticsPanelTests {
         Assert.Contains("no GPU", view.Unavailable, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>A device the host acquires after start-up reaches the GPU timeline.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The same defect as <see cref="A_capture_source_set_after_start_up_reaches_the_frame_debugger" />,
+    ///         one panel along</b> (<a href="https://github.com/Rikarin/Vixen/issues/1231">#1231</a>).
+    ///         The module read <c>GraphicsDevice</c> once, inside the <c>gpu</c> factory, and
+    ///         <c>EditorHost.EnsureDevice</c> assigns it only when the window can present — several
+    ///         frames after a restored layout has already opened the panel. So the panel kept "No
+    ///         graphics device" for the life of every session, beside a window Vulkan was drawing,
+    ///         and <c>GpuTimelineView.Measure</c> returns an empty chart while that sentence stands.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Assigned <em>after</em> the panel is open, deliberately</b>, and cleared again
+    ///         afterwards — a device is lost as well as acquired, and
+    ///         <c>EditorDiagnostics.GraphicsDevice</c> is the one place both happen, so one setter
+    ///         covers both directions.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b><see cref="NullDevice" /> is what makes this assertable with no GPU, and that is
+    ///         a fact about the device rather than a convenience</b>: it reports
+    ///         <c>HasTimestampQueries</c> and a <c>TimestampPeriod</c> of one, so
+    ///         <c>Features.CanTimeFrames</c> is true and the module's answer is <see langword="null" />
+    ///         — the *timeable* branch, not merely a different sentence. A device that could not be
+    ///         timed would swap one sentence for another and this test would pass without proving
+    ///         the panel could ever draw.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_device_that_arrives_after_start_up_reaches_the_gpu_timeline() {
+        using var session = EditorSession.Start();
+
+        var view = Find<GpuTimelineView>(session, "gpu");
+
+        Assert.NotNull(view.Unavailable);
+
+        using var device = new NullDevice();
+
+        Assert.True(device.Features.CanTimeFrames, "NullDevice stopped being timeable; the oracle below is void.");
+
+        session.Application.GraphicsDevice = device;
+        session.Frames(2);
+
+        Assert.Null(view.Unavailable);
+
+        // ⚠ The rendered sentence and not just the property, because the property is what the module
+        // wrote and the element is what somebody reads. They are one signal apart, and the signal is
+        // the half that was missing.
+        Assert.Contains(
+            "Waiting for the GPU",
+            string.Concat(Descendants(view.Status).Select(part => part.Text ?? string.Empty)),
+            StringComparison.Ordinal
+        );
+
+        // And back, because a device is released as well as acquired — the same setter, the other way.
+        session.Application.GraphicsDevice = null;
+        session.Frames(2);
+
+        Assert.NotNull(view.Unavailable);
+        Assert.Contains("no GPU", view.Unavailable, StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>And so does the frame debugger, which needs a recording backend and does not have one.</summary>
     /// <remarks>
     ///     ⚠ <b>The sentence is asserted and not merely its presence</b>

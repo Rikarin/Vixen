@@ -416,6 +416,39 @@ public sealed class SceneViewport : IDisposable {
     /// </remarks>
     public ComponentGizmos? Gizmos { get; set; }
 
+    /// <summary>This frame's diagnostic wireframes, or <see langword="null" /> for a pane drawing none.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>What a running play session's overlays drew, as segment pairs.</b> The physics
+    ///         overlay is the first and the reason this exists
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1247">#1247</a>): its collider
+    ///         wireframes, contact points and constraint anchors are written into a
+    ///         <c>DebugDraw</c> by a system inside the session's loop, and until this there was
+    ///         nowhere in a pane for them to come out.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>A list this pane reads rather than a delegate it calls, unlike
+    ///         <see cref="Gizmos" /> and <see cref="Cursor" /> above.</b> The geometry is produced
+    ///         once per frame by the session's loop — which runs before any pane uploads and does not
+    ///         know how many panes there are — so four panes calling a producer would either draw a
+    ///         frame apiece or draw the same one four times. What every pane wants is the one list
+    ///         the frame already made.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Into <see cref="SceneLines" />'s depth-tested channel, which is the same choice
+    ///         the water diagnostics made and for the same reason.</b> A collider behind a wall is
+    ///         behind the wall: these describe places in the world rather than handles you have to be
+    ///         able to reach through it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Not behind a <see cref="SceneShow" /> flag.</b> A show flag names a class of thing
+    ///         the scene has whether or not anybody asked; this list is empty unless somebody
+    ///         switched an overlay on, so the switch is the overlay's own <c>Enabled</c> and a second
+    ///         one would be a tick that has to agree with it.
+    ///     </para>
+    /// </remarks>
+    public IReadOnlyList<LineVertex>? Diagnostics { get; set; }
+
     /// <summary>What the active mode draws under the pointer, or <see langword="null" /> for nothing.</summary>
     /// <remarks>
     ///     <para>

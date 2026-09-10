@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Vixen.Editor.SceneView;
+using Vixen.Engine.Diagnostics;
+using Vixen.Engine.Diagnostics.Overlays;
 using Vixen.Physics.Ecs;
 
 namespace Vixen.Editor.App;
@@ -49,6 +51,7 @@ namespace Vixen.Editor.App;
 ///     </para>
 /// </remarks>
 [Provides(typeof(PhysicsScene))]
+[RunsAfter(typeof(DebugDraw))]
 sealed class PlayPhysics : IPlaySystems {
     /// <inheritdoc />
     public void Attach(PlaySession session) {
@@ -64,5 +67,51 @@ sealed class PlayPhysics : IPlaySystems {
         // The contract others ask for, under its own type: one simulation per scene.
         session.Provide(scene);
         session.Runs("physics");
+
+        Overlay(session, scene);
+    }
+
+    /// <summary>Adds the collider overlay, switched off, when the session has somewhere to draw it.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         <b>Doc 13 § Diagnostic overlays' physics panel, in the editor</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1247">#1247</a>). Everything it draws
+    ///         — collider wireframes, contact points, constraint anchors, broad-phase bounds, body
+    ///         axes — has existed and been tested since <c>PhysicsDebugDraw</c> was written, and
+    ///         `git grep AddPhysicsOverlay` over <c>*.cs</c> and <c>*.vxml</c> found the extension, one
+    ///         test and <c>Samples/13</c>. ⚠ This is the overlay somebody reaches for when a character
+    ///         walks at half speed or a body never teleports — two defects this repository has already
+    ///         had, both diagnosed without it — and the editor's Play is where they are standing when
+    ///         they hit either.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Conditional, and <see cref="PlaySession.TryGet{T}" /> answering false is the
+    ///         ordinary case rather than a failure.</b> A session run by a harness with no viewport
+    ///         has no accumulator and wants none; the simulation still runs, exactly as it did.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Taken out of the registry on Stop, and it must be.</b> The system holds the
+    ///         <c>PhysicsScene</c> this session owns and <c>DiagnosticOverlays.Add</c> refuses a
+    ///         second overlay of the same name — so a registration left behind would make the second
+    ///         Play throw, and a toggle flipped afterwards would reach a system whose native world had
+    ///         been destroyed.
+    ///     </para>
+    /// </remarks>
+    static void Overlay(PlaySession session, PhysicsScene scene) {
+        if (!session.TryGet<DebugDraw>(out var draw) || draw is null) {
+            return;
+        }
+
+        session.TryGet<DiagnosticOverlays>(out var overlays);
+        session.Loop.AddPhysicsOverlay(scene, draw, overlays);
+
+        if (overlays is not null) {
+            session.OnStop(() => overlays.Remove(PhysicsDebugDrawSystem.OverlayName));
+        }
+
+        // ⚠ Named separately from "physics", because the two answer different questions: the
+        // simulation is running either way, and what this line says is that there is something to
+        // switch on. `PlayModeController.Running` is read out to the person who pressed Play.
+        session.Runs("collider overlay");
     }
 }

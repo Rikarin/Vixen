@@ -106,20 +106,48 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
     ///     ⚠ <b>The one panel this module holds, and every other one is a delegate for the reason
     ///     this field needs a guard.</b> A panel's factory runs again on every reopen, so a held view
     ///     outlives the panel it was drawn into — which is why the assignment below is made through
-    ///     <see cref="Restate" />, which ignores a view the workspace has already torn down. The
-    ///     alternative — a delegate the panel pulls through — cannot work here: what the panel reads
+    ///     <see cref="Restate(FrameDebuggerView)" />, which ignores a view the workspace has already
+    ///     torn down. The alternative — a delegate the panel pulls through — cannot work here: what the panel reads
     ///     is whether the source is <em>null</em>, and a wrapper that defers to this property is
     ///     never null whatever the host has.
     /// </remarks>
     FrameDebuggerView? frames;
 
+    /// <summary>The GPU timeline this session built, so a late device can reach it.</summary>
+    /// <remarks>
+    ///     The same field, the same guard and the same reason as <see cref="frames" /> — see
+    ///     <see cref="GraphicsDevice" /> for why a device is always late.
+    /// </remarks>
+    GpuTimelineView? timeline;
+
+    IGraphicsDevice? graphicsDevice;
+
     /// <summary>The device the GPU timeline reads, when the host has one.</summary>
     /// <remarks>
-    ///     Assigned by the host once Vulkan is up, which is several frames after this object exists —
-    ///     a headless run never assigns it at all, and the panel says the device cannot be timed
-    ///     rather than drawing an empty chart.
+    ///     <para>
+    ///         Assigned by the host once Vulkan is up, which is several frames after this object
+    ///         exists — a headless run never assigns it at all, and the panel says the device cannot
+    ///         be timed rather than drawing an empty chart.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And "several frames after" is why this is not an auto-property</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1231">#1231</a>). The panel's factory
+    ///         read it once, at build, and a restored layout opens the Profiling group — which names
+    ///         <c>gpu</c> — before <c>EditorHost.EnsureDevice</c> has one to give. So every session
+    ///         kept "No graphics device" beside a window Vulkan was plainly drawing, and it is not
+    ///         cosmetic: <c>GpuTimelineView</c> returns <c>GpuChart.Empty</c> from its measure while
+    ///         <c>Unavailable</c> is non-null, so the timeline drew nothing at all. The setter
+    ///         restates the panel, and because <c>EditorDiagnostics.GraphicsDevice</c> is also the one
+    ///         place a device is <em>lost</em>, the sentence comes back on its own when it goes.
+    ///     </para>
     /// </remarks>
-    public IGraphicsDevice? GraphicsDevice { get; set; }
+    public IGraphicsDevice? GraphicsDevice {
+        get => graphicsDevice;
+        set {
+            graphicsDevice = value;
+            Restate(timeline);
+        }
+    }
 
     /// <summary>The frame's GPU regions, as the host resolved them.</summary>
     /// <remarks>
@@ -371,14 +399,20 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
 
                 panel.WhenPressedIn(() => shell.Context = DiagnosticsContext);
 
-                var timeline = panel.Add<GpuTimelineView>();
+                // ⚠ Held as well as filled, on the same terms as the frame debugger below: the
+                // device arrives after the panel does, and the sentence has to follow it. The guard
+                // that makes holding a view safe is in `Restate`.
+                timeline = panel.Add<GpuTimelineView>();
 
                 // ⚠ Pulled rather than pushed, and every panel here follows the same rule. A
                 // reference to a panel kept on this object outlives the panel — a factory runs again
                 // on every reopen — so a frame pushed into the previous one lands on an element that
                 // has been removed from the document, which throws the moment it reads its bounds.
-                timeline.Unavailable = GpuUnavailable();
+                // The *sentence* is pushed because what the panel reads is whether it is null, which
+                // a delegate that defers to this object can never be.
                 timeline.Source = () => GpuFrame;
+
+                Restate(timeline);
             }
         );
 
@@ -661,6 +695,27 @@ public sealed class DiagnosticsModule : IEditorPlugin, IDisposable {
             ? "This host records into a real command buffer, which keeps nothing. A capture "
             + "needs the recording backend — see NullFrameCapture."
             : null;
+    }
+
+    /// <summary>Tells the GPU timeline why it has nothing to show, or that it now has.</summary>
+    /// <param name="view">The panel, or <see langword="null" /> when none is open.</param>
+    /// <remarks>
+    ///     ⚠ <b>Called from the panel's factory <em>and</em> from the device's setter, and it has to
+    ///     be both.</b> Neither order is the one that happens: a cold start builds the panel first
+    ///     and a reopened panel finds a device already there. The same torn-down guard as the frame
+    ///     debugger's, for the same reason — a held view outlives the panel it was drawn into.
+    /// </remarks>
+    void Restate(GpuTimelineView? view) {
+        if (view is null || view.IsRemoved) {
+            return;
+        }
+
+        view.Unavailable = GpuUnavailable();
+
+        // ⚠ And the chart is remeasured rather than left for the next layout pass. `Realise` is
+        // driven by `LayoutFinished`, which fires only when something moved — a device that arrived
+        // while nothing moved would leave the sentence's element updated and the bars still absent.
+        view.Realise();
     }
 
     static int Depth(World world, Entity entity, int level) {

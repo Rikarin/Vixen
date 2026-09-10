@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using Vixen.Core.Mathematics;
+using Vixen.Core.Threading;
 using Vixen.Editor.Profiler;
 using Vixen.Editor.SceneView;
 using Vixen.Editor.ShaderGraph;
@@ -143,6 +144,34 @@ sealed class EditorHost : IDisposable {
     /// </remarks>
     GpuProfiler? gpu;
 
+    /// <summary>The editor process's one job scheduler.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>The editor had none at all, which is
+    ///         <a href="https://github.com/Rikarin/Vixen/issues/1248">#1248</a>.</b> <c>JobScheduler</c>
+    ///         appeared in no file under <c>Editor/</c> — <c>.cs</c> or <c>.vxml</c> — so both seams
+    ///         <c>AppGraphics</c> wires for a game were null in the scene view and every object was
+    ///         tested against every pane's view on the frame thread. This is the object that was
+    ///         missing; the wiring is <c>EditorApplication.Jobs</c>.
+    ///     </para>
+    ///     <para>
+    ///         <b>Here rather than in the application, and one rather than one per play session.</b>
+    ///         This class is the editor's <c>AppBuilder</c>: it owns the process's lifetime, and the
+    ///         application is deliberately the half of the editor that does not know what a GPU or a
+    ///         thread is. <c>JobScheduler.MaxSchedulers</c> is a process-wide table of eight, so a
+    ///         second scheduler per Play would spend a slot on every press.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Sized by <c>AppBuilder</c>'s own rule</b> — one worker per processor beyond the
+    ///         one running the frame — restated rather than called because that method is internal to
+    ///         <c>Vixen.App.Hosting</c>, which no editor goes through. That is the whole of #1248's
+    ///         "does the editor process want worker threads at all": it wants exactly what a game
+    ///         head wants, and importers keep using the thread pool because a blocked worker is one
+    ///         this scheduler cannot replace.
+    ///     </para>
+    /// </remarks>
+    readonly JobScheduler jobs;
+
     readonly bool running = true;
     bool lost;
     bool resized;
@@ -163,6 +192,10 @@ sealed class EditorHost : IDisposable {
         this.platform = platform;
         this.window = window;
 
+        // ⚠ Before the application, because the application reads it the moment a device arrives —
+        // see `EditorApplication.Jobs`, whose one consumer is `AttachRenderer`.
+        jobs = new JobScheduler(Math.Max(1, platform.Processors.AvailableProcessors - 1));
+
         editor = new EditorApplication(
             window.FramebufferSize.X / Scale,
             window.FramebufferSize.Y / Scale,
@@ -181,7 +214,13 @@ sealed class EditorHost : IDisposable {
             extensions: null,
             modules: EditorModules.Standard()
         ) {
-            RenderScale = Scale
+            RenderScale = Scale,
+
+            // ⚠ In the initialiser and not later, because a device can arrive on the very next frame
+            // and `CompositorBuilder.Jobs` is read by each node as it is built. A scheduler assigned
+            // after the first `AttachRenderer` would reach the *next* build and, for a viewport
+            // nobody reloads, never — the same ordering trap `AppGraphics` spells out for a game.
+            Jobs = jobs
         };
 
         // ⚠ Only the host asks the editor to greet, which is what keeps the startup Project Browser
@@ -405,6 +444,13 @@ sealed class EditorHost : IDisposable {
         windows.Dispose();
 
         editor.Dispose();
+
+        // ⚠ Last, and after the application, because disposing a scheduler drains: work that was
+        // scheduled and never completed runs here rather than being dropped, and the objects it runs
+        // over are the renderer's. Freeing the slot in the process-wide table is the other half —
+        // see `JobScheduler.MaxSchedulers`, which is why `Program` reopening the editor over another
+        // project does not leak one per open.
+        jobs.Dispose();
     }
 
     void Pump() {
@@ -1152,6 +1198,38 @@ sealed class EditorHost : IDisposable {
             image
         );
 
+    /// <summary>Where this head keeps the driver's pipeline cache between runs.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only a game got the warm start, and the editor is the head where a cold one is
+    ///         most visible</b> (<a href="https://github.com/Rikarin/Vixen/issues/1228">#1228</a>).
+    ///         Everything that boots through <c>Tools/Vixen.App</c>'s <c>GraphicsHost</c> is handed a
+    ///         path by <c>AppBuilder</c>; this host and <c>UiApplication</c> open their device
+    ///         directly and passed nothing but the surface, so both recompiled every pipeline they
+    ///         touched on every launch — in the one head a developer restarts twenty times a day.
+    ///         The in-memory cache was never the missing half: <c>VulkanDevice</c> creates a
+    ///         <c>VkPipelineCache</c> unconditionally, so the driver already stopped compiling the
+    ///         same shader twice <em>within</em> a run.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The cache directory, not the data one, and the same file name the other two
+    ///         write.</b> The blob is derivable and is discarded by the driver on any device or
+    ///         driver mismatch, so it must not be backed up or synced — on macOS the data directory
+    ///         is copied off the machine for ever by Time Machine and iCloud.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The same four lines as <c>UiApplication.PipelineCacheFile</c>, and there is
+    ///         nowhere to share them from</b>: that assembly's internals reach its own tests and not
+    ///         this project, and <c>Vixen.Graphics.Vulkan</c> cannot see an <c>IPlatform</c>. Marked
+    ///         on both sides, because a wire added to one host and not the other is silently absent
+    ///         from the other — which is the failure this repository has met most often.
+    ///     </para>
+    /// </remarks>
+    string? PipelineCacheFile =>
+        platform.FileSystem.CacheDirectory is { Length: > 0 } caches
+            ? Path.Combine(caches, "pipelines.vkcache")
+            : null;
+
     /// <summary>Builds everything GPU-shaped, once there is a surface to present to.</summary>
     /// <returns>Whether there is one.</returns>
     bool EnsureDevice() {
@@ -1163,7 +1241,9 @@ sealed class EditorHost : IDisposable {
             return false;
         }
 
-        device = VulkanDevice.Create(new() { Surface = window.Surface.Handle });
+        device = VulkanDevice.Create(
+            new() { Surface = window.Surface.Handle, PipelineCachePath = PipelineCacheFile }
+        );
 
         pool = new TransientResourcePool(device);
         graph = new RenderGraph(device, pool);

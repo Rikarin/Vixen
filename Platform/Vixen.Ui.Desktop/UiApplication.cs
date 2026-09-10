@@ -992,7 +992,9 @@ public sealed class UiApplication : IDisposable {
             return false;
         }
 
-        device = VulkanDevice.Create(new() { Surface = window.Surface.Handle });
+        device = VulkanDevice.Create(
+            new() { Surface = window.Surface.Handle, PipelineCachePath = PipelineCacheFile(platform.FileSystem) }
+        );
 
         pool = new TransientResourcePool(device);
         graph = new RenderGraph(device, pool);
@@ -1002,6 +1004,43 @@ public sealed class UiApplication : IDisposable {
         shaders = UiShaderLibrary.Load(device);
 
         return true;
+    }
+
+    /// <summary>Where this head keeps the driver's pipeline cache between runs.</summary>
+    /// <param name="files">The platform's, which is the only layer that knows where caches go.</param>
+    /// <returns>The file, or <see langword="null" /> for a platform that names no cache directory.</returns>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Only a game got the warm start, and that is what this closes</b>
+    ///         (<a href="https://github.com/Rikarin/Vixen/issues/1228">#1228</a>). Every head that
+    ///         boots through <c>Tools/Vixen.App</c>'s <c>GraphicsHost</c> is handed a path by
+    ///         <c>AppBuilder</c>; this head and the editor open their device directly and were passing
+    ///         no options but the surface, so both recompiled every pipeline they touched on every
+    ///         launch. They still had the in-memory cache — one <c>VkPipelineCache</c> for the life of
+    ///         the device — so what was missing is only the across-run half, which is the half a
+    ///         developer restarting twenty times a day is paying for.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The cache directory and not the data one, and the same file name
+    ///         <c>AppBuilder</c> writes.</b> The blob is derivable, must not be backed up or synced,
+    ///         and is discarded by the driver on any device or driver mismatch — putting it under
+    ///         <c>~/Library/Application Support</c> on macOS would copy it off the machine for ever
+    ///         through Time Machine and iCloud. One name across the heads so that "delete your
+    ///         pipeline cache" is one sentence.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Duplicated in <c>EditorHost</c> rather than shared, because there is nowhere to
+    ///         share it from</b>: this assembly's internals are visible to its own tests and not to
+    ///         the editor, and <c>Vixen.Graphics.Vulkan</c> cannot see <c>IPlatform</c>. It is the
+    ///         same class of hazard as the pasteboard install a few hundred lines up, and it is
+    ///         marked the same way — a wire added to one host and not the other is silently absent
+    ///         from the other.
+    ///     </para>
+    /// </remarks>
+    internal static string? PipelineCacheFile(IFileSystemHost files) {
+        ArgumentNullException.ThrowIfNull(files);
+
+        return files.CacheDirectory is { Length: > 0 } caches ? Path.Combine(caches, "pipelines.vkcache") : null;
     }
 
     void Release() {
