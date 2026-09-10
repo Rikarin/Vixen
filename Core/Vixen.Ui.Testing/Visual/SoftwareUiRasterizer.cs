@@ -409,8 +409,15 @@ public static class SoftwareUiRasterizer {
                 // `no-repeat` layer — clamping alone would spill the ramp's end colours over the
                 // rest of the box. Through the same `Coverage` the box's own edge uses, so both
                 // executors take the same number from the same emulated derivative.
-                coverage *= (shape.Area.Z > 0f ? 1f : Coverage(MathF.Abs(local.X) - tile.X, width))
-                    * (shape.Area.W > 0f ? 1f : Coverage(MathF.Abs(local.Y) - tile.Y, width));
+                //
+                // ⚠ **Two named factors and one left-to-right product, because the grouping is a
+                // number** — #1225. This was `coverage *= x * y`, i.e. `a·(b·c)`, where `UiBox` and
+                // now `ui-box.frag` both compute `(a·b)·c`; float multiplication is not associative,
+                // and this is the third copy of that expression.
+                var clipX = shape.Area.Z > 0f ? 1f : Coverage(MathF.Abs(local.X) - tile.X, width);
+                var clipY = shape.Area.W > 0f ? 1f : Coverage(MathF.Abs(local.Y) - tile.Y, width);
+
+                coverage = coverage * clipX * clipY;
 
                 reach = tile;
             }
