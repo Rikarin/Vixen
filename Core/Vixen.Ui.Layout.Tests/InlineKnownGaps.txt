@@ -682,8 +682,16 @@ white-space / nowrap              the container-level suppression of line breaki
                                   that is what the browser draws. Preserved trailing white space
                                   hangs at a SOFT WRAP and nowhere else — not at the end of the
                                   text, not before a forced break — so the untrimmed line box is
-                                  right and it is the wrapper that is wrong on its LAST line, which
-                                  is #1237. What #1211 really found is the other question: an
+                                  right and it was the wrapper that was wrong on its LAST line.
+                                  ⚠ #1237 CLOSED: `UiElement.Wrap` passes `LineWrapper.Width`'s
+                                  trimmed measure down only where the wrapper CHOSE the break, and
+                                  a line ending at a forced break needed a third measure nobody
+                                  had — `TextLine.Terminator`, which takes the newline off the end
+                                  without taking the spaces in front of it, over UAX #14's four
+                                  mandatory classes rather than over `char.IsWhiteSpace`. ⚠ The
+                                  soft-wrapped line must GO ON taking the wrapper's number: that
+                                  width also carries the hyphen a broken line draws, and no run's
+                                  advance holds it. What #1211 really found is the other question: an
                                   intrinsic measure never counts hanging white space (CSS Text
                                   § 5.2), and `TextLayout.Width` was reading the same untrimmed
                                   number the alignment reads. Separated as `TextLine.Trimmed`;

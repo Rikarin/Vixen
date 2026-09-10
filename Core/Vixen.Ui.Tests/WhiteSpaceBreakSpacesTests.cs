@@ -64,6 +64,15 @@ namespace Vixen.Ui.Tests;
 ///         one value <c>break-spaces</c> switches, or the two fight.
 ///     </para>
 ///     <para>
+///         ⚠ <b>And a third half, which is the wrapped paragraph's own last line.</b>
+///         <a href="https://github.com/Rikarin/Vixen/issues/1237">#1237</a>: the trimmed measure was
+///         reaching every line the wrapper produced and not only the one it broke, so the last line
+///         of a paragraph hung its spaces where a browser keeps them. <c>UiElement.Wrap</c> now
+///         passes it down for a soft wrap alone — which leaves the test below untouched, because
+///         <c>[0,7)</c> is a soft wrap — and that switch is the third thing <c>break-spaces</c> has
+///         to reach.
+///     </para>
+///     <para>
 ///         ⚠ <b>Both tests assert the engine as it stands and are meant to go red on the day the
 ///         keyword lands</b>, which is the shape <c>WhiteSpacePreTests</c>' first two take and for
 ///         the same reason: they are what says the gap is these two rules rather than a subsystem

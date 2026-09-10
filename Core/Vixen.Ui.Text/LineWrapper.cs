@@ -768,6 +768,12 @@ public static class LineWrapper {
     ///         <c>TextLine.Width</c>, and the two are not obliged to agree on the last line.
     ///         <c>Rikarin/Vixen#1211</c> is where that was worked out.
     ///     </para>
+    ///     <para>
+    ///         ⚠ <b>And since <c>Rikarin/Vixen#1237</c> they do not agree.</b> <c>UiElement.Wrap</c>
+    ///         hands this number down as a line's reported width only where the wrapper chose the
+    ///         break; a line ending the text and a line ending at a forced break sum their own runs
+    ///         instead, which is how the spaces stay inside their line box.
+    ///     </para>
     /// </remarks>
     /// <param name="text">The paragraph.</param>
     /// <param name="advances">One entry per UTF-16 index.</param>

@@ -32,6 +32,16 @@ namespace Vixen.Ui.Tests;
 ///         already keeps them, so <b>the picture #1211 measured is the browser's picture</b>.
 ///     </para>
 ///     <para>
+///         ⚠ <b>"Its unwrapped path" was the load-bearing qualifier, and the wrapped one hung all
+///         three.</b> A paragraph <c>UiElement.Wrap</c> broke reported <c>LineWrapper.Width</c>'s
+///         unconditionally trimmed measure for <i>every</i> line it produced, so rows two and three
+///         of the table above were wrong by exactly the trailing spaces and nobody had measured
+///         them; the two tests at the end of this file are those rows, and
+///         <a href="https://github.com/Rikarin/Vixen/issues/1237">#1237</a> is where they landed.
+///         Row three needed a measure nothing here had — <c>TextLine.Terminator</c>, which takes the
+///         newline off the end of a line without taking the spaces in front of it.
+///     </para>
+///     <para>
 ///         <b>What is left after that is real, and it is the other question.</b> An intrinsic measure
 ///         never counts hanging white space (CSS Text § 5.2): in the same Chrome, a shrink-to-fit box
 ///         around <c>AB</c> and one around <c>AB</c>-two-spaces are both 21.344 wide, and one around
@@ -170,5 +180,119 @@ public class TrailingSpaceAlignmentTests {
 
         Assert.Equal(bare.Block()!.Width, trailing.Block()!.Width, 0.01f);
         Assert.Equal(bare.Width, trailing.Width, 0.01f);
+    }
+
+    /// <summary>A wrapped paragraph's last line keeps them too, and its broken line hangs.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Row two of the table, and the half the first test could not reach.</b> The first
+    ///         test's label never goes through the wrapper, so it says nothing about a paragraph that
+    ///         does — and the wrapper hung the spaces of <i>every</i> line it produced, the last one
+    ///         included, because <c>UiElement.Wrap</c> passed <c>LineWrapper.Width</c>'s
+    ///         unconditionally trimmed measure down as each line's width. Chrome 152, 60px,
+    ///         right-aligned <c>pre-wrap</c>: <c>ab cd  ef</c> ends its first line at 60.00 with the
+    ///         spaces outside at [60.00, 68.89], and <c>ab cd  ef  </c> ends its last line's glyphs
+    ///         at 51.11. <c>Rikarin/Vixen#1237</c>.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>The two paragraphs differ by the two spaces and nothing else, which is what makes
+    ///         the first assertion a control rather than a repetition.</b> The soft-wrapped line is
+    ///         the same range in both — it must not move, and it does not, because a line the wrapper
+    ///         broke goes on reporting the wrapper's trimmed width. A change that stopped hanging
+    ///         everywhere would pass the second assertion and fail this one.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void The_last_line_of_a_wrapped_paragraph_keeps_its_trailing_spaces() {
+        using var document = Documented(
+            """
+            root { width: 900px; height: 300px; align-items: flex-start; }
+            label { font-family: Test; font-size: 16px; width: 60px; text-align: right; }
+            """
+        );
+
+        var hung = document.Root.Add("label");
+        var kept = document.Root.Add("label");
+        var spaces = document.Root.Add("label");
+
+        hung.Text = "ab cd  ef";
+        kept.Text = "ab cd  ef  ";
+        spaces.Text = "  ";
+
+        document.Update();
+        document.Draw();
+
+        var commands = document.Drawing.Commands
+            .Where(static c => c.Kind == DrawCommandKind.Text)
+            .ToArray();
+
+        // Two lines each and one for the spaces: a paragraph that failed to wrap would make the
+        // indices below mean something else entirely.
+        Assert.Equal(5, commands.Length);
+
+        var pair = spaces.Block()!.Lines[0].Width;
+        Assert.True(pair > 0f, $"the two spaces measure {pair}, so the shift below is not a measure");
+
+        // The control: the soft-wrapped line is identical in both paragraphs and hangs its spaces
+        // out of the box, so its glyphs sit where a line with no spaces at all would.
+        Assert.Equal(commands[0].X - hung.AbsoluteLeft, commands[2].X - kept.AbsoluteLeft, 0.01f);
+
+        Assert.Equal(
+            (commands[1].X - hung.AbsoluteLeft) - pair,
+            commands[3].X - kept.AbsoluteLeft,
+            0.01f
+        );
+    }
+
+    /// <summary>So does a line ending at a forced break — minus the break itself.</summary>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Row three, and the fiddly one: two characters have to be told apart inside one
+    ///         line's trailing white space.</b> Chrome keeps the spaces before a <c>\n</c> in the line
+    ///         box and gives the newline no width at all, so <c>ef  \nxy</c> right-aligned in a 60px
+    ///         box draws its first line exactly where a box containing only <c>ef  </c> draws its
+    ///         one. Everything Vixen had walked back over <c>char.IsWhiteSpace</c>, which cannot make
+    ///         that distinction; <c>TextLine.Terminator</c> is the measure that can.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Both errors are on the same axis and in opposite directions, which is why one
+    ///         equality is a two-sided assertion.</b> In this face the pair of spaces is 8.31 and the
+    ///         newline — shaped as whatever glyph the face has for U+000A — is 9.60. Hanging the
+    ///         spaces puts the line 8.31 to the <i>right</i> of the reference; counting the newline
+    ///         puts it 9.60 to the <i>left</i>. Only keeping the first and dropping the second lands
+    ///         on it.
+    ///     </para>
+    /// </remarks>
+    [Fact]
+    public void A_line_before_a_forced_break_keeps_its_spaces_and_never_the_break() {
+        using var document = Documented(
+            """
+            root { width: 900px; height: 300px; align-items: flex-start; }
+            label { font-family: Test; font-size: 16px; width: 60px; text-align: right; }
+            """
+        );
+
+        var reference = document.Root.Add("label");
+        var broken = document.Root.Add("label");
+
+        reference.Text = "ef  ";
+        broken.Text = "ef  \nxy";
+
+        document.Update();
+        document.Draw();
+
+        var commands = document.Drawing.Commands
+            .Where(static c => c.Kind == DrawCommandKind.Text)
+            .ToArray();
+
+        // One line for the reference and two for the broken paragraph — the hard break is taken.
+        Assert.Equal(3, commands.Length);
+
+        // The control: the reference really is right-aligned, so a pair that agreed at zero could
+        // not pass.
+        var flush = commands[0].X - reference.AbsoluteLeft;
+        Assert.True(flush > 20f, $"the reference label is at {flush}, so nothing aligned it");
+
+        Assert.Equal(flush, commands[1].X - broken.AbsoluteLeft, 0.01f);
     }
 }
