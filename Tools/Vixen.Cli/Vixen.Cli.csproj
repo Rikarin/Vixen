@@ -17,7 +17,6 @@
             Vixen.Raven.Cli reaches the same conclusion for the same reason.
         -->
         <PackageId>Vixen.Cli</PackageId>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <Description>
             The Vixen command line: import a project's assets, build its content, check its health,
             and serve a build to a device.

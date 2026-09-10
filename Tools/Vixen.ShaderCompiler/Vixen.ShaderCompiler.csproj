@@ -4,7 +4,6 @@
         <TargetFramework>net10.0</TargetFramework>
         <RootNamespace>Vixen.ShaderCompiler</RootNamespace>
         <IsPackable>true</IsPackable>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <Description>
             The one place Raven and the runtime meet. Compiles a shader variant in process and
             translates the compiler's artefact into the device-independent record the engine loads,

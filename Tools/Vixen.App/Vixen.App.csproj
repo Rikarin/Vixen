@@ -4,7 +4,6 @@
         <TargetFramework>net10.0</TargetFramework>
         <RootNamespace>Vixen.App</RootNamespace>
         <IsPackable>true</IsPackable>
-        <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <Description>
             The host an application boots through: VixenApp.Run&lt;TGame&gt;(args) picks a platform,
             opens a window, wires the services and owns the frame loop — and every step of it is a
