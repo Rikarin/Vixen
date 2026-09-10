@@ -71,14 +71,71 @@ public sealed class ProjectPluginTests : IDisposable {
     public ProjectPluginTests() => Directory.CreateDirectory(Path.Combine(root, "Assets"));
 
     public void Dispose() {
-        try {
-            if (Directory.Exists(root)) {
-                Directory.Delete(root, recursive: true);
-            }
-        } catch (IOException) {
-            // A plugin assembly stays mapped until its context is collected, which on Windows holds
-            // the folder open. Losing a temporary directory is not a test failure.
+        if (!Directory.Exists(root)) {
+            return;
         }
+
+        Discard(() => Directory.Delete(root, recursive: true));
+    }
+
+    /// <summary>Removes the fixture's folder, forgiving the one failure that is not a defect.</summary>
+    /// <param name="delete">The removal to attempt.</param>
+    /// <remarks>
+    ///     <para>
+    ///         ⚠ <b>Two exception types, and the missing second one was the whole of #1250.</b>
+    ///         <c>PluginImporters.Load</c> maps the plugin with <c>LoadFromAssemblyPath</c> into an
+    ///         <c>ImporterLoadContext</c> that is deliberately <em>not</em> collectible, so
+    ///         <c>gizmo.dll</c> stays mapped for the life of the test process — and Windows takes a
+    ///         <em>mandatory</em> lock on a mapped image. <c>RemoveDirectoryRecursive</c> therefore
+    ///         raises <see cref="UnauthorizedAccessException" /> ("Access to the path 'gizmo.dll' is
+    ///         denied"), which does <b>not</b> derive from <see cref="IOException" /> — so the catch
+    ///         written for exactly this case did not catch it, and every assertion having passed,
+    ///         the test failed in its own cleanup. This is #1191 one layer up, with the same
+    ///         diagnosis and the same fix; #1160 gave the CLI the editor's ability to load a plugin
+    ///         and the constraint came with it.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Which tests fail is itself the evidence.</b> Only the two whose plugin is
+    ///         actually loaded went red on <c>test-windows-latest</c>;
+    ///         <see cref="APluginTheManifestDisablesContributesNothing" /> compiles a plugin too and
+    ///         passed, because <c>ProjectPlugins.Load</c> skips a disabled manifest before
+    ///         <c>LoadFromAssemblyPath</c> ever maps the file.
+    ///     </para>
+    ///     <para>
+    ///         ⚠ <b>Neither Unix leg could ever have shown that, and not because they succeed.</b>
+    ///         They unlink a mapped file happily, and when a Unix delete <i>is</i> refused the
+    ///         runtime raises <c>IOException</c> rather than this type. So the leg that fails and the
+    ///         type it fails with are two separate platform facts, and both of them are invisible
+    ///         from a Mac — which is why the test below injects the throw instead of provoking one.
+    ///     </para>
+    ///     <para>
+    ///         A retry loop would be the wrong answer to the same symptom: nothing releases that lock
+    ///         before the process exits, so a retry would spend its budget and fail anyway. Losing a
+    ///         temporary directory is not a test failure.
+    ///     </para>
+    /// </remarks>
+    internal static void Discard(Action delete) {
+        ArgumentNullException.ThrowIfNull(delete);
+
+        try {
+            delete();
+        } catch (Exception failure) when (failure is IOException or UnauthorizedAccessException) {
+            // Deliberately swallowed; see above.
+        }
+    }
+
+    /// <summary>The cleanup forgives a locked plugin, and forgives nothing else.</summary>
+    /// <remarks>
+    ///     ⚠ <b>The negative half is the half that matters.</b> A cleanup that swallowed everything
+    ///     would pass the two positives and hide the next real defect in <see cref="Dispose" /> —
+    ///     which is what a bare <c>catch</c> costs and why this states both bounds.
+    /// </remarks>
+    [Fact]
+    public void TheFixtureCleanupForgivesAMappedPluginAndNothingElse() {
+        Discard(() => throw new UnauthorizedAccessException("Access to the path 'gizmo.dll' is denied."));
+        Discard(() => throw new IOException("The process cannot access the file because it is being used."));
+
+        Assert.Throws<InvalidOperationException>(() => Discard(() => throw new InvalidOperationException("real")));
     }
 
     /// <summary>The claim: <c>vixen import</c> uses the importer the editor would have used.</summary>
